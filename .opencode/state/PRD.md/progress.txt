@@ -1,0 +1,23 @@
+# Progress Log
+PRD: dreamcli-mvp
+Started: 2026-02-09
+
+## Codebase Patterns
+
+- **Formatter ownership**: dprint owns all formatting (TS/JS via biome plugin, JSON, JSONC, YAML, markdown, etc). Biome's JSON formatter is disabled to avoid conflicts. Biome handles linting only for JSON.
+- **JSONC trailing commas**: biome override for JSONC parses trailing commas but does NOT enforce them in formatting (set to "none") to avoid dprint conflicts.
+- **Build**: tsdown with `hash: false` for stable dts filenames. `exports: true` auto-patches package.json. Conditional exports include `types` entries for both import and require.
+- **Module structure**: `src/core/<module>/index.ts` barrel pattern. `src/runtime/<adapter>.ts` for platform adapters.
+- **Test pattern**: vitest with `src/**/*.test.ts` collocated tests. Dynamic imports in tests: `import('./module.js')` (with .js extension for NodeNext).
+
+---
+<!-- Task logs below - APPEND ONLY -->
+
+## Task - init-1
+- Created full src/ directory structure: core/{schema,infer,parse,resolve,help,completion,output,errors,testkit}, runtime/{adapter,detect,node,bun,deno}
+- Fixed tsdown.config.ts: `publint`/`attw` changed from `'ci-only'` (invalid) to `true`, added `hash: false` for stable dts filenames
+- Fixed package.json exports: added conditional `types` entries for both import/require paths
+- Resolved biome vs dprint formatter conflicts: disabled biome JSON formatter, set JSONC trailing commas override to "none"
+- Added 15 module-loading smoke tests validating all core and runtime modules
+- Files changed: tsdown.config.ts, package.json, biome.jsonc, src/index.test.ts, all new barrel files in src/core/**/index.ts and src/runtime/*.ts
+- **Learnings:** biome and dprint fight over JSON/JSONC formatting (trailing commas, array collapsing). Best to let one tool own formatting entirely.

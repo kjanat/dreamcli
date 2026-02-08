@@ -1,0 +1,90 @@
+{
+	"prdName": "dreamcli-mvp",
+	"description": "DreamCLI v0.1 MVP — Schema builder, parsing, inference, auto-help, basic errors, test harness",
+	"tasks": [
+		{
+			"id": "init-1",
+			"title": "Project initialization: package.json, tsconfig, build tooling, test framework",
+			"description": "Initialize the project with package.json (ESM-first), tsconfig.json (strict, NodeNext), vitest for testing, tsdown for building. Create src/ directory structure matching PRD architecture. Wire up biome for linting/formatting.",
+			"passes": true,
+			"priority": "architecture"
+		},
+		{
+			"id": "errors-1",
+			"title": "Structured error types (CLIError, ParseError, ValidationError)",
+			"description": "Implement FR4 base error types: CLIError with message/code/exitCode/suggest/details/cause. Derive ParseError and ValidationError. These are foundational — every other module throws them.",
+			"passes": false,
+			"priority": "architecture"
+		},
+		{
+			"id": "schema-1",
+			"title": "Flag schema builder with type inference",
+			"description": "Implement flag() builder: boolean, string, number, enum, array types. Each flag carries its type at the TS level. Support .default(), .alias(), .describe(), .required(), .env(), .config(). Type inference must flow — flag.enum(['us','eu']) yields 'us'|'eu'.",
+			"passes": false,
+			"priority": "architecture"
+		},
+		{
+			"id": "schema-2",
+			"title": "Arg schema builder with type inference",
+			"description": "Implement arg() builder: string, number, custom parse. Support .required(), .optional(), .variadic(), .describe(). Type inference for positional args.",
+			"passes": false,
+			"priority": "architecture"
+		},
+		{
+			"id": "schema-3",
+			"title": "Command builder with flag/arg composition and type accumulation",
+			"description": "Implement command() builder that chains .flag() and .arg() calls, accumulating types. .action() handler receives fully typed { args, flags, ctx, out }. Support .description(), .alias(), .hidden(), .examples().",
+			"passes": false,
+			"priority": "architecture"
+		},
+		{
+			"id": "parse-1",
+			"title": "Argv tokenizer and parser",
+			"description": "Implement argv tokenization: --flag=value, --flag value, -f, -abc (combined short), --, positional args. Parse against command schema to produce typed raw values. Emit ParseError for unknown flags, type mismatches.",
+			"passes": false,
+			"priority": "architecture"
+		},
+		{
+			"id": "resolve-1",
+			"title": "Resolution chain: CLI → default (env/config/prompt deferred)",
+			"description": "Implement MVP resolution: CLI parsed values → default values. Required flag validation (error if not resolved). This is the simplified v0.1 chain; env/config/prompt come in v0.2/v0.3.",
+			"passes": false,
+			"priority": "architecture"
+		},
+		{
+			"id": "help-1",
+			"title": "Auto-generated help text from schema",
+			"description": "Generate help text from command schema: usage line, description, flags table (name, alias, type, default, description), args list. Support --help flag on all commands. Format for TTY width.",
+			"passes": false,
+			"priority": "integration"
+		},
+		{
+			"id": "output-1",
+			"title": "Output channel (out object for handlers)",
+			"description": "Implement out object with log/info/warn/error methods. Basic TTY vs non-TTY detection. Foundation for FR5 — handlers use out instead of console.log.",
+			"passes": false,
+			"priority": "integration"
+		},
+		{
+			"id": "testkit-1",
+			"title": "Test harness: command.run() with injected state",
+			"description": "Implement command.run(argv, options) that accepts injected env/config/stdin/stdout. Capture output. Return structured result with exitCode and output. This enables FR4's test-first design.",
+			"passes": false,
+			"priority": "integration"
+		},
+		{
+			"id": "cli-1",
+			"title": "CLI entry point: cli() builder with command registration and run()",
+			"description": "Implement cli() builder: .version(), .command(), .run(). Dispatches to correct command based on argv. Handles --help, --version at root. Wires runtime adapter (Node-only for MVP).",
+			"passes": false,
+			"priority": "integration"
+		},
+		{
+			"id": "runtime-1",
+			"title": "Runtime adapter interface + Node adapter",
+			"description": "Define RuntimeAdapter interface (argv, env, cwd, isTTY, stdout/stderr/stdin). Implement Node adapter. Wire into cli().run() as default.",
+			"passes": false,
+			"priority": "integration"
+		}
+	]
+}

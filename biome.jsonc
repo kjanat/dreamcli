@@ -42,12 +42,7 @@
 	"json": {
 		"linter": { "enabled": true },
 		"assist": { "enabled": true },
-		"formatter": {
-			"enabled": true,
-			"indentStyle": "tab",
-			"trailingCommas": "none",
-			"lineWidth": 100
-		},
+		"formatter": { "enabled": false },
 		"parser": {
 			"allowComments": false,
 			"allowTrailingCommas": false
@@ -72,7 +67,7 @@
 					"allowComments": true,
 					"allowTrailingCommas": true
 				},
-				"formatter": { "trailingCommas": "all" }
+				"formatter": { "trailingCommas": "none" }
 			}
 		}
 	]
