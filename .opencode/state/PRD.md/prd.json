@@ -13,7 +13,7 @@
 			"id": "errors-1",
 			"title": "Structured error types (CLIError, ParseError, ValidationError)",
 			"description": "Implement FR4 base error types: CLIError with message/code/exitCode/suggest/details/cause. Derive ParseError and ValidationError. These are foundational — every other module throws them.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{

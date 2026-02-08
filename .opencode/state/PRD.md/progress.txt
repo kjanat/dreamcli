@@ -9,6 +9,7 @@ Started: 2026-02-09
 - **Build**: tsdown with `hash: false` for stable dts filenames. `exports: true` auto-patches package.json. Conditional exports include `types` entries for both import and require.
 - **Module structure**: `src/core/<module>/index.ts` barrel pattern. `src/runtime/<adapter>.ts` for platform adapters.
 - **Test pattern**: vitest with `src/**/*.test.ts` collocated tests. Dynamic imports in tests: `import('./module.js')` (with .js extension for NodeNext).
+- **Error hierarchy**: `CLIError` base → `ParseError` (exit 2), `ValidationError` (exit 2). Discriminated by `name` property. `ErrorCode` union is extensible via `string & {}`. Type guards: `isCLIError`, `isParseError`, `isValidationError`.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -21,3 +22,12 @@ Started: 2026-02-09
 - Added 15 module-loading smoke tests validating all core and runtime modules
 - Files changed: tsdown.config.ts, package.json, biome.jsonc, src/index.test.ts, all new barrel files in src/core/**/index.ts and src/runtime/*.ts
 - **Learnings:** biome and dprint fight over JSON/JSONC formatting (trailing commas, array collapsing). Best to let one tool own formatting entirely.
+
+## Task - errors-1
+- Implemented `CLIError` base class with message/code/exitCode/suggest/details/cause fields and `toJSON()` serialisation
+- Derived `ParseError` (exit 2, parse-specific codes) and `ValidationError` (exit 2, validation-specific codes)
+- Added type guard utilities: `isCLIError`, `isParseError`, `isValidationError`
+- Exported discriminated code unions: `ParseErrorCode`, `ValidationErrorCode`, `ErrorCode` (extensible via `string & {}`)
+- Re-exported all error types from `src/index.ts` public surface
+- Files changed: `src/core/errors/index.ts`, `src/core/errors/errors.test.ts`, `src/index.ts`
+- **Learnings:** `override readonly name = 'X' as const` on a subclass conflicts with a base class that uses the same pattern — base must declare `name: string` to allow subclass narrowing.
