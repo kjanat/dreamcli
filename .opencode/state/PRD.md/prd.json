@@ -20,7 +20,7 @@
 			"id": "schema-1",
 			"title": "Flag schema builder with type inference",
 			"description": "Implement flag() builder: boolean, string, number, enum, array types. Each flag carries its type at the TS level. Support .default(), .alias(), .describe(), .required(), .env(), .config(). Type inference must flow — flag.enum(['us','eu']) yields 'us'|'eu'.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{

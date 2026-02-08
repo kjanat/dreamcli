@@ -24,3 +24,16 @@ export {
 	ParseError,
 	ValidationError,
 } from './core/errors/index.js';
+
+export type {
+	FlagConfig,
+	FlagFactory,
+	FlagKind,
+	FlagPresence,
+	FlagSchema,
+	InferFlag,
+	InferFlags,
+	ResolvedValue,
+	WithPresence,
+} from './core/schema/index.js';
+export { createSchema, FlagBuilder, flag } from './core/schema/index.js';

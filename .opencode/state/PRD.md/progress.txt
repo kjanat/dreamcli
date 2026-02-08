@@ -10,6 +10,7 @@ Started: 2026-02-09
 - **Module structure**: `src/core/<module>/index.ts` barrel pattern. `src/runtime/<adapter>.ts` for platform adapters.
 - **Test pattern**: vitest with `src/**/*.test.ts` collocated tests. Dynamic imports in tests: `import('./module.js')` (with .js extension for NodeNext).
 - **Error hierarchy**: `CLIError` base → `ParseError` (exit 2), `ValidationError` (exit 2). Discriminated by `name` property. `ErrorCode` union is extensible via `string & {}`. Type guards: `isCLIError`, `isParseError`, `isValidationError`.
+- **Flag builder pattern**: `FlagBuilder<C extends FlagConfig>` — single phantom type param tracks `valueType` + `presence`. `FlagSchema` is the runtime descriptor. `declare readonly _config: C` for type branding (no `!` assertion). `flag.<kind>()` factory → immutable builder chain. `InferFlag<B>` / `InferFlags<R>` extract resolved types. `const` type param on `enum()` infers literals. Boolean flags implicitly default to `false`.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -31,3 +32,16 @@ Started: 2026-02-09
 - Re-exported all error types from `src/index.ts` public surface
 - Files changed: `src/core/errors/index.ts`, `src/core/errors/errors.test.ts`, `src/index.ts`
 - **Learnings:** `override readonly name = 'X' as const` on a subclass conflicts with a base class that uses the same pattern — base must declare `name: string` to allow subclass narrowing.
+
+## Task - schema-1
+- Implemented `FlagBuilder<C extends FlagConfig>` with phantom type-level tracking of `valueType` and `presence`
+- Factory functions: `flag.string()`, `flag.number()`, `flag.boolean()`, `flag.enum()`, `flag.array()`
+- Boolean flags implicitly default to `false` (presence: `'defaulted'`)
+- `flag.enum(['us','eu'])` infers `'us' | 'eu'` via `const` type parameter
+- Modifiers: `.default()`, `.required()`, `.alias()`, `.env()`, `.config()`, `.describe()` — all immutable (return new builders)
+- `InferFlag<B>` and `InferFlags<R>` utility types compute resolved handler types
+- `FlagSchema` runtime descriptor stores kind, presence, defaultValue, aliases, envVar, configPath, description, enumValues, elementSchema
+- 44 tests: runtime schema correctness, immutability, chaining, and compile-time type inference via `expectTypeOf`
+- Re-exported from `src/core/schema/index.ts` barrel and `src/index.ts` public surface
+- Files changed: `src/core/schema/flag.ts` (new), `src/core/schema/flag.test.ts` (new), `src/core/schema/index.ts`, `src/index.ts`
+- **Learnings:** `declare readonly _config: C` is the clean branded-type pattern — ambient declaration, no runtime property, no `!` assertion. `const` type parameter (TS 5.0+) on `enum<const T>` eliminates need for `as const` at call sites. `[string, ...string[]]` enforces non-empty tuple at the type level.
