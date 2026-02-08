@@ -1,0 +1,41 @@
+// Folder-specific settings
+//
+// For a full list of overridable settings, and general information on folder-specific settings,
+// see the documentation: https://zed.dev/docs/configuring-zed#settings-files
+{
+	"hard_tabs": true,
+	"tab_size": 2,
+	"wrap_guides": [100],
+	"file_types": { "Markdown": ["LICENSE"] },
+	"prettier": { "allowed": false },
+	"formatter": [
+		{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
+	],
+	"languages": {
+		"JavaScript": {
+			"formatter": [
+				{ "code_action": "fixAll.biome" },
+				{ "code_action": "organizeImports.biome" },
+				{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
+			],
+			"language_servers": ["biome", "vtsls", "tsgo"]
+		},
+		"TypeScript": {
+			"formatter": [
+				{ "code_action": "fixAll.biome" },
+				{ "code_action": "organizeImports.biome" },
+				{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
+			],
+			"language_servers": ["biome", "vtsls", "tsgo"]
+		},
+		"JSON": { "formatter": { "language_server": { "name": "biome" } } },
+		"JSONC": { "formatter": { "language_server": { "name": "biome" } } }
+	},
+	"lsp": {
+		"biome": {
+			"settings": {
+				"config_path": "./biome.jsonc"
+			}
+		}
+	}
+}

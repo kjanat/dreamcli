@@ -1,0 +1,79 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true,
+		"defaultBranch": "master"
+	},
+	"files": {
+		"includes": ["**"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 2,
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"noNonNullAssertion": "info"
+			},
+			"suspicious": {
+				"noExplicitAny": "warn",
+				"noConfusingVoidType": "info",
+				"noNonNullAssertedOptionalChain": "info"
+			},
+			"complexity": {
+				"noUselessFragments": "warn",
+				"noUselessTypeConstraint": "warn"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"semicolons": "always"
+		}
+	},
+	"json": {
+		"linter": { "enabled": true },
+		"assist": { "enabled": true },
+		"formatter": {
+			"enabled": true,
+			"indentStyle": "tab",
+			"trailingCommas": "none",
+			"lineWidth": 100
+		},
+		"parser": {
+			"allowComments": false,
+			"allowTrailingCommas": false
+		}
+	},
+	"assist": {
+		"enabled": true,
+		"actions": {
+			"recommended": true,
+			"source": {
+				"recommended": true,
+				"organizeImports": "on",
+				"useSortedAttributes": "on"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.jsonc", "**/.{vscode,zed}/*.json", "**/tsconfig*.json", "!**/biome.jsonc"],
+			"json": {
+				"parser": {
+					"allowComments": true,
+					"allowTrailingCommas": true
+				},
+				"formatter": { "trailingCommas": "all" }
+			}
+		}
+	]
+}
