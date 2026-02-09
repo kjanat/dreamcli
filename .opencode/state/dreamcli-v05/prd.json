@@ -48,7 +48,7 @@
 			"id": "runtime-auto",
 			"title": "Auto-adapter factory using runtime detection",
 			"description": "Implement createAdapter(): RuntimeAdapter that uses detectRuntime() to pick the right adapter (node/bun). Falls back to Node for unknown. Add to barrel exports. Wire as default in CLIBuilder.run() replacing hardcoded createNodeAdapter().",
-			"passes": false,
+			"passes": true,
 			"priority": 3
 		},
 		{

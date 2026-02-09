@@ -10,7 +10,7 @@
  */
 
 import type { RuntimeAdapter } from '../../runtime/adapter.js';
-import { createNodeAdapter } from '../../runtime/node.js';
+import { createAdapter } from '../../runtime/auto.js';
 import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
@@ -583,13 +583,14 @@ class CLIBuilder {
 	 * adapter). For testing, use `.execute()` instead — or provide a
 	 * test adapter via `options.adapter`.
 	 *
-	 * Defaults to `createNodeAdapter()` when no adapter is provided,
-	 * which works on both Node.js and Bun.
+	 * Defaults to `createAdapter()` when no adapter is provided,
+	 * which auto-detects the runtime (Node.js, Bun) and creates
+	 * the appropriate adapter.
 	 *
 	 * @param options - Optional runtime configuration including adapter.
 	 */
 	async run(options?: CLIRunOptions): Promise<never> {
-		const adapter = options?.adapter ?? createNodeAdapter();
+		const adapter = options?.adapter ?? createAdapter();
 
 		const argv = adapter.argv.slice(2);
 		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.

@@ -128,6 +128,7 @@ export type {
 	TestAdapterOptions,
 } from './runtime/index.js';
 export {
+	createAdapter,
 	createBunAdapter,
 	createNodeAdapter,
 	createTestAdapter,

@@ -16,6 +16,7 @@ Started: 2026-02-09
 - **Bash string literals**: biome flags `${...}` in single-quoted strings as `noTemplateCurlyInString` — suppress with `biome-ignore` when generating bash syntax
 - **ErasedCommand test stubs**: `_execute` must return `RunResult` shape including `error: undefined`; use typed `[] as string[]` to avoid `never[]`
 - **FlagKind union**: `'string' | 'number' | 'boolean' | 'enum' | 'array'` — no `'count'` variant
+- **Auto-adapter factory**: `createAdapter(globals?)` in `auto.ts` — separate from `detect.ts` to keep detection deps-free; exhaustive switch on `Runtime` union for compile-time safety
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -81,3 +82,13 @@ Started: 2026-02-09
 - All 1095 tests pass, type check/lint/format clean
 - Files: none changed (only PRD + progress updated)
 - **Learnings:** incremental implementation during prerequisite tasks can complete downstream tasks early — verify before writing duplicate code
+
+## Task — runtime-auto
+- Implemented `createAdapter()` in new `src/runtime/auto.ts` — uses `detectRuntime()` to dispatch: bun→`createBunAdapter()`, deno/node/unknown→`createNodeAdapter()`
+- Deno falls through to Node adapter (no Deno adapter yet) — comment marks future extension point
+- Accepts optional `GlobalForDetect` param for testability (same injection pattern as `detectRuntime`)
+- Replaced `createNodeAdapter()` in `CLIBuilder.run()` with `createAdapter()` — auto-detection is now the default
+- 11 tests: adapter shape validation per runtime, unknown fallback, default globalThis, functional checks (stdout/stderr callable, env populated, cwd non-empty)
+- Exported from runtime barrel + main barrel (value: `createAdapter`)
+- Files: `src/runtime/auto.ts` (new), `src/runtime/auto.test.ts` (new), `src/runtime/index.ts`, `src/index.ts`, `src/core/cli/index.ts`
+- **Learnings:** auto-adapter factory belongs in separate `auto.ts` not `detect.ts` — keeps detection pure (no adapter deps) and factory composable; exhaustive switch on `Runtime` union ensures compile-time safety when new runtimes are added
