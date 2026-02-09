@@ -107,10 +107,21 @@ interface CLIRunOptions {
 	readonly adapter?: RuntimeAdapter;
 
 	/**
-	 * Environment variables available to commands.
-	 * MVP: stored for future env-based resolution (v0.2).
+	 * Environment variables for flag resolution.
+	 *
+	 * Flags with `.env('VAR')` configured resolve from this record
+	 * when no CLI value is provided (CLI → env → config → default).
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
+
+	/**
+	 * Configuration object for flag resolution.
+	 *
+	 * Flags with `.config('path')` configured resolve from this record
+	 * when no CLI or env value is provided (CLI → env → config → default).
+	 * Config is plain JSON — file loading is the caller's responsibility.
+	 */
+	readonly config?: Readonly<Record<string, unknown>>;
 
 	/**
 	 * Verbosity level for the output channel.
@@ -326,6 +337,7 @@ function buildCommandRunOptions(
 	return {
 		help: helpOptions,
 		...(options?.env !== undefined ? { env: options.env } : {}),
+		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 	};
 }

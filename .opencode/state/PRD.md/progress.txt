@@ -232,3 +232,15 @@ Started: 2026-02-09
 - All 571 tests pass, zero type errors, clean lint/format
 - Files changed: `src/core/resolve/index.ts`, `src/core/resolve/resolve-errors.test.ts` (new)
 - **Learnings:** Array flags with `presence: 'required'` never reach the required-flag validation branch because the implicit `[]` default (for array kind) kicks in first at line 192-194 of the resolver. Required array validation would need a separate "non-empty" check — different from the flag-presence concept. `noUncheckedIndexedAccess` means `sources[0]` is `string | undefined` even after a length check — use `.join('')` or `.slice()` patterns to avoid needing the `!` assertion.
+
+## Task - resolve-integration-1
+- Added `config` field to `RunOptions` in testkit — flags with `.config('path')` now resolve through `runCommand()`
+- Wired `config` through `runCommand()` → `ResolveOptions` via conditional spread (same pattern as `env`)
+- Added `config` field to `CLIRunOptions` in CLI builder
+- Wired `config` through `buildCommandRunOptions()` → `RunOptions` → `runCommand()` → `resolve()`
+- `CLIBuilder.run()` already correctly threads config via `...options` spread to `execute()`
+- Updated JSDoc: removed stale "MVP: stored for future v0.2" comments, documented resolution chain accurately
+- 28 new integration tests: env through testkit (6), config through testkit (4), full CLI>env>config>default chain through testkit (5), env/config through CLIBuilder.execute() (7), adapter integration (3), backward compatibility (3)
+- All 599 tests pass, zero type errors, clean lint/format
+- Files changed: `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/resolve/resolve-integration.test.ts` (new)
+- **Learnings:** The `exactOptionalPropertyTypes` conditional spread pattern `...(x !== undefined ? { x } : {})` is the consistent wiring pattern for threading optional fields through option objects — use it everywhere for consistency. Config doesn't come from the runtime adapter (unlike env which comes from `process.env`) — config loading is always the caller's responsibility, so `CLIBuilder.run()` just passes through whatever config the caller provides. The existing `...options` spread in `.run()` naturally forwards config without additional code.

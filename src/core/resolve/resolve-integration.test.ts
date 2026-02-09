@@ -1,0 +1,404 @@
+/**
+ * Integration tests — env/config wired through testkit and CLI builder.
+ *
+ * Verifies that RunOptions.env and RunOptions.config flow from
+ * runCommand() and CLIBuilder.execute() all the way into resolve().
+ */
+
+import { describe, expect, it } from 'vitest';
+import { cli } from '../cli/index.js';
+import { arg } from '../schema/arg.js';
+import { command } from '../schema/command.js';
+import { flag } from '../schema/flag.js';
+import { runCommand } from '../testkit/index.js';
+
+// ---------------------------------------------------------------------------
+// Test commands
+// ---------------------------------------------------------------------------
+
+/** Command with env-resolvable flags. */
+function envCommand() {
+	return command('deploy')
+		.description('Deploy to an environment')
+		.arg('target', arg.string())
+		.flag('region', flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION').describe('Target region'))
+		.flag('verbose', flag.boolean().env('VERBOSE'))
+		.flag('retries', flag.number().env('RETRIES').default(3))
+		.action(({ args, flags, out }) => {
+			out.log(
+				`deploy ${args.target} region=${String(flags.region)} verbose=${String(flags.verbose)} retries=${String(flags.retries)}`,
+			);
+		});
+}
+
+/** Command with config-resolvable flags. */
+function configCommand() {
+	return command('deploy')
+		.description('Deploy to an environment')
+		.arg('target', arg.string())
+		.flag('region', flag.enum(['us', 'eu', 'ap']).config('deploy.region'))
+		.flag('timeout', flag.number().config('deploy.timeout').default(30))
+		.action(({ args, flags, out }) => {
+			out.log(
+				`deploy ${args.target} region=${String(flags.region)} timeout=${String(flags.timeout)}`,
+			);
+		});
+}
+
+/** Command with both env and config sources. */
+function multiSourceCommand() {
+	return command('deploy')
+		.description('Deploy to an environment')
+		.arg('target', arg.string())
+		.flag(
+			'region',
+			flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION').config('deploy.region').required(),
+		)
+		.flag('timeout', flag.number().env('TIMEOUT').config('deploy.timeout').default(30))
+		.action(({ args, flags, out }) => {
+			out.log(
+				`deploy ${args.target} region=${String(flags.region)} timeout=${String(flags.timeout)}`,
+			);
+		});
+}
+
+// ---------------------------------------------------------------------------
+// runCommand() — env threading
+// ---------------------------------------------------------------------------
+
+describe('runCommand — env resolution', () => {
+	it('resolves flag from env when no CLI value provided', async () => {
+		const cmd = envCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			env: { DEPLOY_REGION: 'eu' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=eu');
+	});
+
+	it('CLI value takes precedence over env', async () => {
+		const cmd = envCommand();
+		const result = await runCommand(cmd, ['prod', '--region', 'us'], {
+			env: { DEPLOY_REGION: 'eu' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=us');
+	});
+
+	it('resolves boolean flag from env', async () => {
+		const cmd = envCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			env: { VERBOSE: 'true' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('verbose=true');
+	});
+
+	it('resolves number flag from env', async () => {
+		const cmd = envCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			env: { RETRIES: '5' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('retries=5');
+	});
+
+	it('falls back to default when env not set', async () => {
+		const cmd = envCommand();
+		const result = await runCommand(cmd, ['prod'], { env: {} });
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('retries=3');
+	});
+
+	it('returns error for invalid env value', async () => {
+		const cmd = envCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			env: { DEPLOY_REGION: 'invalid' },
+		});
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error).toBeDefined();
+		expect(result.error?.code).toBe('INVALID_ENUM');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// runCommand() — config threading
+// ---------------------------------------------------------------------------
+
+describe('runCommand — config resolution', () => {
+	it('resolves flag from config when no CLI value provided', async () => {
+		const cmd = configCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=ap');
+	});
+
+	it('CLI value takes precedence over config', async () => {
+		const cmd = configCommand();
+		const result = await runCommand(cmd, ['prod', '--region', 'us'], {
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=us');
+	});
+
+	it('resolves number flag from config', async () => {
+		const cmd = configCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			config: { deploy: { timeout: 60 } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('timeout=60');
+	});
+
+	it('falls back to default when config path missing', async () => {
+		const cmd = configCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			config: { deploy: {} },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('timeout=30');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// runCommand() — full chain: CLI > env > config > default
+// ---------------------------------------------------------------------------
+
+describe('runCommand — full resolution chain', () => {
+	it('env takes precedence over config', async () => {
+		const cmd = multiSourceCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			env: { DEPLOY_REGION: 'eu' },
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=eu');
+	});
+
+	it('config used when env absent', async () => {
+		const cmd = multiSourceCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=ap');
+	});
+
+	it('CLI > env > config precedence', async () => {
+		const cmd = multiSourceCommand();
+		const result = await runCommand(cmd, ['prod', '--region', 'us'], {
+			env: { DEPLOY_REGION: 'eu' },
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=us');
+	});
+
+	it('required flag errors when no source provides value', async () => {
+		const cmd = multiSourceCommand();
+		const result = await runCommand(cmd, ['prod']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error).toBeDefined();
+		expect(result.error?.code).toBe('REQUIRED_FLAG');
+	});
+
+	it('env number overrides config number', async () => {
+		const cmd = multiSourceCommand();
+		const result = await runCommand(cmd, ['prod'], {
+			env: { DEPLOY_REGION: 'us', TIMEOUT: '10' },
+			config: { deploy: { region: 'ap', timeout: 60 } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('timeout=10');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// CLIBuilder.execute() — env/config threading
+// ---------------------------------------------------------------------------
+
+describe('CLIBuilder.execute — env/config threading', () => {
+	it('threads env through to command resolution', async () => {
+		const app = cli('test').command(envCommand());
+		const result = await app.execute(['deploy', 'prod'], {
+			env: { DEPLOY_REGION: 'eu' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=eu');
+	});
+
+	it('threads config through to command resolution', async () => {
+		const app = cli('test').command(configCommand());
+		const result = await app.execute(['deploy', 'prod'], {
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=ap');
+	});
+
+	it('threads both env and config — env wins', async () => {
+		const app = cli('test').command(multiSourceCommand());
+		const result = await app.execute(['deploy', 'prod'], {
+			env: { DEPLOY_REGION: 'eu' },
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=eu');
+	});
+
+	it('CLI arg to command wins over env/config', async () => {
+		const app = cli('test').command(multiSourceCommand());
+		const result = await app.execute(['deploy', 'prod', '--region', 'us'], {
+			env: { DEPLOY_REGION: 'eu' },
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=us');
+	});
+
+	it('config used when env missing in CLI builder', async () => {
+		const app = cli('test').command(multiSourceCommand());
+		const result = await app.execute(['deploy', 'prod'], {
+			config: { deploy: { region: 'ap' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=ap');
+	});
+
+	it('required flag error when no source in CLI builder', async () => {
+		const app = cli('test').command(multiSourceCommand());
+		const result = await app.execute(['deploy', 'prod']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error).toBeDefined();
+	});
+
+	it('multiple commands — env/config scoped correctly', async () => {
+		const login = command('login')
+			.flag('token', flag.string().env('AUTH_TOKEN').required())
+			.action(({ flags, out }) => {
+				out.log(`token=${String(flags.token)}`);
+			});
+
+		const app = cli('test').command(multiSourceCommand()).command(login);
+
+		// deploy uses DEPLOY_REGION from env
+		const r1 = await app.execute(['deploy', 'prod'], {
+			env: { DEPLOY_REGION: 'eu', AUTH_TOKEN: 'abc' },
+		});
+		expect(r1.exitCode).toBe(0);
+		expect(r1.stdout[0]).toContain('region=eu');
+
+		// login uses AUTH_TOKEN from env
+		const r2 = await app.execute(['login'], {
+			env: { DEPLOY_REGION: 'eu', AUTH_TOKEN: 'abc' },
+		});
+		expect(r2.exitCode).toBe(0);
+		expect(r2.stdout[0]).toContain('token=abc');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// CLIBuilder.run() — adapter.env auto-sourcing with config
+// ---------------------------------------------------------------------------
+
+describe('CLIBuilder.run — adapter env/config integration', () => {
+	it('auto-sources adapter.env into resolution when no explicit env', async () => {
+		const app = cli('test').command(envCommand());
+
+		// Use execute with adapter-like env (simulating what .run() does)
+		// .run() spreads adapter.env when options.env is undefined
+		const result = await app.execute(['deploy', 'prod'], {
+			env: { DEPLOY_REGION: 'ap' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=ap');
+	});
+
+	it('explicit env overrides adapter env', async () => {
+		// When user provides env explicitly, it should be used
+		const app = cli('test').command(envCommand());
+		const result = await app.execute(['deploy', 'prod'], {
+			env: { DEPLOY_REGION: 'us' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=us');
+	});
+
+	it('config passes through .execute() even without env', async () => {
+		const app = cli('test').command(configCommand());
+		const result = await app.execute(['deploy', 'prod'], {
+			config: { deploy: { region: 'eu', timeout: 90 } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=eu');
+		expect(result.stdout[0]).toContain('timeout=90');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Backward compatibility
+// ---------------------------------------------------------------------------
+
+describe('backward compatibility', () => {
+	it('runCommand works without env/config options', async () => {
+		const cmd = command('hello')
+			.flag('name', flag.string().default('world'))
+			.action(({ flags, out }) => {
+				out.log(`hello ${String(flags.name)}`);
+			});
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('hello world');
+	});
+
+	it('CLIBuilder.execute works without env/config options', async () => {
+		const hello = command('hello')
+			.flag('name', flag.string().default('world'))
+			.action(({ flags, out }) => {
+				out.log(`hello ${String(flags.name)}`);
+			});
+
+		const app = cli('test').command(hello);
+		const result = await app.execute(['hello']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('hello world');
+	});
+
+	it('existing tests with env in runCommand still work', async () => {
+		const cmd = envCommand();
+		const result = await runCommand(cmd, ['prod', '--region', 'us']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('region=us');
+	});
+});

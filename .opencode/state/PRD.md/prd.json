@@ -34,7 +34,7 @@
 			"id": "resolve-integration-1",
 			"title": "Wire env/config through testkit and CLI builder execution paths",
 			"description": "Update runCommand() to pass RunOptions.env and RunOptions.config into resolve(). Update CLIBuilder.execute() and .run() to thread adapter.env and optional config through the resolution chain. Ensure all existing tests still pass with the new signatures.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		}
 	]

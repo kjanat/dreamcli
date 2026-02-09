@@ -2,8 +2,9 @@
  * Test harness: command.run() with injected state, output capture.
  *
  * Provides `runCommand()` — the core execution pipeline that parses argv,
- * resolves values, creates an output channel, and invokes the action handler.
- * Returns a structured `RunResult` with exitCode and captured output.
+ * resolves values (CLI → env → config → default), creates an output channel,
+ * and invokes the action handler. Returns a structured `RunResult` with
+ * exitCode and captured output.
  *
  * `CommandBuilder.run()` delegates to `runCommand()`, making commands
  * testable without touching process state.
@@ -55,10 +56,21 @@ interface HandlerParams {
  */
 interface RunOptions {
 	/**
-	 * Environment variables available to the command.
-	 * MVP: stored for future env-based resolution (v0.2).
+	 * Environment variables for flag resolution.
+	 *
+	 * Flags with `.env('VAR')` configured resolve from this record
+	 * when no CLI value is provided (CLI → env → config → default).
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
+
+	/**
+	 * Configuration object for flag resolution.
+	 *
+	 * Flags with `.config('path')` configured resolve from this record
+	 * when no CLI or env value is provided (CLI → env → config → default).
+	 * Config is plain JSON — file loading is the caller's responsibility.
+	 */
+	readonly config?: Readonly<Record<string, unknown>>;
 
 	/**
 	 * Verbosity level for the output channel.
@@ -110,7 +122,7 @@ interface RunResult {
  * This is the core execution pipeline:
  * 1. Detect `--help` / `-h` → print help text, exit 0
  * 2. Parse argv against the command schema
- * 3. Resolve values (CLI → default for MVP)
+ * 3. Resolve values (CLI → env → config → default)
  * 4. Create a capture output channel
  * 5. Invoke the action handler
  * 6. Return structured result
@@ -155,6 +167,7 @@ async function runCommand<
 		// -- Resolve -------------------------------------------------------------
 		const resolveOptions: ResolveOptions = {
 			...(options?.env !== undefined ? { env: options.env } : {}),
+			...(options?.config !== undefined ? { config: options.config } : {}),
 		};
 		const resolved = resolve(cmd.schema, parsed, resolveOptions);
 
