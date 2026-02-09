@@ -1,0 +1,24 @@
+# Progress Log
+PRD: dreamcli-v05
+Started: 2026-02-09
+
+## Codebase Patterns
+<!-- Consolidate reusable patterns here -->
+- **Module structure**: each core module has `index.ts` barrel, tests co-located as `*.test.ts`
+- **Stub convention**: empty modules export `export {};` with JSDoc module comment
+- **Type exports**: use `export type` (verbatimModuleSyntax), `.js` extensions in imports
+- **CLISchema.commands[].schema**: `CommandSchema` has `.name`, `.flags` (Record<string, FlagSchema>), `.args` (CommandArgEntry[])
+- **FlagSchema**: `.kind`, `.aliases`, `.description`, `.enumValues`
+- **Error pattern**: throw `CLIError` for user-facing errors (not raw Error)
+- **Test conventions**: em-dash in describes, `// ===` major separators, `// ---` minor, zero lifecycle hooks
+
+---
+<!-- Task logs below - APPEND ONLY -->
+
+## Task — completion-types
+- Defined `Shell` type (`'bash' | 'zsh' | 'fish' | 'powershell'`), `SHELLS` constant, `CompletionOptions` interface
+- Implemented `generateCompletion()` dispatcher, `generateBashCompletion()`, `generateZshCompletion()` as stubs throwing `CLIError` with `UNSUPPORTED_OPERATION` code
+- Unsupported shells (fish/powershell) throw "not yet supported"; implemented shells throw "not yet implemented"
+- 12 tests covering SHELLS constant, CompletionOptions type contract, all stub throws, dispatcher delegation, options passthrough
+- Files: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`, `src/index.ts`
+- **Learnings:** `ErrorCode` is open (`string & {}`) so any code string works; `void expr` pattern silences unused-param lint for stub args; `CLISchema` imports from `../cli/index.js` (no circular dep concern since completion doesn't feed back into cli yet)

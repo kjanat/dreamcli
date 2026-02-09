@@ -9,6 +9,13 @@
 
 export type { CLIRunOptions, CLISchema } from './core/cli/index.js';
 export { CLIBuilder, cli } from './core/cli/index.js';
+export type { CompletionOptions, Shell } from './core/completion/index.js';
+export {
+	generateBashCompletion,
+	generateCompletion,
+	generateZshCompletion,
+	SHELLS,
+} from './core/completion/index.js';
 export type {
 	CLIErrorJSON,
 	CLIErrorOptions,
