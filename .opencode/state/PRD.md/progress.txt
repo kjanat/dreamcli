@@ -13,6 +13,7 @@ Started: 2026-02-09
 - **Flag builder pattern**: `FlagBuilder<C extends FlagConfig>` — single phantom type param tracks `valueType` + `presence`. `FlagSchema` is the runtime descriptor. `declare readonly _config: C` for type branding (no `!` assertion). `flag.<kind>()` factory → immutable builder chain. `InferFlag<B>` / `InferFlags<R>` extract resolved types. `const` type param on `enum()` infers literals. Boolean flags implicitly default to `false`.
 - **Arg builder pattern**: `ArgBuilder<C extends ArgConfig>` — phantom type tracks `valueType` + `presence` + `variadic`. Positional args default to `'required'` (unlike flags which default to `'optional'`). `arg.custom(parseFn)` infers return type of parse function. Variadic args wrap type in `T[]` via `ResolvedArgValue`. `ArgSchema` stores `parseFn` for custom parsing.
 - **Command builder pattern**: `CommandBuilder<F, A>` — two phantom type params accumulate flag/arg builder records via intersection (`F & Record<N, B>`). `.flag()` / `.arg()` return new builders with expanded types; `.action(handler)` receives `ActionParams<F, A>` with `InferFlags<F>` and `InferArgs<A>`. Handler is dropped when new flags/args are added (type safety). `CommandSchema` is the runtime descriptor with flags map + ordered args list. `{}` default for initial accumulator is correct and intentional (biome-ignore). `Out` interface stub defined for handler typing; real impl in output-1.
+- **Parser pattern**: Two-phase design: `tokenize(argv)` → `Token[]` (schema-agnostic), then `parse(schema, argv)` → `ParseResult` (schema-aware). Flag lookup built from `CommandSchema.flags` + aliases as `Map<string, [canonicalName, FlagSchema]>`. Value coercion per `FlagKind`/`ArgKind`. Array flags accumulate. Positionals mapped by `CommandSchema.args` ordering. All errors are `ParseError` with structured `code`/`details`/`suggest`.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -75,3 +76,17 @@ Started: 2026-02-09
 - Re-exported from `src/core/schema/index.ts` barrel and `src/index.ts` public surface
 - Files changed: `src/core/schema/command.ts` (new), `src/core/schema/command.test.ts` (new), `src/core/schema/index.ts`, `src/index.ts`
 - **Learnings:** biome-ignore for `noBannedTypes` must be on the specific line with `{}`, not on the class declaration line. `{}` is correct for intersection-based type accumulation — `Record<string, never>` would prevent adding keys. Handler must be dropped when schema shape changes to maintain type safety.
+
+## Task - parse-1
+- Implemented two-phase argv parser: `tokenize()` (schema-agnostic) → `parse()` (schema-aware)
+- Tokenizer handles: `--flag`, `--flag=value`, `-f`, `-abc` (combined short), `--` separator, positionals, bare `-` (stdin)
+- Parser walks tokens against `CommandSchema`: resolves flag names/aliases via lookup map, coerces values by `FlagKind`/`ArgKind`
+- Short flag expansion: `-abc` → individual flags; last value-expecting flag consumes next token; mid-group value-expecting flag consumes rest of chars (`-oFile`)
+- Array flags accumulate across multiple occurrences (`--tag v1 --tag v2` → `['v1', 'v2']`)
+- Positional args mapped to named entries by schema ordering; variadic args consume all remaining
+- "Did you mean?" suggestions via Levenshtein distance for unknown flags
+- All errors are `ParseError` with appropriate codes: `UNKNOWN_FLAG`, `MISSING_VALUE`, `INVALID_VALUE`, `UNEXPECTED_POSITIONAL`
+- 59 tests covering: tokenizer, all flag kinds, short flags, positional args, variadic, mixed usage, error cases, edge cases
+- Re-exported `parse`, `tokenize`, `ParseResult`, `Token` from `src/index.ts`
+- Files changed: `src/core/parse/index.ts` (new), `src/core/parse/parse.test.ts` (new), `src/index.ts`
+- **Learnings:** TS strict noUncheckedIndexedAccess means `array[i]` returns `T | undefined` — use `charAt()` for strings, `?? fallback` for numeric arrays, or explicit `undefined` guards instead of `as T` assertions. Splitting tokenizer from parser avoids circular concerns: tokenizer is purely lexical, parser is schema-dependent. Biome suppressions that don't match active rules are flagged as `suppressions/unused` warnings.

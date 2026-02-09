@@ -41,7 +41,7 @@
 			"id": "parse-1",
 			"title": "Argv tokenizer and parser",
 			"description": "Implement argv tokenization: --flag=value, --flag value, -f, -abc (combined short), --, positional args. Parse against command schema to produce typed raw values. Emit ParseError for unknown flags, type mismatches.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{
