@@ -132,7 +132,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 				lines.push('\t\t\tcase "$prev" in');
 				for (const ec of enumCases) {
 					lines.push(`\t\t\t\t${ec.flags})`);
-					lines.push(`\t\t\t\t\tCOMPREPLY=($(compgen -W '${ec.values}' -- "$cur"))`);
+					lines.push(formatBashEnumCompletion(ec.values, '\t\t\t\t\t'));
 					lines.push('\t\t\t\t\treturn');
 					lines.push('\t\t\t\t\t;;');
 				}
@@ -206,6 +206,44 @@ function quoteShellArg(value: string): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Format a COMPREPLY line for bash enum value completion.
+ *
+ * When all values are simple (no whitespace or special chars), emits a
+ * standard `compgen -W 'v1 v2' -- "$cur"` line.
+ *
+ * When any value contains whitespace, single quotes, or backslashes,
+ * uses `IFS=$'\n'` with `$'...'` quoting to split on newlines
+ * instead of spaces, handling all special characters correctly.
+ *
+ * @internal
+ */
+function formatBashEnumCompletion(values: readonly string[], indent: string): string {
+	const needsDollarQuoting = values.some((v) => !/^[a-zA-Z0-9_\-.]+$/.test(v));
+	if (needsDollarQuoting) {
+		const escaped = values.map(escapeBashDollarQuote);
+		const joined = escaped.join('\\n');
+		return `${indent}local IFS=$'\\n'\n${indent}COMPREPLY=($(compgen -W $'${joined}' -- "$cur"))`;
+	}
+	return `${indent}COMPREPLY=($(compgen -W '${values.join(' ')}' -- "$cur"))`;
+}
+
+/**
+ * Escape a single enum value for use inside a bash `$'...'` string.
+ *
+ * In `$'...'` context:
+ * - `\\` → literal backslash
+ * - `\'` → literal single quote
+ * - `\n` → newline (used as IFS delimiter, so must be escaped in values)
+ *
+ * Values that are simple identifiers pass through unescaped.
+ *
+ * @internal
+ */
+function escapeBashDollarQuote(value: string): string {
+	return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+}
+
+/**
  * Collect all `--flag` words (long + short aliases) for a command's flags.
  *
  * @internal
@@ -228,7 +266,7 @@ function collectFlagWords(flags: Readonly<Record<string, FlagSchema>>): string {
  */
 interface EnumCase {
 	readonly flags: string;
-	readonly values: string;
+	readonly values: readonly string[];
 }
 
 /**
@@ -247,7 +285,7 @@ function collectEnumCases(cmd: CommandSchema): readonly EnumCase[] {
 			`--${name}`,
 			...schema.aliases.map((a) => (a.length === 1 ? `-${a}` : `--${a}`)),
 		];
-		cases.push({ flags: flagForms.join('|'), values: schema.enumValues.join(' ') });
+		cases.push({ flags: flagForms.join('|'), values: schema.enumValues });
 	}
 	return cases;
 }
@@ -366,6 +404,26 @@ function escapeZshDescription(text: string): string {
 }
 
 /**
+ * Escape a single enum value for use inside a zsh `(v1 v2)` value list.
+ *
+ * Simple identifier-like values (matching `[a-zA-Z0-9_\-.]`) pass through
+ * unescaped. Values containing spaces, quotes, backslashes, or parentheses
+ * are escaped with backslash prefixes for each special character, which
+ * is the standard mechanism within zsh parenthesized completion lists.
+ *
+ * @internal
+ */
+function escapeZshEnumValue(value: string): string {
+	if (/^[a-zA-Z0-9_\-.]+$/.test(value)) return value;
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/'/g, "\\'")
+		.replace(/ /g, '\\ ')
+		.replace(/\(/g, '\\(')
+		.replace(/\)/g, '\\)');
+}
+
+/**
  * Build `_arguments` flag spec strings for a command.
  *
  * Each flag produces one or more spec strings in zsh `_arguments` format:
@@ -387,7 +445,8 @@ function buildZshFlagSpecs(cmd: CommandSchema): readonly string[] {
 		if (schema.kind === 'boolean') {
 			// Boolean flags take no argument value
 		} else if (schema.kind === 'enum' && schema.enumValues !== undefined) {
-			valuePart = `:value:(${schema.enumValues.join(' ')})`;
+			const escapedValues = schema.enumValues.map(escapeZshEnumValue);
+			valuePart = `:value:(${escapedValues.join(' ')})`;
 		} else {
 			valuePart = ':value:';
 		}

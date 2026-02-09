@@ -456,6 +456,126 @@ describe('generateBashCompletion — enum value completions', () => {
 });
 
 // ===================================================================
+// generateBashCompletion — enum value escaping
+// ===================================================================
+
+describe('generateBashCompletion — enum value escaping', () => {
+	it('passes simple values through unescaped', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain("compgen -W 'us-east-1 eu-west-1'");
+		expect(script).not.toContain('IFS');
+	});
+
+	it('uses $-quoting with IFS for values containing spaces', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['hello world', 'foo'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain("local IFS=$'\\n'");
+		expect(script).toContain("compgen -W $'hello world\\nfoo'");
+	});
+
+	it('escapes single quotes in enum values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							msg: flagSchema({
+								kind: 'enum',
+								enumValues: ["it's", 'normal'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain("local IFS=$'\\n'");
+		expect(script).toContain("it\\'s");
+	});
+
+	it('escapes backslashes in enum values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							path: flagSchema({
+								kind: 'enum',
+								enumValues: ['C:\\Users', 'normal'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain("local IFS=$'\\n'");
+		expect(script).toContain('C:\\\\Users');
+	});
+
+	it('handles mixed pathological values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							weird: flagSchema({
+								kind: 'enum',
+								enumValues: ["it's here", 'C:\\path', 'normal'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		// All values use $'...' quoting because at least one needs it
+		expect(script).toContain("local IFS=$'\\n'");
+		expect(script).toContain("compgen -W $'");
+		expect(script).toContain("it\\'s here");
+		expect(script).toContain('C:\\\\path');
+		expect(script).toContain('normal');
+	});
+});
+
+// ===================================================================
 // generateBashCompletion — no commands (flags-only CLI)
 // ===================================================================
 
@@ -823,6 +943,146 @@ describe('generateZshCompletion — flag completions', () => {
 		const script = generateZshCompletion(schema);
 
 		expect(script).toContain("'--verbose[verbose]'");
+	});
+});
+
+// ===================================================================
+// generateZshCompletion — enum value escaping
+// ===================================================================
+
+describe('generateZshCompletion — enum value escaping', () => {
+	it('passes simple values through unescaped', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								description: 'Region',
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain(':value:(us-east-1 eu-west-1)');
+	});
+
+	it('escapes spaces in enum values with backslash', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								description: 'Environment',
+								enumValues: ['hello world', 'foo'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain(':value:(hello\\ world foo)');
+	});
+
+	it('escapes single quotes in enum values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							msg: flagSchema({
+								kind: 'enum',
+								description: 'Message',
+								enumValues: ["it's", 'normal'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain(":value:(it\\'s normal)");
+	});
+
+	it('escapes backslashes in enum values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							path: flagSchema({
+								kind: 'enum',
+								description: 'Path',
+								enumValues: ['C:\\Users', 'normal'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain(':value:(C:\\\\Users normal)');
+	});
+
+	it('escapes parentheses in enum values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							expr: flagSchema({
+								kind: 'enum',
+								description: 'Expr',
+								enumValues: ['(a)', 'normal'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain(':value:(\\(a\\) normal)');
+	});
+
+	it('handles mixed pathological values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							weird: flagSchema({
+								kind: 'enum',
+								description: 'Weird',
+								enumValues: ["it's here", 'C:\\path', 'normal'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("it\\'s\\ here");
+		expect(script).toContain('C:\\\\path');
+		expect(script).toContain('normal');
 	});
 });
 

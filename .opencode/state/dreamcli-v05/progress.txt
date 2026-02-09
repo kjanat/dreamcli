@@ -23,6 +23,8 @@ Started: 2026-02-09
 - **Code-gen in --json mode**: commands that produce raw text (scripts, generated code) must branch on `out.jsonMode` — use `out.json({ script })` for JSON mode, `out.log()` for normal; `out.log()` redirects to stderr in JSON mode
 - **Completion enum scoping**: enum value completions must be scoped per-command, not globally — global dedup loses per-command context when same-named flags have different enum values across commands
 - **Shell argument escaping**: `quoteShellArg()` — single-quote wrap with `'\''` idiom for embedded quotes; passthrough for `[a-zA-Z0-9_\-.]` names to keep generated scripts readable
+- **Bash enum value escaping**: for values with special chars, use `$'...'` quoting with `IFS=$'\n'` to separate — `compgen -W` word-splits on IFS so spaces in values require newline-based splitting; `escapeBashDollarQuote()` escapes `\`, `'`, and literal newlines
+- **Zsh enum value escaping**: backslash-escape spaces (`\ `), quotes (`\'`), backslashes (`\\`), and parens (`\(`, `\)`) individually within `(v1 v2)` lists — zsh handles backslash escaping within parenthesized completion value lists
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -201,3 +203,15 @@ Started: 2026-02-09
 - All 1185 tests pass, typecheck/lint/format clean
 - Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
 - **Learnings:** shell argument escaping via single-quote wrap with `'\''` idiom is the safest approach — no need to enumerate dangerous characters; passthrough optimization for common names keeps generated scripts readable
+
+## Task — fix/escape-enum-values (Overseer: task_01KH1Q8SM3FMQ66X8B9VJ210CA)
+- Added `formatBashEnumCompletion()` — for simple values uses standard `compgen -W '...'`; for values with special chars uses `$'...'` quoting with `IFS=$'\n'` to handle spaces correctly
+- Added `escapeBashDollarQuote()` — escapes `\` → `\\`, `'` → `\'`, newline → `\n` for `$'...'` context
+- Added `escapeZshEnumValue()` — backslash-escapes `\`, `'`, spaces, `(`, `)` for zsh `(v1 v2)` lists
+- Changed `EnumCase.values` from `string` to `readonly string[]` to enable per-value escaping
+- Applied `escapeZshEnumValue` in `buildZshFlagSpecs()` for zsh `_arguments` specs
+- 5 bash tests: simple passthrough, spaces with IFS, single quotes, backslashes, mixed pathological
+- 6 zsh tests: simple passthrough, spaces, single quotes, backslashes, parentheses, mixed pathological
+- All 1196 tests pass, typecheck/lint/format/build clean
+- Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** `compgen -W` word-splits on IFS — spaces in values require `IFS=$'\n'` with newline-separated `$'...'` string; bash single-quote and `$'...'` contexts need different escaping strategies; zsh `(v1 v2)` lists support backslash-escaping within the list
