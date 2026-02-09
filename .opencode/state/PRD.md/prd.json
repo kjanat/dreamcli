@@ -20,7 +20,7 @@
 			"id": "resolve-help-1",
 			"title": "Help text shows env/config resolution sources",
 			"description": "Update formatHelp to display env var and config path annotations on flags that declare them. e.g. '--region <us|eu|ap>  [env: DEPLOY_REGION] [config: deploy.region]'. Shows users where values can come from.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{

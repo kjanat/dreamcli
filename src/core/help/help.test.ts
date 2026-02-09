@@ -240,6 +240,127 @@ describe('formatHelp', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// Env/config source annotations
+	// -----------------------------------------------------------------------
+
+	describe('env/config annotations', () => {
+		it('shows [env: VAR] when envVar is set', () => {
+			const cmd = command('deploy').flag(
+				'region',
+				flag.string().env('DEPLOY_REGION').describe('Target region'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[env: DEPLOY_REGION]');
+		});
+
+		it('shows [config: path] when configPath is set', () => {
+			const cmd = command('deploy').flag(
+				'region',
+				flag.string().config('deploy.region').describe('Target region'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[config: deploy.region]');
+		});
+
+		it('shows both env and config annotations together', () => {
+			const cmd = command('deploy').flag(
+				'region',
+				flag
+					.enum(['us', 'eu', 'ap'])
+					.env('DEPLOY_REGION')
+					.config('deploy.region')
+					.describe('Target region'),
+			);
+			// Use wide width to prevent wrapping from splitting annotations
+			const help = formatHelp(cmd.schema, { width: 120 });
+			expect(help).toContain('[env: DEPLOY_REGION]');
+			expect(help).toContain('[config: deploy.region]');
+			// env before config in output
+			const envIdx = help.indexOf('[env: DEPLOY_REGION]');
+			const configIdx = help.indexOf('[config: deploy.region]');
+			expect(envIdx).toBeLessThan(configIdx);
+		});
+
+		it('places annotations after description and before [required]', () => {
+			const cmd = command('deploy').flag(
+				'token',
+				flag.string().env('API_TOKEN').required().describe('Auth token'),
+			);
+			const help = formatHelp(cmd.schema);
+			const descIdx = help.indexOf('Auth token');
+			const envIdx = help.indexOf('[env: API_TOKEN]');
+			const reqIdx = help.indexOf('[required]');
+			expect(descIdx).toBeLessThan(envIdx);
+			expect(envIdx).toBeLessThan(reqIdx);
+		});
+
+		it('places annotations after description and before (default: X)', () => {
+			const cmd = command('deploy').flag(
+				'port',
+				flag.number().env('PORT').default(8080).describe('Server port'),
+			);
+			const help = formatHelp(cmd.schema);
+			const descIdx = help.indexOf('Server port');
+			const envIdx = help.indexOf('[env: PORT]');
+			const defIdx = help.indexOf('(default: 8080)');
+			expect(descIdx).toBeLessThan(envIdx);
+			expect(envIdx).toBeLessThan(defIdx);
+		});
+
+		it('renders annotations without description', () => {
+			const cmd = command('deploy').flag(
+				'region',
+				flag.string().env('REGION').config('deploy.region'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[env: REGION]');
+			expect(help).toContain('[config: deploy.region]');
+		});
+
+		it('does not show env/config when not configured', () => {
+			const cmd = command('run').flag('verbose', flag.boolean().describe('Verbose'));
+			const help = formatHelp(cmd.schema);
+			expect(help).not.toContain('[env:');
+			expect(help).not.toContain('[config:');
+		});
+
+		it('renders full annotation chain: description + env + config + required', () => {
+			const cmd = command('deploy').flag(
+				'region',
+				flag
+					.enum(['us', 'eu', 'ap'])
+					.env('DEPLOY_REGION')
+					.config('deploy.region')
+					.required()
+					.describe('Target region'),
+			);
+			// Use wide width to keep annotations on one line
+			const help = formatHelp(cmd.schema, { width: 120 });
+			// Check the full annotation sequence
+			const line = help.split('\n').find((l) => l.includes('--region'));
+			expect(line).toBeDefined();
+			expect(line).toContain('Target region');
+			expect(line).toContain('[env: DEPLOY_REGION]');
+			expect(line).toContain('[config: deploy.region]');
+			expect(line).toContain('[required]');
+		});
+
+		it('renders full annotation chain: description + env + config + default', () => {
+			const cmd = command('deploy').flag(
+				'port',
+				flag.number().env('PORT').config('server.port').default(3000).describe('Listen port'),
+			);
+			const help = formatHelp(cmd.schema);
+			const line = help.split('\n').find((l) => l.includes('--port'));
+			expect(line).toBeDefined();
+			expect(line).toContain('Listen port');
+			expect(line).toContain('[env: PORT]');
+			expect(line).toContain('[config: server.port]');
+			expect(line).toContain('(default: 3000)');
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// Examples section
 	// -----------------------------------------------------------------------
 

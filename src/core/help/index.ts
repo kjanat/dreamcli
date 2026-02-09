@@ -135,12 +135,20 @@ function formatValueHint(schema: FlagSchema): string {
 	}
 }
 
-/** Build description with default/required annotations. */
+/** Build description with env/config/default/required annotations. */
 function formatFlagDescription(schema: FlagSchema): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
 		parts.push(schema.description);
+	}
+
+	// Resolution source annotations — show users where values can come from
+	if (schema.envVar !== undefined) {
+		parts.push(`[env: ${schema.envVar}]`);
+	}
+	if (schema.configPath !== undefined) {
+		parts.push(`[config: ${schema.configPath}]`);
 	}
 
 	if (schema.presence === 'required') {
