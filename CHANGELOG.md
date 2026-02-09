@@ -13,14 +13,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 #### Core Framework
 
-- **Structured errors** (`CLIError`, `ParseError`, `ValidationError`) with stable error codes, `toJSON()`
-  serialization, type guard functions (`isCLIError`, `isParseError`, `isValidationError`), and
-  actionable `suggest` hints.
+- **Structured errors** (`CLIError`, `ParseError`, `ValidationError`) with stable error codes,
+  `toJSON()` serialization, type guard functions (`isCLIError`, `isParseError`,
+  `isValidationError`), and actionable `suggest` hints.
 - **Flag builder** (`flag`) with full type inference for boolean, string, number, enum, and array
   kinds. Supports `.alias()`, `.default()`, `.required()`, `.describe()`, `.hidden()`,
   `.deprecated()`, `.env()`, and `.config()` declarations.
-- **Arg builder** (`arg`) with type inference for string, number, custom parse functions, and variadic
-  args. Supports `.default()`, `.required()`, `.optional()`, and `.describe()`.
+- **Arg builder** (`arg`) with type inference for string, number, custom parse functions, and
+  variadic args. Supports `.default()`, `.required()`, `.optional()`, and `.describe()`.
 - **Command builder** (`command`) with `.flag()`, `.arg()`, `.description()`, `.example()`,
   `.hidden()`, `.alias()`, and `.action()`. Accumulates phantom types so handler receives fully
   inferred `flags` and `args`.
@@ -29,13 +29,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   coercion against the schema.
 - **Resolution chain** (CLI parsed value → schema default). Validates all required flags/args,
   aggregates multiple errors into a single throw, and provides per-field suggestions.
-- **Auto-generated help text** (`formatHelp`) from command schema, including usage line, description,
-  positional args, flags with types/defaults/aliases, examples section, and subcommand listing.
+- **Auto-generated help text** (`formatHelp`) from command schema, including usage line,
+  description, positional args, flags with types/defaults/aliases, examples section, and subcommand
+  listing.
 - **Output channel** (`createOutput`) with `log`/`info`/`warn`/`error` methods, `WriteFn`
   abstraction, verbosity levels (normal/quiet), and TTY detection. Includes `createCaptureOutput()`
   test helper.
-- **Test harness** (`runCommand`) for running commands as pure functions with injected argv, env, and
-  captured output. Returns `RunResult` with `exitCode`, `stdout`, `stderr`, and `error`.
+- **Test harness** (`runCommand`) for running commands as pure functions with injected argv, env,
+  and captured output. Returns `RunResult` with `exitCode`, `stdout`, `stderr`, and `error`.
 - **CLI builder** (`cli`) with `.command()` registration, `.version()`, subcommand dispatch,
   automatic `--help`/`--version` flag handling, and unknown-command error with suggestions.
 - **RuntimeAdapter interface** defining the platform abstraction boundary (argv, env, cwd,

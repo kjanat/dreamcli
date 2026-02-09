@@ -1,5 +1,5 @@
 # Progress Log
-PRD: dreamcli-mvp
+PRD: dreamcli-v02
 Started: 2026-02-09
 
 ## Codebase Patterns
@@ -20,6 +20,7 @@ Started: 2026-02-09
 - **Testkit pattern**: `runCommand(cmd, argv, options?)` → `Promise<RunResult>`. Full pipeline: help detection → parse → resolve → handler → result. Never throws — all errors caught. `RunResult` has `exitCode`, `stdout[]`, `stderr[]`, `error`. `RunOptions` injects `env`, `verbosity`, `help` without process state. `invokeHandler` internal function is the sole phantom-type boundary cast. `HandlerParams` models the erased `ActionParams<F,A>`. Standalone function (not method) to avoid circular deps with `command.ts`.
 - **CLI builder pattern**: `cli(name)` → `CLIBuilder` (immutable, no phantom types). `.version()`, `.description()`, `.command()` — all return new builders. Two execution paths: `.execute(argv, opts?)` → `Promise<RunResult>` (testable, no process state) and `.run(opts?)` → `Promise<never>` (production, uses `RuntimeAdapter`). Type-erased command storage via `ErasedCommand` closures — captures typed `CommandBuilder<F,A>` in closure, presents uniform `_execute()` to dispatcher. No `any` types needed. `formatRootHelp()` is separate from `formatHelp()` — different format (program overview vs command details). `buildCommandRunOptions()` handles `exactOptionalPropertyTypes` via conditional spreads.
 - **Runtime adapter pattern**: `RuntimeAdapter` interface in `src/runtime/adapter.ts` — fields: `argv`, `env`, `cwd`, `stdout: WriteFn`, `stderr: WriteFn`, `isTTY`, `exit`. `createNodeAdapter(proc?)` wraps Node/Bun `process` global. `createTestAdapter(opts?)` provides injectable stub — exit throws `ExitError` by default. `CLIRunOptions.adapter?` injects into `.run()` — defaults to `createNodeAdapter()`. `NodeProcess` internal interface avoids `@types/node` dependency. I/O seam: adapter `stdout`/`stderr` are `WriteFn` (same type as output module), not raw streams.
+- **Env resolution pattern**: `resolve(schema, parsed, options?)` accepts `ResolveOptions` with optional `env` record. Resolution chain: CLI → env → default. `coerceEnvValue()` returns discriminated `CoerceEnvResult` (`ok: true | false`) instead of throwing — allows error aggregation. Boolean env coercion is lenient: accepts `true/false/1/0/yes/no/""` (case-insensitive). Array env values are comma-separated. Element coercion recurses via `coerceEnvValue()` with element schema. Env errors use `TYPE_MISMATCH` / `INVALID_ENUM` validation codes. `CLIBuilder.run()` auto-sources `adapter.env` when no explicit `env` option provided.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -185,3 +186,16 @@ Started: 2026-02-09
 - 31 tests: createTestAdapter (defaults, custom fields, noop writers), ExitError (subclass, code, message), createNodeAdapter (mock proc, stdout/stderr routing, exit delegation, isTTY variants, default globalThis.process), RuntimeAdapter interface (both adapters satisfy contract), CLIBuilder.run() integration (adapter injection, argv/output, --version, --help, unknown command, no args, argv slicing), public surface exports
 - Files changed: `src/runtime/adapter.ts`, `src/runtime/node.ts`, `src/runtime/index.ts`, `src/core/cli/index.ts`, `src/index.ts`, `src/runtime/runtime.test.ts` (new)
 - **Learnings:** `WriteFn` from the output module is the right I/O seam for adapters too — adapter `stdout`/`stderr` match the same `(data: string) => void` type, so wiring adapter writers into the output system is zero-impedance. `ExitError` with a `.code` field is the clean pattern for test adapters — tests catch the exit and assert on the code without needing mocks. Keep `NodeProcess` internal to the adapter — consumers never need to know the shape of the underlying platform object. The adapter defaults to `createNodeAdapter()` in `.run()`, so existing code continues to work without changes.
+
+## Task - resolve-env-1
+- Extended `resolve()` with optional `ResolveOptions` parameter containing `env` record
+- Resolution chain now: CLI → env → default (was CLI → default in v0.1)
+- Implemented `coerceEnvValue()` — returns discriminated `CoerceEnvResult` (ok/error) instead of throwing, enabling error aggregation
+- String env: passthrough. Number: `Number()` with NaN check. Boolean: lenient (true/false/1/0/yes/no/"", case-insensitive). Enum: validates against allowed values. Array: comma-separated splitting with recursive element coercion.
+- Invalid env values emit `ValidationError` with `TYPE_MISMATCH` or `INVALID_ENUM` codes, including `envVar` in details
+- Threaded env through `runCommand()` in testkit via `ResolveOptions`, and through `CLIBuilder.run()` which auto-sources `adapter.env` when no explicit `env` option provided
+- Exported `ResolveOptions` from public surface (`src/index.ts`)
+- 40 new tests: string/number/boolean/enum/array coercion, CLI>env>default precedence, required satisfaction via env, error aggregation, backward compatibility, mixed multi-flag scenarios
+- All 504 tests pass, zero type errors, clean lint/format
+- Files changed: `src/core/resolve/index.ts`, `src/core/resolve/resolve-env.test.ts` (new), `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/index.ts`
+- **Learnings:** Returning a discriminated result (`CoerceEnvResult`) from coercion rather than throwing is cleaner for error aggregation — the caller collects errors into an array and throws once. Boolean env coercion should be more lenient than CLI (accept `yes/no`, case-insensitive, empty string = false) since env vars are often set by CI systems with varying conventions. `exactOptionalPropertyTypes` means you can't test `{ env: undefined }` — omit the key instead. Comma-separated array env is the universal convention; no need for a custom separator option.

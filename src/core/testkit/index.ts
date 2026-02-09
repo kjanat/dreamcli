@@ -17,6 +17,7 @@ import { formatHelp } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
 import { parse } from '../parse/index.js';
+import type { ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
 import type { ActionHandler, CommandBuilder, Out } from '../schema/command.js';
@@ -152,7 +153,10 @@ async function runCommand<
 		const parsed = parse(cmd.schema, argv);
 
 		// -- Resolve -------------------------------------------------------------
-		const resolved = resolve(cmd.schema, parsed);
+		const resolveOptions: ResolveOptions = {
+			...(options?.env !== undefined ? { env: options.env } : {}),
+		};
+		const resolved = resolve(cmd.schema, parsed, resolveOptions);
 
 		// -- Execute handler -----------------------------------------------------
 		// The resolver guarantees that resolved.flags and resolved.args match

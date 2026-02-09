@@ -504,7 +504,12 @@ class CLIBuilder {
 		const adapter = options?.adapter ?? createNodeAdapter();
 
 		const argv = adapter.argv.slice(2);
-		const result = await this.execute(argv, options);
+		// Source env from adapter when not explicitly provided in options
+		const executeOptions: CLIRunOptions = {
+			...options,
+			...(options?.env === undefined ? { env: adapter.env } : {}),
+		};
+		const result = await this.execute(argv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {

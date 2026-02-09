@@ -1,89 +1,40 @@
 {
-	"prdName": "dreamcli-mvp",
-	"description": "DreamCLI v0.1 MVP — Schema builder, parsing, inference, auto-help, basic errors, test harness",
+	"prdName": "dreamcli-v02",
+	"description": "DreamCLI v0.2 — Resolution chain (env/config/default), required handling, non-interactive behavior rules",
 	"tasks": [
 		{
-			"id": "init-1",
-			"title": "Project initialization: package.json, tsconfig, build tooling, test framework",
-			"description": "Initialize the project with package.json (ESM-first), tsconfig.json (strict, NodeNext), vitest for testing, tsdown for building. Create src/ directory structure matching PRD architecture. Wire up biome for linting/formatting.",
+			"id": "resolve-env-1",
+			"title": "Env variable resolution in the resolver",
+			"description": "Extend resolve() to accept ResolveOptions with an env record. For each flag with schema.envVar set, look up the value in env after CLI and before default. Coerce env string to the flag's kind (number, boolean, enum validation). Emit ValidationError for invalid env values. Thread env through testkit RunOptions and CLI builder.",
 			"passes": true,
 			"priority": "architecture"
 		},
 		{
-			"id": "errors-1",
-			"title": "Structured error types (CLIError, ParseError, ValidationError)",
-			"description": "Implement FR4 base error types: CLIError with message/code/exitCode/suggest/details/cause. Derive ParseError and ValidationError. These are foundational — every other module throws them.",
-			"passes": true,
+			"id": "resolve-config-1",
+			"title": "Config object resolution in the resolver",
+			"description": "Extend ResolveOptions with an optional config record. For each flag with schema.configPath set, resolve dotted path (e.g. 'deploy.region') against the config object after env and before default. Coerce config values same as env. Config object is plain JSON — file loading deferred to a later task or user-land.",
+			"passes": false,
 			"priority": "architecture"
 		},
 		{
-			"id": "schema-1",
-			"title": "Flag schema builder with type inference",
-			"description": "Implement flag() builder: boolean, string, number, enum, array types. Each flag carries its type at the TS level. Support .default(), .alias(), .describe(), .required(), .env(), .config(). Type inference must flow — flag.enum(['us','eu']) yields 'us'|'eu'.",
-			"passes": true,
-			"priority": "architecture"
-		},
-		{
-			"id": "schema-2",
-			"title": "Arg schema builder with type inference",
-			"description": "Implement arg() builder: string, number, custom parse. Support .required(), .optional(), .variadic(), .describe(). Type inference for positional args.",
-			"passes": true,
-			"priority": "architecture"
-		},
-		{
-			"id": "schema-3",
-			"title": "Command builder with flag/arg composition and type accumulation",
-			"description": "Implement command() builder that chains .flag() and .arg() calls, accumulating types. .action() handler receives fully typed { args, flags, ctx, out }. Support .description(), .alias(), .hidden(), .examples().",
-			"passes": true,
-			"priority": "architecture"
-		},
-		{
-			"id": "parse-1",
-			"title": "Argv tokenizer and parser",
-			"description": "Implement argv tokenization: --flag=value, --flag value, -f, -abc (combined short), --, positional args. Parse against command schema to produce typed raw values. Emit ParseError for unknown flags, type mismatches.",
-			"passes": true,
-			"priority": "architecture"
-		},
-		{
-			"id": "resolve-1",
-			"title": "Resolution chain: CLI → default (env/config/prompt deferred)",
-			"description": "Implement MVP resolution: CLI parsed values → default values. Required flag validation (error if not resolved). This is the simplified v0.1 chain; env/config/prompt come in v0.2/v0.3.",
-			"passes": true,
-			"priority": "architecture"
-		},
-		{
-			"id": "help-1",
-			"title": "Auto-generated help text from schema",
-			"description": "Generate help text from command schema: usage line, description, flags table (name, alias, type, default, description), args list. Support --help flag on all commands. Format for TTY width.",
-			"passes": true,
+			"id": "resolve-help-1",
+			"title": "Help text shows env/config resolution sources",
+			"description": "Update formatHelp to display env var and config path annotations on flags that declare them. e.g. '--region <us|eu|ap>  [env: DEPLOY_REGION] [config: deploy.region]'. Shows users where values can come from.",
+			"passes": false,
 			"priority": "integration"
 		},
 		{
-			"id": "output-1",
-			"title": "Output channel (out object for handlers)",
-			"description": "Implement out object with log/info/warn/error methods. Basic TTY vs non-TTY detection. Foundation for FR5 — handlers use out instead of console.log.",
-			"passes": true,
+			"id": "resolve-errors-1",
+			"title": "Non-interactive required handling with actionable hints",
+			"description": "When a required flag is missing after full resolution (CLI/env/config/default), the ValidationError suggest field should list all configured sources the user could have used. e.g. 'Provide --region, set DEPLOY_REGION, or add deploy.region to config'. CI-friendly error messages.",
+			"passes": false,
 			"priority": "integration"
 		},
 		{
-			"id": "testkit-1",
-			"title": "Test harness: command.run() with injected state",
-			"description": "Implement command.run(argv, options) that accepts injected env/config/stdin/stdout. Capture output. Return structured result with exitCode and output. This enables FR4's test-first design.",
-			"passes": true,
-			"priority": "integration"
-		},
-		{
-			"id": "cli-1",
-			"title": "CLI entry point: cli() builder with command registration and run()",
-			"description": "Implement cli() builder: .version(), .command(), .run(). Dispatches to correct command based on argv. Handles --help, --version at root. Wires runtime adapter (Node-only for MVP).",
-			"passes": true,
-			"priority": "integration"
-		},
-		{
-			"id": "runtime-1",
-			"title": "Runtime adapter interface + Node adapter",
-			"description": "Define RuntimeAdapter interface (argv, env, cwd, isTTY, stdout/stderr/stdin). Implement Node adapter. Wire into cli().run() as default.",
-			"passes": true,
+			"id": "resolve-integration-1",
+			"title": "Wire env/config through testkit and CLI builder execution paths",
+			"description": "Update runCommand() to pass RunOptions.env and RunOptions.config into resolve(). Update CLIBuilder.execute() and .run() to thread adapter.env and optional config through the resolution chain. Ensure all existing tests still pass with the new signatures.",
+			"passes": false,
 			"priority": "integration"
 		}
 	]
