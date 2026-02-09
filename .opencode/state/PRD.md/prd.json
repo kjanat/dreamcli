@@ -1,69 +1,85 @@
 {
-	"prdName": "dreamcli-v04",
-	"description": "DreamCLI v0.4 — Middleware + typed context, structured output channel (--json, TTY detection, table)",
+	"prdName": "dreamcli",
+	"description": "Schema-first, fully typed TypeScript CLI framework. v0.1 core, v0.2 resolution chain, v0.3 interactive prompting, v0.4 middleware + structured output",
 	"tasks": [
 		{
 			"id": "mw-1-context-type-param",
 			"title": "Add context type parameter to ActionParams and CommandBuilder",
-			"description": "Add third type parameter C to ActionParams, ActionHandler, and CommandBuilder for typed middleware context. Default C = Record<string, never> ensures ctx starts empty and accessing any property is a type error until middleware provides it. Update HandlerParams in testkit to accept ctx parameter (still {} at runtime). All existing tests must pass unchanged (backward-compatible default). Add type-level tests verifying ctx.foo errors without middleware.",
+			"description": "Add third type parameter C to ActionParams, ActionHandler, and CommandBuilder for typed middleware context.",
 			"passes": true,
 			"priority": "architecture"
 		},
 		{
-			"id": "mw-2-middleware-types",
-			"title": "Define middleware type system and factory",
-			"description": "New module src/core/middleware/index.ts. Define MiddlewareContext<CIn> with args/flags/ctx/out. Define Next function type that accepts optional context extension. Define MiddlewareHandler<CIn, COut> function signature. Define Middleware<CIn, COut> branded wrapper with phantom type params. Implement middleware<CIn, COut>(handler) factory function. Export from barrel and public surface. Unit tests for factory + type-level tests for context accumulation.",
-			"passes": false,
-			"priority": "architecture"
+			"id": "middleware-types",
+			"title": "Middleware type definitions and factory function",
+			"description": "Define Middleware<In, Out> type, MiddlewareContext, next() signature. Create middleware() factory. Wire C type parameter through CommandBuilder.middleware() to widen context via intersection.",
+			"priority": 1,
+			"category": "architecture",
+			"passes": true
 		},
 		{
-			"id": "mw-3-command-registration",
-			"title": "Add .middleware() to CommandBuilder with type accumulation",
-			"description": "Add .middleware(mw) method to CommandBuilder that produces CommandBuilder<F, A, C & COut>. Store type-erased ErasedMiddleware on CommandSchema.middleware array. Handler invalidated on middleware addition (context type changes). Initialize middleware: [] in command() factory. Update makeSchema() helpers in test files. Type-level tests: accumulation through chain, action receives accumulated context.",
-			"passes": false,
-			"priority": "integration"
+			"id": "middleware-chain",
+			"title": "Middleware chain execution in runCommand pipeline",
+			"description": "Implement middleware chain runner: execute middlewares in order, each calling next() to pass context downstream. Wire into testkit runCommand() pipeline between resolve and action invocation. Handle errors thrown in middleware (CLIError propagation).",
+			"priority": 1,
+			"category": "architecture",
+			"passes": true
 		},
 		{
-			"id": "mw-4-execution-chain",
-			"title": "Implement middleware execution chain in testkit",
-			"description": "Implement executeMiddlewareChain() in testkit: runs middleware in order, accumulates context extensions via next(), then calls action. Update runCommand pipeline to execute middleware between resolve and invokeHandler. Guard against double-next. Error handling: CLIError propagates, unknown errors wrapped. No middleware = direct action call. Tests: ordering, accumulation, short-circuit, errors, double-next guard.",
-			"passes": false,
-			"priority": "integration"
+			"id": "output-json",
+			"title": "Extend Out interface with json() method and --json mode",
+			"description": "Add json(value) to Out interface. Add --json global flag support. In --json mode: json() writes JSON to stdout, log/info/warn/error are suppressed or redirected.",
+			"priority": 2,
+			"category": "integration",
+			"passes": true
 		},
 		{
-			"id": "out-1-extended-interface",
-			"title": "Extend Out interface with json/table/data methods",
-			"description": "Add json(value), table(rows, columns?), data(value, options?) to Out interface in command.ts. Define TableColumnConfig<T> with key/header/width/align. Define DataOutputOptions<T> with format function. Add OutputMode = 'tty' | 'json' | 'plain'. Add mode to OutputOptions. Implement json/data on OutputChannel with mode-based switching. Stub table() to delegate to json(). Export new types from public surface.",
-			"passes": false,
-			"priority": "architecture"
+			"id": "output-table",
+			"title": "Table output with TTY-aware rendering",
+			"description": "Add table(rows, columns) to Out. TTY mode: pretty-print aligned columns. Piped/--json mode: emit JSON array.",
+			"priority": 2,
+			"category": "integration",
+			"passes": true
 		},
 		{
-			"id": "out-2-table-renderer",
-			"title": "Implement table rendering",
-			"description": "New file src/core/output/table.ts. Implement resolveColumns (auto-detect from row keys or use explicit config). Implement calculateColumnWidths with max-width constraint. Implement formatCell with left/right/center alignment and truncation with ellipsis. Implement renderTable producing header + separator + data rows. Wire into OutputChannel.table() with mode switching (JSON mode = JSON array, TTY/plain = rendered table). Tests: empty rows, auto-columns, explicit columns, alignment, truncation, JSON mode.",
-			"passes": false,
-			"priority": "feature"
+			"id": "output-tty",
+			"title": "TTY detection and output mode inference",
+			"description": "Wire isTTY from RuntimeAdapter through output channel creation. Ensure --json flag overrides TTY pretty-printing.",
+			"priority": 2,
+			"category": "integration",
+			"passes": true
 		},
 		{
-			"id": "out-3-json-flag",
-			"title": "Implement --json global flag and wire TTY detection",
-			"description": "Detect --json in CLIBuilder.execute() before command dispatch, strip from argv, set outputMode to 'json'. Add isTTY to CLIRunOptions. Wire adapter.isTTY through run() to execute(). Mode resolution: --json > explicit outputMode > isTTY-derived > 'plain' default. Add outputMode to RunOptions in testkit. Wire mode through to createCaptureOutput. Update root help to show --json. JSON mode errors use out.json(error.toJSON()). Tests: --json detection/stripping, TTY mode derivation, error JSON output, help shows --json.",
-			"passes": false,
-			"priority": "feature"
+			"id": "cli-middleware-integration",
+			"title": "Wire middleware through CLIBuilder and testkit execution",
+			"description": "Integrate middleware chain into CLIBuilder.execute() and .run() paths. Ensure runCommand() in testkit supports middleware.",
+			"priority": 3,
+			"category": "integration",
+			"passes": true
 		},
 		{
-			"id": "int-1-testkit-json-helpers",
-			"title": "Extend testkit with output mode metadata and JSON helpers",
-			"description": "Add outputMode field to RunResult for test assertions. Track effective mode through runCommand execution. Add parseJsonOutput(result) helper that joins stdout and JSON.parses. Add mode to CapturedOutput. Export parseJsonOutput from testkit and public surface. Tests: outputMode in result, parseJsonOutput valid/invalid, mode flows correctly.",
-			"passes": false,
-			"priority": "integration"
+			"id": "cli-json-flag",
+			"title": "Global --json flag on CLIBuilder",
+			"description": "Add automatic --json flag to CLIBuilder. Pass jsonMode to output channel. Ensure errors also render as JSON in --json mode.",
+			"priority": 3,
+			"category": "feature",
+			"passes": true
 		},
 		{
-			"id": "doc-1-exports-surface",
-			"title": "Verify and complete public API exports for v0.4",
-			"description": "Audit src/index.ts for all new v0.4 types and functions. Ensure middleware module exports (middleware factory, all types). Ensure output types (OutputMode, TableColumnConfig, DataOutputOptions). Ensure testkit exports (parseJsonOutput). Add public surface smoke tests for all new exports. Verify tsdown build succeeds with new exports.",
-			"passes": false,
-			"priority": "feature"
+			"id": "middleware-context-e2e",
+			"title": "End-to-end middleware + context type safety tests",
+			"description": "Integration tests: middleware chain with multiple middlewares composing context, typed ctx in action handler, error middleware, middleware ordering.",
+			"priority": 4,
+			"category": "feature",
+			"passes": true
+		},
+		{
+			"id": "output-e2e",
+			"title": "End-to-end output channel tests (json, table, TTY modes)",
+			"description": "Integration tests: --json mode with json()/table()/log(), piped mode, TTY mode, mixed output.",
+			"priority": 4,
+			"category": "feature",
+			"passes": true
 		}
 	]
 }

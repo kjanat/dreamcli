@@ -1,5 +1,5 @@
 # Progress Log
-PRD: dreamcli-v03
+PRD: dreamcli
 Started: 2026-02-09
 
 ## Codebase Patterns
@@ -29,6 +29,17 @@ Started: 2026-02-09
 - **Prompt resolution pattern**: `resolve()` is now async (`Promise<ResolveResult>`). Resolution chain: CLI → env → config → **prompt** → default. `ResolveOptions.prompter?: PromptEngine` — when present and flag has `schema.prompt`, calls `resolvePromptConfig()` → `prompter.promptOne()` → `coercePromptValue()`. Three-outcome `PromptResolveResult`: `ok: true` (value), `ok: false, error` (coercion fail), `ok: false, no error` (cancelled → falls through to default/required). Non-interactive mode: no prompter → prompt step skipped entirely. `coercePromptValue()` mirrors env/config coercion but prompt-specific error messages with `source: 'prompt'` in details. `RunOptions.prompter` and `CLIRunOptions.prompter` thread prompter through testkit and CLI builder into resolve.
 - **Runtime stdin pattern**: `RuntimeAdapter` has `stdin: ReadFn` and `stdinIsTTY: boolean`. `ReadFn` is `() => Promise<string | null>` (from prompt module). `createNodeAdapter` wraps `process.stdin` via dynamic `import('node:readline')` — lazy per-call readline interfaces avoid holding stdin open. `createTestAdapter` defaults to EOF-returning stdin (`() => Promise.resolve(null)`) and `stdinIsTTY: false`. `CLIBuilder.run()` auto-creates a `createTerminalPrompter(adapter.stdin, adapter.stderr)` when `stdinIsTTY=true` and no explicit prompter provided — this is the prompt gating seam. Prompts write to stderr so they don't interfere with piped stdout. `node-builtins.d.ts` provides minimal `node:readline` types to avoid `@types/node`.
 - **Interactive resolver pattern**: `CommandBuilder.interactive(resolver)` stores a type-erased `ErasedInteractiveResolver` on `CommandSchema.interactive`. Resolver receives `{ flags: Partial<InferFlags<F>> }` (partially resolved after CLI/env/config). Returns `Record<string, PromptConfig | false | undefined | null | 0 | ''>`. Semantics: truthy `PromptConfig` overrides per-flag prompt; `false` explicitly suppresses prompting; `undefined`/`null`/absent falls back to per-flag `.prompt()` config. Resolution is two-pass: pass 1 resolves CLI/env/config for all flags; interactive resolver called with partial state; pass 2 prompts unresolved flags using interactive configs or per-flag fallback, then applies defaults/required. Type erasure via `as unknown as ErasedInteractiveResolver` — single cast point, same pattern as handler erasure in testkit.
+- **WidenContext conditional type**: `Record<string, never>` as default C makes naive intersection collapse to `never`. Use `WidenContext<C, Output> = C extends Record<string, never> ? Output : C & Output` to replace on first middleware, intersect on subsequent.
+- **Middleware explicit generic**: `middleware<{ user: string }>(...)` is needed for reliable inference in strict TS mode; inference from `next()` argument alone is unreliable across all TS contexts.
+- **Middleware phantom type via cast**: `MiddlewareImpl` (runtime) cast to `Middleware<Output>` (phantom-branded) — same pattern as flag/arg builders.
+- **executeWithMiddleware continuation chain**: Build from back to front so first middleware is outermost. Each `next()` closes over downstream chain.
+- **Global flag pattern**: Detect in `CLIBuilder.execute()`, strip from argv before dispatch, propagate via options to downstream `runCommand()`. No global flag schema — hardcoded like `--version`/`--help`.
+- **JSON mode redirection**: In JSON mode, `log`/`info` → stderr, `json()` → stdout. Errors rendered via `out.json({ error: err.toJSON() })` to stdout. Scripts get one structured JSON stream on stdout.
+- **Table output dual-mode**: `table()` in JSON mode delegates to `json(rows)` (full data, unfiltered). In normal mode, delegates to `log(formatTable(...))` so redirection rules apply automatically.
+- **isTTY wiring pattern**: `adapter.isTTY` → `CLIRunOptions.isTTY` → `RunOptions.isTTY` → `createCaptureOutput({ isTTY })` → `OutputChannel.isTTY` → `Out.isTTY`. Each layer conditionally spreads to respect `exactOptionalPropertyTypes`.
+- **Output mode precedence**: `jsonMode > isTTY` — handlers check `jsonMode` first, then `isTTY`.
+- **CLIBuilder.command() must accept any C**: `eraseCommand()` and `CLIBuilder.command()` need `C extends Record<string, unknown>` generic param so commands with middleware can be registered.
+- **JSON error rendering at every error site**: Both `CLIBuilder.execute()` (dispatch errors) and `runCommand()` (command errors) have separate error paths. Each must check `jsonMode`.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -361,3 +372,88 @@ Started: 2026-02-09
 - All 801 tests pass, zero type errors, clean lint/format
 - Files changed: `src/core/schema/command.ts`, `src/core/schema/command.test.ts`
 - **Learnings:** `Record<string, never>` is the correct "empty context" default — `Record<string, unknown>` would allow arbitrary property access returning `unknown`, which doesn't catch the "no middleware = no context" mistake. The default type parameter on the class propagates to all method return types, so changing `CommandBuilder<F, A>` → `CommandBuilder<F, A, C>` with `C = Record<string, never>` is fully backward-compatible — existing code that doesn't specify `C` gets the default. `expectTypeOf<T>().toBeNever()` doesn't work when the value IS `never` — use `type CtxValue = (typeof ctx)[string]; expectTypeOf<CtxValue>().toBeNever()` instead.
+
+## Task - middleware-types + middleware-chain
+- Implemented `Middleware<Output>` type, `MiddlewareHandler<Output>`, `MiddlewareParams`, `ErasedMiddlewareHandler` in new `src/core/schema/middleware.ts`
+- Implemented `middleware()` factory function with phantom type branding
+- Added `CommandBuilder.middleware()` method with `WidenContext<C, Output>` return type
+- Added `middleware: readonly ErasedMiddlewareHandler[]` to `CommandSchema`
+- Replaced `invokeHandler()` with `executeWithMiddleware()` in testkit — continuation-based chain execution
+- Added `C` generic to `runCommand()` and `executeWithMiddleware()` signatures
+- Updated barrel exports in `schema/index.ts` and `src/index.ts`
+- Updated 7 test helper `makeSchema()` functions to include `middleware: []`
+- 26 new tests covering: factory, type inference, builder integration, runtime execution (ordering, context accumulation, flags/args access, output channel, short-circuit, error propagation, wrapping, backward compat, env/config integration)
+- Files changed: `src/core/schema/middleware.ts` (new), `src/core/schema/middleware.test.ts` (new), `src/core/schema/command.ts`, `src/core/schema/index.ts`, `src/core/testkit/index.ts`, `src/index.ts`, + 7 test files (makeSchema fix)
+- **Learnings:** WidenContext conditional type pattern, explicit generic needed for reliable middleware Output inference, continuation chain built back-to-front
+
+## Task - output-json
+- Added `json(value: unknown): void` and `readonly jsonMode: boolean` to the `Out` interface
+- Extended `OutputOptions` / `ResolvedOutputOptions` with `jsonMode` field
+- `OutputChannel.json()` serialises via `JSON.stringify` and writes to stdout
+- In JSON mode: `log()` and `info()` redirect to stderr, keeping stdout clean for structured output
+- `json()` always writes to stdout regardless of mode
+- Added `jsonMode` to `RunOptions` (testkit) and `CLIRunOptions` (CLI builder)
+- `CLIBuilder.execute()` detects `--json` in argv, strips it, sets `jsonMode` on downstream options
+- `runCommand()` renders errors as `{ error: CLIError.toJSON() }` via `out.json()` in JSON mode
+- 17 new tests: output unit tests (json serialisation, jsonMode redirection, combined verbosity), testkit integration (json output, error rendering in both modes), CLI integration (--json flag stripping, flag position, combined with --version/--help)
+- Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/output/output.test.ts`, `src/core/testkit/testkit-json.test.ts` (new), `src/core/cli/cli-json.test.ts` (new), `src/core/schema/command.test.ts` (mock fix)
+- **Learnings:** Global flag pattern — detect in CLIBuilder.execute(), strip from argv before dispatch, propagate via options. JSON errors go to stdout (not stderr) in --json mode so scripts get one consistent JSON stream.
+
+## Task - output-table
+- Added `TableColumn<T>` type to `Out` interface in `src/core/schema/command.ts`
+- Added `table<T>(rows, columns?)` to `Out` interface — generic over row type
+- Implemented `OutputChannel.table()`: JSON mode emits `json(rows)` to stdout; normal mode pretty-prints aligned columns via `log()`
+- Added `formatTable()` internal helper: auto-infer columns from first row keys, compute column widths, render header + separator + data lines with left-aligned padding
+- `cellToString()` converts null/undefined to empty string, everything else to `String()`
+- Added `TableColumn` to barrel exports in `schema/index.ts` and `src/index.ts`
+- Updated `mockOut` in `command.test.ts` to include `table: vi.fn()`
+- 16 new tests in `output-table.test.ts`: auto-inferred columns, explicit columns, alignment, null/undefined handling, empty rows, single row, numeric/boolean values, JSON mode (emits array to stdout), piped mode (text table), combined output interactions
+- Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/schema/index.ts`, `src/index.ts`, `src/core/schema/command.test.ts` (mock fix), `src/core/output/output-table.test.ts` (new)
+- **Learnings:** Table rendering delegates to `log()` in normal mode so JSON-mode redirection is automatically handled. In JSON mode, `table()` emits the raw rows array — column filtering is a display concern, not a data concern.
+
+## Task - output-tty
+- Added `isTTY: boolean` to `Out` interface in `src/core/schema/command.ts` with doc noting jsonMode precedence
+- Exposed `isTTY` as public readonly on `OutputChannel` (was already stored in `options.isTTY`, now also on instance)
+- Added `isTTY?: boolean` to `RunOptions` (testkit) — wired through to `createCaptureOutput`
+- Added `isTTY?: boolean` to `CLIRunOptions` (CLI builder) — wired through `buildCommandRunOptions`, `execute()` capture output
+- `CLIBuilder.run()` auto-sources `adapter.isTTY` when `options.isTTY` not explicitly set
+- Updated `mockOut` in `command.test.ts` to include `isTTY: false`
+- 38 new tests across 3 files: `output-tty.test.ts` (20), `testkit-tty.test.ts` (10), `cli-tty.test.ts` (8)
+- Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, + 3 new test files
+- **Learnings:** isTTY wiring follows same conditional-spread pattern as jsonMode for `exactOptionalPropertyTypes`. Output mode precedence: jsonMode > isTTY.
+
+## Task - cli-middleware-integration
+- Fixed type gap: `CLIBuilder.command()` and `eraseCommand()` lacked `C` generic parameter
+- Added `C extends Record<string, unknown>` to both `eraseCommand<F, A, C>()` and `CLIBuilder.command<F, A, C>()`
+- Runtime already worked; this was purely a type-level fix
+- 14 new integration tests in `cli-middleware.test.ts`
+- Files changed: `src/core/cli/index.ts` (type fix), `src/core/cli/cli-middleware.test.ts` (new)
+- **Learnings:** `CLIBuilder.command()` must accept any `C` — any method that accepts `CommandBuilder` needs all three phantom params `<F, A, C>`.
+
+## Task - cli-json-flag
+- Fixed CLI-level dispatch errors to render as JSON in `--json` mode
+- Previously these errors always used `out.error()` regardless of mode
+- 6 new tests: no-commands JSON/text, unknown-command JSON/text, close-match suggestion in JSON, jsonMode via options
+- Files changed: `src/core/cli/index.ts` (2 error paths), `src/core/cli/cli-json.test.ts` (6 new tests)
+- **Learnings:** CLI-level errors (dispatch layer) and command-level errors (runCommand layer) are separate code paths — both need JSON-mode handling.
+
+## Task - middleware-context-e2e
+- 32 new e2e tests in `src/core/testkit/middleware-context-e2e.test.ts`
+- Covers: multi-middleware composition, typed ctx assertions, error middleware, ordering/wrap-around, CLI dispatch, output modes, resolution chain interplay, edge cases
+- Files changed: `src/core/testkit/middleware-context-e2e.test.ts` (new)
+- **Learnings:** Loop-based middleware chaining hits type-level issues because `CommandBuilder` generic `C` widens on each `.middleware()` call. Use explicit chaining or factory functions.
+
+## Task - output-e2e
+- 42 new e2e tests in `src/core/testkit/output-e2e.test.ts`
+- Covers: JSON mode, piped mode, TTY mode, mixed output, verbosity matrix, error rendering, CLI dispatch, capture correctness, table features
+- Files changed: `src/core/testkit/output-e2e.test.ts` (new)
+- **Learnings:** `CLIError.toJSON()` includes `name` field — must account for it in exact equality assertions.
+
+## Release - v0.4.0
+- Renamed branch `v0.4-middleware-output` → `dreamcli-v04`, pushed to remote
+- Bumped package.json version from 0.3.0 to 0.4.0
+- Updated CHANGELOG.md with v0.4.0 section
+- Tagged v0.4.0 (GPG-signed), pushed with tags
+- Fast-forwarded master to dreamcli-v04
+- Deleted 9 stale branches (local + remote)
+- 1010 tests, zero type errors
