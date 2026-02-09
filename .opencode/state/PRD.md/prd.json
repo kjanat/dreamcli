@@ -76,7 +76,7 @@
 			"id": "cli-1",
 			"title": "CLI entry point: cli() builder with command registration and run()",
 			"description": "Implement cli() builder: .version(), .command(), .run(). Dispatches to correct command based on argv. Handles --help, --version at root. Wires runtime adapter (Node-only for MVP).",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{

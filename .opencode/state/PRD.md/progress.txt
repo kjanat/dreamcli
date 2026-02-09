@@ -18,6 +18,7 @@ Started: 2026-02-09
 - **Help pattern**: `formatHelp(schema, options?)` → `string`. Reads `CommandSchema` to render sections: Usage, Description, Arguments, Flags, Examples. `HelpOptions` controls `width` (default 80) and `binName`. Flags sorted: short-aliased first, then alphabetical. Type hints per `FlagKind`; boolean suppresses hint and `(default: false)`. Word-wrapping via `wrapText()` at word boundaries with indent continuation.
 - **Output pattern**: `createOutput(options?)` → `Out`. `WriteFn = (data: string) => void` is the sole I/O seam. `OutputChannel` implements `Out`; routes `log`/`info` → stdout writer, `warn`/`error` → stderr writer. `Verbosity: 'normal' | 'quiet'` — quiet suppresses `info`. `isTTY` boolean for downstream TTY-aware formatting. `noopWrite` fallback when no writers provided. `createCaptureOutput()` test helper returns `[Out, CapturedOutput]` with separate stdout/stderr arrays. `Out` interface stays in `command.ts` (contract); implementation in `core/output/`.
 - **Testkit pattern**: `runCommand(cmd, argv, options?)` → `Promise<RunResult>`. Full pipeline: help detection → parse → resolve → handler → result. Never throws — all errors caught. `RunResult` has `exitCode`, `stdout[]`, `stderr[]`, `error`. `RunOptions` injects `env`, `verbosity`, `help` without process state. `invokeHandler` internal function is the sole phantom-type boundary cast. `HandlerParams` models the erased `ActionParams<F,A>`. Standalone function (not method) to avoid circular deps with `command.ts`.
+- **CLI builder pattern**: `cli(name)` → `CLIBuilder` (immutable, no phantom types). `.version()`, `.description()`, `.command()` — all return new builders. Two execution paths: `.execute(argv, opts?)` → `Promise<RunResult>` (testable, no process state) and `.run(opts?)` → `Promise<never>` (production, reads process.argv, exits). Type-erased command storage via `ErasedCommand` closures — captures typed `CommandBuilder<F,A>` in closure, presents uniform `_execute()` to dispatcher. No `any` types needed. `formatRootHelp()` is separate from `formatHelp()` — different format (program overview vs command details). `getProcess()` isolates `globalThis.process` access behind a function for runtime-1 to replace. `buildCommandRunOptions()` handles `exactOptionalPropertyTypes` via conditional spreads.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -151,3 +152,24 @@ Started: 2026-02-09
 - 30 tests: basic execution, flags/args/async, help detection, parse errors, validation errors, handler errors (CLIError/unknown/non-Error/async), no-handler, verbosity, result structure, complex commands (enum/array/variadic/defaults/mixed)
 - Files changed: `src/core/testkit/index.ts` (rewritten), `src/core/testkit/testkit.test.ts` (new), `src/index.ts`
 - **Learnings:** Phantom-type boundary between resolver (`Record<string, unknown>`) and handler (`InferFlags<F>`) requires exactly one `as` cast — isolate it in a named internal function (`invokeHandler`) with full documentation. `exactOptionalPropertyTypes` means you can't pass `{ verbosity: options?.verbosity }` when `verbosity` might be `undefined` — conditionally construct the options object instead. Circular dependency risk: `CommandBuilder.run()` → testkit → command.ts. Solution: keep `runCommand()` as standalone testkit export; add `.run()` convenience when cli-1 wires the full dispatcher.
+
+## Task - cli-1
+- Implemented `CLIBuilder` (immutable, no phantom types) with `cli(name)` factory
+- `.version()`, `.description()`, `.command()` — all return new builders (immutable pattern)
+- `.execute(argv, opts?)` → `Promise<RunResult>` — testable path, no process state touched
+- `.run(opts?)` → `Promise<never>` — production path, reads `globalThis.process.argv`, writes to stdout/stderr, calls `process.exit()`
+- Type-erased command storage via `ErasedCommand` interface with `_execute()` closure — captures typed `CommandBuilder<F,A>` inside closure, no `any` types
+- `eraseCommand<F,A>(cmd)` closes over the typed builder so `runCommand()` receives fully typed `CommandBuilder<F,A>` — zero type assertions for type erasure
+- Command dispatch: extract first non-flag arg → match by name or alias → delegate remaining argv to `runCommand()`
+- Root `--version` / `-V` → output version, exit 0 (silent exit if no version set)
+- Root `--help` / `-h` / no args → `formatRootHelp()` with program overview, command list, footer hint
+- Unknown root flags → show root help (graceful fallback)
+- Unknown command → `ParseError('UNKNOWN_COMMAND')` with Levenshtein "did you mean?" suggestions
+- No commands registered → `CLIError('NO_ACTION')` with hint to add commands
+- `formatRootHelp(schema, opts?)` — separate from `formatHelp()`: header (name + version), description, usage line, visible commands table (hidden excluded), aligned descriptions, footer hint
+- `getProcess()` isolates `globalThis.process` access behind a function — clean seam for runtime-1
+- `buildCommandRunOptions()` handles `exactOptionalPropertyTypes` via conditional spreads
+- `CLIRunOptions` mirrors `RunOptions` — `env`, `verbosity`, `help` with `binName` defaulting to CLI name
+- 56 tests: factory, immutability, --version (with/without version set, -V, precedence over commands), root help (no args, --help, -h, description, footer, hidden commands, multiple commands, unknown flags), command dispatch (by name, by alias, correct argv slicing, hidden commands), per-command --help (binName passthrough), error handling (unknown command, "did you mean", no commands, no action handler, parse/validation errors), async handlers, options passthrough (verbosity), complex multi-command composition, formatRootHelp (alignment, width, sections), builder chaining, edge cases (empty argv, handler errors, async errors), public surface exports
+- Files changed: `src/core/cli/index.ts` (new), `src/core/cli/cli.test.ts` (new), `src/index.ts`
+- **Learnings:** Heterogeneous typed collection without `any` — use existential type erasure via closures: `ErasedCommand._execute` closes over `CommandBuilder<F,A>`, presenting `(argv, opts?) => Promise<RunResult>` to the dispatcher. No phantom types needed at CLI level since dispatch is name-based. `globalThis.process` cast through `unknown` avoids needing `@types/node` while keeping the core runtime-agnostic. `MinimalProcess` declares only the subset needed for `.run()`. Text helpers (padEnd, wrapText, levenshtein) are duplicated from help/parse modules to avoid coupling — acceptable since they're small pure functions.
