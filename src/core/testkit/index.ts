@@ -18,6 +18,7 @@ import { formatHelp } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
 import { parse } from '../parse/index.js';
+import type { PromptEngine } from '../prompt/index.js';
 import type { ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
@@ -59,7 +60,7 @@ interface RunOptions {
 	 * Environment variables for flag resolution.
 	 *
 	 * Flags with `.env('VAR')` configured resolve from this record
-	 * when no CLI value is provided (CLI → env → config → default).
+	 * when no CLI value is provided (CLI → env → config → prompt → default).
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
 
@@ -67,10 +68,21 @@ interface RunOptions {
 	 * Configuration object for flag resolution.
 	 *
 	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → default).
+	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
 	 * Config is plain JSON — file loading is the caller's responsibility.
 	 */
 	readonly config?: Readonly<Record<string, unknown>>;
+
+	/**
+	 * Prompt engine for interactive flag resolution.
+	 *
+	 * When provided, flags with `.prompt()` configured that have no value
+	 * after CLI/env/config resolution will be prompted interactively.
+	 *
+	 * When absent, prompting is skipped and resolution falls through to
+	 * default/required.
+	 */
+	readonly prompter?: PromptEngine;
 
 	/**
 	 * Verbosity level for the output channel.
@@ -168,8 +180,9 @@ async function runCommand<
 		const resolveOptions: ResolveOptions = {
 			...(options?.env !== undefined ? { env: options.env } : {}),
 			...(options?.config !== undefined ? { config: options.config } : {}),
+			...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
 		};
-		const resolved = resolve(cmd.schema, parsed, resolveOptions);
+		const resolved = await resolve(cmd.schema, parsed, resolveOptions);
 
 		// -- Execute handler -----------------------------------------------------
 		// The resolver guarantees that resolved.flags and resolved.args match

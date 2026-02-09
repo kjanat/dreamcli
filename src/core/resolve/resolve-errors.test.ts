@@ -35,13 +35,13 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
  * Helper to catch the ValidationError from resolve() and return it.
  * Fails the test if resolve does not throw.
  */
-function catchValidationError(
+async function catchValidationError(
 	schema: CommandSchema,
 	parsed: ParseResult,
 	options?: Parameters<typeof resolve>[2],
-): ValidationError {
+): Promise<ValidationError> {
 	try {
-		resolve(schema, parsed, options);
+		await resolve(schema, parsed, options);
 		expect.unreachable('should have thrown');
 	} catch (err) {
 		expect(isValidationError(err)).toBe(true);
@@ -58,29 +58,29 @@ function catchValidationError(
 describe('resolve — required flag actionable hints', () => {
 	// -- CLI-only (no env/config configured) ---------------------------------
 
-	it('suggests only --flag when no env or config configured', () => {
+	it('suggests only --flag when no env or config configured', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', { presence: 'required' }),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.suggest).toBe('Provide --token <value>');
 	});
 
-	it('suggests only --flag for boolean (no <value> hint)', () => {
+	it('suggests only --flag for boolean (no <value> hint)', async () => {
 		const schema = makeSchema({
 			flags: {
 				confirm: createSchema('boolean', { presence: 'required' }),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.suggest).toBe('Provide --confirm');
 	});
 
 	// -- CLI + env -----------------------------------------------------------
 
-	it('suggests --flag or env when envVar configured', () => {
+	it('suggests --flag or env when envVar configured', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', {
@@ -89,13 +89,13 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.suggest).toBe('Provide --token <value> or set API_TOKEN');
 	});
 
 	// -- CLI + config --------------------------------------------------------
 
-	it('suggests --flag or config when configPath configured', () => {
+	it('suggests --flag or config when configPath configured', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', {
@@ -105,13 +105,13 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.suggest).toBe('Provide --region <value> or add deploy.region to config');
 	});
 
 	// -- CLI + env + config (full chain) ------------------------------------
 
-	it('suggests all three sources when env and config configured', () => {
+	it('suggests all three sources when env and config configured', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', {
@@ -122,13 +122,13 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.suggest).toBe(
 			'Provide --region <value>, set DEPLOY_REGION, or add deploy.region to config',
 		);
 	});
 
-	it('boolean with env and config lists all sources', () => {
+	it('boolean with env and config lists all sources', async () => {
 		const schema = makeSchema({
 			flags: {
 				dryRun: createSchema('boolean', {
@@ -138,13 +138,13 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.suggest).toBe('Provide --dryRun, set DRY_RUN, or add ci.dryRun to config');
 	});
 
 	// -- Details include resolution sources ---------------------------------
 
-	it('includes envVar in details when configured', () => {
+	it('includes envVar in details when configured', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', {
@@ -153,7 +153,7 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.details).toEqual({
 			flag: 'token',
 			kind: 'string',
@@ -161,7 +161,7 @@ describe('resolve — required flag actionable hints', () => {
 		});
 	});
 
-	it('includes configPath in details when configured', () => {
+	it('includes configPath in details when configured', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -170,7 +170,7 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.details).toEqual({
 			flag: 'region',
 			kind: 'string',
@@ -178,7 +178,7 @@ describe('resolve — required flag actionable hints', () => {
 		});
 	});
 
-	it('includes both envVar and configPath in details', () => {
+	it('includes both envVar and configPath in details', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -188,7 +188,7 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.details).toEqual({
 			flag: 'region',
 			kind: 'string',
@@ -197,13 +197,13 @@ describe('resolve — required flag actionable hints', () => {
 		});
 	});
 
-	it('omits envVar and configPath from details when not configured', () => {
+	it('omits envVar and configPath from details when not configured', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', { presence: 'required' }),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.details).toEqual({ flag: 'token', kind: 'string' });
 		expect(err.details).not.toHaveProperty('envVar');
 		expect(err.details).not.toHaveProperty('configPath');
@@ -211,7 +211,7 @@ describe('resolve — required flag actionable hints', () => {
 
 	// -- Aggregated errors preserve per-flag suggestions --------------------
 
-	it('aggregated error preserves per-flag suggest with sources', () => {
+	it('aggregated error preserves per-flag suggest with sources', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', {
@@ -226,7 +226,7 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 
 		// Aggregated error wraps individual errors
 		expect(err.message).toContain('Multiple validation errors');
@@ -249,7 +249,7 @@ describe('resolve — required flag actionable hints', () => {
 
 	// -- Still throws even when env/config are provided but value is absent --
 
-	it('throws with sources when env record provided but var is missing', () => {
+	it('throws with sources when env record provided but var is missing', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', {
@@ -259,11 +259,11 @@ describe('resolve — required flag actionable hints', () => {
 			},
 		});
 		// Env record provided but without the expected key
-		const err = catchValidationError(schema, makeParsed(), { env: { OTHER_VAR: 'x' } });
+		const err = await catchValidationError(schema, makeParsed(), { env: { OTHER_VAR: 'x' } });
 		expect(err.suggest).toBe('Provide --token <value> or set API_TOKEN');
 	});
 
-	it('throws with sources when config provided but path is missing', () => {
+	it('throws with sources when config provided but path is missing', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -273,7 +273,7 @@ describe('resolve — required flag actionable hints', () => {
 			},
 		});
 		// Config provided but without the expected path
-		const err = catchValidationError(schema, makeParsed(), {
+		const err = await catchValidationError(schema, makeParsed(), {
 			config: { deploy: { other: 'x' } },
 		});
 		expect(err.suggest).toBe('Provide --region <value> or add deploy.region to config');
@@ -281,7 +281,7 @@ describe('resolve — required flag actionable hints', () => {
 
 	// -- Number flag with env/config sources --------------------------------
 
-	it('number flag required error includes env/config sources', () => {
+	it('number flag required error includes env/config sources', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', {
@@ -291,7 +291,7 @@ describe('resolve — required flag actionable hints', () => {
 				}),
 			},
 		});
-		const err = catchValidationError(schema, makeParsed());
+		const err = await catchValidationError(schema, makeParsed());
 		expect(err.suggest).toBe('Provide --port <value>, set PORT, or add server.port to config');
 	});
 });

@@ -20,7 +20,7 @@
 			"id": "prompt-resolve-1",
 			"title": "Integrate prompting into the resolution chain",
 			"description": "Make resolve() async. Insert prompt step between config and default: for each flag with prompt config and no value yet, call promptEngine.promptOne(). Add prompter field to ResolveOptions. Non-interactive mode (no prompter or stdinIsTTY=false) skips prompts and falls through to default/required. Update all resolve() callers to await.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{

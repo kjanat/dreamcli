@@ -37,7 +37,7 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
 // ========================================================================
 
 describe('resolve — env string flags', () => {
-	it('resolves string flag from env when CLI absent', () => {
+	it('resolves string flag from env when CLI absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', { envVar: 'DEPLOY_REGION' }),
@@ -46,11 +46,11 @@ describe('resolve — env string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { DEPLOY_REGION: 'eu' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'eu' });
 	});
 
-	it('CLI value takes precedence over env', () => {
+	it('CLI value takes precedence over env', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', { envVar: 'DEPLOY_REGION' }),
@@ -59,11 +59,11 @@ describe('resolve — env string flags', () => {
 		const parsed = makeParsed({ flags: { region: 'us' } });
 		const options: ResolveOptions = { env: { DEPLOY_REGION: 'eu' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 
-	it('env takes precedence over default', () => {
+	it('env takes precedence over default', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -76,11 +76,11 @@ describe('resolve — env string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { DEPLOY_REGION: 'ap' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'ap' });
 	});
 
-	it('falls through to default when env var not set', () => {
+	it('falls through to default when env var not set', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -93,11 +93,11 @@ describe('resolve — env string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: {} };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 
-	it('ignores env when flag has no envVar declared', () => {
+	it('ignores env when flag has no envVar declared', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
@@ -106,7 +106,7 @@ describe('resolve — env string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { DEPLOY_REGION: 'eu' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 });
@@ -116,7 +116,7 @@ describe('resolve — env string flags', () => {
 // ========================================================================
 
 describe('resolve — env number flags', () => {
-	it('coerces env string to number', () => {
+	it('coerces env string to number', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { envVar: 'PORT' }),
@@ -125,11 +125,11 @@ describe('resolve — env number flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { PORT: '8080' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ port: 8080 });
 	});
 
-	it('coerces env float string to number', () => {
+	it('coerces env float string to number', async () => {
 		const schema = makeSchema({
 			flags: {
 				threshold: createSchema('number', { envVar: 'THRESHOLD' }),
@@ -138,11 +138,11 @@ describe('resolve — env number flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { THRESHOLD: '0.75' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ threshold: 0.75 });
 	});
 
-	it('throws ValidationError for non-numeric env value', () => {
+	it('throws ValidationError for non-numeric env value', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { envVar: 'PORT' }),
@@ -151,10 +151,10 @@ describe('resolve — env number flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { PORT: 'not-a-number' } };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 
-	it('env number error has TYPE_MISMATCH code and details', () => {
+	it('env number error has TYPE_MISMATCH code and details', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { envVar: 'PORT' }),
@@ -164,7 +164,7 @@ describe('resolve — env number flags', () => {
 		const options: ResolveOptions = { env: { PORT: 'abc' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -204,7 +204,7 @@ describe('resolve — env boolean flags', () => {
 	];
 
 	for (const [input, expected] of booleanCases) {
-		it(`coerces env '${input}' to ${String(expected)}`, () => {
+		it(`coerces env '${input}' to ${String(expected)}`, async () => {
 			const schema = makeSchema({
 				flags: {
 					verbose: createSchema('boolean', {
@@ -217,12 +217,12 @@ describe('resolve — env boolean flags', () => {
 			const parsed = makeParsed();
 			const options: ResolveOptions = { env: { VERBOSE: input } };
 
-			const result = resolve(schema, parsed, options);
+			const result = await resolve(schema, parsed, options);
 			expect(result.flags).toEqual({ verbose: expected });
 		});
 	}
 
-	it('throws ValidationError for invalid boolean env value', () => {
+	it('throws ValidationError for invalid boolean env value', async () => {
 		const schema = makeSchema({
 			flags: {
 				verbose: createSchema('boolean', {
@@ -236,7 +236,7 @@ describe('resolve — env boolean flags', () => {
 		const options: ResolveOptions = { env: { VERBOSE: 'maybe' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -253,7 +253,7 @@ describe('resolve — env boolean flags', () => {
 // ========================================================================
 
 describe('resolve — env enum flags', () => {
-	it('resolves valid enum value from env', () => {
+	it('resolves valid enum value from env', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu', 'ap'] }),
@@ -262,11 +262,11 @@ describe('resolve — env enum flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { REGION: 'eu' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'eu' });
 	});
 
-	it('throws ValidationError for invalid enum env value', () => {
+	it('throws ValidationError for invalid enum env value', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu', 'ap'] }),
@@ -276,7 +276,7 @@ describe('resolve — env enum flags', () => {
 		const options: ResolveOptions = { env: { REGION: 'jp' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -299,7 +299,7 @@ describe('resolve — env enum flags', () => {
 // ========================================================================
 
 describe('resolve — env array flags', () => {
-	it('resolves comma-separated env value to string array', () => {
+	it('resolves comma-separated env value to string array', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { envVar: 'TAGS' }),
@@ -308,11 +308,11 @@ describe('resolve — env array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { TAGS: 'v1,v2,v3' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ tags: ['v1', 'v2', 'v3'] });
 	});
 
-	it('resolves empty env string to empty array', () => {
+	it('resolves empty env string to empty array', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { envVar: 'TAGS' }),
@@ -321,11 +321,11 @@ describe('resolve — env array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { TAGS: '' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ tags: [] });
 	});
 
-	it('resolves single-element env array', () => {
+	it('resolves single-element env array', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { envVar: 'TAGS' }),
@@ -334,11 +334,11 @@ describe('resolve — env array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { TAGS: 'only-one' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ tags: ['only-one'] });
 	});
 
-	it('coerces array elements via element schema (number)', () => {
+	it('coerces array elements via element schema (number)', async () => {
 		const schema = makeSchema({
 			flags: {
 				ports: createSchema('array', {
@@ -350,11 +350,11 @@ describe('resolve — env array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { PORTS: '8080,9090,3000' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ ports: [8080, 9090, 3000] });
 	});
 
-	it('throws for invalid array element value', () => {
+	it('throws for invalid array element value', async () => {
 		const schema = makeSchema({
 			flags: {
 				ports: createSchema('array', {
@@ -367,7 +367,7 @@ describe('resolve — env array flags', () => {
 		const options: ResolveOptions = { env: { PORTS: '8080,bad,3000' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -383,7 +383,7 @@ describe('resolve — env array flags', () => {
 // ========================================================================
 
 describe('resolve — env satisfies required flags', () => {
-	it('env value satisfies required flag', () => {
+	it('env value satisfies required flag', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', { presence: 'required', envVar: 'TOKEN' }),
@@ -392,11 +392,11 @@ describe('resolve — env satisfies required flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { TOKEN: 'secret123' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ token: 'secret123' });
 	});
 
-	it('still throws when required flag has envVar but env is not set', () => {
+	it('still throws when required flag has envVar but env is not set', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', { presence: 'required', envVar: 'TOKEN' }),
@@ -405,7 +405,7 @@ describe('resolve — env satisfies required flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: {} };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 });
 
@@ -414,7 +414,7 @@ describe('resolve — env satisfies required flags', () => {
 // ========================================================================
 
 describe('resolve — no env options (backward compatibility)', () => {
-	it('works without options (v0.1 behavior)', () => {
+	it('works without options (v0.1 behavior)', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
@@ -422,11 +422,11 @@ describe('resolve — no env options (backward compatibility)', () => {
 		});
 		const parsed = makeParsed();
 
-		const result = resolve(schema, parsed);
+		const result = await resolve(schema, parsed);
 		expect(result.flags).toEqual({ port: 3000 });
 	});
 
-	it('works with empty options', () => {
+	it('works with empty options', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
@@ -434,11 +434,11 @@ describe('resolve — no env options (backward compatibility)', () => {
 		});
 		const parsed = makeParsed();
 
-		const result = resolve(schema, parsed, {});
+		const result = await resolve(schema, parsed, {});
 		expect(result.flags).toEqual({ port: 3000 });
 	});
 
-	it('works with no env key in options', () => {
+	it('works with no env key in options', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
@@ -448,7 +448,7 @@ describe('resolve — no env options (backward compatibility)', () => {
 
 		// No `env` key at all — exercises the `options?.env ?? {}` path
 		const options: ResolveOptions = {};
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ port: 3000 });
 	});
 });
@@ -458,7 +458,7 @@ describe('resolve — no env options (backward compatibility)', () => {
 // ========================================================================
 
 describe('resolve — full precedence chain', () => {
-	it('CLI > env > default: CLI wins', () => {
+	it('CLI > env > default: CLI wins', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -471,11 +471,11 @@ describe('resolve — full precedence chain', () => {
 		const parsed = makeParsed({ flags: { region: 'ap' } });
 		const options: ResolveOptions = { env: { REGION: 'eu' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'ap' });
 	});
 
-	it('CLI > env > default: env wins when CLI absent', () => {
+	it('CLI > env > default: env wins when CLI absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -488,11 +488,11 @@ describe('resolve — full precedence chain', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { REGION: 'eu' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'eu' });
 	});
 
-	it('CLI > env > default: default wins when both CLI and env absent', () => {
+	it('CLI > env > default: default wins when both CLI and env absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -505,7 +505,7 @@ describe('resolve — full precedence chain', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: {} };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 });
@@ -515,7 +515,7 @@ describe('resolve — full precedence chain', () => {
 // ========================================================================
 
 describe('resolve — env error aggregation', () => {
-	it('aggregates env coercion error with missing required error', () => {
+	it('aggregates env coercion error with missing required error', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { envVar: 'PORT' }),
@@ -526,7 +526,7 @@ describe('resolve — env error aggregation', () => {
 		const options: ResolveOptions = { env: { PORT: 'bad' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -544,7 +544,7 @@ describe('resolve — env error aggregation', () => {
 // ========================================================================
 
 describe('resolve — mixed env scenarios', () => {
-	it('resolves complex multi-flag command with mixed sources', () => {
+	it('resolves complex multi-flag command with mixed sources', async () => {
 		const schema = makeSchema({
 			flags: {
 				host: createSchema('string', {
@@ -576,7 +576,7 @@ describe('resolve — mixed env scenarios', () => {
 			},
 		};
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({
 			host: '0.0.0.0', // CLI
 			port: 9090, // env (coerced)

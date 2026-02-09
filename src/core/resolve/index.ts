@@ -3,7 +3,8 @@
  *
  * v0.1 implemented: **CLI parsed value -> default value**.
  * v0.2 adds: **env variable resolution** and **config object resolution**
- *   between CLI and default. Prompt resolution deferred to v0.3.
+ *   between CLI and default.
+ * v0.3 adds: **prompt resolution** between config and default.
  *
  * The resolver takes raw `ParseResult` (from the parser) and a
  * `CommandSchema`, applies the resolution chain, and validates
@@ -16,6 +17,8 @@
 
 import { ValidationError } from '../errors/index.js';
 import type { ParseResult } from '../parse/index.js';
+import type { PromptEngine } from '../prompt/index.js';
+import { resolvePromptConfig } from '../prompt/index.js';
 import type { CommandArgEntry, CommandSchema, FlagSchema } from '../schema/index.js';
 
 // ---------------------------------------------------------------------------
@@ -58,6 +61,22 @@ interface ResolveOptions {
 	 * ```
 	 */
 	readonly config?: Readonly<Record<string, unknown>>;
+
+	/**
+	 * Prompt engine for interactive flag resolution.
+	 *
+	 * When provided, flags with `schema.prompt` configured that have no
+	 * value after CLI/env/config resolution will be prompted interactively.
+	 *
+	 * When absent (or in non-interactive contexts), prompting is skipped
+	 * and resolution falls through to default/required.
+	 *
+	 * @example
+	 * ```ts
+	 * resolve(schema, parsed, { prompter: createTestPrompter(['eu']) })
+	 * ```
+	 */
+	readonly prompter?: PromptEngine;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +110,8 @@ interface ResolveResult {
  * 1. CLI parsed value (from `ParseResult`)
  * 2. Env variable (from `ResolveOptions.env`, if flag declares `envVar`)
  * 3. Config value (from `ResolveOptions.config`, if flag declares `configPath`)
- * 4. Default value (from schema)
+ * 4. Prompt (from `ResolveOptions.prompter`, if flag declares `prompt`)
+ * 5. Default value (from schema)
  *
  * After resolution, validates that all required flags and args have
  * a value. Collects **all** validation errors before throwing, so the
@@ -104,14 +124,15 @@ interface ResolveResult {
  * @throws ValidationError if any required flag or arg is missing,
  *   or if an env/config value fails coercion
  */
-function resolve(
+async function resolve(
 	schema: CommandSchema,
 	parsed: ParseResult,
 	options?: ResolveOptions,
-): ResolveResult {
+): Promise<ResolveResult> {
 	const env = options?.env ?? {};
 	const config = options?.config ?? {};
-	const flags = resolveFlags(schema.flags, parsed.flags, env, config);
+	const prompter = options?.prompter;
+	const flags = await resolveFlags(schema.flags, parsed.flags, env, config, prompter);
 	const args = resolveArgs(schema.args, parsed.args);
 	return { flags, args };
 }
@@ -121,26 +142,28 @@ function resolve(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve flag values: CLI -> env -> config -> default, then validate required.
+ * Resolve flag values: CLI -> env -> config -> prompt -> default, then validate required.
  *
  * For each declared flag in the schema:
  * 1. If the parser produced a value → use it
  * 2. Else if the flag has an `envVar` and the env contains it → coerce and use
  * 3. Else if the flag has a `configPath` and the config contains it → coerce and use
- * 4. Else if the schema has a default → use it
- * 5. Else if array kind → use `[]`
- * 6. Else if required → collect a validation error
- * 7. Else (optional) → leave absent (`undefined` when accessed)
+ * 4. Else if the flag has a `prompt` and a prompter is provided → prompt and use
+ * 5. Else if the schema has a default → use it
+ * 6. Else if array kind → use `[]`
+ * 7. Else if required → collect a validation error
+ * 8. Else (optional) → leave absent (`undefined` when accessed)
  *
  * Array flags that were not provided and have no explicit default get
  * an empty array `[]` (more useful than `undefined` for consumers).
  */
-function resolveFlags(
+async function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
 	parsedFlags: Readonly<Record<string, unknown>>,
 	env: Readonly<Record<string, string | undefined>>,
 	config: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> {
+	prompter: PromptEngine | undefined,
+): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
 
@@ -183,6 +206,20 @@ function resolveFlags(
 			}
 		}
 
+		// -- Prompt resolution (v0.3) --------------------------------------------
+		if (schema.prompt !== undefined && prompter !== undefined) {
+			const promptResult = await resolvePromptValue(name, schema, prompter);
+			if (promptResult.ok) {
+				resolved[name] = promptResult.value;
+				continue;
+			}
+			if (promptResult.error !== undefined) {
+				errors.push(promptResult.error);
+				continue;
+			}
+			// Prompt was cancelled or not answered — fall through to default/required
+		}
+
 		if (schema.defaultValue !== undefined) {
 			// Schema default available
 			resolved[name] = schema.defaultValue;
@@ -220,6 +257,175 @@ function resolveFlags(
 	}
 
 	return resolved;
+}
+
+// ---------------------------------------------------------------------------
+// Prompt value resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of attempting to resolve a flag value via prompting.
+ *
+ * Three outcomes:
+ * - `ok: true` — prompt answered, value coerced successfully
+ * - `ok: false, error: ValidationError` — prompt answered but coercion failed
+ * - `ok: false, error: undefined` — prompt cancelled or not answered (fall through)
+ */
+type PromptResolveResult =
+	| { readonly ok: true; readonly value: unknown }
+	| { readonly ok: false; readonly error: ValidationError | undefined };
+
+/**
+ * Prompt the user for a flag value and coerce the result.
+ *
+ * Prepares a `ResolvedPromptConfig` (merging enum values from the flag
+ * schema), calls the engine, and coerces the raw answer to the flag's
+ * declared kind.
+ *
+ * @param flagName - Canonical flag name (for error messages)
+ * @param schema - Flag schema with prompt config
+ * @param prompter - Prompt engine to call
+ */
+async function resolvePromptValue(
+	flagName: string,
+	schema: FlagSchema,
+	prompter: PromptEngine,
+): Promise<PromptResolveResult> {
+	// schema.prompt is guaranteed non-undefined by caller
+	const promptConfig = schema.prompt;
+	if (promptConfig === undefined) {
+		return { ok: false, error: undefined };
+	}
+
+	const resolvedConfig = resolvePromptConfig(promptConfig, schema.enumValues);
+	const result = await prompter.promptOne(resolvedConfig);
+
+	if (!result.answered) {
+		// User cancelled — fall through to default/required
+		return { ok: false, error: undefined };
+	}
+
+	// Coerce the prompt value to the flag's kind
+	return coercePromptValue(flagName, result.value, schema);
+}
+
+/**
+ * Coerce a raw prompt answer to the flag's declared kind.
+ *
+ * Similar to env/config coercion but with prompt-specific error messages.
+ * The prompt engine returns raw values (string for input, boolean for confirm,
+ * string for select, string[] for multiselect) — coercion ensures they match
+ * the flag's declared kind.
+ *
+ * @param flagName - Canonical flag name (for error messages)
+ * @param raw - Raw value from the prompt engine
+ * @param schema - Flag schema declaring the expected kind
+ */
+function coercePromptValue(
+	flagName: string,
+	raw: unknown,
+	schema: FlagSchema,
+): PromptResolveResult {
+	switch (schema.kind) {
+		case 'string': {
+			if (typeof raw === 'string') return { ok: true, value: raw };
+			return { ok: true, value: String(raw) };
+		}
+
+		case 'number': {
+			if (typeof raw === 'number') return { ok: true, value: raw };
+			if (typeof raw === 'string') {
+				const n = Number(raw);
+				if (!Number.isNaN(n)) return { ok: true, value: n };
+			}
+			return {
+				ok: false,
+				error: new ValidationError(`Invalid number value from prompt for flag --${flagName}`, {
+					code: 'TYPE_MISMATCH',
+					details: { flag: flagName, value: raw, expected: 'number', source: 'prompt' },
+					suggest: `Enter a valid number for --${flagName}`,
+				}),
+			};
+		}
+
+		case 'boolean': {
+			if (typeof raw === 'boolean') return { ok: true, value: raw };
+			if (typeof raw === 'string') {
+				const lower = raw.toLowerCase();
+				if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'y') {
+					return { ok: true, value: true };
+				}
+				if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'n' || lower === '') {
+					return { ok: true, value: false };
+				}
+			}
+			return {
+				ok: false,
+				error: new ValidationError(`Invalid boolean value from prompt for flag --${flagName}`, {
+					code: 'TYPE_MISMATCH',
+					details: { flag: flagName, value: raw, expected: 'boolean', source: 'prompt' },
+					suggest: `Answer yes or no for --${flagName}`,
+				}),
+			};
+		}
+
+		case 'enum': {
+			const allowed = schema.enumValues ?? [];
+			if (typeof raw === 'string' && allowed.includes(raw)) {
+				return { ok: true, value: raw };
+			}
+			return {
+				ok: false,
+				error: new ValidationError(
+					`Invalid value '${String(raw)}' from prompt for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
+					{
+						code: 'INVALID_ENUM',
+						details: { flag: flagName, value: raw, allowed, source: 'prompt' },
+						suggest: `Select one of: ${allowed.join(', ')}`,
+					},
+				),
+			};
+		}
+
+		case 'array': {
+			// Multiselect prompts return string[]; accept arrays directly
+			if (Array.isArray(raw)) {
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const element of raw) {
+						const result = coercePromptValue(flagName, element, schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
+				}
+				return { ok: true, value: raw };
+			}
+			// Single value from input prompt — wrap in array
+			if (typeof raw === 'string') {
+				if (raw === '') return { ok: true, value: [] };
+				const parts = raw.split(',');
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const part of parts) {
+						const result = coercePromptValue(flagName, part.trim(), schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
+				}
+				return { ok: true, value: parts };
+			}
+			return {
+				ok: false,
+				error: new ValidationError(`Invalid array value from prompt for flag --${flagName}`, {
+					code: 'TYPE_MISMATCH',
+					details: { flag: flagName, value: raw, expected: 'array', source: 'prompt' },
+					suggest: `Provide valid values for --${flagName}`,
+				}),
+			};
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------

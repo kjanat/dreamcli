@@ -37,7 +37,7 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
 // ========================================================================
 
 describe('resolve — config string flags', () => {
-	it('resolves string flag from config when CLI and env absent', () => {
+	it('resolves string flag from config when CLI and env absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', { configPath: 'deploy.region' }),
@@ -46,11 +46,11 @@ describe('resolve — config string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { deploy: { region: 'eu' } } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'eu' });
 	});
 
-	it('resolves string flag from top-level config path', () => {
+	it('resolves string flag from top-level config path', async () => {
 		const schema = makeSchema({
 			flags: {
 				name: createSchema('string', { configPath: 'name' }),
@@ -59,11 +59,11 @@ describe('resolve — config string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { name: 'test-app' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ name: 'test-app' });
 	});
 
-	it('resolves deeply nested config path', () => {
+	it('resolves deeply nested config path', async () => {
 		const schema = makeSchema({
 			flags: {
 				host: createSchema('string', { configPath: 'server.database.host' }),
@@ -74,11 +74,11 @@ describe('resolve — config string flags', () => {
 			config: { server: { database: { host: 'db.example.com' } } },
 		};
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ host: 'db.example.com' });
 	});
 
-	it('coerces number to string from config', () => {
+	it('coerces number to string from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				label: createSchema('string', { configPath: 'label' }),
@@ -87,11 +87,11 @@ describe('resolve — config string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { label: 42 } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ label: '42' });
 	});
 
-	it('coerces boolean to string from config', () => {
+	it('coerces boolean to string from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				label: createSchema('string', { configPath: 'label' }),
@@ -100,11 +100,11 @@ describe('resolve — config string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { label: true } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ label: 'true' });
 	});
 
-	it('throws for non-coercible string config value', () => {
+	it('throws for non-coercible string config value', async () => {
 		const schema = makeSchema({
 			flags: {
 				label: createSchema('string', { configPath: 'label' }),
@@ -113,7 +113,7 @@ describe('resolve — config string flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { label: [1, 2, 3] } };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 });
 
@@ -122,7 +122,7 @@ describe('resolve — config string flags', () => {
 // ========================================================================
 
 describe('resolve — config number flags', () => {
-	it('resolves number directly from config', () => {
+	it('resolves number directly from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { configPath: 'server.port' }),
@@ -131,11 +131,11 @@ describe('resolve — config number flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { server: { port: 8080 } } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ port: 8080 });
 	});
 
-	it('coerces numeric string from config', () => {
+	it('coerces numeric string from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { configPath: 'port' }),
@@ -144,11 +144,11 @@ describe('resolve — config number flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { port: '9090' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ port: 9090 });
 	});
 
-	it('resolves float number from config', () => {
+	it('resolves float number from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				threshold: createSchema('number', { configPath: 'threshold' }),
@@ -157,11 +157,11 @@ describe('resolve — config number flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { threshold: 0.75 } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ threshold: 0.75 });
 	});
 
-	it('throws for non-numeric config value', () => {
+	it('throws for non-numeric config value', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { configPath: 'port' }),
@@ -171,7 +171,7 @@ describe('resolve — config number flags', () => {
 		const options: ResolveOptions = { config: { port: 'not-a-number' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -188,7 +188,7 @@ describe('resolve — config number flags', () => {
 		}
 	});
 
-	it('throws for boolean config value when number expected', () => {
+	it('throws for boolean config value when number expected', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { configPath: 'port' }),
@@ -197,7 +197,7 @@ describe('resolve — config number flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { port: true } };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 });
 
@@ -206,7 +206,7 @@ describe('resolve — config number flags', () => {
 // ========================================================================
 
 describe('resolve — config boolean flags', () => {
-	it('resolves boolean true directly from config', () => {
+	it('resolves boolean true directly from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				verbose: createSchema('boolean', {
@@ -219,11 +219,11 @@ describe('resolve — config boolean flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { verbose: true } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ verbose: true });
 	});
 
-	it('resolves boolean false directly from config', () => {
+	it('resolves boolean false directly from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				verbose: createSchema('boolean', {
@@ -236,11 +236,11 @@ describe('resolve — config boolean flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { verbose: false } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ verbose: false });
 	});
 
-	it('coerces string "true" from config to boolean', () => {
+	it('coerces string "true" from config to boolean', async () => {
 		const schema = makeSchema({
 			flags: {
 				verbose: createSchema('boolean', {
@@ -253,11 +253,11 @@ describe('resolve — config boolean flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { verbose: 'yes' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ verbose: true });
 	});
 
-	it('throws for invalid boolean config value', () => {
+	it('throws for invalid boolean config value', async () => {
 		const schema = makeSchema({
 			flags: {
 				verbose: createSchema('boolean', {
@@ -271,7 +271,7 @@ describe('resolve — config boolean flags', () => {
 		const options: ResolveOptions = { config: { verbose: 'maybe' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -282,7 +282,7 @@ describe('resolve — config boolean flags', () => {
 		}
 	});
 
-	it('throws for number config value when boolean expected', () => {
+	it('throws for number config value when boolean expected', async () => {
 		const schema = makeSchema({
 			flags: {
 				verbose: createSchema('boolean', {
@@ -295,7 +295,7 @@ describe('resolve — config boolean flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { verbose: 42 } };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 });
 
@@ -304,7 +304,7 @@ describe('resolve — config boolean flags', () => {
 // ========================================================================
 
 describe('resolve — config enum flags', () => {
-	it('resolves valid enum value from config', () => {
+	it('resolves valid enum value from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', {
@@ -316,11 +316,11 @@ describe('resolve — config enum flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { deploy: { region: 'eu' } } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'eu' });
 	});
 
-	it('throws for invalid enum config value', () => {
+	it('throws for invalid enum config value', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', {
@@ -333,7 +333,7 @@ describe('resolve — config enum flags', () => {
 		const options: ResolveOptions = { config: { deploy: { region: 'jp' } } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -350,7 +350,7 @@ describe('resolve — config enum flags', () => {
 		}
 	});
 
-	it('throws for non-string enum config value', () => {
+	it('throws for non-string enum config value', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', {
@@ -362,7 +362,7 @@ describe('resolve — config enum flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { region: 123 } };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 });
 
@@ -371,7 +371,7 @@ describe('resolve — config enum flags', () => {
 // ========================================================================
 
 describe('resolve — config array flags', () => {
-	it('resolves array directly from config', () => {
+	it('resolves array directly from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { configPath: 'tags' }),
@@ -380,11 +380,11 @@ describe('resolve — config array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { tags: ['v1', 'v2', 'v3'] } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ tags: ['v1', 'v2', 'v3'] });
 	});
 
-	it('resolves empty array from config', () => {
+	it('resolves empty array from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { configPath: 'tags' }),
@@ -393,11 +393,11 @@ describe('resolve — config array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { tags: [] } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ tags: [] });
 	});
 
-	it('resolves comma-separated string as array from config', () => {
+	it('resolves comma-separated string as array from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { configPath: 'tags' }),
@@ -406,11 +406,11 @@ describe('resolve — config array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { tags: 'a,b,c' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ tags: ['a', 'b', 'c'] });
 	});
 
-	it('resolves empty string as empty array from config', () => {
+	it('resolves empty string as empty array from config', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { configPath: 'tags' }),
@@ -419,11 +419,11 @@ describe('resolve — config array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { tags: '' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ tags: [] });
 	});
 
-	it('coerces array elements via element schema (number)', () => {
+	it('coerces array elements via element schema (number)', async () => {
 		const schema = makeSchema({
 			flags: {
 				ports: createSchema('array', {
@@ -435,11 +435,11 @@ describe('resolve — config array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { ports: [8080, 9090, 3000] } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ ports: [8080, 9090, 3000] });
 	});
 
-	it('throws for invalid array element in config', () => {
+	it('throws for invalid array element in config', async () => {
 		const schema = makeSchema({
 			flags: {
 				ports: createSchema('array', {
@@ -452,7 +452,7 @@ describe('resolve — config array flags', () => {
 		const options: ResolveOptions = { config: { ports: [8080, 'bad', 3000] } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -462,7 +462,7 @@ describe('resolve — config array flags', () => {
 		}
 	});
 
-	it('throws for non-array non-string config value', () => {
+	it('throws for non-array non-string config value', async () => {
 		const schema = makeSchema({
 			flags: {
 				tags: createSchema('array', { configPath: 'tags' }),
@@ -471,7 +471,7 @@ describe('resolve — config array flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { tags: 42 } };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 });
 
@@ -480,7 +480,7 @@ describe('resolve — config array flags', () => {
 // ========================================================================
 
 describe('resolve — config path navigation', () => {
-	it('falls through when config path does not exist', () => {
+	it('falls through when config path does not exist', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -493,11 +493,11 @@ describe('resolve — config path navigation', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: {} };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 
-	it('falls through when intermediate path segment is missing', () => {
+	it('falls through when intermediate path segment is missing', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -510,11 +510,11 @@ describe('resolve — config path navigation', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { deploy: {} } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 
-	it('falls through when intermediate is a non-object', () => {
+	it('falls through when intermediate is a non-object', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -527,11 +527,11 @@ describe('resolve — config path navigation', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { deploy: 'not-an-object' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 
-	it('falls through when intermediate is null', () => {
+	it('falls through when intermediate is null', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -544,11 +544,11 @@ describe('resolve — config path navigation', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { deploy: null } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 
-	it('ignores config when flag has no configPath declared', () => {
+	it('ignores config when flag has no configPath declared', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
@@ -557,7 +557,7 @@ describe('resolve — config path navigation', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { region: 'eu' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 });
@@ -567,7 +567,7 @@ describe('resolve — config path navigation', () => {
 // ========================================================================
 
 describe('resolve — config satisfies required flags', () => {
-	it('config value satisfies required flag', () => {
+	it('config value satisfies required flag', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', { presence: 'required', configPath: 'auth.token' }),
@@ -576,11 +576,11 @@ describe('resolve — config satisfies required flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: { auth: { token: 'secret123' } } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ token: 'secret123' });
 	});
 
-	it('still throws when required flag has configPath but config value absent', () => {
+	it('still throws when required flag has configPath but config value absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				token: createSchema('string', { presence: 'required', configPath: 'auth.token' }),
@@ -589,7 +589,7 @@ describe('resolve — config satisfies required flags', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: {} };
 
-		expect(() => resolve(schema, parsed, options)).toThrow(ValidationError);
+		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
 	});
 });
 
@@ -598,7 +598,7 @@ describe('resolve — config satisfies required flags', () => {
 // ========================================================================
 
 describe('resolve — full precedence chain with config', () => {
-	it('CLI > env > config > default: CLI wins', () => {
+	it('CLI > env > config > default: CLI wins', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -615,11 +615,11 @@ describe('resolve — full precedence chain with config', () => {
 			config: { deploy: { region: 'config-value' } },
 		};
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'cli-value' });
 	});
 
-	it('CLI > env > config > default: env wins when CLI absent', () => {
+	it('CLI > env > config > default: env wins when CLI absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -636,11 +636,11 @@ describe('resolve — full precedence chain with config', () => {
 			config: { deploy: { region: 'config-value' } },
 		};
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'env-value' });
 	});
 
-	it('CLI > env > config > default: config wins when CLI and env absent', () => {
+	it('CLI > env > config > default: config wins when CLI and env absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -657,11 +657,11 @@ describe('resolve — full precedence chain with config', () => {
 			config: { deploy: { region: 'config-value' } },
 		};
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'config-value' });
 	});
 
-	it('CLI > env > config > default: default wins when all absent', () => {
+	it('CLI > env > config > default: default wins when all absent', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('string', {
@@ -675,7 +675,7 @@ describe('resolve — full precedence chain with config', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: {}, config: {} };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ region: 'us' });
 	});
 });
@@ -685,7 +685,7 @@ describe('resolve — full precedence chain with config', () => {
 // ========================================================================
 
 describe('resolve — no config options (backward compatibility)', () => {
-	it('works without config in options', () => {
+	it('works without config in options', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
@@ -693,11 +693,11 @@ describe('resolve — no config options (backward compatibility)', () => {
 		});
 		const parsed = makeParsed();
 
-		const result = resolve(schema, parsed);
+		const result = await resolve(schema, parsed);
 		expect(result.flags).toEqual({ port: 3000 });
 	});
 
-	it('works with empty config', () => {
+	it('works with empty config', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
@@ -706,11 +706,11 @@ describe('resolve — no config options (backward compatibility)', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { config: {} };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ port: 3000 });
 	});
 
-	it('env resolution still works alongside config', () => {
+	it('env resolution still works alongside config', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { envVar: 'PORT', configPath: 'port' }),
@@ -719,7 +719,7 @@ describe('resolve — no config options (backward compatibility)', () => {
 		const parsed = makeParsed();
 		const options: ResolveOptions = { env: { PORT: '8080' } };
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ port: 8080 });
 	});
 });
@@ -729,7 +729,7 @@ describe('resolve — no config options (backward compatibility)', () => {
 // ========================================================================
 
 describe('resolve — config error aggregation', () => {
-	it('aggregates config coercion error with missing required error', () => {
+	it('aggregates config coercion error with missing required error', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { configPath: 'port' }),
@@ -740,7 +740,7 @@ describe('resolve — config error aggregation', () => {
 		const options: ResolveOptions = { config: { port: 'bad' } };
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -752,7 +752,7 @@ describe('resolve — config error aggregation', () => {
 		}
 	});
 
-	it('aggregates env and config errors together', () => {
+	it('aggregates env and config errors together', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', { envVar: 'PORT' }),
@@ -769,7 +769,7 @@ describe('resolve — config error aggregation', () => {
 		};
 
 		try {
-			resolve(schema, parsed, options);
+			await resolve(schema, parsed, options);
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
@@ -787,7 +787,7 @@ describe('resolve — config error aggregation', () => {
 // ========================================================================
 
 describe('resolve — mixed config scenarios', () => {
-	it('resolves complex multi-flag command with mixed sources including config', () => {
+	it('resolves complex multi-flag command with mixed sources including config', async () => {
 		const schema = makeSchema({
 			flags: {
 				host: createSchema('string', {
@@ -822,7 +822,7 @@ describe('resolve — mixed config scenarios', () => {
 			},
 		};
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({
 			host: '0.0.0.0', // CLI
 			port: 9090, // config (number directly)
@@ -833,7 +833,7 @@ describe('resolve — mixed config scenarios', () => {
 		});
 	});
 
-	it('config with both env and config declared — env takes precedence', () => {
+	it('config with both env and config declared — env takes precedence', async () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('number', {
@@ -848,7 +848,7 @@ describe('resolve — mixed config scenarios', () => {
 			config: { port: 9090 },
 		};
 
-		const result = resolve(schema, parsed, options);
+		const result = await resolve(schema, parsed, options);
 		expect(result.flags).toEqual({ port: 3000 }); // env wins
 	});
 });

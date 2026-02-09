@@ -15,6 +15,7 @@ import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
+import type { PromptEngine } from '../prompt/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
 import type { CommandBuilder, CommandSchema } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
@@ -118,10 +119,19 @@ interface CLIRunOptions {
 	 * Configuration object for flag resolution.
 	 *
 	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → default).
+	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
 	 * Config is plain JSON — file loading is the caller's responsibility.
 	 */
 	readonly config?: Readonly<Record<string, unknown>>;
+
+	/**
+	 * Prompt engine for interactive flag resolution.
+	 *
+	 * When provided, flags with `.prompt()` configured that have no value
+	 * after CLI/env/config resolution will be prompted interactively.
+	 * When absent, prompting is skipped.
+	 */
+	readonly prompter?: PromptEngine;
 
 	/**
 	 * Verbosity level for the output channel.
@@ -338,6 +348,7 @@ function buildCommandRunOptions(
 		help: helpOptions,
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
+		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 	};
 }
