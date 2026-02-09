@@ -83,7 +83,7 @@
 			"id": "runtime-1",
 			"title": "Runtime adapter interface + Node adapter",
 			"description": "Define RuntimeAdapter interface (argv, env, cwd, isTTY, stdout/stderr/stdin). Implement Node adapter. Wire into cli().run() as default.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		}
 	]

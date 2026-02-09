@@ -9,6 +9,8 @@
  * @module dreamcli/core/cli
  */
 
+import type { RuntimeAdapter } from '../../runtime/adapter.js';
+import { createNodeAdapter } from '../../runtime/node.js';
 import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
@@ -18,43 +20,6 @@ import type { CommandBuilder, CommandSchema } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
 import type { RunOptions, RunResult } from '../testkit/index.js';
 import { runCommand } from '../testkit/index.js';
-
-// ---------------------------------------------------------------------------
-// Minimal process type for MVP runtime access
-// ---------------------------------------------------------------------------
-
-/**
- * Minimal `process` shape needed for `.run()`.
- *
- * We intentionally avoid `@types/node` to keep the core runtime-agnostic.
- * The runtime-1 task will formalize this via a `RuntimeAdapter` interface.
- *
- * @internal
- */
-interface MinimalProcess {
-	readonly argv: readonly string[];
-	readonly stdout: {
-		readonly isTTY?: boolean;
-		write(data: string): unknown;
-	};
-	readonly stderr: {
-		write(data: string): unknown;
-	};
-	exit(code: number): never;
-}
-
-/**
- * Access the global `process` object.
- *
- * Isolated into a function so (a) the `declare` doesn't leak and
- * (b) runtime-1 can replace this with adapter injection.
- *
- * @internal
- */
-function getProcess(): MinimalProcess {
-	// `globalThis.process` exists on Node, Bun, and Deno (with --allow-env)
-	return (globalThis as unknown as { process: MinimalProcess }).process;
-}
 
 // ---------------------------------------------------------------------------
 // Type-erased command — existential wrapper for heterogeneous commands
@@ -127,12 +92,20 @@ interface CLISchema {
 // ---------------------------------------------------------------------------
 
 /**
- * Options for `CLIBuilder.execute()` — the testable execution path.
+ * Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.
  *
  * Mirrors `RunOptions` from testkit but adds CLI-level concerns
- * (version display, root help formatting).
+ * (version display, root help formatting, runtime adapter).
  */
 interface CLIRunOptions {
+	/**
+	 * Runtime adapter providing platform-specific I/O, argv, env, etc.
+	 *
+	 * When provided to `.run()`, replaces the default Node adapter.
+	 * Ignored by `.execute()` (which is process-free by design).
+	 */
+	readonly adapter?: RuntimeAdapter;
+
 	/**
 	 * Environment variables available to commands.
 	 * MVP: stored for future env-based resolution (v0.2).
@@ -515,33 +488,33 @@ class CLIBuilder {
 	/**
 	 * Run the CLI program as a production entry point.
 	 *
-	 * Reads `process.argv`, dispatches to the matched command, and exits
-	 * the process with the appropriate exit code.
+	 * Reads argv from the runtime adapter, dispatches to the matched
+	 * command, writes output to real streams, and exits the process.
 	 *
-	 * This is the **only** place that touches process state. For testing,
-	 * use `.execute()` instead.
+	 * This is the **only** place that touches process state (via the
+	 * adapter). For testing, use `.execute()` instead — or provide a
+	 * test adapter via `options.adapter`.
 	 *
-	 * MVP: hardcodes Node.js process access via `globalThis.process`.
-	 * The runtime-1 task will formalize this via a `RuntimeAdapter` interface.
+	 * Defaults to `createNodeAdapter()` when no adapter is provided,
+	 * which works on both Node.js and Bun.
 	 *
-	 * @param options - Optional runtime configuration.
+	 * @param options - Optional runtime configuration including adapter.
 	 */
 	async run(options?: CLIRunOptions): Promise<never> {
-		const proc = getProcess();
+		const adapter = options?.adapter ?? createNodeAdapter();
 
-		// MVP: direct process access (to be replaced by runtime adapter)
-		const argv = proc.argv.slice(2);
+		const argv = adapter.argv.slice(2);
 		const result = await this.execute(argv, options);
 
-		// Write captured output to real streams
+		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {
-			proc.stdout.write(line);
+			adapter.stdout(line);
 		}
 		for (const line of result.stderr) {
-			proc.stderr.write(line);
+			adapter.stderr(line);
 		}
 
-		return proc.exit(result.exitCode);
+		return adapter.exit(result.exitCode);
 	}
 }
 
