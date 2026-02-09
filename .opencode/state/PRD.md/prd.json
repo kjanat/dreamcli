@@ -34,7 +34,7 @@
 			"id": "schema-3",
 			"title": "Command builder with flag/arg composition and type accumulation",
 			"description": "Implement command() builder that chains .flag() and .arg() calls, accumulating types. .action() handler receives fully typed { args, flags, ctx, out }. Support .description(), .alias(), .hidden(), .examples().",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{

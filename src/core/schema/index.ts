@@ -18,7 +18,16 @@ export type {
 	WithVariadic,
 } from './arg.js';
 export { ArgBuilder, arg, createArgSchema } from './arg.js';
-
+export type {
+	ActionHandler,
+	ActionParams,
+	CommandArgEntry,
+	CommandConfig,
+	CommandExample,
+	CommandSchema,
+	Out,
+} from './command.js';
+export { CommandBuilder, command } from './command.js';
 export type {
 	FlagConfig,
 	FlagFactory,

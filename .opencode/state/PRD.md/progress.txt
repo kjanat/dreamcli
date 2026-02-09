@@ -12,6 +12,7 @@ Started: 2026-02-09
 - **Error hierarchy**: `CLIError` base → `ParseError` (exit 2), `ValidationError` (exit 2). Discriminated by `name` property. `ErrorCode` union is extensible via `string & {}`. Type guards: `isCLIError`, `isParseError`, `isValidationError`.
 - **Flag builder pattern**: `FlagBuilder<C extends FlagConfig>` — single phantom type param tracks `valueType` + `presence`. `FlagSchema` is the runtime descriptor. `declare readonly _config: C` for type branding (no `!` assertion). `flag.<kind>()` factory → immutable builder chain. `InferFlag<B>` / `InferFlags<R>` extract resolved types. `const` type param on `enum()` infers literals. Boolean flags implicitly default to `false`.
 - **Arg builder pattern**: `ArgBuilder<C extends ArgConfig>` — phantom type tracks `valueType` + `presence` + `variadic`. Positional args default to `'required'` (unlike flags which default to `'optional'`). `arg.custom(parseFn)` infers return type of parse function. Variadic args wrap type in `T[]` via `ResolvedArgValue`. `ArgSchema` stores `parseFn` for custom parsing.
+- **Command builder pattern**: `CommandBuilder<F, A>` — two phantom type params accumulate flag/arg builder records via intersection (`F & Record<N, B>`). `.flag()` / `.arg()` return new builders with expanded types; `.action(handler)` receives `ActionParams<F, A>` with `InferFlags<F>` and `InferArgs<A>`. Handler is dropped when new flags/args are added (type safety). `CommandSchema` is the runtime descriptor with flags map + ordered args list. `{}` default for initial accumulator is correct and intentional (biome-ignore). `Out` interface stub defined for handler typing; real impl in output-1.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -59,3 +60,18 @@ Started: 2026-02-09
 - Re-exported from `src/core/schema/index.ts` barrel and `src/index.ts` public surface
 - Files changed: `src/core/schema/arg.ts` (new), `src/core/schema/arg.test.ts` (new), `src/core/schema/index.ts`, `src/index.ts`
 - **Learnings:** `URL` constructor not available as value in `lib: ["ES2022"]` — use custom test types instead. Three-axis phantom config (`valueType`/`presence`/`variadic`) works cleanly with conditional types in `ResolvedArgValue`.
+
+## Task - schema-3
+- Implemented `CommandBuilder<F, A>` with two phantom type params for flag/arg accumulation via intersection types
+- Factory: `command(name)` creates builder with empty schema
+- Metadata modifiers: `.description()`, `.alias()`, `.hidden()`, `.example()` — all immutable
+- `.flag(name, builder)` adds flag schema + grows type-level `F`; duplicate names prevented via `Exclude` constraint
+- `.arg(name, builder)` adds ordered arg entry + grows type-level `A`; duplicate names prevented via `Exclude` constraint
+- `.action(handler)` receives `ActionParams<F, A>` with `{ args: InferArgs<A>, flags: InferFlags<F>, ctx, out }`
+- Handler is dropped when new flags/args are added (type signature would be invalid)
+- `CommandSchema` runtime descriptor: name, description, aliases, hidden, examples, flags map, ordered args list, hasAction
+- `Out` interface stub: log/info/warn/error — real implementation deferred to output-1
+- 49 tests: factory, all metadata modifiers, flag/arg accumulation, action handler, immutability, full composition, chaining order, 15+ type inference tests via `expectTypeOf`
+- Re-exported from `src/core/schema/index.ts` barrel and `src/index.ts` public surface
+- Files changed: `src/core/schema/command.ts` (new), `src/core/schema/command.test.ts` (new), `src/core/schema/index.ts`, `src/index.ts`
+- **Learnings:** biome-ignore for `noBannedTypes` must be on the specific line with `{}`, not on the class declaration line. `{}` is correct for intersection-based type accumulation — `Record<string, never>` would prevent adding keys. Handler must be dropped when schema shape changes to maintain type safety.
