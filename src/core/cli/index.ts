@@ -16,6 +16,7 @@ import type { HelpOptions } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
 import type { PromptEngine } from '../prompt/index.js';
+import { createTerminalPrompter } from '../prompt/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
 import type { CommandBuilder, CommandSchema } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
@@ -527,10 +528,19 @@ class CLIBuilder {
 		const adapter = options?.adapter ?? createNodeAdapter();
 
 		const argv = adapter.argv.slice(2);
+		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
+		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)
+		// get stdinIsTTY=false → no auto-prompter → prompts skipped → falls through to default/required.
+		const autoPrompter =
+			options?.prompter === undefined && adapter.stdinIsTTY
+				? createTerminalPrompter(adapter.stdin, adapter.stderr)
+				: undefined;
+
 		// Source env from adapter when not explicitly provided in options
 		const executeOptions: CLIRunOptions = {
 			...options,
 			...(options?.env === undefined ? { env: adapter.env } : {}),
+			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
 		};
 		const result = await this.execute(argv, executeOptions);
 

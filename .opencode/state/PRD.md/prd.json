@@ -27,7 +27,7 @@
 			"id": "prompt-adapter-1",
 			"title": "Extend RuntimeAdapter with stdin for prompt I/O",
 			"description": "Add stdin (ReadableStream or readline interface) and stdinIsTTY fields to RuntimeAdapter. Update createNodeAdapter to source from process.stdin. Update createTestAdapter with configurable stdin mock. Wire stdinIsTTY through CLIBuilder.run() to resolve options for prompt gating.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{

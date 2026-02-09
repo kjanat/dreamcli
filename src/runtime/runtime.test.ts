@@ -157,6 +157,7 @@ describe('createNodeAdapter', () => {
 			argv: ['node', 'cli.js', 'deploy'],
 			env: { NODE_ENV: 'test' },
 			cwd: () => '/mock/cwd',
+			stdin: { isTTY: true },
 			stdout: {
 				isTTY: true,
 				write: vi.fn(),
@@ -173,6 +174,7 @@ describe('createNodeAdapter', () => {
 		expect(adapter.env).toEqual({ NODE_ENV: 'test' });
 		expect(adapter.cwd).toBe('/mock/cwd');
 		expect(adapter.isTTY).toBe(true);
+		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
 	it('routes stdout writes to process.stdout.write', () => {
@@ -181,6 +183,7 @@ describe('createNodeAdapter', () => {
 			argv: [],
 			env: {},
 			cwd: () => '/',
+			stdin: {},
 			stdout: { isTTY: false, write: writeFn },
 			stderr: { write: vi.fn() },
 			exit: vi.fn() as unknown as (code: number) => never,
@@ -198,6 +201,7 @@ describe('createNodeAdapter', () => {
 			argv: [],
 			env: {},
 			cwd: () => '/',
+			stdin: {},
 			stdout: { write: vi.fn() },
 			stderr: { write: writeFn },
 			exit: vi.fn() as unknown as (code: number) => never,
@@ -215,6 +219,7 @@ describe('createNodeAdapter', () => {
 			argv: [],
 			env: {},
 			cwd: () => '/',
+			stdin: {},
 			stdout: { write: vi.fn() },
 			stderr: { write: vi.fn() },
 			exit: exitFn,
@@ -231,6 +236,7 @@ describe('createNodeAdapter', () => {
 			argv: [],
 			env: {},
 			cwd: () => '/',
+			stdin: {},
 			stdout: { write: vi.fn() },
 			stderr: { write: vi.fn() },
 			exit: vi.fn() as unknown as (code: number) => never,
@@ -245,6 +251,7 @@ describe('createNodeAdapter', () => {
 			argv: [],
 			env: {},
 			cwd: () => '/',
+			stdin: {},
 			stdout: { isTTY: false, write: vi.fn() },
 			stderr: { write: vi.fn() },
 			exit: vi.fn() as unknown as (code: number) => never,
@@ -413,6 +420,319 @@ describe('CLIBuilder.run() with adapter', () => {
 		}
 
 		expect(stdoutLines.join('')).toContain('Deploying staging');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// createTestAdapter — stdin fields
+// ---------------------------------------------------------------------------
+
+describe('createTestAdapter stdin', () => {
+	it('default stdin returns null (EOF)', async () => {
+		const adapter = createTestAdapter();
+		const result = await adapter.stdin();
+		expect(result).toBeNull();
+	});
+
+	it('default stdinIsTTY is false', () => {
+		const adapter = createTestAdapter();
+		expect(adapter.stdinIsTTY).toBe(false);
+	});
+
+	it('accepts custom stdin ReadFn', async () => {
+		const lines = ['hello', 'world'];
+		let index = 0;
+		const adapter = createTestAdapter({
+			stdin: () => {
+				const line = lines[index] ?? null;
+				index += 1;
+				return Promise.resolve(line);
+			},
+		});
+
+		expect(await adapter.stdin()).toBe('hello');
+		expect(await adapter.stdin()).toBe('world');
+		expect(await adapter.stdin()).toBeNull();
+	});
+
+	it('accepts custom stdinIsTTY', () => {
+		const adapter = createTestAdapter({ stdinIsTTY: true });
+		expect(adapter.stdinIsTTY).toBe(true);
+	});
+
+	it('stdinIsTTY is independent of isTTY', () => {
+		const a1 = createTestAdapter({ isTTY: true, stdinIsTTY: false });
+		expect(a1.isTTY).toBe(true);
+		expect(a1.stdinIsTTY).toBe(false);
+
+		const a2 = createTestAdapter({ isTTY: false, stdinIsTTY: true });
+		expect(a2.isTTY).toBe(false);
+		expect(a2.stdinIsTTY).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// createNodeAdapter — stdin fields
+// ---------------------------------------------------------------------------
+
+describe('createNodeAdapter stdin', () => {
+	it('stdinIsTTY is true when stdin.isTTY is true', () => {
+		const mockProc: NodeProcess = {
+			argv: [],
+			env: {},
+			cwd: () => '/',
+			stdin: { isTTY: true },
+			stdout: { write: vi.fn() },
+			stderr: { write: vi.fn() },
+			exit: vi.fn() as unknown as (code: number) => never,
+		};
+
+		const adapter = createNodeAdapter(mockProc);
+		expect(adapter.stdinIsTTY).toBe(true);
+	});
+
+	it('stdinIsTTY is false when stdin.isTTY is undefined', () => {
+		const mockProc: NodeProcess = {
+			argv: [],
+			env: {},
+			cwd: () => '/',
+			stdin: {},
+			stdout: { write: vi.fn() },
+			stderr: { write: vi.fn() },
+			exit: vi.fn() as unknown as (code: number) => never,
+		};
+
+		const adapter = createNodeAdapter(mockProc);
+		expect(adapter.stdinIsTTY).toBe(false);
+	});
+
+	it('stdinIsTTY is false when stdin.isTTY is false', () => {
+		const mockProc: NodeProcess = {
+			argv: [],
+			env: {},
+			cwd: () => '/',
+			stdin: { isTTY: false },
+			stdout: { write: vi.fn() },
+			stderr: { write: vi.fn() },
+			exit: vi.fn() as unknown as (code: number) => never,
+		};
+
+		const adapter = createNodeAdapter(mockProc);
+		expect(adapter.stdinIsTTY).toBe(false);
+	});
+
+	it('stdin is a ReadFn (function)', () => {
+		const mockProc: NodeProcess = {
+			argv: [],
+			env: {},
+			cwd: () => '/',
+			stdin: {},
+			stdout: { write: vi.fn() },
+			stderr: { write: vi.fn() },
+			exit: vi.fn() as unknown as (code: number) => never,
+		};
+
+		const adapter = createNodeAdapter(mockProc);
+		expect(typeof adapter.stdin).toBe('function');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// RuntimeAdapter interface — stdin contract
+// ---------------------------------------------------------------------------
+
+describe('RuntimeAdapter interface — stdin', () => {
+	it('test adapter satisfies RuntimeAdapter stdin fields', () => {
+		const adapter: RuntimeAdapter = createTestAdapter();
+		expect(typeof adapter.stdin).toBe('function');
+		expect(typeof adapter.stdinIsTTY).toBe('boolean');
+	});
+
+	it('node adapter satisfies RuntimeAdapter stdin fields', () => {
+		const adapter: RuntimeAdapter = createNodeAdapter();
+		expect(typeof adapter.stdin).toBe('function');
+		expect(typeof adapter.stdinIsTTY).toBe('boolean');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// CLIBuilder.run() — auto-prompter from adapter stdin
+// ---------------------------------------------------------------------------
+
+describe('CLIBuilder.run() prompt gating', () => {
+	it('does not auto-create prompter when stdinIsTTY is false', async () => {
+		// Command with a prompt-configured required flag but no default.
+		// Without a prompter and no CLI value, this should fail with a validation error.
+		const cmd = command('greet')
+			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+			.action(({ flags, out }) => {
+				out.log(`Hello ${flags.name}`);
+			});
+
+		const stderrLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'greet'],
+			stdinIsTTY: false, // non-interactive → no auto-prompter
+			stderr: (s) => stderrLines.push(s),
+		});
+
+		const app = cli('mycli').command(cmd);
+
+		try {
+			await app.run({ adapter });
+		} catch (e) {
+			expect(e).toBeInstanceOf(ExitError);
+			expect((e as ExitError).code).toBe(2);
+		}
+
+		// Should fail because no prompter was created (non-TTY stdin)
+		expect(stderrLines.join('')).toContain('required');
+	});
+
+	it('auto-creates prompter when stdinIsTTY is true', async () => {
+		// Command with a prompt-configured flag.
+		// With stdinIsTTY=true, the auto-prompter reads from adapter.stdin.
+		const cmd = command('greet')
+			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+			.action(({ flags, out }) => {
+				out.log(`Hello ${flags.name}`);
+			});
+
+		const stdoutLines: string[] = [];
+		const stderrLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'greet'],
+			stdinIsTTY: true,
+			stdin: () => Promise.resolve('Alice'), // simulate user typing "Alice"
+			stdout: (s) => stdoutLines.push(s),
+			stderr: (s) => stderrLines.push(s),
+		});
+
+		const app = cli('mycli').command(cmd);
+
+		try {
+			await app.run({ adapter });
+		} catch (e) {
+			expect(e).toBeInstanceOf(ExitError);
+			expect((e as ExitError).code).toBe(0);
+		}
+
+		expect(stdoutLines.join('')).toContain('Hello Alice');
+	});
+
+	it('explicit prompter takes precedence over auto-prompter', async () => {
+		const cmd = command('greet')
+			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+			.action(({ flags, out }) => {
+				out.log(`Hello ${flags.name}`);
+			});
+
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'greet'],
+			stdinIsTTY: true,
+			stdin: () => Promise.resolve('FromStdin'), // should NOT be used
+			stdout: (s) => stdoutLines.push(s),
+		});
+
+		// Provide explicit prompter — should take precedence
+		const { createTestPrompter } = await import('../core/prompt/index.js');
+		const explicitPrompter = createTestPrompter(['ExplicitAnswer']);
+
+		const app = cli('mycli').command(cmd);
+
+		try {
+			await app.run({ adapter, prompter: explicitPrompter });
+		} catch (e) {
+			expect(e).toBeInstanceOf(ExitError);
+			expect((e as ExitError).code).toBe(0);
+		}
+
+		expect(stdoutLines.join('')).toContain('Hello ExplicitAnswer');
+	});
+
+	it('CLI value takes precedence over prompt even when stdinIsTTY is true', async () => {
+		const cmd = command('greet')
+			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+			.action(({ flags, out }) => {
+				out.log(`Hello ${flags.name}`);
+			});
+
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'greet', '--name', 'CLIValue'],
+			stdinIsTTY: true,
+			stdin: () => Promise.resolve('FromStdin'),
+			stdout: (s) => stdoutLines.push(s),
+		});
+
+		const app = cli('mycli').command(cmd);
+
+		try {
+			await app.run({ adapter });
+		} catch (e) {
+			expect(e).toBeInstanceOf(ExitError);
+			expect((e as ExitError).code).toBe(0);
+		}
+
+		// CLI value wins — prompt never fires
+		expect(stdoutLines.join('')).toContain('Hello CLIValue');
+	});
+
+	it('env auto-sourced from adapter still works with auto-prompter', async () => {
+		const cmd = command('greet')
+			.flag('name', flag.string().required().env('USER_NAME'))
+			.action(({ flags, out }) => {
+				out.log(`Hello ${flags.name}`);
+			});
+
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'greet'],
+			env: { USER_NAME: 'EnvUser' },
+			stdinIsTTY: true,
+			stdout: (s) => stdoutLines.push(s),
+		});
+
+		const app = cli('mycli').command(cmd);
+
+		try {
+			await app.run({ adapter });
+		} catch (e) {
+			expect(e).toBeInstanceOf(ExitError);
+			expect((e as ExitError).code).toBe(0);
+		}
+
+		// Env value resolves before prompt step
+		expect(stdoutLines.join('')).toContain('Hello EnvUser');
+	});
+
+	it('auto-prompter uses adapter.stderr for prompt output', async () => {
+		const cmd = command('greet')
+			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+			.action(({ flags, out }) => {
+				out.log(`Hello ${flags.name}`);
+			});
+
+		const stderrLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'greet'],
+			stdinIsTTY: true,
+			stdin: () => Promise.resolve('Bob'),
+			stderr: (s) => stderrLines.push(s),
+		});
+
+		const app = cli('mycli').command(cmd);
+
+		try {
+			await app.run({ adapter });
+		} catch (_) {
+			// exit expected
+		}
+
+		// The prompt message should be written to stderr (prompt output uses stderr
+		// so it doesn't interfere with command stdout which may be piped)
+		expect(stderrLines.join('')).toContain('Your name?');
 	});
 });
 

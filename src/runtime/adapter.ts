@@ -10,6 +10,7 @@
  */
 
 import type { WriteFn } from '../core/output/index.js';
+import type { ReadFn } from '../core/prompt/index.js';
 
 // ---------------------------------------------------------------------------
 // Runtime adapter interface — the single platform abstraction boundary
@@ -56,8 +57,19 @@ interface RuntimeAdapter {
 	/** Writer for stderr. Framework routes `out.warn`/`out.error` through this. */
 	readonly stderr: WriteFn;
 
+	/**
+	 * Line reader for stdin. Used by the prompt engine for interactive input.
+	 *
+	 * Returns `null` on EOF (Ctrl+D on Unix, Ctrl+Z on Windows),
+	 * indicating the user closed the input stream (treated as cancel).
+	 */
+	readonly stdin: ReadFn;
+
 	/** Whether stdout is connected to a TTY. */
 	readonly isTTY: boolean;
+
+	/** Whether stdin is connected to a TTY (used for prompt gating). */
+	readonly stdinIsTTY: boolean;
 
 	/**
 	 * Exit the process with the given code.
@@ -93,8 +105,18 @@ interface TestAdapterOptions {
 	/** Stderr writer (defaults to noop). */
 	readonly stderr?: WriteFn;
 
-	/** TTY flag (defaults to `false`). */
+	/**
+	 * Stdin line reader (defaults to returning `null` — immediate EOF).
+	 *
+	 * Use a custom `ReadFn` to simulate user input in tests.
+	 */
+	readonly stdin?: ReadFn;
+
+	/** TTY flag for stdout (defaults to `false`). */
 	readonly isTTY?: boolean;
+
+	/** TTY flag for stdin (defaults to `false`). */
+	readonly stdinIsTTY?: boolean;
 
 	/**
 	 * Exit function (defaults to throwing `ExitError`).
@@ -151,6 +173,9 @@ const noopWrite: WriteFn = () => {};
  * const result = await cli('mycli').run({ adapter });
  * ```
  */
+/** Noop reader — returns `null` (EOF) immediately. */
+const eofRead: ReadFn = () => Promise.resolve(null);
+
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 	return {
 		argv: options?.argv ?? ['node', 'test'],
@@ -158,7 +183,9 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 		cwd: options?.cwd ?? '/test',
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
+		stdin: options?.stdin ?? eofRead,
 		isTTY: options?.isTTY ?? false,
+		stdinIsTTY: options?.stdinIsTTY ?? false,
 		exit:
 			options?.exit ??
 			((code: number): never => {
