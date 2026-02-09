@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { CLIError } from '../errors/index.js';
 import { arg } from '../schema/arg.js';
 import { command } from '../schema/command.js';
 import { flag } from '../schema/flag.js';
@@ -56,6 +57,33 @@ describe('.completions() — builder registration', () => {
 		const app = cli('mycli').command(deployCommand()).command(loginCommand()).completions();
 		const names = app.schema.commands.map((c) => c.schema.name);
 		expect(names).toEqual(['deploy', 'login', 'completions']);
+	});
+});
+
+// ===================================================================
+// Double .completions() guard
+// ===================================================================
+
+describe('.completions() — double call guard', () => {
+	it('throws CLIError on second .completions() call', () => {
+		const app = cli('mycli').completions();
+		expect(() => app.completions()).toThrow(CLIError);
+	});
+
+	it('includes DUPLICATE_COMMAND code', () => {
+		const app = cli('mycli').completions();
+		try {
+			app.completions();
+			expect.fail('should have thrown');
+		} catch (e) {
+			expect(e).toBeInstanceOf(CLIError);
+			expect((e as CLIError).code).toBe('DUPLICATE_COMMAND');
+		}
+	});
+
+	it('throws even with other commands registered', () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		expect(() => app.completions()).toThrow(CLIError);
 	});
 });
 

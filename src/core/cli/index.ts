@@ -494,6 +494,13 @@ class CLIBuilder {
 	 * ```
 	 */
 	completions(): CLIBuilder {
+		if (this.schema.commands.some((c) => c.schema.name === 'completions')) {
+			throw new CLIError('.completions() has already been called', {
+				code: 'DUPLICATE_COMMAND',
+				suggest: 'Call .completions() only once when building the CLI',
+			});
+		}
+
 		// Capture current schema — includes all commands registered so far.
 		// The completions command itself is deliberately excluded from the
 		// generated script (it would be noise in shell completions).

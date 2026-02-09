@@ -157,3 +157,10 @@ Started: 2026-02-09
 - Already exported from runtime barrel (`src/runtime/index.ts:18`), just missing from main barrel
 - Files changed: `src/index.ts`
 - **Learnings:** audit all public function parameter types when adding barrel exports — if a type appears in any exported function signature, it must be in the main barrel
+
+## Task — fix/guard-double-completions (code review P1)
+- Added guard at top of `.completions()` in `src/core/cli/index.ts` — throws `CLIError` with `DUPLICATE_COMMAND` code if `completions` command already exists in schema
+- Guard checks `this.schema.commands.some(c => c.schema.name === 'completions')` before registering
+- 3 tests: throws CLIError on double call, verifies DUPLICATE_COMMAND code, throws with other commands present
+- Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts`
+- **Learnings:** immutable builder pattern means guard checks existing state, not mutation; `CLIError` with descriptive code+suggest fields is the standard pattern for builder-level validation errors
