@@ -4,6 +4,8 @@ Started: 2026-02-09
 
 ## Codebase Patterns
 
+- **Context type parameter pattern**: `CommandBuilder<F, A, C>` — third phantom param `C extends Record<string, unknown> = Record<string, never>` tracks middleware context. `Record<string, never>` makes `ctx` property access yield `never` (type error) until middleware widens it. `ActionParams<F, A, C>` and `ActionHandler<F, A, C>` carry `C` through. All metadata methods (`.description()`, `.alias()`, etc.) preserve `C`; `.flag()` and `.arg()` preserve `C` but drop handler. Default `C` makes all pre-v0.4 code backward-compatible.
+
 - **Formatter ownership**: dprint owns all formatting (TS/JS via biome plugin, JSON, JSONC, YAML, markdown, etc). Biome's JSON formatter is disabled to avoid conflicts. Biome handles linting only for JSON.
 - **JSONC trailing commas**: biome override for JSONC parses trailing commas but does NOT enforce them in formatting (set to "none") to avoid dprint conflicts.
 - **Build**: tsdown with `hash: false` for stable dts filenames. `exports: true` auto-patches package.json. Conditional exports include `types` entries for both import and require.
@@ -346,3 +348,16 @@ Started: 2026-02-09
 - All 797 tests pass, zero type errors, clean lint/format, build successful
 - Files changed: `CHANGELOG.md`, `package.json`, `pnpm-lock.yaml`
 - **Learnings:** `pnpm install --lockfile-only` re-expands inline JSON arrays in package.json — always run `dprint fmt` after lockfile updates to restore consistent formatting.
+
+## Task - mw-1-context-type-param
+- Added third type parameter `C extends Record<string, unknown> = Record<string, never>` to `ActionParams`, `ActionHandler`, and `CommandBuilder`
+- `Readonly<C>` on `ctx` field means accessing any property yields `never` without middleware — a compile-time error at usage sites
+- All metadata methods (`.description()`, `.alias()`, `.hidden()`, `.example()`, `.interactive()`) propagate `C`
+- `.flag()` and `.arg()` propagate `C` but drop handler (same pattern as before — adding schema invalidates handler type)
+- `.action()` uses `ActionHandler<F, A, C>` — handler receives the accumulated context type
+- Added `declare readonly _ctx: C` phantom brand for type inspection in tests
+- Default `C = Record<string, never>` ensures full backward compatibility — all 797 pre-existing tests pass unchanged
+- 4 new type-level tests: ctx is `Record<string, never>`, ctx property access yields `never`, `_ctx` phantom brand, `ActionParams` with explicit `C` types ctx correctly, `ActionParams` default `C`
+- All 801 tests pass, zero type errors, clean lint/format
+- Files changed: `src/core/schema/command.ts`, `src/core/schema/command.test.ts`
+- **Learnings:** `Record<string, never>` is the correct "empty context" default — `Record<string, unknown>` would allow arbitrary property access returning `unknown`, which doesn't catch the "no middleware = no context" mistake. The default type parameter on the class propagates to all method return types, so changing `CommandBuilder<F, A>` → `CommandBuilder<F, A, C>` with `C = Record<string, never>` is fully backward-compatible — existing code that doesn't specify `C` gets the default. `expectTypeOf<T>().toBeNever()` doesn't work when the value IS `never` — use `type CtxValue = (typeof ctx)[string]; expectTypeOf<CtxValue>().toBeNever()` instead.

@@ -469,10 +469,47 @@ describe('type inference', () => {
 			});
 	});
 
-	it('ctx is Record<string, unknown>', () => {
+	it('ctx is Record<string, never> (empty until middleware)', () => {
 		command('test').action(({ ctx }) => {
-			expectTypeOf(ctx).toEqualTypeOf<Readonly<Record<string, unknown>>>();
+			expectTypeOf(ctx).toEqualTypeOf<Readonly<Record<string, never>>>();
 		});
+	});
+
+	it('ctx property access yields never without middleware', () => {
+		command('test').action(({ ctx }) => {
+			// Accessing any property on Readonly<Record<string, never>> yields never —
+			// a type error at usage sites until middleware widens the type.
+			type CtxValue = (typeof ctx)[string];
+			expectTypeOf<CtxValue>().toBeNever();
+		});
+	});
+
+	it('third type parameter C defaults to Record<string, never>', () => {
+		// CommandBuilder with no middleware has C = Record<string, never>
+		const cmd = command('test');
+		expectTypeOf(cmd).toMatchTypeOf<CommandBuilder>();
+		expectTypeOf(cmd._ctx).toEqualTypeOf<Record<string, never>>();
+	});
+
+	it('ActionParams C parameter types ctx correctly', () => {
+		// Verify ActionParams with explicit C types ctx
+		type TestParams = ActionParams<
+			{ name: ReturnType<typeof flag.string> },
+			// biome-ignore lint/complexity/noBannedTypes: test needs empty args
+			{},
+			{ user: string }
+		>;
+		expectTypeOf<TestParams['ctx']>().toEqualTypeOf<Readonly<{ user: string }>>();
+	});
+
+	it('ActionParams default C makes ctx Record<string, never>', () => {
+		// Without explicit C, ctx is Readonly<Record<string, never>>
+		type DefaultParams = ActionParams<
+			{ name: ReturnType<typeof flag.string> },
+			// biome-ignore lint/complexity/noBannedTypes: test needs empty args
+			{}
+		>;
+		expectTypeOf<DefaultParams['ctx']>().toEqualTypeOf<Readonly<Record<string, never>>>();
 	});
 
 	it('out has log/info/warn/error methods', () => {

@@ -119,16 +119,21 @@ interface Out {
  *
  * - `args`  — fully resolved positional arguments
  * - `flags` — fully resolved flags
- * - `ctx`   — middleware-provided context (empty object for MVP)
+ * - `ctx`   — middleware-provided context (typed via middleware chain)
  * - `out`   — output channel
+ *
+ * The `C` parameter defaults to `Record<string, never>`, making `ctx`
+ * property access a type error until middleware extends it. Each
+ * `.middleware()` call on `CommandBuilder` widens `C` via intersection.
  */
 interface ActionParams<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown> = Record<string, never>,
 > {
 	readonly args: Readonly<InferArgs<A>>;
 	readonly flags: Readonly<InferFlags<F>>;
-	readonly ctx: Readonly<Record<string, unknown>>;
+	readonly ctx: Readonly<C>;
 	readonly out: Out;
 }
 
@@ -136,12 +141,14 @@ interface ActionParams<
  * Action handler function signature.
  *
  * May be sync or async — the framework will `await` the return value
- * regardless.
+ * regardless. The `C` parameter carries the accumulated middleware
+ * context type (defaults to empty).
  */
 type ActionHandler<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
-> = (params: ActionParams<F, A>) => void | Promise<void>;
+	C extends Record<string, unknown> = Record<string, never>,
+> = (params: ActionParams<F, A, C>) => void | Promise<void>;
 
 // ---------------------------------------------------------------------------
 // Runtime schema data
@@ -202,9 +209,13 @@ interface CommandArgEntry {
 /**
  * Immutable command schema builder.
  *
- * The type parameters `F` (flags) and `A` (args) are phantom types that
- * accumulate builder types as `.flag()` and `.arg()` are chained. The
- * `.action()` handler receives a fully typed `ActionParams<F, A>`.
+ * The type parameters `F` (flags), `A` (args), and `C` (context) are
+ * phantom types that accumulate builder types as `.flag()`, `.arg()`,
+ * and `.middleware()` are chained. The `.action()` handler receives
+ * fully typed `ActionParams<F, A, C>`.
+ *
+ * `C` defaults to `Record<string, never>`, making `ctx` property
+ * access a type error until middleware extends it via `.middleware()`.
  *
  * @example
  * ```ts
@@ -226,12 +237,13 @@ class CommandBuilder<
 	F extends Record<string, FlagBuilder<FlagConfig>> = {},
 	// biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (A & Record<N, B>)
 	A extends Record<string, ArgBuilder<ArgConfig>> = {},
+	C extends Record<string, unknown> = Record<string, never>,
 > {
 	/** @internal Runtime schema descriptor. */
 	readonly schema: CommandSchema;
 
 	/** @internal The action handler, if registered. */
-	readonly handler: ActionHandler<F, A> | undefined;
+	readonly handler: ActionHandler<F, A, C> | undefined;
 
 	/**
 	 * @internal Type brands — exist only in the type system (`declare`
@@ -239,8 +251,9 @@ class CommandBuilder<
 	 */
 	declare readonly _flags: F;
 	declare readonly _args: A;
+	declare readonly _ctx: C;
 
-	constructor(schema: CommandSchema, handler?: ActionHandler<F, A>) {
+	constructor(schema: CommandSchema, handler?: ActionHandler<F, A, C>) {
 		this.schema = schema;
 		this.handler = handler;
 	}
@@ -274,7 +287,7 @@ class CommandBuilder<
 	 *   .action(({ flags }) => { ... });
 	 * ```
 	 */
-	interactive(resolver: InteractiveResolver<F>): CommandBuilder<F, A> {
+	interactive(resolver: InteractiveResolver<F>): CommandBuilder<F, A, C> {
 		// The resolver is type-erased for storage on CommandSchema.
 		// At runtime, `InteractiveResolver<F>` is just `(params: { flags }) => Record<...>`.
 		// The phantom types on F are erased — the resolver's runtime behaviour is
@@ -286,12 +299,12 @@ class CommandBuilder<
 	// -- Metadata modifiers --------------------------------------------------
 
 	/** Set the command's description for help text. */
-	description(text: string): CommandBuilder<F, A> {
+	description(text: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder({ ...this.schema, description: text }, this.handler);
 	}
 
 	/** Add an alternative name for this command. */
-	alias(name: string): CommandBuilder<F, A> {
+	alias(name: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, aliases: [...this.schema.aliases, name] },
 			this.handler,
@@ -299,12 +312,12 @@ class CommandBuilder<
 	}
 
 	/** Hide this command from help listings. */
-	hidden(): CommandBuilder<F, A> {
+	hidden(): CommandBuilder<F, A, C> {
 		return new CommandBuilder({ ...this.schema, hidden: true }, this.handler);
 	}
 
 	/** Add a usage example to help text. */
-	example(cmd: string, description?: string): CommandBuilder<F, A> {
+	example(cmd: string, description?: string): CommandBuilder<F, A, C> {
 		const entry: CommandExample =
 			description !== undefined ? { command: cmd, description } : { command: cmd };
 		return new CommandBuilder(
@@ -324,7 +337,7 @@ class CommandBuilder<
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
 		name: N & Exclude<N, keyof F>,
 		builder: B,
-	): CommandBuilder<F & Record<N, B>, A> {
+	): CommandBuilder<F & Record<N, B>, A, C> {
 		const nextFlags = { ...this.schema.flags, [name]: builder.schema };
 		return new CommandBuilder(
 			{ ...this.schema, flags: nextFlags, hasAction: false },
@@ -346,7 +359,7 @@ class CommandBuilder<
 	arg<N extends string, B extends ArgBuilder<ArgConfig>>(
 		name: N & Exclude<N, keyof A>,
 		builder: B,
-	): CommandBuilder<F, A & Record<N, B>> {
+	): CommandBuilder<F, A & Record<N, B>, C> {
 		const entry: CommandArgEntry = { name, schema: builder.schema };
 		const nextArgs = [...this.schema.args, entry];
 		return new CommandBuilder(
@@ -363,9 +376,9 @@ class CommandBuilder<
 	 * Register the action handler for this command.
 	 *
 	 * The handler receives fully typed `{ args, flags, ctx, out }` derived
-	 * from the accumulated `.flag()` and `.arg()` definitions.
+	 * from the accumulated `.flag()`, `.arg()`, and `.middleware()` definitions.
 	 */
-	action(handler: ActionHandler<F, A>): CommandBuilder<F, A> {
+	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
 		return new CommandBuilder({ ...this.schema, hasAction: true }, handler);
 	}
 }
