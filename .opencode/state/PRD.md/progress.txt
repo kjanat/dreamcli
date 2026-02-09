@@ -17,6 +17,7 @@ Started: 2026-02-09
 - **Resolver pattern**: `resolve(schema, parsed)` → `ResolveResult` with `flags` + `args`. MVP chain: CLI → default. Flags resolved first, then args. Missing required values throw `ValidationError`. Multiple errors aggregated into single throw with `details.errors` array. Array flags default to `[]`. Optional flags get `undefined` with key present. Non-empty tuple type `[T, ...T[]]` used for error aggregation to avoid `!` assertions. `isNonEmpty()` type guard narrows `T[]` → `[T, ...T[]]`.
 - **Help pattern**: `formatHelp(schema, options?)` → `string`. Reads `CommandSchema` to render sections: Usage, Description, Arguments, Flags, Examples. `HelpOptions` controls `width` (default 80) and `binName`. Flags sorted: short-aliased first, then alphabetical. Type hints per `FlagKind`; boolean suppresses hint and `(default: false)`. Word-wrapping via `wrapText()` at word boundaries with indent continuation.
 - **Output pattern**: `createOutput(options?)` → `Out`. `WriteFn = (data: string) => void` is the sole I/O seam. `OutputChannel` implements `Out`; routes `log`/`info` → stdout writer, `warn`/`error` → stderr writer. `Verbosity: 'normal' | 'quiet'` — quiet suppresses `info`. `isTTY` boolean for downstream TTY-aware formatting. `noopWrite` fallback when no writers provided. `createCaptureOutput()` test helper returns `[Out, CapturedOutput]` with separate stdout/stderr arrays. `Out` interface stays in `command.ts` (contract); implementation in `core/output/`.
+- **Testkit pattern**: `runCommand(cmd, argv, options?)` → `Promise<RunResult>`. Full pipeline: help detection → parse → resolve → handler → result. Never throws — all errors caught. `RunResult` has `exitCode`, `stdout[]`, `stderr[]`, `error`. `RunOptions` injects `env`, `verbosity`, `help` without process state. `invokeHandler` internal function is the sole phantom-type boundary cast. `HandlerParams` models the erased `ActionParams<F,A>`. Standalone function (not method) to avoid circular deps with `command.ts`.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -135,3 +136,18 @@ Started: 2026-02-09
 - 31 tests: factory, routing (log→stdout, warn→stderr), verbosity, TTY detection, capture helper, newline handling, accumulation, type inference
 - Files changed: `src/core/output/index.ts` (rewritten), `src/core/output/output.test.ts` (new), `src/index.ts`
 - **Learnings:** Keep the `Out` interface in `command.ts` (it's the handler contract) and the implementation in `core/output/` — consumers depend on the interface, not the concrete class. `WriteFn` as a single function type (not a writable stream) is the cleanest testability seam — callers can pass a lambda. Default to `noopWrite` rather than throwing when no writer is configured — silent discard is safer than crash for missing optional config.
+
+## Task - testkit-1
+- Implemented `runCommand(cmd, argv, options?)` — full execution pipeline: help detection → parse → resolve → handler → structured result
+- `RunResult` with `exitCode`, `stdout[]`, `stderr[]`, `error` — never throws, all errors caught and structured
+- `RunOptions` with injectable `env`, `verbosity`, `help` options — process-free testing seam
+- `--help` / `-h` detection before parsing — prints help text, exits 0
+- No-action-handler detection → exit 1 with `NO_ACTION` code
+- `CLIError` errors preserve exit code and suggestion; unknown errors wrapped as `UNEXPECTED_ERROR` exit 1
+- `invokeHandler` internal function bridges phantom-type boundary (single `as` cast, documented)
+- `HandlerParams` internal type models the runtime-erased shape of `ActionParams<F, A>`
+- Standalone `runCommand()` function (not `.run()` method) — avoids circular dependency with `command.ts`; method convenience deferred to cli-1
+- Re-exported `runCommand`, `RunOptions`, `RunResult` from `src/index.ts` public surface
+- 30 tests: basic execution, flags/args/async, help detection, parse errors, validation errors, handler errors (CLIError/unknown/non-Error/async), no-handler, verbosity, result structure, complex commands (enum/array/variadic/defaults/mixed)
+- Files changed: `src/core/testkit/index.ts` (rewritten), `src/core/testkit/testkit.test.ts` (new), `src/index.ts`
+- **Learnings:** Phantom-type boundary between resolver (`Record<string, unknown>`) and handler (`InferFlags<F>`) requires exactly one `as` cast — isolate it in a named internal function (`invokeHandler`) with full documentation. `exactOptionalPropertyTypes` means you can't pass `{ verbosity: options?.verbosity }` when `verbosity` might be `undefined` — conditionally construct the options object instead. Circular dependency risk: `CommandBuilder.run()` → testkit → command.ts. Solution: keep `runCommand()` as standalone testkit export; add `.run()` convenience when cli-1 wires the full dispatcher.

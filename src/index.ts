@@ -76,3 +76,5 @@ export {
 	FlagBuilder,
 	flag,
 } from './core/schema/index.js';
+export type { RunOptions, RunResult } from './core/testkit/index.js';
+export { runCommand } from './core/testkit/index.js';

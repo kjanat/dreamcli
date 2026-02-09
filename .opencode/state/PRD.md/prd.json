@@ -69,7 +69,7 @@
 			"id": "testkit-1",
 			"title": "Test harness: command.run() with injected state",
 			"description": "Implement command.run(argv, options) that accepts injected env/config/stdin/stdout. Capture output. Return structured result with exitCode and output. This enables FR4's test-first design.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{
