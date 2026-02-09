@@ -156,14 +156,24 @@ describe('E2E — bash completion via .completions()', () => {
 		expect(script).not.toMatch(/compgen -W '[^']*debug/);
 	});
 
-	it('bash script includes root global flags', async () => {
-		const app = cli('myapp').command(deployCommand()).completions();
+	it('bash script includes --help and --version when version set', async () => {
+		const app = cli('myapp').version('1.0.0').command(deployCommand()).completions();
 
 		const result = await app.execute(['completions', '--shell', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('--help');
 		expect(script).toContain('--version');
+	});
+
+	it('bash script omits --version when no version set', async () => {
+		const app = cli('myapp').command(deployCommand()).completions();
+
+		const result = await app.execute(['completions', '--shell', 'bash']);
+		const script = result.stdout.join('');
+
+		expect(script).toContain('--help');
+		expect(script).not.toContain('--version');
 	});
 });
 
@@ -654,7 +664,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	});
 
 	it('bash completion for CLI with no commands has only global flags', async () => {
-		const app = cli('minimal').completions();
+		const app = cli('minimal').version('1.0.0').completions();
 
 		const result = await app.execute(['completions', '--shell', 'bash']);
 		expect(result.exitCode).toBe(0);
@@ -664,6 +674,17 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		expect(script).toContain('--version');
 		// No subcommand case dispatch
 		expect(script).not.toContain('subcmd=""');
+	});
+
+	it('bash completion for CLI with no commands omits --version when unset', async () => {
+		const app = cli('minimal').completions();
+
+		const result = await app.execute(['completions', '--shell', 'bash']);
+		expect(result.exitCode).toBe(0);
+		const script = result.stdout.join('');
+
+		expect(script).toContain('--help');
+		expect(script).not.toContain('--version');
 	});
 
 	it('zsh completion for CLI with no commands has only global flags', async () => {

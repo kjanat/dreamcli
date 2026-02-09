@@ -141,6 +141,29 @@ describe('generateBashCompletion — script structure', () => {
 		expect(script).toContain('--help');
 		expect(script).toContain('--version');
 	});
+
+	it('includes --version when schema has version', () => {
+		const script = generateBashCompletion(
+			minimalSchema({
+				version: '1.0.0',
+				commands: [erased(commandSchema({ name: 'deploy' }))],
+			}),
+		);
+
+		expect(script).toContain('--version');
+	});
+
+	it('omits --version when schema has no version', () => {
+		const script = generateBashCompletion(
+			minimalSchema({
+				version: undefined,
+				commands: [erased(commandSchema({ name: 'deploy' }))],
+			}),
+		);
+
+		expect(script).toContain('--help');
+		expect(script).not.toContain('--version');
+	});
 });
 
 // ===================================================================
@@ -341,10 +364,18 @@ describe('generateBashCompletion — enum value completions', () => {
 // ===================================================================
 
 describe('generateBashCompletion — no commands', () => {
-	it('generates script with only --help and --version', () => {
+	it('generates script with --help and --version when version defined', () => {
 		const script = generateBashCompletion(minimalSchema());
 
 		expect(script).toContain("'--help --version'");
+		expect(script).not.toContain('subcmd');
+	});
+
+	it('generates script with only --help when no version', () => {
+		const script = generateBashCompletion(minimalSchema({ version: undefined }));
+
+		expect(script).toContain("'--help'");
+		expect(script).not.toContain('--version');
 		expect(script).not.toContain('subcmd');
 	});
 });

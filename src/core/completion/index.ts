@@ -154,12 +154,13 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('');
 
 		// --- Root-level: subcommands + global flags ---
-		const rootFlags = '--help --version';
+		const rootFlags = schema.version !== undefined ? '--help --version' : '--help';
 		const subNames = visibleCommands.map((s) => s.name).join(' ');
 		lines.push(`\t# Root-level completions: subcommands and global flags`);
 		lines.push(`\tCOMPREPLY=($(compgen -W '${subNames} ${rootFlags}' -- "$cur"))`);
 	} else {
-		lines.push(`\tCOMPREPLY=($(compgen -W '--help --version' -- "$cur"))`);
+		const globalFlags = schema.version !== undefined ? '--help --version' : '--help';
+		lines.push(`\tCOMPREPLY=($(compgen -W '${globalFlags}' -- "$cur"))`);
 	}
 
 	lines.push('}');

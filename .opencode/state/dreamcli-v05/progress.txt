@@ -172,3 +172,11 @@ Started: 2026-02-09
 - 4 tests: bash JSON output on stdout, zsh JSON output, normal mode stays raw stdout, jsonMode via options
 - Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts`
 - **Learnings:** code-gen commands that produce raw text for piping must use `out.json()` in JSON mode — `out.log()` redirects to stderr, losing the primary output
+
+## Task — fix/conditional-bash-version (code review P1)
+- Made bash completion `--version` conditional on `schema.version !== undefined`, matching zsh behavior
+- Two code paths fixed: with-commands (rootFlags variable) and no-commands (inline compgen string)
+- 3 new unit tests: version present, version absent (with commands), version absent (no commands)
+- 3 E2E test updates: split "root global flags" into version/no-version, fixed no-commands test, added no-commands no-version test
+- Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`
+- **Learnings:** when fixing conditional behavior, audit all code paths (both with-commands and no-commands) and all test layers (unit + E2E); existing E2E tests using `cli()` factory may implicitly depend on `version: undefined` default
