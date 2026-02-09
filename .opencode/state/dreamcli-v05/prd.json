@@ -41,7 +41,7 @@
 			"id": "completion-dispatch",
 			"title": "Unified generateCompletion(schema, shell) dispatcher",
 			"description": "Public generateCompletion(schema, shell: Shell): string function that dispatches to bash/zsh generators. Throws CLIError for unsupported shells (fish/powershell for now). Re-export from main barrel and public surface.",
-			"passes": false,
+			"passes": true,
 			"priority": 3
 		},
 		{

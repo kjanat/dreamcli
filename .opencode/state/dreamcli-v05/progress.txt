@@ -72,3 +72,12 @@ Started: 2026-02-09
 - Exported from runtime barrel + main barrel (value: `createBunAdapter`)
 - Files: `src/runtime/bun.ts`, `src/runtime/bun.test.ts`, `src/runtime/index.ts`, `src/index.ts`
 - **Learnings:** delegation adapters should still have their own test file — verifies the contract independently even when implementation is trivial; `mockProcess()` helper with `Partial<NodeProcess>` overrides is cleaner than constructing full objects per test
+
+## Task — completion-dispatch
+- No code changes needed — `generateCompletion()` was already implemented incrementally during completion-types/completion-bash/completion-zsh tasks
+- Dispatcher at `src/core/completion/index.ts:61-73`: switch on Shell, delegates bash/zsh, throws CLIError(UNSUPPORTED_OPERATION) for fish/powershell
+- Already exported from main barrel (`src/index.ts:15`) as both value and type
+- 6 existing tests in `completion.test.ts:695-753` cover: bash delegation, zsh delegation, fish/powershell CLIError throws, options passthrough
+- All 1095 tests pass, type check/lint/format clean
+- Files: none changed (only PRD + progress updated)
+- **Learnings:** incremental implementation during prerequisite tasks can complete downstream tasks early — verify before writing duplicate code
