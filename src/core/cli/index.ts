@@ -59,7 +59,8 @@ interface ErasedCommand {
 function eraseCommand<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
->(cmd: CommandBuilder<F, A>): ErasedCommand {
+	C extends Record<string, unknown>,
+>(cmd: CommandBuilder<F, A, C>): ErasedCommand {
 	return {
 		schema: cmd.schema,
 		_execute(argv, options) {
@@ -455,7 +456,8 @@ class CLIBuilder {
 	command<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
 		A extends Record<string, ArgBuilder<ArgConfig>>,
-	>(cmd: CommandBuilder<F, A>): CLIBuilder {
+		C extends Record<string, unknown>,
+	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
 		return new CLIBuilder({
 			...this.schema,
 			commands: [...this.schema.commands, eraseCommand(cmd)],

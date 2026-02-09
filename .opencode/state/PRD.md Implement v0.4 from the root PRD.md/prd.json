@@ -48,7 +48,7 @@
 			"description": "Integrate middleware chain into CLIBuilder.execute() and .run() paths. Ensure runCommand() in testkit supports middleware. Update RunResult if needed.",
 			"priority": 3,
 			"category": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "cli-json-flag",
