@@ -30,6 +30,7 @@ export type {
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
+	TableColumn,
 } from './command.js';
 export { CommandBuilder, command } from './command.js';
 export type {

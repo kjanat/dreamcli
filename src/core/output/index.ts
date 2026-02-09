@@ -11,7 +11,7 @@
  * @module dreamcli/core/output
  */
 
-import type { Out } from '../schema/command.js';
+import type { Out, TableColumn } from '../schema/command.js';
 
 // ---------------------------------------------------------------------------
 // Writer abstraction — the minimal I/O seam for testability
@@ -185,6 +185,27 @@ class OutputChannel implements Out {
 	json(value: unknown): void {
 		writeLine(this.options.stdout, JSON.stringify(value));
 	}
+
+	/**
+	 * Render tabular data.
+	 *
+	 * In JSON mode: emits the rows as a JSON array to stdout.
+	 * Otherwise: pretty-prints aligned columns with headers to stdout
+	 * (via `log()`, which respects JSON-mode redirection).
+	 */
+	table<T extends Record<string, unknown>>(
+		rows: readonly T[],
+		columns?: readonly TableColumn<T>[],
+	): void {
+		if (this.options.jsonMode) {
+			this.json(rows);
+			return;
+		}
+		const text = formatTable(rows, columns);
+		if (text.length > 0) {
+			this.log(text);
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +215,89 @@ class OutputChannel implements Out {
 /** Write a message followed by a newline. */
 function writeLine(write: WriteFn, message: string): void {
 	write(`${message}\n`);
+}
+
+// ---------------------------------------------------------------------------
+// Table formatting
+// ---------------------------------------------------------------------------
+
+/**
+ * Infer column descriptors from the keys of the first row.
+ *
+ * When no explicit columns are provided, all keys from the first row
+ * become columns in insertion order. This is a convenience — callers
+ * who need stable ordering should provide explicit columns.
+ */
+function inferColumns<T extends Record<string, unknown>>(
+	rows: readonly T[],
+): readonly TableColumn<T>[] {
+	const first = rows[0];
+	if (first === undefined) return [];
+	return Object.keys(first).map((key) => ({ key: key as keyof T & string }));
+}
+
+/**
+ * Convert a cell value to a display string.
+ *
+ * - `null` / `undefined` → `''`
+ * - Everything else → `String(value)`
+ */
+function cellToString(value: unknown): string {
+	if (value === null || value === undefined) return '';
+	return String(value);
+}
+
+/**
+ * Format rows as an aligned text table.
+ *
+ * Returns the full table string (without trailing newline — the caller
+ * adds that via `writeLine`). Returns `''` when rows is empty.
+ *
+ * Column widths are computed as the max of header and all cell values.
+ * Cells are left-aligned, padded with spaces. Columns are separated by
+ * two spaces.
+ */
+function formatTable<T extends Record<string, unknown>>(
+	rows: readonly T[],
+	columns?: readonly TableColumn<T>[],
+): string {
+	if (rows.length === 0) return '';
+
+	const cols = columns ?? inferColumns(rows);
+	if (cols.length === 0) return '';
+
+	const SEPARATOR = '  ';
+
+	// Resolve headers
+	const headers = cols.map((c) => c.header ?? c.key);
+
+	// Convert all cells to strings
+	const cellGrid: string[][] = rows.map((row) => cols.map((c) => cellToString(row[c.key])));
+
+	// Compute column widths
+	const widths: number[] = headers.map((h, i) => {
+		let max = h.length;
+		for (const row of cellGrid) {
+			const cell = row[i];
+			if (cell !== undefined && cell.length > max) {
+				max = cell.length;
+			}
+		}
+		return max;
+	});
+
+	// Build header line
+	const headerLine = headers.map((h, i) => h.padEnd(widths[i] ?? 0)).join(SEPARATOR);
+
+	// Build separator line (dashes under each column)
+	const separatorLine = widths.map((w) => '-'.repeat(w)).join(SEPARATOR);
+
+	// Build data lines
+	const dataLines = cellGrid.map((row) =>
+		row.map((cell, i) => cell.padEnd(widths[i] ?? 0)).join(SEPARATOR),
+	);
+
+	return [headerLine, separatorLine, ...dataLines].join('\n');
 }
 
 // ---------------------------------------------------------------------------

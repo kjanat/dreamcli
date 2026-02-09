@@ -96,6 +96,7 @@ export type {
 	ResolvedValue,
 	SelectChoice,
 	SelectPromptConfig,
+	TableColumn,
 	WithArgPresence,
 	WithPresence,
 	WithVariadic,

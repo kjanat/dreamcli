@@ -15,6 +15,25 @@ import type { ErasedMiddlewareHandler, Middleware } from './middleware.js';
 import type { PromptConfig } from './prompt.js';
 
 // ---------------------------------------------------------------------------
+// Table column descriptor
+// ---------------------------------------------------------------------------
+
+/**
+ * Describes a single column in table output.
+ *
+ * @typeParam T - The row object type (inferred from the rows array).
+ */
+interface TableColumn<T extends Record<string, unknown>> {
+	/** Property key on the row objects to display in this column. */
+	readonly key: keyof T & string;
+	/**
+	 * Header label for the column.
+	 * Defaults to the `key` value when omitted.
+	 */
+	readonly header?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Context type utilities
 // ---------------------------------------------------------------------------
 
@@ -150,6 +169,25 @@ interface Out {
 	 * expected.
 	 */
 	readonly jsonMode: boolean;
+
+	/**
+	 * Render tabular data.
+	 *
+	 * - **TTY mode** (non-JSON): Pretty-print aligned columns with headers.
+	 * - **JSON mode** (`--json`): Emit the rows as a JSON array to stdout.
+	 * - **Piped** (non-TTY, non-JSON): Same aligned text output as TTY
+	 *   (useful for `grep`, `awk`, etc.).
+	 *
+	 * When `columns` is omitted, columns are auto-inferred from the keys
+	 * of the first row. Column headers default to the key name.
+	 *
+	 * @param rows    - Array of row objects.
+	 * @param columns - Optional column descriptors for ordering and headers.
+	 */
+	table<T extends Record<string, unknown>>(
+		rows: readonly T[],
+		columns?: readonly TableColumn<T>[],
+	): void;
 }
 
 /**
@@ -521,4 +559,5 @@ export type {
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
+	TableColumn,
 };

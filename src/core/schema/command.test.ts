@@ -282,6 +282,7 @@ describe('full command composition', () => {
 			warn: vi.fn(),
 			error: vi.fn(),
 			json: vi.fn(),
+			table: vi.fn(),
 			jsonMode: false,
 		};
 

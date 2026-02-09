@@ -22,6 +22,7 @@ Started: 2026-02-09
 - **executeWithMiddleware continuation chain**: Build from back to front so first middleware is outermost. Each `next()` closes over downstream chain.
 - **Global flag pattern**: Detect in `CLIBuilder.execute()`, strip from argv before dispatch, propagate via options to downstream `runCommand()`. No global flag schema — hardcoded like `--version`/`--help`.
 - **JSON mode redirection**: In JSON mode, `log`/`info` → stderr, `json()` → stdout. Errors rendered via `out.json({ error: err.toJSON() })` to stdout. Scripts get one structured JSON stream on stdout.
+- **Table output dual-mode**: `table()` in JSON mode delegates to `json(rows)` (full data, unfiltered). In normal mode, delegates to `log(formatTable(...))` so redirection rules apply automatically. Column ordering/filtering is display-only.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -51,3 +52,15 @@ Started: 2026-02-09
 - 17 new tests: output unit tests (json serialisation, jsonMode redirection, combined verbosity), testkit integration (json output, error rendering in both modes), CLI integration (--json flag stripping, flag position, combined with --version/--help)
 - Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/output/output.test.ts`, `src/core/testkit/testkit-json.test.ts` (new), `src/core/cli/cli-json.test.ts` (new), `src/core/schema/command.test.ts` (mock fix)
 - **Learnings:** Global flag pattern — detect in CLIBuilder.execute(), strip from argv before dispatch, propagate via options. JSON errors go to stdout (not stderr) in --json mode so scripts get one consistent JSON stream.
+
+## Task - output-table
+- Added `TableColumn<T>` type to `Out` interface in `src/core/schema/command.ts`
+- Added `table<T>(rows, columns?)` to `Out` interface — generic over row type
+- Implemented `OutputChannel.table()`: JSON mode emits `json(rows)` to stdout; normal mode pretty-prints aligned columns via `log()`
+- Added `formatTable()` internal helper: auto-infer columns from first row keys, compute column widths, render header + separator + data lines with left-aligned padding
+- `cellToString()` converts null/undefined to empty string, everything else to `String()`
+- Added `TableColumn` to barrel exports in `schema/index.ts` and `src/index.ts`
+- Updated `mockOut` in `command.test.ts` to include `table: vi.fn()`
+- 16 new tests in `output-table.test.ts`: auto-inferred columns, explicit columns, alignment, null/undefined handling, empty rows, single row, numeric/boolean values, JSON mode (emits array to stdout), piped mode (text table), combined output interactions
+- Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/schema/index.ts`, `src/index.ts`, `src/core/schema/command.test.ts` (mock fix), `src/core/output/output-table.test.ts` (new)
+- **Learnings:** Table rendering delegates to `log()` in normal mode so JSON-mode redirection is automatically handled. In JSON mode, `table()` emits the raw rows array — column filtering is a display concern, not a data concern. Last-column trailing whitespace from `padEnd` is harmless but could be trimmed for cleaner pipe output.

@@ -32,7 +32,7 @@
 			"description": "Add table(rows, columns) to Out. TTY mode: pretty-print aligned columns. Piped/--json mode: emit JSON array. Auto-detect based on isTTY and jsonMode.",
 			"priority": 2,
 			"category": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "output-tty",
