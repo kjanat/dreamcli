@@ -7,6 +7,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-09
+
+### Added
+
+#### Resolution Chain
+
+- **Environment variable resolution** in the resolver. Flags with `.env('VAR')` now resolve from the
+  `env` record after CLI and before default. String, number, boolean (lenient:
+  `true/false/1/0/yes/no`), enum, and array (comma-separated) coercion. Invalid env values produce
+  `ValidationError` with `TYPE_MISMATCH` or `INVALID_ENUM` codes.
+- **Config object resolution** in the resolver. Flags with `.config('dotted.path')` resolve from a
+  plain `Record<string, unknown>` after env and before default. `resolveConfigPath()` walks nested
+  objects segment-by-segment. Config values may already be typed from JSON — coercion is lenient for
+  matching types. Full chain: CLI > env > config > default.
+- **Resolution source annotations** in help text. Flags with env or config declarations now display
+  `[env: VAR]` and `[config: path]` in `formatHelp()` output, ordered between description text and
+  presence indicators.
+- **Actionable required-flag error hints**. When a required flag is missing after full resolution,
+  `ValidationError.suggest` lists all configured sources (e.g. "Provide --region, set DEPLOY_REGION,
+  or add deploy.region to config"). CI-friendly error messages with `envVar`/`configPath` in
+  details.
+- **Env/config wiring through testkit and CLI builder**. `RunOptions` and `CLIRunOptions` accept
+  `env` and `config` fields. `runCommand()` threads them into `resolve()`. `CLIBuilder.run()`
+  auto-sources `adapter.env` when no explicit env option is provided.
+
+### Changed
+
+- Resolution chain expanded from CLI > default (v0.1) to CLI > env > config > default.
+- `resolve()` now accepts optional `ResolveOptions` parameter with `env` and `config` fields.
+- `ResolveOptions` exported from public API surface.
+
 ## [0.1.0] - 2026-02-09
 
 ### Added
@@ -59,5 +90,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kjanat/dreamcli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kjanat/dreamcli/releases/tag/v0.1.0

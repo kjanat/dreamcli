@@ -244,3 +244,12 @@ Started: 2026-02-09
 - All 599 tests pass, zero type errors, clean lint/format
 - Files changed: `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/resolve/resolve-integration.test.ts` (new)
 - **Learnings:** The `exactOptionalPropertyTypes` conditional spread pattern `...(x !== undefined ? { x } : {})` is the consistent wiring pattern for threading optional fields through option objects — use it everywhere for consistency. Config doesn't come from the runtime adapter (unlike env which comes from `process.env`) — config loading is always the caller's responsibility, so `CLIBuilder.run()` just passes through whatever config the caller provides. The existing `...options` spread in `.run()` naturally forwards config without additional code.
+
+## Release - v0.2.0
+- Updated CHANGELOG.md with v0.2.0 section documenting: env resolution, config resolution, help source annotations, actionable required-flag hints, env/config testkit/CLI wiring
+- Bumped package.json version from 0.1.0 to 0.2.0
+- Updated pnpm-lock.yaml via `pnpm install --lockfile-only`
+- Ran `dprint fmt` to fix lockfile and changelog formatting (dprint owns YAML/markdown formatting)
+- All 599 tests pass, zero type errors, clean lint/format, build successful
+- Files changed: `CHANGELOG.md`, `package.json`, `pnpm-lock.yaml`
+- **Learnings:** `pnpm install --lockfile-only` updates the lockfile version field without touching node_modules. dprint reformats pnpm-lock.yaml (single quotes → double quotes, spacing) — always run formatter after lockfile changes.

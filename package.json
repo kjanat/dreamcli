@@ -1,10 +1,12 @@
 {
 	"name": "dreamcli",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"type": "module",
 	"license": "MIT",
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"build": "tsdown",
 		"check": "tsc --noEmit",
@@ -27,7 +29,9 @@
 		"vitest": "^3.2.0"
 	},
 	"pnpm": {
-		"onlyBuiltDependencies": ["esbuild"]
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
 	},
 	"engines": {
 		"node": ">=20"
