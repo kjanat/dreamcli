@@ -19,10 +19,10 @@ Only multi-file module in the codebase. All others use single `index.ts`.
 - **`A` accumulator**: same pattern for `.arg()`
 - **`C` accumulator**: `Record<string, never>` replaced entirely on first `.middleware()`, then
   intersection-grown via `WidenContext<C, Output>`
-- **`{}` as identity element**: `biome-ignore noBannedTypes` on lines 333/335 of `command.ts` —
-  justified, do not "fix"
+- **`{}` as identity element**: `biome-ignore noBannedTypes` on `CommandBuilder` class generic
+  defaults — justified, do not "fix"
 - **Phantom brand**: `Middleware<Output>` carries type info at compile time, erased at runtime.
-  `__middlewareOutput` property never exists.
+  `_output` property is phantom — compile-time only.
 
 ## ADDING A FLAG TYPE
 
@@ -34,7 +34,7 @@ Only multi-file module in the codebase. All others use single `index.ts`.
 
 ## GOTCHAS
 
-- `command.ts` (575 lines) — approaching split threshold
+- `command.ts` — largest in module, approaching split threshold
 - `.middleware()` drops current handler (type signature changes) — intentional, forces
   re-registration
 - Prompt types consumed directly by `core/prompt/` (bypasses barrel to avoid circular dep)

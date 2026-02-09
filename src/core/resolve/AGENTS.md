@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Single file: `index.ts` (992 lines) — largest in the codebase.
+Single file: `index.ts` — largest in the codebase (~1k lines).
 
 ## RESOLUTION ORDER
 
@@ -13,16 +13,25 @@ trigger `ValidationError`.
 
 ## KEY FUNCTIONS
 
-| Function               | Role                                                    |
-| ---------------------- | ------------------------------------------------------- |
-| `resolve()`            | Main entry — orchestrates full resolution for a command |
-| `resolveFlag()`        | Single flag resolution through the chain                |
-| `resolveArg()`         | Single arg resolution through the chain                 |
-| `coerceValue()`        | Type coercion (string → number/boolean/enum)            |
-| `applyEnvMapping()`    | `env` option → `process.env` lookup                     |
-| `applyConfigMapping()` | `config` option → config object lookup                  |
+| Function              | Role                                                    |
+| --------------------- | ------------------------------------------------------- |
+| `resolve()`           | Main entry — orchestrates full resolution for a command |
+| `resolveFlags()`      | All flags: CLI → env → config → prompt → default        |
+| `resolveArgs()`       | All args: parsed → default → required validation        |
+| `coerceEnvValue()`    | String env value → flag's declared kind                 |
+| `coerceConfigValue()` | JSON config value → flag's declared kind                |
+| `coercePromptValue()` | Prompt answer → flag's declared kind                    |
+| `resolveConfigPath()` | Dotted path lookup in config object                     |
 
-## TEST ORGANIZATION (7 FILES)
+## TWO-PASS ARCHITECTURE
+
+1. **Pass 1** (all flags): CLI → env → config. Collect partial values.
+2. **Interactive resolver call**: If command has `.interactive()`, invoke with partial flags.
+3. **Pass 2** (unresolved flags): prompt → default → required validation.
+
+Without interactive resolver, single-pass (per-flag prompts used directly).
+
+## TEST FILES
 
 Split by concern, not by function:
 
@@ -38,7 +47,7 @@ Split by concern, not by function:
 
 ## GOTCHAS
 
-- File is at 992 lines — split candidate, but resolution logic is inherently sequential
+- File is ~1k lines — split candidate, but resolution logic is inherently sequential
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
   directly
-- `env.test.ts` and `config.test.ts` are 591 and 856 lines respectively — resolution tests are heavy
+- `resolve-env.test.ts` and `resolve-config.test.ts` are the heaviest resolution test files

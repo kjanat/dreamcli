@@ -5,7 +5,7 @@
 ## OVERVIEW
 
 Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Single entry `src/index.ts`
-re-exports 31 values + 73 types from 9 internal modules. Dual ESM/CJS via tsdown.
+re-exports 31 values + 74 types from 10 internal modules. Dual ESM/CJS via tsdown.
 
 ## STRUCTURE
 
@@ -42,7 +42,7 @@ but are empty. Leftover scaffolding — ignore them.
 | Add a new command feature      | `src/core/schema/`              | CommandBuilder, then wire through cli/testkit |
 | Add a new flag type            | `src/core/schema/flag.ts`       | FlagBuilder + FlagKind union                  |
 | Fix argument parsing           | `src/core/parse/`               | Tokenizer + parser, single `index.ts`         |
-| Fix value resolution           | `src/core/resolve/`             | Resolution chain (992 lines)                  |
+| Fix value resolution           | `src/core/resolve/`             | Resolution chain (~1k lines)                  |
 | Add output format              | `src/core/output/`              | OutputChannel, Out interface in schema        |
 | Test a command                 | `src/core/testkit/`             | `runCommand()` with `RunOptions`              |
 | Add middleware                 | `src/core/schema/middleware.ts` | `middleware()` factory                        |
@@ -77,6 +77,7 @@ but are empty. Leftover scaffolding — ignore them.
 - Do NOT add runtime dependencies — library is zero-dep by design
 - Do NOT use `beforeEach`/`afterEach` — tests get isolation from testkit's capture output
 - Do NOT mock modules/dependencies — use `RunOptions` injection seam instead
+- Do NOT use `process.*` or runtime-specific APIs in core — use RuntimeAdapter
 - Do NOT put types in `@ts-ignore` — only `@ts-expect-error` for negative type tests
 
 ## COMMANDS
@@ -96,8 +97,10 @@ pnpm run ci          # check → lint → test → build (sequential)
 
 - **No CI automation** — `pnpm run ci` is local-only, no GitHub Actions
 - **No publish automation** — manual `pnpm publish`, quality gates in build step
-- `src/core/resolve/index.ts` is the largest file (992 lines) — resolution chain complexity
-- `src/core/cli/index.ts` (693 lines) approaching split threshold
+- `src/core/resolve/index.ts` is the largest file (~1k lines) — resolution chain complexity
+- `src/core/cli/index.ts` (~700 lines) approaching split threshold
 - Prompt types defined in `schema/prompt.ts` but consumed by `core/prompt/` directly (bypasses
   barrel to avoid circular dep)
+- `stdinIsTTY` gates interactive prompt auto-creation in `cli/index.ts` — prompts only activate when
+  stdin is a TTY
 - Output assertions in tests include trailing `\n` — `['Hello\n']` not `['Hello']`

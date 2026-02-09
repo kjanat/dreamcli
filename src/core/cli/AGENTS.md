@@ -1,6 +1,6 @@
 # cli — CLIBuilder, multi-command dispatch
 
-693 lines in `index.ts` — approaching split threshold.
+`index.ts` — approaching split threshold (~700 lines).
 
 ## KEY TYPES
 

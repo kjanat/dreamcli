@@ -20,8 +20,10 @@ env: Record<string, string | undefined>
 cwd: string
 stdout: WriteFn
 stderr: WriteFn
+stdin: ReadFn
 exit(code: number): never
 isTTY: boolean
+stdinIsTTY: boolean
 ```
 
 ## ADDING A NEW PLATFORM
@@ -31,7 +33,7 @@ isTTY: boolean
 3. Wire `isTTY` detection for the platform
 4. Re-export from `src/index.ts`
 
-## TEST COVERAGE
+## TEST FILES
 
-Single file `runtime.test.ts` (757 lines) — covers Node adapter, test adapter, `ExitError`, adapter
-contract verification. Uses `vi.fn()` for mock process objects (only place mocks are used).
+Single file `runtime.test.ts` — covers Node adapter, test adapter, `ExitError`, adapter contract
+verification. Uses `vi.fn()` for mock process objects (only place mocks are used).
