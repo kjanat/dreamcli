@@ -121,5 +121,16 @@ export {
 } from './core/schema/index.js';
 export type { RunOptions, RunResult } from './core/testkit/index.js';
 export { runCommand } from './core/testkit/index.js';
-export type { RuntimeAdapter, TestAdapterOptions } from './runtime/index.js';
-export { createNodeAdapter, createTestAdapter, ExitError } from './runtime/index.js';
+export type {
+	GlobalForDetect,
+	Runtime,
+	RuntimeAdapter,
+	TestAdapterOptions,
+} from './runtime/index.js';
+export {
+	createNodeAdapter,
+	createTestAdapter,
+	detectRuntime,
+	ExitError,
+	RUNTIMES,
+} from './runtime/index.js';

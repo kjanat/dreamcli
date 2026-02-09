@@ -11,6 +11,8 @@ Started: 2026-02-09
 - **FlagSchema**: `.kind`, `.aliases`, `.description`, `.enumValues`
 - **Error pattern**: throw `CLIError` for user-facing errors (not raw Error)
 - **Test conventions**: em-dash in describes, `// ===` major separators, `// ---` minor, zero lifecycle hooks
+- **GlobalThis injection**: use optional `globals` param (typed interface) instead of `vi.stubGlobal` for testing globalThis-dependent code — avoids cleanup/mutation issues
+- **Runtime detection**: `GlobalForDetect` interface, check Bun before Node (Bun mimics Node's `process`)
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -22,3 +24,13 @@ Started: 2026-02-09
 - 12 tests covering SHELLS constant, CompletionOptions type contract, all stub throws, dispatcher delegation, options passthrough
 - Files: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`, `src/index.ts`
 - **Learnings:** `ErrorCode` is open (`string & {}`) so any code string works; `void expr` pattern silences unused-param lint for stub args; `CLISchema` imports from `../cli/index.js` (no circular dep concern since completion doesn't feed back into cli yet)
+
+## Task — runtime-detect
+- Implemented `detectRuntime()` in `src/runtime/detect.ts` using `globalThis` feature detection
+- Defined `Runtime` type (`'node' | 'bun' | 'deno' | 'unknown'`) and `RUNTIMES` constant
+- Defined `GlobalForDetect` interface for injectable test globals (avoids mutating real `globalThis`)
+- Detection order: Bun > Deno > Node > unknown (Bun checked first because it provides Node-compatible `process`)
+- 18 tests covering: all runtimes, priority order, partial/missing globals, default globalThis fallback
+- Exported from runtime barrel + main barrel (types: `Runtime`, `GlobalForDetect`; values: `detectRuntime`, `RUNTIMES`)
+- Files: `src/runtime/detect.ts`, `src/runtime/detect.test.ts`, `src/runtime/index.ts`, `src/index.ts`
+- **Learnings:** `as const satisfies` is compile-time only — `Object.isFrozen` returns false at runtime; the `globals` injection param pattern avoids needing `vi.stubGlobal`/cleanup for globalThis mutation
