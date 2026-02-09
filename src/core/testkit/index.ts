@@ -123,6 +123,17 @@ interface RunOptions {
 	readonly jsonMode?: boolean;
 
 	/**
+	 * Whether stdout is connected to a TTY.
+	 *
+	 * Handlers can check `out.isTTY` to decide whether to emit decorative
+	 * output (spinners, progress bars, ANSI codes). Defaults to `false`
+	 * (safe default for tests — non-TTY until proven otherwise).
+	 *
+	 * @default false
+	 */
+	readonly isTTY?: boolean;
+
+	/**
 	 * Help formatting options (width, binName).
 	 * Used when `--help` is detected.
 	 */
@@ -187,6 +198,7 @@ async function runCommand<
 	const captureOptions = {
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
+		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 	};
 	const [out, captured] = createCaptureOutput(
 		Object.keys(captureOptions).length > 0 ? captureOptions : undefined,

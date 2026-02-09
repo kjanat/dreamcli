@@ -171,6 +171,18 @@ interface Out {
 	readonly jsonMode: boolean;
 
 	/**
+	 * Whether stdout is connected to a TTY (terminal).
+	 *
+	 * Handlers can check this to decide whether to emit decorative output
+	 * (spinners, progress bars, ANSI color codes). When `false`, the output
+	 * is being piped or redirected — skip interactive decorations.
+	 *
+	 * Note: `jsonMode` takes precedence — when `jsonMode` is `true`,
+	 * decorative output should be suppressed regardless of `isTTY`.
+	 */
+	readonly isTTY: boolean;
+
+	/**
 	 * Render tabular data.
 	 *
 	 * - **TTY mode** (non-JSON): Pretty-print aligned columns with headers.

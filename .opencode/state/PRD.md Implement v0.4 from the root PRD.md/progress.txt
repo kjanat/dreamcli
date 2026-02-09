@@ -23,6 +23,8 @@ Started: 2026-02-09
 - **Global flag pattern**: Detect in `CLIBuilder.execute()`, strip from argv before dispatch, propagate via options to downstream `runCommand()`. No global flag schema — hardcoded like `--version`/`--help`.
 - **JSON mode redirection**: In JSON mode, `log`/`info` → stderr, `json()` → stdout. Errors rendered via `out.json({ error: err.toJSON() })` to stdout. Scripts get one structured JSON stream on stdout.
 - **Table output dual-mode**: `table()` in JSON mode delegates to `json(rows)` (full data, unfiltered). In normal mode, delegates to `log(formatTable(...))` so redirection rules apply automatically. Column ordering/filtering is display-only.
+- **isTTY wiring pattern**: `adapter.isTTY` → `CLIRunOptions.isTTY` → `RunOptions.isTTY` → `createCaptureOutput({ isTTY })` → `OutputChannel.isTTY` → `Out.isTTY`. Each layer conditionally spreads to respect `exactOptionalPropertyTypes`. `.run()` auto-sources from adapter when not explicitly set.
+- **Output mode precedence**: `jsonMode > isTTY` — handlers check `jsonMode` first, then `isTTY`. The `isTTY` field preserves raw TTY status even in JSON mode (handlers may need it for edge cases), but jsonMode always takes precedence for decorative output decisions.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -64,3 +66,14 @@ Started: 2026-02-09
 - 16 new tests in `output-table.test.ts`: auto-inferred columns, explicit columns, alignment, null/undefined handling, empty rows, single row, numeric/boolean values, JSON mode (emits array to stdout), piped mode (text table), combined output interactions
 - Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/schema/index.ts`, `src/index.ts`, `src/core/schema/command.test.ts` (mock fix), `src/core/output/output-table.test.ts` (new)
 - **Learnings:** Table rendering delegates to `log()` in normal mode so JSON-mode redirection is automatically handled. In JSON mode, `table()` emits the raw rows array — column filtering is a display concern, not a data concern. Last-column trailing whitespace from `padEnd` is harmless but could be trimmed for cleaner pipe output.
+
+## Task - output-tty
+- Added `isTTY: boolean` to `Out` interface in `src/core/schema/command.ts` with doc noting jsonMode precedence
+- Exposed `isTTY` as public readonly on `OutputChannel` (was already stored in `options.isTTY`, now also on instance)
+- Added `isTTY?: boolean` to `RunOptions` (testkit) — wired through to `createCaptureOutput`
+- Added `isTTY?: boolean` to `CLIRunOptions` (CLI builder) — wired through `buildCommandRunOptions`, `execute()` capture output
+- `CLIBuilder.run()` auto-sources `adapter.isTTY` when `options.isTTY` not explicitly set
+- Updated `mockOut` in `command.test.ts` to include `isTTY: false`
+- 38 new tests across 3 files: `output-tty.test.ts` (20 — Out interface, OutputChannel, createCaptureOutput, mode inference, handler branching, table modes), `testkit-tty.test.ts` (10 — propagation, handler branching, isTTY x jsonMode combos), `cli-tty.test.ts` (8 — execute propagation, run adapter wiring, explicit override)
+- Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/schema/command.test.ts` (mock fix), `src/core/output/output-tty.test.ts` (new), `src/core/testkit/testkit-tty.test.ts` (new), `src/core/cli/cli-tty.test.ts` (new)
+- **Learnings:** isTTY wiring follows same conditional-spread pattern as jsonMode for `exactOptionalPropertyTypes`. Output mode precedence: jsonMode > isTTY — expose raw TTY status on Out but document that jsonMode overrides for decorative decisions. No spinner/progress impl yet, but infrastructure (out.isTTY check) is ready.

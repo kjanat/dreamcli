@@ -165,6 +165,17 @@ interface CLIRunOptions {
 	readonly jsonMode?: boolean;
 
 	/**
+	 * Whether stdout is connected to a TTY.
+	 *
+	 * When provided, propagated to the output channel's `isTTY` field.
+	 * In `.run()`, automatically sourced from `adapter.isTTY` when not
+	 * explicitly set.
+	 *
+	 * @default false
+	 */
+	readonly isTTY?: boolean;
+
+	/**
 	 * Help formatting options (width, binName).
 	 * `binName` defaults to the CLI program name.
 	 */
@@ -377,6 +388,7 @@ function buildCommandRunOptions(
 		...(options?.answers !== undefined ? { answers: options.answers } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
+		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 	};
 }
 
@@ -473,6 +485,7 @@ class CLIBuilder {
 		const captureOptions = {
 			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 			...(jsonMode ? { jsonMode } : {}),
+			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 		};
 		const [out, captured] = createCaptureOutput(
 			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
@@ -577,10 +590,11 @@ class CLIBuilder {
 				? createTerminalPrompter(adapter.stdin, adapter.stderr)
 				: undefined;
 
-		// Source env from adapter when not explicitly provided in options
+		// Source env and isTTY from adapter when not explicitly provided in options
 		const executeOptions: CLIRunOptions = {
 			...options,
 			...(options?.env === undefined ? { env: adapter.env } : {}),
+			...(options?.isTTY === undefined ? { isTTY: adapter.isTTY } : {}),
 			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
 		};
 		const result = await this.execute(argv, executeOptions);

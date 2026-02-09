@@ -138,9 +138,19 @@ class OutputChannel implements Out {
 	/** Whether JSON output mode is active. */
 	readonly jsonMode: boolean;
 
+	/**
+	 * Whether stdout is connected to a TTY.
+	 *
+	 * When `jsonMode` is active, this reflects the underlying TTY status
+	 * but decorative output should still be suppressed (jsonMode takes
+	 * precedence).
+	 */
+	readonly isTTY: boolean;
+
 	constructor(options: ResolvedOutputOptions) {
 		this.options = options;
 		this.jsonMode = options.jsonMode;
+		this.isTTY = options.isTTY;
 	}
 
 	/**

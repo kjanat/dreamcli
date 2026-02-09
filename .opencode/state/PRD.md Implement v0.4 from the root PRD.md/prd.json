@@ -40,7 +40,7 @@
 			"description": "Wire isTTY from RuntimeAdapter through output channel creation. Auto-disable spinner/progress placeholders when not TTY. Ensure --json flag overrides TTY pretty-printing.",
 			"priority": 2,
 			"category": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "cli-middleware-integration",
