@@ -141,3 +141,11 @@ Started: 2026-02-09
 - Updated E2E test comment to reflect new behavior (enum accepts fish, generator rejects it)
 - Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`
 - **Learnings:** enum flag values should match the full domain type, not just implemented subset — push validation to the action layer for better error messages
+
+## Task — fix/deduplicate-sanitize-identifiers (code review P0)
+- Replaced `sanitizeBashIdentifier()` and `sanitizeZshIdentifier()` with single `sanitizeShellIdentifier()`
+- Both functions were identical: `name.replace(/[^a-zA-Z0-9_]/g, '_')`
+- Moved shared function to new "Shared helpers" section above bash/zsh-specific helpers
+- Added "Zsh helpers" section header that was lost when `sanitizeZshIdentifier` was removed
+- Files changed: `src/core/completion/index.ts`
+- **Learnings:** when shell generators share identical helpers, extract to a shared section — reduces maintenance surface and makes the identity explicit

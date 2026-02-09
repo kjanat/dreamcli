@@ -87,7 +87,7 @@ function generateCompletion(schema: CLISchema, shell: Shell, options?: Completio
  */
 function generateBashCompletion(schema: CLISchema, options?: CompletionOptions): string {
 	const prefix = options?.functionPrefix ?? schema.name;
-	const funcName = `_${sanitizeBashIdentifier(prefix)}_completions`;
+	const funcName = `_${sanitizeShellIdentifier(prefix)}_completions`;
 	const visibleCommands = schema.commands.map((c) => c.schema).filter((s) => !s.hidden);
 
 	const lines: string[] = [];
@@ -171,18 +171,23 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 }
 
 // ---------------------------------------------------------------------------
-// Bash helpers — internal
+// Shared helpers — internal
 // ---------------------------------------------------------------------------
 
 /**
- * Sanitize a string for use as a bash function identifier.
+ * Sanitize a string for use as a shell function identifier.
  * Replaces non-alphanumeric/underscore characters with underscores.
+ * Used by both bash and zsh generators.
  *
  * @internal
  */
-function sanitizeBashIdentifier(name: string): string {
+function sanitizeShellIdentifier(name: string): string {
 	return name.replace(/[^a-zA-Z0-9_]/g, '_');
 }
+
+// ---------------------------------------------------------------------------
+// Bash helpers — internal
+// ---------------------------------------------------------------------------
 
 /**
  * Collect all `--flag` words (long + short aliases) for a command's flags.
@@ -253,7 +258,7 @@ function collectEnumCases(commands: readonly CommandSchema[]): readonly EnumCase
  */
 function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): string {
 	const prefix = options?.functionPrefix ?? schema.name;
-	const funcName = `_${sanitizeZshIdentifier(prefix)}`;
+	const funcName = `_${sanitizeShellIdentifier(prefix)}`;
 	const visibleCommands = schema.commands.map((c) => c.schema).filter((s) => !s.hidden);
 
 	const lines: string[] = [];
@@ -331,15 +336,9 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 	return lines.join('\n');
 }
 
-/**
- * Sanitize a string for use as a zsh function identifier.
- * Replaces non-alphanumeric/underscore characters with underscores.
- *
- * @internal
- */
-function sanitizeZshIdentifier(name: string): string {
-	return name.replace(/[^a-zA-Z0-9_]/g, '_');
-}
+// ---------------------------------------------------------------------------
+// Zsh helpers — internal
+// ---------------------------------------------------------------------------
 
 /**
  * Escape single quotes and colons in descriptions for zsh `_describe` format.
