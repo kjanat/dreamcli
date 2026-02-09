@@ -1,40 +1,47 @@
 {
-	"prdName": "dreamcli-v02",
-	"description": "DreamCLI v0.2 — Resolution chain (env/config/default), required handling, non-interactive behavior rules",
+	"prdName": "dreamcli-v03",
+	"description": "DreamCLI v0.3 — Interactive prompting integration (portable prompt engine + pluggable renderer)",
 	"tasks": [
 		{
-			"id": "resolve-env-1",
-			"title": "Env variable resolution in the resolver",
-			"description": "Extend resolve() to accept ResolveOptions with an env record. For each flag with schema.envVar set, look up the value in env after CLI and before default. Coerce env string to the flag's kind (number, boolean, enum validation). Emit ValidationError for invalid env values. Thread env through testkit RunOptions and CLI builder.",
+			"id": "prompt-types-1",
+			"title": "Prompt type definitions and flag schema extension",
+			"description": "Define PromptConfig discriminated union (confirm, input, select, multiselect) with per-kind fields. Extend FlagSchema with optional prompt field. Add .prompt() method to FlagBuilder as metadata modifier (same pattern as .env()/.config()). Add PromptResult type for prompt engine output. No runtime behavior yet — types and schema only.",
 			"passes": true,
 			"priority": "architecture"
 		},
 		{
-			"id": "resolve-config-1",
-			"title": "Config object resolution in the resolver",
-			"description": "Extend ResolveOptions with an optional config record. For each flag with schema.configPath set, resolve dotted path (e.g. 'deploy.region') against the config object after env and before default. Coerce config values same as env. Config object is plain JSON — file loading deferred to a later task or user-land.",
-			"passes": true,
+			"id": "prompt-engine-1",
+			"title": "Prompt engine interface and built-in renderer",
+			"description": "Define PromptEngine interface: promptOne(config, flagSchema) → Promise<unknown>. Implement createTerminalPrompter(stdin, stdout) as the built-in renderer using raw readline/terminal I/O. Implement createTestPrompter(answers) that returns pre-configured answers for testing. PromptEngine is the pluggable seam — users can swap renderers.",
+			"passes": false,
 			"priority": "architecture"
 		},
 		{
-			"id": "resolve-help-1",
-			"title": "Help text shows env/config resolution sources",
-			"description": "Update formatHelp to display env var and config path annotations on flags that declare them. e.g. '--region <us|eu|ap>  [env: DEPLOY_REGION] [config: deploy.region]'. Shows users where values can come from.",
-			"passes": true,
+			"id": "prompt-resolve-1",
+			"title": "Integrate prompting into the resolution chain",
+			"description": "Make resolve() async. Insert prompt step between config and default: for each flag with prompt config and no value yet, call promptEngine.promptOne(). Add prompter field to ResolveOptions. Non-interactive mode (no prompter or stdinIsTTY=false) skips prompts and falls through to default/required. Update all resolve() callers to await.",
+			"passes": false,
+			"priority": "architecture"
+		},
+		{
+			"id": "prompt-adapter-1",
+			"title": "Extend RuntimeAdapter with stdin for prompt I/O",
+			"description": "Add stdin (ReadableStream or readline interface) and stdinIsTTY fields to RuntimeAdapter. Update createNodeAdapter to source from process.stdin. Update createTestAdapter with configurable stdin mock. Wire stdinIsTTY through CLIBuilder.run() to resolve options for prompt gating.",
+			"passes": false,
 			"priority": "integration"
 		},
 		{
-			"id": "resolve-errors-1",
-			"title": "Non-interactive required handling with actionable hints",
-			"description": "When a required flag is missing after full resolution (CLI/env/config/default), the ValidationError suggest field should list all configured sources the user could have used. e.g. 'Provide --region, set DEPLOY_REGION, or add deploy.region to config'. CI-friendly error messages.",
-			"passes": true,
+			"id": "prompt-command-1",
+			"title": "Command-level .interactive() API and schema-driven prompt resolution",
+			"description": "Add .interactive(resolver) method to CommandBuilder per PRD API: receives partially resolved values, returns prompt schema for missing values. Add interactive field to CommandSchema. The resolver function is called after CLI/env/config resolution but before prompts fire — it decides which prompts to show based on current state. Commands without .interactive() use per-flag prompt configs directly.",
+			"passes": false,
 			"priority": "integration"
 		},
 		{
-			"id": "resolve-integration-1",
-			"title": "Wire env/config through testkit and CLI builder execution paths",
-			"description": "Update runCommand() to pass RunOptions.env and RunOptions.config into resolve(). Update CLIBuilder.execute() and .run() to thread adapter.env and optional config through the resolution chain. Ensure all existing tests still pass with the new signatures.",
-			"passes": true,
+			"id": "prompt-testkit-1",
+			"title": "Wire prompting through testkit and CLI builder",
+			"description": "Add answers/prompter field to RunOptions for test injection. Update runCommand() pipeline to create test prompter from answers or accept explicit prompter. Update CLIBuilder.execute() and .run() to thread prompter through resolution. Add help text annotation for promptable flags. Ensure all existing 599+ tests pass.",
+			"passes": false,
 			"priority": "integration"
 		}
 	]

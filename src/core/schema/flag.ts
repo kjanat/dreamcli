@@ -9,6 +9,8 @@
  * @module dreamcli/core/schema/flag
  */
 
+import type { PromptConfig } from './prompt.js';
+
 // ---------------------------------------------------------------------------
 // Type-level configuration (phantom state tracked through the chain)
 // ---------------------------------------------------------------------------
@@ -96,6 +98,8 @@ interface FlagSchema {
 	readonly enumValues: readonly string[] | undefined;
 	/** Element schema when `kind === 'array'`. */
 	readonly elementSchema: FlagSchema | undefined;
+	/** Interactive prompt configuration for v0.3+ resolution. */
+	readonly prompt: PromptConfig | undefined;
 }
 
 /** Create base schema data with sensible defaults. */
@@ -110,6 +114,7 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 		description: undefined,
 		enumValues: undefined,
 		elementSchema: undefined,
+		prompt: undefined,
 		...overrides,
 	};
 }
@@ -210,6 +215,21 @@ class FlagBuilder<C extends FlagConfig> {
 		return new FlagBuilder({
 			...this.schema,
 			description,
+		});
+	}
+
+	/**
+	 * Attach interactive prompt configuration for v0.3+ resolution.
+	 *
+	 * When a flag value is not resolved from CLI, env, or config, the
+	 * prompt engine uses this config to interactively ask the user.
+	 * In non-interactive contexts (CI, piped stdin) prompts are skipped
+	 * and resolution falls through to default or required validation.
+	 */
+	prompt(config: PromptConfig): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			prompt: config,
 		});
 	}
 }
@@ -315,3 +335,15 @@ export type {
 	ResolvedValue,
 	WithPresence,
 };
+// Re-export prompt types for consumers
+export type {
+	ConfirmPromptConfig,
+	InputPromptConfig,
+	MultiselectPromptConfig,
+	PromptConfig,
+	PromptConfigBase,
+	PromptKind,
+	PromptResult,
+	SelectChoice,
+	SelectPromptConfig,
+} from './prompt.js';

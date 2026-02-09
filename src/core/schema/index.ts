@@ -29,6 +29,7 @@ export type {
 } from './command.js';
 export { CommandBuilder, command } from './command.js';
 export type {
+	ConfirmPromptConfig,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
@@ -36,7 +37,15 @@ export type {
 	FlagSchema,
 	InferFlag,
 	InferFlags,
+	InputPromptConfig,
+	MultiselectPromptConfig,
+	PromptConfig,
+	PromptConfigBase,
+	PromptKind,
+	PromptResult,
 	ResolvedValue,
+	SelectChoice,
+	SelectPromptConfig,
 	WithPresence,
 } from './flag.js';
 export { createSchema, FlagBuilder, flag } from './flag.js';

@@ -1,5 +1,5 @@
 # Progress Log
-PRD: dreamcli-v02
+PRD: dreamcli-v03
 Started: 2026-02-09
 
 ## Codebase Patterns
@@ -22,6 +22,7 @@ Started: 2026-02-09
 - **Runtime adapter pattern**: `RuntimeAdapter` interface in `src/runtime/adapter.ts` — fields: `argv`, `env`, `cwd`, `stdout: WriteFn`, `stderr: WriteFn`, `isTTY`, `exit`. `createNodeAdapter(proc?)` wraps Node/Bun `process` global. `createTestAdapter(opts?)` provides injectable stub — exit throws `ExitError` by default. `CLIRunOptions.adapter?` injects into `.run()` — defaults to `createNodeAdapter()`. `NodeProcess` internal interface avoids `@types/node` dependency. I/O seam: adapter `stdout`/`stderr` are `WriteFn` (same type as output module), not raw streams.
 - **Env resolution pattern**: `resolve(schema, parsed, options?)` accepts `ResolveOptions` with optional `env` record. Resolution chain: CLI → env → default. `coerceEnvValue()` returns discriminated `CoerceEnvResult` (`ok: true | false`) instead of throwing — allows error aggregation. Boolean env coercion is lenient: accepts `true/false/1/0/yes/no/""` (case-insensitive). Array env values are comma-separated. Element coercion recurses via `coerceEnvValue()` with element schema. Env errors use `TYPE_MISMATCH` / `INVALID_ENUM` validation codes. `CLIBuilder.run()` auto-sources `adapter.env` when no explicit `env` option provided.
 - **Config resolution pattern**: `ResolveOptions.config` accepts a plain `Record<string, unknown>` (JSON object). Resolution chain: CLI → env → config → default. `resolveConfigPath(config, dottedPath)` walks nested objects segment-by-segment; returns `undefined` for missing/non-object intermediates. `coerceConfigValue()` returns discriminated `CoerceConfigResult` (same shape as env). Config values may already be typed — coercion is lenient for matching types (numbers stay numbers, booleans stay booleans) and stricter for mismatches. Array config values accept both actual arrays and comma-separated strings. File loading is the caller's responsibility.
+- **Prompt schema pattern**: `PromptConfig` discriminated union (kind: confirm/input/select/multiselect) in `src/core/schema/prompt.ts`. `FlagSchema.prompt: PromptConfig | undefined` stores prompt config. `FlagBuilder.prompt(config)` metadata modifier (same immutable pattern as `.env()`/`.config()`). `PromptResult` discriminated on `answered: true/false` — coercion is resolver's responsibility. `SelectChoice` for select/multiselect options. `InputPromptConfig.validate` for inline validation (returns `true | string`). Prompt types re-exported through flag.ts → schema barrel → public surface.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -253,3 +254,17 @@ Started: 2026-02-09
 - All 599 tests pass, zero type errors, clean lint/format, build successful
 - Files changed: `CHANGELOG.md`, `package.json`, `pnpm-lock.yaml`
 - **Learnings:** `pnpm install --lockfile-only` updates the lockfile version field without touching node_modules. dprint reformats pnpm-lock.yaml (single quotes → double quotes, spacing) — always run formatter after lockfile changes.
+
+## Task - prompt-types-1
+- Defined `PromptConfig` discriminated union in `src/core/schema/prompt.ts` with four kinds: `confirm`, `input`, `select`, `multiselect`
+- Each kind has specialized fields: `InputPromptConfig` has `placeholder` and `validate`; `SelectPromptConfig` has `choices`; `MultiselectPromptConfig` has `choices`, `min`, `max`
+- `SelectChoice` type with `value`, optional `label` and `description`
+- `PromptResult` discriminated on `answered: true | false` — cancelled prompts return `{ answered: false }`, answered return `{ answered: true, value: unknown }`
+- Extended `FlagSchema` with `prompt: PromptConfig | undefined` field
+- Added `.prompt(config)` method to `FlagBuilder` — same immutable pattern as `.env()` / `.config()`
+- Updated `createSchema()` to default `prompt: undefined`
+- Re-exported all prompt types through flag.ts → schema barrel → public surface
+- 36 new tests: type discrimination, per-kind config fields, FlagSchema.prompt default, FlagBuilder.prompt() (all kinds, immutability, schema preservation, overwrite, type inference), validate function, chaining order, command integration, public surface exports
+- All 635 tests pass, zero type errors, clean lint/format
+- Files changed: `src/core/schema/prompt.ts` (new), `src/core/schema/prompt.test.ts` (new), `src/core/schema/flag.ts`, `src/core/schema/index.ts`, `src/index.ts`
+- **Learnings:** Prompt types belong in a separate `prompt.ts` file imported by `flag.ts` — keeps flag.ts focused on builder mechanics. The `PromptConfig` discriminated union is extensible: adding new prompt kinds only requires extending the union and adding a new interface. `InputPromptConfig.validate` uses the `true | string` return pattern (same as many prompt libraries) — returning `true` means valid, returning a string means error message. Prompt configuration is a runtime concern stored on `FlagSchema` — the phantom type parameter `FlagConfig` does NOT need to change since prompting doesn't affect the resolved value type.
