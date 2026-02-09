@@ -53,3 +53,10 @@ export type {
 	WithPresence,
 } from './flag.js';
 export { createSchema, FlagBuilder, flag } from './flag.js';
+export type {
+	ErasedMiddlewareHandler,
+	Middleware,
+	MiddlewareHandler,
+	MiddlewareParams,
+} from './middleware.js';
+export { middleware } from './middleware.js';

@@ -23,7 +23,7 @@ import { createTestPrompter } from '../prompt/index.js';
 import type { ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type { ActionHandler, CommandBuilder, Out } from '../schema/command.js';
+import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
 
 // ---------------------------------------------------------------------------
@@ -171,7 +171,8 @@ interface RunResult {
 async function runCommand<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
->(cmd: CommandBuilder<F, A>, argv: readonly string[], options?: RunOptions): Promise<RunResult> {
+	C extends Record<string, unknown> = Record<string, never>,
+>(cmd: CommandBuilder<F, A, C>, argv: readonly string[], options?: RunOptions): Promise<RunResult> {
 	const captureOptions =
 		options?.verbosity !== undefined ? { verbosity: options.verbosity } : undefined;
 	const [out, captured] = createCaptureOutput(captureOptions);
@@ -210,13 +211,13 @@ async function runCommand<
 		};
 		const resolved = await resolve(cmd.schema, parsed, resolveOptions);
 
-		// -- Execute handler -----------------------------------------------------
+		// -- Execute middleware chain + handler -----------------------------------
 		// The resolver guarantees that resolved.flags and resolved.args match
 		// the shape declared by the command's flag/arg builders. The phantom
 		// types on CommandBuilder<F, A> are erased at runtime — the handler
-		// is just a function accepting a plain object. `invokeHandler` bridges
-		// the phantom type boundary without type assertions in user-facing code.
-		await invokeHandler(cmd.handler, resolved.flags, resolved.args, out);
+		// is just a function accepting a plain object. `executeWithMiddleware`
+		// runs the middleware chain then invokes the handler at the end.
+		await executeWithMiddleware(cmd.schema, cmd.handler, resolved.flags, resolved.args, out);
 
 		return buildResult(0, captured, undefined);
 	} catch (err: unknown) {
@@ -244,33 +245,60 @@ async function runCommand<
 // ---------------------------------------------------------------------------
 
 /**
- * Invoke an action handler at the phantom-type boundary.
+ * Execute the middleware chain followed by the action handler.
  *
- * The resolver produces `Record<string, unknown>` at runtime — the correct
- * runtime representation of the phantom-typed `InferFlags<F>` / `InferArgs<A>`.
- * At runtime, `ActionHandler<F, A>` is just `(params: object) => void | Promise<void>`
- * — the generic params F and A are erased.
+ * Builds a continuation chain: each middleware's `next()` calls the next
+ * middleware, with the final `next()` invoking the action handler.
+ * Context accumulates via `{ ...ctx, ...additions }` at each step.
  *
- * This function is the sole point where we bridge that gap. The parse→resolve
- * pipeline guarantees the runtime values match the schema; the phantom types
- * guarantee the handler expects that schema. The `Function.prototype.call`
- * invocation bypasses TypeScript's compile-time check at this one seam.
+ * This is the sole point where we bridge the phantom-type gap. The
+ * parse→resolve pipeline guarantees the runtime values match the schema;
+ * the phantom types guarantee the handler expects that schema.
  *
  * @internal
  */
-function invokeHandler<
+async function executeWithMiddleware<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown>,
 >(
-	handler: ActionHandler<F, A>,
+	schema: CommandSchema,
+	handler: ActionHandler<F, A, C>,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
 	out: Out,
-): void | Promise<void> {
-	const params: HandlerParams = { flags, args, ctx: {}, out };
-	// The handler's runtime signature is (params: object) => void | Promise<void>.
-	// Phantom-type erasure means this call is safe; parse→resolve guarantees shape.
-	return (handler as (params: HandlerParams) => void | Promise<void>)(params);
+): Promise<void> {
+	const middlewares = schema.middleware;
+
+	// Terminal action — receives the final accumulated context.
+	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
+
+	let chain: ChainFn = async (ctx) => {
+		const params: HandlerParams = { flags, args, ctx, out };
+		// Phantom-type erasure: handler is (params: object) => void | Promise<void> at runtime.
+		await (handler as (p: HandlerParams) => void | Promise<void>)(params);
+	};
+
+	// Wrap from back to front so the first registered middleware is outermost.
+	for (let i = middlewares.length - 1; i >= 0; i--) {
+		const mw = middlewares[i];
+		if (mw === undefined) continue; // satisfy noUncheckedIndexedAccess
+		const downstream = chain; // capture for closure
+		chain = async (ctx) => {
+			await mw({
+				args,
+				flags,
+				ctx,
+				out,
+				next: async (additions) => {
+					await downstream({ ...ctx, ...additions });
+				},
+			});
+		};
+	}
+
+	// Start with empty context — middleware builds it up.
+	await chain({});
 }
 
 /** Build a `RunResult` from parts. */

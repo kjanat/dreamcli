@@ -69,6 +69,7 @@ export type {
 	CommandSchema,
 	ConfirmPromptConfig,
 	ErasedInteractiveResolver,
+	ErasedMiddlewareHandler,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
@@ -82,6 +83,9 @@ export type {
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
+	Middleware,
+	MiddlewareHandler,
+	MiddlewareParams,
 	MultiselectPromptConfig,
 	Out,
 	PromptConfig,
@@ -105,6 +109,7 @@ export {
 	createSchema,
 	FlagBuilder,
 	flag,
+	middleware,
 } from './core/schema/index.js';
 export type { RunOptions, RunResult } from './core/testkit/index.js';
 export { runCommand } from './core/testkit/index.js';

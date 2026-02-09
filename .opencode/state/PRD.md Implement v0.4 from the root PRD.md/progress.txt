@@ -1,0 +1,38 @@
+# Progress Log
+PRD: v0.4-middleware-output
+Started: 2026-02-09
+
+## Codebase Patterns
+<!-- Consolidate reusable patterns here -->
+
+- **Immutable builders**: every modifier returns `new XBuilder({...this.schema, changed})`
+- **Phantom types**: `declare readonly _config: C` for type-level tracking, no runtime cost
+- **Schema/builder split**: `XSchema` for runtime, phantom generics for compile-time
+- **Coercion pattern**: discriminated `{ ok: true, value } | { ok: false, error }` results
+- **Type erasure**: `ErasedCommand` for heterogeneous storage, typed closures preserve safety
+- **Error architecture**: `CLIError` base → `ParseError`, `ValidationError` subtypes with stable codes
+- **Test co-location**: tests in same directory as source, split across files for large modules
+- **Factory pattern**: `flag.string()`, `arg.string()`, `command(name)`, `cli(name)`
+- **Zero runtime deps**: all devDependencies only
+- **Imports**: relative paths with `.js` extension, not barrel imports in tests
+
+- **WidenContext conditional type**: `Record<string, never>` as default C makes naive intersection collapse to `never`. Use `WidenContext<C, Output> = C extends Record<string, never> ? Output : C & Output` to replace on first middleware, intersect on subsequent.
+- **Middleware explicit generic**: `middleware<{ user: string }>(...)` is needed for reliable inference in strict TS mode; inference from `next()` argument alone is unreliable across all TS contexts.
+- **Middleware phantom type via cast**: `MiddlewareImpl` (runtime) cast to `Middleware<Output>` (phantom-branded) — same pattern as flag/arg builders.
+- **executeWithMiddleware continuation chain**: Build from back to front so first middleware is outermost. Each `next()` closes over downstream chain.
+
+---
+<!-- Task logs below - APPEND ONLY -->
+
+## Task - middleware-types + middleware-chain
+- Implemented `Middleware<Output>` type, `MiddlewareHandler<Output>`, `MiddlewareParams`, `ErasedMiddlewareHandler` in new `src/core/schema/middleware.ts`
+- Implemented `middleware()` factory function with phantom type branding
+- Added `CommandBuilder.middleware()` method with `WidenContext<C, Output>` return type
+- Added `middleware: readonly ErasedMiddlewareHandler[]` to `CommandSchema`
+- Replaced `invokeHandler()` with `executeWithMiddleware()` in testkit — continuation-based chain execution
+- Added `C` generic to `runCommand()` and `executeWithMiddleware()` signatures
+- Updated barrel exports in `schema/index.ts` and `src/index.ts`
+- Updated 7 test helper `makeSchema()` functions to include `middleware: []`
+- 26 new tests covering: factory, type inference, builder integration, runtime execution (ordering, context accumulation, flags/args access, output channel, short-circuit, error propagation, wrapping, backward compat, env/config integration)
+- Files changed: `src/core/schema/middleware.ts` (new), `src/core/schema/middleware.test.ts` (new), `src/core/schema/command.ts`, `src/core/schema/index.ts`, `src/core/testkit/index.ts`, `src/index.ts`, + 7 test files (makeSchema fix)
+- **Learnings:** WidenContext conditional type pattern, explicit generic needed for reliable middleware Output inference, continuation chain built back-to-front

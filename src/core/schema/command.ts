@@ -11,7 +11,26 @@
 
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.js';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.js';
+import type { ErasedMiddlewareHandler, Middleware } from './middleware.js';
 import type { PromptConfig } from './prompt.js';
+
+// ---------------------------------------------------------------------------
+// Context type utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Widen the context type when adding middleware.
+ *
+ * The default `C = Record<string, never>` uses an index signature where
+ * every key maps to `never` — making property access a type error until
+ * middleware extends it. Naive intersection (`Record<string, never> & { user: string }`)
+ * collapses all properties to `never` because `never & T = never`.
+ *
+ * This utility replaces `Record<string, never>` entirely on the first
+ * `.middleware()` call. Subsequent calls use plain intersection.
+ */
+type WidenContext<C extends Record<string, unknown>, Output extends Record<string, unknown>> =
+	C extends Record<string, never> ? Output : C & Output;
 
 // ---------------------------------------------------------------------------
 // Type-level configuration (phantom state tracked through the chain)
@@ -194,6 +213,15 @@ interface CommandSchema {
 	 * @see InteractiveResolver
 	 */
 	readonly interactive: ErasedInteractiveResolver | undefined;
+	/**
+	 * Middleware handlers to run before the action handler.
+	 *
+	 * Executed in registration order — first middleware registered runs
+	 * first and calls `next()` to proceed to subsequent middleware,
+	 * ending with the action handler. Context accumulates via intersection
+	 * at the type level and via object spread at runtime.
+	 */
+	readonly middleware: readonly ErasedMiddlewareHandler[];
 }
 
 /** A named positional arg entry in the command schema. */
@@ -294,6 +322,45 @@ class CommandBuilder<
 		// identical to `ErasedInteractiveResolver`.
 		const erased = resolver as unknown as ErasedInteractiveResolver;
 		return new CommandBuilder({ ...this.schema, interactive: erased }, this.handler);
+	}
+
+	// -- Middleware ----------------------------------------------------------
+
+	/**
+	 * Register middleware to run before the action handler.
+	 *
+	 * Middleware executes in registration order. Each middleware receives
+	 * `{ args, flags, ctx, out, next }` and must call `next(additions)`
+	 * to continue the chain. Context additions are merged and become
+	 * typed downstream.
+	 *
+	 * Adding middleware widens `C` via intersection and drops the current
+	 * handler (like `.flag()` / `.arg()` — the handler's type signature
+	 * changes when context changes).
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .middleware(auth)      // C becomes { user: User }
+	 *   .middleware(telemetry) // C becomes { user: User } & { traceId: string }
+	 *   .action(({ ctx }) => {
+	 *     ctx.user;    // User — typed
+	 *     ctx.traceId; // string — typed
+	 *   });
+	 * ```
+	 */
+	middleware<Output extends Record<string, unknown>>(
+		m: Middleware<Output>,
+	): CommandBuilder<F, A, WidenContext<C, Output>> {
+		return new CommandBuilder(
+			{
+				...this.schema,
+				middleware: [...this.schema.middleware, m._handler],
+				hasAction: false,
+			},
+			// Handler intentionally dropped — C changed, invalidating handler signature.
+			undefined,
+		);
 	}
 
 	// -- Metadata modifiers --------------------------------------------------
@@ -414,6 +481,7 @@ function command(name: string): CommandBuilder {
 		args: [],
 		hasAction: false,
 		interactive: undefined,
+		middleware: [],
 	});
 }
 
