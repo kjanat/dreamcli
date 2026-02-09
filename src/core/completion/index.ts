@@ -101,23 +101,6 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	lines.push(`\t_init_completion || return`);
 	lines.push('');
 
-	// --- Enum value completions for previous flag ---
-	const enumCases = collectEnumCases(visibleCommands);
-	if (enumCases.length > 0) {
-		lines.push('\t# Complete enum values for flags');
-		lines.push('\tcase "$prev" in');
-		for (const ec of enumCases) {
-			lines.push(`\t\t${ec.flags})`);
-			lines.push(`\t\t\tCOMPREPLY=($(compgen -W '${ec.values}' -- "$cur"))`);
-			lines.push('\t\t\treturn');
-			lines.push('\t\t\t;;');
-		}
-		lines.push('\t\t*)');
-		lines.push('\t\t\t;;');
-		lines.push('\tesac');
-		lines.push('');
-	}
-
 	// --- Subcommand dispatch ---
 	if (visibleCommands.length > 0) {
 		const subcommandNames = visibleCommands.flatMap((s) => [s.name, ...s.aliases]);
@@ -137,13 +120,26 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\tdone');
 		lines.push('');
 
-		// --- Per-command flag completions ---
+		// --- Per-command: enum value + flag completions ---
 		lines.push('\t# Complete flags for the active subcommand');
 		lines.push('\tcase "$subcmd" in');
 		for (const cmd of visibleCommands) {
 			const allNames = [cmd.name, ...cmd.aliases];
 			const flagWords = collectFlagWords(cmd.flags);
+			const enumCases = collectEnumCases(cmd);
 			lines.push(`\t\t${allNames.join('|')})`);
+			if (enumCases.length > 0) {
+				lines.push('\t\t\tcase "$prev" in');
+				for (const ec of enumCases) {
+					lines.push(`\t\t\t\t${ec.flags})`);
+					lines.push(`\t\t\t\t\tCOMPREPLY=($(compgen -W '${ec.values}' -- "$cur"))`);
+					lines.push('\t\t\t\t\treturn');
+					lines.push('\t\t\t\t\t;;');
+				}
+				lines.push('\t\t\t\t*)');
+				lines.push('\t\t\t\t\t;;');
+				lines.push('\t\t\tesac');
+			}
 			lines.push(`\t\t\tCOMPREPLY=($(compgen -W '${flagWords}' -- "$cur"))`);
 			lines.push('\t\t\treturn');
 			lines.push('\t\t\t;;');
@@ -217,26 +213,24 @@ interface EnumCase {
 }
 
 /**
- * Collect enum flag cases across all visible commands for `case "$prev"` matching.
+ * Collect enum flag cases for a single command's `case "$prev"` matching.
+ *
+ * Each enum flag produces one case entry with its long/short flag forms
+ * as the pattern and enum values as the completions.
  *
  * @internal
  */
-function collectEnumCases(commands: readonly CommandSchema[]): readonly EnumCase[] {
-	const seen = new Map<string, EnumCase>();
-	for (const cmd of commands) {
-		for (const [name, schema] of Object.entries(cmd.flags)) {
-			if (schema.kind !== 'enum' || schema.enumValues === undefined) continue;
-			const flagForms = [
-				`--${name}`,
-				...schema.aliases.map((a) => (a.length === 1 ? `-${a}` : `--${a}`)),
-			];
-			const key = flagForms.join('|');
-			if (!seen.has(key)) {
-				seen.set(key, { flags: key, values: schema.enumValues.join(' ') });
-			}
-		}
+function collectEnumCases(cmd: CommandSchema): readonly EnumCase[] {
+	const cases: EnumCase[] = [];
+	for (const [name, schema] of Object.entries(cmd.flags)) {
+		if (schema.kind !== 'enum' || schema.enumValues === undefined) continue;
+		const flagForms = [
+			`--${name}`,
+			...schema.aliases.map((a) => (a.length === 1 ? `-${a}` : `--${a}`)),
+		];
+		cases.push({ flags: flagForms.join('|'), values: schema.enumValues.join(' ') });
 	}
-	return [...seen.values()];
+	return cases;
 }
 
 // ---------------------------------------------------------------------------

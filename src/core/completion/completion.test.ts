@@ -357,6 +357,102 @@ describe('generateBashCompletion — enum value completions', () => {
 
 		expect(script).not.toContain('case "$prev" in');
 	});
+
+	// --- Cross-command enum isolation ---
+
+	it('completes correct enum values per command when same-named flag has different values', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['prod', 'staging'],
+							}),
+						},
+					}),
+				),
+				erased(
+					commandSchema({
+						name: 'test',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['unit', 'e2e'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+		const lines = script.split('\n');
+
+		// Find per-command case branches (inside "Complete flags" section)
+		const flagSectionStart = lines.findIndex((l) => l.includes('Complete flags'));
+		const flagSection = lines.slice(flagSectionStart);
+
+		const deployIdx = flagSection.findIndex((l) => l.trim().startsWith('deploy)'));
+		const testIdx = flagSection.findIndex((l) => l.trim().startsWith('test)'));
+
+		const deployBlock = flagSection.slice(deployIdx, testIdx).join('\n');
+		const testBlock = flagSection.slice(testIdx).join('\n');
+
+		expect(deployBlock).toContain("'prod staging'");
+		expect(deployBlock).not.toContain('unit');
+		expect(deployBlock).not.toContain('e2e');
+
+		expect(testBlock).toContain("'unit e2e'");
+		expect(testBlock).not.toContain('prod');
+		expect(testBlock).not.toContain('staging');
+	});
+
+	it('handles mixed enum and non-enum flags across commands', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['prod', 'staging'],
+							}),
+							force: flagSchema({ kind: 'boolean' }),
+						},
+					}),
+				),
+				erased(
+					commandSchema({
+						name: 'build',
+						flags: {
+							target: flagSchema({ kind: 'string' }),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+		const lines = script.split('\n');
+
+		const flagSectionStart = lines.findIndex((l) => l.includes('Complete flags'));
+		const flagSection = lines.slice(flagSectionStart);
+
+		const deployIdx = flagSection.findIndex((l) => l.trim().startsWith('deploy)'));
+		const buildIdx = flagSection.findIndex((l) => l.trim().startsWith('build)'));
+
+		const deployBlock = flagSection.slice(deployIdx, buildIdx).join('\n');
+		const buildBlock = flagSection.slice(buildIdx).join('\n');
+
+		// Deploy should have enum case block
+		expect(deployBlock).toContain('case "$prev" in');
+		expect(deployBlock).toContain("'prod staging'");
+
+		// Build should NOT have enum case block (no enum flags)
+		expect(buildBlock).not.toContain('case "$prev" in');
+	});
 });
 
 // ===================================================================

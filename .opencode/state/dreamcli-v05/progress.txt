@@ -21,6 +21,7 @@ Started: 2026-02-09
 - **Exhaustiveness guard**: `default: { const _exhaustive: never = x; return _exhaustive; }` — zero-dep pattern for union switch exhaustiveness; compile-time error on unhandled variant, zero runtime overhead
 - **Barrel export audit**: every type used in a public function's parameter or return position must be exported from `src/index.ts` — check module barrels vs main barrel for gaps
 - **Code-gen in --json mode**: commands that produce raw text (scripts, generated code) must branch on `out.jsonMode` — use `out.json({ script })` for JSON mode, `out.log()` for normal; `out.log()` redirects to stderr in JSON mode
+- **Completion enum scoping**: enum value completions must be scoped per-command, not globally — global dedup loses per-command context when same-named flags have different enum values across commands
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -180,3 +181,13 @@ Started: 2026-02-09
 - 3 E2E test updates: split "root global flags" into version/no-version, fixed no-commands test, added no-commands no-version test
 - Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`
 - **Learnings:** when fixing conditional behavior, audit all code paths (both with-commands and no-commands) and all test layers (unit + E2E); existing E2E tests using `cli()` factory may implicitly depend on `version: undefined` default
+
+## Task — fix/cross-command-enum-collision (code review P1)
+- Moved enum case completion inside per-command `case "$subcmd"` branches instead of global top-level block
+- `collectEnumCases()` signature changed from `(commands: readonly CommandSchema[])` to `(cmd: CommandSchema)` — no more cross-command dedup, each command gets its own enum values
+- Removed global `case "$prev"` enum block that ran before subcommand dispatch
+- Each command's branch now has: optional enum `case "$prev"`, then flag `compgen`, then `return`
+- 2 new tests: cross-command same-named enum with different values (deploy `prod/staging` vs test `unit/e2e`), mixed enum/non-enum across commands
+- Zsh generator unaffected — already placed enum values per-command in `_arguments` specs
+- Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** when deduplicating completion data across commands, scope matters — global dedup loses per-command context; prefer per-command emission with dedup only within a single command's scope
