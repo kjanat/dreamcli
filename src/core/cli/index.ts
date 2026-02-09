@@ -473,9 +473,10 @@ class CLIBuilder {
 	 * Register a built-in `completions` subcommand that generates shell
 	 * completion scripts.
 	 *
-	 * The generated command accepts a `--shell` flag (required, enum:
-	 * `bash` | `zsh`) and writes the completion script to stdout via
-	 * `out.log()`.
+	 * The generated command accepts a `--shell` flag (required, enum of
+	 * all {@link Shell} values) and writes the completion script to stdout
+	 * via `out.log()`. Unsupported shells throw a descriptive `CLIError`
+	 * instead of a generic parse error.
 	 *
 	 * Call this **after** registering all other commands so the completion
 	 * script includes the full command set. The captured schema is a
@@ -502,7 +503,7 @@ class CLIBuilder {
 			.flag(
 				'shell',
 				flag
-					.enum(['bash', 'zsh'] as const)
+					.enum(['bash', 'zsh', 'fish', 'powershell'] as const)
 					.required()
 					.describe('Target shell'),
 			)

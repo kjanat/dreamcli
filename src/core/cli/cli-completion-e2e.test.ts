@@ -578,13 +578,15 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 // ===================================================================
 
 describe('E2E — completions error paths via CLI dispatch', () => {
-	it('unsupported shell via run() path outputs error', async () => {
+	it('unsupported shell produces descriptive UNSUPPORTED_OPERATION error', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		// 'fish' is not in the --shell enum, so parser rejects it
+		// 'fish' is a valid Shell enum value but not yet implemented —
+		// generateCompletion throws a CLIError with a clear message
 		const result = await app.execute(['completions', '--shell', 'fish']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
+		expect(result.error?.message).toContain('not yet supported');
 	});
 
 	it('missing --shell flag via run() path outputs error', async () => {

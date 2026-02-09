@@ -150,9 +150,25 @@ describe('.completions() — error handling', () => {
 		expect(result.error).toBeDefined();
 	});
 
-	it('errors when --shell has invalid value', async () => {
+	it('errors with UNSUPPORTED_OPERATION for unimplemented shell', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions', '--shell', 'fish']);
+		expect(result.exitCode).not.toBe(0);
+		expect(result.error).toBeDefined();
+		expect(result.error?.message).toContain('not yet supported');
+	});
+
+	it('errors with UNSUPPORTED_OPERATION for powershell', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'powershell']);
+		expect(result.exitCode).not.toBe(0);
+		expect(result.error).toBeDefined();
+		expect(result.error?.message).toContain('not yet supported');
+	});
+
+	it('errors when --shell has truly invalid value', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'nushell']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
 	});

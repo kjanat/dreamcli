@@ -132,3 +132,12 @@ Started: 2026-02-09
 - Added exhaustiveness test: iterates `RUNTIMES` constant, verifies every variant produces valid `RuntimeAdapter`
 - Files changed: `src/runtime/auto.ts`, `src/runtime/auto.test.ts`
 - **Learnings:** `default: { const _exhaustive: never = x; return _exhaustive; }` is the zero-dep exhaustiveness pattern — no helper function needed; `return _exhaustive` ensures the function return type is satisfied even in unreachable code
+
+## Task — fix/expand-completions-enum (code review P0)
+- Expanded `.completions()` `--shell` flag enum from `['bash', 'zsh']` to `['bash', 'zsh', 'fish', 'powershell']`
+- Users now get a descriptive "not yet supported" CLIError instead of a generic parse error for unimplemented shells
+- Updated JSDoc to reference all Shell values instead of hardcoded subset
+- Updated tests: renamed + strengthened assertions on error messages, added powershell + truly-invalid-value tests
+- Updated E2E test comment to reflect new behavior (enum accepts fish, generator rejects it)
+- Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`
+- **Learnings:** enum flag values should match the full domain type, not just implemented subset — push validation to the action layer for better error messages
