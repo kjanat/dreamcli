@@ -63,3 +63,12 @@ Started: 2026-02-09
 - 25 new zsh tests + 1 updated dispatcher test (54 completion tests total, 1082 suite-wide)
 - Files: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
 - **Learnings:** `FlagKind` is `'string' | 'number' | 'boolean' | 'enum' | 'array'` — no `'count'` kind; zsh `_arguments` uses `->state` for subcommand dispatch with `case "$state"`; local vars (`subcmds`, `line`, `state`) should only be declared when commands exist to keep no-commands path clean
+
+## Task — runtime-bun
+- Implemented `createBunAdapter()` in `src/runtime/bun.ts` — delegates to `createNodeAdapter()`
+- Bun provides Node-compatible `process` global, so full delegation is correct; separate factory establishes extension point for future Bun-specific optimizations (e.g. `Bun.write`, `Bun.stdin`)
+- Accepts optional `NodeProcess` param for testability (same pattern as Node adapter)
+- 13 tests covering: RuntimeAdapter contract satisfaction, process field delegation (argv, env, cwd, stdout, stderr, exit), TTY detection (stdout + stdin), stdin ReadFn type
+- Exported from runtime barrel + main barrel (value: `createBunAdapter`)
+- Files: `src/runtime/bun.ts`, `src/runtime/bun.test.ts`, `src/runtime/index.ts`, `src/index.ts`
+- **Learnings:** delegation adapters should still have their own test file — verifies the contract independently even when implementation is trivial; `mockProcess()` helper with `Partial<NodeProcess>` overrides is cleaner than constructing full objects per test

@@ -34,7 +34,7 @@
 			"id": "runtime-bun",
 			"title": "Bun adapter implementation",
 			"description": "Implement createBunAdapter() in src/runtime/bun.ts. Bun provides Node-compatible process global, so this delegates to createNodeAdapter() with Bun-specific overrides if needed. Add to barrel exports. Tests verify adapter satisfies RuntimeAdapter interface.",
-			"passes": false,
+			"passes": true,
 			"priority": 2
 		},
 		{
