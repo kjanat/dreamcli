@@ -15,7 +15,7 @@ import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
-import type { PromptEngine } from '../prompt/index.js';
+import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTerminalPrompter } from '../prompt/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
 import type { CommandBuilder, CommandSchema } from '../schema/command.js';
@@ -130,9 +130,22 @@ interface CLIRunOptions {
 	 *
 	 * When provided, flags with `.prompt()` configured that have no value
 	 * after CLI/env/config resolution will be prompted interactively.
-	 * When absent, prompting is skipped.
+	 * When absent (and `answers` is also absent), prompting is skipped.
+	 *
+	 * Takes precedence over `answers` when both are provided.
 	 */
 	readonly prompter?: PromptEngine;
+
+	/**
+	 * Pre-configured prompt answers for testing convenience.
+	 *
+	 * When provided, a test prompter is created from these answers via
+	 * `createTestPrompter(answers)`. Each entry is consumed in order —
+	 * use `PROMPT_CANCEL` to simulate cancellation.
+	 *
+	 * Ignored when an explicit `prompter` is provided.
+	 */
+	readonly answers?: readonly TestAnswer[];
 
 	/**
 	 * Verbosity level for the output channel.
@@ -350,6 +363,7 @@ function buildCommandRunOptions(
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
+		...(options?.answers !== undefined ? { answers: options.answers } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 	};
 }

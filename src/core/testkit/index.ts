@@ -18,7 +18,8 @@ import { formatHelp } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
 import { parse } from '../parse/index.js';
-import type { PromptEngine } from '../prompt/index.js';
+import type { PromptEngine, TestAnswer } from '../prompt/index.js';
+import { createTestPrompter } from '../prompt/index.js';
 import type { ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
@@ -79,10 +80,30 @@ interface RunOptions {
 	 * When provided, flags with `.prompt()` configured that have no value
 	 * after CLI/env/config resolution will be prompted interactively.
 	 *
-	 * When absent, prompting is skipped and resolution falls through to
-	 * default/required.
+	 * When absent (and `answers` is also absent), prompting is skipped
+	 * and resolution falls through to default/required.
+	 *
+	 * Takes precedence over `answers` when both are provided.
 	 */
 	readonly prompter?: PromptEngine;
+
+	/**
+	 * Pre-configured prompt answers for testing convenience.
+	 *
+	 * When provided, a test prompter is created from these answers via
+	 * `createTestPrompter(answers)`. Each entry is consumed in order —
+	 * use `PROMPT_CANCEL` to simulate cancellation.
+	 *
+	 * Ignored when an explicit `prompter` is provided.
+	 *
+	 * @example
+	 * ```ts
+	 * const result = await runCommand(cmd, [], {
+	 *   answers: ['eu', true],
+	 * });
+	 * ```
+	 */
+	readonly answers?: readonly TestAnswer[];
 
 	/**
 	 * Verbosity level for the output channel.
@@ -177,10 +198,15 @@ async function runCommand<
 		const parsed = parse(cmd.schema, argv);
 
 		// -- Resolve -------------------------------------------------------------
+		// Determine the prompt engine: explicit prompter takes precedence,
+		// then answers convenience shortcut, then nothing (prompts skipped).
+		const effectivePrompter =
+			options?.prompter ??
+			(options?.answers !== undefined ? createTestPrompter(options.answers) : undefined);
 		const resolveOptions: ResolveOptions = {
 			...(options?.env !== undefined ? { env: options.env } : {}),
 			...(options?.config !== undefined ? { config: options.config } : {}),
-			...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
+			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
 		};
 		const resolved = await resolve(cmd.schema, parsed, resolveOptions);
 

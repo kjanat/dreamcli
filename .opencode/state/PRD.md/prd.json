@@ -41,7 +41,7 @@
 			"id": "prompt-testkit-1",
 			"title": "Wire prompting through testkit and CLI builder",
 			"description": "Add answers/prompter field to RunOptions for test injection. Update runCommand() pipeline to create test prompter from answers or accept explicit prompter. Update CLIBuilder.execute() and .run() to thread prompter through resolution. Add help text annotation for promptable flags. Ensure all existing 599+ tests pass.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		}
 	]

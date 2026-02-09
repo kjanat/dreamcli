@@ -135,7 +135,7 @@ function formatValueHint(schema: FlagSchema): string {
 	}
 }
 
-/** Build description with env/config/default/required annotations. */
+/** Build description with env/config/prompt/default/required annotations. */
 function formatFlagDescription(schema: FlagSchema): string {
 	const parts: string[] = [];
 
@@ -149,6 +149,9 @@ function formatFlagDescription(schema: FlagSchema): string {
 	}
 	if (schema.configPath !== undefined) {
 		parts.push(`[config: ${schema.configPath}]`);
+	}
+	if (schema.prompt !== undefined) {
+		parts.push('[prompt]');
 	}
 
 	if (schema.presence === 'required') {
