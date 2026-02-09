@@ -13,6 +13,8 @@ Started: 2026-02-09
 - **Test conventions**: em-dash in describes, `// ===` major separators, `// ---` minor, zero lifecycle hooks
 - **GlobalThis injection**: use optional `globals` param (typed interface) instead of `vi.stubGlobal` for testing globalThis-dependent code — avoids cleanup/mutation issues
 - **Runtime detection**: `GlobalForDetect` interface, check Bun before Node (Bun mimics Node's `process`)
+- **Bash string literals**: biome flags `${...}` in single-quoted strings as `noTemplateCurlyInString` — suppress with `biome-ignore` when generating bash syntax
+- **ErasedCommand test stubs**: `_execute` must return `RunResult` shape including `error: undefined`; use typed `[] as string[]` to avoid `never[]`
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -34,3 +36,15 @@ Started: 2026-02-09
 - Exported from runtime barrel + main barrel (types: `Runtime`, `GlobalForDetect`; values: `detectRuntime`, `RUNTIMES`)
 - Files: `src/runtime/detect.ts`, `src/runtime/detect.test.ts`, `src/runtime/index.ts`, `src/index.ts`
 - **Learnings:** `as const satisfies` is compile-time only — `Object.isFrozen` returns false at runtime; the `globals` injection param pattern avoids needing `vi.stubGlobal`/cleanup for globalThis mutation
+
+## Task — completion-bash
+- Implemented `generateBashCompletion()` — pure string generation, no shell exec
+- Script structure: shebang → `_<name>_completions()` → `_init_completion` → enum case → subcmd detection → per-command flags → root completions → `complete -F` registration
+- Internal helpers: `sanitizeBashIdentifier()`, `collectFlagWords()`, `collectEnumCases()`
+- Hidden commands excluded from completions; aliases included in case patterns
+- Enum flags get `case "$prev"` value-completion branches
+- `functionPrefix` option overrides function name; CLI name used for `complete` line
+- 29 tests covering: script structure, shebang/header, function name, `complete -F` line, subcommand listing, hidden exclusion, alias detection, flag long/short forms, enum value completion, name sanitization, dispatcher delegation, options passthrough
+- Rewrote test helpers: `flagSchema()`, `commandSchema()`, `erased()` factories for type-safe test `CLISchema` construction
+- Files: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** biome `noTemplateCurlyInString` triggers on bash `${words[i]}` in single-quoted JS strings — suppress per-line; `ErasedCommand._execute` return must include `error` field to satisfy `RunResult`

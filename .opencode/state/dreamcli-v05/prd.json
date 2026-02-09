@@ -20,7 +20,7 @@
 			"id": "completion-bash",
 			"title": "Bash completion script generator",
 			"description": "Implement generateBashCompletion(cliSchema): string. Pure string generation — output a complete bash script with _<name>_completions function, compgen for flags/subcommands, COMPREPLY assignment. Tests assert on expected script structure (function name, flag names, subcommand names present). No shelling out.",
-			"passes": false,
+			"passes": true,
 			"priority": 2
 		},
 		{
