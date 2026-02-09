@@ -62,7 +62,7 @@
 			"id": "output-1",
 			"title": "Output channel (out object for handlers)",
 			"description": "Implement out object with log/info/warn/error methods. Basic TTY vs non-TTY detection. Foundation for FR5 — handlers use out instead of console.log.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{

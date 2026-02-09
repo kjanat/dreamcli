@@ -16,6 +16,7 @@ Started: 2026-02-09
 - **Parser pattern**: Two-phase design: `tokenize(argv)` → `Token[]` (schema-agnostic), then `parse(schema, argv)` → `ParseResult` (schema-aware). Flag lookup built from `CommandSchema.flags` + aliases as `Map<string, [canonicalName, FlagSchema]>`. Value coercion per `FlagKind`/`ArgKind`. Array flags accumulate. Positionals mapped by `CommandSchema.args` ordering. All errors are `ParseError` with structured `code`/`details`/`suggest`.
 - **Resolver pattern**: `resolve(schema, parsed)` → `ResolveResult` with `flags` + `args`. MVP chain: CLI → default. Flags resolved first, then args. Missing required values throw `ValidationError`. Multiple errors aggregated into single throw with `details.errors` array. Array flags default to `[]`. Optional flags get `undefined` with key present. Non-empty tuple type `[T, ...T[]]` used for error aggregation to avoid `!` assertions. `isNonEmpty()` type guard narrows `T[]` → `[T, ...T[]]`.
 - **Help pattern**: `formatHelp(schema, options?)` → `string`. Reads `CommandSchema` to render sections: Usage, Description, Arguments, Flags, Examples. `HelpOptions` controls `width` (default 80) and `binName`. Flags sorted: short-aliased first, then alphabetical. Type hints per `FlagKind`; boolean suppresses hint and `(default: false)`. Word-wrapping via `wrapText()` at word boundaries with indent continuation.
+- **Output pattern**: `createOutput(options?)` → `Out`. `WriteFn = (data: string) => void` is the sole I/O seam. `OutputChannel` implements `Out`; routes `log`/`info` → stdout writer, `warn`/`error` → stderr writer. `Verbosity: 'normal' | 'quiet'` — quiet suppresses `info`. `isTTY` boolean for downstream TTY-aware formatting. `noopWrite` fallback when no writers provided. `createCaptureOutput()` test helper returns `[Out, CapturedOutput]` with separate stdout/stderr arrays. `Out` interface stays in `command.ts` (contract); implementation in `core/output/`.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -120,3 +121,17 @@ Started: 2026-02-09
 - Re-exported `formatHelp`, `HelpOptions` from `src/index.ts` public surface
 - Files changed: `src/core/help/index.ts` (rewritten), `src/core/help/help.test.ts` (new), `src/index.ts`
 - **Learnings:** `wrapText` must split on word boundaries (spaces) — single long tokens without spaces won't wrap. Keep `resolveOptions` signature minimal — don't accept params you don't use. `formatValueHint` recursion for array element schemas (strip `<>` from nested hint) keeps the display clean.
+
+## Task - output-1
+- Implemented `OutputChannel` class implementing the `Out` interface from `command.ts`
+- `WriteFn = (data: string) => void` — sole I/O abstraction; no `process` coupling
+- `createOutput(options?)` factory: configurable stdout/stderr writers, `isTTY`, `Verbosity`
+- `noopWrite` fallback silently discards output when no writers provided (safe default)
+- `writeLine()` helper appends `\n` to every message
+- Verbosity: `'normal'` emits all; `'quiet'` suppresses `info` (keeps log/warn/error)
+- `isTTY` defaults to `false` (non-TTY until proven otherwise); stored on `OutputChannel.options`
+- `createCaptureOutput()` test helper returns `[Out, CapturedOutput]` — separate stdout/stderr arrays
+- Re-exported `createOutput`, `createCaptureOutput`, types from `src/index.ts` public surface
+- 31 tests: factory, routing (log→stdout, warn→stderr), verbosity, TTY detection, capture helper, newline handling, accumulation, type inference
+- Files changed: `src/core/output/index.ts` (rewritten), `src/core/output/output.test.ts` (new), `src/index.ts`
+- **Learnings:** Keep the `Out` interface in `command.ts` (it's the handler contract) and the implementation in `core/output/` — consumers depend on the interface, not the concrete class. `WriteFn` as a single function type (not a writable stream) is the cleanest testability seam — callers can pass a lambda. Default to `noopWrite` rather than throwing when no writer is configured — silent discard is safer than crash for missing optional config.
