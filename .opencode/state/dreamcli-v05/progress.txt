@@ -215,3 +215,11 @@ Started: 2026-02-09
 - All 1196 tests pass, typecheck/lint/format/build clean
 - Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
 - **Learnings:** `compgen -W` word-splits on IFS — spaces in values require `IFS=$'\n'` with newline-separated `$'...'` string; bash single-quote and `$'...'` contexts need different escaping strategies; zsh `(v1 v2)` lists support backslash-escaping within the list
+
+## Task — fix/deno-fallback-throw (Overseer: task_01KH1Q8SN1KVEPPYCEQ16DTCYZ)
+- Changed `createAdapter()` Deno case from silent Node fallback to throwing `CLIError('UNSUPPORTED_RUNTIME')`
+- JSDoc already claimed it threw — code now matches documentation
+- In pure Deno, `getNodeProcess()` would cast `undefined` as `NodeProcess` → cryptic TypeError on `.argv`; now gives clear error with `suggest: 'Use createNodeAdapter() directly'`
+- Updated 3 test files: `auto.test.ts` (Deno test expects CLIError, exhaustiveness test handles unsupported set), `cli-completion-e2e.test.ts` (Deno E2E expects CLIError)
+- Files changed: `src/runtime/auto.ts`, `src/runtime/auto.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`
+- **Learnings:** when JSDoc and code disagree, fix the code to match the safer behavior — silent fallback to wrong adapter causes cryptic crashes downstream

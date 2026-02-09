@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestAdapter, ExitError } from '../../runtime/adapter.js';
 import type { GlobalForDetect } from '../../runtime/detect.js';
+import { CLIError } from '../errors/index.js';
 import { arg } from '../schema/arg.js';
 import { command } from '../schema/command.js';
 import { flag } from '../schema/flag.js';
@@ -571,15 +572,13 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		expect(typeof adapter.stderr).toBe('function');
 	});
 
-	it('auto-adapter creates valid adapter for simulated Deno runtime', async () => {
+	it('auto-adapter throws CLIError for simulated Deno runtime', async () => {
 		const { createAdapter } = await import('../../runtime/auto.js');
 		const globals: GlobalForDetect = {
 			Deno: { version: { deno: '2.1.0' } },
 		};
-		// Deno falls back to Node adapter currently
-		const adapter = createAdapter(globals);
-		expect(adapter).toBeDefined();
-		expect(typeof adapter.stdout).toBe('function');
+		// Deno is detected but not yet supported — throws UNSUPPORTED_RUNTIME
+		expect(() => createAdapter(globals)).toThrow(CLIError);
 	});
 });
 

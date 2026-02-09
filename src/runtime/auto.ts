@@ -9,6 +9,7 @@
  * @module dreamcli/runtime/auto
  */
 
+import { CLIError } from '../core/errors/index.js';
 import type { RuntimeAdapter } from './adapter.js';
 import { createBunAdapter } from './bun.js';
 import type { GlobalForDetect } from './detect.js';
@@ -26,9 +27,9 @@ import { createNodeAdapter } from './node.js';
  * Unknown runtimes fall back to the Node adapter because most JS runtimes
  * expose a Node-compatible `process` global.
  *
- * Deno is detected but not yet supported — throws a {@link CLIError} until
- * a Deno adapter is implemented. Use `createNodeAdapter()` directly if you
- * need to bypass detection.
+ * Deno is detected but not yet supported — throws a `CLIError` with code
+ * `UNSUPPORTED_RUNTIME` until a dedicated Deno adapter is implemented.
+ * Use `createNodeAdapter()` directly if you need to bypass detection.
  *
  * @param globals - Override `globalThis` for testing. Production callers
  *   should omit this parameter.
@@ -49,9 +50,10 @@ function createAdapter(globals?: GlobalForDetect): RuntimeAdapter {
 		case 'bun':
 			return createBunAdapter();
 		case 'deno':
-			// Deno adapter not yet implemented — fall through to Node.
-			// When createDenoAdapter() lands, this becomes a direct call.
-			return createNodeAdapter();
+			throw new CLIError('Deno runtime detected but not yet supported', {
+				code: 'UNSUPPORTED_RUNTIME',
+				suggest: 'Use createNodeAdapter() directly to bypass auto-detection',
+			});
 		case 'node':
 		case 'unknown':
 			return createNodeAdapter();
