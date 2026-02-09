@@ -20,6 +20,8 @@ Started: 2026-02-09
 - **Middleware explicit generic**: `middleware<{ user: string }>(...)` is needed for reliable inference in strict TS mode; inference from `next()` argument alone is unreliable across all TS contexts.
 - **Middleware phantom type via cast**: `MiddlewareImpl` (runtime) cast to `Middleware<Output>` (phantom-branded) — same pattern as flag/arg builders.
 - **executeWithMiddleware continuation chain**: Build from back to front so first middleware is outermost. Each `next()` closes over downstream chain.
+- **Global flag pattern**: Detect in `CLIBuilder.execute()`, strip from argv before dispatch, propagate via options to downstream `runCommand()`. No global flag schema — hardcoded like `--version`/`--help`.
+- **JSON mode redirection**: In JSON mode, `log`/`info` → stderr, `json()` → stdout. Errors rendered via `out.json({ error: err.toJSON() })` to stdout. Scripts get one structured JSON stream on stdout.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -36,3 +38,16 @@ Started: 2026-02-09
 - 26 new tests covering: factory, type inference, builder integration, runtime execution (ordering, context accumulation, flags/args access, output channel, short-circuit, error propagation, wrapping, backward compat, env/config integration)
 - Files changed: `src/core/schema/middleware.ts` (new), `src/core/schema/middleware.test.ts` (new), `src/core/schema/command.ts`, `src/core/schema/index.ts`, `src/core/testkit/index.ts`, `src/index.ts`, + 7 test files (makeSchema fix)
 - **Learnings:** WidenContext conditional type pattern, explicit generic needed for reliable middleware Output inference, continuation chain built back-to-front
+
+## Task - output-json
+- Added `json(value: unknown): void` and `readonly jsonMode: boolean` to the `Out` interface
+- Extended `OutputOptions` / `ResolvedOutputOptions` with `jsonMode` field
+- `OutputChannel.json()` serialises via `JSON.stringify` and writes to stdout
+- In JSON mode: `log()` and `info()` redirect to stderr, keeping stdout clean for structured output
+- `json()` always writes to stdout regardless of mode
+- Added `jsonMode` to `RunOptions` (testkit) and `CLIRunOptions` (CLI builder)
+- `CLIBuilder.execute()` detects `--json` in argv, strips it, sets `jsonMode` on downstream options
+- `runCommand()` renders errors as `{ error: CLIError.toJSON() }` via `out.json()` in JSON mode
+- 17 new tests: output unit tests (json serialisation, jsonMode redirection, combined verbosity), testkit integration (json output, error rendering in both modes), CLI integration (--json flag stripping, flag position, combined with --version/--help)
+- Files changed: `src/core/schema/command.ts`, `src/core/output/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/output/output.test.ts`, `src/core/testkit/testkit-json.test.ts` (new), `src/core/cli/cli-json.test.ts` (new), `src/core/schema/command.test.ts` (mock fix)
+- **Learnings:** Global flag pattern — detect in CLIBuilder.execute(), strip from argv before dispatch, propagate via options. JSON errors go to stdout (not stderr) in --json mode so scripts get one consistent JSON stream.

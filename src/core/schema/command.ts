@@ -131,6 +131,25 @@ interface Out {
 	warn(message: string): void;
 	/** Error to stderr. */
 	error(message: string): void;
+	/**
+	 * Emit a structured JSON value to stdout.
+	 *
+	 * - In `--json` mode: serialises `value` as JSON to stdout.
+	 * - In normal mode: serialises `value` as JSON to stdout.
+	 *
+	 * Handlers should prefer `json()` over `log(JSON.stringify(...))` so
+	 * the output channel can enforce consistent formatting and future
+	 * features (pretty-print in TTY, streaming JSON, etc.).
+	 */
+	json(value: unknown): void;
+	/**
+	 * Whether the output channel is in JSON mode (`--json` flag active).
+	 *
+	 * Handlers can check this to skip decorative output (spinners,
+	 * progress bars, ANSI formatting) when machine-readable output is
+	 * expected.
+	 */
+	readonly jsonMode: boolean;
 }
 
 /**

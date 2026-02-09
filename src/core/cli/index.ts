@@ -154,6 +154,17 @@ interface CLIRunOptions {
 	readonly verbosity?: Verbosity;
 
 	/**
+	 * Enable JSON output mode.
+	 *
+	 * When `true`, `log` and `info` messages are redirected to stderr
+	 * so that stdout is reserved exclusively for structured `json()` output.
+	 * Errors are also rendered as JSON to stderr.
+	 *
+	 * @default false
+	 */
+	readonly jsonMode?: boolean;
+
+	/**
 	 * Help formatting options (width, binName).
 	 * `binName` defaults to the CLI program name.
 	 */
@@ -365,6 +376,7 @@ function buildCommandRunOptions(
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
 		...(options?.answers !== undefined ? { answers: options.answers } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
 	};
 }
 
@@ -452,9 +464,19 @@ class CLIBuilder {
 	 * @returns Structured result with exit code and captured output.
 	 */
 	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
-		const captureOptions =
-			options?.verbosity !== undefined ? { verbosity: options.verbosity } : undefined;
-		const [out, captured] = createCaptureOutput(captureOptions);
+		// -- Detect --json flag (global, extracted before command dispatch) ------
+		const hasJsonFlag = argv.includes('--json');
+		const jsonMode = hasJsonFlag || options?.jsonMode === true;
+		// Strip --json from argv so commands don't see it as an unknown flag
+		const filteredArgv = hasJsonFlag ? argv.filter((a) => a !== '--json') : argv;
+
+		const captureOptions = {
+			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+			...(jsonMode ? { jsonMode } : {}),
+		};
+		const [out, captured] = createCaptureOutput(
+			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
+		);
 
 		// Resolve help options — default binName to CLI program name
 		const helpOptions: HelpOptions = {
@@ -463,7 +485,7 @@ class CLIBuilder {
 		};
 
 		// -- Root --version -------------------------------------------------------
-		if (argv.includes('--version') || argv.includes('-V')) {
+		if (filteredArgv.includes('--version') || filteredArgv.includes('-V')) {
 			if (this.schema.version !== undefined) {
 				out.log(this.schema.version);
 			}
@@ -471,7 +493,7 @@ class CLIBuilder {
 		}
 
 		// -- Extract command name --------------------------------------------------
-		const firstArg = argv.length > 0 ? argv[0] : undefined;
+		const firstArg = filteredArgv.length > 0 ? filteredArgv[0] : undefined;
 
 		// -- Root --help (or no command) -------------------------------------------
 		if (firstArg === undefined || firstArg === '--help' || firstArg === '-h') {
@@ -518,8 +540,13 @@ class CLIBuilder {
 		}
 
 		// -- Delegate to command execution ----------------------------------------
-		const remainingArgv = argv.slice(1);
-		const commandRunOptions = buildCommandRunOptions(options, helpOptions);
+		const remainingArgv = filteredArgv.slice(1);
+		// Propagate jsonMode to command so it gets the --json context
+		const effectiveOptions: CLIRunOptions = {
+			...options,
+			...(jsonMode ? { jsonMode } : {}),
+		};
+		const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
 		return matched._execute(remainingArgv, commandRunOptions);
 	}
 

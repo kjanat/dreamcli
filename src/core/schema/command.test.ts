@@ -281,6 +281,8 @@ describe('full command composition', () => {
 			info: vi.fn(),
 			warn: vi.fn(),
 			error: vi.fn(),
+			json: vi.fn(),
+			jsonMode: false,
 		};
 
 		// Simulate what the runtime will do

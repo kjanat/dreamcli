@@ -112,6 +112,17 @@ interface RunOptions {
 	readonly verbosity?: Verbosity;
 
 	/**
+	 * Enable JSON output mode.
+	 *
+	 * When `true`, `log` and `info` messages are redirected to stderr
+	 * so that stdout is reserved exclusively for structured `json()` output.
+	 * Errors are also rendered as JSON to stderr.
+	 *
+	 * @default false
+	 */
+	readonly jsonMode?: boolean;
+
+	/**
 	 * Help formatting options (width, binName).
 	 * Used when `--help` is detected.
 	 */
@@ -173,9 +184,13 @@ async function runCommand<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
 >(cmd: CommandBuilder<F, A, C>, argv: readonly string[], options?: RunOptions): Promise<RunResult> {
-	const captureOptions =
-		options?.verbosity !== undefined ? { verbosity: options.verbosity } : undefined;
-	const [out, captured] = createCaptureOutput(captureOptions);
+	const captureOptions = {
+		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
+	};
+	const [out, captured] = createCaptureOutput(
+		Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
+	);
 
 	// -- Help detection -------------------------------------------------------
 	if (argv.includes('--help') || argv.includes('-h')) {
@@ -222,9 +237,13 @@ async function runCommand<
 		return buildResult(0, captured, undefined);
 	} catch (err: unknown) {
 		if (err instanceof CLIError) {
-			out.error(err.message);
-			if (err.suggest !== undefined) {
-				out.error(`Suggestion: ${err.suggest}`);
+			if (options?.jsonMode === true) {
+				out.json({ error: err.toJSON() });
+			} else {
+				out.error(err.message);
+				if (err.suggest !== undefined) {
+					out.error(`Suggestion: ${err.suggest}`);
+				}
 			}
 			return buildResult(err.exitCode, captured, err);
 		}
@@ -235,7 +254,11 @@ async function runCommand<
 			code: 'UNEXPECTED_ERROR',
 			cause: err,
 		});
-		out.error(wrapped.message);
+		if (options?.jsonMode === true) {
+			out.json({ error: wrapped.toJSON() });
+		} else {
+			out.error(wrapped.message);
+		}
 		return buildResult(1, captured, wrapped);
 	}
 }

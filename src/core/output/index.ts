@@ -49,13 +49,15 @@ type Verbosity = 'normal' | 'quiet';
  */
 interface OutputOptions {
 	/**
-	 * Writer for stdout-bound messages (`log`, `info`).
+	 * Writer for stdout-bound messages (`log`, `info`, `json`).
 	 * Defaults to `process.stdout.write` when running in Node/Bun.
 	 */
 	readonly stdout?: WriteFn;
 
 	/**
 	 * Writer for stderr-bound messages (`warn`, `error`).
+	 * In JSON mode, `log` and `info` are also redirected here so that
+	 * stdout contains only structured JSON output.
 	 * Defaults to `process.stderr.write` when running in Node/Bun.
 	 */
 	readonly stderr?: WriteFn;
@@ -73,6 +75,17 @@ interface OutputOptions {
 	 * - `'quiet'` — suppress `info` messages
 	 */
 	readonly verbosity?: Verbosity;
+
+	/**
+	 * Enable JSON output mode.
+	 *
+	 * When `true`, `log` and `info` messages are redirected to stderr
+	 * so that stdout is reserved exclusively for structured `json()` output.
+	 * `warn` and `error` continue to write to stderr as normal.
+	 *
+	 * @default false
+	 */
+	readonly jsonMode?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,6 +98,7 @@ interface ResolvedOutputOptions {
 	readonly stderr: WriteFn;
 	readonly isTTY: boolean;
 	readonly verbosity: Verbosity;
+	readonly jsonMode: boolean;
 }
 
 /**
@@ -100,6 +114,7 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 		stderr: options?.stderr ?? noopWrite,
 		isTTY: options?.isTTY ?? false,
 		verbosity: options?.verbosity ?? 'normal',
+		jsonMode: options?.jsonMode ?? false,
 	};
 }
 
@@ -120,22 +135,35 @@ class OutputChannel implements Out {
 	/** @internal Resolved configuration. */
 	readonly options: ResolvedOutputOptions;
 
+	/** Whether JSON output mode is active. */
+	readonly jsonMode: boolean;
+
 	constructor(options: ResolvedOutputOptions) {
 		this.options = options;
+		this.jsonMode = options.jsonMode;
 	}
 
-	/** Write to stdout (normal output). Always emitted. */
+	/**
+	 * Write to stdout (normal output). Always emitted.
+	 *
+	 * In JSON mode, redirected to stderr so stdout is reserved for
+	 * structured `json()` output only.
+	 */
 	log(message: string): void {
-		writeLine(this.options.stdout, message);
+		const writer = this.options.jsonMode ? this.options.stderr : this.options.stdout;
+		writeLine(writer, message);
 	}
 
 	/**
 	 * Informational message to stdout.
 	 * Suppressed when verbosity is `'quiet'`.
+	 *
+	 * In JSON mode, redirected to stderr.
 	 */
 	info(message: string): void {
 		if (this.options.verbosity === 'quiet') return;
-		writeLine(this.options.stdout, message);
+		const writer = this.options.jsonMode ? this.options.stderr : this.options.stdout;
+		writeLine(writer, message);
 	}
 
 	/** Warning to stderr. Always emitted. */
@@ -146,6 +174,16 @@ class OutputChannel implements Out {
 	/** Error to stderr. Always emitted. */
 	error(message: string): void {
 		writeLine(this.options.stderr, message);
+	}
+
+	/**
+	 * Emit a structured JSON value to stdout.
+	 *
+	 * Serialises `value` with `JSON.stringify` and writes to stdout
+	 * regardless of JSON mode — `json()` always targets stdout.
+	 */
+	json(value: unknown): void {
+		writeLine(this.options.stdout, JSON.stringify(value));
 	}
 }
 
@@ -196,9 +234,19 @@ function createOutput(options?: OutputOptions): Out {
 
 /** Captured output from a `createCaptureOutput` instance. */
 interface CapturedOutput {
-	/** Lines written to stdout (via `log` and `info`). */
+	/**
+	 * Lines written to stdout.
+	 *
+	 * In normal mode: `log`, `info`, and `json` output.
+	 * In JSON mode: only `json` output (log/info redirected to stderr).
+	 */
 	readonly stdout: string[];
-	/** Lines written to stderr (via `warn` and `error`). */
+	/**
+	 * Lines written to stderr.
+	 *
+	 * In normal mode: `warn` and `error` output.
+	 * In JSON mode: `warn`, `error`, `log`, and `info` output.
+	 */
 	readonly stderr: string[];
 }
 

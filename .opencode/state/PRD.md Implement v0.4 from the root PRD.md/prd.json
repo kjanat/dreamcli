@@ -24,7 +24,7 @@
 			"description": "Add json(value) to Out interface. Add --json global flag support. In --json mode: json() writes JSON to stdout, log/info/warn/error are suppressed or redirected. In normal mode: json() is a no-op or formats inline.",
 			"priority": 2,
 			"category": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "output-table",

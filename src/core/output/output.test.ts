@@ -182,6 +182,7 @@ describe('OutputChannel', () => {
 			stderr: (s) => lines.push(s),
 			isTTY: false,
 			verbosity: 'normal',
+			jsonMode: false,
 		});
 		channel.log('test');
 		expect(lines).toEqual(['test\n']);
@@ -193,6 +194,7 @@ describe('OutputChannel', () => {
 			stderr: () => {},
 			isTTY: true,
 			verbosity: 'quiet',
+			jsonMode: false,
 		});
 		expect(channel.options.isTTY).toBe(true);
 		expect(channel.options.verbosity).toBe('quiet');
@@ -279,5 +281,138 @@ describe('type inference', () => {
 
 	it('createCaptureOutput returns [Out, CapturedOutput]', () => {
 		expectTypeOf(createCaptureOutput).returns.toEqualTypeOf<[out: Out, captured: CapturedOutput]>();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// json() method
+// ---------------------------------------------------------------------------
+
+describe('json', () => {
+	it('serialises an object to stdout', () => {
+		const [out, captured] = createCaptureOutput();
+		out.json({ key: 'value' });
+		expect(captured.stdout).toEqual(['{"key":"value"}\n']);
+	});
+
+	it('serialises a string value', () => {
+		const [out, captured] = createCaptureOutput();
+		out.json('hello');
+		expect(captured.stdout).toEqual(['"hello"\n']);
+	});
+
+	it('serialises a number', () => {
+		const [out, captured] = createCaptureOutput();
+		out.json(42);
+		expect(captured.stdout).toEqual(['42\n']);
+	});
+
+	it('serialises null', () => {
+		const [out, captured] = createCaptureOutput();
+		out.json(null);
+		expect(captured.stdout).toEqual(['null\n']);
+	});
+
+	it('serialises an array', () => {
+		const [out, captured] = createCaptureOutput();
+		out.json([1, 2, 3]);
+		expect(captured.stdout).toEqual(['[1,2,3]\n']);
+	});
+
+	it('serialises a boolean', () => {
+		const [out, captured] = createCaptureOutput();
+		out.json(true);
+		expect(captured.stdout).toEqual(['true\n']);
+	});
+
+	it('serialises nested objects', () => {
+		const [out, captured] = createCaptureOutput();
+		out.json({ a: { b: 'c' }, d: [1, 2] });
+		expect(captured.stdout).toEqual(['{"a":{"b":"c"},"d":[1,2]}\n']);
+	});
+
+	it('always writes to stdout even in JSON mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.json({ status: 'ok' });
+		expect(captured.stdout).toEqual(['{"status":"ok"}\n']);
+		expect(captured.stderr).toEqual([]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// jsonMode — output redirection
+// ---------------------------------------------------------------------------
+
+describe('jsonMode', () => {
+	it('defaults to false', () => {
+		const out = createOutput() as OutputChannel;
+		expect(out.jsonMode).toBe(false);
+	});
+
+	it('reflects the provided value', () => {
+		const out = createOutput({ jsonMode: true }) as OutputChannel;
+		expect(out.jsonMode).toBe(true);
+	});
+
+	it('is exposed on the Out interface', () => {
+		const [out] = createCaptureOutput({ jsonMode: true });
+		expect(out.jsonMode).toBe(true);
+	});
+
+	it('redirects log to stderr in JSON mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.log('normal output');
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr).toEqual(['normal output\n']);
+	});
+
+	it('redirects info to stderr in JSON mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.info('info message');
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr).toEqual(['info message\n']);
+	});
+
+	it('keeps warn on stderr in JSON mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.warn('warning');
+		expect(captured.stderr).toEqual(['warning\n']);
+	});
+
+	it('keeps error on stderr in JSON mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.error('error');
+		expect(captured.stderr).toEqual(['error\n']);
+	});
+
+	it('reserves stdout exclusively for json() in JSON mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.log('text');
+		out.info('info');
+		out.warn('warn');
+		out.error('error');
+		out.json({ data: true });
+		// Only json() output on stdout
+		expect(captured.stdout).toEqual(['{"data":true}\n']);
+		// Everything else on stderr
+		expect(captured.stderr).toEqual(['text\n', 'info\n', 'warn\n', 'error\n']);
+	});
+
+	it('does not redirect log/info in normal mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: false });
+		out.log('text');
+		out.info('info');
+		out.json({ data: true });
+		expect(captured.stdout).toEqual(['text\n', 'info\n', '{"data":true}\n']);
+		expect(captured.stderr).toEqual([]);
+	});
+
+	it('respects verbosity quiet in JSON mode — suppresses info', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true, verbosity: 'quiet' });
+		out.info('suppressed');
+		out.log('visible');
+		out.json({ ok: true });
+		expect(captured.stdout).toEqual(['{"ok":true}\n']);
+		expect(captured.stderr).toEqual(['visible\n']);
 	});
 });
