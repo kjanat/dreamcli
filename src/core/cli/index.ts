@@ -11,6 +11,7 @@
 
 import type { RuntimeAdapter } from '../../runtime/adapter.js';
 import { createAdapter } from '../../runtime/auto.js';
+import { generateCompletion } from '../completion/index.js';
 import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
@@ -19,7 +20,9 @@ import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTerminalPrompter } from '../prompt/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
 import type { CommandBuilder, CommandSchema } from '../schema/command.js';
+import { command } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
+import { flag } from '../schema/flag.js';
 import type { RunOptions, RunResult } from '../testkit/index.js';
 import { runCommand } from '../testkit/index.js';
 
@@ -462,6 +465,52 @@ class CLIBuilder {
 			...this.schema,
 			commands: [...this.schema.commands, eraseCommand(cmd)],
 		});
+	}
+
+	// -- Built-in subcommands ------------------------------------------------
+
+	/**
+	 * Register a built-in `completions` subcommand that generates shell
+	 * completion scripts.
+	 *
+	 * The generated command accepts a `--shell` flag (required, enum:
+	 * `bash` | `zsh`) and writes the completion script to stdout via
+	 * `out.log()`.
+	 *
+	 * Call this **after** registering all other commands so the completion
+	 * script includes the full command set. The captured schema is a
+	 * snapshot at call time — commands registered after `.completions()`
+	 * will not appear in the generated script.
+	 *
+	 * @example
+	 * ```ts
+	 * cli('mycli')
+	 *   .version('1.0.0')
+	 *   .command(deploy)
+	 *   .command(login)
+	 *   .completions()
+	 *   .run();
+	 * ```
+	 */
+	completions(): CLIBuilder {
+		// Capture current schema — includes all commands registered so far.
+		// The completions command itself is deliberately excluded from the
+		// generated script (it would be noise in shell completions).
+		const cliSchema = this.schema;
+		const cmd = command('completions')
+			.description('Generate shell completion script')
+			.flag(
+				'shell',
+				flag
+					.enum(['bash', 'zsh'] as const)
+					.required()
+					.describe('Target shell'),
+			)
+			.action(({ flags, out }) => {
+				const script = generateCompletion(cliSchema, flags.shell);
+				out.log(script);
+			});
+		return this.command(cmd);
 	}
 
 	// -- Execution -----------------------------------------------------------

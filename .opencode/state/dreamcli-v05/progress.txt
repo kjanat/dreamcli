@@ -17,6 +17,7 @@ Started: 2026-02-09
 - **ErasedCommand test stubs**: `_execute` must return `RunResult` shape including `error: undefined`; use typed `[] as string[]` to avoid `never[]`
 - **FlagKind union**: `'string' | 'number' | 'boolean' | 'enum' | 'array'` — no `'count'` variant
 - **Auto-adapter factory**: `createAdapter(globals?)` in `auto.ts` — separate from `detect.ts` to keep detection deps-free; exhaustive switch on `Runtime` union for compile-time safety
+- **Built-in subcommands**: use `command()`/`flag()` builders internally inside `CLIBuilder` methods, capture `this.schema` for schema access; schema snapshot is pre-registration (excludes the built-in command itself from generated output)
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -92,3 +93,13 @@ Started: 2026-02-09
 - Exported from runtime barrel + main barrel (value: `createAdapter`)
 - Files: `src/runtime/auto.ts` (new), `src/runtime/auto.test.ts` (new), `src/runtime/index.ts`, `src/index.ts`, `src/core/cli/index.ts`
 - **Learnings:** auto-adapter factory belongs in separate `auto.ts` not `detect.ts` — keeps detection pure (no adapter deps) and factory composable; exhaustive switch on `Runtime` union ensures compile-time safety when new runtimes are added
+
+## Task — completion-command
+- Added `.completions()` method to `CLIBuilder` — registers built-in `completions` subcommand
+- Subcommand has `--shell` flag (enum: `bash`/`zsh`, required), generates completion script via `generateCompletion()` and outputs via `out.log()`
+- Schema snapshot design: captures `this.schema` at `.completions()` call time — completions command itself excluded from generated script; commands registered after `.completions()` excluded (documented)
+- No `as Shell` cast needed — `'bash' | 'zsh'` is subtype of `Shell`, assignable directly
+- 17 tests in `cli-completions.test.ts`: builder registration (3), bash output (4), zsh output (3), error handling (3), schema snapshot behavior (3), root help integration (1)
+- All 1123 tests pass, typecheck/lint/format/build clean
+- Files: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts` (new)
+- **Learnings:** `flag.enum(['bash','zsh'] as const)` infers `'bash' | 'zsh'` which is a subtype of `Shell` — no type assertion needed for `generateCompletion()`; built-in subcommands can use `command()`/`flag()` directly inside CLIBuilder since they're builder-internal, not user-facing type complexity

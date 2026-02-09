@@ -55,7 +55,7 @@
 			"id": "completion-command",
 			"title": "Built-in completions subcommand for CLIBuilder",
 			"description": "Add .completions() method to CLIBuilder that registers a 'completions' subcommand with --shell flag (enum: bash/zsh). Action generates script via generateCompletion() and writes to stdout via out.log(). The method needs access to the CLI schema to pass to the generator.",
-			"passes": false,
+			"passes": true,
 			"priority": 4
 		},
 		{
