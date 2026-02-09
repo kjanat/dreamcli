@@ -499,6 +499,54 @@ describe('generateBashCompletion — name sanitization', () => {
 });
 
 // ===================================================================
+// generateBashCompletion — name escaping (shell injection prevention)
+// ===================================================================
+
+describe('generateBashCompletion — name escaping', () => {
+	it('leaves shell-safe names unquoted in complete line', () => {
+		const script = generateBashCompletion(minimalSchema({ name: 'my-cli' }));
+
+		expect(script).toContain('complete -F _my_cli_completions my-cli');
+	});
+
+	it('leaves dotted names unquoted in complete line', () => {
+		const script = generateBashCompletion(minimalSchema({ name: 'app.v2' }));
+
+		expect(script).toContain('complete -F _app_v2_completions app.v2');
+	});
+
+	it('single-quotes names with spaces in complete line', () => {
+		const script = generateBashCompletion(minimalSchema({ name: 'my cli' }));
+
+		expect(script).toContain("complete -F _my_cli_completions 'my cli'");
+	});
+
+	it('escapes single quotes in CLI name', () => {
+		const script = generateBashCompletion(minimalSchema({ name: "it's" }));
+
+		expect(script).toContain("complete -F _it_s_completions 'it'\\''s'");
+	});
+
+	it('single-quotes names with backticks', () => {
+		const script = generateBashCompletion(minimalSchema({ name: 'cli`whoami`' }));
+
+		expect(script).toContain("complete -F _cli_whoami__completions 'cli`whoami`'");
+	});
+
+	it('single-quotes names with semicolons', () => {
+		const script = generateBashCompletion(minimalSchema({ name: 'cli;rm -rf /' }));
+
+		expect(script).toContain("'cli;rm -rf /'");
+	});
+
+	it('single-quotes names with dollar signs', () => {
+		const script = generateBashCompletion(minimalSchema({ name: '$HOME' }));
+
+		expect(script).toContain("complete -F __HOME_completions '$HOME'");
+	});
+});
+
+// ===================================================================
 // generateZshCompletion — script structure
 // ===================================================================
 
@@ -812,6 +860,42 @@ describe('generateZshCompletion — name sanitization', () => {
 		const script = generateZshCompletion(schema);
 
 		expect(script).toContain('_app_cli() {');
+	});
+});
+
+// ===================================================================
+// generateZshCompletion — name escaping (shell injection prevention)
+// ===================================================================
+
+describe('generateZshCompletion — name escaping', () => {
+	it('leaves shell-safe names unquoted in #compdef', () => {
+		const script = generateZshCompletion(minimalSchema({ name: 'my-cli' }));
+
+		expect(script).toContain('#compdef my-cli');
+	});
+
+	it('single-quotes names with spaces in #compdef', () => {
+		const script = generateZshCompletion(minimalSchema({ name: 'my cli' }));
+
+		expect(script).toContain("#compdef 'my cli'");
+	});
+
+	it('escapes single quotes in CLI name for #compdef', () => {
+		const script = generateZshCompletion(minimalSchema({ name: "it's" }));
+
+		expect(script).toContain("#compdef 'it'\\''s'");
+	});
+
+	it('single-quotes names with backticks in #compdef', () => {
+		const script = generateZshCompletion(minimalSchema({ name: 'cli`whoami`' }));
+
+		expect(script).toContain("#compdef 'cli`whoami`'");
+	});
+
+	it('single-quotes names with dollar signs in #compdef', () => {
+		const script = generateZshCompletion(minimalSchema({ name: '$HOME' }));
+
+		expect(script).toContain("#compdef '$HOME'");
 	});
 });
 

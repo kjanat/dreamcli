@@ -22,6 +22,7 @@ Started: 2026-02-09
 - **Barrel export audit**: every type used in a public function's parameter or return position must be exported from `src/index.ts` — check module barrels vs main barrel for gaps
 - **Code-gen in --json mode**: commands that produce raw text (scripts, generated code) must branch on `out.jsonMode` — use `out.json({ script })` for JSON mode, `out.log()` for normal; `out.log()` redirects to stderr in JSON mode
 - **Completion enum scoping**: enum value completions must be scoped per-command, not globally — global dedup loses per-command context when same-named flags have different enum values across commands
+- **Shell argument escaping**: `quoteShellArg()` — single-quote wrap with `'\''` idiom for embedded quotes; passthrough for `[a-zA-Z0-9_\-.]` names to keep generated scripts readable
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -191,3 +192,12 @@ Started: 2026-02-09
 - Zsh generator unaffected — already placed enum values per-command in `_arguments` specs
 - Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
 - **Learnings:** when deduplicating completion data across commands, scope matters — global dedup loses per-command context; prefer per-command emission with dedup only within a single command's scope
+
+## Task — fix/escape-schema-name (Overseer: task_01KH1Q8SK1AFM3KTYWNP2EE7SM)
+- Added `quoteShellArg()` helper — single-quote wraps strings with `'\''` escape for embedded quotes; passthrough for shell-safe names (`[a-zA-Z0-9_\-.]`)
+- Applied to bash `complete -F ... <name>` line and zsh `#compdef <name>` directive — two injection points
+- Comment-only interpolations (`# Bash completion for ...`) left unescaped — harmless in `#` context
+- 12 new tests: 7 bash (safe names, spaces, quotes, backticks, semicolons, dollar signs, dots) + 5 zsh (same patterns for `#compdef`)
+- All 1185 tests pass, typecheck/lint/format clean
+- Files changed: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** shell argument escaping via single-quote wrap with `'\''` idiom is the safest approach — no need to enumerate dangerous characters; passthrough optimization for common names keeps generated scripts readable
