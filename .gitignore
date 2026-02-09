@@ -219,3 +219,5 @@ $RECYCLE.BIN/
 *:Zone.Identifier
 
 # End of https://gitignore.kjanat.com/api/node,linux,macos,windows
+
+.serena/

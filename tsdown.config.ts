@@ -12,5 +12,5 @@ export default defineConfig({
 	treeshake: true,
 	exports: true,
 	publint: true,
-	attw: true,
+	attw: { profile: 'strict', level: 'error', ignoreRules: [] },
 });

@@ -7,6 +7,55 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+#### Typed Middleware
+
+- **`middleware<Output>(handler)`** factory creating phantom-branded `Middleware<Output>` values.
+  Handler receives `{ args, flags, ctx, out, next }` — call `next(additions)` to continue the chain
+  with typed context, omit `next()` to short-circuit (auth guards), or await `next()` for
+  wrap-around patterns (timing, try/catch).
+- **`CommandBuilder.middleware(m)`** registers middleware in execution order. Each call widens the
+  context type parameter `C` via `WidenContext<C, Output>` intersection — `Record<string, never>`
+  (the default) is replaced entirely on the first call, preventing `never` collapse. Adding
+  middleware drops the current handler (type signature changed).
+- **Context type parameter `C`** on `CommandBuilder<F, A, C>`, `ActionParams<F, A, C>`, and
+  `ActionHandler<F, A, C>`. `ctx` in the action handler is `Readonly<C>` — property access is a type
+  error until middleware extends it.
+- **Middleware chain execution** (`executeWithMiddleware`) in testkit. Builds a continuation chain
+  from back to front; context accumulates via `{ ...ctx, ...additions }` at each step. Replaces the
+  former `invokeHandler` bridge.
+
+#### Structured Output
+
+- **`out.json(value)`** emits `JSON.stringify(value)` to stdout. Always targets stdout regardless of
+  JSON mode. Handlers should prefer this over `out.log(JSON.stringify(...))`.
+- **`out.table(rows, columns?)`** renders tabular data. In JSON mode: emits rows as JSON array. In
+  text mode: pretty-prints aligned columns with headers (auto-inferred from first row when `columns`
+  omitted). `TableColumn<T>` descriptor type with `key` and optional `header`.
+- **`out.jsonMode`** and **`out.isTTY`** readonly properties on `Out` interface. Handlers check
+  these to skip decorative output (spinners, ANSI codes) when machine-readable output is expected or
+  stdout is piped.
+- **`--json` global flag** detection in `CLIBuilder.execute()`. Strips `--json` from argv before
+  command dispatch. CLI-level dispatch errors (unknown command, no action) rendered as JSON when
+  active.
+- **`jsonMode`** and **`isTTY`** options on `RunOptions`, `CLIRunOptions`, and `OutputOptions`.
+  `CLIBuilder.run()` auto-sources `isTTY` from `adapter.isTTY`.
+
+### Changed
+
+- `ActionParams<F, A>` → `ActionParams<F, A, C>` with `ctx: Readonly<C>` (was
+  `Readonly<Record<string, unknown>>`).
+- `CommandBuilder` carries third type parameter `C` (default `Record<string, never>`). All
+  metadata/builder methods preserve `C` in return type.
+- `CommandSchema.middleware` added as `readonly ErasedMiddlewareHandler[]`.
+- `Out` interface extended with `json()`, `table()`, `jsonMode`, and `isTTY`.
+- `OutputChannel` constructor accepts `isTTY` and `jsonMode` from resolved options. `log`/`info`
+  redirect to stderr writer in JSON mode.
+- `runCommand` and `CLIBuilder.execute` error paths render JSON when `jsonMode` active.
+- `createCaptureOutput` accepts `jsonMode` and `isTTY` options.
+- Test count: 1010 tests across 31 test files (up from 797 in v0.3.0).
+
 ## [0.3.0] - 2026-02-09
 
 ### Added
