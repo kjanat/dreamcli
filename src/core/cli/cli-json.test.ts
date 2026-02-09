@@ -122,6 +122,79 @@ describe('CLIBuilder --json error rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
+// --json CLI-level error rendering (dispatch errors, not command errors)
+// ---------------------------------------------------------------------------
+
+describe('CLIBuilder --json CLI-level error rendering', () => {
+	it('renders "no commands registered" as JSON in --json mode', async () => {
+		const app = cli('test');
+		const result = await app.execute(['anything', '--json']);
+
+		expect(result.exitCode).toBe(1);
+		expect(result.stdout.length).toBe(1);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.error.code).toBe('NO_ACTION');
+		expect(parsed.error.message).toBe('No commands registered');
+		expect(parsed.error.suggest).toBe('Add commands via .command() before calling .run()');
+		// stderr should be empty — all output goes through json() to stdout
+		expect(result.stderr).toEqual([]);
+	});
+
+	it('renders "no commands registered" as text without --json', async () => {
+		const app = cli('test');
+		const result = await app.execute(['anything']);
+
+		expect(result.exitCode).toBe(1);
+		expect(result.stdout).toEqual([]);
+		expect(result.stderr).toContainEqual('No commands registered\n');
+	});
+
+	it('renders "unknown command" as JSON in --json mode', async () => {
+		const app = cli('test').command(dataCommand());
+		const result = await app.execute(['nonexistent', '--json']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stdout.length).toBe(1);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.error.code).toBe('UNKNOWN_COMMAND');
+		expect(parsed.error.message).toBe('Unknown command: nonexistent');
+		expect(parsed.error.suggest).toBeDefined();
+		// stderr should be empty — all output goes through json() to stdout
+		expect(result.stderr).toEqual([]);
+	});
+
+	it('renders "unknown command" as text without --json', async () => {
+		const app = cli('test').command(dataCommand());
+		const result = await app.execute(['nonexistent']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stdout).toEqual([]);
+		expect(result.stderr).toContainEqual('Unknown command: nonexistent\n');
+	});
+
+	it('renders "unknown command" with close-match suggestion as JSON', async () => {
+		const app = cli('test').command(dataCommand());
+		const result = await app.execute(['dat', '--json']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stdout.length).toBe(1);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.error.code).toBe('UNKNOWN_COMMAND');
+		expect(parsed.error.suggest).toBe("Did you mean 'data'?");
+	});
+
+	it('jsonMode via options renders CLI-level errors as JSON', async () => {
+		const app = cli('test');
+		const result = await app.execute(['anything'], { jsonMode: true });
+
+		expect(result.exitCode).toBe(1);
+		expect(result.stdout.length).toBe(1);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.error.code).toBe('NO_ACTION');
+	});
+});
+
+// ---------------------------------------------------------------------------
 // --json combined with --version / --help
 // ---------------------------------------------------------------------------
 

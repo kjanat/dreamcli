@@ -56,7 +56,7 @@
 			"description": "Add automatic --json flag to CLIBuilder. Pass jsonMode to output channel. Ensure errors also render as JSON in --json mode.",
 			"priority": 3,
 			"category": "feature",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "middleware-context-e2e",

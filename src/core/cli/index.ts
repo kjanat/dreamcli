@@ -531,7 +531,11 @@ class CLIBuilder {
 				code: 'NO_ACTION',
 				suggest: 'Add commands via .command() before calling .run()',
 			});
-			out.error(err.message);
+			if (jsonMode) {
+				out.json({ error: err.toJSON() });
+			} else {
+				out.error(err.message);
+			}
 			return buildResult(1, captured, err);
 		}
 
@@ -547,9 +551,13 @@ class CLIBuilder {
 						? `Did you mean '${suggestion}'?`
 						: `Run '${this.schema.name} --help' for available commands`,
 			});
-			out.error(err.message);
-			if (err.suggest !== undefined) {
-				out.error(`Suggestion: ${err.suggest}`);
+			if (jsonMode) {
+				out.json({ error: err.toJSON() });
+			} else {
+				out.error(err.message);
+				if (err.suggest !== undefined) {
+					out.error(`Suggestion: ${err.suggest}`);
+				}
 			}
 			return buildResult(2, captured, err);
 		}

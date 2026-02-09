@@ -26,6 +26,7 @@ Started: 2026-02-09
 - **isTTY wiring pattern**: `adapter.isTTY` → `CLIRunOptions.isTTY` → `RunOptions.isTTY` → `createCaptureOutput({ isTTY })` → `OutputChannel.isTTY` → `Out.isTTY`. Each layer conditionally spreads to respect `exactOptionalPropertyTypes`. `.run()` auto-sources from adapter when not explicitly set.
 - **Output mode precedence**: `jsonMode > isTTY` — handlers check `jsonMode` first, then `isTTY`. The `isTTY` field preserves raw TTY status even in JSON mode (handlers may need it for edge cases), but jsonMode always takes precedence for decorative output decisions.
 - **CLIBuilder.command() must accept any C**: `eraseCommand()` and `CLIBuilder.command()` need `C extends Record<string, unknown>` generic param so commands with middleware (which widen C beyond `Record<string, never>`) can be registered.
+- **JSON error rendering at every error site**: Both `CLIBuilder.execute()` (dispatch errors) and `runCommand()` (command errors) have separate error paths. Each must check `jsonMode` and use `out.json({ error: err.toJSON() })` vs `out.error(err.message)`. Easy to miss dispatch-level errors since they're not in the try/catch of runCommand.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -86,3 +87,10 @@ Started: 2026-02-09
 - 14 new integration tests in `cli-middleware.test.ts`: context wiring via dispatch, multiple middleware composition, execution ordering, flags/args in middleware, env-resolved flags in middleware, CLIError propagation, short-circuit, JSON mode error rendering, output channel access from middleware, verbosity/isTTY propagation, independent chains per command, --help bypasses middleware, backward compat without middleware
 - Files changed: `src/core/cli/index.ts` (type fix), `src/core/cli/cli-middleware.test.ts` (new)
 - **Learnings:** `CLIBuilder.command()` must accept any `C` — without it, commands using `.middleware()` fail at compile time. The pattern: any method that accepts `CommandBuilder` needs all three phantom params `<F, A, C>`.
+
+## Task - cli-json-flag
+- Fixed CLI-level dispatch errors to render as JSON in `--json` mode: "No commands registered" (`NO_ACTION`) and "Unknown command" (`UNKNOWN_COMMAND`) now use `out.json({ error: err.toJSON() })` when `jsonMode` is true
+- Previously these errors always used `out.error()` regardless of mode — scripts in `--json` mode would get text on stderr instead of structured JSON on stdout
+- 6 new tests: no-commands JSON/text, unknown-command JSON/text, close-match suggestion in JSON, jsonMode via options for CLI-level errors
+- Files changed: `src/core/cli/index.ts` (2 error paths), `src/core/cli/cli-json.test.ts` (6 new tests)
+- **Learnings:** CLI-level errors (dispatch layer) and command-level errors (runCommand layer) are separate code paths — both need JSON-mode handling. The pattern `if (jsonMode) { out.json({ error: err.toJSON() }) } else { out.error(err.message) }` must be applied at every error-rendering site.
