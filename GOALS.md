@@ -419,9 +419,23 @@ dreamcli/
 
 **v0.4:** Middleware + typed context, structured output channel (`--json`, TTY detection, table).
 
-**v0.5:** Completions generation + install commands (bash/zsh first), adapter hardening.
+**v0.5:** Completions generation (bash/zsh), runtime detection, Bun adapter.
 
-**v1.0:** Docs polish, stability guarantees, plugin hooks, compatibility matrix locked.
+**v0.6:** Config file discovery + loading (XDG search paths, `--config` flag, JSON loader, plugin
+hook for YAML/TOML).
+
+**v0.7:** Subcommand nesting (command trees: root > group > leaf, nested help, nested completion,
+nested dispatch in CLIBuilder).
+
+**v0.8:** Spinner/progress on Out (FR5 remainder: `out.spinner()`, `out.progress()`, auto-disable on
+`!isTTY`, suppress in `--json` mode, testkit capture).
+
+**v0.9:** Deno adapter + cross-runtime CI (Deno-specific APIs, permission handling, cross-runtime
+test matrix, adapter parity tests).
+
+**v1.0:** Stability guarantees, plugin lifecycle hooks (`beforeParse`, `afterResolve`,
+`beforeAction`, `afterAction`), public API audit, JSDoc coverage, README, compatibility matrix
+locked.
 
 ---
 
