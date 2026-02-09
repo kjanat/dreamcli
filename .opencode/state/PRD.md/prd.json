@@ -55,7 +55,7 @@
 			"id": "help-1",
 			"title": "Auto-generated help text from schema",
 			"description": "Generate help text from command schema: usage line, description, flags table (name, alias, type, default, description), args list. Support --help flag on all commands. Format for TTY width.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{

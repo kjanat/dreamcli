@@ -24,6 +24,8 @@ export {
 	ParseError,
 	ValidationError,
 } from './core/errors/index.js';
+export type { HelpOptions } from './core/help/index.js';
+export { formatHelp } from './core/help/index.js';
 export type { ParseResult, Token } from './core/parse/index.js';
 export { parse, tokenize } from './core/parse/index.js';
 export type { ResolveResult } from './core/resolve/index.js';

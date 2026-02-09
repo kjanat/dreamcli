@@ -15,6 +15,7 @@ Started: 2026-02-09
 - **Command builder pattern**: `CommandBuilder<F, A>` — two phantom type params accumulate flag/arg builder records via intersection (`F & Record<N, B>`). `.flag()` / `.arg()` return new builders with expanded types; `.action(handler)` receives `ActionParams<F, A>` with `InferFlags<F>` and `InferArgs<A>`. Handler is dropped when new flags/args are added (type safety). `CommandSchema` is the runtime descriptor with flags map + ordered args list. `{}` default for initial accumulator is correct and intentional (biome-ignore). `Out` interface stub defined for handler typing; real impl in output-1.
 - **Parser pattern**: Two-phase design: `tokenize(argv)` → `Token[]` (schema-agnostic), then `parse(schema, argv)` → `ParseResult` (schema-aware). Flag lookup built from `CommandSchema.flags` + aliases as `Map<string, [canonicalName, FlagSchema]>`. Value coercion per `FlagKind`/`ArgKind`. Array flags accumulate. Positionals mapped by `CommandSchema.args` ordering. All errors are `ParseError` with structured `code`/`details`/`suggest`.
 - **Resolver pattern**: `resolve(schema, parsed)` → `ResolveResult` with `flags` + `args`. MVP chain: CLI → default. Flags resolved first, then args. Missing required values throw `ValidationError`. Multiple errors aggregated into single throw with `details.errors` array. Array flags default to `[]`. Optional flags get `undefined` with key present. Non-empty tuple type `[T, ...T[]]` used for error aggregation to avoid `!` assertions. `isNonEmpty()` type guard narrows `T[]` → `[T, ...T[]]`.
+- **Help pattern**: `formatHelp(schema, options?)` → `string`. Reads `CommandSchema` to render sections: Usage, Description, Arguments, Flags, Examples. `HelpOptions` controls `width` (default 80) and `binName`. Flags sorted: short-aliased first, then alphabetical. Type hints per `FlagKind`; boolean suppresses hint and `(default: false)`. Word-wrapping via `wrapText()` at word boundaries with indent continuation.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -105,3 +106,17 @@ Started: 2026-02-09
 - Re-exported `resolve`, `ResolveResult` from `src/index.ts` public surface
 - Files changed: `src/core/resolve/index.ts` (rewritten), `src/core/resolve/resolve.test.ts` (new), `src/index.ts`
 - **Learnings:** Non-empty tuple parameter type (`[T, ...T[]]`) + `isNonEmpty()` type guard is the clean pattern to avoid `!` assertions when accessing `arr[0]` after a length check. Flags resolve before args — flag errors throw first, so arg validation only runs if flags pass. This is intentional: fix the more fundamental errors (flags) first.
+
+## Task - help-1
+- Implemented `formatHelp(schema, options?)` — generates structured help text from `CommandSchema`
+- Sections rendered in order: Usage line, Description, Arguments table, Flags table, Examples
+- Usage line shows `[flags]` placeholder when flags exist, `<arg>` for required, `[arg]` for optional, `<arg...>` for variadic
+- Flags table: short alias first (`-f, --force`), type hints (`<string>`, `<number>`, `<us|eu|ap>`, `<string>...`), `[required]`/`(default: X)` annotations
+- Flag sorting: short-aliased flags sort before non-aliased, then alphabetical by name
+- Boolean flags suppress `<boolean>` hint and `(default: false)` — both are obvious
+- `wrapText()` word-wraps long descriptions to configurable width with proper indent continuation
+- `HelpOptions`: `width` (default 80), `binName` (prefix for usage line, e.g. `mycli deploy`)
+- 34 tests covering: minimal commands, description, usage line variants, args section, flags section (all kinds), examples, width wrapping, full composition, section ordering
+- Re-exported `formatHelp`, `HelpOptions` from `src/index.ts` public surface
+- Files changed: `src/core/help/index.ts` (rewritten), `src/core/help/help.test.ts` (new), `src/index.ts`
+- **Learnings:** `wrapText` must split on word boundaries (spaces) — single long tokens without spaces won't wrap. Keep `resolveOptions` signature minimal — don't accept params you don't use. `formatValueHint` recursion for array element schemas (strip `<>` from nested hint) keeps the display clean.

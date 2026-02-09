@@ -1,0 +1,362 @@
+/**
+ * Tests for the help text generator.
+ *
+ * @module dreamcli/core/help/help.test
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import { arg } from '../schema/arg.js';
+import { command } from '../schema/command.js';
+import { flag } from '../schema/flag.js';
+
+import { formatHelp } from './index.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Basic command (no flags, no args)
+// ---------------------------------------------------------------------------
+
+describe('formatHelp', () => {
+	describe('minimal command', () => {
+		const cmd = command('greet');
+
+		it('includes usage line with command name', () => {
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Usage: greet');
+		});
+
+		it('ends with a newline', () => {
+			const help = formatHelp(cmd.schema);
+			expect(help.endsWith('\n')).toBe(true);
+		});
+
+		it('does not include Arguments section', () => {
+			const help = formatHelp(cmd.schema);
+			expect(help).not.toContain('Arguments:');
+		});
+
+		it('does not include Flags section', () => {
+			const help = formatHelp(cmd.schema);
+			expect(help).not.toContain('Flags:');
+		});
+
+		it('does not include Examples section', () => {
+			const help = formatHelp(cmd.schema);
+			expect(help).not.toContain('Examples:');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Description
+	// -----------------------------------------------------------------------
+
+	describe('description', () => {
+		it('renders command description', () => {
+			const cmd = command('deploy').description('Deploy to an environment');
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Deploy to an environment');
+		});
+
+		it('omits description section when none set', () => {
+			const cmd = command('noop');
+			const help = formatHelp(cmd.schema);
+			// Usage line + trailing newline — no extra sections
+			const lines = help.trim().split('\n');
+			expect(lines).toHaveLength(1);
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Usage line
+	// -----------------------------------------------------------------------
+
+	describe('usage line', () => {
+		it('shows [flags] when flags are present', () => {
+			const cmd = command('run').flag('verbose', flag.boolean());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Usage: run [flags]');
+		});
+
+		it('does not show [flags] when no flags', () => {
+			const cmd = command('run');
+			const help = formatHelp(cmd.schema);
+			expect(help).not.toContain('[flags]');
+		});
+
+		it('shows required arg as <name>', () => {
+			const cmd = command('deploy').arg('target', arg.string());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('<target>');
+		});
+
+		it('shows optional arg as [name]', () => {
+			const cmd = command('deploy').arg('target', arg.string().optional());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[target]');
+		});
+
+		it('shows variadic arg with ellipsis', () => {
+			const cmd = command('cat').arg('files', arg.string().variadic());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('<files...>');
+		});
+
+		it('includes binName prefix when provided', () => {
+			const cmd = command('deploy').arg('target', arg.string());
+			const help = formatHelp(cmd.schema, { binName: 'mycli' });
+			expect(help).toContain('Usage: mycli deploy');
+		});
+
+		it('shows flags and args together in correct order', () => {
+			const cmd = command('deploy')
+				.flag('force', flag.boolean())
+				.arg('target', arg.string())
+				.arg('env', arg.string().optional());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Usage: deploy [flags] <target> [env]');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Arguments section
+	// -----------------------------------------------------------------------
+
+	describe('arguments section', () => {
+		it('lists positional args with descriptions', () => {
+			const cmd = command('deploy')
+				.arg('target', arg.string().describe('Deploy target'))
+				.arg('env', arg.string().optional().describe('Environment'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Arguments:');
+			expect(help).toContain('<target>');
+			expect(help).toContain('Deploy target');
+			expect(help).toContain('[env]');
+			expect(help).toContain('Environment');
+		});
+
+		it('shows default value for defaulted args', () => {
+			const cmd = command('deploy').arg(
+				'env',
+				arg.string().default('production').describe('Environment'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('(default: production)');
+		});
+
+		it('renders arg without description', () => {
+			const cmd = command('deploy').arg('target', arg.string());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Arguments:');
+			expect(help).toContain('<target>');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Flags section
+	// -----------------------------------------------------------------------
+
+	describe('flags section', () => {
+		it('renders flag with description', () => {
+			const cmd = command('run').flag('verbose', flag.boolean().describe('Enable verbose output'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Flags:');
+			expect(help).toContain('--verbose');
+			expect(help).toContain('Enable verbose output');
+		});
+
+		it('renders short alias', () => {
+			const cmd = command('run').flag('force', flag.boolean().alias('f'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('-f, --force');
+		});
+
+		it('renders string flag with <string> hint', () => {
+			const cmd = command('run').flag('name', flag.string());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('--name <string>');
+		});
+
+		it('renders number flag with <number> hint', () => {
+			const cmd = command('run').flag('port', flag.number());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('--port <number>');
+		});
+
+		it('renders enum flag with values', () => {
+			const cmd = command('run').flag('region', flag.enum(['us', 'eu', 'ap']));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('--region <us|eu|ap>');
+		});
+
+		it('renders array flag with ellipsis', () => {
+			const cmd = command('run').flag('tags', flag.array(flag.string()));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('--tags <string>...');
+		});
+
+		it('does not show <type> hint for boolean flags', () => {
+			const cmd = command('run').flag('verbose', flag.boolean());
+			const help = formatHelp(cmd.schema);
+			// Should show --verbose without any <boolean>
+			expect(help).toContain('--verbose');
+			expect(help).not.toContain('<boolean>');
+		});
+
+		it('shows [required] for required flags', () => {
+			const cmd = command('run').flag('token', flag.string().required().describe('API token'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[required]');
+		});
+
+		it('shows default for defaulted non-boolean flags', () => {
+			const cmd = command('run').flag('port', flag.number().default(8080).describe('Port'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('(default: 8080)');
+		});
+
+		it('does not show default for boolean flags', () => {
+			const cmd = command('run').flag('verbose', flag.boolean().describe('Verbose'));
+			const help = formatHelp(cmd.schema);
+			expect(help).not.toContain('(default: false)');
+		});
+
+		it('sorts flags with short aliases first', () => {
+			const cmd = command('run')
+				.flag('verbose', flag.boolean().describe('Verbose'))
+				.flag('force', flag.boolean().alias('f').describe('Force'))
+				.flag('all', flag.boolean().describe('All'));
+			const help = formatHelp(cmd.schema);
+			const forceIdx = help.indexOf('-f, --force');
+			const verboseIdx = help.indexOf('--verbose');
+			const allIdx = help.indexOf('--all');
+			// -f,--force should come before --all and --verbose
+			expect(forceIdx).toBeLessThan(allIdx);
+			expect(forceIdx).toBeLessThan(verboseIdx);
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Examples section
+	// -----------------------------------------------------------------------
+
+	describe('examples section', () => {
+		it('renders example without description', () => {
+			const cmd = command('deploy').example('deploy production');
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Examples:');
+			expect(help).toContain('$ deploy production');
+		});
+
+		it('renders example with description', () => {
+			const cmd = command('deploy').example('deploy production --force', 'Force deploy to prod');
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Force deploy to prod:');
+			expect(help).toContain('$ deploy production --force');
+		});
+
+		it('renders multiple examples', () => {
+			const cmd = command('deploy')
+				.example('deploy staging', 'Deploy to staging')
+				.example('deploy production --force');
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('Deploy to staging:');
+			expect(help).toContain('$ deploy staging');
+			expect(help).toContain('$ deploy production --force');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Options (width, binName)
+	// -----------------------------------------------------------------------
+
+	describe('options', () => {
+		it('uses custom width for text wrapping', () => {
+			const longDesc =
+				'This is a very long description that should be wrapped across multiple lines';
+			const cmd = command('run').flag('x', flag.string().describe(longDesc));
+			const help = formatHelp(cmd.schema, { width: 40 });
+			// The description should be wrapped across multiple lines
+			const lines = help.split('\n');
+			const descLines = lines.filter(
+				(l) =>
+					l.includes('This') ||
+					l.includes('wrapped') ||
+					l.includes('long') ||
+					l.includes('multiple'),
+			);
+			expect(descLines.length).toBeGreaterThan(1);
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Full composition (realistic command)
+	// -----------------------------------------------------------------------
+
+	describe('full composition', () => {
+		it('renders complete help for a realistic command', () => {
+			const cmd = command('deploy')
+				.description('Deploy to an environment')
+				.arg('target', arg.string().describe('Deploy target'))
+				.flag('force', flag.boolean().alias('f').describe('Skip confirmation'))
+				.flag('region', flag.enum(['us', 'eu', 'ap']).describe('Target region'))
+				.flag('replicas', flag.number().default(3).describe('Number of replicas'))
+				.example('deploy production', 'Deploy to production')
+				.example('deploy staging --force -r us');
+
+			const help = formatHelp(cmd.schema, { binName: 'mycli' });
+
+			// Usage line
+			expect(help).toContain('Usage: mycli deploy [flags] <target>');
+
+			// Description
+			expect(help).toContain('Deploy to an environment');
+
+			// Arguments
+			expect(help).toContain('Arguments:');
+			expect(help).toContain('Deploy target');
+
+			// Flags
+			expect(help).toContain('Flags:');
+			expect(help).toContain('-f, --force');
+			expect(help).toContain('--region <us|eu|ap>');
+			expect(help).toContain('--replicas <number>');
+			expect(help).toContain('(default: 3)');
+
+			// Examples
+			expect(help).toContain('Examples:');
+			expect(help).toContain('Deploy to production:');
+			expect(help).toContain('$ deploy production');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Section ordering
+	// -----------------------------------------------------------------------
+
+	describe('section ordering', () => {
+		it('renders sections in correct order: Usage, Description, Arguments, Flags, Examples', () => {
+			const cmd = command('deploy')
+				.description('Deploy')
+				.arg('target', arg.string())
+				.flag('force', flag.boolean())
+				.example('deploy prod');
+
+			const help = formatHelp(cmd.schema);
+
+			const usageIdx = help.indexOf('Usage:');
+			const descIdx = help.indexOf('Deploy');
+			const argsIdx = help.indexOf('Arguments:');
+			const flagsIdx = help.indexOf('Flags:');
+			const examplesIdx = help.indexOf('Examples:');
+
+			expect(usageIdx).toBeLessThan(descIdx);
+			expect(descIdx).toBeLessThan(argsIdx);
+			expect(argsIdx).toBeLessThan(flagsIdx);
+			expect(flagsIdx).toBeLessThan(examplesIdx);
+		});
+	});
+});
