@@ -14,6 +14,7 @@ Started: 2026-02-09
 - **Arg builder pattern**: `ArgBuilder<C extends ArgConfig>` — phantom type tracks `valueType` + `presence` + `variadic`. Positional args default to `'required'` (unlike flags which default to `'optional'`). `arg.custom(parseFn)` infers return type of parse function. Variadic args wrap type in `T[]` via `ResolvedArgValue`. `ArgSchema` stores `parseFn` for custom parsing.
 - **Command builder pattern**: `CommandBuilder<F, A>` — two phantom type params accumulate flag/arg builder records via intersection (`F & Record<N, B>`). `.flag()` / `.arg()` return new builders with expanded types; `.action(handler)` receives `ActionParams<F, A>` with `InferFlags<F>` and `InferArgs<A>`. Handler is dropped when new flags/args are added (type safety). `CommandSchema` is the runtime descriptor with flags map + ordered args list. `{}` default for initial accumulator is correct and intentional (biome-ignore). `Out` interface stub defined for handler typing; real impl in output-1.
 - **Parser pattern**: Two-phase design: `tokenize(argv)` → `Token[]` (schema-agnostic), then `parse(schema, argv)` → `ParseResult` (schema-aware). Flag lookup built from `CommandSchema.flags` + aliases as `Map<string, [canonicalName, FlagSchema]>`. Value coercion per `FlagKind`/`ArgKind`. Array flags accumulate. Positionals mapped by `CommandSchema.args` ordering. All errors are `ParseError` with structured `code`/`details`/`suggest`.
+- **Resolver pattern**: `resolve(schema, parsed)` → `ResolveResult` with `flags` + `args`. MVP chain: CLI → default. Flags resolved first, then args. Missing required values throw `ValidationError`. Multiple errors aggregated into single throw with `details.errors` array. Array flags default to `[]`. Optional flags get `undefined` with key present. Non-empty tuple type `[T, ...T[]]` used for error aggregation to avoid `!` assertions. `isNonEmpty()` type guard narrows `T[]` → `[T, ...T[]]`.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -90,3 +91,17 @@ Started: 2026-02-09
 - Re-exported `parse`, `tokenize`, `ParseResult`, `Token` from `src/index.ts`
 - Files changed: `src/core/parse/index.ts` (new), `src/core/parse/parse.test.ts` (new), `src/index.ts`
 - **Learnings:** TS strict noUncheckedIndexedAccess means `array[i]` returns `T | undefined` — use `charAt()` for strings, `?? fallback` for numeric arrays, or explicit `undefined` guards instead of `as T` assertions. Splitting tokenizer from parser avoids circular concerns: tokenizer is purely lexical, parser is schema-dependent. Biome suppressions that don't match active rules are flagged as `suppressions/unused` warnings.
+
+## Task - resolve-1
+- Implemented `resolve(schema, parsed)` → `ResolveResult { flags, args }` — MVP resolution chain: CLI → default
+- Flag resolution: CLI value → schema default → array implicit `[]` → required validation → optional `undefined`
+- Arg resolution: CLI value → schema default → variadic implicit `[]` → required validation → optional `undefined`
+- Required variadic args with empty array treated as missing (must have ≥1 element)
+- Error aggregation: single error thrown directly, multiple errors wrapped with `details.errors` array and count
+- Non-empty tuple `[ValidationError, ...ValidationError[]]` on `throwAggregatedErrors` eliminates `!` assertions
+- `isNonEmpty()` type guard narrows `T[]` → non-empty tuple at call sites
+- Optional flag/arg keys present in result (set to `undefined`) for consistent shape
+- 40 tests: CLI passthrough, defaults, array defaults, optional resolution, required validation, error aggregation, combined scenarios, variadic edge cases
+- Re-exported `resolve`, `ResolveResult` from `src/index.ts` public surface
+- Files changed: `src/core/resolve/index.ts` (rewritten), `src/core/resolve/resolve.test.ts` (new), `src/index.ts`
+- **Learnings:** Non-empty tuple parameter type (`[T, ...T[]]`) + `isNonEmpty()` type guard is the clean pattern to avoid `!` assertions when accessing `arr[0]` after a length check. Flags resolve before args — flag errors throw first, so arg validation only runs if flags pass. This is intentional: fix the more fundamental errors (flags) first.

@@ -26,6 +26,8 @@ export {
 } from './core/errors/index.js';
 export type { ParseResult, Token } from './core/parse/index.js';
 export { parse, tokenize } from './core/parse/index.js';
+export type { ResolveResult } from './core/resolve/index.js';
+export { resolve } from './core/resolve/index.js';
 export type {
 	ActionHandler,
 	ActionParams,

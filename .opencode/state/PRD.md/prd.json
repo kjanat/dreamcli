@@ -48,7 +48,7 @@
 			"id": "resolve-1",
 			"title": "Resolution chain: CLI → default (env/config/prompt deferred)",
 			"description": "Implement MVP resolution: CLI parsed values → default values. Required flag validation (error if not resolved). This is the simplified v0.1 chain; env/config/prompt come in v0.2/v0.3.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{
