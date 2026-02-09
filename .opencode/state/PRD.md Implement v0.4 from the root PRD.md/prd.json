@@ -64,7 +64,7 @@
 			"description": "Integration tests: middleware chain with multiple middlewares composing context, typed ctx in action handler, error middleware, middleware ordering.",
 			"priority": 4,
 			"category": "feature",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "output-e2e",

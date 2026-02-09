@@ -94,3 +94,16 @@ Started: 2026-02-09
 - 6 new tests: no-commands JSON/text, unknown-command JSON/text, close-match suggestion in JSON, jsonMode via options for CLI-level errors
 - Files changed: `src/core/cli/index.ts` (2 error paths), `src/core/cli/cli-json.test.ts` (6 new tests)
 - **Learnings:** CLI-level errors (dispatch layer) and command-level errors (runCommand layer) are separate code paths — both need JSON-mode handling. The pattern `if (jsonMode) { out.json({ error: err.toJSON() }) } else { out.error(err.message) }` must be applied at every error-rendering site.
+
+## Task - middleware-context-e2e
+- 32 new e2e tests in `src/core/testkit/middleware-context-e2e.test.ts` covering full pipeline: argv → parse → resolve → middleware → action
+- **Multi-middleware composition**: 3-middleware rich context, downstream ctx visibility, cumulative accumulation
+- **Typed ctx assertions**: `expectTypeOf` compile-time checks for narrowed ctx through chain, ctx without middleware, single/multi middleware, combined with flags+args
+- **Error middleware**: CLIError propagation with details, non-CLIError wrapping, error in later middleware skips action + earlier after-hooks, catch-and-transform pattern, short-circuit without next
+- **Ordering/wrap-around**: onion model with 3 middleware, timing wrapper pattern, 10-middleware stress test
+- **CLI dispatch path**: auth+tracing pipeline, JSON error rendering, text error rendering, independent chains per command, --help bypass
+- **Output modes**: JSON mode (log→stderr, json→stdout), isTTY propagation, table in JSON mode, verbosity=quiet suppression
+- **Resolution chain interplay**: env+config+default seen by middleware, config-resolved values, conditional logic on resolved args
+- **Edge cases**: async middleware preserves context, no ctx leak across separate runs, later middleware overrides earlier keys, zero-property additions chain correctly
+- Files changed: `src/core/testkit/middleware-context-e2e.test.ts` (new)
+- **Learnings:** Loop-based middleware chaining in tests hits type-level issues because `CommandBuilder` generic `C` widens on each `.middleware()` call — can't reassign to the same variable. Use explicit chaining or factory functions instead. `setTimeout` not available with `lib: ["ES2022"]` — use `Promise.resolve()` chains for async simulation in tests.
