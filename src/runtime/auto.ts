@@ -55,6 +55,10 @@ function createAdapter(globals?: GlobalForDetect): RuntimeAdapter {
 		case 'node':
 		case 'unknown':
 			return createNodeAdapter();
+		default: {
+			const _exhaustive: never = runtime;
+			return _exhaustive;
+		}
 	}
 }
 

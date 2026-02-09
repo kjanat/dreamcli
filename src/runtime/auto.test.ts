@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import type { RuntimeAdapter } from './adapter.js';
 import { createAdapter } from './auto.js';
 import type { GlobalForDetect } from './detect.js';
+import { RUNTIMES } from './detect.js';
 
 // ===================================================================
 // Helpers
@@ -93,6 +94,30 @@ describe('createAdapter — runtime dispatch', () => {
 		};
 		const adapter = createAdapter(globals);
 		assertAdapterShape(adapter);
+	});
+});
+
+// ===================================================================
+// createAdapter — exhaustiveness
+// ===================================================================
+
+describe('createAdapter — exhaustiveness', () => {
+	it('handles every Runtime variant without returning undefined', () => {
+		// Exhaustiveness is enforced at compile-time via `default: never`.
+		// This test verifies runtime behavior: every known Runtime value
+		// produces a valid RuntimeAdapter (never undefined).
+		const globalsForRuntime: Record<string, GlobalForDetect> = {
+			node: { process: { versions: { node: '22.0.0' } } },
+			bun: { Bun: { version: '1.1.0' }, process: { versions: { node: '22.0.0' } } },
+			deno: { Deno: { version: { deno: '2.0.0' } } },
+			unknown: {},
+		};
+
+		for (const runtime of RUNTIMES) {
+			const adapter = createAdapter(globalsForRuntime[runtime]);
+			expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
+			assertAdapterShape(adapter);
+		}
 	});
 });
 

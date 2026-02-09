@@ -18,6 +18,7 @@ Started: 2026-02-09
 - **FlagKind union**: `'string' | 'number' | 'boolean' | 'enum' | 'array'` — no `'count'` variant
 - **Auto-adapter factory**: `createAdapter(globals?)` in `auto.ts` — separate from `detect.ts` to keep detection deps-free; exhaustive switch on `Runtime` union for compile-time safety
 - **Built-in subcommands**: use `command()`/`flag()` builders internally inside `CLIBuilder` methods, capture `this.schema` for schema access; schema snapshot is pre-registration (excludes the built-in command itself from generated output)
+- **Exhaustiveness guard**: `default: { const _exhaustive: never = x; return _exhaustive; }` — zero-dep pattern for union switch exhaustiveness; compile-time error on unhandled variant, zero runtime overhead
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -124,3 +125,10 @@ Started: 2026-02-09
 - Class member `@internal` tags (`.schema`, `.handler`, `._config` etc.) are intentional — marks implementation details on public classes
 - Files changed: `src/runtime/detect.ts`
 - **Learnings:** `@internal` should only be used on symbols that are truly not part of the public API; if a type appears in any public function signature, it must be public regardless of implementation intent
+
+## Task — fix/exhaustiveness-guard-createAdapter (code review P0)
+- Added `default: never` exhaustiveness guard to `createAdapter()` switch in `src/runtime/auto.ts`
+- Pattern: `const _exhaustive: never = runtime; return _exhaustive;` — compile-time error if new `Runtime` variant added without handling, zero runtime overhead
+- Added exhaustiveness test: iterates `RUNTIMES` constant, verifies every variant produces valid `RuntimeAdapter`
+- Files changed: `src/runtime/auto.ts`, `src/runtime/auto.test.ts`
+- **Learnings:** `default: { const _exhaustive: never = x; return _exhaustive; }` is the zero-dep exhaustiveness pattern — no helper function needed; `return _exhaustive` ensures the function return type is satisfied even in unreachable code
