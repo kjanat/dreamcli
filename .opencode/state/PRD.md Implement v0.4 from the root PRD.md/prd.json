@@ -72,7 +72,7 @@
 			"description": "Integration tests: --json mode with json()/table()/log(), piped mode, TTY mode, mixed output. Verify capture output works for all modes.",
 			"priority": 4,
 			"category": "feature",
-			"passes": false
+			"passes": true
 		}
 	]
 }

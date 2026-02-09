@@ -107,3 +107,17 @@ Started: 2026-02-09
 - **Edge cases**: async middleware preserves context, no ctx leak across separate runs, later middleware overrides earlier keys, zero-property additions chain correctly
 - Files changed: `src/core/testkit/middleware-context-e2e.test.ts` (new)
 - **Learnings:** Loop-based middleware chaining in tests hits type-level issues because `CommandBuilder` generic `C` widens on each `.middleware()` call — can't reassign to the same variable. Use explicit chaining or factory functions instead. `setTimeout` not available with `lib: ["ES2022"]` — use `Promise.resolve()` chains for async simulation in tests.
+
+## Task - output-e2e
+- 42 new e2e tests in `src/core/testkit/output-e2e.test.ts` covering full pipeline: argv → parse → resolve → action → output capture
+- **JSON mode via runCommand**: json()/table() to stdout, log/info → stderr, handler branching on `out.jsonMode`, multiple json() calls, table-in-json emits full rows
+- **Piped mode**: log/info → stdout, warn/error → stderr, table renders as aligned text, handler sees isTTY=false
+- **TTY mode**: handler sees isTTY=true for decorative output, table aligned text, jsonMode overrides isTTY
+- **Mixed output**: interleaved json()+log()+table()+warn()+error() in normal and json modes, middleware output interleaving, middleware output respects json mode redirection
+- **Verbosity matrix**: quiet×normal, quiet×jsonMode, quiet×TTY, quiet×jsonMode×TTY — info suppressed in all quiet combos, log unaffected
+- **Error rendering**: CLIError text/JSON modes, unexpected error wrapping in both modes, validation error (missing required flag) in both modes
+- **CLI dispatch path**: --json flag through cli().execute(), table command in json/normal modes, dispatch errors in both modes, isTTY/verbosity propagation
+- **Capture correctness**: empty command, newline appending, empty table no-op, complex nested JSON serialisation, output isolation between runs, --help capture
+- **Table features**: auto-inferred columns, explicit column filtering/ordering, null/undefined handling, json mode emits full rows ignoring column spec
+- Files changed: `src/core/testkit/output-e2e.test.ts` (new)
+- **Learnings:** `CLIError.toJSON()` includes `name` field — must account for it in exact equality assertions. Middleware output (info/log from middleware) interleaves correctly with handler output and respects json mode redirection the same as handler output.
