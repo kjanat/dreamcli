@@ -15,6 +15,7 @@ Started: 2026-02-09
 - **Runtime detection**: `GlobalForDetect` interface, check Bun before Node (Bun mimics Node's `process`)
 - **Bash string literals**: biome flags `${...}` in single-quoted strings as `noTemplateCurlyInString` — suppress with `biome-ignore` when generating bash syntax
 - **ErasedCommand test stubs**: `_execute` must return `RunResult` shape including `error: undefined`; use typed `[] as string[]` to avoid `never[]`
+- **FlagKind union**: `'string' | 'number' | 'boolean' | 'enum' | 'array'` — no `'count'` variant
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -48,3 +49,17 @@ Started: 2026-02-09
 - Rewrote test helpers: `flagSchema()`, `commandSchema()`, `erased()` factories for type-safe test `CLISchema` construction
 - Files: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
 - **Learnings:** biome `noTemplateCurlyInString` triggers on bash `${words[i]}` in single-quoted JS strings — suppress per-line; `ErasedCommand._execute` return must include `error` field to satisfy `RunResult`
+
+## Task — completion-zsh
+- Implemented `generateZshCompletion()` — pure string generation, no shell exec
+- Script structure: `#compdef` directive → `_<name>()` function → `_arguments -C` with `->state` dispatch → `_describe` for subcommand list → per-command `_arguments` with flag specs
+- Internal helpers: `sanitizeZshIdentifier()`, `escapeZshDescription()`, `buildZshFlagSpecs()`
+- `_arguments` flag specs: boolean flags get no value part; string/number get `:value:`; enum get `:value:(v1 v2 v3)`
+- Short alias flags use zsh mutual exclusion group syntax: `(-s --long)'{-s,--long}'[desc]`
+- Hidden commands excluded; aliases in case patterns; colons escaped in descriptions
+- `functionPrefix` overrides function name; `#compdef` always uses original CLI name
+- No-commands path emits simpler `_arguments` with only `--help`/`--version`
+- Updated dispatcher test: zsh no longer throws, returns actual script
+- 25 new zsh tests + 1 updated dispatcher test (54 completion tests total, 1082 suite-wide)
+- Files: `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** `FlagKind` is `'string' | 'number' | 'boolean' | 'enum' | 'array'` — no `'count'` kind; zsh `_arguments` uses `->state` for subcommand dispatch with `case "$state"`; local vars (`subcmds`, `line`, `state`) should only be declared when commands exist to keep no-commands path clean

@@ -27,7 +27,7 @@
 			"id": "completion-zsh",
 			"title": "Zsh completion script generator",
 			"description": "Implement generateZshCompletion(cliSchema): string. Pure string generation — output a complete zsh script with #compdef directive, _arguments calls for flags with descriptions, _describe for subcommands. Tests assert on script structure. No shelling out.",
-			"passes": false,
+			"passes": true,
 			"priority": 2
 		},
 		{
