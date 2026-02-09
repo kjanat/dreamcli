@@ -25,6 +25,10 @@ export type {
 	CommandConfig,
 	CommandExample,
 	CommandSchema,
+	ErasedInteractiveResolver,
+	InteractiveParams,
+	InteractiveResolver,
+	InteractiveResult,
 	Out,
 } from './command.js';
 export { CommandBuilder, command } from './command.js';

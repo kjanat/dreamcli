@@ -29,6 +29,7 @@ function makeSchema(overrides?: Partial<CommandSchema>): CommandSchema {
 		flags: {},
 		args: [],
 		hasAction: true,
+		interactive: undefined,
 		...overrides,
 	};
 }

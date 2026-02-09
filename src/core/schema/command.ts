@@ -11,6 +11,7 @@
 
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.js';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.js';
+import type { PromptConfig } from './prompt.js';
 
 // ---------------------------------------------------------------------------
 // Type-level configuration (phantom state tracked through the chain)
@@ -26,6 +27,71 @@ interface CommandConfig {
 	readonly flags: Record<string, FlagBuilder<FlagConfig>>;
 	readonly args: Record<string, ArgBuilder<ArgConfig>>;
 }
+
+// ---------------------------------------------------------------------------
+// Interactive resolver types
+// ---------------------------------------------------------------------------
+
+/**
+ * Parameters received by the interactive resolver function.
+ *
+ * `flags` contains partially resolved values — present for flags resolved
+ * via CLI, env, or config, `undefined` for unresolved flags. The resolver
+ * uses this to decide which prompts to show based on current state.
+ */
+interface InteractiveParams<F extends Record<string, FlagBuilder<FlagConfig>>> {
+	/** Partially resolved flag values (after CLI/env/config, before prompts). */
+	readonly flags: Readonly<Partial<InferFlags<F>>>;
+}
+
+/**
+ * A record mapping flag names to prompt configs or falsy values.
+ *
+ * - `PromptConfig` — show this prompt for the flag
+ * - `false | undefined | null | 0 | ''` — skip prompting for this flag
+ *
+ * Only flag names that need prompting should have truthy values.
+ * Flags not mentioned are handled by their per-flag `.prompt()` config.
+ */
+type InteractiveResult = Readonly<Record<string, PromptConfig | false | undefined | null | 0 | ''>>;
+
+/**
+ * Interactive resolver function for command-level prompt control.
+ *
+ * Called after CLI/env/config resolution but before per-flag prompts fire.
+ * Receives partially resolved values and returns a prompt schema for
+ * flags that should be prompted. Commands without `.interactive()` use
+ * per-flag prompt configs directly.
+ *
+ * @example
+ * ```ts
+ * const deploy = command('deploy')
+ *   .flag('region', flag.enum(['us', 'eu', 'ap']))
+ *   .interactive(({ flags }) => ({
+ *     region: !flags.region && {
+ *       kind: 'select',
+ *       message: 'Select region',
+ *     },
+ *   }))
+ *   .action(({ flags }) => { ... });
+ * ```
+ */
+type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
+	params: InteractiveParams<F>,
+) => InteractiveResult;
+
+/**
+ * Type-erased interactive resolver stored on `CommandSchema`.
+ *
+ * At runtime, the resolver receives `{ flags: Record<string, unknown> }`
+ * and returns `Record<string, PromptConfig | falsy>`. The phantom types
+ * from `CommandBuilder<F, A>` are erased.
+ *
+ * @internal
+ */
+type ErasedInteractiveResolver = (params: {
+	readonly flags: Readonly<Record<string, unknown>>;
+}) => InteractiveResult;
 
 // ---------------------------------------------------------------------------
 // Handler types
@@ -110,6 +176,17 @@ interface CommandSchema {
 	readonly args: readonly CommandArgEntry[];
 	/** Whether an action handler has been registered. */
 	readonly hasAction: boolean;
+	/**
+	 * Command-level interactive resolver for schema-driven prompt control.
+	 *
+	 * When set, called after CLI/env/config resolution with partially resolved
+	 * flag values. Returns prompt configs for flags that need interactive input.
+	 * Takes precedence over per-flag `.prompt()` configs for flags it returns
+	 * configs for; flags not mentioned fall back to their per-flag configs.
+	 *
+	 * @see InteractiveResolver
+	 */
+	readonly interactive: ErasedInteractiveResolver | undefined;
 }
 
 /** A named positional arg entry in the command schema. */
@@ -166,6 +243,44 @@ class CommandBuilder<
 	constructor(schema: CommandSchema, handler?: ActionHandler<F, A>) {
 		this.schema = schema;
 		this.handler = handler;
+	}
+
+	// -- Interactive resolver ------------------------------------------------
+
+	/**
+	 * Register a command-level interactive resolver for schema-driven prompts.
+	 *
+	 * The resolver is called after CLI/env/config resolution with partially
+	 * resolved flag values. It returns a prompt schema for flags that need
+	 * interactive input based on the current state.
+	 *
+	 * For flags the resolver returns a `PromptConfig`, that config is used
+	 * instead of any per-flag `.prompt()` config. For flags returned as falsy
+	 * (or not mentioned), per-flag `.prompt()` configs are used as fallback.
+	 *
+	 * Commands without `.interactive()` use per-flag prompt configs directly.
+	 *
+	 * @example
+	 * ```ts
+	 * const deploy = command('deploy')
+	 *   .flag('region', flag.enum(['us', 'eu', 'ap']))
+	 *   .flag('force', flag.boolean())
+	 *   .interactive(({ flags }) => ({
+	 *     region: !flags.region && {
+	 *       kind: 'select',
+	 *       message: 'Select region',
+	 *     },
+	 *   }))
+	 *   .action(({ flags }) => { ... });
+	 * ```
+	 */
+	interactive(resolver: InteractiveResolver<F>): CommandBuilder<F, A> {
+		// The resolver is type-erased for storage on CommandSchema.
+		// At runtime, `InteractiveResolver<F>` is just `(params: { flags }) => Record<...>`.
+		// The phantom types on F are erased — the resolver's runtime behaviour is
+		// identical to `ErasedInteractiveResolver`.
+		const erased = resolver as unknown as ErasedInteractiveResolver;
+		return new CommandBuilder({ ...this.schema, interactive: erased }, this.handler);
 	}
 
 	// -- Metadata modifiers --------------------------------------------------
@@ -285,6 +400,7 @@ function command(name: string): CommandBuilder {
 		flags: {},
 		args: [],
 		hasAction: false,
+		interactive: undefined,
 	});
 }
 
@@ -300,5 +416,9 @@ export type {
 	CommandConfig,
 	CommandExample,
 	CommandSchema,
+	ErasedInteractiveResolver,
+	InteractiveParams,
+	InteractiveResolver,
+	InteractiveResult,
 	Out,
 };

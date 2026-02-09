@@ -19,7 +19,13 @@ import { ValidationError } from '../errors/index.js';
 import type { ParseResult } from '../parse/index.js';
 import type { PromptEngine } from '../prompt/index.js';
 import { resolvePromptConfig } from '../prompt/index.js';
-import type { CommandArgEntry, CommandSchema, FlagSchema } from '../schema/index.js';
+import type {
+	CommandArgEntry,
+	CommandSchema,
+	ErasedInteractiveResolver,
+	FlagSchema,
+} from '../schema/index.js';
+import type { PromptConfig } from '../schema/prompt.js';
 
 // ---------------------------------------------------------------------------
 // Resolve options — injectable external state for the resolution chain
@@ -132,7 +138,14 @@ async function resolve(
 	const env = options?.env ?? {};
 	const config = options?.config ?? {};
 	const prompter = options?.prompter;
-	const flags = await resolveFlags(schema.flags, parsed.flags, env, config, prompter);
+	const flags = await resolveFlags(
+		schema.flags,
+		parsed.flags,
+		env,
+		config,
+		prompter,
+		schema.interactive,
+	);
 	const args = resolveArgs(schema.args, parsed.args);
 	return { flags, args };
 }
@@ -142,17 +155,25 @@ async function resolve(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve flag values: CLI -> env -> config -> prompt -> default, then validate required.
+ * Resolve flag values: CLI -> env -> config -> interactive/prompt -> default,
+ * then validate required.
  *
- * For each declared flag in the schema:
- * 1. If the parser produced a value → use it
- * 2. Else if the flag has an `envVar` and the env contains it → coerce and use
- * 3. Else if the flag has a `configPath` and the config contains it → coerce and use
- * 4. Else if the flag has a `prompt` and a prompter is provided → prompt and use
- * 5. Else if the schema has a default → use it
- * 6. Else if array kind → use `[]`
- * 7. Else if required → collect a validation error
- * 8. Else (optional) → leave absent (`undefined` when accessed)
+ * Two-pass approach when a command-level interactive resolver is present:
+ *
+ * **Pass 1 (all flags):** Resolve from CLI → env → config. Collect partially
+ * resolved values and track which flags still need values.
+ *
+ * **Interactive resolver call:** If the command has an `.interactive()` resolver,
+ * call it with the partially resolved flags. It returns prompt configs for
+ * flags it wants to prompt, overriding/supplementing per-flag `.prompt()` configs.
+ *
+ * **Pass 2 (unresolved flags):** For each unresolved flag:
+ * 1. If interactive resolver returned a `PromptConfig` for it → use that config
+ * 2. Else if the flag has a per-flag `.prompt()` config → use it
+ * 3. Else → fall through to default/required validation
+ *
+ * Without an interactive resolver, behaviour is identical to the single-pass
+ * approach (per-flag prompt configs used directly).
  *
  * Array flags that were not provided and have no explicit default get
  * an empty array `[]` (more useful than `undefined` for consumers).
@@ -163,20 +184,24 @@ async function resolveFlags(
 	env: Readonly<Record<string, string | undefined>>,
 	config: Readonly<Record<string, unknown>>,
 	prompter: PromptEngine | undefined,
+	interactive: ErasedInteractiveResolver | undefined,
 ): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
 
+	// Track flags that had hard coercion errors during CLI/env/config — these
+	// should NOT be prompted or defaulted (the error is authoritative).
+	const hardErrorFlags = new Set<string>();
+
+	// -- Pass 1: CLI → env → config -------------------------------------------
 	for (const [name, schema] of Object.entries(flagSchemas)) {
 		const parsedValue = parsedFlags[name];
 
 		if (parsedValue !== undefined) {
-			// CLI provided a value — use it directly
 			resolved[name] = parsedValue;
 			continue;
 		}
 
-		// -- Env resolution (v0.2) -----------------------------------------------
 		if (schema.envVar !== undefined) {
 			const envValue = env[schema.envVar];
 			if (envValue !== undefined) {
@@ -185,13 +210,12 @@ async function resolveFlags(
 					resolved[name] = coerced.value;
 					continue;
 				}
-				// Env value present but invalid — this is a hard error
 				errors.push(coerced.error);
+				hardErrorFlags.add(name);
 				continue;
 			}
 		}
 
-		// -- Config resolution (v0.2) --------------------------------------------
 		if (schema.configPath !== undefined) {
 			const configValue = resolveConfigPath(config, schema.configPath);
 			if (configValue !== undefined) {
@@ -200,15 +224,64 @@ async function resolveFlags(
 					resolved[name] = coerced.value;
 					continue;
 				}
-				// Config value present but invalid — this is a hard error
 				errors.push(coerced.error);
-				continue;
+				hardErrorFlags.add(name);
 			}
 		}
 
-		// -- Prompt resolution (v0.3) --------------------------------------------
-		if (schema.prompt !== undefined && prompter !== undefined) {
-			const promptResult = await resolvePromptValue(name, schema, prompter);
+		// Not yet resolved — will be handled in pass 2
+	}
+
+	// -- Interactive resolver call (v0.3) ------------------------------------
+	// Call the command-level interactive resolver with partially resolved flags.
+	// It returns prompt configs for flags it wants prompted.
+	const interactiveConfigs =
+		interactive !== undefined ? interactive({ flags: resolved }) : undefined;
+
+	// -- Pass 2: prompt → default → required ----------------------------------
+	for (const [name, schema] of Object.entries(flagSchemas)) {
+		// Already resolved in pass 1 or had a hard error
+		if (name in resolved || hardErrorFlags.has(name)) {
+			continue;
+		}
+
+		// Determine which prompt config to use for this flag:
+		//
+		// The interactive resolver returns a record where each key maps to:
+		//   - a PromptConfig → use it (overrides per-flag)
+		//   - `false` → explicitly suppress prompting for this flag
+		//   - undefined/null (or key absent) → fall back to per-flag .prompt() config
+		//
+		// The `false` suppression matches the idiomatic `&&` pattern from the PRD:
+		//   `region: !flags.region && { kind: 'select', ... }`
+		// When `flags.region` is truthy, `&&` evaluates to `false`.
+		const interactiveConfig = interactiveConfigs?.[name];
+
+		let effectivePromptConfig: PromptConfig | undefined;
+		if (
+			interactiveConfig !== undefined &&
+			interactiveConfig !== null &&
+			interactiveConfig !== false &&
+			interactiveConfig !== 0 &&
+			interactiveConfig !== ''
+		) {
+			// Interactive returned a PromptConfig — use it
+			effectivePromptConfig = interactiveConfig;
+		} else if (interactiveConfig === false) {
+			// Interactive explicitly returned false — suppress prompting
+			effectivePromptConfig = undefined;
+		} else {
+			// undefined, null, 0, '', or not mentioned — fall back to per-flag
+			effectivePromptConfig = schema.prompt;
+		}
+
+		if (effectivePromptConfig !== undefined && prompter !== undefined) {
+			const promptResult = await resolvePromptValueWithConfig(
+				name,
+				schema,
+				effectivePromptConfig,
+				prompter,
+			);
 			if (promptResult.ok) {
 				resolved[name] = promptResult.value;
 				continue;
@@ -221,20 +294,17 @@ async function resolveFlags(
 		}
 
 		if (schema.defaultValue !== undefined) {
-			// Schema default available
 			resolved[name] = schema.defaultValue;
 			continue;
 		}
 
 		if (schema.kind === 'array') {
-			// Array flags default to [] when not provided and no explicit default
 			resolved[name] = [];
 			continue;
 		}
 
 		if (schema.presence === 'required') {
 			const details: Record<string, unknown> = { flag: name, kind: schema.kind };
-			// Include configured resolution sources for programmatic access
 			if (schema.envVar !== undefined) details.envVar = schema.envVar;
 			if (schema.configPath !== undefined) details.configPath = schema.configPath;
 			errors.push(
@@ -276,27 +346,27 @@ type PromptResolveResult =
 	| { readonly ok: false; readonly error: ValidationError | undefined };
 
 /**
- * Prompt the user for a flag value and coerce the result.
+ * Prompt the user for a flag value using an explicit prompt config.
+ *
+ * Used by both per-flag prompt resolution and command-level interactive
+ * resolver prompt resolution. The config may come from `schema.prompt`
+ * or from the interactive resolver's returned prompt configs.
  *
  * Prepares a `ResolvedPromptConfig` (merging enum values from the flag
  * schema), calls the engine, and coerces the raw answer to the flag's
  * declared kind.
  *
  * @param flagName - Canonical flag name (for error messages)
- * @param schema - Flag schema with prompt config
+ * @param schema - Flag schema declaring the expected kind
+ * @param promptConfig - Prompt configuration to use
  * @param prompter - Prompt engine to call
  */
-async function resolvePromptValue(
+async function resolvePromptValueWithConfig(
 	flagName: string,
 	schema: FlagSchema,
+	promptConfig: PromptConfig,
 	prompter: PromptEngine,
 ): Promise<PromptResolveResult> {
-	// schema.prompt is guaranteed non-undefined by caller
-	const promptConfig = schema.prompt;
-	if (promptConfig === undefined) {
-		return { ok: false, error: undefined };
-	}
-
 	const resolvedConfig = resolvePromptConfig(promptConfig, schema.enumValues);
 	const result = await prompter.promptOne(resolvedConfig);
 

@@ -34,7 +34,7 @@
 			"id": "prompt-command-1",
 			"title": "Command-level .interactive() API and schema-driven prompt resolution",
 			"description": "Add .interactive(resolver) method to CommandBuilder per PRD API: receives partially resolved values, returns prompt schema for missing values. Add interactive field to CommandSchema. The resolver function is called after CLI/env/config resolution but before prompts fire — it decides which prompts to show based on current state. Commands without .interactive() use per-flag prompt configs directly.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{
