@@ -13,7 +13,7 @@
 			"id": "prompt-engine-1",
 			"title": "Prompt engine interface and built-in renderer",
 			"description": "Define PromptEngine interface: promptOne(config, flagSchema) → Promise<unknown>. Implement createTerminalPrompter(stdin, stdout) as the built-in renderer using raw readline/terminal I/O. Implement createTestPrompter(answers) that returns pre-configured answers for testing. PromptEngine is the pluggable seam — users can swap renderers.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{

@@ -37,6 +37,21 @@ export type {
 export { createCaptureOutput, createOutput } from './core/output/index.js';
 export type { ParseResult, Token } from './core/parse/index.js';
 export { parse, tokenize } from './core/parse/index.js';
+export type {
+	PromptEngine,
+	ReadFn,
+	ResolvedMultiselectPromptConfig,
+	ResolvedPromptConfig,
+	ResolvedSelectPromptConfig,
+	TestAnswer,
+	TestPrompterOptions,
+} from './core/prompt/index.js';
+export {
+	createTerminalPrompter,
+	createTestPrompter,
+	PROMPT_CANCEL,
+	resolvePromptConfig,
+} from './core/prompt/index.js';
 export type { ResolveOptions, ResolveResult } from './core/resolve/index.js';
 export { resolve } from './core/resolve/index.js';
 export type {
