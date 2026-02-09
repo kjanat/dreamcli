@@ -116,3 +116,11 @@ Started: 2026-02-09
 - All 1156 tests pass, typecheck/lint/format clean
 - Files: `src/core/cli/cli-completion-e2e.test.ts` (new)
 - **Learnings:** `createTestAdapter` + `ExitError` catch pattern is the clean way to test `CLIBuilder.run()` without process.exit; middleware on commands is via `.middleware()` not `.use()`; `execute()` is preferred for most E2E tests — only use `run()` when testing adapter wiring specifically
+
+## Task — fix/remove-internal-GlobalForDetect (code review P0)
+- Removed `@internal` JSDoc tag from `GlobalForDetect` interface in `src/runtime/detect.ts`
+- The type was exported from the public barrel (`src/index.ts:125`) and used in public function signatures (`detectRuntime`, `createAdapter`) — `@internal` contradicted its public status
+- Also audited all other `@internal` tags: found 2 more standalone contradictions (`ErasedMiddlewareHandler`, `ErasedInteractiveResolver`) but those are separate tasks
+- Class member `@internal` tags (`.schema`, `.handler`, `._config` etc.) are intentional — marks implementation details on public classes
+- Files changed: `src/runtime/detect.ts`
+- **Learnings:** `@internal` should only be used on symbols that are truly not part of the public API; if a type appears in any public function signature, it must be public regardless of implementation intent

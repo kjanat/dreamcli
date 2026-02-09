@@ -54,8 +54,6 @@ const RUNTIMES = ['node', 'bun', 'deno', 'unknown'] as const satisfies readonly 
  * Each field is optional — only the present one identifies the runtime.
  * Typed as `unknown` where we only need truthiness; version fields are
  * typed just enough to distinguish runtimes safely.
- *
- * @internal
  */
 interface GlobalForDetect {
 	readonly Bun?: { readonly version?: string };
