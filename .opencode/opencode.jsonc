@@ -1,0 +1,27 @@
+{
+	"$schema": "https://opencode.ai/config.json",
+	"formatter": {
+		"dprint": {
+			"command": ["./node_modules/.bin/dprint", "fmt", "--config=.dprint.jsonc", "$FILE"],
+			"extensions": [
+				".js",
+				".ts",
+				".cjs",
+				".cts",
+				".mjs",
+				".mts",
+				".jsx",
+				".tsx",
+				".json",
+				".jsonc",
+				".md",
+				".yml",
+				".yaml",
+				".toml",
+				"Dockerfile",
+				"Dockerfile.*"
+			],
+			"environment": { "DPRINT_CONFIG_DISCOVERY": "false" }
+		}
+	}
+}
