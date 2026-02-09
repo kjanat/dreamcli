@@ -103,3 +103,16 @@ Started: 2026-02-09
 - All 1123 tests pass, typecheck/lint/format/build clean
 - Files: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts` (new)
 - **Learnings:** `flag.enum(['bash','zsh'] as const)` infers `'bash' | 'zsh'` which is a subtype of `Shell` — no type assertion needed for `generateCompletion()`; built-in subcommands can use `command()`/`flag()` directly inside CLIBuilder since they're builder-internal, not user-facing type complexity
+
+## Task — completion-e2e
+- 33 E2E integration tests in `src/core/cli/cli-completion-e2e.test.ts`
+- Bash E2E: full CLI dispatch → valid script structure, all commands/flags/aliases/enums, hidden exclusion, global flags
+- Zsh E2E: full CLI dispatch → compdef/function/describe structure, flag specs with descriptions, enum values, mutual exclusion groups, aliases, version conditional
+- Completeness tests: complex multi-command CLIs verify every flag/alias/enum across bash+zsh, middleware-enhanced commands
+- Auto-adapter wiring: `run()` with `createTestAdapter` verifies argv dispatch, env sourcing, isTTY propagation, non-zero exit for unknown commands
+- Runtime detection: auto-adapter path works in Node (vitest), simulated Bun/Deno globals produce valid adapters
+- Error paths: unsupported shell, missing --shell, --help, --json error rendering
+- CLI metadata: custom names sanitized correctly, no-commands path, version presence/absence
+- All 1156 tests pass, typecheck/lint/format clean
+- Files: `src/core/cli/cli-completion-e2e.test.ts` (new)
+- **Learnings:** `createTestAdapter` + `ExitError` catch pattern is the clean way to test `CLIBuilder.run()` without process.exit; middleware on commands is via `.middleware()` not `.use()`; `execute()` is preferred for most E2E tests — only use `run()` when testing adapter wiring specifically

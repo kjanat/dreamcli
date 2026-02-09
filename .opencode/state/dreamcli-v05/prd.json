@@ -62,7 +62,7 @@
 			"id": "completion-e2e",
 			"title": "End-to-end completion + runtime tests",
 			"description": "Integration tests: CLIBuilder with .completions(), execute ['completions', '--shell', 'bash'], verify stdout contains valid script. Test auto-adapter wiring. Test detectRuntime in CLIBuilder.run() path. Verify completion scripts include all registered commands and their flags.",
-			"passes": false,
+			"passes": true,
 			"priority": 5
 		}
 	]
