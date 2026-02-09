@@ -19,6 +19,7 @@ Started: 2026-02-09
 - **Auto-adapter factory**: `createAdapter(globals?)` in `auto.ts` — separate from `detect.ts` to keep detection deps-free; exhaustive switch on `Runtime` union for compile-time safety
 - **Built-in subcommands**: use `command()`/`flag()` builders internally inside `CLIBuilder` methods, capture `this.schema` for schema access; schema snapshot is pre-registration (excludes the built-in command itself from generated output)
 - **Exhaustiveness guard**: `default: { const _exhaustive: never = x; return _exhaustive; }` — zero-dep pattern for union switch exhaustiveness; compile-time error on unhandled variant, zero runtime overhead
+- **Barrel export audit**: every type used in a public function's parameter or return position must be exported from `src/index.ts` — check module barrels vs main barrel for gaps
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -149,3 +150,10 @@ Started: 2026-02-09
 - Added "Zsh helpers" section header that was lost when `sanitizeZshIdentifier` was removed
 - Files changed: `src/core/completion/index.ts`
 - **Learnings:** when shell generators share identical helpers, extract to a shared section — reduces maintenance surface and makes the identity explicit
+
+## Task — fix/export-nodeprocess-type (code review P0)
+- Added `NodeProcess` to type exports in `src/index.ts` barrel — was the only runtime type missing from public API
+- Type is used in public function signatures: `createNodeAdapter(proc?: NodeProcess)` and `createBunAdapter(proc?: NodeProcess)`
+- Already exported from runtime barrel (`src/runtime/index.ts:18`), just missing from main barrel
+- Files changed: `src/index.ts`
+- **Learnings:** audit all public function parameter types when adding barrel exports — if a type appears in any exported function signature, it must be in the main barrel

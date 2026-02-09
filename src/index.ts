@@ -123,6 +123,7 @@ export type { RunOptions, RunResult } from './core/testkit/index.js';
 export { runCommand } from './core/testkit/index.js';
 export type {
 	GlobalForDetect,
+	NodeProcess,
 	Runtime,
 	RuntimeAdapter,
 	TestAdapterOptions,
