@@ -5,11 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-02-09
 
 ### Added
 
-#### Core Framework (MVP v0.1)
+#### Core Framework
 
 - **Structured errors** (`CLIError`, `ParseError`, `ValidationError`) with stable error codes, `toJSON()`
   serialization, type guard functions (`isCLIError`, `isParseError`, `isValidationError`), and
@@ -25,8 +25,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Argv parser** with tokenizer (`tokenize`) and schema-aware parser (`parse`). Handles long/short
   flags, `=` syntax, boolean negation (`--no-*`), flag stacking (`-abc`), `--` separator, and type
   coercion against the schema.
-- **Resolution chain** (MVP scope: CLI parsed value → schema default). Validates all required
-  flags/args, aggregates multiple errors into a single throw, and provides per-field suggestions.
+- **Resolution chain** (CLI parsed value → schema default). Validates all required flags/args,
+  aggregates multiple errors into a single throw, and provides per-field suggestions.
 - **Auto-generated help text** (`formatHelp`) from command schema, including usage line, description,
   positional args, flags with types/defaults/aliases, examples section, and subcommand listing.
 - **Output channel** (`createOutput`) with `log`/`info`/`warn`/`error` methods, `WriteFn`
@@ -54,7 +54,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CI script (`pnpm run ci`) running typecheck, lint, test, and build in sequence.
 - PRD.md with full product requirements document.
 - MIT License.
-- Changelog file.
 - Markdownlint configuration.
-- Zed code editor configuration.
-- An agent skill for writing CHANGELOG.
+
+[0.1.0]: https://github.com/kjanat/dreamcli/releases/tag/v0.1.0
