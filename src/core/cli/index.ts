@@ -516,7 +516,11 @@ class CLIBuilder {
 			)
 			.action(({ flags, out }) => {
 				const script = generateCompletion(cliSchema, flags.shell);
-				out.log(script);
+				if (out.jsonMode) {
+					out.json({ script });
+				} else {
+					out.log(script);
+				}
 			});
 		return this.command(cmd);
 	}

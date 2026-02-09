@@ -243,6 +243,54 @@ describe('.completions() — schema snapshot', () => {
 });
 
 // ===================================================================
+// --json mode behavior
+// ===================================================================
+
+describe('.completions() — --json mode', () => {
+	it('outputs JSON with script field to stdout in --json mode', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'bash', '--json']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.length).toBe(1);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed).toHaveProperty('script');
+		expect(parsed.script).toContain('#!/usr/bin/env bash');
+		expect(parsed.script).toContain('complete -F');
+		// stderr should be empty — script goes to stdout via json()
+		expect(result.stderr).toEqual([]);
+	});
+
+	it('outputs JSON with zsh script in --json mode', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'zsh', '--json']);
+		expect(result.exitCode).toBe(0);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.script).toContain('#compdef mycli');
+		expect(parsed.script).toContain('_mycli');
+	});
+
+	it('outputs raw script to stdout in normal mode (no --json)', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'bash']);
+		expect(result.exitCode).toBe(0);
+		// Raw script directly on stdout (not wrapped in JSON)
+		const output = result.stdout.join('');
+		expect(output).toContain('#!/usr/bin/env bash');
+		// Should not be JSON
+		expect(() => JSON.parse(output)).toThrow();
+	});
+
+	it('jsonMode via options also wraps script in JSON', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'bash'], { jsonMode: true });
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.length).toBe(1);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.script).toContain('complete -F');
+	});
+});
+
+// ===================================================================
 // Root help integration
 // ===================================================================
 

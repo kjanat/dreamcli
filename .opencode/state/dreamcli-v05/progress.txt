@@ -20,6 +20,7 @@ Started: 2026-02-09
 - **Built-in subcommands**: use `command()`/`flag()` builders internally inside `CLIBuilder` methods, capture `this.schema` for schema access; schema snapshot is pre-registration (excludes the built-in command itself from generated output)
 - **Exhaustiveness guard**: `default: { const _exhaustive: never = x; return _exhaustive; }` — zero-dep pattern for union switch exhaustiveness; compile-time error on unhandled variant, zero runtime overhead
 - **Barrel export audit**: every type used in a public function's parameter or return position must be exported from `src/index.ts` — check module barrels vs main barrel for gaps
+- **Code-gen in --json mode**: commands that produce raw text (scripts, generated code) must branch on `out.jsonMode` — use `out.json({ script })` for JSON mode, `out.log()` for normal; `out.log()` redirects to stderr in JSON mode
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -164,3 +165,10 @@ Started: 2026-02-09
 - 3 tests: throws CLIError on double call, verifies DUPLICATE_COMMAND code, throws with other commands present
 - Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts`
 - **Learnings:** immutable builder pattern means guard checks existing state, not mutation; `CLIError` with descriptive code+suggest fields is the standard pattern for builder-level validation errors
+
+## Task — fix/completion-json-mode (code review P0)
+- In `--json` mode, `out.log(script)` sent completion script to stderr (log redirects there in JSON mode)
+- Fixed: `.completions()` action now checks `out.jsonMode` — uses `out.json({ script })` for JSON mode, `out.log(script)` for normal
+- 4 tests: bash JSON output on stdout, zsh JSON output, normal mode stays raw stdout, jsonMode via options
+- Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-completions.test.ts`
+- **Learnings:** code-gen commands that produce raw text for piping must use `out.json()` in JSON mode — `out.log()` redirects to stderr, losing the primary output
