@@ -337,3 +337,12 @@ Started: 2026-02-09
 - All 797 tests pass (767 existing + 30 new), zero type errors, clean lint/format
 - Files changed: `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/help/index.ts`, `src/core/testkit/testkit-prompt.test.ts` (new)
 - **Learnings:** The `answers` convenience field is the right ergonomic shortcut for tests — most test code just wants to provide a list of answers without manually creating `createTestPrompter()`. Explicit `prompter` must take precedence over `answers` to preserve escape hatch for custom engine testing. The `[prompt]` help annotation follows the same pattern as `[env: X]` and `[config: X]` — resolution source annotations in display order match the resolution chain order (env → config → prompt → default).
+
+## Release - v0.3.0
+- Updated CHANGELOG.md with v0.3.0 section documenting: prompt type definitions, prompt engine interface, terminal/test prompters, prompt resolution chain, stdin abstraction, runtime adapter stdin extension, auto prompt gating, command-level .interactive() API, testkit answers convenience
+- Bumped package.json version from 0.2.0 to 0.3.0
+- Updated pnpm-lock.yaml via `pnpm install --lockfile-only`
+- Ran `dprint fmt` to fix lockfile formatting (dprint owns JSON formatting)
+- All 797 tests pass, zero type errors, clean lint/format, build successful
+- Files changed: `CHANGELOG.md`, `package.json`, `pnpm-lock.yaml`
+- **Learnings:** `pnpm install --lockfile-only` re-expands inline JSON arrays in package.json — always run `dprint fmt` after lockfile updates to restore consistent formatting.

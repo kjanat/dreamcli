@@ -7,6 +7,60 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-09
+
+### Added
+
+#### Interactive Prompting
+
+- **Prompt type definitions** (`PromptConfig`) as a discriminated union with four kinds: `confirm`,
+  `input`, `select`, `multiselect`. Each kind has specialized fields — `InputPromptConfig` supports
+  `placeholder` and `validate`, select/multiselect support `SelectChoice` arrays with optional
+  labels and descriptions.
+- **`FlagBuilder.prompt(config)`** metadata modifier for declaring prompt configuration on flags,
+  following the same immutable builder pattern as `.env()` and `.config()`.
+- **Prompt engine interface** (`PromptEngine`) with `promptOne(config) → Promise<PromptResult>` as a
+  pluggable renderer seam. `ResolvedPromptConfig` variant guarantees non-empty choices for
+  select/multiselect after merging from `FlagSchema.enumValues`.
+- **Built-in terminal prompter** (`createTerminalPrompter(read, write)`) with line-based I/O for
+  confirm (y/n), input (with validation and placeholder), select (numbered list), and multiselect
+  (comma-separated numbers with min/max). All prompts have a `MAX_RETRIES = 10` safety valve.
+- **Test prompter** (`createTestPrompter(answers, options?)`) with queue-based answers for
+  deterministic testing. `PROMPT_CANCEL` symbol sentinel for simulating cancellation.
+  `onExhausted: 'throw' | 'cancel'` controls behavior when answer queue is empty.
+- **Prompt resolution in the resolver**. Resolution chain expanded from CLI > env > config > default
+  to CLI > env > config > **prompt** > default. Flags with prompt config and no value from prior
+  sources trigger `prompter.promptOne()`. Cancelled prompts fall through to default/required.
+  Non-interactive mode (no prompter) skips prompts entirely.
+- **`ReadFn`** (`() => Promise<string | null>`) as the minimal stdin abstraction. `null` signals
+  EOF/cancel. `RuntimeAdapter` extended with `stdin: ReadFn` and `stdinIsTTY: boolean`.
+- **Node adapter stdin** wraps `process.stdin` via dynamic `import('node:readline')` with lazy
+  per-call readline interfaces. Minimal `node:readline` type declarations in `node-builtins.d.ts`
+  avoid `@types/node` dependency.
+- **Automatic prompt gating** in `CLIBuilder.run()`: when `stdinIsTTY=true` and no explicit prompter
+  provided, auto-creates `createTerminalPrompter(adapter.stdin, adapter.stderr)`. Prompt output
+  routed to stderr to avoid interfering with piped stdout.
+- **Command-level `.interactive(resolver)`** API on `CommandBuilder`. Resolver receives partially
+  resolved flags (after CLI/env/config), returns `Record<string, PromptConfig | false | undefined>`
+  controlling which flags get prompted. Truthy `PromptConfig` overrides per-flag prompt; `false`
+  explicitly suppresses; absent falls back to per-flag `.prompt()` config.
+- **Testkit `answers` convenience** on `RunOptions`. Accepts `Record<string, TestAnswer>` to
+  auto-create a test prompter. `prompter` field also available for explicit engine injection.
+  `CLIRunOptions` mirrors both fields.
+
+### Changed
+
+- `resolve()` is now **async** (`Promise<ResolveResult>`). All callers (`runCommand`,
+  `CLIBuilder.execute`, `CLIBuilder.run`) updated to await.
+- Resolution chain expanded from CLI > env > config > default to CLI > env > config > prompt >
+  default.
+- `ResolveOptions` extended with optional `prompter: PromptEngine` field.
+- `RunOptions` extended with `prompter` and `answers` fields.
+- `CLIRunOptions` extended with `prompter` and `answers` fields.
+- `RuntimeAdapter` extended with `stdin: ReadFn` and `stdinIsTTY: boolean`.
+- `createTestAdapter` defaults to EOF-returning stdin and `stdinIsTTY: false`.
+- Test count: 797 tests across 21 test files (up from 599 in v0.2.0).
+
 ## [0.2.0] - 2026-02-09
 
 ### Added
@@ -90,6 +144,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/kjanat/dreamcli/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kjanat/dreamcli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kjanat/dreamcli/releases/tag/v0.1.0
