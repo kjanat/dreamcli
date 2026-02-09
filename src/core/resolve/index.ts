@@ -2,8 +2,8 @@
  * Resolution chain: CLI -> env -> config -> prompt -> default.
  *
  * v0.1 implemented: **CLI parsed value -> default value**.
- * v0.2 adds: **env variable resolution** between CLI and default.
- * Config, and prompt resolution are deferred to v0.2 (config) / v0.3 (prompt).
+ * v0.2 adds: **env variable resolution** and **config object resolution**
+ *   between CLI and default. Prompt resolution deferred to v0.3.
  *
  * The resolver takes raw `ParseResult` (from the parser) and a
  * `CommandSchema`, applies the resolution chain, and validates
@@ -41,6 +41,23 @@ interface ResolveOptions {
 	 * ```
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
+
+	/**
+	 * Configuration object to resolve against.
+	 *
+	 * For each flag with `schema.configPath` set, the resolver looks up the
+	 * value at the dotted path (e.g. `'deploy.region'`). Config values may
+	 * already be typed (number, boolean, array) so coercion is lenient —
+	 * only validates kind compatibility rather than string-parsing.
+	 *
+	 * Config is plain JSON — file loading is the caller's responsibility.
+	 *
+	 * @example
+	 * ```ts
+	 * resolve(schema, parsed, { config: { deploy: { region: 'eu' } } })
+	 * ```
+	 */
+	readonly config?: Readonly<Record<string, unknown>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +90,8 @@ interface ResolveResult {
  * Resolution order:
  * 1. CLI parsed value (from `ParseResult`)
  * 2. Env variable (from `ResolveOptions.env`, if flag declares `envVar`)
- * 3. Default value (from schema)
+ * 3. Config value (from `ResolveOptions.config`, if flag declares `configPath`)
+ * 4. Default value (from schema)
  *
  * After resolution, validates that all required flags and args have
  * a value. Collects **all** validation errors before throwing, so the
@@ -84,7 +102,7 @@ interface ResolveResult {
  * @param options - External state for the resolution chain
  * @returns Fully resolved flag and arg values
  * @throws ValidationError if any required flag or arg is missing,
- *   or if an env variable value fails coercion
+ *   or if an env/config value fails coercion
  */
 function resolve(
 	schema: CommandSchema,
@@ -92,7 +110,8 @@ function resolve(
 	options?: ResolveOptions,
 ): ResolveResult {
 	const env = options?.env ?? {};
-	const flags = resolveFlags(schema.flags, parsed.flags, env);
+	const config = options?.config ?? {};
+	const flags = resolveFlags(schema.flags, parsed.flags, env, config);
 	const args = resolveArgs(schema.args, parsed.args);
 	return { flags, args };
 }
@@ -102,15 +121,16 @@ function resolve(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve flag values: CLI -> env -> default, then validate required.
+ * Resolve flag values: CLI -> env -> config -> default, then validate required.
  *
  * For each declared flag in the schema:
  * 1. If the parser produced a value → use it
  * 2. Else if the flag has an `envVar` and the env contains it → coerce and use
- * 3. Else if the schema has a default → use it
- * 4. Else if array kind → use `[]`
- * 5. Else if required → collect a validation error
- * 6. Else (optional) → leave absent (`undefined` when accessed)
+ * 3. Else if the flag has a `configPath` and the config contains it → coerce and use
+ * 4. Else if the schema has a default → use it
+ * 5. Else if array kind → use `[]`
+ * 6. Else if required → collect a validation error
+ * 7. Else (optional) → leave absent (`undefined` when accessed)
  *
  * Array flags that were not provided and have no explicit default get
  * an empty array `[]` (more useful than `undefined` for consumers).
@@ -119,6 +139,7 @@ function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
 	parsedFlags: Readonly<Record<string, unknown>>,
 	env: Readonly<Record<string, string | undefined>>,
+	config: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -142,6 +163,21 @@ function resolveFlags(
 					continue;
 				}
 				// Env value present but invalid — this is a hard error
+				errors.push(coerced.error);
+				continue;
+			}
+		}
+
+		// -- Config resolution (v0.2) --------------------------------------------
+		if (schema.configPath !== undefined) {
+			const configValue = resolveConfigPath(config, schema.configPath);
+			if (configValue !== undefined) {
+				const coerced = coerceConfigValue(name, schema.configPath, configValue, schema);
+				if (coerced.ok) {
+					resolved[name] = coerced.value;
+					continue;
+				}
+				// Config value present but invalid — this is a hard error
 				errors.push(coerced.error);
 				continue;
 			}
@@ -292,6 +328,212 @@ function coerceEnvValue(
 				return { ok: true, value: coerced };
 			}
 			return { ok: true, value: parts };
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Config path resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a dotted path against a nested config object.
+ *
+ * For path `'deploy.region'` and config `{ deploy: { region: 'eu' } }`,
+ * returns `'eu'`. Returns `undefined` if any segment is missing or
+ * a non-object intermediate is encountered.
+ *
+ * @param config - Root config object
+ * @param path - Dotted path (e.g. `'deploy.region'`)
+ */
+function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: string): unknown {
+	const segments = path.split('.');
+	let current: unknown = config;
+
+	for (const segment of segments) {
+		if (current === null || current === undefined || typeof current !== 'object') {
+			return undefined;
+		}
+		// Safe indexed access on a plain object
+		current = (current as Record<string, unknown>)[segment];
+	}
+
+	return current;
+}
+
+// ---------------------------------------------------------------------------
+// Config value coercion
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of attempting to coerce a config value to a flag's kind.
+ *
+ * Same discriminated union as `CoerceEnvResult` — `ok: true` carries
+ * the coerced value, `ok: false` carries a `ValidationError`.
+ */
+type CoerceConfigResult =
+	| { readonly ok: true; readonly value: unknown }
+	| { readonly ok: false; readonly error: ValidationError };
+
+/**
+ * Coerce a config value to the flag's declared kind.
+ *
+ * Unlike env coercion, config values may already be correctly typed
+ * (e.g. a number in JSON). The coercion is lenient for matching types
+ * and stricter for mismatches:
+ *
+ * - **string flag**: accepts strings; coerces numbers/booleans via `String()`
+ * - **number flag**: accepts numbers; coerces numeric strings
+ * - **boolean flag**: accepts booleans; coerces common string representations
+ * - **enum flag**: accepts strings that match allowed values
+ * - **array flag**: accepts arrays (coerces elements); coerces comma-separated strings
+ *
+ * @param flagName - Canonical flag name (for error messages)
+ * @param configPath - Dotted config path (for error messages)
+ * @param raw - Raw config value (may be any JSON type)
+ * @param schema - Flag schema declaring the expected kind
+ */
+function coerceConfigValue(
+	flagName: string,
+	configPath: string,
+	raw: unknown,
+	schema: FlagSchema,
+): CoerceConfigResult {
+	switch (schema.kind) {
+		case 'string': {
+			if (typeof raw === 'string') return { ok: true, value: raw };
+			if (typeof raw === 'number' || typeof raw === 'boolean') {
+				return { ok: true, value: String(raw) };
+			}
+			return {
+				ok: false,
+				error: new ValidationError(
+					`Invalid string value from config ${configPath} for flag --${flagName}`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { flag: flagName, configPath, value: raw, expected: 'string' },
+						suggest: `Set ${configPath} to a string in your config`,
+					},
+				),
+			};
+		}
+
+		case 'number': {
+			if (typeof raw === 'number') {
+				if (Number.isNaN(raw)) {
+					return {
+						ok: false,
+						error: new ValidationError(
+							`Invalid number value NaN from config ${configPath} for flag --${flagName}`,
+							{
+								code: 'TYPE_MISMATCH',
+								details: { flag: flagName, configPath, value: raw, expected: 'number' },
+								suggest: `Set ${configPath} to a valid number in your config`,
+							},
+						),
+					};
+				}
+				return { ok: true, value: raw };
+			}
+			if (typeof raw === 'string') {
+				const n = Number(raw);
+				if (!Number.isNaN(n)) return { ok: true, value: n };
+			}
+			return {
+				ok: false,
+				error: new ValidationError(
+					`Invalid number value from config ${configPath} for flag --${flagName}`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { flag: flagName, configPath, value: raw, expected: 'number' },
+						suggest: `Set ${configPath} to a valid number in your config`,
+					},
+				),
+			};
+		}
+
+		case 'boolean': {
+			if (typeof raw === 'boolean') return { ok: true, value: raw };
+			if (typeof raw === 'string') {
+				const lower = raw.toLowerCase();
+				if (lower === 'true' || lower === '1' || lower === 'yes') {
+					return { ok: true, value: true };
+				}
+				if (lower === 'false' || lower === '0' || lower === 'no' || lower === '') {
+					return { ok: true, value: false };
+				}
+			}
+			return {
+				ok: false,
+				error: new ValidationError(
+					`Invalid boolean value from config ${configPath} for flag --${flagName}`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { flag: flagName, configPath, value: raw, expected: 'boolean' },
+						suggest: `Set ${configPath} to true or false in your config`,
+					},
+				),
+			};
+		}
+
+		case 'enum': {
+			const allowed = schema.enumValues ?? [];
+			if (typeof raw === 'string' && allowed.includes(raw)) {
+				return { ok: true, value: raw };
+			}
+			return {
+				ok: false,
+				error: new ValidationError(
+					`Invalid value '${String(raw)}' from config ${configPath} for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
+					{
+						code: 'INVALID_ENUM',
+						details: { flag: flagName, configPath, value: raw, allowed },
+						suggest: `Set ${configPath} to one of: ${allowed.join(', ')}`,
+					},
+				),
+			};
+		}
+
+		case 'array': {
+			// Config arrays may be actual arrays (JSON) or comma-separated strings
+			if (Array.isArray(raw)) {
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const element of raw) {
+						const result = coerceConfigValue(flagName, configPath, element, schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
+				}
+				return { ok: true, value: raw };
+			}
+			if (typeof raw === 'string') {
+				// Comma-separated string fallback (same as env)
+				if (raw === '') return { ok: true, value: [] };
+				const parts = raw.split(',');
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const part of parts) {
+						const result = coerceConfigValue(flagName, configPath, part, schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
+				}
+				return { ok: true, value: parts };
+			}
+			return {
+				ok: false,
+				error: new ValidationError(
+					`Invalid array value from config ${configPath} for flag --${flagName}`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { flag: flagName, configPath, value: raw, expected: 'array' },
+						suggest: `Set ${configPath} to an array in your config`,
+					},
+				),
+			};
 		}
 	}
 }

@@ -13,7 +13,7 @@
 			"id": "resolve-config-1",
 			"title": "Config object resolution in the resolver",
 			"description": "Extend ResolveOptions with an optional config record. For each flag with schema.configPath set, resolve dotted path (e.g. 'deploy.region') against the config object after env and before default. Coerce config values same as env. Config object is plain JSON — file loading deferred to a later task or user-land.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{
