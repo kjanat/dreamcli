@@ -27,7 +27,7 @@
 			"id": "resolve-errors-1",
 			"title": "Non-interactive required handling with actionable hints",
 			"description": "When a required flag is missing after full resolution (CLI/env/config/default), the ValidationError suggest field should list all configured sources the user could have used. e.g. 'Provide --region, set DEPLOY_REGION, or add deploy.region to config'. CI-friendly error messages.",
-			"passes": false,
+			"passes": true,
 			"priority": "integration"
 		},
 		{

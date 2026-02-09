@@ -196,11 +196,15 @@ function resolveFlags(
 		}
 
 		if (schema.presence === 'required') {
+			const details: Record<string, unknown> = { flag: name, kind: schema.kind };
+			// Include configured resolution sources for programmatic access
+			if (schema.envVar !== undefined) details.envVar = schema.envVar;
+			if (schema.configPath !== undefined) details.configPath = schema.configPath;
 			errors.push(
 				new ValidationError(`Missing required flag --${name}`, {
 					code: 'REQUIRED_FLAG',
-					details: { flag: name, kind: schema.kind },
-					suggest: `Provide --${name}${schema.kind !== 'boolean' ? ' <value>' : ''}`,
+					details,
+					suggest: buildRequiredFlagSuggest(name, schema),
 				}),
 			);
 			continue;
@@ -216,6 +220,45 @@ function resolveFlags(
 	}
 
 	return resolved;
+}
+
+// ---------------------------------------------------------------------------
+// Required flag suggestion builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an actionable suggestion listing all configured resolution sources
+ * for a required flag that was not provided.
+ *
+ * Generates CI-friendly hints like:
+ * - `"Provide --region <value>, set DEPLOY_REGION, or add deploy.region to config"`
+ * - `"Provide --force"` (boolean, no env/config)
+ *
+ * The ordering mirrors the resolution chain: CLI → env → config.
+ */
+function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
+	const sources: string[] = [];
+
+	// CLI source (always present)
+	sources.push(`Provide --${name}${schema.kind !== 'boolean' ? ' <value>' : ''}`);
+
+	// Env source (if configured)
+	if (schema.envVar !== undefined) {
+		sources.push(`set ${schema.envVar}`);
+	}
+
+	// Config source (if configured)
+	if (schema.configPath !== undefined) {
+		sources.push(`add ${schema.configPath} to config`);
+	}
+
+	// Join with natural language connectors: "A", "A or B", "A, B, or C"
+	if (sources.length <= 1) {
+		return sources.join('');
+	}
+	const rest = sources.slice(0, -1);
+	const last = sources.slice(-1).join('');
+	return sources.length === 2 ? `${rest.join('')} or ${last}` : `${rest.join(', ')}, or ${last}`;
 }
 
 // ---------------------------------------------------------------------------

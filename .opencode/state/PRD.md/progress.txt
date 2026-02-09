@@ -221,3 +221,14 @@ Started: 2026-02-09
 - All 557 tests pass, zero type errors, clean lint/format
 - Files changed: `src/core/resolve/index.ts`, `src/core/resolve/resolve-config.test.ts` (new)
 - **Learnings:** Config coercion should be more lenient than env since values may already be correctly typed from JSON parsing — a number in config should stay a number without string round-tripping. The `as Record<string, unknown>` cast in `resolveConfigPath` is the one necessary type assertion for indexed access on `unknown` after `typeof === 'object'` guard. Keeping the same discriminated result pattern (`CoerceConfigResult`) as env makes the calling code in `resolveFlags` structurally identical for both sources.
+
+## Task - resolve-errors-1
+- Implemented `buildRequiredFlagSuggest(name, schema)` — generates CI-friendly suggest strings listing all configured resolution sources
+- Suggestion format: "Provide --flag <value>, set ENV_VAR, or add config.path to config" — mirrors resolution chain ordering (CLI → env → config)
+- Natural language joining: 1 source → "A", 2 sources → "A or B", 3 sources → "A, B, or C"
+- Boolean flags omit `<value>` hint in suggestions (same as before)
+- `details` on REQUIRED_FLAG errors now conditionally includes `envVar` and `configPath` for programmatic access — only present when the schema declares them
+- 14 new tests: CLI-only, CLI+env, CLI+config, CLI+env+config, boolean variants, details with/without sources, aggregated error preservation, missing-from-provided-env/config, number flag variant
+- All 571 tests pass, zero type errors, clean lint/format
+- Files changed: `src/core/resolve/index.ts`, `src/core/resolve/resolve-errors.test.ts` (new)
+- **Learnings:** Array flags with `presence: 'required'` never reach the required-flag validation branch because the implicit `[]` default (for array kind) kicks in first at line 192-194 of the resolver. Required array validation would need a separate "non-empty" check — different from the flag-presence concept. `noUncheckedIndexedAccess` means `sources[0]` is `string | undefined` even after a length check — use `.join('')` or `.slice()` patterns to avoid needing the `!` assertion.
