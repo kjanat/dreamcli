@@ -11,6 +11,7 @@ Started: 2026-02-09
 - **Test pattern**: vitest with `src/**/*.test.ts` collocated tests. Dynamic imports in tests: `import('./module.js')` (with .js extension for NodeNext).
 - **Error hierarchy**: `CLIError` base → `ParseError` (exit 2), `ValidationError` (exit 2). Discriminated by `name` property. `ErrorCode` union is extensible via `string & {}`. Type guards: `isCLIError`, `isParseError`, `isValidationError`.
 - **Flag builder pattern**: `FlagBuilder<C extends FlagConfig>` — single phantom type param tracks `valueType` + `presence`. `FlagSchema` is the runtime descriptor. `declare readonly _config: C` for type branding (no `!` assertion). `flag.<kind>()` factory → immutable builder chain. `InferFlag<B>` / `InferFlags<R>` extract resolved types. `const` type param on `enum()` infers literals. Boolean flags implicitly default to `false`.
+- **Arg builder pattern**: `ArgBuilder<C extends ArgConfig>` — phantom type tracks `valueType` + `presence` + `variadic`. Positional args default to `'required'` (unlike flags which default to `'optional'`). `arg.custom(parseFn)` infers return type of parse function. Variadic args wrap type in `T[]` via `ResolvedArgValue`. `ArgSchema` stores `parseFn` for custom parsing.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -45,3 +46,16 @@ Started: 2026-02-09
 - Re-exported from `src/core/schema/index.ts` barrel and `src/index.ts` public surface
 - Files changed: `src/core/schema/flag.ts` (new), `src/core/schema/flag.test.ts` (new), `src/core/schema/index.ts`, `src/index.ts`
 - **Learnings:** `declare readonly _config: C` is the clean branded-type pattern — ambient declaration, no runtime property, no `!` assertion. `const` type parameter (TS 5.0+) on `enum<const T>` eliminates need for `as const` at call sites. `[string, ...string[]]` enforces non-empty tuple at the type level.
+
+## Task - schema-2
+- Implemented `ArgBuilder<C extends ArgConfig>` with phantom type-level tracking of `valueType`, `presence`, and `variadic`
+- Factory functions: `arg.string()`, `arg.number()`, `arg.custom(parseFn)`
+- Positional args default to `'required'` presence (mirrors CLI convention: positionals are expected)
+- `arg.custom(parseFn)` infers `T` from parse function return type — no explicit generic needed
+- Modifiers: `.required()`, `.optional()`, `.default()`, `.variadic()`, `.describe()` — all immutable
+- `InferArg<B>` and `InferArgs<R>` utility types; variadic detection via `C['variadic'] extends true` → `T[]`
+- `ArgSchema` runtime descriptor stores kind, presence, variadic, defaultValue, description, parseFn
+- 42 tests: factory correctness, modifiers, immutability, chaining, schema defaults, type inference (expectTypeOf), edge cases
+- Re-exported from `src/core/schema/index.ts` barrel and `src/index.ts` public surface
+- Files changed: `src/core/schema/arg.ts` (new), `src/core/schema/arg.test.ts` (new), `src/core/schema/index.ts`, `src/index.ts`
+- **Learnings:** `URL` constructor not available as value in `lib: ["ES2022"]` — use custom test types instead. Three-axis phantom config (`valueType`/`presence`/`variadic`) works cleanly with conditional types in `ResolvedArgValue`.

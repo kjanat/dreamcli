@@ -5,6 +5,21 @@
  */
 
 export type {
+	ArgConfig,
+	ArgFactory,
+	ArgKind,
+	ArgParseFn,
+	ArgPresence,
+	ArgSchema,
+	InferArg,
+	InferArgs,
+	ResolvedArgValue,
+	WithArgPresence,
+	WithVariadic,
+} from './arg.js';
+export { ArgBuilder, arg, createArgSchema } from './arg.js';
+
+export type {
 	FlagConfig,
 	FlagFactory,
 	FlagKind,

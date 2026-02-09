@@ -27,7 +27,7 @@
 			"id": "schema-2",
 			"title": "Arg schema builder with type inference",
 			"description": "Implement arg() builder: string, number, custom parse. Support .required(), .optional(), .variadic(), .describe(). Type inference for positional args.",
-			"passes": false,
+			"passes": true,
 			"priority": "architecture"
 		},
 		{

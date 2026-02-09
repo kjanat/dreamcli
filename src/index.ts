@@ -24,16 +24,33 @@ export {
 	ParseError,
 	ValidationError,
 } from './core/errors/index.js';
-
 export type {
+	ArgConfig,
+	ArgFactory,
+	ArgKind,
+	ArgParseFn,
+	ArgPresence,
+	ArgSchema,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
 	FlagPresence,
 	FlagSchema,
+	InferArg,
+	InferArgs,
 	InferFlag,
 	InferFlags,
+	ResolvedArgValue,
 	ResolvedValue,
+	WithArgPresence,
 	WithPresence,
+	WithVariadic,
 } from './core/schema/index.js';
-export { createSchema, FlagBuilder, flag } from './core/schema/index.js';
+export {
+	ArgBuilder,
+	arg,
+	createArgSchema,
+	createSchema,
+	FlagBuilder,
+	flag,
+} from './core/schema/index.js';
