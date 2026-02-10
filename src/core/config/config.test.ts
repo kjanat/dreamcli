@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CLIError } from '../errors/index.js';
 import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.js';
-import { buildConfigSearchPaths, discoverConfig } from './index.js';
+import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.js';
 
 // ===================================================================
 // Test helpers
@@ -467,5 +467,50 @@ describe('discoverConfig — content edge cases', () => {
 				verbose: true,
 			});
 		}
+	});
+});
+
+// ===================================================================
+// configFormat — convenience factory
+// ===================================================================
+
+describe('configFormat — convenience factory', () => {
+	it('creates a FormatLoader with given extensions and parse', () => {
+		const parse = (content: string): Record<string, unknown> => JSON.parse(content);
+		const loader = configFormat(['yaml', 'yml'], parse);
+		expect(loader.extensions).toEqual(['yaml', 'yml']);
+		expect(loader.parse).toBe(parse);
+	});
+
+	it('created loader works with discoverConfig', async () => {
+		const iniLoader = configFormat(['ini'], (content: string): Record<string, unknown> => {
+			const result: Record<string, unknown> = {};
+			for (const line of content.split('\n')) {
+				const match = /^(\w+)\s*=\s*(.+)$/.exec(line.trim());
+				if (match?.[1] !== undefined && match[2] !== undefined) {
+					result[match[1]] = match[2];
+				}
+			}
+			return result;
+		});
+
+		const adapter = stubAdapter({
+			'/project/.myapp.ini': 'region=eu\nverbose=true',
+		});
+		const result = await discoverConfig('myapp', adapter, { loaders: [iniLoader] });
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('ini');
+			expect(result.data).toEqual({ region: 'eu', verbose: 'true' });
+		}
+	});
+
+	it('created loader appears in search paths', () => {
+		const loader = configFormat(['toml', 'tml'], () => ({}));
+		const paths = buildConfigSearchPaths('myapp', '/p', '/c', [loader]);
+		expect(paths).toContain('/p/.myapp.toml');
+		expect(paths).toContain('/p/.myapp.tml');
+		expect(paths).toContain('/p/myapp.config.toml');
+		expect(paths).toContain('/c/myapp/config.toml');
 	});
 });

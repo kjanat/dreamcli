@@ -32,7 +32,7 @@
 			"title": "Add plugin hook for config format loaders (YAML/TOML)",
 			"overseerTaskId": "task_01KH1QADZV32GKH0ME23KV0Y79",
 			"priority": "integration",
-			"passes": false,
+			"passes": true,
 			"description": "Plugin interface for registering custom config file format loaders (e.g. YAML, TOML)."
 		},
 		{

@@ -304,10 +304,43 @@ async function discoverConfig(
 }
 
 // ---------------------------------------------------------------------------
+// configFormat — convenience factory for FormatLoader
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a {@link FormatLoader} from extensions and a parse function.
+ *
+ * Convenience factory for the plugin hook — avoids manually constructing
+ * the `{ extensions, parse }` object.
+ *
+ * @param extensions - File extensions this loader handles (without dot, e.g. `'yaml'`).
+ * @param parse - Parse function: takes file content string, returns a plain config object.
+ *
+ * @example
+ * ```ts
+ * import { configFormat } from 'dreamcli';
+ * import { parse as parseYAML } from 'yaml';
+ *
+ * const yamlLoader = configFormat(['yaml', 'yml'], parseYAML);
+ *
+ * cli('myapp')
+ *   .config('myapp')
+ *   .configLoader(yamlLoader)
+ *   .run();
+ * ```
+ */
+function configFormat(
+	extensions: readonly string[],
+	parse: (content: string) => Record<string, unknown>,
+): FormatLoader {
+	return { extensions, parse };
+}
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
-export { buildConfigSearchPaths, discoverConfig };
+export { buildConfigSearchPaths, configFormat, discoverConfig };
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,

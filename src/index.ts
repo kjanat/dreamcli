@@ -24,7 +24,7 @@ export type {
 	ConfigNotFound,
 	FormatLoader,
 } from './core/config/index.js';
-export { buildConfigSearchPaths, discoverConfig } from './core/config/index.js';
+export { buildConfigSearchPaths, configFormat, discoverConfig } from './core/config/index.js';
 export type {
 	CLIErrorJSON,
 	CLIErrorOptions,

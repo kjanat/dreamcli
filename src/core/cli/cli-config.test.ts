@@ -6,6 +6,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createTestAdapter, ExitError } from '../../runtime/index.js';
+import type { FormatLoader } from '../config/index.js';
+import { configFormat } from '../config/index.js';
+import { CLIError } from '../errors/index.js';
 import { command } from '../schema/command.js';
 import { flag } from '../schema/flag.js';
 import { cli } from './index.js';
@@ -311,5 +314,139 @@ describe('CLIBuilder.run() — completions skip config', () => {
 		expect(readFileCalled).toBe(false);
 		// Should have output a bash completion script
 		expect(stdoutLines.join('')).toContain('_myapp_completions');
+	});
+});
+
+// ===================================================================
+// CLIBuilder.configLoader() — incremental plugin registration
+// ===================================================================
+
+describe('CLIBuilder.configLoader() — builder method', () => {
+	it('returns a new CLIBuilder (immutability)', () => {
+		const loader: FormatLoader = { extensions: ['toml'], parse: () => ({}) };
+		const a = cli('myapp').config('myapp');
+		const b = a.configLoader(loader);
+		expect(a).not.toBe(b);
+		expect(a.schema.configSettings?.loaders).toBeUndefined();
+		expect(b.schema.configSettings?.loaders).toEqual([loader]);
+	});
+
+	it('accumulates loaders across multiple calls', () => {
+		const toml: FormatLoader = { extensions: ['toml'], parse: () => ({}) };
+		const yaml: FormatLoader = { extensions: ['yaml', 'yml'], parse: () => ({}) };
+		const app = cli('myapp').config('myapp').configLoader(toml).configLoader(yaml);
+		expect(app.schema.configSettings?.loaders).toEqual([toml, yaml]);
+	});
+
+	it('throws when .config() has not been called', () => {
+		const loader: FormatLoader = { extensions: ['toml'], parse: () => ({}) };
+		expect(() => cli('myapp').configLoader(loader)).toThrow(CLIError);
+		try {
+			cli('myapp').configLoader(loader);
+		} catch (e: unknown) {
+			expect(e).toBeInstanceOf(CLIError);
+			const err = e as CLIError;
+			expect(err.code).toBe('INVALID_BUILDER_STATE');
+		}
+	});
+
+	it('preserves loaders from .config() call', () => {
+		const initial: FormatLoader = { extensions: ['ini'], parse: () => ({}) };
+		const added: FormatLoader = { extensions: ['toml'], parse: () => ({}) };
+		const app = cli('myapp').config('myapp', [initial]).configLoader(added);
+		expect(app.schema.configSettings?.loaders).toEqual([initial, added]);
+	});
+});
+
+// ===================================================================
+// CLIBuilder.configLoader() — integration with .run()
+// ===================================================================
+
+describe('CLIBuilder.configLoader() — run() integration', () => {
+	/** Trivial TOML-ish parser for tests. */
+	const tomlLoader = configFormat(['toml'], (content: string): Record<string, unknown> => {
+		const result: Record<string, unknown> = {};
+		for (const line of content.split('\n')) {
+			const match = /^(\w+)\s*=\s*"(.+)"$/.exec(line.trim());
+			if (match?.[1] !== undefined && match[2] !== undefined) {
+				result[match[1]] = match[2];
+			}
+		}
+		return result;
+	});
+
+	it('loads TOML config via .configLoader()', async () => {
+		const app = cli('myapp')
+			.config('myapp')
+			.configLoader(tomlLoader)
+			.command(
+				command('show')
+					.flag('name', flag.string().config('name').default('unknown'))
+					.action(({ flags, out }) => {
+						out.json({ name: flags.name });
+					}),
+			);
+
+		const { stdout } = await runWithAdapter(app, ['show'], {
+			'/test/.myapp.toml': 'name = "from-toml"',
+		});
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ name: 'from-toml' });
+	});
+
+	it('JSON still takes priority over TOML at same path level', async () => {
+		const app = cli('myapp')
+			.config('myapp')
+			.configLoader(tomlLoader)
+			.command(
+				command('show')
+					.flag('name', flag.string().config('name').default('unknown'))
+					.action(({ flags, out }) => {
+						out.json({ name: flags.name });
+					}),
+			);
+
+		const { stdout } = await runWithAdapter(app, ['show'], {
+			'/test/.myapp.json': '{"name":"from-json"}',
+			'/test/.myapp.toml': 'name = "from-toml"',
+		});
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ name: 'from-json' });
+	});
+
+	it('multiple loaders registered via .configLoader() all work', async () => {
+		/** Trivial INI-ish parser. */
+		const iniLoader = configFormat(['ini'], (content: string): Record<string, unknown> => {
+			const result: Record<string, unknown> = {};
+			for (const line of content.split('\n')) {
+				const match = /^(\w+)\s*=\s*(.+)$/.exec(line.trim());
+				if (match?.[1] !== undefined && match[2] !== undefined) {
+					result[match[1]] = match[2];
+				}
+			}
+			return result;
+		});
+
+		const app = cli('myapp')
+			.config('myapp')
+			.configLoader(tomlLoader)
+			.configLoader(iniLoader)
+			.command(
+				command('show')
+					.flag('name', flag.string().config('name').default('unknown'))
+					.action(({ flags, out }) => {
+						out.json({ name: flags.name });
+					}),
+			);
+
+		// INI file available at explicit path
+		const { stdout } = await runWithAdapter(app, ['--config', '/custom/app.ini', 'show'], {
+			'/custom/app.ini': 'name=from-ini',
+		});
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ name: 'from-ini' });
 	});
 });

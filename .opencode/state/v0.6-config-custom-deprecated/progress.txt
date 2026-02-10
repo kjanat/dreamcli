@@ -14,6 +14,7 @@ Started: 2026-02-10
 - **Global flag extraction in `.run()`**: Extract flags that need I/O (like `--config <path>`) in `.run()` before calling `.execute()`. Follows same pattern as `env`/`isTTY` auto-sourcing — `.run()` does adapter-dependent work, passes result to pure `.execute()`.
 - **CLISchema extension pattern**: Add field with `| undefined` default → update `cli()` factory to include it → add builder method → conditionally act on it in `.run()`/`.execute()`.
 - **Config errors before command dispatch**: Detect `--json` from raw argv before config loading to render errors in correct format (JSON vs text).
+- **Plugin hook pattern**: Incremental builder method `.configLoader(loader)` appends to `configSettings.loaders`. Requires `.config()` first (throws `INVALID_BUILDER_STATE` otherwise). `configFormat(extensions, parseFn)` convenience factory avoids manual object construction.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -56,3 +57,12 @@ Started: 2026-02-10
   - Config errors rendered as text (or JSON when `--json` present) before exit
 - Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-config.test.ts` (new, 19 tests), `src/core/completion/completion.test.ts` (CLISchema fix), `src/index.ts` (barrel)
 - **Learnings:** CLISchema changes ripple to completion.test.ts which creates CLISchema objects directly via `minimalSchema()` helper; `--json` detection must happen before config loading for correct error rendering
+
+## Task — config-plugin
+- Added `configFormat(extensions, parseFn)` convenience factory to `src/core/config/index.ts`
+- Added `.configLoader(loader)` incremental builder method to `CLIBuilder`
+  - Appends to `configSettings.loaders`; throws `INVALID_BUILDER_STATE` if `.config()` not called first
+  - Preserves loaders from initial `.config(appName, loaders?)` call
+- Exported `configFormat` from barrel `src/index.ts`
+- Files changed: `src/core/config/index.ts`, `src/core/cli/index.ts`, `src/core/cli/cli-config.test.ts` (+7 tests), `src/core/config/config.test.ts` (+3 tests), `src/index.ts`
+- **Learnings:** FormatLoader infrastructure was already well-designed for extensibility — the plugin hook was mainly a builder ergonomics + factory concern, not a core architecture change. `configSettings.loaders` being `readonly FormatLoader[] | undefined` works cleanly with `?? []` spread pattern.

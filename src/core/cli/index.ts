@@ -531,6 +531,47 @@ class CLIBuilder {
 		});
 	}
 
+	/**
+	 * Register a custom config format loader.
+	 *
+	 * Adds a {@link FormatLoader} incrementally — call multiple times to
+	 * register multiple formats. Loaders registered later for the same
+	 * extension override earlier ones.
+	 *
+	 * Requires `.config()` to have been called first (sets the app name).
+	 *
+	 * @param loader - Format loader (or extensions + parse function).
+	 *
+	 * @example
+	 * ```ts
+	 * import { configFormat } from 'dreamcli';
+	 * import { parse as parseYAML } from 'yaml';
+	 * import { parse as parseTOML } from '@iarna/toml';
+	 *
+	 * cli('myapp')
+	 *   .config('myapp')
+	 *   .configLoader(configFormat(['yaml', 'yml'], parseYAML))
+	 *   .configLoader(configFormat(['toml'], parseTOML))
+	 *   .run();
+	 * ```
+	 */
+	configLoader(loader: FormatLoader): CLIBuilder {
+		if (this.schema.configSettings === undefined) {
+			throw new CLIError('.configLoader() requires .config() to be called first', {
+				code: 'INVALID_BUILDER_STATE',
+				suggest: 'Call .config(appName) before .configLoader()',
+			});
+		}
+		const existing = this.schema.configSettings.loaders ?? [];
+		return new CLIBuilder({
+			...this.schema,
+			configSettings: {
+				...this.schema.configSettings,
+				loaders: [...existing, loader],
+			},
+		});
+	}
+
 	// -- Command registration ------------------------------------------------
 
 	/**
