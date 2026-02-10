@@ -7,6 +7,10 @@
 Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Single entry `src/index.ts`
 re-exports 31 values + 74 types from 10 internal modules. Dual ESM/CJS via tsdown.
 
+### Goals
+
+Our goals are described in @GOALS.md
+
 ## STRUCTURE
 
 ```tree
