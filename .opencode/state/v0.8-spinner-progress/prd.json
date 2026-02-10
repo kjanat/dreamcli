@@ -20,7 +20,7 @@
 			"id": "capture-handles-testkit",
 			"title": "[D3] Capture handles + testkit wiring — ActivityEvent[] recording",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"description": "CaptureSpinnerHandle and CaptureProgressHandle that record ActivityEvent[]. Extend CapturedOutput and RunResult with activity. Wire through createCaptureOutput() and runCommand()."
 		},
 		{

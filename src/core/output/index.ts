@@ -12,6 +12,7 @@
  */
 
 import type {
+	ActivityEvent,
 	Out,
 	ProgressHandle,
 	ProgressOptions,
@@ -246,6 +247,36 @@ class OutputChannel implements Out {
 }
 
 // ---------------------------------------------------------------------------
+// CaptureOutputChannel — testkit subclass that records activity events
+// ---------------------------------------------------------------------------
+
+/**
+ * Output channel variant that returns capture handles for spinner/progress.
+ *
+ * Extends `OutputChannel` to override `spinner()` and `progress()`, routing
+ * activity events into a shared `ActivityEvent[]` for testkit assertion.
+ * Text output (log/info/warn/error) is handled by the parent class.
+ *
+ * @internal
+ */
+class CaptureOutputChannel extends OutputChannel {
+	constructor(
+		options: ResolvedOutputOptions,
+		private readonly activity: ActivityEvent[],
+	) {
+		super(options);
+	}
+
+	override spinner(text: string, _options?: SpinnerOptions): SpinnerHandle {
+		return new CaptureSpinnerHandle(text, this.activity);
+	}
+
+	override progress(opts: ProgressOptions): ProgressHandle {
+		return new CaptureProgressHandle(opts, this.activity);
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Noop activity handles — silent mode (non-TTY, fallback='silent')
 // ---------------------------------------------------------------------------
 
@@ -412,6 +443,110 @@ class StaticProgressHandle implements ProgressHandle {
 }
 
 // ---------------------------------------------------------------------------
+// Capture activity handles — testkit recording mode
+// ---------------------------------------------------------------------------
+
+/**
+ * Spinner handle that records lifecycle events to a shared `ActivityEvent[]`.
+ *
+ * Used by `createCaptureOutput()` so testkit can assert on spinner behaviour
+ * without polluting stdout/stderr arrays. Terminal methods are idempotent.
+ *
+ * @internal
+ */
+class CaptureSpinnerHandle implements SpinnerHandle {
+	/** Whether the handle has been stopped (terminal state reached). */
+	private stopped = false;
+
+	constructor(
+		text: string,
+		private readonly events: ActivityEvent[],
+	) {
+		events.push({ type: 'spinner:start', text });
+	}
+
+	update(text: string): void {
+		if (this.stopped) return;
+		this.events.push({ type: 'spinner:update', text });
+	}
+
+	succeed(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		this.events.push({ type: 'spinner:succeed', text: text ?? '' });
+	}
+
+	fail(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		this.events.push({ type: 'spinner:fail', text: text ?? '' });
+	}
+
+	stop(): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		this.events.push({ type: 'spinner:stop' });
+	}
+
+	async wrap<T>(
+		promise: Promise<T>,
+		options?: { readonly succeed?: string; readonly fail?: string },
+	): Promise<T> {
+		try {
+			const value = await promise;
+			this.succeed(options?.succeed);
+			return value;
+		} catch (error: unknown) {
+			this.fail(options?.fail);
+			throw error;
+		}
+	}
+}
+
+/**
+ * Progress handle that records lifecycle events to a shared `ActivityEvent[]`.
+ *
+ * Used by `createCaptureOutput()` so testkit can assert on progress behaviour
+ * without polluting stdout/stderr arrays. Terminal methods are idempotent.
+ *
+ * @internal
+ */
+class CaptureProgressHandle implements ProgressHandle {
+	/** Whether the handle has been stopped (terminal state reached). */
+	private stopped = false;
+
+	constructor(
+		opts: ProgressOptions,
+		private readonly events: ActivityEvent[],
+	) {
+		events.push({ type: 'progress:start', label: opts.label ?? '', total: opts.total });
+	}
+
+	increment(n?: number): void {
+		if (this.stopped) return;
+		// Record as an update with the increment value (1-based convention).
+		this.events.push({ type: 'progress:update', value: n ?? 1 });
+	}
+
+	update(value: number): void {
+		if (this.stopped) return;
+		this.events.push({ type: 'progress:update', value });
+	}
+
+	done(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		this.events.push({ type: 'progress:done', text });
+	}
+
+	fail(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		this.events.push({ type: 'progress:fail', text });
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -555,6 +690,14 @@ interface CapturedOutput {
 	 * In JSON mode: `warn`, `error`, `log`, and `info` output.
 	 */
 	readonly stderr: string[];
+	/**
+	 * Activity events from spinner and progress handles.
+	 *
+	 * Captured separately from stdout/stderr to allow targeted assertions
+	 * on activity lifecycle without parsing text output. Events are
+	 * recorded in chronological order.
+	 */
+	readonly activity: ActivityEvent[];
 }
 
 /**
@@ -578,12 +721,13 @@ interface CapturedOutput {
 function createCaptureOutput(
 	options?: Omit<OutputOptions, 'stdout' | 'stderr'>,
 ): [out: Out, captured: CapturedOutput] {
-	const captured: CapturedOutput = { stdout: [], stderr: [] };
-	const out = createOutput({
+	const captured: CapturedOutput = { stdout: [], stderr: [], activity: [] };
+	const resolved = resolveOptions({
 		...options,
 		stdout: (s) => captured.stdout.push(s),
 		stderr: (s) => captured.stderr.push(s),
 	});
+	const out = new CaptureOutputChannel(resolved, captured.activity);
 	return [out, captured];
 }
 
@@ -592,6 +736,9 @@ function createCaptureOutput(
 // ---------------------------------------------------------------------------
 
 export {
+	CaptureOutputChannel,
+	CaptureProgressHandle,
+	CaptureSpinnerHandle,
 	createCaptureOutput,
 	createOutput,
 	noopProgressHandle,

@@ -858,6 +858,7 @@ function buildResult(
 		exitCode,
 		stdout: captured.stdout,
 		stderr: captured.stderr,
+		activity: captured.activity,
 		error,
 	};
 }

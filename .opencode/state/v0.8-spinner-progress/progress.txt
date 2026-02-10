@@ -7,7 +7,7 @@ Started: 2026-02-10
 - `Out` interface in `src/core/schema/command.ts` — all output methods defined here
 - `OutputChannel` in `src/core/output/index.ts` — implements `Out`, routes by jsonMode/isTTY/verbosity
 - Factory: `createOutput()` for production, `createCaptureOutput()` for testkit
-- `CapturedOutput` has `stdout: string[]`, `stderr: string[]` — push-based capture
+- `CapturedOutput` has `stdout: string[]`, `stderr: string[]`, `activity: ActivityEvent[]` — push-based capture
 - `RunResult` in `src/core/testkit/index.ts` — exitCode, stdout, stderr, error
 - Barrel re-exports: module `index.ts` → `schema/index.ts` → `src/index.ts`
 - Types use `readonly` everywhere, interfaces over type aliases for shapes
@@ -41,3 +41,14 @@ Started: 2026-02-10
 - Exported noop singletons + static classes + `StaticWriters` type from `output/index.ts`
 - Files changed: `src/core/output/index.ts`
 - **Learnings:** Static handles take `WriteFn` pairs not `Out` — avoids circular dep (Out.spinner→handle→Out). `writeLine()` already existed as internal helper, reused for static output. No test changes needed since D2 adds implementations consumed by D5 (mode dispatch) and D7 (tests).
+
+## Task - capture-handles-testkit (D3)
+- `CaptureSpinnerHandle` and `CaptureProgressHandle` record `ActivityEvent[]` into a shared array
+- `CaptureOutputChannel` extends `OutputChannel`, overrides `spinner()` and `progress()` to return capture handles
+- Extended `CapturedOutput` with `activity: ActivityEvent[]`
+- Extended `RunResult` with `activity: readonly ActivityEvent[]`
+- Rewired `createCaptureOutput()` to create `CaptureOutputChannel` instead of plain `OutputChannel`
+- Updated `buildResult()` in both `testkit/index.ts` and `cli/index.ts` to include `activity`
+- Fixed mock `_execute()` in `cli-dispatch.test.ts` and `completion.test.ts` (erased helper) to include `activity: []`
+- Files changed: `src/core/output/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/cli/cli-dispatch.test.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** Extending `RunResult` ripples to every location that constructs one — `buildResult()` in testkit and cli, plus mock `_execute()` in test helpers that return `RunResult` literals. The `CaptureOutputChannel` subclass pattern avoids changing the `createOutput()` production path at all — capture behaviour is exclusively testkit-side.

@@ -23,7 +23,13 @@ import { createTestPrompter } from '../prompt/index.js';
 import type { DeprecationWarning, ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.js';
+import type {
+	ActionHandler,
+	ActivityEvent,
+	CommandBuilder,
+	CommandSchema,
+	Out,
+} from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
 
 // ---------------------------------------------------------------------------
@@ -170,6 +176,15 @@ interface RunResult {
 
 	/** Captured stderr lines (from `out.warn` and `out.error`). */
 	readonly stderr: readonly string[];
+
+	/**
+	 * Captured spinner and progress lifecycle events.
+	 *
+	 * Recorded separately from stdout/stderr — handlers that call
+	 * `out.spinner()` or `out.progress()` produce events here, enabling
+	 * targeted assertions on activity lifecycle without parsing text.
+	 */
+	readonly activity: readonly ActivityEvent[];
 
 	/**
 	 * The error that caused a non-zero exit, if any.
@@ -366,6 +381,7 @@ function buildResult(
 		exitCode,
 		stdout: captured.stdout,
 		stderr: captured.stderr,
+		activity: captured.activity,
 		error,
 	};
 }
