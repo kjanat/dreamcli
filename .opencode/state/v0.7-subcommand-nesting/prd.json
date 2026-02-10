@@ -56,7 +56,7 @@
 			"title": "Scope 'did you mean?' suggestions to current command level",
 			"overseerTaskId": "task_01KH3NEN394SE6D4CJYVPFD57E",
 			"priority": "feature",
-			"passes": false,
+			"passes": true,
 			"description": "findClosestCommand() searches within current scope, not global command list."
 		},
 		{

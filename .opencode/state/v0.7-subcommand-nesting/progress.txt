@@ -126,3 +126,14 @@ Started: 2026-02-10
   - Zsh idiom: `_arguments -C` + `case "$state"` + helper functions is the standard pattern for nested commands (matches zsh-completions repo patterns)
   - `collectPropagatedFlags()` can be called at generation time (static scripts) — merging propagated flags into each node's merged flag record is the correct approach
   - The `biome-ignore noTemplateCurlyInString` suppression is only needed when the template literal directly contains `${...}` (not when it's `\${...}` — backslash-escaped braces don't trigger the lint rule)
+
+## Task - scoped-suggestions
+- Scoped the "did you mean?" fallback help hint to current command level using `DispatchUnknown.parentPath`
+- `findClosestCommand()` already received scoped candidates from `dispatch()` — no change needed there
+- When no close match found, help hint now reads e.g. `Run 'myapp db --help'` instead of `Run 'myapp --help'` for nested scope
+- `parentPath` from `DispatchUnknown` maps to ancestor names joined with spaces to form the scoped help path
+- 7 new tests in `cli-nesting.test.ts`: scoped typo suggestion, cross-group isolation, scoped help hint (1-level + 3-level), root-level fallback, JSON mode scoped hint, alias proximity suggestion
+- **Files changed:** `src/core/cli/index.ts`, `src/core/cli/cli-nesting.test.ts`
+- **Learnings:**
+  - `dispatch()` already returns scoped candidates — the real fix was the fallback help hint path, not the candidate list
+  - `DispatchUnknown.parentPath` is the key field — it carries the ancestor schemas up to (not including) the unknown level, perfect for building `"myapp db migrate --help"` paths

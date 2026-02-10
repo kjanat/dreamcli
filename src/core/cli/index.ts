@@ -666,12 +666,20 @@ class CLIBuilder {
 					return buildResult(0, captured, undefined);
 				}
 				const suggestion = findClosestCommand(result.input, result.candidates);
+
+				// Build scoped help path from ancestor context.
+				// e.g. for `myapp db migrat` → parentPath = [dbSchema] → "myapp db --help"
+				const scopePath =
+					result.parentPath.length > 0
+						? `${this.schema.name} ${result.parentPath.map((s) => s.name).join(' ')}`
+						: this.schema.name;
+
 				const err = new ParseError(`Unknown command: ${result.input}`, {
 					code: 'UNKNOWN_COMMAND',
 					suggest:
 						suggestion !== undefined
 							? `Did you mean '${suggestion}'?`
-							: `Run '${this.schema.name} --help' for available commands`,
+							: `Run '${scopePath} --help' for available commands`,
 				});
 				if (jsonMode) {
 					out.json({ error: err.toJSON() });

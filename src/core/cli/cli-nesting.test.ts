@@ -306,3 +306,89 @@ describe('CLIBuilder — nested dispatch with aliases', () => {
 		expect(result.stdout).toEqual(['migrating\n']);
 	});
 });
+
+// ===================================================================
+// Scoped "did you mean?" suggestions
+// ===================================================================
+
+describe('CLIBuilder — scoped suggestions', () => {
+	it('suggests sibling subcommand for typo within group', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const result = await app.execute(['db', 'migrat']); // typo for "migrate"
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
+	});
+
+	it('does not suggest commands from other groups', async () => {
+		const deploy = command('deploy')
+			.description('Deploy')
+			.action(({ out }) => {
+				out.log('deployed');
+			});
+
+		const app = cli('myapp').command(dbGroup()).command(deploy);
+		// 'deplpy' is close to 'deploy' but should NOT be suggested inside 'db' scope
+		const result = await app.execute(['db', 'deplpy']);
+		expect(result.exitCode).toBe(2);
+		const stderr = result.stderr.join('');
+		expect(stderr).not.toContain("Did you mean 'deploy'?");
+	});
+
+	it('shows scoped help hint for unknown nested command with no close match', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const result = await app.execute(['db', 'xxxxxxxxx']);
+		expect(result.exitCode).toBe(2);
+		// Should suggest "myapp db --help" not "myapp --help"
+		expect(result.stderr.join('')).toContain("Run 'myapp db --help'");
+	});
+
+	it('shows root help hint for unknown root command with no close match', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const result = await app.execute(['xxxxxxxxx']);
+		expect(result.exitCode).toBe(2);
+		// Root level — should suggest "myapp --help"
+		expect(result.stderr.join('')).toContain("Run 'myapp --help'");
+	});
+
+	it('shows scoped help hint for 3-level nesting', async () => {
+		const up = command('up')
+			.description('Run migrations up')
+			.action(({ out }) => {
+				out.log('up');
+			});
+
+		const migrate = group('migrate').description('Migration commands').command(up);
+		const db = group('db').description('Database operations').command(migrate);
+
+		const app = cli('myapp').command(db);
+		const result = await app.execute(['db', 'migrate', 'xxxxxxxxx']);
+		expect(result.exitCode).toBe(2);
+		// Should suggest "myapp db migrate --help"
+		expect(result.stderr.join('')).toContain("Run 'myapp db migrate --help'");
+	});
+
+	it('scoped suggestion works in JSON mode', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const result = await app.execute(['db', 'xxxxxxxxx', '--json']);
+		expect(result.exitCode).toBe(2);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.error.suggest).toContain('myapp db --help');
+	});
+
+	it('suggests subcommand alias match within scope', async () => {
+		const migrate = command('migrate')
+			.alias('m')
+			.description('Run migrations')
+			.action(({ out }) => {
+				out.log('migrating');
+			});
+
+		const db = group('db').description('Database operations').command(migrate);
+		const app = cli('myapp').command(db);
+		// 'n' is close to alias 'm' (distance 1)
+		const result = await app.execute(['db', 'n']);
+		expect(result.exitCode).toBe(2);
+		// Should suggest canonical name 'migrate' (from alias 'm' proximity)
+		expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
+	});
+});
