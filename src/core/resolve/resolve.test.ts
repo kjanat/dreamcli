@@ -22,6 +22,7 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 		hasAction: false,
 		interactive: undefined,
 		middleware: [],
+		commands: [],
 		...overrides,
 	};
 }
@@ -319,6 +320,71 @@ describe('resolve — flags', () => {
 			verbose: true,
 			output: undefined,
 		});
+	});
+});
+
+// ========================================================================
+// Custom flag resolution
+// ========================================================================
+
+describe('resolve — custom flags', () => {
+	it('passes through CLI-provided custom flag value', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+				}),
+			},
+		});
+		// Parser already called parseFn, so parsed value is the result
+		const parsed = makeParsed({ flags: { hex: 255 } });
+
+		const result = await resolve(schema, parsed);
+		expect(result.flags.hex).toBe(255);
+	});
+
+	it('applies default for optional custom flag when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+					presence: 'defaulted',
+					defaultValue: 0,
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		const result = await resolve(schema, parsed);
+		expect(result.flags.hex).toBe(0);
+	});
+
+	it('required custom flag throws when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+					presence: 'required',
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		await expect(resolve(schema, parsed)).rejects.toThrow(ValidationError);
+	});
+
+	it('optional custom flag resolves to undefined when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		const result = await resolve(schema, parsed);
+		expect(result.flags.hex).toBeUndefined();
 	});
 });
 
@@ -690,5 +756,179 @@ describe('resolve — error details', () => {
 				expect(err.code).toBe('REQUIRED_FLAG');
 			}
 		}
+	});
+});
+
+// ========================================================================
+// Deprecation warnings
+// ========================================================================
+
+describe('resolve — deprecation warnings', () => {
+	// --- Flags ---------------------------------------------------------------
+
+	it('collects structured deprecation when deprecated flag is provided via CLI', async () => {
+		const schema = makeSchema({
+			flags: { old: createSchema('string', { deprecated: true }) },
+		});
+		const parsed = makeParsed({ flags: { old: 'value' } });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(1);
+		expect(result.deprecations[0]).toEqual({ kind: 'flag', name: 'old', message: true });
+	});
+
+	it('includes deprecation message in structured warning', async () => {
+		const schema = makeSchema({
+			flags: { old: createSchema('string', { deprecated: 'use --new instead' }) },
+		});
+		const parsed = makeParsed({ flags: { old: 'value' } });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations[0]).toEqual({
+			kind: 'flag',
+			name: 'old',
+			message: 'use --new instead',
+		});
+	});
+
+	it('no deprecation when deprecated flag is not provided', async () => {
+		const schema = makeSchema({
+			flags: { old: createSchema('string', { deprecated: true }) },
+		});
+		const parsed = makeParsed({ flags: {} });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(0);
+	});
+
+	it('no deprecation for non-deprecated flag', async () => {
+		const schema = makeSchema({
+			flags: { active: createSchema('string') },
+		});
+		const parsed = makeParsed({ flags: { active: 'value' } });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(0);
+	});
+
+	it('collects deprecation when deprecated flag is resolved from env', async () => {
+		const schema = makeSchema({
+			flags: { old: createSchema('string', { deprecated: true, envVar: 'OLD_VAR' }) },
+		});
+		const parsed = makeParsed({ flags: {} });
+		const result = await resolve(schema, parsed, { env: { OLD_VAR: 'value' } });
+		expect(result.deprecations).toHaveLength(1);
+		expect(result.deprecations[0]).toEqual({ kind: 'flag', name: 'old', message: true });
+	});
+
+	it('collects deprecation when deprecated flag is resolved from config', async () => {
+		const schema = makeSchema({
+			flags: { old: createSchema('string', { deprecated: true, configPath: 'old' }) },
+		});
+		const parsed = makeParsed({ flags: {} });
+		const result = await resolve(schema, parsed, { config: { old: 'value' } });
+		expect(result.deprecations).toHaveLength(1);
+		expect(result.deprecations[0]).toEqual({ kind: 'flag', name: 'old', message: true });
+	});
+
+	it('no deprecation when deprecated flag falls through to default', async () => {
+		const schema = makeSchema({
+			flags: {
+				old: createSchema('string', { deprecated: true, presence: 'defaulted', defaultValue: 'x' }),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(0);
+	});
+
+	// --- Args ----------------------------------------------------------------
+
+	it('collects structured deprecation when deprecated arg is provided', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { deprecated: true }) }],
+		});
+		const parsed = makeParsed({ args: { target: 'prod' } });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(1);
+		expect(result.deprecations[0]).toEqual({ kind: 'arg', name: 'target', message: true });
+	});
+
+	it('includes deprecation message in arg structured warning', async () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'target',
+					schema: createArgSchema('string', { deprecated: 'use --target flag' }),
+				},
+			],
+		});
+		const parsed = makeParsed({ args: { target: 'prod' } });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations[0]).toEqual({
+			kind: 'arg',
+			name: 'target',
+			message: 'use --target flag',
+		});
+	});
+
+	it('no deprecation when deprecated arg is not provided', async () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'target',
+					schema: createArgSchema('string', { deprecated: true, presence: 'optional' }),
+				},
+			],
+		});
+		const parsed = makeParsed({ args: {} });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(0);
+	});
+
+	// --- Multiple deprecations -----------------------------------------------
+
+	it('collects deprecations for multiple deprecated flags', async () => {
+		const schema = makeSchema({
+			flags: {
+				old1: createSchema('string', { deprecated: true }),
+				old2: createSchema('number', { deprecated: 'removed in v2' }),
+			},
+		});
+		const parsed = makeParsed({ flags: { old1: 'a', old2: 42 } });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(2);
+		expect(result.deprecations[0]).toEqual({ kind: 'flag', name: 'old1', message: true });
+		expect(result.deprecations[1]).toEqual({
+			kind: 'flag',
+			name: 'old2',
+			message: 'removed in v2',
+		});
+	});
+
+	it('collects deprecations for both deprecated flag and arg', async () => {
+		const schema = makeSchema({
+			flags: { old: createSchema('string', { deprecated: true }) },
+			args: [{ name: 'target', schema: createArgSchema('string', { deprecated: true }) }],
+		});
+		const parsed = makeParsed({ flags: { old: 'x' }, args: { target: 'prod' } });
+		const result = await resolve(schema, parsed);
+		expect(result.deprecations).toHaveLength(2);
+	});
+
+	// --- Deprecations don't block resolution ---------------------------------
+
+	it('deprecated flag still resolves its value', async () => {
+		const schema = makeSchema({
+			flags: { old: createSchema('string', { deprecated: true }) },
+		});
+		const parsed = makeParsed({ flags: { old: 'value' } });
+		const result = await resolve(schema, parsed);
+		expect(result.flags['old']).toBe('value');
+	});
+
+	it('deprecated arg still resolves its value', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { deprecated: true }) }],
+		});
+		const parsed = makeParsed({ args: { target: 'prod' } });
+		const result = await resolve(schema, parsed);
+		expect(result.args['target']).toBe('prod');
 	});
 });

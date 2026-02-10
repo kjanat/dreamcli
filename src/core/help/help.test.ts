@@ -455,6 +455,156 @@ describe('formatHelp', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// Custom flag help
+	// -----------------------------------------------------------------------
+
+	describe('custom flag help', () => {
+		it('shows <value> hint for custom flag', () => {
+			const cmd = command('test').flag(
+				'hex',
+				flag.custom((raw) => Number.parseInt(String(raw), 16)).describe('Hex color'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('--hex <value>');
+			expect(help).toContain('Hex color');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Deprecated annotations
+	// -----------------------------------------------------------------------
+
+	describe('deprecated annotations', () => {
+		it('shows [deprecated] for flag with deprecated()', () => {
+			const cmd = command('test').flag('old', flag.string().deprecated().describe('Old flag'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated]');
+			expect(help).toContain('Old flag');
+		});
+
+		it('shows [deprecated: reason] for flag with deprecated(message)', () => {
+			const cmd = command('test').flag('old', flag.string().deprecated('use --new instead'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated: use --new instead]');
+		});
+
+		it('shows [deprecated] for arg with deprecated()', () => {
+			const cmd = command('test').arg(
+				'target',
+				arg.string().optional().deprecated().describe('Deploy target'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated]');
+			expect(help).toContain('Deploy target');
+		});
+
+		it('shows [deprecated: reason] for arg with deprecated(message)', () => {
+			const cmd = command('test').arg(
+				'target',
+				arg.string().optional().deprecated('use --target flag'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated: use --target flag]');
+		});
+
+		it('places [deprecated] before [env:] annotation', () => {
+			const cmd = command('test').flag(
+				'old',
+				flag.string().env('OLD_VAR').deprecated().describe('Old flag'),
+			);
+			const help = formatHelp(cmd.schema);
+			const deprecatedIdx = help.indexOf('[deprecated]');
+			const envIdx = help.indexOf('[env: OLD_VAR]');
+			expect(deprecatedIdx).toBeLessThan(envIdx);
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Commands section (nested subcommands)
+	// -----------------------------------------------------------------------
+
+	describe('commands section — nested subcommands', () => {
+		it('renders Commands: section when subcommands exist', () => {
+			const db = command('db')
+				.description('Database operations')
+				.command(command('migrate').description('Run migrations'))
+				.command(command('seed').description('Seed database'));
+
+			const help = formatHelp(db.schema);
+			expect(help).toContain('Commands:');
+			expect(help).toContain('migrate');
+			expect(help).toContain('Run migrations');
+			expect(help).toContain('seed');
+			expect(help).toContain('Seed database');
+		});
+
+		it('omits Commands: section when no subcommands', () => {
+			const cmd = command('deploy').description('Deploy');
+			const help = formatHelp(cmd.schema);
+			expect(help).not.toContain('Commands:');
+		});
+
+		it('skips hidden subcommands in Commands: section', () => {
+			const db = command('db')
+				.command(command('migrate').description('Run migrations'))
+				.command(command('internal').description('Internal only').hidden());
+
+			const help = formatHelp(db.schema);
+			expect(help).toContain('migrate');
+			expect(help).not.toContain('internal');
+		});
+
+		it('renders subcommand without description', () => {
+			const db = command('db').command(command('migrate'));
+			const help = formatHelp(db.schema);
+			expect(help).toContain('Commands:');
+			expect(help).toContain('migrate');
+		});
+
+		it('aligns subcommand descriptions', () => {
+			const db = command('db')
+				.command(command('migrate').description('Run migrations'))
+				.command(command('seed').description('Seed data'));
+
+			const help = formatHelp(db.schema);
+			const lines = help.split('\n');
+			const migrateLine = lines.find((l) => l.includes('migrate'));
+			const seedLine = lines.find((l) => l.includes('seed'));
+			expect(migrateLine).toBeDefined();
+			expect(seedLine).toBeDefined();
+			// Descriptions should start at the same column
+			const migrateDescIdx = migrateLine?.indexOf('Run migrations') ?? -1;
+			const seedDescIdx = seedLine?.indexOf('Seed data') ?? -1;
+			expect(migrateDescIdx).toBeGreaterThan(0);
+			expect(migrateDescIdx).toBe(seedDescIdx);
+		});
+
+		it('shows <command> in usage line when subcommands exist', () => {
+			const db = command('db').description('Database operations').command(command('migrate'));
+
+			const help = formatHelp(db.schema);
+			expect(help).toContain('Usage: db <command>');
+		});
+
+		it('shows <command> alongside [flags] and args in usage line', () => {
+			const db = command('db')
+				.flag('verbose', flag.boolean())
+				.arg('target', arg.string().optional())
+				.command(command('migrate'));
+
+			const help = formatHelp(db.schema);
+			expect(help).toContain('Usage: db <command> [flags] [target]');
+		});
+
+		it('includes binName in usage line with <command>', () => {
+			const db = command('db').command(command('migrate').description('Run migrations'));
+
+			const help = formatHelp(db.schema, { binName: 'myapp' });
+			expect(help).toContain('Usage: myapp db <command>');
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// Section ordering
 	// -----------------------------------------------------------------------
 
@@ -476,6 +626,30 @@ describe('formatHelp', () => {
 
 			expect(usageIdx).toBeLessThan(descIdx);
 			expect(descIdx).toBeLessThan(argsIdx);
+			expect(argsIdx).toBeLessThan(flagsIdx);
+			expect(flagsIdx).toBeLessThan(examplesIdx);
+		});
+
+		it('renders Commands before Arguments in section order', () => {
+			const db = command('db')
+				.description('Database ops')
+				.arg('target', arg.string().optional())
+				.flag('force', flag.boolean())
+				.command(command('migrate').description('Migrate'))
+				.example('db migrate');
+
+			const help = formatHelp(db.schema);
+
+			const usageIdx = help.indexOf('Usage:');
+			const descIdx = help.indexOf('Database ops');
+			const cmdsIdx = help.indexOf('Commands:');
+			const argsIdx = help.indexOf('Arguments:');
+			const flagsIdx = help.indexOf('Flags:');
+			const examplesIdx = help.indexOf('Examples:');
+
+			expect(usageIdx).toBeLessThan(descIdx);
+			expect(descIdx).toBeLessThan(cmdsIdx);
+			expect(cmdsIdx).toBeLessThan(argsIdx);
 			expect(argsIdx).toBeLessThan(flagsIdx);
 			expect(flagsIdx).toBeLessThan(examplesIdx);
 		});

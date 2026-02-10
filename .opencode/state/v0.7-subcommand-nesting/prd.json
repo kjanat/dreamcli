@@ -1,0 +1,71 @@
+{
+	"prdName": "v0.7-subcommand-nesting",
+	"description": "Subcommand nesting: command trees with recursive dispatch, flag propagation, nested help/completions",
+	"overseerTaskId": "task_01KH1QAV5NHKNFATTDX8JW1DD2",
+	"tasks": [
+		{
+			"id": "flag-propagate",
+			"title": "Add propagate field to FlagSchema + .propagate() on FlagBuilder",
+			"overseerTaskId": "task_01KH3NCM6KMC8P8TTQM76NSKVA",
+			"priority": "architecture",
+			"passes": true,
+			"description": "Add `propagate: boolean` to FlagSchema. Add `.propagate()` on FlagBuilder. Follows .deprecated() pattern."
+		},
+		{
+			"id": "schema-nesting",
+			"title": "Add commands to CommandSchema + .command() on CommandBuilder + group() factory",
+			"overseerTaskId": "task_01KH3NCZ6SR5PQ2RK0791SWEAW",
+			"priority": "architecture",
+			"passes": true,
+			"description": "Add `commands: readonly ErasedCommand[]` to CommandSchema. Add `.command()` to CommandBuilder. Add `group()` factory. Relocate ErasedCommand to shared location."
+		},
+		{
+			"id": "propagated-flag-collection",
+			"title": "Implement propagated flag collection with ancestor walk and shadowing",
+			"overseerTaskId": "task_01KH3ND8XG2F42AFM6JEW8QDGE",
+			"priority": "architecture",
+			"passes": true,
+			"description": "Pure function: walk command path ancestors, collect flags where propagate===true, child override shadows parent."
+		},
+		{
+			"id": "recursive-dispatch",
+			"title": "Implement recursive command dispatch in CLIBuilder.execute()",
+			"overseerTaskId": "task_01KH3NDNS7R7CNR2ZSMFW6W777",
+			"priority": "architecture",
+			"passes": true,
+			"description": "Replace single-level dispatch with recursive walk. Consume argv segments as command names. Merge propagated flags before resolution. Extract to cli/dispatch.ts."
+		},
+		{
+			"id": "nested-help",
+			"title": "Update help formatter for nested command groups",
+			"overseerTaskId": "task_01KH3NE84K6W2WBR6XY1A54Q5Q",
+			"priority": "integration",
+			"passes": true,
+			"description": "formatHelp() gains 'Commands:' section for groups. Usage line adapts. Root help handles groups alongside leaves."
+		},
+		{
+			"id": "nested-completions",
+			"title": "Update bash/zsh completion generators for nested command trees",
+			"overseerTaskId": "task_01KH3NE861A0AHP2QMJGSM71RS",
+			"priority": "integration",
+			"passes": true,
+			"description": "Bash/zsh generators walk full tree depth. Include propagated flags in child completion."
+		},
+		{
+			"id": "scoped-suggestions",
+			"title": "Scope 'did you mean?' suggestions to current command level",
+			"overseerTaskId": "task_01KH3NEN394SE6D4CJYVPFD57E",
+			"priority": "feature",
+			"passes": true,
+			"description": "findClosestCommand() searches within current scope, not global command list."
+		},
+		{
+			"id": "testkit-nesting",
+			"title": "Add testkit support for nested command tree scenarios",
+			"overseerTaskId": "task_01KH3NEN4J4ZV69TH8P93Z4KH8",
+			"priority": "feature",
+			"passes": true,
+			"description": "Integration tests for nested dispatch via CLIBuilder.execute(). Propagated flags, group help, error cases."
+		}
+	]
+}

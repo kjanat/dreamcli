@@ -11,5 +11,9 @@
 
 export type { RuntimeAdapter, TestAdapterOptions } from './adapter.js';
 export { createTestAdapter, ExitError } from './adapter.js';
+export { createAdapter } from './auto.js';
+export { createBunAdapter } from './bun.js';
+export type { GlobalForDetect, Runtime } from './detect.js';
+export { detectRuntime, RUNTIMES } from './detect.js';
 export type { NodeProcess } from './node.js';
 export { createNodeAdapter } from './node.js';

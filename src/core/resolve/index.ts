@@ -103,6 +103,36 @@ interface ResolveResult {
 	readonly flags: Readonly<Record<string, unknown>>;
 	/** Resolved arg values keyed by arg name. */
 	readonly args: Readonly<Record<string, unknown>>;
+	/**
+	 * Deprecation notices for flags/args that were explicitly provided.
+	 *
+	 * Populated when a deprecated flag or arg receives a value from any
+	 * explicit source (CLI, env, config, prompt). Not populated for
+	 * default fallthrough.
+	 *
+	 * Consumers decide how to render these — the resolve layer provides
+	 * structured data, not formatted strings.
+	 */
+	readonly deprecations: readonly DeprecationWarning[];
+}
+
+/**
+ * Structured deprecation notice emitted when a deprecated flag or arg
+ * is explicitly provided.
+ *
+ * Consumers (testkit, CLI layer) decide formatting. The resolve layer
+ * only collects facts.
+ */
+interface DeprecationWarning {
+	/** Whether the deprecated entity is a flag or a positional arg. */
+	readonly kind: 'flag' | 'arg';
+	/** Canonical name of the flag or arg. */
+	readonly name: string;
+	/**
+	 * Deprecation reason/migration guidance, or `true` for generic
+	 * deprecation with no specific message.
+	 */
+	readonly message: string | true;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +168,7 @@ async function resolve(
 	const env = options?.env ?? {};
 	const config = options?.config ?? {};
 	const prompter = options?.prompter;
+	const deprecations: DeprecationWarning[] = [];
 	const flags = await resolveFlags(
 		schema.flags,
 		parsed.flags,
@@ -145,9 +176,10 @@ async function resolve(
 		config,
 		prompter,
 		schema.interactive,
+		deprecations,
 	);
-	const args = resolveArgs(schema.args, parsed.args);
-	return { flags, args };
+	const args = resolveArgs(schema.args, parsed.args, deprecations);
+	return { flags, args, deprecations };
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +217,7 @@ async function resolveFlags(
 	config: Readonly<Record<string, unknown>>,
 	prompter: PromptEngine | undefined,
 	interactive: ErasedInteractiveResolver | undefined,
+	deprecations: DeprecationWarning[],
 ): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -198,6 +231,9 @@ async function resolveFlags(
 		const parsedValue = parsedFlags[name];
 
 		if (parsedValue !== undefined) {
+			if (schema.deprecated !== undefined) {
+				deprecations.push({ kind: 'flag', name, message: schema.deprecated });
+			}
 			resolved[name] = parsedValue;
 			continue;
 		}
@@ -207,6 +243,9 @@ async function resolveFlags(
 			if (envValue !== undefined) {
 				const coerced = coerceEnvValue(name, schema.envVar, envValue, schema);
 				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
+					}
 					resolved[name] = coerced.value;
 					continue;
 				}
@@ -221,6 +260,9 @@ async function resolveFlags(
 			if (configValue !== undefined) {
 				const coerced = coerceConfigValue(name, schema.configPath, configValue, schema);
 				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
+					}
 					resolved[name] = coerced.value;
 					continue;
 				}
@@ -283,6 +325,9 @@ async function resolveFlags(
 				prompter,
 			);
 			if (promptResult.ok) {
+				if (schema.deprecated !== undefined) {
+					deprecations.push({ kind: 'flag', name, message: schema.deprecated });
+				}
 				resolved[name] = promptResult.value;
 				continue;
 			}
@@ -457,6 +502,30 @@ function coercePromptValue(
 			};
 		}
 
+		case 'custom': {
+			// Custom flags delegate to the parseFn. The prompt returns a raw value
+			// (typically a string from input prompt) — pass through parseFn.
+			if (schema.parseFn) {
+				try {
+					return { ok: true, value: schema.parseFn(raw) };
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					return {
+						ok: false,
+						error: new ValidationError(
+							`Failed to parse prompt value for flag --${flagName}: ${message}`,
+							{
+								code: 'TYPE_MISMATCH',
+								details: { flag: flagName, value: raw, expected: 'custom', source: 'prompt' },
+								suggest: `Enter a valid value for --${flagName}`,
+							},
+						),
+					};
+				}
+			}
+			return { ok: true, value: raw };
+		}
+
 		case 'array': {
 			// Multiselect prompts return string[]; accept arrays directly
 			if (Array.isArray(raw)) {
@@ -625,6 +694,29 @@ function coerceEnvValue(
 						},
 					),
 				};
+			}
+			return { ok: true, value: raw };
+		}
+
+		case 'custom': {
+			// Custom flags delegate to the parseFn. Env values are always strings.
+			if (schema.parseFn) {
+				try {
+					return { ok: true, value: schema.parseFn(raw) };
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					return {
+						ok: false,
+						error: new ValidationError(
+							`Failed to parse env ${envVar} for flag --${flagName}: ${message}`,
+							{
+								code: 'TYPE_MISMATCH',
+								details: { flag: flagName, envVar, value: raw, expected: 'custom' },
+								suggest: `Set ${envVar} to a valid value for --${flagName}`,
+							},
+						),
+					};
+				}
 			}
 			return { ok: true, value: raw };
 		}
@@ -813,6 +905,33 @@ function coerceConfigValue(
 			};
 		}
 
+		case 'custom': {
+			// Custom flags pass the raw config value directly to parseFn.
+			// Config values may be strings, numbers, booleans, arrays, or objects —
+			// parseFn receives `unknown` and is responsible for narrowing.
+			// @see flag.custom() JSDoc in core/schema/flag.ts for the public contract.
+			if (schema.parseFn) {
+				try {
+					return { ok: true, value: schema.parseFn(raw) };
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					return {
+						ok: false,
+						error: new ValidationError(
+							`Failed to parse config ${configPath} for flag --${flagName}: ${message}`,
+							{
+								code: 'TYPE_MISMATCH',
+								details: { flag: flagName, configPath, value: raw, expected: 'custom' },
+								suggest: `Set ${configPath} to a valid value for --${flagName} in your config`,
+							},
+						),
+					};
+				}
+			}
+			// No parseFn — pass raw value through as-is.
+			return { ok: true, value: raw };
+		}
+
 		case 'array': {
 			// Config arrays may be actual arrays (JSON) or comma-separated strings
 			if (Array.isArray(raw)) {
@@ -874,6 +993,7 @@ function coerceConfigValue(
 function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,
+	deprecations: DeprecationWarning[],
 ): Readonly<Record<string, unknown>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -883,6 +1003,9 @@ function resolveArgs(
 		const parsedValue = parsedArgs[name];
 
 		if (parsedValue !== undefined) {
+			if (schema.deprecated !== undefined) {
+				deprecations.push({ kind: 'arg', name, message: schema.deprecated });
+			}
 			// For variadic args, the parser produces an array. An empty array
 			// means "present but no values" — still valid unless required checks.
 			if (schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0) {
@@ -989,4 +1112,4 @@ function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationE
 // ---------------------------------------------------------------------------
 
 export { resolve };
-export type { ResolveOptions, ResolveResult };
+export type { DeprecationWarning, ResolveOptions, ResolveResult };

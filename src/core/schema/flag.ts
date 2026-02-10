@@ -72,7 +72,15 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 // ---------------------------------------------------------------------------
 
 /** Discriminator for the kind of value a flag accepts. */
-type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array';
+type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
+
+/**
+ * Custom parse function for `flag.custom()`.
+ *
+ * Receives `string` from CLI argv and env vars, or any JSON-representable
+ * value from config files. Narrow inside the function as needed.
+ */
+type FlagParseFn<T> = (raw: unknown) => T;
 
 /**
  * The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
@@ -100,6 +108,29 @@ interface FlagSchema {
 	readonly elementSchema: FlagSchema | undefined;
 	/** Interactive prompt configuration for v0.3+ resolution. */
 	readonly prompt: PromptConfig | undefined;
+	/** Custom parse function (only when `kind === 'custom'`). */
+	readonly parseFn: FlagParseFn<unknown> | undefined;
+	/**
+	 * Deprecation marker.
+	 *
+	 * - `undefined` — not deprecated (default)
+	 * - `true` — deprecated with no migration message
+	 * - `string` — deprecated with a reason/migration message
+	 *
+	 * When a deprecated flag is used, a warning is emitted to stderr.
+	 * Help text shows `[deprecated]` or `[deprecated: <reason>]`.
+	 */
+	readonly deprecated: string | true | undefined;
+	/**
+	 * Whether this flag propagates to subcommands in nested command trees.
+	 *
+	 * When `true`, the flag is automatically available to all descendant
+	 * commands. A child command that defines a flag with the same name
+	 * shadows the propagated parent flag.
+	 *
+	 * Defaults to `false`.
+	 */
+	readonly propagate: boolean;
 }
 
 /** Create base schema data with sensible defaults. */
@@ -115,6 +146,9 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 		enumValues: undefined,
 		elementSchema: undefined,
 		prompt: undefined,
+		parseFn: undefined,
+		deprecated: undefined,
+		propagate: false,
 		...overrides,
 	};
 }
@@ -232,6 +266,39 @@ class FlagBuilder<C extends FlagConfig> {
 			prompt: config,
 		});
 	}
+
+	/**
+	 * Mark this flag as deprecated.
+	 *
+	 * When used, a warning is emitted to stderr. Help text shows
+	 * `[deprecated]` or `[deprecated: <reason>]`.
+	 *
+	 * Does not change the flag's type-level config — it's metadata only.
+	 *
+	 * @param message - Optional migration reason/guidance.
+	 */
+	deprecated(message?: string): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			deprecated: message ?? true,
+		});
+	}
+
+	/**
+	 * Mark this flag as propagated to subcommands.
+	 *
+	 * Propagated flags are automatically available to all descendant
+	 * commands in a nested command tree. A child command that defines
+	 * a flag with the same name shadows the propagated parent flag.
+	 *
+	 * Does not change the flag's type-level config — it's metadata only.
+	 */
+	propagate(): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			propagate: true,
+		});
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -285,6 +352,37 @@ interface FlagFactory {
 	array<E extends FlagConfig>(
 		element: FlagBuilder<E>,
 	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }>;
+
+	/**
+	 * Custom-parsed flag. The parse function receives the raw value and must
+	 * return a value of type `T`. The return type is inferred from `parseFn`.
+	 *
+	 * The input is `string` from CLI argv and env vars, or any JSON value
+	 * from config files. Narrow inside the function as needed:
+	 *
+	 * ```ts
+	 * flag.custom((raw: unknown): string[] => {
+	 *   if (Array.isArray(raw)) return raw.map(String);
+	 *   if (typeof raw === 'string') return raw.split(',');
+	 *   throw new Error(`Expected string or array, got ${typeof raw}`);
+	 * })
+	 * ```
+	 *
+	 * Throw an `Error` (or `ParseError`) to signal invalid input — it will
+	 * be wrapped with context and re-thrown as a `ParseError`.
+	 *
+	 * @see `coerceConfigValue` `'custom'` case in `core/resolve/index.ts`
+	 *
+	 * @example
+	 * ```ts
+	 * flag.custom((raw) => new URL(String(raw)))
+	 * // inferred type: URL | undefined
+	 * ```
+	 */
+	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
+		readonly valueType: T;
+		readonly presence: 'optional';
+	}>;
 }
 
 /** Flag schema factory. Use `flag.<kind>()` to create a builder. */
@@ -317,6 +415,13 @@ const flag: FlagFactory = {
 	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }> {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
+
+	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
+		readonly valueType: T;
+		readonly presence: 'optional';
+	}> {
+		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
+	},
 };
 
 // ---------------------------------------------------------------------------
@@ -328,6 +433,7 @@ export type {
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
 	InferFlag,

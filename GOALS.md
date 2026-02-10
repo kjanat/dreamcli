@@ -411,27 +411,31 @@ dreamcli/
 ### 11) Release plan (milestones)
 
 **MVP (v0.1):** Schema builder, parsing, inference into `.action()`, auto-help, basic errors,
-`command.run()` test harness.
+`command.run()` test harness. *(done)*
 
 **v0.2:** Resolution chain (env/config/default), required handling, non-interactive behavior rules.
+*(done)*
 
-**v0.3:** Interactive prompting integration (portable prompt engine + pluggable renderer).
+**v0.3:** Interactive prompting integration (portable prompt engine + pluggable renderer). *(done)*
 
 **v0.4:** Middleware + typed context, structured output channel (`--json`, TTY detection, table).
+*(done)*
 
-**v0.5:** Completions generation (bash/zsh), runtime detection, Bun adapter.
+**v0.5:** Completions generation (bash/zsh), runtime detection, Bun adapter. *(done)*
 
 **v0.6:** Config file discovery + loading (XDG search paths, `--config` flag, JSON loader, plugin
-hook for YAML/TOML).
+hook for YAML/TOML). Extend `RuntimeAdapter` with filesystem/path primitives (`readFile`, `homedir`,
+`configDir`). Add `flag.custom(parseFn)` and `.deprecated()` modifier with help/parse warnings.
+*(done)*
 
 **v0.7:** Subcommand nesting (command trees: root > group > leaf, nested help, nested completion,
-nested dispatch in CLIBuilder).
+nested dispatch in CLIBuilder). *(done)*
 
-**v0.8:** Spinner/progress on Out (FR5 remainder: `out.spinner()`, `out.progress()`, auto-disable on
-`!isTTY`, suppress in `--json` mode, testkit capture).
+**v0.8:** Spinner/progress on Out (`out.spinner()`, `out.progress()`, auto-disable on `!isTTY`,
+suppress in `--json` mode, testkit capture).
 
 **v0.9:** Deno adapter + cross-runtime CI (Deno-specific APIs, permission handling, cross-runtime
-test matrix, adapter parity tests).
+test matrix, adapter parity tests). JSR publishing.
 
 **v1.0:** Stability guarantees, plugin lifecycle hooks (`beforeParse`, `afterResolve`,
 `beforeAction`, `afterAction`), public API audit, JSDoc coverage, README, compatibility matrix

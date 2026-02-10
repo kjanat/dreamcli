@@ -442,3 +442,55 @@ describe('runCommand — result structure', () => {
 		expect(result.error).toBeUndefined();
 	});
 });
+
+// ========================================================================
+// Deprecation warnings — end-to-end
+// ========================================================================
+
+describe('runCommand — deprecation warnings', () => {
+	it('emits deprecated flag warning to stderr', async () => {
+		const cmd = command('test')
+			.flag('old', flag.string().deprecated('use --new'))
+			.action(() => {});
+		const result = await runCommand(cmd, ['--old', 'val']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toContainEqual(
+			expect.stringContaining('flag --old is deprecated: use --new'),
+		);
+	});
+
+	it('emits deprecated arg warning to stderr', async () => {
+		const cmd = command('test')
+			.arg('target', arg.string().deprecated())
+			.action(() => {});
+		const result = await runCommand(cmd, ['prod']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toContainEqual(
+			expect.stringContaining('argument <target> is deprecated'),
+		);
+	});
+
+	it('does not emit warning when deprecated flag is not provided', async () => {
+		const cmd = command('test')
+			.flag('old', flag.string().deprecated())
+			.action(() => {});
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toHaveLength(0);
+	});
+
+	it('deprecation warning does not affect exit code', async () => {
+		const cmd = command('test')
+			.flag('old', flag.string().deprecated())
+			.action(({ out }) => {
+				out.log('ok');
+			});
+		const result = await runCommand(cmd, ['--old', 'val']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContainEqual('ok\n');
+	});
+});

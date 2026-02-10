@@ -31,6 +31,7 @@ function makeSchema(overrides?: Partial<CommandSchema>): CommandSchema {
 		hasAction: true,
 		interactive: undefined,
 		middleware: [],
+		commands: [],
 		...overrides,
 	};
 }
@@ -485,5 +486,46 @@ describe('resolve — multiple prompted flags', () => {
 
 		const result = await resolve(schema, parsed, { prompter });
 		expect(result.flags).toEqual({ name: 'Bob', region: 'us' });
+	});
+});
+
+// ========================================================================
+// Deprecation warnings — prompt path
+// ========================================================================
+
+describe('resolve — deprecation warnings via prompt', () => {
+	it('collects structured deprecation when deprecated flag is resolved from prompt', async () => {
+		const schema = makeSchema({
+			flags: {
+				old: createSchema('string', {
+					deprecated: 'use --new',
+					prompt: { kind: 'input', message: 'Old value?' },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+		const prompter = createTestPrompter(['answer']);
+
+		const result = await resolve(schema, parsed, { prompter });
+		expect(result.flags['old']).toBe('answer');
+		expect(result.deprecations).toHaveLength(1);
+		expect(result.deprecations[0]).toEqual({ kind: 'flag', name: 'old', message: 'use --new' });
+	});
+
+	it('no deprecation when deprecated flag prompt is cancelled', async () => {
+		const schema = makeSchema({
+			flags: {
+				old: createSchema('string', {
+					deprecated: true,
+					prompt: { kind: 'input', message: 'Old?' },
+					presence: 'optional',
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+		const prompter = createTestPrompter([PROMPT_CANCEL]);
+
+		const result = await resolve(schema, parsed, { prompter });
+		expect(result.deprecations).toHaveLength(0);
 	});
 });

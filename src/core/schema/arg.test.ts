@@ -345,3 +345,63 @@ describe('edge cases', () => {
 		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<string>();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// .deprecated() modifier
+// ---------------------------------------------------------------------------
+
+describe('.deprecated()', () => {
+	it('sets deprecated to true when called with no argument', () => {
+		const a = arg.string().deprecated();
+		expect(a.schema.deprecated).toBe(true);
+	});
+
+	it('sets deprecated to the message when called with a string', () => {
+		const a = arg.string().deprecated('use --target flag instead');
+		expect(a.schema.deprecated).toBe('use --target flag instead');
+	});
+
+	it('does not change presence', () => {
+		const a = arg.string().optional().deprecated();
+		expect(a.schema.presence).toBe('optional');
+	});
+
+	it('does not change kind', () => {
+		const a = arg.number().deprecated();
+		expect(a.schema.kind).toBe('number');
+	});
+
+	it('preserves type inference — required stays required', () => {
+		const a = arg.string().deprecated();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<string>();
+	});
+
+	it('preserves type inference — optional stays optional', () => {
+		const a = arg.string().optional().deprecated();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<string | undefined>();
+	});
+
+	it('preserves type inference — variadic stays variadic', () => {
+		const a = arg.string().variadic().deprecated();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<string[]>();
+	});
+
+	it('chains with other modifiers', () => {
+		const a = arg.string().optional().deprecated('use flag instead').describe('Target');
+		expect(a.schema.presence).toBe('optional');
+		expect(a.schema.deprecated).toBe('use flag instead');
+		expect(a.schema.description).toBe('Target');
+	});
+
+	it('returns a new builder (immutable)', () => {
+		const a = arg.string();
+		const b = a.deprecated();
+		expect(a.schema.deprecated).toBeUndefined();
+		expect(b.schema.deprecated).toBe(true);
+	});
+
+	it('defaults to undefined when not called', () => {
+		const a = arg.string();
+		expect(a.schema.deprecated).toBeUndefined();
+	});
+});

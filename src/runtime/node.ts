@@ -17,6 +17,22 @@ import type { ReadFn } from '../core/prompt/index.js';
 import type { RuntimeAdapter } from './adapter.js';
 
 // ---------------------------------------------------------------------------
+// Node.js error shape — for ENOENT detection without @types/node
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal shape for Node.js system errors (e.g. `ENOENT`, `EACCES`).
+ *
+ * Used to detect file-not-found when reading config files.
+ * Only the `code` property is needed; other fields are ignored.
+ *
+ * @internal
+ */
+interface NodeSystemError {
+	readonly code: string;
+}
+
+// ---------------------------------------------------------------------------
 // Minimal process shape — avoids @types/node dependency
 // ---------------------------------------------------------------------------
 
@@ -33,6 +49,8 @@ interface NodeProcess {
 	readonly argv: readonly string[];
 	readonly env: Readonly<Record<string, string | undefined>>;
 	cwd(): string;
+	/** Platform identifier (e.g. `'linux'`, `'darwin'`, `'win32'`). */
+	readonly platform: string;
 	readonly stdin: {
 		readonly isTTY?: boolean;
 	};
@@ -61,6 +79,75 @@ interface NodeProcess {
  */
 function getNodeProcess(): NodeProcess {
 	return (globalThis as unknown as { process: NodeProcess }).process;
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem & path helpers — config discovery primitives
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect whether an unknown thrown value is a Node.js system error
+ * with a string `code` property (e.g. `'ENOENT'`, `'EACCES'`).
+ *
+ * @internal
+ */
+function isNodeSystemError(err: unknown): err is NodeSystemError {
+	if (typeof err !== 'object' || err === null || !('code' in err)) return false;
+	// After the `in` check, TS narrows err to `object & Record<'code', unknown>`.
+	const candidate: { code: unknown } = err;
+	return typeof candidate.code === 'string';
+}
+
+/**
+ * Resolve the user's home directory from environment variables.
+ *
+ * **Windows** (`win32`): `USERPROFILE` → `HOMEDRIVE`+`HOMEPATH` (both required) → `HOME` → `C:\`
+ * **Unix**: `HOME` → `/`
+ *
+ * `HOMEPATH` alone is never used — it is a relative fragment (e.g. `\Users\alice`) that only
+ * makes sense when combined with `HOMEDRIVE` (e.g. `C:`). Using `HOMEPATH` without `HOMEDRIVE`
+ * could resolve against the working drive, producing an incorrect path.
+ *
+ * We avoid importing `node:os` to keep the factory synchronous and
+ * to maintain the pattern of deriving everything from the process object.
+ *
+ * @internal
+ */
+function resolveHomedir(
+	env: Readonly<Record<string, string | undefined>>,
+	platform: string,
+): string {
+	if (platform === 'win32') {
+		if (env.USERPROFILE) return env.USERPROFILE;
+		if (env.HOMEDRIVE && env.HOMEPATH) {
+			return env.HOMEDRIVE + env.HOMEPATH;
+		}
+		return env.HOME || 'C:\\';
+	}
+	return env.HOME || '/';
+}
+
+/**
+ * Resolve the platform-specific user configuration directory.
+ *
+ * - Unix: `$XDG_CONFIG_HOME` (if set), otherwise `~/.config`
+ * - Windows: `%APPDATA%` (if set), otherwise `~\AppData\Roaming`
+ *
+ * @internal
+ */
+function resolveConfigDir(
+	env: Readonly<Record<string, string | undefined>>,
+	platform: string,
+	homedir: string,
+): string {
+	if (platform === 'win32') {
+		if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
+		// Strip trailing separator(s) to avoid doubled backslash when
+		// homedir is a drive root like 'C:\'.
+		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
+		return `${normalizedHome}\\AppData\\Roaming`;
+	}
+	return env.XDG_CONFIG_HOME || `${homedir}/.config`;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +189,24 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	// This avoids importing readline unless prompting actually occurs.
 	const stdinRead: ReadFn = () => createNodeReadLine(p);
 
+	// --- Filesystem primitives for config discovery ---
+
+	const readFile = async (path: string): Promise<string | null> => {
+		const fs = await import('node:fs/promises');
+		try {
+			return await fs.readFile(path, 'utf8');
+		} catch (err: unknown) {
+			// ENOENT = file not found → null (expected for config discovery probing)
+			if (isNodeSystemError(err) && err.code === 'ENOENT') {
+				return null;
+			}
+			throw err; // Permission denied, is-directory, etc. → caller handles
+		}
+	};
+
+	const homedir = resolveHomedir(p.env, p.platform);
+	const configDir = resolveConfigDir(p.env, p.platform, homedir);
+
 	return {
 		argv: p.argv,
 		env: p.env,
@@ -112,6 +217,9 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		isTTY: p.stdout.isTTY === true,
 		stdinIsTTY: p.stdin.isTTY === true,
 		exit: (code) => p.exit(code),
+		readFile,
+		homedir,
+		configDir,
 	};
 }
 

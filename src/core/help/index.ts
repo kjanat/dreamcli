@@ -9,6 +9,7 @@
  */
 
 import type {
+	ArgSchema,
 	CommandArgEntry,
 	CommandExample,
 	CommandSchema,
@@ -82,6 +83,15 @@ function wrapText(text: string, width: number, indent: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Deprecation formatting
+// ---------------------------------------------------------------------------
+
+/** Format a deprecation annotation for help text. */
+function formatDeprecated(deprecated: string | true): string {
+	return typeof deprecated === 'string' ? `[deprecated: ${deprecated}]` : '[deprecated]';
+}
+
+// ---------------------------------------------------------------------------
 // Flag formatting
 // ---------------------------------------------------------------------------
 
@@ -132,15 +142,22 @@ function formatValueHint(schema: FlagSchema): string {
 		}
 		case 'boolean':
 			return '';
+		case 'custom':
+			return '<value>';
 	}
 }
 
-/** Build description with env/config/prompt/default/required annotations. */
+/** Build description with env/config/prompt/default/required/deprecated annotations. */
 function formatFlagDescription(schema: FlagSchema): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
 		parts.push(schema.description);
+	}
+
+	// Deprecation annotation — prominent, before other metadata
+	if (schema.deprecated !== undefined) {
+		parts.push(formatDeprecated(schema.deprecated));
 	}
 
 	// Resolution source annotations — show users where values can come from
@@ -208,11 +225,15 @@ function formatArgUsage(entry: CommandArgEntry): string {
 }
 
 /** Format arg description with annotations. */
-function formatArgDescription(schema: import('../schema/index.js').ArgSchema): string {
+function formatArgDescription(schema: ArgSchema): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
 		parts.push(schema.description);
+	}
+
+	if (schema.deprecated !== undefined) {
+		parts.push(formatDeprecated(schema.deprecated));
 	}
 
 	if (schema.presence === 'defaulted' && schema.defaultValue !== undefined) {
@@ -232,9 +253,10 @@ function formatArgDescription(schema: import('../schema/index.js').ArgSchema): s
  * Sections rendered (in order):
  * 1. **Usage** line — `program <command> [flags] <args>`
  * 2. **Description** — the command's `.description()` text
- * 3. **Arguments** — positional args table (if any)
- * 4. **Flags** — flags table with type hints and defaults
- * 5. **Examples** — usage examples (if any)
+ * 3. **Commands** — subcommands table (if any, skips hidden)
+ * 4. **Arguments** — positional args table (if any)
+ * 5. **Flags** — flags table with type hints and defaults
+ * 6. **Examples** — usage examples (if any)
  *
  * @param schema - The command schema to render help for.
  * @param options - Formatting options (width, binary name).
@@ -250,6 +272,12 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 	// ---- Description --------------------------------------------------------
 	if (schema.description !== undefined) {
 		sections.push(schema.description);
+	}
+
+	// ---- Commands (subcommands) ---------------------------------------------
+	const visibleCommands = schema.commands.filter((c) => !c.hidden);
+	if (visibleCommands.length > 0) {
+		sections.push(formatCommandsSection(visibleCommands, opts));
 	}
 
 	// ---- Arguments ----------------------------------------------------------
@@ -279,6 +307,11 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 	const parts: string[] = ['Usage:'];
 	const cmdName = opts.binName !== undefined ? `${opts.binName} ${schema.name}` : schema.name;
 	parts.push(cmdName);
+
+	// Subcommand placeholder — groups show <command> before flags/args
+	if (schema.commands.length > 0) {
+		parts.push('<command>');
+	}
 
 	// Flags placeholder
 	const flagNames = Object.keys(schema.flags);
@@ -347,6 +380,37 @@ function formatFlagsSection(
 		} else {
 			const padded = padEnd(left, descCol);
 			const wrapped = wrapText(entry.description, opts.width, descCol);
+			lines.push(`${padded}${wrapped}`);
+		}
+	}
+
+	return lines.join('\n');
+}
+
+function formatCommandsSection(
+	commands: readonly CommandSchema[],
+	opts: ResolvedHelpOptions,
+): string {
+	const lines: string[] = ['Commands:'];
+	const GAP = 2;
+
+	// Compute max name length for alignment
+	let maxNameLen = 0;
+	for (const cmd of commands) {
+		if (cmd.name.length > maxNameLen) {
+			maxNameLen = cmd.name.length;
+		}
+	}
+
+	const descCol = 2 + maxNameLen + GAP; // 2 for indent
+	for (const cmd of commands) {
+		const left = `  ${cmd.name}`;
+		const desc = cmd.description ?? '';
+		if (desc.length === 0) {
+			lines.push(left);
+		} else {
+			const padded = padEnd(left, descCol);
+			const wrapped = wrapText(desc, opts.width, descCol);
 			lines.push(`${padded}${wrapped}`);
 		}
 	}

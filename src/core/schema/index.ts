@@ -21,10 +21,12 @@ export { ArgBuilder, arg, createArgSchema } from './arg.js';
 export type {
 	ActionHandler,
 	ActionParams,
+	AnyCommandBuilder,
 	CommandArgEntry,
 	CommandConfig,
 	CommandExample,
 	CommandSchema,
+	ErasedCommand,
 	ErasedInteractiveResolver,
 	InteractiveParams,
 	InteractiveResolver,
@@ -32,12 +34,13 @@ export type {
 	Out,
 	TableColumn,
 } from './command.js';
-export { CommandBuilder, command } from './command.js';
+export { CommandBuilder, command, group } from './command.js';
 export type {
 	ConfirmPromptConfig,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
 	InferFlag,

@@ -7,8 +7,24 @@
 // Public API will be re-exported here as modules are implemented.
 // Each module barrel (e.g. ./errors/index.ts) exports only the public surface.
 
-export type { CLIRunOptions, CLISchema } from './core/cli/index.js';
+export type { CLIRunOptions, CLISchema, ConfigSettings } from './core/cli/index.js';
 export { CLIBuilder, cli } from './core/cli/index.js';
+export type { CompletionOptions, Shell } from './core/completion/index.js';
+export {
+	generateBashCompletion,
+	generateCompletion,
+	generateZshCompletion,
+	SHELLS,
+} from './core/completion/index.js';
+export type {
+	ConfigAdapter,
+	ConfigDiscoveryOptions,
+	ConfigDiscoveryResult,
+	ConfigFound,
+	ConfigNotFound,
+	FormatLoader,
+} from './core/config/index.js';
+export { buildConfigSearchPaths, configFormat, discoverConfig } from './core/config/index.js';
 export type {
 	CLIErrorJSON,
 	CLIErrorOptions,
@@ -52,11 +68,12 @@ export {
 	PROMPT_CANCEL,
 	resolvePromptConfig,
 } from './core/prompt/index.js';
-export type { ResolveOptions, ResolveResult } from './core/resolve/index.js';
+export type { DeprecationWarning, ResolveOptions, ResolveResult } from './core/resolve/index.js';
 export { resolve } from './core/resolve/index.js';
 export type {
 	ActionHandler,
 	ActionParams,
+	AnyCommandBuilder,
 	ArgConfig,
 	ArgFactory,
 	ArgKind,
@@ -68,11 +85,13 @@ export type {
 	CommandExample,
 	CommandSchema,
 	ConfirmPromptConfig,
+	ErasedCommand,
 	ErasedInteractiveResolver,
 	ErasedMiddlewareHandler,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
 	InferArg,
@@ -110,9 +129,24 @@ export {
 	createSchema,
 	FlagBuilder,
 	flag,
+	group,
 	middleware,
 } from './core/schema/index.js';
 export type { RunOptions, RunResult } from './core/testkit/index.js';
 export { runCommand } from './core/testkit/index.js';
-export type { RuntimeAdapter, TestAdapterOptions } from './runtime/index.js';
-export { createNodeAdapter, createTestAdapter, ExitError } from './runtime/index.js';
+export type {
+	GlobalForDetect,
+	NodeProcess,
+	Runtime,
+	RuntimeAdapter,
+	TestAdapterOptions,
+} from './runtime/index.js';
+export {
+	createAdapter,
+	createBunAdapter,
+	createNodeAdapter,
+	createTestAdapter,
+	detectRuntime,
+	ExitError,
+	RUNTIMES,
+} from './runtime/index.js';

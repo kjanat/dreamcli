@@ -22,6 +22,7 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 		hasAction: false,
 		interactive: undefined,
 		middleware: [],
+		commands: [],
 		...overrides,
 	};
 }
@@ -474,6 +475,70 @@ describe('resolve — config array flags', () => {
 		const options: ResolveOptions = { config: { tags: 42 } };
 
 		await expect(resolve(schema, parsed, options)).rejects.toThrow(ValidationError);
+	});
+});
+
+// ========================================================================
+// Config resolution — custom flags
+// ========================================================================
+
+describe('resolve — config custom flags', () => {
+	it('resolves custom flag from config via parseFn (string value)', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					configPath: 'hex',
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+				}),
+			},
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { config: { hex: 'ff' } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.flags.hex).toBe(255);
+	});
+
+	it('passes non-string config value directly to parseFn', async () => {
+		const schema = makeSchema({
+			flags: {
+				doubled: createSchema('custom', {
+					configPath: 'value',
+					parseFn: (raw: unknown) => Number(raw) * 2,
+				}),
+			},
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { config: { value: 21 } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.flags.doubled).toBe(42);
+	});
+
+	it('config custom flag parse failure produces validation error', async () => {
+		const schema = makeSchema({
+			flags: {
+				value: createSchema('custom', {
+					configPath: 'value',
+					parseFn: () => {
+						throw new Error('Bad value');
+					},
+				}),
+			},
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { config: { value: 'x' } };
+
+		try {
+			await resolve(schema, parsed, options);
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('TYPE_MISMATCH');
+				expect(err.message).toContain('Failed to parse config value');
+			}
+		}
 	});
 });
 

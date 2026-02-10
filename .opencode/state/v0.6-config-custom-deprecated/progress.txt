@@ -1,0 +1,96 @@
+# Progress Log
+PRD: v0.6-config-custom-deprecated
+Started: 2026-02-10
+
+## Codebase Patterns
+
+- **RuntimeAdapter extension pattern**: Add field to interface → add to TestAdapterOptions with sensible default → implement in createTestAdapter → implement in createNodeAdapter → add `platform` to NodeProcess if needed → update all mock NodeProcess objects in tests → add test section for new fields
+- **Homedir/configDir from env vars**: Avoid `node:os` import; derive from `process.env` (HOME, USERPROFILE, XDG_CONFIG_HOME, APPDATA) + `process.platform` to keep factory synchronous
+- **readFile ENOENT → null**: Use `isNodeSystemError` type guard to detect `{ code: 'ENOENT' }` without `@types/node`; rethrow all other errors
+- **node-builtins.d.ts**: Add minimal type shims for any new `node:*` imports (only the subset actually used)
+- **Config discovery pattern**: Pure function taking `Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>` — narrow adapter pick for testability. Discriminated union result (`found: true/false`), errors thrown as `CLIError` with specific codes. Extension-based loader dispatch with JSON built-in.
+- **Path separator inference**: Detect `\` vs `/` from adapter-provided paths (already platform-native) to avoid `node:path` import. `joinPath(base, ...segments)` helper.
+- **Virtual filesystem testing**: `stubAdapter({ '/path': 'content' })` pattern for config tests — maps paths to file content, returns `null` for missing.
+- **Global flag extraction in `.run()`**: Extract flags that need I/O (like `--config <path>`) in `.run()` before calling `.execute()`. Follows same pattern as `env`/`isTTY` auto-sourcing — `.run()` does adapter-dependent work, passes result to pure `.execute()`.
+- **CLISchema extension pattern**: Add field with `| undefined` default → update `cli()` factory to include it → add builder method → conditionally act on it in `.run()`/`.execute()`.
+- **Config errors before command dispatch**: Detect `--json` from raw argv before config loading to render errors in correct format (JSON vs text).
+- **Plugin hook pattern**: Incremental builder method `.configLoader(loader)` appends to `configSettings.loaders`. Requires `.config()` first (throws `INVALID_BUILDER_STATE` otherwise). `configFormat(extensions, parseFn)` convenience factory avoids manual object construction.
+- **Metadata modifier pattern**: `.deprecated(message?)` on builders — metadata-only, preserves type-level config. Schema field `deprecated: string | true | undefined`. Warnings collected in resolve (where source is known), returned in `ResolveResult.warnings`, emitted by consumers (`runCommand()`, CLI).
+
+---
+<!-- Task logs below - APPEND ONLY -->
+
+## Task — runtime-adapter-ext
+- Extended `RuntimeAdapter` with `readFile`, `homedir`, `configDir`
+- `readFile`: async, returns `null` for ENOENT, throws on other errors; uses lazy `import('node:fs/promises')`
+- `homedir`: computed from env vars (HOME/USERPROFILE) + platform; avoids `node:os` import
+- `configDir`: XDG_CONFIG_HOME on Unix, APPDATA on Windows; falls back to `~/.config` / `~\AppData\Roaming`
+- Added `platform` to `NodeProcess` interface
+- Updated `createTestAdapter` with defaults: `readFile → null`, `homedir → '/home/test'`, `configDir → '/home/test/.config'`
+- Added `NodeSystemError` type + `isNodeSystemError` type guard
+- Added `resolveHomedir` + `resolveConfigDir` helper functions
+- Added `node:fs/promises` to `node-builtins.d.ts`
+- Files changed: `adapter.ts`, `node.ts`, `node-builtins.d.ts`, `runtime.test.ts`, `bun.test.ts`
+- **Learnings:** All mock `NodeProcess` objects need updating when interface changes — 10 in runtime.test.ts + helper in bun.test.ts
+
+## Task — config-discovery
+- New module `src/core/config/index.ts` — pure config file discovery + loading
+- `discoverConfig(appName, adapter, options?)` probes candidate paths via `adapter.readFile()`
+- Search order: `.{app}.json` (cwd) → `{app}.config.json` (cwd) → `configDir/{app}/config.json`
+- Discriminated union result: `ConfigFound | ConfigNotFound`
+- 3 error codes: `CONFIG_NOT_FOUND` (explicit path), `CONFIG_PARSE_ERROR`, `CONFIG_UNKNOWN_FORMAT`
+- `FormatLoader` interface for custom formats (TOML/YAML); JSON built-in
+- `buildConfigSearchPaths()` exported separately for help text / debugging
+- `ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>` — narrow pick
+- Path utilities: `joinPath` (infers separator from base), `getExtension`
+- All types + functions exported from `src/index.ts` barrel
+- Files: `src/core/config/index.ts` (new), `src/core/config/config.test.ts` (new, 28 tests), `src/index.ts` (barrel)
+- **Learnings:** `details` field on `CLIError` is `Record<string, unknown>` — bracket notation required for index access with `noUncheckedIndexedAccess`; biome flags as info but it's correct
+
+## Task — config-flag
+- Added `ConfigSettings` type + `configSettings` field to `CLISchema`
+- Added `.config(appName, loaders?)` builder method on `CLIBuilder` (immutable, returns new builder)
+- Added `extractConfigFlag()` helper — extracts `--config <path>` from argv, returns filtered argv
+- Modified `.run()` to auto-discover config before command dispatch:
+  - Calls `discoverConfig()` with adapter when `.config()` was called on builder
+  - Skips config loading for `completions` subcommand
+  - Explicit `options.config` takes precedence over loaded config
+  - Config errors rendered as text (or JSON when `--json` present) before exit
+- Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-config.test.ts` (new, 19 tests), `src/core/completion/completion.test.ts` (CLISchema fix), `src/index.ts` (barrel)
+- **Learnings:** CLISchema changes ripple to completion.test.ts which creates CLISchema objects directly via `minimalSchema()` helper; `--json` detection must happen before config loading for correct error rendering
+
+## Task — config-plugin
+- Added `configFormat(extensions, parseFn)` convenience factory to `src/core/config/index.ts`
+- Added `.configLoader(loader)` incremental builder method to `CLIBuilder`
+  - Appends to `configSettings.loaders`; throws `INVALID_BUILDER_STATE` if `.config()` not called first
+  - Preserves loaders from initial `.config(appName, loaders?)` call
+- Exported `configFormat` from barrel `src/index.ts`
+- Files changed: `src/core/config/index.ts`, `src/core/cli/index.ts`, `src/core/cli/cli-config.test.ts` (+7 tests), `src/core/config/config.test.ts` (+3 tests), `src/index.ts`
+- **Learnings:** FormatLoader infrastructure was already well-designed for extensibility — the plugin hook was mainly a builder ergonomics + factory concern, not a core architecture change. `configSettings.loaders` being `readonly FormatLoader[] | undefined` works cleanly with `?? []` spread pattern.
+
+## Task — flag-custom
+- Added `'custom'` to `FlagKind` union and `FlagParseFn<T>` type alias
+- Added `parseFn: FlagParseFn<unknown> | undefined` to `FlagSchema`
+- Added `flag.custom<T>(parseFn)` factory — infers `T` from parseFn return type
+- Wired through parser: `coerceFlagValue` case calls `parseFn`, wraps errors in `ParseError`
+- Wired through resolve chain: all 3 coerce functions (`coerceEnvValue`, `coerceConfigValue`, `coercePromptValue`) handle `'custom'` — env/prompt pass raw string, config coerces non-string to string first
+- Updated help formatter: `formatValueHint` returns `<value>` for custom flags
+- Updated completion.test.ts `flagSchema()` helper with `parseFn: undefined`
+- Exported `FlagParseFn` from schema barrel and public barrel
+- 34 new tests: flag.test.ts (+15), parse.test.ts (+6), resolve.test.ts (+4), resolve-env.test.ts (+3), resolve-config.test.ts (+3), resolve-integration.test.ts (+2 describes, 6 tests), help.test.ts (+1)
+- Files changed: `src/core/schema/flag.ts`, `src/core/parse/index.ts`, `src/core/resolve/index.ts`, `src/core/help/index.ts`, `src/core/schema/index.ts`, `src/index.ts`, `src/core/completion/completion.test.ts`, + 6 test files
+- **Learnings:** Mirroring `arg.custom()` pattern for flags requires wiring through more touchpoints (parser coercion + 3 resolve coercions + help) since flags have env/config/prompt resolution that args don't. The `as FlagParseFn<unknown>` cast in factory is the same justified pattern as `ArgParseFn<unknown>`. Tests with `createSchema('custom')` produce a flag without parseFn — must handle gracefully (return raw string).
+
+## Task — deprecated-modifier
+- Added `deprecated: string | true | undefined` to `FlagSchema` and `ArgSchema`
+- Added `.deprecated(message?)` to `FlagBuilder` and `ArgBuilder` — metadata-only, preserves type config
+- Added `warnings: readonly string[]` to `ResolveResult` — warnings collected during resolution when deprecated flags/args are explicitly provided (CLI, env, config, prompt)
+- Added `formatDeprecated()` helper in help module — renders `[deprecated]` or `[deprecated: reason]`
+- Updated `formatFlagDescription()` and `formatArgDescription()` to show deprecation annotations
+- Added `formatDeprecatedFlagWarning()` and `formatDeprecatedArgWarning()` in resolve module
+- Warning collection in 4 resolve paths: CLI parsed, env, config, prompt (not for default fallthrough)
+- `runCommand()` emits `out.warn()` for each `ResolveResult.warnings` entry
+- Updated `completion.test.ts` `flagSchema()` helper with `deprecated: undefined`
+- 46 new tests: flag.test.ts (+12), arg.test.ts (+10), help.test.ts (+5), resolve.test.ts (+15), resolve-prompt.test.ts (+2), testkit.test.ts (+4)
+- Files changed: `src/core/schema/flag.ts`, `src/core/schema/arg.ts`, `src/core/help/index.ts`, `src/core/resolve/index.ts`, `src/core/testkit/index.ts`, `src/core/completion/completion.test.ts`, + 5 test files
+- **Learnings:** Warnings belong in the resolve layer (not consumer layer) because resolve already knows the value's source. Returning `warnings` in `ResolveResult` avoids duplicating source-detection logic in `runCommand()` and `CLIBuilder.execute()`. Prompt-resolved deprecated flags also need warnings — easy to miss since prompt is pass 2.

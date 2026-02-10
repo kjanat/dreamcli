@@ -16,6 +16,20 @@ import { createNodeAdapter } from './node.js';
 // Test helpers
 // ---------------------------------------------------------------------------
 
+/** Create a minimal mock NodeProcess with optional overrides. */
+function mockNodeProcess(overrides?: Partial<NodeProcess>): NodeProcess {
+	return {
+		argv: overrides?.argv ?? [],
+		env: overrides?.env ?? {},
+		cwd: overrides?.cwd ?? (() => '/'),
+		platform: overrides?.platform ?? 'linux',
+		stdin: overrides?.stdin ?? {},
+		stdout: overrides?.stdout ?? { write: vi.fn() },
+		stderr: overrides?.stderr ?? { write: vi.fn() },
+		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
+	};
+}
+
 function deployCommand() {
 	return command('deploy')
 		.description('Deploy to an environment')
@@ -157,6 +171,7 @@ describe('createNodeAdapter', () => {
 			argv: ['node', 'cli.js', 'deploy'],
 			env: { NODE_ENV: 'test' },
 			cwd: () => '/mock/cwd',
+			platform: 'linux',
 			stdin: { isTTY: true },
 			stdout: {
 				isTTY: true,
@@ -179,15 +194,7 @@ describe('createNodeAdapter', () => {
 
 	it('routes stdout writes to process.stdout.write', () => {
 		const writeFn = vi.fn();
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: {},
-			stdout: { isTTY: false, write: writeFn },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
+		const mockProc = mockNodeProcess({ stdout: { isTTY: false, write: writeFn } });
 
 		const adapter = createNodeAdapter(mockProc);
 		adapter.stdout('hello world');
@@ -197,15 +204,7 @@ describe('createNodeAdapter', () => {
 
 	it('routes stderr writes to process.stderr.write', () => {
 		const writeFn = vi.fn();
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: writeFn },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
+		const mockProc = mockNodeProcess({ stderr: { write: writeFn } });
 
 		const adapter = createNodeAdapter(mockProc);
 		adapter.stderr('error message');
@@ -215,15 +214,7 @@ describe('createNodeAdapter', () => {
 
 	it('delegates exit to process.exit', () => {
 		const exitFn = vi.fn() as unknown as (code: number) => never;
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: exitFn,
-		};
+		const mockProc = mockNodeProcess({ exit: exitFn });
 
 		const adapter = createNodeAdapter(mockProc);
 		adapter.exit(42);
@@ -232,31 +223,12 @@ describe('createNodeAdapter', () => {
 	});
 
 	it('isTTY is false when stdout.isTTY is undefined', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(adapter.isTTY).toBe(false);
 	});
 
 	it('isTTY is false when stdout.isTTY is false', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: {},
-			stdout: { isTTY: false, write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
+		const mockProc = mockNodeProcess({ stdout: { isTTY: false, write: vi.fn() } });
 		const adapter = createNodeAdapter(mockProc);
 		expect(adapter.isTTY).toBe(false);
 	});
@@ -477,62 +449,22 @@ describe('createTestAdapter stdin', () => {
 
 describe('createNodeAdapter stdin', () => {
 	it('stdinIsTTY is true when stdin.isTTY is true', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: { isTTY: true },
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: true } }));
 		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is undefined', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(adapter.stdinIsTTY).toBe(false);
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is false', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: { isTTY: false },
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: false } }));
 		expect(adapter.stdinIsTTY).toBe(false);
 	});
 
 	it('stdin is a ReadFn (function)', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(typeof adapter.stdin).toBe('function');
 	});
 });
@@ -733,6 +665,192 @@ describe('CLIBuilder.run() prompt gating', () => {
 		// The prompt message should be written to stderr (prompt output uses stderr
 		// so it doesn't interfere with command stdout which may be piped)
 		expect(stderrLines.join('')).toContain('Your name?');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// createTestAdapter — filesystem fields
+// ---------------------------------------------------------------------------
+
+describe('createTestAdapter — filesystem', () => {
+	it('default readFile returns null (file not found)', async () => {
+		const adapter = createTestAdapter();
+		const result = await adapter.readFile('/any/path');
+		expect(result).toBeNull();
+	});
+
+	it('default homedir is /home/test', () => {
+		const adapter = createTestAdapter();
+		expect(adapter.homedir).toBe('/home/test');
+	});
+
+	it('default configDir is /home/test/.config', () => {
+		const adapter = createTestAdapter();
+		expect(adapter.configDir).toBe('/home/test/.config');
+	});
+
+	it('accepts custom readFile', async () => {
+		const files = new Map([['/etc/myapp/config.json', '{"region":"eu"}']]);
+		const adapter = createTestAdapter({
+			readFile: (path) => Promise.resolve(files.get(path) ?? null),
+		});
+
+		expect(await adapter.readFile('/etc/myapp/config.json')).toBe('{"region":"eu"}');
+		expect(await adapter.readFile('/nonexistent')).toBeNull();
+	});
+
+	it('accepts custom homedir', () => {
+		const adapter = createTestAdapter({ homedir: '/Users/alice' });
+		expect(adapter.homedir).toBe('/Users/alice');
+	});
+
+	it('accepts custom configDir', () => {
+		const adapter = createTestAdapter({ configDir: '/Users/alice/.config' });
+		expect(adapter.configDir).toBe('/Users/alice/.config');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// createNodeAdapter — filesystem fields
+// ---------------------------------------------------------------------------
+
+describe('createNodeAdapter — filesystem', () => {
+	it('readFile is a function', () => {
+		const adapter = createNodeAdapter(mockNodeProcess());
+		expect(typeof adapter.readFile).toBe('function');
+	});
+
+	it('homedir uses HOME env on linux', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				env: { HOME: '/home/alice' },
+			}),
+		);
+		expect(adapter.homedir).toBe('/home/alice');
+	});
+
+	it('homedir uses USERPROFILE on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		expect(adapter.homedir).toBe('C:\\Users\\alice');
+	});
+
+	it('homedir falls back to / on linux when HOME unset', () => {
+		const adapter = createNodeAdapter(mockNodeProcess());
+		expect(adapter.homedir).toBe('/');
+	});
+
+	it('configDir uses XDG_CONFIG_HOME on linux', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				env: { HOME: '/home/alice', XDG_CONFIG_HOME: '/custom/config' },
+			}),
+		);
+		expect(adapter.configDir).toBe('/custom/config');
+	});
+
+	it('configDir defaults to ~/.config on linux', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				env: { HOME: '/home/alice' },
+			}),
+		);
+		expect(adapter.configDir).toBe('/home/alice/.config');
+	});
+
+	it('configDir uses APPDATA on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: 'C:\\Users\\alice\\AppData\\Roaming' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('configDir defaults to AppData\\Roaming on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('configDir normalizes trailing separator in homedir on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		// Must not produce doubled backslash: C:\\\\AppData\\Roaming
+		expect(adapter.configDir).toBe('C:\\AppData\\Roaming');
+	});
+
+	it('configDir normalizes trailing slash in homedir on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice\\' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('configDir treats empty APPDATA as unset on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: '' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('readFile returns file contents for existing files', async () => {
+		const adapter = createNodeAdapter();
+		// Use the adapter's own cwd to find a file we know exists
+		const content = await adapter.readFile(`${adapter.cwd}/package.json`);
+		expect(content).not.toBeNull();
+		expect(content).toContain('dreamcli');
+	});
+
+	it('readFile returns null for nonexistent files', async () => {
+		const adapter = createNodeAdapter();
+		const result = await adapter.readFile('/tmp/dreamcli-test-nonexistent-file-12345');
+		expect(result).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// RuntimeAdapter interface — filesystem contract
+// ---------------------------------------------------------------------------
+
+describe('RuntimeAdapter interface — filesystem', () => {
+	it('test adapter satisfies RuntimeAdapter filesystem fields', () => {
+		const adapter: RuntimeAdapter = createTestAdapter();
+		expect(typeof adapter.readFile).toBe('function');
+		expect(typeof adapter.homedir).toBe('string');
+		expect(typeof adapter.configDir).toBe('string');
+	});
+
+	it('node adapter satisfies RuntimeAdapter filesystem fields', () => {
+		const adapter: RuntimeAdapter = createNodeAdapter();
+		expect(typeof adapter.readFile).toBe('function');
+		expect(typeof adapter.homedir).toBe('string');
+		expect(typeof adapter.configDir).toBe('string');
 	});
 });
 

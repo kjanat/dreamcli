@@ -20,7 +20,7 @@ import { createCaptureOutput } from '../output/index.js';
 import { parse } from '../parse/index.js';
 import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTestPrompter } from '../prompt/index.js';
-import type { ResolveOptions } from '../resolve/index.js';
+import type { DeprecationWarning, ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
 import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.js';
@@ -138,6 +138,17 @@ interface RunOptions {
 	 * Used when `--help` is detected.
 	 */
 	readonly help?: HelpOptions;
+
+	/**
+	 * Command schema with propagated flags merged in.
+	 *
+	 * When provided, used for parsing and resolution instead of `cmd.schema`.
+	 * Set by the CLI dispatch layer after collecting propagated flags from
+	 * the command ancestry path.
+	 *
+	 * @internal — set by dispatch layer, not for public use.
+	 */
+	readonly mergedSchema?: CommandSchema;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,9 +215,13 @@ async function runCommand<
 		Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
 	);
 
+	// Use merged schema (with propagated flags) when provided by dispatch layer,
+	// otherwise fall back to the command's own schema.
+	const schema = options?.mergedSchema ?? cmd.schema;
+
 	// -- Help detection -------------------------------------------------------
 	if (argv.includes('--help') || argv.includes('-h')) {
-		const helpText = formatHelp(cmd.schema, options?.help);
+		const helpText = formatHelp(schema, options?.help);
 		out.log(helpText);
 		return buildResult(0, captured, undefined);
 	}
@@ -223,7 +238,7 @@ async function runCommand<
 
 	try {
 		// -- Parse ---------------------------------------------------------------
-		const parsed = parse(cmd.schema, argv);
+		const parsed = parse(schema, argv);
 
 		// -- Resolve -------------------------------------------------------------
 		// Determine the prompt engine: explicit prompter takes precedence,
@@ -236,7 +251,12 @@ async function runCommand<
 			...(options?.config !== undefined ? { config: options.config } : {}),
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
 		};
-		const resolved = await resolve(cmd.schema, parsed, resolveOptions);
+		const resolved = await resolve(schema, parsed, resolveOptions);
+
+		// -- Deprecation warnings ------------------------------------------------
+		for (const d of resolved.deprecations) {
+			out.warn(formatDeprecation(d));
+		}
 
 		// -- Execute middleware chain + handler -----------------------------------
 		// The resolver guarantees that resolved.flags and resolved.args match
@@ -348,6 +368,25 @@ function buildResult(
 		stderr: captured.stderr,
 		error,
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Deprecation formatting (presentation layer — not resolve's responsibility)
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a structured deprecation warning for human-readable stderr output.
+ *
+ * This is a **consumer-side** formatting function — the resolve layer returns
+ * structured `DeprecationWarning` data; consumers decide how to render it.
+ *
+ * @internal
+ */
+function formatDeprecation(d: DeprecationWarning): string {
+	const entity = d.kind === 'flag' ? `flag --${d.name}` : `argument <${d.name}>`;
+	return typeof d.message === 'string'
+		? `Warning: ${entity} is deprecated: ${d.message}`
+		: `Warning: ${entity} is deprecated`;
 }
 
 // ---------------------------------------------------------------------------

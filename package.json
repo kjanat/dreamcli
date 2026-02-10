@@ -1,18 +1,18 @@
 {
 	"name": "dreamcli",
-	"version": "0.4.0",
+	"version": "0.7.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"license": "MIT",
 	"type": "module",
 	"exports": {
 		".": {
-			"import": "./dist/index.js",
+			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
 		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.cjs",
-	"module": "./dist/index.js",
+	"module": "./dist/index.mjs",
 	"types": "./dist/index.d.cts",
 	"files": [
 		"dist"

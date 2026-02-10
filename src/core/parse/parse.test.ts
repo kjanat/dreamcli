@@ -21,6 +21,7 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 		hasAction: false,
 		interactive: undefined,
 		middleware: [],
+		commands: [],
 		...overrides,
 	};
 }
@@ -601,6 +602,100 @@ describe('parse — errors', () => {
 			const pe = err as InstanceType<typeof ParseError>;
 			expect(pe.exitCode).toBe(2);
 		}
+	});
+});
+
+// ========================================================================
+// Custom flag parsing
+// ========================================================================
+
+describe('parse — custom flags', () => {
+	it('custom flag invokes parseFn on the raw string', () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+				}),
+			},
+		});
+		const result = parse(schema, ['--hex', 'ff']);
+		expect(result.flags.hex).toBe(255);
+	});
+
+	it('custom flag with inline value', () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+				}),
+			},
+		});
+		const result = parse(schema, ['--hex=a0']);
+		expect(result.flags.hex).toBe(160);
+	});
+
+	it('custom flag parse failure throws INVALID_VALUE', () => {
+		const schema = makeSchema({
+			flags: {
+				port: createSchema('custom', {
+					parseFn: (raw: unknown) => {
+						const n = Number(raw);
+						if (Number.isNaN(n) || n < 0 || n > 65535) throw new Error('Invalid port');
+						return n;
+					},
+				}),
+			},
+		});
+		expect(() => parse(schema, ['--port', 'abc'])).toThrow(ParseError);
+		try {
+			parse(schema, ['--port', 'abc']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.code).toBe('INVALID_VALUE');
+			expect(pe.message).toContain('Failed to parse flag --port');
+			expect(pe.message).toContain('Invalid port');
+		}
+	});
+
+	it('custom flag re-throws ParseError from parseFn as-is', () => {
+		const schema = makeSchema({
+			flags: {
+				value: createSchema('custom', {
+					parseFn: () => {
+						throw new ParseError('Custom error', { code: 'INVALID_VALUE' });
+					},
+				}),
+			},
+		});
+		try {
+			parse(schema, ['--value', 'x']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.message).toBe('Custom error');
+		}
+	});
+
+	it('custom flag with short alias', () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					aliases: ['x'],
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+				}),
+			},
+		});
+		const result = parse(schema, ['-x', 'ff']);
+		expect(result.flags.hex).toBe(255);
+	});
+
+	it('custom flag without parseFn returns raw string', () => {
+		const schema = makeSchema({
+			flags: {
+				value: createSchema('custom'),
+			},
+		});
+		const result = parse(schema, ['--value', 'hello']);
+		expect(result.flags.value).toBe('hello');
 	});
 });
 

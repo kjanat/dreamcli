@@ -29,7 +29,8 @@
 			},
 			"complexity": {
 				"noUselessFragments": "warn",
-				"noUselessTypeConstraint": "warn"
+				"noUselessTypeConstraint": "warn",
+				"useLiteralKeys": "off"
 			}
 		}
 	},

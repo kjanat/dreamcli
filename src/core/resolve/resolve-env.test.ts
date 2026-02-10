@@ -22,6 +22,7 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 		hasAction: false,
 		interactive: undefined,
 		middleware: [],
+		commands: [],
 		...overrides,
 	};
 }
@@ -544,6 +545,65 @@ describe('resolve — env error aggregation', () => {
 // ========================================================================
 // Env resolution — mixed scenarios
 // ========================================================================
+
+describe('resolve — env custom flags', () => {
+	it('resolves custom flag from env via parseFn', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					envVar: 'HEX_VALUE',
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
+				}),
+			},
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { env: { HEX_VALUE: 'ff' } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.flags.hex).toBe(255);
+	});
+
+	it('env custom flag parse failure produces validation error', async () => {
+		const schema = makeSchema({
+			flags: {
+				port: createSchema('custom', {
+					envVar: 'PORT',
+					parseFn: (raw: unknown) => {
+						const n = Number(raw);
+						if (Number.isNaN(n)) throw new Error('Not a number');
+						return n;
+					},
+				}),
+			},
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { env: { PORT: 'abc' } };
+
+		try {
+			await resolve(schema, parsed, options);
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('TYPE_MISMATCH');
+				expect(err.message).toContain('Failed to parse env PORT');
+			}
+		}
+	});
+
+	it('custom flag without parseFn passes raw env string through', async () => {
+		const schema = makeSchema({
+			flags: {
+				value: createSchema('custom', { envVar: 'VALUE' }),
+			},
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { env: { VALUE: 'hello' } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.flags.value).toBe('hello');
+	});
+});
 
 describe('resolve — mixed env scenarios', () => {
 	it('resolves complex multi-flag command with mixed sources', async () => {

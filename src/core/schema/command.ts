@@ -9,6 +9,7 @@
  * @module dreamcli/core/schema/command
  */
 
+import type { RunOptions, RunResult } from '../testkit/index.js';
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.js';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.js';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.js';
@@ -291,12 +292,91 @@ interface CommandSchema {
 	 * at the type level and via object spread at runtime.
 	 */
 	readonly middleware: readonly ErasedMiddlewareHandler[];
+	/**
+	 * Nested subcommand schemas (for help rendering and completion).
+	 *
+	 * Pure data — no execution closures. Populated by `.command()` on
+	 * `CommandBuilder`. Empty for leaf commands.
+	 */
+	readonly commands: readonly CommandSchema[];
 }
 
 /** A named positional arg entry in the command schema. */
 interface CommandArgEntry {
 	readonly name: string;
 	readonly schema: ArgSchema;
+}
+
+// ---------------------------------------------------------------------------
+// Type-erased command interface (shared between schema and CLI layers)
+// ---------------------------------------------------------------------------
+
+/**
+ * A type-erased command entry for heterogeneous command storage.
+ *
+ * Commands registered via `CLIBuilder.command()` have heterogeneous `F`, `A`,
+ * and `C` type parameters. At the dispatch level we only need the runtime
+ * schema (for name/alias matching and help) and the ability to delegate to
+ * `runCommand()`. This interface captures exactly that contract.
+ *
+ * The `_execute` function closes over the original typed `CommandBuilder`,
+ * preserving full type safety inside the closure while presenting a
+ * uniform interface to the dispatcher.
+ *
+ * Defined here (rather than in the CLI layer) so both `CommandBuilder` and
+ * `CLIBuilder` can reference it without circular imports.
+ *
+ * @internal
+ */
+interface ErasedCommand {
+	/** Runtime schema for name matching and help rendering. */
+	readonly schema: CommandSchema;
+	/**
+	 * Nested subcommands (name/alias → erased child).
+	 *
+	 * Built recursively by `eraseCommand()` in the CLI layer.
+	 * Empty map for leaf commands. The dispatch layer uses this for
+	 * recursive command tree traversal.
+	 *
+	 * @internal
+	 */
+	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
+	/** Execute this command against argv. Closes over the typed CommandBuilder. */
+	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
+}
+
+// ---------------------------------------------------------------------------
+// Type-erased builder alias (for heterogeneous subcommand storage)
+// ---------------------------------------------------------------------------
+
+/**
+ * Type-erased command builder for heterogeneous storage in `_subcommands`.
+ *
+ * Uses widest possible generic bounds so any `CommandBuilder<F, A, C>` is
+ * assignable. The CLI layer's `eraseCommand()` traverses these to build
+ * the execution tree.
+ *
+ * @internal
+ */
+type AnyCommandBuilder = CommandBuilder<
+	Record<string, FlagBuilder<FlagConfig>>,
+	Record<string, ArgBuilder<ArgConfig>>,
+	Record<string, unknown>
+>;
+
+/**
+ * Erase a typed `CommandBuilder<F, A, C>` to `AnyCommandBuilder` for
+ * heterogeneous storage. Centralises the `as unknown as` double-cast
+ * required at the type-erasure boundary.
+ *
+ * @internal
+ */
+function eraseBuilder<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown>,
+>(builder: CommandBuilder<F, A, C>): AnyCommandBuilder {
+	return builder as unknown as AnyCommandBuilder;
 }
 
 // ---------------------------------------------------------------------------
@@ -343,6 +423,15 @@ class CommandBuilder<
 	readonly handler: ActionHandler<F, A, C> | undefined;
 
 	/**
+	 * @internal Nested sub-command builders (type-erased for heterogeneous storage).
+	 *
+	 * Stored separately from `schema.commands` because builders carry action
+	 * handlers and phantom types needed by `eraseCommand()` in the CLI layer.
+	 * `schema.commands` holds pure `CommandSchema[]` for help/completion.
+	 */
+	readonly _subcommands: readonly AnyCommandBuilder[];
+
+	/**
 	 * @internal Type brands — exist only in the type system (`declare`
 	 * produces no runtime property). Used for type inference.
 	 */
@@ -350,9 +439,14 @@ class CommandBuilder<
 	declare readonly _args: A;
 	declare readonly _ctx: C;
 
-	constructor(schema: CommandSchema, handler?: ActionHandler<F, A, C>) {
+	constructor(
+		schema: CommandSchema,
+		handler?: ActionHandler<F, A, C>,
+		subcommands?: readonly AnyCommandBuilder[],
+	) {
 		this.schema = schema;
 		this.handler = handler;
+		this._subcommands = subcommands ?? [];
 	}
 
 	// -- Interactive resolver ------------------------------------------------
@@ -390,7 +484,11 @@ class CommandBuilder<
 		// The phantom types on F are erased — the resolver's runtime behaviour is
 		// identical to `ErasedInteractiveResolver`.
 		const erased = resolver as unknown as ErasedInteractiveResolver;
-		return new CommandBuilder({ ...this.schema, interactive: erased }, this.handler);
+		return new CommandBuilder(
+			{ ...this.schema, interactive: erased },
+			this.handler,
+			this._subcommands,
+		);
 	}
 
 	// -- Middleware ----------------------------------------------------------
@@ -429,6 +527,7 @@ class CommandBuilder<
 			},
 			// Handler intentionally dropped — C changed, invalidating handler signature.
 			undefined,
+			this._subcommands,
 		);
 	}
 
@@ -436,7 +535,11 @@ class CommandBuilder<
 
 	/** Set the command's description for help text. */
 	description(text: string): CommandBuilder<F, A, C> {
-		return new CommandBuilder({ ...this.schema, description: text }, this.handler);
+		return new CommandBuilder(
+			{ ...this.schema, description: text },
+			this.handler,
+			this._subcommands,
+		);
 	}
 
 	/** Add an alternative name for this command. */
@@ -444,12 +547,13 @@ class CommandBuilder<
 		return new CommandBuilder(
 			{ ...this.schema, aliases: [...this.schema.aliases, name] },
 			this.handler,
+			this._subcommands,
 		);
 	}
 
 	/** Hide this command from help listings. */
 	hidden(): CommandBuilder<F, A, C> {
-		return new CommandBuilder({ ...this.schema, hidden: true }, this.handler);
+		return new CommandBuilder({ ...this.schema, hidden: true }, this.handler, this._subcommands);
 	}
 
 	/** Add a usage example to help text. */
@@ -459,6 +563,7 @@ class CommandBuilder<
 		return new CommandBuilder(
 			{ ...this.schema, examples: [...this.schema.examples, entry] },
 			this.handler,
+			this._subcommands,
 		);
 	}
 
@@ -480,6 +585,7 @@ class CommandBuilder<
 			// handler is intentionally dropped — adding a flag invalidates
 			// the previous handler's type signature
 			undefined,
+			this._subcommands,
 		);
 	}
 
@@ -503,6 +609,44 @@ class CommandBuilder<
 			// handler is intentionally dropped — adding an arg invalidates
 			// the previous handler's type signature
 			undefined,
+			this._subcommands,
+		);
+	}
+
+	// -- Subcommand nesting --------------------------------------------------
+
+	/**
+	 * Register a nested subcommand on this command.
+	 *
+	 * The subcommand's builder is stored in `_subcommands` for the CLI layer's
+	 * `eraseCommand()` to traverse when building the execution tree. The
+	 * subcommand's `CommandSchema` is also appended to `schema.commands` for
+	 * help rendering and completion generation.
+	 *
+	 * Does not change `F`, `A`, or `C` — subcommands are type-erased at the
+	 * parent level (same semantics as `CLIBuilder.command()`). The handler is
+	 * preserved.
+	 *
+	 * @example
+	 * ```ts
+	 * const db = group('db')
+	 *   .description('Database operations')
+	 *   .command(migrateCmd)
+	 *   .command(seedCmd);
+	 * ```
+	 */
+	command<
+		F2 extends Record<string, FlagBuilder<FlagConfig>>,
+		A2 extends Record<string, ArgBuilder<ArgConfig>>,
+		C2 extends Record<string, unknown>,
+	>(sub: CommandBuilder<F2, A2, C2>): CommandBuilder<F, A, C> {
+		return new CommandBuilder(
+			{
+				...this.schema,
+				commands: [...this.schema.commands, sub.schema],
+			},
+			this.handler,
+			[...this._subcommands, eraseBuilder(sub)],
 		);
 	}
 
@@ -515,7 +659,7 @@ class CommandBuilder<
 	 * from the accumulated `.flag()`, `.arg()`, and `.middleware()` definitions.
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
-		return new CommandBuilder({ ...this.schema, hasAction: true }, handler);
+		return new CommandBuilder({ ...this.schema, hasAction: true }, handler, this._subcommands);
 	}
 }
 
@@ -551,21 +695,48 @@ function command(name: string): CommandBuilder {
 		hasAction: false,
 		interactive: undefined,
 		middleware: [],
+		commands: [],
 	});
+}
+
+/**
+ * Create a command builder intended for use as a command group.
+ *
+ * Semantically identical to `command()` — a group is simply a command that
+ * has subcommands registered via `.command()`. The separate factory
+ * communicates intent: groups organise subcommands, leaf commands have actions.
+ *
+ * A group may also have its own `.action()` (e.g. `git remote` lists remotes
+ * when invoked without a subcommand, but dispatches to `git remote add`, etc.).
+ *
+ * @param name - The group name used for dispatch (e.g. `'db'`).
+ *
+ * @example
+ * ```ts
+ * const db = group('db')
+ *   .description('Database operations')
+ *   .command(migrateCmd)
+ *   .command(seedCmd);
+ * ```
+ */
+function group(name: string): CommandBuilder {
+	return command(name);
 }
 
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
-export { command, CommandBuilder };
+export { command, group, CommandBuilder };
 export type {
 	ActionHandler,
 	ActionParams,
+	AnyCommandBuilder,
 	CommandArgEntry,
 	CommandConfig,
 	CommandExample,
 	CommandSchema,
+	ErasedCommand,
 	ErasedInteractiveResolver,
 	InteractiveParams,
 	InteractiveResolver,

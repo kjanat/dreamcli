@@ -1,0 +1,157 @@
+# Progress Log
+PRD: v0.7-subcommand-nesting
+Started: 2026-02-10
+
+## Codebase Patterns
+- **Adding FlagSchema fields**: add to `FlagSchema` interface, add default in `createSchema()`,
+  add method on `FlagBuilder` returning `new FlagBuilder({...this.schema, field: value})`.
+  Metadata-only fields (no type-level change) return `FlagBuilder<C>` unchanged.
+- **Manual FlagSchema construction** exists in `completion.test.ts` `flagSchema()` helper — must
+  update when adding new required fields.
+- **Manual CommandSchema construction**: 8 test files have `makeSchema()`/`commandSchema()` helpers.
+  New required fields on `CommandSchema` must be added to all of them: `parse.test.ts`,
+  `resolve.test.ts`, `resolve-prompt.test.ts`, `resolve-env.test.ts`, `resolve-config.test.ts`,
+  `resolve-interactive.test.ts`, `resolve-errors.test.ts`, `completion.test.ts`.
+- **Test pattern**: mirror `.deprecated()` test structure — runtime checks + `expectTypeOf` for
+  type preservation across all presence states.
+- **Adding CommandBuilder methods**: all `new CommandBuilder(...)` calls in class methods must pass
+  `this._subcommands` as third arg to preserve nested commands across chaining. Methods that
+  don't change F/A/C preserve handler; methods that do (flag, arg, middleware) drop handler but
+  keep subcommands.
+- **Propagated flag collection**: `collectPropagatedFlags(commandPath)` in `cli/propagate.ts` —
+  takes `CommandSchema[]` (root→target), returns inherited `Record<string, FlagSchema>`. Target's
+  own flags always shadow. Dispatch layer merges result into target's flags before resolution.
+- **Recursive dispatch**: `dispatch()` in `cli/dispatch.ts` — walks argv consuming command name
+  tokens, returns discriminated union (`match` | `needs-subcommand` | `unknown`). Commands with
+  both handlers + subcommands: if next token matches subcommand → descend; else → match at current
+  level. `findClosestCommand()` + `levenshtein()` also live in dispatch.ts.
+- **Completion tree walking**: `walkCommandTree(schemas, ancestorPath)` in `completion/index.ts` produces
+  flat `CommandNode[]` with `mergedFlags` (propagated + own). Both bash/zsh generators consume this. Bash
+  uses path-keyed case statements; zsh uses per-group helper functions.
+- **ErasedCommand.subcommands**: `ReadonlyMap<string, ErasedCommand>` keyed by name AND alias.
+  `eraseCommand()` builds recursively from `_subcommands`. Test helpers need `subcommands: new Map()`.
+- **mergedSchema on RunOptions**: `@internal` field — when dispatch merges propagated flags, it
+  passes the merged schema via `RunOptions.mergedSchema`. `runCommand()` uses this for parse/resolve
+  instead of `cmd.schema` when present.
+
+---
+<!-- Task logs below - APPEND ONLY -->
+
+## Task - flag-propagate
+- Added `propagate: boolean` to `FlagSchema` (default `false`)
+- Added `.propagate()` method on `FlagBuilder` — metadata-only, no type-level change
+- Added `propagate: false` to `createSchema()` defaults
+- Fixed `completion.test.ts` `flagSchema()` helper to include new required field
+- 12 new tests covering runtime behavior + type inference preservation
+- **Files changed:** `src/core/schema/flag.ts`, `src/core/schema/flag.test.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** The `completion.test.ts` has a manual `flagSchema()` helper that constructs `FlagSchema` objects directly — any new required field on `FlagSchema` will cause a type error there.
+
+## Task - schema-nesting
+- Added `commands: readonly CommandSchema[]` to `CommandSchema` (pure data for help/completion)
+- Added `_subcommands: readonly AnyCommandBuilder[]` to `CommandBuilder` (builders for CLI erasure)
+- Added `.command()` method on `CommandBuilder` — stores both schema + builder, preserves F/A/C
+- Added `group()` factory — thin alias for `command()`, communicates intent
+- Moved `ErasedCommand` interface from `cli/index.ts` to `schema/command.ts` (shared location)
+- `eraseCommand()` function stays in `cli/index.ts` (depends on `runCommand` from testkit)
+- Added `AnyCommandBuilder` type alias for widest-bound builder storage
+- Updated constructor: `(schema, handler?, subcommands?)` — all existing methods pass through subcommands
+- All 8 `makeSchema()`/`commandSchema()` helpers across test files updated with `commands: []`
+- Exported `group`, `ErasedCommand`, `AnyCommandBuilder` from barrels + public API
+- 26 new tests: schema population, builder storage, immutability, handler preservation, metadata preservation across all builder methods, deep nesting, type inference
+- **Files changed:** `src/core/schema/command.ts`, `src/core/schema/command.test.ts`, `src/core/schema/index.ts`, `src/core/cli/index.ts`, `src/index.ts`, `src/core/completion/completion.test.ts`, `src/core/parse/parse.test.ts`, `src/core/resolve/resolve.test.ts`, `src/core/resolve/resolve-prompt.test.ts`, `src/core/resolve/resolve-env.test.ts`, `src/core/resolve/resolve-config.test.ts`, `src/core/resolve/resolve-interactive.test.ts`, `src/core/resolve/resolve-errors.test.ts`
+- **Learnings:**
+  - `CommandSchema.commands` should be `CommandSchema[]` not `ErasedCommand[]` — keeps schema as pure data, avoids mixing execution closures into runtime descriptor
+  - `_subcommands` on builder stores the full builders (with handlers) so `eraseCommand()` in CLI layer can recursively wrap them — separation between schema (data) and erasure (execution)
+  - `import type` from testkit avoids runtime circular dep even though testkit imports from schema
+   - Adding new required fields to `CommandSchema` requires updating ~8 manual `makeSchema()` helpers across parse/resolve/completion test files
+
+## Task - propagated-flag-collection
+- Created `src/core/cli/propagate.ts` with `collectPropagatedFlags()` pure function
+- Input: `commandPath: readonly CommandSchema[]` (root ancestor → target, inclusive)
+- Algorithm: walk ancestors root-first, collect `propagate: true` flags; later ancestors overwrite earlier (natural shadowing); target's own flags (any) delete from result
+- Returns only *inherited* flags — target's own flags excluded (caller merges)
+- 16 tests across 6 describe groups: base cases, single ancestor, multi-level, target shadowing, intermediate shadowing, return value properties
+- **Files changed:** `src/core/cli/propagate.ts` (new), `src/core/cli/cli-propagate.test.ts` (new)
+- **Learnings:**
+  - Intermediate non-propagated redefinitions do NOT block ancestor propagation to grandchildren — only `propagate: true` flags flow through the accumulator. Intermediate shadowing only applies when the intermediate IS the target.
+  - `delete` on accumulated record is fine for sparse cleanup — biome doesn't flag `noDelete` here (only on prototype properties)
+  - Function is intentionally NOT exported from CLI barrel or public API — it's @internal infrastructure for the dispatch layer (`recursive-dispatch` task will import directly)
+
+## Task - recursive-dispatch
+- Created `src/core/cli/dispatch.ts` — recursive dispatch with discriminated union result types
+- `dispatch(argv, commands, ancestorPath)` → `DispatchMatch | DispatchNeedsSubcommand | DispatchUnknown`
+- Moved `findClosestCommand()`, `levenshtein()` from `cli/index.ts` → `dispatch.ts`
+- Extended `ErasedCommand` with `subcommands: ReadonlyMap<string, ErasedCommand>` (name+alias keyed)
+- Made `eraseCommand()` recursive — builds child maps from `_subcommands`
+- Added `mergedSchema?: CommandSchema` to `RunOptions` — dispatch merges propagated flags into schema before passing to `runCommand()`
+- Updated `runCommand()` to use `mergedSchema` when present for parse/resolve/help
+- Updated `CLIBuilder.execute()` to use `dispatch()` + `collectPropagatedFlags()` instead of single-level `findCommand()`
+- Handles hybrid commands (action + subcommands): subcommand match takes priority, else falls to group handler
+- Groups without handlers: `needs-subcommand` → renders group help with subcommand list
+- Updated `completion.test.ts` `erased()` helper with `subcommands: new Map()`
+- 22 unit tests in `cli-dispatch.test.ts`: base cases, nesting, groups, levenshtein, findClosest, uniqueCommands
+- 16 integration tests in `cli-nesting.test.ts`: nested dispatch, 3-level, hybrid groups, propagated flags, help, JSON mode, aliases
+- **Files changed:** `src/core/cli/dispatch.ts` (new), `src/core/cli/cli-dispatch.test.ts` (new), `src/core/cli/cli-nesting.test.ts` (new), `src/core/cli/index.ts`, `src/core/schema/command.ts`, `src/core/testkit/index.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:**
+  - Flags before command names (e.g. `--verbose db migrate`) require scanning past flags to find the first non-flag token as the command name. The dispatch function handles this by finding the first non-`-` prefixed token.
+  - Hybrid commands (with action + subcommands, like `git remote`) need the dispatch to try subcommand matching first, then fall back to the parent handler for unknown tokens that could be positional args.
+  - `ReadonlyMap` works well for the subcommand lookup table — O(1) per level, alias entries just point to the same object. `uniqueCommands()` deduplicates for suggestion/help rendering.
+  - `mergedSchema` on RunOptions is a clean internal seam — doesn't change the public API, and `runCommand()` transparently uses it for parse/resolve while keeping middleware from `cmd.schema`.
+
+## Task - nested-help
+- Added `formatCommandsSection()` to `formatHelp()` — renders "Commands:" section from `schema.commands`, skips hidden, aligns descriptions
+- Updated `formatUsageLine()` — shows `<command>` placeholder when `schema.commands.length > 0`
+- Section order: Usage → Description → Commands → Arguments → Flags → Examples
+- Replaced synthetic `formatRootHelp()` hack in `needs-subcommand` handler with `formatHelp()` — groups now get proper per-command help (usage line, commands, flags, examples) instead of a degraded root-help format
+- 10 new tests in `help.test.ts`: Commands section rendering, hidden filtering, alignment, usage line adaptation, binName propagation, section ordering with commands
+- **Files changed:** `src/core/help/index.ts`, `src/core/help/help.test.ts`, `src/core/cli/index.ts`
+- **Learnings:**
+  - `formatHelp()` is the right place for the Commands section — it already renders per-command help and `CommandSchema.commands` carries the subcommand data
+  - The `needs-subcommand` case previously built a synthetic `CLISchema` to call `formatRootHelp()` — this was fragile (lost flags, examples, args). Using `formatHelp()` directly is simpler and renders all sections
+  - `formatRootHelp()` remains appropriate only for the true CLI root (program-level help with version header)
+
+## Task - nested-completions
+- Refactored `generateBashCompletion()` and `generateZshCompletion()` to walk full command tree depth
+- Added `CommandNode` type + `walkCommandTree()` helper — flattens tree with propagated flag context per node
+- **Bash**: progressive `subcmd_path` detection scanning COMP_WORDS at each depth; flat `case "$subcmd_path"` for completions with merged flags per node; group commands complete both child subcommand names + own flags
+- **Zsh**: per-group helper functions (`_cli_db()`, `_cli_db_migrate()`) with `_arguments -C` for groups and plain `_arguments` for leaves; recursive dispatch via `case "$line[1]"`
+- Propagated flags included at every nesting level via `collectPropagatedFlags()` from `cli/propagate.ts`
+- Removed now-unused `collectEnumCases(cmd)` — replaced by `collectEnumCasesFromFlags(flags)` operating on merged flag records
+- 25 new unit tests in `completion.test.ts`: nested path detection, nested flag completions, propagated flag inheritance (2-level + 3-level), hidden filtering, zsh helper function generation, zsh nested dispatch
+- 7 new e2e tests in `cli-completion-e2e.test.ts`: nested bash/zsh via `.completions()` builder with propagated flags, group subcommand + flag completions
+- **Files changed:** `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`
+- **Learnings:**
+  - `CommandSchema.commands` (pure data) is the right recursion target for completions — no need to touch `ErasedCommand.subcommands` map (execution closures)
+  - Bash path-keyed case is cleaner than nested if/elif — O(1) lookup, easier to debug generated scripts
+  - Zsh idiom: `_arguments -C` + `case "$state"` + helper functions is the standard pattern for nested commands (matches zsh-completions repo patterns)
+  - `collectPropagatedFlags()` can be called at generation time (static scripts) — merging propagated flags into each node's merged flag record is the correct approach
+  - The `biome-ignore noTemplateCurlyInString` suppression is only needed when the template literal directly contains `${...}` (not when it's `\${...}` — backslash-escaped braces don't trigger the lint rule)
+
+## Task - scoped-suggestions
+- Scoped the "did you mean?" fallback help hint to current command level using `DispatchUnknown.parentPath`
+- `findClosestCommand()` already received scoped candidates from `dispatch()` — no change needed there
+- When no close match found, help hint now reads e.g. `Run 'myapp db --help'` instead of `Run 'myapp --help'` for nested scope
+- `parentPath` from `DispatchUnknown` maps to ancestor names joined with spaces to form the scoped help path
+- 7 new tests in `cli-nesting.test.ts`: scoped typo suggestion, cross-group isolation, scoped help hint (1-level + 3-level), root-level fallback, JSON mode scoped hint, alias proximity suggestion
+- **Files changed:** `src/core/cli/index.ts`, `src/core/cli/cli-nesting.test.ts`
+- **Learnings:**
+  - `dispatch()` already returns scoped candidates — the real fix was the fallback help hint path, not the candidate list
+  - `DispatchUnknown.parentPath` is the key field — it carries the ancestor schemas up to (not including) the unknown level, perfect for building `"myapp db migrate --help"` paths
+
+## Task - testkit-nesting
+- Created `src/core/testkit/testkit-nesting.test.ts` — 25 integration tests across 10 describe groups
+- **mergedSchema injection**: tests `runCommand()` with propagated flags via `mergedSchema` option — resolves CLI flags, defaults, coexists with own flags, renders in help
+- **Command with subcommands help**: verifies Commands section rendering through `runCommand()`
+- **env/config injection**: propagated env flags resolve in nested subcommands, config values resolve at leaf level, CLI overrides config
+- **Middleware**: middleware on leaf commands runs correctly in nested context
+- **Verbosity**: quiet mode suppresses info in nested subcommand output
+- **JSON mode**: JSON mode via options (not --json flag), JSON error rendering for unknown nested commands
+- **TTY**: isTTY propagates through nesting layers
+- **Error cases**: parse errors (unknown flag), handler errors, missing required flags/args in nested context
+- **Help variations**: --help on group shows subcommands, --help on leaf shows propagated flags, binName preserved
+- **3-level nesting**: env injection, CLI override, propagated flags, scoped error messages
+- **Files changed:** `src/core/testkit/testkit-nesting.test.ts` (new)
+- **Learnings:**
+  - `runCommand()` with `mergedSchema` is the correct seam for testing propagated flags in isolation — no need for full CLIBuilder dispatch
+  - The existing `cli-nesting.test.ts` tests dispatch mechanics; testkit tests complement by covering the injectable options (env, config, answers, verbosity, TTY, JSON mode) flowing through nested execution
+  - `flags as Record<string, unknown>` cast is necessary in handlers that access propagated flags not declared on the command's own type — the runtime values are present but the type system doesn't know about them

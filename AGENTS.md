@@ -1,15 +1,19 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-09 **Commit:** 70e8044 **Branch:** v0.4-middleware-output
+**Generated:** 2026-02-10 **Branch:** v0.7-subcommand-nesting
 
 ## OVERVIEW
 
 Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Single entry `src/index.ts`
 re-exports 31 values + 74 types from 10 internal modules. Dual ESM/CJS via tsdown.
 
+### Goals
+
+Our goals are described in @GOALS.md
+
 ## STRUCTURE
 
-```
+```tree
 src/
 ├── index.ts                # Public API barrel (explicit named re-exports, no wildcards)
 ├── core/
@@ -22,14 +26,14 @@ src/
 │   ├── resolve/            # Flag/arg resolution chain: CLI → env → config → prompt → default
 │   ├── schema/             # CommandBuilder/FlagBuilder/ArgBuilder + middleware + prompt schemas
 │   ├── testkit/            # runCommand() — in-process test harness (public API)
-│   ├── completion/         # STUB — shell completion (empty, planned)
+│   ├── completion/         # Shell completion generation (bash/zsh, nested commands)
 │   └── infer/              # STUB — type inference (empty, planned)
 └── runtime/
     ├── adapter.ts          # RuntimeAdapter interface (process abstraction)
     ├── node.ts             # Node.js adapter implementation
-    ├── bun.ts              # STUB
+    ├── bun.ts              # Bun adapter (delegates to Node adapter)
     ├── deno.ts             # STUB
-    └── detect.ts           # STUB
+    └── detect.ts           # Runtime auto-detection (Bun/Deno/Node feature detection)
 ```
 
 **Ghost dirs at `src/` top-level** (`src/completion/`, `src/errors/`, etc.) mirror `core/` modules

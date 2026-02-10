@@ -10,49 +10,39 @@
  */
 
 import type { RuntimeAdapter } from '../../runtime/adapter.js';
-import { createNodeAdapter } from '../../runtime/node.js';
+import { createAdapter } from '../../runtime/auto.js';
+import { generateCompletion, SHELLS } from '../completion/index.js';
+import type { FormatLoader } from '../config/index.js';
+import { discoverConfig } from '../config/index.js';
 import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
+import { formatHelp } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
 import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTerminalPrompter } from '../prompt/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type { CommandBuilder, CommandSchema } from '../schema/command.js';
+import type { CommandBuilder, CommandSchema, ErasedCommand } from '../schema/command.js';
+import { command } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
+import { flag } from '../schema/flag.js';
 import type { RunOptions, RunResult } from '../testkit/index.js';
 import { runCommand } from '../testkit/index.js';
+import { dispatch, findClosestCommand } from './dispatch.js';
+import { collectPropagatedFlags } from './propagate.js';
 
 // ---------------------------------------------------------------------------
-// Type-erased command — existential wrapper for heterogeneous commands
+// Type-erased command — erasure function (interface now in schema/command.ts)
 // ---------------------------------------------------------------------------
 
 /**
- * A type-erased command entry stored in the CLI builder.
- *
- * Commands registered via `.command()` have heterogeneous `F` and `A`
- * type parameters. At the CLI dispatch level we only need the runtime
- * schema (for name/alias matching and help) and the ability to delegate
- * to `runCommand()`. This interface captures exactly that contract.
- *
- * The `_execute` function closes over the original typed `CommandBuilder`,
- * preserving full type safety inside the closure while presenting a
- * uniform interface to the dispatcher.
- *
- * @internal
- */
-interface ErasedCommand {
-	/** Runtime schema for name matching and help rendering. */
-	readonly schema: CommandSchema;
-	/** Execute this command against argv. Closes over the typed CommandBuilder. */
-	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
-}
-
-/**
- * Erase a typed CommandBuilder into an ErasedCommand.
+ * Erase a typed CommandBuilder into an ErasedCommand, recursively
+ * building the subcommand tree.
  *
  * The closure captures the fully-typed builder, so `runCommand()` receives
  * the original `CommandBuilder<F, A>` — no type assertions needed.
+ * Subcommands are recursively erased and indexed by name and alias for
+ * O(1) lookup during dispatch.
  *
  * @internal
  */
@@ -61,8 +51,19 @@ function eraseCommand<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown>,
 >(cmd: CommandBuilder<F, A, C>): ErasedCommand {
+	// Recursively erase subcommands, keyed by name and alias.
+	const subcommands = new Map<string, ErasedCommand>();
+	for (const sub of cmd._subcommands) {
+		const erased = eraseCommand(sub);
+		subcommands.set(sub.schema.name, erased);
+		for (const alias of sub.schema.aliases) {
+			subcommands.set(alias, erased);
+		}
+	}
+
 	return {
 		schema: cmd.schema,
+		subcommands,
 		_execute(argv, options) {
 			return runCommand(cmd, argv, options);
 		},
@@ -88,6 +89,32 @@ interface CLISchema {
 	readonly description: string | undefined;
 	/** Registered commands (type-erased for heterogeneous storage). */
 	readonly commands: readonly ErasedCommand[];
+	/**
+	 * Config discovery settings. When defined, `.run()` auto-discovers and
+	 * loads a config file before command dispatch.
+	 *
+	 * Set via the `.config()` builder method.
+	 */
+	readonly configSettings: ConfigSettings | undefined;
+}
+
+/**
+ * Config discovery settings for automatic config file loading.
+ *
+ * Stored in {@link CLISchema} and consumed by `CLIBuilder.run()` to
+ * call {@link discoverConfig} before dispatching to a command.
+ */
+interface ConfigSettings {
+	/**
+	 * Application name used to build config search paths.
+	 *
+	 * Search paths: `.{appName}.json` (cwd), `{appName}.config.json` (cwd),
+	 * `$CONFIG_DIR/{appName}/config.json` (XDG / AppData).
+	 */
+	readonly appName: string;
+
+	/** Additional format loaders beyond the built-in JSON loader. */
+	readonly loaders: readonly FormatLoader[] | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -292,79 +319,45 @@ function wrapText(text: string, width: number, indent: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// "Did you mean?" suggestion for unknown commands
+// --config flag extraction
 // ---------------------------------------------------------------------------
 
 /**
- * Levenshtein distance between two strings.
- * @internal
- */
-function levenshtein(a: string, b: string): number {
-	const m = a.length;
-	const n = b.length;
-	const dp: number[][] = Array.from({ length: m + 1 }, () =>
-		Array.from({ length: n + 1 }, () => 0),
-	);
-
-	for (let i = 0; i <= m; i++) {
-		const row = dp[i];
-		if (row !== undefined) row[0] = i;
-	}
-	for (let j = 0; j <= n; j++) {
-		const row = dp[0];
-		if (row !== undefined) row[j] = j;
-	}
-
-	for (let i = 1; i <= m; i++) {
-		for (let j = 1; j <= n; j++) {
-			const cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
-			const prevRow = dp[i - 1];
-			const currRow = dp[i];
-			if (prevRow !== undefined && currRow !== undefined) {
-				const del = prevRow[j];
-				const ins = currRow[j - 1];
-				const sub = prevRow[j - 1];
-				if (del !== undefined && ins !== undefined && sub !== undefined) {
-					currRow[j] = Math.min(del + 1, ins + 1, sub + cost);
-				}
-			}
-		}
-	}
-
-	const lastRow = dp[m];
-	return lastRow !== undefined && lastRow[n] !== undefined ? lastRow[n] : Math.max(m, n);
-}
-
-/**
- * Find the closest command name match for a "did you mean?" suggestion.
+ * Extract `--config <path>` or `--config=<path>` from argv.
  *
- * Returns `undefined` if no sufficiently close match exists (threshold: 3).
+ * Returns the config path (if present) and the filtered argv with the
+ * flag (and its value) removed. Bare `--config` at end of argv (no value)
+ * and `--config=` (empty value) are silently ignored (treated as absent).
+ *
+ * The `--config=<path>` form is checked first so that a bare `--config`
+ * token does not consume the next element when an equals-form is present.
  *
  * @internal
  */
-function findClosestCommand(input: string, commands: readonly ErasedCommand[]): string | undefined {
-	const MAX_DISTANCE = 3;
-	let bestName: string | undefined;
-	let bestDist = MAX_DISTANCE + 1;
-
-	for (const cmd of commands) {
-		// Check main name
-		const nameDist = levenshtein(input, cmd.schema.name);
-		if (nameDist < bestDist) {
-			bestDist = nameDist;
-			bestName = cmd.schema.name;
-		}
-		// Check aliases
-		for (const alias of cmd.schema.aliases) {
-			const aliasDist = levenshtein(input, alias);
-			if (aliasDist < bestDist) {
-				bestDist = aliasDist;
-				bestName = cmd.schema.name; // suggest canonical name
-			}
-		}
+function extractConfigFlag(argv: readonly string[]): {
+	readonly configPath: string | undefined;
+	readonly filteredArgv: readonly string[];
+} {
+	// --- equals form: --config=<path> ---
+	const eqIdx = argv.findIndex((arg) => arg.startsWith('--config='));
+	if (eqIdx !== -1) {
+		const value = (argv[eqIdx] as string).slice('--config='.length);
+		// Always strip the element; empty value (--config=) treated as absent.
+		const filteredArgv = [...argv.slice(0, eqIdx), ...argv.slice(eqIdx + 1)];
+		return {
+			configPath: value.length > 0 ? value : undefined,
+			filteredArgv,
+		};
 	}
 
-	return bestDist <= MAX_DISTANCE ? bestName : undefined;
+	// --- space-separated form: --config <path> ---
+	const idx = argv.indexOf('--config');
+	const nextArg = idx >= 0 ? argv[idx + 1] : undefined;
+	if (idx === -1 || nextArg === undefined) {
+		return { configPath: undefined, filteredArgv: argv };
+	}
+	const filteredArgv = [...argv.slice(0, idx), ...argv.slice(idx + 2)];
+	return { configPath: nextArg, filteredArgv };
 }
 
 // ---------------------------------------------------------------------------
@@ -444,6 +437,77 @@ class CLIBuilder {
 		return new CLIBuilder({ ...this.schema, description: text });
 	}
 
+	/**
+	 * Enable automatic config file discovery.
+	 *
+	 * When enabled, `.run()` probes standard paths before dispatching:
+	 * 1. `$CWD/.{appName}.json`
+	 * 2. `$CWD/{appName}.config.json`
+	 * 3. `$CONFIG_DIR/{appName}/config.json`
+	 *
+	 * The user can override the path via `--config <path>`.
+	 *
+	 * Loaded config feeds into the resolution chain
+	 * (CLI → env → **config** → prompt → default) for flags that
+	 * declare `.config('dotted.path')`.
+	 *
+	 * Has no effect in `.execute()` (which receives config via
+	 * `options.config` directly).
+	 *
+	 * @param appName - Name used to build search paths.
+	 * @param loaders - Additional format loaders (JSON is built-in).
+	 */
+	config(appName: string, loaders?: readonly FormatLoader[]): CLIBuilder {
+		return new CLIBuilder({
+			...this.schema,
+			configSettings: {
+				appName,
+				loaders,
+			},
+		});
+	}
+
+	/**
+	 * Register a custom config format loader.
+	 *
+	 * Adds a {@link FormatLoader} incrementally — call multiple times to
+	 * register multiple formats. Loaders registered later for the same
+	 * extension override earlier ones.
+	 *
+	 * Requires `.config()` to have been called first (sets the app name).
+	 *
+	 * @param loader - Format loader (or extensions + parse function).
+	 *
+	 * @example
+	 * ```ts
+	 * import { configFormat } from 'dreamcli';
+	 * import { parse as parseYAML } from 'yaml';
+	 * import { parse as parseTOML } from '@iarna/toml';
+	 *
+	 * cli('myapp')
+	 *   .config('myapp')
+	 *   .configLoader(configFormat(['yaml', 'yml'], parseYAML))
+	 *   .configLoader(configFormat(['toml'], parseTOML))
+	 *   .run();
+	 * ```
+	 */
+	configLoader(loader: FormatLoader): CLIBuilder {
+		if (this.schema.configSettings === undefined) {
+			throw new CLIError('.configLoader() requires .config() to be called first', {
+				code: 'INVALID_BUILDER_STATE',
+				suggest: 'Call .config(appName) before .configLoader()',
+			});
+		}
+		const existing = this.schema.configSettings.loaders ?? [];
+		return new CLIBuilder({
+			...this.schema,
+			configSettings: {
+				...this.schema.configSettings,
+				loaders: [...existing, loader],
+			},
+		});
+	}
+
 	// -- Command registration ------------------------------------------------
 
 	/**
@@ -462,6 +526,58 @@ class CLIBuilder {
 			...this.schema,
 			commands: [...this.schema.commands, eraseCommand(cmd)],
 		});
+	}
+
+	// -- Built-in subcommands ------------------------------------------------
+
+	/**
+	 * Register a built-in `completions` subcommand that generates shell
+	 * completion scripts.
+	 *
+	 * The generated command accepts a `--shell` flag (required, enum of
+	 * all {@link Shell} values) and writes the completion script to stdout
+	 * via `out.log()`. Unsupported shells throw a descriptive `CLIError`
+	 * instead of a generic parse error.
+	 *
+	 * Call this **after** registering all other commands so the completion
+	 * script includes the full command set. The captured schema is a
+	 * snapshot at call time — commands registered after `.completions()`
+	 * will not appear in the generated script.
+	 *
+	 * @example
+	 * ```ts
+	 * cli('mycli')
+	 *   .version('1.0.0')
+	 *   .command(deploy)
+	 *   .command(login)
+	 *   .completions()
+	 *   .run();
+	 * ```
+	 */
+	completions(): CLIBuilder {
+		if (this.schema.commands.some((c) => c.schema.name === 'completions')) {
+			throw new CLIError('.completions() has already been called', {
+				code: 'DUPLICATE_COMMAND',
+				suggest: 'Call .completions() only once when building the CLI',
+			});
+		}
+
+		// Capture current schema — includes all commands registered so far.
+		// The completions command itself is deliberately excluded from the
+		// generated script (it would be noise in shell completions).
+		const cliSchema = this.schema;
+		const cmd = command('completions')
+			.description('Generate shell completion script')
+			.flag('shell', flag.enum(SHELLS).required().describe('Target shell'))
+			.action(({ flags, out }) => {
+				const script = generateCompletion(cliSchema, flags.shell);
+				if (out.jsonMode) {
+					out.json({ script });
+				} else {
+					out.log(script);
+				}
+			});
+		return this.command(cmd);
 	}
 
 	// -- Execution -----------------------------------------------------------
@@ -539,38 +655,90 @@ class CLIBuilder {
 			return buildResult(1, captured, err);
 		}
 
-		// -- Find matching command (by name or alias) -----------------------------
-		const matched = findCommand(firstArg, this.schema.commands);
-
-		if (matched === undefined) {
-			const suggestion = findClosestCommand(firstArg, this.schema.commands);
-			const err = new ParseError(`Unknown command: ${firstArg}`, {
-				code: 'UNKNOWN_COMMAND',
-				suggest:
-					suggestion !== undefined
-						? `Did you mean '${suggestion}'?`
-						: `Run '${this.schema.name} --help' for available commands`,
-			});
-			if (jsonMode) {
-				out.json({ error: err.toJSON() });
-			} else {
-				out.error(err.message);
-				if (err.suggest !== undefined) {
-					out.error(`Suggestion: ${err.suggest}`);
-				}
+		// -- Build root command map for dispatch -----------------------------------
+		const rootCommands = new Map<string, ErasedCommand>();
+		for (const cmd of this.schema.commands) {
+			rootCommands.set(cmd.schema.name, cmd);
+			for (const alias of cmd.schema.aliases) {
+				rootCommands.set(alias, cmd);
 			}
-			return buildResult(2, captured, err);
 		}
 
-		// -- Delegate to command execution ----------------------------------------
-		const remainingArgv = filteredArgv.slice(1);
-		// Propagate jsonMode to command so it gets the --json context
-		const effectiveOptions: CLIRunOptions = {
-			...options,
-			...(jsonMode ? { jsonMode } : {}),
-		};
-		const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
-		return matched._execute(remainingArgv, commandRunOptions);
+		// -- Recursive dispatch ---------------------------------------------------
+		const result = dispatch(filteredArgv, rootCommands);
+
+		switch (result.kind) {
+			case 'unknown': {
+				if (result.input === '') {
+					// Only flags, no command — show root help.
+					const helpText = formatRootHelp(this.schema, helpOptions);
+					out.log(helpText);
+					return buildResult(0, captured, undefined);
+				}
+				const suggestion = findClosestCommand(result.input, result.candidates);
+
+				// Build scoped help path from ancestor context.
+				// e.g. for `myapp db migrat` → parentPath = [dbSchema] → "myapp db --help"
+				const scopePath =
+					result.parentPath.length > 0
+						? `${this.schema.name} ${result.parentPath.map((s) => s.name).join(' ')}`
+						: this.schema.name;
+
+				const err = new ParseError(`Unknown command: ${result.input}`, {
+					code: 'UNKNOWN_COMMAND',
+					suggest:
+						suggestion !== undefined
+							? `Did you mean '${suggestion}'?`
+							: `Run '${scopePath} --help' for available commands`,
+				});
+				if (jsonMode) {
+					out.json({ error: err.toJSON() });
+				} else {
+					out.error(err.message);
+					if (err.suggest !== undefined) {
+						out.error(`Suggestion: ${err.suggest}`);
+					}
+				}
+				return buildResult(2, captured, err);
+			}
+
+			case 'needs-subcommand': {
+				// Group command with no handler — show its help via formatHelp().
+				// Build binName from full command path so usage reads "myapp db" not just "db".
+				const ancestorNames = result.commandPath.slice(0, -1).map((s) => s.name);
+				const groupBinName = [this.schema.name, ...ancestorNames].join(' ');
+				const groupHelpOptions: HelpOptions = {
+					...helpOptions,
+					binName: groupBinName,
+				};
+				const helpText = formatHelp(result.command.schema, groupHelpOptions);
+				out.log(helpText);
+				return buildResult(0, captured, undefined);
+			}
+
+			case 'match': {
+				// Merge propagated flags from ancestor path into target's schema.
+				const propagated = collectPropagatedFlags(result.commandPath);
+				const hasPropagated = Object.keys(propagated).length > 0;
+				const mergedSchema: CommandSchema | undefined = hasPropagated
+					? {
+							...result.command.schema,
+							flags: { ...propagated, ...result.command.schema.flags },
+						}
+					: undefined;
+
+				// Propagate jsonMode to command so it gets the --json context
+				const effectiveOptions: CLIRunOptions = {
+					...options,
+					...(jsonMode ? { jsonMode } : {}),
+				};
+				const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
+				return result.command._execute(result.remainingArgv, {
+					...commandRunOptions,
+					...(mergedSchema !== undefined ? { mergedSchema } : {}),
+				});
+			}
+		}
 	}
 
 	/**
@@ -583,15 +751,69 @@ class CLIBuilder {
 	 * adapter). For testing, use `.execute()` instead — or provide a
 	 * test adapter via `options.adapter`.
 	 *
-	 * Defaults to `createNodeAdapter()` when no adapter is provided,
-	 * which works on both Node.js and Bun.
+	 * Defaults to `createAdapter()` when no adapter is provided,
+	 * which auto-detects the runtime (Node.js, Bun) and creates
+	 * the appropriate adapter.
 	 *
 	 * @param options - Optional runtime configuration including adapter.
 	 */
 	async run(options?: CLIRunOptions): Promise<never> {
-		const adapter = options?.adapter ?? createNodeAdapter();
+		const adapter = options?.adapter ?? createAdapter();
 
-		const argv = adapter.argv.slice(2);
+		const rawArgv = adapter.argv.slice(2);
+
+		// Extract --config <path> before command dispatch (requires I/O via adapter)
+		const { configPath, filteredArgv } = extractConfigFlag(rawArgv);
+
+		// Detect --json early for error rendering during config loading
+		const hasJsonFlag = filteredArgv.includes('--json');
+
+		// Config discovery (only when .config() was called on the builder)
+		// Skip for completions subcommand — shell completions don't need config.
+		// Resolve the first argv token against registered commands (by name + aliases)
+		// so aliases or shadowed names are handled correctly.
+		const firstToken = filteredArgv[0];
+		const matchedCommand =
+			firstToken !== undefined
+				? this.schema.commands.find(
+						(c) => c.schema.name === firstToken || c.schema.aliases.includes(firstToken),
+					)
+				: undefined;
+		const isCompletions = matchedCommand?.schema.name === 'completions';
+		let loadedConfig: Readonly<Record<string, unknown>> | undefined;
+
+		if (
+			this.schema.configSettings !== undefined &&
+			!isCompletions &&
+			options?.config === undefined
+		) {
+			try {
+				const result = await discoverConfig(this.schema.configSettings.appName, adapter, {
+					...(configPath !== undefined ? { configPath } : {}),
+					...(this.schema.configSettings.loaders !== undefined
+						? { loaders: this.schema.configSettings.loaders }
+						: {}),
+				});
+				if (result.found) {
+					loadedConfig = result.data;
+				}
+			} catch (err: unknown) {
+				// Config errors are fatal — render and exit
+				if (err instanceof CLIError) {
+					if (hasJsonFlag) {
+						adapter.stdout(`${JSON.stringify({ error: err.toJSON() })}\n`);
+					} else {
+						adapter.stderr(`Error: ${err.message}\n`);
+						if (err.suggest !== undefined) {
+							adapter.stderr(`Suggestion: ${err.suggest}\n`);
+						}
+					}
+					return adapter.exit(err.exitCode);
+				}
+				throw err;
+			}
+		}
+
 		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
 		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)
 		// get stdinIsTTY=false → no auto-prompter → prompts skipped → falls through to default/required.
@@ -600,14 +822,15 @@ class CLIBuilder {
 				? createTerminalPrompter(adapter.stdin, adapter.stderr)
 				: undefined;
 
-		// Source env and isTTY from adapter when not explicitly provided in options
+		// Source env, isTTY, and config from adapter when not explicitly provided in options
 		const executeOptions: CLIRunOptions = {
 			...options,
 			...(options?.env === undefined ? { env: adapter.env } : {}),
 			...(options?.isTTY === undefined ? { isTTY: adapter.isTTY } : {}),
 			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
+			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
 		};
-		const result = await this.execute(argv, executeOptions);
+		const result = await this.execute(filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {
@@ -619,24 +842,6 @@ class CLIBuilder {
 
 		return adapter.exit(result.exitCode);
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Command lookup
-// ---------------------------------------------------------------------------
-
-/**
- * Find a command by name or alias.
- * @internal
- */
-function findCommand(name: string, commands: readonly ErasedCommand[]): ErasedCommand | undefined {
-	for (const cmd of commands) {
-		if (cmd.schema.name === name) return cmd;
-		for (const alias of cmd.schema.aliases) {
-			if (alias === name) return cmd;
-		}
-	}
-	return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -682,6 +887,7 @@ function cli(name: string): CLIBuilder {
 		version: undefined,
 		description: undefined,
 		commands: [],
+		configSettings: undefined,
 	});
 }
 
@@ -690,4 +896,4 @@ function cli(name: string): CLIBuilder {
 // ---------------------------------------------------------------------------
 
 export { cli, CLIBuilder, formatRootHelp };
-export type { CLIRunOptions, CLISchema };
+export type { CLIRunOptions, CLISchema, ConfigSettings };
