@@ -26,8 +26,11 @@ import type { CommandSchema, FlagSchema } from '../schema/index.js';
  */
 type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 
-/** All shell values as a readonly tuple (useful for validation). */
-const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish', 'powershell'] as const;
+/** All shell values as a frozen readonly non-empty tuple (useful for validation + flag.enum()). */
+const SHELLS = Object.freeze(['bash', 'zsh', 'fish', 'powershell'] as const satisfies readonly [
+	Shell,
+	...Shell[],
+]);
 
 // ---------------------------------------------------------------------------
 // CompletionOptions — generator configuration

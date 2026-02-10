@@ -196,7 +196,8 @@ describe('createAdapter — adapter functionality', () => {
 
 	it('env contains expected Node.js variables', () => {
 		const adapter = createAdapter();
-		// PATH is always present in Node.js environments
-		expect(adapter.env.PATH).toBeDefined();
+		// PATH is always present but may be cased as "Path" on Windows
+		const hasPath = adapter.env.PATH !== undefined || adapter.env.Path !== undefined;
+		expect(hasPath).toBe(true);
 	});
 });

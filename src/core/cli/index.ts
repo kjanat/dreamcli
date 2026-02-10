@@ -11,7 +11,7 @@
 
 import type { RuntimeAdapter } from '../../runtime/adapter.js';
 import { createAdapter } from '../../runtime/auto.js';
-import { generateCompletion } from '../completion/index.js';
+import { generateCompletion, SHELLS } from '../completion/index.js';
 import type { FormatLoader } from '../config/index.js';
 import { discoverConfig } from '../config/index.js';
 import { CLIError, ParseError } from '../errors/index.js';
@@ -552,13 +552,7 @@ class CLIBuilder {
 		const cliSchema = this.schema;
 		const cmd = command('completions')
 			.description('Generate shell completion script')
-			.flag(
-				'shell',
-				flag
-					.enum(['bash', 'zsh', 'fish', 'powershell'] as const)
-					.required()
-					.describe('Target shell'),
-			)
+			.flag('shell', flag.enum(SHELLS).required().describe('Target shell'))
 			.action(({ flags, out }) => {
 				const script = generateCompletion(cliSchema, flags.shell);
 				if (out.jsonMode) {
@@ -694,10 +688,12 @@ class CLIBuilder {
 
 			case 'needs-subcommand': {
 				// Group command with no handler — show its help via formatHelp().
-				// Build binName from ancestor path so usage reads "myapp db" not just "db".
+				// Build binName from full command path so usage reads "myapp db" not just "db".
+				const ancestorNames = result.commandPath.slice(0, -1).map((s) => s.name);
+				const groupBinName = [this.schema.name, ...ancestorNames].join(' ');
 				const groupHelpOptions: HelpOptions = {
 					...helpOptions,
-					binName: this.schema.name,
+					binName: groupBinName,
 				};
 				const helpText = formatHelp(result.command.schema, groupHelpOptions);
 				out.log(helpText);

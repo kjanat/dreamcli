@@ -625,10 +625,10 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 
 		// The error should be in JSON format on stdout
 		const jsonOutput = result.stdout.find((l) => l.includes('"error"'));
-		if (jsonOutput !== undefined) {
-			const parsed = JSON.parse(jsonOutput) as { error: unknown };
-			expect(parsed.error).toBeDefined();
-		}
+		expect(jsonOutput).toBeDefined();
+		if (jsonOutput === undefined) return; // unreachable — satisfies TS narrowing
+		const parsed: Record<string, unknown> = JSON.parse(jsonOutput);
+		expect(parsed.error).toBeDefined();
 	});
 });
 

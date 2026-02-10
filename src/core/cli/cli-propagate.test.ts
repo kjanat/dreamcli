@@ -224,32 +224,11 @@ describe('collectPropagatedFlags', () => {
 	// --- Intermediate shadowing ---------------------------------------------
 
 	describe('intermediate shadowing', () => {
-		it('intermediate non-propagated flag does NOT shadow for grandchild', () => {
-			// root: verbose (propagate=true)
-			// mid:  verbose (propagate=false) — stops propagation
-			// leaf: no verbose
-			// Result: root's verbose should NOT propagate through mid, because
-			// mid redefined it without propagate. The walk collects propagated
-			// flags only — mid's verbose has propagate=false so it's not collected,
-			// and root's verbose was overwritten conceptually by mid's presence.
-			//
-			// However, our function only looks at propagate===true. Root's flag
-			// is collected, then mid's flag (propagate=false) is NOT collected.
-			// So root's flag remains in accumulator.
-			//
-			// This is actually correct behavior: the intermediate command's own
-			// non-propagated flag doesn't propagate further, but it also doesn't
-			// block root's propagated flag from reaching grandchildren. The
-			// intermediate command itself shadows via target shadowing when IT is
-			// the target. For grandchildren, only propagated flags flow through.
-			//
-			// This matches git behavior: if root defines --verbose as propagated,
-			// an intermediate group that also has --verbose locally doesn't prevent
-			// the root's --verbose from reaching deeper leaves.
-			//
-			// BUT: if we want "a child override shadows", then mid redefining
-			// verbose (even non-propagated) should block root's propagated verbose
-			// from reaching the leaf. Let's implement this stricter behavior.
+		it('intermediate non-propagated flag shadows ancestor for grandchild', () => {
+			// A child that redefines a flag — even without propagate — masks the
+			// ancestor's propagated flag from reaching deeper descendants. This
+			// prevents "flag leaking" where an ancestor's propagated flag bypasses
+			// an intermediate override.
 			const root = makeSchema({
 				name: 'cli',
 				flags: { verbose: propagatedFlag() },
@@ -261,12 +240,9 @@ describe('collectPropagatedFlags', () => {
 			const leaf = makeSchema({ name: 'migrate' });
 
 			const result = collectPropagatedFlags([root, mid, leaf]);
-			// Root's propagated verbose should still reach leaf because mid's flag
-			// has propagate=false so it's not collected, and root's IS collected.
-			// Mid's own flag only shadows when mid IS the target.
-			// This means: accumulated = { verbose: root's flag }
-			// Leaf has no own flags, so nothing is removed.
-			expect(result).toHaveProperty('verbose');
+			// Mid's local --verbose blocks root's propagated --verbose from
+			// reaching leaf. The flag is not in accumulated.
+			expect(result).not.toHaveProperty('verbose');
 		});
 
 		it('intermediate propagated flag shadows root propagated flag for descendants', () => {

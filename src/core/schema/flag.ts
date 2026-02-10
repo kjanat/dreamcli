@@ -356,6 +356,12 @@ interface FlagFactory {
 	 * Throw an `Error` (or `ParseError`) to signal invalid input — it will
 	 * be wrapped with context and re-thrown as a `ParseError`.
 	 *
+	 * **Config resolution:** When resolving from a config file, non-string
+	 * values are coerced to string via `String(raw)` before calling `parseFn`.
+	 * Complex objects will become `"[object Object]"` — callers should store
+	 * string representations in config or use a dedicated format loader.
+	 * When no `parseFn` is provided, the resolver returns `String(raw)`.
+	 *
 	 * @example
 	 * ```ts
 	 * flag.custom((raw) => new URL(raw))

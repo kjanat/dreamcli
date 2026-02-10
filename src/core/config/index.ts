@@ -174,9 +174,10 @@ function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[
 
 	// JSON first — always built-in
 	for (const ext of jsonLoader.extensions) {
-		if (!seen.has(ext)) {
-			seen.add(ext);
-			result.push(ext);
+		const lower = ext.toLowerCase();
+		if (!seen.has(lower)) {
+			seen.add(lower);
+			result.push(lower);
 		}
 	}
 
@@ -184,9 +185,10 @@ function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[
 	if (loaders !== undefined) {
 		for (const loader of loaders) {
 			for (const ext of loader.extensions) {
-				if (!seen.has(ext)) {
-					seen.add(ext);
-					result.push(ext);
+				const lower = ext.toLowerCase();
+				if (!seen.has(lower)) {
+					seen.add(lower);
+					result.push(lower);
 				}
 			}
 		}
@@ -208,12 +210,12 @@ function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[
 function buildLoaderMap(loaders?: readonly FormatLoader[]): ReadonlyMap<string, FormatLoader> {
 	const map = new Map<string, FormatLoader>();
 	for (const ext of jsonLoader.extensions) {
-		map.set(ext, jsonLoader);
+		map.set(ext.toLowerCase(), jsonLoader);
 	}
 	if (loaders !== undefined) {
 		for (const loader of loaders) {
 			for (const ext of loader.extensions) {
-				map.set(ext, loader);
+				map.set(ext.toLowerCase(), loader);
 			}
 		}
 	}

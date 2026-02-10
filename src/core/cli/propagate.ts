@@ -63,7 +63,21 @@ function collectPropagatedFlags(
 
 		for (const [name, flagSchema] of Object.entries(ancestor.flags)) {
 			if (flagSchema.propagate) {
-				accumulated[name] = flagSchema;
+				// Check if any descendant (between this ancestor and the target)
+				// defines a flag with the same name — if so, skip the ancestor's
+				// flag entirely. This ensures a child that redefines a flag
+				// (even without propagate) masks the ancestor's propagated flag.
+				let shadowedByDescendant = false;
+				for (let j = i + 1; j < commandPath.length - 1; j++) {
+					const descendant = commandPath[j];
+					if (descendant !== undefined && name in descendant.flags) {
+						shadowedByDescendant = true;
+						break;
+					}
+				}
+				if (!shadowedByDescendant) {
+					accumulated[name] = flagSchema;
+				}
 			}
 		}
 	}

@@ -88,8 +88,8 @@ describe('Shell type — SHELLS constant', () => {
 		expect(SHELLS).toEqual(['bash', 'zsh', 'fish', 'powershell']);
 	});
 
-	it('is readonly (frozen at type level)', () => {
-		expect(SHELLS).toHaveLength(4);
+	it('is a frozen readonly tuple', () => {
+		expect(Object.isFrozen(SHELLS)).toBe(true);
 	});
 });
 
@@ -1189,34 +1189,36 @@ describe('generateCompletion — dispatcher', () => {
 	it('throws CLIError for fish (unsupported)', () => {
 		const schema = minimalSchema();
 
-		expect(() => generateCompletion(schema, 'fish')).toThrow();
-
+		let caught: unknown;
 		try {
 			generateCompletion(schema, 'fish');
 		} catch (e: unknown) {
-			expect(isCLIError(e)).toBe(true);
-			if (isCLIError(e)) {
-				expect(e.code).toBe('UNSUPPORTED_OPERATION');
-				expect(e.message).toContain('fish');
-				expect(e.message).toContain('not yet supported');
-			}
+			caught = e;
+		}
+		expect(caught).toBeDefined();
+		expect(isCLIError(caught)).toBe(true);
+		if (isCLIError(caught)) {
+			expect(caught.code).toBe('UNSUPPORTED_OPERATION');
+			expect(caught.message).toContain('fish');
+			expect(caught.message).toContain('not yet supported');
 		}
 	});
 
 	it('throws CLIError for powershell (unsupported)', () => {
 		const schema = minimalSchema();
 
-		expect(() => generateCompletion(schema, 'powershell')).toThrow();
-
+		let caught: unknown;
 		try {
 			generateCompletion(schema, 'powershell');
 		} catch (e: unknown) {
-			expect(isCLIError(e)).toBe(true);
-			if (isCLIError(e)) {
-				expect(e.code).toBe('UNSUPPORTED_OPERATION');
-				expect(e.message).toContain('powershell');
-				expect(e.message).toContain('not yet supported');
-			}
+			caught = e;
+		}
+		expect(caught).toBeDefined();
+		expect(isCLIError(caught)).toBe(true);
+		if (isCLIError(caught)) {
+			expect(caught.code).toBe('UNSUPPORTED_OPERATION');
+			expect(caught.message).toContain('powershell');
+			expect(caught.message).toContain('not yet supported');
 		}
 	});
 

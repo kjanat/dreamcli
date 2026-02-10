@@ -170,6 +170,12 @@ function dispatch(
 			case 'needs-subcommand':
 				// Propagate from deeper level.
 				return subResult;
+
+			default: {
+				// Exhaustiveness guard — ensures all DispatchResult variants are handled.
+				const _exhaustive: never = subResult;
+				return _exhaustive;
+			}
 		}
 	}
 

@@ -92,7 +92,10 @@ function getNodeProcess(): NodeProcess {
  * @internal
  */
 function isNodeSystemError(err: unknown): err is NodeSystemError {
-	return typeof err === 'object' && err !== null && 'code' in err;
+	if (typeof err !== 'object' || err === null || !('code' in err)) return false;
+	// After the `in` check, TS narrows err to `object & Record<'code', unknown>`.
+	const candidate: { code: unknown } = err;
+	return typeof candidate.code === 'string';
 }
 
 /**

@@ -6,9 +6,9 @@
 | -------------------- | ---------- | ------------------------------------------------------- |
 | `adapter.ts`         | **Active** | `RuntimeAdapter` interface — process/env/IO abstraction |
 | `node.ts`            | **Active** | `createNodeAdapter()` — Node.js implementation          |
-| `bun.ts`             | STUB       | `export {}` — planned Bun adapter                       |
+| `bun.ts`             | **Active** | `createBunAdapter()` — delegates to Node adapter        |
 | `deno.ts`            | STUB       | `export {}` — planned Deno adapter                      |
-| `detect.ts`          | STUB       | `export {}` — planned runtime detection                 |
+| `detect.ts`          | **Active** | `detectRuntime()` — Bun/Deno/Node feature detection     |
 | `node-builtins.d.ts` | Types      | `@internal` — Node built-in type shims                  |
 | `index.ts`           | Barrel     | Re-exports `RuntimeAdapter`, adapters, `ExitError`      |
 
