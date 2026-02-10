@@ -72,7 +72,10 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 // ---------------------------------------------------------------------------
 
 /** Discriminator for the kind of value a flag accepts. */
-type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array';
+type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
+
+/** Custom parse function for `flag.custom()`. */
+type FlagParseFn<T> = (raw: string) => T;
 
 /**
  * The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
@@ -100,6 +103,8 @@ interface FlagSchema {
 	readonly elementSchema: FlagSchema | undefined;
 	/** Interactive prompt configuration for v0.3+ resolution. */
 	readonly prompt: PromptConfig | undefined;
+	/** Custom parse function (only when `kind === 'custom'`). */
+	readonly parseFn: FlagParseFn<unknown> | undefined;
 }
 
 /** Create base schema data with sensible defaults. */
@@ -115,6 +120,7 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 		enumValues: undefined,
 		elementSchema: undefined,
 		prompt: undefined,
+		parseFn: undefined,
 		...overrides,
 	};
 }
@@ -285,6 +291,25 @@ interface FlagFactory {
 	array<E extends FlagConfig>(
 		element: FlagBuilder<E>,
 	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }>;
+
+	/**
+	 * Custom-parsed flag. The parse function receives the raw CLI string and
+	 * must return a value of type `T`. The return type is inferred from
+	 * `parseFn`.
+	 *
+	 * Throw an `Error` (or `ParseError`) to signal invalid input — it will
+	 * be wrapped with context and re-thrown as a `ParseError`.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.custom((raw) => new URL(raw))
+	 * // inferred type: URL | undefined
+	 * ```
+	 */
+	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
+		readonly valueType: T;
+		readonly presence: 'optional';
+	}>;
 }
 
 /** Flag schema factory. Use `flag.<kind>()` to create a builder. */
@@ -317,6 +342,13 @@ const flag: FlagFactory = {
 	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }> {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
+
+	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
+		readonly valueType: T;
+		readonly presence: 'optional';
+	}> {
+		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
+	},
 };
 
 // ---------------------------------------------------------------------------
@@ -328,6 +360,7 @@ export type {
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
 	InferFlag,

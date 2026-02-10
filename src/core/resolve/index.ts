@@ -457,6 +457,31 @@ function coercePromptValue(
 			};
 		}
 
+		case 'custom': {
+			// Custom flags delegate to the parseFn. The prompt returns a raw value
+			// (typically a string from input prompt) — pass through parseFn.
+			if (schema.parseFn) {
+				const input = typeof raw === 'string' ? raw : String(raw);
+				try {
+					return { ok: true, value: schema.parseFn(input) };
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					return {
+						ok: false,
+						error: new ValidationError(
+							`Failed to parse prompt value for flag --${flagName}: ${message}`,
+							{
+								code: 'TYPE_MISMATCH',
+								details: { flag: flagName, value: raw, expected: 'custom', source: 'prompt' },
+								suggest: `Enter a valid value for --${flagName}`,
+							},
+						),
+					};
+				}
+			}
+			return { ok: true, value: raw };
+		}
+
 		case 'array': {
 			// Multiselect prompts return string[]; accept arrays directly
 			if (Array.isArray(raw)) {
@@ -625,6 +650,29 @@ function coerceEnvValue(
 						},
 					),
 				};
+			}
+			return { ok: true, value: raw };
+		}
+
+		case 'custom': {
+			// Custom flags delegate to the parseFn. Env values are always strings.
+			if (schema.parseFn) {
+				try {
+					return { ok: true, value: schema.parseFn(raw) };
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					return {
+						ok: false,
+						error: new ValidationError(
+							`Failed to parse env ${envVar} for flag --${flagName}: ${message}`,
+							{
+								code: 'TYPE_MISMATCH',
+								details: { flag: flagName, envVar, value: raw, expected: 'custom' },
+								suggest: `Set ${envVar} to a valid value for --${flagName}`,
+							},
+						),
+					};
+				}
 			}
 			return { ok: true, value: raw };
 		}
@@ -811,6 +859,33 @@ function coerceConfigValue(
 					},
 				),
 			};
+		}
+
+		case 'custom': {
+			// Custom flags delegate to the parseFn. Config values may not be strings,
+			// so coerce to string first to match the parseFn contract.
+			if (schema.parseFn) {
+				const input = typeof raw === 'string' ? raw : String(raw);
+				try {
+					return { ok: true, value: schema.parseFn(input) };
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					return {
+						ok: false,
+						error: new ValidationError(
+							`Failed to parse config ${configPath} for flag --${flagName}: ${message}`,
+							{
+								code: 'TYPE_MISMATCH',
+								details: { flag: flagName, configPath, value: raw, expected: 'custom' },
+								suggest: `Set ${configPath} to a valid value for --${flagName} in your config`,
+							},
+						),
+					};
+				}
+			}
+			// No parseFn — accept raw
+			if (typeof raw === 'string') return { ok: true, value: raw };
+			return { ok: true, value: String(raw) };
 		}
 
 		case 'array': {

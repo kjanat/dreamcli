@@ -132,6 +132,8 @@ function formatValueHint(schema: FlagSchema): string {
 		}
 		case 'boolean':
 			return '';
+		case 'custom':
+			return '<value>';
 	}
 }
 

@@ -323,6 +323,71 @@ describe('resolve — flags', () => {
 });
 
 // ========================================================================
+// Custom flag resolution
+// ========================================================================
+
+describe('resolve — custom flags', () => {
+	it('passes through CLI-provided custom flag value', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: string) => Number.parseInt(raw, 16),
+				}),
+			},
+		});
+		// Parser already called parseFn, so parsed value is the result
+		const parsed = makeParsed({ flags: { hex: 255 } });
+
+		const result = await resolve(schema, parsed);
+		expect(result.flags.hex).toBe(255);
+	});
+
+	it('applies default for optional custom flag when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					presence: 'defaulted',
+					defaultValue: 0,
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		const result = await resolve(schema, parsed);
+		expect(result.flags.hex).toBe(0);
+	});
+
+	it('required custom flag throws when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					presence: 'required',
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		await expect(resolve(schema, parsed)).rejects.toThrow(ValidationError);
+	});
+
+	it('optional custom flag resolves to undefined when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				hex: createSchema('custom', {
+					parseFn: (raw: string) => Number.parseInt(raw, 16),
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		const result = await resolve(schema, parsed);
+		expect(result.flags.hex).toBeUndefined();
+	});
+});
+
+// ========================================================================
 // Arg resolution
 // ========================================================================
 

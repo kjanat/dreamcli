@@ -89,6 +89,7 @@ export type {
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
 	InferArg,

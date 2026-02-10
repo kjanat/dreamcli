@@ -40,7 +40,7 @@
 			"title": "Implement flag.custom(parseFn) with return type inference",
 			"overseerTaskId": "task_01KH1QADZX04094K0V2FE6Q3YR",
 			"priority": "feature",
-			"passes": false,
+			"passes": true,
 			"description": "New flag kind: custom(parseFn). Parse function takes string, returns T. Return type inferred from parseFn."
 		},
 		{

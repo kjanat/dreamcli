@@ -186,6 +186,23 @@ function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unk
 				return coerceFlagValue(flagName, raw, schema.elementSchema);
 			}
 			return raw;
+
+		case 'custom': {
+			if (!schema.parseFn) {
+				return raw;
+			}
+			try {
+				return schema.parseFn(raw);
+			} catch (err) {
+				if (err instanceof ParseError) throw err;
+				const message = err instanceof Error ? err.message : String(err);
+				throw new ParseError(`Failed to parse flag --${flagName}: ${message}`, {
+					code: 'INVALID_VALUE',
+					details: { flag: flagName, value: raw },
+					cause: err,
+				});
+			}
+		}
 	}
 }
 

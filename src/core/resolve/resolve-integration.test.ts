@@ -402,3 +402,88 @@ describe('backward compatibility', () => {
 		expect(result.stdout[0]).toContain('region=us');
 	});
 });
+
+// ---------------------------------------------------------------------------
+// runCommand() — custom flag integration
+// ---------------------------------------------------------------------------
+
+describe('runCommand — custom flag integration', () => {
+	it('custom flag parsed from CLI argv', async () => {
+		const cmd = command('test')
+			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).describe('Hex value'))
+			.action(({ flags, out }) => {
+				out.log(`hex=${String(flags.hex)}`);
+			});
+
+		const result = await runCommand(cmd, ['--hex', 'ff']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('hex=255');
+	});
+
+	it('custom flag resolved from env', async () => {
+		const cmd = command('test')
+			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).env('HEX_VALUE'))
+			.action(({ flags, out }) => {
+				out.log(`hex=${String(flags.hex)}`);
+			});
+
+		const result = await runCommand(cmd, [], { env: { HEX_VALUE: 'a0' } });
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('hex=160');
+	});
+
+	it('custom flag resolved from config', async () => {
+		const cmd = command('test')
+			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).config('hex'))
+			.action(({ flags, out }) => {
+				out.log(`hex=${String(flags.hex)}`);
+			});
+
+		const result = await runCommand(cmd, [], { config: { hex: 'b0' } });
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('hex=176');
+	});
+
+	it('custom flag with default', async () => {
+		const cmd = command('test')
+			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).default(0))
+			.action(({ flags, out }) => {
+				out.log(`hex=${String(flags.hex)}`);
+			});
+
+		const result = await runCommand(cmd, []);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout[0]).toContain('hex=0');
+	});
+
+	it('custom flag parse error renders correctly', async () => {
+		const cmd = command('test')
+			.flag(
+				'port',
+				flag.custom((raw) => {
+					const n = Number(raw);
+					if (Number.isNaN(n)) throw new Error('Not a number');
+					return n;
+				}),
+			)
+			.action(({ out }) => {
+				out.log('ok');
+			});
+
+		const result = await runCommand(cmd, ['--port', 'abc']);
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Failed to parse flag --port');
+	});
+
+	it('required custom flag fails when not provided', async () => {
+		const cmd = command('test')
+			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).required())
+			.action(({ out }) => {
+				out.log('ok');
+			});
+
+		const result = await runCommand(cmd, []);
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Missing required flag --hex');
+	});
+});

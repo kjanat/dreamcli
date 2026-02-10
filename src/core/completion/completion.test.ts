@@ -31,6 +31,7 @@ function flagSchema(overrides: Partial<FlagSchema> = {}): FlagSchema {
 		enumValues: undefined,
 		elementSchema: undefined,
 		prompt: undefined,
+		parseFn: undefined,
 		...overrides,
 	};
 }

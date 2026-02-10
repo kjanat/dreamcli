@@ -66,3 +66,16 @@ Started: 2026-02-10
 - Exported `configFormat` from barrel `src/index.ts`
 - Files changed: `src/core/config/index.ts`, `src/core/cli/index.ts`, `src/core/cli/cli-config.test.ts` (+7 tests), `src/core/config/config.test.ts` (+3 tests), `src/index.ts`
 - **Learnings:** FormatLoader infrastructure was already well-designed for extensibility — the plugin hook was mainly a builder ergonomics + factory concern, not a core architecture change. `configSettings.loaders` being `readonly FormatLoader[] | undefined` works cleanly with `?? []` spread pattern.
+
+## Task — flag-custom
+- Added `'custom'` to `FlagKind` union and `FlagParseFn<T>` type alias
+- Added `parseFn: FlagParseFn<unknown> | undefined` to `FlagSchema`
+- Added `flag.custom<T>(parseFn)` factory — infers `T` from parseFn return type
+- Wired through parser: `coerceFlagValue` case calls `parseFn`, wraps errors in `ParseError`
+- Wired through resolve chain: all 3 coerce functions (`coerceEnvValue`, `coerceConfigValue`, `coercePromptValue`) handle `'custom'` — env/prompt pass raw string, config coerces non-string to string first
+- Updated help formatter: `formatValueHint` returns `<value>` for custom flags
+- Updated completion.test.ts `flagSchema()` helper with `parseFn: undefined`
+- Exported `FlagParseFn` from schema barrel and public barrel
+- 34 new tests: flag.test.ts (+15), parse.test.ts (+6), resolve.test.ts (+4), resolve-env.test.ts (+3), resolve-config.test.ts (+3), resolve-integration.test.ts (+2 describes, 6 tests), help.test.ts (+1)
+- Files changed: `src/core/schema/flag.ts`, `src/core/parse/index.ts`, `src/core/resolve/index.ts`, `src/core/help/index.ts`, `src/core/schema/index.ts`, `src/index.ts`, `src/core/completion/completion.test.ts`, + 6 test files
+- **Learnings:** Mirroring `arg.custom()` pattern for flags requires wiring through more touchpoints (parser coercion + 3 resolve coercions + help) since flags have env/config/prompt resolution that args don't. The `as FlagParseFn<unknown>` cast in factory is the same justified pattern as `ArgParseFn<unknown>`. Tests with `createSchema('custom')` produce a flag without parseFn — must handle gracefully (return raw string).
