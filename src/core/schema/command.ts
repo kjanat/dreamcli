@@ -331,6 +331,16 @@ interface CommandArgEntry {
 interface ErasedCommand {
 	/** Runtime schema for name matching and help rendering. */
 	readonly schema: CommandSchema;
+	/**
+	 * Nested subcommands (name/alias → erased child).
+	 *
+	 * Built recursively by `eraseCommand()` in the CLI layer.
+	 * Empty map for leaf commands. The dispatch layer uses this for
+	 * recursive command tree traversal.
+	 *
+	 * @internal
+	 */
+	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
 	/** Execute this command against argv. Closes over the typed CommandBuilder. */
 	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
 }

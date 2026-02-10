@@ -60,6 +60,7 @@ function commandSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 function erased(schema: CommandSchema) {
 	return {
 		schema,
+		subcommands: new Map(),
 		async _execute() {
 			return { stdout: [] as string[], stderr: [] as string[], exitCode: 0, error: undefined };
 		},

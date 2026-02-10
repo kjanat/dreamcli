@@ -21,6 +21,15 @@ Started: 2026-02-10
 - **Propagated flag collection**: `collectPropagatedFlags(commandPath)` in `cli/propagate.ts` —
   takes `CommandSchema[]` (root→target), returns inherited `Record<string, FlagSchema>`. Target's
   own flags always shadow. Dispatch layer merges result into target's flags before resolution.
+- **Recursive dispatch**: `dispatch()` in `cli/dispatch.ts` — walks argv consuming command name
+  tokens, returns discriminated union (`match` | `needs-subcommand` | `unknown`). Commands with
+  both handlers + subcommands: if next token matches subcommand → descend; else → match at current
+  level. `findClosestCommand()` + `levenshtein()` also live in dispatch.ts.
+- **ErasedCommand.subcommands**: `ReadonlyMap<string, ErasedCommand>` keyed by name AND alias.
+  `eraseCommand()` builds recursively from `_subcommands`. Test helpers need `subcommands: new Map()`.
+- **mergedSchema on RunOptions**: `@internal` field — when dispatch merges propagated flags, it
+  passes the merged schema via `RunOptions.mergedSchema`. `runCommand()` uses this for parse/resolve
+  instead of `cmd.schema` when present.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -64,3 +73,24 @@ Started: 2026-02-10
   - Intermediate non-propagated redefinitions do NOT block ancestor propagation to grandchildren — only `propagate: true` flags flow through the accumulator. Intermediate shadowing only applies when the intermediate IS the target.
   - `delete` on accumulated record is fine for sparse cleanup — biome doesn't flag `noDelete` here (only on prototype properties)
   - Function is intentionally NOT exported from CLI barrel or public API — it's @internal infrastructure for the dispatch layer (`recursive-dispatch` task will import directly)
+
+## Task - recursive-dispatch
+- Created `src/core/cli/dispatch.ts` — recursive dispatch with discriminated union result types
+- `dispatch(argv, commands, ancestorPath)` → `DispatchMatch | DispatchNeedsSubcommand | DispatchUnknown`
+- Moved `findClosestCommand()`, `levenshtein()` from `cli/index.ts` → `dispatch.ts`
+- Extended `ErasedCommand` with `subcommands: ReadonlyMap<string, ErasedCommand>` (name+alias keyed)
+- Made `eraseCommand()` recursive — builds child maps from `_subcommands`
+- Added `mergedSchema?: CommandSchema` to `RunOptions` — dispatch merges propagated flags into schema before passing to `runCommand()`
+- Updated `runCommand()` to use `mergedSchema` when present for parse/resolve/help
+- Updated `CLIBuilder.execute()` to use `dispatch()` + `collectPropagatedFlags()` instead of single-level `findCommand()`
+- Handles hybrid commands (action + subcommands): subcommand match takes priority, else falls to group handler
+- Groups without handlers: `needs-subcommand` → renders group help with subcommand list
+- Updated `completion.test.ts` `erased()` helper with `subcommands: new Map()`
+- 22 unit tests in `cli-dispatch.test.ts`: base cases, nesting, groups, levenshtein, findClosest, uniqueCommands
+- 16 integration tests in `cli-nesting.test.ts`: nested dispatch, 3-level, hybrid groups, propagated flags, help, JSON mode, aliases
+- **Files changed:** `src/core/cli/dispatch.ts` (new), `src/core/cli/cli-dispatch.test.ts` (new), `src/core/cli/cli-nesting.test.ts` (new), `src/core/cli/index.ts`, `src/core/schema/command.ts`, `src/core/testkit/index.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:**
+  - Flags before command names (e.g. `--verbose db migrate`) require scanning past flags to find the first non-flag token as the command name. The dispatch function handles this by finding the first non-`-` prefixed token.
+  - Hybrid commands (with action + subcommands, like `git remote`) need the dispatch to try subcommand matching first, then fall back to the parent handler for unknown tokens that could be positional args.
+  - `ReadonlyMap` works well for the subcommand lookup table — O(1) per level, alias entries just point to the same object. `uniqueCommands()` deduplicates for suggestion/help rendering.
+  - `mergedSchema` on RunOptions is a clean internal seam — doesn't change the public API, and `runCommand()` transparently uses it for parse/resolve while keeping middleware from `cmd.schema`.

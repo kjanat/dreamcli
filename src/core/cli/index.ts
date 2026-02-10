@@ -21,22 +21,27 @@ import { createCaptureOutput } from '../output/index.js';
 import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTerminalPrompter } from '../prompt/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type { CommandBuilder, ErasedCommand } from '../schema/command.js';
+import type { CommandBuilder, CommandSchema, ErasedCommand } from '../schema/command.js';
 import { command } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
 import { flag } from '../schema/flag.js';
 import type { RunOptions, RunResult } from '../testkit/index.js';
 import { runCommand } from '../testkit/index.js';
+import { dispatch, findClosestCommand } from './dispatch.js';
+import { collectPropagatedFlags } from './propagate.js';
 
 // ---------------------------------------------------------------------------
 // Type-erased command — erasure function (interface now in schema/command.ts)
 // ---------------------------------------------------------------------------
 
 /**
- * Erase a typed CommandBuilder into an ErasedCommand.
+ * Erase a typed CommandBuilder into an ErasedCommand, recursively
+ * building the subcommand tree.
  *
  * The closure captures the fully-typed builder, so `runCommand()` receives
  * the original `CommandBuilder<F, A>` — no type assertions needed.
+ * Subcommands are recursively erased and indexed by name and alias for
+ * O(1) lookup during dispatch.
  *
  * @internal
  */
@@ -45,8 +50,19 @@ function eraseCommand<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown>,
 >(cmd: CommandBuilder<F, A, C>): ErasedCommand {
+	// Recursively erase subcommands, keyed by name and alias.
+	const subcommands = new Map<string, ErasedCommand>();
+	for (const sub of cmd._subcommands) {
+		const erased = eraseCommand(sub);
+		subcommands.set(sub.schema.name, erased);
+		for (const alias of sub.schema.aliases) {
+			subcommands.set(alias, erased);
+		}
+	}
+
 	return {
 		schema: cmd.schema,
+		subcommands,
 		_execute(argv, options) {
 			return runCommand(cmd, argv, options);
 		},
@@ -299,82 +315,6 @@ function wrapText(text: string, width: number, indent: number): string {
 
 	const pad = ' '.repeat(indent);
 	return lines.map((line, i) => (i === 0 ? line : `${pad}${line}`)).join('\n');
-}
-
-// ---------------------------------------------------------------------------
-// "Did you mean?" suggestion for unknown commands
-// ---------------------------------------------------------------------------
-
-/**
- * Levenshtein distance between two strings.
- * @internal
- */
-function levenshtein(a: string, b: string): number {
-	const m = a.length;
-	const n = b.length;
-	const dp: number[][] = Array.from({ length: m + 1 }, () =>
-		Array.from({ length: n + 1 }, () => 0),
-	);
-
-	for (let i = 0; i <= m; i++) {
-		const row = dp[i];
-		if (row !== undefined) row[0] = i;
-	}
-	for (let j = 0; j <= n; j++) {
-		const row = dp[0];
-		if (row !== undefined) row[j] = j;
-	}
-
-	for (let i = 1; i <= m; i++) {
-		for (let j = 1; j <= n; j++) {
-			const cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
-			const prevRow = dp[i - 1];
-			const currRow = dp[i];
-			if (prevRow !== undefined && currRow !== undefined) {
-				const del = prevRow[j];
-				const ins = currRow[j - 1];
-				const sub = prevRow[j - 1];
-				if (del !== undefined && ins !== undefined && sub !== undefined) {
-					currRow[j] = Math.min(del + 1, ins + 1, sub + cost);
-				}
-			}
-		}
-	}
-
-	const lastRow = dp[m];
-	return lastRow !== undefined && lastRow[n] !== undefined ? lastRow[n] : Math.max(m, n);
-}
-
-/**
- * Find the closest command name match for a "did you mean?" suggestion.
- *
- * Returns `undefined` if no sufficiently close match exists (threshold: 3).
- *
- * @internal
- */
-function findClosestCommand(input: string, commands: readonly ErasedCommand[]): string | undefined {
-	const MAX_DISTANCE = 3;
-	let bestName: string | undefined;
-	let bestDist = MAX_DISTANCE + 1;
-
-	for (const cmd of commands) {
-		// Check main name
-		const nameDist = levenshtein(input, cmd.schema.name);
-		if (nameDist < bestDist) {
-			bestDist = nameDist;
-			bestName = cmd.schema.name;
-		}
-		// Check aliases
-		for (const alias of cmd.schema.aliases) {
-			const aliasDist = levenshtein(input, alias);
-			if (aliasDist < bestDist) {
-				bestDist = aliasDist;
-				bestName = cmd.schema.name; // suggest canonical name
-			}
-		}
-	}
-
-	return bestDist <= MAX_DISTANCE ? bestName : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -704,38 +644,86 @@ class CLIBuilder {
 			return buildResult(1, captured, err);
 		}
 
-		// -- Find matching command (by name or alias) -----------------------------
-		const matched = findCommand(firstArg, this.schema.commands);
-
-		if (matched === undefined) {
-			const suggestion = findClosestCommand(firstArg, this.schema.commands);
-			const err = new ParseError(`Unknown command: ${firstArg}`, {
-				code: 'UNKNOWN_COMMAND',
-				suggest:
-					suggestion !== undefined
-						? `Did you mean '${suggestion}'?`
-						: `Run '${this.schema.name} --help' for available commands`,
-			});
-			if (jsonMode) {
-				out.json({ error: err.toJSON() });
-			} else {
-				out.error(err.message);
-				if (err.suggest !== undefined) {
-					out.error(`Suggestion: ${err.suggest}`);
-				}
+		// -- Build root command map for dispatch -----------------------------------
+		const rootCommands = new Map<string, ErasedCommand>();
+		for (const cmd of this.schema.commands) {
+			rootCommands.set(cmd.schema.name, cmd);
+			for (const alias of cmd.schema.aliases) {
+				rootCommands.set(alias, cmd);
 			}
-			return buildResult(2, captured, err);
 		}
 
-		// -- Delegate to command execution ----------------------------------------
-		const remainingArgv = filteredArgv.slice(1);
-		// Propagate jsonMode to command so it gets the --json context
-		const effectiveOptions: CLIRunOptions = {
-			...options,
-			...(jsonMode ? { jsonMode } : {}),
-		};
-		const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
-		return matched._execute(remainingArgv, commandRunOptions);
+		// -- Recursive dispatch ---------------------------------------------------
+		const result = dispatch(filteredArgv, rootCommands);
+
+		switch (result.kind) {
+			case 'unknown': {
+				if (result.input === '') {
+					// Only flags, no command — show root help.
+					const helpText = formatRootHelp(this.schema, helpOptions);
+					out.log(helpText);
+					return buildResult(0, captured, undefined);
+				}
+				const suggestion = findClosestCommand(result.input, result.candidates);
+				const err = new ParseError(`Unknown command: ${result.input}`, {
+					code: 'UNKNOWN_COMMAND',
+					suggest:
+						suggestion !== undefined
+							? `Did you mean '${suggestion}'?`
+							: `Run '${this.schema.name} --help' for available commands`,
+				});
+				if (jsonMode) {
+					out.json({ error: err.toJSON() });
+				} else {
+					out.error(err.message);
+					if (err.suggest !== undefined) {
+						out.error(`Suggestion: ${err.suggest}`);
+					}
+				}
+				return buildResult(2, captured, err);
+			}
+
+			case 'needs-subcommand': {
+				// Group command with no handler — show its help.
+				const helpText = formatRootHelp(
+					{
+						name: `${this.schema.name} ${result.command.schema.name}`,
+						version: undefined,
+						description: result.command.schema.description,
+						commands: [...result.command.subcommands.values()].filter(
+							(c, i, arr) => arr.indexOf(c) === i,
+						),
+						configSettings: undefined,
+					},
+					helpOptions,
+				);
+				out.log(helpText);
+				return buildResult(0, captured, undefined);
+			}
+
+			case 'match': {
+				// Merge propagated flags from ancestor path into target's schema.
+				const propagated = collectPropagatedFlags(result.commandPath);
+				const hasPropagated = Object.keys(propagated).length > 0;
+				const mergedSchema: CommandSchema | undefined = hasPropagated
+					? {
+							...result.command.schema,
+							flags: { ...propagated, ...result.command.schema.flags },
+						}
+					: undefined;
+
+				// Propagate jsonMode to command so it gets the --json context
+				const effectiveOptions: CLIRunOptions = {
+					...options,
+					...(jsonMode ? { jsonMode } : {}),
+				};
+				const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
+				return result.command._execute(result.remainingArgv, {
+					...commandRunOptions,
+					...(mergedSchema !== undefined ? { mergedSchema } : {}),
+				});
+			}
+		}
 	}
 
 	/**
@@ -830,24 +818,6 @@ class CLIBuilder {
 
 		return adapter.exit(result.exitCode);
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Command lookup
-// ---------------------------------------------------------------------------
-
-/**
- * Find a command by name or alias.
- * @internal
- */
-function findCommand(name: string, commands: readonly ErasedCommand[]): ErasedCommand | undefined {
-	for (const cmd of commands) {
-		if (cmd.schema.name === name) return cmd;
-		for (const alias of cmd.schema.aliases) {
-			if (alias === name) return cmd;
-		}
-	}
-	return undefined;
 }
 
 // ---------------------------------------------------------------------------

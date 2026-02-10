@@ -32,7 +32,7 @@
 			"title": "Implement recursive command dispatch in CLIBuilder.execute()",
 			"overseerTaskId": "task_01KH3NDNS7R7CNR2ZSMFW6W777",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"description": "Replace single-level dispatch with recursive walk. Consume argv segments as command names. Merge propagated flags before resolution. Extract to cli/dispatch.ts."
 		},
 		{
