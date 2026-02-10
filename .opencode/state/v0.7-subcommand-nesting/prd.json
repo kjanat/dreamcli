@@ -40,7 +40,7 @@
 			"title": "Update help formatter for nested command groups",
 			"overseerTaskId": "task_01KH3NE84K6W2WBR6XY1A54Q5Q",
 			"priority": "integration",
-			"passes": false,
+			"passes": true,
 			"description": "formatHelp() gains 'Commands:' section for groups. Usage line adapts. Root help handles groups alongside leaves."
 		},
 		{

@@ -16,6 +16,7 @@ import type { FormatLoader } from '../config/index.js';
 import { discoverConfig } from '../config/index.js';
 import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
+import { formatHelp } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
 import { createCaptureOutput } from '../output/index.js';
 import type { PromptEngine, TestAnswer } from '../prompt/index.js';
@@ -684,19 +685,13 @@ class CLIBuilder {
 			}
 
 			case 'needs-subcommand': {
-				// Group command with no handler — show its help.
-				const helpText = formatRootHelp(
-					{
-						name: `${this.schema.name} ${result.command.schema.name}`,
-						version: undefined,
-						description: result.command.schema.description,
-						commands: [...result.command.subcommands.values()].filter(
-							(c, i, arr) => arr.indexOf(c) === i,
-						),
-						configSettings: undefined,
-					},
-					helpOptions,
-				);
+				// Group command with no handler — show its help via formatHelp().
+				// Build binName from ancestor path so usage reads "myapp db" not just "db".
+				const groupHelpOptions: HelpOptions = {
+					...helpOptions,
+					binName: this.schema.name,
+				};
+				const helpText = formatHelp(result.command.schema, groupHelpOptions);
 				out.log(helpText);
 				return buildResult(0, captured, undefined);
 			}

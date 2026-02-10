@@ -253,9 +253,10 @@ function formatArgDescription(schema: ArgSchema): string {
  * Sections rendered (in order):
  * 1. **Usage** line — `program <command> [flags] <args>`
  * 2. **Description** — the command's `.description()` text
- * 3. **Arguments** — positional args table (if any)
- * 4. **Flags** — flags table with type hints and defaults
- * 5. **Examples** — usage examples (if any)
+ * 3. **Commands** — subcommands table (if any, skips hidden)
+ * 4. **Arguments** — positional args table (if any)
+ * 5. **Flags** — flags table with type hints and defaults
+ * 6. **Examples** — usage examples (if any)
  *
  * @param schema - The command schema to render help for.
  * @param options - Formatting options (width, binary name).
@@ -271,6 +272,12 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 	// ---- Description --------------------------------------------------------
 	if (schema.description !== undefined) {
 		sections.push(schema.description);
+	}
+
+	// ---- Commands (subcommands) ---------------------------------------------
+	const visibleCommands = schema.commands.filter((c) => !c.hidden);
+	if (visibleCommands.length > 0) {
+		sections.push(formatCommandsSection(visibleCommands, opts));
 	}
 
 	// ---- Arguments ----------------------------------------------------------
@@ -300,6 +307,11 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 	const parts: string[] = ['Usage:'];
 	const cmdName = opts.binName !== undefined ? `${opts.binName} ${schema.name}` : schema.name;
 	parts.push(cmdName);
+
+	// Subcommand placeholder — groups show <command> before flags/args
+	if (schema.commands.length > 0) {
+		parts.push('<command>');
+	}
 
 	// Flags placeholder
 	const flagNames = Object.keys(schema.flags);
@@ -368,6 +380,37 @@ function formatFlagsSection(
 		} else {
 			const padded = padEnd(left, descCol);
 			const wrapped = wrapText(entry.description, opts.width, descCol);
+			lines.push(`${padded}${wrapped}`);
+		}
+	}
+
+	return lines.join('\n');
+}
+
+function formatCommandsSection(
+	commands: readonly CommandSchema[],
+	opts: ResolvedHelpOptions,
+): string {
+	const lines: string[] = ['Commands:'];
+	const GAP = 2;
+
+	// Compute max name length for alignment
+	let maxNameLen = 0;
+	for (const cmd of commands) {
+		if (cmd.name.length > maxNameLen) {
+			maxNameLen = cmd.name.length;
+		}
+	}
+
+	const descCol = 2 + maxNameLen + GAP; // 2 for indent
+	for (const cmd of commands) {
+		const left = `  ${cmd.name}`;
+		const desc = cmd.description ?? '';
+		if (desc.length === 0) {
+			lines.push(left);
+		} else {
+			const padded = padEnd(left, descCol);
+			const wrapped = wrapText(desc, opts.width, descCol);
 			lines.push(`${padded}${wrapped}`);
 		}
 	}

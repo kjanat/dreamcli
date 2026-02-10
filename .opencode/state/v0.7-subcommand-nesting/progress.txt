@@ -94,3 +94,15 @@ Started: 2026-02-10
   - Hybrid commands (with action + subcommands, like `git remote`) need the dispatch to try subcommand matching first, then fall back to the parent handler for unknown tokens that could be positional args.
   - `ReadonlyMap` works well for the subcommand lookup table — O(1) per level, alias entries just point to the same object. `uniqueCommands()` deduplicates for suggestion/help rendering.
   - `mergedSchema` on RunOptions is a clean internal seam — doesn't change the public API, and `runCommand()` transparently uses it for parse/resolve while keeping middleware from `cmd.schema`.
+
+## Task - nested-help
+- Added `formatCommandsSection()` to `formatHelp()` — renders "Commands:" section from `schema.commands`, skips hidden, aligns descriptions
+- Updated `formatUsageLine()` — shows `<command>` placeholder when `schema.commands.length > 0`
+- Section order: Usage → Description → Commands → Arguments → Flags → Examples
+- Replaced synthetic `formatRootHelp()` hack in `needs-subcommand` handler with `formatHelp()` — groups now get proper per-command help (usage line, commands, flags, examples) instead of a degraded root-help format
+- 10 new tests in `help.test.ts`: Commands section rendering, hidden filtering, alignment, usage line adaptation, binName propagation, section ordering with commands
+- **Files changed:** `src/core/help/index.ts`, `src/core/help/help.test.ts`, `src/core/cli/index.ts`
+- **Learnings:**
+  - `formatHelp()` is the right place for the Commands section — it already renders per-command help and `CommandSchema.commands` carries the subcommand data
+  - The `needs-subcommand` case previously built a synthetic `CLISchema` to call `formatRootHelp()` — this was fragile (lost flags, examples, args). Using `formatHelp()` directly is simpler and renders all sections
+  - `formatRootHelp()` remains appropriate only for the true CLI root (program-level help with version header)
