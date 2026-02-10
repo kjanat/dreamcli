@@ -785,6 +785,29 @@ describe('createNodeAdapter — filesystem', () => {
 		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
 	});
 
+	it('configDir normalizes trailing separator in homedir on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		// Must not produce doubled backslash: C:\\\\AppData\\Roaming
+		expect(adapter.configDir).toBe('C:\\AppData\\Roaming');
+	});
+
+	it('configDir normalizes trailing slash in homedir on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice\\' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
 	it('readFile returns file contents for existing files', async () => {
 		const adapter = createNodeAdapter();
 		// Use the adapter's own cwd to find a file we know exists

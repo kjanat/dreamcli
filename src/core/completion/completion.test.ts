@@ -1584,6 +1584,72 @@ describe('generateZshCompletion — nested propagated flags', () => {
 	});
 });
 
+describe('generateZshCompletion — multi-short-alias exclusion groups', () => {
+	it('includes all short aliases in exclusion group', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							verbose: flagSchema({
+								kind: 'boolean',
+								aliases: ['v', 'V'],
+								description: 'Verbose',
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		// Both -v and -V must appear in the exclusion group and comma list
+		expect(script).toContain("(-v -V --verbose)'{-v,-V,--verbose}'[Verbose]");
+	});
+
+	it('single short alias still works', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({ kind: 'boolean', aliases: ['f'], description: 'Force' }),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("(-f --force)'{-f,--force}'[Force]");
+	});
+});
+
+describe('generateBashCompletion — shell escaping', () => {
+	it('escapes single quotes in subcommand names', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: "it's-cool", description: 'Has quote' }))],
+		});
+		const script = generateBashCompletion(schema);
+
+		// The single quote must be escaped via '\'' idiom
+		expect(script).toContain("it'\\''s-cool");
+		// Must not contain a bare unescaped it's-cool inside the compgen string
+		expect(script).not.toMatch(/compgen -W '[^']*it's-cool/);
+	});
+
+	it('leaves simple names unescaped', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: 'deploy', description: 'Deploy' }))],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain("compgen -W 'deploy --help --version'");
+	});
+});
+
 describe('generateZshCompletion — nested hidden commands', () => {
 	it('excludes hidden nested commands from zsh completions', () => {
 		const hiddenChild = commandSchema({

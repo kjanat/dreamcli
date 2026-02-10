@@ -141,7 +141,11 @@ function resolveConfigDir(
 	homedir: string,
 ): string {
 	if (platform === 'win32') {
-		return env.APPDATA || `${homedir}\\AppData\\Roaming`;
+		if (env.APPDATA !== undefined) return env.APPDATA;
+		// Strip trailing separator(s) to avoid doubled backslash when
+		// homedir is a drive root like 'C:\'.
+		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
+		return `${normalizedHome}\\AppData\\Roaming`;
 	}
 	return env.XDG_CONFIG_HOME || `${homedir}/.config`;
 }

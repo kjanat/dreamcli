@@ -187,6 +187,49 @@ describe('CLIBuilder.run() — --config flag', () => {
 		expect(stdout.length).toBe(1);
 		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'after' });
 	});
+
+	it('--config=path equals form loads config', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--config=/eq/cfg.json', 'deploy'], {
+			'/eq/cfg.json': '{"deploy":{"region":"equals"}}',
+		});
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'equals' });
+	});
+
+	it('--config=path is stripped from argv before dispatch', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout, exitCode } = await runWithAdapter(app, ['--config=/eq.json', 'deploy'], {
+			'/eq.json': '{"deploy":{"region":"stripped"}}',
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'stripped' });
+	});
+
+	it('--config= with empty value is treated as absent', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--config=', 'deploy']);
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'us' });
+	});
+
+	it('--config=path after command name still works', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout } = await runWithAdapter(app, ['deploy', '--config=/after.json'], {
+			'/after.json': '{"deploy":{"region":"after-eq"}}',
+		});
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'after-eq' });
+	});
 });
 
 // ===================================================================

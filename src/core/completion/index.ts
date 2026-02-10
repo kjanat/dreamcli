@@ -222,8 +222,14 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 			const mergedFlags = node.mergedFlags;
 			const enumCases = collectEnumCasesFromFlags(mergedFlags);
 			const flagWords = collectFlagWords(mergedFlags);
-			const childNames = node.children.map((c) => c.name).join(' ');
-			const completionWords = childNames.length > 0 ? `${childNames} ${flagWords}` : flagWords;
+			const childNames = node.children.map((c) => escapeForSingleQuote(c.name)).join(' ');
+			const escapedFlagWords = flagWords
+				.split(' ')
+				.filter(Boolean)
+				.map(escapeForSingleQuote)
+				.join(' ');
+			const completionWords =
+				childNames.length > 0 ? `${childNames} ${escapedFlagWords}` : escapedFlagWords;
 
 			// Use both name and aliases as case patterns via pathKey variations
 			if (node.path.length === 1) {
@@ -258,7 +264,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 
 		// --- Root-level: subcommands + global flags ---
 		const rootFlags = schema.version !== undefined ? '--help --version' : '--help';
-		const subNames = visibleCommands.map((s) => s.name).join(' ');
+		const subNames = visibleCommands.map((s) => escapeForSingleQuote(s.name)).join(' ');
 		lines.push(`\t# Root-level completions: subcommands and global flags`);
 		lines.push(`\tCOMPREPLY=($(compgen -W '${subNames} ${rootFlags}' -- "$cur"))`);
 	} else {
@@ -362,6 +368,21 @@ function sanitizeShellIdentifier(name: string): string {
 function quoteShellArg(value: string): string {
 	if (/^[a-zA-Z0-9_\-.]+$/.test(value)) return value;
 	return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Escape a string for safe embedding inside an existing single-quoted
+ * shell literal (e.g. inside `compgen -W '...'`).
+ *
+ * Uses the `'\''` idiom: close quote, escaped literal quote, reopen
+ * quote. Returns the input unchanged when it consists only of shell-safe
+ * characters, which covers the vast majority of flag/command names.
+ *
+ * @internal
+ */
+function escapeForSingleQuote(value: string): string {
+	if (/^[a-zA-Z0-9_\-.]+$/.test(value)) return value;
+	return value.replace(/'/g, "'\\''");
 }
 
 // ---------------------------------------------------------------------------
@@ -721,8 +742,7 @@ function buildZshFlagSpecsFromFlags(
 	for (const [name, schema] of Object.entries(flags)) {
 		const desc = escapeZshDescription(schema.description ?? name);
 		const longFlag = `--${name}`;
-		const shortAliases = schema.aliases.filter((a) => a.length === 1);
-		const shortFlag = shortAliases.length > 0 ? `-${shortAliases[0]}` : undefined;
+		const shortFlags = schema.aliases.filter((a) => a.length === 1).map((a) => `-${a}`);
 
 		let valuePart = '';
 		if (schema.kind === 'boolean') {
@@ -734,10 +754,12 @@ function buildZshFlagSpecsFromFlags(
 			valuePart = ':value:';
 		}
 
-		if (shortFlag !== undefined) {
-			// Mutual exclusion group: (-s --long)'{-s,--long}'[desc]:value
-			const excl = `(${shortFlag} ${longFlag})`;
-			specs.push(`'${excl}'{${shortFlag},${longFlag}}'[${desc}]${valuePart}'`);
+		if (shortFlags.length > 0) {
+			// Mutual exclusion group with ALL short aliases + long flag
+			// Format: '(-v -V --verbose)'{-v,-V,--verbose}'[desc]:value'
+			const allForms = [...shortFlags, longFlag];
+			const excl = `(${allForms.join(' ')})`;
+			specs.push(`'${excl}'{${allForms.join(',')}}'[${desc}]${valuePart}'`);
 		} else {
 			specs.push(`'${longFlag}[${desc}]${valuePart}'`);
 		}

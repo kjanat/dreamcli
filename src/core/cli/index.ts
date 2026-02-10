@@ -323,11 +323,14 @@ function wrapText(text: string, width: number, indent: number): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Extract `--config <path>` from argv.
+ * Extract `--config <path>` or `--config=<path>` from argv.
  *
  * Returns the config path (if present) and the filtered argv with the
- * flag and its value removed. Bare `--config` at end of argv (no value)
- * is silently ignored (treated as absent).
+ * flag (and its value) removed. Bare `--config` at end of argv (no value)
+ * and `--config=` (empty value) are silently ignored (treated as absent).
+ *
+ * The `--config=<path>` form is checked first so that a bare `--config`
+ * token does not consume the next element when an equals-form is present.
  *
  * @internal
  */
@@ -335,6 +338,19 @@ function extractConfigFlag(argv: readonly string[]): {
 	readonly configPath: string | undefined;
 	readonly filteredArgv: readonly string[];
 } {
+	// --- equals form: --config=<path> ---
+	const eqIdx = argv.findIndex((arg) => arg.startsWith('--config='));
+	if (eqIdx !== -1) {
+		const value = (argv[eqIdx] as string).slice('--config='.length);
+		// Always strip the element; empty value (--config=) treated as absent.
+		const filteredArgv = [...argv.slice(0, eqIdx), ...argv.slice(eqIdx + 1)];
+		return {
+			configPath: value.length > 0 ? value : undefined,
+			filteredArgv,
+		};
+	}
+
+	// --- space-separated form: --config <path> ---
 	const idx = argv.indexOf('--config');
 	const nextArg = idx >= 0 ? argv[idx + 1] : undefined;
 	if (idx === -1 || nextArg === undefined) {
