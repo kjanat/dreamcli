@@ -362,6 +362,8 @@ interface FlagFactory {
 	 * string representations in config or use a dedicated format loader.
 	 * When no `parseFn` is provided, the resolver returns `String(raw)`.
 	 *
+	 * @see `coerceConfigValue` `'custom'` case in `core/resolve/index.ts`
+	 *
 	 * @example
 	 * ```ts
 	 * flag.custom((raw) => new URL(raw))

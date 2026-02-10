@@ -909,6 +909,7 @@ function coerceConfigValue(
 		case 'custom': {
 			// Custom flags delegate to the parseFn. Config values may not be strings,
 			// so coerce to string first to match the parseFn contract.
+			// @see flag.custom() JSDoc in core/schema/flag.ts for the public contract.
 			if (schema.parseFn) {
 				const input = typeof raw === 'string' ? raw : String(raw);
 				try {
