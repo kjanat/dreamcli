@@ -48,7 +48,7 @@
 			"title": "Update bash/zsh completion generators for nested command trees",
 			"overseerTaskId": "task_01KH3NE861A0AHP2QMJGSM71RS",
 			"priority": "integration",
-			"passes": false,
+			"passes": true,
 			"description": "Bash/zsh generators walk full tree depth. Include propagated flags in child completion."
 		},
 		{

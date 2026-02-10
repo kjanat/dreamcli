@@ -698,3 +698,136 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		expect(script).not.toContain("_describe 'command' subcmds");
 	});
 });
+
+// ===================================================================
+// E2E — Nested command completion via CLI dispatch
+// ===================================================================
+
+function dbCommand() {
+	const migrateCmd = command('migrate')
+		.description('Run migrations')
+		.flag('dry-run', flag.boolean().describe('Dry run mode'))
+		.action(({ out }) => {
+			out.log('migrating');
+		});
+
+	const seedCmd = command('seed')
+		.description('Seed database')
+		.alias('s')
+		.flag('count', flag.number().describe('Record count'))
+		.action(({ out }) => {
+			out.log('seeding');
+		});
+
+	return command('db')
+		.description('Database operations')
+		.alias('database')
+		.flag('verbose', flag.boolean().alias('v').describe('Verbose output').propagate())
+		.command(migrateCmd)
+		.command(seedCmd)
+		.action(({ out }) => {
+			out.log('db help');
+		});
+}
+
+describe('E2E — nested bash completion via .completions()', () => {
+	it('includes nested subcommand names in bash script', async () => {
+		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'bash']);
+		expect(result.exitCode).toBe(0);
+		const script = result.stdout.join('');
+
+		// Top-level commands
+		expect(script).toContain('db');
+		expect(script).toContain('deploy');
+		// Nested commands
+		expect(script).toContain('migrate');
+		expect(script).toContain('seed');
+	});
+
+	it('includes propagated flags for nested commands in bash', async () => {
+		const app = cli('myapp').command(dbCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'bash']);
+		const script = result.stdout.join('');
+
+		// db migrate path should have --verbose (propagated) + --dry-run (own)
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('"db migrate"'));
+		expect(migrateIdx).toBeGreaterThan(-1);
+		const migrateBlock = lines.slice(migrateIdx, migrateIdx + 15).join('\n');
+		expect(migrateBlock).toContain('--verbose');
+		expect(migrateBlock).toContain('--dry-run');
+	});
+
+	it('db group completes both subcommands and own flags in bash', async () => {
+		const app = cli('myapp').command(dbCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'bash']);
+		const script = result.stdout.join('');
+
+		// In the "Complete flags" section, the db path should have
+		// migrate, seed (subcommands) + --verbose (own flag)
+		const lines = script.split('\n');
+		const completeSectionIdx = lines.findIndex((l) => l.includes('Complete flags'));
+		const completeSection = lines.slice(completeSectionIdx);
+		// Find db|database) inside the completion case (after "Complete flags" comment)
+		const dbIdx = completeSection.findIndex((l) => l.trim().startsWith('db|database)'));
+		expect(dbIdx).toBeGreaterThan(-1);
+		const dbBlock = completeSection.slice(dbIdx, dbIdx + 15).join('\n');
+		expect(dbBlock).toContain('migrate');
+		expect(dbBlock).toContain('seed');
+		expect(dbBlock).toContain('--verbose');
+	});
+});
+
+describe('E2E — nested zsh completion via .completions()', () => {
+	it('generates helper functions for nested commands in zsh', async () => {
+		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'zsh']);
+		expect(result.exitCode).toBe(0);
+		const script = result.stdout.join('');
+
+		// Should generate helper functions for db (group) and its children
+		expect(script).toContain('_myapp_db() {');
+		expect(script).toContain('_myapp_db_migrate() {');
+		expect(script).toContain('_myapp_db_seed() {');
+	});
+
+	it('includes propagated flags for nested commands in zsh', async () => {
+		const app = cli('myapp').command(dbCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const script = result.stdout.join('');
+
+		// migrate helper should have --verbose (propagated) + --dry-run (own)
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('_myapp_db_migrate() {'));
+		expect(migrateIdx).toBeGreaterThan(-1);
+		const migrateFunc = lines.slice(migrateIdx, migrateIdx + 10).join('\n');
+		expect(migrateFunc).toContain('--verbose');
+		expect(migrateFunc).toContain('--dry-run');
+	});
+
+	it('db group function lists subcommands via _describe in zsh', async () => {
+		const app = cli('myapp').command(dbCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const script = result.stdout.join('');
+
+		const lines = script.split('\n');
+		const dbIdx = lines.findIndex((l) => l.includes('_myapp_db() {'));
+		const dbFunc = lines.slice(dbIdx, dbIdx + 30).join('\n');
+		expect(dbFunc).toContain("'migrate:Run migrations'");
+		expect(dbFunc).toContain("'seed:Seed database'");
+		expect(dbFunc).toContain("_describe 'command' subcmds");
+	});
+
+	it('root function dispatches to db helper in zsh', async () => {
+		const app = cli('myapp').command(dbCommand()).completions();
+		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const script = result.stdout.join('');
+
+		// Main function should dispatch db to _myapp_db
+		const lines = script.split('\n');
+		const mainIdx = lines.findIndex((l) => l.includes('_myapp() {'));
+		const mainFunc = lines.slice(mainIdx).join('\n');
+		expect(mainFunc).toContain('_myapp_db');
+	});
+});

@@ -3,11 +3,14 @@
  *
  * Each shell has a dedicated generator that takes a {@link CLISchema} and
  * returns a complete shell-specific completion script as a string.
+ * Generators walk the full command tree depth, including propagated flags
+ * from ancestor commands at each nesting level.
  *
  * @module dreamcli/core/completion
  */
 
 import type { CLISchema } from '../cli/index.js';
+import { collectPropagatedFlags } from '../cli/propagate.js';
 import { CLIError } from '../errors/index.js';
 import type { CommandSchema, FlagSchema } from '../schema/index.js';
 
@@ -46,6 +49,72 @@ interface CompletionOptions {
 }
 
 // ---------------------------------------------------------------------------
+// Command tree walking — shared infrastructure
+// ---------------------------------------------------------------------------
+
+/**
+ * A flattened node from the command tree, carrying its ancestry context.
+ *
+ * Used by both bash and zsh generators to produce completions at every
+ * nesting level with correct propagated flag inheritance.
+ *
+ * @internal
+ */
+interface CommandNode {
+	/** Name path from root: `['db', 'migrate']` */
+	readonly path: readonly string[];
+	/** The command schema at this node */
+	readonly schema: CommandSchema;
+	/** Propagated flags inherited from ancestors (excludes own flags) */
+	readonly propagatedFlags: Readonly<Record<string, FlagSchema>>;
+	/** Merged flags: propagated + own (own shadows propagated) */
+	readonly mergedFlags: Readonly<Record<string, FlagSchema>>;
+	/** Visible child command schemas (for subcommand completion) */
+	readonly children: readonly CommandSchema[];
+}
+
+/**
+ * Walk the command tree depth-first, producing a flat list of
+ * {@link CommandNode}s with propagated flag context.
+ *
+ * @param topLevel - Top-level visible command schemas.
+ * @param ancestorSchemas - Schema path from root (for propagation calculation).
+ * @returns Flat list of all visible nodes in the tree.
+ *
+ * @internal
+ */
+function walkCommandTree(
+	topLevel: readonly CommandSchema[],
+	ancestorSchemas: readonly CommandSchema[] = [],
+): readonly CommandNode[] {
+	const nodes: CommandNode[] = [];
+
+	for (const schema of topLevel) {
+		if (schema.hidden) continue;
+
+		const fullPath = [...ancestorSchemas, schema];
+		const propagatedFlags = collectPropagatedFlags(fullPath);
+		const mergedFlags: Record<string, FlagSchema> = { ...propagatedFlags, ...schema.flags };
+		const children = schema.commands.filter((c) => !c.hidden);
+
+		nodes.push({
+			path: fullPath.map((s) => s.name),
+			schema,
+			propagatedFlags,
+			mergedFlags,
+			children,
+		});
+
+		// Recurse into nested commands
+		if (children.length > 0) {
+			nodes.push(...walkCommandTree(schema.commands, fullPath));
+		}
+	}
+
+	return nodes;
+}
+
+// ---------------------------------------------------------------------------
 // Generator function signatures
 // ---------------------------------------------------------------------------
 
@@ -77,7 +146,9 @@ function generateCompletion(schema: CLISchema, shell: Shell, options?: Completio
  *
  * Produces a self-contained bash script with:
  * - A main `_<name>_completions` function using `COMP_WORDS`/`COMP_CWORD`
+ * - Multi-level subcommand path detection via progressive COMP_WORDS scanning
  * - Per-command case branches with flag and subcommand completions
+ * - Propagated flags from ancestor commands at each nesting level
  * - Enum value completions for `--flag=<value>` patterns
  * - A `complete -F` registration line
  *
@@ -89,6 +160,8 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	const prefix = options?.functionPrefix ?? schema.name;
 	const funcName = `_${sanitizeShellIdentifier(prefix)}_completions`;
 	const visibleCommands = schema.commands.map((c) => c.schema).filter((s) => !s.hidden);
+	const nodes = walkCommandTree(visibleCommands);
+	const maxDepth = nodes.reduce((max, n) => Math.max(max, n.path.length), 0);
 
 	const lines: string[] = [];
 
@@ -103,31 +176,45 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 
 	// --- Subcommand dispatch ---
 	if (visibleCommands.length > 0) {
-		const subcommandNames = visibleCommands.flatMap((s) => [s.name, ...s.aliases]);
-
-		lines.push('\t# Determine current subcommand');
-		lines.push('\tlocal subcmd=""');
+		// Build subcommand path by scanning COMP_WORDS at each depth level.
+		// At depth 0 we look for top-level command names, at depth 1 we look
+		// for children of the matched depth-0 command, etc.
+		lines.push('\t# Build subcommand path by scanning COMP_WORDS');
+		lines.push('\tlocal subcmd_path=""');
 		lines.push('\tlocal i');
 		lines.push('\tfor ((i = 1; i < cword; i++)); do');
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash syntax, not JS template
 		lines.push('\t\tcase "${words[i]}" in');
-		lines.push(`\t\t\t${subcommandNames.join('|')})`);
-		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash syntax, not JS template
-		lines.push('\t\t\t\tsubcmd="${words[i]}"');
-		lines.push('\t\t\t\tbreak');
-		lines.push('\t\t\t\t;;');
+		lines.push('\t\t\t-*) continue ;;');
 		lines.push('\t\tesac');
+
+		// Emit progressive path-building cases
+		emitBashPathDetection(lines, visibleCommands, maxDepth);
+
 		lines.push('\tdone');
 		lines.push('');
 
-		// --- Per-command: enum value + flag completions ---
-		lines.push('\t# Complete flags for the active subcommand');
-		lines.push('\tcase "$subcmd" in');
-		for (const cmd of visibleCommands) {
-			const allNames = [cmd.name, ...cmd.aliases];
-			const flagWords = collectFlagWords(cmd.flags);
-			const enumCases = collectEnumCases(cmd);
-			lines.push(`\t\t${allNames.join('|')})`);
+		// Per-path completions: one case branch per node
+		lines.push('\t# Complete flags and subcommands for the active path');
+		lines.push('\tcase "$subcmd_path" in');
+
+		for (const node of nodes) {
+			const pathKey = node.path.join(' ');
+			const allNames = [node.schema.name, ...node.schema.aliases];
+			const mergedFlags = node.mergedFlags;
+			const enumCases = collectEnumCasesFromFlags(mergedFlags);
+			const flagWords = collectFlagWords(mergedFlags);
+			const childNames = node.children.map((c) => c.name).join(' ');
+			const completionWords = childNames.length > 0 ? `${childNames} ${flagWords}` : flagWords;
+
+			// Use both name and aliases as case patterns via pathKey variations
+			if (node.path.length === 1) {
+				lines.push(`\t\t${allNames.join('|')})`);
+			} else {
+				// For nested paths, the path key always uses the canonical name
+				lines.push(`\t\t${quoteShellCasePattern(pathKey)})`);
+			}
+
 			if (enumCases.length > 0) {
 				lines.push('\t\t\tcase "$prev" in');
 				for (const ec of enumCases) {
@@ -140,10 +227,12 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 				lines.push('\t\t\t\t\t;;');
 				lines.push('\t\t\tesac');
 			}
-			lines.push(`\t\t\tCOMPREPLY=($(compgen -W '${flagWords}' -- "$cur"))`);
+
+			lines.push(`\t\t\tCOMPREPLY=($(compgen -W '${completionWords.trim()}' -- "$cur"))`);
 			lines.push('\t\t\treturn');
 			lines.push('\t\t\t;;');
 		}
+
 		lines.push('\t\t*)');
 		lines.push('\t\t\t;;');
 		lines.push('\tesac');
@@ -165,6 +254,64 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	lines.push('');
 
 	return lines.join('\n');
+}
+
+/**
+ * Emit bash case branches for progressive subcommand path detection.
+ *
+ * For each nesting depth, generates a `case "$subcmd_path"` that matches
+ * the current accumulated path and extends it when a matching child command
+ * name is found in COMP_WORDS.
+ *
+ * @internal
+ */
+function emitBashPathDetection(
+	lines: string[],
+	visibleCommands: readonly CommandSchema[],
+	maxDepth: number,
+): void {
+	// Depth 0: match top-level command names
+	const topLevelPatterns = visibleCommands.flatMap((s) => [s.name, ...s.aliases]);
+	lines.push(`\t\tcase "$subcmd_path" in`);
+	lines.push(`\t\t\t'')`);
+	lines.push(`\t\t\t\tcase "\${words[i]}" in`);
+	lines.push(`\t\t\t\t\t${topLevelPatterns.join('|')})`);
+	lines.push(`\t\t\t\t\t\tsubcmd_path="\${words[i]}"`);
+	lines.push(`\t\t\t\t\t\t;;`);
+	lines.push(`\t\t\t\tesac`);
+	lines.push(`\t\t\t\t;;`);
+
+	// Deeper levels: for each group that has children, match its path and extend
+	if (maxDepth > 1) {
+		const allNodes = walkCommandTree(visibleCommands);
+		const groupNodes = allNodes.filter((n) => n.children.length > 0);
+
+		for (const node of groupNodes) {
+			const pathKey = node.path.join(' ');
+			const childPatterns = node.children.flatMap((c) => [c.name, ...c.aliases]);
+
+			lines.push(`\t\t\t${quoteShellCasePattern(pathKey)})`);
+			lines.push(`\t\t\t\tcase "\${words[i]}" in`);
+			lines.push(`\t\t\t\t\t${childPatterns.join('|')})`);
+			lines.push(`\t\t\t\t\t\tsubcmd_path="$subcmd_path \${words[i]}"`);
+			lines.push(`\t\t\t\t\t\t;;`);
+			lines.push(`\t\t\t\tesac`);
+			lines.push(`\t\t\t\t;;`);
+		}
+	}
+
+	lines.push(`\t\tesac`);
+}
+
+/**
+ * Quote a string for use as a bash `case` pattern. Patterns containing
+ * spaces need quoting to match as a single string.
+ *
+ * @internal
+ */
+function quoteShellCasePattern(pattern: string): string {
+	if (!pattern.includes(' ')) return pattern;
+	return `"${pattern}"`;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,7 +391,7 @@ function escapeBashDollarQuote(value: string): string {
 }
 
 /**
- * Collect all `--flag` words (long + short aliases) for a command's flags.
+ * Collect all `--flag` words (long + short aliases) for a flag record.
  *
  * @internal
  */
@@ -270,16 +417,18 @@ interface EnumCase {
 }
 
 /**
- * Collect enum flag cases for a single command's `case "$prev"` matching.
+ * Collect enum flag cases from a merged flag record.
  *
  * Each enum flag produces one case entry with its long/short flag forms
  * as the pattern and enum values as the completions.
  *
  * @internal
  */
-function collectEnumCases(cmd: CommandSchema): readonly EnumCase[] {
+function collectEnumCasesFromFlags(
+	flags: Readonly<Record<string, FlagSchema>>,
+): readonly EnumCase[] {
 	const cases: EnumCase[] = [];
-	for (const [name, schema] of Object.entries(cmd.flags)) {
+	for (const [name, schema] of Object.entries(flags)) {
 		if (schema.kind !== 'enum' || schema.enumValues === undefined) continue;
 		const flagForms = [
 			`--${name}`,
@@ -299,9 +448,10 @@ function collectEnumCases(cmd: CommandSchema): readonly EnumCase[] {
  *
  * Produces a self-contained zsh script with:
  * - A `#compdef` directive for auto-loading
- * - A main `_<name>` function
- * - `_arguments` calls for flags with descriptions
- * - `_describe` for subcommand dispatch
+ * - A main `_<name>` function with subcommand dispatch
+ * - Per-group helper functions (`_<name>_<cmd>`) with recursive dispatch
+ * - `_arguments` calls for flags with descriptions (including propagated flags)
+ * - `_describe` for subcommand lists at each nesting level
  * - Enum value completions via `->state` dispatch
  *
  * @param schema - The CLI schema.
@@ -312,6 +462,7 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 	const prefix = options?.functionPrefix ?? schema.name;
 	const funcName = `_${sanitizeShellIdentifier(prefix)}`;
 	const visibleCommands = schema.commands.map((c) => c.schema).filter((s) => !s.hidden);
+	const nodes = walkCommandTree(visibleCommands);
 
 	const lines: string[] = [];
 
@@ -319,6 +470,27 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 	lines.push(`# Zsh completion for ${schema.name}`);
 	lines.push(`# Generated by dreamcli`);
 	lines.push('');
+
+	// --- Generate helper functions for group commands (bottom-up) ---
+	// Process deepest nodes first so all helpers exist before they're called.
+	const groupNodes = nodes.filter((n) => n.children.length > 0);
+	const leafNodes = nodes.filter((n) => n.children.length === 0);
+
+	// Emit leaf helper functions
+	for (const node of leafNodes) {
+		if (node.path.length < 2) continue; // Top-level leaves handled inline
+		const helperName = `${funcName}_${node.path.map(sanitizeShellIdentifier).join('_')}`;
+		emitZshLeafFunction(lines, helperName, node);
+	}
+
+	// Emit group helper functions (deepest first)
+	const sortedGroups = [...groupNodes].sort((a, b) => b.path.length - a.path.length);
+	for (const node of sortedGroups) {
+		const helperName = `${funcName}_${node.path.map(sanitizeShellIdentifier).join('_')}`;
+		emitZshGroupFunction(lines, helperName, funcName, node);
+	}
+
+	// --- Main function ---
 	lines.push(`${funcName}() {`);
 
 	if (visibleCommands.length > 0) {
@@ -353,13 +525,26 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 		lines.push('\t\t\tcase "$line[1]" in');
 		for (const cmd of visibleCommands) {
 			const allNames = [cmd.name, ...cmd.aliases];
+			const childCommands = cmd.commands.filter((c) => !c.hidden);
 			lines.push(`\t\t\t\t${allNames.join('|')})`);
-			const flagSpecs = buildZshFlagSpecs(cmd);
-			if (flagSpecs.length > 0) {
-				lines.push('\t\t\t\t\t_arguments \\');
-				for (let i = 0; i < flagSpecs.length; i++) {
-					const trailing = i < flagSpecs.length - 1 ? ' \\' : '';
-					lines.push(`\t\t\t\t\t\t${flagSpecs[i]}${trailing}`);
+
+			if (childCommands.length > 0) {
+				// Group command — delegate to helper function
+				const helperName = `${funcName}_${sanitizeShellIdentifier(cmd.name)}`;
+				lines.push(`\t\t\t\t\t${helperName}`);
+			} else {
+				// Leaf command — emit flags inline
+				const node = nodes.find((n) => n.path.length === 1 && n.schema.name === cmd.name);
+				const flagSpecs = node
+					? buildZshFlagSpecsFromFlags(node.mergedFlags)
+					: buildZshFlagSpecs(cmd);
+
+				if (flagSpecs.length > 0) {
+					lines.push('\t\t\t\t\t_arguments \\');
+					for (let i = 0; i < flagSpecs.length; i++) {
+						const trailing = i < flagSpecs.length - 1 ? ' \\' : '';
+						lines.push(`\t\t\t\t\t\t${flagSpecs[i]}${trailing}`);
+					}
 				}
 			}
 			lines.push('\t\t\t\t\t;;');
@@ -386,6 +571,86 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 	lines.push('');
 
 	return lines.join('\n');
+}
+
+/**
+ * Emit a zsh helper function for a group command (has subcommands).
+ *
+ * Uses `_arguments -C` for its own flags plus subcommand dispatch.
+ *
+ * @internal
+ */
+function emitZshGroupFunction(
+	lines: string[],
+	helperName: string,
+	rootFuncName: string,
+	node: CommandNode,
+): void {
+	lines.push(`${helperName}() {`);
+	lines.push('\tlocal -a subcmds');
+	lines.push('\tlocal line state');
+	lines.push('');
+
+	// Flags for this group (including propagated)
+	const flagSpecs = buildZshFlagSpecsFromFlags(node.mergedFlags);
+
+	lines.push('\t_arguments -C \\');
+	for (const spec of flagSpecs) {
+		lines.push(`\t\t${spec} \\`);
+	}
+	lines.push("\t\t'1: :->subcmd' \\");
+	lines.push("\t\t'*::arg:->args'");
+	lines.push('');
+
+	lines.push('\tcase "$state" in');
+	lines.push('\t\tsubcmd)');
+	lines.push('\t\t\tsubcmds=(');
+	for (const child of node.children) {
+		const desc = escapeZshDescription(child.description ?? child.name);
+		lines.push(`\t\t\t\t'${child.name}:${desc}'`);
+	}
+	lines.push('\t\t\t)');
+	lines.push("\t\t\t_describe 'command' subcmds");
+	lines.push('\t\t\t;;');
+
+	lines.push('\t\targs)');
+	lines.push('\t\t\tcase "$line[1]" in');
+	for (const child of node.children) {
+		const allNames = [child.name, ...child.aliases];
+		const childPath = [...node.path, child.name];
+		const childFuncName = `${rootFuncName}_${childPath.map(sanitizeShellIdentifier).join('_')}`;
+		lines.push(`\t\t\t\t${allNames.join('|')})`);
+		lines.push(`\t\t\t\t\t${childFuncName}`);
+		lines.push('\t\t\t\t\t;;');
+	}
+	lines.push('\t\t\tesac');
+	lines.push('\t\t\t;;');
+	lines.push('\tesac');
+
+	lines.push('}');
+	lines.push('');
+}
+
+/**
+ * Emit a zsh helper function for a leaf command (no subcommands).
+ *
+ * Uses plain `_arguments` with the command's own flags plus propagated flags.
+ *
+ * @internal
+ */
+function emitZshLeafFunction(lines: string[], helperName: string, node: CommandNode): void {
+	const flagSpecs = buildZshFlagSpecsFromFlags(node.mergedFlags);
+
+	lines.push(`${helperName}() {`);
+	if (flagSpecs.length > 0) {
+		lines.push('\t_arguments \\');
+		for (let i = 0; i < flagSpecs.length; i++) {
+			const trailing = i < flagSpecs.length - 1 ? ' \\' : '';
+			lines.push(`\t\t${flagSpecs[i]}${trailing}`);
+		}
+	}
+	lines.push('}');
+	lines.push('');
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +689,7 @@ function escapeZshEnumValue(value: string): string {
 }
 
 /**
- * Build `_arguments` flag spec strings for a command.
+ * Build `_arguments` flag spec strings from a merged flag record.
  *
  * Each flag produces one or more spec strings in zsh `_arguments` format:
  * - `'--name[description]'` for simple flags
@@ -433,9 +698,11 @@ function escapeZshEnumValue(value: string): string {
  *
  * @internal
  */
-function buildZshFlagSpecs(cmd: CommandSchema): readonly string[] {
+function buildZshFlagSpecsFromFlags(
+	flags: Readonly<Record<string, FlagSchema>>,
+): readonly string[] {
 	const specs: string[] = [];
-	for (const [name, schema] of Object.entries(cmd.flags)) {
+	for (const [name, schema] of Object.entries(flags)) {
 		const desc = escapeZshDescription(schema.description ?? name);
 		const longFlag = `--${name}`;
 		const shortAliases = schema.aliases.filter((a) => a.length === 1);
@@ -460,6 +727,17 @@ function buildZshFlagSpecs(cmd: CommandSchema): readonly string[] {
 		}
 	}
 	return specs;
+}
+
+/**
+ * Build `_arguments` flag spec strings for a command.
+ *
+ * Delegates to {@link buildZshFlagSpecsFromFlags} using the command's own flags.
+ *
+ * @internal
+ */
+function buildZshFlagSpecs(cmd: CommandSchema): readonly string[] {
+	return buildZshFlagSpecsFromFlags(cmd.flags);
 }
 
 // ---------------------------------------------------------------------------

@@ -1228,3 +1228,389 @@ describe('generateCompletion — dispatcher', () => {
 		expect(script).toContain('__custom_completions() {');
 	});
 });
+
+// ===================================================================
+// Nested command completion helpers
+// ===================================================================
+
+/** Build a nested command tree for testing. */
+function nestedSchema(overrides: Partial<CLISchema> = {}): CLISchema {
+	const migrateCmd = commandSchema({
+		name: 'migrate',
+		description: 'Run migrations',
+		flags: {
+			'dry-run': flagSchema({ kind: 'boolean', description: 'Dry run mode' }),
+		},
+	});
+
+	const seedCmd = commandSchema({
+		name: 'seed',
+		description: 'Seed database',
+		aliases: ['s'],
+		flags: {
+			count: flagSchema({ kind: 'number', description: 'Number of records' }),
+		},
+	});
+
+	const dbCmd = commandSchema({
+		name: 'db',
+		description: 'Database operations',
+		aliases: ['database'],
+		flags: {
+			verbose: flagSchema({
+				kind: 'boolean',
+				description: 'Verbose output',
+				aliases: ['v'],
+				propagate: true,
+			}),
+		},
+		commands: [migrateCmd, seedCmd],
+	});
+
+	const deployCmd = commandSchema({
+		name: 'deploy',
+		description: 'Deploy app',
+		flags: {
+			force: flagSchema({ kind: 'boolean', description: 'Force deploy' }),
+		},
+	});
+
+	return minimalSchema({
+		commands: [erased(dbCmd), erased(deployCmd)],
+		...overrides,
+	});
+}
+
+/** 3-level deep nested schema: root → db → table → create */
+function deepNestedSchema(): CLISchema {
+	const createCmd = commandSchema({
+		name: 'create',
+		description: 'Create table',
+		flags: {
+			'if-not-exists': flagSchema({ kind: 'boolean', description: 'Skip if exists' }),
+		},
+	});
+
+	const listCmd = commandSchema({
+		name: 'list',
+		description: 'List tables',
+	});
+
+	const tableCmd = commandSchema({
+		name: 'table',
+		description: 'Table operations',
+		flags: {
+			schema: flagSchema({ kind: 'string', description: 'Schema name' }),
+		},
+		commands: [createCmd, listCmd],
+	});
+
+	const dbCmd = commandSchema({
+		name: 'db',
+		description: 'Database operations',
+		flags: {
+			verbose: flagSchema({
+				kind: 'boolean',
+				description: 'Verbose',
+				aliases: ['v'],
+				propagate: true,
+			}),
+			host: flagSchema({
+				kind: 'string',
+				description: 'Database host',
+				propagate: true,
+			}),
+		},
+		commands: [tableCmd],
+	});
+
+	return minimalSchema({ commands: [erased(dbCmd)] });
+}
+
+// ===================================================================
+// generateBashCompletion — nested command completions
+// ===================================================================
+
+describe('generateBashCompletion — nested subcommand path detection', () => {
+	it('generates subcmd_path variable for nested commands', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		expect(script).toContain('subcmd_path=""');
+	});
+
+	it('detects top-level commands including aliases', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		// Top-level detection should include db, database, deploy
+		expect(script).toContain('db|database|deploy)');
+	});
+
+	it('generates path extension for group commands with children', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		// When subcmd_path is "db", should match child names
+		expect(script).toContain('migrate|seed|s)');
+	});
+
+	it('generates case branches for nested command paths', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		// Should have case branch for "db migrate"
+		expect(script).toContain('"db migrate"');
+		// Should have case branch for "db seed"
+		expect(script).toContain('"db seed"');
+	});
+
+	it('includes flags for nested leaf commands', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		// db migrate should have --dry-run
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('"db migrate"'));
+		expect(migrateIdx).toBeGreaterThan(-1);
+		const migrateBlock = lines.slice(migrateIdx, migrateIdx + 10).join('\n');
+		expect(migrateBlock).toContain('--dry-run');
+	});
+
+	it('includes subcommand names for group commands', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		// db command should complete its children (migrate, seed) plus its own flags
+		const lines = script.split('\n');
+		const dbBranchIdx = lines.findIndex(
+			(l) => l.trim().startsWith('db|database)') || l.trim() === 'db|database)',
+		);
+		expect(dbBranchIdx).toBeGreaterThan(-1);
+		const dbBlock = lines.slice(dbBranchIdx, dbBranchIdx + 15).join('\n');
+		expect(dbBlock).toContain('migrate');
+		expect(dbBlock).toContain('seed');
+	});
+});
+
+describe('generateBashCompletion — nested propagated flags', () => {
+	it('includes propagated flags in nested leaf completions', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		// db migrate should inherit --verbose from db (propagate: true)
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('"db migrate"'));
+		expect(migrateIdx).toBeGreaterThan(-1);
+		const migrateBlock = lines.slice(migrateIdx, migrateIdx + 15).join('\n');
+		expect(migrateBlock).toContain('--verbose');
+		expect(migrateBlock).toContain('-v');
+	});
+
+	it('propagated flags appear alongside own flags', () => {
+		const script = generateBashCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('"db migrate"'));
+		expect(migrateIdx).toBeGreaterThan(-1);
+		const migrateBlock = lines.slice(migrateIdx, migrateIdx + 15).join('\n');
+		// Both own flag (--dry-run) and propagated flag (--verbose)
+		expect(migrateBlock).toContain('--dry-run');
+		expect(migrateBlock).toContain('--verbose');
+	});
+
+	it('propagated flags flow through 3 levels', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+
+		// db → table → create should inherit --verbose and --host from db
+		const lines = script.split('\n');
+		const createIdx = lines.findIndex((l) => l.includes('"db table create"'));
+		expect(createIdx).toBeGreaterThan(-1);
+		const createBlock = lines.slice(createIdx, createIdx + 15).join('\n');
+		expect(createBlock).toContain('--verbose');
+		expect(createBlock).toContain('--host');
+		expect(createBlock).toContain('--if-not-exists');
+	});
+
+	it('3-level path detection works', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+
+		expect(script).toContain('"db table create"');
+		expect(script).toContain('"db table list"');
+		expect(script).toContain('"db table"');
+	});
+});
+
+describe('generateBashCompletion — nested hidden commands', () => {
+	it('excludes hidden nested commands from completions', () => {
+		const hiddenChild = commandSchema({
+			name: 'hidden-cmd',
+			hidden: true,
+		});
+
+		const dbCmd = commandSchema({
+			name: 'db',
+			description: 'Database',
+			commands: [commandSchema({ name: 'migrate', description: 'Migrate' }), hiddenChild],
+		});
+
+		const schema = minimalSchema({ commands: [erased(dbCmd)] });
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('migrate');
+		expect(script).not.toContain('hidden-cmd');
+	});
+});
+
+// ===================================================================
+// generateZshCompletion — nested command completions
+// ===================================================================
+
+describe('generateZshCompletion — nested helper functions', () => {
+	it('generates helper function for group commands', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		// Should have a _testcli_db() helper function
+		expect(script).toContain('_testcli_db() {');
+	});
+
+	it('helper function uses _arguments -C for group with children', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		// _testcli_db should use _arguments -C (it has subcommands)
+		const lines = script.split('\n');
+		const dbFuncIdx = lines.findIndex((l) => l.includes('_testcli_db() {'));
+		expect(dbFuncIdx).toBeGreaterThan(-1);
+		const dbFunc = lines.slice(dbFuncIdx, dbFuncIdx + 30).join('\n');
+		expect(dbFunc).toContain('_arguments -C');
+	});
+
+	it('helper function lists subcommands via _describe', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const dbFuncIdx = lines.findIndex((l) => l.includes('_testcli_db() {'));
+		const dbFunc = lines.slice(dbFuncIdx, dbFuncIdx + 30).join('\n');
+		expect(dbFunc).toContain("'migrate:Run migrations'");
+		expect(dbFunc).toContain("'seed:Seed database'");
+		expect(dbFunc).toContain("_describe 'command' subcmds");
+	});
+
+	it('delegates to leaf helper for nested commands', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const dbFuncIdx = lines.findIndex((l) => l.includes('_testcli_db() {'));
+		const dbFunc = lines.slice(dbFuncIdx, dbFuncIdx + 40).join('\n');
+		expect(dbFunc).toContain('_testcli_db_migrate');
+		expect(dbFunc).toContain('_testcli_db_seed');
+	});
+
+	it('generates leaf helper functions for nested commands', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		expect(script).toContain('_testcli_db_migrate() {');
+		expect(script).toContain('_testcli_db_seed() {');
+	});
+
+	it('leaf helper includes own flags', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('_testcli_db_migrate() {'));
+		const migrateFunc = lines.slice(migrateIdx, migrateIdx + 10).join('\n');
+		expect(migrateFunc).toContain('--dry-run');
+	});
+
+	it('root function dispatches to group helper', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		// In the main function's args case, db should dispatch to _testcli_db
+		const lines = script.split('\n');
+		const mainFuncIdx = lines.findIndex((l) => l.includes('_testcli() {'));
+		const mainFunc = lines.slice(mainFuncIdx).join('\n');
+		expect(mainFunc).toContain('_testcli_db');
+	});
+});
+
+describe('generateZshCompletion — nested propagated flags', () => {
+	it('includes propagated flags in leaf helper functions', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('_testcli_db_migrate() {'));
+		expect(migrateIdx).toBeGreaterThan(-1);
+		const migrateFunc = lines.slice(migrateIdx, migrateIdx + 10).join('\n');
+		// Should have both own flag (--dry-run) and propagated (--verbose/-v)
+		expect(migrateFunc).toContain('--dry-run');
+		expect(migrateFunc).toContain('--verbose');
+	});
+
+	it('propagated flags use proper zsh spec format', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const migrateIdx = lines.findIndex((l) => l.includes('_testcli_db_migrate() {'));
+		const migrateFunc = lines.slice(migrateIdx, migrateIdx + 10).join('\n');
+		// --verbose has short alias -v, so should have mutual exclusion group
+		expect(migrateFunc).toMatch(/\(-v --verbose\)/);
+	});
+
+	it('propagated flags flow through 3 levels in zsh', () => {
+		const script = generateZshCompletion(deepNestedSchema());
+
+		// db table create should have: --if-not-exists (own) + --verbose, --host (propagated)
+		const lines = script.split('\n');
+		const createIdx = lines.findIndex((l) => l.includes('_testcli_db_table_create() {'));
+		expect(createIdx).toBeGreaterThan(-1);
+		const createFunc = lines.slice(createIdx, createIdx + 10).join('\n');
+		expect(createFunc).toContain('--if-not-exists');
+		expect(createFunc).toContain('--verbose');
+		expect(createFunc).toContain('--host');
+	});
+
+	it('generates chained helper functions for 3-level nesting', () => {
+		const script = generateZshCompletion(deepNestedSchema());
+
+		expect(script).toContain('_testcli_db() {');
+		expect(script).toContain('_testcli_db_table() {');
+		expect(script).toContain('_testcli_db_table_create() {');
+		expect(script).toContain('_testcli_db_table_list() {');
+	});
+
+	it('intermediate group helper dispatches to child helpers', () => {
+		const script = generateZshCompletion(deepNestedSchema());
+
+		const lines = script.split('\n');
+		const tableIdx = lines.findIndex((l) => l.includes('_testcli_db_table() {'));
+		const tableFunc = lines.slice(tableIdx, tableIdx + 30).join('\n');
+		expect(tableFunc).toContain('_testcli_db_table_create');
+		expect(tableFunc).toContain('_testcli_db_table_list');
+	});
+});
+
+describe('generateZshCompletion — nested hidden commands', () => {
+	it('excludes hidden nested commands from zsh completions', () => {
+		const hiddenChild = commandSchema({
+			name: 'hidden-cmd',
+			hidden: true,
+		});
+
+		const dbCmd = commandSchema({
+			name: 'db',
+			description: 'Database',
+			commands: [commandSchema({ name: 'migrate', description: 'Migrate' }), hiddenChild],
+		});
+
+		const schema = minimalSchema({ commands: [erased(dbCmd)] });
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain('migrate');
+		expect(script).not.toContain('hidden-cmd');
+	});
+});
+
+describe('generateZshCompletion — nested aliases', () => {
+	it('includes aliases in child command dispatch patterns', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const dbFuncIdx = lines.findIndex((l) => l.includes('_testcli_db() {'));
+		const dbFunc = lines.slice(dbFuncIdx, dbFuncIdx + 40).join('\n');
+		// seed has alias 's'
+		expect(dbFunc).toContain('seed|s)');
+	});
+});
