@@ -16,7 +16,7 @@
 			"title": "Implement config file discovery with XDG search paths",
 			"overseerTaskId": "task_01KH1QADZRHKPYZEVB7YNSK4BB",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"description": "Config discovery module: search XDG_CONFIG_HOME, ~/.config, cwd for app config files. JSON loader built-in."
 		},
 		{

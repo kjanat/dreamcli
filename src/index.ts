@@ -17,6 +17,15 @@ export {
 	SHELLS,
 } from './core/completion/index.js';
 export type {
+	ConfigAdapter,
+	ConfigDiscoveryOptions,
+	ConfigDiscoveryResult,
+	ConfigFound,
+	ConfigNotFound,
+	FormatLoader,
+} from './core/config/index.js';
+export { buildConfigSearchPaths, discoverConfig } from './core/config/index.js';
+export type {
 	CLIErrorJSON,
 	CLIErrorOptions,
 	ErrorCode,

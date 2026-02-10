@@ -8,6 +8,9 @@ Started: 2026-02-10
 - **Homedir/configDir from env vars**: Avoid `node:os` import; derive from `process.env` (HOME, USERPROFILE, XDG_CONFIG_HOME, APPDATA) + `process.platform` to keep factory synchronous
 - **readFile ENOENT → null**: Use `isNodeSystemError` type guard to detect `{ code: 'ENOENT' }` without `@types/node`; rethrow all other errors
 - **node-builtins.d.ts**: Add minimal type shims for any new `node:*` imports (only the subset actually used)
+- **Config discovery pattern**: Pure function taking `Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>` — narrow adapter pick for testability. Discriminated union result (`found: true/false`), errors thrown as `CLIError` with specific codes. Extension-based loader dispatch with JSON built-in.
+- **Path separator inference**: Detect `\` vs `/` from adapter-provided paths (already platform-native) to avoid `node:path` import. `joinPath(base, ...segments)` helper.
+- **Virtual filesystem testing**: `stubAdapter({ '/path': 'content' })` pattern for config tests — maps paths to file content, returns `null` for missing.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -24,3 +27,17 @@ Started: 2026-02-10
 - Added `node:fs/promises` to `node-builtins.d.ts`
 - Files changed: `adapter.ts`, `node.ts`, `node-builtins.d.ts`, `runtime.test.ts`, `bun.test.ts`
 - **Learnings:** All mock `NodeProcess` objects need updating when interface changes — 10 in runtime.test.ts + helper in bun.test.ts
+
+## Task — config-discovery
+- New module `src/core/config/index.ts` — pure config file discovery + loading
+- `discoverConfig(appName, adapter, options?)` probes candidate paths via `adapter.readFile()`
+- Search order: `.{app}.json` (cwd) → `{app}.config.json` (cwd) → `configDir/{app}/config.json`
+- Discriminated union result: `ConfigFound | ConfigNotFound`
+- 3 error codes: `CONFIG_NOT_FOUND` (explicit path), `CONFIG_PARSE_ERROR`, `CONFIG_UNKNOWN_FORMAT`
+- `FormatLoader` interface for custom formats (TOML/YAML); JSON built-in
+- `buildConfigSearchPaths()` exported separately for help text / debugging
+- `ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>` — narrow pick
+- Path utilities: `joinPath` (infers separator from base), `getExtension`
+- All types + functions exported from `src/index.ts` barrel
+- Files: `src/core/config/index.ts` (new), `src/core/config/config.test.ts` (new, 28 tests), `src/index.ts` (barrel)
+- **Learnings:** `details` field on `CLIError` is `Record<string, unknown>` — bracket notation required for index access with `noUncheckedIndexedAccess`; biome flags as info but it's correct
