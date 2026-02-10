@@ -21,9 +21,9 @@ import type { RuntimeAdapter } from './adapter.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Minimal shape for Node.js system errors.
+ * Minimal shape for Node.js system errors (e.g. `ENOENT`, `EACCES`).
  *
- * Used to detect ENOENT (file not found) when reading config files.
+ * Used to detect file-not-found when reading config files.
  * Only the `code` property is needed; other fields are ignored.
  *
  * @internal

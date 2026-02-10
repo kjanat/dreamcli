@@ -16,6 +16,20 @@ import { createNodeAdapter } from './node.js';
 // Test helpers
 // ---------------------------------------------------------------------------
 
+/** Create a minimal mock NodeProcess with optional overrides. */
+function mockNodeProcess(overrides?: Partial<NodeProcess>): NodeProcess {
+	return {
+		argv: overrides?.argv ?? [],
+		env: overrides?.env ?? {},
+		cwd: overrides?.cwd ?? (() => '/'),
+		platform: overrides?.platform ?? 'linux',
+		stdin: overrides?.stdin ?? {},
+		stdout: overrides?.stdout ?? { write: vi.fn() },
+		stderr: overrides?.stderr ?? { write: vi.fn() },
+		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
+	};
+}
+
 function deployCommand() {
 	return command('deploy')
 		.description('Deploy to an environment')
@@ -180,16 +194,7 @@ describe('createNodeAdapter', () => {
 
 	it('routes stdout writes to process.stdout.write', () => {
 		const writeFn = vi.fn();
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { isTTY: false, write: writeFn },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
+		const mockProc = mockNodeProcess({ stdout: { isTTY: false, write: writeFn } });
 
 		const adapter = createNodeAdapter(mockProc);
 		adapter.stdout('hello world');
@@ -199,16 +204,7 @@ describe('createNodeAdapter', () => {
 
 	it('routes stderr writes to process.stderr.write', () => {
 		const writeFn = vi.fn();
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: writeFn },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
+		const mockProc = mockNodeProcess({ stderr: { write: writeFn } });
 
 		const adapter = createNodeAdapter(mockProc);
 		adapter.stderr('error message');
@@ -218,16 +214,7 @@ describe('createNodeAdapter', () => {
 
 	it('delegates exit to process.exit', () => {
 		const exitFn = vi.fn() as unknown as (code: number) => never;
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: exitFn,
-		};
+		const mockProc = mockNodeProcess({ exit: exitFn });
 
 		const adapter = createNodeAdapter(mockProc);
 		adapter.exit(42);
@@ -236,33 +223,12 @@ describe('createNodeAdapter', () => {
 	});
 
 	it('isTTY is false when stdout.isTTY is undefined', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(adapter.isTTY).toBe(false);
 	});
 
 	it('isTTY is false when stdout.isTTY is false', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { isTTY: false, write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
+		const mockProc = mockNodeProcess({ stdout: { isTTY: false, write: vi.fn() } });
 		const adapter = createNodeAdapter(mockProc);
 		expect(adapter.isTTY).toBe(false);
 	});
@@ -483,66 +449,22 @@ describe('createTestAdapter stdin', () => {
 
 describe('createNodeAdapter stdin', () => {
 	it('stdinIsTTY is true when stdin.isTTY is true', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: { isTTY: true },
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: true } }));
 		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is undefined', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(adapter.stdinIsTTY).toBe(false);
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is false', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: { isTTY: false },
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: false } }));
 		expect(adapter.stdinIsTTY).toBe(false);
 	});
 
 	it('stdin is a ReadFn (function)', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(typeof adapter.stdin).toBe('function');
 	});
 });
@@ -794,130 +716,72 @@ describe('createTestAdapter — filesystem', () => {
 
 describe('createNodeAdapter — filesystem', () => {
 	it('readFile is a function', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(typeof adapter.readFile).toBe('function');
 	});
 
 	it('homedir uses HOME env on linux', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: { HOME: '/home/alice' },
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				env: { HOME: '/home/alice' },
+			}),
+		);
 		expect(adapter.homedir).toBe('/home/alice');
 	});
 
 	it('homedir uses USERPROFILE on win32', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: { USERPROFILE: 'C:\\Users\\alice' },
-			cwd: () => 'C:\\',
-			platform: 'win32',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice' },
+				cwd: () => 'C:\\',
+			}),
+		);
 		expect(adapter.homedir).toBe('C:\\Users\\alice');
 	});
 
 	it('homedir falls back to / on linux when HOME unset', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: {},
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(adapter.homedir).toBe('/');
 	});
 
 	it('configDir uses XDG_CONFIG_HOME on linux', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: { HOME: '/home/alice', XDG_CONFIG_HOME: '/custom/config' },
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				env: { HOME: '/home/alice', XDG_CONFIG_HOME: '/custom/config' },
+			}),
+		);
 		expect(adapter.configDir).toBe('/custom/config');
 	});
 
 	it('configDir defaults to ~/.config on linux', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: { HOME: '/home/alice' },
-			cwd: () => '/',
-			platform: 'linux',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				env: { HOME: '/home/alice' },
+			}),
+		);
 		expect(adapter.configDir).toBe('/home/alice/.config');
 	});
 
 	it('configDir uses APPDATA on win32', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: 'C:\\Users\\alice\\AppData\\Roaming' },
-			cwd: () => 'C:\\',
-			platform: 'win32',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: 'C:\\Users\\alice\\AppData\\Roaming' },
+				cwd: () => 'C:\\',
+			}),
+		);
 		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
 	});
 
 	it('configDir defaults to AppData\\Roaming on win32', () => {
-		const mockProc: NodeProcess = {
-			argv: [],
-			env: { USERPROFILE: 'C:\\Users\\alice' },
-			cwd: () => 'C:\\',
-			platform: 'win32',
-			stdin: {},
-			stdout: { write: vi.fn() },
-			stderr: { write: vi.fn() },
-			exit: vi.fn() as unknown as (code: number) => never,
-		};
-
-		const adapter = createNodeAdapter(mockProc);
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice' },
+				cwd: () => 'C:\\',
+			}),
+		);
 		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
 	});
 

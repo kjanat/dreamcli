@@ -77,6 +77,8 @@ interface RuntimeAdapter {
 	 */
 	readonly exit: (code: number) => never;
 
+	// --- Filesystem primitives (config file discovery) ---
+
 	/**
 	 * Read a file as UTF-8 text.
 	 *
@@ -92,7 +94,7 @@ interface RuntimeAdapter {
 	/**
 	 * User home directory (absolute path).
 	 *
-	 * - Node/Bun: `os.homedir()`
+	 * - Node/Bun: derived from `HOME` / `USERPROFILE` env
 	 * - Deno: `Deno.env.get('HOME')` / `Deno.env.get('USERPROFILE')`
 	 */
 	readonly homedir: string;
@@ -153,6 +155,8 @@ interface TestAdapterOptions {
 	 * The default throw-based exit allows tests to catch the exit code.
 	 */
 	readonly exit?: (code: number) => never;
+
+	// --- Filesystem stubs ---
 
 	/**
 	 * File reader stub (defaults to returning `null` — all files not found).
@@ -228,7 +232,7 @@ const noopWrite: WriteFn = () => {};
 /** Noop reader — returns `null` (EOF) immediately. */
 const eofRead: ReadFn = () => Promise.resolve(null);
 
-/** Noop file reader — returns `null` (file not found) for all paths. */
+/** Noop file reader — returns `null` (not found) for all paths. */
 const noopReadFile: (path: string) => Promise<string | null> = () => Promise.resolve(null);
 
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
