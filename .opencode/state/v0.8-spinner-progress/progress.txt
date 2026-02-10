@@ -1,0 +1,32 @@
+# Progress Log
+PRD: v0.8-spinner-progress
+Started: 2026-02-10
+
+## Codebase Patterns
+<!-- Consolidate reusable patterns here -->
+- `Out` interface in `src/core/schema/command.ts` — all output methods defined here
+- `OutputChannel` in `src/core/output/index.ts` — implements `Out`, routes by jsonMode/isTTY/verbosity
+- Factory: `createOutput()` for production, `createCaptureOutput()` for testkit
+- `CapturedOutput` has `stdout: string[]`, `stderr: string[]` — push-based capture
+- `RunResult` in `src/core/testkit/index.ts` — exitCode, stdout, stderr, error
+- Barrel re-exports: module `index.ts` → `schema/index.ts` → `src/index.ts`
+- Types use `readonly` everywhere, interfaces over type aliases for shapes
+- `@internal` JSDoc excludes from public API
+- Co-located test files: `*.test.ts` next to source
+- `.js` extensions on all relative imports (NodeNext)
+- `import type` for type-only imports (verbatimModuleSyntax)
+
+- When extending `Out`, all mock objects in tests must be updated (command.test.ts had `mockOut: Out`)
+- Noop handle singletons in `output/index.ts` serve as placeholders until D5 wires mode dispatch
+
+---
+<!-- Task logs below - APPEND ONLY -->
+
+## Task - activity-types (D1) + public-api-exports (D6)
+- Defined 9 types in `schema/command.ts`: `Fallback`, `SpinnerOptions`, `SpinnerHandle`, `ProgressOptions`, `ProgressHandle`, `ActivityEvent` (9-variant DU)
+- Extended `Out` interface with `spinner()` and `progress()` methods
+- Added noop handle singletons (`noopSpinnerHandle`, `noopProgressHandle`) in `output/index.ts` so `OutputChannel` compiles
+- Exported all new types from `schema/index.ts` and `src/index.ts`
+- Fixed `mockOut` in `command.test.ts` to include new methods
+- Files changed: `src/core/schema/command.ts`, `src/core/schema/index.ts`, `src/core/output/index.ts`, `src/core/schema/command.test.ts`, `src/index.ts`
+- **Learnings:** Extending `Out` ripples to any test that constructs a manual `Out` mock. Only one such mock existed (command.test.ts:280). All other tests use testkit's `createCaptureOutput()` which gets the methods from `OutputChannel`.

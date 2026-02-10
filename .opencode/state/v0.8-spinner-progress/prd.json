@@ -1,0 +1,55 @@
+{
+	"prdName": "v0.8-spinner-progress",
+	"description": "Spinner/progress on Out: out.spinner(), out.progress(), auto-disable on !isTTY, suppress in --json mode, testkit capture",
+	"tasks": [
+		{
+			"id": "activity-types",
+			"title": "[D1] Activity types — ActivityEvent, SpinnerHandle, ProgressHandle, options, Fallback; extend Out",
+			"priority": "architecture",
+			"passes": true,
+			"description": "Define all activity types (ActivityEvent DU, SpinnerHandle, ProgressHandle, SpinnerOptions, ProgressOptions, Fallback). Add spinner() and progress() to Out interface. Export from schema barrel and src/index.ts."
+		},
+		{
+			"id": "noop-static-handles",
+			"title": "[D2] Noop + static handles — non-TTY implementations",
+			"priority": "architecture",
+			"passes": false,
+			"description": "Implement NoopSpinnerHandle, NoopProgressHandle, StaticSpinnerHandle, StaticProgressHandle. Static handles emit plain text via out.log()/out.error() at start and terminal events."
+		},
+		{
+			"id": "capture-handles-testkit",
+			"title": "[D3] Capture handles + testkit wiring — ActivityEvent[] recording",
+			"priority": "architecture",
+			"passes": false,
+			"description": "CaptureSpinnerHandle and CaptureProgressHandle that record ActivityEvent[]. Extend CapturedOutput and RunResult with activity. Wire through createCaptureOutput() and runCommand()."
+		},
+		{
+			"id": "tty-handles",
+			"title": "[D4] TTY handles + ANSI rendering — spinner frames, progress bar, cursor control",
+			"priority": "integration",
+			"passes": false,
+			"description": "TTYSpinnerHandle and TTYProgressHandle. Spinner frame animation (braille), progress bar rendering, \\r overwrite, cursor show/hide. Timer management with setInterval."
+		},
+		{
+			"id": "output-channel-integration",
+			"title": "[D5] OutputChannel integration — mode dispatch, active handle tracking, implicit stop",
+			"priority": "integration",
+			"passes": false,
+			"description": "Implement spinner() and progress() on OutputChannel. Mode dispatch (TTY vs noop vs static). Active handle tracking + implicit stop on overlap."
+		},
+		{
+			"id": "public-api-exports",
+			"title": "[D6] Public API exports — new types from schema/index.ts and src/index.ts",
+			"priority": "feature",
+			"passes": true,
+			"description": "Export ActivityEvent, SpinnerHandle, ProgressHandle, SpinnerOptions, ProgressOptions, Fallback from schema barrel and public API."
+		},
+		{
+			"id": "tests",
+			"title": "[D7] Tests — all modes, all handle types, testkit capture, wrap, overlap",
+			"priority": "feature",
+			"passes": false,
+			"description": "Unit tests for each handle type. Integration tests via testkit. Coverage: TTY mode, non-TTY silent, non-TTY static fallback, jsonMode suppression, implicit stop on overlap, .wrap() success/failure, activity event capture, progress determinate/indeterminate."
+		}
+	]
+}

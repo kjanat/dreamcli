@@ -11,7 +11,14 @@
  * @module dreamcli/core/output
  */
 
-import type { Out, TableColumn } from '../schema/command.js';
+import type {
+	Out,
+	ProgressHandle,
+	ProgressOptions,
+	SpinnerHandle,
+	SpinnerOptions,
+	TableColumn,
+} from '../schema/command.js';
 
 // ---------------------------------------------------------------------------
 // Writer abstraction — the minimal I/O seam for testability
@@ -216,7 +223,50 @@ class OutputChannel implements Out {
 			this.log(text);
 		}
 	}
+
+	/**
+	 * Create a spinner handle.
+	 *
+	 * Placeholder — returns a noop handle. Real mode dispatch (TTY vs
+	 * static vs silent) will be wired in D5 (OutputChannel integration).
+	 */
+	spinner(_text: string, _options?: SpinnerOptions): SpinnerHandle {
+		return noopSpinnerHandle;
+	}
+
+	/**
+	 * Create a progress handle.
+	 *
+	 * Placeholder — returns a noop handle. Real mode dispatch (TTY vs
+	 * static vs silent) will be wired in D5 (OutputChannel integration).
+	 */
+	progress(_options: ProgressOptions): ProgressHandle {
+		return noopProgressHandle;
+	}
 }
+
+// ---------------------------------------------------------------------------
+// Noop activity handles (placeholder until D2/D5 wire real dispatch)
+// ---------------------------------------------------------------------------
+
+/** @internal Noop spinner — all methods are no-ops. */
+const noopSpinnerHandle: SpinnerHandle = {
+	update() {},
+	succeed() {},
+	fail() {},
+	stop() {},
+	async wrap<T>(promise: Promise<T>): Promise<T> {
+		return promise;
+	},
+};
+
+/** @internal Noop progress — all methods are no-ops. */
+const noopProgressHandle: ProgressHandle = {
+	increment() {},
+	update() {},
+	done() {},
+	fail() {},
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
