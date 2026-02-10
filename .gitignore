@@ -221,3 +221,5 @@ $RECYCLE.BIN/
 # End of https://gitignore.kjanat.com/api/node,linux,macos,windows
 
 .serena/
+.jj-shim/
+.envrc
