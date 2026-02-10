@@ -24,7 +24,7 @@
 			"title": "Add --config global flag to CLIBuilder",
 			"overseerTaskId": "task_01KH1QADZTQ0C9QG1H2EGQFY8P",
 			"priority": "integration",
-			"passes": false,
+			"passes": true,
 			"description": "Global --config flag that overrides config file discovery path. Wire into resolution chain."
 		},
 		{

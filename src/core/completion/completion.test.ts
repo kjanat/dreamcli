@@ -69,6 +69,7 @@ function minimalSchema(overrides: Partial<CLISchema> = {}): CLISchema {
 		version: '1.0.0',
 		description: 'A test CLI',
 		commands: [],
+		configSettings: undefined,
 		...overrides,
 	};
 }

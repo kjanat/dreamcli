@@ -11,6 +11,9 @@ Started: 2026-02-10
 - **Config discovery pattern**: Pure function taking `Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>` — narrow adapter pick for testability. Discriminated union result (`found: true/false`), errors thrown as `CLIError` with specific codes. Extension-based loader dispatch with JSON built-in.
 - **Path separator inference**: Detect `\` vs `/` from adapter-provided paths (already platform-native) to avoid `node:path` import. `joinPath(base, ...segments)` helper.
 - **Virtual filesystem testing**: `stubAdapter({ '/path': 'content' })` pattern for config tests — maps paths to file content, returns `null` for missing.
+- **Global flag extraction in `.run()`**: Extract flags that need I/O (like `--config <path>`) in `.run()` before calling `.execute()`. Follows same pattern as `env`/`isTTY` auto-sourcing — `.run()` does adapter-dependent work, passes result to pure `.execute()`.
+- **CLISchema extension pattern**: Add field with `| undefined` default → update `cli()` factory to include it → add builder method → conditionally act on it in `.run()`/`.execute()`.
+- **Config errors before command dispatch**: Detect `--json` from raw argv before config loading to render errors in correct format (JSON vs text).
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -41,3 +44,15 @@ Started: 2026-02-10
 - All types + functions exported from `src/index.ts` barrel
 - Files: `src/core/config/index.ts` (new), `src/core/config/config.test.ts` (new, 28 tests), `src/index.ts` (barrel)
 - **Learnings:** `details` field on `CLIError` is `Record<string, unknown>` — bracket notation required for index access with `noUncheckedIndexedAccess`; biome flags as info but it's correct
+
+## Task — config-flag
+- Added `ConfigSettings` type + `configSettings` field to `CLISchema`
+- Added `.config(appName, loaders?)` builder method on `CLIBuilder` (immutable, returns new builder)
+- Added `extractConfigFlag()` helper — extracts `--config <path>` from argv, returns filtered argv
+- Modified `.run()` to auto-discover config before command dispatch:
+  - Calls `discoverConfig()` with adapter when `.config()` was called on builder
+  - Skips config loading for `completions` subcommand
+  - Explicit `options.config` takes precedence over loaded config
+  - Config errors rendered as text (or JSON when `--json` present) before exit
+- Files changed: `src/core/cli/index.ts`, `src/core/cli/cli-config.test.ts` (new, 19 tests), `src/core/completion/completion.test.ts` (CLISchema fix), `src/index.ts` (barrel)
+- **Learnings:** CLISchema changes ripple to completion.test.ts which creates CLISchema objects directly via `minimalSchema()` helper; `--json` detection must happen before config loading for correct error rendering

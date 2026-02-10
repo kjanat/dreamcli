@@ -12,6 +12,8 @@
 import type { RuntimeAdapter } from '../../runtime/adapter.js';
 import { createAdapter } from '../../runtime/auto.js';
 import { generateCompletion } from '../completion/index.js';
+import type { FormatLoader } from '../config/index.js';
+import { discoverConfig } from '../config/index.js';
 import { CLIError, ParseError } from '../errors/index.js';
 import type { HelpOptions } from '../help/index.js';
 import type { CapturedOutput, Verbosity } from '../output/index.js';
@@ -91,6 +93,32 @@ interface CLISchema {
 	readonly description: string | undefined;
 	/** Registered commands (type-erased for heterogeneous storage). */
 	readonly commands: readonly ErasedCommand[];
+	/**
+	 * Config discovery settings. When defined, `.run()` auto-discovers and
+	 * loads a config file before command dispatch.
+	 *
+	 * Set via the `.config()` builder method.
+	 */
+	readonly configSettings: ConfigSettings | undefined;
+}
+
+/**
+ * Config discovery settings for automatic config file loading.
+ *
+ * Stored in {@link CLISchema} and consumed by `CLIBuilder.run()` to
+ * call {@link discoverConfig} before dispatching to a command.
+ */
+interface ConfigSettings {
+	/**
+	 * Application name used to build config search paths.
+	 *
+	 * Search paths: `.{appName}.json` (cwd), `{appName}.config.json` (cwd),
+	 * `$CONFIG_DIR/{appName}/config.json` (XDG / AppData).
+	 */
+	readonly appName: string;
+
+	/** Additional format loaders beyond the built-in JSON loader. */
+	readonly loaders: readonly FormatLoader[] | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -371,6 +399,32 @@ function findClosestCommand(input: string, commands: readonly ErasedCommand[]): 
 }
 
 // ---------------------------------------------------------------------------
+// --config flag extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract `--config <path>` from argv.
+ *
+ * Returns the config path (if present) and the filtered argv with the
+ * flag and its value removed. Bare `--config` at end of argv (no value)
+ * is silently ignored (treated as absent).
+ *
+ * @internal
+ */
+function extractConfigFlag(argv: readonly string[]): {
+	readonly configPath: string | undefined;
+	readonly filteredArgv: readonly string[];
+} {
+	const idx = argv.indexOf('--config');
+	const nextArg = idx >= 0 ? argv[idx + 1] : undefined;
+	if (idx === -1 || nextArg === undefined) {
+		return { configPath: undefined, filteredArgv: argv };
+	}
+	const filteredArgv = [...argv.slice(0, idx), ...argv.slice(idx + 2)];
+	return { configPath: nextArg, filteredArgv };
+}
+
+// ---------------------------------------------------------------------------
 // Command run options builder
 // ---------------------------------------------------------------------------
 
@@ -445,6 +499,36 @@ class CLIBuilder {
 	/** Set the program description (shown in root help). */
 	description(text: string): CLIBuilder {
 		return new CLIBuilder({ ...this.schema, description: text });
+	}
+
+	/**
+	 * Enable automatic config file discovery.
+	 *
+	 * When enabled, `.run()` probes standard paths before dispatching:
+	 * 1. `$CWD/.{appName}.json`
+	 * 2. `$CWD/{appName}.config.json`
+	 * 3. `$CONFIG_DIR/{appName}/config.json`
+	 *
+	 * The user can override the path via `--config <path>`.
+	 *
+	 * Loaded config feeds into the resolution chain
+	 * (CLI → env → **config** → prompt → default) for flags that
+	 * declare `.config('dotted.path')`.
+	 *
+	 * Has no effect in `.execute()` (which receives config via
+	 * `options.config` directly).
+	 *
+	 * @param appName - Name used to build search paths.
+	 * @param loaders - Additional format loaders (JSON is built-in).
+	 */
+	config(appName: string, loaders?: readonly FormatLoader[]): CLIBuilder {
+		return new CLIBuilder({
+			...this.schema,
+			configSettings: {
+				appName,
+				loaders: loaders !== undefined ? loaders : undefined,
+			},
+		});
 	}
 
 	// -- Command registration ------------------------------------------------
@@ -653,7 +737,51 @@ class CLIBuilder {
 	async run(options?: CLIRunOptions): Promise<never> {
 		const adapter = options?.adapter ?? createAdapter();
 
-		const argv = adapter.argv.slice(2);
+		const rawArgv = adapter.argv.slice(2);
+
+		// Extract --config <path> before command dispatch (requires I/O via adapter)
+		const { configPath, filteredArgv } = extractConfigFlag(rawArgv);
+
+		// Detect --json early for error rendering during config loading
+		const hasJsonFlag = filteredArgv.includes('--json');
+
+		// Config discovery (only when .config() was called on the builder)
+		// Skip for completions subcommand — shell completions don't need config.
+		const isCompletions = filteredArgv[0] === 'completions';
+		let loadedConfig: Readonly<Record<string, unknown>> | undefined;
+
+		if (
+			this.schema.configSettings !== undefined &&
+			!isCompletions &&
+			options?.config === undefined
+		) {
+			try {
+				const result = await discoverConfig(this.schema.configSettings.appName, adapter, {
+					...(configPath !== undefined ? { configPath } : {}),
+					...(this.schema.configSettings.loaders !== undefined
+						? { loaders: this.schema.configSettings.loaders }
+						: {}),
+				});
+				if (result.found) {
+					loadedConfig = result.data;
+				}
+			} catch (err: unknown) {
+				// Config errors are fatal — render and exit
+				if (err instanceof CLIError) {
+					if (hasJsonFlag) {
+						adapter.stdout(`${JSON.stringify({ error: err.toJSON() })}\n`);
+					} else {
+						adapter.stderr(`Error: ${err.message}\n`);
+						if (err.suggest !== undefined) {
+							adapter.stderr(`Suggestion: ${err.suggest}\n`);
+						}
+					}
+					return adapter.exit(err.exitCode);
+				}
+				throw err;
+			}
+		}
+
 		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
 		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)
 		// get stdinIsTTY=false → no auto-prompter → prompts skipped → falls through to default/required.
@@ -662,14 +790,15 @@ class CLIBuilder {
 				? createTerminalPrompter(adapter.stdin, adapter.stderr)
 				: undefined;
 
-		// Source env and isTTY from adapter when not explicitly provided in options
+		// Source env, isTTY, and config from adapter when not explicitly provided in options
 		const executeOptions: CLIRunOptions = {
 			...options,
 			...(options?.env === undefined ? { env: adapter.env } : {}),
 			...(options?.isTTY === undefined ? { isTTY: adapter.isTTY } : {}),
 			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
+			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
 		};
-		const result = await this.execute(argv, executeOptions);
+		const result = await this.execute(filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {
@@ -744,6 +873,7 @@ function cli(name: string): CLIBuilder {
 		version: undefined,
 		description: undefined,
 		commands: [],
+		configSettings: undefined,
 	});
 }
 
@@ -752,4 +882,4 @@ function cli(name: string): CLIBuilder {
 // ---------------------------------------------------------------------------
 
 export { cli, CLIBuilder, formatRootHelp };
-export type { CLIRunOptions, CLISchema };
+export type { CLIRunOptions, CLISchema, ConfigSettings };

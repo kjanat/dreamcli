@@ -7,7 +7,7 @@
 // Public API will be re-exported here as modules are implemented.
 // Each module barrel (e.g. ./errors/index.ts) exports only the public surface.
 
-export type { CLIRunOptions, CLISchema } from './core/cli/index.js';
+export type { CLIRunOptions, CLISchema, ConfigSettings } from './core/cli/index.js';
 export { CLIBuilder, cli } from './core/cli/index.js';
 export type { CompletionOptions, Shell } from './core/completion/index.js';
 export {
