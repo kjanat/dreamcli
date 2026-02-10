@@ -105,9 +105,9 @@ function walkCommandTree(
 			children,
 		});
 
-		// Recurse into nested commands
+		// Recurse into visible children only (hidden subtrees skipped entirely)
 		if (children.length > 0) {
-			nodes.push(...walkCommandTree(schema.commands, fullPath));
+			nodes.push(...walkCommandTree(children, fullPath));
 		}
 	}
 
@@ -176,6 +176,8 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 
 	// --- Subcommand dispatch ---
 	if (visibleCommands.length > 0) {
+		const groupNodes = nodes.filter((n) => n.children.length > 0);
+
 		// Build subcommand path by scanning COMP_WORDS at each depth level.
 		// At depth 0 we look for top-level command names, at depth 1 we look
 		// for children of the matched depth-0 command, etc.
@@ -189,7 +191,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\t\tesac');
 
 		// Emit progressive path-building cases
-		emitBashPathDetection(lines, visibleCommands, maxDepth);
+		emitBashPathDetection(lines, visibleCommands, groupNodes, maxDepth);
 
 		lines.push('\tdone');
 		lines.push('');
@@ -268,6 +270,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 function emitBashPathDetection(
 	lines: string[],
 	visibleCommands: readonly CommandSchema[],
+	groupNodes: readonly CommandNode[],
 	maxDepth: number,
 ): void {
 	// Depth 0: match top-level command names
@@ -283,9 +286,6 @@ function emitBashPathDetection(
 
 	// Deeper levels: for each group that has children, match its path and extend
 	if (maxDepth > 1) {
-		const allNodes = walkCommandTree(visibleCommands);
-		const groupNodes = allNodes.filter((n) => n.children.length > 0);
-
 		for (const node of groupNodes) {
 			const pathKey = node.path.join(' ');
 			const childPatterns = node.children.flatMap((c) => [c.name, ...c.aliases]);

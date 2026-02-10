@@ -83,9 +83,15 @@ function dispatch(
 ): DispatchResult {
 	// Find first non-flag token (potential command name).
 	// Flags may appear before the command name (e.g. `--verbose db migrate`).
+	// `--` terminates flag scanning — the next token is treated as a command name.
 	let cmdIdx = -1;
 	for (let i = 0; i < argv.length; i++) {
 		const token = argv[i];
+		if (token === '--') {
+			// End-of-flags marker: next token (if any) is the command name.
+			if (i + 1 < argv.length) cmdIdx = i + 1;
+			break;
+		}
 		if (token !== undefined && !token.startsWith('-')) {
 			cmdIdx = i;
 			break;

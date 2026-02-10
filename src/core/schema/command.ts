@@ -364,6 +364,21 @@ type AnyCommandBuilder = CommandBuilder<
 	Record<string, unknown>
 >;
 
+/**
+ * Erase a typed `CommandBuilder<F, A, C>` to `AnyCommandBuilder` for
+ * heterogeneous storage. Centralises the `as unknown as` double-cast
+ * required at the type-erasure boundary.
+ *
+ * @internal
+ */
+function eraseBuilder<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown>,
+>(builder: CommandBuilder<F, A, C>): AnyCommandBuilder {
+	return builder as unknown as AnyCommandBuilder;
+}
+
 // ---------------------------------------------------------------------------
 // CommandBuilder — immutable builder with type-level tracking
 // ---------------------------------------------------------------------------
@@ -631,7 +646,7 @@ class CommandBuilder<
 				commands: [...this.schema.commands, sub.schema],
 			},
 			this.handler,
-			[...this._subcommands, sub as unknown as AnyCommandBuilder],
+			[...this._subcommands, eraseBuilder(sub)],
 		);
 	}
 
