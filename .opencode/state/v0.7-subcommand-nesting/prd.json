@@ -24,7 +24,7 @@
 			"title": "Implement propagated flag collection with ancestor walk and shadowing",
 			"overseerTaskId": "task_01KH3ND8XG2F42AFM6JEW8QDGE",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"description": "Pure function: walk command path ancestors, collect flags where propagate===true, child override shadows parent."
 		},
 		{

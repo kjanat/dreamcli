@@ -18,6 +18,9 @@ Started: 2026-02-10
   `this._subcommands` as third arg to preserve nested commands across chaining. Methods that
   don't change F/A/C preserve handler; methods that do (flag, arg, middleware) drop handler but
   keep subcommands.
+- **Propagated flag collection**: `collectPropagatedFlags(commandPath)` in `cli/propagate.ts` —
+  takes `CommandSchema[]` (root→target), returns inherited `Record<string, FlagSchema>`. Target's
+  own flags always shadow. Dispatch layer merges result into target's flags before resolution.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -48,4 +51,16 @@ Started: 2026-02-10
   - `CommandSchema.commands` should be `CommandSchema[]` not `ErasedCommand[]` — keeps schema as pure data, avoids mixing execution closures into runtime descriptor
   - `_subcommands` on builder stores the full builders (with handlers) so `eraseCommand()` in CLI layer can recursively wrap them — separation between schema (data) and erasure (execution)
   - `import type` from testkit avoids runtime circular dep even though testkit imports from schema
-  - Adding new required fields to `CommandSchema` requires updating ~8 manual `makeSchema()` helpers across parse/resolve/completion test files
+   - Adding new required fields to `CommandSchema` requires updating ~8 manual `makeSchema()` helpers across parse/resolve/completion test files
+
+## Task - propagated-flag-collection
+- Created `src/core/cli/propagate.ts` with `collectPropagatedFlags()` pure function
+- Input: `commandPath: readonly CommandSchema[]` (root ancestor → target, inclusive)
+- Algorithm: walk ancestors root-first, collect `propagate: true` flags; later ancestors overwrite earlier (natural shadowing); target's own flags (any) delete from result
+- Returns only *inherited* flags — target's own flags excluded (caller merges)
+- 16 tests across 6 describe groups: base cases, single ancestor, multi-level, target shadowing, intermediate shadowing, return value properties
+- **Files changed:** `src/core/cli/propagate.ts` (new), `src/core/cli/cli-propagate.test.ts` (new)
+- **Learnings:**
+  - Intermediate non-propagated redefinitions do NOT block ancestor propagation to grandchildren — only `propagate: true` flags flow through the accumulator. Intermediate shadowing only applies when the intermediate IS the target.
+  - `delete` on accumulated record is fine for sparse cleanup — biome doesn't flag `noDelete` here (only on prototype properties)
+  - Function is intentionally NOT exported from CLI barrel or public API — it's @internal infrastructure for the dispatch layer (`recursive-dispatch` task will import directly)
