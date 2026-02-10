@@ -22,6 +22,8 @@ Started: 2026-02-10
 - TTY handles also use `StaticWriters` — same pattern, consistency across all concrete handle types
 - Timer APIs (`setInterval`/`clearInterval`) need `declare function` stubs since lib is ES2022-only (no DOM/Node typings)
 - ANSI constants are module-level `const` with `@internal` JSDoc — no namespace, flat declarations
+- Active handle tracking: `activeCleanup` callback + `stopActive()` method on `OutputChannel` — only for TTY/static handles, noop handles bypass tracking
+- `buildWriters()` constructs `StaticWriters` pair from resolved options, applying jsonMode stdout→stderr redirection
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -67,3 +69,13 @@ Started: 2026-02-10
 - No cursor-restoration exit handler — documented in JSDoc, recommend `wrap()` pattern instead
 - Files changed: `src/core/output/index.ts`
 - **Learnings:** `declare function` for timer APIs avoids `@types/node` dep; biome doesn't flag `noShadowRestrictedNames` on `declare function` so suppress comments are unnecessary (lint warns on unused suppressions). Determinate progress needs no timer — re-render on `increment()`/`update()` only. Indeterminate uses bounce logic (forward/backward direction toggle at boundaries).
+
+## Task - output-channel-integration (D5)
+- Replaced placeholder `spinner()` and `progress()` on `OutputChannel` with full mode dispatch
+- Mode dispatch: jsonMode→noop, isTTY→TTY handle, !isTTY+static→static handle, !isTTY+silent→noop
+- Added `activeCleanup` field + `stopActive()` method for active handle tracking — at most one spinner/progress active at a time, new creation implicitly stops previous
+- Added `buildWriters()` helper to construct `StaticWriters` pair (jsonMode routes stdout→stderr)
+- `CaptureOutputChannel` unaffected — its overrides bypass mode dispatch entirely (correct: capture handles don't do terminal I/O)
+- Noop handles returned directly without tracking (no cleanup needed, no overlap concern)
+- Files changed: `src/core/output/index.ts`
+- **Learnings:** Active handle tracking only applies to handles that produce terminal output (TTY/static). Noop handles need no tracking — they're stateless singletons. The `stopActive()` → cleanup callback pattern avoids needing a union type for "stoppable handle" since SpinnerHandle uses `.stop()` and ProgressHandle uses `.done()`. `buildWriters()` reuses jsonMode redirection logic from `log()`/`error()` routing.

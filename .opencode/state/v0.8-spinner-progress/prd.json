@@ -34,7 +34,7 @@
 			"id": "output-channel-integration",
 			"title": "[D5] OutputChannel integration — mode dispatch, active handle tracking, implicit stop",
 			"priority": "integration",
-			"passes": false,
+			"passes": true,
 			"description": "Implement spinner() and progress() on OutputChannel. Mode dispatch (TTY vs noop vs static). Active handle tracking + implicit stop on overlap."
 		},
 		{

@@ -237,24 +237,132 @@ class OutputChannel implements Out {
 		}
 	}
 
+	// ----- Active handle tracking -----
+	//
+	// At most one spinner or progress handle may be active at a time. When a
+	// new one is created while another is running, the previous one is
+	// implicitly stopped to avoid garbled terminal output.
+
+	/**
+	 * Cleanup callback for the currently active spinner/progress handle.
+	 *
+	 * Set to `undefined` when no handle is active. The callback calls the
+	 * appropriate terminal method (`.stop()` for spinners, `.done()` for
+	 * progress) on the previous handle.
+	 *
+	 * @internal
+	 */
+	private activeCleanup: (() => void) | undefined;
+
+	/**
+	 * Stop the currently active spinner/progress handle (if any).
+	 *
+	 * Called before creating a new handle to prevent overlap. Idempotent
+	 * (safe to call when no handle is active).
+	 *
+	 * @internal
+	 */
+	private stopActive(): void {
+		if (this.activeCleanup !== undefined) {
+			this.activeCleanup();
+			this.activeCleanup = undefined;
+		}
+	}
+
+	/**
+	 * Build the `StaticWriters` pair for activity handles.
+	 *
+	 * In JSON mode, both writers target stderr (stdout reserved for
+	 * structured JSON). Otherwise, stdout targets stdout and stderr
+	 * targets stderr — same routing as `log()` / `error()`.
+	 *
+	 * @internal
+	 */
+	private buildWriters(): StaticWriters {
+		return {
+			stdout: this.options.jsonMode ? this.options.stderr : this.options.stdout,
+			stderr: this.options.stderr,
+		};
+	}
+
 	/**
 	 * Create a spinner handle.
 	 *
-	 * Placeholder — returns a noop handle. Real mode dispatch (TTY vs
-	 * static vs silent) will be wired in D5 (OutputChannel integration).
+	 * Mode dispatch:
+	 * - `jsonMode` → noop (structured output only, spinners suppressed)
+	 * - `isTTY` → animated TTY spinner (braille frames, ANSI overwrite)
+	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
+	 * - `!isTTY && fallback: 'silent'` (default) → noop
+	 *
+	 * If another spinner or progress handle is active, it is implicitly
+	 * stopped before the new one starts.
 	 */
-	spinner(_text: string, _options?: SpinnerOptions): SpinnerHandle {
-		return noopSpinnerHandle;
+	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
+		const fallback = options?.fallback ?? 'silent';
+
+		// JSON mode: always suppress activity indicators.
+		if (this.options.jsonMode) {
+			return noopSpinnerHandle;
+		}
+
+		// Non-TTY, silent fallback: noop.
+		if (!this.options.isTTY && fallback === 'silent') {
+			return noopSpinnerHandle;
+		}
+
+		// Stop any active handle before creating a new one.
+		this.stopActive();
+
+		if (this.options.isTTY) {
+			const handle = new TTYSpinnerHandle(text, this.buildWriters());
+			this.activeCleanup = () => handle.stop();
+			return handle;
+		}
+
+		// Non-TTY, static fallback.
+		const handle = new StaticSpinnerHandle(text, this.buildWriters());
+		this.activeCleanup = () => handle.stop();
+		return handle;
 	}
 
 	/**
 	 * Create a progress handle.
 	 *
-	 * Placeholder — returns a noop handle. Real mode dispatch (TTY vs
-	 * static vs silent) will be wired in D5 (OutputChannel integration).
+	 * Mode dispatch:
+	 * - `jsonMode` → noop (structured output only, progress suppressed)
+	 * - `isTTY` → animated TTY progress bar (determinate or indeterminate)
+	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
+	 * - `!isTTY && fallback: 'silent'` (default) → noop
+	 *
+	 * If another spinner or progress handle is active, it is implicitly
+	 * stopped before the new one starts.
 	 */
-	progress(_options: ProgressOptions): ProgressHandle {
-		return noopProgressHandle;
+	progress(opts: ProgressOptions): ProgressHandle {
+		const fallback = opts.fallback ?? 'silent';
+
+		// JSON mode: always suppress activity indicators.
+		if (this.options.jsonMode) {
+			return noopProgressHandle;
+		}
+
+		// Non-TTY, silent fallback: noop.
+		if (!this.options.isTTY && fallback === 'silent') {
+			return noopProgressHandle;
+		}
+
+		// Stop any active handle before creating a new one.
+		this.stopActive();
+
+		if (this.options.isTTY) {
+			const handle = new TTYProgressHandle(opts, this.buildWriters());
+			this.activeCleanup = () => handle.done();
+			return handle;
+		}
+
+		// Non-TTY, static fallback.
+		const handle = new StaticProgressHandle(opts.label, this.buildWriters());
+		this.activeCleanup = () => handle.done();
+		return handle;
 	}
 }
 
