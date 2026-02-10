@@ -33,6 +33,7 @@ function flagSchema(overrides: Partial<FlagSchema> = {}): FlagSchema {
 		prompt: undefined,
 		parseFn: undefined,
 		deprecated: undefined,
+		propagate: false,
 		...overrides,
 	};
 }

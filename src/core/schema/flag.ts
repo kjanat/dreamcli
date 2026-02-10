@@ -116,6 +116,16 @@ interface FlagSchema {
 	 * Help text shows `[deprecated]` or `[deprecated: <reason>]`.
 	 */
 	readonly deprecated: string | true | undefined;
+	/**
+	 * Whether this flag propagates to subcommands in nested command trees.
+	 *
+	 * When `true`, the flag is automatically available to all descendant
+	 * commands. A child command that defines a flag with the same name
+	 * shadows the propagated parent flag.
+	 *
+	 * Defaults to `false`.
+	 */
+	readonly propagate: boolean;
 }
 
 /** Create base schema data with sensible defaults. */
@@ -133,6 +143,7 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 		prompt: undefined,
 		parseFn: undefined,
 		deprecated: undefined,
+		propagate: false,
 		...overrides,
 	};
 }
@@ -265,6 +276,22 @@ class FlagBuilder<C extends FlagConfig> {
 		return new FlagBuilder({
 			...this.schema,
 			deprecated: message ?? true,
+		});
+	}
+
+	/**
+	 * Mark this flag as propagated to subcommands.
+	 *
+	 * Propagated flags are automatically available to all descendant
+	 * commands in a nested command tree. A child command that defines
+	 * a flag with the same name shadows the propagated parent flag.
+	 *
+	 * Does not change the flag's type-level config — it's metadata only.
+	 */
+	propagate(): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			propagate: true,
 		});
 	}
 }

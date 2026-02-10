@@ -494,3 +494,77 @@ describe('.deprecated()', () => {
 		expect(f.schema.deprecated).toBeUndefined();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// .propagate() modifier
+// ---------------------------------------------------------------------------
+
+describe('.propagate()', () => {
+	it('sets propagate to true', () => {
+		const f = flag.string().propagate();
+		expect(f.schema.propagate).toBe(true);
+	});
+
+	it('defaults to false when not called', () => {
+		const f = flag.string();
+		expect(f.schema.propagate).toBe(false);
+	});
+
+	it('does not change presence', () => {
+		const f = flag.string().required().propagate();
+		expect(f.schema.presence).toBe('required');
+	});
+
+	it('does not change kind', () => {
+		const f = flag.number().propagate();
+		expect(f.schema.kind).toBe('number');
+	});
+
+	it('preserves type inference — optional stays optional', () => {
+		const f = flag.string().propagate();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string | undefined>();
+	});
+
+	it('preserves type inference — defaulted stays defaulted', () => {
+		const f = flag.number().default(80).propagate();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number>();
+	});
+
+	it('preserves type inference — required stays required', () => {
+		const f = flag.string().required().propagate();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string>();
+	});
+
+	it('preserves type inference — enum stays enum', () => {
+		const f = flag.enum(['a', 'b']).propagate();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<'a' | 'b' | undefined>();
+	});
+
+	it('chains with other modifiers', () => {
+		const f = flag.string().alias('v').env('VERBOSE').propagate().describe('Verbose output');
+		expect(f.schema.aliases).toEqual(['v']);
+		expect(f.schema.envVar).toBe('VERBOSE');
+		expect(f.schema.propagate).toBe(true);
+		expect(f.schema.description).toBe('Verbose output');
+	});
+
+	it('chains with deprecated', () => {
+		const f = flag.string().propagate().deprecated('use --log-level');
+		expect(f.schema.propagate).toBe(true);
+		expect(f.schema.deprecated).toBe('use --log-level');
+	});
+
+	it('returns a new builder (immutable)', () => {
+		const a = flag.string();
+		const b = a.propagate();
+		expect(a.schema.propagate).toBe(false);
+		expect(b.schema.propagate).toBe(true);
+	});
+
+	it('works on boolean flags', () => {
+		const f = flag.boolean().propagate();
+		expect(f.schema.propagate).toBe(true);
+		expect(f.schema.kind).toBe('boolean');
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<boolean>();
+	});
+});

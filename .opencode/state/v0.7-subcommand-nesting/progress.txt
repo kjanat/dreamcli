@@ -1,0 +1,24 @@
+# Progress Log
+PRD: v0.7-subcommand-nesting
+Started: 2026-02-10
+
+## Codebase Patterns
+- **Adding FlagSchema fields**: add to `FlagSchema` interface, add default in `createSchema()`,
+  add method on `FlagBuilder` returning `new FlagBuilder({...this.schema, field: value})`.
+  Metadata-only fields (no type-level change) return `FlagBuilder<C>` unchanged.
+- **Manual FlagSchema construction** exists in `completion.test.ts` `flagSchema()` helper — must
+  update when adding new required fields.
+- **Test pattern**: mirror `.deprecated()` test structure — runtime checks + `expectTypeOf` for
+  type preservation across all presence states.
+
+---
+<!-- Task logs below - APPEND ONLY -->
+
+## Task - flag-propagate
+- Added `propagate: boolean` to `FlagSchema` (default `false`)
+- Added `.propagate()` method on `FlagBuilder` — metadata-only, no type-level change
+- Added `propagate: false` to `createSchema()` defaults
+- Fixed `completion.test.ts` `flagSchema()` helper to include new required field
+- 12 new tests covering runtime behavior + type inference preservation
+- **Files changed:** `src/core/schema/flag.ts`, `src/core/schema/flag.test.ts`, `src/core/completion/completion.test.ts`
+- **Learnings:** The `completion.test.ts` has a manual `flagSchema()` helper that constructs `FlagSchema` objects directly — any new required field on `FlagSchema` will cause a type error there.
