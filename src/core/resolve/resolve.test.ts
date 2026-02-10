@@ -332,7 +332,7 @@ describe('resolve — custom flags', () => {
 		const schema = makeSchema({
 			flags: {
 				hex: createSchema('custom', {
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 				}),
 			},
 		});
@@ -347,7 +347,7 @@ describe('resolve — custom flags', () => {
 		const schema = makeSchema({
 			flags: {
 				hex: createSchema('custom', {
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					presence: 'defaulted',
 					defaultValue: 0,
 				}),
@@ -363,7 +363,7 @@ describe('resolve — custom flags', () => {
 		const schema = makeSchema({
 			flags: {
 				hex: createSchema('custom', {
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					presence: 'required',
 				}),
 			},
@@ -377,7 +377,7 @@ describe('resolve — custom flags', () => {
 		const schema = makeSchema({
 			flags: {
 				hex: createSchema('custom', {
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 				}),
 			},
 		});

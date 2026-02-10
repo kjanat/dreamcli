@@ -410,7 +410,7 @@ describe('backward compatibility', () => {
 describe('runCommand — custom flag integration', () => {
 	it('custom flag parsed from CLI argv', async () => {
 		const cmd = command('test')
-			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).describe('Hex value'))
+			.flag('hex', flag.custom((raw) => Number.parseInt(String(raw), 16)).describe('Hex value'))
 			.action(({ flags, out }) => {
 				out.log(`hex=${String(flags.hex)}`);
 			});
@@ -422,7 +422,7 @@ describe('runCommand — custom flag integration', () => {
 
 	it('custom flag resolved from env', async () => {
 		const cmd = command('test')
-			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).env('HEX_VALUE'))
+			.flag('hex', flag.custom((raw) => Number.parseInt(String(raw), 16)).env('HEX_VALUE'))
 			.action(({ flags, out }) => {
 				out.log(`hex=${String(flags.hex)}`);
 			});
@@ -434,7 +434,7 @@ describe('runCommand — custom flag integration', () => {
 
 	it('custom flag resolved from config', async () => {
 		const cmd = command('test')
-			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).config('hex'))
+			.flag('hex', flag.custom((raw) => Number.parseInt(String(raw), 16)).config('hex'))
 			.action(({ flags, out }) => {
 				out.log(`hex=${String(flags.hex)}`);
 			});
@@ -446,7 +446,7 @@ describe('runCommand — custom flag integration', () => {
 
 	it('custom flag with default', async () => {
 		const cmd = command('test')
-			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).default(0))
+			.flag('hex', flag.custom((raw) => Number.parseInt(String(raw), 16)).default(0))
 			.action(({ flags, out }) => {
 				out.log(`hex=${String(flags.hex)}`);
 			});
@@ -460,7 +460,7 @@ describe('runCommand — custom flag integration', () => {
 		const cmd = command('test')
 			.flag(
 				'port',
-				flag.custom((raw) => {
+				flag.custom((raw: unknown) => {
 					const n = Number(raw);
 					if (Number.isNaN(n)) throw new Error('Not a number');
 					return n;
@@ -477,7 +477,7 @@ describe('runCommand — custom flag integration', () => {
 
 	it('required custom flag fails when not provided', async () => {
 		const cmd = command('test')
-			.flag('hex', flag.custom((raw) => Number.parseInt(raw, 16)).required())
+			.flag('hex', flag.custom((raw) => Number.parseInt(String(raw), 16)).required())
 			.action(({ out }) => {
 				out.log('ok');
 			});

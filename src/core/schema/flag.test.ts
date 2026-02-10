@@ -59,7 +59,7 @@ describe('flag.array()', () => {
 
 describe('flag.custom()', () => {
 	it('creates a custom flag with optional presence', () => {
-		const f = flag.custom((raw) => Number.parseInt(raw, 16));
+		const f = flag.custom((raw) => Number.parseInt(String(raw), 16));
 		expect(f).toBeInstanceOf(FlagBuilder);
 		expect(f.schema.kind).toBe('custom');
 		expect(f.schema.presence).toBe('optional');
@@ -67,20 +67,20 @@ describe('flag.custom()', () => {
 	});
 
 	it('stores the parse function on the schema', () => {
-		const parseFn = (raw: string) => Number.parseInt(raw, 16);
+		const parseFn = (raw: unknown) => Number.parseInt(String(raw), 16);
 		const f = flag.custom(parseFn);
 		expect(f.schema.parseFn).toBeDefined();
 		expect(f.schema.parseFn?.('ff')).toBe(255);
 	});
 
 	it('infers return type from parse function', () => {
-		const f = flag.custom((raw) => Number.parseInt(raw, 16));
+		const f = flag.custom((raw) => Number.parseInt(String(raw), 16));
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number | undefined>();
 	});
 
 	it('infers complex return types', () => {
 		const f = flag.custom((raw) => {
-			const [host, port] = raw.split(':');
+			const [host, port] = String(raw).split(':');
 			return { host: host ?? '', port: Number(port ?? 0) };
 		});
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<{ host: string; port: number } | undefined>();
@@ -346,23 +346,23 @@ describe('type inference', () => {
 	});
 
 	it('custom flag: T | undefined', () => {
-		const f = flag.custom((raw) => raw.split(','));
+		const f = flag.custom((raw) => String(raw).split(','));
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[] | undefined>();
 	});
 
 	it('.default() removes undefined from custom', () => {
-		const f = flag.custom((raw) => raw.split(',')).default([]);
+		const f = flag.custom((raw) => String(raw).split(',')).default([]);
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[]>();
 	});
 
 	it('.required() removes undefined from custom', () => {
-		const f = flag.custom((raw) => raw.split(',')).required();
+		const f = flag.custom((raw) => String(raw).split(',')).required();
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[]>();
 	});
 
 	it('InferFlags includes custom flags', () => {
 		const defs = {
-			hex: flag.custom((raw) => Number.parseInt(raw, 16)).required(),
+			hex: flag.custom((raw) => Number.parseInt(String(raw), 16)).required(),
 			name: flag.string(),
 		};
 
@@ -411,19 +411,19 @@ describe('edge cases', () => {
 	});
 
 	it('custom with .default() preserves defaulted presence', () => {
-		const f = flag.custom((raw) => Number.parseInt(raw, 16)).default(255);
+		const f = flag.custom((raw) => Number.parseInt(String(raw), 16)).default(255);
 		expect(f.schema.presence).toBe('defaulted');
 		expect(f.schema.defaultValue).toBe(255);
 	});
 
 	it('custom with .env() preserves type', () => {
-		const f = flag.custom((raw) => Number.parseInt(raw, 16)).env('HEX_VALUE');
+		const f = flag.custom((raw) => Number.parseInt(String(raw), 16)).env('HEX_VALUE');
 		expect(f.schema.envVar).toBe('HEX_VALUE');
 		expect(f.schema.kind).toBe('custom');
 	});
 
 	it('custom with .config() preserves type', () => {
-		const f = flag.custom((raw) => Number.parseInt(raw, 16)).config('hex.value');
+		const f = flag.custom((raw) => Number.parseInt(String(raw), 16)).config('hex.value');
 		expect(f.schema.configPath).toBe('hex.value');
 		expect(f.schema.kind).toBe('custom');
 	});

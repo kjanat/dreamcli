@@ -552,7 +552,7 @@ describe('resolve — env custom flags', () => {
 			flags: {
 				hex: createSchema('custom', {
 					envVar: 'HEX_VALUE',
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 				}),
 			},
 		});
@@ -568,7 +568,7 @@ describe('resolve — env custom flags', () => {
 			flags: {
 				port: createSchema('custom', {
 					envVar: 'PORT',
-					parseFn: (raw: string) => {
+					parseFn: (raw: unknown) => {
 						const n = Number(raw);
 						if (Number.isNaN(n)) throw new Error('Not a number');
 						return n;

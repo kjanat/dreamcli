@@ -462,7 +462,7 @@ describe('formatHelp', () => {
 		it('shows <value> hint for custom flag', () => {
 			const cmd = command('test').flag(
 				'hex',
-				flag.custom((raw) => Number.parseInt(raw, 16)).describe('Hex color'),
+				flag.custom((raw) => Number.parseInt(String(raw), 16)).describe('Hex color'),
 			);
 			const help = formatHelp(cmd.schema);
 			expect(help).toContain('--hex <value>');

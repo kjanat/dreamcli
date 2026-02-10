@@ -488,7 +488,7 @@ describe('resolve — config custom flags', () => {
 			flags: {
 				hex: createSchema('custom', {
 					configPath: 'hex',
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 				}),
 			},
 		});
@@ -499,12 +499,12 @@ describe('resolve — config custom flags', () => {
 		expect(result.flags.hex).toBe(255);
 	});
 
-	it('coerces non-string config value to string before parseFn', async () => {
+	it('passes non-string config value directly to parseFn', async () => {
 		const schema = makeSchema({
 			flags: {
 				doubled: createSchema('custom', {
 					configPath: 'value',
-					parseFn: (raw: string) => Number(raw) * 2,
+					parseFn: (raw: unknown) => Number(raw) * 2,
 				}),
 			},
 		});

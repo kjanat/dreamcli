@@ -74,8 +74,13 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 /** Discriminator for the kind of value a flag accepts. */
 type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
 
-/** Custom parse function for `flag.custom()`. */
-type FlagParseFn<T> = (raw: string) => T;
+/**
+ * Custom parse function for `flag.custom()`.
+ *
+ * Receives `string` from CLI argv and env vars, or any JSON-representable
+ * value from config files. Narrow inside the function as needed.
+ */
+type FlagParseFn<T> = (raw: unknown) => T;
 
 /**
  * The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
@@ -349,24 +354,28 @@ interface FlagFactory {
 	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }>;
 
 	/**
-	 * Custom-parsed flag. The parse function receives the raw CLI string and
-	 * must return a value of type `T`. The return type is inferred from
-	 * `parseFn`.
+	 * Custom-parsed flag. The parse function receives the raw value and must
+	 * return a value of type `T`. The return type is inferred from `parseFn`.
+	 *
+	 * The input is `string` from CLI argv and env vars, or any JSON value
+	 * from config files. Narrow inside the function as needed:
+	 *
+	 * ```ts
+	 * flag.custom((raw: unknown): string[] => {
+	 *   if (Array.isArray(raw)) return raw.map(String);
+	 *   if (typeof raw === 'string') return raw.split(',');
+	 *   throw new Error(`Expected string or array, got ${typeof raw}`);
+	 * })
+	 * ```
 	 *
 	 * Throw an `Error` (or `ParseError`) to signal invalid input — it will
 	 * be wrapped with context and re-thrown as a `ParseError`.
-	 *
-	 * **Config resolution:** When resolving from a config file, non-string
-	 * values are coerced to string via `String(raw)` before calling `parseFn`.
-	 * Complex objects will become `"[object Object]"` — callers should store
-	 * string representations in config or use a dedicated format loader.
-	 * When no `parseFn` is provided, the resolver returns `String(raw)`.
 	 *
 	 * @see `coerceConfigValue` `'custom'` case in `core/resolve/index.ts`
 	 *
 	 * @example
 	 * ```ts
-	 * flag.custom((raw) => new URL(raw))
+	 * flag.custom((raw) => new URL(String(raw)))
 	 * // inferred type: URL | undefined
 	 * ```
 	 */

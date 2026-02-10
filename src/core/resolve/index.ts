@@ -506,9 +506,8 @@ function coercePromptValue(
 			// Custom flags delegate to the parseFn. The prompt returns a raw value
 			// (typically a string from input prompt) — pass through parseFn.
 			if (schema.parseFn) {
-				const input = typeof raw === 'string' ? raw : String(raw);
 				try {
-					return { ok: true, value: schema.parseFn(input) };
+					return { ok: true, value: schema.parseFn(raw) };
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);
 					return {
@@ -907,13 +906,13 @@ function coerceConfigValue(
 		}
 
 		case 'custom': {
-			// Custom flags delegate to the parseFn. Config values may not be strings,
-			// so coerce to string first to match the parseFn contract.
+			// Custom flags pass the raw config value directly to parseFn.
+			// Config values may be strings, numbers, booleans, arrays, or objects —
+			// parseFn receives `unknown` and is responsible for narrowing.
 			// @see flag.custom() JSDoc in core/schema/flag.ts for the public contract.
 			if (schema.parseFn) {
-				const input = typeof raw === 'string' ? raw : String(raw);
 				try {
-					return { ok: true, value: schema.parseFn(input) };
+					return { ok: true, value: schema.parseFn(raw) };
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);
 					return {
@@ -929,9 +928,8 @@ function coerceConfigValue(
 					};
 				}
 			}
-			// No parseFn — accept raw
-			if (typeof raw === 'string') return { ok: true, value: raw };
-			return { ok: true, value: String(raw) };
+			// No parseFn — pass raw value through as-is.
+			return { ok: true, value: raw };
 		}
 
 		case 'array': {

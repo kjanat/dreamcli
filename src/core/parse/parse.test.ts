@@ -614,7 +614,7 @@ describe('parse — custom flags', () => {
 		const schema = makeSchema({
 			flags: {
 				hex: createSchema('custom', {
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 				}),
 			},
 		});
@@ -626,7 +626,7 @@ describe('parse — custom flags', () => {
 		const schema = makeSchema({
 			flags: {
 				hex: createSchema('custom', {
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 				}),
 			},
 		});
@@ -638,7 +638,7 @@ describe('parse — custom flags', () => {
 		const schema = makeSchema({
 			flags: {
 				port: createSchema('custom', {
-					parseFn: (raw: string) => {
+					parseFn: (raw: unknown) => {
 						const n = Number(raw);
 						if (Number.isNaN(n) || n < 0 || n > 65535) throw new Error('Invalid port');
 						return n;
@@ -680,7 +680,7 @@ describe('parse — custom flags', () => {
 			flags: {
 				hex: createSchema('custom', {
 					aliases: ['x'],
-					parseFn: (raw: string) => Number.parseInt(raw, 16),
+					parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 				}),
 			},
 		});
