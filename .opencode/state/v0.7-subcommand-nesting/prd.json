@@ -64,7 +64,7 @@
 			"title": "Add testkit support for nested command tree scenarios",
 			"overseerTaskId": "task_01KH3NEN4J4ZV69TH8P93Z4KH8",
 			"priority": "feature",
-			"passes": false,
+			"passes": true,
 			"description": "Integration tests for nested dispatch via CLIBuilder.execute(). Propagated flags, group help, error cases."
 		}
 	]

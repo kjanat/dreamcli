@@ -137,3 +137,21 @@ Started: 2026-02-10
 - **Learnings:**
   - `dispatch()` already returns scoped candidates — the real fix was the fallback help hint path, not the candidate list
   - `DispatchUnknown.parentPath` is the key field — it carries the ancestor schemas up to (not including) the unknown level, perfect for building `"myapp db migrate --help"` paths
+
+## Task - testkit-nesting
+- Created `src/core/testkit/testkit-nesting.test.ts` — 25 integration tests across 10 describe groups
+- **mergedSchema injection**: tests `runCommand()` with propagated flags via `mergedSchema` option — resolves CLI flags, defaults, coexists with own flags, renders in help
+- **Command with subcommands help**: verifies Commands section rendering through `runCommand()`
+- **env/config injection**: propagated env flags resolve in nested subcommands, config values resolve at leaf level, CLI overrides config
+- **Middleware**: middleware on leaf commands runs correctly in nested context
+- **Verbosity**: quiet mode suppresses info in nested subcommand output
+- **JSON mode**: JSON mode via options (not --json flag), JSON error rendering for unknown nested commands
+- **TTY**: isTTY propagates through nesting layers
+- **Error cases**: parse errors (unknown flag), handler errors, missing required flags/args in nested context
+- **Help variations**: --help on group shows subcommands, --help on leaf shows propagated flags, binName preserved
+- **3-level nesting**: env injection, CLI override, propagated flags, scoped error messages
+- **Files changed:** `src/core/testkit/testkit-nesting.test.ts` (new)
+- **Learnings:**
+  - `runCommand()` with `mergedSchema` is the correct seam for testing propagated flags in isolation — no need for full CLIBuilder dispatch
+  - The existing `cli-nesting.test.ts` tests dispatch mechanics; testkit tests complement by covering the injectable options (env, config, answers, verbosity, TTY, JSON mode) flowing through nested execution
+  - `flags as Record<string, unknown>` cast is necessary in handlers that access propagated flags not declared on the command's own type — the runtime values are present but the type system doesn't know about them
