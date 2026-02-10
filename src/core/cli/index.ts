@@ -754,7 +754,16 @@ class CLIBuilder {
 
 		// Config discovery (only when .config() was called on the builder)
 		// Skip for completions subcommand — shell completions don't need config.
-		const isCompletions = filteredArgv[0] === 'completions';
+		// Resolve the first argv token against registered commands (by name + aliases)
+		// so aliases or shadowed names are handled correctly.
+		const firstToken = filteredArgv[0];
+		const matchedCommand =
+			firstToken !== undefined
+				? this.schema.commands.find(
+						(c) => c.schema.name === firstToken || c.schema.aliases.includes(firstToken),
+					)
+				: undefined;
+		const isCompletions = matchedCommand?.schema.name === 'completions';
 		let loadedConfig: Readonly<Record<string, unknown>> | undefined;
 
 		if (

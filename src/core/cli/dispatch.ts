@@ -199,37 +199,32 @@ function dispatch(
 function levenshtein(a: string, b: string): number {
 	const m = a.length;
 	const n = b.length;
-	const dp: number[][] = Array.from({ length: m + 1 }, () =>
-		Array.from({ length: n + 1 }, () => 0),
-	);
 
-	for (let i = 0; i <= m; i++) {
-		const row = dp[i];
-		if (row !== undefined) row[0] = i;
-	}
-	for (let j = 0; j <= n; j++) {
-		const row = dp[0];
-		if (row !== undefined) row[j] = j;
-	}
+	// Flat (m+1)×(n+1) matrix — fully initialised, no sparse access.
+	// Two-row rolling buffer: only the previous and current rows are needed.
+	const w = n + 1;
+	let prev = new Uint16Array(w);
+	let curr = new Uint16Array(w);
+
+	// Base row: distance from empty string to b[0..j]
+	for (let j = 0; j <= n; j++) prev[j] = j;
 
 	for (let i = 1; i <= m; i++) {
+		curr[0] = i;
 		for (let j = 1; j <= n; j++) {
 			const cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
-			const prevRow = dp[i - 1];
-			const currRow = dp[i];
-			if (prevRow !== undefined && currRow !== undefined) {
-				const del = prevRow[j];
-				const ins = currRow[j - 1];
-				const sub = prevRow[j - 1];
-				if (del !== undefined && ins !== undefined && sub !== undefined) {
-					currRow[j] = Math.min(del + 1, ins + 1, sub + cost);
-				}
-			}
+			// All indices are in-bounds: j ∈ [1,n], j-1 ∈ [0,n-1], both < w.
+			// prev/curr are dense Uint16Arrays of length w — no holes.
+			const del = prev[j] ?? 0;
+			const ins = curr[j - 1] ?? 0;
+			const sub = prev[j - 1] ?? 0;
+			curr[j] = Math.min(del + 1, ins + 1, sub + cost);
 		}
+		[prev, curr] = [curr, prev];
 	}
 
-	const lastRow = dp[m];
-	return lastRow !== undefined && lastRow[n] !== undefined ? lastRow[n] : Math.max(m, n);
+	// After the loop, `prev` holds the last computed row (swapped at loop end).
+	return prev[n] ?? Math.max(m, n);
 }
 
 /**

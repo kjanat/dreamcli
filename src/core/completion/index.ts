@@ -26,7 +26,16 @@ import type { CommandSchema, FlagSchema } from '../schema/index.js';
  */
 type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 
-/** All shell values as a frozen readonly non-empty tuple (useful for validation + flag.enum()). */
+/**
+ * All shell values as a frozen readonly non-empty tuple (useful for validation + flag.enum()).
+ *
+ * **Only `bash` and `zsh` are implemented.** `fish` and `powershell` are reserved for future use
+ * and will throw a {@link CLIError} with code `UNSUPPORTED_OPERATION` at generation time.
+ * Because `flag.enum(SHELLS)` exposes all four values, callers should be aware that selecting
+ * an unimplemented shell produces a runtime error, not a validation error.
+ *
+ * @see {@link Shell} for the union type matching these entries.
+ */
 const SHELLS = Object.freeze(['bash', 'zsh', 'fish', 'powershell'] as const satisfies readonly [
 	Shell,
 	...Shell[],

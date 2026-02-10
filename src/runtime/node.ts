@@ -101,9 +101,12 @@ function isNodeSystemError(err: unknown): err is NodeSystemError {
 /**
  * Resolve the user's home directory from environment variables.
  *
- * Uses `HOME` on Unix, `USERPROFILE` on Windows — both are set by
- * the OS/shell in virtually all environments. Falls back to `'/'`
- * as a last resort (matches Node's `os.homedir()` fallback behavior).
+ * **Windows** (`win32`): `USERPROFILE` → `HOMEDRIVE`+`HOMEPATH` (both required) → `HOME` → `C:\`
+ * **Unix**: `HOME` → `/`
+ *
+ * `HOMEPATH` alone is never used — it is a relative fragment (e.g. `\Users\alice`) that only
+ * makes sense when combined with `HOMEDRIVE` (e.g. `C:`). Using `HOMEPATH` without `HOMEDRIVE`
+ * could resolve against the working drive, producing an incorrect path.
  *
  * We avoid importing `node:os` to keep the factory synchronous and
  * to maintain the pattern of deriving everything from the process object.
@@ -115,7 +118,11 @@ function resolveHomedir(
 	platform: string,
 ): string {
 	if (platform === 'win32') {
-		return env.USERPROFILE ?? env.HOME ?? 'C:\\';
+		if (env.USERPROFILE !== undefined) return env.USERPROFILE;
+		if (env.HOMEDRIVE !== undefined && env.HOMEPATH !== undefined) {
+			return env.HOMEDRIVE + env.HOMEPATH;
+		}
+		return env.HOME ?? 'C:\\';
 	}
 	return env.HOME ?? '/';
 }
