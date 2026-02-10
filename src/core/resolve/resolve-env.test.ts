@@ -605,10 +605,6 @@ describe('resolve — env custom flags', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — mixed scenarios
-// ========================================================================
-
 describe('resolve — mixed env scenarios', () => {
 	it('resolves complex multi-flag command with mixed sources', async () => {
 		const schema = makeSchema({

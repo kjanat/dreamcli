@@ -446,7 +446,7 @@ class CLIBuilder {
 			...this.schema,
 			configSettings: {
 				appName,
-				loaders: loaders !== undefined ? loaders : undefined,
+				loaders,
 			},
 		});
 	}

@@ -118,13 +118,13 @@ function resolveHomedir(
 	platform: string,
 ): string {
 	if (platform === 'win32') {
-		if (env.USERPROFILE !== undefined) return env.USERPROFILE;
-		if (env.HOMEDRIVE !== undefined && env.HOMEPATH !== undefined) {
+		if (env.USERPROFILE) return env.USERPROFILE;
+		if (env.HOMEDRIVE && env.HOMEPATH) {
 			return env.HOMEDRIVE + env.HOMEPATH;
 		}
-		return env.HOME ?? 'C:\\';
+		return env.HOME || 'C:\\';
 	}
-	return env.HOME ?? '/';
+	return env.HOME || '/';
 }
 
 /**
@@ -141,9 +141,9 @@ function resolveConfigDir(
 	homedir: string,
 ): string {
 	if (platform === 'win32') {
-		return env.APPDATA ?? `${homedir}\\AppData\\Roaming`;
+		return env.APPDATA || `${homedir}\\AppData\\Roaming`;
 	}
-	return env.XDG_CONFIG_HOME ?? `${homedir}/.config`;
+	return env.XDG_CONFIG_HOME || `${homedir}/.config`;
 }
 
 // ---------------------------------------------------------------------------
