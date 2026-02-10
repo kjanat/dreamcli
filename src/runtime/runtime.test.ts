@@ -808,6 +808,17 @@ describe('createNodeAdapter — filesystem', () => {
 		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
 	});
 
+	it('configDir treats empty APPDATA as unset on win32', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				platform: 'win32',
+				env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: '' },
+				cwd: () => 'C:\\',
+			}),
+		);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
 	it('readFile returns file contents for existing files', async () => {
 		const adapter = createNodeAdapter();
 		// Use the adapter's own cwd to find a file we know exists

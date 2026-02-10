@@ -141,7 +141,7 @@ function resolveConfigDir(
 	homedir: string,
 ): string {
 	if (platform === 'win32') {
-		if (env.APPDATA !== undefined) return env.APPDATA;
+		if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
 		// Strip trailing separator(s) to avoid doubled backslash when
 		// homedir is a drive root like 'C:\'.
 		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
