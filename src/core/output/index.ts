@@ -246,10 +246,17 @@ class OutputChannel implements Out {
 }
 
 // ---------------------------------------------------------------------------
-// Noop activity handles (placeholder until D2/D5 wire real dispatch)
+// Noop activity handles — silent mode (non-TTY, fallback='silent')
 // ---------------------------------------------------------------------------
 
-/** @internal Noop spinner — all methods are no-ops. */
+/**
+ * Noop spinner handle singleton.
+ *
+ * All methods are no-ops. Used when spinners should produce no output
+ * at all — `jsonMode`, or non-TTY with `fallback: 'silent'` (default).
+ *
+ * @internal
+ */
 const noopSpinnerHandle: SpinnerHandle = {
 	update() {},
 	succeed() {},
@@ -260,13 +267,149 @@ const noopSpinnerHandle: SpinnerHandle = {
 	},
 };
 
-/** @internal Noop progress — all methods are no-ops. */
+/**
+ * Noop progress handle singleton.
+ *
+ * All methods are no-ops. Used when progress bars should produce no
+ * output at all — `jsonMode`, or non-TTY with `fallback: 'silent'`.
+ *
+ * @internal
+ */
 const noopProgressHandle: ProgressHandle = {
 	increment() {},
 	update() {},
 	done() {},
 	fail() {},
 };
+
+// ---------------------------------------------------------------------------
+// Static activity handles — plain text mode (non-TTY, fallback='static')
+// ---------------------------------------------------------------------------
+
+/**
+ * I/O writers for static handles.
+ *
+ * Static handles emit plain text at lifecycle boundaries. They need
+ * separate stdout/stderr writers rather than an `Out` reference to
+ * avoid circular dependency (Out.spinner() → handle → Out).
+ *
+ * @internal
+ */
+interface StaticWriters {
+	/** Writer for normal output (success, start). */
+	readonly stdout: WriteFn;
+	/** Writer for error output (fail). */
+	readonly stderr: WriteFn;
+}
+
+/**
+ * Static spinner handle — emits plain text at lifecycle boundaries.
+ *
+ * Used in non-TTY environments with `fallback: 'static'`. No animation,
+ * no ANSI codes. Emits text on start and terminal events only.
+ *
+ * Terminal methods are idempotent — calling after stop is a no-op.
+ *
+ * @internal
+ */
+class StaticSpinnerHandle implements SpinnerHandle {
+	/** Whether the handle has been stopped (terminal state reached). */
+	private stopped = false;
+
+	constructor(
+		text: string,
+		private readonly writers: StaticWriters,
+	) {
+		writeLine(writers.stdout, text);
+	}
+
+	update(_text: string): void {
+		// Static mode — no update output (no terminal to overwrite).
+	}
+
+	succeed(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		if (text !== undefined) {
+			writeLine(this.writers.stdout, text);
+		}
+	}
+
+	fail(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		if (text !== undefined) {
+			writeLine(this.writers.stderr, text);
+		}
+	}
+
+	stop(): void {
+		if (this.stopped) return;
+		this.stopped = true;
+	}
+
+	async wrap<T>(
+		promise: Promise<T>,
+		options?: { readonly succeed?: string; readonly fail?: string },
+	): Promise<T> {
+		try {
+			const value = await promise;
+			this.succeed(options?.succeed);
+			return value;
+		} catch (error: unknown) {
+			this.fail(options?.fail);
+			throw error;
+		}
+	}
+}
+
+/**
+ * Static progress handle — emits plain text at lifecycle boundaries.
+ *
+ * Used in non-TTY environments with `fallback: 'static'`. No animation,
+ * no progress bar rendering. Emits label on start, text on done/fail.
+ *
+ * Terminal methods are idempotent — calling after stop is a no-op.
+ *
+ * @internal
+ */
+class StaticProgressHandle implements ProgressHandle {
+	/** Whether the handle has been stopped (terminal state reached). */
+	private stopped = false;
+
+	constructor(
+		label: string | undefined,
+		private readonly writers: StaticWriters,
+	) {
+		if (label !== undefined) {
+			writeLine(writers.stdout, label);
+		}
+	}
+
+	increment(_n?: number): void {
+		// Static mode — no incremental output.
+	}
+
+	update(_value: number): void {
+		// Static mode — no incremental output.
+	}
+
+	done(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		if (text !== undefined) {
+			writeLine(this.writers.stdout, text);
+		}
+	}
+
+	fail(text?: string): void {
+		if (this.stopped) return;
+		this.stopped = true;
+		if (text !== undefined) {
+			writeLine(this.writers.stderr, text);
+		}
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -448,5 +591,20 @@ function createCaptureOutput(
 // Exports
 // ---------------------------------------------------------------------------
 
-export { createCaptureOutput, createOutput, OutputChannel };
-export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };
+export {
+	createCaptureOutput,
+	createOutput,
+	noopProgressHandle,
+	noopSpinnerHandle,
+	OutputChannel,
+	StaticProgressHandle,
+	StaticSpinnerHandle,
+};
+export type {
+	CapturedOutput,
+	OutputOptions,
+	ResolvedOutputOptions,
+	StaticWriters,
+	Verbosity,
+	WriteFn,
+};

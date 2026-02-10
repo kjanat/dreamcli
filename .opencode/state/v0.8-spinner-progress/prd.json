@@ -13,7 +13,7 @@
 			"id": "noop-static-handles",
 			"title": "[D2] Noop + static handles — non-TTY implementations",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"description": "Implement NoopSpinnerHandle, NoopProgressHandle, StaticSpinnerHandle, StaticProgressHandle. Static handles emit plain text via out.log()/out.error() at start and terminal events."
 		},
 		{

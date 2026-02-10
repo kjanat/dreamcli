@@ -17,7 +17,8 @@ Started: 2026-02-10
 - `import type` for type-only imports (verbatimModuleSyntax)
 
 - When extending `Out`, all mock objects in tests must be updated (command.test.ts had `mockOut: Out`)
-- Noop handle singletons in `output/index.ts` serve as placeholders until D5 wires mode dispatch
+- Noop handle singletons in `output/index.ts` for silent mode; static handle classes for plain-text fallback
+- Static handles take `StaticWriters` (stdout/stderr `WriteFn` pair), not `Out`, to avoid circular dep
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -30,3 +31,13 @@ Started: 2026-02-10
 - Fixed `mockOut` in `command.test.ts` to include new methods
 - Files changed: `src/core/schema/command.ts`, `src/core/schema/index.ts`, `src/core/output/index.ts`, `src/core/schema/command.test.ts`, `src/index.ts`
 - **Learnings:** Extending `Out` ripples to any test that constructs a manual `Out` mock. Only one such mock existed (command.test.ts:280). All other tests use testkit's `createCaptureOutput()` which gets the methods from `OutputChannel`.
+
+## Task - noop-static-handles (D2)
+- Formalized noop handles with proper JSDoc docs explaining when they're used (jsonMode, silent fallback)
+- Added `StaticWriters` interface — stdout/stderr `WriteFn` pair to avoid circular dep with `Out`
+- Implemented `StaticSpinnerHandle`: emits text on construction (start), succeed→stdout, fail→stderr, idempotent terminal methods
+- Implemented `StaticProgressHandle`: emits label on construction (start), done→stdout, fail→stderr, idempotent terminal methods
+- Both static handles use `writeLine()` directly (same path as `out.log()`/`out.error()`)
+- Exported noop singletons + static classes + `StaticWriters` type from `output/index.ts`
+- Files changed: `src/core/output/index.ts`
+- **Learnings:** Static handles take `WriteFn` pairs not `Out` — avoids circular dep (Out.spinner→handle→Out). `writeLine()` already existed as internal helper, reused for static output. No test changes needed since D2 adds implementations consumed by D5 (mode dispatch) and D7 (tests).
