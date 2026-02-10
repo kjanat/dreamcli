@@ -27,7 +27,7 @@
 			"id": "tty-handles",
 			"title": "[D4] TTY handles + ANSI rendering — spinner frames, progress bar, cursor control",
 			"priority": "integration",
-			"passes": false,
+			"passes": true,
 			"description": "TTYSpinnerHandle and TTYProgressHandle. Spinner frame animation (braille), progress bar rendering, \\r overwrite, cursor show/hide. Timer management with setInterval."
 		},
 		{

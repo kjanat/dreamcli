@@ -19,6 +19,9 @@ Started: 2026-02-10
 - When extending `Out`, all mock objects in tests must be updated (command.test.ts had `mockOut: Out`)
 - Noop handle singletons in `output/index.ts` for silent mode; static handle classes for plain-text fallback
 - Static handles take `StaticWriters` (stdout/stderr `WriteFn` pair), not `Out`, to avoid circular dep
+- TTY handles also use `StaticWriters` — same pattern, consistency across all concrete handle types
+- Timer APIs (`setInterval`/`clearInterval`) need `declare function` stubs since lib is ES2022-only (no DOM/Node typings)
+- ANSI constants are module-level `const` with `@internal` JSDoc — no namespace, flat declarations
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -52,3 +55,15 @@ Started: 2026-02-10
 - Fixed mock `_execute()` in `cli-dispatch.test.ts` and `completion.test.ts` (erased helper) to include `activity: []`
 - Files changed: `src/core/output/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/cli/cli-dispatch.test.ts`, `src/core/completion/completion.test.ts`
 - **Learnings:** Extending `RunResult` ripples to every location that constructs one — `buildResult()` in testkit and cli, plus mock `_execute()` in test helpers that return `RunResult` literals. The `CaptureOutputChannel` subclass pattern avoids changing the `createOutput()` production path at all — capture behaviour is exclusively testkit-side.
+
+## Task - tty-handles (D4)
+- `TTYSpinnerHandle`: braille frame animation (10 frames, 80ms interval), `\r` + erase-line overwrite, cursor hide/show, idempotent terminal methods, `wrap()` with try/catch
+- `TTYProgressHandle`: determinate bar (`[████░░░░░░] 40% label`), indeterminate bouncing pulse (`PULSE_WIDTH=3`, 80ms interval), cursor hide/show, idempotent terminal methods
+- Both use `StaticWriters` for consistency — succeed/done→stdout, fail→stderr
+- Added `declare function setInterval/clearInterval` stubs for ES2022-only type environment
+- Timer field typed as `unknown` (not `ReturnType<typeof setInterval>`) since the declare returns `unknown`
+- ANSI constants: `HIDE_CURSOR`, `SHOW_CURSOR`, `ERASE_LINE`, `SPINNER_FRAMES`, `CHECK`, `CROSS`, `BAR_FILLED`, `BAR_EMPTY`, `BAR_WIDTH=20`, `PULSE_WIDTH=3`
+- Exported `TTYSpinnerHandle` and `TTYProgressHandle` from output module
+- No cursor-restoration exit handler — documented in JSDoc, recommend `wrap()` pattern instead
+- Files changed: `src/core/output/index.ts`
+- **Learnings:** `declare function` for timer APIs avoids `@types/node` dep; biome doesn't flag `noShadowRestrictedNames` on `declare function` so suppress comments are unnecessary (lint warns on unused suppressions). Determinate progress needs no timer — re-render on `increment()`/`update()` only. Indeterminate uses bounce logic (forward/backward direction toggle at boundaries).
