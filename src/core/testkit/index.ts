@@ -20,7 +20,7 @@ import { createCaptureOutput } from '../output/index.js';
 import { parse } from '../parse/index.js';
 import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTestPrompter } from '../prompt/index.js';
-import type { ResolveOptions } from '../resolve/index.js';
+import type { DeprecationWarning, ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
 import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.js';
@@ -239,8 +239,8 @@ async function runCommand<
 		const resolved = await resolve(cmd.schema, parsed, resolveOptions);
 
 		// -- Deprecation warnings ------------------------------------------------
-		for (const warning of resolved.warnings) {
-			out.warn(warning);
+		for (const d of resolved.deprecations) {
+			out.warn(formatDeprecation(d));
 		}
 
 		// -- Execute middleware chain + handler -----------------------------------
@@ -353,6 +353,25 @@ function buildResult(
 		stderr: captured.stderr,
 		error,
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Deprecation formatting (presentation layer — not resolve's responsibility)
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a structured deprecation warning for human-readable stderr output.
+ *
+ * This is a **consumer-side** formatting function — the resolve layer returns
+ * structured `DeprecationWarning` data; consumers decide how to render it.
+ *
+ * @internal
+ */
+function formatDeprecation(d: DeprecationWarning): string {
+	const entity = d.kind === 'flag' ? `flag --${d.name}` : `argument <${d.name}>`;
+	return typeof d.message === 'string'
+		? `Warning: ${entity} is deprecated: ${d.message}`
+		: `Warning: ${entity} is deprecated`;
 }
 
 // ---------------------------------------------------------------------------

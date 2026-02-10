@@ -103,8 +103,36 @@ interface ResolveResult {
 	readonly flags: Readonly<Record<string, unknown>>;
 	/** Resolved arg values keyed by arg name. */
 	readonly args: Readonly<Record<string, unknown>>;
-	/** Deprecation warnings for flags/args that were explicitly provided. */
-	readonly warnings: readonly string[];
+	/**
+	 * Deprecation notices for flags/args that were explicitly provided.
+	 *
+	 * Populated when a deprecated flag or arg receives a value from any
+	 * explicit source (CLI, env, config, prompt). Not populated for
+	 * default fallthrough.
+	 *
+	 * Consumers decide how to render these — the resolve layer provides
+	 * structured data, not formatted strings.
+	 */
+	readonly deprecations: readonly DeprecationWarning[];
+}
+
+/**
+ * Structured deprecation notice emitted when a deprecated flag or arg
+ * is explicitly provided.
+ *
+ * Consumers (testkit, CLI layer) decide formatting. The resolve layer
+ * only collects facts.
+ */
+interface DeprecationWarning {
+	/** Whether the deprecated entity is a flag or a positional arg. */
+	readonly kind: 'flag' | 'arg';
+	/** Canonical name of the flag or arg. */
+	readonly name: string;
+	/**
+	 * Deprecation reason/migration guidance, or `true` for generic
+	 * deprecation with no specific message.
+	 */
+	readonly message: string | true;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +168,7 @@ async function resolve(
 	const env = options?.env ?? {};
 	const config = options?.config ?? {};
 	const prompter = options?.prompter;
-	const warnings: string[] = [];
+	const deprecations: DeprecationWarning[] = [];
 	const flags = await resolveFlags(
 		schema.flags,
 		parsed.flags,
@@ -148,10 +176,10 @@ async function resolve(
 		config,
 		prompter,
 		schema.interactive,
-		warnings,
+		deprecations,
 	);
-	const args = resolveArgs(schema.args, parsed.args, warnings);
-	return { flags, args, warnings };
+	const args = resolveArgs(schema.args, parsed.args, deprecations);
+	return { flags, args, deprecations };
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +217,7 @@ async function resolveFlags(
 	config: Readonly<Record<string, unknown>>,
 	prompter: PromptEngine | undefined,
 	interactive: ErasedInteractiveResolver | undefined,
-	warnings: string[],
+	deprecations: DeprecationWarning[],
 ): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -204,7 +232,7 @@ async function resolveFlags(
 
 		if (parsedValue !== undefined) {
 			if (schema.deprecated !== undefined) {
-				warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+				deprecations.push({ kind: 'flag', name, message: schema.deprecated });
 			}
 			resolved[name] = parsedValue;
 			continue;
@@ -216,7 +244,7 @@ async function resolveFlags(
 				const coerced = coerceEnvValue(name, schema.envVar, envValue, schema);
 				if (coerced.ok) {
 					if (schema.deprecated !== undefined) {
-						warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
 					}
 					resolved[name] = coerced.value;
 					continue;
@@ -233,7 +261,7 @@ async function resolveFlags(
 				const coerced = coerceConfigValue(name, schema.configPath, configValue, schema);
 				if (coerced.ok) {
 					if (schema.deprecated !== undefined) {
-						warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
 					}
 					resolved[name] = coerced.value;
 					continue;
@@ -298,7 +326,7 @@ async function resolveFlags(
 			);
 			if (promptResult.ok) {
 				if (schema.deprecated !== undefined) {
-					warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+					deprecations.push({ kind: 'flag', name, message: schema.deprecated });
 				}
 				resolved[name] = promptResult.value;
 				continue;
@@ -966,7 +994,7 @@ function coerceConfigValue(
 function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,
-	warnings: string[],
+	deprecations: DeprecationWarning[],
 ): Readonly<Record<string, unknown>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -977,7 +1005,7 @@ function resolveArgs(
 
 		if (parsedValue !== undefined) {
 			if (schema.deprecated !== undefined) {
-				warnings.push(formatDeprecatedArgWarning(name, schema.deprecated));
+				deprecations.push({ kind: 'arg', name, message: schema.deprecated });
 			}
 			// For variadic args, the parser produces an array. An empty array
 			// means "present but no values" — still valid unless required checks.
@@ -1045,24 +1073,6 @@ function resolveArgs(
 }
 
 // ---------------------------------------------------------------------------
-// Deprecation warning formatting
-// ---------------------------------------------------------------------------
-
-/** Format a deprecation warning for a flag that was explicitly provided. */
-function formatDeprecatedFlagWarning(name: string, deprecated: string | true): string {
-	return typeof deprecated === 'string'
-		? `Warning: flag --${name} is deprecated: ${deprecated}`
-		: `Warning: flag --${name} is deprecated`;
-}
-
-/** Format a deprecation warning for an arg that was explicitly provided. */
-function formatDeprecatedArgWarning(name: string, deprecated: string | true): string {
-	return typeof deprecated === 'string'
-		? `Warning: argument <${name}> is deprecated: ${deprecated}`
-		: `Warning: argument <${name}> is deprecated`;
-}
-
-// ---------------------------------------------------------------------------
 // Type narrowing helpers
 // ---------------------------------------------------------------------------
 
@@ -1103,4 +1113,4 @@ function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationE
 // ---------------------------------------------------------------------------
 
 export { resolve };
-export type { ResolveOptions, ResolveResult };
+export type { DeprecationWarning, ResolveOptions, ResolveResult };

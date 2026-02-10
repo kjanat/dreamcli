@@ -493,7 +493,7 @@ describe('resolve — multiple prompted flags', () => {
 // ========================================================================
 
 describe('resolve — deprecation warnings via prompt', () => {
-	it('collects warning when deprecated flag is resolved from prompt', async () => {
+	it('collects structured deprecation when deprecated flag is resolved from prompt', async () => {
 		const schema = makeSchema({
 			flags: {
 				old: createSchema('string', {
@@ -507,12 +507,11 @@ describe('resolve — deprecation warnings via prompt', () => {
 
 		const result = await resolve(schema, parsed, { prompter });
 		expect(result.flags['old']).toBe('answer');
-		expect(result.warnings).toHaveLength(1);
-		expect(result.warnings[0]).toContain('--old');
-		expect(result.warnings[0]).toContain('use --new');
+		expect(result.deprecations).toHaveLength(1);
+		expect(result.deprecations[0]).toEqual({ kind: 'flag', name: 'old', message: 'use --new' });
 	});
 
-	it('no warning when deprecated flag prompt is cancelled', async () => {
+	it('no deprecation when deprecated flag prompt is cancelled', async () => {
 		const schema = makeSchema({
 			flags: {
 				old: createSchema('string', {
@@ -526,6 +525,6 @@ describe('resolve — deprecation warnings via prompt', () => {
 		const prompter = createTestPrompter([PROMPT_CANCEL]);
 
 		const result = await resolve(schema, parsed, { prompter });
-		expect(result.warnings).toHaveLength(0);
+		expect(result.deprecations).toHaveLength(0);
 	});
 });

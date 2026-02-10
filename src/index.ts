@@ -68,7 +68,7 @@ export {
 	PROMPT_CANCEL,
 	resolvePromptConfig,
 } from './core/prompt/index.js';
-export type { ResolveOptions, ResolveResult } from './core/resolve/index.js';
+export type { DeprecationWarning, ResolveOptions, ResolveResult } from './core/resolve/index.js';
 export { resolve } from './core/resolve/index.js';
 export type {
 	ActionHandler,
