@@ -48,7 +48,7 @@
 			"id": "tests",
 			"title": "[D7] Tests — all modes, all handle types, testkit capture, wrap, overlap",
 			"priority": "feature",
-			"passes": false,
+			"passes": true,
 			"description": "Unit tests for each handle type. Integration tests via testkit. Coverage: TTY mode, non-TTY silent, non-TTY static fallback, jsonMode suppression, implicit stop on overlap, .wrap() success/failure, activity event capture, progress determinate/indeterminate."
 		}
 	]

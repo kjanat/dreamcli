@@ -79,3 +79,16 @@ Started: 2026-02-10
 - Noop handles returned directly without tracking (no cleanup needed, no overlap concern)
 - Files changed: `src/core/output/index.ts`
 - **Learnings:** Active handle tracking only applies to handles that produce terminal output (TTY/static). Noop handles need no tracking — they're stateless singletons. The `stopActive()` → cleanup callback pattern avoids needing a union type for "stoppable handle" since SpinnerHandle uses `.stop()` and ProgressHandle uses `.done()`. `buildWriters()` reuses jsonMode redirection logic from `log()`/`error()` routing.
+
+## Task - tests (D7)
+- 105 tests in `output-activity.test.ts` covering all handle types + modes
+- Noop handles: method no-ops, wrap() passthrough + rejection
+- Static handles: lifecycle text output, idempotency, wrap() success/failure, no-label variant
+- TTY handles: ANSI cursor hide/show, erase-line, spinner frames, bar percentage rendering, cleanup, idempotency, wrap(), determinate vs indeterminate
+- Capture handles: ActivityEvent recording, idempotency, wrap() event capture, shared array across handles
+- OutputChannel mode dispatch: jsonMode→noop, isTTY→TTY, !isTTY+static→static, !isTTY+silent→noop, jsonMode overrides isTTY
+- Active handle tracking: implicit stop on overlap (spinner→spinner, spinner→progress, progress→spinner), noop/jsonMode bypass tracking
+- createCaptureOutput: activity separate from stdout/stderr, fallback ignored, interleaved spinner+progress
+- Testkit integration: runCommand() activity capture for spinner/progress/wrap/fail/indeterminate
+- Files changed: `src/core/output/output-activity.test.ts`
+- **Learnings:** Capture handles bypass OutputChannel mode dispatch entirely — CaptureOutputChannel overrides spinner()/progress() to always return capture handles regardless of isTTY/jsonMode/fallback. This means capture tests don't need to vary those options. TTY handle tests need immediate stop/done to prevent setInterval leaking into subsequent tests.
