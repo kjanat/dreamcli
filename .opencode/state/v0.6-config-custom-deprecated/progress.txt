@@ -3,7 +3,24 @@ PRD: v0.6-config-custom-deprecated
 Started: 2026-02-10
 
 ## Codebase Patterns
-<!-- Consolidate reusable patterns here -->
+
+- **RuntimeAdapter extension pattern**: Add field to interface → add to TestAdapterOptions with sensible default → implement in createTestAdapter → implement in createNodeAdapter → add `platform` to NodeProcess if needed → update all mock NodeProcess objects in tests → add test section for new fields
+- **Homedir/configDir from env vars**: Avoid `node:os` import; derive from `process.env` (HOME, USERPROFILE, XDG_CONFIG_HOME, APPDATA) + `process.platform` to keep factory synchronous
+- **readFile ENOENT → null**: Use `isNodeSystemError` type guard to detect `{ code: 'ENOENT' }` without `@types/node`; rethrow all other errors
+- **node-builtins.d.ts**: Add minimal type shims for any new `node:*` imports (only the subset actually used)
 
 ---
 <!-- Task logs below - APPEND ONLY -->
+
+## Task — runtime-adapter-ext
+- Extended `RuntimeAdapter` with `readFile`, `homedir`, `configDir`
+- `readFile`: async, returns `null` for ENOENT, throws on other errors; uses lazy `import('node:fs/promises')`
+- `homedir`: computed from env vars (HOME/USERPROFILE) + platform; avoids `node:os` import
+- `configDir`: XDG_CONFIG_HOME on Unix, APPDATA on Windows; falls back to `~/.config` / `~\AppData\Roaming`
+- Added `platform` to `NodeProcess` interface
+- Updated `createTestAdapter` with defaults: `readFile → null`, `homedir → '/home/test'`, `configDir → '/home/test/.config'`
+- Added `NodeSystemError` type + `isNodeSystemError` type guard
+- Added `resolveHomedir` + `resolveConfigDir` helper functions
+- Added `node:fs/promises` to `node-builtins.d.ts`
+- Files changed: `adapter.ts`, `node.ts`, `node-builtins.d.ts`, `runtime.test.ts`, `bun.test.ts`
+- **Learnings:** All mock `NodeProcess` objects need updating when interface changes — 10 in runtime.test.ts + helper in bun.test.ts

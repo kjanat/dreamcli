@@ -20,6 +20,7 @@ function mockProcess(overrides?: Partial<NodeProcess>): NodeProcess {
 		argv: overrides?.argv ?? ['bun', 'cli.ts'],
 		env: overrides?.env ?? {},
 		cwd: overrides?.cwd ?? (() => '/bun/project'),
+		platform: overrides?.platform ?? 'linux',
 		stdin: overrides?.stdin ?? {},
 		stdout: overrides?.stdout ?? { isTTY: false, write: vi.fn() },
 		stderr: overrides?.stderr ?? { write: vi.fn() },

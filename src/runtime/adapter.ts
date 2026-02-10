@@ -76,6 +76,36 @@ interface RuntimeAdapter {
 	 * Must not return (divergent function).
 	 */
 	readonly exit: (code: number) => never;
+
+	/**
+	 * Read a file as UTF-8 text.
+	 *
+	 * Returns file contents on success, `null` if the file does not exist
+	 * (ENOENT/NotFound). Throws on other I/O errors (permission denied,
+	 * is-directory, etc.) — those indicate unexpected failures, not
+	 * "try the next path".
+	 *
+	 * Used by config file discovery to probe multiple candidate paths.
+	 */
+	readonly readFile: (path: string) => Promise<string | null>;
+
+	/**
+	 * User home directory (absolute path).
+	 *
+	 * - Node/Bun: `os.homedir()`
+	 * - Deno: `Deno.env.get('HOME')` / `Deno.env.get('USERPROFILE')`
+	 */
+	readonly homedir: string;
+
+	/**
+	 * Platform-specific user configuration directory (absolute path).
+	 *
+	 * - Unix: `$XDG_CONFIG_HOME` or `~/.config`
+	 * - Windows: `%APPDATA%` or `~\AppData\Roaming`
+	 *
+	 * Config discovery appends the app-specific subdirectory.
+	 */
+	readonly configDir: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +153,28 @@ interface TestAdapterOptions {
 	 * The default throw-based exit allows tests to catch the exit code.
 	 */
 	readonly exit?: (code: number) => never;
+
+	/**
+	 * File reader stub (defaults to returning `null` — all files not found).
+	 *
+	 * Supply a custom function to simulate a virtual filesystem in tests:
+	 * ```ts
+	 * createTestAdapter({
+	 *   readFile: (path) => Promise.resolve(
+	 *     path === '/home/test/.config/myapp/config.json'
+	 *       ? '{"region":"eu"}'
+	 *       : null
+	 *   ),
+	 * })
+	 * ```
+	 */
+	readonly readFile?: (path: string) => Promise<string | null>;
+
+	/** Home directory (defaults to `'/home/test'`). */
+	readonly homedir?: string;
+
+	/** Config directory (defaults to `'/home/test/.config'`). */
+	readonly configDir?: string;
 }
 
 /**
@@ -176,6 +228,9 @@ const noopWrite: WriteFn = () => {};
 /** Noop reader — returns `null` (EOF) immediately. */
 const eofRead: ReadFn = () => Promise.resolve(null);
 
+/** Noop file reader — returns `null` (file not found) for all paths. */
+const noopReadFile: (path: string) => Promise<string | null> = () => Promise.resolve(null);
+
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 	return {
 		argv: options?.argv ?? ['node', 'test'],
@@ -191,6 +246,9 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 			((code: number): never => {
 				throw new ExitError(code);
 			}),
+		readFile: options?.readFile ?? noopReadFile,
+		homedir: options?.homedir ?? '/home/test',
+		configDir: options?.configDir ?? '/home/test/.config',
 	};
 }
 

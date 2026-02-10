@@ -17,3 +17,7 @@ declare module 'node:readline' {
 
 	function createInterface(options: { input: unknown; terminal: boolean }): ReadlineInterface;
 }
+
+declare module 'node:fs/promises' {
+	function readFile(path: string, encoding: 'utf8'): Promise<string>;
+}

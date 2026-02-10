@@ -8,7 +8,7 @@
 			"title": "Extend RuntimeAdapter with readFile, homedir, configDir",
 			"overseerTaskId": "task_01KH1QADZQ9ZG6XQF9TBMV46C4",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"description": "Add readFile, homedir, configDir to RuntimeAdapter interface. Implement in Node adapter. Update test adapter with injectable stubs."
 		},
 		{
