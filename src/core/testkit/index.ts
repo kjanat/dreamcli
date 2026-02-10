@@ -238,6 +238,11 @@ async function runCommand<
 		};
 		const resolved = await resolve(cmd.schema, parsed, resolveOptions);
 
+		// -- Deprecation warnings ------------------------------------------------
+		for (const warning of resolved.warnings) {
+			out.warn(warning);
+		}
+
 		// -- Execute middleware chain + handler -----------------------------------
 		// The resolver guarantees that resolved.flags and resolved.args match
 		// the shape declared by the command's flag/arg builders. The phantom

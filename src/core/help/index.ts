@@ -9,6 +9,7 @@
  */
 
 import type {
+	ArgSchema,
 	CommandArgEntry,
 	CommandExample,
 	CommandSchema,
@@ -82,6 +83,15 @@ function wrapText(text: string, width: number, indent: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Deprecation formatting
+// ---------------------------------------------------------------------------
+
+/** Format a deprecation annotation for help text. */
+function formatDeprecated(deprecated: string | true): string {
+	return typeof deprecated === 'string' ? `[deprecated: ${deprecated}]` : '[deprecated]';
+}
+
+// ---------------------------------------------------------------------------
 // Flag formatting
 // ---------------------------------------------------------------------------
 
@@ -137,12 +147,17 @@ function formatValueHint(schema: FlagSchema): string {
 	}
 }
 
-/** Build description with env/config/prompt/default/required annotations. */
+/** Build description with env/config/prompt/default/required/deprecated annotations. */
 function formatFlagDescription(schema: FlagSchema): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
 		parts.push(schema.description);
+	}
+
+	// Deprecation annotation — prominent, before other metadata
+	if (schema.deprecated !== undefined) {
+		parts.push(formatDeprecated(schema.deprecated));
 	}
 
 	// Resolution source annotations — show users where values can come from
@@ -210,11 +225,15 @@ function formatArgUsage(entry: CommandArgEntry): string {
 }
 
 /** Format arg description with annotations. */
-function formatArgDescription(schema: import('../schema/index.js').ArgSchema): string {
+function formatArgDescription(schema: ArgSchema): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
 		parts.push(schema.description);
+	}
+
+	if (schema.deprecated !== undefined) {
+		parts.push(formatDeprecated(schema.deprecated));
 	}
 
 	if (schema.presence === 'defaulted' && schema.defaultValue !== undefined) {

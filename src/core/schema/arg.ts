@@ -102,6 +102,17 @@ interface ArgSchema {
 	readonly description: string | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: ArgParseFn<unknown> | undefined;
+	/**
+	 * Deprecation marker.
+	 *
+	 * - `undefined` — not deprecated (default)
+	 * - `true` — deprecated with no migration message
+	 * - `string` — deprecated with a reason/migration message
+	 *
+	 * When a deprecated arg is used, a warning is emitted to stderr.
+	 * Help text shows `[deprecated]` or `[deprecated: <reason>]`.
+	 */
+	readonly deprecated: string | true | undefined;
 }
 
 /** Create base arg schema data with sensible defaults. */
@@ -113,6 +124,7 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
 		defaultValue: undefined,
 		description: undefined,
 		parseFn: undefined,
+		deprecated: undefined,
 		...overrides,
 	};
 }
@@ -211,6 +223,23 @@ class ArgBuilder<C extends ArgConfig> {
 		return new ArgBuilder({
 			...this.schema,
 			description,
+		});
+	}
+
+	/**
+	 * Mark this arg as deprecated.
+	 *
+	 * When used, a warning is emitted to stderr. Help text shows
+	 * `[deprecated]` or `[deprecated: <reason>]`.
+	 *
+	 * Does not change the arg's type-level config — it's metadata only.
+	 *
+	 * @param message - Optional migration reason/guidance.
+	 */
+	deprecated(message?: string): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			deprecated: message ?? true,
 		});
 	}
 }

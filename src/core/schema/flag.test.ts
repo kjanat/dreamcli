@@ -428,3 +428,69 @@ describe('edge cases', () => {
 		expect(f.schema.kind).toBe('custom');
 	});
 });
+
+// ---------------------------------------------------------------------------
+// .deprecated() modifier
+// ---------------------------------------------------------------------------
+
+describe('.deprecated()', () => {
+	it('sets deprecated to true when called with no argument', () => {
+		const f = flag.string().deprecated();
+		expect(f.schema.deprecated).toBe(true);
+	});
+
+	it('sets deprecated to the message when called with a string', () => {
+		const f = flag.string().deprecated('use --target instead');
+		expect(f.schema.deprecated).toBe('use --target instead');
+	});
+
+	it('does not change presence', () => {
+		const f = flag.string().required().deprecated();
+		expect(f.schema.presence).toBe('required');
+	});
+
+	it('does not change kind', () => {
+		const f = flag.number().deprecated();
+		expect(f.schema.kind).toBe('number');
+	});
+
+	it('preserves type inference — optional stays optional', () => {
+		const f = flag.string().deprecated();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string | undefined>();
+	});
+
+	it('preserves type inference — defaulted stays defaulted', () => {
+		const f = flag.number().default(80).deprecated();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number>();
+	});
+
+	it('preserves type inference — required stays required', () => {
+		const f = flag.string().required().deprecated();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string>();
+	});
+
+	it('preserves type inference — enum stays enum', () => {
+		const f = flag.enum(['a', 'b']).deprecated();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<'a' | 'b' | undefined>();
+	});
+
+	it('chains with other modifiers', () => {
+		const f = flag.string().alias('o').env('OUTPUT').deprecated('use --target').describe('Output');
+		expect(f.schema.aliases).toEqual(['o']);
+		expect(f.schema.envVar).toBe('OUTPUT');
+		expect(f.schema.deprecated).toBe('use --target');
+		expect(f.schema.description).toBe('Output');
+	});
+
+	it('returns a new builder (immutable)', () => {
+		const a = flag.string();
+		const b = a.deprecated();
+		expect(a.schema.deprecated).toBeUndefined();
+		expect(b.schema.deprecated).toBe(true);
+	});
+
+	it('defaults to undefined when not called', () => {
+		const f = flag.string();
+		expect(f.schema.deprecated).toBeUndefined();
+	});
+});

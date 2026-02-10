@@ -105,6 +105,17 @@ interface FlagSchema {
 	readonly prompt: PromptConfig | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: FlagParseFn<unknown> | undefined;
+	/**
+	 * Deprecation marker.
+	 *
+	 * - `undefined` — not deprecated (default)
+	 * - `true` — deprecated with no migration message
+	 * - `string` — deprecated with a reason/migration message
+	 *
+	 * When a deprecated flag is used, a warning is emitted to stderr.
+	 * Help text shows `[deprecated]` or `[deprecated: <reason>]`.
+	 */
+	readonly deprecated: string | true | undefined;
 }
 
 /** Create base schema data with sensible defaults. */
@@ -121,6 +132,7 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 		elementSchema: undefined,
 		prompt: undefined,
 		parseFn: undefined,
+		deprecated: undefined,
 		...overrides,
 	};
 }
@@ -236,6 +248,23 @@ class FlagBuilder<C extends FlagConfig> {
 		return new FlagBuilder({
 			...this.schema,
 			prompt: config,
+		});
+	}
+
+	/**
+	 * Mark this flag as deprecated.
+	 *
+	 * When used, a warning is emitted to stderr. Help text shows
+	 * `[deprecated]` or `[deprecated: <reason>]`.
+	 *
+	 * Does not change the flag's type-level config — it's metadata only.
+	 *
+	 * @param message - Optional migration reason/guidance.
+	 */
+	deprecated(message?: string): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			deprecated: message ?? true,
 		});
 	}
 }

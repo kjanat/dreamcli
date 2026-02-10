@@ -15,6 +15,7 @@ Started: 2026-02-10
 - **CLISchema extension pattern**: Add field with `| undefined` default → update `cli()` factory to include it → add builder method → conditionally act on it in `.run()`/`.execute()`.
 - **Config errors before command dispatch**: Detect `--json` from raw argv before config loading to render errors in correct format (JSON vs text).
 - **Plugin hook pattern**: Incremental builder method `.configLoader(loader)` appends to `configSettings.loaders`. Requires `.config()` first (throws `INVALID_BUILDER_STATE` otherwise). `configFormat(extensions, parseFn)` convenience factory avoids manual object construction.
+- **Metadata modifier pattern**: `.deprecated(message?)` on builders — metadata-only, preserves type-level config. Schema field `deprecated: string | true | undefined`. Warnings collected in resolve (where source is known), returned in `ResolveResult.warnings`, emitted by consumers (`runCommand()`, CLI).
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -79,3 +80,17 @@ Started: 2026-02-10
 - 34 new tests: flag.test.ts (+15), parse.test.ts (+6), resolve.test.ts (+4), resolve-env.test.ts (+3), resolve-config.test.ts (+3), resolve-integration.test.ts (+2 describes, 6 tests), help.test.ts (+1)
 - Files changed: `src/core/schema/flag.ts`, `src/core/parse/index.ts`, `src/core/resolve/index.ts`, `src/core/help/index.ts`, `src/core/schema/index.ts`, `src/index.ts`, `src/core/completion/completion.test.ts`, + 6 test files
 - **Learnings:** Mirroring `arg.custom()` pattern for flags requires wiring through more touchpoints (parser coercion + 3 resolve coercions + help) since flags have env/config/prompt resolution that args don't. The `as FlagParseFn<unknown>` cast in factory is the same justified pattern as `ArgParseFn<unknown>`. Tests with `createSchema('custom')` produce a flag without parseFn — must handle gracefully (return raw string).
+
+## Task — deprecated-modifier
+- Added `deprecated: string | true | undefined` to `FlagSchema` and `ArgSchema`
+- Added `.deprecated(message?)` to `FlagBuilder` and `ArgBuilder` — metadata-only, preserves type config
+- Added `warnings: readonly string[]` to `ResolveResult` — warnings collected during resolution when deprecated flags/args are explicitly provided (CLI, env, config, prompt)
+- Added `formatDeprecated()` helper in help module — renders `[deprecated]` or `[deprecated: reason]`
+- Updated `formatFlagDescription()` and `formatArgDescription()` to show deprecation annotations
+- Added `formatDeprecatedFlagWarning()` and `formatDeprecatedArgWarning()` in resolve module
+- Warning collection in 4 resolve paths: CLI parsed, env, config, prompt (not for default fallthrough)
+- `runCommand()` emits `out.warn()` for each `ResolveResult.warnings` entry
+- Updated `completion.test.ts` `flagSchema()` helper with `deprecated: undefined`
+- 46 new tests: flag.test.ts (+12), arg.test.ts (+10), help.test.ts (+5), resolve.test.ts (+15), resolve-prompt.test.ts (+2), testkit.test.ts (+4)
+- Files changed: `src/core/schema/flag.ts`, `src/core/schema/arg.ts`, `src/core/help/index.ts`, `src/core/resolve/index.ts`, `src/core/testkit/index.ts`, `src/core/completion/completion.test.ts`, + 5 test files
+- **Learnings:** Warnings belong in the resolve layer (not consumer layer) because resolve already knows the value's source. Returning `warnings` in `ResolveResult` avoids duplicating source-detection logic in `runCommand()` and `CLIBuilder.execute()`. Prompt-resolved deprecated flags also need warnings — easy to miss since prompt is pass 2.

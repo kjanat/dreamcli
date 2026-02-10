@@ -487,3 +487,45 @@ describe('resolve — multiple prompted flags', () => {
 		expect(result.flags).toEqual({ name: 'Bob', region: 'us' });
 	});
 });
+
+// ========================================================================
+// Deprecation warnings — prompt path
+// ========================================================================
+
+describe('resolve — deprecation warnings via prompt', () => {
+	it('collects warning when deprecated flag is resolved from prompt', async () => {
+		const schema = makeSchema({
+			flags: {
+				old: createSchema('string', {
+					deprecated: 'use --new',
+					prompt: { kind: 'input', message: 'Old value?' },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+		const prompter = createTestPrompter(['answer']);
+
+		const result = await resolve(schema, parsed, { prompter });
+		expect(result.flags['old']).toBe('answer');
+		expect(result.warnings).toHaveLength(1);
+		expect(result.warnings[0]).toContain('--old');
+		expect(result.warnings[0]).toContain('use --new');
+	});
+
+	it('no warning when deprecated flag prompt is cancelled', async () => {
+		const schema = makeSchema({
+			flags: {
+				old: createSchema('string', {
+					deprecated: true,
+					prompt: { kind: 'input', message: 'Old?' },
+					presence: 'optional',
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+		const prompter = createTestPrompter([PROMPT_CANCEL]);
+
+		const result = await resolve(schema, parsed, { prompter });
+		expect(result.warnings).toHaveLength(0);
+	});
+});

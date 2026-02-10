@@ -103,6 +103,8 @@ interface ResolveResult {
 	readonly flags: Readonly<Record<string, unknown>>;
 	/** Resolved arg values keyed by arg name. */
 	readonly args: Readonly<Record<string, unknown>>;
+	/** Deprecation warnings for flags/args that were explicitly provided. */
+	readonly warnings: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +140,7 @@ async function resolve(
 	const env = options?.env ?? {};
 	const config = options?.config ?? {};
 	const prompter = options?.prompter;
+	const warnings: string[] = [];
 	const flags = await resolveFlags(
 		schema.flags,
 		parsed.flags,
@@ -145,9 +148,10 @@ async function resolve(
 		config,
 		prompter,
 		schema.interactive,
+		warnings,
 	);
-	const args = resolveArgs(schema.args, parsed.args);
-	return { flags, args };
+	const args = resolveArgs(schema.args, parsed.args, warnings);
+	return { flags, args, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +189,7 @@ async function resolveFlags(
 	config: Readonly<Record<string, unknown>>,
 	prompter: PromptEngine | undefined,
 	interactive: ErasedInteractiveResolver | undefined,
+	warnings: string[],
 ): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -198,6 +203,9 @@ async function resolveFlags(
 		const parsedValue = parsedFlags[name];
 
 		if (parsedValue !== undefined) {
+			if (schema.deprecated !== undefined) {
+				warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+			}
 			resolved[name] = parsedValue;
 			continue;
 		}
@@ -207,6 +215,9 @@ async function resolveFlags(
 			if (envValue !== undefined) {
 				const coerced = coerceEnvValue(name, schema.envVar, envValue, schema);
 				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+					}
 					resolved[name] = coerced.value;
 					continue;
 				}
@@ -221,6 +232,9 @@ async function resolveFlags(
 			if (configValue !== undefined) {
 				const coerced = coerceConfigValue(name, schema.configPath, configValue, schema);
 				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+					}
 					resolved[name] = coerced.value;
 					continue;
 				}
@@ -283,6 +297,9 @@ async function resolveFlags(
 				prompter,
 			);
 			if (promptResult.ok) {
+				if (schema.deprecated !== undefined) {
+					warnings.push(formatDeprecatedFlagWarning(name, schema.deprecated));
+				}
 				resolved[name] = promptResult.value;
 				continue;
 			}
@@ -949,6 +966,7 @@ function coerceConfigValue(
 function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,
+	warnings: string[],
 ): Readonly<Record<string, unknown>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -958,6 +976,9 @@ function resolveArgs(
 		const parsedValue = parsedArgs[name];
 
 		if (parsedValue !== undefined) {
+			if (schema.deprecated !== undefined) {
+				warnings.push(formatDeprecatedArgWarning(name, schema.deprecated));
+			}
 			// For variadic args, the parser produces an array. An empty array
 			// means "present but no values" — still valid unless required checks.
 			if (schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0) {
@@ -1021,6 +1042,24 @@ function resolveArgs(
 	}
 
 	return resolved;
+}
+
+// ---------------------------------------------------------------------------
+// Deprecation warning formatting
+// ---------------------------------------------------------------------------
+
+/** Format a deprecation warning for a flag that was explicitly provided. */
+function formatDeprecatedFlagWarning(name: string, deprecated: string | true): string {
+	return typeof deprecated === 'string'
+		? `Warning: flag --${name} is deprecated: ${deprecated}`
+		: `Warning: flag --${name} is deprecated`;
+}
+
+/** Format a deprecation warning for an arg that was explicitly provided. */
+function formatDeprecatedArgWarning(name: string, deprecated: string | true): string {
+	return typeof deprecated === 'string'
+		? `Warning: argument <${name}> is deprecated: ${deprecated}`
+		: `Warning: argument <${name}> is deprecated`;
 }
 
 // ---------------------------------------------------------------------------

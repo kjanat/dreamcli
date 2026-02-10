@@ -48,7 +48,7 @@
 			"title": "Implement .deprecated() modifier with help/parse warnings",
 			"overseerTaskId": "task_01KH1QADZZVCWVKVRPX69RNQNJ",
 			"priority": "feature",
-			"passes": false,
+			"passes": true,
 			"description": "Add .deprecated() to FlagBuilder and ArgBuilder. Shows warning on stderr when used, annotates help text."
 		}
 	]

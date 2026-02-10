@@ -471,6 +471,55 @@ describe('formatHelp', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// Deprecated annotations
+	// -----------------------------------------------------------------------
+
+	describe('deprecated annotations', () => {
+		it('shows [deprecated] for flag with deprecated()', () => {
+			const cmd = command('test').flag('old', flag.string().deprecated().describe('Old flag'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated]');
+			expect(help).toContain('Old flag');
+		});
+
+		it('shows [deprecated: reason] for flag with deprecated(message)', () => {
+			const cmd = command('test').flag('old', flag.string().deprecated('use --new instead'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated: use --new instead]');
+		});
+
+		it('shows [deprecated] for arg with deprecated()', () => {
+			const cmd = command('test').arg(
+				'target',
+				arg.string().optional().deprecated().describe('Deploy target'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated]');
+			expect(help).toContain('Deploy target');
+		});
+
+		it('shows [deprecated: reason] for arg with deprecated(message)', () => {
+			const cmd = command('test').arg(
+				'target',
+				arg.string().optional().deprecated('use --target flag'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[deprecated: use --target flag]');
+		});
+
+		it('places [deprecated] before [env:] annotation', () => {
+			const cmd = command('test').flag(
+				'old',
+				flag.string().env('OLD_VAR').deprecated().describe('Old flag'),
+			);
+			const help = formatHelp(cmd.schema);
+			const deprecatedIdx = help.indexOf('[deprecated]');
+			const envIdx = help.indexOf('[env: OLD_VAR]');
+			expect(deprecatedIdx).toBeLessThan(envIdx);
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// Section ordering
 	// -----------------------------------------------------------------------
 
