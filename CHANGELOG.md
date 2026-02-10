@@ -7,6 +7,136 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-10
+
+### Added
+
+#### Subcommand Nesting
+
+- **`CommandBuilder.command(sub)`** registers nested subcommands, building recursive command trees
+  of unlimited depth. Parent commands store children as type-erased `ErasedCommand` entries — the
+  parent doesn't need the child's generic types.
+- **`group(name)`** factory as a semantic alias for `command()`. Communicates intent: groups
+  organise subcommands, leaf commands have actions. A group may also have its own `.action()` (e.g.
+  `git remote` lists remotes, `git remote add` dispatches to a child).
+- **`flag.propagate()`** modifier marks a flag for automatic inheritance by all descendant commands.
+  Propagated flags are collected from the ancestor chain at dispatch time. Child commands override a
+  propagated flag by redeclaring the same name — child definition wins completely.
+- **Recursive dispatch** in `CLIBuilder.execute()`. Walks argv segments matching command names at
+  each tree level. Handles hybrid commands (action + subcommands): subcommand match takes priority,
+  else falls through to the parent handler. Groups without handlers show help.
+- **Nested help** — `formatHelp()` renders a "Commands:" section listing available subcommands for
+  group commands. Usage line adapts to show `<command>` placeholder when subcommands exist.
+- **Nested completions** — bash and zsh generators traverse the full command tree depth. Propagated
+  flags included at each nesting level. Bash uses path-keyed case statements; zsh generates
+  per-group helper functions.
+- **Scoped "did you mean?"** — typo suggestions search within the current command scope, not the
+  global command list. Help hint shows scoped path (e.g. `Run 'myapp db --help'`).
+
+### Changed
+
+- `CommandSchema` extended with `commands: readonly CommandSchema[]` for nested subcommand schemas.
+- `ErasedCommand` extended with `subcommands: ReadonlyMap<string, ErasedCommand>` for dispatch.
+- `ErasedCommand` interface moved from `cli/index.ts` to `schema/command.ts` (shared location).
+- `FlagSchema` extended with `propagate: boolean` (default `false`).
+- `RunOptions` extended with `mergedSchema` internal field for propagated flag injection.
+- Dispatch logic extracted to `cli/dispatch.ts` (~285 lines) and flag propagation to
+  `cli/propagate.ts` (~87 lines), reducing `cli/index.ts` by ~220 lines.
+- Test count: 1518 tests across 43 test files (up from 1300 in v0.6.0).
+
+### Fixed
+
+- Completion generator no longer recurses into hidden command subtrees.
+- Dispatch respects `--` end-of-flags sentinel before command names.
+
+## [0.6.0] - 2026-02-10
+
+### Added
+
+#### Config File Discovery
+
+- **`CLIBuilder.config(appName)`** enables config file discovery with XDG-compliant search paths.
+  Searches `.{app}.json` and `{app}.config.json` in cwd, then `{configDir}/{app}/config.json`. JSON
+  loader built-in.
+- **`--config <path>` global flag** overrides config file discovery path. Extracted from argv before
+  command dispatch.
+- **`CLIBuilder.configLoader(loader)`** plugin hook for registering custom config format loaders
+  (YAML, TOML, etc.). `configFormat(extensions, parseFn)` convenience factory.
+
+#### Schema Additions
+
+- **`flag.custom(parseFn)`** — new flag kind accepting an arbitrary parse function with full
+  return-type inference from `parseFn`. Wired through parser coercion, all three resolve coercions
+  (env, config, prompt), and help formatter.
+- **`.deprecated(message?)`** modifier on `FlagBuilder` and `ArgBuilder`. Emits structured
+  `DeprecationWarning` during resolution when a deprecated flag/arg is explicitly provided (CLI,
+  env, config, prompt — not for default fallthrough). Renders `[deprecated]` or
+  `[deprecated: <reason>]` in help text.
+
+#### RuntimeAdapter Extensions
+
+- **`readFile`** — async file read returning `null` for ENOENT, throws on other errors. Uses lazy
+  `import('node:fs/promises')`.
+- **`homedir`** — computed from env vars (`HOME`/`USERPROFILE`) + `platform`; avoids `node:os`.
+- **`configDir`** — `XDG_CONFIG_HOME` on Unix, `APPDATA` on Windows; falls back to `~/.config` or
+  `~\AppData\Roaming`.
+
+### Changed
+
+- `RuntimeAdapter` interface extended with `readFile`, `homedir`, `configDir`.
+- `NodeProcess` interface extended with `platform` field.
+- `FlagSchema` extended with `parseFn: FlagParseFn<unknown> | undefined`.
+- `FlagSchema` extended with `deprecated: string | true | undefined`.
+- `ArgSchema` extended with `deprecated: string | true | undefined`.
+- `ResolveResult` extended with `warnings: readonly DeprecationWarning[]`.
+- `CLISchema` extended with `configSettings` for config file discovery.
+- `FlagParseFn<T>`, `DeprecationWarning`, `ConfigResult`, `FormatLoader`, `configFormat` exported
+  from public API.
+- Test count: ~1300 tests (up from 1198 in v0.5.0).
+
+## [0.5.0] - 2026-02-10
+
+### Added
+
+#### Shell Completions
+
+- **Bash completion generator** — produces self-contained bash scripts with
+  `COMP_WORDS`/`COMP_CWORD` scanning, per-command case branches with flag and enum value
+  completions, and `complete -F` registration.
+- **Zsh completion generator** — produces `#compdef` scripts with `_arguments` flag specs,
+  `_describe` subcommand lists, and enum value completions via `->state` dispatch.
+- **`CLIBuilder.completions()`** adds a built-in `completions --shell <bash|zsh>` subcommand that
+  outputs a ready-to-eval completion script. In `--json` mode, emits `{ script }` JSON object.
+  Fish/PowerShell accepted in the enum with descriptive "not yet supported" errors.
+
+#### Runtime Portability
+
+- **`detectRuntime()`** via `globalThis` feature detection — identifies Node, Bun, Deno, or unknown.
+  Exported `Runtime` type and `RUNTIMES` constant.
+- **`createAdapter()`** auto-detecting adapter factory — calls `detectRuntime()` and returns the
+  appropriate `RuntimeAdapter`. `CLIBuilder.run()` uses it as default when no adapter is provided.
+- **Bun adapter** implementing `RuntimeAdapter` by delegating to the Node adapter (Bun's
+  Node-compatible APIs).
+
+### Fixed
+
+- Completion: cross-command enum collision — `collectEnumCases()` scoped per-command to prevent enum
+  values from one command leaking into another's completions.
+- Completion: shell injection safety — `quoteShellArg()` escapes `schema.name` and enum values in
+  generated scripts.
+- Completion: conditional `--version` — bash generator omits `--version` from completions when
+  `schema.version` is undefined, matching zsh behavior.
+- CLI: `--json` mode completions output `{ script }` JSON instead of raw script text.
+- CLI: guard against double `.completions()` call.
+- Runtime: `NodeProcess` type exported from main barrel.
+- Runtime: `@internal` removed from `GlobalForDetect` (contradicted public export).
+- Runtime: `createAdapter()` switch uses `default: never` exhaustiveness guard.
+
+### Changed
+
+- Shell completion types, generator stubs, and barrel exports added to `src/core/completion/`.
+- Test count: 1198 tests across 35 test files (up from 1010 in v0.4.0).
+
 ## [0.4.0] - 2026-02-09
 
 ### Added
@@ -195,7 +325,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/kjanat/dreamcli/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/kjanat/dreamcli/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/kjanat/dreamcli/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kjanat/dreamcli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kjanat/dreamcli/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kjanat/dreamcli/compare/v0.1.0...v0.2.0
