@@ -16,7 +16,7 @@
 			"title": "Add commands to CommandSchema + .command() on CommandBuilder + group() factory",
 			"overseerTaskId": "task_01KH3NCZ6SR5PQ2RK0791SWEAW",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"description": "Add `commands: readonly ErasedCommand[]` to CommandSchema. Add `.command()` to CommandBuilder. Add `group()` factory. Relocate ErasedCommand to shared location."
 		},
 		{

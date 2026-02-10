@@ -21,7 +21,7 @@ import { createCaptureOutput } from '../output/index.js';
 import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTerminalPrompter } from '../prompt/index.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type { CommandBuilder, CommandSchema } from '../schema/command.js';
+import type { CommandBuilder, ErasedCommand } from '../schema/command.js';
 import { command } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
 import { flag } from '../schema/flag.js';
@@ -29,29 +29,8 @@ import type { RunOptions, RunResult } from '../testkit/index.js';
 import { runCommand } from '../testkit/index.js';
 
 // ---------------------------------------------------------------------------
-// Type-erased command — existential wrapper for heterogeneous commands
+// Type-erased command — erasure function (interface now in schema/command.ts)
 // ---------------------------------------------------------------------------
-
-/**
- * A type-erased command entry stored in the CLI builder.
- *
- * Commands registered via `.command()` have heterogeneous `F` and `A`
- * type parameters. At the CLI dispatch level we only need the runtime
- * schema (for name/alias matching and help) and the ability to delegate
- * to `runCommand()`. This interface captures exactly that contract.
- *
- * The `_execute` function closes over the original typed `CommandBuilder`,
- * preserving full type safety inside the closure while presenting a
- * uniform interface to the dispatcher.
- *
- * @internal
- */
-interface ErasedCommand {
-	/** Runtime schema for name matching and help rendering. */
-	readonly schema: CommandSchema;
-	/** Execute this command against argv. Closes over the typed CommandBuilder. */
-	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
-}
 
 /**
  * Erase a typed CommandBuilder into an ErasedCommand.

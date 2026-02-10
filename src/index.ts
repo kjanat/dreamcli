@@ -73,6 +73,7 @@ export { resolve } from './core/resolve/index.js';
 export type {
 	ActionHandler,
 	ActionParams,
+	AnyCommandBuilder,
 	ArgConfig,
 	ArgFactory,
 	ArgKind,
@@ -84,6 +85,7 @@ export type {
 	CommandExample,
 	CommandSchema,
 	ConfirmPromptConfig,
+	ErasedCommand,
 	ErasedInteractiveResolver,
 	ErasedMiddlewareHandler,
 	FlagConfig,
@@ -127,6 +129,7 @@ export {
 	createSchema,
 	FlagBuilder,
 	flag,
+	group,
 	middleware,
 } from './core/schema/index.js';
 export type { RunOptions, RunResult } from './core/testkit/index.js';

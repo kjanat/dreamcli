@@ -1,8 +1,9 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { arg } from './arg.js';
 import type { ActionParams, CommandArgEntry, CommandSchema, Out } from './command.js';
-import { CommandBuilder, command } from './command.js';
+import { CommandBuilder, command, group } from './command.js';
 import { flag } from './flag.js';
+import { middleware } from './middleware.js';
 
 // ---------------------------------------------------------------------------
 // Factory function
@@ -556,5 +557,271 @@ describe('CommandSchema', () => {
 		expectTypeOf(schema.flags).toMatchTypeOf<Record<string, unknown>>();
 		expectTypeOf(schema.args).toMatchTypeOf<readonly CommandArgEntry[]>();
 		expectTypeOf(schema.hasAction).toBeBoolean();
+		expectTypeOf(schema.commands).toEqualTypeOf<readonly CommandSchema[]>();
+	});
+});
+
+// =========================================================================
+// Subcommand nesting — .command()
+// =========================================================================
+
+describe('.command()', () => {
+	// --- Schema population -------------------------------------------------
+
+	it('adds subcommand schema to schema.commands', () => {
+		const sub = command('migrate').description('Run migrations');
+		const parent = command('db').command(sub);
+
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent.schema.commands[0]?.name).toBe('migrate');
+		expect(parent.schema.commands[0]?.description).toBe('Run migrations');
+	});
+
+	it('accumulates multiple subcommands', () => {
+		const migrate = command('migrate');
+		const seed = command('seed');
+		const rollback = command('rollback');
+		const db = command('db').command(migrate).command(seed).command(rollback);
+
+		expect(db.schema.commands).toHaveLength(3);
+		expect(db.schema.commands.map((c) => c.name)).toEqual(['migrate', 'seed', 'rollback']);
+	});
+
+	it('stores nested CommandSchema (not builders) on schema.commands', () => {
+		const sub = command('child').flag('verbose', flag.boolean());
+		const parent = command('parent').command(sub);
+
+		// schema.commands contains CommandSchema objects, not CommandBuilder
+		const childSchema = parent.schema.commands[0];
+		expect(childSchema).toBeDefined();
+		expect(childSchema?.flags.verbose).toBeDefined();
+		expect(childSchema?.flags.verbose?.kind).toBe('boolean');
+	});
+
+	// --- Builder storage (_subcommands) ------------------------------------
+
+	it('stores builders in _subcommands', () => {
+		const sub = command('child');
+		const parent = command('parent').command(sub);
+
+		expect(parent._subcommands).toHaveLength(1);
+		expect(parent._subcommands[0]?.schema.name).toBe('child');
+	});
+
+	it('_subcommands builders preserve handlers', () => {
+		const handler = vi.fn();
+		const sub = command('child').action(handler);
+		const parent = command('parent').command(sub);
+
+		expect(parent._subcommands[0]?.handler).toBe(handler);
+	});
+
+	// --- Immutability ------------------------------------------------------
+
+	it('returns a new builder (immutability)', () => {
+		const sub = command('child');
+		const a = command('parent');
+		const b = a.command(sub);
+
+		expect(a).not.toBe(b);
+		expect(a.schema.commands).toEqual([]);
+		expect(a._subcommands).toEqual([]);
+	});
+
+	// --- Handler preservation ----------------------------------------------
+
+	it('preserves parent handler when adding subcommand', () => {
+		const handler = vi.fn();
+		const parent = command('remote').action(handler).command(command('add'));
+
+		expect(parent.handler).toBe(handler);
+		expect(parent.schema.hasAction).toBe(true);
+	});
+
+	// --- Metadata preservation ---------------------------------------------
+
+	it('preserves parent metadata when adding subcommand', () => {
+		const parent = command('db')
+			.description('Database operations')
+			.alias('database')
+			.hidden()
+			.flag('verbose', flag.boolean())
+			.arg('conn', arg.string().optional())
+			.action(() => {})
+			.command(command('migrate'));
+
+		expect(parent.schema.description).toBe('Database operations');
+		expect(parent.schema.aliases).toEqual(['database']);
+		expect(parent.schema.hidden).toBe(true);
+		expect(parent.schema.flags.verbose).toBeDefined();
+		expect(parent.schema.args).toHaveLength(1);
+		expect(parent.schema.hasAction).toBe(true);
+	});
+
+	// --- Subcommand preservation across other builder methods ---------------
+
+	it('preserves subcommands across .description()', () => {
+		const parent = command('db').command(command('migrate')).description('Database');
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .alias()', () => {
+		const parent = command('db').command(command('migrate')).alias('database');
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .hidden()', () => {
+		const parent = command('db').command(command('migrate')).hidden();
+		expect(parent.schema.commands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .example()', () => {
+		const parent = command('db').command(command('migrate')).example('db migrate');
+		expect(parent.schema.commands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .flag()', () => {
+		const parent = command('db').command(command('migrate')).flag('verbose', flag.boolean());
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .arg()', () => {
+		const parent = command('db').command(command('migrate')).arg('name', arg.string());
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .action()', () => {
+		const parent = command('db')
+			.command(command('migrate'))
+			.action(() => {});
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .middleware()', () => {
+		const auth = middleware<{ user: string }>((params) => {
+			return params.next({ user: 'test' });
+		});
+		const parent = command('db').command(command('migrate')).middleware(auth);
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	it('preserves subcommands across .interactive()', () => {
+		const parent = command('db')
+			.flag('env', flag.string())
+			.command(command('migrate'))
+			.interactive(() => ({}));
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	// --- Deep nesting ------------------------------------------------------
+
+	it('supports multi-level nesting', () => {
+		const leaf = command('up').description('Run up migration');
+		const mid = command('migrate').command(leaf);
+		const root = command('db').command(mid);
+
+		expect(root.schema.commands).toHaveLength(1);
+		expect(root.schema.commands[0]?.name).toBe('migrate');
+		expect(root.schema.commands[0]?.commands).toHaveLength(1);
+		expect(root.schema.commands[0]?.commands[0]?.name).toBe('up');
+	});
+
+	// --- Type inference -----------------------------------------------------
+
+	it('.command() does not change parent F/A/C types', () => {
+		const parent = command('db')
+			.flag('verbose', flag.boolean())
+			.arg('conn', arg.string())
+			.command(command('migrate'))
+			.action(({ flags, args }) => {
+				expectTypeOf(flags.verbose).toEqualTypeOf<boolean>();
+				expectTypeOf(args.conn).toEqualTypeOf<string>();
+			});
+
+		expect(parent.schema.hasAction).toBe(true);
+	});
+
+	it('subcommand types are erased at parent level', () => {
+		const sub = command('child').flag('deep', flag.string().required()).arg('name', arg.string());
+
+		// Parent doesn't inherit child's flags/args
+		const parent = command('parent')
+			.command(sub)
+			.action(({ flags, args }) => {
+				// biome-ignore lint/complexity/noBannedTypes: testing that empty accumulator yields {}
+				type Empty = {};
+				expectTypeOf(flags).toEqualTypeOf<Readonly<Empty>>();
+				expectTypeOf(args).toEqualTypeOf<Readonly<Empty>>();
+			});
+
+		expect(parent.schema.hasAction).toBe(true);
+	});
+});
+
+// =========================================================================
+// group() factory
+// =========================================================================
+
+describe('group()', () => {
+	it('creates a CommandBuilder', () => {
+		const g = group('db');
+		expect(g).toBeInstanceOf(CommandBuilder);
+		expect(g.schema.name).toBe('db');
+	});
+
+	it('starts with empty defaults (same as command())', () => {
+		const g = group('db');
+		expect(g.schema.description).toBeUndefined();
+		expect(g.schema.commands).toEqual([]);
+		expect(g.schema.flags).toEqual({});
+		expect(g.schema.args).toEqual([]);
+		expect(g.schema.hasAction).toBe(false);
+	});
+
+	it('supports .command() chaining', () => {
+		const db = group('db')
+			.description('Database operations')
+			.command(command('migrate').description('Run migrations'))
+			.command(command('seed').description('Seed data'));
+
+		expect(db.schema.commands).toHaveLength(2);
+		expect(db.schema.commands[0]?.name).toBe('migrate');
+		expect(db.schema.commands[1]?.name).toBe('seed');
+	});
+
+	it('supports flags and action alongside subcommands', () => {
+		const handler = vi.fn();
+		const db = group('db')
+			.flag('verbose', flag.boolean())
+			.command(command('migrate'))
+			.action(handler);
+
+		expect(db.schema.flags.verbose).toBeDefined();
+		expect(db.schema.commands).toHaveLength(1);
+		expect(db.handler).toBe(handler);
+	});
+});
+
+// =========================================================================
+// command() factory — commands field defaults
+// =========================================================================
+
+describe('command() — commands field', () => {
+	it('starts with empty commands array', () => {
+		const cmd = command('test');
+		expect(cmd.schema.commands).toEqual([]);
+		expect(cmd._subcommands).toEqual([]);
+	});
+
+	it('CommandSchema.commands is typed as readonly CommandSchema[]', () => {
+		const cmd = command('test');
+		expectTypeOf(cmd.schema.commands).toEqualTypeOf<readonly CommandSchema[]>();
 	});
 });

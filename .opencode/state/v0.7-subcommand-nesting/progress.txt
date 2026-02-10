@@ -8,8 +8,16 @@ Started: 2026-02-10
   Metadata-only fields (no type-level change) return `FlagBuilder<C>` unchanged.
 - **Manual FlagSchema construction** exists in `completion.test.ts` `flagSchema()` helper — must
   update when adding new required fields.
+- **Manual CommandSchema construction**: 8 test files have `makeSchema()`/`commandSchema()` helpers.
+  New required fields on `CommandSchema` must be added to all of them: `parse.test.ts`,
+  `resolve.test.ts`, `resolve-prompt.test.ts`, `resolve-env.test.ts`, `resolve-config.test.ts`,
+  `resolve-interactive.test.ts`, `resolve-errors.test.ts`, `completion.test.ts`.
 - **Test pattern**: mirror `.deprecated()` test structure — runtime checks + `expectTypeOf` for
   type preservation across all presence states.
+- **Adding CommandBuilder methods**: all `new CommandBuilder(...)` calls in class methods must pass
+  `this._subcommands` as third arg to preserve nested commands across chaining. Methods that
+  don't change F/A/C preserve handler; methods that do (flag, arg, middleware) drop handler but
+  keep subcommands.
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -22,3 +30,22 @@ Started: 2026-02-10
 - 12 new tests covering runtime behavior + type inference preservation
 - **Files changed:** `src/core/schema/flag.ts`, `src/core/schema/flag.test.ts`, `src/core/completion/completion.test.ts`
 - **Learnings:** The `completion.test.ts` has a manual `flagSchema()` helper that constructs `FlagSchema` objects directly — any new required field on `FlagSchema` will cause a type error there.
+
+## Task - schema-nesting
+- Added `commands: readonly CommandSchema[]` to `CommandSchema` (pure data for help/completion)
+- Added `_subcommands: readonly AnyCommandBuilder[]` to `CommandBuilder` (builders for CLI erasure)
+- Added `.command()` method on `CommandBuilder` — stores both schema + builder, preserves F/A/C
+- Added `group()` factory — thin alias for `command()`, communicates intent
+- Moved `ErasedCommand` interface from `cli/index.ts` to `schema/command.ts` (shared location)
+- `eraseCommand()` function stays in `cli/index.ts` (depends on `runCommand` from testkit)
+- Added `AnyCommandBuilder` type alias for widest-bound builder storage
+- Updated constructor: `(schema, handler?, subcommands?)` — all existing methods pass through subcommands
+- All 8 `makeSchema()`/`commandSchema()` helpers across test files updated with `commands: []`
+- Exported `group`, `ErasedCommand`, `AnyCommandBuilder` from barrels + public API
+- 26 new tests: schema population, builder storage, immutability, handler preservation, metadata preservation across all builder methods, deep nesting, type inference
+- **Files changed:** `src/core/schema/command.ts`, `src/core/schema/command.test.ts`, `src/core/schema/index.ts`, `src/core/cli/index.ts`, `src/index.ts`, `src/core/completion/completion.test.ts`, `src/core/parse/parse.test.ts`, `src/core/resolve/resolve.test.ts`, `src/core/resolve/resolve-prompt.test.ts`, `src/core/resolve/resolve-env.test.ts`, `src/core/resolve/resolve-config.test.ts`, `src/core/resolve/resolve-interactive.test.ts`, `src/core/resolve/resolve-errors.test.ts`
+- **Learnings:**
+  - `CommandSchema.commands` should be `CommandSchema[]` not `ErasedCommand[]` — keeps schema as pure data, avoids mixing execution closures into runtime descriptor
+  - `_subcommands` on builder stores the full builders (with handlers) so `eraseCommand()` in CLI layer can recursively wrap them — separation between schema (data) and erasure (execution)
+  - `import type` from testkit avoids runtime circular dep even though testkit imports from schema
+  - Adding new required fields to `CommandSchema` requires updating ~8 manual `makeSchema()` helpers across parse/resolve/completion test files
