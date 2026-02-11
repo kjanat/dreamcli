@@ -13,4 +13,5 @@ export default defineConfig({
 	exports: true,
 	publint: true,
 	attw: { profile: 'strict', level: 'error', ignoreRules: [] },
+	onSuccess: 'bun format package.json', // ensures proper sorting of the exports
 });

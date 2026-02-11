@@ -22,7 +22,7 @@
 		"build": "tsdown",
 		"check": "tsgo --noEmit",
 		"check:tsc": "tsc --noEmit",
-		"ci": "pnpm run check && pnpm run lint && pnpm run test && pnpm run build",
+		"ci": "bun check && bun lint && bun run test && bun run build",
 		"format": "dprint fmt",
 		"format:check": "dprint check",
 		"lint": "biome check .",
@@ -42,14 +42,8 @@
 		"typescript": "^5",
 		"vitest": "^4.0.18"
 	},
-	"packageManager": "pnpm@10.29.2",
+	"packageManager": "bun@1.3.9",
 	"engines": {
 		"node": ">=20"
-	},
-	"pnpm": {
-		"onlyBuiltDependencies": [
-			"dprint",
-			"esbuild"
-		]
 	}
 }

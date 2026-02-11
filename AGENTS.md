@@ -126,22 +126,22 @@ guarantees erasure).
 ## COMMANDS
 
 ```bash
-pnpm run check       # tsgo --noEmit (native TS type check)
-pnpm run check:tsc   # tsc --noEmit (standard fallback)
-pnpm run lint        # biome check .
-pnpm run lint:fix    # biome check --fix .
-pnpm run format      # dprint fmt
-pnpm run format:check # dprint check
-pnpm run test        # vitest run
-pnpm run test:watch  # vitest (watch mode)
-pnpm run build       # tsdown (bundle + dts + publint + attw)
-pnpm run ci          # check → lint → test → build (sequential)
+bun run check        # tsgo --noEmit (native TS type check)
+bun run check:tsc    # tsc --noEmit (standard fallback)
+bun run lint         # biome check .
+bun run lint:fix     # biome check --fix .
+bun run format       # dprint fmt
+bun run format:check # dprint check
+bun run test         # vitest run
+bun run test:watch   # vitest (watch mode)
+bun run build        # tsdown (bundle + dts + publint + attw)
+bun run ci           # check → lint → test → build (sequential)
 ```
 
 ## NOTES
 
-- **No CI automation** — `pnpm run ci` is local-only, no GitHub Actions
-- **No publish automation** — manual `pnpm publish`, quality gates in build step
+- **No CI automation** — `bun run ci` is local-only, no GitHub Actions
+- **No publish automation** — manual `bun publish`, quality gates in build step
 - **29 source files, 46 test files, ~9.9k source lines** — 1656 tests
 - **5 files >500 lines** — `resolve/index.ts` (1115), `cli/index.ts` (900), `schema/command.ts`
   (898), `completion/index.ts` (786), `output/activity.ts` (581)
