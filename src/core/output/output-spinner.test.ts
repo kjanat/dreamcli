@@ -357,6 +357,52 @@ describe('TTYSpinnerHandle', () => {
 			vi.useRealTimers();
 		}
 	});
+
+	// --- Frame animation ---
+
+	it('cycles through braille frames at 80ms intervals', () => {
+		vi.useFakeTimers();
+		try {
+			const { writers, stdout } = makeWriters();
+			const handle = new TTYSpinnerHandle('work', writers);
+			// Construction renders frame 0 (⠋)
+			const last = () => stdout[stdout.length - 1]!;
+			expect(last()).toContain('⠋');
+			// 1 tick → frame 1 (⠙)
+			vi.advanceTimersByTime(80);
+			expect(last()).toContain('⠙');
+			// 1 tick → frame 2 (⠹)
+			vi.advanceTimersByTime(80);
+			expect(last()).toContain('⠹');
+			// 7 ticks → frame 9 (⠏)
+			vi.advanceTimersByTime(80 * 7);
+			expect(last()).toContain('⠏');
+			// 1 tick → wraps to frame 0 (⠋)
+			vi.advanceTimersByTime(80);
+			expect(last()).toContain('⠋');
+			handle.stop();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('wrap() rejection clears animation timer — no interval leak', async () => {
+		vi.useFakeTimers();
+		try {
+			const { writers, stdout, stderr } = makeWriters();
+			const handle = new TTYSpinnerHandle('work', writers);
+			await expect(handle.wrap(Promise.reject(new Error('boom')), { fail: 'err' })).rejects.toThrow(
+				'boom',
+			);
+			const stdoutCount = stdout.length;
+			const stderrCount = stderr.length;
+			vi.advanceTimersByTime(200);
+			expect(stdout.length).toBe(stdoutCount);
+			expect(stderr.length).toBe(stderrCount);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });
 
 // ===================================================================

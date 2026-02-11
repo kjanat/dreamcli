@@ -241,6 +241,32 @@ describe('TTYProgressHandle — determinate', () => {
 		expect(stdout.length).toBe(countAfterDone);
 	});
 
+	it('renders empty bar at 0%', () => {
+		const { writers, stdout } = makeWriters();
+		const handle = new TTYProgressHandle({ total: 10 }, writers);
+		const all = stdout.join('');
+		expect(all).toContain('[░░░░░░░░░░░░░░░░░░░░] 0%');
+		handle.done();
+	});
+
+	it('renders correct bar fill at 50%', () => {
+		const { writers, stdout } = makeWriters();
+		const handle = new TTYProgressHandle({ total: 10 }, writers);
+		handle.increment(5);
+		const all = stdout.join('');
+		expect(all).toContain('[██████████░░░░░░░░░░] 50%');
+		handle.done();
+	});
+
+	it('renders fully filled bar at 100%', () => {
+		const { writers, stdout } = makeWriters();
+		const handle = new TTYProgressHandle({ total: 10 }, writers);
+		handle.update(10);
+		const all = stdout.join('');
+		expect(all).toContain('[████████████████████] 100%');
+		handle.done();
+	});
+
 	it('no animation timer for determinate mode', () => {
 		const { writers, stdout } = makeWriters();
 		const handle = new TTYProgressHandle({ total: 10 }, writers);
