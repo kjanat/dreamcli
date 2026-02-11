@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Single file: `index.ts` — largest in the codebase (~1115 lines).
+Single file: `index.ts` — largest in the codebase (~940 lines).
 
 ## RESOLUTION ORDER
 
@@ -13,15 +13,13 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 
 ## KEY FUNCTIONS
 
-| Function              | Role                                                    |
-| --------------------- | ------------------------------------------------------- |
-| `resolve()`           | Main entry — orchestrates full resolution for a command |
-| `resolveFlags()`      | All flags: CLI → env → config → prompt → default        |
-| `resolveArgs()`       | All args: parsed → default → required validation        |
-| `coerceEnvValue()`    | String env value → flag's declared kind                 |
-| `coerceConfigValue()` | JSON config value → flag's declared kind                |
-| `coercePromptValue()` | Prompt answer → flag's declared kind                    |
-| `resolveConfigPath()` | Dotted path lookup in config object                     |
+| Function              | Role                                                         |
+| --------------------- | ------------------------------------------------------------ |
+| `resolve()`           | Main entry — orchestrates full resolution for a command      |
+| `resolveFlags()`      | All flags: CLI → env → config → prompt → default             |
+| `resolveArgs()`       | All args: parsed → default → required validation             |
+| `coerceValue()`       | Unified raw value → flag's declared kind (env/config/prompt) |
+| `resolveConfigPath()` | Dotted path lookup in config object                          |
 
 ## TWO-PASS ARCHITECTURE
 
@@ -33,12 +31,16 @@ Without interactive resolver, single-pass (per-flag prompts used directly).
 
 ## COERCION PATTERN
 
-Three coercion functions (`coerceEnvValue`, `coerceConfigValue`, `coercePromptValue`) each contain a
-6-way `switch` over `FlagKind`. Structural duplication (~300 lines each) — differ only in error
-messages and input type (`string` for env, `unknown` for config/prompt).
+Single unified `coerceValue()` function with a `CoerceSource` discriminated union
+(`{ kind: 'env'; envVar } | { kind: 'config'; configPath } | { kind: 'prompt' }`) parameterizing
+source-specific behavior: string leniency, boolean truthy/falsy sets ('y'/'n' for prompt), array
+trim-on-split (prompt only), and error message templates.
 
-Return discriminated result types (`{ ok: true; value } | { ok: false; error }`) for batch error
-collection without `try/catch`.
+Returns two-state `CoerceResult` (`{ ok: true; value } | { ok: false; error: ValidationError }`).
+The prompt caller wraps this in a three-state `PromptResolveResult` at its own call site.
+
+Helpers: `sourceLabel()` (error message fragment), `sourceDetails()` (error detail keys),
+`coercionError()` (builds ValidationError with source context).
 
 ## ERROR AGGREGATION
 
@@ -60,7 +62,7 @@ once.
 
 ## GOTCHAS
 
-- ~1.1k lines — split candidate, but resolution logic is inherently sequential
+- ~940 lines — reduced from ~1.1k by unifying three coercion functions into one
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
   directly
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
