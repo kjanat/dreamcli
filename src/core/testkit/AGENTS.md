@@ -1,6 +1,8 @@
 # testkit — In-process test harness (public API)
 
-Not just test utilities — first-class module exported from the package.
+Not just test utilities — first-class module exported from the package. Testkit symbols are
+re-exported from the `dreamcli/testkit` subpath (curating barrel at `src/testkit.ts`). This internal
+`core/testkit/` module is unchanged.
 
 ## CORE API
 
@@ -49,5 +51,5 @@ captured output. Calls `out.stopActive()` in `finally` to clean up leaked spinne
 
 - `mergedSchema` field on `RunOptions` is `@internal` — used by CLI dispatch layer only
 - `CaptureOutputChannel` (from output/) wired here for output + activity capture
-- `formatRootHelp()` re-exported as `@internal` for CLI-level help rendering
+- `formatRootHelp()` (in `cli/root-help.ts`) re-exported as `@internal` for CLI-level help rendering
 - Direct imports: `schema/command.js`, `schema/flag.js`, `schema/arg.js` (not through barrel)

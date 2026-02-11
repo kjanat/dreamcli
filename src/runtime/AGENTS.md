@@ -3,6 +3,10 @@
 Multi-file module. Not truly independent of core — imports `WriteFn` from `core/output/` and
 `ReadFn` from `core/prompt/`.
 
+Runtime symbols re-exported from `dreamcli/runtime` subpath (`src/runtime.ts`): `RuntimeAdapter`,
+adapter factories, `ExitError`, detection. `createTestAdapter`/`TestAdapterOptions` are testkit-only
+(exported from `dreamcli/testkit`, not `dreamcli/runtime`).
+
 ## FILES
 
 | File                 | Status     | Lines | Purpose                                                             |
@@ -40,7 +44,7 @@ joinPath(...segments: string[]): string
 2. Add factory `create{Platform}Adapter()` to barrel
 3. Add detection case in `detect.ts`
 4. Wire auto-detection in `auto.ts`
-5. Re-export from `src/index.ts`
+5. Re-export from `src/runtime.ts`
 
 ## TEST FILES (4)
 
@@ -56,7 +60,7 @@ joinPath(...segments: string[]): string
 - `globalThis as unknown as GlobalForDetect` in `detect.ts` — runtime boundary, justified cast
 - `node.ts` has 7 `@internal` symbols: `NodeProcess`, `NodeSystemError`, `getNodeProcess`,
   `isNodeSystemError`, `createNodeReadLine`, `resolveHomedir`, `resolveConfigDir`
-- `createTestAdapter()` is public API — used by testkit and consumer tests
+- `createTestAdapter()` exported from `dreamcli/testkit` only, not `dreamcli/runtime`
 - `ExitError` thrown by `adapter.exit()` — caught by CLI dispatch layer
 - Empty-string env var fallbacks treated as unset in `node.ts`
 - Win32 paths: `resolveConfigDir` strips trailing separator, `resolveHomedir` has

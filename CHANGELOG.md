@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Breaking
+
+- **Subpath exports** — single `"."` entry split into `"."`, `"./testkit"`, `"./runtime"`. Test
+  utilities (`runCommand`, `createCaptureOutput`, `createTestPrompter`, `createTestAdapter`,
+  `PROMPT_CANCEL`) moved to `dreamcli/testkit`. Runtime adapters (`createAdapter`,
+  `createNodeAdapter`, `createBunAdapter`, `detectRuntime`, `ExitError`, `RUNTIMES`,
+  `RuntimeAdapter`) moved to `dreamcli/runtime`. `createTestAdapter`/`TestAdapterOptions` exported
+  only from `dreamcli/testkit`.
+
 ### Added
 
 #### Spinner & Progress Bar
@@ -59,7 +68,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `StaticWriters` pair routing some output to stdout; the dual-writer abstraction is removed.
 - `runCommand()` calls `out.stopActive()` in a `finally` block, ensuring timer cleanup on handler
   exceptions.
-- Test count: 1656 tests across 46 test files (up from 1518 in v0.7.0).
+- **Resolve coercion unified** — three near-identical functions (`coerceEnvValue` ~105 lines,
+  `coerceConfigValue` ~120 lines, `coercePromptValue` ~120 lines) replaced by single `coerceValue()`
+  using `CoerceSource` discriminated union (`'env' | 'config' | 'prompt'`). Error messages
+  parameterized via `sourceLabel()`/`sourceDetails()`/`coercionError()` helpers. `resolve/index.ts`
+  reduced from ~1115 to ~940 lines.
+- **Activity types extracted** — 7 activity/output types (`Fallback`, `SpinnerOptions`,
+  `SpinnerHandle`, `ProgressOptions`, `ProgressHandle`, `ActivityEvent`, `TableColumn`) moved from
+  `schema/command.ts` to `schema/activity.ts` (~150 lines). `command.ts` reduced from 898 to 784
+  lines.
+- **Root help extracted** — `formatRootHelp()` + `padEnd()` + `wrapText()` moved from `cli/index.ts`
+  to `cli/root-help.ts` (~133 lines). Uses structural `CLISchemaLike` interface to avoid circular
+  imports. `cli/index.ts` reduced from 901 to 793 lines.
+- **`infer/` stub deleted** — removed empty `src/core/infer/index.ts`.
+- **Source files in published package** — `"src"` added to `files` array in package.json.
+- **Package manager migrated** — pnpm → bun. `packageManager` set to `bun@1.3.9`.
+- **Build config** — `tsdown.config.ts` changed to multi-entry build with `minify: true`.
+- Test count: 1658 tests across 46 test files (up from 1518 in v0.7.0).
 
 ### Fixed
 
@@ -82,6 +107,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Empty-string env var fallbacks in runtime adapter treated as unset.
 - `ProgressHandle.increment()` was emitting `progress:update` events indistinguishable from
   `update()` calls. Now emits `progress:increment` with `delta` field.
+- **Prompt number coercion** — `coercePromptValue` was missing NaN guard for number flags; now
+  handled by unified `coerceValue()`.
 
 ## [0.7.0] - 2026-02-10
 
@@ -401,7 +428,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v0.7.0...HEAD
 [0.7.0]: https://github.com/kjanat/dreamcli/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kjanat/dreamcli/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kjanat/dreamcli/compare/v0.4.0...v0.5.0

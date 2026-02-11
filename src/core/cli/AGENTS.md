@@ -1,26 +1,28 @@
 # cli — CLIBuilder, multi-command dispatch
 
-`index.ts` (~900 lines) — partially split: `dispatch.ts` + `propagate.ts` extracted as `@internal`.
+`index.ts` (~793 lines) — partially split: `dispatch.ts` + `propagate.ts` + `root-help.ts` extracted
+as `@internal`.
 
 ## KEY TYPES
 
-| Symbol             | Role                                                     |
-| ------------------ | -------------------------------------------------------- |
-| `CLIBuilder`       | Fluent builder: `.command()`, `.default()`, `.execute()` |
-| `cli(name)`        | Factory function → `CLIBuilder`                          |
-| `CLISchema`        | Runtime descriptor for the full CLI                      |
-| `CLIRunOptions`    | Extends `RunOptions` with CLI-level settings             |
-| `ConfigSettings`   | Config file discovery settings for CLI                   |
-| `ErasedCommand`    | `@internal` — type-erased command for dispatch map       |
-| `formatRootHelp()` | `@internal` — root-level help rendering                  |
+| Symbol             | Role                                                        |
+| ------------------ | ----------------------------------------------------------- |
+| `CLIBuilder`       | Fluent builder: `.command()`, `.default()`, `.execute()`    |
+| `cli(name)`        | Factory function → `CLIBuilder`                             |
+| `CLISchema`        | Runtime descriptor for the full CLI                         |
+| `CLIRunOptions`    | Extends `RunOptions` with CLI-level settings                |
+| `ConfigSettings`   | Config file discovery settings for CLI                      |
+| `ErasedCommand`    | `@internal` — type-erased command for dispatch map          |
+| `formatRootHelp()` | `@internal` — root-level help rendering (in `root-help.ts`) |
 
 ## FILES
 
-| File           | Lines | Purpose                                                            |
-| -------------- | ----: | ------------------------------------------------------------------ |
-| `index.ts`     |   900 | CLIBuilder class + cli() factory + root help + JSON error handling |
-| `dispatch.ts`  |   285 | `@internal` — command dispatch, nested resolution, levenshtein     |
-| `propagate.ts` |    87 | `@internal` — flag propagation through command tree                |
+| File           | Lines | Purpose                                                                     |
+| -------------- | ----: | --------------------------------------------------------------------------- |
+| `index.ts`     |   793 | CLIBuilder class + cli() factory + JSON error handling                      |
+| `root-help.ts` |   133 | `@internal` — root-level help text + text helpers, structural CLISchemaLike |
+| `dispatch.ts`  |   285 | `@internal` — command dispatch, nested resolution, levenshtein              |
+| `propagate.ts` |    87 | `@internal` — flag propagation through command tree                         |
 
 ## DISPATCH FLOW
 
@@ -46,7 +48,8 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
 
 ## GOTCHAS
 
-- `padEnd()` and `wrapText()` duplicated from `help/` module — intentional, avoids coupling
+- `root-help.ts` uses structural `CLISchemaLike` instead of importing `CLISchema` — avoids circular
+  dep through barrel
 - `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`
 - `uniqueCommands()` deduplicates via `Set` on command name — `@internal`
 - `extractConfigFlag()` handles both `--config path` and `--config=path` forms

@@ -4,14 +4,15 @@ Only multi-file module in `core/`. All others use single `index.ts`.
 
 ## FILES
 
-| File            | Lines | Purpose                                                                                        |
-| --------------- | ----: | ---------------------------------------------------------------------------------------------- |
-| `command.ts`    |   898 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + activity types + command schema |
-| `flag.ts`       |   455 | `FlagBuilder` — `flag.string()`, `.boolean()`, `.number()`, `.count()`, `.enum()`, `.custom()` |
-| `arg.ts`        |   341 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                          |
-| `middleware.ts` |   164 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>` type              |
-| `prompt.ts`     |    70 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                             |
-| `index.ts`      |    80 | Barrel — re-exports all public symbols                                                         |
+| File            | Lines | Purpose                                                                                                                             |
+| --------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `command.ts`    |   784 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + command schema                                                       |
+| `activity.ts`   |   150 | Activity types — `Fallback`, `SpinnerHandle`, `ProgressHandle`, `SpinnerOptions`, `ProgressOptions`, `ActivityEvent`, `TableColumn` |
+| `flag.ts`       |   455 | `FlagBuilder` — `flag.string()`, `.boolean()`, `.number()`, `.count()`, `.enum()`, `.custom()`                                      |
+| `arg.ts`        |   341 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                                                               |
+| `middleware.ts` |   164 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>` type                                                   |
+| `prompt.ts`     |    70 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                                  |
+| `index.ts`      |    80 | Barrel — re-exports all public symbols                                                                                              |
 
 ## TYPE SYSTEM PATTERNS
 
@@ -28,22 +29,24 @@ Only multi-file module in `core/`. All others use single `index.ts`.
 
 ## `command.ts` TYPE DENSITY
 
-21+ type/interface exports spanning 3 conceptual domains:
+21+ type/interface exports split across `command.ts` and `activity.ts`:
 
-- **Activity types**: `ActivityEvent` (10-variant DU), `SpinnerHandle`, `ProgressHandle`,
-  `SpinnerOptions`, `ProgressOptions`, `Fallback`
-- **Output interface**: `Out` (~110 lines JSDoc + signatures), `TableColumn`
-- **Command schema**: `CommandSchema`, `ErasedCommand`, `ActionHandler`, `ActionParams`,
-  `InteractiveResolver`, `CommandExample`, etc.
+- **Activity types** (`activity.ts`): `ActivityEvent` (10-variant DU), `SpinnerHandle`,
+  `ProgressHandle`, `SpinnerOptions`, `ProgressOptions`, `Fallback`, `TableColumn`
+- **Output interface** (`command.ts`): `Out` (~110 lines JSDoc + signatures) — imports activity
+  types from `./activity.js`
+- **Command schema** (`command.ts`): `CommandSchema`, `ErasedCommand`, `ActionHandler`,
+  `ActionParams`, `InteractiveResolver`, `CommandExample`, etc.
 
-Types live here (not in output) because `Out` is needed in `CommandBuilder.action()` signature.
+Activity types live in `activity.ts` (still in schema/, not in output/) because `Out` needs them in
+`CommandBuilder.action()` signature. `command.ts` imports them from `./activity.js`.
 
 ## ADDING A FLAG TYPE
 
 1. Add variant to `FlagKind` union in `flag.ts`
 2. Add factory method on `FlagBuilder`
 3. Update `InferFlag` conditional type
-4. Wire through `resolve/` (add coercion case in all 3 coercion functions)
+4. Wire through `resolve/` (add coercion case in the unified `coerceValue()` function)
 5. Add tests in `flag.test.ts` + `resolve.test.ts`
 
 ## GOTCHAS

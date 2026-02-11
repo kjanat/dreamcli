@@ -1,11 +1,12 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-11 **Commit:** 83b7a2e **Branch:** v0.8-spinner-progress
+**Generated:** 2026-02-11 **Commit:** 1c8e6ba **Branch:** v0.8-spinner-progress
 
 ## OVERVIEW
 
-Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Single entry `src/index.ts`
-re-exports 34 values + 74 types from 12 internal modules. Dual ESM/CJS via tsdown.
+Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Three subpath exports (`"."`,
+`"./testkit"`, `"./runtime"`) curated by `src/index.ts`, `src/testkit.ts`, and `src/runtime.ts`.
+Dual ESM/CJS via tsdown.
 
 ### Goals
 
@@ -18,16 +19,17 @@ src/
 ├── index.ts                # Public API barrel (explicit named re-exports, no wildcards)
 ├── core/
 │   ├── cli/                # CLIBuilder — multi-command dispatch, --json, middleware wiring
+│   │   └── root-help.ts    # Root help formatter for multi-command CLIs
 │   ├── completion/         # Shell completion generation (bash/zsh, nested commands)
 │   ├── config/             # Config file discovery + loading (XDG paths, JSON, plugin hook)
 │   ├── errors/             # CLIError/ParseError/ValidationError hierarchy + type guards
 │   ├── help/               # formatHelp() — text formatter for command help
-│   ├── infer/              # STUB — type inference (empty, planned)
 │   ├── output/             # OutputChannel — stdout/stderr, json/table/TTY, spinner/progress
 │   ├── parse/              # Tokenizer + parser (argv → Token[] → ParseResult)
 │   ├── prompt/             # PromptEngine — terminal/test prompters, interactive resolution
 │   ├── resolve/            # Flag/arg resolution chain: CLI → env → config → prompt → default
 │   ├── schema/             # CommandBuilder/FlagBuilder/ArgBuilder + middleware + prompt schemas
+│   │   └── activity.ts     # ActivityConfig/ActivityEvent types for spinner/progress
 │   └── testkit/            # runCommand() — in-process test harness (public API)
 └── runtime/
     ├── adapter.ts          # RuntimeAdapter interface (process abstraction)
@@ -74,8 +76,9 @@ cli                     ← TOP — depends on nearly everything
 
 Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts` directly
 (bypassing barrel). `completion/` imports `cli/propagate.ts` directly. `output/` imports
-`schema/command.ts` directly. `runtime/adapter.ts` imports `WriteFn` from `core/output/` and
-`ReadFn` from `core/prompt/` — runtime depends on core types (not truly independent layer).
+`schema/command.ts` directly. `output/` imports `schema/activity.ts` directly (not through barrel).
+`runtime/adapter.ts` imports `WriteFn` from `core/output/` and `ReadFn` from `core/prompt/` —
+runtime depends on core types (not truly independent layer).
 
 `schema/command.ts` has a type-only `import type` from `testkit/index.ts` for `RunOptions`/
 `RunResult` — inverts stated dependency direction but is compile-time only (`verbatimModuleSyntax`
@@ -105,7 +108,7 @@ guarantees erasure).
 - **Factory functions as public API** — `cli()`, `command()`, `flag.string()`, `middleware()`,
   `createOutput()`, `createAdapter()` etc. Classes exported but not for direct construction
 - **Discriminated unions everywhere** — `Token.kind`, `DispatchResult.kind`, `PromptConfig.kind`,
-  `FlagSchema.kind`, `ActivityEvent.type`, `CoerceEnvResult.ok`, etc.
+  `FlagSchema.kind`, `ActivityEvent.type`, `CoerceResult.ok`, etc.
 - **`exactOptionalPropertyTypes`** forces conditional spread: `...(x !== undefined ? { x } : {})`
 - **Output assertions include trailing `\n`** — `['Hello\n']` not `['Hello']`
 - `as` casts exist only at type-erasure boundaries (phantom brands, heterogeneous storage) and
@@ -142,16 +145,17 @@ bun run ci           # check → lint → test → build (sequential)
 
 - **No CI automation** — `bun run ci` is local-only, no GitHub Actions
 - **No publish automation** — manual `bun publish`, quality gates in build step
-- **29 source files, 46 test files, ~9.9k source lines** — 1656 tests
-- **5 files >500 lines** — `resolve/index.ts` (1115), `cli/index.ts` (900), `schema/command.ts`
-  (898), `completion/index.ts` (786), `output/activity.ts` (581)
+- **~31 source files, 46 test files, ~9.9k source lines** — 1658 tests
+- **5 files >500 lines** — `resolve/index.ts` (940), `cli/index.ts` (793), `schema/command.ts`
+  (784), `completion/index.ts` (786), `output/activity.ts` (581)
 - `cli/index.ts` partially split: `dispatch.ts` + `propagate.ts` extracted as `@internal`
 - Prompt types defined in `schema/prompt.ts` but consumed by `core/prompt/` directly (bypasses
   barrel to avoid circular dep)
 - `stdinIsTTY` gates interactive prompt auto-creation in `cli/index.ts` — prompts only activate when
   stdin is a TTY
-- Single public entry point (`"."` export only) — no subpath exports
-- `infer/` and `deno.ts` are empty stubs (planned, not yet implemented)
+- Three subpath exports: `"."`, `"./testkit"`, `"./runtime"`
+- `deno.ts` is an empty stub (planned, not yet implemented)
+- `src/` included in `files` (published source)
 - `node-builtins.d.ts` — handwritten ambient module declarations for `node:readline` and
   `node:fs/promises` to avoid `@types/node` dependency
 - Fake timers in tests: inline `vi.useFakeTimers()` with `try/finally`, never lifecycle hooks
