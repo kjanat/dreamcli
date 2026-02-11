@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-11 **Commit:** 77c0e03 **Branch:** v0.8-spinner-progress
+**Generated:** 2026-02-11 **Commit:** 83b7a2e **Branch:** v0.8-spinner-progress
 
 ## OVERVIEW
 
@@ -45,7 +45,7 @@ src/
 | Add a new command feature      | `src/core/schema/`              | CommandBuilder, then wire through cli/testkit |
 | Add a new flag type            | `src/core/schema/flag.ts`       | FlagBuilder + FlagKind union                  |
 | Fix argument parsing           | `src/core/parse/`               | Tokenizer + parser, single `index.ts`         |
-| Fix value resolution           | `src/core/resolve/`             | Resolution chain (~1k lines)                  |
+| Fix value resolution           | `src/core/resolve/`             | Resolution chain (~1.1k lines)                |
 | Add output format              | `src/core/output/`              | OutputChannel, Out interface in schema        |
 | Add spinner/progress behavior  | `src/core/output/`              | Activity handles (TTY/static/capture/noop)    |
 | Test a command                 | `src/core/testkit/`             | `runCommand()` with `RunOptions`              |
@@ -74,7 +74,12 @@ cli                     ← TOP — depends on nearly everything
 
 Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts` directly
 (bypassing barrel). `completion/` imports `cli/propagate.ts` directly. `output/` imports
-`schema/command.ts` directly.
+`schema/command.ts` directly. `runtime/adapter.ts` imports `WriteFn` from `core/output/` and
+`ReadFn` from `core/prompt/` — runtime depends on core types (not truly independent layer).
+
+`schema/command.ts` has a type-only `import type` from `testkit/index.ts` for `RunOptions`/
+`RunResult` — inverts stated dependency direction but is compile-time only (`verbatimModuleSyntax`
+guarantees erasure).
 
 ## CONVENTIONS
 
@@ -84,7 +89,7 @@ Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts
 - **Maximum TS strictness** — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
 - **No `any`** (biome warns), **no `!` non-null assertion** (biome info)
 - **Barrel-per-module** — each module has `index.ts` re-exporting public symbols
-- **`@internal` JSDoc** marks symbols excluded from public API (87 usages)
+- **`@internal` JSDoc** marks symbols excluded from public API (86 usages across 14 files)
 - **Tests co-located** — `*.test.ts` next to source, aspect-split: `cli-json.test.ts`
 - **Em-dash in describes** — `describe('thing — behavior', ...)`
 - **Section separators** — `// ===` major, `// ---` minor, in all test files
@@ -97,6 +102,14 @@ Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts
 - Bundler: **tsdown** with built-in `publint` + `attw --strict`
 - VCS: `git`
 - `@module` JSDoc at top of every source file
+- **Factory functions as public API** — `cli()`, `command()`, `flag.string()`, `middleware()`,
+  `createOutput()`, `createAdapter()` etc. Classes exported but not for direct construction
+- **Discriminated unions everywhere** — `Token.kind`, `DispatchResult.kind`, `PromptConfig.kind`,
+  `FlagSchema.kind`, `ActivityEvent.type`, `CoerceEnvResult.ok`, etc.
+- **`exactOptionalPropertyTypes`** forces conditional spread: `...(x !== undefined ? { x } : {})`
+- **Output assertions include trailing `\n`** — `['Hello\n']` not `['Hello']`
+- `as` casts exist only at type-erasure boundaries (phantom brands, heterogeneous storage) and
+  runtime detection boundaries — all guarded (9 in production, all documented)
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
@@ -107,6 +120,8 @@ Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts
 - Do NOT use `process.*` or runtime-specific APIs in core — use RuntimeAdapter
 - Do NOT put types in `@ts-ignore` — only `@ts-expect-error` for negative type tests
 - Do NOT use `vi.mock()` / `vi.spyOn()` on modules — `vi.fn()` only for handler spies
+- Do NOT import through barrel when it would create circular deps — import the specific file
+- Do NOT use `test()` — always `describe()` + `it()` from vitest (never bare `test()`)
 
 ## COMMANDS
 
@@ -127,15 +142,17 @@ pnpm run ci          # check → lint → test → build (sequential)
 
 - **No CI automation** — `pnpm run ci` is local-only, no GitHub Actions
 - **No publish automation** — manual `pnpm publish`, quality gates in build step
-- **110 files, ~33k lines TS** — 70 `.ts` files (33 source, 37 test), 1622 test cases
-- **27 files >500 lines** — `output/index.ts` (1155), `resolve/index.ts` (1115), `cli/index.ts`
-  (900), `schema/command.ts` (869) are the largest
+- **29 source files, 46 test files, ~9.9k source lines** — 1656 tests
+- **5 files >500 lines** — `resolve/index.ts` (1115), `cli/index.ts` (900), `schema/command.ts`
+  (898), `completion/index.ts` (786), `output/activity.ts` (581)
 - `cli/index.ts` partially split: `dispatch.ts` + `propagate.ts` extracted as `@internal`
 - Prompt types defined in `schema/prompt.ts` but consumed by `core/prompt/` directly (bypasses
   barrel to avoid circular dep)
 - `stdinIsTTY` gates interactive prompt auto-creation in `cli/index.ts` — prompts only activate when
   stdin is a TTY
-- Output assertions in tests include trailing `\n` — `['Hello\n']` not `['Hello']`
-- `as` casts exist only at type-erasure boundaries (phantom brands, heterogeneous storage) and
-  runtime detection boundaries — all guarded
 - Single public entry point (`"."` export only) — no subpath exports
+- `infer/` and `deno.ts` are empty stubs (planned, not yet implemented)
+- `node-builtins.d.ts` — handwritten ambient module declarations for `node:readline` and
+  `node:fs/promises` to avoid `@types/node` dependency
+- Fake timers in tests: inline `vi.useFakeTimers()` with `try/finally`, never lifecycle hooks
+- No `README.md` — pre-publish

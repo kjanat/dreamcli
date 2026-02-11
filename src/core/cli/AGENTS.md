@@ -16,11 +16,11 @@
 
 ## FILES
 
-| File           | Purpose                                                            |
-| -------------- | ------------------------------------------------------------------ |
-| `index.ts`     | CLIBuilder class + cli() factory + root help + JSON error handling |
-| `dispatch.ts`  | `@internal` — command dispatch, middleware execution, config flag  |
-| `propagate.ts` | `@internal` — flag propagation through command tree                |
+| File           | Lines | Purpose                                                            |
+| -------------- | ----: | ------------------------------------------------------------------ |
+| `index.ts`     |   900 | CLIBuilder class + cli() factory + root help + JSON error handling |
+| `dispatch.ts`  |   285 | `@internal` — command dispatch, nested resolution, levenshtein     |
+| `propagate.ts` |    87 | `@internal` — flag propagation through command tree                |
 
 ## DISPATCH FLOW
 
@@ -32,6 +32,11 @@ argv → strip --json flag → match subcommand (nested) → resolve → middlew
 
 Nested dispatch: `group('db').command(migrate).command(seed)` → `mycli db migrate --force`
 
+## `execute()` METHOD (~145 lines)
+
+Handles 6 concerns sequentially: `--json` extraction, `--version`, `--help`, no-commands error,
+command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `match`).
+
 ## `--json` MODE
 
 - Stripped from argv before command dispatch
@@ -42,8 +47,11 @@ Nested dispatch: `group('db').command(migrate).command(seed)` → `mycli db migr
 ## GOTCHAS
 
 - `padEnd()` and `wrapText()` duplicated from `help/` module — intentional, avoids coupling
-- `levenshtein()` inlined for "did you mean?" suggestions — `@internal`
+- `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`
 - `uniqueCommands()` deduplicates via `Set` on command name — `@internal`
+- `extractConfigFlag()` handles both `--config path` and `--config=path` forms
+- Direct imports: `schema/command.js`, `schema/flag.js`, `schema/arg.js` (not through barrel)
+- Cross-layer imports: `runtime/adapter.js`, `runtime/auto.js` (not through runtime barrel)
 
 ## TEST FILES (10)
 

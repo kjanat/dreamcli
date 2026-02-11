@@ -1,19 +1,20 @@
 # runtime — Platform abstraction layer
 
-Multi-file module. Only place `vi.fn()` mocks are used (for mock process objects).
+Multi-file module. Not truly independent of core — imports `WriteFn` from `core/output/` and
+`ReadFn` from `core/prompt/`.
 
 ## FILES
 
-| File                 | Status     | Purpose                                                 |
-| -------------------- | ---------- | ------------------------------------------------------- |
-| `adapter.ts`         | **Active** | `RuntimeAdapter` interface — process/env/IO abstraction |
-| `auto.ts`            | **Active** | `createAdapter()` — auto-detecting adapter factory      |
-| `node.ts`            | **Active** | `createNodeAdapter()` — Node.js implementation          |
-| `bun.ts`             | **Active** | `createBunAdapter()` — delegates to Node adapter        |
-| `deno.ts`            | STUB       | `export {}` — planned Deno adapter                      |
-| `detect.ts`          | **Active** | `detectRuntime()` — Bun/Deno/Node feature detection     |
-| `node-builtins.d.ts` | Types      | `@internal` — Node built-in type shims                  |
-| `index.ts`           | Barrel     | Re-exports `RuntimeAdapter`, adapters, `ExitError`      |
+| File                 | Status     | Lines | Purpose                                                             |
+| -------------------- | ---------- | ----: | ------------------------------------------------------------------- |
+| `adapter.ts`         | **Active** |   120 | `RuntimeAdapter` interface — process/env/IO abstraction             |
+| `auto.ts`            | **Active** |    35 | `createAdapter()` — auto-detecting adapter factory                  |
+| `node.ts`            | **Active** |   230 | `createNodeAdapter()` — Node.js implementation                      |
+| `bun.ts`             | **Active** |    20 | `createBunAdapter()` — delegates to Node adapter                    |
+| `deno.ts`            | STUB       |     4 | `export {}` — planned Deno adapter                                  |
+| `detect.ts`          | **Active** |    90 | `detectRuntime()` — Bun/Deno/Node feature detection                 |
+| `node-builtins.d.ts` | Types      |    45 | `@internal` — ambient decls for `node:readline`, `node:fs/promises` |
+| `index.ts`           | Barrel     |    30 | Re-exports `RuntimeAdapter`, adapters, `ExitError`                  |
 
 ## `RuntimeAdapter` INTERFACE
 
@@ -57,3 +58,6 @@ joinPath(...segments: string[]): string
   `isNodeSystemError`, `createNodeReadLine`, `resolveHomedir`, `resolveConfigDir`
 - `createTestAdapter()` is public API — used by testkit and consumer tests
 - `ExitError` thrown by `adapter.exit()` — caught by CLI dispatch layer
+- Empty-string env var fallbacks treated as unset in `node.ts`
+- Win32 paths: `resolveConfigDir` strips trailing separator, `resolveHomedir` has
+  `HOMEDRIVE`+`HOMEPATH` fallback

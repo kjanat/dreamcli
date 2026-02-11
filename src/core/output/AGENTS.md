@@ -1,7 +1,7 @@
 # output — OutputChannel, spinner/progress, TTY rendering
 
-Three files: `writer.ts` (leaf, ~30 lines), `activity.ts` (handle classes, ~600 lines), `index.ts`
-(OutputChannel + factories, ~590 lines). Heavy `@internal` usage (26 symbols).
+Three files: `writer.ts` (leaf, ~30 lines), `activity.ts` (handle classes, ~581 lines), `index.ts`
+(OutputChannel + factories, ~570 lines).
 
 Dependency graph (no cycles): `writer.ts` ← `activity.ts` ← `index.ts` → `writer.ts`.
 
@@ -24,7 +24,7 @@ Dependency graph (no cycles): `writer.ts` ← `activity.ts` ← `index.ts` → `
 | Non-TTY | → stdout   | → stdout   | Static handles   |
 | Capture | → array    | → array    | Capture handles  |
 
-## ACTIVITY HANDLES (v0.8)
+## ACTIVITY HANDLES
 
 Four handle tiers per activity type (spinner + progress):
 
@@ -38,7 +38,9 @@ Four handle tiers per activity type (spinner + progress):
 Same pattern for `*ProgressHandle` (bar rendering, percentage, indeterminate pulse).
 
 Active handle tracking: only one spinner/progress at a time per `OutputChannel`. Starting a new one
-implicitly stops the previous.
+implicitly stops the previous. `stopActive()` public method for explicit cleanup.
+
+All activity handle output (static and TTY) routes to **stderr** — stdout reserved for data.
 
 ## AMBIENT DECLARATIONS
 
@@ -48,19 +50,19 @@ implicitly stops the previous.
 ## TEST FILES (6)
 
 | File                               | Tests | Focus                                                 |
-| ---------------------------------- | ----- | ----------------------------------------------------- |
-| `output.test.ts`                   | 49    | Core OutputChannel: log/warn/error, modes             |
-| `output-tty.test.ts`               | 20    | TTY-specific rendering, color, formatting             |
-| `output-table.test.ts`             | 16    | Table output in various modes                         |
-| `output-spinner.test.ts`           | 45    | Spinner handles: noop/static/TTY/capture, fake timers |
-| `output-progress.test.ts`          | 40    | Progress handles: noop/static/TTY/capture, fake timer |
-| `output-activity-dispatch.test.ts` | 32    | OutputChannel wiring: mode dispatch, overlap, testkit |
+| ---------------------------------- | ----: | ----------------------------------------------------- |
+| `output.test.ts`                   |    49 | Core OutputChannel: log/warn/error, modes             |
+| `output-tty.test.ts`               |    20 | TTY-specific rendering, color, formatting             |
+| `output-table.test.ts`             |    16 | Table output in various modes                         |
+| `output-spinner.test.ts`           |    45 | Spinner handles: noop/static/TTY/capture, fake timers |
+| `output-progress.test.ts`          |    40 | Progress handles: noop/static/TTY/capture, fake timer |
+| `output-activity-dispatch.test.ts` |    32 | OutputChannel wiring: mode dispatch, overlap, testkit |
 
 ## GOTCHAS
 
-- Imports `schema/command.ts` directly for `Out` type — avoids circular dep through barrel
+- Imports `schema/command.ts` directly for `Out`/activity types — avoids circular dep through barrel
 - `writer.ts` is a leaf: `WriteFn` type + `writeLine` helper. Shared by `index.ts` and `activity.ts`
 - Terminal escape sequences (`HIDE_CURSOR`, `ERASE_LINE`, etc.) are `@internal` constants in
   `activity.ts`
-- `output-spinner.test.ts` and `output-progress.test.ts` use `vi.useFakeTimers()` for timer tests
-- `out.table()` columns accept `width`, `align`, `format` — rendered as fixed-width in TTY
+- Spinner/progress tests use `vi.useFakeTimers()` inline with `try/finally`
+- `ActivityEvent` has 10 variants (including `progress:increment` distinct from `progress:update`)

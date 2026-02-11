@@ -7,7 +7,7 @@ Not just test utilities — first-class module exported from the package.
 **`runCommand(cmd, argv, options?): Promise<RunResult>`**
 
 Complete execution pipeline in-process: argv → parse → resolve → middleware chain → action handler →
-captured output
+captured output. Calls `out.stopActive()` in `finally` to clean up leaked spinner/progress timers.
 
 **`RunResult`**:
 `{ exitCode, stdout: string[], stderr: string[], activity: ActivityEvent[], error? }`
@@ -18,14 +18,14 @@ captured output
 | ----------- | ------------------------------------------------- |
 | `env`       | `Record<string, string>` — replaces `process.env` |
 | `config`    | JSON config object                                |
-| `answers`   | `TestAnswer[]` — pre-configured prompt responses  |
+| `answers`   | `Record<string, TestAnswer>` — prompt responses   |
 | `prompter`  | Full `PromptEngine` override                      |
 | `verbosity` | `'normal' \| 'quiet'`                             |
 | `jsonMode`  | boolean — enable JSON output                      |
 | `isTTY`     | boolean — simulate TTY                            |
 | `help`      | `HelpOptions` — help formatting (width, binName)  |
 
-## TEST FILES (8)
+## TEST FILES (7)
 
 | File                             | Tests                                         |
 | -------------------------------- | --------------------------------------------- |
@@ -43,10 +43,11 @@ captured output
 - JSON output: `JSON.parse(result.stdout[0] ?? '')` then `toEqual`
 - Error checking: `result.error?.code` for structured errors
 - Activity events: `result.activity` array of `ActivityEvent` discriminated unions
-- Type testing: `expectTypeOf(ctx).toEqualTypeOf<Readonly<…>>()` in middleware E2E
+- Type testing: `expectTypeOf(ctx).toEqualTypeOf<Readonly<...>>()` in middleware E2E
 
 ## GOTCHAS
 
 - `mergedSchema` field on `RunOptions` is `@internal` — used by CLI dispatch layer only
 - `CaptureOutputChannel` (from output/) wired here for output + activity capture
 - `formatRootHelp()` re-exported as `@internal` for CLI-level help rendering
+- Direct imports: `schema/command.js`, `schema/flag.js`, `schema/arg.js` (not through barrel)

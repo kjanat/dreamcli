@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Single file: `index.ts` — largest in the codebase (~1.1k lines).
+Single file: `index.ts` — largest in the codebase (~1115 lines).
 
 ## RESOLUTION ORDER
 
@@ -31,6 +31,21 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 
 Without interactive resolver, single-pass (per-flag prompts used directly).
 
+## COERCION PATTERN
+
+Three coercion functions (`coerceEnvValue`, `coerceConfigValue`, `coercePromptValue`) each contain a
+6-way `switch` over `FlagKind`. Structural duplication (~300 lines each) — differ only in error
+messages and input type (`string` for env, `unknown` for config/prompt).
+
+Return discriminated result types (`{ ok: true; value } | { ok: false; error }`) for batch error
+collection without `try/catch`.
+
+## ERROR AGGREGATION
+
+`resolveFlags()` and `resolveArgs()` collect all errors into an array, then throw a single
+aggregated `ValidationError` via `throwAggregatedErrors()`. Users see all validation messages at
+once.
+
 ## TEST FILES (7, aspect-split)
 
 | File                          | Tests                                      |
@@ -49,4 +64,4 @@ Without interactive resolver, single-pass (per-flag prompts used directly).
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
   directly
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
-- `resolve-env.test.ts` and `resolve-config.test.ts` are the heaviest test files (~900+ lines each)
+- `DeprecationWarning` structs collected during resolution for deprecated flag/arg usage

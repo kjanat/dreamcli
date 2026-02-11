@@ -1,6 +1,6 @@
 # completion — Shell completion script generation
 
-Single file: `index.ts` (~787 lines). Heavy `@internal` usage (18 symbols).
+Single file: `index.ts` (~786 lines). Heavy `@internal` usage (18 symbols).
 
 ## PUBLIC API
 
@@ -36,6 +36,12 @@ Handles nested command groups: `mycli db migrate` generates completions for each
 - Imports `cli/propagate.ts` directly (`@internal` file, not through cli barrel) — needs
   `collectPropagatedFlags()` for flag inheritance in nested commands
 - `biome-ignore noTemplateCurlyInString` on line ~204 — emitting bash `${words[i]}` syntax, not JS
-- Test file (`completion.test.ts`, ~1690 lines) is the largest test file in the codebase — tests
-  bash + zsh output string matching for complex command trees
 - Fish and PowerShell shells declared in `SHELLS` but not yet implemented
+- Natural split candidate (bash ~180 lines, zsh ~180 lines, shared infra) but single file works
+
+## TEST FILES (2)
+
+| File                    | Tests                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| `completion.test.ts`    | ~1690 lines — largest test file; bash + zsh output matching |
+| (cli-completion-e2e.ts) | Lives in `cli/` — end-to-end completion via CLI builder     |
