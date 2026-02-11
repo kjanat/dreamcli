@@ -52,4 +52,4 @@ captured output. Calls `out.stopActive()` in `finally` to clean up leaked spinne
 - `mergedSchema` field on `RunOptions` is `@internal` — used by CLI dispatch layer only
 - `CaptureOutputChannel` (from output/) wired here for output + activity capture
 - `formatRootHelp()` (in `cli/root-help.ts`) re-exported as `@internal` for CLI-level help rendering
-- Direct imports: `schema/command.js`, `schema/flag.js`, `schema/arg.js` (not through barrel)
+- Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)

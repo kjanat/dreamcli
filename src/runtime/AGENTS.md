@@ -12,10 +12,10 @@ adapter factories, `ExitError`, detection. `createTestAdapter`/`TestAdapterOptio
 | File                 | Status     | Lines | Purpose                                                                |
 | -------------------- | ---------- | ----: | ---------------------------------------------------------------------- |
 | `adapter.ts`         | **Active** |   120 | `RuntimeAdapter` interface — process/env/IO abstraction                |
-| `auto.ts`            | **Active** |    35 | `createAdapter()` — auto-detecting adapter factory                     |
+| `auto.ts`            | **Active** |    64 | `createAdapter()` — auto-detecting adapter factory                     |
 | `node.ts`            | **Active** |   230 | `createNodeAdapter()` — Node.js implementation                         |
 | `bun.ts`             | **Active** |    20 | `createBunAdapter()` — delegates to Node adapter                       |
-| `deno.ts`            | **Active** |   300 | `createDenoAdapter()` — Deno namespace implementation                  |
+| `deno.ts`            | **Active** |   318 | `createDenoAdapter()` — Deno namespace implementation                  |
 | `detect.ts`          | **Active** |    90 | `detectRuntime()` — Bun/Deno/Node feature detection                    |
 | `node-builtins.d.ts` | Types      |    45 | `@internal` — ambient decls for `node:readline`, `node:fs/promises`    |
 | `deno-builtins.d.ts` | Types      |    30 | `@internal` — ambient decls for TextEncoder/TextDecoder/ReadableStream |

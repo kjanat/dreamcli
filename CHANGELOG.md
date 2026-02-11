@@ -7,6 +7,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-11
+
+### Added
+
+#### Deno Adapter
+
+- **`createDenoAdapter(ns?)`** — full `RuntimeAdapter` implementation for Deno. Reads argv from
+  `Deno.args` (prepends synthetic `['deno', 'run']` for parity), env from `Deno.env.toObject()`, cwd
+  from `Deno.cwd()`, stdout/stderr via `TextEncoder` → `Deno.stdout.write`/`Deno.stderr.write`,
+  stdin via `Deno.stdin.readable` stream with line-buffered reader, TTY detection via
+  `isTerminal()`, `readFile` via `Deno.readTextFile`, and homedir/configDir from env vars.
+- **Permission-safe** — `PermissionDenied` errors gracefully degrade: env falls back to `{}`, cwd to
+  `/`, readFile to `null`. Non-permission errors propagate.
+- **`deno-builtins.d.ts`** — ambient type declarations for `TextEncoder`, `TextDecoder`, and
+  `ReadableStream` (needed because `lib: ["ES2022"]` excludes web platform APIs).
+- **`createAdapter()` auto-detection** now handles Deno runtime via `globalThis.Deno` feature
+  probing.
+- Re-exported `createDenoAdapter` and `DenoNamespace` from `dreamcli/runtime` subpath.
+
+#### Cross-Runtime CI
+
+- **GitHub Actions CI workflow** (`.github/workflows/ci.yml`) — lint+typecheck (Bun), test matrix
+  (Node LTS + Bun stable), Deno smoke test, build with publint+attw.
+- **Deno smoke test** (`scripts/deno-smoke-test.ts`) — runs on real Deno runtime after build,
+  exercising `createDenoAdapter()` against actual Deno APIs.
+
+#### JSR Publishing
+
+- **`deno.json`** with JSR package config (`@dreamcli/dreamcli`), three subpath exports, publish
+  include/exclude rules.
+- **GitHub Actions publish workflow** (`.github/workflows/publish-jsr.yml`) — publishes to JSR on
+  GitHub release with OIDC provenance.
+
+### Changed
+
+- **`.ts` import extensions** — all import specifiers switched from `.js` to `.ts` via
+  `allowImportingTsExtensions`. tsconfig updated: `noEmit: true` +
+  `allowImportingTsExtensions: true` replace `declaration`/`declarationMap`/`sourceMap`/`outDir`
+  (all handled by tsdown). Removes the need for Deno's `unstable: ["sloppy-imports"]`.
+- `detectRuntime()` updated with Deno detection via `globalThis.Deno?.version?.deno`.
+- `createAdapter()` switch now covers `'deno'` case alongside `'node'` and `'bun'`.
+- Completion generator: `typeof` check on `globalThis` narrowed to avoid Deno type errors.
+- `runtime/deno.ts` expanded from empty stub (~5 lines) to full implementation (~318 lines).
+- Test count: 1695 tests across 47 test files (up from 1658 in v0.8.0).
+
 ## [0.8.0] - 2026-02-11
 
 ### Breaking
@@ -430,7 +475,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/kjanat/dreamcli/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kjanat/dreamcli/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kjanat/dreamcli/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kjanat/dreamcli/compare/v0.5.0...v0.6.0

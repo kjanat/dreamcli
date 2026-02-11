@@ -53,8 +53,8 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
 - `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`
 - `uniqueCommands()` deduplicates via `Set` on command name — `@internal`
 - `extractConfigFlag()` handles both `--config path` and `--config=path` forms
-- Direct imports: `schema/command.js`, `schema/flag.js`, `schema/arg.js` (not through barrel)
-- Cross-layer imports: `runtime/adapter.js`, `runtime/auto.js` (not through runtime barrel)
+- Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)
+- Cross-layer imports: `runtime/adapter.ts`, `runtime/auto.ts` (not through runtime barrel)
 
 ## TEST FILES (10)
 
