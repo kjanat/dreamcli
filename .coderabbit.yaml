@@ -11,9 +11,9 @@ reviews:
   high_level_summary_instructions: >-
     Some reasonable pr description, what might be expected in open-source
     projects managed by blue-haired furries.
-  high_level_summary_placeholder: '@gen'
+  high_level_summary_placeholder: "@gen"
   high_level_summary_in_walkthrough: false
-  auto_title_placeholder: '@gen'
+  auto_title_placeholder: "@gen"
   auto_title_instructions: >-
     Some reasonable title, expected in open-source projects managed by
     blue-haired furries.
@@ -42,7 +42,7 @@ reviews:
   disable_cache: false
   auto_review:
     enabled: true
-    description_keyword: ''
+    description_keyword: ""
     auto_incremental_review: true
     auto_pause_after_reviewed_commits: 5
     ignore_title_keywords:
@@ -66,7 +66,7 @@ reviews:
       threshold: 80
     title:
       mode: warning
-      requirements: ''
+      requirements: ""
     description:
       mode: warning
     issue_assessment:
@@ -192,8 +192,8 @@ knowledge_base:
     enabled: true
     filePatterns:
       - .rules
-      - '**/AGENTS.md'
-      - '**/CLAUDE.md'
+      - "**/AGENTS.md"
+      - "**/CLAUDE.md"
       - .github/instructions/*.instructions.md
       - .github/copilot-instructions.md
   learnings:
