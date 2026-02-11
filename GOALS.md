@@ -365,7 +365,6 @@ Adapters:
 dreamcli/
   core/
     schema/        # command/flag/arg builders
-    infer/         # TS inference types
     parse/         # argv tokenization + parsing
     resolve/       # CLI/env/config/prompt/default pipeline
     help/          # help text generator

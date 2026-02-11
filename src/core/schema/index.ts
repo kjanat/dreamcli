@@ -5,6 +5,15 @@
  */
 
 export type {
+	ActivityEvent,
+	Fallback,
+	ProgressHandle,
+	ProgressOptions,
+	SpinnerHandle,
+	SpinnerOptions,
+	TableColumn,
+} from './activity.js';
+export type {
 	ArgConfig,
 	ArgFactory,
 	ArgKind,
@@ -32,7 +41,6 @@ export type {
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
-	TableColumn,
 } from './command.js';
 export { CommandBuilder, command, group } from './command.js';
 export type {

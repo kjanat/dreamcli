@@ -7,6 +7,111 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-11
+
+### Breaking
+
+- **Subpath exports** — single `"."` entry split into `"."`, `"./testkit"`, `"./runtime"`. Test
+  utilities (`runCommand`, `createCaptureOutput`, `createTestPrompter`, `createTestAdapter`,
+  `PROMPT_CANCEL`) moved to `dreamcli/testkit`. Runtime adapters (`createAdapter`,
+  `createNodeAdapter`, `createBunAdapter`, `detectRuntime`, `ExitError`, `RUNTIMES`,
+  `RuntimeAdapter`) moved to `dreamcli/runtime`. `createTestAdapter`/`TestAdapterOptions` exported
+  only from `dreamcli/testkit`.
+
+### Added
+
+#### Spinner & Progress Bar
+
+- **`out.spinner(text, options?)`** creates a spinner handle for indeterminate progress feedback.
+  Returns a `SpinnerHandle` with `update(text)`, `succeed(text?)`, `fail(text?)`, `stop()`, and
+  `wrap(promise, options?)` for auto-succeed/fail on promise settlement.
+- **`out.progress(options)`** creates a progress bar handle. Pass `total` for determinate mode
+  (percentage bar); omit for indeterminate (pulsing animation). Returns a `ProgressHandle` with
+  `increment(n?)`, `update(value)`, `done(text?)`, and `fail(text?)`.
+- **Four rendering modes** with automatic dispatch:
+  - **TTY** — animated braille spinner (80ms frames) and bar rendering with ANSI cursor control.
+    Hides cursor during animation, restores on terminal methods.
+  - **Static** (`fallback: 'static'`) — plain text at lifecycle boundaries (start, succeed, fail).
+    No ANSI codes. For CI and piped output.
+  - **Noop** (`fallback: 'silent'`, default) — all methods are no-ops. Silent in non-TTY.
+  - **JSON mode** — always noop (structured output only).
+- **Active handle tracking** — at most one spinner or progress may be active at a time. Creating a
+  new one implicitly stops the previous to avoid garbled terminal output.
+- **`ActivityEvent` discriminated union** — 10-variant DU capturing spinner and progress lifecycle
+  events (`spinner:start`, `spinner:update`, `spinner:succeed`, `spinner:fail`, `spinner:stop`,
+  `progress:start`, `progress:increment`, `progress:update`, `progress:done`, `progress:fail`).
+- **Testkit capture handles** — `CaptureOutputChannel` subclass overrides `spinner()` and
+  `progress()` to record `ActivityEvent[]` for assertion. `CapturedOutput.activity` array added.
+- **New public types** exported from barrel: `ActivityEvent`, `Fallback`, `SpinnerHandle`,
+  `SpinnerOptions`, `ProgressHandle`, `ProgressOptions`.
+- **`out.stopActive()`** public method on `Out` to clean up active spinner/progress timers. Prevents
+  process hangs when a handler throws before reaching a terminal method (`stop`, `succeed`, `fail`,
+  `done`). `runCommand()` calls it automatically in a `finally` block; direct `createOutput()` users
+  call it themselves.
+- **`progress:increment` activity event** — 10th `ActivityEvent` variant
+  `{ type: 'progress:increment', delta }`. `increment()` now emits this instead of reusing
+  `progress:update`, making capture events unambiguous for testing.
+
+### Changed
+
+- `Out` interface extended with `spinner()` and `progress()` methods.
+- `CapturedOutput` extended with `activity: ActivityEvent[]` field.
+- `createCaptureOutput` now returns a `CaptureOutputChannel` that records activity events separately
+  from stdout/stderr.
+- `FlagParseFn<T>` widened from `(raw: string) => T` to `(raw: unknown) => T`. Config files carry
+  structured JSON data — `parseFn` now receives the raw value directly and is responsible for
+  narrowing. CLI/env still pass strings; config passes the JSON value as-is.
+- `Out` interface extended with `stopActive()` method for explicit timer cleanup.
+- `ActivityEvent` union widened from 9 to 10 variants (added `progress:increment`).
+- `OutputChannel` refactored: activity handle implementations extracted to `activity.ts` (~581
+  lines), `WriteFn` type and `writeLine` helper extracted to `writer.ts` (~30 lines). `index.ts`
+  reduced from 1156 to 589 lines. No public API changes.
+- All activity handle output (static and TTY) now routes to stderr. Previously static mode used a
+  `StaticWriters` pair routing some output to stdout; the dual-writer abstraction is removed.
+- `runCommand()` calls `out.stopActive()` in a `finally` block, ensuring timer cleanup on handler
+  exceptions.
+- **Resolve coercion unified** — three near-identical functions (`coerceEnvValue` ~105 lines,
+  `coerceConfigValue` ~120 lines, `coercePromptValue` ~120 lines) replaced by single `coerceValue()`
+  using `CoerceSource` discriminated union (`'env' | 'config' | 'prompt'`). Error messages
+  parameterized via `sourceLabel()`/`sourceDetails()`/`coercionError()` helpers. `resolve/index.ts`
+  reduced from ~1115 to ~940 lines.
+- **Activity types extracted** — 7 activity/output types (`Fallback`, `SpinnerOptions`,
+  `SpinnerHandle`, `ProgressOptions`, `ProgressHandle`, `ActivityEvent`, `TableColumn`) moved from
+  `schema/command.ts` to `schema/activity.ts` (~150 lines). `command.ts` reduced from 898 to 784
+  lines.
+- **Root help extracted** — `formatRootHelp()` + `padEnd()` + `wrapText()` moved from `cli/index.ts`
+  to `cli/root-help.ts` (~133 lines). Uses structural `CLISchemaLike` interface to avoid circular
+  imports. `cli/index.ts` reduced from 901 to 793 lines.
+- **`infer/` stub deleted** — removed empty `src/core/infer/index.ts`.
+- **Source files in published package** — `"src"` added to `files` array in package.json.
+- **Package manager migrated** — pnpm → bun. `packageManager` set to `bun@1.3.9`.
+- **Build config** — `tsdown.config.ts` changed to multi-entry build with `minify: true`.
+- Test count: 1658 tests across 46 test files (up from 1518 in v0.7.0).
+
+### Fixed
+
+- `--config=<path>` equals form now correctly parsed and stripped from argv before dispatch.
+- Zsh completion: multi-alias flags use all short aliases in the exclusion group, not just the
+  first.
+- Bash completion: `escapeForSingleQuote()` sanitizes `compgen -W` words to prevent shell injection.
+- Win32 `resolveConfigDir`: strip trailing separator from homedir to avoid doubled backslashes on
+  drive roots (e.g. `C:\`).
+- Win32 `resolveConfigDir`: treat empty `APPDATA` as unset, falling back to homedir-based path.
+- Win32 `homedir`: add `HOMEDRIVE`+`HOMEPATH` fallback; never use `HOMEPATH` alone.
+- Levenshtein distance: replace 2D array with `Uint16Array` rolling buffer, drop defensive
+  `undefined` guards.
+- Completions command detection via schema lookup instead of raw `argv[0]` string match.
+- Child flag with `propagate: false` correctly masks ancestor's propagated flag of the same name.
+- Dispatch: exhaustiveness guard on `subResult` switch in nested command resolution.
+- Nested group help: `binName` built from full command path, not just root.
+- Config loader: lowercase extensions in `buildExtensionList`/`buildLoaderMap` for case-insensitive
+  matching.
+- Empty-string env var fallbacks in runtime adapter treated as unset.
+- `ProgressHandle.increment()` was emitting `progress:update` events indistinguishable from
+  `update()` calls. Now emits `progress:increment` with `delta` field.
+- **Prompt number coercion** — `coercePromptValue` was missing NaN guard for number flags; now
+  handled by unified `coerceValue()`.
+
 ## [0.7.0] - 2026-02-10
 
 ### Added
@@ -325,7 +430,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[unreleased]: https://github.com/kjanat/dreamcli/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/kjanat/dreamcli/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kjanat/dreamcli/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kjanat/dreamcli/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kjanat/dreamcli/compare/v0.4.0...v0.5.0

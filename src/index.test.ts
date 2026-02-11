@@ -7,11 +7,28 @@ describe('dreamcli', () => {
 	});
 });
 
+// === Subpath exports
+
+describe('dreamcli/testkit — module loads', () => {
+	it('module loads without error', async () => {
+		const mod = await import('./testkit.js');
+		expect(mod).toBeDefined();
+	});
+});
+
+// ---
+
+describe('dreamcli/runtime — module loads', () => {
+	it('module loads without error', async () => {
+		const mod = await import('./runtime.js');
+		expect(mod).toBeDefined();
+	});
+});
+
 describe('project structure', () => {
 	const coreModules = [
 		'./core/errors/index.js',
 		'./core/schema/index.js',
-		'./core/infer/index.js',
 		'./core/parse/index.js',
 		'./core/resolve/index.js',
 		'./core/help/index.js',

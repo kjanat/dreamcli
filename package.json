@@ -1,6 +1,6 @@
 {
 	"name": "dreamcli",
-	"version": "0.7.0",
+	"version": "0.8.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"license": "MIT",
 	"type": "module",
@@ -9,19 +9,28 @@
 			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
 		},
+		"./runtime": {
+			"import": "./dist/runtime.mjs",
+			"require": "./dist/runtime.cjs"
+		},
+		"./testkit": {
+			"import": "./dist/testkit.mjs",
+			"require": "./dist/testkit.cjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.mjs",
 	"types": "./dist/index.d.cts",
 	"files": [
-		"dist"
+		"dist",
+		"src"
 	],
 	"scripts": {
 		"build": "tsdown",
 		"check": "tsgo --noEmit",
 		"check:tsc": "tsc --noEmit",
-		"ci": "pnpm run check && pnpm run lint && pnpm run test && pnpm run build",
+		"ci": "bun check && bun lint && bun run test && bun run build",
 		"format": "dprint fmt",
 		"format:check": "dprint check",
 		"lint": "biome check .",
@@ -41,14 +50,8 @@
 		"typescript": "^5",
 		"vitest": "^4.0.18"
 	},
-	"packageManager": "pnpm@10.29.2",
+	"packageManager": "bun@1.3.9",
 	"engines": {
 		"node": ">=20"
-	},
-	"pnpm": {
-		"onlyBuiltDependencies": [
-			"dprint",
-			"esbuild"
-		]
 	}
 }

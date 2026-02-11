@@ -37,7 +37,13 @@ function erased(
 		schema,
 		subcommands,
 		async _execute() {
-			return { stdout: [] as string[], stderr: [] as string[], exitCode: 0, error: undefined };
+			return {
+				stdout: [] as string[],
+				stderr: [] as string[],
+				activity: [],
+				exitCode: 0,
+				error: undefined,
+			};
 		},
 	};
 }

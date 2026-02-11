@@ -1,11 +1,12 @@
 /**
  * DreamCLI — Schema-first, fully typed TypeScript CLI framework.
  *
+ * Test utilities (runCommand, createCaptureOutput, createTestPrompter, etc.)
+ * are available from `dreamcli/testkit`. Runtime adapters (createAdapter,
+ * RuntimeAdapter, etc.) are available from `dreamcli/runtime`.
+ *
  * @module dreamcli
  */
-
-// Public API will be re-exported here as modules are implemented.
-// Each module barrel (e.g. ./errors/index.ts) exports only the public surface.
 
 export type { CLIRunOptions, CLISchema, ConfigSettings } from './core/cli/index.js';
 export { CLIBuilder, cli } from './core/cli/index.js';
@@ -44,13 +45,8 @@ export {
 } from './core/errors/index.js';
 export type { HelpOptions } from './core/help/index.js';
 export { formatHelp } from './core/help/index.js';
-export type {
-	CapturedOutput,
-	OutputOptions,
-	Verbosity,
-	WriteFn,
-} from './core/output/index.js';
-export { createCaptureOutput, createOutput } from './core/output/index.js';
+export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.js';
+export { createOutput } from './core/output/index.js';
 export type { ParseResult, Token } from './core/parse/index.js';
 export { parse, tokenize } from './core/parse/index.js';
 export type {
@@ -59,20 +55,14 @@ export type {
 	ResolvedMultiselectPromptConfig,
 	ResolvedPromptConfig,
 	ResolvedSelectPromptConfig,
-	TestAnswer,
-	TestPrompterOptions,
 } from './core/prompt/index.js';
-export {
-	createTerminalPrompter,
-	createTestPrompter,
-	PROMPT_CANCEL,
-	resolvePromptConfig,
-} from './core/prompt/index.js';
+export { createTerminalPrompter, resolvePromptConfig } from './core/prompt/index.js';
 export type { DeprecationWarning, ResolveOptions, ResolveResult } from './core/resolve/index.js';
 export { resolve } from './core/resolve/index.js';
 export type {
 	ActionHandler,
 	ActionParams,
+	ActivityEvent,
 	AnyCommandBuilder,
 	ArgConfig,
 	ArgFactory,
@@ -88,6 +78,7 @@ export type {
 	ErasedCommand,
 	ErasedInteractiveResolver,
 	ErasedMiddlewareHandler,
+	Fallback,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
@@ -107,6 +98,8 @@ export type {
 	MiddlewareParams,
 	MultiselectPromptConfig,
 	Out,
+	ProgressHandle,
+	ProgressOptions,
 	PromptConfig,
 	PromptConfigBase,
 	PromptKind,
@@ -115,6 +108,8 @@ export type {
 	ResolvedValue,
 	SelectChoice,
 	SelectPromptConfig,
+	SpinnerHandle,
+	SpinnerOptions,
 	TableColumn,
 	WithArgPresence,
 	WithPresence,
@@ -132,21 +127,3 @@ export {
 	group,
 	middleware,
 } from './core/schema/index.js';
-export type { RunOptions, RunResult } from './core/testkit/index.js';
-export { runCommand } from './core/testkit/index.js';
-export type {
-	GlobalForDetect,
-	NodeProcess,
-	Runtime,
-	RuntimeAdapter,
-	TestAdapterOptions,
-} from './runtime/index.js';
-export {
-	createAdapter,
-	createBunAdapter,
-	createNodeAdapter,
-	createTestAdapter,
-	detectRuntime,
-	ExitError,
-	RUNTIMES,
-} from './runtime/index.js';

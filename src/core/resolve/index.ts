@@ -15,6 +15,7 @@
  * @module dreamcli/core/resolve
  */
 
+import type { ValidationErrorCode } from '../errors/index.js';
 import { ValidationError } from '../errors/index.js';
 import type { ParseResult } from '../parse/index.js';
 import type { PromptEngine } from '../prompt/index.js';
@@ -241,7 +242,7 @@ async function resolveFlags(
 		if (schema.envVar !== undefined) {
 			const envValue = env[schema.envVar];
 			if (envValue !== undefined) {
-				const coerced = coerceEnvValue(name, schema.envVar, envValue, schema);
+				const coerced = coerceValue(name, { kind: 'env', envVar: schema.envVar }, envValue, schema);
 				if (coerced.ok) {
 					if (schema.deprecated !== undefined) {
 						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
@@ -258,7 +259,12 @@ async function resolveFlags(
 		if (schema.configPath !== undefined) {
 			const configValue = resolveConfigPath(config, schema.configPath);
 			if (configValue !== undefined) {
-				const coerced = coerceConfigValue(name, schema.configPath, configValue, schema);
+				const coerced = coerceValue(
+					name,
+					{ kind: 'config', configPath: schema.configPath },
+					configValue,
+					schema,
+				);
 				if (coerced.ok) {
 					if (schema.deprecated !== undefined) {
 						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
@@ -421,150 +427,7 @@ async function resolvePromptValueWithConfig(
 	}
 
 	// Coerce the prompt value to the flag's kind
-	return coercePromptValue(flagName, result.value, schema);
-}
-
-/**
- * Coerce a raw prompt answer to the flag's declared kind.
- *
- * Similar to env/config coercion but with prompt-specific error messages.
- * The prompt engine returns raw values (string for input, boolean for confirm,
- * string for select, string[] for multiselect) — coercion ensures they match
- * the flag's declared kind.
- *
- * @param flagName - Canonical flag name (for error messages)
- * @param raw - Raw value from the prompt engine
- * @param schema - Flag schema declaring the expected kind
- */
-function coercePromptValue(
-	flagName: string,
-	raw: unknown,
-	schema: FlagSchema,
-): PromptResolveResult {
-	switch (schema.kind) {
-		case 'string': {
-			if (typeof raw === 'string') return { ok: true, value: raw };
-			return { ok: true, value: String(raw) };
-		}
-
-		case 'number': {
-			if (typeof raw === 'number') return { ok: true, value: raw };
-			if (typeof raw === 'string') {
-				const n = Number(raw);
-				if (!Number.isNaN(n)) return { ok: true, value: n };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(`Invalid number value from prompt for flag --${flagName}`, {
-					code: 'TYPE_MISMATCH',
-					details: { flag: flagName, value: raw, expected: 'number', source: 'prompt' },
-					suggest: `Enter a valid number for --${flagName}`,
-				}),
-			};
-		}
-
-		case 'boolean': {
-			if (typeof raw === 'boolean') return { ok: true, value: raw };
-			if (typeof raw === 'string') {
-				const lower = raw.toLowerCase();
-				if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'y') {
-					return { ok: true, value: true };
-				}
-				if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'n' || lower === '') {
-					return { ok: true, value: false };
-				}
-			}
-			return {
-				ok: false,
-				error: new ValidationError(`Invalid boolean value from prompt for flag --${flagName}`, {
-					code: 'TYPE_MISMATCH',
-					details: { flag: flagName, value: raw, expected: 'boolean', source: 'prompt' },
-					suggest: `Answer yes or no for --${flagName}`,
-				}),
-			};
-		}
-
-		case 'enum': {
-			const allowed = schema.enumValues ?? [];
-			if (typeof raw === 'string' && allowed.includes(raw)) {
-				return { ok: true, value: raw };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid value '${String(raw)}' from prompt for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
-					{
-						code: 'INVALID_ENUM',
-						details: { flag: flagName, value: raw, allowed, source: 'prompt' },
-						suggest: `Select one of: ${allowed.join(', ')}`,
-					},
-				),
-			};
-		}
-
-		case 'custom': {
-			// Custom flags delegate to the parseFn. The prompt returns a raw value
-			// (typically a string from input prompt) — pass through parseFn.
-			if (schema.parseFn) {
-				try {
-					return { ok: true, value: schema.parseFn(raw) };
-				} catch (err) {
-					const message = err instanceof Error ? err.message : String(err);
-					return {
-						ok: false,
-						error: new ValidationError(
-							`Failed to parse prompt value for flag --${flagName}: ${message}`,
-							{
-								code: 'TYPE_MISMATCH',
-								details: { flag: flagName, value: raw, expected: 'custom', source: 'prompt' },
-								suggest: `Enter a valid value for --${flagName}`,
-							},
-						),
-					};
-				}
-			}
-			return { ok: true, value: raw };
-		}
-
-		case 'array': {
-			// Multiselect prompts return string[]; accept arrays directly
-			if (Array.isArray(raw)) {
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const element of raw) {
-						const result = coercePromptValue(flagName, element, schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
-				return { ok: true, value: raw };
-			}
-			// Single value from input prompt — wrap in array
-			if (typeof raw === 'string') {
-				if (raw === '') return { ok: true, value: [] };
-				const parts = raw.split(',');
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const part of parts) {
-						const result = coercePromptValue(flagName, part.trim(), schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
-				return { ok: true, value: parts };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(`Invalid array value from prompt for flag --${flagName}`, {
-					code: 'TYPE_MISMATCH',
-					details: { flag: flagName, value: raw, expected: 'array', source: 'prompt' },
-					suggest: `Provide valid values for --${flagName}`,
-				}),
-			};
-		}
-	}
+	return coerceValue(flagName, { kind: 'prompt' }, result.value, schema);
 }
 
 // ---------------------------------------------------------------------------
@@ -607,112 +470,249 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 }
 
 // ---------------------------------------------------------------------------
-// Env value coercion
+// Unified value coercion
 // ---------------------------------------------------------------------------
 
 /**
- * Result of attempting to coerce an env variable string to a flag's kind.
+ * Describes the source of a raw value being coerced.
  *
- * Discriminated union: `ok: true` carries the coerced value,
- * `ok: false` carries a `ValidationError` describing the mismatch.
+ * Used to parameterize error messages, source-specific details, and
+ * minor behavioral differences (prompt accepts 'y'/'n', trims array
+ * elements) in the unified {@link coerceValue} function.
  */
-type CoerceEnvResult =
+type CoerceSource =
+	| { readonly kind: 'env'; readonly envVar: string }
+	| { readonly kind: 'config'; readonly configPath: string }
+	| { readonly kind: 'prompt' };
+
+/**
+ * Result of attempting to coerce a raw value to a flag's declared kind.
+ *
+ * Two-state discriminated union: `ok: true` carries the coerced value,
+ * `ok: false` carries a `ValidationError` describing the mismatch.
+ *
+ * The prompt caller wraps this in a three-state result at its own call
+ * site (adding the `error: undefined` "cancelled" case).
+ */
+type CoerceResult =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError };
 
+/** Format a source label for error messages (e.g. "from env MY_VAR", "from config deploy.region"). */
+function sourceLabel(source: CoerceSource): string {
+	switch (source.kind) {
+		case 'env':
+			return `from env ${source.envVar}`;
+		case 'config':
+			return `from config ${source.configPath}`;
+		case 'prompt':
+			return 'from prompt';
+	}
+}
+
+/** Build source-specific detail keys for error objects. */
+function sourceDetails(source: CoerceSource): Record<string, unknown> {
+	switch (source.kind) {
+		case 'env':
+			return { envVar: source.envVar };
+		case 'config':
+			return { configPath: source.configPath };
+		case 'prompt':
+			return { source: 'prompt' };
+	}
+}
+
+/** Build a coercion error with source-aware message and details. */
+function coercionError(
+	flagName: string,
+	source: CoerceSource,
+	code: ValidationErrorCode,
+	expected: string,
+	raw: unknown,
+	messageSuffix: string,
+	suggest: string,
+	extraDetails?: Record<string, unknown>,
+): CoerceResult {
+	return {
+		ok: false,
+		error: new ValidationError(`${messageSuffix} ${sourceLabel(source)} for flag --${flagName}`, {
+			code,
+			details: { flag: flagName, ...sourceDetails(source), value: raw, expected, ...extraDetails },
+			suggest,
+		}),
+	};
+}
+
 /**
- * Coerce a raw env variable string to the flag's declared kind.
+ * Coerce a raw value to the flag's declared kind.
  *
- * Returns a discriminated result rather than throwing, so the caller
- * can collect multiple errors before surfacing them.
+ * Unified coercion for all three resolution sources (env, config, prompt).
+ * Behavioral differences are parameterized by the {@link CoerceSource}:
+ *
+ * - **String leniency**: env input is always `string` (passthrough); config
+ *   accepts `number | boolean` via `String()`; prompt accepts anything.
+ * - **Boolean truthy/falsy**: prompt additionally accepts `'y'` / `'n'`.
+ * - **Number NaN guard**: unconditional on numeric input (fixes a latent
+ *   bug where prompt previously lacked this check).
+ * - **Array trim**: prompt trims whitespace after comma-split.
  *
  * @param flagName - Canonical flag name (for error messages)
- * @param envVar - Env variable name (for error messages)
- * @param raw - Raw env string value
+ * @param source - Where the raw value came from (env/config/prompt)
+ * @param raw - Raw value to coerce
  * @param schema - Flag schema declaring the expected kind
  */
-function coerceEnvValue(
+function coerceValue(
 	flagName: string,
-	envVar: string,
-	raw: string,
+	source: CoerceSource,
+	raw: unknown,
 	schema: FlagSchema,
-): CoerceEnvResult {
+): CoerceResult {
 	switch (schema.kind) {
-		case 'string':
-			return { ok: true, value: raw };
+		case 'string': {
+			if (typeof raw === 'string') return { ok: true, value: raw };
+			// Env input is always string — non-string paths only apply to config/prompt
+			if (source.kind === 'prompt') return { ok: true, value: String(raw) };
+			if (source.kind === 'config' && (typeof raw === 'number' || typeof raw === 'boolean')) {
+				return { ok: true, value: String(raw) };
+			}
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'string',
+				raw,
+				'Invalid string value',
+				source.kind === 'config'
+					? `Set ${source.configPath} to a string in your config`
+					: `Enter a valid string for --${flagName}`,
+			);
+		}
 
 		case 'number': {
-			const n = Number(raw);
-			if (Number.isNaN(n)) {
-				return {
-					ok: false,
-					error: new ValidationError(
-						`Invalid number value '${raw}' from env ${envVar} for flag --${flagName}`,
-						{
-							code: 'TYPE_MISMATCH',
-							details: { flag: flagName, envVar, value: raw, expected: 'number' },
-							suggest: `Set ${envVar} to a valid number`,
-						},
-					),
-				};
+			if (typeof raw === 'number') {
+				// Guard against NaN on numeric input (all sources)
+				if (Number.isNaN(raw)) {
+					return coercionError(
+						flagName,
+						source,
+						'TYPE_MISMATCH',
+						'number',
+						raw,
+						'Invalid number value NaN',
+						source.kind === 'env'
+							? `Set ${source.envVar} to a valid number`
+							: source.kind === 'config'
+								? `Set ${source.configPath} to a valid number in your config`
+								: `Enter a valid number for --${flagName}`,
+					);
+				}
+				return { ok: true, value: raw };
 			}
-			return { ok: true, value: n };
+			if (typeof raw === 'string') {
+				const n = Number(raw);
+				if (!Number.isNaN(n)) return { ok: true, value: n };
+			}
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'number',
+				raw,
+				typeof raw === 'string' ? `Invalid number value '${raw}'` : 'Invalid number value',
+				source.kind === 'env'
+					? `Set ${source.envVar} to a valid number`
+					: source.kind === 'config'
+						? `Set ${source.configPath} to a valid number in your config`
+						: `Enter a valid number for --${flagName}`,
+			);
 		}
 
 		case 'boolean': {
-			const lower = raw.toLowerCase();
-			if (lower === 'true' || lower === '1' || lower === 'yes') {
-				return { ok: true, value: true };
+			if (typeof raw === 'boolean') return { ok: true, value: raw };
+			if (typeof raw === 'string') {
+				const lower = raw.toLowerCase();
+				const truthy =
+					lower === 'true' ||
+					lower === '1' ||
+					lower === 'yes' ||
+					(source.kind === 'prompt' && lower === 'y');
+				if (truthy) return { ok: true, value: true };
+				const falsy =
+					lower === 'false' ||
+					lower === '0' ||
+					lower === 'no' ||
+					lower === '' ||
+					(source.kind === 'prompt' && lower === 'n');
+				if (falsy) return { ok: true, value: false };
 			}
-			if (lower === 'false' || lower === '0' || lower === 'no' || lower === '') {
-				return { ok: true, value: false };
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'boolean',
+				raw,
+				typeof raw === 'string' ? `Invalid boolean value '${raw}'` : 'Invalid boolean value',
+				source.kind === 'env'
+					? `Set ${source.envVar} to true/false, 1/0, or yes/no`
+					: source.kind === 'config'
+						? `Set ${source.configPath} to true or false in your config`
+						: `Answer yes or no for --${flagName}`,
+			);
+		}
+
+		case 'enum': {
+			const allowed = schema.enumValues ?? [];
+			if (typeof raw === 'string' && allowed.includes(raw)) {
+				return { ok: true, value: raw };
 			}
 			return {
 				ok: false,
 				error: new ValidationError(
-					`Invalid boolean value '${raw}' from env ${envVar} for flag --${flagName}`,
+					`Invalid value '${String(raw)}' ${sourceLabel(source)} for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
 					{
-						code: 'TYPE_MISMATCH',
-						details: { flag: flagName, envVar, value: raw, expected: 'boolean' },
-						suggest: `Set ${envVar} to true/false, 1/0, or yes/no`,
+						code: 'INVALID_ENUM',
+						details: { flag: flagName, ...sourceDetails(source), value: raw, allowed },
+						suggest:
+							source.kind === 'env'
+								? `Set ${source.envVar} to one of: ${allowed.join(', ')}`
+								: source.kind === 'config'
+									? `Set ${source.configPath} to one of: ${allowed.join(', ')}`
+									: `Select one of: ${allowed.join(', ')}`,
 					},
 				),
 			};
 		}
 
-		case 'enum': {
-			const allowed = schema.enumValues ?? [];
-			if (!allowed.includes(raw)) {
-				return {
-					ok: false,
-					error: new ValidationError(
-						`Invalid value '${raw}' from env ${envVar} for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
-						{
-							code: 'INVALID_ENUM',
-							details: { flag: flagName, envVar, value: raw, allowed },
-							suggest: `Set ${envVar} to one of: ${allowed.join(', ')}`,
-						},
-					),
-				};
-			}
-			return { ok: true, value: raw };
-		}
-
 		case 'custom': {
-			// Custom flags delegate to the parseFn. Env values are always strings.
 			if (schema.parseFn) {
 				try {
 					return { ok: true, value: schema.parseFn(raw) };
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);
+					const sourceRef =
+						source.kind === 'env'
+							? `env ${source.envVar}`
+							: source.kind === 'config'
+								? `config ${source.configPath}`
+								: 'prompt value';
 					return {
 						ok: false,
 						error: new ValidationError(
-							`Failed to parse env ${envVar} for flag --${flagName}: ${message}`,
+							`Failed to parse ${sourceRef} for flag --${flagName}: ${message}`,
 							{
 								code: 'TYPE_MISMATCH',
-								details: { flag: flagName, envVar, value: raw, expected: 'custom' },
-								suggest: `Set ${envVar} to a valid value for --${flagName}`,
+								details: {
+									flag: flagName,
+									...sourceDetails(source),
+									value: raw,
+									expected: 'custom',
+								},
+								suggest:
+									source.kind === 'env'
+										? `Set ${source.envVar} to a valid value for --${flagName}`
+										: source.kind === 'config'
+											? `Set ${source.configPath} to a valid value for --${flagName} in your config`
+											: `Enter a valid value for --${flagName}`,
 							},
 						),
 					};
@@ -722,23 +722,51 @@ function coerceEnvValue(
 		}
 
 		case 'array': {
-			// Env array values are comma-separated: "a,b,c" → ["a", "b", "c"]
-			// Empty string → empty array
-			if (raw === '') {
-				return { ok: true, value: [] };
-			}
-			const parts = raw.split(',');
-			if (schema.elementSchema) {
-				// Coerce each element via the element schema
-				const coerced: unknown[] = [];
-				for (const part of parts) {
-					const result = coerceEnvValue(flagName, envVar, part, schema.elementSchema);
-					if (!result.ok) return result;
-					coerced.push(result.value);
+			// Accept actual arrays (config/prompt may provide these)
+			if (Array.isArray(raw)) {
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const element of raw) {
+						const result = coerceValue(flagName, source, element, schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
 				}
-				return { ok: true, value: coerced };
+				return { ok: true, value: raw };
 			}
-			return { ok: true, value: parts };
+			// Comma-separated string splitting
+			if (typeof raw === 'string') {
+				if (raw === '') return { ok: true, value: [] };
+				const parts = raw.split(',');
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const part of parts) {
+						const element = source.kind === 'prompt' ? part.trim() : part;
+						const result = coerceValue(flagName, source, element, schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
+				}
+				return {
+					ok: true,
+					value: source.kind === 'prompt' ? parts.map((p) => p.trim()) : parts,
+				};
+			}
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'array',
+				raw,
+				'Invalid array value',
+				source.kind === 'env'
+					? `Set ${source.envVar} to comma-separated values`
+					: source.kind === 'config'
+						? `Set ${source.configPath} to an array in your config`
+						: `Provide valid values for --${flagName}`,
+			);
 		}
 	}
 }
@@ -770,210 +798,6 @@ function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: stri
 	}
 
 	return current;
-}
-
-// ---------------------------------------------------------------------------
-// Config value coercion
-// ---------------------------------------------------------------------------
-
-/**
- * Result of attempting to coerce a config value to a flag's kind.
- *
- * Same discriminated union as `CoerceEnvResult` — `ok: true` carries
- * the coerced value, `ok: false` carries a `ValidationError`.
- */
-type CoerceConfigResult =
-	| { readonly ok: true; readonly value: unknown }
-	| { readonly ok: false; readonly error: ValidationError };
-
-/**
- * Coerce a config value to the flag's declared kind.
- *
- * Unlike env coercion, config values may already be correctly typed
- * (e.g. a number in JSON). The coercion is lenient for matching types
- * and stricter for mismatches:
- *
- * - **string flag**: accepts strings; coerces numbers/booleans via `String()`
- * - **number flag**: accepts numbers; coerces numeric strings
- * - **boolean flag**: accepts booleans; coerces common string representations
- * - **enum flag**: accepts strings that match allowed values
- * - **array flag**: accepts arrays (coerces elements); coerces comma-separated strings
- *
- * @param flagName - Canonical flag name (for error messages)
- * @param configPath - Dotted config path (for error messages)
- * @param raw - Raw config value (may be any JSON type)
- * @param schema - Flag schema declaring the expected kind
- */
-function coerceConfigValue(
-	flagName: string,
-	configPath: string,
-	raw: unknown,
-	schema: FlagSchema,
-): CoerceConfigResult {
-	switch (schema.kind) {
-		case 'string': {
-			if (typeof raw === 'string') return { ok: true, value: raw };
-			if (typeof raw === 'number' || typeof raw === 'boolean') {
-				return { ok: true, value: String(raw) };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid string value from config ${configPath} for flag --${flagName}`,
-					{
-						code: 'TYPE_MISMATCH',
-						details: { flag: flagName, configPath, value: raw, expected: 'string' },
-						suggest: `Set ${configPath} to a string in your config`,
-					},
-				),
-			};
-		}
-
-		case 'number': {
-			if (typeof raw === 'number') {
-				if (Number.isNaN(raw)) {
-					return {
-						ok: false,
-						error: new ValidationError(
-							`Invalid number value NaN from config ${configPath} for flag --${flagName}`,
-							{
-								code: 'TYPE_MISMATCH',
-								details: { flag: flagName, configPath, value: raw, expected: 'number' },
-								suggest: `Set ${configPath} to a valid number in your config`,
-							},
-						),
-					};
-				}
-				return { ok: true, value: raw };
-			}
-			if (typeof raw === 'string') {
-				const n = Number(raw);
-				if (!Number.isNaN(n)) return { ok: true, value: n };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid number value from config ${configPath} for flag --${flagName}`,
-					{
-						code: 'TYPE_MISMATCH',
-						details: { flag: flagName, configPath, value: raw, expected: 'number' },
-						suggest: `Set ${configPath} to a valid number in your config`,
-					},
-				),
-			};
-		}
-
-		case 'boolean': {
-			if (typeof raw === 'boolean') return { ok: true, value: raw };
-			if (typeof raw === 'string') {
-				const lower = raw.toLowerCase();
-				if (lower === 'true' || lower === '1' || lower === 'yes') {
-					return { ok: true, value: true };
-				}
-				if (lower === 'false' || lower === '0' || lower === 'no' || lower === '') {
-					return { ok: true, value: false };
-				}
-			}
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid boolean value from config ${configPath} for flag --${flagName}`,
-					{
-						code: 'TYPE_MISMATCH',
-						details: { flag: flagName, configPath, value: raw, expected: 'boolean' },
-						suggest: `Set ${configPath} to true or false in your config`,
-					},
-				),
-			};
-		}
-
-		case 'enum': {
-			const allowed = schema.enumValues ?? [];
-			if (typeof raw === 'string' && allowed.includes(raw)) {
-				return { ok: true, value: raw };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid value '${String(raw)}' from config ${configPath} for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
-					{
-						code: 'INVALID_ENUM',
-						details: { flag: flagName, configPath, value: raw, allowed },
-						suggest: `Set ${configPath} to one of: ${allowed.join(', ')}`,
-					},
-				),
-			};
-		}
-
-		case 'custom': {
-			// Custom flags pass the raw config value directly to parseFn.
-			// Config values may be strings, numbers, booleans, arrays, or objects —
-			// parseFn receives `unknown` and is responsible for narrowing.
-			// @see flag.custom() JSDoc in core/schema/flag.ts for the public contract.
-			if (schema.parseFn) {
-				try {
-					return { ok: true, value: schema.parseFn(raw) };
-				} catch (err) {
-					const message = err instanceof Error ? err.message : String(err);
-					return {
-						ok: false,
-						error: new ValidationError(
-							`Failed to parse config ${configPath} for flag --${flagName}: ${message}`,
-							{
-								code: 'TYPE_MISMATCH',
-								details: { flag: flagName, configPath, value: raw, expected: 'custom' },
-								suggest: `Set ${configPath} to a valid value for --${flagName} in your config`,
-							},
-						),
-					};
-				}
-			}
-			// No parseFn — pass raw value through as-is.
-			return { ok: true, value: raw };
-		}
-
-		case 'array': {
-			// Config arrays may be actual arrays (JSON) or comma-separated strings
-			if (Array.isArray(raw)) {
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const element of raw) {
-						const result = coerceConfigValue(flagName, configPath, element, schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
-				return { ok: true, value: raw };
-			}
-			if (typeof raw === 'string') {
-				// Comma-separated string fallback (same as env)
-				if (raw === '') return { ok: true, value: [] };
-				const parts = raw.split(',');
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const part of parts) {
-						const result = coerceConfigValue(flagName, configPath, part, schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
-				return { ok: true, value: parts };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid array value from config ${configPath} for flag --${flagName}`,
-					{
-						code: 'TYPE_MISMATCH',
-						details: { flag: flagName, configPath, value: raw, expected: 'array' },
-						suggest: `Set ${configPath} to an array in your config`,
-					},
-				),
-			};
-		}
-	}
 }
 
 // ---------------------------------------------------------------------------

@@ -11,20 +11,27 @@
  * @module dreamcli/core/output
  */
 
-import type { Out, TableColumn } from '../schema/command.js';
-
-// ---------------------------------------------------------------------------
-// Writer abstraction — the minimal I/O seam for testability
-// ---------------------------------------------------------------------------
-
-/**
- * A function that writes a string somewhere.
- *
- * This is the only I/O primitive the output channel depends on.
- * In production it wraps `process.stdout.write` / `process.stderr.write`;
- * in tests it can be a simple string accumulator.
- */
-type WriteFn = (data: string) => void;
+import type {
+	ActivityEvent,
+	ProgressHandle,
+	ProgressOptions,
+	SpinnerHandle,
+	SpinnerOptions,
+	TableColumn,
+} from '../schema/activity.js';
+import type { Out } from '../schema/command.js';
+import {
+	CaptureProgressHandle,
+	CaptureSpinnerHandle,
+	noopProgressHandle,
+	noopSpinnerHandle,
+	StaticProgressHandle,
+	StaticSpinnerHandle,
+	TTYProgressHandle,
+	TTYSpinnerHandle,
+} from './activity.js';
+import type { WriteFn } from './writer.js';
+import { writeLine } from './writer.js';
 
 // ---------------------------------------------------------------------------
 // Verbosity
@@ -216,15 +223,153 @@ class OutputChannel implements Out {
 			this.log(text);
 		}
 	}
+
+	// ----- Active handle tracking -----
+	//
+	// At most one spinner or progress handle may be active at a time. When a
+	// new one is created while another is running, the previous one is
+	// implicitly stopped to avoid garbled terminal output.
+
+	/**
+	 * Cleanup callback for the currently active spinner/progress handle.
+	 *
+	 * Set to `undefined` when no handle is active. The callback calls the
+	 * appropriate terminal method (`.stop()` for spinners, `.done()` for
+	 * progress) on the previous handle.
+	 *
+	 * @internal
+	 */
+	private activeCleanup: (() => void) | undefined;
+
+	/**
+	 * Stop the currently active spinner/progress handle (if any).
+	 *
+	 * Called internally before creating a new handle to prevent overlap,
+	 * and externally after handler execution to clean up leaked timers.
+	 * Idempotent (safe to call when no handle is active).
+	 */
+	stopActive(): void {
+		if (this.activeCleanup !== undefined) {
+			this.activeCleanup();
+			this.activeCleanup = undefined;
+		}
+	}
+
+	/**
+	 * Create a spinner handle.
+	 *
+	 * Mode dispatch:
+	 * - `jsonMode` → noop (structured output only, spinners suppressed)
+	 * - `isTTY` → animated TTY spinner (braille frames, ANSI overwrite)
+	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
+	 * - `!isTTY && fallback: 'silent'` (default) → noop
+	 *
+	 * All activity output (transient frames, terminal messages) routes to
+	 * stderr so stdout remains clean for structured data and piping.
+	 *
+	 * If another spinner or progress handle is active, it is implicitly
+	 * stopped before the new one starts.
+	 */
+	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
+		const fallback = options?.fallback ?? 'silent';
+
+		// JSON mode: always suppress activity indicators.
+		if (this.options.jsonMode) {
+			return noopSpinnerHandle;
+		}
+
+		// Non-TTY, silent fallback: noop.
+		if (!this.options.isTTY && fallback === 'silent') {
+			return noopSpinnerHandle;
+		}
+
+		// Stop any active handle before creating a new one.
+		this.stopActive();
+
+		if (this.options.isTTY) {
+			const handle = new TTYSpinnerHandle(text, this.options.stderr);
+			this.activeCleanup = () => handle.stop();
+			return handle;
+		}
+
+		// Non-TTY, static fallback.
+		const handle = new StaticSpinnerHandle(text, this.options.stderr);
+		this.activeCleanup = () => handle.stop();
+		return handle;
+	}
+
+	/**
+	 * Create a progress handle.
+	 *
+	 * Mode dispatch:
+	 * - `jsonMode` → noop (structured output only, progress suppressed)
+	 * - `isTTY` → animated TTY progress bar (determinate or indeterminate)
+	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
+	 * - `!isTTY && fallback: 'silent'` (default) → noop
+	 *
+	 * All activity output (transient frames, terminal messages) routes to
+	 * stderr so stdout remains clean for structured data and piping.
+	 *
+	 * If another spinner or progress handle is active, it is implicitly
+	 * stopped before the new one starts.
+	 */
+	progress(opts: ProgressOptions): ProgressHandle {
+		const fallback = opts.fallback ?? 'silent';
+
+		// JSON mode: always suppress activity indicators.
+		if (this.options.jsonMode) {
+			return noopProgressHandle;
+		}
+
+		// Non-TTY, silent fallback: noop.
+		if (!this.options.isTTY && fallback === 'silent') {
+			return noopProgressHandle;
+		}
+
+		// Stop any active handle before creating a new one.
+		this.stopActive();
+
+		if (this.options.isTTY) {
+			const handle = new TTYProgressHandle(opts, this.options.stderr);
+			this.activeCleanup = () => handle.done();
+			return handle;
+		}
+
+		// Non-TTY, static fallback.
+		const handle = new StaticProgressHandle(opts.label, this.options.stderr);
+		this.activeCleanup = () => handle.done();
+		return handle;
+	}
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// CaptureOutputChannel — testkit subclass that records activity events
 // ---------------------------------------------------------------------------
 
-/** Write a message followed by a newline. */
-function writeLine(write: WriteFn, message: string): void {
-	write(`${message}\n`);
+/**
+ * Output channel variant that returns capture handles for spinner/progress.
+ *
+ * Extends `OutputChannel` to override `spinner()` and `progress()`, routing
+ * activity events into a shared `ActivityEvent[]` for testkit assertion.
+ * Text output (log/info/warn/error) is handled by the parent class.
+ *
+ * @internal
+ */
+class CaptureOutputChannel extends OutputChannel {
+	constructor(
+		options: ResolvedOutputOptions,
+		private readonly activity: ActivityEvent[],
+	) {
+		super(options);
+	}
+
+	override spinner(text: string, _options?: SpinnerOptions): SpinnerHandle {
+		return new CaptureSpinnerHandle(text, this.activity);
+	}
+
+	override progress(opts: ProgressOptions): ProgressHandle {
+		return new CaptureProgressHandle(opts, this.activity);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +507,14 @@ interface CapturedOutput {
 	 * In JSON mode: `warn`, `error`, `log`, and `info` output.
 	 */
 	readonly stderr: string[];
+	/**
+	 * Activity events from spinner and progress handles.
+	 *
+	 * Captured separately from stdout/stderr to allow targeted assertions
+	 * on activity lifecycle without parsing text output. Events are
+	 * recorded in chronological order.
+	 */
+	readonly activity: ActivityEvent[];
 }
 
 /**
@@ -385,12 +538,13 @@ interface CapturedOutput {
 function createCaptureOutput(
 	options?: Omit<OutputOptions, 'stdout' | 'stderr'>,
 ): [out: Out, captured: CapturedOutput] {
-	const captured: CapturedOutput = { stdout: [], stderr: [] };
-	const out = createOutput({
+	const captured: CapturedOutput = { stdout: [], stderr: [], activity: [] };
+	const resolved = resolveOptions({
 		...options,
 		stdout: (s) => captured.stdout.push(s),
 		stderr: (s) => captured.stderr.push(s),
 	});
+	const out = new CaptureOutputChannel(resolved, captured.activity);
 	return [out, captured];
 }
 
@@ -398,5 +552,19 @@ function createCaptureOutput(
 // Exports
 // ---------------------------------------------------------------------------
 
-export { createCaptureOutput, createOutput, OutputChannel };
+export {
+	CaptureOutputChannel,
+	CaptureProgressHandle,
+	CaptureSpinnerHandle,
+	createCaptureOutput,
+	createOutput,
+	noopProgressHandle,
+	noopSpinnerHandle,
+	OutputChannel,
+	StaticProgressHandle,
+	StaticSpinnerHandle,
+	TTYProgressHandle,
+	TTYSpinnerHandle,
+	writeLine,
+};
 export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };

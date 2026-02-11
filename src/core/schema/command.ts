@@ -10,29 +10,17 @@
  */
 
 import type { RunOptions, RunResult } from '../testkit/index.js';
+import type {
+	ProgressHandle,
+	ProgressOptions,
+	SpinnerHandle,
+	SpinnerOptions,
+	TableColumn,
+} from './activity.js';
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.js';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.js';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.js';
 import type { PromptConfig } from './prompt.js';
-
-// ---------------------------------------------------------------------------
-// Table column descriptor
-// ---------------------------------------------------------------------------
-
-/**
- * Describes a single column in table output.
- *
- * @typeParam T - The row object type (inferred from the rows array).
- */
-interface TableColumn<T extends Record<string, unknown>> {
-	/** Property key on the row objects to display in this column. */
-	readonly key: keyof T & string;
-	/**
-	 * Header label for the column.
-	 * Defaults to the `key` value when omitted.
-	 */
-	readonly header?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Context type utilities
@@ -201,6 +189,55 @@ interface Out {
 		rows: readonly T[],
 		columns?: readonly TableColumn<T>[],
 	): void;
+
+	/**
+	 * Create a spinner for indeterminate progress feedback.
+	 *
+	 * Returns a handle for lifecycle control. In non-TTY/jsonMode,
+	 * returns a no-op handle (or static fallback if configured).
+	 *
+	 * @param text    - Initial spinner text.
+	 * @param options - Fallback strategy for non-TTY environments.
+	 */
+	spinner(text: string, options?: SpinnerOptions): SpinnerHandle;
+
+	/**
+	 * Create a progress bar for measured work.
+	 *
+	 * Returns a handle for updating progress. Pass `total` for
+	 * determinate mode (percentage bar); omit for indeterminate (pulsing).
+	 *
+	 * @param options - Progress configuration (total, label, fallback).
+	 */
+	progress(options: ProgressOptions): ProgressHandle;
+
+	/**
+	 * Stop the currently active spinner or progress handle, if any.
+	 *
+	 * TTY spinner and progress handles start `setInterval` timers that
+	 * prevent the process from exiting until a terminal method (`stop`,
+	 * `succeed`, `fail`, `done`) is called. If a handler throws before
+	 * reaching that call, the timer leaks and the process hangs.
+	 *
+	 * Call `stopActive()` in a `finally` block after handler execution
+	 * to guarantee cleanup. It is idempotent — safe to call when no
+	 * handle is active, or when the handle was already stopped.
+	 *
+	 * The framework calls this automatically in `runCommand()` and
+	 * `cli.run()`. Direct users of `createOutput()` should call it
+	 * themselves after the handler returns or throws.
+	 *
+	 * @example
+	 * ```ts
+	 * const out = createOutput({ isTTY: true });
+	 * try {
+	 *   await handler({ out });
+	 * } finally {
+	 *   out.stopActive();
+	 * }
+	 * ```
+	 */
+	stopActive(): void;
 }
 
 /**
@@ -742,5 +779,4 @@ export type {
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
-	TableColumn,
 };

@@ -284,6 +284,9 @@ describe('full command composition', () => {
 			error: vi.fn(),
 			json: vi.fn(),
 			table: vi.fn(),
+			spinner: vi.fn(),
+			progress: vi.fn(),
+			stopActive: vi.fn(),
 			jsonMode: false,
 			isTTY: false,
 		};

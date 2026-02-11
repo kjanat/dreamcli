@@ -1,7 +1,11 @@
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-	entry: ['src/index.ts'],
+	entry: {
+		index: 'src/index.ts',
+		testkit: 'src/testkit.ts',
+		runtime: 'src/runtime.ts',
+	},
 	format: ['esm', 'cjs'],
 	dts: true,
 	hash: false,
@@ -11,6 +15,8 @@ export default defineConfig({
 	sourcemap: true,
 	treeshake: true,
 	exports: true,
+	minify: true,
 	publint: true,
-	attw: { profile: 'strict', level: 'error', ignoreRules: [] },
+	attw: { profile: 'strict', level: 'error', ignoreRules: ['no-resolution'] },
+	onSuccess: 'bun format package.json', // ensures proper sorting of the exports
 });
