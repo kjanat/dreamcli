@@ -42,7 +42,12 @@ type Runtime = 'node' | 'bun' | 'deno' | 'unknown';
  * }
  * ```
  */
-const RUNTIMES = ['node', 'bun', 'deno', 'unknown'] as const satisfies readonly Runtime[];
+const RUNTIMES: readonly ['node', 'bun', 'deno', 'unknown'] = [
+	'node',
+	'bun',
+	'deno',
+	'unknown',
+] as const satisfies readonly Runtime[];
 
 // ---------------------------------------------------------------------------
 // Minimal global shapes — avoid importing @types/* for each runtime

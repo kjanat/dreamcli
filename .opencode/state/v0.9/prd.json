@@ -21,7 +21,7 @@
 			"title": "Set up JSR publishing",
 			"description": "Configure package for JSR (Deno-first registry). Dual publish: npm + JSR. Ensure type exports work on both registries.",
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		}
 	]
 }

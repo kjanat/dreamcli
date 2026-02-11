@@ -36,10 +36,12 @@ type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
  *
  * @see {@link Shell} for the union type matching these entries.
  */
-const SHELLS = Object.freeze(['bash', 'zsh', 'fish', 'powershell'] as const satisfies readonly [
-	Shell,
-	...Shell[],
-]);
+const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish', 'powershell']> = Object.freeze([
+	'bash',
+	'zsh',
+	'fish',
+	'powershell',
+] as const satisfies readonly [Shell, ...Shell[]]);
 
 // ---------------------------------------------------------------------------
 // CompletionOptions — generator configuration

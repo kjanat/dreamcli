@@ -45,3 +45,15 @@ Started: 2026-02-11
 - Verified locally: Deno smoke test passes on Deno 2.6.6, all 1695 vitest tests still pass
 - Files added: `.github/workflows/ci.yml`, `scripts/deno-smoke-test.ts`
 - **Learnings:** vitest doesn't run under Deno — Deno testing requires separate smoke test against built output. Concurrency group with `cancel-in-progress` prevents wasted CI minutes on force-pushes. Node test runs use `npx vitest run` (not `bun run test`) to ensure Node is the actual runtime.
+
+## Task - jsr-publishing
+- Created `deno.json` with JSR config: `@dreamcli/dreamcli@0.9.0`, three subpath exports, sloppy-imports for `.js` extension compat
+- Fixed 2 "slow type" errors for JSR fast-check: added explicit type annotations to `SHELLS` (completion/index.ts) and `RUNTIMES` (runtime/detect.ts)
+- `--no-check` flag needed: project's minimal `NodeProcess` interface conflicts with real `@types/node` under Deno's type checker
+- `nodeModulesDir: "auto"` needed for `@types/node` resolution during `deno publish`
+- Excluded `AGENTS.md` and test files from JSR publish
+- Created `.github/workflows/publish-jsr.yml` — triggered on release or manual dispatch, OIDC provenance via `id-token: write`
+- `deno publish --dry-run --no-check --allow-dirty` passes cleanly (zero errors)
+- Files added: `deno.json`, `.github/workflows/publish-jsr.yml`
+- Files modified: `src/core/completion/index.ts` (SHELLS annotation), `src/runtime/detect.ts` (RUNTIMES annotation)
+- **Learnings:** JSR "slow types" require explicit type annotations on exported `as const` values — the type inference shortcut doesn't work for JSR's fast-check. `unstable: ["sloppy-imports"]` is the pragmatic fix for `.js` extension imports in a NodeNext project. `--no-check` is safe when combined with a separate tsgo/tsc check in CI.

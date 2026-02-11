@@ -1,0 +1,21 @@
+{
+	"name": "@dreamcli/dreamcli",
+	"version": "0.9.0",
+	"exports": {
+		".": "./src/index.ts",
+		"./runtime": "./src/runtime.ts",
+		"./testkit": "./src/testkit.ts"
+	},
+	"publish": {
+		"include": ["src", "LICENSE", "README.md"],
+		"exclude": ["src/**/*.test.ts", "src/**/AGENTS.md"]
+	},
+	"nodeModulesDir": "auto",
+	"unstable": ["sloppy-imports"],
+	"compilerOptions": {
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"verbatimModuleSyntax": true
+	}
+}
