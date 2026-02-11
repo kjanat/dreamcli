@@ -1,6 +1,9 @@
 # output — OutputChannel, spinner/progress, TTY rendering
 
-Single file: `index.ts` (~1.2k lines). Heavy `@internal` usage (26 symbols).
+Three files: `writer.ts` (leaf, ~30 lines), `activity.ts` (handle classes, ~600 lines), `index.ts`
+(OutputChannel + factories, ~590 lines). Heavy `@internal` usage (26 symbols).
+
+Dependency graph (no cycles): `writer.ts` ← `activity.ts` ← `index.ts` → `writer.ts`.
 
 ## KEY TYPES
 
@@ -39,8 +42,8 @@ implicitly stops the previous.
 
 ## AMBIENT DECLARATIONS
 
-`setInterval`/`clearInterval` declared as ambient functions (not from `@types/node`) — zero-dep
-library targeting ES2022 without DOM or Node lib typings.
+`setInterval`/`clearInterval` declared as ambient functions in `activity.ts` (not from
+`@types/node`) — zero-dep library targeting ES2022 without DOM or Node lib typings.
 
 ## TEST FILES (4)
 
@@ -54,6 +57,8 @@ library targeting ES2022 without DOM or Node lib typings.
 ## GOTCHAS
 
 - Imports `schema/command.ts` directly for `Out` type — avoids circular dep through barrel
-- Terminal escape sequences (`HIDE_CURSOR`, `ERASE_LINE`, etc.) are `@internal` constants
+- `writer.ts` is a leaf: `WriteFn` type + `writeLine` helper. Shared by `index.ts` and `activity.ts`
+- Terminal escape sequences (`HIDE_CURSOR`, `ERASE_LINE`, etc.) are `@internal` constants in
+  `activity.ts`
 - `output-activity.test.ts` uses `vi.useFakeTimers()` — only test file that does
 - `out.table()` columns accept `width`, `align`, `format` — rendered as fixed-width in TTY
