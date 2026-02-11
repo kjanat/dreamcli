@@ -22,14 +22,9 @@ import type { PromptEngine, TestAnswer } from '../prompt/index.js';
 import { createTestPrompter } from '../prompt/index.js';
 import type { DeprecationWarning, ResolveOptions } from '../resolve/index.js';
 import { resolve } from '../resolve/index.js';
+import type { ActivityEvent } from '../schema/activity.js';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type {
-	ActionHandler,
-	ActivityEvent,
-	CommandBuilder,
-	CommandSchema,
-	Out,
-} from '../schema/command.js';
+import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.js';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,14 @@
 			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
 		},
+		"./runtime": {
+			"import": "./dist/runtime.mjs",
+			"require": "./dist/runtime.cjs"
+		},
+		"./testkit": {
+			"import": "./dist/testkit.mjs",
+			"require": "./dist/testkit.cjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.cjs",

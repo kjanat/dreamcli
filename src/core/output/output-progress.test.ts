@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { ActivityEvent } from '../schema/command.js';
+import type { ActivityEvent } from '../schema/activity.js';
 import type { WriteFn } from './index.js';
 import {
 	CaptureProgressHandle,

@@ -20,7 +20,7 @@ import type {
 	ProgressHandle,
 	ProgressOptions,
 	SpinnerHandle,
-} from '../schema/command.js';
+} from '../schema/activity.js';
 import type { WriteFn } from './writer.js';
 import { writeLine } from './writer.js';
 

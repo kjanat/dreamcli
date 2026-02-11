@@ -30,6 +30,7 @@ import type { RunOptions, RunResult } from '../testkit/index.js';
 import { runCommand } from '../testkit/index.js';
 import { dispatch, findClosestCommand } from './dispatch.js';
 import { collectPropagatedFlags } from './propagate.js';
+import { formatRootHelp } from './root-help.js';
 
 // ---------------------------------------------------------------------------
 // Type-erased command — erasure function (interface now in schema/command.ts)
@@ -208,114 +209,6 @@ interface CLIRunOptions {
 	 * `binName` defaults to the CLI program name.
 	 */
 	readonly help?: HelpOptions;
-}
-
-// ---------------------------------------------------------------------------
-// Root help formatter
-// ---------------------------------------------------------------------------
-
-/**
- * Generate root-level help text for the CLI program.
- *
- * Shows program name, version, description, usage line, available
- * commands (excluding hidden), and a footer hint.
- *
- * Separate from `formatHelp()` which renders per-command help —
- * different concerns, different format.
- *
- * @param schema - The CLI program schema.
- * @param options - Help formatting options.
- * @returns Formatted root help string.
- *
- * @internal
- */
-function formatRootHelp(schema: CLISchema, options?: HelpOptions): string {
-	const width = options?.width ?? 80;
-	const sections: string[] = [];
-
-	// ---- Header: name + version ---------------------------------------------
-	const header = schema.version !== undefined ? `${schema.name} v${schema.version}` : schema.name;
-	sections.push(header);
-
-	// ---- Description --------------------------------------------------------
-	if (schema.description !== undefined) {
-		sections.push(schema.description);
-	}
-
-	// ---- Usage line ---------------------------------------------------------
-	sections.push(`Usage: ${schema.name} <command> [options]`);
-
-	// ---- Commands list (skip hidden) ----------------------------------------
-	const visibleCommands = schema.commands.filter((c) => !c.schema.hidden);
-	if (visibleCommands.length > 0) {
-		const lines: string[] = ['Commands:'];
-		const GAP = 2;
-
-		// Compute max command name length for alignment
-		let maxNameLen = 0;
-		for (const cmd of visibleCommands) {
-			if (cmd.schema.name.length > maxNameLen) {
-				maxNameLen = cmd.schema.name.length;
-			}
-		}
-
-		const descCol = 2 + maxNameLen + GAP; // 2 for indent
-		for (const cmd of visibleCommands) {
-			const padded = padEnd(`  ${cmd.schema.name}`, descCol);
-			const desc = cmd.schema.description ?? '';
-			if (desc.length === 0) {
-				lines.push(padded.trimEnd());
-			} else {
-				lines.push(`${padded}${wrapText(desc, width, descCol)}`);
-			}
-		}
-
-		sections.push(lines.join('\n'));
-	}
-
-	// ---- Footer hint --------------------------------------------------------
-	sections.push(`Run '${schema.name} <command> --help' for more information.`);
-
-	return `${sections.join('\n\n')}\n`;
-}
-
-// ---------------------------------------------------------------------------
-// Text helpers (duplicated from help module to avoid coupling)
-// ---------------------------------------------------------------------------
-
-/** Pad `text` to `length` with trailing spaces. */
-function padEnd(text: string, length: number): string {
-	if (text.length >= length) return text;
-	return text + ' '.repeat(length - text.length);
-}
-
-/** Wrap text to `width`, preserving leading indent on continuation lines. */
-function wrapText(text: string, width: number, indent: number): string {
-	if (text.length + indent <= width) return text;
-
-	const maxLen = width - indent;
-	if (maxLen <= 0) return text;
-
-	const words = text.split(' ');
-	const lines: string[] = [];
-	let current = '';
-
-	for (const word of words) {
-		if (current.length === 0) {
-			current = word;
-		} else if (current.length + 1 + word.length <= maxLen) {
-			current += ` ${word}`;
-		} else {
-			lines.push(current);
-			current = word;
-		}
-	}
-	if (current.length > 0) {
-		lines.push(current);
-	}
-
-	const pad = ' '.repeat(indent);
-	return lines.map((line, i) => (i === 0 ? line : `${pad}${line}`)).join('\n');
 }
 
 // ---------------------------------------------------------------------------

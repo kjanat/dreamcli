@@ -13,13 +13,13 @@
 
 import type {
 	ActivityEvent,
-	Out,
 	ProgressHandle,
 	ProgressOptions,
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
-} from '../schema/command.js';
+} from '../schema/activity.js';
+import type { Out } from '../schema/command.js';
 import {
 	CaptureProgressHandle,
 	CaptureSpinnerHandle,

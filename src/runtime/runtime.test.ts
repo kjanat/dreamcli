@@ -866,10 +866,14 @@ describe('public surface', () => {
 		expect(mod.ExitError).toBeDefined();
 	});
 
-	it('exports RuntimeAdapter type and factories from main barrel', async () => {
-		const mod = await import('../index.js');
-		expect(mod.createTestAdapter).toBeDefined();
+	it('exports adapter factories from runtime barrel', async () => {
+		const mod = await import('../runtime.js');
 		expect(mod.createNodeAdapter).toBeDefined();
 		expect(mod.ExitError).toBeDefined();
+	});
+
+	it('exports test adapter from testkit barrel', async () => {
+		const mod = await import('../testkit.js');
+		expect(mod.createTestAdapter).toBeDefined();
 	});
 });
