@@ -33,11 +33,9 @@ function makeWriter(): { write: WriteFn; output: string[] } {
 	};
 }
 
-// ===================================================================
-// Noop progress — jsonMode + non-TTY silent fallback
-// ===================================================================
+// === Noop progress — jsonMode + non-TTY silent fallback
 
-describe('noopProgressHandle', () => {
+describe('noopProgressHandle — all methods are no-ops (no throw)', () => {
 	it('all methods are no-ops (no throw)', () => {
 		expect(() => {
 			noopProgressHandle.increment();
@@ -49,11 +47,9 @@ describe('noopProgressHandle', () => {
 	});
 });
 
-// ===================================================================
-// Static progress — non-TTY, fallback='static'
-// ===================================================================
+// === Static progress — non-TTY, fallback='static'
 
-describe('StaticProgressHandle', () => {
+describe('StaticProgressHandle — emits label on construction', () => {
 	it('emits label on construction', () => {
 		const { write, output } = makeWriter();
 		new StaticProgressHandle('Downloading', write);
@@ -131,9 +127,7 @@ describe('StaticProgressHandle', () => {
 	});
 });
 
-// ===================================================================
-// TTY progress — determinate
-// ===================================================================
+// === TTY progress — determinate
 
 describe('TTYProgressHandle — determinate', () => {
 	it('emits hide cursor + initial bar on construction', () => {
@@ -295,9 +289,7 @@ describe('TTYProgressHandle — determinate', () => {
 	});
 });
 
-// ===================================================================
-// TTY progress — indeterminate
-// ===================================================================
+// === TTY progress — indeterminate
 
 describe('TTYProgressHandle — indeterminate', () => {
 	it('starts with hide cursor and initial render', () => {
@@ -346,11 +338,9 @@ describe('TTYProgressHandle — indeterminate', () => {
 	});
 });
 
-// ===================================================================
-// Capture progress — testkit event recording
-// ===================================================================
+// === Capture progress — testkit event recording
 
-describe('CaptureProgressHandle', () => {
+describe('CaptureProgressHandle — testkit event recording', () => {
 	it('records start event with label and total', () => {
 		const events: ActivityEvent[] = [];
 		new CaptureProgressHandle({ total: 10, label: 'Files' }, events);

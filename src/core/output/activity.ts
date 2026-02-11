@@ -407,7 +407,7 @@ class TTYProgressHandle implements ProgressHandle {
 
 	/** Render a determinate bar: `[████░░░░░░] 40%`. */
 	private renderDeterminate(total: number): string {
-		const ratio = total > 0 ? Math.min(this.current / total, 1) : 0;
+		const ratio = total > 0 ? Math.max(0, Math.min(this.current / total, 1)) : 0;
 		const filled = Math.round(ratio * BAR_WIDTH);
 		const empty = BAR_WIDTH - filled;
 		const pct = Math.round(ratio * 100);

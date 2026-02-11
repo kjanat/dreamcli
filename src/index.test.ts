@@ -7,12 +7,16 @@ describe('dreamcli', () => {
 	});
 });
 
+// === Subpath exports
+
 describe('dreamcli/testkit — module loads', () => {
 	it('module loads without error', async () => {
 		const mod = await import('./testkit.js');
 		expect(mod).toBeDefined();
 	});
 });
+
+// ---
 
 describe('dreamcli/runtime — module loads', () => {
 	it('module loads without error', async () => {

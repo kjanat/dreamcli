@@ -33,11 +33,9 @@ function makeWriter(): { write: WriteFn; output: string[] } {
 	};
 }
 
-// ===================================================================
-// Noop spinner — jsonMode + non-TTY silent fallback
-// ===================================================================
+// === Noop spinner — jsonMode + non-TTY silent fallback
 
-describe('noopSpinnerHandle', () => {
+describe('noopSpinnerHandle — jsonMode + non-TTY silent fallback', () => {
 	it('all methods are no-ops (no throw)', () => {
 		expect(() => {
 			noopSpinnerHandle.update('text');
@@ -58,11 +56,9 @@ describe('noopSpinnerHandle', () => {
 	});
 });
 
-// ===================================================================
-// Static spinner — non-TTY, fallback='static'
-// ===================================================================
+// === Static spinner — non-TTY, fallback='static'
 
-describe('StaticSpinnerHandle', () => {
+describe('StaticSpinnerHandle — non-TTY static fallback', () => {
 	it('emits start text on construction', () => {
 		const { write, output } = makeWriter();
 		new StaticSpinnerHandle('Loading...', write);
@@ -175,11 +171,9 @@ describe('StaticSpinnerHandle', () => {
 	});
 });
 
-// ===================================================================
-// TTY spinner — ANSI rendering, timer management
-// ===================================================================
+// === TTY spinner — ANSI rendering, timer management
 
-describe('TTYSpinnerHandle', () => {
+describe('TTYSpinnerHandle — ANSI rendering, timer management', () => {
 	it('emits hide cursor + initial frame on construction', () => {
 		const { write, output } = makeWriter();
 		const handle = new TTYSpinnerHandle('Loading', write);
@@ -400,11 +394,9 @@ describe('TTYSpinnerHandle', () => {
 	});
 });
 
-// ===================================================================
-// Capture spinner — testkit event recording
-// ===================================================================
+// === Capture spinner — testkit event recording
 
-describe('CaptureSpinnerHandle', () => {
+describe('CaptureSpinnerHandle — testkit event recording', () => {
 	it('records start event on construction', () => {
 		const events: ActivityEvent[] = [];
 		new CaptureSpinnerHandle('Loading', events);
