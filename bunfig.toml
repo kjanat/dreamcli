@@ -1,0 +1,13 @@
+#:schema https://www.schemastore.org/bunfig.json
+
+telemetry = false
+
+[install]
+exact = true
+auto = "auto"
+lockfile.save = true
+# 7 days in seconds
+minimumReleaseAge = 604800
+
+[run]
+silent = true
