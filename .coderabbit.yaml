@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+---
+inheritance: true
+reviews:
+  high_level_summary_placeholder: "@gen"
+  auto_title_placeholder: "@gen"
+  labeling_instructions: []
+  path_instructions: []
+  pre_merge_checks:
+    custom_checks:
+      - mode: error
+        name: GOALS.md Completion Sync
+        instructions: If GOALS.md exists in the repository and the PR implements, modifies,
+          or completes functionality that corresponds to any listed goal, then GOALS.md
+          MUST be updated in this PR to mark completed goals as done (e.g., checkbox updated,
+          status changed, or explicitly marked completed). If new major functionality is
+          introduced that aligns with project scope but is not represented in GOALS.md,
+          a new goal entry MUST be added. If applicable changes are made but GOALS.md is
+          not updated, fail.
+      - mode: error
+        name: No Stale Completed Goals
+        instructions: If GOALS.md exists and contains goals marked as completed, verify
+          that the corresponding implementation still exists in the codebase. If a PR removes
+          or breaks functionality tied to a completed goal, GOALS.md MUST be updated to
+          reflect the new status (e.g., unchecked or revised). If completed goals no longer
+          match repository state and GOALS.md is not updated accordingly, fail.
+issue_enrichment: { labeling: { labeling_instructions: [] } }
