@@ -7,6 +7,67 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+#### Spinner & Progress Bar
+
+- **`out.spinner(text, options?)`** creates a spinner handle for indeterminate progress feedback.
+  Returns a `SpinnerHandle` with `update(text)`, `succeed(text?)`, `fail(text?)`, `stop()`, and
+  `wrap(promise, options?)` for auto-succeed/fail on promise settlement.
+- **`out.progress(options)`** creates a progress bar handle. Pass `total` for determinate mode
+  (percentage bar); omit for indeterminate (pulsing animation). Returns a `ProgressHandle` with
+  `increment(n?)`, `update(value)`, `done(text?)`, and `fail(text?)`.
+- **Four rendering modes** with automatic dispatch:
+  - **TTY** — animated braille spinner (80ms frames) and bar rendering with ANSI cursor control.
+    Hides cursor during animation, restores on terminal methods.
+  - **Static** (`fallback: 'static'`) — plain text at lifecycle boundaries (start, succeed, fail).
+    No ANSI codes. For CI and piped output.
+  - **Noop** (`fallback: 'silent'`, default) — all methods are no-ops. Silent in non-TTY.
+  - **JSON mode** — always noop (structured output only).
+- **Active handle tracking** — at most one spinner or progress may be active at a time. Creating a
+  new one implicitly stops the previous to avoid garbled terminal output.
+- **`ActivityEvent` discriminated union** — 9-variant DU capturing spinner and progress lifecycle
+  events (`spinner:start`, `spinner:update`, `spinner:succeed`, `spinner:fail`, `spinner:stop`,
+  `progress:start`, `progress:update`, `progress:done`, `progress:fail`).
+- **Testkit capture handles** — `CaptureOutputChannel` subclass overrides `spinner()` and
+  `progress()` to record `ActivityEvent[]` for assertion. `CapturedOutput.activity` array added.
+- **New public types** exported from barrel: `ActivityEvent`, `Fallback`, `SpinnerHandle`,
+  `SpinnerOptions`, `ProgressHandle`, `ProgressOptions`.
+
+### Changed
+
+- `Out` interface extended with `spinner()` and `progress()` methods.
+- `CapturedOutput` extended with `activity: ActivityEvent[]` field.
+- `createCaptureOutput` now returns a `CaptureOutputChannel` that records activity events separately
+  from stdout/stderr.
+- `FlagParseFn<T>` widened from `(raw: string) => T` to `(raw: unknown) => T`. Config files carry
+  structured JSON data — `parseFn` now receives the raw value directly and is responsible for
+  narrowing. CLI/env still pass strings; config passes the JSON value as-is.
+- `OutputChannel` gained ~710 lines implementing 8 internal handle classes (TTY, static, noop,
+  capture variants for both spinner and progress).
+- Timer globals (`setInterval`/`clearInterval`) declared locally to avoid `@types/node` dependency.
+- Test count: 1646 tests across 44 test files (up from 1518 in v0.7.0).
+
+### Fixed
+
+- `--config=<path>` equals form now correctly parsed and stripped from argv before dispatch.
+- Zsh completion: multi-alias flags use all short aliases in the exclusion group, not just the
+  first.
+- Bash completion: `escapeForSingleQuote()` sanitizes `compgen -W` words to prevent shell injection.
+- Win32 `resolveConfigDir`: strip trailing separator from homedir to avoid doubled backslashes on
+  drive roots (e.g. `C:\`).
+- Win32 `resolveConfigDir`: treat empty `APPDATA` as unset, falling back to homedir-based path.
+- Win32 `homedir`: add `HOMEDRIVE`+`HOMEPATH` fallback; never use `HOMEPATH` alone.
+- Levenshtein distance: replace 2D array with `Uint16Array` rolling buffer, drop defensive
+  `undefined` guards.
+- Completions command detection via schema lookup instead of raw `argv[0]` string match.
+- Child flag with `propagate: false` correctly masks ancestor's propagated flag of the same name.
+- Dispatch: exhaustiveness guard on `subResult` switch in nested command resolution.
+- Nested group help: `binName` built from full command path, not just root.
+- Config loader: lowercase extensions in `buildExtensionList`/`buildLoaderMap` for case-insensitive
+  matching.
+- Empty-string env var fallbacks in runtime adapter treated as unset.
+
 ## [0.7.0] - 2026-02-10
 
 ### Added
