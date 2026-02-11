@@ -71,5 +71,5 @@ export type {
 	MiddlewareHandler,
 	MiddlewareParams,
 } from './middleware.ts';
-export type { RunResult } from './run.ts';
 export { middleware } from './middleware.ts';
+export type { RunResult } from './run.ts';
