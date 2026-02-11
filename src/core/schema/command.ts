@@ -379,7 +379,10 @@ interface ErasedCommand {
 	 */
 	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
 	/** Execute this command against argv. Closes over the typed CommandBuilder. */
-	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
+	readonly _execute: (
+		argv: readonly string[],
+		options?: Readonly<Record<string, unknown>>,
+	) => Promise<RunResult>;
 }
 
 // ---------------------------------------------------------------------------

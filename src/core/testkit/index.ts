@@ -153,40 +153,12 @@ interface RunOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Run result — structured output from command execution
+// Run result — re-exported from schema layer (canonical definition)
 // ---------------------------------------------------------------------------
 
-/**
- * Structured result from running a command.
- *
- * Contains the exit code, captured stdout/stderr output, and optionally
- * the error that caused a non-zero exit.
- */
-interface RunResult {
-	/** Process exit code. 0 = success. */
-	readonly exitCode: number;
-
-	/** Captured stdout lines (from `out.log` and `out.info`). */
-	readonly stdout: readonly string[];
-
-	/** Captured stderr lines (from `out.warn` and `out.error`). */
-	readonly stderr: readonly string[];
-
-	/**
-	 * Captured spinner and progress lifecycle events.
-	 *
-	 * Recorded separately from stdout/stderr — handlers that call
-	 * `out.spinner()` or `out.progress()` produce events here, enabling
-	 * targeted assertions on activity lifecycle without parsing text.
-	 */
-	readonly activity: readonly ActivityEvent[];
-
-	/**
-	 * The error that caused a non-zero exit, if any.
-	 * `CLIError` instances are preserved; unknown errors are wrapped.
-	 */
-	readonly error: CLIError | undefined;
-}
+// RunResult is defined in schema/run.ts to avoid the schema→testkit dependency
+// inversion. Re-exported here for public API continuity.
+import type { RunResult } from '../schema/run.ts';
 
 // ---------------------------------------------------------------------------
 // Core execution pipeline

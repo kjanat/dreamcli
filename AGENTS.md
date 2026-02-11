@@ -80,9 +80,10 @@ Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts
 `runtime/adapter.ts` imports `WriteFn` from `core/output/` and `ReadFn` from `core/prompt/` —
 runtime depends on core types (not truly independent layer).
 
-`schema/command.ts` has a type-only `import type` from `testkit/index.ts` for `RunOptions`/
-`RunResult` — inverts stated dependency direction but is compile-time only (`verbatimModuleSyntax`
-guarantees erasure).
+`RunResult` lives in `schema/run.ts` (not testkit) — schema is its natural home since
+`ErasedCommand._execute` returns it. `testkit/index.ts` re-exports `RunResult` from schema.
+`ErasedCommand._execute` options parameter is `Readonly<Record<string, unknown>>` — maximally loose
+at the schema boundary (only cli dispatch calls it, always with full `RunOptions`).
 
 ## CONVENTIONS
 

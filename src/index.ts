@@ -106,6 +106,7 @@ export type {
 	PromptResult,
 	ResolvedArgValue,
 	ResolvedValue,
+	RunResult,
 	SelectChoice,
 	SelectPromptConfig,
 	SpinnerHandle,
