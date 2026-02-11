@@ -9,7 +9,7 @@
 	},
 	"publish": {
 		"include": ["src", "LICENSE"],
-		"exclude": ["src/**/*.test.ts", "src/**/AGENTS.md"]
+		"exclude": ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"nodeModulesDir": "manual",
 	"exclude": ["dist/", "node_modules/", "coverage/"]

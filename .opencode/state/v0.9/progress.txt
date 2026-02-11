@@ -47,7 +47,7 @@ Started: 2026-02-11
 - **Learnings:** vitest doesn't run under Deno — Deno testing requires separate smoke test against built output. Concurrency group with `cancel-in-progress` prevents wasted CI minutes on force-pushes. Node test runs use `npx vitest run` (not `bun run test`) to ensure Node is the actual runtime.
 
 ## Task - jsr-publishing
-- Created `deno.json` with JSR config: `@dreamcli/dreamcli@0.9.0`, three subpath exports, sloppy-imports for `.js` extension compat
+- Created `deno.json` with JSR config: `@kjanat/dreamcli@0.9.0`, three subpath exports, sloppy-imports for `.js` extension compat
 - Fixed 2 "slow type" errors for JSR fast-check: added explicit type annotations to `SHELLS` (completion/index.ts) and `RUNTIMES` (runtime/detect.ts)
 - `--no-check` flag needed: project's minimal `NodeProcess` interface conflicts with real `@types/node` under Deno's type checker
 - `nodeModulesDir: "auto"` needed for `@types/node` resolution during `deno publish`

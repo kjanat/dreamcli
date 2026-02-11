@@ -42,8 +42,6 @@ interface NodeSystemError {
  * We avoid importing `@types/node` to keep the core runtime-agnostic
  * at the type level. This interface declares only what `createNodeAdapter`
  * actually reads from the global.
- *
- * @internal
  */
 interface NodeProcess {
 	readonly argv: readonly string[];

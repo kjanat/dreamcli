@@ -36,8 +36,6 @@ import type { RuntimeAdapter } from './adapter.ts';
  * The `env` property is optional because it requires `--allow-env` permission.
  * When permission is denied, the adapter catches the error and falls back to
  * an empty env object.
- *
- * @internal
  */
 interface DenoNamespace {
 	/** Raw command-line args (excludes the binary/script — Deno pre-strips them). */
@@ -254,7 +252,9 @@ async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
 		for (;;) {
 			const { value, done } = await reader.read();
 			if (done) {
-				// EOF — return buffered content or null
+				// Flush any trailing bytes held by the streaming decoder
+				// (partial multibyte UTF-8 sequences buffered internally).
+				buffer += decoder.decode();
 				return buffer.length > 0 ? buffer : null;
 			}
 			buffer += decoder.decode(value, { stream: true });

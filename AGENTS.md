@@ -145,7 +145,7 @@ bun run ci           # check → lint → test → build (sequential)
 
 - **CI**: GitHub Actions — lint+typecheck (Bun), test matrix (Node LTS + Bun), Deno smoke test,
   build
-- **JSR publishing** — `deno.json` (`@dreamcli/dreamcli`), GitHub Actions publish workflow with OIDC
+- **JSR publishing** — `deno.json` (`@kjanat/dreamcli`), GitHub Actions publish workflow with OIDC
 - **npm publishing** — manual `bun publish`, quality gates in build step
 - **~32 source files, 47 test files, ~10.1k source lines** — 1695 tests
 - **5 files >500 lines** — `resolve/index.ts` (940), `cli/index.ts` (793), `schema/command.ts`

@@ -35,7 +35,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 #### JSR Publishing
 
-- **`deno.json`** with JSR package config (`@dreamcli/dreamcli`), three subpath exports, publish
+- **`deno.json`** with JSR package config (`@kjanat/dreamcli`), three subpath exports, publish
   include/exclude rules.
 - **GitHub Actions publish workflow** (`.github/workflows/publish-jsr.yml`) — publishes to JSR on
   GitHub release with OIDC provenance.

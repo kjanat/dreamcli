@@ -7,6 +7,7 @@
  * on the full DOM lib or `@types/deno`.
  *
  * @internal
+ * @module dreamcli/runtime/deno-builtins
  */
 
 declare class TextEncoder {
