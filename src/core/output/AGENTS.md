@@ -45,14 +45,15 @@ implicitly stops the previous.
 `setInterval`/`clearInterval` declared as ambient functions in `activity.ts` (not from
 `@types/node`) — zero-dep library targeting ES2022 without DOM or Node lib typings.
 
-## TEST FILES (4)
+## TEST FILES (5)
 
-| File                      | Tests                                          |
-| ------------------------- | ---------------------------------------------- |
-| `output.test.ts`          | Core OutputChannel: log/warn/error, modes      |
-| `output-tty.test.ts`      | TTY-specific rendering, color, formatting      |
-| `output-table.test.ts`    | Table output in various modes                  |
-| `output-activity.test.ts` | Spinner/progress handles, 117 tests, all tiers |
+| File                               | Tests | Focus                                                    |
+| ---------------------------------- | ----- | -------------------------------------------------------- |
+| `output.test.ts`                   | 49    | Core OutputChannel: log/warn/error, modes                |
+| `output-tty.test.ts`               | 20    | TTY-specific rendering, color, formatting                |
+| `output-table.test.ts`             | 19    | Table output in various modes                            |
+| `output-activity-handles.test.ts`  | 85    | Handle class units: noop/static/TTY/capture, fake timers |
+| `output-activity-dispatch.test.ts` | 32    | OutputChannel wiring: mode dispatch, overlap, testkit    |
 
 ## GOTCHAS
 
@@ -60,5 +61,5 @@ implicitly stops the previous.
 - `writer.ts` is a leaf: `WriteFn` type + `writeLine` helper. Shared by `index.ts` and `activity.ts`
 - Terminal escape sequences (`HIDE_CURSOR`, `ERASE_LINE`, etc.) are `@internal` constants in
   `activity.ts`
-- `output-activity.test.ts` uses `vi.useFakeTimers()` — only test file that does
+- `output-activity-handles.test.ts` uses `vi.useFakeTimers()` — only test file that does
 - `out.table()` columns accept `width`, `align`, `format` — rendered as fixed-width in TTY
