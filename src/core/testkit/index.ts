@@ -22,7 +22,6 @@ import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
 import { createTestPrompter } from '../prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '../resolve/index.ts';
 import { resolve } from '../resolve/index.ts';
-import type { ActivityEvent } from '../schema/activity.ts';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
 import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';

@@ -30,7 +30,7 @@
 		"build": "tsdown",
 		"check": "tsgo --noEmit",
 		"check:tsc": "tsc --noEmit",
-		"ci": "bun check && bun lint && bun run test && bun run build",
+		"ci": "bun check && bun lint && bun check && bun run test && bun run build",
 		"format": "dprint fmt",
 		"format:check": "dprint check",
 		"lint": "biome check .",

@@ -9,7 +9,7 @@
  * @module dreamcli/core/schema/command
  */
 
-import type { RunOptions, RunResult } from '../testkit/index.ts';
+import type { RunResult } from '../testkit/index.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,

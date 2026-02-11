@@ -6,7 +6,7 @@
  * CLIBuilder × completion generators × runtime detection × adapter factory.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
 import type { GlobalForDetect } from '../../runtime/detect.ts';
 import { arg } from '../schema/arg.ts';
