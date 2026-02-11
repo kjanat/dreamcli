@@ -11,8 +11,6 @@
 
 import type { RunOptions, RunResult } from '../testkit/index.js';
 import type {
-	ActivityEvent,
-	Fallback,
 	ProgressHandle,
 	ProgressOptions,
 	SpinnerHandle,

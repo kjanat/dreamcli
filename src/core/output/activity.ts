@@ -277,7 +277,8 @@ class TTYSpinnerHandle implements SpinnerHandle {
 
 	/** Render the current frame + text, overwriting the current line. */
 	private render(): void {
-		this.write(`\r${ERASE_LINE}${SPINNER_FRAMES[this.frameIndex]} ${this.text}`);
+		const frame = SPINNER_FRAMES[this.frameIndex] ?? SPINNER_FRAMES[0];
+		this.write(`\r${ERASE_LINE}${frame} ${this.text}`);
 	}
 
 	/** Clear the animation timer, erase the line, and restore the cursor. */
@@ -398,14 +399,14 @@ class TTYProgressHandle implements ProgressHandle {
 
 	/** Render the progress bar, overwriting the current line. */
 	private render(): void {
-		const bar = this.total !== undefined ? this.renderDeterminate() : this.renderIndeterminate();
+		const bar =
+			this.total !== undefined ? this.renderDeterminate(this.total) : this.renderIndeterminate();
 		const suffix = this.label.length > 0 ? ` ${this.label}` : '';
 		this.write(`\r${ERASE_LINE}${bar}${suffix}`);
 	}
 
 	/** Render a determinate bar: `[████░░░░░░] 40%`. */
-	private renderDeterminate(): string {
-		const total = this.total as number; // guarded by caller
+	private renderDeterminate(total: number): string {
 		const ratio = total > 0 ? Math.min(this.current / total, 1) : 0;
 		const filled = Math.round(ratio * BAR_WIDTH);
 		const empty = BAR_WIDTH - filled;

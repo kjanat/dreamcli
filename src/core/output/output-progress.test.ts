@@ -183,6 +183,20 @@ describe('TTYProgressHandle — determinate', () => {
 		handle.done();
 	});
 
+	it('total: 0 renders 0% without division-by-zero', () => {
+		const { write, output } = makeWriter();
+		const handle = new TTYProgressHandle({ total: 0 }, write);
+		const all = output.join('');
+		expect(all).toContain('0%');
+		handle.increment(5);
+		// Still 0% — can't make progress toward zero total
+		const afterIncrement = output.join('');
+		expect(afterIncrement).toContain('0%');
+		expect(afterIncrement).not.toContain('NaN');
+		expect(afterIncrement).not.toContain('Infinity');
+		handle.done();
+	});
+
 	it('done() cleans up + emits check symbol', () => {
 		const { write, output } = makeWriter();
 		const handle = new TTYProgressHandle({ total: 10 }, write);

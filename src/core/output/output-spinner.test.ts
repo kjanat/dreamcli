@@ -359,7 +359,11 @@ describe('TTYSpinnerHandle', () => {
 			const { write, output } = makeWriter();
 			const handle = new TTYSpinnerHandle('work', write);
 			// Construction renders frame 0 (⠋)
-			const last = () => output[output.length - 1]!;
+			const last = () => {
+				const v = output[output.length - 1];
+				if (v === undefined) throw new Error('expected output');
+				return v;
+			};
 			expect(last()).toContain('⠋');
 			// 1 tick → frame 1 (⠙)
 			vi.advanceTimersByTime(80);
