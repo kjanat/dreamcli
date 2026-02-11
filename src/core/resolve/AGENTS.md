@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Single file: `index.ts` — largest in the codebase (~1k lines).
+Single file: `index.ts` — largest in the codebase (~1.1k lines).
 
 ## RESOLUTION ORDER
 
@@ -8,8 +8,8 @@ Single file: `index.ts` — largest in the codebase (~1k lines).
 CLI argv → environment variable → config file → interactive prompt → default value
 ```
 
-Each source is tried in order; first non-undefined wins. Missing required values with no source
-trigger `ValidationError`.
+Each source tried in order; first non-undefined wins. Missing required values with no source trigger
+`ValidationError`.
 
 ## KEY FUNCTIONS
 
@@ -31,23 +31,22 @@ trigger `ValidationError`.
 
 Without interactive resolver, single-pass (per-flag prompts used directly).
 
-## TEST FILES
-
-Split by concern, not by function:
+## TEST FILES (7, aspect-split)
 
 | File                          | Tests                                      |
 | ----------------------------- | ------------------------------------------ |
 | `resolve.test.ts`             | Core resolution logic, precedence rules    |
 | `resolve-errors.test.ts`      | Validation errors, missing required values |
-| `resolve-env.test.ts`         | Environment variable resolution            |
-| `resolve-config.test.ts`      | Config file resolution                     |
+| `resolve-env.test.ts`         | Environment variable resolution + coercion |
+| `resolve-config.test.ts`      | Config file resolution + dotted paths      |
 | `resolve-prompt.test.ts`      | Prompt-based resolution                    |
-| `resolve-interactive.test.ts` | Interactive mode (full prompt flow)        |
+| `resolve-interactive.test.ts` | Two-pass interactive mode (full flow)      |
 | `resolve-integration.test.ts` | Cross-concern integration                  |
 
 ## GOTCHAS
 
-- File is ~1k lines — split candidate, but resolution logic is inherently sequential
+- ~1.1k lines — split candidate, but resolution logic is inherently sequential
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
   directly
-- `resolve-env.test.ts` and `resolve-config.test.ts` are the heaviest resolution test files
+- Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
+- `resolve-env.test.ts` and `resolve-config.test.ts` are the heaviest test files (~900+ lines each)
