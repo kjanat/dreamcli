@@ -12,8 +12,8 @@
  *   1 — a check failed
  */
 
-import type { RuntimeAdapter } from '../dist/runtime.mjs';
 // Import from built output (not source) to verify the published shape
+import type { RuntimeAdapter } from '../dist/runtime.mjs';
 import { createDenoAdapter } from '../dist/runtime.mjs';
 
 let failures = 0;
@@ -125,8 +125,8 @@ assert(typeof adapter.exit === 'function', 'exit is a function');
 console.log('');
 if (failures > 0) {
 	console.error(`\n${failures} check(s) failed`);
-	Deno.exit(1);
+	adapter.exit(1);
 } else {
 	console.log('All checks passed');
-	Deno.exit(0);
+	adapter.exit(0);
 }
