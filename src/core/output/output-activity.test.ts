@@ -31,6 +31,38 @@ import {
 	TTYSpinnerHandle,
 } from './index.js';
 
+// Timer global — not in ES2022 lib, universally available at runtime.
+declare function setTimeout(callback: (...args: never[]) => void, ms: number): unknown;
+
+// --- Test helpers ---
+
+function makeWriters(): { writers: StaticWriters; stdout: string[]; stderr: string[] } {
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	return {
+		writers: { stdout: (s) => stdout.push(s), stderr: (s) => stderr.push(s) },
+		stdout,
+		stderr,
+	};
+}
+
+function makeChannel(opts: { jsonMode?: boolean; isTTY?: boolean }): {
+	channel: OutputChannel;
+	stdout: string[];
+	stderr: string[];
+} {
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const channel = new OutputChannel({
+		stdout: (s) => stdout.push(s),
+		stderr: (s) => stderr.push(s),
+		isTTY: opts.isTTY ?? false,
+		verbosity: 'normal',
+		jsonMode: opts.jsonMode ?? false,
+	});
+	return { channel, stdout, stderr };
+}
+
 // ===================================================================
 // Noop handles — jsonMode + non-TTY silent fallback
 // ===================================================================
@@ -73,16 +105,6 @@ describe('noopProgressHandle', () => {
 // ===================================================================
 
 describe('StaticSpinnerHandle', () => {
-	function makeWriters(): { writers: StaticWriters; stdout: string[]; stderr: string[] } {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		return {
-			writers: { stdout: (s) => stdout.push(s), stderr: (s) => stderr.push(s) },
-			stdout,
-			stderr,
-		};
-	}
-
 	it('emits start text on construction', () => {
 		const { writers, stdout } = makeWriters();
 		new StaticSpinnerHandle('Loading...', writers);
@@ -200,16 +222,6 @@ describe('StaticSpinnerHandle', () => {
 });
 
 describe('StaticProgressHandle', () => {
-	function makeWriters(): { writers: StaticWriters; stdout: string[]; stderr: string[] } {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		return {
-			writers: { stdout: (s) => stdout.push(s), stderr: (s) => stderr.push(s) },
-			stdout,
-			stderr,
-		};
-	}
-
 	it('emits label on construction', () => {
 		const { writers, stdout } = makeWriters();
 		new StaticProgressHandle('Downloading', writers);
@@ -241,6 +253,13 @@ describe('StaticProgressHandle', () => {
 		const handle = new StaticProgressHandle('label', writers);
 		handle.fail('Failed!');
 		expect(stderr).toEqual(['Failed!\n']);
+	});
+
+	it('fail() without text emits nothing extra', () => {
+		const { writers, stderr } = makeWriters();
+		const handle = new StaticProgressHandle('label', writers);
+		handle.fail();
+		expect(stderr).toEqual([]);
 	});
 
 	it('increment() and update() are silent', () => {
@@ -285,16 +304,6 @@ describe('StaticProgressHandle', () => {
 // ===================================================================
 
 describe('TTYSpinnerHandle', () => {
-	function makeWriters(): { writers: StaticWriters; stdout: string[]; stderr: string[] } {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		return {
-			writers: { stdout: (s) => stdout.push(s), stderr: (s) => stderr.push(s) },
-			stdout,
-			stderr,
-		};
-	}
-
 	it('emits hide cursor + initial frame on construction', () => {
 		const { writers, stdout } = makeWriters();
 		const handle = new TTYSpinnerHandle('Loading', writers);
@@ -329,6 +338,16 @@ describe('TTYSpinnerHandle', () => {
 		const stderrAll = stderr.join('');
 		expect(stderrAll).toContain('✗');
 		expect(stderrAll).toContain('Error!');
+	});
+
+	it('fail() without text cleans up silently', () => {
+		const { writers, stdout, stderr } = makeWriters();
+		const handle = new TTYSpinnerHandle('work', writers);
+		handle.fail();
+		const stdoutAll = stdout.join('');
+		expect(stdoutAll).toContain('\x1b[?25h');
+		expect(stdoutAll).not.toContain('✗');
+		expect(stderr).toEqual([]);
 	});
 
 	it('stop() cleans up without status symbol', () => {
@@ -413,19 +432,40 @@ describe('TTYSpinnerHandle', () => {
 		expect(all).toContain('✗');
 		expect(all).toContain('failed!');
 	});
+
+	// --- Timer cleanup ---
+
+	it('stop() clears animation timer — no writes after delay', async () => {
+		const { writers, stdout } = makeWriters();
+		const handle = new TTYSpinnerHandle('work', writers);
+		handle.stop();
+		const countAfterStop = stdout.length;
+		await new Promise((r) => setTimeout(r, 200));
+		expect(stdout.length).toBe(countAfterStop);
+	});
+
+	it('succeed() clears animation timer — no writes after delay', async () => {
+		const { writers, stdout } = makeWriters();
+		const handle = new TTYSpinnerHandle('work', writers);
+		handle.succeed('ok');
+		const countAfterSucceed = stdout.length;
+		await new Promise((r) => setTimeout(r, 200));
+		expect(stdout.length).toBe(countAfterSucceed);
+	});
+
+	it('fail() clears animation timer — no writes after delay', async () => {
+		const { writers, stdout, stderr } = makeWriters();
+		const handle = new TTYSpinnerHandle('work', writers);
+		handle.fail('err');
+		const stdoutCount = stdout.length;
+		const stderrCount = stderr.length;
+		await new Promise((r) => setTimeout(r, 200));
+		expect(stdout.length).toBe(stdoutCount);
+		expect(stderr.length).toBe(stderrCount);
+	});
 });
 
 describe('TTYProgressHandle — determinate', () => {
-	function makeWriters(): { writers: StaticWriters; stdout: string[]; stderr: string[] } {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		return {
-			writers: { stdout: (s) => stdout.push(s), stderr: (s) => stderr.push(s) },
-			stdout,
-			stderr,
-		};
-	}
-
 	it('emits hide cursor + initial bar on construction', () => {
 		const { writers, stdout } = makeWriters();
 		const handle = new TTYProgressHandle({ total: 10, label: 'Files' }, writers);
@@ -494,6 +534,15 @@ describe('TTYProgressHandle — determinate', () => {
 		expect(stderrAll).toContain('Failed!');
 	});
 
+	it('fail() without text cleans up silently', () => {
+		const { writers, stdout, stderr } = makeWriters();
+		const handle = new TTYProgressHandle({ total: 10 }, writers);
+		handle.fail();
+		const stdoutAll = stdout.join('');
+		expect(stdoutAll).toContain('\x1b[?25h');
+		expect(stderr).toEqual([]);
+	});
+
 	// --- Idempotency ---
 
 	it('double done is no-op', () => {
@@ -538,16 +587,6 @@ describe('TTYProgressHandle — determinate', () => {
 });
 
 describe('TTYProgressHandle — indeterminate', () => {
-	function makeWriters(): { writers: StaticWriters; stdout: string[]; stderr: string[] } {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		return {
-			writers: { stdout: (s) => stdout.push(s), stderr: (s) => stderr.push(s) },
-			stdout,
-			stderr,
-		};
-	}
-
 	it('starts with hide cursor and initial render', () => {
 		const { writers, stdout } = makeWriters();
 		const handle = new TTYProgressHandle({ label: 'Waiting' }, writers);
@@ -578,6 +617,15 @@ describe('TTYProgressHandle — indeterminate', () => {
 		const stderrAll = stderr.join('');
 		expect(stderrAll).toContain('✗');
 		expect(stderrAll).toContain('broken');
+	});
+
+	it('done() clears pulse timer — no writes after delay', async () => {
+		const { writers, stdout } = makeWriters();
+		const handle = new TTYProgressHandle({}, writers);
+		handle.done();
+		const countAfterDone = stdout.length;
+		await new Promise((r) => setTimeout(r, 200));
+		expect(stdout.length).toBe(countAfterDone);
 	});
 });
 
@@ -691,11 +739,18 @@ describe('CaptureSpinnerHandle', () => {
 		]);
 	});
 
-	it('wrap() without options records empty string', async () => {
+	it('wrap() without options records empty string on success', async () => {
 		const events: ActivityEvent[] = [];
 		const handle = new CaptureSpinnerHandle('work', events);
 		await handle.wrap(Promise.resolve('x'));
 		expect(events[1]).toEqual({ type: 'spinner:succeed', text: '' });
+	});
+
+	it('wrap() without options records empty string on rejection', async () => {
+		const events: ActivityEvent[] = [];
+		const handle = new CaptureSpinnerHandle('work', events);
+		await expect(handle.wrap(Promise.reject(new Error('x')))).rejects.toThrow('x');
+		expect(events[1]).toEqual({ type: 'spinner:fail', text: '' });
 	});
 });
 
@@ -760,6 +815,13 @@ describe('CaptureProgressHandle', () => {
 		expect(events[1]).toEqual({ type: 'progress:fail', text: 'Error' });
 	});
 
+	it('fail() without text records undefined text', () => {
+		const events: ActivityEvent[] = [];
+		const handle = new CaptureProgressHandle({ total: 10 }, events);
+		handle.fail();
+		expect(events[1]).toEqual({ type: 'progress:fail', text: undefined });
+	});
+
 	// --- Idempotency ---
 
 	it('terminal methods are idempotent', () => {
@@ -802,23 +864,6 @@ describe('CaptureProgressHandle', () => {
 // ===================================================================
 
 describe('OutputChannel.spinner() — mode dispatch', () => {
-	function makeChannel(opts: { jsonMode?: boolean; isTTY?: boolean }): {
-		channel: OutputChannel;
-		stdout: string[];
-		stderr: string[];
-	} {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		const channel = new OutputChannel({
-			stdout: (s) => stdout.push(s),
-			stderr: (s) => stderr.push(s),
-			isTTY: opts.isTTY ?? false,
-			verbosity: 'normal',
-			jsonMode: opts.jsonMode ?? false,
-		});
-		return { channel, stdout, stderr };
-	}
-
 	it('jsonMode → noop handle (no output)', () => {
 		const { channel, stdout, stderr } = makeChannel({ jsonMode: true, isTTY: true });
 		const handle = channel.spinner('Loading');
@@ -874,23 +919,6 @@ describe('OutputChannel.spinner() — mode dispatch', () => {
 // ===================================================================
 
 describe('OutputChannel.progress() — mode dispatch', () => {
-	function makeChannel(opts: { jsonMode?: boolean; isTTY?: boolean }): {
-		channel: OutputChannel;
-		stdout: string[];
-		stderr: string[];
-	} {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		const channel = new OutputChannel({
-			stdout: (s) => stdout.push(s),
-			stderr: (s) => stderr.push(s),
-			isTTY: opts.isTTY ?? false,
-			verbosity: 'normal',
-			jsonMode: opts.jsonMode ?? false,
-		});
-		return { channel, stdout, stderr };
-	}
-
 	it('jsonMode → noop handle', () => {
 		const { channel, stdout, stderr } = makeChannel({ jsonMode: true });
 		const handle = channel.progress({ total: 10, label: 'Files' });
@@ -1016,6 +1044,25 @@ describe('active handle tracking — implicit stop', () => {
 		second.succeed('b');
 		expect(stdout).toEqual([]);
 	});
+
+	it('wrap() on implicitly stopped spinner still resolves', async () => {
+		const { channel } = makeChannel({ isTTY: false });
+		const first = channel.spinner('First', { fallback: 'static' });
+		channel.spinner('Second', { fallback: 'static' });
+		// first was implicitly stopped — wrap() must still resolve the promise
+		const result = await first.wrap(Promise.resolve(42), { succeed: 'ok' });
+		expect(result).toBe(42);
+	});
+
+	it('wrap() on implicitly stopped spinner still rejects', async () => {
+		const { channel } = makeChannel({ isTTY: false });
+		const first = channel.spinner('First', { fallback: 'static' });
+		channel.spinner('Second', { fallback: 'static' });
+		// first was implicitly stopped — wrap() must still propagate rejection
+		await expect(first.wrap(Promise.reject(new Error('boom')), { fail: 'err' })).rejects.toThrow(
+			'boom',
+		);
+	});
 });
 
 // ===================================================================
@@ -1101,6 +1148,24 @@ describe('createCaptureOutput — activity capture', () => {
 		expect(captured.activity).toEqual([
 			{ type: 'spinner:start', text: 'Loading' },
 			{ type: 'spinner:stop' },
+		]);
+	});
+
+	it('capture handles operate independently (no implicit stop)', () => {
+		const [out, captured] = createCaptureOutput();
+		const s1 = out.spinner('First');
+		const s2 = out.spinner('Second'); // does NOT stop s1
+		s1.update('First updated');
+		s2.update('Second updated');
+		s1.succeed('First done');
+		s2.succeed('Second done');
+		expect(captured.activity).toEqual([
+			{ type: 'spinner:start', text: 'First' },
+			{ type: 'spinner:start', text: 'Second' },
+			{ type: 'spinner:update', text: 'First updated' },
+			{ type: 'spinner:update', text: 'Second updated' },
+			{ type: 'spinner:succeed', text: 'First done' },
+			{ type: 'spinner:succeed', text: 'Second done' },
 		]);
 	});
 });
