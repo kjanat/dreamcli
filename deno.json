@@ -1,5 +1,6 @@
 {
-	"name": "@dreamcli/dreamcli",
+	"$schema": "https://github.com/denoland/deno/blob/main/cli/schemas/config-file.v1.json",
+	"name": "@kjanat/dreamcli",
 	"version": "0.9.0",
 	"exports": {
 		".": "./src/index.ts",

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 # Cancel in-progress runs for the same branch/PR
 concurrency:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -49,14 +49,14 @@ jobs:
           - runtime: node
             node-version: lts/*
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: matrix.runtime == 'node'
         with:
           node-version: ${{ matrix.node-version }}
@@ -84,8 +84,9 @@ jobs:
     name: Test (deno)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: [lint]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -105,9 +106,9 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [lint, test]
+    needs: [lint, test, test-deno]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest

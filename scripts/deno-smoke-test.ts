@@ -128,4 +128,5 @@ if (failures > 0) {
 	Deno.exit(1);
 } else {
 	console.log('All checks passed');
+	Deno.exit(0);
 }

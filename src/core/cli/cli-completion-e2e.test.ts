@@ -573,33 +573,9 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 
 	it('auto-adapter creates valid adapter for simulated Deno runtime', async () => {
 		const { createAdapter } = await import('../../runtime/auto.ts');
+		const { withMockDenoGlobal } = await import('../../runtime/test-helpers.ts');
 
-		// Install a mock Deno namespace on globalThis — createDenoAdapter() reads
-		// from globalThis.Deno when no explicit namespace is provided.
-		const g = globalThis as Record<string, unknown>;
-		const prev = g['Deno'];
-		g['Deno'] = {
-			args: [],
-			env: { get: () => undefined, toObject: () => ({}) },
-			cwd: () => '/deno/mock',
-			stdout: { write: vi.fn(() => Promise.resolve(0)), isTerminal: () => false },
-			stderr: { write: vi.fn(() => Promise.resolve(0)) },
-			stdin: {
-				isTerminal: () => false,
-				readable: {
-					getReader: () => ({
-						read: () => Promise.resolve({ done: true, value: undefined }),
-						releaseLock: () => {},
-					}),
-				},
-			},
-			exit: vi.fn() as unknown as (code: number) => never,
-			readTextFile: () =>
-				Promise.reject(Object.assign(new Error('not found'), { name: 'NotFound' })),
-			version: { deno: '2.1.0' },
-		};
-
-		try {
+		withMockDenoGlobal(() => {
 			const globals: GlobalForDetect = {
 				Deno: { version: { deno: '2.1.0' } },
 			};
@@ -607,13 +583,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 			expect(adapter).toBeDefined();
 			expect(typeof adapter.stdout).toBe('function');
 			expect(typeof adapter.stderr).toBe('function');
-		} finally {
-			if (prev === undefined) {
-				delete g['Deno'];
-			} else {
-				g['Deno'] = prev;
-			}
-		}
+		});
 	});
 });
 

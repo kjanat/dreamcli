@@ -17,10 +17,19 @@ declare class TextDecoder {
 	decode(input?: Uint8Array, options?: { stream?: boolean }): string;
 }
 
-interface ReadableStreamReadResult<T> {
-	readonly done: boolean;
+interface ReadableStreamReadValueResult<T> {
+	readonly done: false;
 	readonly value: T;
 }
+
+interface ReadableStreamReadDoneResult<T> {
+	readonly done: true;
+	readonly value?: T;
+}
+
+type ReadableStreamReadResult<T> =
+	| ReadableStreamReadValueResult<T>
+	| ReadableStreamReadDoneResult<T>;
 
 interface ReadableStreamDefaultReader<R> {
 	read(): Promise<ReadableStreamReadResult<R>>;

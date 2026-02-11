@@ -77,7 +77,7 @@ function makeDenoError(name: string, message?: string): Error {
 // createDenoAdapter — basic contract
 // ===================================================================
 
-describe('createDenoAdapter', () => {
+describe('createDenoAdapter — basic contract', () => {
 	it('returns a RuntimeAdapter with all required fields', () => {
 		const adapter: RuntimeAdapter = createDenoAdapter(mockDeno());
 
