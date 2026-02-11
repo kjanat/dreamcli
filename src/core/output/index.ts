@@ -20,7 +20,6 @@ import type {
 	SpinnerOptions,
 	TableColumn,
 } from '../schema/command.js';
-import type { StaticWriters } from './activity.js';
 import {
 	CaptureProgressHandle,
 	CaptureSpinnerHandle,
@@ -257,22 +256,6 @@ class OutputChannel implements Out {
 	}
 
 	/**
-	 * Build the `StaticWriters` pair for activity handles.
-	 *
-	 * In JSON mode, both writers target stderr (stdout reserved for
-	 * structured JSON). Otherwise, stdout targets stdout and stderr
-	 * targets stderr — same routing as `log()` / `error()`.
-	 *
-	 * @internal
-	 */
-	private buildWriters(): StaticWriters {
-		return {
-			stdout: this.options.jsonMode ? this.options.stderr : this.options.stdout,
-			stderr: this.options.stderr,
-		};
-	}
-
-	/**
 	 * Create a spinner handle.
 	 *
 	 * Mode dispatch:
@@ -280,6 +263,9 @@ class OutputChannel implements Out {
 	 * - `isTTY` → animated TTY spinner (braille frames, ANSI overwrite)
 	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
 	 * - `!isTTY && fallback: 'silent'` (default) → noop
+	 *
+	 * All activity output (transient frames, terminal messages) routes to
+	 * stderr so stdout remains clean for structured data and piping.
 	 *
 	 * If another spinner or progress handle is active, it is implicitly
 	 * stopped before the new one starts.
@@ -301,13 +287,13 @@ class OutputChannel implements Out {
 		this.stopActive();
 
 		if (this.options.isTTY) {
-			const handle = new TTYSpinnerHandle(text, this.buildWriters());
+			const handle = new TTYSpinnerHandle(text, this.options.stderr);
 			this.activeCleanup = () => handle.stop();
 			return handle;
 		}
 
 		// Non-TTY, static fallback.
-		const handle = new StaticSpinnerHandle(text, this.buildWriters());
+		const handle = new StaticSpinnerHandle(text, this.options.stderr);
 		this.activeCleanup = () => handle.stop();
 		return handle;
 	}
@@ -320,6 +306,9 @@ class OutputChannel implements Out {
 	 * - `isTTY` → animated TTY progress bar (determinate or indeterminate)
 	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
 	 * - `!isTTY && fallback: 'silent'` (default) → noop
+	 *
+	 * All activity output (transient frames, terminal messages) routes to
+	 * stderr so stdout remains clean for structured data and piping.
 	 *
 	 * If another spinner or progress handle is active, it is implicitly
 	 * stopped before the new one starts.
@@ -341,13 +330,13 @@ class OutputChannel implements Out {
 		this.stopActive();
 
 		if (this.options.isTTY) {
-			const handle = new TTYProgressHandle(opts, this.buildWriters());
+			const handle = new TTYProgressHandle(opts, this.options.stderr);
 			this.activeCleanup = () => handle.done();
 			return handle;
 		}
 
 		// Non-TTY, static fallback.
-		const handle = new StaticProgressHandle(opts.label, this.buildWriters());
+		const handle = new StaticProgressHandle(opts.label, this.options.stderr);
 		this.activeCleanup = () => handle.done();
 		return handle;
 	}
@@ -578,11 +567,4 @@ export {
 	TTYSpinnerHandle,
 	writeLine,
 };
-export type {
-	CapturedOutput,
-	OutputOptions,
-	ResolvedOutputOptions,
-	StaticWriters,
-	Verbosity,
-	WriteFn,
-};
+export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };

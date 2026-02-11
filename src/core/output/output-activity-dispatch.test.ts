@@ -66,18 +66,18 @@ describe('OutputChannel.spinner() — mode dispatch', () => {
 		expect(stderr).toEqual([]);
 	});
 
-	it('non-TTY, static fallback → static handle with text output', () => {
-		const { channel, stdout } = makeChannel({ isTTY: false });
+	it('non-TTY, static fallback → static handle with text output on stderr', () => {
+		const { channel, stderr } = makeChannel({ isTTY: false });
 		const handle = channel.spinner('Loading', { fallback: 'static' });
 		handle.succeed('Done!');
-		expect(stdout).toEqual(['Loading\n', 'Done!\n']);
+		expect(stderr).toEqual(['Loading\n', 'Done!\n']);
 	});
 
-	it('isTTY → TTY handle with ANSI output', () => {
-		const { channel, stdout } = makeChannel({ isTTY: true });
+	it('isTTY → TTY handle with ANSI output on stderr', () => {
+		const { channel, stderr } = makeChannel({ isTTY: true });
 		const handle = channel.spinner('Loading');
 		handle.stop();
-		const all = stdout.join('');
+		const all = stderr.join('');
 		// TTY handle: should have hide/show cursor
 		expect(all).toContain('\x1b[?25l');
 		expect(all).toContain('\x1b[?25h');
@@ -114,18 +114,18 @@ describe('OutputChannel.progress() — mode dispatch', () => {
 		expect(stdout).toEqual([]);
 	});
 
-	it('non-TTY, static fallback → static handle', () => {
-		const { channel, stdout } = makeChannel({ isTTY: false });
+	it('non-TTY, static fallback → static handle on stderr', () => {
+		const { channel, stderr } = makeChannel({ isTTY: false });
 		const handle = channel.progress({ total: 10, label: 'Files', fallback: 'static' });
 		handle.done('Complete!');
-		expect(stdout).toEqual(['Files\n', 'Complete!\n']);
+		expect(stderr).toEqual(['Files\n', 'Complete!\n']);
 	});
 
-	it('isTTY → TTY handle with bar rendering', () => {
-		const { channel, stdout } = makeChannel({ isTTY: true });
+	it('isTTY → TTY handle with bar rendering on stderr', () => {
+		const { channel, stderr } = makeChannel({ isTTY: true });
 		const handle = channel.progress({ total: 10 });
 		handle.done();
-		const all = stdout.join('');
+		const all = stderr.join('');
 		expect(all).toContain('\x1b[?25l');
 		expect(all).toContain('\x1b[?25h');
 	});
@@ -137,10 +137,10 @@ describe('OutputChannel.progress() — mode dispatch', () => {
 
 describe('active handle tracking — implicit stop', () => {
 	it('new spinner implicitly stops previous spinner (static)', () => {
-		const stdout: string[] = [];
+		const stderr: string[] = [];
 		const channel = new OutputChannel({
-			stdout: (s) => stdout.push(s),
-			stderr: () => {},
+			stdout: () => {},
+			stderr: (s) => stderr.push(s),
 			isTTY: false,
 			verbosity: 'normal',
 			jsonMode: false,
@@ -150,14 +150,14 @@ describe('active handle tracking — implicit stop', () => {
 		// First spinner should have been stopped (no extra output, just stopped)
 		// Calling succeed on first should be no-op (already stopped)
 		first.succeed('ignored');
-		expect(stdout).toEqual(['First\n', 'Second\n']);
+		expect(stderr).toEqual(['First\n', 'Second\n']);
 	});
 
 	it('new progress implicitly stops previous spinner (TTY)', () => {
-		const stdout: string[] = [];
+		const stderr: string[] = [];
 		const channel = new OutputChannel({
-			stdout: (s) => stdout.push(s),
-			stderr: () => {},
+			stdout: () => {},
+			stderr: (s) => stderr.push(s),
 			isTTY: true,
 			verbosity: 'normal',
 			jsonMode: false,
@@ -167,15 +167,15 @@ describe('active handle tracking — implicit stop', () => {
 		// Spinner should have been stopped — succeed is no-op
 		spinner.succeed('ignored');
 		// Just verify no errors; the spinner was cleaned up
-		const all = stdout.join('');
+		const all = stderr.join('');
 		expect(all).toContain('\x1b[?25l');
 	});
 
 	it('new spinner implicitly stops previous progress (TTY)', () => {
-		const stdout: string[] = [];
+		const stderr: string[] = [];
 		const channel = new OutputChannel({
-			stdout: (s) => stdout.push(s),
-			stderr: () => {},
+			stdout: () => {},
+			stderr: (s) => stderr.push(s),
 			isTTY: true,
 			verbosity: 'normal',
 			jsonMode: false,
@@ -184,8 +184,8 @@ describe('active handle tracking — implicit stop', () => {
 		channel.spinner('Spinning');
 		// Progress was implicitly stopped — done is no-op
 		progress.done('ignored');
-		const all = stdout.join('');
-		// Both handles wrote to stdout
+		const all = stderr.join('');
+		// Both handles wrote to stderr
 		expect(all.length).toBeGreaterThan(0);
 	});
 
@@ -251,24 +251,24 @@ describe('stopActive() — explicit cleanup', () => {
 	it('stops an active TTY spinner timer', () => {
 		vi.useFakeTimers();
 		try {
-			const stdout: string[] = [];
+			const stderr: string[] = [];
 			const channel = new OutputChannel({
-				stdout: (s) => stdout.push(s),
-				stderr: () => {},
+				stdout: () => {},
+				stderr: (s) => stderr.push(s),
 				isTTY: true,
 				verbosity: 'normal',
 				jsonMode: false,
 			});
 			channel.spinner('Leaked');
 			// Timer is ticking — advancing would produce more writes
-			const countBefore = stdout.length;
+			const countBefore = stderr.length;
 			vi.advanceTimersByTime(80);
-			expect(stdout.length).toBeGreaterThan(countBefore);
+			expect(stderr.length).toBeGreaterThan(countBefore);
 			// Explicit cleanup
 			channel.stopActive();
-			const countAfterCleanup = stdout.length;
+			const countAfterCleanup = stderr.length;
 			vi.advanceTimersByTime(200);
-			expect(stdout.length).toBe(countAfterCleanup);
+			expect(stderr.length).toBe(countAfterCleanup);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -277,23 +277,23 @@ describe('stopActive() — explicit cleanup', () => {
 	it('stops an active TTY progress pulse timer', () => {
 		vi.useFakeTimers();
 		try {
-			const stdout: string[] = [];
+			const stderr: string[] = [];
 			const channel = new OutputChannel({
-				stdout: (s) => stdout.push(s),
-				stderr: () => {},
+				stdout: () => {},
+				stderr: (s) => stderr.push(s),
 				isTTY: true,
 				verbosity: 'normal',
 				jsonMode: false,
 			});
 			// Indeterminate progress starts a pulse timer
 			channel.progress({ label: 'Leaked' });
-			const countBefore = stdout.length;
+			const countBefore = stderr.length;
 			vi.advanceTimersByTime(80);
-			expect(stdout.length).toBeGreaterThan(countBefore);
+			expect(stderr.length).toBeGreaterThan(countBefore);
 			channel.stopActive();
-			const countAfterCleanup = stdout.length;
+			const countAfterCleanup = stderr.length;
 			vi.advanceTimersByTime(200);
-			expect(stdout.length).toBe(countAfterCleanup);
+			expect(stderr.length).toBe(countAfterCleanup);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -314,20 +314,20 @@ describe('stopActive() — explicit cleanup', () => {
 	});
 
 	it('is idempotent — safe to call after handle already stopped', () => {
-		const stdout: string[] = [];
+		const stderr: string[] = [];
 		const channel = new OutputChannel({
-			stdout: (s) => stdout.push(s),
-			stderr: () => {},
+			stdout: () => {},
+			stderr: (s) => stderr.push(s),
 			isTTY: false,
 			verbosity: 'normal',
 			jsonMode: false,
 		});
 		const handle = channel.spinner('work', { fallback: 'static' });
 		handle.succeed('done');
-		const countAfterSucceed = stdout.length;
+		const countAfterSucceed = stderr.length;
 		// stopActive after handle already terminated — no extra output
 		channel.stopActive();
-		expect(stdout.length).toBe(countAfterSucceed);
+		expect(stderr.length).toBe(countAfterSucceed);
 	});
 });
 

@@ -37,26 +37,6 @@ declare function setInterval(callback: () => void, ms: number): unknown;
 declare function clearInterval(handle: unknown): void;
 
 // ---------------------------------------------------------------------------
-// Static writers — I/O pair shared by all concrete handle classes
-// ---------------------------------------------------------------------------
-
-/**
- * I/O writers for activity handles.
- *
- * Handles emit plain text (static) or ANSI sequences (TTY). They need
- * separate stdout/stderr writers rather than an `Out` reference to
- * avoid circular dependency (Out.spinner() → handle → Out).
- *
- * @internal
- */
-interface StaticWriters {
-	/** Writer for normal output (success, start). */
-	readonly stdout: WriteFn;
-	/** Writer for error output (fail). */
-	readonly stderr: WriteFn;
-}
-
-// ---------------------------------------------------------------------------
 // Noop activity handles — silent mode (non-TTY, fallback='silent')
 // ---------------------------------------------------------------------------
 
@@ -113,9 +93,9 @@ class StaticSpinnerHandle implements SpinnerHandle {
 
 	constructor(
 		text: string,
-		private readonly writers: StaticWriters,
+		private readonly write: WriteFn,
 	) {
-		writeLine(writers.stdout, text);
+		writeLine(write, text);
 	}
 
 	update(_text: string): void {
@@ -126,7 +106,7 @@ class StaticSpinnerHandle implements SpinnerHandle {
 		if (this.stopped) return;
 		this.stopped = true;
 		if (text !== undefined) {
-			writeLine(this.writers.stdout, text);
+			writeLine(this.write, text);
 		}
 	}
 
@@ -134,7 +114,7 @@ class StaticSpinnerHandle implements SpinnerHandle {
 		if (this.stopped) return;
 		this.stopped = true;
 		if (text !== undefined) {
-			writeLine(this.writers.stderr, text);
+			writeLine(this.write, text);
 		}
 	}
 
@@ -174,10 +154,10 @@ class StaticProgressHandle implements ProgressHandle {
 
 	constructor(
 		label: string | undefined,
-		private readonly writers: StaticWriters,
+		private readonly write: WriteFn,
 	) {
 		if (label !== undefined) {
-			writeLine(writers.stdout, label);
+			writeLine(write, label);
 		}
 	}
 
@@ -193,7 +173,7 @@ class StaticProgressHandle implements ProgressHandle {
 		if (this.stopped) return;
 		this.stopped = true;
 		if (text !== undefined) {
-			writeLine(this.writers.stdout, text);
+			writeLine(this.write, text);
 		}
 	}
 
@@ -201,7 +181,7 @@ class StaticProgressHandle implements ProgressHandle {
 		if (this.stopped) return;
 		this.stopped = true;
 		if (text !== undefined) {
-			writeLine(this.writers.stderr, text);
+			writeLine(this.write, text);
 		}
 	}
 }
@@ -284,10 +264,10 @@ class TTYSpinnerHandle implements SpinnerHandle {
 
 	constructor(
 		text: string,
-		private readonly writers: StaticWriters,
+		private readonly write: WriteFn,
 	) {
 		this.text = text;
-		writers.stdout(HIDE_CURSOR);
+		write(HIDE_CURSOR);
 		this.render();
 		this.timer = setInterval(() => {
 			this.frameIndex = (this.frameIndex + 1) % SPINNER_FRAMES.length;
@@ -297,7 +277,7 @@ class TTYSpinnerHandle implements SpinnerHandle {
 
 	/** Render the current frame + text, overwriting the current line. */
 	private render(): void {
-		this.writers.stdout(`\r${ERASE_LINE}${SPINNER_FRAMES[this.frameIndex]} ${this.text}`);
+		this.write(`\r${ERASE_LINE}${SPINNER_FRAMES[this.frameIndex]} ${this.text}`);
 	}
 
 	/** Clear the animation timer, erase the line, and restore the cursor. */
@@ -306,7 +286,7 @@ class TTYSpinnerHandle implements SpinnerHandle {
 			clearInterval(this.timer);
 			this.timer = undefined;
 		}
-		this.writers.stdout(`\r${ERASE_LINE}${SHOW_CURSOR}`);
+		this.write(`\r${ERASE_LINE}${SHOW_CURSOR}`);
 	}
 
 	update(text: string): void {
@@ -321,7 +301,7 @@ class TTYSpinnerHandle implements SpinnerHandle {
 		this.stopped = true;
 		this.cleanup();
 		if (text !== undefined) {
-			writeLine(this.writers.stdout, `${CHECK} ${text}`);
+			writeLine(this.write, `${CHECK} ${text}`);
 		}
 	}
 
@@ -330,7 +310,7 @@ class TTYSpinnerHandle implements SpinnerHandle {
 		this.stopped = true;
 		this.cleanup();
 		if (text !== undefined) {
-			writeLine(this.writers.stderr, `${CROSS} ${text}`);
+			writeLine(this.write, `${CROSS} ${text}`);
 		}
 	}
 
@@ -387,11 +367,11 @@ class TTYProgressHandle implements ProgressHandle {
 
 	constructor(
 		opts: ProgressOptions,
-		private readonly writers: StaticWriters,
+		private readonly write: WriteFn,
 	) {
 		this.total = opts.total;
 		this.label = opts.label ?? '';
-		writers.stdout(HIDE_CURSOR);
+		write(HIDE_CURSOR);
 		this.render();
 
 		// Only start animation timer for indeterminate mode.
@@ -420,7 +400,7 @@ class TTYProgressHandle implements ProgressHandle {
 	private render(): void {
 		const bar = this.total !== undefined ? this.renderDeterminate() : this.renderIndeterminate();
 		const suffix = this.label.length > 0 ? ` ${this.label}` : '';
-		this.writers.stdout(`\r${ERASE_LINE}${bar}${suffix}`);
+		this.write(`\r${ERASE_LINE}${bar}${suffix}`);
 	}
 
 	/** Render a determinate bar: `[████░░░░░░] 40%`. */
@@ -448,7 +428,7 @@ class TTYProgressHandle implements ProgressHandle {
 			clearInterval(this.timer);
 			this.timer = undefined;
 		}
-		this.writers.stdout(`\r${ERASE_LINE}${SHOW_CURSOR}`);
+		this.write(`\r${ERASE_LINE}${SHOW_CURSOR}`);
 	}
 
 	increment(n?: number): void {
@@ -468,7 +448,7 @@ class TTYProgressHandle implements ProgressHandle {
 		this.stopped = true;
 		this.cleanup();
 		if (text !== undefined) {
-			writeLine(this.writers.stdout, `${CHECK} ${text}`);
+			writeLine(this.write, `${CHECK} ${text}`);
 		}
 	}
 
@@ -477,7 +457,7 @@ class TTYProgressHandle implements ProgressHandle {
 		this.stopped = true;
 		this.cleanup();
 		if (text !== undefined) {
-			writeLine(this.writers.stderr, `${CROSS} ${text}`);
+			writeLine(this.write, `${CROSS} ${text}`);
 		}
 	}
 }
@@ -599,4 +579,3 @@ export {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 };
-export type { StaticWriters };

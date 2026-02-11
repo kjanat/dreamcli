@@ -7,12 +7,15 @@
  * - TTYSpinnerHandle (isTTY, ANSI rendering, timer cleanup)
  * - CaptureSpinnerHandle (testkit event recording)
  *
+ * All concrete handles receive a single `WriteFn` (stderr). Output
+ * assertions use a unified `output` array — no stdout/stderr split.
+ *
  * @module
  */
 
 import { describe, expect, it, vi } from 'vitest';
 import type { ActivityEvent } from '../schema/command.js';
-import type { StaticWriters } from './index.js';
+import type { WriteFn } from './index.js';
 import {
 	CaptureSpinnerHandle,
 	noopSpinnerHandle,
@@ -22,13 +25,11 @@ import {
 
 // --- Test helpers ---
 
-function makeWriters(): { writers: StaticWriters; stdout: string[]; stderr: string[] } {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
+function makeWriter(): { write: WriteFn; output: string[] } {
+	const output: string[] = [];
 	return {
-		writers: { stdout: (s) => stdout.push(s), stderr: (s) => stderr.push(s) },
-		stdout,
-		stderr,
+		write: (s) => output.push(s),
+		output,
 	};
 }
 
@@ -63,118 +64,114 @@ describe('noopSpinnerHandle', () => {
 
 describe('StaticSpinnerHandle', () => {
 	it('emits start text on construction', () => {
-		const { writers, stdout } = makeWriters();
-		new StaticSpinnerHandle('Loading...', writers);
-		expect(stdout).toEqual(['Loading...\n']);
+		const { write, output } = makeWriter();
+		new StaticSpinnerHandle('Loading...', write);
+		expect(output).toEqual(['Loading...\n']);
 	});
 
-	it('succeed() emits text to stdout', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+	it('succeed() emits text', () => {
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.succeed('Done!');
-		expect(stdout).toEqual(['work\n', 'Done!\n']);
+		expect(output).toEqual(['work\n', 'Done!\n']);
 	});
 
 	it('succeed() without text emits nothing extra', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.succeed();
-		expect(stdout).toEqual(['work\n']);
+		expect(output).toEqual(['work\n']);
 	});
 
-	it('fail() emits text to stderr', () => {
-		const { writers, stderr } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+	it('fail() emits text', () => {
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.fail('Error!');
-		expect(stderr).toEqual(['Error!\n']);
+		expect(output).toEqual(['work\n', 'Error!\n']);
 	});
 
 	it('fail() without text emits nothing extra', () => {
-		const { writers, stderr } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.fail();
-		expect(stderr).toEqual([]);
+		expect(output).toEqual(['work\n']);
 	});
 
 	it('stop() is silent', () => {
-		const { writers, stdout, stderr } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.stop();
-		expect(stdout).toEqual(['work\n']);
-		expect(stderr).toEqual([]);
+		expect(output).toEqual(['work\n']);
 	});
 
 	it('update() is silent (no terminal to overwrite)', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.update('new text');
 		// Only the initial text
-		expect(stdout).toEqual(['work\n']);
+		expect(output).toEqual(['work\n']);
 	});
 
 	// --- Idempotency ---
 
 	it('terminal methods are idempotent — second succeed is no-op', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.succeed('first');
 		handle.succeed('second');
-		expect(stdout).toEqual(['work\n', 'first\n']);
+		expect(output).toEqual(['work\n', 'first\n']);
 	});
 
 	it('fail after succeed is no-op', () => {
-		const { writers, stdout, stderr } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.succeed('ok');
 		handle.fail('nope');
-		expect(stdout).toEqual(['work\n', 'ok\n']);
-		expect(stderr).toEqual([]);
+		expect(output).toEqual(['work\n', 'ok\n']);
 	});
 
 	it('succeed after fail is no-op', () => {
-		const { writers, stdout, stderr } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.fail('nope');
 		handle.succeed('ok');
-		expect(stderr).toEqual(['nope\n']);
-		expect(stdout).toEqual(['work\n']);
+		expect(output).toEqual(['work\n', 'nope\n']);
 	});
 
 	it('stop after succeed is no-op', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		handle.succeed('done');
 		handle.stop();
-		expect(stdout).toEqual(['work\n', 'done\n']);
+		expect(output).toEqual(['work\n', 'done\n']);
 	});
 
 	// --- wrap() ---
 
 	it('wrap() calls succeed on resolution', async () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		const result = await handle.wrap(Promise.resolve('val'), { succeed: 'ok!' });
 		expect(result).toBe('val');
-		expect(stdout).toEqual(['work\n', 'ok!\n']);
+		expect(output).toEqual(['work\n', 'ok!\n']);
 	});
 
 	it('wrap() calls fail on rejection', async () => {
-		const { writers, stderr } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		await expect(
 			handle.wrap(Promise.reject(new Error('boom')), { fail: 'failed!' }),
 		).rejects.toThrow('boom');
-		expect(stderr).toEqual(['failed!\n']);
+		expect(output).toEqual(['work\n', 'failed!\n']);
 	});
 
 	it('wrap() is idempotent — no output after first wrap', async () => {
-		const { writers, stdout, stderr } = makeWriters();
-		const handle = new StaticSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
 		await handle.wrap(Promise.resolve(1), { succeed: 'first' });
 		// Second wrap resolves but handle is already stopped
 		await handle.wrap(Promise.resolve(2), { succeed: 'second' });
-		expect(stdout).toEqual(['work\n', 'first\n']);
-		expect(stderr).toEqual([]);
+		expect(output).toEqual(['work\n', 'first\n']);
 	});
 });
 
@@ -184,21 +181,21 @@ describe('StaticSpinnerHandle', () => {
 
 describe('TTYSpinnerHandle', () => {
 	it('emits hide cursor + initial frame on construction', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('Loading', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('Loading', write);
 		// First write: hide cursor
-		expect(stdout[0]).toBe('\x1b[?25l');
+		expect(output[0]).toBe('\x1b[?25l');
 		// Second write: initial frame render with \r + erase line
-		expect(stdout[1]).toContain('\r');
-		expect(stdout[1]).toContain('Loading');
+		expect(output[1]).toContain('\r');
+		expect(output[1]).toContain('Loading');
 		handle.stop();
 	});
 
 	it('succeed() cleans up + emits check symbol', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.succeed('Done!');
-		const all = stdout.join('');
+		const all = output.join('');
 		// Should contain show cursor (cleanup)
 		expect(all).toContain('\x1b[?25h');
 		// Should contain check symbol
@@ -206,34 +203,32 @@ describe('TTYSpinnerHandle', () => {
 		expect(all).toContain('Done!');
 	});
 
-	it('fail() cleans up + emits cross symbol to stderr', () => {
-		const { writers, stdout, stderr } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+	it('fail() cleans up + emits cross symbol', () => {
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.fail('Error!');
-		// Cleanup writes to stdout (erase line + show cursor)
-		const stdoutAll = stdout.join('');
-		expect(stdoutAll).toContain('\x1b[?25h');
-		// Failure text goes to stderr
-		const stderrAll = stderr.join('');
-		expect(stderrAll).toContain('✗');
-		expect(stderrAll).toContain('Error!');
+		const all = output.join('');
+		// Cleanup (erase line + show cursor)
+		expect(all).toContain('\x1b[?25h');
+		// Failure text
+		expect(all).toContain('✗');
+		expect(all).toContain('Error!');
 	});
 
 	it('fail() without text cleans up silently', () => {
-		const { writers, stdout, stderr } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.fail();
-		const stdoutAll = stdout.join('');
-		expect(stdoutAll).toContain('\x1b[?25h');
-		expect(stdoutAll).not.toContain('✗');
-		expect(stderr).toEqual([]);
+		const all = output.join('');
+		expect(all).toContain('\x1b[?25h');
+		expect(all).not.toContain('✗');
 	});
 
 	it('stop() cleans up without status symbol', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.stop();
-		const all = stdout.join('');
+		const all = output.join('');
 		expect(all).toContain('\x1b[?25h');
 		// No check or cross
 		expect(all).not.toContain('✓');
@@ -241,73 +236,73 @@ describe('TTYSpinnerHandle', () => {
 	});
 
 	it('update() changes displayed text', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('first', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('first', write);
 		handle.update('second');
 		// Should have a render containing 'second'
-		const hasSecond = stdout.some((s) => s.includes('second'));
+		const hasSecond = output.some((s) => s.includes('second'));
 		expect(hasSecond).toBe(true);
 		handle.stop();
 	});
 
 	it('update() after stop is no-op', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.stop();
-		const countAfterStop = stdout.length;
+		const countAfterStop = output.length;
 		handle.update('ignored');
-		expect(stdout.length).toBe(countAfterStop);
+		expect(output.length).toBe(countAfterStop);
 	});
 
 	// --- Idempotency ---
 
 	it('double stop is no-op', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.stop();
-		const countAfterStop = stdout.length;
+		const countAfterStop = output.length;
 		handle.stop();
-		expect(stdout.length).toBe(countAfterStop);
+		expect(output.length).toBe(countAfterStop);
 	});
 
 	it('succeed after stop is no-op', () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.stop();
-		const countAfterStop = stdout.length;
+		const countAfterStop = output.length;
 		handle.succeed('ignored');
-		expect(stdout.length).toBe(countAfterStop);
+		expect(output.length).toBe(countAfterStop);
 	});
 
 	it('fail after succeed is no-op', () => {
-		const { writers, stderr } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		handle.succeed('ok');
+		const countAfterSucceed = output.length;
 		handle.fail('ignored');
-		// No failure text in stderr
-		const stderrAll = stderr.join('');
-		expect(stderrAll).not.toContain('ignored');
+		// No additional output
+		expect(output.length).toBe(countAfterSucceed);
 	});
 
 	// --- wrap() ---
 
 	it('wrap() succeeds → auto-succeed', async () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		const result = await handle.wrap(Promise.resolve('val'), { succeed: 'ok!' });
 		expect(result).toBe('val');
-		const all = stdout.join('');
+		const all = output.join('');
 		expect(all).toContain('✓');
 		expect(all).toContain('ok!');
 	});
 
 	it('wrap() rejects → auto-fail', async () => {
-		const { writers, stderr } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
+		const { write, output } = makeWriter();
+		const handle = new TTYSpinnerHandle('work', write);
 		await expect(
 			handle.wrap(Promise.reject(new Error('boom')), { fail: 'failed!' }),
 		).rejects.toThrow('boom');
-		const all = stderr.join('');
+		const all = output.join('');
 		expect(all).toContain('✗');
 		expect(all).toContain('failed!');
 	});
@@ -317,12 +312,12 @@ describe('TTYSpinnerHandle', () => {
 	it('stop() clears animation timer — no callbacks after advance', () => {
 		vi.useFakeTimers();
 		try {
-			const { writers, stdout } = makeWriters();
-			const handle = new TTYSpinnerHandle('work', writers);
+			const { write, output } = makeWriter();
+			const handle = new TTYSpinnerHandle('work', write);
 			handle.stop();
-			const countAfterStop = stdout.length;
+			const countAfterStop = output.length;
 			vi.advanceTimersByTime(200);
-			expect(stdout.length).toBe(countAfterStop);
+			expect(output.length).toBe(countAfterStop);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -331,12 +326,12 @@ describe('TTYSpinnerHandle', () => {
 	it('succeed() clears animation timer — no callbacks after advance', () => {
 		vi.useFakeTimers();
 		try {
-			const { writers, stdout } = makeWriters();
-			const handle = new TTYSpinnerHandle('work', writers);
+			const { write, output } = makeWriter();
+			const handle = new TTYSpinnerHandle('work', write);
 			handle.succeed('ok');
-			const countAfterSucceed = stdout.length;
+			const countAfterSucceed = output.length;
 			vi.advanceTimersByTime(200);
-			expect(stdout.length).toBe(countAfterSucceed);
+			expect(output.length).toBe(countAfterSucceed);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -345,14 +340,12 @@ describe('TTYSpinnerHandle', () => {
 	it('fail() clears animation timer — no callbacks after advance', () => {
 		vi.useFakeTimers();
 		try {
-			const { writers, stdout, stderr } = makeWriters();
-			const handle = new TTYSpinnerHandle('work', writers);
+			const { write, output } = makeWriter();
+			const handle = new TTYSpinnerHandle('work', write);
 			handle.fail('err');
-			const stdoutCount = stdout.length;
-			const stderrCount = stderr.length;
+			const countAfterFail = output.length;
 			vi.advanceTimersByTime(200);
-			expect(stdout.length).toBe(stdoutCount);
-			expect(stderr.length).toBe(stderrCount);
+			expect(output.length).toBe(countAfterFail);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -363,10 +356,10 @@ describe('TTYSpinnerHandle', () => {
 	it('cycles through braille frames at 80ms intervals', () => {
 		vi.useFakeTimers();
 		try {
-			const { writers, stdout } = makeWriters();
-			const handle = new TTYSpinnerHandle('work', writers);
+			const { write, output } = makeWriter();
+			const handle = new TTYSpinnerHandle('work', write);
 			// Construction renders frame 0 (⠋)
-			const last = () => stdout[stdout.length - 1]!;
+			const last = () => output[output.length - 1]!;
 			expect(last()).toContain('⠋');
 			// 1 tick → frame 1 (⠙)
 			vi.advanceTimersByTime(80);
@@ -389,16 +382,14 @@ describe('TTYSpinnerHandle', () => {
 	it('wrap() rejection clears animation timer — no interval leak', async () => {
 		vi.useFakeTimers();
 		try {
-			const { writers, stdout, stderr } = makeWriters();
-			const handle = new TTYSpinnerHandle('work', writers);
+			const { write, output } = makeWriter();
+			const handle = new TTYSpinnerHandle('work', write);
 			await expect(handle.wrap(Promise.reject(new Error('boom')), { fail: 'err' })).rejects.toThrow(
 				'boom',
 			);
-			const stdoutCount = stdout.length;
-			const stderrCount = stderr.length;
+			const countAfterFail = output.length;
 			vi.advanceTimersByTime(200);
-			expect(stdout.length).toBe(stdoutCount);
-			expect(stderr.length).toBe(stderrCount);
+			expect(output.length).toBe(countAfterFail);
 		} finally {
 			vi.useRealTimers();
 		}
