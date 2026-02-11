@@ -307,6 +307,10 @@ async function runCommand<
 			out.error(wrapped.message);
 		}
 		return buildResult(1, captured, wrapped);
+	} finally {
+		// Clean up any active spinner/progress timer that the handler
+		// failed to stop (e.g. unhandled exception before terminal method).
+		out.stopActive();
 	}
 }
 

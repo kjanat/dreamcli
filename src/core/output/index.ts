@@ -245,12 +245,11 @@ class OutputChannel implements Out {
 	/**
 	 * Stop the currently active spinner/progress handle (if any).
 	 *
-	 * Called before creating a new handle to prevent overlap. Idempotent
-	 * (safe to call when no handle is active).
-	 *
-	 * @internal
+	 * Called internally before creating a new handle to prevent overlap,
+	 * and externally after handler execution to clean up leaked timers.
+	 * Idempotent (safe to call when no handle is active).
 	 */
-	private stopActive(): void {
+	stopActive(): void {
 		if (this.activeCleanup !== undefined) {
 			this.activeCleanup();
 			this.activeCleanup = undefined;

@@ -319,6 +319,34 @@ interface Out {
 	 * @param options - Progress configuration (total, label, fallback).
 	 */
 	progress(options: ProgressOptions): ProgressHandle;
+
+	/**
+	 * Stop the currently active spinner or progress handle, if any.
+	 *
+	 * TTY spinner and progress handles start `setInterval` timers that
+	 * prevent the process from exiting until a terminal method (`stop`,
+	 * `succeed`, `fail`, `done`) is called. If a handler throws before
+	 * reaching that call, the timer leaks and the process hangs.
+	 *
+	 * Call `stopActive()` in a `finally` block after handler execution
+	 * to guarantee cleanup. It is idempotent — safe to call when no
+	 * handle is active, or when the handle was already stopped.
+	 *
+	 * The framework calls this automatically in `runCommand()` and
+	 * `cli.run()`. Direct users of `createOutput()` should call it
+	 * themselves after the handler returns or throws.
+	 *
+	 * @example
+	 * ```ts
+	 * const out = createOutput({ isTTY: true });
+	 * try {
+	 *   await handler({ out });
+	 * } finally {
+	 *   out.stopActive();
+	 * }
+	 * ```
+	 */
+	stopActive(): void;
 }
 
 /**

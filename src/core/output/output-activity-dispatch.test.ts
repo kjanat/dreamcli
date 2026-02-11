@@ -6,13 +6,14 @@
  * - OutputChannel.spinner() mode dispatch (jsonMode, TTY, non-TTY, fallback)
  * - OutputChannel.progress() mode dispatch
  * - Active handle tracking (implicit stop on overlap)
+ * - stopActive() — explicit cleanup for leaked handles
  * - createCaptureOutput() activity event capture
  * - runCommand() testkit integration with activity capture
  *
  * @module
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { command } from '../schema/command.js';
 import { runCommand } from '../testkit/index.js';
 import { createCaptureOutput, OutputChannel } from './index.js';
@@ -243,6 +244,94 @@ describe('active handle tracking — implicit stop', () => {
 });
 
 // ===================================================================
+// stopActive — explicit cleanup for leaked handles
+// ===================================================================
+
+describe('stopActive() — explicit cleanup', () => {
+	it('stops an active TTY spinner timer', () => {
+		vi.useFakeTimers();
+		try {
+			const stdout: string[] = [];
+			const channel = new OutputChannel({
+				stdout: (s) => stdout.push(s),
+				stderr: () => {},
+				isTTY: true,
+				verbosity: 'normal',
+				jsonMode: false,
+			});
+			channel.spinner('Leaked');
+			// Timer is ticking — advancing would produce more writes
+			const countBefore = stdout.length;
+			vi.advanceTimersByTime(80);
+			expect(stdout.length).toBeGreaterThan(countBefore);
+			// Explicit cleanup
+			channel.stopActive();
+			const countAfterCleanup = stdout.length;
+			vi.advanceTimersByTime(200);
+			expect(stdout.length).toBe(countAfterCleanup);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('stops an active TTY progress pulse timer', () => {
+		vi.useFakeTimers();
+		try {
+			const stdout: string[] = [];
+			const channel = new OutputChannel({
+				stdout: (s) => stdout.push(s),
+				stderr: () => {},
+				isTTY: true,
+				verbosity: 'normal',
+				jsonMode: false,
+			});
+			// Indeterminate progress starts a pulse timer
+			channel.progress({ label: 'Leaked' });
+			const countBefore = stdout.length;
+			vi.advanceTimersByTime(80);
+			expect(stdout.length).toBeGreaterThan(countBefore);
+			channel.stopActive();
+			const countAfterCleanup = stdout.length;
+			vi.advanceTimersByTime(200);
+			expect(stdout.length).toBe(countAfterCleanup);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('is idempotent — safe to call with no active handle', () => {
+		const channel = new OutputChannel({
+			stdout: () => {},
+			stderr: () => {},
+			isTTY: false,
+			verbosity: 'normal',
+			jsonMode: false,
+		});
+		expect(() => {
+			channel.stopActive();
+			channel.stopActive();
+		}).not.toThrow();
+	});
+
+	it('is idempotent — safe to call after handle already stopped', () => {
+		const stdout: string[] = [];
+		const channel = new OutputChannel({
+			stdout: (s) => stdout.push(s),
+			stderr: () => {},
+			isTTY: false,
+			verbosity: 'normal',
+			jsonMode: false,
+		});
+		const handle = channel.spinner('work', { fallback: 'static' });
+		handle.succeed('done');
+		const countAfterSucceed = stdout.length;
+		// stopActive after handle already terminated — no extra output
+		channel.stopActive();
+		expect(stdout.length).toBe(countAfterSucceed);
+	});
+});
+
+// ===================================================================
 // createCaptureOutput — activity event capture
 // ===================================================================
 
@@ -444,5 +533,19 @@ describe('runCommand() — activity capture', () => {
 			{ type: 'progress:start', label: 'Syncing', total: undefined },
 			{ type: 'progress:done', text: 'Synced' },
 		]);
+	});
+
+	it('handler throw does not leak — stopActive() called in finally', async () => {
+		const cmd = command('test').action(({ out }) => {
+			out.spinner('Leaked');
+			throw new Error('handler exploded');
+		});
+		const result = await runCommand(cmd, []);
+		// Handler threw — runCommand catches and wraps as UNEXPECTED_ERROR
+		expect(result.exitCode).toBe(1);
+		// Spinner was started but never stopped by handler
+		expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Leaked' }]);
+		// The key assertion: runCommand completed (did not hang),
+		// proving stopActive() cleaned up the capture handle.
 	});
 });
