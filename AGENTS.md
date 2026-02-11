@@ -36,9 +36,6 @@ src/
     └── detect.ts           # Runtime auto-detection (Bun/Deno/Node feature detection)
 ```
 
-**Ghost dirs at `src/` top-level** (`src/completion/`, `src/errors/`, etc.) mirror `core/` modules
-but are empty. Leftover scaffolding — ignore them.
-
 ## WHERE TO LOOK
 
 | Task                           | Location                        | Notes                                         |
