@@ -14,7 +14,7 @@
 			"title": "Add cross-runtime CI test matrix",
 			"description": "GitHub Actions running tests on Node LTS, Bun stable, Deno stable. Adapter parity tests verifying identical behavior across runtimes.",
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "jsr-publishing",

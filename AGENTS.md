@@ -143,7 +143,8 @@ bun run ci           # check → lint → test → build (sequential)
 
 ## NOTES
 
-- **No CI automation** — `bun run ci` is local-only, no GitHub Actions
+- **CI**: GitHub Actions — lint+typecheck (Bun), test matrix (Node LTS + Bun), Deno smoke test,
+  build
 - **No publish automation** — manual `bun publish`, quality gates in build step
 - **~31 source files, 46 test files, ~9.9k source lines** — 1658 tests
 - **5 files >500 lines** — `resolve/index.ts` (940), `cli/index.ts` (793), `schema/command.ts`

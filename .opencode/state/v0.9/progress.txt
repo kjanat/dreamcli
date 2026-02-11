@@ -34,3 +34,14 @@ Started: 2026-02-11
 - Updated `cli-completion-e2e.test.ts` (1 test changed: Deno creates adapter instead of throwing CLIError)
 - Files changed: `deno.ts`, `deno-builtins.d.ts`, `deno.test.ts`, `auto.ts`, `auto.test.ts`, `cli-completion-e2e.test.ts`, `index.ts`, `runtime.ts`
 - **Learnings:** Deno's stdin uses ReadableStream (not readline), needs manual line buffering. globalThis mock cleanup pattern essential for cross-runtime adapter tests in vitest.
+
+## Task - cross-runtime-ci
+- Created `.github/workflows/ci.yml` with 4 jobs: lint, test (matrix), test-deno, build
+- **lint**: Bun-only — type check (tsgo), biome lint, dprint format check
+- **test**: Matrix with Bun stable + Node LTS — vitest runs natively on both
+- **test-deno**: Builds package, then runs `scripts/deno-smoke-test.ts` under real Deno with `--allow-read --allow-env`
+- **build**: After lint+test pass — tsdown build + publint + attw
+- Created `scripts/deno-smoke-test.ts` — 21 assertions exercising createDenoAdapter() against real Deno APIs (argv, env, cwd, I/O, TTY, readFile, homedir, configDir)
+- Verified locally: Deno smoke test passes on Deno 2.6.6, all 1695 vitest tests still pass
+- Files added: `.github/workflows/ci.yml`, `scripts/deno-smoke-test.ts`
+- **Learnings:** vitest doesn't run under Deno — Deno testing requires separate smoke test against built output. Concurrency group with `cancel-in-progress` prevents wasted CI minutes on force-pushes. Node test runs use `npx vitest run` (not `bun run test`) to ensure Node is the actual runtime.
