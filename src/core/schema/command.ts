@@ -107,6 +107,7 @@ type ActivityEvent =
 	| { readonly type: 'spinner:fail'; readonly text: string }
 	| { readonly type: 'spinner:stop' }
 	| { readonly type: 'progress:start'; readonly label: string; readonly total: number | undefined }
+	| { readonly type: 'progress:increment'; readonly delta: number }
 	| { readonly type: 'progress:update'; readonly value: number }
 	| { readonly type: 'progress:done'; readonly text: string | undefined }
 	| { readonly type: 'progress:fail'; readonly text: string | undefined };

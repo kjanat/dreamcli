@@ -356,18 +356,18 @@ describe('CaptureProgressHandle', () => {
 		expect(events).toEqual([{ type: 'progress:start', label: '', total: undefined }]);
 	});
 
-	it('increment() records update event with value', () => {
+	it('increment() records increment event with delta', () => {
 		const events: ActivityEvent[] = [];
 		const handle = new CaptureProgressHandle({ total: 10 }, events);
 		handle.increment(3);
-		expect(events[1]).toEqual({ type: 'progress:update', value: 3 });
+		expect(events[1]).toEqual({ type: 'progress:increment', delta: 3 });
 	});
 
-	it('increment() defaults to 1', () => {
+	it('increment() defaults to delta 1', () => {
 		const events: ActivityEvent[] = [];
 		const handle = new CaptureProgressHandle({ total: 10 }, events);
 		handle.increment();
-		expect(events[1]).toEqual({ type: 'progress:update', value: 1 });
+		expect(events[1]).toEqual({ type: 'progress:increment', delta: 1 });
 	});
 
 	it('update() records update event with absolute value', () => {

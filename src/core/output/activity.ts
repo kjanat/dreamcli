@@ -564,8 +564,7 @@ class CaptureProgressHandle implements ProgressHandle {
 
 	increment(n?: number): void {
 		if (this.stopped) return;
-		// Record as an update with the increment value (1-based convention).
-		this.events.push({ type: 'progress:update', value: n ?? 1 });
+		this.events.push({ type: 'progress:increment', delta: n ?? 1 });
 	}
 
 	update(value: number): void {

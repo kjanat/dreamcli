@@ -267,7 +267,7 @@ describe('createCaptureOutput — activity capture', () => {
 		handle.done('Complete');
 		expect(captured.activity).toEqual([
 			{ type: 'progress:start', label: 'Files', total: 10 },
-			{ type: 'progress:update', value: 3 },
+			{ type: 'progress:increment', delta: 3 },
 			{ type: 'progress:update', value: 7 },
 			{ type: 'progress:done', text: 'Complete' },
 		]);
@@ -312,7 +312,7 @@ describe('createCaptureOutput — activity capture', () => {
 			{ type: 'spinner:start', text: 'Fetching' },
 			{ type: 'spinner:succeed', text: 'Fetched' },
 			{ type: 'progress:start', label: 'Processing', total: 5 },
-			{ type: 'progress:update', value: 2 },
+			{ type: 'progress:increment', delta: 2 },
 			{ type: 'progress:done', text: 'All done' },
 		]);
 	});
@@ -377,9 +377,9 @@ describe('runCommand() — activity capture', () => {
 		expect(result.exitCode).toBe(0);
 		expect(result.activity).toEqual([
 			{ type: 'progress:start', label: 'Items', total: 3 },
-			{ type: 'progress:update', value: 1 },
-			{ type: 'progress:update', value: 1 },
-			{ type: 'progress:update', value: 1 },
+			{ type: 'progress:increment', delta: 1 },
+			{ type: 'progress:increment', delta: 1 },
+			{ type: 'progress:increment', delta: 1 },
 			{ type: 'progress:done', text: 'All items processed' },
 		]);
 	});
