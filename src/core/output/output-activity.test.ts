@@ -13,7 +13,7 @@
  * - Testkit integration via runCommand()
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ActivityEvent } from '../schema/command.js';
 import { command } from '../schema/command.js';
 import { runCommand } from '../testkit/index.js';
@@ -30,9 +30,6 @@ import {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 } from './index.js';
-
-// Timer global — not in ES2022 lib, universally available at runtime.
-declare function setTimeout(callback: (...args: never[]) => void, ms: number): unknown;
 
 // --- Test helpers ---
 
@@ -435,33 +432,48 @@ describe('TTYSpinnerHandle', () => {
 
 	// --- Timer cleanup ---
 
-	it('stop() clears animation timer — no writes after delay', async () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
-		handle.stop();
-		const countAfterStop = stdout.length;
-		await new Promise((r) => setTimeout(r, 200));
-		expect(stdout.length).toBe(countAfterStop);
+	it('stop() clears animation timer — no callbacks after advance', () => {
+		vi.useFakeTimers();
+		try {
+			const { writers, stdout } = makeWriters();
+			const handle = new TTYSpinnerHandle('work', writers);
+			handle.stop();
+			const countAfterStop = stdout.length;
+			vi.advanceTimersByTime(200);
+			expect(stdout.length).toBe(countAfterStop);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
-	it('succeed() clears animation timer — no writes after delay', async () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
-		handle.succeed('ok');
-		const countAfterSucceed = stdout.length;
-		await new Promise((r) => setTimeout(r, 200));
-		expect(stdout.length).toBe(countAfterSucceed);
+	it('succeed() clears animation timer — no callbacks after advance', () => {
+		vi.useFakeTimers();
+		try {
+			const { writers, stdout } = makeWriters();
+			const handle = new TTYSpinnerHandle('work', writers);
+			handle.succeed('ok');
+			const countAfterSucceed = stdout.length;
+			vi.advanceTimersByTime(200);
+			expect(stdout.length).toBe(countAfterSucceed);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
-	it('fail() clears animation timer — no writes after delay', async () => {
-		const { writers, stdout, stderr } = makeWriters();
-		const handle = new TTYSpinnerHandle('work', writers);
-		handle.fail('err');
-		const stdoutCount = stdout.length;
-		const stderrCount = stderr.length;
-		await new Promise((r) => setTimeout(r, 200));
-		expect(stdout.length).toBe(stdoutCount);
-		expect(stderr.length).toBe(stderrCount);
+	it('fail() clears animation timer — no callbacks after advance', () => {
+		vi.useFakeTimers();
+		try {
+			const { writers, stdout, stderr } = makeWriters();
+			const handle = new TTYSpinnerHandle('work', writers);
+			handle.fail('err');
+			const stdoutCount = stdout.length;
+			const stderrCount = stderr.length;
+			vi.advanceTimersByTime(200);
+			expect(stdout.length).toBe(stdoutCount);
+			expect(stderr.length).toBe(stderrCount);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 
@@ -619,13 +631,18 @@ describe('TTYProgressHandle — indeterminate', () => {
 		expect(stderrAll).toContain('broken');
 	});
 
-	it('done() clears pulse timer — no writes after delay', async () => {
-		const { writers, stdout } = makeWriters();
-		const handle = new TTYProgressHandle({}, writers);
-		handle.done();
-		const countAfterDone = stdout.length;
-		await new Promise((r) => setTimeout(r, 200));
-		expect(stdout.length).toBe(countAfterDone);
+	it('done() clears pulse timer — no callbacks after advance', () => {
+		vi.useFakeTimers();
+		try {
+			const { writers, stdout } = makeWriters();
+			const handle = new TTYProgressHandle({}, writers);
+			handle.done();
+			const countAfterDone = stdout.length;
+			vi.advanceTimersByTime(200);
+			expect(stdout.length).toBe(countAfterDone);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 
