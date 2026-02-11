@@ -9,7 +9,6 @@
  * @module dreamcli/core/schema/command
  */
 
-import type { RunResult } from '../testkit/index.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
@@ -21,6 +20,7 @@ import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
+import type { RunResult } from './run.ts';
 
 // ---------------------------------------------------------------------------
 // Context type utilities
