@@ -9,10 +9,10 @@
  * @module dreamcli/core/completion
  */
 
-import type { CLISchema } from '../cli/index.js';
-import { collectPropagatedFlags } from '../cli/propagate.js';
-import { CLIError } from '../errors/index.js';
-import type { CommandSchema, FlagSchema } from '../schema/index.js';
+import type { CLISchema } from '../cli/index.ts';
+import { collectPropagatedFlags } from '../cli/propagate.ts';
+import { CLIError } from '../errors/index.ts';
+import type { CommandSchema, FlagSchema } from '../schema/index.ts';
 
 // ---------------------------------------------------------------------------
 // Shell type — supported completion targets

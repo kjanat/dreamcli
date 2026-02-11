@@ -9,13 +9,13 @@
  * @module dreamcli/runtime
  */
 
-export type { RuntimeAdapter, TestAdapterOptions } from './adapter.js';
-export { createTestAdapter, ExitError } from './adapter.js';
-export { createAdapter } from './auto.js';
-export { createBunAdapter } from './bun.js';
-export type { DenoNamespace } from './deno.js';
-export { createDenoAdapter } from './deno.js';
-export type { GlobalForDetect, Runtime } from './detect.js';
-export { detectRuntime, RUNTIMES } from './detect.js';
-export type { NodeProcess } from './node.js';
-export { createNodeAdapter } from './node.js';
+export type { RuntimeAdapter, TestAdapterOptions } from './adapter.ts';
+export { createTestAdapter, ExitError } from './adapter.ts';
+export { createAdapter } from './auto.ts';
+export { createBunAdapter } from './bun.ts';
+export type { DenoNamespace } from './deno.ts';
+export { createDenoAdapter } from './deno.ts';
+export type { GlobalForDetect, Runtime } from './detect.ts';
+export { detectRuntime, RUNTIMES } from './detect.ts';
+export type { NodeProcess } from './node.ts';
+export { createNodeAdapter } from './node.ts';

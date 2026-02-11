@@ -13,8 +13,8 @@
  * @module dreamcli/core/parse
  */
 
-import { ParseError } from '../errors/index.js';
-import type { ArgSchema, CommandArgEntry, CommandSchema, FlagSchema } from '../schema/index.js';
+import { ParseError } from '../errors/index.ts';
+import type { ArgSchema, CommandArgEntry, CommandSchema, FlagSchema } from '../schema/index.ts';
 
 // ---------------------------------------------------------------------------
 // Tokenizer — schema-agnostic argv splitting

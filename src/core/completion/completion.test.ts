@@ -3,16 +3,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CLISchema } from '../cli/index.js';
-import { isCLIError } from '../errors/index.js';
-import type { CommandSchema, FlagSchema } from '../schema/index.js';
-import type { CompletionOptions } from './index.js';
+import type { CLISchema } from '../cli/index.ts';
+import { isCLIError } from '../errors/index.ts';
+import type { CommandSchema, FlagSchema } from '../schema/index.ts';
+import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,
 	generateCompletion,
 	generateZshCompletion,
 	SHELLS,
-} from './index.js';
+} from './index.ts';
 
 // ===================================================================
 // Test helpers

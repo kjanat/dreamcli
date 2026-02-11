@@ -7,9 +7,9 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { RuntimeAdapter } from './adapter.js';
-import type { DenoNamespace } from './deno.js';
-import { createDenoAdapter } from './deno.js';
+import type { RuntimeAdapter } from './adapter.ts';
+import type { DenoNamespace } from './deno.ts';
+import { createDenoAdapter } from './deno.ts';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -494,12 +494,12 @@ describe('createDenoAdapter — configDir', () => {
 
 describe('public surface — Deno adapter', () => {
 	it('exports createDenoAdapter from runtime barrel', async () => {
-		const mod = await import('./index.js');
+		const mod = await import('./index.ts');
 		expect(mod.createDenoAdapter).toBeDefined();
 	});
 
 	it('exports createDenoAdapter from runtime subpath', async () => {
-		const mod = await import('../runtime.js');
+		const mod = await import('../runtime.ts');
 		expect(mod.createDenoAdapter).toBeDefined();
 	});
 });

@@ -6,12 +6,12 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { CLIError } from '../errors/index.js';
-import { arg } from '../schema/arg.js';
-import { command } from '../schema/command.js';
-import { flag } from '../schema/flag.js';
-import { middleware } from '../schema/middleware.js';
-import { cli } from './index.js';
+import { CLIError } from '../errors/index.ts';
+import { arg } from '../schema/arg.ts';
+import { command } from '../schema/command.ts';
+import { flag } from '../schema/flag.ts';
+import { middleware } from '../schema/middleware.ts';
+import { cli } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Middleware flows through CLI dispatch

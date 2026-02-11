@@ -12,9 +12,9 @@
  * @module dreamcli/runtime/node
  */
 
-import type { WriteFn } from '../core/output/index.js';
-import type { ReadFn } from '../core/prompt/index.js';
-import type { RuntimeAdapter } from './adapter.js';
+import type { WriteFn } from '../core/output/index.ts';
+import type { ReadFn } from '../core/prompt/index.ts';
+import type { RuntimeAdapter } from './adapter.ts';
 
 // ---------------------------------------------------------------------------
 // Node.js error shape — for ENOENT detection without @types/node

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isValidationError, type ValidationError } from '../errors/index.js';
-import type { ParseResult } from '../parse/index.js';
-import type { CommandSchema } from '../schema/command.js';
-import { createSchema } from '../schema/flag.js';
-import { resolve } from './index.js';
+import { isValidationError, type ValidationError } from '../errors/index.ts';
+import type { ParseResult } from '../parse/index.ts';
+import type { CommandSchema } from '../schema/command.ts';
+import { createSchema } from '../schema/flag.ts';
+import { resolve } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { PromptResult, SelectChoice } from '../schema/prompt.js';
+import type { PromptResult, SelectChoice } from '../schema/prompt.ts';
 import type {
 	PromptEngine,
 	ReadFn,
@@ -8,13 +8,13 @@ import type {
 	ResolvedSelectPromptConfig,
 	TestAnswer,
 	TestPrompterOptions,
-} from './index.js';
+} from './index.ts';
 import {
 	createTerminalPrompter,
 	createTestPrompter,
 	PROMPT_CANCEL,
 	resolvePromptConfig,
-} from './index.js';
+} from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers

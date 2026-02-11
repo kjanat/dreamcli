@@ -11,8 +11,8 @@
  * @module dreamcli/core/config
  */
 
-import type { RuntimeAdapter } from '../../runtime/adapter.js';
-import { CLIError } from '../errors/index.js';
+import type { RuntimeAdapter } from '../../runtime/adapter.ts';
+import { CLIError } from '../errors/index.ts';
 
 // ---------------------------------------------------------------------------
 // Types — format loaders

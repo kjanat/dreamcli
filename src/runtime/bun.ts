@@ -12,9 +12,9 @@
  * @module dreamcli/runtime/bun
  */
 
-import type { RuntimeAdapter } from './adapter.js';
-import type { NodeProcess } from './node.js';
-import { createNodeAdapter } from './node.js';
+import type { RuntimeAdapter } from './adapter.ts';
+import type { NodeProcess } from './node.ts';
+import { createNodeAdapter } from './node.ts';
 
 // ---------------------------------------------------------------------------
 // Bun adapter factory

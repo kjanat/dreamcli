@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCaptureOutput } from './index.js';
+import { createCaptureOutput } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // table() — TTY (non-JSON) mode

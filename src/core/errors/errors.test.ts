@@ -6,7 +6,7 @@ import {
 	isValidationError,
 	ParseError,
 	ValidationError,
-} from './index.js';
+} from './index.ts';
 
 // ---------------------------------------------------------------------------
 // CLIError

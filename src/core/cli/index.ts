@@ -9,28 +9,28 @@
  * @module dreamcli/core/cli
  */
 
-import type { RuntimeAdapter } from '../../runtime/adapter.js';
-import { createAdapter } from '../../runtime/auto.js';
-import { generateCompletion, SHELLS } from '../completion/index.js';
-import type { FormatLoader } from '../config/index.js';
-import { discoverConfig } from '../config/index.js';
-import { CLIError, ParseError } from '../errors/index.js';
-import type { HelpOptions } from '../help/index.js';
-import { formatHelp } from '../help/index.js';
-import type { CapturedOutput, Verbosity } from '../output/index.js';
-import { createCaptureOutput } from '../output/index.js';
-import type { PromptEngine, TestAnswer } from '../prompt/index.js';
-import { createTerminalPrompter } from '../prompt/index.js';
-import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type { CommandBuilder, CommandSchema, ErasedCommand } from '../schema/command.js';
-import { command } from '../schema/command.js';
-import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
-import { flag } from '../schema/flag.js';
-import type { RunOptions, RunResult } from '../testkit/index.js';
-import { runCommand } from '../testkit/index.js';
-import { dispatch, findClosestCommand } from './dispatch.js';
-import { collectPropagatedFlags } from './propagate.js';
-import { formatRootHelp } from './root-help.js';
+import type { RuntimeAdapter } from '../../runtime/adapter.ts';
+import { createAdapter } from '../../runtime/auto.ts';
+import { generateCompletion, SHELLS } from '../completion/index.ts';
+import type { FormatLoader } from '../config/index.ts';
+import { discoverConfig } from '../config/index.ts';
+import { CLIError, ParseError } from '../errors/index.ts';
+import type { HelpOptions } from '../help/index.ts';
+import { formatHelp } from '../help/index.ts';
+import type { CapturedOutput, Verbosity } from '../output/index.ts';
+import { createCaptureOutput } from '../output/index.ts';
+import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
+import { createTerminalPrompter } from '../prompt/index.ts';
+import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
+import type { CommandBuilder, CommandSchema, ErasedCommand } from '../schema/command.ts';
+import { command } from '../schema/command.ts';
+import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
+import { flag } from '../schema/flag.ts';
+import type { RunOptions, RunResult } from '../testkit/index.ts';
+import { runCommand } from '../testkit/index.ts';
+import { dispatch, findClosestCommand } from './dispatch.ts';
+import { collectPropagatedFlags } from './propagate.ts';
+import { formatRootHelp } from './root-help.ts';
 
 // ---------------------------------------------------------------------------
 // Type-erased command — erasure function (interface now in schema/command.ts)

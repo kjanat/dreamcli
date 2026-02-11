@@ -8,10 +8,10 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { RuntimeAdapter } from './adapter.js';
-import { createAdapter } from './auto.js';
-import type { GlobalForDetect } from './detect.js';
-import { RUNTIMES } from './detect.js';
+import type { RuntimeAdapter } from './adapter.ts';
+import { createAdapter } from './auto.ts';
+import type { GlobalForDetect } from './detect.ts';
+import { RUNTIMES } from './detect.ts';
 
 // ===================================================================
 // Helpers

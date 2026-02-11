@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ParseError } from '../errors/index.js';
-import { createArgSchema } from '../schema/arg.js';
-import type { CommandSchema } from '../schema/command.js';
-import { createSchema } from '../schema/flag.js';
-import { parse, tokenize } from './index.js';
+import { ParseError } from '../errors/index.ts';
+import { createArgSchema } from '../schema/arg.ts';
+import type { CommandSchema } from '../schema/command.ts';
+import { createSchema } from '../schema/flag.ts';
+import { parse, tokenize } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers — build minimal CommandSchema for testing

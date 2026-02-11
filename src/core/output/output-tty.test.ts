@@ -6,8 +6,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Out } from '../schema/command.js';
-import { createCaptureOutput, createOutput, OutputChannel } from './index.js';
+import type { Out } from '../schema/command.ts';
+import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // isTTY on Out interface

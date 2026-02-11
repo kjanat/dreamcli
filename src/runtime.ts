@@ -13,7 +13,7 @@ export type {
 	NodeProcess,
 	Runtime,
 	RuntimeAdapter,
-} from './runtime/index.js';
+} from './runtime/index.ts';
 export {
 	createAdapter,
 	createBunAdapter,
@@ -22,4 +22,4 @@ export {
 	detectRuntime,
 	ExitError,
 	RUNTIMES,
-} from './runtime/index.js';
+} from './runtime/index.ts';

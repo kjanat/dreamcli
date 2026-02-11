@@ -3,11 +3,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ParseError } from '../errors/index.js';
-import { arg } from '../schema/arg.js';
-import { command } from '../schema/command.js';
-import { flag } from '../schema/flag.js';
-import { CLIBuilder, cli, formatRootHelp } from './index.js';
+import { ParseError } from '../errors/index.ts';
+import { arg } from '../schema/arg.ts';
+import { command } from '../schema/command.ts';
+import { flag } from '../schema/flag.ts';
+import { CLIBuilder, cli, formatRootHelp } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Test commands
@@ -667,12 +667,12 @@ describe('edge cases', () => {
 
 describe('public exports', () => {
 	it('exports cli factory', async () => {
-		const { cli: cliExport } = await import('../../index.js');
+		const { cli: cliExport } = await import('../../index.ts');
 		expect(typeof cliExport).toBe('function');
 	});
 
 	it('exports CLIBuilder class', async () => {
-		const { CLIBuilder: CLIBuilderExport } = await import('../../index.js');
+		const { CLIBuilder: CLIBuilderExport } = await import('../../index.ts');
 		expect(typeof CLIBuilderExport).toBe('function');
 	});
 });

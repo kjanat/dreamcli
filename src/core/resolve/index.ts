@@ -15,18 +15,18 @@
  * @module dreamcli/core/resolve
  */
 
-import type { ValidationErrorCode } from '../errors/index.js';
-import { ValidationError } from '../errors/index.js';
-import type { ParseResult } from '../parse/index.js';
-import type { PromptEngine } from '../prompt/index.js';
-import { resolvePromptConfig } from '../prompt/index.js';
+import type { ValidationErrorCode } from '../errors/index.ts';
+import { ValidationError } from '../errors/index.ts';
+import type { ParseResult } from '../parse/index.ts';
+import type { PromptEngine } from '../prompt/index.ts';
+import { resolvePromptConfig } from '../prompt/index.ts';
 import type {
 	CommandArgEntry,
 	CommandSchema,
 	ErasedInteractiveResolver,
 	FlagSchema,
-} from '../schema/index.js';
-import type { PromptConfig } from '../schema/prompt.js';
+} from '../schema/index.ts';
+import type { PromptConfig } from '../schema/prompt.ts';
 
 // ---------------------------------------------------------------------------
 // Resolve options — injectable external state for the resolution chain

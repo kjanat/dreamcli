@@ -9,12 +9,12 @@
  * @module dreamcli/runtime/auto
  */
 
-import type { RuntimeAdapter } from './adapter.js';
-import { createBunAdapter } from './bun.js';
-import { createDenoAdapter } from './deno.js';
-import type { GlobalForDetect } from './detect.js';
-import { detectRuntime } from './detect.js';
-import { createNodeAdapter } from './node.js';
+import type { RuntimeAdapter } from './adapter.ts';
+import { createBunAdapter } from './bun.ts';
+import { createDenoAdapter } from './deno.ts';
+import type { GlobalForDetect } from './detect.ts';
+import { detectRuntime } from './detect.ts';
+import { createNodeAdapter } from './node.ts';
 
 // ---------------------------------------------------------------------------
 // Auto-adapter factory

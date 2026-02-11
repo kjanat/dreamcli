@@ -8,7 +8,7 @@
  * @internal
  */
 
-import type { HelpOptions } from '../help/index.js';
+import type { HelpOptions } from '../help/index.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
 // Only the shape matters — we read `.name`, `.version`, `.description`, `.commands`.

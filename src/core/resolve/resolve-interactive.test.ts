@@ -1,12 +1,12 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { ValidationError } from '../errors/index.js';
-import type { ParseResult } from '../parse/index.js';
-import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.js';
-import type { CommandSchema, InteractiveParams } from '../schema/command.js';
-import { command } from '../schema/command.js';
-import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
-import { createSchema, flag } from '../schema/flag.js';
-import { resolve } from './index.js';
+import { ValidationError } from '../errors/index.ts';
+import type { ParseResult } from '../parse/index.ts';
+import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.ts';
+import type { CommandSchema, InteractiveParams } from '../schema/command.ts';
+import { command } from '../schema/command.ts';
+import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
+import { createSchema, flag } from '../schema/flag.ts';
+import { resolve } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -14,10 +14,8 @@
 		"forceConsistentCasingInFileNames": true,
 
 		// Emit
-		"declaration": true,
-		"declarationMap": true,
-		"sourceMap": true,
-		"outDir": "dist",
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
 
 		// Interop
 		"esModuleInterop": true,
