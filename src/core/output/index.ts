@@ -18,8 +18,8 @@ import type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
-} from '../schema/activity.js';
-import type { Out } from '../schema/command.js';
+} from '../schema/activity.ts';
+import type { Out } from '../schema/command.ts';
 import {
 	CaptureProgressHandle,
 	CaptureSpinnerHandle,
@@ -29,9 +29,9 @@ import {
 	StaticSpinnerHandle,
 	TTYProgressHandle,
 	TTYSpinnerHandle,
-} from './activity.js';
-import type { WriteFn } from './writer.js';
-import { writeLine } from './writer.js';
+} from './activity.ts';
+import type { WriteFn } from './writer.ts';
+import { writeLine } from './writer.ts';
 
 // ---------------------------------------------------------------------------
 // Verbosity

@@ -1,0 +1,29 @@
+name: Publish to JSR
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # OIDC provenance for JSR
+    steps:
+      - uses: actions/checkout@v6
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Deno adapter smoke test
+        run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
+      - name: Publish to JSR
+        run: deno publish --no-check

@@ -7,13 +7,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ValidationError } from '../errors/index.js';
-import type { ParseResult } from '../parse/index.js';
-import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.js';
-import type { CommandSchema } from '../schema/index.js';
-import { createSchema } from '../schema/index.js';
-import type { ResolveOptions } from './index.js';
-import { resolve } from './index.js';
+import { ValidationError } from '../errors/index.ts';
+import type { ParseResult } from '../parse/index.ts';
+import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.ts';
+import type { CommandSchema } from '../schema/index.ts';
+import { createSchema } from '../schema/index.ts';
+import type { ResolveOptions } from './index.ts';
+import { resolve } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -7,12 +7,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { cli } from '../cli/index.js';
-import { arg } from '../schema/arg.js';
-import { command, group } from '../schema/command.js';
-import { flag } from '../schema/flag.js';
-import { middleware } from '../schema/middleware.js';
-import { runCommand } from './index.js';
+import { cli } from '../cli/index.ts';
+import { arg } from '../schema/arg.ts';
+import { command, group } from '../schema/command.ts';
+import { flag } from '../schema/flag.ts';
+import { middleware } from '../schema/middleware.ts';
+import { runCommand } from './index.ts';
 
 // ===================================================================
 // Helpers

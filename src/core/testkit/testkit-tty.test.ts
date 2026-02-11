@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { command } from '../schema/command.js';
-import { runCommand } from './index.js';
+import { command } from '../schema/command.ts';
+import { runCommand } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers

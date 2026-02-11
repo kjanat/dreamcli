@@ -20,9 +20,9 @@ import type {
 	ProgressHandle,
 	ProgressOptions,
 	SpinnerHandle,
-} from '../schema/activity.js';
-import type { WriteFn } from './writer.js';
-import { writeLine } from './writer.js';
+} from '../schema/activity.ts';
+import type { WriteFn } from './writer.ts';
+import { writeLine } from './writer.ts';
 
 // ---------------------------------------------------------------------------
 // Timer globals — minimal declarations for setInterval/clearInterval.

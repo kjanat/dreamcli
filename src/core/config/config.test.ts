@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { CLIError } from '../errors/index.js';
-import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.js';
-import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.js';
+import { CLIError } from '../errors/index.ts';
+import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.ts';
+import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.ts';
 
 // ===================================================================
 // Test helpers

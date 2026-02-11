@@ -9,7 +9,7 @@
  * @module dreamcli/core/schema/flag
  */
 
-import type { PromptConfig } from './prompt.js';
+import type { PromptConfig } from './prompt.ts';
 
 // ---------------------------------------------------------------------------
 // Type-level configuration (phantom state tracked through the chain)
@@ -452,4 +452,4 @@ export type {
 	PromptResult,
 	SelectChoice,
 	SelectPromptConfig,
-} from './prompt.js';
+} from './prompt.ts';

@@ -8,11 +8,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CLIError, isCLIError } from '../core/errors/index.js';
-import type { RuntimeAdapter } from './adapter.js';
-import { createAdapter } from './auto.js';
-import type { GlobalForDetect } from './detect.js';
-import { RUNTIMES } from './detect.js';
+import type { RuntimeAdapter } from './adapter.ts';
+import { createAdapter } from './auto.ts';
+import type { GlobalForDetect } from './detect.ts';
+import { RUNTIMES } from './detect.ts';
+import { withMockDenoGlobal } from './test-helpers.ts';
 
 // ===================================================================
 // Helpers
@@ -66,39 +66,17 @@ describe('createAdapter — runtime dispatch', () => {
 	});
 
 	// -------------------------------------------------------------------
-	// Deno (throws CLIError — not yet supported)
+	// Deno
 	// -------------------------------------------------------------------
 
-	it('throws CLIError for Deno runtime', () => {
-		const globals: GlobalForDetect = {
-			Deno: { version: { deno: '2.0.0' } },
-		};
-		expect(() => createAdapter(globals)).toThrow(CLIError);
-	});
-
-	it('Deno CLIError has UNSUPPORTED_RUNTIME code', () => {
-		const globals: GlobalForDetect = {
-			Deno: { version: { deno: '2.0.0' } },
-		};
-		try {
-			createAdapter(globals);
-			expect.unreachable('should have thrown');
-		} catch (e) {
-			expect(isCLIError(e)).toBe(true);
-			expect((e as CLIError).code).toBe('UNSUPPORTED_RUNTIME');
-		}
-	});
-
-	it('Deno CLIError includes suggest field', () => {
-		const globals: GlobalForDetect = {
-			Deno: { version: { deno: '2.0.0' } },
-		};
-		try {
-			createAdapter(globals);
-			expect.unreachable('should have thrown');
-		} catch (e) {
-			expect((e as CLIError).suggest).toContain('createNodeAdapter');
-		}
+	it('creates adapter for Deno runtime', () => {
+		withMockDenoGlobal(() => {
+			const globals: GlobalForDetect = {
+				Deno: { version: { deno: '2.0.0' } },
+			};
+			const adapter = createAdapter(globals);
+			assertAdapterShape(adapter);
+		});
 	});
 
 	// -------------------------------------------------------------------
@@ -128,8 +106,7 @@ describe('createAdapter — exhaustiveness', () => {
 	it('handles every Runtime variant without returning undefined', () => {
 		// Exhaustiveness is enforced at compile-time via `default: never`.
 		// This test verifies runtime behavior: every known Runtime value
-		// either produces a valid RuntimeAdapter or throws a CLIError
-		// (Deno is not yet supported).
+		// produces a valid RuntimeAdapter.
 		const globalsForRuntime: Record<string, GlobalForDetect> = {
 			node: { process: { versions: { node: '22.0.0' } } },
 			bun: { Bun: { version: '1.1.0' }, process: { versions: { node: '22.0.0' } } },
@@ -137,20 +114,13 @@ describe('createAdapter — exhaustiveness', () => {
 			unknown: {},
 		};
 
-		const unsupported = new Set(['deno']);
-
-		for (const runtime of RUNTIMES) {
-			if (unsupported.has(runtime)) {
-				expect(
-					() => createAdapter(globalsForRuntime[runtime]),
-					`createAdapter should throw for unsupported runtime '${runtime}'`,
-				).toThrow(CLIError);
-			} else {
+		withMockDenoGlobal(() => {
+			for (const runtime of RUNTIMES) {
 				const adapter = createAdapter(globalsForRuntime[runtime]);
 				expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
 				assertAdapterShape(adapter);
 			}
-		}
+		});
 	});
 });
 

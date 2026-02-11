@@ -14,14 +14,14 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { ActivityEvent } from '../schema/activity.js';
-import type { WriteFn } from './index.js';
+import type { ActivityEvent } from '../schema/activity.ts';
+import type { WriteFn } from './index.ts';
 import {
 	CaptureSpinnerHandle,
 	noopSpinnerHandle,
 	StaticSpinnerHandle,
 	TTYSpinnerHandle,
-} from './index.js';
+} from './index.ts';
 
 // --- Test helpers ---
 

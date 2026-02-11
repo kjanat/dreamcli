@@ -9,12 +9,12 @@
  * @module dreamcli/runtime/auto
  */
 
-import { CLIError } from '../core/errors/index.js';
-import type { RuntimeAdapter } from './adapter.js';
-import { createBunAdapter } from './bun.js';
-import type { GlobalForDetect } from './detect.js';
-import { detectRuntime } from './detect.js';
-import { createNodeAdapter } from './node.js';
+import type { RuntimeAdapter } from './adapter.ts';
+import { createBunAdapter } from './bun.ts';
+import { createDenoAdapter } from './deno.ts';
+import type { GlobalForDetect } from './detect.ts';
+import { detectRuntime } from './detect.ts';
+import { createNodeAdapter } from './node.ts';
 
 // ---------------------------------------------------------------------------
 // Auto-adapter factory
@@ -27,10 +27,6 @@ import { createNodeAdapter } from './node.js';
  * Unknown runtimes fall back to the Node adapter because most JS runtimes
  * expose a Node-compatible `process` global.
  *
- * Deno is detected but not yet supported — throws a `CLIError` with code
- * `UNSUPPORTED_RUNTIME` until a dedicated Deno adapter is implemented.
- * Use `createNodeAdapter()` directly if you need to bypass detection.
- *
  * @param globals - Override `globalThis` for testing. Production callers
  *   should omit this parameter.
  * @returns A `RuntimeAdapter` for the detected runtime.
@@ -39,7 +35,7 @@ import { createNodeAdapter } from './node.js';
  * ```ts
  * import { cli } from 'dreamcli';
  *
- * // Auto-detects Node/Bun and creates the right adapter
+ * // Auto-detects Node/Bun/Deno and creates the right adapter
  * cli('mycli').run(); // uses createAdapter() internally
  * ```
  */
@@ -50,10 +46,7 @@ function createAdapter(globals?: GlobalForDetect): RuntimeAdapter {
 		case 'bun':
 			return createBunAdapter();
 		case 'deno':
-			throw new CLIError('Deno runtime detected but not yet supported', {
-				code: 'UNSUPPORTED_RUNTIME',
-				suggest: 'Use createNodeAdapter() directly to bypass auto-detection',
-			});
+			return createDenoAdapter();
 		case 'node':
 		case 'unknown':
 			return createNodeAdapter();

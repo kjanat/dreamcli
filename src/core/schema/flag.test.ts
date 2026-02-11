@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { FlagSchema, InferFlag, InferFlags } from './flag.js';
-import { FlagBuilder, flag } from './flag.js';
+import type { FlagSchema, InferFlag, InferFlags } from './flag.ts';
+import { FlagBuilder, flag } from './flag.ts';
 
 // ---------------------------------------------------------------------------
 // Factory functions — runtime schema

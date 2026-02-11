@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CommandSchema, ErasedCommand } from '../schema/command.js';
-import { dispatch, findClosestCommand, levenshtein, uniqueCommands } from './dispatch.js';
+import type { CommandSchema, ErasedCommand } from '../schema/command.ts';
+import { dispatch, findClosestCommand, levenshtein, uniqueCommands } from './dispatch.ts';
 
 // ===================================================================
 // Helpers

@@ -3,14 +3,14 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { cli } from '../core/cli/index.js';
-import { arg } from '../core/schema/arg.js';
-import { command } from '../core/schema/command.js';
-import { flag } from '../core/schema/flag.js';
-import type { RuntimeAdapter } from './adapter.js';
-import { createTestAdapter, ExitError } from './adapter.js';
-import type { NodeProcess } from './node.js';
-import { createNodeAdapter } from './node.js';
+import { cli } from '../core/cli/index.ts';
+import { arg } from '../core/schema/arg.ts';
+import { command } from '../core/schema/command.ts';
+import { flag } from '../core/schema/flag.ts';
+import type { RuntimeAdapter } from './adapter.ts';
+import { createTestAdapter, ExitError } from './adapter.ts';
+import type { NodeProcess } from './node.ts';
+import { createNodeAdapter } from './node.ts';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -568,7 +568,7 @@ describe('CLIBuilder.run() prompt gating', () => {
 		});
 
 		// Provide explicit prompter — should take precedence
-		const { createTestPrompter } = await import('../core/prompt/index.js');
+		const { createTestPrompter } = await import('../core/prompt/index.ts');
 		const explicitPrompter = createTestPrompter(['ExplicitAnswer']);
 
 		const app = cli('mycli').command(cmd);
@@ -860,20 +860,20 @@ describe('RuntimeAdapter interface — filesystem', () => {
 
 describe('public surface', () => {
 	it('exports RuntimeAdapter type and factories from runtime barrel', async () => {
-		const mod = await import('./index.js');
+		const mod = await import('./index.ts');
 		expect(mod.createTestAdapter).toBeDefined();
 		expect(mod.createNodeAdapter).toBeDefined();
 		expect(mod.ExitError).toBeDefined();
 	});
 
 	it('exports adapter factories from runtime barrel', async () => {
-		const mod = await import('../runtime.js');
+		const mod = await import('../runtime.ts');
 		expect(mod.createNodeAdapter).toBeDefined();
 		expect(mod.ExitError).toBeDefined();
 	});
 
 	it('exports test adapter from testkit barrel', async () => {
-		const mod = await import('../testkit.js');
+		const mod = await import('../testkit.ts');
 		expect(mod.createTestAdapter).toBeDefined();
 	});
 });

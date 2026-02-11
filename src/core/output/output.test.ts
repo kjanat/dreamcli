@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { Out } from '../schema/command.js';
-import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.js';
-import { createCaptureOutput, createOutput, OutputChannel } from './index.js';
+import type { Out } from '../schema/command.ts';
+import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
+import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // createOutput — factory

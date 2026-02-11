@@ -14,9 +14,9 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { command } from '../schema/command.js';
-import { runCommand } from '../testkit/index.js';
-import { createCaptureOutput, OutputChannel } from './index.js';
+import { command } from '../schema/command.ts';
+import { runCommand } from '../testkit/index.ts';
+import { createCaptureOutput, OutputChannel } from './index.ts';
 
 // --- Test helpers ---
 

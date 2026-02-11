@@ -1,9 +1,9 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { arg } from './arg.js';
-import type { ActionParams, CommandArgEntry, CommandSchema, Out } from './command.js';
-import { CommandBuilder, command, group } from './command.js';
-import { flag } from './flag.js';
-import { middleware } from './middleware.js';
+import { arg } from './arg.ts';
+import type { ActionParams, CommandArgEntry, CommandSchema, Out } from './command.ts';
+import { CommandBuilder, command, group } from './command.ts';
+import { flag } from './flag.ts';
+import { middleware } from './middleware.ts';
 
 // ---------------------------------------------------------------------------
 // Factory function

@@ -14,7 +14,7 @@
  * @module dreamcli/core/schema/middleware
  */
 
-import type { Out } from './command.js';
+import type { Out } from './command.ts';
 
 // ---------------------------------------------------------------------------
 // Middleware parameter types

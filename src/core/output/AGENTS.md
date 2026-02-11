@@ -60,8 +60,8 @@ All activity handle output (static and TTY) routes to **stderr** — stdout rese
 
 ## GOTCHAS
 
-- Imports `schema/activity.ts` directly for activity types, `schema/command.ts` for `Out` — avoids
-  circular dep through barrel
+- Imports `schema/activity.ts` directly for activity types, `schema/command.ts` for `Out` — bypasses
+  barrel to avoid circular dep
 - `writer.ts` is a leaf: `WriteFn` type + `writeLine` helper. Shared by `index.ts` and `activity.ts`
 - Terminal escape sequences (`HIDE_CURSOR`, `ERASE_LINE`, etc.) are `@internal` constants in
   `activity.ts`

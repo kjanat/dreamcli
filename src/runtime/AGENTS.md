@@ -9,16 +9,17 @@ adapter factories, `ExitError`, detection. `createTestAdapter`/`TestAdapterOptio
 
 ## FILES
 
-| File                 | Status     | Lines | Purpose                                                             |
-| -------------------- | ---------- | ----: | ------------------------------------------------------------------- |
-| `adapter.ts`         | **Active** |   120 | `RuntimeAdapter` interface — process/env/IO abstraction             |
-| `auto.ts`            | **Active** |    35 | `createAdapter()` — auto-detecting adapter factory                  |
-| `node.ts`            | **Active** |   230 | `createNodeAdapter()` — Node.js implementation                      |
-| `bun.ts`             | **Active** |    20 | `createBunAdapter()` — delegates to Node adapter                    |
-| `deno.ts`            | STUB       |     4 | `export {}` — planned Deno adapter                                  |
-| `detect.ts`          | **Active** |    90 | `detectRuntime()` — Bun/Deno/Node feature detection                 |
-| `node-builtins.d.ts` | Types      |    45 | `@internal` — ambient decls for `node:readline`, `node:fs/promises` |
-| `index.ts`           | Barrel     |    30 | Re-exports `RuntimeAdapter`, adapters, `ExitError`                  |
+| File                 | Status     | Lines | Purpose                                                                |
+| -------------------- | ---------- | ----: | ---------------------------------------------------------------------- |
+| `adapter.ts`         | **Active** |   120 | `RuntimeAdapter` interface — process/env/IO abstraction                |
+| `auto.ts`            | **Active** |    64 | `createAdapter()` — auto-detecting adapter factory                     |
+| `node.ts`            | **Active** |   230 | `createNodeAdapter()` — Node.js implementation                         |
+| `bun.ts`             | **Active** |    20 | `createBunAdapter()` — delegates to Node adapter                       |
+| `deno.ts`            | **Active** |   318 | `createDenoAdapter()` — Deno namespace implementation                  |
+| `detect.ts`          | **Active** |    90 | `detectRuntime()` — Bun/Deno/Node feature detection                    |
+| `node-builtins.d.ts` | Types      |    45 | `@internal` — ambient decls for `node:readline`, `node:fs/promises`    |
+| `deno-builtins.d.ts` | Types      |    30 | `@internal` — ambient decls for TextEncoder/TextDecoder/ReadableStream |
+| `index.ts`           | Barrel     |    30 | Re-exports `RuntimeAdapter`, adapters, `ExitError`                     |
 
 ## `RuntimeAdapter` INTERFACE
 
@@ -46,13 +47,14 @@ joinPath(...segments: string[]): string
 4. Wire auto-detection in `auto.ts`
 5. Re-export from `src/runtime.ts`
 
-## TEST FILES (4)
+## TEST FILES (5)
 
 | File              | Tests                                                     |
 | ----------------- | --------------------------------------------------------- |
 | `runtime.test.ts` | Node adapter, test adapter, `ExitError`, adapter contract |
 | `detect.test.ts`  | Runtime detection logic (globalThis feature probing)      |
 | `bun.test.ts`     | Bun adapter delegation                                    |
+| `deno.test.ts`    | Deno adapter (mock namespace, permission handling, stdin) |
 | `auto.test.ts`    | Auto-detecting adapter factory                            |
 
 ## GOTCHAS
@@ -65,3 +67,9 @@ joinPath(...segments: string[]): string
 - Empty-string env var fallbacks treated as unset in `node.ts`
 - Win32 paths: `resolveConfigDir` strips trailing separator, `resolveHomedir` has
   `HOMEDRIVE`+`HOMEPATH` fallback
+- `deno.ts` has 7 `@internal` symbols: `DenoNamespace`, `isDenoErrorNamed`, `safeEnvToObject`,
+  `safeCwd`, `getDenoNamespace`, `readDenoStdinLine`, `resolveDenoHomedir`, `resolveDenoConfigDir`
+- Deno.args pre-strips binary/script — adapter prepends synthetic `['deno', 'run']` for argv parity
+- Permission-safe: env/cwd catch `PermissionDenied`, readFile returns null for both `NotFound` and
+  `PermissionDenied`
+- `deno-builtins.d.ts` needed because `lib: ["ES2022"]` excludes web platform APIs

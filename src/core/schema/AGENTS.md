@@ -34,12 +34,12 @@ Only multi-file module in `core/`. All others use single `index.ts`.
 - **Activity types** (`activity.ts`): `ActivityEvent` (10-variant DU), `SpinnerHandle`,
   `ProgressHandle`, `SpinnerOptions`, `ProgressOptions`, `Fallback`, `TableColumn`
 - **Output interface** (`command.ts`): `Out` (~110 lines JSDoc + signatures) — imports activity
-  types from `./activity.js`
+  types from `./activity.ts`
 - **Command schema** (`command.ts`): `CommandSchema`, `ErasedCommand`, `ActionHandler`,
   `ActionParams`, `InteractiveResolver`, `CommandExample`, etc.
 
 Activity types live in `activity.ts` (still in schema/, not in output/) because `Out` needs them in
-`CommandBuilder.action()` signature. `command.ts` imports them from `./activity.js`.
+`CommandBuilder.action()` signature. `command.ts` imports them from `./activity.ts`.
 
 ## ADDING A FLAG TYPE
 

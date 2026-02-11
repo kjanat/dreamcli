@@ -7,12 +7,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { cli } from '../cli/index.js';
-import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.js';
-import { arg } from '../schema/arg.js';
-import { command } from '../schema/command.js';
-import { flag } from '../schema/flag.js';
-import { runCommand } from './index.js';
+import { cli } from '../cli/index.ts';
+import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.ts';
+import { arg } from '../schema/arg.ts';
+import { command } from '../schema/command.ts';
+import { flag } from '../schema/flag.ts';
+import { runCommand } from './index.ts';
 
 // ========================================================================
 // runCommand — answers convenience field

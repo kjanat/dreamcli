@@ -1,10 +1,10 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { CLIError } from '../errors/index.js';
-import { runCommand } from '../testkit/index.js';
-import { arg } from './arg.js';
-import { command } from './command.js';
-import { flag } from './flag.js';
-import { middleware } from './middleware.js';
+import { CLIError } from '../errors/index.ts';
+import { runCommand } from '../testkit/index.ts';
+import { arg } from './arg.ts';
+import { command } from './command.ts';
+import { flag } from './flag.ts';
+import { middleware } from './middleware.ts';
 
 // ---------------------------------------------------------------------------
 // Factory function

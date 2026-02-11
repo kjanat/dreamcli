@@ -9,8 +9,8 @@
  * @module dreamcli/runtime/adapter
  */
 
-import type { WriteFn } from '../core/output/index.js';
-import type { ReadFn } from '../core/prompt/index.js';
+import type { WriteFn } from '../core/output/index.ts';
+import type { ReadFn } from '../core/prompt/index.ts';
 
 // ---------------------------------------------------------------------------
 // Runtime adapter interface — the single platform abstraction boundary

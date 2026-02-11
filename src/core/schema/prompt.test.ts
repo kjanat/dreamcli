@@ -10,8 +10,8 @@ import type {
 	PromptResult,
 	SelectChoice,
 	SelectPromptConfig,
-} from './flag.js';
-import { flag } from './flag.js';
+} from './flag.ts';
+import { flag } from './flag.ts';
 
 // ---------------------------------------------------------------------------
 // PromptConfig discriminated union — type-level tests
@@ -390,7 +390,7 @@ describe('command builder with prompted flags', () => {
 	// Importing here to avoid circular — these tests validate integration
 	// but the command module doesn't need to know about prompts
 	it('command with prompted flags compiles and builds schema', async () => {
-		const { command } = await import('./command.js');
+		const { command } = await import('./command.ts');
 
 		const deploy = command('deploy')
 			.flag(
@@ -424,14 +424,14 @@ describe('command builder with prompted flags', () => {
 
 describe('public surface exports', () => {
 	it('prompt types are re-exported from schema barrel', async () => {
-		const schema = await import('./index.js');
+		const schema = await import('./index.ts');
 		// Type-only exports can't be checked at runtime, but we can verify
 		// the module loads without errors and the re-exports compile
 		expect(schema).toBeDefined();
 	});
 
 	it('prompt types are re-exported from public surface', async () => {
-		const dreamcli = await import('../../index.js');
+		const dreamcli = await import('../../index.ts');
 		expect(dreamcli).toBeDefined();
 	});
 });

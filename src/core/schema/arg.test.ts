@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { ArgSchema, InferArg, InferArgs } from './arg.js';
-import { ArgBuilder, arg } from './arg.js';
+import type { ArgSchema, InferArg, InferArgs } from './arg.ts';
+import { ArgBuilder, arg } from './arg.ts';
 
 /** Test-only wrapper for custom parse validation. */
 interface ParsedPath {

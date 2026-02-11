@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Lint + type check + format — runs once on Bun (fastest)
+  # ─────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run lint
+      - run: bun run format:check
+
+  # ─────────────────────────────────────────────────────────────────
+  # Tests — matrix across Node LTS and Bun stable
+  #
+  # vitest runs natively on both Node and Bun. The test suite
+  # exercises all three adapters (Node, Bun, Deno) via mock
+  # injection — no actual Deno runtime needed for these tests.
+  # ─────────────────────────────────────────────────────────────────
+  test:
+    name: Test (${{ matrix.runtime }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: bun
+            bun-version: latest
+          - runtime: node
+            node-version: lts/*
+    steps:
+      - uses: actions/checkout@v6
+
+      # Always install Bun for dependency management (bun install)
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v6
+        if: matrix.runtime == 'node'
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - run: bun install --frozen-lockfile
+
+      # Bun: run vitest via bun
+      - name: Test (Bun)
+        if: matrix.runtime == 'bun'
+        run: bun run test
+
+      # Node: run vitest via npx (uses Node, not Bun, as the runtime)
+      - name: Test (Node)
+        if: matrix.runtime == 'node'
+        run: npx vitest run
+
+  # ─────────────────────────────────────────────────────────────────
+  # Deno smoke test — verifies the adapter works on real Deno
+  #
+  # vitest doesn't run under Deno, so we build the package first
+  # then run a Deno-native smoke test that imports the built output
+  # and exercises createDenoAdapter() on a real Deno runtime.
+  # ─────────────────────────────────────────────────────────────────
+  test-deno:
+    name: Test (deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Deno adapter smoke test
+        run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
+
+  # ─────────────────────────────────────────────────────────────────
+  # Build — verifies the package builds, types are correct, and
+  # package.json exports are valid (publint + attw)
+  # ─────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [lint, test, test-deno]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build

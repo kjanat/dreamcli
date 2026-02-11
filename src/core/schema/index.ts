@@ -12,7 +12,7 @@ export type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
-} from './activity.js';
+} from './activity.ts';
 export type {
 	ArgConfig,
 	ArgFactory,
@@ -25,8 +25,8 @@ export type {
 	ResolvedArgValue,
 	WithArgPresence,
 	WithVariadic,
-} from './arg.js';
-export { ArgBuilder, arg, createArgSchema } from './arg.js';
+} from './arg.ts';
+export { ArgBuilder, arg, createArgSchema } from './arg.ts';
 export type {
 	ActionHandler,
 	ActionParams,
@@ -41,8 +41,8 @@ export type {
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
-} from './command.js';
-export { CommandBuilder, command, group } from './command.js';
+} from './command.ts';
+export { CommandBuilder, command, group } from './command.ts';
 export type {
 	ConfirmPromptConfig,
 	FlagConfig,
@@ -63,12 +63,12 @@ export type {
 	SelectChoice,
 	SelectPromptConfig,
 	WithPresence,
-} from './flag.js';
-export { createSchema, FlagBuilder, flag } from './flag.js';
+} from './flag.ts';
+export { createSchema, FlagBuilder, flag } from './flag.ts';
 export type {
 	ErasedMiddlewareHandler,
 	Middleware,
 	MiddlewareHandler,
 	MiddlewareParams,
-} from './middleware.js';
-export { middleware } from './middleware.js';
+} from './middleware.ts';
+export { middleware } from './middleware.ts';

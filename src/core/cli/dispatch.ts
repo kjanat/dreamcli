@@ -10,7 +10,7 @@
  * @internal
  */
 
-import type { CommandSchema, ErasedCommand } from '../schema/command.js';
+import type { CommandSchema, ErasedCommand } from '../schema/command.ts';
 
 // ---------------------------------------------------------------------------
 // Dispatch result types (discriminated union)

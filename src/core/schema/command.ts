@@ -9,18 +9,18 @@
  * @module dreamcli/core/schema/command
  */
 
-import type { RunOptions, RunResult } from '../testkit/index.js';
+import type { RunOptions, RunResult } from '../testkit/index.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
-} from './activity.js';
-import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.js';
-import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.js';
-import type { ErasedMiddlewareHandler, Middleware } from './middleware.js';
-import type { PromptConfig } from './prompt.js';
+} from './activity.ts';
+import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
+import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
+import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
+import type { PromptConfig } from './prompt.ts';
 
 // ---------------------------------------------------------------------------
 // Context type utilities

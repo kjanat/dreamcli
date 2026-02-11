@@ -1,0 +1,16 @@
+{
+	"$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
+	"name": "@kjanat/dreamcli",
+	"version": "0.9.0",
+	"exports": {
+		".": "./src/index.ts",
+		"./runtime": "./src/runtime.ts",
+		"./testkit": "./src/testkit.ts"
+	},
+	"publish": {
+		"include": ["src", "LICENSE"],
+		"exclude": ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/**/AGENTS.md"]
+	},
+	"nodeModulesDir": "manual",
+	"exclude": ["dist/", "node_modules/", "coverage/"]
+}

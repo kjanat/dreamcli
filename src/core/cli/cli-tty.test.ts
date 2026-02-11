@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/adapter.js';
-import { command } from '../schema/command.js';
-import { cli } from './index.js';
+import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
+import { command } from '../schema/command.ts';
+import { cli } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers

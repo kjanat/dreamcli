@@ -6,15 +6,14 @@
  * CLIBuilder × completion generators × runtime detection × adapter factory.
  */
 
-import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/adapter.js';
-import type { GlobalForDetect } from '../../runtime/detect.js';
-import { CLIError } from '../errors/index.js';
-import { arg } from '../schema/arg.js';
-import { command } from '../schema/command.js';
-import { flag } from '../schema/flag.js';
-import { middleware } from '../schema/middleware.js';
-import { cli } from './index.js';
+import { describe, expect, it, vi } from 'vitest';
+import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
+import type { GlobalForDetect } from '../../runtime/detect.ts';
+import { arg } from '../schema/arg.ts';
+import { command } from '../schema/command.ts';
+import { flag } from '../schema/flag.ts';
+import { middleware } from '../schema/middleware.ts';
+import { cli } from './index.ts';
 
 // ===================================================================
 // Shared test commands
@@ -561,7 +560,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		// Verify the createAdapter path works with Bun globals.
 		// We test this via the adapter factory directly since run() would
 		// need a real Bun runtime for process.argv etc.
-		const { createAdapter } = await import('../../runtime/auto.js');
+		const { createAdapter } = await import('../../runtime/auto.ts');
 		const globals: GlobalForDetect = {
 			Bun: { version: '1.2.0' },
 			process: { versions: { node: '22.0.0' } },
@@ -572,13 +571,19 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		expect(typeof adapter.stderr).toBe('function');
 	});
 
-	it('auto-adapter throws CLIError for simulated Deno runtime', async () => {
-		const { createAdapter } = await import('../../runtime/auto.js');
-		const globals: GlobalForDetect = {
-			Deno: { version: { deno: '2.1.0' } },
-		};
-		// Deno is detected but not yet supported — throws UNSUPPORTED_RUNTIME
-		expect(() => createAdapter(globals)).toThrow(CLIError);
+	it('auto-adapter creates valid adapter for simulated Deno runtime', async () => {
+		const { createAdapter } = await import('../../runtime/auto.ts');
+		const { withMockDenoGlobal } = await import('../../runtime/test-helpers.ts');
+
+		withMockDenoGlobal(() => {
+			const globals: GlobalForDetect = {
+				Deno: { version: { deno: '2.1.0' } },
+			};
+			const adapter = createAdapter(globals);
+			expect(adapter).toBeDefined();
+			expect(typeof adapter.stdout).toBe('function');
+			expect(typeof adapter.stderr).toBe('function');
+		});
 	});
 });
 

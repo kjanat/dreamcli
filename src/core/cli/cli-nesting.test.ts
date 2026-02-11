@@ -6,10 +6,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { arg } from '../schema/arg.js';
-import { command, group } from '../schema/command.js';
-import { flag } from '../schema/flag.js';
-import { cli } from './index.js';
+import { arg } from '../schema/arg.ts';
+import { command, group } from '../schema/command.ts';
+import { flag } from '../schema/flag.ts';
+import { cli } from './index.ts';
 
 // ===================================================================
 // Helpers

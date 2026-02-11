@@ -7,9 +7,9 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { RuntimeAdapter } from './adapter.js';
-import { createBunAdapter } from './bun.js';
-import type { NodeProcess } from './node.js';
+import type { RuntimeAdapter } from './adapter.ts';
+import { createBunAdapter } from './bun.ts';
+import type { NodeProcess } from './node.ts';
 
 // ---------------------------------------------------------------------------
 // Test helpers

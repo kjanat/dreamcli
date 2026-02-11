@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-11 **Commit:** 1c8e6ba **Branch:** v0.8-spinner-progress
+**Generated:** 2026-02-11 **Commit:** b08fc87 **Branch:** v0.9-deno-adapter
 
 ## OVERVIEW
 
@@ -36,7 +36,7 @@ src/
     ├── auto.ts             # Auto-detecting adapter factory
     ├── node.ts             # Node.js adapter implementation
     ├── bun.ts              # Bun adapter (delegates to Node adapter)
-    ├── deno.ts             # STUB
+    ├── deno.ts             # Deno adapter (permission-safe Deno namespace)
     └── detect.ts           # Runtime auto-detection (Bun/Deno/Node feature detection)
 ```
 
@@ -88,7 +88,7 @@ guarantees erasure).
 
 - **Tabs**, width 2, line width 100, single quotes, semicolons always, LF
 - **`verbatimModuleSyntax`** — use `import type` for type-only imports
-- **`.js` extensions** in all relative imports (NodeNext resolution)
+- **`.ts` extensions** in all relative imports (`allowImportingTsExtensions` + `noEmit`)
 - **Maximum TS strictness** — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
 - **No `any`** (biome warns), **no `!` non-null assertion** (biome info)
 - **Barrel-per-module** — each module has `index.ts` re-exporting public symbols
@@ -143,9 +143,11 @@ bun run ci           # check → lint → test → build (sequential)
 
 ## NOTES
 
-- **No CI automation** — `bun run ci` is local-only, no GitHub Actions
-- **No publish automation** — manual `bun publish`, quality gates in build step
-- **~31 source files, 46 test files, ~9.9k source lines** — 1658 tests
+- **CI**: GitHub Actions — lint+typecheck (Bun), test matrix (Node LTS + Bun), Deno smoke test,
+  build
+- **JSR publishing** — `deno.json` (`@kjanat/dreamcli`), GitHub Actions publish workflow with OIDC
+- **npm publishing** — manual `bun publish`, quality gates in build step
+- **~32 source files, 47 test files, ~10.1k source lines** — 1695 tests
 - **5 files >500 lines** — `resolve/index.ts` (940), `cli/index.ts` (793), `schema/command.ts`
   (784), `completion/index.ts` (786), `output/activity.ts` (581)
 - `cli/index.ts` partially split: `dispatch.ts` + `propagate.ts` extracted as `@internal`
@@ -154,7 +156,6 @@ bun run ci           # check → lint → test → build (sequential)
 - `stdinIsTTY` gates interactive prompt auto-creation in `cli/index.ts` — prompts only activate when
   stdin is a TTY
 - Three subpath exports: `"."`, `"./testkit"`, `"./runtime"`
-- `deno.ts` is an empty stub (planned, not yet implemented)
 - `src/` included in `files` (published source)
 - `node-builtins.d.ts` — handwritten ambient module declarations for `node:readline` and
   `node:fs/promises` to avoid `@types/node` dependency

@@ -12,20 +12,20 @@
  * @module dreamcli/core/testkit
  */
 
-import { CLIError } from '../errors/index.js';
-import type { HelpOptions } from '../help/index.js';
-import { formatHelp } from '../help/index.js';
-import type { CapturedOutput, Verbosity } from '../output/index.js';
-import { createCaptureOutput } from '../output/index.js';
-import { parse } from '../parse/index.js';
-import type { PromptEngine, TestAnswer } from '../prompt/index.js';
-import { createTestPrompter } from '../prompt/index.js';
-import type { DeprecationWarning, ResolveOptions } from '../resolve/index.js';
-import { resolve } from '../resolve/index.js';
-import type { ActivityEvent } from '../schema/activity.js';
-import type { ArgBuilder, ArgConfig } from '../schema/arg.js';
-import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.js';
-import type { FlagBuilder, FlagConfig } from '../schema/flag.js';
+import { CLIError } from '../errors/index.ts';
+import type { HelpOptions } from '../help/index.ts';
+import { formatHelp } from '../help/index.ts';
+import type { CapturedOutput, Verbosity } from '../output/index.ts';
+import { createCaptureOutput } from '../output/index.ts';
+import { parse } from '../parse/index.ts';
+import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
+import { createTestPrompter } from '../prompt/index.ts';
+import type { DeprecationWarning, ResolveOptions } from '../resolve/index.ts';
+import { resolve } from '../resolve/index.ts';
+import type { ActivityEvent } from '../schema/activity.ts';
+import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
+import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.ts';
+import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
 
 // ---------------------------------------------------------------------------
 // Internal types

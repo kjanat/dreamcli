@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandSchema } from '../schema/command.js';
-import { createSchema } from '../schema/flag.js';
-import { collectPropagatedFlags } from './propagate.js';
+import type { CommandSchema } from '../schema/command.ts';
+import { createSchema } from '../schema/flag.ts';
+import { collectPropagatedFlags } from './propagate.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers — build minimal CommandSchema for testing

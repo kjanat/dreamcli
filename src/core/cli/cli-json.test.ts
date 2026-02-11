@@ -3,10 +3,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CLIError } from '../errors/index.js';
-import { command } from '../schema/command.js';
-import { flag } from '../schema/flag.js';
-import { cli } from './index.js';
+import { CLIError } from '../errors/index.ts';
+import { command } from '../schema/command.ts';
+import { flag } from '../schema/flag.ts';
+import { cli } from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Test commands

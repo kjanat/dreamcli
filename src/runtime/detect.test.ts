@@ -6,8 +6,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { GlobalForDetect, Runtime } from './detect.js';
-import { detectRuntime, RUNTIMES } from './detect.js';
+import type { GlobalForDetect, Runtime } from './detect.ts';
+import { detectRuntime, RUNTIMES } from './detect.ts';
 
 // ===================================================================
 // RUNTIMES constant
