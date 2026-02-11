@@ -6,10 +6,9 @@
  * CLIBuilder × completion generators × runtime detection × adapter factory.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestAdapter, ExitError } from '../../runtime/adapter.js';
 import type { GlobalForDetect } from '../../runtime/detect.js';
-import { CLIError } from '../errors/index.js';
 import { arg } from '../schema/arg.js';
 import { command } from '../schema/command.js';
 import { flag } from '../schema/flag.js';
@@ -572,13 +571,49 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		expect(typeof adapter.stderr).toBe('function');
 	});
 
-	it('auto-adapter throws CLIError for simulated Deno runtime', async () => {
+	it('auto-adapter creates valid adapter for simulated Deno runtime', async () => {
 		const { createAdapter } = await import('../../runtime/auto.js');
-		const globals: GlobalForDetect = {
-			Deno: { version: { deno: '2.1.0' } },
+
+		// Install a mock Deno namespace on globalThis — createDenoAdapter() reads
+		// from globalThis.Deno when no explicit namespace is provided.
+		const g = globalThis as Record<string, unknown>;
+		const prev = g['Deno'];
+		g['Deno'] = {
+			args: [],
+			env: { get: () => undefined, toObject: () => ({}) },
+			cwd: () => '/deno/mock',
+			stdout: { write: vi.fn(() => Promise.resolve(0)), isTerminal: () => false },
+			stderr: { write: vi.fn(() => Promise.resolve(0)) },
+			stdin: {
+				isTerminal: () => false,
+				readable: {
+					getReader: () => ({
+						read: () => Promise.resolve({ done: true, value: undefined }),
+						releaseLock: () => {},
+					}),
+				},
+			},
+			exit: vi.fn() as unknown as (code: number) => never,
+			readTextFile: () =>
+				Promise.reject(Object.assign(new Error('not found'), { name: 'NotFound' })),
+			version: { deno: '2.1.0' },
 		};
-		// Deno is detected but not yet supported — throws UNSUPPORTED_RUNTIME
-		expect(() => createAdapter(globals)).toThrow(CLIError);
+
+		try {
+			const globals: GlobalForDetect = {
+				Deno: { version: { deno: '2.1.0' } },
+			};
+			const adapter = createAdapter(globals);
+			expect(adapter).toBeDefined();
+			expect(typeof adapter.stdout).toBe('function');
+			expect(typeof adapter.stderr).toBe('function');
+		} finally {
+			if (prev === undefined) {
+				delete g['Deno'];
+			} else {
+				g['Deno'] = prev;
+			}
+		}
 	});
 });
 

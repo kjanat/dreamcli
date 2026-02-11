@@ -7,10 +7,17 @@
  * @module dreamcli/runtime
  */
 
-export type { GlobalForDetect, NodeProcess, Runtime, RuntimeAdapter } from './runtime/index.js';
+export type {
+	DenoNamespace,
+	GlobalForDetect,
+	NodeProcess,
+	Runtime,
+	RuntimeAdapter,
+} from './runtime/index.js';
 export {
 	createAdapter,
 	createBunAdapter,
+	createDenoAdapter,
 	createNodeAdapter,
 	detectRuntime,
 	ExitError,

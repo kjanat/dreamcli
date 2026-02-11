@@ -1,7 +1,318 @@
 /**
  * Deno runtime adapter implementation.
  *
+ * Bridges the platform-agnostic `RuntimeAdapter` interface to Deno's
+ * namespace APIs (`Deno.args`, `Deno.env`, `Deno.cwd()`, etc.).
+ *
+ * Deno requires explicit permissions for some operations. The adapter
+ * handles missing permissions gracefully:
+ *
+ * - **`--allow-env`**: needed for `Deno.env.toObject()`. Without it,
+ *   the adapter falls back to an empty env (flags using env sources
+ *   simply won't resolve from env).
+ * - **`--allow-read`**: needed for `Deno.readTextFile()`. Without it,
+ *   `readFile` returns `null` (same as file-not-found).
+ *
+ * No permissions are needed for `Deno.args`, `Deno.stdout`, `Deno.stderr`,
+ * `Deno.stdin`, `Deno.exit()`, or TTY detection.
+ *
  * @module dreamcli/runtime/deno
  */
 
-export {};
+import type { WriteFn } from '../core/output/index.js';
+import type { ReadFn } from '../core/prompt/index.js';
+import type { RuntimeAdapter } from './adapter.js';
+
+// ---------------------------------------------------------------------------
+// Minimal Deno namespace shape — avoids @types/deno dependency
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal subset of the Deno namespace needed by the adapter.
+ *
+ * We avoid `@types/deno` to keep the core runtime-agnostic at the type level.
+ * This interface declares only what `createDenoAdapter` actually reads.
+ *
+ * The `env` property is optional because it requires `--allow-env` permission.
+ * When permission is denied, the adapter catches the error and falls back to
+ * an empty env object.
+ *
+ * @internal
+ */
+interface DenoNamespace {
+	/** Raw command-line args (excludes the binary/script — Deno pre-strips them). */
+	readonly args: readonly string[];
+
+	/** Environment variable access (requires `--allow-env`). */
+	readonly env: {
+		/** Get a single env var. Returns `undefined` if unset or permission denied. */
+		get(key: string): string | undefined;
+		/** Get all env vars as a plain object. Throws on permission denied. */
+		toObject(): Record<string, string>;
+	};
+
+	/** Current working directory (may throw if `--allow-read` is denied for cwd). */
+	cwd(): string;
+
+	readonly stdout: {
+		/** Write raw bytes to stdout. */
+		write(p: Uint8Array): Promise<number>;
+		/** Whether stdout is connected to a TTY. */
+		isTerminal(): boolean;
+	};
+
+	readonly stderr: {
+		/** Write raw bytes to stderr. */
+		write(p: Uint8Array): Promise<number>;
+	};
+
+	readonly stdin: {
+		/** Whether stdin is connected to a TTY. */
+		isTerminal(): boolean;
+		/** Readable stream for stdin bytes. */
+		readonly readable: ReadableStream<Uint8Array>;
+	};
+
+	/** Exit the process with the given code. */
+	exit(code: number): never;
+
+	/** Read a file as UTF-8 text (requires `--allow-read`). */
+	readTextFile(path: string): Promise<string>;
+}
+
+// ---------------------------------------------------------------------------
+// Permission-safe helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect whether an unknown thrown value is a Deno error by name.
+ *
+ * @internal
+ */
+function isDenoErrorNamed(err: unknown, name: string): boolean {
+	if (typeof err !== 'object' || err === null || !('name' in err)) return false;
+	// After the `in` check, TS narrows err to `object & Record<'name', unknown>`.
+	const candidate: { name: unknown } = err;
+	return typeof candidate.name === 'string' && candidate.name === name;
+}
+
+/**
+ * Safely read all environment variables. Returns empty object if
+ * `--allow-env` permission is not granted.
+ *
+ * @internal
+ */
+function safeEnvToObject(deno: DenoNamespace): Readonly<Record<string, string | undefined>> {
+	try {
+		return deno.env.toObject();
+	} catch (err: unknown) {
+		if (isDenoErrorNamed(err, 'PermissionDenied')) return {};
+		throw err;
+	}
+}
+
+/**
+ * Safely get the current working directory. Returns `/` if the cwd is
+ * inaccessible due to missing permissions.
+ *
+ * @internal
+ */
+function safeCwd(deno: DenoNamespace): string {
+	try {
+		return deno.cwd();
+	} catch (err: unknown) {
+		if (isDenoErrorNamed(err, 'PermissionDenied')) return '/';
+		throw err;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Deno adapter factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a runtime adapter backed by the Deno namespace.
+ *
+ * Reads `Deno.args`, `Deno.env`, `Deno.cwd()`, and wraps Deno's stream-based
+ * I/O into the `WriteFn`/`ReadFn` functions expected by the framework.
+ *
+ * Unlike Node/Bun, Deno strips the binary and script path from `Deno.args`.
+ * The adapter prepends synthetic entries (`['deno', 'run']`) so the argv
+ * shape matches the `RuntimeAdapter` contract (binary + script + user args).
+ *
+ * @param ns - Override the Deno namespace (useful for testing the adapter itself).
+ * @returns A `RuntimeAdapter` backed by Deno's namespace APIs.
+ *
+ * @example
+ * ```ts
+ * import { cli } from 'dreamcli';
+ * import { createDenoAdapter } from 'dreamcli/runtime';
+ *
+ * cli('mycli')
+ *   .command(deploy)
+ *   .run({ adapter: createDenoAdapter() });
+ * ```
+ */
+function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
+	const d = ns ?? getDenoNamespace();
+	const encoder = new TextEncoder();
+
+	// --- Synthetic argv: Deno.args has user args only (no binary/script) ---
+	const argv: readonly string[] = ['deno', 'run', ...d.args];
+
+	// --- Environment (permission-safe) ---
+	const env = safeEnvToObject(d);
+
+	// --- CWD (permission-safe) ---
+	const cwd = safeCwd(d);
+
+	// --- I/O writers ---
+	const stdoutWrite: WriteFn = (data) => {
+		void d.stdout.write(encoder.encode(data));
+	};
+	const stderrWrite: WriteFn = (data) => {
+		void d.stderr.write(encoder.encode(data));
+	};
+
+	// --- Stdin line reading ---
+	const stdinRead: ReadFn = () => readDenoStdinLine(d);
+
+	// --- Filesystem ---
+	const readFile = async (path: string): Promise<string | null> => {
+		try {
+			return await d.readTextFile(path);
+		} catch (err: unknown) {
+			// NotFound = file doesn't exist → null (expected for config probing)
+			if (isDenoErrorNamed(err, 'NotFound')) return null;
+			// PermissionDenied = --allow-read not granted → treat as not found
+			// (config discovery is opt-in; failing silently is the graceful path)
+			if (isDenoErrorNamed(err, 'PermissionDenied')) return null;
+			throw err; // Other I/O errors propagate
+		}
+	};
+
+	// --- Home directory ---
+	const homedir = resolveDenoHomedir(env);
+
+	// --- Config directory ---
+	const configDir = resolveDenoConfigDir(env, homedir);
+
+	return {
+		argv,
+		env,
+		cwd,
+		stdout: stdoutWrite,
+		stderr: stderrWrite,
+		stdin: stdinRead,
+		isTTY: d.stdout.isTerminal(),
+		stdinIsTTY: d.stdin.isTerminal(),
+		exit: (code) => d.exit(code),
+		readFile,
+		homedir,
+		configDir,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Deno namespace access — isolated for testability
+// ---------------------------------------------------------------------------
+
+/**
+ * Access the global `Deno` namespace.
+ *
+ * Cast through `unknown` to avoid TypeScript errors when Deno types
+ * aren't installed. Safe because this adapter is only used on Deno
+ * where `globalThis.Deno` is always defined.
+ *
+ * @internal
+ */
+function getDenoNamespace(): DenoNamespace {
+	return (globalThis as unknown as { Deno: DenoNamespace }).Deno;
+}
+
+// ---------------------------------------------------------------------------
+// Stdin line reading
+// ---------------------------------------------------------------------------
+
+/**
+ * Read a single line from Deno's stdin.
+ *
+ * Uses the `ReadableStream` API with a manual buffer to read until
+ * a newline character is found. Returns `null` on EOF.
+ *
+ * This is intentionally simple — the terminal prompter handles retries
+ * and validation.
+ *
+ * @internal
+ */
+async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
+	const reader = deno.stdin.readable.getReader();
+	const decoder = new TextDecoder();
+	let buffer = '';
+
+	try {
+		for (;;) {
+			const { value, done } = await reader.read();
+			if (done) {
+				// EOF — return buffered content or null
+				return buffer.length > 0 ? buffer : null;
+			}
+			buffer += decoder.decode(value, { stream: true });
+			const newlineIndex = buffer.indexOf('\n');
+			if (newlineIndex !== -1) {
+				// Return the line without the newline character.
+				// Remaining data after the newline is lost — this is acceptable
+				// because each prompt reads one line at a time.
+				return buffer.slice(0, newlineIndex).replace(/\r$/, '');
+			}
+		}
+	} finally {
+		reader.releaseLock();
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Home / config directory resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the user's home directory from environment variables.
+ *
+ * Deno doesn't expose `os.homedir()` without `--allow-sys`, so we derive
+ * it from env vars — same approach as the Node adapter.
+ *
+ * @internal
+ */
+function resolveDenoHomedir(env: Readonly<Record<string, string | undefined>>): string {
+	// Deno runs on all platforms — check Windows-style vars first
+	if (env.USERPROFILE) return env.USERPROFILE;
+	if (env.HOMEDRIVE && env.HOMEPATH) return env.HOMEDRIVE + env.HOMEPATH;
+	return env.HOME || '/';
+}
+
+/**
+ * Resolve the platform-specific user configuration directory.
+ *
+ * Without `--allow-sys` we can't call `Deno.build.os` reliably in all
+ * permission modes. Instead we use the same env-based heuristic as the
+ * Node adapter: presence of `APPDATA` implies Windows.
+ *
+ * @internal
+ */
+function resolveDenoConfigDir(
+	env: Readonly<Record<string, string | undefined>>,
+	homedir: string,
+): string {
+	// APPDATA present and non-empty → Windows
+	if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
+	// XDG_CONFIG_HOME → Unix override
+	if (env.XDG_CONFIG_HOME) return env.XDG_CONFIG_HOME;
+	return `${homedir}/.config`;
+}
+
+// ---------------------------------------------------------------------------
+// Exports
+// ---------------------------------------------------------------------------
+
+export { createDenoAdapter };
+export type { DenoNamespace };
