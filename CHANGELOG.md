@@ -26,13 +26,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - **JSON mode** — always noop (structured output only).
 - **Active handle tracking** — at most one spinner or progress may be active at a time. Creating a
   new one implicitly stops the previous to avoid garbled terminal output.
-- **`ActivityEvent` discriminated union** — 9-variant DU capturing spinner and progress lifecycle
+- **`ActivityEvent` discriminated union** — 10-variant DU capturing spinner and progress lifecycle
   events (`spinner:start`, `spinner:update`, `spinner:succeed`, `spinner:fail`, `spinner:stop`,
-  `progress:start`, `progress:update`, `progress:done`, `progress:fail`).
+  `progress:start`, `progress:increment`, `progress:update`, `progress:done`, `progress:fail`).
 - **Testkit capture handles** — `CaptureOutputChannel` subclass overrides `spinner()` and
   `progress()` to record `ActivityEvent[]` for assertion. `CapturedOutput.activity` array added.
 - **New public types** exported from barrel: `ActivityEvent`, `Fallback`, `SpinnerHandle`,
   `SpinnerOptions`, `ProgressHandle`, `ProgressOptions`.
+- **`out.stopActive()`** public method on `Out` to clean up active spinner/progress timers. Prevents
+  process hangs when a handler throws before reaching a terminal method (`stop`, `succeed`, `fail`,
+  `done`). `runCommand()` calls it automatically in a `finally` block; direct `createOutput()` users
+  call it themselves.
+- **`progress:increment` activity event** — 10th `ActivityEvent` variant
+  `{ type: 'progress:increment', delta }`. `increment()` now emits this instead of reusing
+  `progress:update`, making capture events unambiguous for testing.
 
 ### Changed
 
@@ -43,10 +50,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `FlagParseFn<T>` widened from `(raw: string) => T` to `(raw: unknown) => T`. Config files carry
   structured JSON data — `parseFn` now receives the raw value directly and is responsible for
   narrowing. CLI/env still pass strings; config passes the JSON value as-is.
-- `OutputChannel` gained ~710 lines implementing 8 internal handle classes (TTY, static, noop,
-  capture variants for both spinner and progress).
-- Timer globals (`setInterval`/`clearInterval`) declared locally to avoid `@types/node` dependency.
-- Test count: 1646 tests across 44 test files (up from 1518 in v0.7.0).
+- `Out` interface extended with `stopActive()` method for explicit timer cleanup.
+- `ActivityEvent` union widened from 9 to 10 variants (added `progress:increment`).
+- `OutputChannel` refactored: activity handle implementations extracted to `activity.ts` (~581
+  lines), `WriteFn` type and `writeLine` helper extracted to `writer.ts` (~30 lines). `index.ts`
+  reduced from 1156 to 589 lines. No public API changes.
+- All activity handle output (static and TTY) now routes to stderr. Previously static mode used a
+  `StaticWriters` pair routing some output to stdout; the dual-writer abstraction is removed.
+- `runCommand()` calls `out.stopActive()` in a `finally` block, ensuring timer cleanup on handler
+  exceptions.
+- Test count: 1656 tests across 46 test files (up from 1518 in v0.7.0).
 
 ### Fixed
 
@@ -67,6 +80,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Config loader: lowercase extensions in `buildExtensionList`/`buildLoaderMap` for case-insensitive
   matching.
 - Empty-string env var fallbacks in runtime adapter treated as unset.
+- `ProgressHandle.increment()` was emitting `progress:update` events indistinguishable from
+  `update()` calls. Now emits `progress:increment` with `delta` field.
 
 ## [0.7.0] - 2026-02-10
 
