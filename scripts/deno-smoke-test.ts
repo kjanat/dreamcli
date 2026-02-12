@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run -A
+#!/usr/bin/env -S deno run --allow-read --allow-env
 /**
  * Deno adapter smoke test.
  *

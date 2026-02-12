@@ -60,8 +60,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Actionable required-arg error hints** — `buildRequiredArgSuggest()` generates suggestions
   including the env var when configured (e.g. "Provide a value for \<target\> or set
   DEPLOY_TARGET").
-- **16 new tests** — `resolve-arg-env.test.ts` (15 tests covering string/number/custom coercion,
-  \- CLI \> env \> default precedence, deprecation warnings, error cases) and 1 help output test for the `[env: VAR]` annotation.
+- **16 new tests** — `resolve-arg-env.test.ts` (15 tests covering string/number/custom coercion, \-
+  CLI \> env \> default precedence, deprecation warnings, error cases) and 1 help output test for
+  the `[env: VAR]` annotation.
 
 #### JSDoc Documentation
 

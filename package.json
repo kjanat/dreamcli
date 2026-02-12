@@ -2,7 +2,17 @@
 	"name": "dreamcli",
 	"version": "0.9.1",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
+	"keywords": [],
+	"homepage": "https://github.com/kjanat/dreamcli#readme",
+	"bugs": {
+		"url": "https://github.com/kjanat/dreamcli/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/kjanat/dreamcli.git"
+	},
 	"license": "MIT",
+	"author": "Kaj Kowalski <info@kajkowalski.nl> (https://github.com/kjanat)",
 	"type": "module",
 	"exports": {
 		".": {
@@ -27,7 +37,8 @@
 	"types": "./dist/index.d.cts",
 	"files": [
 		"dist",
-		"src"
+		"src",
+		"!src/**/*.test.ts"
 	],
 	"scripts": {
 		"build": "tsdown",
@@ -38,8 +49,10 @@
 		"format:check": "dprint check",
 		"lint": "biome check .",
 		"lint:fix": "biome check --fix .",
+		"prepack": "bun run build",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"typecheck": "tsgo --noEmit"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/cli": "^0.18.2",
