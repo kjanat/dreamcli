@@ -21,7 +21,11 @@
 		"esModuleInterop": true,
 		"isolatedModules": true,
 		"verbatimModuleSyntax": true,
-		"skipLibCheck": true
+		"skipLibCheck": true,
+
+		"isolatedDeclarations": true,
+		"declaration": true,
+		"declarationMap": true
 	},
 	"include": ["src"],
 	"exclude": ["node_modules", "dist"]

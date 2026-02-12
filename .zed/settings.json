@@ -9,36 +9,14 @@
 	"file_types": { "Markdown": ["LICENSE"] },
 	"prettier": { "allowed": false },
 	"formatter": [
-		{
-			"external": {
-				"command": "./node_modules/.bin/dprint",
-				"arguments": [
-					"fmt",
-					"--config=.dprint.jsonc",
-					"--config-discovery=false",
-					"--stdin",
-					"{buffer_path}"
-				]
-			}
-		}
+		{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
 	],
 	"languages": {
 		"JavaScript": {
 			"formatter": [
 				{ "code_action": "fixAll.biome" },
 				{ "code_action": "organizeImports.biome" },
-				{
-					"external": {
-						"command": "./node_modules/.bin/dprint",
-						"arguments": [
-							"fmt",
-							"--config=.dprint.jsonc",
-							"--config-discovery=false",
-							"--stdin",
-							"{buffer_path}"
-						]
-					}
-				}
+				{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
 			],
 			"language_servers": ["vtsls", "tsgo", "biome"]
 		},
@@ -46,18 +24,7 @@
 			"formatter": [
 				{ "code_action": "fixAll.biome" },
 				{ "code_action": "organizeImports.biome" },
-				{
-					"external": {
-						"command": "./node_modules/.bin/dprint",
-						"arguments": [
-							"fmt",
-							"--config=.dprint.jsonc",
-							"--config-discovery=false",
-							"--stdin",
-							"{buffer_path}"
-						]
-					}
-				}
+				{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
 			],
 			"language_servers": ["vtsls", "tsgo", "biome"]
 		},

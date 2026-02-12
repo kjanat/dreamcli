@@ -1,3 +1,4 @@
+#!/usr/bin/env -S deno run -A
 /**
  * Deno adapter smoke test.
  *

@@ -74,14 +74,24 @@ function erased(schema: CommandSchema) {
 }
 
 /** Minimal CLISchema for completion tests. */
-function minimalSchema(overrides: Partial<CLISchema> = {}): CLISchema {
+/** Options for `minimalSchema()` — all fields optional, allows explicit `undefined`. */
+interface MinimalSchemaOverrides {
+	readonly name?: string;
+	readonly version?: string | undefined;
+	readonly description?: string | undefined;
+	readonly commands?: CLISchema['commands'];
+	readonly defaultCommand?: CLISchema['defaultCommand'];
+	readonly configSettings?: CLISchema['configSettings'];
+}
+
+function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	return {
-		name: 'testcli',
-		version: '1.0.0',
-		description: 'A test CLI',
-		commands: [],
-		configSettings: undefined,
-		...overrides,
+		name: overrides.name ?? 'testcli',
+		version: 'version' in overrides ? overrides.version : '1.0.0',
+		description: 'description' in overrides ? overrides.description : 'A test CLI',
+		commands: overrides.commands ?? [],
+		defaultCommand: 'defaultCommand' in overrides ? overrides.defaultCommand : undefined,
+		configSettings: overrides.configSettings ?? undefined,
 	};
 }
 
@@ -1242,7 +1252,7 @@ describe('generateCompletion — dispatcher', () => {
 // ===================================================================
 
 /** Build a nested command tree for testing. */
-function nestedSchema(overrides: Partial<CLISchema> = {}): CLISchema {
+function nestedSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	const migrateCmd = commandSchema({
 		name: 'migrate',
 		description: 'Run migrations',

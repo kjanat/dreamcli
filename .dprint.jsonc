@@ -9,7 +9,14 @@
 		"lineWidth": 100,
 		"quoteStyle": "single"
 	},
-	"json": {},
+	"json": {
+		"jsonTrailingCommaFiles": [
+			"**/.vscode/*.json",
+			"**/.zed/*.json",
+			"**/tsconfig*.json",
+			"!**/biome.jsonc"
+		]
+	},
 	"markdown": { "textWrap": "always", "emphasisKind": "asterisks" },
 	"toml": {
 		"comment.forceLeadingSpace": false,

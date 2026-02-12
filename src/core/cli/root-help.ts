@@ -11,7 +11,8 @@
 import type { HelpOptions } from '../help/index.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
-// Only the shape matters — we read `.name`, `.version`, `.description`, `.commands`.
+// Only the shape matters — we read `.name`, `.version`, `.description`, `.commands`,
+// `.defaultCommand`.
 interface CLISchemaLike {
 	readonly name: string;
 	readonly version: string | undefined;
@@ -23,6 +24,7 @@ interface CLISchemaLike {
 			readonly hidden: boolean | undefined;
 		};
 	}>;
+	readonly defaultCommand: { readonly schema: { readonly name: string } } | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,25 +53,33 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	}
 
 	// ---- Usage line ---------------------------------------------------------
-	sections.push(`Usage: ${schema.name} <command> [options]`);
+	// `[command]` (optional) when a default command exists; `<command>` (required) otherwise.
+	const commandPlaceholder = schema.defaultCommand !== undefined ? '[command]' : '<command>';
+	sections.push(`Usage: ${schema.name} ${commandPlaceholder} [options]`);
 
 	// ---- Commands list (skip hidden) ----------------------------------------
 	const visibleCommands = schema.commands.filter((c) => !c.schema.hidden);
+	const defaultName = schema.defaultCommand?.schema.name;
 	if (visibleCommands.length > 0) {
 		const lines: string[] = ['Commands:'];
 		const GAP = 2;
+		const DEFAULT_TAG = ' (default)';
 
-		// Compute max command name length for alignment
+		// Compute max command name length for alignment (account for default tag)
 		let maxNameLen = 0;
 		for (const cmd of visibleCommands) {
-			if (cmd.schema.name.length > maxNameLen) {
-				maxNameLen = cmd.schema.name.length;
+			const tagLen = cmd.schema.name === defaultName ? DEFAULT_TAG.length : 0;
+			const nameLen = cmd.schema.name.length + tagLen;
+			if (nameLen > maxNameLen) {
+				maxNameLen = nameLen;
 			}
 		}
 
 		const descCol = 2 + maxNameLen + GAP; // 2 for indent
 		for (const cmd of visibleCommands) {
-			const padded = padEnd(`  ${cmd.schema.name}`, descCol);
+			const isDefault = cmd.schema.name === defaultName;
+			const label = isDefault ? `${cmd.schema.name}${DEFAULT_TAG}` : cmd.schema.name;
+			const padded = padEnd(`  ${label}`, descCol);
 			const desc = cmd.schema.description ?? '';
 			if (desc.length === 0) {
 				lines.push(padded.trimEnd());
@@ -82,7 +92,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	}
 
 	// ---- Footer hint --------------------------------------------------------
-	sections.push(`Run '${schema.name} <command> --help' for more information.`);
+	sections.push(`Run '${schema.name} ${commandPlaceholder} --help' for more information.`);
 
 	return `${sections.join('\n\n')}\n`;
 }

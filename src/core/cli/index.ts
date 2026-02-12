@@ -91,6 +91,16 @@ interface CLISchema {
 	/** Registered commands (type-erased for heterogeneous storage). */
 	readonly commands: readonly ErasedCommand[];
 	/**
+	 * Default command dispatched when no subcommand matches.
+	 *
+	 * When set, the CLI root behaves like a hybrid command group: subcommands
+	 * dispatch by name as usual, but empty argv or flags-only argv falls
+	 * through to this command instead of showing root help.
+	 *
+	 * Set via the `.default()` builder method.
+	 */
+	readonly defaultCommand: ErasedCommand | undefined;
+	/**
 	 * Config discovery settings. When defined, `.run()` auto-discovers and
 	 * loads a config file before command dispatch.
 	 *
@@ -421,6 +431,58 @@ class CLIBuilder {
 		});
 	}
 
+	/**
+	 * Register a command as the default — dispatched when no subcommand is given.
+	 *
+	 * The CLI root behaves like a hybrid command group: named subcommands
+	 * dispatch normally, but empty argv or flags-only argv falls through to
+	 * this command instead of showing root help.
+	 *
+	 * The command is also registered as a normal subcommand (can be invoked
+	 * by name). Only one default command is allowed.
+	 *
+	 * @example
+	 * ```ts
+	 * // Single-command CLI — no subcommand name needed:
+	 * //   mytool --force production
+	 * cli('mytool')
+	 *   .default(deploy)
+	 *   .run();
+	 *
+	 * // Multi-command CLI with a default:
+	 * //   mytool production       → runs deploy
+	 * //   mytool status           → runs status
+	 * cli('mytool')
+	 *   .default(deploy)
+	 *   .command(status)
+	 *   .run();
+	 * ```
+	 */
+	default<
+		F extends Record<string, FlagBuilder<FlagConfig>>,
+		A extends Record<string, ArgBuilder<ArgConfig>>,
+		C extends Record<string, unknown>,
+	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
+		if (this.schema.defaultCommand !== undefined) {
+			throw new CLIError('Only one default command is allowed', {
+				code: 'DUPLICATE_DEFAULT',
+				suggest: 'Call .default() only once when building the CLI',
+			});
+		}
+		if (this.schema.commands.some((c) => c.schema.name === cmd.schema.name)) {
+			throw new CLIError(`Command '${cmd.schema.name}' is already registered`, {
+				code: 'DUPLICATE_COMMAND',
+				suggest: 'Use .default() instead of .command() to register the default command',
+			});
+		}
+		const erased = eraseCommand(cmd);
+		return new CLIBuilder({
+			...this.schema,
+			commands: [...this.schema.commands, erased],
+			defaultCommand: erased,
+		});
+	}
+
 	// -- Built-in subcommands ------------------------------------------------
 
 	/**
@@ -516,19 +578,20 @@ class CLIBuilder {
 			return buildResult(0, captured, undefined);
 		}
 
-		// -- Extract command name --------------------------------------------------
+		// -- Extract first arg for root-level checks --------------------------------
 		const firstArg = filteredArgv.length > 0 ? filteredArgv[0] : undefined;
 
-		// -- Root --help (or no command) -------------------------------------------
-		if (firstArg === undefined || firstArg === '--help' || firstArg === '-h') {
+		// -- Root --help (explicit root-level help request) -----------------------
+		// Only intercept when --help/-h is the first token — subcommand-level
+		// help (e.g. `myapp deploy --help`) flows through dispatch.
+		if (firstArg === '--help' || firstArg === '-h') {
 			const helpText = formatRootHelp(this.schema, helpOptions);
 			out.log(helpText);
 			return buildResult(0, captured, undefined);
 		}
 
-		// -- Check if first arg looks like a flag (no command given) ---------------
-		if (firstArg.startsWith('-')) {
-			// Unknown root flag — show help
+		// -- Empty argv without a default command → root help ---------------------
+		if (firstArg === undefined && this.schema.defaultCommand === undefined) {
 			const helpText = formatRootHelp(this.schema, helpOptions);
 			out.log(helpText);
 			return buildResult(0, captured, undefined);
@@ -560,10 +623,32 @@ class CLIBuilder {
 		// -- Recursive dispatch ---------------------------------------------------
 		const result = dispatch(filteredArgv, rootCommands);
 
+		// -- Resolve default command (if configured) ------------------------------
+		const defaultCmd = this.schema.defaultCommand;
+
+		// -- Shared options for command execution ----------------------------------
+		const effectiveOptions: CLIRunOptions = {
+			...options,
+			...(jsonMode ? { jsonMode } : {}),
+		};
+		const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
+
 		switch (result.kind) {
 			case 'unknown': {
+				if (defaultCmd !== undefined) {
+					// If the unrecognized token is close to a known sibling command name,
+					// it's likely a typo — show a suggestion instead of delegating.
+					// Otherwise delegate to the default command (the token is probably a
+					// positional arg or flag value the default command expects).
+					const suggestion =
+						result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
+					if (suggestion === undefined) {
+						return defaultCmd._execute(filteredArgv, { ...commandRunOptions });
+					}
+				}
+
 				if (result.input === '') {
-					// Only flags, no command — show root help.
+					// Only flags, no command, no default — show root help.
 					const helpText = formatRootHelp(this.schema, helpOptions);
 					out.log(helpText);
 					return buildResult(0, captured, undefined);
@@ -620,12 +705,6 @@ class CLIBuilder {
 						}
 					: undefined;
 
-				// Propagate jsonMode to command so it gets the --json context
-				const effectiveOptions: CLIRunOptions = {
-					...options,
-					...(jsonMode ? { jsonMode } : {}),
-				};
-				const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
 				return result.command._execute(result.remainingArgv, {
 					...commandRunOptions,
 					...(mergedSchema !== undefined ? { mergedSchema } : {}),
@@ -665,6 +744,8 @@ class CLIBuilder {
 		// Skip for completions subcommand — shell completions don't need config.
 		// Resolve the first argv token against registered commands (by name + aliases)
 		// so aliases or shadowed names are handled correctly.
+		// When no subcommand token is present and a default command exists, check
+		// whether the default command is 'completions' (unlikely but correct).
 		const firstToken = filteredArgv[0];
 		const matchedCommand =
 			firstToken !== undefined
@@ -672,7 +753,9 @@ class CLIBuilder {
 						(c) => c.schema.name === firstToken || c.schema.aliases.includes(firstToken),
 					)
 				: undefined;
-		const isCompletions = matchedCommand?.schema.name === 'completions';
+		const effectiveCommandName =
+			matchedCommand?.schema.name ?? this.schema.defaultCommand?.schema.name;
+		const isCompletions = effectiveCommandName === 'completions';
 		let loadedConfig: Readonly<Record<string, unknown>> | undefined;
 
 		if (
@@ -781,6 +864,7 @@ function cli(name: string): CLIBuilder {
 		version: undefined,
 		description: undefined,
 		commands: [],
+		defaultCommand: undefined,
 		configSettings: undefined,
 	});
 }

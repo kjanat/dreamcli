@@ -6,16 +6,29 @@ export default defineConfig({
 		testkit: 'src/testkit.ts',
 		runtime: 'src/runtime.ts',
 	},
-	format: ['esm', 'cjs'],
-	dts: true,
-	hash: false,
+	format: {
+		esm: {
+			target: ['esnext'],
+		},
+		cjs: {
+			target: ['node22'],
+		},
+	},
+	dts: {
+		oxc: true,
+		tsgo: { path: 'node_modules/.bin/tsgo', enabled: false },
+	},
 	clean: true,
-	target: 'es2022',
+	target: 'ESNext',
 	platform: 'node',
-	sourcemap: true,
-	treeshake: true,
-	exports: true,
-	minify: true,
+	exports: {
+		devExports: 'bun',
+		legacy: true,
+		enabled: true,
+		packageJson: true,
+	},
+	unbundle: true,
+	minify: 'dce-only',
 	publint: true,
 	attw: { profile: 'strict', level: 'error', ignoreRules: ['no-resolution'] },
 	onSuccess: 'bun format package.json', // ensures proper sorting of the exports
