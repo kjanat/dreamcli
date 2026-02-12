@@ -26,7 +26,7 @@
 				{ "code_action": "organizeImports.biome" },
 				{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
 			],
-			"language_servers": ["vtsls", "tsgo", "biome"]
+			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
 		},
 		"JSON": { "formatter": { "language_server": { "name": "biome" } } },
 		"JSONC": { "formatter": { "language_server": { "name": "biome" } } }
@@ -35,6 +35,13 @@
 		"biome": {
 			"settings": {
 				"config_path": "./biome.jsonc"
+			}
+		},
+		"deno": {
+			"settings": {
+				"deno": {
+					"enable": true
+				}
 			}
 		}
 	}
