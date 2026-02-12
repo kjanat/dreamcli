@@ -8,7 +8,7 @@ export default defineConfig({
 	},
 	format: {
 		esm: {
-			target: ['esnext'],
+			target: ['ESNext'],
 		},
 		cjs: {
 			target: ['node22'],

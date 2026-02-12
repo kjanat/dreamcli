@@ -5,7 +5,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CLIError } from '../errors/index.ts';
 import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
+import { command, group } from '../schema/command.ts';
 import { flag } from '../schema/flag.ts';
 import { cli, formatRootHelp } from './index.ts';
 
@@ -196,6 +196,71 @@ describe('.default() — hybrid dispatch (default + siblings)', () => {
 		expect(result.exitCode).toBe(2);
 		expect(result.stderr.join('')).toContain('Unknown command: deplooy');
 		expect(result.stderr.join('')).toContain("Did you mean 'deploy'?");
+	});
+});
+
+// ===================================================================
+// Nested unknowns — default command must NOT swallow nested errors
+// ===================================================================
+
+describe('.default() — nested unknown does not delegate to default', () => {
+	it('surfaces unknown-command error inside a group instead of delegating', async () => {
+		const dbCmd = group('db')
+			.description('Database operations')
+			.command(
+				command('migrate')
+					.description('Run migrations')
+					.action(({ out }) => {
+						out.log('migrating');
+					}),
+			)
+			.command(
+				command('seed')
+					.description('Seed data')
+					.action(({ out }) => {
+						out.log('seeding');
+					}),
+			);
+		const app = cli('mycli').default(deployCommand()).command(dbCmd);
+		const result = await app.execute(['db', 'bogus']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Unknown command: bogus');
+	});
+
+	it('still shows suggestion for typos inside a group', async () => {
+		const dbCmd = group('db')
+			.description('Database operations')
+			.command(
+				command('migrate')
+					.description('Run migrations')
+					.action(({ out }) => {
+						out.log('migrating');
+					}),
+			);
+		const app = cli('mycli').default(deployCommand()).command(dbCmd);
+		const result = await app.execute(['db', 'migrat']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Unknown command: migrat');
+		expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
+	});
+
+	it('still delegates root-level unknowns to default command', async () => {
+		const dbCmd = group('db')
+			.description('Database operations')
+			.command(
+				command('migrate')
+					.description('Run migrations')
+					.action(({ out }) => {
+						out.log('migrating');
+					}),
+			);
+		const app = cli('mycli').default(deployCommand()).command(dbCmd);
+		const result = await app.execute(['production', '--force']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('deploy:production:forced');
 	});
 });
 

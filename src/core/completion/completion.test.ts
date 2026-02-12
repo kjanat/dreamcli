@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '../cli/index.ts';
 import { isCLIError } from '../errors/index.ts';
-import type { CommandSchema, FlagSchema } from '../schema/index.ts';
+import type { ActivityEvent, CommandSchema, FlagSchema } from '../schema/index.ts';
 import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,
@@ -61,19 +61,18 @@ function erased(schema: CommandSchema) {
 	return {
 		schema,
 		subcommands: new Map(),
-		async _execute() {
-			return {
+		_execute() {
+			return Promise.resolve({
 				stdout: [] as string[],
 				stderr: [] as string[],
-				activity: [],
+				activity: [] as ActivityEvent[],
 				exitCode: 0,
 				error: undefined,
-			};
+			});
 		},
 	};
 }
 
-/** Minimal CLISchema for completion tests. */
 /** Options for `minimalSchema()` — all fields optional, allows explicit `undefined`. */
 interface MinimalSchemaOverrides {
 	readonly name?: string;
@@ -85,15 +84,22 @@ interface MinimalSchemaOverrides {
 	readonly packageJsonSettings?: CLISchema['packageJsonSettings'];
 }
 
+/** Minimal CLISchema for completion tests. */
 function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	return {
 		name: overrides.name ?? 'testcli',
 		version: 'version' in overrides ? overrides.version : '1.0.0',
 		description: 'description' in overrides ? overrides.description : 'A test CLI',
 		commands: overrides.commands ?? [],
-		defaultCommand: 'defaultCommand' in overrides ? overrides.defaultCommand : undefined,
-		configSettings: overrides.configSettings ?? undefined,
-		packageJsonSettings: overrides.packageJsonSettings ?? undefined,
+		...('defaultCommand' in overrides
+			? { defaultCommand: overrides.defaultCommand }
+			: { defaultCommand: undefined }),
+		...(overrides.configSettings !== undefined
+			? { configSettings: overrides.configSettings }
+			: { configSettings: undefined }),
+		...(overrides.packageJsonSettings !== undefined
+			? { packageJsonSettings: overrides.packageJsonSettings }
+			: { packageJsonSettings: undefined }),
 	};
 }
 

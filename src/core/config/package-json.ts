@@ -97,7 +97,13 @@ async function discoverPackageJson(adapter: PackageJsonAdapter): Promise<Package
 	let dir: string | undefined = adapter.cwd;
 
 	while (dir !== undefined) {
-		const content = await adapter.readFile(joinPath(dir, 'package.json'));
+		let content: string | null = null;
+		try {
+			content = await adapter.readFile(joinPath(dir, 'package.json'));
+		} catch {
+			// Adapter may throw on permission errors, is-directory, or other
+			// syscall failures — skip this directory and keep walking up.
+		}
 		if (content !== null) {
 			return parsePackageJson(content);
 		}

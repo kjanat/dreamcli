@@ -232,6 +232,38 @@ describe('discoverPackageJson — error resilience', () => {
 		const result = await discoverPackageJson(adapter);
 		expect(result).toBeNull();
 	});
+
+	it('returns null when readFile throws (e.g. permission error)', async () => {
+		const adapter: PackageJsonAdapter = {
+			cwd: '/projects/myapp',
+			readFile: () => Promise.reject(new Error('EACCES: permission denied')),
+		};
+
+		const result = await discoverPackageJson(adapter);
+		expect(result).toBeNull();
+	});
+
+	it('skips throwing directory and finds package.json in ancestor', async () => {
+		let calls = 0;
+		const adapter: PackageJsonAdapter = {
+			cwd: '/projects/myapp/src',
+			readFile: async (path: string) => {
+				calls++;
+				if (path === '/projects/myapp/src/package.json') {
+					throw new Error('EACCES: permission denied');
+				}
+				if (path === '/projects/myapp/package.json') {
+					return '{"name":"myapp","version":"2.0.0"}';
+				}
+				return null;
+			},
+		};
+
+		const result = await discoverPackageJson(adapter);
+		expect(result).not.toBeNull();
+		expect(result?.name).toBe('myapp');
+		expect(calls).toBeGreaterThanOrEqual(2);
+	});
 });
 
 // ===================================================================

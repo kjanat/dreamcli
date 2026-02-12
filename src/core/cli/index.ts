@@ -726,11 +726,10 @@ class CLIBuilder {
 
 		switch (result.kind) {
 			case 'unknown': {
-				if (defaultCmd !== undefined) {
-					// If the unrecognized token is close to a known sibling command name,
-					// it's likely a typo — show a suggestion instead of delegating.
-					// Otherwise delegate to the default command (the token is probably a
-					// positional arg or flag value the default command expects).
+				if (defaultCmd !== undefined && result.parentPath.length === 0) {
+					// Only delegate to the default command for root-level unknowns.
+					// Nested unknowns (parentPath non-empty) should surface an error
+					// so typo suggestions work correctly within command groups.
 					const suggestion =
 						result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
 					if (suggestion === undefined) {
