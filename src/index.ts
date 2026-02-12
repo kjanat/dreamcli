@@ -86,6 +86,7 @@ export type {
 	CommandArgEntry,
 	CommandConfig,
 	CommandExample,
+	CommandMeta,
 	CommandSchema,
 	ConfirmPromptConfig,
 	ErasedCommand,

@@ -2,9 +2,10 @@
  * Tests for the CLI entry point builder — cli(), dispatch, help, version.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ParseError } from '../errors/index.ts';
 import { arg } from '../schema/arg.ts';
+import type { CommandMeta } from '../schema/command.ts';
 import { command } from '../schema/command.ts';
 import { flag } from '../schema/flag.ts';
 import { CLIBuilder, cli, formatRootHelp } from './index.ts';
@@ -763,5 +764,64 @@ describe('public exports', () => {
 	it('exports CLIBuilder class', async () => {
 		const { CLIBuilder: CLIBuilderExport } = await import('../../index.ts');
 		expect(typeof CLIBuilderExport).toBe('function');
+	});
+});
+
+// ===========================================================================
+// CommandMeta — dispatch populates meta from CLI schema
+// ===========================================================================
+
+describe('cli.execute — meta', () => {
+	it('populates meta with CLI name, version, and command name', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+		const app = cli('myapp').version('1.0.0').command(cmd);
+
+		await app.execute(['deploy']);
+
+		expect(handler).toHaveBeenCalledOnce();
+		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(meta).toEqual({
+			name: 'myapp',
+			bin: 'myapp',
+			version: '1.0.0',
+			command: 'deploy',
+		});
+	});
+
+	it('uses help.binName for meta.bin', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+		const app = cli('myapp').version('1.0.0').command(cmd);
+
+		await app.execute(['deploy'], { help: { binName: 'my-app' } });
+
+		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(meta.bin).toBe('my-app');
+		expect(meta.name).toBe('myapp');
+	});
+
+	it('meta.version is undefined when CLI has no version', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+		const app = cli('myapp').command(cmd);
+
+		await app.execute(['deploy']);
+
+		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(meta.version).toBeUndefined();
+	});
+
+	it('populates meta.command for default command', async () => {
+		const handler = vi.fn();
+		const cmd = command('main').action(handler);
+		const app = cli('myapp').version('1.0.0').default(cmd);
+
+		await app.execute([]);
+
+		expect(handler).toHaveBeenCalledOnce();
+		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(meta.command).toBe('main');
+		expect(meta.name).toBe('myapp');
 	});
 });

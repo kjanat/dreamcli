@@ -300,6 +300,7 @@ describe('full command composition', () => {
 			flags: { loud: true },
 			ctx: {},
 			out: mockOut,
+			meta: { name: 'test', bin: 'test', version: undefined, command: 'greet' },
 		};
 
 		await cmd.handler?.(params);

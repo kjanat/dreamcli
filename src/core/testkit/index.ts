@@ -23,7 +23,13 @@ import { createTestPrompter } from '../prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '../resolve/index.ts';
 import { resolve } from '../resolve/index.ts';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
-import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.ts';
+import type {
+	ActionHandler,
+	CommandBuilder,
+	CommandMeta,
+	CommandSchema,
+	Out,
+} from '../schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
 
 // ---------------------------------------------------------------------------
@@ -43,6 +49,7 @@ interface HandlerParams {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
+	readonly meta: CommandMeta;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +156,17 @@ interface RunOptions {
 	 * @internal — set by dispatch layer, not for public use.
 	 */
 	readonly mergedSchema?: CommandSchema;
+
+	/**
+	 * CLI program metadata passed to action handlers and middleware.
+	 *
+	 * When provided (by CLI dispatch layer), handlers receive this as `meta`.
+	 * When absent (standalone `runCommand()`), a minimal meta is constructed
+	 * from the command's own schema.
+	 *
+	 * @internal — populated by CLI dispatch, not for public use.
+	 */
+	readonly meta?: CommandMeta;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,13 +257,21 @@ async function runCommand<
 			out.warn(formatDeprecation(d));
 		}
 
+		// -- Build command metadata -----------------------------------------------
+		const meta: CommandMeta = options?.meta ?? {
+			name: schema.name,
+			bin: options?.help?.binName ?? schema.name,
+			version: undefined,
+			command: schema.name,
+		};
+
 		// -- Execute middleware chain + handler -----------------------------------
 		// The resolver guarantees that resolved.flags and resolved.args match
 		// the shape declared by the command's flag/arg builders. The phantom
 		// types on CommandBuilder<F, A> are erased at runtime — the handler
 		// is just a function accepting a plain object. `executeWithMiddleware`
 		// runs the middleware chain then invokes the handler at the end.
-		await executeWithMiddleware(cmd.schema, cmd.handler, resolved.flags, resolved.args, out);
+		await executeWithMiddleware(cmd.schema, cmd.handler, resolved.flags, resolved.args, out, meta);
 
 		return buildResult(0, captured, undefined);
 	} catch (err: unknown) {
@@ -307,6 +333,7 @@ async function executeWithMiddleware<
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
 	out: Out,
+	meta: CommandMeta,
 ): Promise<void> {
 	const middlewares = schema.middleware;
 
@@ -314,7 +341,7 @@ async function executeWithMiddleware<
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 
 	let chain: ChainFn = async (ctx) => {
-		const params: HandlerParams = { flags, args, ctx, out };
+		const params: HandlerParams = { flags, args, ctx, out, meta };
 		// Phantom-type erasure: handler is (params: object) => void | Promise<void> at runtime.
 		await (handler as (p: HandlerParams) => void | Promise<void>)(params);
 	};
@@ -330,6 +357,7 @@ async function executeWithMiddleware<
 				flags,
 				ctx,
 				out,
+				meta,
 				next: async (additions) => {
 					await downstream({ ...ctx, ...additions });
 				},

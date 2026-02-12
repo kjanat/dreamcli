@@ -34,6 +34,7 @@ export type {
 	CommandArgEntry,
 	CommandConfig,
 	CommandExample,
+	CommandMeta,
 	CommandSchema,
 	ErasedCommand,
 	ErasedInteractiveResolver,

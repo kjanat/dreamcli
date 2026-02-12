@@ -25,7 +25,12 @@ import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
 import { createTerminalPrompter } from '../prompt/index.ts';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
 import { arg } from '../schema/arg.ts';
-import type { CommandBuilder, CommandSchema, ErasedCommand } from '../schema/command.ts';
+import type {
+	CommandBuilder,
+	CommandMeta,
+	CommandSchema,
+	ErasedCommand,
+} from '../schema/command.ts';
 import { command } from '../schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
 import type { RunOptions, RunResult } from '../testkit/index.ts';
@@ -292,6 +297,28 @@ function extractConfigFlag(argv: readonly string[]): {
 }
 
 // ---------------------------------------------------------------------------
+// CLI → CommandMeta builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build {@link CommandMeta} from CLI-level schema and the leaf command name.
+ *
+ * @internal
+ */
+function buildMeta(
+	cliSchema: CLISchema,
+	helpOptions: HelpOptions,
+	commandName: string,
+): CommandMeta {
+	return {
+		name: cliSchema.name,
+		bin: helpOptions.binName ?? cliSchema.name,
+		version: cliSchema.version,
+		command: commandName,
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Command run options builder
 // ---------------------------------------------------------------------------
 
@@ -304,9 +331,11 @@ function extractConfigFlag(argv: readonly string[]): {
 function buildCommandRunOptions(
 	options: CLIRunOptions | undefined,
 	helpOptions: HelpOptions,
+	meta?: CommandMeta,
 ): RunOptions {
 	return {
 		help: helpOptions,
+		...(meta !== undefined ? { meta } : {}),
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
@@ -743,7 +772,6 @@ class CLIBuilder {
 			...options,
 			...(jsonMode ? { jsonMode } : {}),
 		};
-		const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions);
 
 		switch (result.kind) {
 			case 'unknown': {
@@ -754,6 +782,8 @@ class CLIBuilder {
 					const suggestion =
 						result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
 					if (suggestion === undefined) {
+						const meta = buildMeta(this.schema, helpOptions, defaultCmd.schema.name);
+						const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions, meta);
 						return defaultCmd._execute(filteredArgv, { ...commandRunOptions });
 					}
 				}
@@ -816,6 +846,8 @@ class CLIBuilder {
 						}
 					: undefined;
 
+				const meta = buildMeta(this.schema, helpOptions, result.command.schema.name);
+				const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions, meta);
 				return result.command._execute(result.remainingArgv, {
 					...commandRunOptions,
 					...(mergedSchema !== undefined ? { mergedSchema } : {}),

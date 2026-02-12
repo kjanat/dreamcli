@@ -1,4 +1,14 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'tsdown';
+import pkg from './package.json' with { type: 'json' };
+
+const revision = (() => {
+	try {
+		return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+	} catch {
+		return 'unknown';
+	}
+})();
 
 export default defineConfig({
 	entry: {
@@ -26,6 +36,10 @@ export default defineConfig({
 		legacy: true,
 		enabled: true,
 		packageJson: true,
+	},
+	define: {
+		__DREAMCLI_VERSION__: JSON.stringify(pkg.version),
+		__DREAMCLI_REVISION__: JSON.stringify(revision),
 	},
 	unbundle: true,
 	minify: 'dce-only',

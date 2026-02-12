@@ -241,12 +241,32 @@ interface Out {
 }
 
 /**
+ * Metadata about the running CLI program, available to action handlers
+ * and middleware.
+ *
+ * Populated by the CLI dispatch layer from {@link CLISchema} and
+ * {@link CommandSchema}. For standalone `runCommand()` calls without
+ * a CLI wrapper, a minimal meta is constructed from the command's own schema.
+ */
+interface CommandMeta {
+	/** CLI program name (from `cli('name')` or package.json inference). */
+	readonly name: string;
+	/** Binary display name used in help/usage (may differ from `name`). */
+	readonly bin: string;
+	/** Program version, if set via `.version()` or discovered from package.json. */
+	readonly version: string | undefined;
+	/** The leaf command name currently being executed. */
+	readonly command: string;
+}
+
+/**
  * The bag of values received by an action handler.
  *
  * - `args`  — fully resolved positional arguments
  * - `flags` — fully resolved flags
  * - `ctx`   — middleware-provided context (typed via middleware chain)
  * - `out`   — output channel
+ * - `meta`  — CLI program metadata (name, bin, version, command)
  *
  * The `C` parameter defaults to `Record<string, never>`, making `ctx`
  * property access a type error until middleware extends it. Each
@@ -261,6 +281,7 @@ interface ActionParams<
 	readonly flags: Readonly<InferFlags<F>>;
 	readonly ctx: Readonly<C>;
 	readonly out: Out;
+	readonly meta: CommandMeta;
 }
 
 /**
@@ -949,6 +970,7 @@ export type {
 	CommandArgEntry,
 	CommandConfig,
 	CommandExample,
+	CommandMeta,
 	CommandSchema,
 	ErasedCommand,
 	ErasedInteractiveResolver,

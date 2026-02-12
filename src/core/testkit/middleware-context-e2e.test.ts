@@ -871,3 +871,46 @@ describe('e2e: middleware edge cases', () => {
 		}
 	});
 });
+
+// ===========================================================================
+// Middleware — receives meta
+// ===========================================================================
+
+describe('middleware — meta access', () => {
+	it('middleware receives meta with command info', async () => {
+		const handler = vi.fn();
+
+		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+		const spy = middleware<{}>(async ({ meta, out, next }) => {
+			out.log(`meta:${meta.name}:${meta.command}`);
+			await next({});
+		});
+
+		const cmd = command('deploy').middleware(spy).action(handler);
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContainEqual('meta:deploy:deploy\n');
+		expect(handler).toHaveBeenCalledOnce();
+	});
+
+	it('middleware receives CLI-level meta when dispatched via cli()', async () => {
+		const handler = vi.fn();
+
+		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+		const spy = middleware<{}>(async ({ meta, out, next }) => {
+			out.log(`meta:${meta.name}:${meta.version}:${meta.command}`);
+			await next({});
+		});
+
+		const cmd = command('deploy').middleware(spy).action(handler);
+		const app = cli('myapp').version('3.0.0').command(cmd);
+
+		const result = await app.execute(['deploy']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContainEqual('meta:myapp:3.0.0:deploy\n');
+		expect(handler).toHaveBeenCalledOnce();
+	});
+});

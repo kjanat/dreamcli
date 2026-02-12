@@ -2,9 +2,10 @@
  * Tests for the testkit — runCommand() with injected state.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CLIError, ValidationError } from '../errors/index.ts';
 import { arg } from '../schema/arg.ts';
+import type { CommandMeta } from '../schema/command.ts';
 import { command } from '../schema/command.ts';
 import { flag } from '../schema/flag.ts';
 import { runCommand } from './index.ts';
@@ -492,5 +493,54 @@ describe('runCommand — deprecation warnings', () => {
 
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout).toContainEqual('ok\n');
+	});
+});
+
+// ===========================================================================
+// CommandMeta — handler receives metadata
+// ===========================================================================
+
+describe('runCommand — meta', () => {
+	it('provides default meta derived from command schema', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+
+		await runCommand(cmd, []);
+
+		expect(handler).toHaveBeenCalledOnce();
+		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(meta).toEqual({
+			name: 'deploy',
+			bin: 'deploy',
+			version: undefined,
+			command: 'deploy',
+		});
+	});
+
+	it('uses help.binName for meta.bin when provided', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+
+		await runCommand(cmd, [], { help: { binName: 'mycli' } });
+
+		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(meta.bin).toBe('mycli');
+		expect(meta.name).toBe('deploy');
+	});
+
+	it('forwards explicit meta from RunOptions', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+
+		const explicit: CommandMeta = {
+			name: 'myapp',
+			bin: 'myapp',
+			version: '2.0.0',
+			command: 'deploy',
+		};
+		await runCommand(cmd, [], { meta: explicit });
+
+		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(meta).toEqual(explicit);
 	});
 });
