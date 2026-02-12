@@ -153,6 +153,15 @@ describe('formatHelp', () => {
 			expect(help).toContain('Arguments:');
 			expect(help).toContain('<target>');
 		});
+
+		it('shows [env: VAR] when arg has envVar', () => {
+			const cmd = command('deploy').arg(
+				'target',
+				arg.string().env('DEPLOY_TARGET').describe('Deploy target'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[env: DEPLOY_TARGET]');
+		});
 	});
 
 	// -----------------------------------------------------------------------

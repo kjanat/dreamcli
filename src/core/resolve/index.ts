@@ -21,6 +21,7 @@ import type { ParseResult } from '../parse/index.ts';
 import type { PromptEngine } from '../prompt/index.ts';
 import { resolvePromptConfig } from '../prompt/index.ts';
 import type {
+	ArgSchema,
 	CommandArgEntry,
 	CommandSchema,
 	ErasedInteractiveResolver,
@@ -179,7 +180,7 @@ async function resolve(
 		schema.interactive,
 		deprecations,
 	);
-	const args = resolveArgs(schema.args, parsed.args, deprecations);
+	const args = resolveArgs(schema.args, parsed.args, env, deprecations);
 	return { flags, args, deprecations };
 }
 
@@ -805,18 +806,20 @@ function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: stri
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve arg values: apply defaults, validate required.
+ * Resolve arg values: CLI → env → default, then validate required.
  *
  * For each declared arg in the schema (ordered):
  * 1. If the parser produced a value → use it
- * 2. Else if the schema has a default → use it
- * 3. Else if variadic with no value → use `[]`
- * 4. Else if required → collect a validation error
- * 5. Else (optional) → leave absent (`undefined` when accessed)
+ * 2. Else if the arg declares `envVar` and the env record has it → coerce + use
+ * 3. Else if the schema has a default → use it
+ * 4. Else if variadic with no value → use `[]`
+ * 5. Else if required → collect a validation error
+ * 6. Else (optional) → leave absent (`undefined` when accessed)
  */
 function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,
+	env: Readonly<Record<string, string | undefined>>,
 	deprecations: DeprecationWarning[],
 ): Readonly<Record<string, unknown>> {
 	const resolved: Record<string, unknown> = {};
@@ -839,7 +842,7 @@ function resolveArgs(
 						new ValidationError(`Missing required argument <${name}>`, {
 							code: 'REQUIRED_ARG',
 							details: { arg: name, variadic: true },
-							suggest: `Provide at least one value for <${name}>`,
+							suggest: buildRequiredArgSuggest(name, schema, true),
 						}),
 					);
 					continue;
@@ -849,6 +852,23 @@ function resolveArgs(
 			}
 			resolved[name] = parsedValue;
 			continue;
+		}
+
+		// 2. Env variable
+		if (schema.envVar !== undefined) {
+			const envValue = env[schema.envVar];
+			if (envValue !== undefined) {
+				const coerced = coerceArgEnvValue(name, schema.envVar, envValue, schema);
+				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						deprecations.push({ kind: 'arg', name, message: schema.deprecated });
+					}
+					resolved[name] = coerced.value;
+					continue;
+				}
+				errors.push(coerced.error);
+				continue;
+			}
 		}
 
 		if (schema.defaultValue !== undefined) {
@@ -864,7 +884,7 @@ function resolveArgs(
 					new ValidationError(`Missing required argument <${name}>`, {
 						code: 'REQUIRED_ARG',
 						details: { arg: name, variadic: true },
-						suggest: `Provide at least one value for <${name}>`,
+						suggest: buildRequiredArgSuggest(name, schema, true),
 					}),
 				);
 				continue;
@@ -878,7 +898,7 @@ function resolveArgs(
 				new ValidationError(`Missing required argument <${name}>`, {
 					code: 'REQUIRED_ARG',
 					details: { arg: name },
-					suggest: `Provide a value for <${name}>`,
+					suggest: buildRequiredArgSuggest(name, schema),
 				}),
 			);
 			continue;
@@ -893,6 +913,90 @@ function resolveArgs(
 	}
 
 	return resolved;
+}
+
+// ---------------------------------------------------------------------------
+// Arg env coercion
+// ---------------------------------------------------------------------------
+
+/**
+ * Coerce a raw env string to the arg's declared kind.
+ *
+ * Arg kinds are a strict subset of flag kinds (`string | number | custom`),
+ * so coercion is simpler: strings pass through, numbers parse via `Number()`,
+ * and custom args invoke their parse function.
+ */
+function coerceArgEnvValue(
+	argName: string,
+	envVar: string,
+	raw: string,
+	schema: ArgSchema,
+): CoerceResult {
+	switch (schema.kind) {
+		case 'string':
+			return { ok: true, value: raw };
+
+		case 'number': {
+			const n = Number(raw);
+			if (Number.isNaN(n)) {
+				return {
+					ok: false,
+					error: new ValidationError(
+						`Invalid number value '${raw}' from env ${envVar} for argument <${argName}>`,
+						{
+							code: 'TYPE_MISMATCH',
+							details: { arg: argName, envVar, value: raw, expected: 'number' },
+							suggest: `Set ${envVar} to a valid number`,
+						},
+					),
+				};
+			}
+			return { ok: true, value: n };
+		}
+
+		case 'custom': {
+			if (schema.parseFn === undefined) {
+				// Defensive — custom args always have a parseFn
+				return { ok: true, value: raw };
+			}
+			try {
+				return { ok: true, value: schema.parseFn(raw) };
+			} catch (err) {
+				const message = err instanceof Error ? err.message : `Failed to parse '${raw}'`;
+				return {
+					ok: false,
+					error: new ValidationError(
+						`Invalid value '${raw}' from env ${envVar} for argument <${argName}>: ${message}`,
+						{
+							code: 'TYPE_MISMATCH',
+							details: { arg: argName, envVar, value: raw, expected: 'custom' },
+							suggest: `Set ${envVar} to a valid value for <${argName}>`,
+						},
+					),
+				};
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Required arg suggestion builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an actionable suggestion for a required arg that was not provided.
+ *
+ * Mirrors {@link buildRequiredFlagSuggest} but for positional args.
+ */
+function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {
+	const sources: string[] = [];
+	sources.push(
+		variadic ? `Provide at least one value for <${name}>` : `Provide a value for <${name}>`,
+	);
+	if (schema.envVar !== undefined) {
+		sources.push(`set ${schema.envVar}`);
+	}
+	return sources.length === 1 ? sources[0]! : `${sources[0]!} or ${sources[1]!}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -573,7 +573,26 @@ class CommandBuilder<
 
 	// -- Metadata modifiers --------------------------------------------------
 
-	/** Set the command's description for help text. */
+	/**
+	 * Set the command's description for help text.
+	 *
+	 * Displayed below the usage line in `--help` output and next to the
+	 * command name in parent command/group help listings.
+	 *
+	 * @param text - One-line description of what the command does.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .description('Deploy the application to a target environment')
+	 *   .action(({ out }) => { out.log('deploying...'); });
+	 *
+	 * // $ mycli deploy --help
+	 * // Usage: deploy [flags]
+	 * //
+	 * // Deploy the application to a target environment
+	 * ```
+	 */
 	description(text: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, description: text },
@@ -582,7 +601,27 @@ class CommandBuilder<
 		);
 	}
 
-	/** Add an alternative name for this command. */
+	/**
+	 * Add an alternative name for this command.
+	 *
+	 * Aliases are accepted during dispatch alongside the primary name.
+	 * Multiple aliases can be chained. Aliases are shown in help output.
+	 *
+	 * @param name - Alternative command name (e.g. `'d'` for `deploy`).
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .alias('d')
+	 *   .alias('push')
+	 *   .action(({ out }) => { out.log('deploying...'); });
+	 *
+	 * // All equivalent:
+	 * // $ mycli deploy
+	 * // $ mycli d
+	 * // $ mycli push
+	 * ```
+	 */
 	alias(name: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, aliases: [...this.schema.aliases, name] },
@@ -591,12 +630,53 @@ class CommandBuilder<
 		);
 	}
 
-	/** Hide this command from help listings. */
+	/**
+	 * Hide this command from help listings.
+	 *
+	 * The command remains fully functional and dispatchable — it just
+	 * won't appear in `--help` output or shell completions. Useful for
+	 * internal/debug commands.
+	 *
+	 * @example
+	 * ```ts
+	 * command('debug-dump')
+	 *   .hidden()
+	 *   .action(({ out }) => { out.log(JSON.stringify(internalState)); });
+	 *
+	 * // $ mycli --help     → 'debug-dump' is not listed
+	 * // $ mycli debug-dump → still works
+	 * ```
+	 */
 	hidden(): CommandBuilder<F, A, C> {
 		return new CommandBuilder({ ...this.schema, hidden: true }, this.handler, this._subcommands);
 	}
 
-	/** Add a usage example to help text. */
+	/**
+	 * Add a usage example to help text.
+	 *
+	 * Examples are rendered in the "Examples:" section of `--help` output.
+	 * Call multiple times to add several examples. Each example shows a
+	 * shell invocation, optionally with a description.
+	 *
+	 * @param cmd - The example command line (without the program name prefix).
+	 * @param description - Optional one-line explanation of what the example does.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .arg('target', arg.string())
+	 *   .flag('force', flag.boolean().alias('f'))
+	 *   .example('deploy production', 'Deploy to production')
+	 *   .example('deploy staging -f', 'Force deploy to staging')
+	 *   .action(({ args, flags }) => { ... });
+	 *
+	 * // $ mycli deploy --help
+	 * // ...
+	 * // Examples:
+	 * //   deploy production      Deploy to production
+	 * //   deploy staging -f      Force deploy to staging
+	 * ```
+	 */
 	example(cmd: string, description?: string): CommandBuilder<F, A, C> {
 		const entry: CommandExample =
 			description !== undefined ? { command: cmd, description } : { command: cmd };
@@ -614,6 +694,39 @@ class CommandBuilder<
 	 *
 	 * The flag name is added to the type-level `F` map. Duplicate flag names
 	 * are prevented at the type level via the `Exclude` constraint.
+	 *
+	 * The builder controls the flag's type, presence, aliases, env/config
+	 * bindings, and description. See {@link FlagBuilder} for available modifiers.
+	 *
+	 * @param name - Flag name (used as `--name` on CLI and `flags.*` in handler).
+	 * @param builder - Configured `FlagBuilder` from `flag.string()`, `flag.boolean()`,
+	 *   `flag.number()`, `flag.enum()`, `flag.array()`, or `flag.custom()`.
+	 *
+	 * @example
+	 * ```ts
+	 * command('serve')
+	 *   .flag('port', flag.number()
+	 *     .alias('p')
+	 *     .env('PORT')
+	 *     .default(3000)
+	 *     .describe('Port to listen on'))
+	 *   .flag('host', flag.string()
+	 *     .env('HOST')
+	 *     .default('localhost')
+	 *     .describe('Bind address'))
+	 *   .flag('verbose', flag.boolean()
+	 *     .alias('v')
+	 *     .describe('Enable verbose logging'))
+	 *   .action(({ flags, out }) => {
+	 *     flags.port;    // number
+	 *     flags.host;    // string
+	 *     flags.verbose; // boolean
+	 *     out.log(`Listening on ${flags.host}:${flags.port}`);
+	 *   });
+	 *
+	 * // $ mycli serve --port 8080 -v
+	 * // $ PORT=9090 mycli serve
+	 * ```
 	 */
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
 		name: N & Exclude<N, keyof F>,
@@ -634,9 +747,39 @@ class CommandBuilder<
 	/**
 	 * Register a named positional argument on this command.
 	 *
-	 * Args are ordered by registration. The arg name is added to the
-	 * type-level `A` map. Duplicate arg names are prevented at the type
-	 * level via the `Exclude` constraint.
+	 * Args are ordered by registration — position on the CLI matches the
+	 * order of `.arg()` calls. The arg name is added to the type-level `A`
+	 * map. Duplicate arg names are prevented at the type level via the
+	 * `Exclude` constraint.
+	 *
+	 * The builder controls the arg's type, presence, env binding, and
+	 * description. See {@link ArgBuilder} for available modifiers.
+	 *
+	 * @param name - Positional arg name (used in help text and `args.*`).
+	 * @param builder - Configured `ArgBuilder` from `arg.string()`, `arg.number()`,
+	 *   or `arg.custom()`.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   // Required string arg — first positional
+	 *   .arg('target', arg.string()
+	 *     .env('DEPLOY_TARGET')
+	 *     .describe('Deploy target'))
+	 *   // Optional number arg — second positional
+	 *   .arg('port', arg.number()
+	 *     .env('PORT')
+	 *     .default(3000)
+	 *     .describe('Port number'))
+	 *   .action(({ args }) => {
+	 *     args.target; // string
+	 *     args.port;   // number
+	 *   });
+	 *
+	 * // Usage: deploy [flags] <target> [port]
+	 * // $ mycli deploy production 8080
+	 * // $ DEPLOY_TARGET=staging mycli deploy
+	 * ```
 	 */
 	arg<N extends string, B extends ArgBuilder<ArgConfig>>(
 		name: N & Exclude<N, keyof A>,
@@ -697,6 +840,39 @@ class CommandBuilder<
 	 *
 	 * The handler receives fully typed `{ args, flags, ctx, out }` derived
 	 * from the accumulated `.flag()`, `.arg()`, and `.middleware()` definitions.
+	 *
+	 * May be synchronous or async. The return value (if any) is captured as
+	 * `RunResult.value` by the testkit.
+	 *
+	 * @param handler - Function receiving `ActionParams<F, A, C>`.
+	 *
+	 * @example Minimal
+	 * ```ts
+	 * command('greet')
+	 *   .arg('name', arg.string())
+	 *   .action(({ args, out }) => {
+	 *     out.log(`Hello, ${args.name}!`);
+	 *   });
+	 * ```
+	 *
+	 * @example Full params — flags, args, context, output
+	 * ```ts
+	 * command('deploy')
+	 *   .arg('target', arg.string().env('DEPLOY_TARGET'))
+	 *   .flag('force', flag.boolean().alias('f'))
+	 *   .flag('region', flag.enum(['us', 'eu', 'ap']).env('REGION'))
+	 *   .middleware(auth)
+	 *   .action(async ({ args, flags, ctx, out }) => {
+	 *     args.target; // string
+	 *     flags.force;  // boolean
+	 *     flags.region; // 'us' | 'eu' | 'ap' | undefined
+	 *     ctx.user;     // User (from auth middleware)
+	 *
+	 *     const spinner = out.spinner('Deploying...');
+	 *     await deploy(args.target, { force: flags.force });
+	 *     spinner.stop('Done');
+	 *   });
+	 * ```
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
 		return new CommandBuilder({ ...this.schema, hasAction: true }, handler, this._subcommands);

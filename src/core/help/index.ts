@@ -236,6 +236,10 @@ function formatArgDescription(schema: ArgSchema): string {
 		parts.push(formatDeprecated(schema.deprecated));
 	}
 
+	if (schema.envVar !== undefined) {
+		parts.push(`[env: ${schema.envVar}]`);
+	}
+
 	if (schema.presence === 'defaulted' && schema.defaultValue !== undefined) {
 		parts.push(`(default: ${String(schema.defaultValue)})`);
 	}

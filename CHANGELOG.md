@@ -7,6 +7,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+#### Arg Environment Variable Resolution
+
+- **`ArgBuilder.env(varName)`** binds a positional argument to an environment variable. When the CLI
+  value is absent, the resolver reads the env var and coerces the string to the arg's declared kind
+  (passthrough for strings, `Number()` with NaN guard for numbers, `parseFn` invocation for custom
+  args). Resolution order: **CLI → env → default**.
+- **`ArgSchema.envVar`** field (`string | undefined`) stores the env var name on the runtime schema
+  descriptor.
+- **Env coercion for args** via `coerceArgEnvValue()` in the resolver. Handles `string`
+  (passthrough), `number` (parse + NaN guard), and `custom` (delegates to `parseFn`, wraps thrown
+  errors).
+- **`[env: VAR]` annotation** in help output for args with env bindings, matching the existing flag
+  annotation style.
+- **Actionable required-arg error hints** — `buildRequiredArgSuggest()` generates suggestions
+  including the env var when configured (e.g. "Provide a value for \<target\> or set
+  DEPLOY_TARGET").
+- **16 new tests** — `resolve-arg-env.test.ts` (15 tests covering string/number/custom coercion, CLI
+  > env > default precedence, deprecation warnings, error cases) and 1 help output test for the
+  > `[env: VAR]` annotation.
+
+#### JSDoc Documentation
+
+- Comprehensive `@example` blocks with standalone usage and in-context command examples added to all
+  `ArgBuilder` methods (`.required()`, `.optional()`, `.default()`, `.variadic()`, `.env()`,
+  `.describe()`, `.deprecated()`), all `ArgFactory` methods (`arg.string()`, `arg.number()`,
+  `arg.custom()`), the `arg` factory constant, the `ArgFactory` interface, and all `CommandBuilder`
+  methods (`.description()`, `.alias()`, `.hidden()`, `.example()`, `.flag()`, `.arg()`,
+  `.action()`). Examples include shell invocations showing CLI/env/default resolution behavior.
+
+### Changed
+
+- `resolveArgs()` resolution chain expanded from CLI → default to **CLI → env → default**. Now
+  accepts an `env` record parameter, passed through from `resolve()`.
+- Test count: 1737 tests across 49 test files (up from 1721 in v0.9.0).
+
 ## [0.9.0] - 2026-02-11
 
 ### Added
