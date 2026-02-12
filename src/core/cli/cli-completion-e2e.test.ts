@@ -74,7 +74,7 @@ describe('E2E — bash completion via .completions()', () => {
 			.command(configCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		expect(result.error).toBeUndefined();
 
@@ -103,7 +103,7 @@ describe('E2E — bash completion via .completions()', () => {
 			.command(configCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// deploy flags
@@ -125,7 +125,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script includes enum value completions', async () => {
 		const app = cli('myapp').command(deployCommand()).command(configCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// Enum values for --region (us eu ap)
@@ -138,7 +138,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script includes command aliases in case patterns', async () => {
 		const app = cli('myapp').command(configCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// The 'cfg' alias should appear in the case pattern alongside 'config'
@@ -148,7 +148,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script excludes hidden commands', async () => {
 		const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('deploy');
@@ -159,7 +159,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script includes --help and --version when version set', async () => {
 		const app = cli('myapp').version('1.0.0').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('--help');
@@ -169,7 +169,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script omits --version when no version set', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('--help');
@@ -190,7 +190,7 @@ describe('E2E — zsh completion via .completions()', () => {
 			.command(configCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
 		expect(result.error).toBeUndefined();
 
@@ -212,7 +212,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes all flag specs from all commands', async () => {
 		const app = cli('myapp').command(deployCommand()).command(loginCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// deploy flags with descriptions
@@ -230,7 +230,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes enum values in flag specs', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Enum flag should include values in (v1 v2 v3) format
@@ -240,7 +240,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script uses mutual exclusion groups for aliased flags', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Short alias -f and --force should be in a mutual exclusion group
@@ -250,7 +250,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes command aliases in case patterns', async () => {
 		const app = cli('myapp').command(configCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// cfg alias should appear alongside config in case pattern
@@ -260,7 +260,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script excludes hidden commands', async () => {
 		const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain("'deploy:");
@@ -270,7 +270,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes --version when version is set', async () => {
 		const app = cli('myapp').version('3.0.0').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('--version[Show version]');
@@ -279,7 +279,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script omits --version when no version set', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).not.toContain('--version');
@@ -321,7 +321,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 			.command(test)
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// All commands present
@@ -366,7 +366,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 
 		const app = cli('devtool').version('1.0.0').command(serve).command(build).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Commands in _describe list
@@ -403,7 +403,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 		const app = cli('myapp').command(protected_).completions();
 
 		// Completion script generation works with middleware commands
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 		expect(script).toContain('protected');
@@ -422,7 +422,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
-			argv: ['node', 'myapp', 'completions', '--shell', 'bash'],
+			argv: ['node', 'myapp', 'completions', 'bash'],
 			stdout: (line) => stdoutLines.push(line),
 		});
 
@@ -597,13 +597,13 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 
 		// 'fish' is a valid Shell enum value but not yet implemented —
 		// generateCompletion throws a CLIError with a clear message
-		const result = await app.execute(['completions', '--shell', 'fish']);
+		const result = await app.execute(['completions', 'fish']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
 		expect(result.error?.message).toContain('not yet supported');
 	});
 
-	it('missing --shell flag via run() path outputs error', async () => {
+	it('missing shell arg via run() path outputs error', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
 		const result = await app.execute(['completions']);
@@ -618,13 +618,13 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
 		expect(output).toContain('completions');
-		expect(output).toContain('--shell');
+		expect(output).toContain('shell');
 	});
 
 	it('completions command with --json flag renders error as JSON', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		// No --shell provided → error, and --json makes it JSON
+		// No shell arg provided → error, and --json makes it JSON
 		const result = await app.execute(['--json', 'completions']);
 		expect(result.exitCode).not.toBe(0);
 
@@ -649,7 +649,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 			.command(deployCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('custom-tool');
@@ -659,7 +659,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	it('zsh completion script uses CLI name in compdef directive', async () => {
 		const app = cli('custom-tool').version('5.0.0').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('#compdef custom-tool');
@@ -670,7 +670,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	it('bash completion for CLI with no commands has only global flags', async () => {
 		const app = cli('minimal').version('1.0.0').completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -683,7 +683,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	it('bash completion for CLI with no commands omits --version when unset', async () => {
 		const app = cli('minimal').completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -694,7 +694,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	it('zsh completion for CLI with no commands has only global flags', async () => {
 		const app = cli('minimal').completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -738,7 +738,7 @@ function dbCommand() {
 describe('E2E — nested bash completion via .completions()', () => {
 	it('includes nested subcommand names in bash script', async () => {
 		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -752,7 +752,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 
 	it('includes propagated flags for nested commands in bash', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// db migrate path should have --verbose (propagated) + --dry-run (own)
@@ -766,7 +766,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 
 	it('db group completes both subcommands and own flags in bash', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// In the "Complete flags" section, the db path should have
@@ -787,7 +787,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 describe('E2E — nested zsh completion via .completions()', () => {
 	it('generates helper functions for nested commands in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -799,7 +799,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 
 	it('includes propagated flags for nested commands in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// migrate helper should have --verbose (propagated) + --dry-run (own)
@@ -813,7 +813,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 
 	it('db group function lists subcommands via _describe in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		const lines = script.split('\n');
@@ -826,7 +826,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 
 	it('root function dispatches to db helper in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Main function should dispatch db to _myapp_db

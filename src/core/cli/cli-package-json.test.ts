@@ -249,7 +249,7 @@ describe('CLIBuilder.run() — completions skip package.json', () => {
 		let readCalled = false;
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
-			argv: ['node', 'test', 'completions', '--shell', 'bash'],
+			argv: ['node', 'test', 'completions', 'bash'],
 			stdout: (s) => stdoutLines.push(s),
 			readFile: async () => {
 				readCalled = true;

@@ -94,7 +94,7 @@ describe('.completions() — double call guard', () => {
 describe('.completions() — bash output', () => {
 	it('generates bash completion script', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout.length).toBeGreaterThan(0);
 		const output = result.stdout.join('');
@@ -105,7 +105,7 @@ describe('.completions() — bash output', () => {
 
 	it('includes registered command names in bash script', async () => {
 		const app = cli('mycli').command(deployCommand()).command(loginCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const output = result.stdout.join('');
 		expect(output).toContain('deploy');
 		expect(output).toContain('login');
@@ -113,7 +113,7 @@ describe('.completions() — bash output', () => {
 
 	it('includes flag names from registered commands', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const output = result.stdout.join('');
 		expect(output).toContain('--force');
 		expect(output).toContain('--region');
@@ -121,7 +121,7 @@ describe('.completions() — bash output', () => {
 
 	it('excludes the completions command itself from bash script', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const output = result.stdout.join('');
 		// The captured schema is pre-completions, so 'completions' command
 		// should not appear as a completable subcommand in the generated script.
@@ -142,7 +142,7 @@ describe('.completions() — bash output', () => {
 describe('.completions() — zsh output', () => {
 	it('generates zsh completion script', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
 		expect(output).toContain('#compdef mycli');
@@ -151,7 +151,7 @@ describe('.completions() — zsh output', () => {
 
 	it('includes registered command names in zsh script', async () => {
 		const app = cli('mycli').command(deployCommand()).command(loginCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const output = result.stdout.join('');
 		expect(output).toContain('deploy');
 		expect(output).toContain('login');
@@ -159,7 +159,7 @@ describe('.completions() — zsh output', () => {
 
 	it('includes flag specs from registered commands', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const output = result.stdout.join('');
 		expect(output).toContain('--force');
 		expect(output).toContain('--region');
@@ -171,16 +171,34 @@ describe('.completions() — zsh output', () => {
 // ===================================================================
 
 describe('.completions() — error handling', () => {
-	it('errors when --shell is missing', async () => {
+	it('errors when shell arg is missing', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
 	});
 
+	it('resolves shell from $SHELL env var', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions'], { env: { SHELL: '/bin/zsh' } });
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('#compdef mycli');
+	});
+
+	it('normalizes $SHELL path to shell name', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions'], {
+			env: { SHELL: '/usr/local/bin/bash' },
+		});
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('#!/usr/bin/env bash');
+	});
+
 	it('errors with UNSUPPORTED_OPERATION for unimplemented shell', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'fish']);
+		const result = await app.execute(['completions', 'fish']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
 		expect(result.error?.message).toContain('not yet supported');
@@ -188,7 +206,7 @@ describe('.completions() — error handling', () => {
 
 	it('errors with UNSUPPORTED_OPERATION for powershell', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'powershell']);
+		const result = await app.execute(['completions', 'powershell']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
 		expect(result.error?.message).toContain('not yet supported');
@@ -196,7 +214,7 @@ describe('.completions() — error handling', () => {
 
 	it('errors when --shell has truly invalid value', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'nushell']);
+		const result = await app.execute(['completions', 'nushell']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
 	});
@@ -206,7 +224,7 @@ describe('.completions() — error handling', () => {
 		const result = await app.execute(['completions', '--help']);
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
-		expect(output).toContain('--shell');
+		expect(output).toContain('shell');
 		expect(output).toContain('completions');
 	});
 });
@@ -218,14 +236,14 @@ describe('.completions() — error handling', () => {
 describe('.completions() — schema snapshot', () => {
 	it('captures commands registered before .completions()', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const output = result.stdout.join('');
 		expect(output).toContain('deploy');
 	});
 
 	it('does not include commands registered after .completions()', async () => {
 		const app = cli('mycli').command(deployCommand()).completions().command(loginCommand());
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const output = result.stdout.join('');
 		expect(output).toContain('deploy');
 		// login was registered after .completions(), so not in the snapshot
@@ -234,7 +252,7 @@ describe('.completions() — schema snapshot', () => {
 
 	it('works with no other commands registered', async () => {
 		const app = cli('mycli').completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
 		expect(output).toContain('#!/usr/bin/env bash');
@@ -247,12 +265,13 @@ describe('.completions() — schema snapshot', () => {
 // ===================================================================
 
 describe('.completions() — --json mode', () => {
-	it('outputs JSON with script field to stdout in --json mode', async () => {
+	it('outputs JSON with shell + script fields to stdout in --json mode', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash', '--json']);
+		const result = await app.execute(['completions', 'bash', '--json']);
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout.length).toBe(1);
 		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed).toHaveProperty('shell', 'bash');
 		expect(parsed).toHaveProperty('script');
 		expect(parsed.script).toContain('#!/usr/bin/env bash');
 		expect(parsed.script).toContain('complete -F');
@@ -262,7 +281,7 @@ describe('.completions() — --json mode', () => {
 
 	it('outputs JSON with zsh script in --json mode', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh', '--json']);
+		const result = await app.execute(['completions', 'zsh', '--json']);
 		expect(result.exitCode).toBe(0);
 		const parsed = JSON.parse(result.stdout[0] ?? '');
 		expect(parsed.script).toContain('#compdef mycli');
@@ -271,7 +290,7 @@ describe('.completions() — --json mode', () => {
 
 	it('outputs raw script to stdout in normal mode (no --json)', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		// Raw script directly on stdout (not wrapped in JSON)
 		const output = result.stdout.join('');
@@ -282,11 +301,47 @@ describe('.completions() — --json mode', () => {
 
 	it('jsonMode via options also wraps script in JSON', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash'], { jsonMode: true });
+		const result = await app.execute(['completions', 'bash'], { jsonMode: true });
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout.length).toBe(1);
 		const parsed = JSON.parse(result.stdout[0] ?? '');
 		expect(parsed.script).toContain('complete -F');
+	});
+});
+
+// ===================================================================
+// Alias dispatch
+// ===================================================================
+
+describe('.completions() — alias dispatch', () => {
+	it('dispatches via "completion" (singular) alias', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completion', 'bash']);
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('#!/usr/bin/env bash');
+	});
+});
+
+// ===================================================================
+// Install instruction headers
+// ===================================================================
+
+describe('.completions() — install instruction headers', () => {
+	it('bash script includes install instructions in header', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', 'bash']);
+		const output = result.stdout.join('');
+		expect(output).toContain('source <(mycli completions bash)');
+		expect(output).toContain('/etc/bash_completion.d/mycli');
+	});
+
+	it('zsh script includes install instructions in header', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', 'zsh']);
+		const output = result.stdout.join('');
+		expect(output).toContain('source <(mycli completions zsh)');
+		expect(output).toContain('fpath');
 	});
 });
 

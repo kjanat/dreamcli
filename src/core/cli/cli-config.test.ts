@@ -338,7 +338,7 @@ describe('CLIBuilder.run() — completions skip config', () => {
 		let readFileCalled = false;
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
-			argv: ['node', 'test', 'completions', '--shell', 'bash'],
+			argv: ['node', 'test', 'completions', 'bash'],
 			stdout: (s) => stdoutLines.push(s),
 			readFile: async () => {
 				readFileCalled = true;
