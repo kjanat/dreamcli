@@ -16,11 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+        with: { deno-version: v2.x }
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
       - run: bun install --frozen-lockfile
       - run: bun run build
       - name: Deno adapter smoke test

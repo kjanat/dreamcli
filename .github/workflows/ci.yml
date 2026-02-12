@@ -22,8 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
       - run: bun install --frozen-lockfile
       - run: bun run check
       - run: bun run lint
@@ -44,22 +43,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runtime: bun
-            bun-version: latest
-          - runtime: node
-            node-version: lts/*
+          - { runtime: bun, bun-version: latest }
+          - { runtime: node, node-version: lts/* }
     steps:
       - uses: actions/checkout@v6
 
       # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
 
       - uses: actions/setup-node@v6
         if: matrix.runtime == 'node'
-        with:
-          node-version: ${{ matrix.node-version }}
+        with: { node-version: "${{ matrix.node-version }}" }
 
       - run: bun install --frozen-lockfile
 
@@ -88,11 +83,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
       - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+        with: { deno-version: v2.x }
       - run: bun install --frozen-lockfile
       - run: bun run build
       - name: Deno adapter smoke test
@@ -110,7 +103,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
       - run: bun install --frozen-lockfile
       - run: bun run build
