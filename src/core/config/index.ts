@@ -343,6 +343,7 @@ function configFormat(
 // ---------------------------------------------------------------------------
 
 export { buildConfigSearchPaths, configFormat, discoverConfig };
+export { discoverPackageJson, inferCliName } from './package-json.ts';
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,
@@ -351,3 +352,4 @@ export type {
 	ConfigNotFound,
 	FormatLoader,
 };
+export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';

@@ -8,7 +8,12 @@
  * @module dreamcli
  */
 
-export type { CLIRunOptions, CLISchema, ConfigSettings } from './core/cli/index.ts';
+export type {
+	CLIRunOptions,
+	CLISchema,
+	ConfigSettings,
+	PackageJsonSettings,
+} from './core/cli/index.ts';
 export { CLIBuilder, cli } from './core/cli/index.ts';
 export type { CompletionOptions, Shell } from './core/completion/index.ts';
 export {
@@ -24,8 +29,16 @@ export type {
 	ConfigFound,
 	ConfigNotFound,
 	FormatLoader,
+	PackageJsonAdapter,
+	PackageJsonData,
 } from './core/config/index.ts';
-export { buildConfigSearchPaths, configFormat, discoverConfig } from './core/config/index.ts';
+export {
+	buildConfigSearchPaths,
+	configFormat,
+	discoverConfig,
+	discoverPackageJson,
+	inferCliName,
+} from './core/config/index.ts';
 export type {
 	CLIErrorJSON,
 	CLIErrorOptions,

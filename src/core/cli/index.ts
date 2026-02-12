@@ -14,6 +14,7 @@ import { createAdapter } from '../../runtime/auto.ts';
 import { generateCompletion, SHELLS } from '../completion/index.ts';
 import type { FormatLoader } from '../config/index.ts';
 import { discoverConfig } from '../config/index.ts';
+import { discoverPackageJson, inferCliName } from '../config/package-json.ts';
 import { CLIError, ParseError } from '../errors/index.ts';
 import type { HelpOptions } from '../help/index.ts';
 import { formatHelp } from '../help/index.ts';
@@ -107,6 +108,13 @@ interface CLISchema {
 	 * Set via the `.config()` builder method.
 	 */
 	readonly configSettings: ConfigSettings | undefined;
+	/**
+	 * Package.json auto-discovery settings. When defined, `.run()` discovers
+	 * the nearest `package.json` and merges metadata before dispatch.
+	 *
+	 * Set via the `.packageJson()` builder method.
+	 */
+	readonly packageJsonSettings: PackageJsonSettings | undefined;
 }
 
 /**
@@ -126,6 +134,25 @@ interface ConfigSettings {
 
 	/** Additional format loaders beyond the built-in JSON loader. */
 	readonly loaders: readonly FormatLoader[] | undefined;
+}
+
+/**
+ * Package.json auto-discovery settings.
+ *
+ * Stored in {@link CLISchema} and consumed by `CLIBuilder.run()` to
+ * call {@link discoverPackageJson} before dispatching to a command.
+ */
+interface PackageJsonSettings {
+	/**
+	 * Infer CLI name from package.json `bin` keys or `name` field.
+	 *
+	 * When `true`, the discovered name replaces the `cli(name)` value.
+	 * Explicit `.version()`/`.description()` calls still take precedence
+	 * over discovered values.
+	 *
+	 * @default false
+	 */
+	readonly inferName: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -407,6 +434,49 @@ class CLIBuilder {
 			configSettings: {
 				...this.schema.configSettings,
 				loaders: [...existing, loader],
+			},
+		});
+	}
+
+	/**
+	 * Enable automatic package.json metadata discovery.
+	 *
+	 * When enabled, `.run()` walks up from `cwd` to find the nearest
+	 * `package.json` and merges its `version` and `description` fields
+	 * into the CLI schema. Explicit `.version()` and `.description()`
+	 * calls always take precedence over discovered values.
+	 *
+	 * Has no effect in `.execute()` (which is filesystem-free by design).
+	 *
+	 * @param settings - Optional settings. Pass `{ inferName: true }` to
+	 *   also infer the CLI name from `bin` keys or the package `name` field.
+	 *
+	 * @example
+	 * ```ts
+	 * // Auto-fill version + description from nearest package.json:
+	 * cli('mycli')
+	 *   .packageJson()
+	 *   .command(deploy)
+	 *   .run();
+	 *
+	 * // Also infer CLI name from bin key / package name:
+	 * cli('mycli')
+	 *   .packageJson({ inferName: true })
+	 *   .command(deploy)
+	 *   .run();
+	 *
+	 * // Explicit values always win:
+	 * cli('mycli')
+	 *   .packageJson()
+	 *   .version('2.0.0-beta')  // wins over package.json
+	 *   .run();
+	 * ```
+	 */
+	packageJson(settings?: { readonly inferName?: boolean }): CLIBuilder {
+		return new CLIBuilder({
+			...this.schema,
+			packageJsonSettings: {
+				inferName: settings?.inferName ?? false,
 			},
 		});
 	}
@@ -790,6 +860,33 @@ class CLIBuilder {
 			}
 		}
 
+		// Package.json discovery (only when .packageJson() was called)
+		// Skip for completions subcommand — no metadata needed.
+		let effectiveBuilder: CLIBuilder = this;
+		if (this.schema.packageJsonSettings !== undefined && !isCompletions) {
+			const pkg = await discoverPackageJson(adapter);
+			if (pkg !== null) {
+				const settings = this.schema.packageJsonSettings;
+				const schema = this.schema;
+				effectiveBuilder = new CLIBuilder({
+					...schema,
+					// Explicit > discovered: only fill in undefined fields
+					...(schema.version === undefined && pkg.version !== undefined
+						? { version: pkg.version }
+						: {}),
+					...(schema.description === undefined && pkg.description !== undefined
+						? { description: pkg.description }
+						: {}),
+					...(settings.inferName
+						? (() => {
+								const discovered = inferCliName(pkg);
+								return discovered !== undefined ? { name: discovered } : {};
+							})()
+						: {}),
+				});
+			}
+		}
+
 		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
 		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)
 		// get stdinIsTTY=false → no auto-prompter → prompts skipped → falls through to default/required.
@@ -806,7 +903,7 @@ class CLIBuilder {
 			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
 			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
 		};
-		const result = await this.execute(filteredArgv, executeOptions);
+		const result = await effectiveBuilder.execute(filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {
@@ -866,6 +963,7 @@ function cli(name: string): CLIBuilder {
 		commands: [],
 		defaultCommand: undefined,
 		configSettings: undefined,
+		packageJsonSettings: undefined,
 	});
 }
 
@@ -874,4 +972,4 @@ function cli(name: string): CLIBuilder {
 // ---------------------------------------------------------------------------
 
 export { cli, CLIBuilder, formatRootHelp };
-export type { CLIRunOptions, CLISchema, ConfigSettings };
+export type { CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };

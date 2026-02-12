@@ -9,6 +9,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+#### Package.json Auto-Discovery
+
+- **`CLIBuilder.packageJson(settings?)`** — opt-in builder method that enables automatic
+  `package.json` discovery at `.run()` time. Walks up from `cwd` to find the nearest `package.json`
+  and merges `version` and `description` into the CLI schema. Explicit `.version()` and
+  `.description()` calls always take precedence over discovered values.
+- **`PackageJsonSettings.inferName`** — when `true`, infers the CLI binary name from the `bin` key
+  (first key of the object) or the package `name` field (scope stripped). Defaults to `false`.
+- **`discoverPackageJson(adapter)`** — pure function that walks up from `adapter.cwd` to find and
+  parse the nearest `package.json`. Returns `PackageJsonData | null`. All I/O flows through the
+  adapter — fully testable with virtual filesystems.
+- **`inferCliName(pkg)`** — resolves CLI name from `PackageJsonData` with priority: bin key → scoped
+  name (stripped) → `undefined`.
+- **Silent error handling** — malformed JSON, non-object roots, and missing `package.json` all
+  return `null` (not errors). Deno permission denials degrade gracefully via the adapter's existing
+  `readFile` contract.
+- **Completions skip** — package.json discovery is skipped for the `completions` subcommand,
+  matching the existing config discovery skip pattern.
+- **43 new tests** — `package-json.test.ts` (24 unit tests: walk-up resolution, field extraction,
+  error resilience, Windows path termination) and `cli-package-json.test.ts` (19 integration tests:
+  version/description fill, name inference, precedence, walk-up, completions skip, combined with
+  config, error resilience).
+
 #### Arg Environment Variable Resolution
 
 - **`ArgBuilder.env(varName)`** binds a positional argument to an environment variable. When the CLI
@@ -42,7 +65,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `resolveArgs()` resolution chain expanded from CLI → default to **CLI → env → default**. Now
   accepts an `env` record parameter, passed through from `resolve()`.
-- Test count: 1737 tests across 49 test files (up from 1721 in v0.9.0).
+- Test count: 1780 tests across 51 test files (up from 1721 in v0.9.0).
 
 ## [0.9.0] - 2026-02-11
 

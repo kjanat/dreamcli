@@ -846,24 +846,23 @@ class CommandBuilder<
 	 *
 	 * @param handler - Function receiving `ActionParams<F, A, C>`.
 	 *
-	 * @example Minimal
-	 * ```ts
+	 * @example
+	 * // Minimal
 	 * command('greet')
 	 *   .arg('name', arg.string())
 	 *   .action(({ args, out }) => {
 	 *     out.log(`Hello, ${args.name}!`);
 	 *   });
-	 * ```
 	 *
-	 * @example Full params — flags, args, context, output
-	 * ```ts
+	 * @example
+	 * // Full params — flags, args, context, output
 	 * command('deploy')
 	 *   .arg('target', arg.string().env('DEPLOY_TARGET'))
 	 *   .flag('force', flag.boolean().alias('f'))
 	 *   .flag('region', flag.enum(['us', 'eu', 'ap']).env('REGION'))
 	 *   .middleware(auth)
 	 *   .action(async ({ args, flags, ctx, out }) => {
-	 *     args.target; // string
+	 *     args.target;  // string
 	 *     flags.force;  // boolean
 	 *     flags.region; // 'us' | 'eu' | 'ap' | undefined
 	 *     ctx.user;     // User (from auth middleware)
@@ -872,7 +871,6 @@ class CommandBuilder<
 	 *     await deploy(args.target, { force: flags.force });
 	 *     spinner.stop('Done');
 	 *   });
-	 * ```
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
 		return new CommandBuilder({ ...this.schema, hasAction: true }, handler, this._subcommands);
@@ -943,7 +941,7 @@ function group(name: string): CommandBuilder {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { command, group, CommandBuilder };
+export { command, CommandBuilder, group };
 export type {
 	ActionHandler,
 	ActionParams,
