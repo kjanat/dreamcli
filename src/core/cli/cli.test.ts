@@ -305,6 +305,95 @@ describe('per-command --help', () => {
 });
 
 // ---------------------------------------------------------------------------
+// `help` virtual subcommand
+// ---------------------------------------------------------------------------
+
+describe('help virtual subcommand', () => {
+	it('bare `help` shows root help', async () => {
+		const app = cli('mycli').version('1.0.0').command(deployCommand()).command(loginCommand());
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('mycli');
+		expect(output).toContain('deploy');
+		expect(output).toContain('login');
+	});
+
+	it('`help <command>` shows same output as `<command> --help`', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const viaHelp = await app.execute(['help', 'deploy']);
+		const viaFlag = await app.execute(['deploy', '--help']);
+
+		expect(viaHelp.exitCode).toBe(0);
+		expect(viaFlag.exitCode).toBe(0);
+		expect(viaHelp.stdout).toEqual(viaFlag.stdout);
+	});
+
+	it('`help <unknown>` shows unknown command error', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['help', 'nope']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Unknown command: nope');
+	});
+
+	it('defers to real `help` command when registered', async () => {
+		const helpCmd = command('help')
+			.description('Custom help')
+			.action(({ out }) => {
+				out.log('custom help output');
+			});
+		const app = cli('mycli').command(helpCmd).command(deployCommand());
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('custom help output');
+	});
+
+	it('defers to alias `help` when registered', async () => {
+		const infoCmd = command('info')
+			.alias('help')
+			.description('Info command aliased as help')
+			.action(({ out }) => {
+				out.log('info output');
+			});
+		const app = cli('mycli').command(infoCmd).command(deployCommand());
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('info output');
+	});
+
+	it('`help help` terminates — shows root help', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['help', 'help']);
+
+		// help help → ['help', '--help'] → firstArg='help', rest=['--help']
+		// → ['--help', '--help'] → firstArg='--help' → root help
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('mycli');
+		expect(output).toContain('deploy');
+	});
+
+	it('`help` with default command still shows root help', async () => {
+		const defaultCmd = command('run')
+			.description('Default runner')
+			.action(({ out }) => {
+				out.log('running');
+			});
+		const app = cli('mycli').command(deployCommand()).default(defaultCmd);
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('mycli');
+		expect(output).toContain('deploy');
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Error handling
 // ---------------------------------------------------------------------------
 

@@ -253,6 +253,24 @@ describe('CLIBuilder — nested help', () => {
 		expect(output).toContain('migrate');
 		expect(output).toContain('--steps');
 	});
+
+	it('`help db migrate` shows same output as `db migrate --help`', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const viaHelp = await app.execute(['help', 'db', 'migrate']);
+		const viaFlag = await app.execute(['db', 'migrate', '--help']);
+
+		expect(viaHelp.exitCode).toBe(0);
+		expect(viaHelp.stdout).toEqual(viaFlag.stdout);
+	});
+
+	it('`help db` shows group help', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const viaHelp = await app.execute(['help', 'db']);
+		const viaDirect = await app.execute(['db']);
+
+		expect(viaHelp.exitCode).toBe(0);
+		expect(viaHelp.stdout).toEqual(viaDirect.stdout);
+	});
 });
 
 // ===================================================================

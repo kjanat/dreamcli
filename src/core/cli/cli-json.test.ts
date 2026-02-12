@@ -217,4 +217,14 @@ describe('CLIBuilder --json with root flags', () => {
 		expect(result.stderr.length).toBeGreaterThan(0);
 		expect(result.stdout).toEqual([]);
 	});
+
+	it('`help --json <command>` preserves json mode', async () => {
+		const app = cli('test').version('1.0.0').command(dataCommand());
+		const result = await app.execute(['help', '--json', 'data']);
+
+		expect(result.exitCode).toBe(0);
+		// Help text goes to stderr in JSON mode (stdout reserved for data)
+		expect(result.stderr.length).toBeGreaterThan(0);
+		expect(result.stdout).toEqual([]);
+	});
 });

@@ -660,6 +660,27 @@ class CLIBuilder {
 			return buildResult(0, captured, undefined);
 		}
 
+		// -- `help [command...]` virtual subcommand ------------------------------
+		// Rewrite `help <cmd>` → `<cmd> --help` so it flows through normal
+		// dispatch and per-command help rendering. Bare `help` → root help.
+		// Only activates when the user hasn't registered a real `help` command.
+		if (firstArg === 'help') {
+			const hasRealHelpCommand = this.schema.commands.some(
+				(c) => c.schema.name === 'help' || c.schema.aliases.includes('help'),
+			);
+			if (!hasRealHelpCommand) {
+				const rest = filteredArgv.slice(1);
+				if (rest.length === 0) {
+					const helpText = formatRootHelp(this.schema, helpOptions);
+					out.log(helpText);
+					return buildResult(0, captured, undefined);
+				}
+				// Recurse with rewritten argv: `help deploy --force` → `deploy --force --help`
+				// Propagate jsonMode — `--json` was already stripped from filteredArgv above.
+				return this.execute([...rest, '--help'], jsonMode ? { ...options, jsonMode } : options);
+			}
+		}
+
 		// -- Empty argv without a default command → root help ---------------------
 		if (firstArg === undefined && this.schema.defaultCommand === undefined) {
 			const helpText = formatRootHelp(this.schema, helpOptions);

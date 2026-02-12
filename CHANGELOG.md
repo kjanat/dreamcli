@@ -32,6 +32,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   version/description fill, name inference, precedence, walk-up, completions skip, combined with
   config, error resilience).
 
+#### `help` Virtual Subcommand
+
+- **`BINARY help <command>`** produces the same output as `BINARY <command> --help`. Rewrites argv
+  via recursive `execute()` — no dispatch duplication.
+- **Nested support** — `help db migrate` works like `db migrate --help`.
+- **Bare `help`** shows root help.
+- **Defers to real commands** — if the user registers a command named `help` (or aliased as `help`),
+  it takes priority over the virtual subcommand.
+- **`--json` propagation** — `help --json <command>` correctly preserves json mode (help text routes
+  to stderr, stdout reserved for data).
+- **10 new tests** across `cli.test.ts` (7), `cli-nesting.test.ts` (2), `cli-json.test.ts` (1).
+
 #### Arg Environment Variable Resolution
 
 - **`ArgBuilder.env(varName)`** binds a positional argument to an environment variable. When the CLI
@@ -65,7 +77,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `resolveArgs()` resolution chain expanded from CLI → default to **CLI → env → default**. Now
   accepts an `env` record parameter, passed through from `resolve()`.
-- Test count: 1780 tests across 51 test files (up from 1721 in v0.9.0).
+- Test count: 1790 tests across 51 test files (up from 1721 in v0.9.0).
 
 ## [0.9.0] - 2026-02-11
 
