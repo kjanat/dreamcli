@@ -976,6 +976,11 @@ function coerceArgEnvValue(
 				};
 			}
 		}
+
+		default: {
+			const _exhaustive: never = schema.kind;
+			return _exhaustive;
+		}
 	}
 }
 

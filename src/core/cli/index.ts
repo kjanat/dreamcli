@@ -941,6 +941,7 @@ class CLIBuilder {
 			if (pkg !== null) {
 				const settings = this.schema.packageJsonSettings;
 				const schema = this.schema;
+				const inferredName = settings.inferName ? inferCliName(pkg) : undefined;
 				effectiveBuilder = new CLIBuilder({
 					...schema,
 					// Explicit > discovered: only fill in undefined fields
@@ -950,12 +951,7 @@ class CLIBuilder {
 					...(schema.description === undefined && pkg.description !== undefined
 						? { description: pkg.description }
 						: {}),
-					...(settings.inferName
-						? (() => {
-								const discovered = inferCliName(pkg);
-								return discovered !== undefined ? { name: discovered } : {};
-							})()
-						: {}),
+					...(inferredName !== undefined ? { name: inferredName } : {}),
 				});
 			}
 		}

@@ -212,7 +212,7 @@ describe('.completions() — error handling', () => {
 		expect(result.error?.message).toContain('not yet supported');
 	});
 
-	it('errors when --shell has truly invalid value', async () => {
+	it('errors when shell arg has unsupported value', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'nushell']);
 		expect(result.exitCode).not.toBe(0);

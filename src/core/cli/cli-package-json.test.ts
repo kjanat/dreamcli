@@ -317,8 +317,10 @@ describe('CLIBuilder.run() — package.json combined with config', () => {
 			'/test/.myapp.json': '{"deploy":{"region":"eu"}}',
 		});
 
-		expect(stdout.length).toBe(1);
-		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'eu' });
+		expect(stdout).toHaveLength(1);
+		const [output] = stdout;
+		if (output === undefined) throw new Error('unreachable: stdout empty after length check');
+		expect(JSON.parse(output)).toEqual({ region: 'eu' });
 	});
 
 	it('--version shows discovered version when combined with .config()', async () => {
