@@ -428,19 +428,6 @@ const flag: FlagFactory = {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { flag, FlagBuilder, createSchema };
-export type {
-	FlagConfig,
-	FlagFactory,
-	FlagKind,
-	FlagParseFn,
-	FlagPresence,
-	FlagSchema,
-	InferFlag,
-	InferFlags,
-	ResolvedValue,
-	WithPresence,
-};
 // Re-export prompt types for consumers
 export type {
 	ConfirmPromptConfig,
@@ -453,3 +440,16 @@ export type {
 	SelectChoice,
 	SelectPromptConfig,
 } from './prompt.ts';
+export type {
+	FlagConfig,
+	FlagFactory,
+	FlagKind,
+	FlagParseFn,
+	FlagPresence,
+	FlagSchema,
+	InferFlag,
+	InferFlags,
+	ResolvedValue,
+	WithPresence,
+};
+export { createSchema, FlagBuilder, flag };

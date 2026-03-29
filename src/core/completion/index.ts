@@ -75,5 +75,5 @@ function generateCompletion(schema: CLISchema, shell: Shell, options?: Completio
 // Exports
 // ---------------------------------------------------------------------------
 
-export { generateBashCompletion, generateCompletion, generateZshCompletion, SHELLS };
 export type { CompletionOptions, Shell };
+export { generateBashCompletion, generateCompletion, generateZshCompletion, SHELLS };

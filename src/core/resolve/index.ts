@@ -994,14 +994,11 @@ function coerceArgEnvValue(
  * Mirrors {@link buildRequiredFlagSuggest} but for positional args.
  */
 function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {
-	const sources: string[] = [];
-	sources.push(
-		variadic ? `Provide at least one value for <${name}>` : `Provide a value for <${name}>`,
-	);
-	if (schema.envVar !== undefined) {
-		sources.push(`set ${schema.envVar}`);
-	}
-	return sources.length === 1 ? sources[0]! : `${sources[0]!} or ${sources[1]!}`;
+	const provide = variadic
+		? `Provide at least one value for <${name}>`
+		: `Provide a value for <${name}>`;
+	if (schema.envVar === undefined) return provide;
+	return `${provide} or set ${schema.envVar}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1044,5 +1041,5 @@ function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationE
 // Exports
 // ---------------------------------------------------------------------------
 
-export { resolve };
 export type { DeprecationWarning, ResolveOptions, ResolveResult };
+export { resolve };

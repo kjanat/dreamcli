@@ -508,7 +508,11 @@ describe('runCommand — meta', () => {
 		await runCommand(cmd, []);
 
 		expect(handler).toHaveBeenCalledOnce();
-		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		const firstCall = handler.mock.calls[0];
+		if (firstCall === undefined) {
+			throw new Error('expected handler to be called once');
+		}
+		const meta: CommandMeta = firstCall[0].meta;
 		expect(meta).toEqual({
 			name: 'deploy',
 			bin: 'deploy',
@@ -523,7 +527,12 @@ describe('runCommand — meta', () => {
 
 		await runCommand(cmd, [], { help: { binName: 'mycli' } });
 
-		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(handler).toHaveBeenCalledOnce();
+		const firstCall = handler.mock.calls[0];
+		if (firstCall === undefined) {
+			throw new Error('expected handler to be called once');
+		}
+		const meta: CommandMeta = firstCall[0].meta;
 		expect(meta.bin).toBe('mycli');
 		expect(meta.name).toBe('deploy');
 	});
@@ -540,7 +549,12 @@ describe('runCommand — meta', () => {
 		};
 		await runCommand(cmd, [], { meta: explicit });
 
-		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(handler).toHaveBeenCalledOnce();
+		const firstCall = handler.mock.calls[0];
+		if (firstCall === undefined) {
+			throw new Error('expected handler to be called once');
+		}
+		const meta: CommandMeta = firstCall[0].meta;
 		expect(meta).toEqual(explicit);
 	});
 });

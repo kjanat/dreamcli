@@ -577,7 +577,6 @@ const arg: ArgFactory = {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { arg, ArgBuilder, createArgSchema };
 export type {
 	ArgConfig,
 	ArgFactory,
@@ -591,3 +590,4 @@ export type {
 	WithArgPresence,
 	WithVariadic,
 };
+export { ArgBuilder, arg, createArgSchema };

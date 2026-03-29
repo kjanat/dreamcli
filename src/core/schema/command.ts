@@ -962,7 +962,6 @@ function group(name: string): CommandBuilder {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { command, CommandBuilder, group };
 export type {
 	ActionHandler,
 	ActionParams,
@@ -979,3 +978,4 @@ export type {
 	InteractiveResult,
 	Out,
 };
+export { CommandBuilder, command, group };

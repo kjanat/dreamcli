@@ -26,5 +26,5 @@ function writeLine(write: WriteFn, message: string): void {
 	write(`${message}\n`);
 }
 
-export { writeLine };
 export type { WriteFn };
+export { writeLine };

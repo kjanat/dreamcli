@@ -1040,5 +1040,5 @@ function cli(name: string): CLIBuilder {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { cli, CLIBuilder, formatRootHelp };
 export type { CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };
+export { CLIBuilder, cli, formatRootHelp };

@@ -204,5 +204,5 @@ function inferCliName(pkg: PackageJsonData): string | undefined {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { discoverPackageJson, inferCliName };
 export type { PackageJsonAdapter, PackageJsonData };
+export { discoverPackageJson, inferCliName };

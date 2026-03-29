@@ -106,5 +106,5 @@ function detectRuntime(globals?: GlobalForDetect): Runtime {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { detectRuntime, RUNTIMES };
 export type { GlobalForDetect, Runtime };
+export { detectRuntime, RUNTIMES };

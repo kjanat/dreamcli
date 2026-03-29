@@ -407,5 +407,5 @@ function formatDeprecation(d: DeprecationWarning): string {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { runCommand };
 export type { RunOptions, RunResult };
+export { runCommand };

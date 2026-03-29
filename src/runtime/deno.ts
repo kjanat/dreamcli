@@ -314,5 +314,5 @@ function resolveDenoConfigDir(
 // Exports
 // ---------------------------------------------------------------------------
 
-export { createDenoAdapter };
 export type { DenoNamespace };
+export { createDenoAdapter };

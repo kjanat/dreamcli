@@ -780,7 +780,11 @@ describe('cli.execute — meta', () => {
 		await app.execute(['deploy']);
 
 		expect(handler).toHaveBeenCalledOnce();
-		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		const firstCall = handler.mock.calls[0];
+		if (firstCall === undefined) {
+			throw new Error('expected handler to be called once');
+		}
+		const meta: CommandMeta = firstCall[0].meta;
 		expect(meta).toEqual({
 			name: 'myapp',
 			bin: 'myapp',
@@ -796,7 +800,12 @@ describe('cli.execute — meta', () => {
 
 		await app.execute(['deploy'], { help: { binName: 'my-app' } });
 
-		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(handler).toHaveBeenCalledOnce();
+		const firstCall = handler.mock.calls[0];
+		if (firstCall === undefined) {
+			throw new Error('expected handler to be called once');
+		}
+		const meta: CommandMeta = firstCall[0].meta;
 		expect(meta.bin).toBe('my-app');
 		expect(meta.name).toBe('myapp');
 	});
@@ -808,7 +817,12 @@ describe('cli.execute — meta', () => {
 
 		await app.execute(['deploy']);
 
-		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		expect(handler).toHaveBeenCalledOnce();
+		const firstCall = handler.mock.calls[0];
+		if (firstCall === undefined) {
+			throw new Error('expected handler to be called once');
+		}
+		const meta: CommandMeta = firstCall[0].meta;
 		expect(meta.version).toBeUndefined();
 	});
 
@@ -820,7 +834,11 @@ describe('cli.execute — meta', () => {
 		await app.execute([]);
 
 		expect(handler).toHaveBeenCalledOnce();
-		const meta: CommandMeta = handler.mock.calls[0]![0].meta;
+		const firstCall = handler.mock.calls[0];
+		if (firstCall === undefined) {
+			throw new Error('expected handler to be called once');
+		}
+		const meta: CommandMeta = firstCall[0].meta;
 		expect(meta.command).toBe('main');
 		expect(meta.name).toBe('myapp');
 	});

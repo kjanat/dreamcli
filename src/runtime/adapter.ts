@@ -260,5 +260,5 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { createTestAdapter, ExitError };
 export type { RuntimeAdapter, TestAdapterOptions };
+export { createTestAdapter, ExitError };

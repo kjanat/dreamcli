@@ -441,5 +441,5 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { formatHelp };
 export type { HelpOptions };
+export { formatHelp };

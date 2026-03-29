@@ -264,5 +264,5 @@ async function createNodeReadLine(proc: NodeProcess): Promise<string | null> {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { createNodeAdapter };
 export type { NodeProcess };
+export { createNodeAdapter };

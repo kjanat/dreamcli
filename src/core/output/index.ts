@@ -552,6 +552,7 @@ function createCaptureOutput(
 // Exports
 // ---------------------------------------------------------------------------
 
+export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };
 export {
 	CaptureOutputChannel,
 	CaptureProgressHandle,
@@ -567,4 +568,3 @@ export {
 	TTYSpinnerHandle,
 	writeLine,
 };
-export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };

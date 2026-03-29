@@ -342,7 +342,7 @@ function configFormat(
 // Exports
 // ---------------------------------------------------------------------------
 
-export { buildConfigSearchPaths, configFormat, discoverConfig };
+export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';
 export { discoverPackageJson, inferCliName } from './package-json.ts';
 export type {
 	ConfigAdapter,
@@ -352,4 +352,4 @@ export type {
 	ConfigNotFound,
 	FormatLoader,
 };
-export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';
+export { buildConfigSearchPaths, configFormat, discoverConfig };

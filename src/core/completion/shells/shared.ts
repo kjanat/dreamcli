@@ -154,5 +154,5 @@ function quoteShellArg(value: string): string {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree };
 export type { CommandNode, CompletionOptions };
+export { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree };

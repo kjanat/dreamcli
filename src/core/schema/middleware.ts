@@ -171,7 +171,6 @@ function middleware<Output extends Record<string, unknown>>(
 // Exports
 // ---------------------------------------------------------------------------
 
-export { middleware };
 export type {
 	ErasedMiddlewareHandler,
 	Middleware,
@@ -179,3 +178,4 @@ export type {
 	MiddlewareImpl,
 	MiddlewareParams,
 };
+export { middleware };

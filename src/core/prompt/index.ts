@@ -540,7 +540,6 @@ function resolvePromptConfig(
 // Exports
 // ---------------------------------------------------------------------------
 
-export { createTerminalPrompter, createTestPrompter, PROMPT_CANCEL, resolvePromptConfig };
 export type {
 	PromptEngine,
 	ReadFn,
@@ -550,3 +549,4 @@ export type {
 	TestAnswer,
 	TestPrompterOptions,
 };
+export { createTerminalPrompter, createTestPrompter, PROMPT_CANCEL, resolvePromptConfig };
