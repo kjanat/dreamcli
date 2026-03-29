@@ -37,6 +37,7 @@
 	"types": "./dist/index.d.cts",
 	"files": [
 		"dist",
+		"examples",
 		"src",
 		"!src/**/*.test.ts"
 	],

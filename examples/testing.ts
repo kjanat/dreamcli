@@ -1,0 +1,144 @@
+/**
+ * Testing examples using dreamcli/testkit.
+ *
+ * Demonstrates: runCommand(), prompt answers, env/config injection,
+ * activity event assertions. This file is structured as a vitest
+ * test suite — run with `bun test examples/testing.ts`.
+ *
+ * Usage:
+ *   bun test examples/testing.ts
+ */
+
+import { arg, command, flag, middleware } from 'dreamcli';
+import { createTestPrompter, PROMPT_CANCEL, runCommand } from 'dreamcli/testkit';
+import { describe, expect, it } from 'vitest';
+
+// --- Command under test ---
+
+const deploy = command('deploy')
+	.description('Deploy to an environment')
+	.arg('target', arg.string().describe('Deploy target'))
+	.flag(
+		'region',
+		flag
+			.enum(['us', 'eu', 'ap'])
+			.env('DEPLOY_REGION')
+			.config('deploy.region')
+			.prompt({ kind: 'select', message: 'Which region?' })
+			.describe('Target region'),
+	)
+	.flag('force', flag.boolean().alias('f'))
+	.action(({ args, flags, out }) => {
+		if (!flags.force) {
+			out.warn('Use --force to skip confirmation');
+		}
+		out.log(`Deploying ${args.target} to ${flags.region}`);
+	});
+
+// --- Tests ---
+
+describe('deploy command', () => {
+	it('deploys with explicit flags', async () => {
+		const result = await runCommand(deploy, ['production', '--region', 'eu', '--force']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['Deploying production to eu\n']);
+		expect(result.stderr).toEqual([]);
+	});
+
+	it('resolves region from environment variable', async () => {
+		const result = await runCommand(deploy, ['staging', '--force'], {
+			env: { DEPLOY_REGION: 'ap' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['Deploying staging to ap\n']);
+	});
+
+	it('resolves region from config file', async () => {
+		const result = await runCommand(deploy, ['staging', '--force'], {
+			config: { deploy: { region: 'eu' } },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['Deploying staging to eu\n']);
+	});
+
+	it('prompts for region when not provided', async () => {
+		const result = await runCommand(deploy, ['staging', '--force'], {
+			answers: ['us'],
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['Deploying staging to us\n']);
+	});
+
+	it('handles prompt cancellation', async () => {
+		const result = await runCommand(deploy, ['staging'], {
+			prompter: createTestPrompter([PROMPT_CANCEL]),
+		});
+
+		expect(result.exitCode).not.toBe(0);
+	});
+
+	it('shows warning when --force is not set', async () => {
+		const result = await runCommand(deploy, ['production', '--region', 'us']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toEqual(['Use --force to skip confirmation\n']);
+		expect(result.stdout).toEqual(['Deploying production to us\n']);
+	});
+
+	it('renders help text', async () => {
+		const result = await runCommand(deploy, ['--help']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('Deploy to an environment');
+		expect(result.stdout.join('')).toContain('--region');
+	});
+});
+
+// --- Middleware testing ---
+
+const auth = middleware<{ user: string }>(async ({ next }) => {
+	return next({ user: 'alice' });
+});
+
+const guarded = command('secret')
+	.description('Protected command')
+	.middleware(auth)
+	.action(({ ctx, out }) => {
+		out.log(`Hello, ${ctx.user}`);
+	});
+
+describe('middleware context', () => {
+	it('passes context from middleware to action', async () => {
+		const result = await runCommand(guarded, []);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['Hello, alice\n']);
+	});
+});
+
+// --- Spinner/progress activity events ---
+
+const build = command('build')
+	.description('Build something')
+	.action(({ out }) => {
+		const spinner = out.spinner('Building...');
+		spinner.succeed('Done');
+	});
+
+describe('activity events', () => {
+	it('captures spinner lifecycle in activity array', async () => {
+		const result = await runCommand(build, []);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.activity).toContainEqual(
+			expect.objectContaining({ type: 'spinner:start', text: 'Building...' }),
+		);
+		expect(result.activity).toContainEqual(
+			expect.objectContaining({ type: 'spinner:succeed', text: 'Done' }),
+		);
+	});
+});
