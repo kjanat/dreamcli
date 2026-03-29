@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Shield/crest with terminal prompt (type-safe = protected) -->
+	<defs>
+		<linearGradient id="g18" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0%" stop-color="#3b82f6" />
+			<stop offset="100%" stop-color="#1e40af" />
+		</linearGradient>
+	</defs>
+	<!-- Shield shape -->
+	<path
+		d="M64,10 L112,30 L112,68 C112,96 90,116 64,122 C38,116 16,96 16,68 L16,30 Z"
+		fill="url(#g18)"
+		stroke="#60a5fa"
+		stroke-width="2"
+	/>
+	<!-- Inner shield -->
+	<path
+		d="M64,22 L102,38 L102,66 C102,90 84,106 64,112 C44,106 26,90 26,66 L26,38 Z"
+		fill="#0f172a"
+		opacity="0.7"
+	/>
+	<!-- Chevron prompt -->
+	<polyline
+		points="42,58 58,70 42,82"
+		stroke="#60a5fa"
+		stroke-width="6"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+	/>
+	<!-- Cursor -->
+	<line x1="66" y1="78" x2="88" y2="78" stroke="#818cf8" stroke-width="5" stroke-linecap="round" />
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Stacked capsules — five rounded pills, offset, converging -->
+	<rect x="16" y="18" width="56" height="14" rx="7" fill="#2b2b2b" opacity="0.15" />
+	<rect x="24" y="36" width="56" height="14" rx="7" fill="#2b2b2b" opacity="0.25" />
+	<rect x="32" y="54" width="56" height="14" rx="7" fill="#2b2b2b" opacity="0.4" />
+	<rect x="40" y="72" width="56" height="14" rx="7" fill="#2b2b2b" opacity="0.6" />
+	<rect x="48" y="90" width="56" height="14" rx="7" fill="#2b2b2b" opacity="0.85" />
+	<!-- Amber dot at convergence point (bottom-right) -->
+	<circle cx="104" cy="97" r="7" fill="#D6A24A" />
+</svg>

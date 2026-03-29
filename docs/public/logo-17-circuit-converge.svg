@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Circuit board traces converging to a single output node -->
+	<!-- Input traces (5 resolution sources) -->
+	<!-- CLI -->
+	<path
+		d="M8,20 L32,20 L44,40"
+		stroke="#3b82f6"
+		stroke-width="3"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	/>
+	<circle cx="8" cy="20" r="4" fill="#3b82f6" />
+	<!-- Env -->
+	<path
+		d="M8,44 L24,44 L44,50"
+		stroke="#6366f1"
+		stroke-width="3"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	/>
+	<circle cx="8" cy="44" r="4" fill="#6366f1" />
+	<!-- Config -->
+	<path
+		d="M8,68 L36,68 L44,64"
+		stroke="#8b5cf6"
+		stroke-width="3"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	/>
+	<circle cx="8" cy="68" r="4" fill="#8b5cf6" />
+	<!-- Prompt -->
+	<path
+		d="M8,92 L24,92 L44,78"
+		stroke="#a855f7"
+		stroke-width="3"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	/>
+	<circle cx="8" cy="92" r="4" fill="#a855f7" />
+	<!-- Default -->
+	<path
+		d="M8,112 L32,112 L44,88"
+		stroke="#c084fc"
+		stroke-width="3"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	/>
+	<circle cx="8" cy="112" r="4" fill="#c084fc" opacity="0.6" />
+	<!-- Convergence chip -->
+	<rect
+		x="44"
+		y="36"
+		width="28"
+		height="56"
+		rx="4"
+		fill="#1e293b"
+		stroke="#3b82f6"
+		stroke-width="2.5"
+	/>
+	<!-- Chevron inside chip -->
+	<polyline
+		points="52,58 60,64 52,70"
+		stroke="#60a5fa"
+		stroke-width="3"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+	/>
+	<!-- Output trace -->
+	<path d="M72,64 L96,64 L108,64" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" />
+	<!-- Output node -->
+	<circle cx="112" cy="64" r="8" fill="#3b82f6" />
+	<circle cx="112" cy="64" r="4" fill="#0f172a" />
+</svg>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- "D" with pipeline dots flowing through the curve -->
+	<defs>
+		<linearGradient id="g29" x1="0" y1="0" x2="0.5" y2="1">
+			<stop offset="0%" stop-color="#7c3aed" />
+			<stop offset="100%" stop-color="#9333ea" />
+		</linearGradient>
+	</defs>
+	<!-- D vertical bar -->
+	<line
+		x1="32"
+		y1="18"
+		x2="32"
+		y2="110"
+		stroke="url(#g29)"
+		stroke-width="7"
+		stroke-linecap="round"
+	/>
+	<!-- D curve (open, for dots to flow along) -->
+	<path
+		d="M32,24 C56,24 80,28 94,40 C108,52 108,76 94,88 C80,100 56,104 32,104"
+		stroke="#a78bfa"
+		stroke-width="4"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.4"
+	/>
+	<!-- Pipeline dots flowing along the D curve -->
+	<circle cx="52" cy="24" r="5" fill="#fbbf24" />
+	<circle cx="76" cy="30" r="4.5" fill="#d946ef" opacity="0.85" />
+	<circle cx="94" cy="44" r="4" fill="#2dd4bf" opacity="0.75" />
+	<circle cx="102" cy="64" r="3.5" fill="#e9d5ff" opacity="0.65" />
+	<circle cx="94" cy="84" r="3" fill="#a78bfa" opacity="0.5" />
+	<circle cx="76" cy="98" r="2.5" fill="#c084fc" opacity="0.4" />
+	<circle cx="52" cy="104" r="2" fill="#d8b4fe" opacity="0.3" />
+	<!-- Input arrow at top -->
+	<polyline
+		points="42,14 52,20 42,26"
+		stroke="#fbbf24"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+		opacity="0.7"
+	/>
+</svg>

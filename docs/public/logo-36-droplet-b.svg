@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Three overlapping droplets — filled, offset -->
+	<path
+		d="M52,20 C34,40 24,56 24,72 A28,28 0 0,0 80,72 C80,56 70,40 52,20 Z"
+		fill="#2b2b2b"
+		opacity="0.15"
+	/>
+	<path
+		d="M76,20 C58,40 48,56 48,72 A28,28 0 0,0 104,72 C104,56 94,40 76,20 Z"
+		fill="#2b2b2b"
+		opacity="0.15"
+	/>
+	<path
+		d="M64,32 C48,50 38,64 38,78 A26,26 0 0,0 90,78 C90,64 80,50 64,32 Z"
+		fill="#2b2b2b"
+		opacity="0.25"
+	/>
+	<!-- Amber at the base -->
+	<circle cx="64" cy="78" r="8" fill="#D6A24A" />
+</svg>

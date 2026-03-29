@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Petal fan — filled petals with fading opacity -->
+	<ellipse cx="64" cy="36" rx="14" ry="24" fill="#2b2b2b" opacity="0.25" />
+	<ellipse
+		cx="64"
+		cy="36"
+		rx="14"
+		ry="24"
+		fill="#2b2b2b"
+		opacity="0.2"
+		transform="rotate(72 64 64)"
+	/>
+	<ellipse
+		cx="64"
+		cy="36"
+		rx="14"
+		ry="24"
+		fill="#2b2b2b"
+		opacity="0.15"
+		transform="rotate(144 64 64)"
+	/>
+	<ellipse
+		cx="64"
+		cy="36"
+		rx="14"
+		ry="24"
+		fill="#2b2b2b"
+		opacity="0.12"
+		transform="rotate(216 64 64)"
+	/>
+	<ellipse
+		cx="64"
+		cy="36"
+		rx="14"
+		ry="24"
+		fill="#2b2b2b"
+		opacity="0.08"
+		transform="rotate(288 64 64)"
+	/>
+	<!-- Amber center -->
+	<circle cx="64" cy="64" r="10" fill="#D6A24A" />
+</svg>

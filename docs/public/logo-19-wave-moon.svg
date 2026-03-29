@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Sine wave flowing under a crescent moon -->
+	<defs>
+		<linearGradient id="g19" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0%" stop-color="#3b82f6" />
+			<stop offset="100%" stop-color="#8b5cf6" />
+		</linearGradient>
+	</defs>
+	<!-- Crescent moon -->
+	<circle cx="64" cy="36" r="22" fill="#3b82f6" />
+	<circle cx="74" cy="28" r="18" fill="#0f172a" />
+	<!-- Wave (data flowing through pipeline) -->
+	<path
+		d="M8,80 C24,60 40,100 56,80 C72,60 88,100 104,80 C112,70 120,76 124,80"
+		stroke="url(#g19)"
+		stroke-width="5"
+		stroke-linecap="round"
+		fill="none"
+	/>
+	<!-- Second wave (fainter, echo) -->
+	<path
+		d="M8,92 C24,72 40,112 56,92 C72,72 88,112 104,92 C112,82 120,88 124,92"
+		stroke="#6366f1"
+		stroke-width="3"
+		stroke-linecap="round"
+		fill="none"
+		opacity="0.3"
+	/>
+	<!-- Stars -->
+	<circle cx="24" cy="20" r="2" fill="#fbbf24" opacity="0.6" />
+	<circle cx="104" cy="24" r="2.5" fill="#fbbf24" />
+	<circle cx="40" cy="12" r="1.5" fill="#fbbf24" opacity="0.4" />
+</svg>

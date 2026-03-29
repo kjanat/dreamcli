@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- CLI flag pole with crescent flag -->
+	<defs>
+		<linearGradient id="g9" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0%" stop-color="#3b82f6" />
+			<stop offset="100%" stop-color="#6366f1" />
+		</linearGradient>
+	</defs>
+	<!-- Flag pole (double dash = CLI flag) -->
+	<line x1="28" y1="16" x2="28" y2="112" stroke="#94a3b8" stroke-width="4" stroke-linecap="round" />
+	<!-- Flag shape with crescent cutout -->
+	<path d="M28,20 L96,20 Q88,44 96,68 L28,68 Z" fill="url(#g9)" />
+	<!-- Crescent cutout on flag -->
+	<circle cx="62" cy="44" r="16" fill="#60a5fa" opacity="0.3" />
+	<circle cx="70" cy="38" r="13" fill="#3b82f6" />
+	<!-- Double dash marks at base -->
+	<line
+		x1="16"
+		y1="106"
+		x2="24"
+		y2="106"
+		stroke="#64748b"
+		stroke-width="3"
+		stroke-linecap="round"
+	/>
+	<line
+		x1="16"
+		y1="112"
+		x2="24"
+		y2="112"
+		stroke="#64748b"
+		stroke-width="3"
+		stroke-linecap="round"
+	/>
+	<!-- Stars -->
+	<circle cx="104" cy="28" r="2.5" fill="#fbbf24" />
+	<circle cx="110" cy="48" r="2" fill="#fbbf24" opacity="0.6" />
+</svg>

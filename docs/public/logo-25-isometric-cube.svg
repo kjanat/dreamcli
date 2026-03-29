@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Isometric cube with chevron on front face -->
+	<!-- Top face -->
+	<path d="M64,16 L112,40 L64,64 L16,40 Z" fill="#c084fc" opacity="0.6" />
+	<!-- Left face -->
+	<path d="M16,40 L64,64 L64,112 L16,88 Z" fill="#7c3aed" opacity="0.8" />
+	<!-- Right face -->
+	<path d="M112,40 L64,64 L64,112 L112,88 Z" fill="#9333ea" opacity="0.7" />
+	<!-- Edges -->
+	<path
+		d="M64,16 L112,40 L112,88 L64,112 L16,88 L16,40 Z"
+		stroke="#e9d5ff"
+		stroke-width="2"
+		fill="none"
+		opacity="0.4"
+	/>
+	<line x1="64" y1="64" x2="64" y2="112" stroke="#e9d5ff" stroke-width="1.5" opacity="0.3" />
+	<line x1="64" y1="64" x2="16" y2="40" stroke="#e9d5ff" stroke-width="1.5" opacity="0.3" />
+	<line x1="64" y1="64" x2="112" y2="40" stroke="#e9d5ff" stroke-width="1.5" opacity="0.3" />
+	<!-- Chevron on left face -->
+	<polyline
+		points="30,60 42,68 30,76"
+		stroke="#fde68a"
+		stroke-width="3"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+	/>
+	<!-- Cursor on left face -->
+	<line
+		x1="46"
+		y1="74"
+		x2="56"
+		y2="80"
+		stroke="#fde68a"
+		stroke-width="2.5"
+		stroke-linecap="round"
+		opacity="0.7"
+	/>
+</svg>

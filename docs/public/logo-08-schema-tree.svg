@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Schema tree: one root branching into typed leaves -->
+	<defs>
+		<linearGradient id="g8" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0%" stop-color="#3b82f6" />
+			<stop offset="100%" stop-color="#a855f7" />
+		</linearGradient>
+	</defs>
+	<!-- Root node -->
+	<circle cx="22" cy="64" r="10" fill="url(#g8)" />
+	<!-- Branches -->
+	<line x1="32" y1="52" x2="60" y2="28" stroke="#3b82f6" stroke-width="3" />
+	<line x1="32" y1="58" x2="60" y2="48" stroke="#6366f1" stroke-width="3" />
+	<line x1="32" y1="64" x2="60" y2="68" stroke="#8b5cf6" stroke-width="3" />
+	<line x1="32" y1="70" x2="60" y2="88" stroke="#a855f7" stroke-width="3" />
+	<line x1="32" y1="76" x2="60" y2="108" stroke="#c084fc" stroke-width="3" />
+	<!-- Leaf nodes with type labels -->
+	<rect
+		x="58"
+		y="18"
+		width="60"
+		height="20"
+		rx="6"
+		fill="#1e293b"
+		stroke="#3b82f6"
+		stroke-width="2"
+	/>
+	<text
+		x="88"
+		y="32"
+		font-family="monospace"
+		font-size="10"
+		fill="#60a5fa"
+		text-anchor="middle"
+	>string</text>
+	<rect
+		x="58"
+		y="38"
+		width="60"
+		height="20"
+		rx="6"
+		fill="#1e293b"
+		stroke="#6366f1"
+		stroke-width="2"
+	/>
+	<text
+		x="88"
+		y="52"
+		font-family="monospace"
+		font-size="10"
+		fill="#818cf8"
+		text-anchor="middle"
+	>number</text>
+	<rect
+		x="58"
+		y="58"
+		width="60"
+		height="20"
+		rx="6"
+		fill="#1e293b"
+		stroke="#8b5cf6"
+		stroke-width="2"
+	/>
+	<text
+		x="88"
+		y="72"
+		font-family="monospace"
+		font-size="10"
+		fill="#a78bfa"
+		text-anchor="middle"
+	>enum</text>
+	<rect
+		x="58"
+		y="78"
+		width="60"
+		height="20"
+		rx="6"
+		fill="#1e293b"
+		stroke="#a855f7"
+		stroke-width="2"
+	/>
+	<text
+		x="88"
+		y="92"
+		font-family="monospace"
+		font-size="10"
+		fill="#c084fc"
+		text-anchor="middle"
+	>boolean</text>
+	<rect
+		x="58"
+		y="98"
+		width="60"
+		height="20"
+		rx="6"
+		fill="#1e293b"
+		stroke="#c084fc"
+		stroke-width="2"
+	/>
+	<text
+		x="88"
+		y="112"
+		font-family="monospace"
+		font-size="10"
+		fill="#d8b4fe"
+		text-anchor="middle"
+	>array</text>
+</svg>

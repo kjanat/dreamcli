@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Stacked chevrons — layers represented as nested angle brackets -->
+	<!-- Outermost (default) -->
+	<polyline
+		points="14,28 56,64 14,100"
+		stroke="#fbbf24"
+		stroke-width="4"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+		opacity="0.25"
+	/>
+	<!-- Layer 4 (prompt) -->
+	<polyline
+		points="26,32 64,64 26,96"
+		stroke="#d946ef"
+		stroke-width="4"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+		opacity="0.4"
+	/>
+	<!-- Layer 3 (config) -->
+	<polyline
+		points="38,36 72,64 38,92"
+		stroke="#a855f7"
+		stroke-width="5"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+		opacity="0.55"
+	/>
+	<!-- Layer 2 (env) -->
+	<polyline
+		points="50,40 80,64 50,88"
+		stroke="#8b5cf6"
+		stroke-width="5"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+		opacity="0.7"
+	/>
+	<!-- Layer 1 (CLI — foreground) -->
+	<polyline
+		points="62,44 88,64 62,84"
+		stroke="#7c3aed"
+		stroke-width="6"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+		opacity="0.9"
+	/>
+	<!-- Cursor -->
+	<line
+		x1="96"
+		y1="80"
+		x2="116"
+		y2="80"
+		stroke="#fbbf24"
+		stroke-width="4"
+		stroke-linecap="round"
+		opacity="0.8"
+	/>
+</svg>

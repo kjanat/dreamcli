@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Resolution pipeline: 5 nodes flowing into one -->
+	<!-- Input nodes (CLI, env, config, prompt, default) -->
+	<circle cx="20" cy="20" r="8" fill="#3b82f6" />
+	<circle cx="20" cy="44" r="8" fill="#6366f1" />
+	<circle cx="20" cy="68" r="8" fill="#8b5cf6" />
+	<circle cx="20" cy="92" r="8" fill="#a855f7" />
+	<circle cx="20" cy="116" r="8" fill="#c084fc" opacity="0.6" />
+	<!-- Flow lines -->
+	<path d="M28,20 Q64,20 80,56" stroke="#3b82f6" stroke-width="2.5" fill="none" opacity="0.8" />
+	<path d="M28,44 Q60,44 80,58" stroke="#6366f1" stroke-width="2.5" fill="none" opacity="0.8" />
+	<path d="M28,68 L80,64" stroke="#8b5cf6" stroke-width="2.5" fill="none" opacity="0.8" />
+	<path d="M28,92 Q60,92 80,70" stroke="#a855f7" stroke-width="2.5" fill="none" opacity="0.8" />
+	<path d="M28,116 Q64,116 80,72" stroke="#c084fc" stroke-width="2.5" fill="none" opacity="0.6" />
+	<!-- Convergence point: diamond -->
+	<rect x="72" y="56" width="20" height="20" rx="3" transform="rotate(45 82 66)" fill="#3b82f6" />
+	<!-- Output arrow -->
+	<line x1="94" y1="66" x2="118" y2="66" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" />
+	<polyline
+		points="112,58 120,66 112,74"
+		stroke="#3b82f6"
+		stroke-width="4"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+	/>
+</svg>

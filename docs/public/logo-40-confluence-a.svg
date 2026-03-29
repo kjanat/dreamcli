@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- River confluence — three flowing curves merging into one -->
+	<path
+		d="M20,20 C36,32 52,48 64,72"
+		stroke="#2b2b2b"
+		stroke-width="4"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.5"
+	/>
+	<path
+		d="M64,12 C64,28 64,48 64,72"
+		stroke="#2b2b2b"
+		stroke-width="4"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.5"
+	/>
+	<path
+		d="M108,20 C92,32 76,48 64,72"
+		stroke="#2b2b2b"
+		stroke-width="4"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.5"
+	/>
+	<!-- Merged continuation downward -->
+	<path
+		d="M64,72 C64,84 64,96 64,112"
+		stroke="#2b2b2b"
+		stroke-width="5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.8"
+	/>
+	<!-- Amber at the merge point -->
+	<circle cx="64" cy="72" r="8" fill="#D6A24A" />
+</svg>

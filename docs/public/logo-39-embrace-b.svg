@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Nested embrace — thick band version -->
+	<!-- Left arcs -->
+	<path
+		d="M48,28 C28,44 28,84 48,100"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M34,18 C8,42 8,86 34,110"
+		stroke="#2b2b2b"
+		stroke-width="6"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.2"
+	/>
+	<!-- Right arcs -->
+	<path
+		d="M80,28 C100,44 100,84 80,100"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M94,18 C120,42 120,86 94,110"
+		stroke="#2b2b2b"
+		stroke-width="6"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.2"
+	/>
+	<!-- Amber center -->
+	<circle cx="64" cy="64" r="12" fill="#D6A24A" />
+</svg>

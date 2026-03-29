@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Angle brackets framing a crescent moon -->
+	<!-- Left bracket -->
+	<polyline
+		points="10,32 36,64 10,96"
+		stroke="#3b82f6"
+		stroke-width="8"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+	/>
+	<!-- Right bracket -->
+	<polyline
+		points="118,32 92,64 118,96"
+		stroke="#3b82f6"
+		stroke-width="8"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		fill="none"
+	/>
+	<!-- Crescent moon centered -->
+	<circle cx="64" cy="60" r="20" fill="#60a5fa" />
+	<circle cx="72" cy="52" r="16" fill="#0f172a" />
+	<!-- Small stars -->
+	<circle cx="52" cy="88" r="2" fill="#fbbf24" />
+	<circle cx="76" cy="92" r="2.5" fill="#fbbf24" />
+	<circle cx="64" cy="96" r="1.5" fill="#fbbf24" opacity="0.5" />
+</svg>
