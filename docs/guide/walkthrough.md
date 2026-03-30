@@ -243,10 +243,9 @@ import { arg, CLIError } from 'dreamcli';
 
 const prView = command('view')
   .description('View a pull request')
-  .arg('number', arg.string().describe('PR number'))
+  .arg('number', arg.number().describe('PR number'))
   .action(({ args, out }) => {
-    const num = parseInt(args.number, 10);
-    const pr = pullRequests.find((p) => p.number === num);
+    const pr = pullRequests.find((p) => p.number === args.number);
 
     if (!pr) {
       throw new CLIError(`Pull request #${args.number} not found`, {
@@ -262,8 +261,7 @@ const prView = command('view')
   });
 ```
 
-Arguments are strings by position — `args.number` is `string` because that's what the shell gives us.
-We parse it ourselves.
+`arg.number()` coerces the shell string to a `number` automatically — `args.number` is typed and validated as numeric at parse time. If someone passes `abc`, they get a parse error before the action ever runs.
 The `CLIError` with `suggest` gives the user a helpful nudge when things
 go wrong, and in `--json` mode it serializes as structured JSON on stderr.
 

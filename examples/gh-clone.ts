@@ -197,19 +197,9 @@ const prList = command('list')
 const prView = command('view')
 	.description('View a pull request')
 	.middleware(requireAuth)
-	.arg('number', arg.string().describe('PR number'))
+	.arg('number', arg.number().describe('PR number'))
 	.action(({ args, out }) => {
-		if (!/^\d+$/.test(args.number)) {
-			throw new CLIError(`Invalid pull request number: ${args.number}`, {
-				code: 'INVALID_INPUT',
-				exitCode: 1,
-				suggest: 'PR number must be a positive integer',
-				details: { requested: args.number },
-			});
-		}
-
-		const num = Number(args.number);
-		const pr = pullRequests.find((p) => p.number === num);
+		const pr = pullRequests.find((p) => p.number === args.number);
 
 		if (!pr) {
 			throw new CLIError(`Pull request #${args.number} not found`, {
