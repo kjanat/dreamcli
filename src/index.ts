@@ -1,6 +1,16 @@
 /**
  * DreamCLI — Schema-first, fully typed TypeScript CLI framework.
  *
+ * Start here for most applications:
+ * - {@link cli} to define a program
+ * - {@link command} to define commands and groups
+ * - {@link flag} and {@link arg} to describe inputs
+ *
+ * This root entrypoint also re-exports lower-level building blocks such as
+ * parsing, resolution, config discovery, and help formatting. Those are useful
+ * for advanced integrations, custom tooling, or focused tests, but they are
+ * not the typical starting point for application code.
+ *
  * Test utilities (runCommand, createCaptureOutput, createTestPrompter, etc.)
  * are available from `dreamcli/testkit`. Runtime adapters (createAdapter,
  * RuntimeAdapter, etc.) are available from `dreamcli/runtime`.

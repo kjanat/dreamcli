@@ -68,6 +68,7 @@ const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish', 'powershell']> = Object.
  * @example
  * ```ts
  * const script = generateCompletion(app.schema, 'bash');
+ * // e.g. source <(mycli completions bash)
  * ```
  */
 function generateCompletion(schema: CLISchema, shell: Shell, options?: CompletionOptions): string {
