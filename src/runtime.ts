@@ -8,9 +8,6 @@
  */
 
 export type {
-	DenoNamespace,
-	GlobalForDetect,
-	NodeProcess,
 	Runtime,
 	RuntimeAdapter,
 } from './runtime/index.ts';
