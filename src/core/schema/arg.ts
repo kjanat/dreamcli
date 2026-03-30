@@ -96,6 +96,8 @@ interface ArgSchema {
 	readonly presence: ArgPresence;
 	/** Whether this arg consumes all remaining positionals. */
 	readonly variadic: boolean;
+	/** Whether this arg may read from stdin during resolution. */
+	readonly stdinMode: boolean;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
 	/** Human-readable description for help text. */
@@ -130,6 +132,7 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
 		kind,
 		presence: 'required',
 		variadic: false,
+		stdinMode: false,
 		defaultValue: undefined,
 		description: undefined,
 		envVar: undefined,
@@ -314,6 +317,19 @@ class ArgBuilder<C extends ArgConfig> {
 		});
 	}
 
+	/**
+	 * Allow this arg to resolve from stdin when CLI input is missing.
+	 *
+	 * Resolution order becomes: CLI value -> stdin -> env -> default.
+	 * Only one arg per command may enable stdin mode.
+	 */
+	stdin(): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			stdinMode: true,
+		});
+	}
+
 	// -- Resolution source modifiers ------------------------------------------
 
 	/**
@@ -408,7 +424,7 @@ class ArgBuilder<C extends ArgConfig> {
  *
  * Each method returns an `ArgBuilder` seeded with the correct `ArgKind`
  * and initial type-level config. Chain modifiers (`.optional()`, `.env()`,
- * `.default()`, `.variadic()`, `.describe()`, `.deprecated()`) to refine.
+ * `.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.
  *
  * All args are **required** by default. Resolution order when env is
  * configured: **CLI → env → default**.

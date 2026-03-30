@@ -15,7 +15,7 @@
 			"title": "Add .stdin() modifier to ArgBuilder",
 			"description": "Add `stdinMode: boolean` to `ArgSchema` (default `false`). Add `.stdin()` method to `ArgBuilder` that sets `stdinMode: true` — returns same generic (no type change). Only ONE arg per command may have `stdinMode: true` — enforce at command build time in `CommandBuilder.arg()` (throw `CLIError` with code `DUPLICATE_STDIN_ARG` if a second `.stdin()` arg is registered). Update `createArgSchema()` default. Resolution order for stdin args: CLI argv (if value isn't '-') → stdin data (if argv is '-' OR !stdinIsTTY and no argv) → env → default → required error.",
 			"priority": "architecture",
-			"passes": false,
+			"passes": true,
 			"overseerId": "task_01KH86GXR5MAFC263YJKJTNH17"
 		},
 		{
