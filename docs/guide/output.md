@@ -1,0 +1,77 @@
+# Output
+
+Handlers receive `out` instead of `console`. The output channel adapts to context automatically.
+
+## Basic Output
+
+```ts
+.action(({ out }) => {
+  out.log('Informational message');
+  out.warn('Warning message');
+  out.error('Error message');
+})
+```
+
+## JSON Output
+
+```ts
+out.json({ status: 'ok', count: 42 });
+```
+
+When the CLI is invoked with `--json`, all output routes through structured JSON.
+
+## Tables
+
+```ts
+type Row = { name: string; status: string; uptime: number };
+
+out.table<Row>(rows, [
+	{ key: 'name', header: 'Name' },
+	{ key: 'status', header: 'Status' },
+	{ key: 'uptime', header: 'Uptime (h)' },
+]);
+```
+
+::: tip Use a `type` alias (not `interface`) for table rows. TypeScript's structural typing requires
+`Record<string, unknown>` compatibility. :::
+
+## Spinners
+
+```ts
+const spinner = out.spinner('Deploying...');
+await deploy();
+spinner.stop('Done');
+```
+
+Spinners auto-disable when stdout is not a TTY (CI, piped output). In `--json` mode, spinners are
+suppressed entirely.
+
+## Progress Bars
+
+```ts
+const progress = out.progress({ message: 'Uploading', total: 100 });
+
+for (let i = 0; i <= 100; i++) {
+	progress.update(i);
+	await tick();
+}
+
+progress.finish();
+```
+
+## Output Modes
+
+The output channel automatically adjusts behavior:
+
+| Context  | Behavior                                             |
+| -------- | ---------------------------------------------------- |
+| TTY      | Pretty formatting, spinners animate, colors          |
+| Piped    | Minimal stable output, spinners suppressed           |
+| `--json` | Structured JSON to stdout, everything else to stderr |
+
+One code path, correct output everywhere.
+
+## What's Next?
+
+- [Errors](/guide/errors) — structured error handling
+- [Testing](/guide/testing) — capturing output in tests

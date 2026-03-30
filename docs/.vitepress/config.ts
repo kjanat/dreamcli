@@ -1,0 +1,82 @@
+import { defineConfig } from 'vitepress';
+
+export default defineConfig({
+	title: 'dreamcli',
+	description: 'Schema-first, fully typed TypeScript CLI framework',
+	head: [
+		['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+		['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
+	],
+	themeConfig: {
+		logo: {
+			light: '/logo-light.svg',
+			dark: '/logo-dark.svg',
+		},
+		nav: [
+			{ text: 'Guide', link: '/guide/getting-started' },
+			{ text: 'Reference', link: '/reference/api' },
+			{
+				text: 'Links',
+				items: [
+					{ text: 'GitHub', link: 'https://github.com/kjanat/dreamcli' },
+					{ text: 'npm', link: 'https://www.npmjs.com/package/dreamcli' },
+					{ text: 'JSR', link: 'https://jsr.io/@kjanat/dreamcli' },
+				],
+			},
+		],
+		sidebar: {
+			'/guide/': [
+				{
+					text: 'Introduction',
+					items: [
+						{ text: 'Getting Started', link: '/guide/getting-started' },
+						{ text: 'Why dreamcli', link: '/guide/why' },
+					],
+				},
+				{
+					text: 'Core Concepts',
+					items: [
+						{ text: 'Commands', link: '/guide/commands' },
+						{ text: 'Flags', link: '/guide/flags' },
+						{ text: 'Arguments', link: '/guide/arguments' },
+						{ text: 'Output', link: '/guide/output' },
+						{ text: 'Errors', link: '/guide/errors' },
+					],
+				},
+				{
+					text: 'Advanced',
+					items: [
+						{ text: 'Middleware', link: '/guide/middleware' },
+						{ text: 'Config Files', link: '/guide/config' },
+						{ text: 'Shell Completions', link: '/guide/completions' },
+						{ text: 'Interactive Prompts', link: '/guide/prompts' },
+						{ text: 'Runtime Support', link: '/guide/runtime' },
+					],
+				},
+				{
+					text: 'Testing',
+					items: [{ text: 'Testing Commands', link: '/guide/testing' }],
+				},
+			],
+			'/reference/': [
+				{
+					text: 'API Reference',
+					items: [
+						{ text: 'Overview', link: '/reference/api' },
+						{ text: 'dreamcli', link: '/reference/main' },
+						{ text: 'dreamcli/testkit', link: '/reference/testkit' },
+						{ text: 'dreamcli/runtime', link: '/reference/runtime' },
+					],
+				},
+			],
+		},
+		socialLinks: [{ icon: 'github', link: 'https://github.com/kjanat/dreamcli' }],
+		search: {
+			provider: 'local',
+		},
+		footer: {
+			message: 'Released under the MIT License.',
+			copyright: 'Copyright 2026-present Kaj Kowalski',
+		},
+	},
+});
