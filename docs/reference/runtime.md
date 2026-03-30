@@ -7,15 +7,22 @@ import { createAdapter, detectRuntime } from 'dreamcli/runtime';
 import type { RuntimeAdapter } from 'dreamcli/runtime';
 ```
 
-## `createAdapter(runtime?)`
+## `createAdapter()`
 
-Create a runtime adapter for the specified platform.
+Create a runtime adapter via auto-detection.
 
 ```ts
+import {
+	createAdapter,
+	createNodeAdapter,
+	createBunAdapter,
+	createDenoAdapter,
+} from 'dreamcli/runtime';
+
 const adapter = createAdapter(); // auto-detect
-const adapter = createAdapter('node'); // explicit
-const adapter = createAdapter('bun');
-const adapter = createAdapter('deno');
+const nodeAdapter = createNodeAdapter(); // explicit Node.js
+const bunAdapter = createBunAdapter(); // explicit Bun
+const denoAdapter = createDenoAdapter(); // explicit Deno
 ```
 
 ### RuntimeAdapter Interface

@@ -135,7 +135,7 @@ Ctrl+C during a prompt exits gracefully:
 
 ```ts
 const result = await runCommand(cmd, [], {
-	answers: [CANCEL],
+	answers: [PROMPT_CANCEL],
 });
 expect(result.exitCode).not.toBe(0);
 ```

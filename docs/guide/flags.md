@@ -13,7 +13,7 @@ flag.number(); // number | undefined
 flag.boolean(); // boolean (defaults to false)
 flag.enum(['us', 'eu', 'ap']); // "us" | "eu" | "ap" | undefined
 flag.array(flag.string()); // string[] | undefined
-flag.custom((v) => new URL(v)); // URL | undefined
+flag.custom((v) => new URL(String(v))); // URL | undefined
 ```
 
 ## Modifiers
@@ -84,7 +84,7 @@ flag.boolean();
 
 ```ts
 flag.custom((value) => {
-	const url = new URL(value);
+	const url = new URL(String(value));
 	if (url.protocol !== 'https:') {
 		throw new Error('URL must use HTTPS');
 	}

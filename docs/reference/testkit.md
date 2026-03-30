@@ -36,10 +36,10 @@ const result = await runCommand(greet, ['Alice', '--loud']);
 | `config`    | `Record<string, unknown>` | Config file values      |
 | `answers`   | `unknown[]`               | Prompt answers in order |
 | `prompter`  | `PromptEngine`            | Custom prompt handler   |
-| `json`      | `boolean`                 | Simulate `--json` mode  |
-| `help`      | `boolean`                 | Simulate `--help`       |
+| `jsonMode`  | `boolean`                 | Simulate `--json` mode  |
+| `help`      | `HelpOptions`             | Help formatting options |
 | `verbosity` | `Verbosity`               | Output verbosity        |
-| `adapter`   | `RuntimeAdapter`          | Custom runtime adapter  |
+| `isTTY`     | `boolean`                 | Simulate TTY connection |
 
 ### RunResult
 

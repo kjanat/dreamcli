@@ -23,7 +23,7 @@ Supported minimum runtimes: Node.js >= 22, Bun >= 1.3, Deno >= 2.6.
 ## Your First Command
 
 ```ts
-import { command, flag, arg } from 'dreamcli';
+import { cli, command, flag, arg } from 'dreamcli';
 
 const greet = command('greet')
 	.description('Greet someone')
@@ -37,7 +37,7 @@ const greet = command('greet')
 		}
 	});
 
-greet.run();
+cli('greet').default(greet).run();
 ```
 
 ```bash

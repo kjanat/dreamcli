@@ -31,10 +31,10 @@ Runtime detection is automatic — dreamcli picks the right adapter at startup.
 ## Explicit Adapter
 
 ```ts
-import { createAdapter } from 'dreamcli/runtime';
+import { createAdapter, createNodeAdapter } from 'dreamcli/runtime';
 
-const adapter = createAdapter('node');
-// or 'bun', 'deno', 'auto' (default)
+const adapter = createAdapter(); // auto-detect
+const nodeAdapter = createNodeAdapter(); // explicit
 ```
 
 ## Deno Permissions

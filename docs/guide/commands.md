@@ -4,10 +4,10 @@ Commands are the primary building block in dreamcli. Every CLI has at least one.
 
 ## Single Command
 
-The simplest CLI is a single command that calls `.run()`:
+The simplest CLI is a single command wrapped in `cli()`:
 
 ```ts
-import { command, flag, arg } from 'dreamcli';
+import { cli, command, flag, arg } from 'dreamcli';
 
 const greet = command('greet')
 	.description('Greet someone')
@@ -18,7 +18,7 @@ const greet = command('greet')
 		out.log(flags.loud ? msg.toUpperCase() : msg);
 	});
 
-greet.run();
+cli('greet').default(greet).run();
 ```
 
 ## Multi-Command CLI
