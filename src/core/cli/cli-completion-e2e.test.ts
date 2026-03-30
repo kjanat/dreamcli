@@ -653,7 +653,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		const script = result.stdout.join('');
 
 		expect(script).toContain('custom-tool');
-		expect(script).toContain('complete -F _custom_tool_completions custom-tool');
+		expect(script).toMatch(/complete -F _custom_tool_[0-9a-f]{8}_completions custom-tool/);
 	});
 
 	it('zsh completion script uses CLI name in compdef directive', async () => {
@@ -663,8 +663,8 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		const script = result.stdout.join('');
 
 		expect(script).toContain('#compdef custom-tool');
-		expect(script).toContain('_custom_tool()');
-		expect(script).toContain('_custom_tool "$@"');
+		expect(script).toMatch(/_custom_tool_[0-9a-f]{8}\(\)/);
+		expect(script).toMatch(/_custom_tool_[0-9a-f]{8} "\$@"/);
 	});
 
 	it('bash completion for CLI with no commands has only global flags', async () => {

@@ -1099,7 +1099,7 @@ class CLIBuilder {
 			...options,
 			...(options?.env === undefined ? { env: adapter.env } : {}),
 			...(options?.isTTY === undefined ? { isTTY: adapter.isTTY } : {}),
-			...(options?.stdinData === undefined ? { stdinData: adapterStdinData } : {}),
+			...(adapterStdinData !== undefined ? { stdinData: adapterStdinData } : {}),
 			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
 			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
 		};
