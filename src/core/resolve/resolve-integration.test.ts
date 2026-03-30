@@ -404,6 +404,105 @@ describe('CLIBuilder.run — adapter env/config integration', () => {
 		expect(stdoutLines).toEqual(['deploy run-target\n']);
 	});
 
+	it('does not read stdin when a stdin-backed arg is provided on argv', async () => {
+		const stdoutLines: string[] = [];
+		let reads = 0;
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy', 'cli-target'],
+			stdinData: 'ignored-target',
+			stdout: (s) => stdoutLines.push(s),
+			exit: (code) => {
+				throw new ExitError(code);
+			},
+		});
+		const readStdin = adapter.readStdin;
+		const countingAdapter = {
+			...adapter,
+			readStdin: async () => {
+				reads += 1;
+				return readStdin();
+			},
+		};
+		const app = cli('test').command(stdinCommand());
+
+		try {
+			await app.run({ adapter: countingAdapter });
+		} catch (err) {
+			if (!(err instanceof ExitError)) {
+				throw err;
+			}
+		}
+
+		expect(reads).toBe(0);
+		expect(stdoutLines).toEqual(['deploy cli-target\n']);
+	});
+
+	it('does not read stdin when stdinData is already provided in run options', async () => {
+		const stdoutLines: string[] = [];
+		let reads = 0;
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy'],
+			stdinData: 'adapter-target',
+			stdout: (s) => stdoutLines.push(s),
+			exit: (code) => {
+				throw new ExitError(code);
+			},
+		});
+		const readStdin = adapter.readStdin;
+		const countingAdapter = {
+			...adapter,
+			readStdin: async () => {
+				reads += 1;
+				return readStdin();
+			},
+		};
+		const app = cli('test').command(stdinCommand());
+
+		try {
+			await app.run({ adapter: countingAdapter, stdinData: 'options-target' });
+		} catch (err) {
+			if (!(err instanceof ExitError)) {
+				throw err;
+			}
+		}
+
+		expect(reads).toBe(0);
+		expect(stdoutLines).toEqual(['deploy options-target\n']);
+	});
+
+	it('does not read stdin for command help paths', async () => {
+		const stdoutLines: string[] = [];
+		let reads = 0;
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy', '--help'],
+			stdinData: 'ignored-target',
+			stdout: (s) => stdoutLines.push(s),
+			exit: (code) => {
+				throw new ExitError(code);
+			},
+		});
+		const readStdin = adapter.readStdin;
+		const countingAdapter = {
+			...adapter,
+			readStdin: async () => {
+				reads += 1;
+				return readStdin();
+			},
+		};
+		const app = cli('test').command(stdinCommand());
+
+		try {
+			await app.run({ adapter: countingAdapter });
+		} catch (err) {
+			if (!(err instanceof ExitError)) {
+				throw err;
+			}
+		}
+
+		expect(reads).toBe(0);
+		expect(stdoutLines.join('')).toContain('Deploy from stdin');
+	});
+
 	it('auto-sources adapter.env into resolution when no explicit env', async () => {
 		const app = cli('test').command(envCommand());
 

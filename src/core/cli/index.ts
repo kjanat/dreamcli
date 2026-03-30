@@ -21,6 +21,7 @@ import type { HelpOptions } from '../help/index.ts';
 import { formatHelp } from '../help/index.ts';
 import type { CapturedOutput, Verbosity } from '../output/index.ts';
 import { createCaptureOutput } from '../output/index.ts';
+import { parse } from '../parse/index.ts';
 import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
 import { createTerminalPrompter } from '../prompt/index.ts';
 import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
@@ -211,8 +212,9 @@ interface CLIRunOptions {
 	/**
 	 * Full stdin contents for args configured with `.stdin()`.
 	 *
-	 * `run()` populates this from `adapter.readStdin()`. `execute()` accepts it
-	 * directly so tests can simulate piped input without a runtime adapter.
+	 * `run()` populates this from `adapter.readStdin()` only when the selected
+	 * invocation needs stdin. `execute()` accepts it directly so tests can
+	 * simulate piped input without a runtime adapter.
 	 */
 	readonly stdinData?: string | null;
 
@@ -365,6 +367,98 @@ function buildCommandRunOptions(
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 	};
+}
+
+function buildRootCommandMap(
+	commands: readonly ErasedCommand[],
+): ReadonlyMap<string, ErasedCommand> {
+	const rootCommands = new Map<string, ErasedCommand>();
+	for (const cmd of commands) {
+		rootCommands.set(cmd.schema.name, cmd);
+		for (const alias of cmd.schema.aliases) {
+			rootCommands.set(alias, cmd);
+		}
+	}
+	return rootCommands;
+}
+
+function commandInvocationNeedsStdin(schema: CommandSchema, argv: readonly string[]): boolean {
+	if (argv.includes('--help') || argv.includes('-h')) {
+		return false;
+	}
+
+	try {
+		const parsed = parse(schema, argv);
+		return schema.args.some(({ name, schema: argSchema }) => {
+			const parsedValue = parsed.args[name];
+			return argSchema.stdinMode && (parsedValue === undefined || parsedValue === '-');
+		});
+	} catch (err: unknown) {
+		if (err instanceof ParseError) {
+			return false;
+		}
+		throw err;
+	}
+}
+
+function invocationNeedsStdin(builder: CLIBuilder, argv: readonly string[]): boolean {
+	const filteredArgv = argv.includes('--json') ? argv.filter((arg) => arg !== '--json') : argv;
+
+	if (filteredArgv.includes('--version') || filteredArgv.includes('-V')) {
+		return false;
+	}
+	if (filteredArgv.includes('--help') || filteredArgv.includes('-h')) {
+		return false;
+	}
+
+	const firstArg = filteredArgv[0];
+	if (firstArg === 'help') {
+		const hasRealHelpCommand = builder.schema.commands.some(
+			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
+		);
+		if (!hasRealHelpCommand) {
+			return false;
+		}
+	}
+
+	if (firstArg === undefined && builder.schema.defaultCommand === undefined) {
+		return false;
+	}
+	if (builder.schema.commands.length === 0) {
+		return false;
+	}
+
+	const rootCommands = buildRootCommandMap(builder.schema.commands);
+	const result = dispatch(filteredArgv, rootCommands);
+	const defaultCommand = builder.schema.defaultCommand;
+
+	switch (result.kind) {
+		case 'unknown': {
+			if (defaultCommand !== undefined && result.parentPath.length === 0) {
+				const suggestion =
+					result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
+				if (suggestion === undefined) {
+					return commandInvocationNeedsStdin(defaultCommand.schema, filteredArgv);
+				}
+			}
+			return false;
+		}
+
+		case 'needs-subcommand':
+			return false;
+
+		case 'match': {
+			const propagated = collectPropagatedFlags(result.commandPath);
+			const mergedSchema =
+				Object.keys(propagated).length > 0
+					? {
+							...result.command.schema,
+							flags: { ...propagated, ...result.command.schema.flags },
+						}
+					: result.command.schema;
+			return commandInvocationNeedsStdin(mergedSchema, result.remainingArgv);
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -790,13 +884,7 @@ class CLIBuilder {
 		}
 
 		// -- Build root command map for dispatch -----------------------------------
-		const rootCommands = new Map<string, ErasedCommand>();
-		for (const cmd of this.schema.commands) {
-			rootCommands.set(cmd.schema.name, cmd);
-			for (const alias of cmd.schema.aliases) {
-				rootCommands.set(alias, cmd);
-			}
-		}
+		const rootCommands = buildRootCommandMap(this.schema.commands);
 
 		// -- Recursive dispatch ---------------------------------------------------
 		const result = dispatch(filteredArgv, rootCommands);
@@ -1001,7 +1089,10 @@ class CLIBuilder {
 			options?.prompter === undefined && adapter.stdinIsTTY
 				? createTerminalPrompter(adapter.stdin, adapter.stderr)
 				: undefined;
-		const adapterStdinData = await adapter.readStdin();
+		const adapterStdinData =
+			options?.stdinData === undefined && invocationNeedsStdin(effectiveBuilder, filteredArgv)
+				? await adapter.readStdin()
+				: undefined;
 
 		// Source env, isTTY, and config from adapter when not explicitly provided in options
 		const executeOptions: CLIRunOptions = {
