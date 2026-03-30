@@ -1088,11 +1088,27 @@ function coerceArgStringValue(
  * Mirrors {@link buildRequiredFlagSuggest} but for positional args.
  */
 function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {
-	const provide = variadic
-		? `Provide at least one value for <${name}>`
-		: `Provide a value for <${name}>`;
-	if (schema.envVar === undefined) return provide;
-	return `${provide} or set ${schema.envVar}`;
+	const sources: [string, ...string[]] = [
+		variadic ? `Provide at least one value for <${name}>` : `Provide a value for <${name}>`,
+	];
+
+	if (schema.stdinMode) {
+		sources.push(`pipe a value to stdin or pass '-'`);
+	}
+
+	if (schema.envVar !== undefined) {
+		sources.push(`set ${schema.envVar}`);
+	}
+
+	if (sources.length === 1) {
+		return sources[0];
+	}
+
+	if (sources.length === 2) {
+		return `${sources[0]} or ${sources[1]}`;
+	}
+
+	return `${sources.slice(0, -1).join(', ')}, or ${sources[sources.length - 1]}`;
 }
 
 // ---------------------------------------------------------------------------

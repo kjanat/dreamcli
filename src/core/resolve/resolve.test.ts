@@ -494,6 +494,26 @@ describe('resolve — args', () => {
 		}
 	});
 
+	it('mentions stdin for missing required stdin-backed args', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { stdinMode: true }) }],
+		});
+		const parsed = makeParsed({ args: {} });
+
+		try {
+			await resolve(schema, parsed);
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('REQUIRED_ARG');
+				expect(err.suggest).toBe(
+					"Provide a value for <target> or pipe a value to stdin or pass '-'",
+				);
+			}
+		}
+	});
+
 	it('aggregates multiple missing required args', async () => {
 		const schema = makeSchema({
 			args: [

@@ -140,6 +140,35 @@ describe('resolve — arg env string', () => {
 			expect(err.suggest).toBe('Provide a value for <target> or set DEPLOY_TARGET');
 		}
 	});
+
+	it('mentions stdin alongside env for missing stdin-backed required args', async () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'target',
+					schema: createArgSchema('string', {
+						envVar: 'DEPLOY_TARGET',
+						presence: 'required',
+						stdinMode: true,
+					}),
+				},
+			],
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { env: {} };
+
+		try {
+			await resolve(schema, parsed, options);
+			expect.unreachable('should have thrown');
+		} catch (e) {
+			expect(isValidationError(e)).toBe(true);
+			const err = e as ValidationError;
+			expect(err.code).toBe('REQUIRED_ARG');
+			expect(err.suggest).toBe(
+				"Provide a value for <target>, pipe a value to stdin or pass '-', or set DEPLOY_TARGET",
+			);
+		}
+	});
 });
 
 // ========================================================================

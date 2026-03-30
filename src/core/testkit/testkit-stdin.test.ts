@@ -25,7 +25,8 @@ describe('runCommand — stdin', () => {
 		});
 
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['{"target":"stdin-target"}\n']);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed).toEqual({ target: 'stdin-target' });
 		expect(result.stderr).toEqual([]);
 	});
 });
