@@ -24,7 +24,7 @@ import { generateZshCompletion } from './shells/zsh.ts';
  * Supported shell targets for completion script generation.
  *
  * `bash` and `zsh` are implemented first; `fish` and `powershell` are
- * declared for forward compatibility but throw on generation.
+ * declared for forward compatibility but currently throw on generation.
  */
 type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 
@@ -35,6 +35,9 @@ type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
  * and will throw a {@link CLIError} with code `UNSUPPORTED_OPERATION` at generation time.
  * Because `flag.enum(SHELLS)` exposes all four values, callers should be aware that selecting
  * an unimplemented shell produces a runtime error, not a validation error.
+ *
+ * This tuple is mainly useful for CLI validation and shell selection UIs;
+ * most consumers will pass a concrete string literal to {@link generateCompletion}.
  *
  * @see {@link Shell} for the union type matching these entries.
  */
@@ -50,13 +53,22 @@ const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish', 'powershell']> = Object.
 // ---------------------------------------------------------------------------
 
 /**
- * Generates a completion script for the given shell.
+ * Generate a completion script for the given shell.
+ *
+ * This is the primary completion entrypoint for most consumers. Pass a CLI
+ * schema and target shell, then write the returned script to a file or source
+ * it directly from the command line.
  *
  * @param schema - The CLI schema describing commands, flags, and args.
  * @param shell - Target shell.
  * @param options - Optional generator configuration.
  * @returns A complete shell completion script as a string.
  * @throws {CLIError} If the shell is not yet supported.
+ *
+ * @example
+ * ```ts
+ * const script = generateCompletion(app.schema, 'bash');
+ * ```
  */
 function generateCompletion(schema: CLISchema, shell: Shell, options?: CompletionOptions): string {
 	switch (shell) {

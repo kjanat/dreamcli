@@ -42,7 +42,10 @@ interface FlagConfig {
 // Type-level helpers
 // ---------------------------------------------------------------------------
 
-/** Replace the presence in a config. */
+/**
+ * Advanced type helper used by `FlagBuilder` modifiers to replace presence.
+ * Most consumers rely on inference and never reference this directly.
+ */
 type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
 	readonly valueType: C['valueType'];
 	readonly presence: P;
@@ -50,6 +53,9 @@ type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
 
 /**
  * Compute the final value type from config — this is what handlers receive.
+ *
+ * Advanced type helper: this powers {@link InferFlag} and action-handler
+ * inference. Most apps do not need to mention it explicitly.
  *
  * - `'optional'`   → `T | undefined`
  * - `'required'`   → `T`
@@ -133,7 +139,26 @@ interface FlagSchema {
 	readonly propagate: boolean;
 }
 
-/** Create base schema data with sensible defaults. */
+/**
+ * Create a raw {@link FlagSchema} object with sensible defaults.
+ *
+ * Most consumers should prefer the higher-level {@link flag} factory,
+ * which returns an immutable {@link FlagBuilder} with type inference and
+ * safe modifier chaining. `createSchema()` is the low-level escape hatch
+ * for advanced schema composition, tests, or custom factories that need to
+ * work directly with the runtime descriptor.
+ *
+ * `overrides` are shallow-merged on top of the default shape, so callers are
+ * responsible for keeping the resulting schema internally consistent.
+ *
+ * @example
+ * ```ts
+ * const schema = createSchema('enum', {
+ *   enumValues: ['us', 'eu', 'ap'],
+ *   description: 'Deployment region',
+ * });
+ * ```
+ */
 function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSchema {
 	return {
 		kind,

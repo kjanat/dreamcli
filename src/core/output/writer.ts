@@ -15,9 +15,22 @@
 /**
  * A function that writes a string somewhere.
  *
- * This is the only I/O primitive the output channel depends on.
- * In production it wraps `process.stdout.write` / `process.stderr.write`;
- * in tests it can be a simple string accumulator.
+ * This is the only write primitive the output layer depends on.
+ * In production it usually wraps `process.stdout.write` or
+ * `process.stderr.write`; in tests it is often a simple string accumulator.
+ *
+ * The contract is intentionally tiny:
+ * - writes are synchronous fire-and-forget
+ * - callers decide whether to append a trailing newline
+ * - there is no backpressure or flush signal
+ *
+ * @example
+ * ```ts
+ * const lines: string[] = [];
+ * const write: WriteFn = (data) => {
+ *   lines.push(data);
+ * };
+ * ```
  */
 type WriteFn = (data: string) => void;
 

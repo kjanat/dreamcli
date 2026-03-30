@@ -137,6 +137,9 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
  *
  * Handlers interact with this via the `Out` interface — they never see
  * `OutputChannel` directly, which keeps the coupling minimal.
+ * Prefer {@link createOutput} unless you are extending the output layer.
+ *
+ * @internal
  */
 class OutputChannel implements Out {
 	/** @internal Resolved configuration. */
@@ -461,6 +464,11 @@ function formatTable<T extends Record<string, unknown>>(
 
 /**
  * Create an output channel.
+ *
+ * Low-level factory: action handlers already receive `out` automatically from
+ * `cli()`, `.execute()`, and `runCommand()`. Call `createOutput()` when you
+ * are embedding DreamCLI primitives into a custom runtime or need a standalone
+ * output implementation outside the normal command pipeline.
  *
  * @param options - Optional configuration. When omitted, output is
  *   discarded (useful for silent test runs). Pass `stdout`/`stderr`

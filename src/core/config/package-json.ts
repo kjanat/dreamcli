@@ -79,6 +79,10 @@ function joinPath(base: string, segment: string): string {
 /**
  * Discover the nearest `package.json` by walking up from `adapter.cwd`.
  *
+ * Convenience helper behind `CLIBuilder.packageJson()`. Most apps should let
+ * the CLI runtime discover package metadata automatically; call this directly
+ * when testing metadata inference or embedding the behavior in custom tooling.
+ *
  * Returns the parsed metadata on success, `null` when no `package.json`
  * is found (not an error). Malformed JSON and non-object roots also
  * return `null` — the feature is a convenience, not a hard requirement.

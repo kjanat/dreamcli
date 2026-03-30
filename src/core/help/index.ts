@@ -254,6 +254,11 @@ function formatArgDescription(schema: ArgSchema): string {
 /**
  * Generate help text from a command schema.
  *
+ * Low-level formatter: most applications reach this through `--help`,
+ * `help <command>`, or root help rendering in `CLIBuilder`. Call
+ * `formatHelp()` directly when embedding DreamCLI help text into custom UIs,
+ * tests, or generated docs.
+ *
  * Sections rendered (in order):
  * 1. **Usage** line — `program <command> [flags] <args>`
  * 2. **Description** — the command's `.description()` text
@@ -265,6 +270,11 @@ function formatArgDescription(schema: ArgSchema): string {
  * @param schema - The command schema to render help for.
  * @param options - Formatting options (width, binary name).
  * @returns The formatted help string.
+ *
+ * @example
+ * ```ts
+ * const text = formatHelp(deploy.schema, { binName: 'mycli' });
+ * ```
  */
 function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 	const opts = resolveOptions(options);

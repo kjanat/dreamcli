@@ -39,13 +39,22 @@ function versionTag(): string {
  * Options for completion script generation.
  *
  * Passed to individual shell generators alongside the CLI schema.
- * Currently a placeholder — future options may include custom function
- * name prefixes, output style tweaks, etc.
+ *
+ * These options affect the generated script text, not runtime completion
+ * behavior after installation.
  */
 interface CompletionOptions {
 	/**
-	 * Override the function name prefix in generated scripts.
-	 * Defaults to the CLI name from the schema.
+	 * Override the generated shell function name prefix.
+	 *
+	 * Defaults to the CLI name from the schema. This is mainly useful when
+	 * embedding multiple generated scripts in the same environment and you want
+	 * deterministic, collision-free helper names.
+	 *
+	 * @example
+	 * ```ts
+	 * generateCompletion(schema, 'bash', { functionPrefix: 'acme' });
+	 * ```
 	 */
 	readonly functionPrefix?: string;
 }

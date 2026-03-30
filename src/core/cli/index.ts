@@ -604,7 +604,14 @@ class CLIBuilder {
 		});
 	}
 
-	/** Register a CLI plugin. */
+	/**
+	 * Register a CLI plugin.
+	 *
+	 * Plugins run in registration order. At each lifecycle stage, all hooks for
+	 * the first plugin run before hooks for the second plugin, and so on.
+	 *
+	 * @see {@link plugin} to construct plugin definitions.
+	 */
 	plugin(definition: CLIPlugin): CLIBuilder {
 		return new CLIBuilder({
 			...this.schema,

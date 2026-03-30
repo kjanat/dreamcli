@@ -25,11 +25,21 @@ import { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree } f
 // ---------------------------------------------------------------------------
 
 /**
- * Generates a bash completion script for the CLI.
+ * Generate a bash completion script for the CLI.
+ *
+ * Use this when you want a bash-specific script directly rather than routing
+ * through {@link generateCompletion}. The generated script expects the
+ * `bash-completion` package because it relies on `_init_completion`.
  *
  * @param schema - The CLI schema.
  * @param options - Optional generator configuration.
  * @returns A complete bash completion script.
+ *
+ * @example
+ * ```ts
+ * const script = generateBashCompletion(app.schema);
+ * // install with: mycli completions bash > /etc/bash_completion.d/mycli
+ * ```
  */
 function generateBashCompletion(schema: CLISchema, options?: CompletionOptions): string {
 	const prefix = options?.functionPrefix ?? schema.name;

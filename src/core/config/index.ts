@@ -21,14 +21,23 @@ import { CLIError } from '../errors/index.ts';
 /**
  * Format loader — parses file content into a config object.
  *
- * Implementations must throw on syntax errors; the caller wraps them as
- * {@link CLIError} with code `CONFIG_PARSE_ERROR`.
+ * Register custom config formats by providing file extensions and a parser.
+ * Parsers must return a plain object whose keys become the config data fed
+ * into the resolution chain.
+ *
+ * Implementations should throw on syntax or shape errors; the caller wraps
+ * those failures as {@link CLIError} with code `CONFIG_PARSE_ERROR`.
  */
 interface FormatLoader {
 	/** File extensions this loader handles (without leading dot, e.g. `'toml'`). */
 	readonly extensions: readonly string[];
 
-	/** Parse file content into a config object. Must return a plain object or throw. */
+	/**
+	 * Parse file content into a plain config object.
+	 *
+	 * Returning arrays, primitives, or `null` is considered invalid for config
+	 * loading even if the underlying format parser would normally allow it.
+	 */
 	readonly parse: (content: string) => Record<string, unknown>;
 }
 
@@ -131,7 +140,9 @@ function getExtension(path: string): string {
 /**
  * Build the default config search paths for an app.
  *
- * Exported for help text rendering, debugging, and custom search logic.
+ * Advanced helper used by DreamCLI's config discovery. Most apps should call
+ * `.config()` or {@link discoverConfig} instead of constructing search paths
+ * manually. Exported for debugging, custom discovery flows, and help text.
  *
  * Search order (first match wins):
  * 1. `$CWD/.{appName}.json` — dotfile in project root
@@ -140,6 +151,11 @@ function getExtension(path: string): string {
  *
  * When custom {@link ConfigDiscoveryOptions.loaders | loaders} are registered,
  * each path pattern is repeated per supported extension (JSON always first).
+ *
+ * @example
+ * ```ts
+ * const paths = buildConfigSearchPaths('mycli', '/repo', '/home/me/.config');
+ * ```
  */
 function buildConfigSearchPaths(
 	appName: string,
@@ -229,13 +245,17 @@ function buildLoaderMap(loaders?: readonly FormatLoader[]): ReadonlyMap<string, 
 /**
  * The subset of {@link RuntimeAdapter} needed for config discovery.
  *
- * Using a narrow pick keeps the function easy to test and makes the
- * dependency explicit.
+ * Exported so custom hosts and tests can type the minimal adapter required by
+ * {@link discoverConfig} without depending on the full runtime adapter shape.
  */
 type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
 
 /**
  * Discover and load a config file.
+ *
+ * Low-level discovery helper behind `CLIBuilder.config()`. Most apps should
+ * let the CLI runtime call this automatically; call it directly when testing
+ * config behavior or building custom bootstrapping around `RuntimeAdapter`.
  *
  * Pure function — all filesystem I/O flows through `adapter.readFile`.
  * Returns a discriminated union: `{ found: true, ... }` when a config
@@ -244,6 +264,13 @@ type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
  * @throws {CLIError} code `CONFIG_NOT_FOUND` — explicit `configPath` doesn't exist
  * @throws {CLIError} code `CONFIG_PARSE_ERROR` — file exists but fails to parse
  * @throws {CLIError} code `CONFIG_UNKNOWN_FORMAT` — no loader for the file extension
+ *
+ * @example
+ * ```ts
+ * const result = await discoverConfig('mycli', adapter, {
+ *   loaders: [configFormat(['yaml', 'yml'], parseYAML)],
+ * });
+ * ```
  */
 async function discoverConfig(
 	appName: string,
@@ -312,11 +339,15 @@ async function discoverConfig(
 /**
  * Create a {@link FormatLoader} from extensions and a parse function.
  *
- * Convenience factory for the plugin hook — avoids manually constructing
- * the `{ extensions, parse }` object.
+ * Convenience factory for config loading. It avoids manually constructing the
+ * `{ extensions, parse }` object and makes intent clearer at call sites.
+ *
+ * Later loaders registered for the same extension override earlier ones. Any
+ * error thrown by `parse` is wrapped by {@link discoverConfig} as
+ * `CONFIG_PARSE_ERROR`.
  *
  * @param extensions - File extensions this loader handles (without dot, e.g. `'yaml'`).
- * @param parse - Parse function: takes file content string, returns a plain config object.
+ * @param parse - Parse function: takes file content string and returns a plain config object.
  *
  * @example
  * ```ts

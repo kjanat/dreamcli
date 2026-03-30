@@ -36,7 +36,17 @@ interface ResolvedCommandParams extends PluginCommandContext {
 	readonly deprecations: readonly DeprecationWarning[];
 }
 
-/** Individual lifecycle hooks that a plugin may implement. */
+/**
+ * Individual lifecycle hooks that a plugin may implement.
+ *
+ * Hook order for a successful command run is:
+ * `beforeParse` → `afterResolve` → `beforeAction` → middleware/action → `afterAction`.
+ *
+ * Hooks are awaited serially and run in plugin registration order at each
+ * stage. Throwing from any hook aborts the command just like throwing from
+ * middleware or the action handler. `afterAction` runs only after the
+ * middleware chain and action complete successfully.
+ */
 interface CLIPluginHooks {
 	/** Called immediately before leaf-command argv is parsed. */
 	readonly beforeParse?: (params: BeforeParseParams) => void | Promise<void>;
@@ -48,7 +58,12 @@ interface CLIPluginHooks {
 	readonly afterAction?: (params: ResolvedCommandParams) => void | Promise<void>;
 }
 
-/** Immutable plugin definition registered via `CLIBuilder.plugin()`. */
+/**
+ * Immutable plugin definition registered via `CLIBuilder.plugin()`.
+ *
+ * Use {@link plugin} to construct values of this shape instead of manually
+ * assembling the object.
+ */
 interface CLIPlugin {
 	/** Optional label for diagnostics and debugging. */
 	readonly name: string | undefined;
@@ -61,6 +76,23 @@ interface CLIPlugin {
  *
  * @param hooks - Lifecycle hooks to register.
  * @param name - Optional plugin name for diagnostics.
+ *
+ * @example
+ * ```ts
+ * const trace = plugin(
+ *   {
+ *     beforeParse: ({ argv, out }) => {
+ *       out.info(`argv: ${argv.join(' ')}`);
+ *     },
+ *     afterResolve: ({ flags, args }) => {
+ *       console.log({ flags, args });
+ *     },
+ *   },
+ *   'trace',
+ * );
+ *
+ * cli('mycli').plugin(trace).command(deploy);
+ * ```
  */
 function plugin(hooks: CLIPluginHooks, name?: string): CLIPlugin {
 	return { hooks, ...(name !== undefined ? { name } : { name: undefined }) };

@@ -35,6 +35,10 @@ type Token =
 /**
  * Tokenize raw argv into structured tokens.
  *
+ * Low-level utility: most apps should use {@link parse}, `cli().run()`, or
+ * `runCommand()` instead of tokenizing manually. Reach for `tokenize()` when
+ * building custom tooling such as debuggers, inspectors, or parser tests.
+ *
  * Rules:
  * - `--`        → separator (everything after is positional)
  * - `--flag`    → long flag, no inline value
@@ -42,6 +46,11 @@ type Token =
  * - `-abc`      → short flags (expanded individually by parser)
  * - `-`         → positional (convention: stdin placeholder)
  * - everything else → positional
+ *
+ * @example
+ * ```ts
+ * tokenize(['deploy', '--force', '--region=eu', '-v']);
+ * ```
  */
 function tokenize(argv: readonly string[]): readonly Token[] {
 	const tokens: Token[] = [];
@@ -253,10 +262,20 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 /**
  * Parse tokenized argv against a command schema.
  *
+ * Low-level API: most apps should let `cli()` or `runCommand()` handle parsing
+ * automatically. Call `parse()` directly when you need raw parsed values before
+ * env/config/default resolution or when writing custom tooling around schemas.
+ *
  * @param schema - The command schema to parse against
  * @param argv   - Raw argv strings (NOT including the command name itself)
  * @returns Parsed flag and arg values
  * @throws ParseError for unknown flags, missing values, type mismatches
+ *
+ * @example
+ * ```ts
+ * const parsed = parse(deploy.schema, ['production', '--force']);
+ * // => { args: { target: 'production' }, flags: { force: true } }
+ * ```
  */
 function parse(schema: CommandSchema, argv: readonly string[]): ParseResult {
 	const tokens = tokenize(argv);

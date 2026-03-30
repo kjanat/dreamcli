@@ -38,14 +38,20 @@ interface ArgConfig {
 // Type-level helpers
 // ---------------------------------------------------------------------------
 
-/** Replace the presence in a config. */
+/**
+ * Advanced type helper used by `ArgBuilder` modifiers to replace presence.
+ * Most consumers rely on inference and never reference this directly.
+ */
 type WithArgPresence<C extends ArgConfig, P extends ArgPresence> = {
 	readonly valueType: C['valueType'];
 	readonly presence: P;
 	readonly variadic: C['variadic'];
 };
 
-/** Replace the variadic flag in a config. */
+/**
+ * Advanced type helper used by `ArgBuilder.variadic()`.
+ * Most consumers rely on inference and never reference this directly.
+ */
 type WithVariadic<C extends ArgConfig> = {
 	readonly valueType: C['valueType'];
 	readonly presence: C['presence'];
@@ -54,6 +60,9 @@ type WithVariadic<C extends ArgConfig> = {
 
 /**
  * Compute the final value type from config — this is what handlers receive.
+ *
+ * Advanced type helper: this powers {@link InferArg} and action-handler
+ * inference. Most apps do not need to mention it explicitly.
  *
  * Variadic args always produce an array. Non-variadic:
  * - `'optional'`  → `T | undefined`
@@ -126,7 +135,26 @@ interface ArgSchema {
 	readonly deprecated: string | true | undefined;
 }
 
-/** Create base arg schema data with sensible defaults. */
+/**
+ * Create a raw {@link ArgSchema} object with sensible defaults.
+ *
+ * Most consumers should prefer the higher-level {@link arg} factory, which
+ * returns an immutable {@link ArgBuilder} with type inference and fluent
+ * modifiers. `createArgSchema()` exists for advanced schema composition,
+ * targeted tests, or custom builders that need the plain runtime descriptor.
+ *
+ * `overrides` are shallow-merged on top of the default shape, so callers are
+ * responsible for preserving invariants such as variadic ordering and
+ * compatible `parseFn` / `kind` combinations.
+ *
+ * @example
+ * ```ts
+ * const schema = createArgSchema('custom', {
+ *   description: 'Hex color',
+ *   parseFn: (raw) => `#${raw}`,
+ * });
+ * ```
+ */
 function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSchema {
 	return {
 		kind,

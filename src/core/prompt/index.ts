@@ -145,8 +145,20 @@ type ReadFn = () => Promise<string | null>;
 const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typeof PROMPT_CANCEL;
 
 /**
- * A test answer: either a concrete value or `PROMPT_CANCEL` to simulate
- * the user aborting the prompt.
+ * A queued answer consumed by {@link createTestPrompter}.
+ *
+ * The test prompter returns these values exactly as provided; it does not
+ * coerce or validate them. The normal resolution pipeline performs any later
+ * type coercion, so tests can supply values in the same shapes real prompts
+ * would yield:
+ *
+ * - `string` for `input` and `select`
+ * - `boolean` for `confirm`
+ * - `string[]` for `multiselect`
+ * - {@link PROMPT_CANCEL} to simulate user cancellation
+ *
+ * Because the type is intentionally `unknown`, tests may also inject malformed
+ * answers to exercise downstream validation and error reporting.
  */
 type TestAnswer = unknown;
 

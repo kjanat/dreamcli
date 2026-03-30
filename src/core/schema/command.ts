@@ -111,6 +111,9 @@ type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
 /**
  * Type-erased interactive resolver stored on `CommandSchema`.
  *
+ * Advanced bridge type: most consumers should use {@link InteractiveResolver}
+ * via `command().interactive(...)` and never reference this alias directly.
+ *
  * At runtime, the resolver receives `{ flags: Record<string, unknown> }`
  * and returns `Record<string, PromptConfig | falsy>`. The phantom types
  * from `CommandBuilder<F, A>` are erased.
@@ -401,6 +404,9 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
 /**
  * A type-erased command entry for heterogeneous command storage.
  *
+ * Advanced/internal bridge type: most consumers should work with
+ * {@link CommandBuilder} and never reference `ErasedCommand` directly.
+ *
  * Commands registered via `CLIBuilder.command()` have heterogeneous `F`, `A`,
  * and `C` type parameters. At the dispatch level we only need the runtime
  * schema (for name/alias matching and help) and the ability to delegate to
@@ -441,6 +447,9 @@ interface ErasedCommand {
 
 /**
  * Type-erased command builder for heterogeneous storage in `_subcommands`.
+ *
+ * Advanced helper alias: useful only when working on DreamCLI internals or
+ * custom tooling that mirrors the framework's type-erasure boundary.
  *
  * Uses widest possible generic bounds so any `CommandBuilder<F, A, C>` is
  * assignable. The CLI layer's `eraseCommand()` traverses these to build
@@ -892,8 +901,8 @@ class CommandBuilder<
 	 * The handler receives fully typed `{ args, flags, ctx, out }` derived
 	 * from the accumulated `.flag()`, `.arg()`, and `.middleware()` definitions.
 	 *
-	 * May be synchronous or async. The return value (if any) is captured as
-	 * `RunResult.value` by the testkit.
+	 * May be synchronous or async. Return values are ignored; command handlers
+	 * communicate through `out`, thrown errors, and side effects.
 	 *
 	 * @param handler - Function receiving `ActionParams<F, A, C>`.
 	 *
@@ -920,7 +929,8 @@ class CommandBuilder<
 	 *
 	 *     const spinner = out.spinner('Deploying...');
 	 *     await deploy(args.target, { force: flags.force });
-	 *     spinner.stop('Done');
+	 *     spinner.stop();
+	 *     out.log('Done');
 	 *   });
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {

@@ -153,6 +153,11 @@ interface DeprecationWarning {
 /**
  * Resolve parsed values against a command schema.
  *
+ * Low-level API: most applications should rely on `cli().run()`, `.execute()`,
+ * or `runCommand()`, which already call `resolve()` at the right time. Reach
+ * for this function when testing precedence rules directly or building custom
+ * execution flows around `CommandSchema`.
+ *
  * Resolution order:
  * 1. CLI parsed value (from `ParseResult`)
  * 2. Env variable (from `ResolveOptions.env`, if flag declares `envVar`)
@@ -170,6 +175,14 @@ interface DeprecationWarning {
  * @returns Fully resolved flag and arg values
  * @throws ValidationError if any required flag or arg is missing,
  *   or if an env/config value fails coercion
+ *
+ * @example
+ * ```ts
+ * const parsed = parse(deploy.schema, ['production']);
+ * const resolved = await resolve(deploy.schema, parsed, {
+ *   env: { DEPLOY_REGION: 'eu' },
+ * });
+ * ```
  */
 async function resolve(
 	schema: CommandSchema,

@@ -23,11 +23,21 @@ import { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree } f
 // ---------------------------------------------------------------------------
 
 /**
- * Generates a zsh completion script for the CLI.
+ * Generate a zsh completion script for the CLI.
+ *
+ * Use this when you want a zsh-specific script directly rather than routing
+ * through {@link generateCompletion}. The generated script is compatible with
+ * zsh's normal `#compdef` / `fpath` loading flow.
  *
  * @param schema - The CLI schema.
  * @param options - Optional generator configuration.
  * @returns A complete zsh completion script.
+ *
+ * @example
+ * ```ts
+ * const script = generateZshCompletion(app.schema);
+ * // install with: mycli completions zsh > "${fpath[1]}/_mycli"
+ * ```
  */
 function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): string {
 	const prefix = options?.functionPrefix ?? schema.name;
