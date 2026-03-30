@@ -129,7 +129,7 @@ Scripts parsing JSON output can check for the `error` field instead of parsing h
 
 ## stderr, Not stdout
 
-Errors go to **stderr**, not stdout. This seems minor but matters when piping:
+::: tip Errors go to **stderr**, not stdout. This seems minor but matters when piping: :::
 
 ```bash
 mycli list | jq '.[]'
@@ -156,4 +156,4 @@ Human messages change between versions. Error codes are stable identifiers that 
 ## What's Next?
 
 - [Testing CLIs](/concepts/testing) — how to test all these error paths
-- [Output and TTY](/concepts/output) — stdout, stderr, and when to use which
+- [Error Handling guide](/guide/errors) — implementing error handling in dreamcli

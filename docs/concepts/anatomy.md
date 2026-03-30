@@ -159,7 +159,7 @@ If you're ever stuck, `--help` is your friend.
 
 ## Version
 
-`--version` (or `-V`) tells you what version is installed:
+`--version` (sometimes `-V` or `-v`) tells you what version is installed:
 
 ```bash
 node --version        # v22.0.0
@@ -172,3 +172,6 @@ Useful when something breaks and you need to know if you're on an old version.
 
 - [Input Sources](/concepts/input) — all the places a CLI gets its data
 - [Output and TTY](/concepts/output) — what stdout, stderr, and TTY actually mean
+
+::: tip Ready to build? Jump to the [Getting Started](/guide/getting-started) guide to build your
+first command. :::

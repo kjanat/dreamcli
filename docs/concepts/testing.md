@@ -37,7 +37,7 @@ Run the actual compiled binary as a child process:
 ```ts
 import { execFile } from 'child_process';
 
-const { stdout, stderr, exitCode } = await exec('./mycli', ['greet', 'Alice']);
+const { stdout, stderr, exitCode } = await execFile('./mycli', ['greet', 'Alice']);
 expect(stdout).toBe('Hello, Alice!\n');
 expect(exitCode).toBe(0);
 ```
@@ -60,6 +60,9 @@ Doesn't test the actual binary entry point.
 
 Most CLI frameworks don't give you option 2. You're stuck shelling out and parsing text. This is a
 solved problem — the test harness just needs to exist as a first-class feature.
+
+The examples below use dreamcli's test harness, but the patterns apply to any framework that offers
+in-process testing.
 
 ## What to Test
 
@@ -151,5 +154,5 @@ Each test runs in isolation. No `beforeEach` cleanup, no shared state, no order 
 
 ## What's Next?
 
-- [Anatomy of a CLI](/concepts/anatomy) — the building blocks
-- [Input Sources](/concepts/input) — understanding the resolution chain
+- [Getting Started](/guide/getting-started) — build your first dreamcli command
+- [Testing Commands guide](/guide/testing) — dreamcli's in-process test harness

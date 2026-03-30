@@ -1,7 +1,8 @@
 # Input Sources
 
-A CLI can get its data from several places. Understanding these is key to building tools that work
-everywhere — on someone's laptop, in a CI pipeline, in a Docker container.
+A CLI gets its data from all over the place — flags you type, env vars, config files, piped input.
+Knowing where values come from (and which one wins) is how you build tools that work on someone's
+laptop *and* in a CI pipeline.
 
 ## argv — The Argument Vector
 
@@ -55,8 +56,9 @@ Same result, different input source. The flag wins if both are present.
 
 For settings you use every time, typing flags gets old fast. Config files solve this:
 
+For example, in `~/.config/mycli/config.json`:
+
 ```json
-// ~/.config/mycli/config.json
 {
 	"region": "eu",
 	"format": "json"
@@ -134,3 +136,4 @@ them per-command or per-environment.
 
 - [Output and TTY](/concepts/output) — how CLIs talk back to you
 - [Exit Codes](/concepts/exit-codes) — how CLIs signal success or failure
+- [Flags guide](/guide/flags) — implementing flags with env var and config resolution in dreamcli

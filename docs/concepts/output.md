@@ -48,16 +48,16 @@ Why does this matter? Because the right behavior changes:
 | TTY (human watching) | Colors, spinners, progress bars, formatted tables   |
 | Piped/redirected     | Plain text, no colors, no animations, stable format |
 
-If you pipe colored output to a file, you get garbage like `\x1b[32mSuccess\x1b[0m` instead of
-`Success`. Good CLIs detect this and strip colors automatically.
+::: warning If you pipe colored output to a file, you get garbage like `\x1b[32mSuccess\x1b[0m`
+instead of `Success`. Good CLIs detect this and strip colors automatically. :::
 
 ## Colors
 
 Colors make output scannable for humans:
 
-- <span style="color: red">Red</span> for errors
-- <span style="color: orange">Yellow</span> for warnings
-- <span style="color: green">Green</span> for success
+- 🔴 **Red** for errors
+- 🟡 **Yellow** for warnings
+- 🟢 **Green** for success
 
 But colors are just escape codes — special characters that terminals interpret. They're meaningless
 (and ugly) in log files, pipes, or CI output. The convention:
@@ -146,3 +146,6 @@ This keeps the JSON output clean and parseable while still letting the user see 
 
 - [Exit Codes](/concepts/exit-codes) — how a CLI says "it worked" or "it didn't"
 - [Errors](/concepts/errors) — making error messages actually helpful
+
+::: tip Ready to build? See the [Output guide](/guide/output) for dreamcli's output API — spinners,
+tables, JSON mode, and more. :::

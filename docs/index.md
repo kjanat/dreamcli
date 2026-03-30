@@ -17,6 +17,9 @@ hero:
       text: Why dreamcli?
       link: /guide/why
     - theme: alt
+      text: CLI Concepts
+      link: /concepts/anatomy
+    - theme: alt
       text: GitHub
       link: https://github.com/kjanat/dreamcli
 

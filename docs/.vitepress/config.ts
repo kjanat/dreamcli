@@ -51,7 +51,7 @@ export default defineConfig({
 					],
 				},
 				{
-					text: 'Core Concepts',
+					text: 'Core Features',
 					items: [
 						{ text: 'Commands', link: '/guide/commands' },
 						{ text: 'Flags', link: '/guide/flags' },

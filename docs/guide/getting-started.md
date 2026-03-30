@@ -83,3 +83,4 @@ $ mycli login --token abc123
 - [Commands](/guide/commands) — command builders, groups, nesting
 - [Flags](/guide/flags) — all flag types, modifiers, and resolution
 - [Testing](/guide/testing) — in-process test harness
+- [CLI Fundamentals](/concepts/anatomy) — new to CLIs? Start with the concepts
