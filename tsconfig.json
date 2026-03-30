@@ -22,7 +22,13 @@
 		"noUncheckedIndexedAccess": true,
 		"exactOptionalPropertyTypes": true,
 		"noFallthroughCasesInSwitch": true,
-		"forceConsistentCasingInFileNames": true
+		"forceConsistentCasingInFileNames": true,
+
+		"paths": {
+			"dreamcli": ["./src/index.ts"],
+			"dreamcli/runtime": ["./src/runtime.ts"],
+			"dreamcli/testkit": ["./src/testkit.ts"]
+		}
 	},
 	"exclude": ["dist", "node_modules"]
 }
