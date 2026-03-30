@@ -9,12 +9,17 @@
  */
 
 export type {
+	BeforeParseParams,
+	CLIPlugin,
+	CLIPluginHooks,
 	CLIRunOptions,
 	CLISchema,
 	ConfigSettings,
 	PackageJsonSettings,
+	PluginCommandContext,
+	ResolvedCommandParams,
 } from './core/cli/index.ts';
-export { CLIBuilder, cli } from './core/cli/index.ts';
+export { CLIBuilder, cli, plugin } from './core/cli/index.ts';
 export type { CompletionOptions, Shell } from './core/completion/index.ts';
 export {
 	generateBashCompletion,

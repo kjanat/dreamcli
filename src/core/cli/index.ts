@@ -36,6 +36,8 @@ import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
 import type { RunOptions, RunResult } from '../testkit/index.ts';
 import { runCommand } from '../testkit/index.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
+import type { CLIPlugin } from './plugin.ts';
+import { plugin } from './plugin.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 import { formatRootHelp } from './root-help.ts';
 
@@ -121,6 +123,8 @@ interface CLISchema {
 	 * Set via the `.packageJson()` builder method.
 	 */
 	readonly packageJsonSettings: PackageJsonSettings | undefined;
+	/** Registered CLI plugins. */
+	readonly plugins: readonly CLIPlugin[];
 }
 
 /**
@@ -172,6 +176,13 @@ interface PackageJsonSettings {
  * (version display, root help formatting, runtime adapter).
  */
 interface CLIRunOptions {
+	/**
+	 * CLI plugins to apply for this execution.
+	 *
+	 * @internal — populated from `CLIBuilder.schema.plugins` during dispatch.
+	 */
+	readonly plugins?: readonly CLIPlugin[];
+
 	/**
 	 * Runtime adapter providing platform-specific I/O, argv, env, etc.
 	 *
@@ -344,6 +355,7 @@ function buildCommandRunOptions(
 	return {
 		help: helpOptions,
 		...(meta !== undefined ? { meta } : {}),
+		...(options?.plugins !== undefined ? { plugins: options.plugins } : {}),
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
@@ -592,6 +604,14 @@ class CLIBuilder {
 		});
 	}
 
+	/** Register a CLI plugin. */
+	plugin(definition: CLIPlugin): CLIBuilder {
+		return new CLIBuilder({
+			...this.schema,
+			plugins: [...this.schema.plugins, definition],
+		});
+	}
+
 	// -- Built-in subcommands ------------------------------------------------
 
 	/**
@@ -779,6 +799,7 @@ class CLIBuilder {
 		// -- Shared options for command execution ----------------------------------
 		const effectiveOptions: CLIRunOptions = {
 			...options,
+			plugins: this.schema.plugins,
 			...(jsonMode ? { jsonMode } : {}),
 		};
 
@@ -1044,6 +1065,7 @@ function cli(name: string): CLIBuilder {
 		defaultCommand: undefined,
 		configSettings: undefined,
 		packageJsonSettings: undefined,
+		plugins: [],
 	});
 }
 
@@ -1051,5 +1073,12 @@ function cli(name: string): CLIBuilder {
 // Exports
 // ---------------------------------------------------------------------------
 
+export type {
+	BeforeParseParams,
+	CLIPlugin,
+	CLIPluginHooks,
+	PluginCommandContext,
+	ResolvedCommandParams,
+} from './plugin.ts';
 export type { CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };
-export { CLIBuilder, cli, formatRootHelp };
+export { CLIBuilder, cli, formatRootHelp, plugin };

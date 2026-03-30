@@ -12,6 +12,7 @@
  * @module dreamcli/core/testkit
  */
 
+import type { BeforeParseParams, CLIPlugin, ResolvedCommandParams } from '../cli/plugin.ts';
 import { CLIError } from '../errors/index.ts';
 import type { HelpOptions } from '../help/index.ts';
 import { formatHelp } from '../help/index.ts';
@@ -174,6 +175,13 @@ interface RunOptions {
 	 * @internal — populated by CLI dispatch, not for public use.
 	 */
 	readonly meta?: CommandMeta;
+
+	/**
+	 * CLI plugins registered on the parent `CLIBuilder`.
+	 *
+	 * @internal — threaded through from CLI dispatch.
+	 */
+	readonly plugins?: readonly CLIPlugin[];
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +232,12 @@ async function runCommand<
 	// Use merged schema (with propagated flags) when provided by dispatch layer,
 	// otherwise fall back to the command's own schema.
 	const schema = options?.mergedSchema ?? cmd.schema;
+	const meta: CommandMeta = options?.meta ?? {
+		name: schema.name,
+		bin: options?.help?.binName ?? schema.name,
+		version: undefined,
+		command: schema.name,
+	};
 
 	// -- Help detection -------------------------------------------------------
 	if (argv.includes('--help') || argv.includes('-h')) {
@@ -243,6 +257,13 @@ async function runCommand<
 	}
 
 	try {
+		await runPluginHooks(options?.plugins, 'beforeParse', {
+			argv,
+			command: schema,
+			meta,
+			out,
+		});
+
 		// -- Parse ---------------------------------------------------------------
 		const parsed = parse(schema, argv);
 
@@ -259,19 +280,21 @@ async function runCommand<
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
 		};
 		const resolved = await resolve(schema, parsed, resolveOptions);
+		const resolvedParams: ResolvedCommandParams = {
+			args: resolved.args,
+			flags: resolved.flags,
+			deprecations: resolved.deprecations,
+			command: schema,
+			meta,
+			out,
+		};
+
+		await runPluginHooks(options?.plugins, 'afterResolve', resolvedParams);
 
 		// -- Deprecation warnings ------------------------------------------------
 		for (const d of resolved.deprecations) {
 			out.warn(formatDeprecation(d));
 		}
-
-		// -- Build command metadata -----------------------------------------------
-		const meta: CommandMeta = options?.meta ?? {
-			name: schema.name,
-			bin: options?.help?.binName ?? schema.name,
-			version: undefined,
-			command: schema.name,
-		};
 
 		// -- Execute middleware chain + handler -----------------------------------
 		// The resolver guarantees that resolved.flags and resolved.args match
@@ -279,7 +302,9 @@ async function runCommand<
 		// types on CommandBuilder<F, A> are erased at runtime — the handler
 		// is just a function accepting a plain object. `executeWithMiddleware`
 		// runs the middleware chain then invokes the handler at the end.
+		await runPluginHooks(options?.plugins, 'beforeAction', resolvedParams);
 		await executeWithMiddleware(cmd.schema, cmd.handler, resolved.flags, resolved.args, out, meta);
+		await runPluginHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return buildResult(0, captured, undefined);
 	} catch (err: unknown) {
@@ -311,6 +336,42 @@ async function runCommand<
 		// Clean up any active spinner/progress timer that the handler
 		// failed to stop (e.g. unhandled exception before terminal method).
 		out.stopActive();
+	}
+}
+
+type PluginHookName = keyof CLIPlugin['hooks'];
+
+async function runPluginHooks(
+	plugins: readonly CLIPlugin[] | undefined,
+	hookName: 'beforeParse',
+	params: BeforeParseParams,
+): Promise<void>;
+async function runPluginHooks(
+	plugins: readonly CLIPlugin[] | undefined,
+	hookName: Exclude<PluginHookName, 'beforeParse'>,
+	params: ResolvedCommandParams,
+): Promise<void>;
+async function runPluginHooks(
+	plugins: readonly CLIPlugin[] | undefined,
+	hookName: PluginHookName,
+	params: BeforeParseParams | ResolvedCommandParams,
+): Promise<void> {
+	if (plugins === undefined) {
+		return;
+	}
+
+	for (const current of plugins) {
+		if (hookName === 'beforeParse') {
+			const hook = current.hooks.beforeParse;
+			if (hook !== undefined) {
+				await hook(params as BeforeParseParams);
+			}
+			continue;
+		}
+		const hook = current.hooks[hookName];
+		if (hook !== undefined) {
+			await hook(params as ResolvedCommandParams);
+		}
 	}
 }
 
