@@ -11,11 +11,7 @@ const revision = (() => {
 })();
 
 export default defineConfig({
-	entry: {
-		index: 'src/index.ts',
-		testkit: 'src/testkit.ts',
-		runtime: 'src/runtime.ts',
-	},
+	entry: ['src/index.ts', { testkit: 'src/testkit.ts', runtime: 'src/runtime.ts' }],
 	format: {
 		esm: {
 			target: ['ESNext'],
@@ -24,18 +20,12 @@ export default defineConfig({
 			target: ['node22'],
 		},
 	},
-	dts: {
-		oxc: true,
-		tsgo: { path: 'node_modules/.bin/tsgo', enabled: false },
-	},
+	dts: true,
 	clean: true,
-	target: 'ESNext',
 	platform: 'node',
 	exports: {
-		devExports: 'bun',
-		legacy: true,
+		devExports: true,
 		enabled: true,
-		packageJson: true,
 	},
 	define: {
 		__DREAMCLI_VERSION__: JSON.stringify(pkg.version),
@@ -45,5 +35,5 @@ export default defineConfig({
 	minify: 'dce-only',
 	publint: true,
 	attw: { profile: 'strict', level: 'error', ignoreRules: ['no-resolution'] },
-	onSuccess: 'bun format package.json', // ensures proper sorting of the exports
+	onSuccess: 'bunx sort-package-json package.json', // ensures proper sorting of the exports
 });

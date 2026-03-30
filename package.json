@@ -21,21 +21,9 @@
 	"author": "Kaj Kowalski <info@kajkowalski.nl> (https://github.com/kjanat)",
 	"type": "module",
 	"exports": {
-		".": {
-			"bun": "./src/index.ts",
-			"import": "./dist/index.mjs",
-			"require": "./dist/index.cjs"
-		},
-		"./runtime": {
-			"bun": "./src/runtime.ts",
-			"import": "./dist/runtime.mjs",
-			"require": "./dist/runtime.cjs"
-		},
-		"./testkit": {
-			"bun": "./src/testkit.ts",
-			"import": "./dist/testkit.mjs",
-			"require": "./dist/testkit.cjs"
-		},
+		".": "./src/index.ts",
+		"./runtime": "./src/runtime.ts",
+		"./testkit": "./src/testkit.ts",
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.cjs",
