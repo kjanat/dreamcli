@@ -160,6 +160,11 @@ describe('createBunAdapter — stdin', () => {
 		expect(typeof adapter.stdin).toBe('function');
 	});
 
+	it('accepts Bun when Node compatibility version is below the Node minimum', () => {
+		const proc = mockProcess({ versions: { node: '20.20.1', bun: '1.3.11' } });
+		expect(() => createBunAdapter(proc)).not.toThrow();
+	});
+
 	it('throws for unsupported Bun versions', () => {
 		const proc = mockProcess({ versions: { node: '22.0.0', bun: '1.2.9' } });
 		expect(() => createBunAdapter(proc)).toThrow('dreamcli requires Bun >= 1.3');

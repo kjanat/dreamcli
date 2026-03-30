@@ -155,6 +155,15 @@ function resolveConfigDir(
 	return env.XDG_CONFIG_HOME || `${homedir}/.config`;
 }
 
+function assertProcessRuntimeSupported(proc: NodeProcess): void {
+	if (proc.versions?.bun !== undefined) {
+		assertRuntimeVersionSupported('bun', proc.versions.bun);
+		return;
+	}
+
+	assertRuntimeVersionSupported('node', proc.versions?.node);
+}
+
 // ---------------------------------------------------------------------------
 // Node adapter factory
 // ---------------------------------------------------------------------------
@@ -182,7 +191,7 @@ function resolveConfigDir(
  */
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const p = proc ?? getNodeProcess();
-	assertRuntimeVersionSupported('node', p.versions?.node);
+	assertProcessRuntimeSupported(p);
 
 	const stdoutWrite: WriteFn = (data) => {
 		p.stdout.write(data);

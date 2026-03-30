@@ -13,9 +13,15 @@
  *   1 — a check failed
  */
 
-// Import from built output (not source) to verify the published shape
-import type { RuntimeAdapter } from '../dist/runtime.mjs';
-import { createDenoAdapter } from '../dist/runtime.mjs';
+import type { RuntimeAdapter } from '../src/runtime.ts';
+
+// Import from built output (not source) to verify the published shape.
+// Use a file URL expression so repository typecheck does not require a prebuilt dist/.
+const runtimeModuleUrl = new URL('../dist/runtime.mjs', import.meta.url).href;
+const runtimeModule = (await import(runtimeModuleUrl)) as {
+	createDenoAdapter: () => RuntimeAdapter;
+};
+const { createDenoAdapter } = runtimeModule;
 
 let failures = 0;
 

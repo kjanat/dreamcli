@@ -58,10 +58,12 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # Bun: run vitest via bun
+      # Bun: execute Vitest with Bun directly.
+      # `bun run test` would hit node_modules/.bin/vitest, whose shebang is
+      # `#!/usr/bin/env node`, and therefore use the runner's Node binary.
       - name: Test (Bun)
         if: matrix.runtime == 'bun'
-        run: bun run test
+        run: bunx --bun vitest run
 
       # Node: run vitest via npx (uses Node, not Bun, as the runtime)
       - name: Test (Node)

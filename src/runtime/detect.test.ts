@@ -9,6 +9,14 @@ import { describe, expect, it } from 'vitest';
 import type { GlobalForDetect, Runtime } from './detect.ts';
 import { detectRuntime, RUNTIMES } from './detect.ts';
 
+function currentHostRuntime(): Runtime {
+	const globals = globalThis as unknown as GlobalForDetect;
+	if (typeof globals.Bun?.version === 'string') return 'bun';
+	if (typeof globals.Deno?.version?.deno === 'string') return 'deno';
+	if (typeof globals.process?.versions?.node === 'string') return 'node';
+	return 'unknown';
+}
+
 // ===================================================================
 // RUNTIMES constant
 // ===================================================================
@@ -160,8 +168,7 @@ describe('detectRuntime — priority order', () => {
 describe('detectRuntime — default globalThis', () => {
 	it('detects current runtime without explicit globals', () => {
 		const rt = detectRuntime();
-		// We're running in Node.js via vitest
-		expect(rt).toBe('node');
+		expect(rt).toBe(currentHostRuntime());
 	});
 
 	it('returns a value that is a member of RUNTIMES', () => {
