@@ -11,6 +11,7 @@
 import type { HelpOptions } from '../help/index.ts';
 import { formatHelpSections } from '../help/index.ts';
 import type { CommandSchema } from '../schema/command.ts';
+import { resolveRootSurface } from './root-surface.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
 // Only the shape matters — we read `.name`, `.version`, `.description`, `.commands`,
@@ -40,14 +41,14 @@ interface CLISchemaLike {
  */
 function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	const width = options?.width ?? 80;
-	const visibleCommands = schema.commands.filter((c) => !c.schema.hidden);
-	if (shouldMergeDefaultHelp(schema, visibleCommands)) {
-		const defaultCommand = schema.defaultCommand;
+	const rootSurface = resolveRootSurface(schema);
+	if (rootSurface.hasSingleVisibleDefault) {
+		const defaultCommand = rootSurface.visibleDefaultCommand;
 		if (defaultCommand !== undefined) {
-			const sections = buildRootSections(schema, visibleCommands, width);
+			const sections = buildRootSections(schema, rootSurface.visibleCommands, width);
 			const usageIndex = sections.findIndex((section) => section.startsWith('Usage: '));
 			const commandSections = [
-				...formatHelpSections(defaultCommand.schema, {
+				...formatHelpSections(defaultCommand, {
 					...options,
 					binName: schema.name,
 				}),
@@ -57,8 +58,8 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 				sections[usageIndex] = mergeUsageSections(sections[usageIndex] ?? '', commandUsage);
 			}
 			if (
-				defaultCommand.schema.description !== undefined &&
-				commandSections[0] === defaultCommand.schema.description
+				defaultCommand.description !== undefined &&
+				commandSections[0] === defaultCommand.description
 			) {
 				commandSections.shift();
 			}
@@ -67,7 +68,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 		}
 	}
 
-	const sections = buildRootSections(schema, visibleCommands, width);
+	const sections = buildRootSections(schema, rootSurface.visibleCommands, width);
 	sections.push(`Run '${schema.name} ${commandPlaceholder(schema)} --help' for more information.`);
 
 	return `${sections.join('\n\n')}\n`;
@@ -75,7 +76,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 
 function buildRootSections(
 	schema: CLISchemaLike,
-	visibleCommands: readonly { readonly schema: CommandSchema }[],
+	visibleCommands: readonly CommandSchema[],
 	width: number,
 ): string[] {
 	const sections: string[] = [];
@@ -107,20 +108,8 @@ function commandPlaceholder(schema: CLISchemaLike): string {
 	return schema.defaultCommand !== undefined ? '[command]' : '<command>';
 }
 
-function shouldMergeDefaultHelp(
-	schema: CLISchemaLike,
-	visibleCommands: readonly { readonly schema: CommandSchema }[],
-): boolean {
-	const defaultName = schema.defaultCommand?.schema.name;
-	return (
-		defaultName !== undefined &&
-		visibleCommands.length === 1 &&
-		visibleCommands[0]?.schema.name === defaultName
-	);
-}
-
 function formatRootCommandsSection(
-	visibleCommands: readonly { readonly schema: CommandSchema }[],
+	visibleCommands: readonly CommandSchema[],
 	defaultName: string | undefined,
 	width: number,
 ): string {
@@ -131,8 +120,8 @@ function formatRootCommandsSection(
 	// Compute max command name length for alignment (account for default tag)
 	let maxNameLen = 0;
 	for (const cmd of visibleCommands) {
-		const tagLen = cmd.schema.name === defaultName ? DEFAULT_TAG.length : 0;
-		const nameLen = cmd.schema.name.length + tagLen;
+		const tagLen = cmd.name === defaultName ? DEFAULT_TAG.length : 0;
+		const nameLen = cmd.name.length + tagLen;
 		if (nameLen > maxNameLen) {
 			maxNameLen = nameLen;
 		}
@@ -140,10 +129,10 @@ function formatRootCommandsSection(
 
 	const descCol = 2 + maxNameLen + GAP; // 2 for indent
 	for (const cmd of visibleCommands) {
-		const isDefault = cmd.schema.name === defaultName;
-		const label = isDefault ? `${cmd.schema.name}${DEFAULT_TAG}` : cmd.schema.name;
+		const isDefault = cmd.name === defaultName;
+		const label = isDefault ? `${cmd.name}${DEFAULT_TAG}` : cmd.name;
 		const padded = padEnd(`  ${label}`, descCol);
-		const desc = cmd.schema.description ?? '';
+		const desc = cmd.description ?? '';
 		if (desc.length === 0) {
 			lines.push(padded.trimEnd());
 		} else {

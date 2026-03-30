@@ -34,6 +34,53 @@ function loginCommand() {
 		});
 }
 
+function serveDefaultCommand() {
+	return command('serve')
+		.description('Start the server')
+		.flag('port', flag.number().alias('p').describe('Port'))
+		.flag('verbose', flag.boolean().propagate().describe('Verbose logging'))
+		.command(
+			command('inspect')
+				.description('Inspect the running server')
+				.flag('childOnly', flag.boolean().describe('Child-only flag'))
+				.action(({ out }) => {
+					out.log('inspect');
+				}),
+		)
+		.action(({ out }) => {
+			out.log('serve');
+		});
+}
+
+function statusCommand() {
+	return command('status')
+		.description('Show current status')
+		.action(({ out }) => {
+			out.log('status');
+		});
+}
+
+function extractBashRootWords(script: string): readonly string[] {
+	const matches = [...script.matchAll(/compgen -W '([^']*)' -- "\$cur"/g)];
+	const words = matches[matches.length - 1]?.[1];
+	if (words === undefined) {
+		throw new Error('Could not find root bash completion words');
+	}
+	return words.split(' ').filter(Boolean);
+}
+
+function extractZshRootFunction(script: string, funcName = '_mycli'): string {
+	const start = script.indexOf(`${funcName}() {`);
+	if (start === -1) {
+		throw new Error(`Could not find zsh root function '${funcName}'`);
+	}
+	const end = script.indexOf(`\n}\n\n${funcName} "$@"`, start);
+	if (end === -1) {
+		throw new Error(`Could not find end of zsh root function '${funcName}'`);
+	}
+	return script.slice(start, end);
+}
+
 // ===================================================================
 // .completions() builder method
 // ===================================================================
@@ -133,6 +180,41 @@ describe('.completions() — bash output', () => {
 		// but should NOT appear in the case/compgen subcommand dispatch
 		expect(output).not.toMatch(/compgen -W '[^']*completions/);
 	});
+
+	it('keeps hybrid default-command root completion command-centric by default', async () => {
+		const app = cli('mycli').default(serveDefaultCommand()).command(statusCommand()).completions();
+		const result = await app.execute(['completions', 'bash']);
+		const rootWords = extractBashRootWords(result.stdout.join(''));
+
+		expect(rootWords).toEqual(['serve', 'status', '--help']);
+	});
+
+	it('passes rootMode through to bash completion generation', async () => {
+		const app = cli('mycli')
+			.default(serveDefaultCommand())
+			.command(statusCommand())
+			.completions({ rootMode: 'surface' });
+		const result = await app.execute(['completions', 'bash']);
+		const rootWords = extractBashRootWords(result.stdout.join(''));
+
+		expect(rootWords).toContain('--port');
+		expect(rootWords).toContain('-p');
+		expect(rootWords).toContain('--verbose');
+		expect(rootWords).not.toContain('--childOnly');
+	});
+
+	it('exposes default-command flags for a single visible default in default mode', async () => {
+		const app = cli('mycli').default(serveDefaultCommand()).completions();
+		const result = await app.execute(['completions', 'bash']);
+		const rootWords = extractBashRootWords(result.stdout.join(''));
+
+		expect(rootWords).toContain('serve');
+		expect(rootWords).toContain('--help');
+		expect(rootWords).toContain('--port');
+		expect(rootWords).toContain('-p');
+		expect(rootWords).toContain('--verbose');
+		expect(rootWords).not.toContain('--childOnly');
+	});
 });
 
 // ===================================================================
@@ -163,6 +245,40 @@ describe('.completions() — zsh output', () => {
 		const output = result.stdout.join('');
 		expect(output).toContain('--force');
 		expect(output).toContain('--region');
+	});
+
+	it('keeps hybrid default-command root completion command-centric by default', async () => {
+		const app = cli('mycli').default(serveDefaultCommand()).command(statusCommand()).completions();
+		const result = await app.execute(['completions', 'zsh']);
+		const rootFunction = extractZshRootFunction(result.stdout.join(''));
+
+		expect(rootFunction).toContain("'--help[Show help text]'");
+		expect(rootFunction).toContain("'serve:Start the server'");
+		expect(rootFunction).toContain("'status:Show current status'");
+		expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+	});
+
+	it('passes rootMode through to zsh completion generation', async () => {
+		const app = cli('mycli')
+			.default(serveDefaultCommand())
+			.command(statusCommand())
+			.completions({ rootMode: 'surface' });
+		const result = await app.execute(['completions', 'zsh']);
+		const rootFunction = extractZshRootFunction(result.stdout.join(''));
+
+		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+		expect(rootFunction).toContain("'--verbose[Verbose logging]'");
+		expect(rootFunction).not.toContain("'--childOnly[Child-only flag]'");
+	});
+
+	it('exposes default-command flags for a single visible default in default mode', async () => {
+		const app = cli('mycli').default(serveDefaultCommand()).completions();
+		const result = await app.execute(['completions', 'zsh']);
+		const rootFunction = extractZshRootFunction(result.stdout.join(''));
+
+		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+		expect(rootFunction).toContain("'--verbose[Verbose logging]'");
+		expect(rootFunction).not.toContain("'--childOnly[Child-only flag]'");
 	});
 });
 

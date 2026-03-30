@@ -11,7 +11,7 @@
 
 import type { RuntimeAdapter } from '../../runtime/adapter.ts';
 import { createAdapter } from '../../runtime/auto.ts';
-import type { Shell } from '../completion/index.ts';
+import type { CompletionOptions, Shell } from '../completion/index.ts';
 import { generateCompletion, SHELLS } from '../completion/index.ts';
 import type { FormatLoader } from '../config/index.ts';
 import { discoverConfig } from '../config/index.ts';
@@ -727,7 +727,8 @@ class CLIBuilder {
 	 * Call this **after** registering all other commands so the completion
 	 * script includes the full command set. The captured schema is a
 	 * snapshot at call time — commands registered after `.completions()`
-	 * will not appear in the generated script.
+	 * will not appear in the generated script. Completion options are also
+	 * captured at call time.
 	 *
 	 * @example
 	 * ```ts
@@ -735,11 +736,11 @@ class CLIBuilder {
 	 *   .version('1.0.0')
 	 *   .command(deploy)
 	 *   .command(login)
-	 *   .completions()
+	 *   .completions({ rootMode: 'surface' })
 	 *   .run();
 	 * ```
 	 */
-	completions(): CLIBuilder {
+	completions(options?: CompletionOptions): CLIBuilder {
 		if (this.schema.commands.some((c) => c.schema.name === 'completions')) {
 			throw new CLIError('.completions() has already been called', {
 				code: 'DUPLICATE_COMMAND',
@@ -751,6 +752,7 @@ class CLIBuilder {
 		// The completions command itself is deliberately excluded from the
 		// generated script (it would be noise in shell completions).
 		const cliSchema = this.schema;
+		const completionOptions = options;
 
 		// Supported shells for validation. Keep in sync with completion/index.ts SHELLS.
 		const shellMap = new Map<string, Shell>();
@@ -776,7 +778,7 @@ class CLIBuilder {
 					.describe(`Target shell (${SHELLS.join(', ')})`),
 			)
 			.action(({ args, out }) => {
-				const script = generateCompletion(cliSchema, args.shell);
+				const script = generateCompletion(cliSchema, args.shell, completionOptions);
 				if (out.jsonMode) {
 					out.json({ shell: args.shell, script });
 				} else {

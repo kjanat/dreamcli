@@ -16,7 +16,13 @@
 import type { CLISchema } from '../../cli/index.ts';
 import type { FlagSchema } from '../../schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
-import { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree } from './shared.ts';
+import {
+	quoteShellArg,
+	resolveRootCompletionSurface,
+	sanitizeShellIdentifier,
+	versionTag,
+	walkCommandTree,
+} from './shared.ts';
 
 // ---------------------------------------------------------------------------
 // Public generator
@@ -42,7 +48,8 @@ import { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree } f
 function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): string {
 	const prefix = options?.functionPrefix ?? schema.name;
 	const funcName = `_${sanitizeShellIdentifier(prefix)}`;
-	const visibleCommands = schema.commands.map((c) => c.schema).filter((s) => !s.hidden);
+	const rootSurface = resolveRootCompletionSurface(schema, options?.rootMode);
+	const visibleCommands = rootSurface.visibleCommands;
 	const nodes = walkCommandTree(visibleCommands);
 
 	const lines: string[] = [];
@@ -85,11 +92,16 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 		lines.push('\tlocal line state');
 		lines.push('');
 
-		// --- Root-level: global flags + subcommand argument ---
+		// --- Root-level: visible root surface ---
+		const rootFlags = {
+			...rootSurface.rootFlags,
+			...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
+		};
+		const rootFlagSpecs = buildZshFlagSpecsFromFlags(rootFlags);
+
 		lines.push('\t_arguments -C \\');
-		lines.push("\t\t'--help[Show help text]' \\");
-		if (schema.version !== undefined) {
-			lines.push("\t\t'--version[Show version]' \\");
+		for (const spec of rootFlagSpecs) {
+			lines.push(`\t\t${spec} \\`);
 		}
 		lines.push("\t\t'1: :->subcmd' \\");
 		lines.push("\t\t'*::arg:->args'");
@@ -142,10 +154,7 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 		lines.push('\tesac');
 	} else {
 		// --- No subcommands: just global flags ---
-		const globalFlags: string[] = ["'--help[Show help text]'"];
-		if (schema.version !== undefined) {
-			globalFlags.push("'--version[Show version]'");
-		}
+		const globalFlags = buildZshFlagSpecsFromFlags(rootSurface.rootFlags);
 		lines.push('\t_arguments \\');
 		for (let i = 0; i < globalFlags.length; i++) {
 			const trailing = i < globalFlags.length - 1 ? ' \\' : '';

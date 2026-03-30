@@ -105,6 +105,27 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	};
 }
 
+function extractBashRootWords(script: string): readonly string[] {
+	const matches = [...script.matchAll(/compgen -W '([^']*)' -- "\$cur"/g)];
+	const words = matches[matches.length - 1]?.[1];
+	if (words === undefined) {
+		throw new Error('Could not find root bash completion words');
+	}
+	return words.split(' ').filter(Boolean);
+}
+
+function extractZshRootFunction(script: string, funcName = '_testcli'): string {
+	const start = script.indexOf(`${funcName}() {`);
+	if (start === -1) {
+		throw new Error(`Could not find zsh root function '${funcName}'`);
+	}
+	const end = script.indexOf(`\n}\n\n${funcName} "$@"`, start);
+	if (end === -1) {
+		throw new Error(`Could not find end of zsh root function '${funcName}'`);
+	}
+	return script.slice(start, end);
+}
+
 // ===================================================================
 // Shell type — SHELLS constant
 // ===================================================================
@@ -132,6 +153,11 @@ describe('CompletionOptions — type contract', () => {
 	it('accepts functionPrefix', () => {
 		const options: CompletionOptions = { functionPrefix: '_myapp' };
 		expect(options.functionPrefix).toBe('_myapp');
+	});
+
+	it('accepts rootMode', () => {
+		const options: CompletionOptions = { rootMode: 'surface' };
+		expect(options.rootMode).toBe('surface');
 	});
 });
 
@@ -255,6 +281,87 @@ describe('generateBashCompletion — subcommand completions', () => {
 
 		// Aliases should appear in the case pattern for subcommand detection
 		expect(script).toContain('deploy|d|ship)');
+	});
+});
+
+// ===================================================================
+// generateBashCompletion — root completion policy
+// ===================================================================
+
+describe('generateBashCompletion — root completion policy', () => {
+	it('keeps hybrid CLIs command-centric by default', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootWords = extractBashRootWords(generateBashCompletion(schema));
+
+		expect(rootWords).toEqual(['serve', 'status', '--help', '--version']);
+	});
+
+	it('exposes default-command flags at the root in surface mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					verbose: flagSchema({ kind: 'boolean', propagate: true, description: 'Verbose' }),
+				},
+				commands: [
+					commandSchema({
+						name: 'inspect',
+						flags: {
+							childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
+						},
+					}),
+				],
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootWords = extractBashRootWords(generateBashCompletion(schema, { rootMode: 'surface' }));
+
+		expect(rootWords).toContain('serve');
+		expect(rootWords).toContain('status');
+		expect(rootWords).toContain('--help');
+		expect(rootWords).toContain('--version');
+		expect(rootWords).toContain('--port');
+		expect(rootWords).toContain('-p');
+		expect(rootWords).toContain('--verbose');
+		expect(rootWords).not.toContain('--childOnly');
+	});
+
+	it('exposes default-command flags for a single visible default even in subcommands mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const schema = minimalSchema({
+			commands: [serve],
+			defaultCommand: serve,
+		});
+
+		const rootWords = extractBashRootWords(generateBashCompletion(schema));
+
+		expect(rootWords).toEqual(['serve', '--help', '--version', '--port', '-p']);
 	});
 });
 
@@ -859,6 +966,89 @@ describe('generateZshCompletion — subcommand completions', () => {
 });
 
 // ===================================================================
+// generateZshCompletion — root completion policy
+// ===================================================================
+
+describe('generateZshCompletion — root completion policy', () => {
+	it('keeps hybrid CLIs command-centric by default', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status', description: 'Status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootFunction = extractZshRootFunction(generateZshCompletion(schema));
+
+		expect(rootFunction).toContain("'--help[Show help text]'");
+		expect(rootFunction).toContain("'--version[Show version]'");
+		expect(rootFunction).not.toContain("'--port[Port]:value:'");
+		expect(rootFunction).toContain("'1: :->subcmd'");
+		expect(rootFunction).toContain("'serve:serve'");
+		expect(rootFunction).toContain("'status:Status'");
+	});
+
+	it('exposes default-command flags at the root in surface mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					verbose: flagSchema({ kind: 'boolean', propagate: true, description: 'Verbose' }),
+				},
+				commands: [
+					commandSchema({
+						name: 'inspect',
+						flags: {
+							childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
+						},
+					}),
+				],
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootFunction = extractZshRootFunction(
+			generateZshCompletion(schema, { rootMode: 'surface' }),
+		);
+
+		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+		expect(rootFunction).toContain("'--verbose[Verbose]'");
+		expect(rootFunction).not.toContain("'--childOnly[Child only]'");
+	});
+
+	it('exposes default-command flags for a single visible default even in subcommands mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const schema = minimalSchema({
+			commands: [serve],
+			defaultCommand: serve,
+		});
+
+		const rootFunction = extractZshRootFunction(generateZshCompletion(schema));
+
+		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+	});
+});
+
+// ===================================================================
 // generateZshCompletion — flag completions
 // ===================================================================
 
@@ -1210,6 +1400,28 @@ describe('generateCompletion — dispatcher', () => {
 
 		expect(script).toContain('#compdef testcli');
 		expect(script).toContain('_testcli() {');
+	});
+
+	it('passes completion options through to shell generators', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const script = generateCompletion(schema, 'bash', { rootMode: 'surface' });
+		const rootWords = extractBashRootWords(script);
+
+		expect(rootWords).toContain('--port');
+		expect(rootWords).toContain('-p');
 	});
 
 	it('throws CLIError for fish (unsupported)', () => {

@@ -18,7 +18,13 @@
 import type { CLISchema } from '../../cli/index.ts';
 import type { CommandSchema, FlagSchema } from '../../schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
-import { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree } from './shared.ts';
+import {
+	quoteShellArg,
+	resolveRootCompletionSurface,
+	sanitizeShellIdentifier,
+	versionTag,
+	walkCommandTree,
+} from './shared.ts';
 
 // ---------------------------------------------------------------------------
 // Public generator
@@ -44,7 +50,8 @@ import { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree } f
 function generateBashCompletion(schema: CLISchema, options?: CompletionOptions): string {
 	const prefix = options?.functionPrefix ?? schema.name;
 	const funcName = `_${sanitizeShellIdentifier(prefix)}_completions`;
-	const visibleCommands = schema.commands.map((c) => c.schema).filter((s) => !s.hidden);
+	const rootSurface = resolveRootCompletionSurface(schema, options?.rootMode);
+	const visibleCommands = rootSurface.visibleCommands;
 	const nodes = walkCommandTree(visibleCommands);
 	const maxDepth = nodes.reduce((max, n) => Math.max(max, n.path.length), 0);
 
@@ -143,13 +150,22 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\tesac');
 		lines.push('');
 
-		// --- Root-level: subcommands + global flags ---
-		const rootFlags = schema.version !== undefined ? '--help --version' : '--help';
-		const subNames = visibleCommands.map((s) => escapeForSingleQuote(s.name)).join(' ');
-		lines.push(`\t# Root-level completions: subcommands and global flags`);
-		lines.push(`\tCOMPREPLY=($(compgen -W '${subNames} ${rootFlags}' -- "$cur"))`);
+		// --- Root-level: visible root surface ---
+		const rootFlagWords = collectFlagWords(rootSurface.rootFlags).split(' ').filter(Boolean);
+		const defaultFlagWords = rootSurface.includeDefaultFlags
+			? collectFlagWords(rootSurface.defaultFlags).split(' ').filter(Boolean)
+			: [];
+		const completionWords = dedupeWords([
+			...visibleCommands.map((command) => command.name),
+			...rootFlagWords,
+			...defaultFlagWords,
+		])
+			.map(escapeForSingleQuote)
+			.join(' ');
+		lines.push(`\t# Root-level completions: visible root surface`);
+		lines.push(`\tCOMPREPLY=($(compgen -W '${completionWords}' -- "$cur"))`);
 	} else {
-		const globalFlags = schema.version !== undefined ? '--help --version' : '--help';
+		const globalFlags = collectFlagWords(rootSurface.rootFlags);
 		lines.push(`\tCOMPREPLY=($(compgen -W '${globalFlags}' -- "$cur"))`);
 	}
 
@@ -288,6 +304,10 @@ function collectFlagWords(flags: Readonly<Record<string, FlagSchema>>): string {
 		}
 	}
 	return words.join(' ');
+}
+
+function dedupeWords(words: readonly string[]): readonly string[] {
+	return [...new Set(words)];
 }
 
 /**

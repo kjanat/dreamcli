@@ -11,6 +11,7 @@
 
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '../../../version.ts';
 import { collectPropagatedFlags } from '../../cli/propagate.ts';
+import { resolveRootSurface } from '../../cli/root-surface.ts';
 import type { CommandSchema, FlagSchema } from '../../schema/index.ts';
 
 // ---------------------------------------------------------------------------
@@ -57,6 +58,100 @@ interface CompletionOptions {
 	 * ```
 	 */
 	readonly functionPrefix?: string;
+	/**
+	 * Controls which root-level surface shell completion exposes when a
+	 * default command exists.
+	 *
+	 * - `'subcommands'` keeps hybrid CLIs command-centric at the root while
+	 *   still exposing default-command flags for a single visible default
+	 *   command.
+	 * - `'surface'` exposes the default command's root-usable flags at the
+	 *   root whenever a visible default command exists.
+	 *
+	 * @default 'subcommands'
+	 */
+	readonly rootMode?: 'subcommands' | 'surface';
+}
+
+// ---------------------------------------------------------------------------
+// Root completion surface — shared policy resolver
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalized root completion surface consumed by shell generators.
+ *
+ * @internal
+ */
+interface RootCompletionSurface {
+	readonly visibleCommands: readonly CommandSchema[];
+	readonly visibleDefaultCommand: CommandSchema | undefined;
+	readonly rootFlags: Readonly<Record<string, FlagSchema>>;
+	readonly defaultFlags: Readonly<Record<string, FlagSchema>>;
+	readonly includeDefaultFlags: boolean;
+}
+
+/**
+ * Schema shape needed to compute the root completion surface.
+ *
+ * @internal
+ */
+interface RootCompletionSchemaLike {
+	readonly commands: ReadonlyArray<{
+		readonly schema: CommandSchema;
+	}>;
+	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
+	readonly version: string | undefined;
+}
+
+/**
+ * Resolve the root-level completion surface from the CLI schema and policy.
+ *
+ * @internal
+ */
+function resolveRootCompletionSurface(
+	schema: RootCompletionSchemaLike,
+	rootMode: CompletionOptions['rootMode'] = 'subcommands',
+): RootCompletionSurface {
+	const rootSurface = resolveRootSurface(schema);
+	const rootFlags = createRootFlags(schema.version !== undefined);
+	const defaultFlags = rootSurface.visibleDefaultCommand?.flags ?? {};
+	const includeDefaultFlags =
+		rootMode === 'surface'
+			? rootSurface.visibleDefaultCommand !== undefined
+			: rootSurface.hasSingleVisibleDefault;
+
+	return {
+		visibleCommands: rootSurface.visibleCommands,
+		visibleDefaultCommand: rootSurface.visibleDefaultCommand,
+		rootFlags,
+		defaultFlags,
+		includeDefaultFlags,
+	};
+}
+
+function createRootFlags(hasVersion: boolean): Readonly<Record<string, FlagSchema>> {
+	return {
+		help: createSyntheticRootFlag('Show help text'),
+		...(hasVersion ? { version: createSyntheticRootFlag('Show version') } : {}),
+	};
+}
+
+function createSyntheticRootFlag(description: string): FlagSchema {
+	return {
+		kind: 'boolean',
+		presence: 'optional',
+		defaultValue: undefined,
+		aliases: [],
+		envVar: undefined,
+		configPath: undefined,
+		description,
+		enumValues: undefined,
+		elementSchema: undefined,
+		prompt: undefined,
+		parseFn: undefined,
+		deprecated: undefined,
+		propagate: false,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -176,5 +271,11 @@ function quoteShellArg(value: string): string {
 // Exports
 // ---------------------------------------------------------------------------
 
-export type { CommandNode, CompletionOptions };
-export { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree };
+export type { CommandNode, CompletionOptions, RootCompletionSurface };
+export {
+	quoteShellArg,
+	resolveRootCompletionSurface,
+	sanitizeShellIdentifier,
+	versionTag,
+	walkCommandTree,
+};

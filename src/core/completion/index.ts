@@ -61,7 +61,8 @@ const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish', 'powershell']> = Object.
  *
  * @param schema - The CLI schema describing commands, flags, and args.
  * @param shell - Target shell.
- * @param options - Optional generator configuration.
+ * @param options - Optional generator configuration such as function naming
+ *   and root default-command completion behavior.
  * @returns A complete shell completion script as a string.
  * @throws {CLIError} If the shell is not yet supported.
  *
