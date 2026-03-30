@@ -6,6 +6,7 @@ Started: 2026-03-30
 ## Codebase Patterns
 <!-- Consolidate reusable patterns here -->
 - Public API is curated explicitly through `src/index.ts`, `src/testkit.ts`, and `src/runtime.ts` with named re-exports only
+- Internal seam types can stay exported from internal barrels for tests and implementation, but the public subpath barrels should only re-export stable consumer-facing types and factories
 - Runtime compatibility work lives in `src/runtime/` and `src/runtime/detect.ts`; core modules stay runtime-agnostic behind `RuntimeAdapter`
 - Cross-cutting CLI pipeline changes usually thread through `src/core/cli/index.ts`, `src/core/testkit/index.ts`, and `src/core/resolve/index.ts`
 - CLI-wide lifecycle extensions live in `src/core/cli/plugin.ts` and are threaded through `RunOptions.plugins`; hooks wrap parse, resolve, and action stages outside command middleware in registration order
@@ -29,3 +30,10 @@ Started: 2026-03-30
 - Updated runtime docs and getting-started docs to state the supported Node.js, Bun, and Deno minimums and the fail-fast adapter behavior
 - Files changed: `src/runtime/support.ts`, `src/runtime/node.ts`, `src/runtime/bun.ts`, `src/runtime/deno.ts`, `src/runtime/auto.ts`, `src/runtime/detect.ts`, `src/runtime/auto.test.ts`, `src/runtime/bun.test.ts`, `src/runtime/deno.test.ts`, `src/runtime/runtime.test.ts`, `src/runtime/support.test.ts`, `src/runtime/test-helpers.ts`, `src/runtime/node-builtins.d.ts`, `src/core/cli/cli-completion-e2e.test.ts`, `docs/guide/runtime.md`, `docs/reference/runtime.md`, `docs/guide/getting-started.md`, `.opencode/state/v1.0/prd.json`, `.opencode/state/v1.0/progress.txt`
 - **Learnings:** adapter guards are easiest to keep honest when auto-detect tests assert the same minimum versions as the docs; a single internal matrix prevents package/docs/runtime drift
+
+## Task - [public-api-audit]
+
+- Removed internal erasure types from the root `dreamcli` entry point and removed runtime detection/mock seam types from `dreamcli/runtime`
+- Added a focused runtime subpath export-surface test so the public runtime barrel stays limited to the supported adapter factories and runtime values
+- Files changed: `src/index.ts`, `src/runtime.ts`, `src/index.test.ts`, `.opencode/state/v1.0/prd.json`, `.opencode/state/v1.0/progress.txt`
+- **Learnings:** public API audits are safest at the top-level barrels; internal barrels can keep wider exports for implementation seams without widening the shipped subpath surface

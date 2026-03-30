@@ -24,7 +24,7 @@
 			"description": "Review the curated public entry points in src/index.ts, src/testkit.ts, and src/runtime.ts. Remove any @internal leaks, tighten exported naming where needed, and verify the shipped surface matches the intended 1.0 API boundary.",
 			"priority": "standard",
 			"overseerId": "task_01KH1QBXNQBAPNDQ78BB9APNYN",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "jsdoc-public-api",
