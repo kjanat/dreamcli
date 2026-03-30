@@ -95,6 +95,25 @@ describe('.variadic()', () => {
 	});
 });
 
+describe('.stdin()', () => {
+	it('sets stdinMode to true', () => {
+		const a = arg.string().stdin();
+		expect(a.schema.stdinMode).toBe(true);
+	});
+
+	it('preserves type inference', () => {
+		const a = arg.number().stdin();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number>();
+	});
+
+	it('does not mutate original', () => {
+		const base = arg.string();
+		const stdinArg = base.stdin();
+		expect(base.schema.stdinMode).toBe(false);
+		expect(stdinArg.schema.stdinMode).toBe(true);
+	});
+});
+
 describe('.describe()', () => {
 	it('stores the description', () => {
 		const a = arg.string().describe('Target environment');
@@ -191,6 +210,7 @@ describe('schema defaults', () => {
 		expect(s.kind).toBe('string');
 		expect(s.presence).toBe('required');
 		expect(s.variadic).toBe(false);
+		expect(s.stdinMode).toBe(false);
 		expect(s.defaultValue).toBeUndefined();
 		expect(s.description).toBeUndefined();
 		expect(s.parseFn).toBeUndefined();

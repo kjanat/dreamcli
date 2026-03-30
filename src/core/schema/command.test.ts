@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { CLIError } from '../errors/index.ts';
 import { arg } from './arg.ts';
 import type { ActionParams, CommandArgEntry, CommandSchema, Out } from './command.ts';
 import { CommandBuilder, command, group } from './command.ts';
@@ -200,6 +201,51 @@ describe('.arg()', () => {
 		const b = a.arg('target', arg.string());
 		expect(b.handler).toBeUndefined();
 		expect(b.schema.hasAction).toBe(false);
+	});
+
+	it('throws DUPLICATE_STDIN_ARG when a second stdin arg is registered', () => {
+		expect(() => {
+			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin());
+		}).toThrowError(CLIError);
+
+		try {
+			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin());
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (error instanceof CLIError) {
+				expect(error.code).toBe('DUPLICATE_STDIN_ARG');
+			}
+		}
+	});
+
+	it('rejects stdin then variadic args at build time', () => {
+		expect(() => {
+			command('copy').arg('files', arg.string().stdin().variadic());
+		}).toThrowError(CLIError);
+
+		try {
+			command('copy').arg('files', arg.string().stdin().variadic());
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (error instanceof CLIError) {
+				expect(error.code).toBe('INVALID_BUILDER_STATE');
+			}
+		}
+	});
+
+	it('rejects variadic then stdin args at build time', () => {
+		expect(() => {
+			command('copy').arg('files', arg.string().variadic().stdin());
+		}).toThrowError(CLIError);
+
+		try {
+			command('copy').arg('files', arg.string().variadic().stdin());
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (error instanceof CLIError) {
+				expect(error.code).toBe('INVALID_BUILDER_STATE');
+			}
+		}
 	});
 });
 

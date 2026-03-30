@@ -9,6 +9,7 @@
  * @module dreamcli/core/schema/command
  */
 
+import { CLIError } from '../errors/index.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
@@ -363,6 +364,34 @@ interface CommandSchema {
 interface CommandArgEntry {
 	readonly name: string;
 	readonly schema: ArgSchema;
+}
+
+function validateArgEntry(name: string, schema: ArgSchema, args: readonly CommandArgEntry[]): void {
+	if (schema.stdinMode && schema.variadic) {
+		throw new CLIError(`Argument <${name}> cannot be both variadic and stdin-backed`, {
+			code: 'INVALID_BUILDER_STATE',
+			details: { arg: name, stdinMode: true, variadic: true },
+			suggest: 'Remove .stdin() or .variadic() from this argument',
+		});
+	}
+
+	if (!schema.stdinMode) {
+		return;
+	}
+
+	const existing = args.find((entry) => entry.schema.stdinMode);
+	if (existing === undefined) {
+		return;
+	}
+
+	throw new CLIError(
+		`Only one stdin argument is allowed; <${existing.name}> is already stdin-backed`,
+		{
+			code: 'DUPLICATE_STDIN_ARG',
+			details: { arg: name, existingArg: existing.name },
+			suggest: 'Keep .stdin() on a single argument per command',
+		},
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -806,6 +835,7 @@ class CommandBuilder<
 		name: N & Exclude<N, keyof A>,
 		builder: B,
 	): CommandBuilder<F, A & Record<N, B>, C> {
+		validateArgEntry(name, builder.schema, this.schema.args);
 		const entry: CommandArgEntry = { name, schema: builder.schema };
 		const nextArgs = [...this.schema.args, entry];
 		return new CommandBuilder(
