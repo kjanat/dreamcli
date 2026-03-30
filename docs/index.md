@@ -24,22 +24,40 @@ hero:
       link: https://github.com/kjanat/dreamcli
 
 features:
-  - icon: "🔒"
+  - icon:
+      light: /icons/type-inference-light.svg
+      dark: /icons/type-inference-dark.svg
+      height: 48
     title: Full Type Inference
     details: Flag and argument types flow from schema to handler. No manual interfaces, no generic gymnastics.
-  - icon: "⛓️"
+  - icon:
+      light: /icons/resolution-chain-light.svg
+      dark: /icons/resolution-chain-dark.svg
+      height: 48
     title: Resolution Chain
     details: "CLI → env → config → prompt → default. Every step opt-in. Every step preserves types."
-  - icon: "🧪"
+  - icon:
+      light: /icons/test-harness-light.svg
+      dark: /icons/test-harness-dark.svg
+      height: 48
     title: Built-in Test Harness
     details: Run commands in-process with full control. No subprocesses, no process.argv mutation.
-  - icon: "🔌"
+  - icon:
+      light: /icons/middleware-light.svg
+      dark: /icons/middleware-dark.svg
+      height: 48
     title: Typed Middleware
     details: Context accumulates through the middleware chain via type intersection. No manual interface merging.
-  - icon: "📦"
+  - icon:
+      light: /icons/zero-deps-light.svg
+      dark: /icons/zero-deps-dark.svg
+      height: 48
     title: Zero Dependencies
     details: Lean core with no runtime dependencies. Dual ESM/CJS. Runs on Node, Bun, and Deno.
-  - icon: "🖥️"
+  - icon:
+      light: /icons/structured-output-light.svg
+      dark: /icons/structured-output-dark.svg
+      height: 48
     title: Structured Output
     details: "Spinners, progress bars, tables, JSON mode. Adapts automatically: TTY → pretty, piped → stable."
 ---

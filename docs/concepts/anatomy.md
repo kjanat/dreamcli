@@ -115,8 +115,8 @@ Other flags need a value:
 
 ```bash
 curl --output page.html https://example.com
-#    ^^^^^^^ ^^^^^^^^^
-#    flag    value
+#    ^^^^^^^^ ^^^^^^^^^
+#    flag     value
 
 timeout --signal KILL 5 sleep 100
 ```
@@ -125,8 +125,8 @@ timeout --signal KILL 5 sleep 100
 
 ```bash
 grep "hello" file.txt --ignore-case --count
-#    ^^^^^^^  ^^^^^^^^ ^^^^^^^^^^^^^^ ^^^^^^^
-#    arg 1    arg 2    flag           flag
+#    ^^^^^^^ ^^^^^^^^ ^^^^^^^^^^^^^ ^^^^^^^
+#    arg 1   arg 2    flag          flag
 ```
 
 - **Arguments** = the *things* (what to search, where to search)
