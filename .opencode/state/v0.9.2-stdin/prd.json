@@ -31,7 +31,7 @@
 			"title": "Comprehensive stdin data tests",
 			"description": "Test files: `resolve-stdin.test.ts` for resolution chain, `testkit-stdin.test.ts` for end-to-end via testkit. Cases: (1) stdin arg receives piped data when no CLI value, (2) CLI value takes precedence over stdin, (3) explicit '-' arg reads stdin, (4) stdin with env fallback — stdin before env in chain, (5) stdinIsTTY=true skips stdin read, (6) duplicate .stdin() args throw at build time, (7) variadic + stdin interaction (should be invalid — throw at build time), (8) stdin with .optional() returns undefined when no data, (9) stdin with .default() falls through correctly, (10) JSON mode + stdin works, (11) stdin with number arg coerces correctly, (12) stdin with custom parse fn works.",
 			"priority": "standard",
-			"passes": false,
+			"passes": true,
 			"overseerId": "task_01KH86GXT0ZFM0J6W27ZGBJ8AF"
 		}
 	]
