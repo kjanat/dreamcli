@@ -562,7 +562,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		// need a real Bun runtime for process.argv etc.
 		const { createAdapter } = await import('../../runtime/auto.ts');
 		const globals: GlobalForDetect = {
-			Bun: { version: '1.2.0' },
+			Bun: { version: '1.3.11' },
 			process: { versions: { node: '22.0.0' } },
 		};
 		const adapter = createAdapter(globals);
@@ -577,7 +577,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 
 		withMockDenoGlobal(() => {
 			const globals: GlobalForDetect = {
-				Deno: { version: { deno: '2.1.0' } },
+				Deno: { version: { deno: '2.6.0' } },
 			};
 			const adapter = createAdapter(globals);
 			expect(adapter).toBeDefined();

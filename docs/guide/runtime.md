@@ -11,6 +11,9 @@ abstracts the platform-specific edges.
 | Bun >= 1.3    | Supported | `dreamcli` (npm)         |
 | Deno >= 2.6   | Supported | `@kjanat/dreamcli` (JSR) |
 
+Adapters validate these minimum versions during creation. Unsupported runtimes fail fast with a
+descriptive error before command execution starts.
+
 ## How It Works
 
 The core framework never imports platform-specific APIs directly. Instead, a `RuntimeAdapter`

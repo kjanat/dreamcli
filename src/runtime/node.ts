@@ -15,6 +15,7 @@
 import type { WriteFn } from '../core/output/index.ts';
 import type { ReadFn } from '../core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
+import { assertRuntimeVersionSupported } from './support.ts';
 
 // ---------------------------------------------------------------------------
 // Node.js error shape — for ENOENT detection without @types/node
@@ -46,6 +47,10 @@ interface NodeSystemError {
 interface NodeProcess {
 	readonly argv: readonly string[];
 	readonly env: Readonly<Record<string, string | undefined>>;
+	readonly versions?: {
+		readonly node?: string;
+		readonly bun?: string;
+	};
 	cwd(): string;
 	/** Platform identifier (e.g. `'linux'`, `'darwin'`, `'win32'`). */
 	readonly platform: string;
@@ -177,6 +182,7 @@ function resolveConfigDir(
  */
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const p = proc ?? getNodeProcess();
+	assertRuntimeVersionSupported('node', p.versions?.node);
 
 	const stdoutWrite: WriteFn = (data) => {
 		p.stdout.write(data);

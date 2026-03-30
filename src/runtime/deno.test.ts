@@ -44,6 +44,7 @@ function mockReadableStream(chunks: string[]): ReadableStream<Uint8Array> {
 /** Create a minimal mock DenoNamespace with optional overrides. */
 function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 	return {
+		version: overrides?.version ?? { deno: '2.6.0' },
 		args: overrides?.args ?? [],
 		env: overrides?.env ?? {
 			get: () => undefined,
@@ -98,6 +99,11 @@ describe('createDenoAdapter — basic contract', () => {
 	it('satisfies RuntimeAdapter type', () => {
 		const adapter: RuntimeAdapter = createDenoAdapter(mockDeno());
 		expect(adapter).toBeDefined();
+	});
+
+	it('throws for unsupported Deno versions', () => {
+		const ns = mockDeno({ version: { deno: '2.5.4' } });
+		expect(() => createDenoAdapter(ns)).toThrow('dreamcli requires Deno >= 2.6');
 	});
 });
 

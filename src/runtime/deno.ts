@@ -22,6 +22,7 @@
 import type { WriteFn } from '../core/output/index.ts';
 import type { ReadFn } from '../core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
+import { assertRuntimeVersionSupported } from './support.ts';
 
 // ---------------------------------------------------------------------------
 // Minimal Deno namespace shape — avoids @types/deno dependency
@@ -38,6 +39,9 @@ import type { RuntimeAdapter } from './adapter.ts';
  * an empty env object.
  */
 interface DenoNamespace {
+	readonly version?: {
+		readonly deno?: string;
+	};
 	/** Raw command-line args (excludes the binary/script — Deno pre-strips them). */
 	readonly args: readonly string[];
 
@@ -153,6 +157,7 @@ function safeCwd(deno: DenoNamespace): string {
  */
 function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	const d = ns ?? getDenoNamespace();
+	assertRuntimeVersionSupported('deno', d.version?.deno);
 	const encoder = new TextEncoder();
 
 	// --- Synthetic argv: Deno.args has user args only (no binary/script) ---

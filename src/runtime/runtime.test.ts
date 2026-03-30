@@ -34,6 +34,7 @@ function mockNodeProcess(
 	return {
 		argv: overrides?.argv ?? [],
 		env: overrides?.env ?? {},
+		versions: overrides?.versions ?? { node: '22.0.0' },
 		cwd: overrides?.cwd ?? (() => '/'),
 		platform: overrides?.platform ?? 'linux',
 		stdin: overrides?.stdin ?? mockStdin(),
@@ -223,6 +224,11 @@ describe('createNodeAdapter', () => {
 		adapter.stderr('error message');
 
 		expect(writeFn).toHaveBeenCalledWith('error message');
+	});
+
+	it('throws for unsupported Node.js versions', () => {
+		const mockProc = mockNodeProcess({ versions: { node: '21.9.0' } });
+		expect(() => createNodeAdapter(mockProc)).toThrow('dreamcli requires Node.js >= 22');
 	});
 
 	it('delegates exit to process.exit', () => {

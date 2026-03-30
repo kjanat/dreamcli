@@ -32,6 +32,7 @@ function mockProcess(
 	return {
 		argv: overrides?.argv ?? ['bun', 'cli.ts'],
 		env: overrides?.env ?? {},
+		versions: overrides?.versions ?? { node: '22.0.0', bun: '1.3.11' },
 		cwd: overrides?.cwd ?? (() => '/bun/project'),
 		platform: overrides?.platform ?? 'linux',
 		stdin: overrides?.stdin ?? mockStdin(),
@@ -157,5 +158,10 @@ describe('createBunAdapter — stdin', () => {
 		const proc = mockProcess();
 		const adapter = createBunAdapter(proc);
 		expect(typeof adapter.stdin).toBe('function');
+	});
+
+	it('throws for unsupported Bun versions', () => {
+		const proc = mockProcess({ versions: { node: '22.0.0', bun: '1.2.9' } });
+		expect(() => createBunAdapter(proc)).toThrow('dreamcli requires Bun >= 1.3');
 	});
 });

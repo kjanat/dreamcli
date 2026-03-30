@@ -8,7 +8,7 @@
 			"description": "Document the supported runtime matrix for Node LTS, Bun stable, and Deno stable in the public docs. Add runtime version checks where the adapters need hard guards, and add coverage proving the documented compatibility story stays enforced.",
 			"priority": "integration",
 			"overseerId": "task_01KH1QBXNWVJ4A5627PA4D7Z0R",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "plugin-lifecycle-hooks",

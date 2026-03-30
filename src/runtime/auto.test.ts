@@ -58,7 +58,7 @@ describe('createAdapter — runtime dispatch', () => {
 
 	it('creates adapter for Bun runtime', () => {
 		const globals: GlobalForDetect = {
-			Bun: { version: '1.1.0' },
+			Bun: { version: '1.3.11' },
 			process: { versions: { node: '22.0.0' } },
 		};
 		const adapter = createAdapter(globals);
@@ -72,7 +72,7 @@ describe('createAdapter — runtime dispatch', () => {
 	it('creates adapter for Deno runtime', () => {
 		withMockDenoGlobal(() => {
 			const globals: GlobalForDetect = {
-				Deno: { version: { deno: '2.0.0' } },
+				Deno: { version: { deno: '2.6.0' } },
 			};
 			const adapter = createAdapter(globals);
 			assertAdapterShape(adapter);
@@ -109,8 +109,8 @@ describe('createAdapter — exhaustiveness', () => {
 		// produces a valid RuntimeAdapter.
 		const globalsForRuntime: Record<string, GlobalForDetect> = {
 			node: { process: { versions: { node: '22.0.0' } } },
-			bun: { Bun: { version: '1.1.0' }, process: { versions: { node: '22.0.0' } } },
-			deno: { Deno: { version: { deno: '2.0.0' } } },
+			bun: { Bun: { version: '1.3.11' }, process: { versions: { node: '22.0.0' } } },
+			deno: { Deno: { version: { deno: '2.6.0' } } },
 			unknown: {},
 		};
 
@@ -169,5 +169,30 @@ describe('createAdapter — adapter functionality', () => {
 		// PATH is always present but may be cased as "Path" on Windows
 		const hasPath = adapter.env.PATH !== undefined || adapter.env.Path !== undefined;
 		expect(hasPath).toBe(true);
+	});
+
+	it('throws for unsupported Node.js versions', () => {
+		const globals: GlobalForDetect = {
+			process: { versions: { node: '21.9.0' } },
+		};
+
+		expect(() => createAdapter(globals)).toThrow('dreamcli requires Node.js >= 22');
+	});
+
+	it('throws for unsupported Bun versions', () => {
+		const globals: GlobalForDetect = {
+			Bun: { version: '1.2.9' },
+			process: { versions: { node: '22.0.0' } },
+		};
+
+		expect(() => createAdapter(globals)).toThrow('dreamcli requires Bun >= 1.3');
+	});
+
+	it('throws for unsupported Deno versions', () => {
+		const globals: GlobalForDetect = {
+			Deno: { version: { deno: '2.5.4' } },
+		};
+
+		expect(() => createAdapter(globals)).toThrow('dreamcli requires Deno >= 2.6');
 	});
 });

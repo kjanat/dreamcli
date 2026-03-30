@@ -63,7 +63,7 @@ const RUNTIMES: readonly ['node', 'bun', 'deno', 'unknown'] = [
 interface GlobalForDetect {
 	readonly Bun?: { readonly version?: string };
 	readonly Deno?: { readonly version?: { readonly deno?: string } };
-	readonly process?: { readonly versions?: { readonly node?: string } };
+	readonly process?: { readonly versions?: { readonly node?: string; readonly bun?: string } };
 }
 
 // ---------------------------------------------------------------------------

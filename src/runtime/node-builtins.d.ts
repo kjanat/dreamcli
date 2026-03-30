@@ -8,6 +8,10 @@
  * @internal
  */
 
+interface ImportMeta {
+	readonly url: string;
+}
+
 declare module 'node:readline' {
 	interface ReadlineInterface {
 		once(event: 'line', listener: (line: string) => void): void;
@@ -19,5 +23,5 @@ declare module 'node:readline' {
 }
 
 declare module 'node:fs/promises' {
-	function readFile(path: string, encoding: 'utf8'): Promise<string>;
+	function readFile(path: string | URL, encoding: 'utf8'): Promise<string>;
 }
