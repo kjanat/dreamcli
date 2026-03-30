@@ -8,9 +8,10 @@ PRD: v0.9.2-stdin Started: 2026-03-30
 - `createTestAdapter()` in same file — test stub, all fields optional with sensible defaults
 - Node adapter: `src/runtime/node.ts`, Bun: `src/runtime/bun.ts` (delegates to Node), Deno: `src/runtime/deno.ts`
 - `ReadFn` from `core/prompt/` = line reader (single-line, for prompts), NOT bulk stdin
+- Stdin wiring pattern: `RunOptions`/`CLIRunOptions` carry `stdinData`, `CLIBuilder.run()` reads adapter stdin once, and `resolve()` threads it into `resolveArgs()`
 - `ArgSchema` in `src/core/schema/arg.ts` — runtime descriptor for args
 - Build-time arg invariants live in `CommandBuilder.arg()` via schema inspection + `CLIError` codes, not in `ArgBuilder`
-- `resolveArgs()` in `src/core/resolve/index.ts:819` — CLI → env → default chain
+- `resolveArgs()` in `src/core/resolve/index.ts` — CLI → stdin → env → default chain for args
 - `ResolveOptions` in `src/core/resolve/index.ts:42` — injectable state for resolver
 - `RunOptions` in `src/core/testkit/index.ts:66` — testing seam
 - `CLIRunOptions` in `src/core/cli/index.ts:174` — runtime seam for `cli().run()`
@@ -44,3 +45,14 @@ PRD: v0.9.2-stdin Started: 2026-03-30
 - Added focused schema tests for `.stdin()` and command builder validation cases
 - **Files changed:** `src/core/schema/arg.ts`, `src/core/schema/arg.test.ts`, `src/core/schema/command.ts`, `src/core/schema/command.test.ts`, `.opencode/state/v0.9.2-stdin/prd.json`, `.opencode/state/v0.9.2-stdin/progress.txt`
 - **Learnings:** keep arg-shape validation at command registration time so invalid cross-arg combinations are rejected once, before parse/resolve logic grows around them
+
+## Task - resolve-stdin-wire
+
+- Added `stdinData?: string | null` to `ResolveOptions`, `RunOptions`, and `CLIRunOptions`
+- Wired `runCommand()` and `CLIBuilder.execute()` to pass `stdinData` into `resolve()`
+- Updated `resolveArgs()` to check stdin between CLI and env for `.stdin()` args, including explicit `'-'` sentinel handling
+- Replaced env-only arg coercion with source-aware string coercion so stdin errors report `from stdin`
+- Updated `CLIBuilder.run()` to call `adapter.readStdin()` once and pass the result into execute-time options
+- Added focused integration coverage for `runCommand()`, `CLIBuilder.execute()`, and `CLIBuilder.run()` stdin threading
+- **Files changed:** `src/core/resolve/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/resolve/resolve-integration.test.ts`, `.opencode/state/v0.9.2-stdin/prd.json`, `.opencode/state/v0.9.2-stdin/progress.txt`
+- **Learnings:** for stdin-backed args, treat explicit `'-'` as a source selector rather than a literal CLI value so the normal fallback chain can continue when no piped data exists

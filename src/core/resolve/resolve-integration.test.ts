@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
 import { cli } from '../cli/index.ts';
 import { arg } from '../schema/arg.ts';
 import { command } from '../schema/command.ts';
@@ -59,6 +60,16 @@ function multiSourceCommand() {
 			out.log(
 				`deploy ${args.target} region=${String(flags.region)} timeout=${String(flags.timeout)}`,
 			);
+		});
+}
+
+/** Command with an arg that can read from stdin. */
+function stdinCommand() {
+	return command('deploy')
+		.description('Deploy from stdin')
+		.arg('target', arg.string().stdin().env('DEPLOY_TARGET').required())
+		.action(({ args, out }) => {
+			out.log(`deploy ${String(args.target)}`);
 		});
 }
 
@@ -178,6 +189,28 @@ describe('runCommand — config resolution', () => {
 // ---------------------------------------------------------------------------
 
 describe('runCommand — full resolution chain', () => {
+	it('stdin fills stdin-mode arg before env', async () => {
+		const cmd = stdinCommand();
+		const result = await runCommand(cmd, [], {
+			stdinData: 'stdin-target',
+			env: { DEPLOY_TARGET: 'env-target' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['deploy stdin-target\n']);
+	});
+
+	it("explicit '-' resolves stdin-mode arg from stdin", async () => {
+		const cmd = stdinCommand();
+		const result = await runCommand(cmd, ['-'], {
+			stdinData: 'dash-target',
+			env: { DEPLOY_TARGET: 'env-target' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['deploy dash-target\n']);
+	});
+
 	it('env takes precedence over config', async () => {
 		const cmd = multiSourceCommand();
 		const result = await runCommand(cmd, ['prod'], {
@@ -236,6 +269,17 @@ describe('runCommand — full resolution chain', () => {
 // ---------------------------------------------------------------------------
 
 describe('CLIBuilder.execute — env/config threading', () => {
+	it('threads stdinData through to command resolution', async () => {
+		const app = cli('test').command(stdinCommand());
+		const result = await app.execute(['deploy'], {
+			stdinData: 'execute-target',
+			env: { DEPLOY_TARGET: 'env-target' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['deploy execute-target\n']);
+	});
+
 	it('threads env through to command resolution', async () => {
 		const app = cli('test').command(envCommand());
 		const result = await app.execute(['deploy', 'prod'], {
@@ -326,6 +370,40 @@ describe('CLIBuilder.execute — env/config threading', () => {
 // ---------------------------------------------------------------------------
 
 describe('CLIBuilder.run — adapter env/config integration', () => {
+	it('reads stdin once from adapter and threads it into execute', async () => {
+		const stdoutLines: string[] = [];
+		let reads = 0;
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy'],
+			stdinData: 'run-target',
+			stdout: (s) => stdoutLines.push(s),
+			readFile: async () => null,
+			exit: (code) => {
+				throw new ExitError(code);
+			},
+		});
+		const readStdin = adapter.readStdin;
+		const countingAdapter = {
+			...adapter,
+			readStdin: async () => {
+				reads += 1;
+				return readStdin();
+			},
+		};
+		const app = cli('test').command(stdinCommand());
+
+		try {
+			await app.run({ adapter: countingAdapter });
+		} catch (err) {
+			if (!(err instanceof ExitError)) {
+				throw err;
+			}
+		}
+
+		expect(reads).toBe(1);
+		expect(stdoutLines).toEqual(['deploy run-target\n']);
+	});
+
 	it('auto-sources adapter.env into resolution when no explicit env', async () => {
 		const app = cli('test').command(envCommand());
 
