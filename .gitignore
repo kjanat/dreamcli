@@ -223,3 +223,4 @@ $RECYCLE.BIN/
 .serena/
 .jj-shim/
 .envrc
+docs/.vitepress/cache/

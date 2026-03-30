@@ -17,7 +17,7 @@
 			"!**/biome.jsonc"
 		]
 	},
-	"markdown": { "textWrap": "always", "emphasisKind": "asterisks" },
+	"markdown": { "textWrap": "maintain", "emphasisKind": "asterisks" },
 	"toml": {
 		"comment.forceLeadingSpace": false,
 		"useTabs": false,

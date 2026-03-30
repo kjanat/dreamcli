@@ -173,5 +173,6 @@ Useful when something breaks and you need to know if you're on an old version.
 - [Input Sources](/concepts/input) — all the places a CLI gets its data
 - [Output and TTY](/concepts/output) — what stdout, stderr, and TTY actually mean
 
-::: tip Ready to build? Jump to the [Getting Started](/guide/getting-started) guide to build your
-first command. :::
+::: tip Ready to build?
+Jump to the [Getting Started](/guide/getting-started) guide to build your first command.
+:::

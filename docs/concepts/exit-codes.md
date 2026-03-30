@@ -34,8 +34,10 @@ fi
 
 The `if` doesn't look at the output text. It only checks the exit code.
 
-::: warning A tool that prints "error" but exits with `0` will silently pass in scripts. Get your
-exit codes right. :::
+::: warning
+A tool that prints "error" but exits with `0` will silently pass in scripts. Get your exit codes
+right.
+:::
 
 CI systems work the same way. A build step that exits non-zero fails the pipeline.
 
