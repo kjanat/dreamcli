@@ -9,6 +9,7 @@ PRD: v0.9.2-stdin Started: 2026-03-30
 - Node adapter: `src/runtime/node.ts`, Bun: `src/runtime/bun.ts` (delegates to Node), Deno: `src/runtime/deno.ts`
 - `ReadFn` from `core/prompt/` = line reader (single-line, for prompts), NOT bulk stdin
 - Stdin wiring pattern: `RunOptions`/`CLIRunOptions` carry `stdinData`, `CLIBuilder.run()` reads adapter stdin once, and `resolve()` threads it into `resolveArgs()`
+- Resolver-level precedence tests are simplest when they build a real command schema, call `parse(schema, argv)`, then assert on `resolve()` directly
 - `ArgSchema` in `src/core/schema/arg.ts` — runtime descriptor for args
 - Build-time arg invariants live in `CommandBuilder.arg()` via schema inspection + `CLIError` codes, not in `ArgBuilder`
 - `resolveArgs()` in `src/core/resolve/index.ts` — CLI → stdin → env → default chain for args
@@ -56,3 +57,11 @@ PRD: v0.9.2-stdin Started: 2026-03-30
 - Added focused integration coverage for `runCommand()`, `CLIBuilder.execute()`, and `CLIBuilder.run()` stdin threading
 - **Files changed:** `src/core/resolve/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `src/core/resolve/resolve-integration.test.ts`, `.opencode/state/v0.9.2-stdin/prd.json`, `.opencode/state/v0.9.2-stdin/progress.txt`
 - **Learnings:** for stdin-backed args, treat explicit `'-'` as a source selector rather than a literal CLI value so the normal fallback chain can continue when no piped data exists
+
+## Task - stdin-tests
+
+- Added focused resolver coverage for stdin precedence, explicit `'-'`, env fallback ordering, optional/default fallback, number coercion, and custom arg parsing
+- Added end-to-end testkit coverage for JSON mode with stdin and TTY/no-pipe fallback behavior through `CLIBuilder.run()`
+- Existing schema tests already covered duplicate `.stdin()` args and invalid `stdin + variadic` combinations, so this task filled the remaining resolver/runtime gaps
+- **Files changed:** `src/core/resolve/resolve-stdin.test.ts`, `src/core/testkit/testkit-stdin.test.ts`, `.opencode/state/v0.9.2-stdin/prd.json`, `.opencode/state/v0.9.2-stdin/progress.txt`
+- **Learnings:** keep stdin source-order assertions close to `resolve()` and reserve `runCommand()`/`CLIBuilder.run()` tests for output mode and adapter-threading behavior
