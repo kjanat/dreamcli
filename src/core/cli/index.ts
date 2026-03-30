@@ -659,7 +659,8 @@ class CLIBuilder {
 		const cliSchema = this.schema;
 
 		// Supported shells for validation. Keep in sync with completion/index.ts SHELLS.
-		const shellSet = new Set<string>(SHELLS as readonly string[]);
+		const shellMap = new Map<string, Shell>();
+		for (const s of SHELLS) shellMap.set(s, s);
 
 		const cmd = command('completions')
 			.alias('completion')
@@ -671,11 +672,11 @@ class CLIBuilder {
 						// Normalize $SHELL paths: /bin/zsh → zsh, /usr/local/bin/bash → bash
 						const segments = raw.split('/');
 						const name = segments[segments.length - 1] ?? raw;
-						if (!shellSet.has(name)) {
+						const shell = shellMap.get(name);
+						if (shell === undefined) {
 							throw new Error(`Unknown shell '${name}'. Valid shells: ${SHELLS.join(', ')}`);
 						}
-						// Safe: shellSet membership guarantees name is Shell
-						return name as Shell;
+						return shell;
 					})
 					.env('SHELL')
 					.describe(`Target shell (${SHELLS.join(', ')})`),

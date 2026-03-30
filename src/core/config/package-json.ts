@@ -11,6 +11,15 @@
 import type { RuntimeAdapter } from '../../runtime/adapter.ts';
 
 // ---------------------------------------------------------------------------
+// Narrowing helpers
+// ---------------------------------------------------------------------------
+
+/** Type guard: narrows `unknown` to a plain (non-array) object. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -48,8 +57,12 @@ type PackageJsonAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd'>;
  * @internal
  */
 function parentDir(path: string): string | undefined {
-	const sep = path.includes('\\') ? '\\' : '/';
-	const idx = path.lastIndexOf(sep);
+	// Handle mixed separators (common on Windows) by finding the last of either.
+	const fwdIdx = path.lastIndexOf('/');
+	const bkIdx = path.lastIndexOf('\\');
+	const idx = Math.max(fwdIdx, bkIdx);
+	// Derive separator from whichever was found last (for drive root construction).
+	const sep = bkIdx > fwdIdx ? '\\' : '/';
 	// Already at root (Unix `/` or Windows `C:\`)
 	if (idx < 0) return undefined;
 	if (idx === 0) return path.length > 1 ? sep : undefined;
@@ -131,15 +144,14 @@ async function discoverPackageJson(adapter: PackageJsonAdapter): Promise<Package
 function parsePackageJson(content: string): PackageJsonData | null {
 	try {
 		const parsed: unknown = JSON.parse(content);
-		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+		if (!isPlainObject(parsed)) {
 			return null;
 		}
-		const pkg = parsed as Record<string, unknown>;
 		return {
-			name: typeof pkg['name'] === 'string' ? pkg['name'] : undefined,
-			version: typeof pkg['version'] === 'string' ? pkg['version'] : undefined,
-			description: typeof pkg['description'] === 'string' ? pkg['description'] : undefined,
-			bin: parseBinField(pkg['bin']),
+			name: typeof parsed['name'] === 'string' ? parsed['name'] : undefined,
+			version: typeof parsed['version'] === 'string' ? parsed['version'] : undefined,
+			description: typeof parsed['description'] === 'string' ? parsed['description'] : undefined,
+			bin: parseBinField(parsed['bin']),
 		};
 	} catch {
 		return null;
@@ -157,15 +169,13 @@ function parsePackageJson(content: string): PackageJsonData | null {
  */
 function parseBinField(value: unknown): string | Readonly<Record<string, string>> | undefined {
 	if (typeof value === 'string') return value;
-	if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-		const obj = value as Record<string, unknown>;
-		// Validate all values are strings
-		for (const v of Object.values(obj)) {
-			if (typeof v !== 'string') return undefined;
-		}
-		return obj as Record<string, string>;
+	if (!isPlainObject(value)) return undefined;
+	const result: Record<string, string> = {};
+	for (const [k, v] of Object.entries(value)) {
+		if (typeof v !== 'string') return undefined;
+		result[k] = v;
 	}
-	return undefined;
+	return result;
 }
 
 // ---------------------------------------------------------------------------

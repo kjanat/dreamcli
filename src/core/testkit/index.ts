@@ -257,7 +257,7 @@ async function runCommand<
 	}
 
 	try {
-		await runPluginHooks(options?.plugins, 'beforeParse', {
+		await runBeforeParseHooks(options?.plugins, {
 			argv,
 			command: schema,
 			meta,
@@ -289,7 +289,7 @@ async function runCommand<
 			out,
 		};
 
-		await runPluginHooks(options?.plugins, 'afterResolve', resolvedParams);
+		await runResolvedHooks(options?.plugins, 'afterResolve', resolvedParams);
 
 		// -- Deprecation warnings ------------------------------------------------
 		for (const d of resolved.deprecations) {
@@ -302,9 +302,9 @@ async function runCommand<
 		// types on CommandBuilder<F, A> are erased at runtime — the handler
 		// is just a function accepting a plain object. `executeWithMiddleware`
 		// runs the middleware chain then invokes the handler at the end.
-		await runPluginHooks(options?.plugins, 'beforeAction', resolvedParams);
+		await runResolvedHooks(options?.plugins, 'beforeAction', resolvedParams);
 		await executeWithMiddleware(cmd.schema, cmd.handler, resolved.flags, resolved.args, out, meta);
-		await runPluginHooks(options?.plugins, 'afterAction', resolvedParams);
+		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return buildResult(0, captured, undefined);
 	} catch (err: unknown) {
@@ -339,39 +339,28 @@ async function runCommand<
 	}
 }
 
-type PluginHookName = keyof CLIPlugin['hooks'];
+type ResolvedHookName = Exclude<keyof CLIPlugin['hooks'], 'beforeParse'>;
 
-async function runPluginHooks(
+async function runBeforeParseHooks(
 	plugins: readonly CLIPlugin[] | undefined,
-	hookName: 'beforeParse',
 	params: BeforeParseParams,
-): Promise<void>;
-async function runPluginHooks(
-	plugins: readonly CLIPlugin[] | undefined,
-	hookName: Exclude<PluginHookName, 'beforeParse'>,
-	params: ResolvedCommandParams,
-): Promise<void>;
-async function runPluginHooks(
-	plugins: readonly CLIPlugin[] | undefined,
-	hookName: PluginHookName,
-	params: BeforeParseParams | ResolvedCommandParams,
 ): Promise<void> {
-	if (plugins === undefined) {
-		return;
-	}
-
+	if (plugins === undefined) return;
 	for (const current of plugins) {
-		if (hookName === 'beforeParse') {
-			const hook = current.hooks.beforeParse;
-			if (hook !== undefined) {
-				await hook(params as BeforeParseParams);
-			}
-			continue;
-		}
+		const hook = current.hooks.beforeParse;
+		if (hook !== undefined) await hook(params);
+	}
+}
+
+async function runResolvedHooks(
+	plugins: readonly CLIPlugin[] | undefined,
+	hookName: ResolvedHookName,
+	params: ResolvedCommandParams,
+): Promise<void> {
+	if (plugins === undefined) return;
+	for (const current of plugins) {
 		const hook = current.hooks[hookName];
-		if (hook !== undefined) {
-			await hook(params as ResolvedCommandParams);
-		}
+		if (hook !== undefined) await hook(params);
 	}
 }
 
