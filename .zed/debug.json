@@ -1,0 +1,48 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+	{
+		"label": "Debug current file (Bun)",
+		"adapter": "JavaScript",
+		"type": "node",
+		"request": "launch",
+		"runtimeExecutable": "bun",
+		"program": "$ZED_FILE",
+		"cwd": "$ZED_WORKTREE_ROOT",
+		"skipFiles": ["<node_internals>/**"]
+	},
+	{
+		"label": "Debug current test file",
+		"adapter": "JavaScript",
+		"type": "node",
+		"request": "launch",
+		"program": "$ZED_WORKTREE_ROOT/node_modules/vitest/vitest.mjs",
+		"args": ["run", "--no-file-parallelism", "$ZED_FILE"],
+		"cwd": "$ZED_WORKTREE_ROOT",
+		"console": "integratedTerminal",
+		"skipFiles": ["<node_internals>/**"]
+	},
+	{
+		"label": "Debug all tests",
+		"adapter": "JavaScript",
+		"type": "node",
+		"request": "launch",
+		"program": "$ZED_WORKTREE_ROOT/node_modules/vitest/vitest.mjs",
+		"args": ["run", "--no-file-parallelism"],
+		"cwd": "$ZED_WORKTREE_ROOT",
+		"console": "integratedTerminal",
+		"skipFiles": ["<node_internals>/**"]
+	},
+	{
+		"label": "Debug example: basic",
+		"adapter": "JavaScript",
+		"type": "node",
+		"request": "launch",
+		"runtimeExecutable": "bun",
+		"program": "$ZED_WORKTREE_ROOT/examples/basic.ts",
+		"cwd": "$ZED_WORKTREE_ROOT",
+		"skipFiles": ["<node_internals>/**"]
+	}
+]
