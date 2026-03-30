@@ -9,10 +9,12 @@
 	stroke-linecap="round"
 	stroke-linejoin="round"
 >
-	<!-- Feather — lightweight -->
-	<path d="M42 6S30 8 22 16c-6 6-8 14-8 14" />
-	<path d="M36 12S28 14 22 20" />
-	<path d="M14 30l-8 12" />
-	<path d="M22 16c-4 4-6 10-6 10" />
-	<path d="M30 14c-4 6-8 10-10 12" />
+	<!-- Quill feather — lightweight -->
+	<path d="M39 8c-8 1-14 5-19 12-5 6-8 14-8 20 6 0 14-3 20-8 7-5 11-11 12-19-1-2-3-4-5-5z" />
+	<path d="M15 35L34 16" />
+	<path d="M19 31l-5-5" />
+	<path d="M23 27l-6-6" />
+	<path d="M27 23l-6-6" />
+	<path d="M31 19l-5-5" />
+	<path d="M13 37l-6 6" />
 </svg>
