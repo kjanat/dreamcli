@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Asymmetric — widest point shifted upward, tapers long at bottom -->
+	<path
+		d="M60,14 C20,30 26,90 58,114"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M68,14 C108,30 102,90 70,114"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M56,6 C8,24 16,96 54,122"
+		stroke="#2b2b2b"
+		stroke-width="5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<path
+		d="M72,6 C120,24 112,96 74,122"
+		stroke="#2b2b2b"
+		stroke-width="5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<ellipse cx="64" cy="58" rx="7" ry="14" fill="#D6A24A" />
+</svg>

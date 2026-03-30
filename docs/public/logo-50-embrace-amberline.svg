@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Amber as thin vertical stroke instead of ellipse -->
+	<path
+		d="M58,18 C24,40 24,88 58,110"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M70,18 C104,40 104,88 70,110"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M54,10 C12,36 12,92 54,118"
+		stroke="#2b2b2b"
+		stroke-width="5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<path
+		d="M74,10 C116,36 116,92 74,118"
+		stroke="#2b2b2b"
+		stroke-width="5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<!-- Amber vertical line -->
+	<line x1="64" y1="38" x2="64" y2="90" stroke="#D6A24A" stroke-width="4" stroke-linecap="round" />
+</svg>

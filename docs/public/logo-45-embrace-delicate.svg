@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Delicate — four thin arc layers, ethereal -->
+	<path
+		d="M60,24 C36,42 36,86 60,104"
+		stroke="#2b2b2b"
+		stroke-width="3"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.7"
+	/>
+	<path
+		d="M68,24 C92,42 92,86 68,104"
+		stroke="#2b2b2b"
+		stroke-width="3"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.7"
+	/>
+	<path
+		d="M56,18 C26,38 26,90 56,110"
+		stroke="#2b2b2b"
+		stroke-width="2.5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.45"
+	/>
+	<path
+		d="M72,18 C102,38 102,90 72,110"
+		stroke="#2b2b2b"
+		stroke-width="2.5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.45"
+	/>
+	<path
+		d="M52,12 C14,34 14,94 52,116"
+		stroke="#2b2b2b"
+		stroke-width="2"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.25"
+	/>
+	<path
+		d="M76,12 C114,34 114,94 76,116"
+		stroke="#2b2b2b"
+		stroke-width="2"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.25"
+	/>
+	<path
+		d="M48,6 C4,28 4,100 48,122"
+		stroke="#2b2b2b"
+		stroke-width="1.5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.1"
+	/>
+	<path
+		d="M80,6 C124,28 124,100 80,122"
+		stroke="#2b2b2b"
+		stroke-width="1.5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.1"
+	/>
+	<ellipse cx="64" cy="64" rx="6" ry="12" fill="#D6A24A" />
+</svg>

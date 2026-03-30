@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Tall/elongated — stretched vertically, narrower middle -->
+	<path
+		d="M60,8 C30,36 30,92 60,120"
+		stroke="#2b2b2b"
+		stroke-width="7"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M68,8 C98,36 98,92 68,120"
+		stroke="#2b2b2b"
+		stroke-width="7"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M56,4 C18,32 18,96 56,124"
+		stroke="#2b2b2b"
+		stroke-width="4"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<path
+		d="M72,4 C110,32 110,96 72,124"
+		stroke="#2b2b2b"
+		stroke-width="4"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<ellipse cx="64" cy="64" rx="5" ry="18" fill="#D6A24A" />
+</svg>

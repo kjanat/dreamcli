@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+	<!-- Embrace — organic, narrowing at top and bottom, wider middle -->
+	<!-- Inner arcs (bold) -->
+	<path
+		d="M58,18 C24,40 24,88 58,110"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<path
+		d="M70,18 C104,40 104,88 70,110"
+		stroke="#2b2b2b"
+		stroke-width="8"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.6"
+	/>
+	<!-- Outer arcs (subtle) -->
+	<path
+		d="M54,10 C12,36 12,92 54,118"
+		stroke="#2b2b2b"
+		stroke-width="5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<path
+		d="M74,10 C116,36 116,92 74,118"
+		stroke="#2b2b2b"
+		stroke-width="5"
+		fill="none"
+		stroke-linecap="round"
+		opacity="0.18"
+	/>
+	<!-- Amber center — vertical ellipse -->
+	<ellipse cx="64" cy="64" rx="7" ry="14" fill="#D6A24A" />
+</svg>
