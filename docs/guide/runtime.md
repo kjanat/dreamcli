@@ -1,7 +1,7 @@
 # Runtime Support
 
-dreamcli runs on Node.js, Bun, and Deno without code changes. A thin `RuntimeAdapter` interface
-abstracts the platform-specific edges.
+dreamcli runs on Node.js, Bun, and Deno without code changes.
+A thin `RuntimeAdapter` interface abstracts the platform-specific edges.
 
 ## Supported Runtimes
 
@@ -11,13 +11,13 @@ abstracts the platform-specific edges.
 | Bun >= 1.3    | Supported | `dreamcli` (npm)         |
 | Deno >= 2.6   | Supported | `@kjanat/dreamcli` (JSR) |
 
-Adapters validate these minimum versions during creation. Unsupported runtimes fail fast with a
-descriptive error before command execution starts.
+Adapters validate these minimum versions during creation.
+Unsupported runtimes fail fast with a descriptive error before command execution starts.
 
 ## How It Works
 
-The core framework never imports platform-specific APIs directly. Instead, a `RuntimeAdapter`
-provides:
+The core framework never imports platform-specific APIs directly.
+Instead, a `RuntimeAdapter` provides:
 
 - `argv` — command-line arguments
 - `env` — environment variables
@@ -39,8 +39,8 @@ const nodeAdapter = createNodeAdapter(); // explicit
 
 ## Deno Permissions
 
-On Deno, the adapter handles permission-safe access to the Deno namespace. If permissions are
-missing, features degrade gracefully with clear error messages.
+On Deno, the adapter handles permission-safe access to the Deno namespace.
+If permissions are missing, features degrade gracefully with clear error messages.
 
 ```bash
 deno run --allow-read --allow-env mycli.ts deploy

@@ -1,7 +1,7 @@
 # Config Files
 
-dreamcli discovers and loads configuration files from standard locations. Config values participate
-in the flag resolution chain.
+dreamcli discovers and loads configuration files from standard locations.
+Config values participate in the flag resolution chain.
 
 ## Linking Flags to Config
 
@@ -9,8 +9,8 @@ in the flag resolution chain.
 flag.enum(['us', 'eu', 'ap']).config('deploy.region');
 ```
 
-This resolves `deploy.region` from the config file using dot-notation. If CLI argv and env var don't
-provide a value, the config file is checked next.
+This resolves `deploy.region` from the config file using dot-notation.
+If CLI argv and env var don't provide a value, the config file is checked next.
 
 ## Enabling Config Discovery
 
@@ -34,7 +34,8 @@ Config discovery follows XDG conventions:
 
 ## Custom Formats
 
-JSON is built-in. Add YAML, TOML, or any other format via `configFormat()`:
+JSON is built-in.
+Add YAML, TOML, or any other format via `configFormat()`:
 
 ```ts
 import { configFormat } from 'dreamcli';

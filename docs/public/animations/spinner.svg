@@ -1,0 +1,21 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="260"
+  height="40"
+  viewBox="0 0 260 40"
+  role="img"
+  aria-label="Loading spinner"
+>
+  <style>@import url('spinner.css');</style>
+  <text class="spinner-frame f0" x="12" y="20">⠋</text>
+  <text class="spinner-frame f1" x="12" y="20">⠙</text>
+  <text class="spinner-frame f2" x="12" y="20">⠹</text>
+  <text class="spinner-frame f3" x="12" y="20">⠸</text>
+  <text class="spinner-frame f4" x="12" y="20">⠼</text>
+  <text class="spinner-frame f5" x="12" y="20">⠴</text>
+  <text class="spinner-frame f6" x="12" y="20">⠦</text>
+  <text class="spinner-frame f7" x="12" y="20">⠧</text>
+  <text class="spinner-frame f8" x="12" y="20">⠇</text>
+  <text class="spinner-frame f9" x="12" y="20">⠏</text>
+  <text x="40" y="20">Loading...</text>
+</svg>

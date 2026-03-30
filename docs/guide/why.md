@@ -1,8 +1,9 @@
 # Why dreamcli
 
-Most TypeScript CLI frameworks treat the type system like decoration. You define flags in one place,
-then use parsed values somewhere else as a loosely typed blob. Env vars, config files, and
-interactive prompts live in separate universes. Testing means hacking `process.argv`.
+Most TypeScript CLI frameworks treat the type system like decoration.
+You define flags in one place, then use parsed values somewhere else as a loosely typed blob.
+Env vars, config files, and interactive prompts live in separate universes.
+Testing means hacking `process.argv`.
 
 dreamcli collapses all of that into a single typed schema.
 
@@ -24,8 +25,8 @@ Third-party plugins and custom glue can extend the other libraries.
 
 ## The Core Insight
 
-The closest analog is what tRPC did to API routes — the individual pieces existed. The insight was
-wiring them so types flow end-to-end.
+The closest analog is what tRPC did to API routes — the individual pieces existed.
+The insight was wiring them so types flow end-to-end.
 
 One flag declaration:
 

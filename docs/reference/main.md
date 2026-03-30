@@ -93,8 +93,8 @@ Create typed middleware that adds context to the chain.
 
 ### `createOutput(options?)`
 
-Create an output channel. Typically not called directly — commands receive `out` in the action
-handler.
+Create an output channel.
+Typically not called directly — commands receive `out` in the action handler.
 
 ## Parsing
 

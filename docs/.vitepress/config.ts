@@ -4,9 +4,8 @@ export default defineConfig({
   title: 'dreamcli',
   description: 'Schema-first, fully typed TypeScript CLI framework',
   cleanUrls: true,
-  sitemap: {
-    hostname: 'https://dreamcli.kjanat.com',
-  },
+  base: '/',
+  sitemap: { hostname: 'https://dreamcli.kjanat.com' },
   head: [
     [
       'link',
@@ -108,12 +107,10 @@ export default defineConfig({
       ],
     },
     socialLinks: [{ icon: 'github', link: 'https://github.com/kjanat/dreamcli' }],
-    search: {
-      provider: 'local',
-    },
+    search: { provider: 'local' },
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright 2026-present Kaj Kowalski',
+      copyright: `Copyright © 2026-present Kaj Kowalski`,
     },
   },
 });

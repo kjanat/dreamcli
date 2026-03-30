@@ -1,0 +1,74 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="300"
+  height="40"
+  viewBox="0 0 300 40"
+  role="img"
+  aria-label="Animated progress bar"
+>
+  <style>@import url('loadingbar.css');</style>
+
+  <text class="frame f0" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled"></tspan>
+    <tspan class="empty">░░░░░░░░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">0%</tspan>
+  </text>
+  <text class="frame f1" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">█</tspan>
+    <tspan class="empty">░░░░░░░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">12.5%</tspan>
+  </text>
+  <text class="frame f2" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">██</tspan>
+    <tspan class="empty">░░░░░░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">25%</tspan>
+  </text>
+  <text class="frame f3" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">███</tspan>
+    <tspan class="empty">░░░░░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">37.5%</tspan>
+  </text>
+  <text class="frame f4" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">████</tspan>
+    <tspan class="empty">░░░░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">50%</tspan>
+  </text>
+  <text class="frame f5" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">█████</tspan>
+    <tspan class="empty">░░░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">62.5%</tspan>
+  </text>
+  <text class="frame f6" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">██████</tspan>
+    <tspan class="empty">░░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">75%</tspan>
+  </text>
+  <text class="frame f7" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">███████</tspan>
+    <tspan class="empty">░</tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">87.5%</tspan>
+  </text>
+  <text class="frame f8" x="12" y="20">
+    <tspan class="bracket">[</tspan>
+    <tspan class="filled">████████</tspan>
+    <tspan class="empty"></tspan>
+    <tspan class="bracket">]</tspan>
+    <tspan class="pct">100%</tspan>
+  </text>
+</svg>

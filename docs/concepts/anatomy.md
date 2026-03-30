@@ -16,11 +16,11 @@ git commit -m "fix the bug"
 
 Let's break it apart:
 
-```
-git         → the program
-commit      → the command (what to do)
--m          → a flag (modifier)
-"fix the bug" → the value for that flag
+```bash
+git           # → the program
+commit        # → the command (what to do)
+-m            # → a flag (modifier)
+"fix the bug" # → the value for that flag
 ```
 
 Your shell (the thing running in the terminal) splits this into pieces and hands them to the program
@@ -83,21 +83,21 @@ Flags come in two flavors:
 **Long flags** start with `--` and are readable:
 
 ```bash
-ls --all              # show hidden files too
-curl --silent         # don't show the progress bar
+ls --all       # show hidden files too
+curl --silent  # don't show the progress bar
 ```
 
 **Short flags** are one letter with a single `-`:
 
 ```bash
-ls -a                 # same as --all
-curl -s               # same as --silent
+ls -a    # same as --all
+curl -s  # same as --silent
 ```
 
 Short flags can be mashed together:
 
 ```bash
-ls -la                # same as ls -l -a
+ls -la  # same as ls -l -a
 ```
 
 ### Boolean Flags
@@ -105,7 +105,7 @@ ls -la                # same as ls -l -a
 Some flags are just on/off switches. If you include them, they're on:
 
 ```bash
-rm --force            # don't ask, just delete
+rm --force  # don't ask, just delete
 npm install --save-dev
 ```
 
@@ -140,8 +140,8 @@ looks like a flag."
 Why does this exist? What if you need to delete a file literally named `-f`?
 
 ```bash
-rm -- -f              # deletes the file named "-f"
-rm -f                 # would mean "force delete" — not what you want
+rm -- -f  # deletes the file named "-f"
+rm -f     # would mean "force delete" — not what you want
 ```
 
 ## Help
@@ -162,8 +162,8 @@ If you're ever stuck, `--help` is your friend.
 `--version` (sometimes `-V` or `-v`) tells you what version is installed:
 
 ```bash
-node --version        # v22.0.0
-git --version         # git version 2.43.0
+node --version  # v22.0.0
+git --version   # git version 2.43.0
 ```
 
 Useful when something breaks and you need to know if you're on an old version.

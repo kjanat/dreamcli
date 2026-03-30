@@ -22,8 +22,8 @@ const auth = middleware<{ user: { id: string; role: 'admin' | 'user' } }>(
 );
 ```
 
-The generic parameter declares the context shape this middleware provides. The `next()` call passes
-context downstream.
+The generic parameter declares the context shape this middleware provides.
+The `next()` call passes context downstream.
 
 ## Stacking Middleware
 
@@ -41,8 +41,8 @@ command('deploy')
   });
 ```
 
-Context types intersect: `{ user: ... } & { traceId: string }`. Each middleware only needs to know
-about its own context shape.
+Context types intersect: `{ user: ... } & { traceId: string }`.
+Each middleware only needs to know about its own context shape.
 
 ## Middleware Parameters
 

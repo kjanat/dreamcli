@@ -1,7 +1,7 @@
 # Shell Completions
 
-dreamcli generates completion scripts from the command schema — always in sync with your CLI
-definition.
+dreamcli generates completion scripts from the command schema —
+always in sync with your CLI definition.
 
 ## Generating Scripts
 

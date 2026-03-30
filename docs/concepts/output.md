@@ -1,12 +1,14 @@
 # Output and TTY
 
-CLIs communicate through text. But *where* that text goes and *how* it looks depends on context.
+CLIs communicate through text.
+But *where* that text goes and *how* it looks depends on context.
 
 ## stdout and stderr
 
 Every program has two output streams:
 
-- **stdout** (standard output) — the main output. Results, data, the stuff you asked for.
+- **stdout** (standard output) — the main output.
+  Results, data, the stuff you asked for.
 - **stderr** (standard error) — side-channel for errors, warnings, progress info.
 
 ```bash
@@ -14,8 +16,9 @@ Every program has two output streams:
 mycli process data.json > output.txt
 ```
 
-Why two streams? So you can capture the useful output without catching error messages too. When you
-pipe commands together, only stdout flows through the pipe:
+Why two streams?
+So you can capture the useful output without catching error messages too.
+When you pipe commands together, only stdout flows through the pipe:
 
 ```bash
 mycli list | grep "important"
@@ -30,8 +33,8 @@ mycli list | grep "important"
 
 ## What's a TTY?
 
-**TTY** stands for "teletypewriter" — a physical terminal from the 1960s. Today it means "is a human
-looking at this output in a real terminal?"
+**TTY** stands for "teletypewriter" — a physical terminal from the 1960s.
+Today it means "is a human looking at this output in a real terminal?"
 
 Your program can check: *is my stdout connected to a terminal, or to a pipe/file?*
 
@@ -49,8 +52,9 @@ Why does this matter? Because the right behavior changes:
 | Piped/redirected     | Plain text, no colors, no animations, stable format |
 
 ::: warning
-If you pipe colored output to a file, you get garbage like `\x1b[32mSuccess\x1b[0m` instead of
-`Success`. Good CLIs detect this and strip colors automatically.
+If you pipe colored output to a file, you get garbage like
+`\x1b[32mSuccess\x1b[0m` instead of `Success`.
+Good CLIs detect this and strip colors automatically.
 :::
 
 ## Colors
@@ -61,8 +65,10 @@ Colors make output scannable for humans:
 - 🟡 **Yellow** for warnings
 - 🟢 **Green** for success
 
-But colors are just escape codes — special characters that terminals interpret. They're meaningless
-(and ugly) in log files, pipes, or CI output. The convention:
+But colors are just escape codes — special characters that terminals interpret.
+They're meaningless (and ugly) in log files, pipes, or CI output.
+
+The convention:
 
 - **TTY** → colors on
 - **Not TTY** → colors off
@@ -71,8 +77,8 @@ But colors are just escape codes — special characters that terminals interpret
 
 ## Spinners and Progress Bars
 
-Spinners (`⠋ Loading...`) and progress bars (`[████░░░░] 50%`) make waiting feel faster. But they
-only make sense when a human is watching.
+Spinners (`⠋ Loading...`) and progress bars (`[████░░░░] 50%`) make waiting feel faster.
+But they only make sense when a human is watching.
 
 In a **TTY**:
 
@@ -120,9 +126,9 @@ mycli list --json
 
 ### Why Offer JSON?
 
-Scripts and other programs need to read CLI output. Parsing human-formatted tables is fragile — one
-column header change breaks everything. JSON is structured, predictable, and every language can
-parse it.
+Scripts and other programs need to read CLI output.
+Parsing human-formatted tables is fragile — one column header change breaks everything.
+JSON is structured, predictable, and every language can parse it.
 
 ### When to Offer JSON
 

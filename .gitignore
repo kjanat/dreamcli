@@ -224,3 +224,5 @@ $RECYCLE.BIN/
 .jj-shim/
 .envrc
 docs/.vitepress/cache/
+/_*.md
+/_*.ts

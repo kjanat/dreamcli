@@ -1,7 +1,7 @@
 # Interactive Prompts
 
-dreamcli integrates interactive prompts into the flag resolution chain. Prompts activate only when
-needed and only in interactive contexts.
+dreamcli integrates interactive prompts into the flag resolution chain.
+Prompts activate only when needed and only in interactive contexts.
 
 ## Per-Flag Prompts
 
@@ -44,13 +44,13 @@ command('deploy')
   }));
 ```
 
-The resolver receives partially resolved flags (after CLI/env/config) and returns prompt configs for
-any remaining values.
+The resolver receives partially resolved flags (after CLI/env/config)
+and returns prompt configs for any remaining values.
 
 ## Non-Interactive Behavior
 
-When stdin is not a TTY (CI, piped input), prompts are automatically skipped. Required flags that
-would have prompted instead produce a structured error with an actionable message.
+When stdin is not a TTY (CI, piped input), prompts are automatically skipped.
+Required flags that would have prompted instead produce a structured error with an actionable message.
 
 ## Testing Prompts
 

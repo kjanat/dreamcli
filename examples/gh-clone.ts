@@ -18,6 +18,7 @@
  * @module
  */
 
+import process from "node:process";
 import { arg, CLIError, cli, command, flag, group, middleware } from 'dreamcli';
 
 // ── Mock data ─────────────────────────────────────────────────────────

@@ -15,25 +15,27 @@ mycli greet Alice --loud
 
 The program receives:
 
-```
+```json
 ["mycli", "greet", "Alice", "--loud"]
 ```
 
 That's it. Just strings. The CLI framework's job is to parse these strings into something meaningful
 — commands, arguments, flags, values.
 
-::: info Why "vector"? It's just a fancy word for "ordered list." The name comes from C, where
-`argv` was literally an array of character pointers. You'll see it everywhere in CLI programming.
+::: info Why "vector"?
+It's just a fancy word for "ordered list."
+The name comes from C, where `argv` was literally an array of character pointers.
+You'll see it everywhere in CLI programming.
 :::
 
 ## Environment Variables
 
-Environment variables are key-value pairs that exist outside your command. They're set in your
-shell, your `.bashrc`, your CI config, your Docker setup — all over the place.
+Environment variables are key-value pairs that exist outside your command.
+They're set in your shell, your `.bashrc`, your CI config, your Docker setup — all over the place.
 
 ```bash
 export API_KEY=abc123
-mycli upload photo.jpg    # can read API_KEY without you typing it
+mycli upload photo.jpg  # can read API_KEY without you typing it
 ```
 
 Why use env vars?
@@ -121,12 +123,12 @@ Good CLIs handle this gracefully:
 
 When a value can come from multiple places, there's a natural priority:
 
-```
-1. Command-line flag       (highest — you typed it explicitly)
-2. Environment variable    (set for this session/environment)
-3. Config file             (persistent settings)
-4. Interactive prompt      (ask the user)
-5. Default value           (fallback)
+```text
+1. Command-line flag     (highest — you typed it explicitly)
+2. Environment variable  (set for this session/environment)
+3. Config file           (persistent settings)
+4. Interactive prompt    (ask the user)
+5. Default value         (fallback)
 ```
 
 The first source that has a value wins. This way, you can set defaults in a config file but override

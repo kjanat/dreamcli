@@ -12,10 +12,10 @@ That's the entire convention. Zero means "it worked." Non-zero means "something 
 
 ```bash
 ls /tmp
-echo $?          # 0 — it worked
+echo $?  # 0 — it worked
 
 ls /nonexistent
-echo $?          # 2 — that folder doesn't exist
+echo $?  # 2 — that folder doesn't exist
 ```
 
 `$?` is a shell variable that holds the exit code of the last command.
@@ -45,16 +45,18 @@ CI systems work the same way. A build step that exits non-zero fails the pipelin
 
 There's no universal standard, but common conventions:
 
-| Code    | Meaning                                                       |
-| ------- | ------------------------------------------------------------- |
-| `0`     | Success                                                       |
-| `1`     | General error                                                 |
-| `2`     | Misuse (wrong arguments, bad flags)                           |
-| `126`   | Command found but not executable                              |
-| `127`   | Command not found                                             |
-| `128+N` | Killed by signal N — shell reports 128+N (e.g., 130 = Ctrl+C) |
+| Code    | Meaning                                                             |
+| ------- | ------------------------------------------------------------------- |
+| `0`     | Success                                                             |
+| `1`     | General error                                                       |
+| `2`     | Misuse (wrong arguments, bad flags)                                 |
+| `126`   | Command found but not executable                                    |
+| `127`   | Command not found                                                   |
+| `128+N` | Killed by signal `N` — shell reports `128+N` (e.g., `130` = Ctrl+C) |
 
-Most CLIs only care about 0, 1, and 2. If you're building a CLI:
+Most CLIs only care about `0`, `1`, and `2`.
+
+If you're building a CLI:
 
 - **0** when the command does what the user asked
 - **1** when something goes wrong at runtime (network error, file not found)

@@ -1,11 +1,13 @@
 # Walkthrough: Building a GitHub CLI
 
-Let's build something real. We're going to recreate a miniature version of `gh` — GitHub's official
-CLI — using dreamcli. By the end, you'll have touched every major feature: commands, groups, flags,
+Let's build something real.
+We're going to recreate a miniature version of `gh` — GitHub's official
+CLI — using dreamcli.
+
+By the end, you'll have touched every major feature: commands, groups, flags,
 arguments, middleware, env vars, prompts, tables, JSON mode, spinners, and error handling.
 
-The full source is at
-[`examples/gh-clone.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/gh-clone.ts).
+The full source is at [`examples/gh-clone.ts`][gh-clone].
 
 ## What we're building
 
@@ -31,8 +33,8 @@ $ gh auth login
 Logged in with token ghp_abc1...3def
 ```
 
-Commands, flags, prompts, spinners, tables, JSON mode — all in one tool. Let's build it piece by
-piece.
+Commands, flags, prompts, spinners, tables, JSON mode — all in one tool.
+Let's build it piece by piece.
 
 ## Step 1: A single command
 
@@ -55,7 +57,8 @@ That's a working CLI. But it's hardcoded and flat. Let's fix both.
 
 ## Step 2: Data and flags
 
-Real CLIs filter things. Let's add mock data and flags to filter by state:
+Real CLIs filter things.
+Let's add mock data and flags to filter by state:
 
 ```ts
 import { cli, command, flag } from 'dreamcli';
@@ -119,7 +122,8 @@ const prList = command('list')
 Three things to notice:
 
 1. `flag.enum([...])` constrains the value — `flags.state` is `'open' | 'closed' | 'merged' | 'all'`,
-   not `string`. Try passing `--state bogus` and dreamcli rejects it with a "did you mean?" error.
+   not `string`.\
+  Try passing `--state bogus` and dreamcli rejects it with a "did you mean?" error.
 2. `.default('open')` means `flags.state` is always defined — no `undefined` to check.
 3. `flag.number()` parses `--limit 5` into the number `5`, not the string `"5"`.
 
@@ -166,15 +170,14 @@ $ gh pr list --json
 [{"#":142,"title":"Add dark mode toggle","state":"open","author":"alice"},...]
 ```
 
-`--json` is handled automatically by `cli()`. `out.table()` renders a formatted table for humans
-and emits JSON when `--json` is active. `out.log()` is suppressed in JSON mode. For single-object
-responses (like `pr view`), use `out.json(data)` instead — it writes structured JSON to stdout only
-in `--json` mode.
+`--json` is handled automatically by `cli()`. `out.table()` renders a formatted table for humans and emits JSON when `--json` is active.
+`out.log()` is suppressed in JSON mode.
+For single-object responses (like `pr view`), use `out.json(data)` instead — it writes structured JSON to stdout only in `--json` mode.
 
 ## Step 4: Command groups
 
-A flat list of commands doesn't scale. `gh` organizes commands into groups — `pr list`, `pr create`,
-`auth login`. dreamcli has `group()` for this:
+A flat list of commands doesn't scale.
+`gh` organizes commands into groups — `pr list`, `pr create`, `auth login`. dreamcli has `group()` for this:
 
 ```ts
 import { cli, command, group, flag } from 'dreamcli';
@@ -228,12 +231,12 @@ Commands:
   list    List pull requests
 ```
 
-Groups are just commands that contain other commands. You can nest them as deep as you want.
+Groups are just commands that contain other commands.
+You can nest them as deep as you want.
 
 ## Step 5: Arguments
 
-`gh pr view 142` takes a PR number as a positional argument — not a flag, not a named value, just
-the first thing after `view`:
+`gh pr view 142` takes a PR number as a positional argument — not a flag, not a named value, just the first thing after `view`:
 
 ```ts
 import { arg, CLIError } from 'dreamcli';
@@ -259,14 +262,17 @@ const prView = command('view')
   });
 ```
 
-Arguments are strings by position — `args.number` is `string` because that's what the shell gives
-us. We parse it ourselves. The `CLIError` with `suggest` gives the user a helpful nudge when things
+Arguments are strings by position — `args.number` is `string` because that's what the shell gives us.
+We parse it ourselves.
+The `CLIError` with `suggest` gives the user a helpful nudge when things
 go wrong, and in `--json` mode it serializes as structured JSON on stderr.
 
 ## Step 6: Middleware
 
-Every `pr` and `issue` command needs authentication. You *could* check for a token in every single
-action handler, but that's repetitive and error-prone. Middleware solves this:
+Every `pr` and `issue` command needs authentication.
+You *could* check for a token in every single action handler, but that's repetitive and error-prone.
+
+Middleware solves this:
 
 ```ts
 import { middleware, CLIError } from 'dreamcli';
@@ -284,12 +290,11 @@ const requireAuth = middleware<{ token: string }>(async ({ next, flags }) => {
 });
 ```
 
-This assumes each protected command resolves a `token` value first, typically via
-`flag.string().env('GH_TOKEN')`, so middleware can consume resolved input instead of reaching for
-`process.env` directly.
+This assumes each protected command resolves a `token` value first, typically via `flag.string().env('GH_TOKEN')`, so middleware can consume resolved input instead of reaching for `process.env` directly.
 
-The generic `<{ token: string }>` declares what this middleware provides. `next({ token })` passes
-it downstream. Now wire it up:
+The generic `<{ token: string }>` declares what this middleware provides.
+`next({ token })` passes it downstream.
+Now wire it up:
 
 ```ts
 const prList = command('list')
@@ -304,16 +309,17 @@ const prList = command('list')
   });
 ```
 
-If no token resolves, the middleware throws before the action runs. No token check needed in the
-handler. The auth commands (`login`, `status`) don't use the middleware, so they work without a
-token.
+If no token resolves, the middleware throws before the action runs.
+No token check needed in the handler.
+The auth commands (`login`, `status`) don't use the middleware, so they work without a token.
 
-Middleware stacks. If you had `requireAuth` and `timing`, each one's context accumulates via type
-intersection — `ctx` becomes `{ token: string } & { startTime: number }`.
+Middleware stacks.
+If you had `requireAuth` and `timing`, each one's context accumulates via type intersection — `ctx` becomes `{ token: string } & { startTime: number }`.
 
 ## Step 7: Env vars and prompts
 
 The real `gh auth login` lets you paste a token interactively or set `GH_TOKEN` in your environment.
+
 dreamcli's resolution chain handles this naturally:
 
 ```ts
@@ -343,9 +349,9 @@ The resolution chain tries each source in order:
 So all of these work:
 
 ```bash
-$ gh auth login --token ghp_abc123           # flag
-$ GH_TOKEN=ghp_abc123 gh auth login          # env var
-$ gh auth login                              # prompts interactively
+$ gh auth login --token ghp_abc123        # flag
+$ GH_TOKEN=ghp_abc123 gh auth login       # env var
+$ gh auth login                           # prompts interactively
 ? Paste your GitHub token: ghp_abc123...
 ```
 
@@ -391,14 +397,14 @@ const prCreate = command('create')
   });
 ```
 
-`out.spinner()` returns a handle with `.update()`, `.succeed()`, `.stop()`, and `.wrap()`. In a TTY,
-you get an animated spinner. When piped or in `--json` mode, spinners are suppressed automatically —
-no garbage escape codes in your logs.
+`out.spinner()` returns a handle with `.update()`, `.succeed()`, `.stop()`, and `.wrap()`.
+In a TTY, you get an animated spinner.
+When piped or in `--json` mode, spinners are suppressed automatically — no garbage escape codes in your logs.
 
 ## Step 9: Testing
 
-This is where it gets interesting. You don't want to spawn subprocesses to test a CLI. dreamcli's
-testkit lets you run commands in-process with full control:
+This is where it gets interesting.
+You don't want to spawn subprocesses to test a CLI. dreamcli's testkit lets you run commands in-process with full control:
 
 ```ts
 import { runCommand } from 'dreamcli/testkit';
@@ -432,8 +438,8 @@ expect(create.exitCode).toBe(0);
 expect(create.stdout.join('')).toContain('#143');
 ```
 
-No subprocesses. No `process.argv` mutation. No shell scripts. Each test is isolated — inject what
-you need, assert what you expect.
+No subprocesses. No `process.argv` mutation. No shell scripts.
+Each test is isolated — inject what you need, assert what you expect.
 
 ## Putting it together
 
@@ -479,9 +485,7 @@ That's a CLI with:
 - Structured errors with suggestions and error codes
 - Full testability via in-process test harness
 
-The complete source is at
-[`examples/gh-clone.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/gh-clone.ts) —
-about 170 lines, zero runtime dependencies.
+The complete source is at [`examples/gh-clone.ts`](gh-clone) — about 170 lines, zero runtime dependencies.
 
 ## What's next?
 
@@ -489,3 +493,5 @@ about 170 lines, zero runtime dependencies.
 - [Flags](/guide/flags) — all flag types, modifiers, and the resolution chain in detail
 - [Middleware](/guide/middleware) — context accumulation, short-circuit, onion model
 - [Testing](/guide/testing) — the full testkit API
+
+[gh-clone]: https://github.com/kjanat/dreamcli/blob/master/examples/gh-clone.ts

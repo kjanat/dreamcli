@@ -1,6 +1,7 @@
 # Output
 
-Handlers receive `out` instead of `console`. The output channel adapts to context automatically.
+Handlers receive `out` instead of `console`.
+The output channel adapts to context automatically.
 
 ## Basic Output
 
@@ -44,8 +45,8 @@ await deploy();
 spinner.succeed('Done');
 ```
 
-Spinners auto-disable when stdout is not a TTY (CI, piped output). In `--json` mode, spinners are
-suppressed entirely.
+Spinners auto-disable when stdout is not a TTY (CI, piped output).
+In `--json` mode, spinners are suppressed entirely.
 
 ## Progress Bars
 

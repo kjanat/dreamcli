@@ -34,7 +34,8 @@ $ mycli deploy production v1.2.3
 
 ## Required vs Optional
 
-Arguments are required by default. Use `.optional()` to make them optional:
+Arguments are required by default.
+Use `.optional()` to make them optional:
 
 ```ts
 // Required — must be provided

@@ -9,19 +9,19 @@ Compare these:
 
 **Bad:**
 
-```
+```bash
 Error: ENOENT
 ```
 
 **Better:**
 
-```
+```bash
 Error: File not found: config.json
 ```
 
 **Best:**
 
-```
+```bash
 Error: Config file not found: ./config.json
 
   Looked in:
@@ -45,7 +45,7 @@ That third part — the suggestion — is what separates tools people love from 
 
 The user typed something wrong:
 
-```
+```bash
 Error: Unknown flag '--region'. Did you mean '--remote'?
 Error: Missing required argument: <filename>
 Error: Invalid value for --port: "abc" is not a number
@@ -78,7 +78,7 @@ These should:
 
 Bugs in the program itself:
 
-```
+```bash
 Internal error: unexpected null in parseConfig
 Please report this at: https://github.com/...
 ```

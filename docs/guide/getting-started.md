@@ -18,7 +18,10 @@ deno add jsr:@kjanat/dreamcli
 
 :::
 
-Supported minimum runtimes: Node.js >= 22, Bun >= 1.3, Deno >= 2.6.
+Supported minimum runtimes:
+Node.js >= 22,
+Bun >= 1.3,
+Deno >= 2.6.
 
 ## Your First Command
 
@@ -41,7 +44,7 @@ cli('greet').default(greet).run();
 ```
 
 ```bash
-$ node greet.ts Alice --loud --times 3
+$ npx tsx greet.ts Alice --loud --times 3
 HELLO, ALICE!
 HELLO, ALICE!
 HELLO, ALICE!
@@ -82,6 +85,7 @@ cli('mycli')
 ```bash
 $ mycli deploy production --force
 Deploying production to default
+
 $ mycli login --token abc123
 Logged in with token: abc123
 ```

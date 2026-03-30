@@ -1,6 +1,7 @@
 # Commands
 
-Commands are the primary building block in dreamcli. Every CLI has at least one.
+Commands are the primary building block in dreamcli.
+Every CLI has at least one.
 
 ## Single Command
 

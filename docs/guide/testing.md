@@ -1,7 +1,7 @@
 # Testing
 
-dreamcli's test harness runs commands in-process with full control over inputs and outputs. No
-subprocesses, no `process.argv` mutation, no mocking.
+dreamcli's test harness runs commands in-process with full control over inputs and outputs.
+No subprocesses, no `process.argv` mutation, no mocking.
 
 ## Basic Usage
 
@@ -22,11 +22,16 @@ Control every dimension of CLI behavior from tests:
 
 ```ts
 const result = await runCommand(deploy, ['production'], {
-  env: { DEPLOY_REGION: 'eu' }, // environment variables
-  config: { deploy: { region: 'us' } }, // config file values
-  answers: ['ap'], // prompt answers (consumed in order)
-  jsonMode: true, // simulate --json mode
-  verbosity: 'quiet', // verbosity level
+  // environment variables
+  env: { DEPLOY_REGION: 'eu' },
+  // config file values
+  config: { deploy: { region: 'us' } },
+  // prompt answers (consumed in order)
+  answers: ['ap'],
+  // simulate --json mode
+  jsonMode: true,
+  // verbosity level
+  verbosity: 'quiet',
 });
 ```
 

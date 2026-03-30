@@ -1,7 +1,8 @@
 # Testing CLIs
 
-Testing a CLI is harder than testing a library. Libraries are functions — you call them and check
-the return value. CLIs are processes — they read from argv, env vars, config files, and stdin, then
+Testing a CLI is harder than testing a library.
+Libraries are functions — you call them and check the return value.
+CLIs are processes — they read from argv, env vars, config files, and stdin, then
 write to stdout, stderr, and the filesystem. Lots of moving parts.
 
 ## Why It's Hard
@@ -15,9 +16,10 @@ output=$(mycli greet Alice --loud)
 [ "$output" = "HELLO, ALICE!" ] || echo "FAIL"
 ```
 
-This works, technically. But it's slow (spawns a new process each time), fragile (depends on exact
-output formatting), and limited (how do you test env vars? config files? interactive prompts? error
-messages?).
+This works, technically.
+But it's slow (spawns a new process each time), fragile (depends on exact
+output formatting), and limited (how do you test env vars? config files?
+interactive prompts? error messages?).
 
 Real-world CLIs have tests like:
 
@@ -45,7 +47,8 @@ expect(stdout).toBe('Hello, Alice!\n');
 expect(exitCode).toBe(0);
 ```
 
-**Pros:** Tests the real thing. Catches packaging issues. **Cons:** Slow. Hard to mock env/config.
+**Pros:** Tests the real thing. Catches packaging issues.\
+**Cons:** Slow. Hard to mock env/config.
 Can't test prompts easily. Platform-dependent.
 
 ### 2. In-Process Testing (White-Box)
@@ -58,14 +61,14 @@ expect(result.stdout).toEqual(['HELLO, ALICE!\n']);
 expect(result.exitCode).toBe(0);
 ```
 
-**Pros:** Fast. Full control. Can inject env, config, prompt answers, output capture. **Cons:**
-Doesn't test the actual binary entry point.
+**Pros:** Fast. Full control. Can inject env, config, prompt answers, output capture.\
+**Cons:** Doesn't test the actual binary entry point.
 
-Most CLI frameworks don't give you option 2. You're stuck shelling out and parsing text. This is a
-solved problem — the test harness just needs to exist as a first-class feature.
+Most CLI frameworks don't give you option 2.
+You're stuck shelling out and parsing text.
+This is a solved problem — the test harness just needs to exist as a first-class feature.
 
-The examples below use dreamcli's test harness, but the patterns apply to any framework that offers
-in-process testing.
+The examples below use dreamcli's test harness, but the patterns apply to any framework that offers in-process testing.
 
 ## What to Test
 

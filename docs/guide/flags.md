@@ -1,7 +1,7 @@
 # Flags
 
-Flags are the richest primitive in dreamcli. Each flag declaration configures parsing, type
-inference, resolution, help text, and shell completions.
+Flags are the richest primitive in `dreamcli`.
+Each flag declaration configures parsing, type inference, resolution, help text, and shell completions.
 
 ## Flag Types
 
@@ -23,27 +23,40 @@ Every flag type supports the same modifier chain:
 ```ts
 flag
   .string()
-  .alias('r') // short alias: -r
-  .describe('Target region') // help text
-  .default('us') // default value (narrows type)
-  .required() // must resolve or error
-  .env('DEPLOY_REGION') // resolve from env var
-  .config('deploy.region') // resolve from config file
-  .prompt({ kind: 'input', message: 'Region?' }) // interactive fallback
-  .deprecated('Use --target instead') // deprecation warning
-  .propagate(); // inherit in subcommands
+  // short alias: -r
+  .alias('r')
+  // help text
+  .describe('Target region')
+  // default value (narrows type)
+  .default('us')
+  // must resolve or error
+  .required()
+  // resolve from env var
+  .env('DEPLOY_REGION')
+  // resolve from config file
+  .config('deploy.region')
+  // interactive fallback
+  .prompt({ kind: 'input', message: 'Region?' })
+  // deprecation warning
+  .deprecated('Use --target instead')
+  // inherit in subcommands
+  .propagate();
 ```
 
 ## Resolution Chain
 
 Each flag resolves through an ordered pipeline. Every step is opt-in:
 
-```
-CLI argv  →  environment variable  →  config file  →  interactive prompt  →  default value
+```mermaid
+flowchart LR
+    A[CLI argv] --> B[Environment variable]
+    B --> C[Config file]
+    C --> D[Interactive prompt]
+    D --> E[Default value]
 ```
 
-The first source that provides a value wins. Required flags that don't resolve produce a structured
-error before the action handler runs.
+The first source that provides a value wins.
+Required flags that don't resolve produce a structured error before the action handler runs.
 
 ### Example
 
@@ -92,8 +105,8 @@ flag.custom((value) => {
 });
 ```
 
-The parse function receives the raw string value and returns the parsed type. Thrown errors become
-validation errors with the flag name in context.
+The parse function receives the raw string value and returns the parsed type.
+Thrown errors become validation errors with the flag name in context.
 
 ## Propagation
 
