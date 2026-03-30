@@ -276,7 +276,7 @@ function formatArgDescription(schema: ArgSchema): string {
  * const text = formatHelp(deploy.schema, { binName: 'mycli' });
  * ```
  */
-function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
+function formatHelpSections(schema: CommandSchema, options?: HelpOptions): readonly string[] {
 	const opts = resolveOptions(options);
 	const sections: string[] = [];
 
@@ -310,7 +310,11 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 		sections.push(formatExamplesSection(schema.examples));
 	}
 
-	return `${sections.join('\n\n')}\n`;
+	return sections;
+}
+
+function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
+	return `${formatHelpSections(schema, options).join('\n\n')}\n`;
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +323,12 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const parts: string[] = ['Usage:'];
-	const cmdName = opts.binName !== undefined ? `${opts.binName} ${schema.name}` : schema.name;
+	// Avoid redundant usage like "greet greet" when a default command shares
+	// the same name as the binary that invoked it.
+	const cmdName =
+		opts.binName === undefined || opts.binName === schema.name
+			? schema.name
+			: `${opts.binName} ${schema.name}`;
 	parts.push(cmdName);
 
 	// Subcommand placeholder — groups show <command> before flags/args
@@ -452,4 +461,4 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 // ---------------------------------------------------------------------------
 
 export type { HelpOptions };
-export { formatHelp };
+export { formatHelp, formatHelpSections };

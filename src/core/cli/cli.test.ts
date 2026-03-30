@@ -378,7 +378,7 @@ describe('help virtual subcommand', () => {
 		expect(output).toContain('deploy');
 	});
 
-	it('`help` with default command still shows root help', async () => {
+	it('`help` with default and sibling commands still shows root help', async () => {
 		const defaultCmd = command('run')
 			.description('Default runner')
 			.action(({ out }) => {
@@ -391,6 +391,23 @@ describe('help virtual subcommand', () => {
 		const output = result.stdout.join('');
 		expect(output).toContain('mycli');
 		expect(output).toContain('deploy');
+	});
+
+	it('bare `help` shows default command help for single-command default CLIs', async () => {
+		const defaultCmd = command('run')
+			.description('Default runner')
+			.arg('target', arg.string().describe('Run target'))
+			.action(({ out }) => {
+				out.log('running');
+			});
+		const app = cli('mycli').default(defaultCmd);
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('Usage: mycli run <target>');
+		expect(output).toContain('Default runner');
+		expect(output).not.toContain('Commands:');
 	});
 });
 

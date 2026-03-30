@@ -263,7 +263,19 @@ describe('.default() — nested unknown does not delegate to default', () => {
 // ===================================================================
 
 describe('.default() — help and version', () => {
-	it('--help shows root help, not default command help', async () => {
+	it('--help shows default command help when it is the only visible command', async () => {
+		const app = cli('mycli').version('1.0.0').default(deployCommand());
+		const result = await app.execute(['--help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('Usage: mycli deploy [flags] <target>');
+		expect(output).toContain('Deploy to an environment');
+		expect(output).not.toContain('mycli v1.0.0');
+		expect(output).not.toContain('Commands:');
+	});
+
+	it('--help shows root help when siblings exist', async () => {
 		const app = cli('mycli').version('1.0.0').default(deployCommand()).command(statusCommand());
 		const result = await app.execute(['--help']);
 
@@ -275,12 +287,12 @@ describe('.default() — help and version', () => {
 		expect(output).toContain('status');
 	});
 
-	it('-h shows root help', async () => {
+	it('-h shows default command help when it is the only visible command', async () => {
 		const app = cli('mycli').default(deployCommand());
 		const result = await app.execute(['-h']);
 
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout.join('')).toContain('Commands:');
+		expect(result.stdout.join('')).toContain('Usage: mycli deploy [flags] <target>');
 	});
 
 	it('--version shows version, not default command', async () => {
@@ -365,5 +377,41 @@ describe('formatRootHelp — default command', () => {
 			const statusDescStart = statusLine.indexOf('Show');
 			expect(deployDescStart).toBe(statusDescStart);
 		}
+	});
+});
+
+describe('.default() — same-name command help', () => {
+	it('collapses duplicate binary and command names in root help', async () => {
+		const greet = command('greet')
+			.description('Greet someone')
+			.arg('name', arg.string().describe('Who to greet'))
+			.flag('loud', flag.boolean().alias('l').describe('Shout the greeting'))
+			.action(({ out }) => {
+				out.log('hello');
+			});
+		const app = cli('greet').default(greet);
+		const result = await app.execute(['--help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('Usage: greet [flags] <name>');
+		expect(output).not.toContain('Usage: greet greet [flags] <name>');
+	});
+
+	it('collapses duplicate binary and command names for explicit command help', async () => {
+		const greet = command('greet')
+			.description('Greet someone')
+			.arg('name', arg.string().describe('Who to greet'))
+			.flag('loud', flag.boolean().alias('l').describe('Shout the greeting'))
+			.action(({ out }) => {
+				out.log('hello');
+			});
+		const app = cli('greet').default(greet);
+		const result = await app.execute(['greet', '--help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('Usage: greet [flags] <name>');
+		expect(output).not.toContain('Usage: greet greet [flags] <name>');
 	});
 });
