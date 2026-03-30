@@ -51,6 +51,8 @@ interface NodeProcess {
 	readonly platform: string;
 	readonly stdin: {
 		readonly isTTY?: boolean;
+		/** Async iterable for reading all of stdin (used by readStdin). */
+		[Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 	};
 	readonly stdout: {
 		readonly isTTY?: boolean;
@@ -205,6 +207,8 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const homedir = resolveHomedir(p.env, p.platform);
 	const configDir = resolveConfigDir(p.env, p.platform, homedir);
 
+	const stdinIsTTY = p.stdin.isTTY === true;
+
 	return {
 		argv: p.argv,
 		env: p.env,
@@ -212,13 +216,39 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
 		stdin: stdinRead,
+		readStdin: () => readNodeStdinAll(p, stdinIsTTY),
 		isTTY: p.stdout.isTTY === true,
-		stdinIsTTY: p.stdin.isTTY === true,
+		stdinIsTTY,
 		exit: (code) => p.exit(code),
 		readFile,
 		homedir,
 		configDir,
 	};
+}
+
+/**
+ * Read all of stdin as a single string (for piped data).
+ *
+ * Returns `null` immediately if stdin is a TTY — the user is typing
+ * interactively, so there's no piped data to consume. When stdin is
+ * piped, collects all chunks via the async iterator until EOF.
+ *
+ * @internal
+ */
+async function readNodeStdinAll(proc: NodeProcess, stdinIsTTY: boolean): Promise<string | null> {
+	if (stdinIsTTY) return null;
+
+	const chunks: string[] = [];
+	const decoder = new TextDecoder();
+
+	for await (const chunk of proc.stdin) {
+		chunks.push(decoder.decode(chunk, { stream: true }));
+	}
+	// Flush any remaining bytes held by the streaming decoder
+	chunks.push(decoder.decode());
+
+	const result = chunks.join('');
+	return result.length > 0 ? result : null;
 }
 
 /**

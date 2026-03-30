@@ -65,6 +65,20 @@ interface RuntimeAdapter {
 	 */
 	readonly stdin: ReadFn;
 
+	/**
+	 * Read all of stdin as a single string (for piped data).
+	 *
+	 * Returns the full stdin contents when data is piped (`stdinIsTTY` is
+	 * false), or `null` when stdin is a TTY (no piped data available).
+	 *
+	 * Used by the resolve chain for args with `.stdin()` configured.
+	 * Unlike {@link stdin} (which reads one line for prompts), this
+	 * consumes the entire stream to EOF.
+	 *
+	 * @returns Full stdin contents as a string, or `null` if stdin is a TTY.
+	 */
+	readonly readStdin: () => Promise<string | null>;
+
 	/** Whether stdout is connected to a TTY. */
 	readonly isTTY: boolean;
 
@@ -143,6 +157,21 @@ interface TestAdapterOptions {
 	 * Use a custom `ReadFn` to simulate user input in tests.
 	 */
 	readonly stdin?: ReadFn;
+
+	/**
+	 * Piped stdin data for testing args with `.stdin()` configured.
+	 *
+	 * When provided, `readStdin()` returns this string. When absent,
+	 * `readStdin()` returns `null` (no piped data).
+	 *
+	 * @example
+	 * ```ts
+	 * createTestAdapter({
+	 *   stdinData: '{"key": "value"}',
+	 * })
+	 * ```
+	 */
+	readonly stdinData?: string;
 
 	/** TTY flag for stdout (defaults to `false`). */
 	readonly isTTY?: boolean;
@@ -236,6 +265,7 @@ const eofRead: ReadFn = () => Promise.resolve(null);
 const noopReadFile: (path: string) => Promise<string | null> = () => Promise.resolve(null);
 
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
+	const stdinData = options?.stdinData;
 	return {
 		argv: options?.argv ?? ['node', 'test'],
 		env: options?.env ?? {},
@@ -243,6 +273,7 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
 		stdin: options?.stdin ?? eofRead,
+		readStdin: () => Promise.resolve(stdinData !== undefined ? stdinData : null),
 		isTTY: options?.isTTY ?? false,
 		stdinIsTTY: options?.stdinIsTTY ?? false,
 		exit:

@@ -195,6 +195,8 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	// --- Config directory ---
 	const configDir = resolveDenoConfigDir(env, homedir);
 
+	const stdinIsTTY = d.stdin.isTerminal();
+
 	return {
 		argv,
 		env,
@@ -202,8 +204,9 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
 		stdin: stdinRead,
+		readStdin: () => readDenoStdinAll(d, stdinIsTTY),
 		isTTY: d.stdout.isTerminal(),
-		stdinIsTTY: d.stdin.isTerminal(),
+		stdinIsTTY,
 		exit: (code) => d.exit(code),
 		readFile,
 		homedir,
@@ -229,8 +232,42 @@ function getDenoNamespace(): DenoNamespace {
 }
 
 // ---------------------------------------------------------------------------
-// Stdin line reading
+// Stdin reading — line (prompts) and full (piped data)
 // ---------------------------------------------------------------------------
+
+/**
+ * Read all of stdin as a single string (for piped data).
+ *
+ * Returns `null` immediately if stdin is a TTY — the user is typing
+ * interactively, so there's no piped data to consume. When stdin is
+ * piped, collects all chunks via the `ReadableStream` until EOF.
+ *
+ * @internal
+ */
+async function readDenoStdinAll(deno: DenoNamespace, stdinIsTTY: boolean): Promise<string | null> {
+	if (stdinIsTTY) return null;
+
+	const reader = deno.stdin.readable.getReader();
+	const decoder = new TextDecoder();
+	const chunks: string[] = [];
+
+	try {
+		for (;;) {
+			const { value, done } = await reader.read();
+			if (done) {
+				// Flush any trailing bytes held by the streaming decoder
+				chunks.push(decoder.decode());
+				break;
+			}
+			chunks.push(decoder.decode(value, { stream: true }));
+		}
+	} finally {
+		reader.releaseLock();
+	}
+
+	const result = chunks.join('');
+	return result.length > 0 ? result : null;
+}
 
 /**
  * Read a single line from Deno's stdin.

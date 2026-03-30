@@ -1,0 +1,38 @@
+{
+	"prdName": "v0.9.2-stdin",
+	"description": "Stdin data support for piped input — read piped data into positional args",
+	"tasks": [
+		{
+			"id": "adapter-readStdin",
+			"title": "Add readStdin() to RuntimeAdapter + all adapter implementations",
+			"description": "Add `readStdin(): Promise<string | null>` to `RuntimeAdapter` interface — reads all of stdin as a string, returns `null` if stdin is a TTY (no piped data). Implement in Node adapter (consume `process.stdin` stream to string), Bun adapter (delegate to Node), Deno adapter (`Deno.stdin.readable` → TextDecoderStream → collect). Add to `TestAdapterOptions` as `stdinData?: string` that seeds a `readStdin` returning the given string (or `null` if absent). Update `createTestAdapter()` to wire it. Guard: if `stdinIsTTY` is true, return `null` immediately without blocking on read.",
+			"priority": "architecture",
+			"passes": true,
+			"overseerId": "task_01KH86GXQ2WQCP6ESB6ZBR0G2R"
+		},
+		{
+			"id": "arg-stdin-modifier",
+			"title": "Add .stdin() modifier to ArgBuilder",
+			"description": "Add `stdinMode: boolean` to `ArgSchema` (default `false`). Add `.stdin()` method to `ArgBuilder` that sets `stdinMode: true` — returns same generic (no type change). Only ONE arg per command may have `stdinMode: true` — enforce at command build time in `CommandBuilder.arg()` (throw `CLIError` with code `DUPLICATE_STDIN_ARG` if a second `.stdin()` arg is registered). Update `createArgSchema()` default. Resolution order for stdin args: CLI argv (if value isn't '-') → stdin data (if argv is '-' OR !stdinIsTTY and no argv) → env → default → required error.",
+			"priority": "architecture",
+			"passes": false,
+			"overseerId": "task_01KH86GXR5MAFC263YJKJTNH17"
+		},
+		{
+			"id": "resolve-stdin-wire",
+			"title": "Wire stdin data into resolve chain via ResolveOptions + resolveArgs()",
+			"description": "Add `stdinData?: string | null` to `ResolveOptions`. In `resolveArgs()`, insert stdin resolution between parser value and env var: if arg has `stdinMode: true` and parsedValue is undefined (or is the string '-'), check `stdinData`. If `stdinData` is a non-null string, coerce it through `coerceArgEnvValue` (reuse existing coercion, source label 'stdin'). Thread `stdinData` from `RunOptions` (testkit) through `runCommand()` into `ResolveOptions`. Thread from `CLIRunOptions` through `execute()` → `buildCommandRunOptions()` → resolve call. In `run()`, call `adapter.readStdin()` once before execute and pass as `stdinData`.",
+			"priority": "integration",
+			"passes": false,
+			"overseerId": "task_01KH86GXS2SF9AC2JBE85PYY24"
+		},
+		{
+			"id": "stdin-tests",
+			"title": "Comprehensive stdin data tests",
+			"description": "Test files: `resolve-stdin.test.ts` for resolution chain, `testkit-stdin.test.ts` for end-to-end via testkit. Cases: (1) stdin arg receives piped data when no CLI value, (2) CLI value takes precedence over stdin, (3) explicit '-' arg reads stdin, (4) stdin with env fallback — stdin before env in chain, (5) stdinIsTTY=true skips stdin read, (6) duplicate .stdin() args throw at build time, (7) variadic + stdin interaction (should be invalid — throw at build time), (8) stdin with .optional() returns undefined when no data, (9) stdin with .default() falls through correctly, (10) JSON mode + stdin works, (11) stdin with number arg coerces correctly, (12) stdin with custom parse fn works.",
+			"priority": "standard",
+			"passes": false,
+			"overseerId": "task_01KH86GXT0ZFM0J6W27ZGBJ8AF"
+		}
+	]
+}

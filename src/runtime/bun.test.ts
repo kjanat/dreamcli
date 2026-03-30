@@ -15,13 +15,26 @@ import type { NodeProcess } from './node.ts';
 // Test helpers
 // ---------------------------------------------------------------------------
 
-function mockProcess(overrides?: Partial<NodeProcess>): NodeProcess {
+/** Empty async iterator — yields nothing, returns immediately. */
+async function* emptyAsyncIterator(): AsyncGenerator<Uint8Array> {}
+
+/** Minimal stdin stub with async iterator (yields nothing). */
+function mockStdin(overrides?: Partial<NodeProcess['stdin']>): NodeProcess['stdin'] {
+	return {
+		[Symbol.asyncIterator]: emptyAsyncIterator,
+		...overrides,
+	};
+}
+
+function mockProcess(
+	overrides?: Omit<Partial<NodeProcess>, 'stdin'> & { stdin?: NodeProcess['stdin'] },
+): NodeProcess {
 	return {
 		argv: overrides?.argv ?? ['bun', 'cli.ts'],
 		env: overrides?.env ?? {},
 		cwd: overrides?.cwd ?? (() => '/bun/project'),
 		platform: overrides?.platform ?? 'linux',
-		stdin: overrides?.stdin ?? {},
+		stdin: overrides?.stdin ?? mockStdin(),
 		stdout: overrides?.stdout ?? { isTTY: false, write: vi.fn() },
 		stderr: overrides?.stderr ?? { write: vi.fn() },
 		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
@@ -123,13 +136,13 @@ describe('createBunAdapter — TTY detection', () => {
 	});
 
 	it('stdinIsTTY is true when stdin.isTTY is true', () => {
-		const proc = mockProcess({ stdin: { isTTY: true } });
+		const proc = mockProcess({ stdin: mockStdin({ isTTY: true }) });
 		const adapter = createBunAdapter(proc);
 		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is undefined', () => {
-		const proc = mockProcess({ stdin: {} });
+		const proc = mockProcess({ stdin: mockStdin() });
 		const adapter = createBunAdapter(proc);
 		expect(adapter.stdinIsTTY).toBe(false);
 	});

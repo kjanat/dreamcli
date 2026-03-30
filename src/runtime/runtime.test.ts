@@ -16,14 +16,27 @@ import { createNodeAdapter } from './node.ts';
 // Test helpers
 // ---------------------------------------------------------------------------
 
+/** Empty async iterator — yields nothing, returns immediately. */
+async function* emptyAsyncIterator(): AsyncGenerator<Uint8Array> {}
+
+/** Minimal stdin stub with async iterator (yields nothing). */
+function mockStdin(overrides?: Partial<NodeProcess['stdin']>): NodeProcess['stdin'] {
+	return {
+		[Symbol.asyncIterator]: emptyAsyncIterator,
+		...overrides,
+	};
+}
+
 /** Create a minimal mock NodeProcess with optional overrides. */
-function mockNodeProcess(overrides?: Partial<NodeProcess>): NodeProcess {
+function mockNodeProcess(
+	overrides?: Omit<Partial<NodeProcess>, 'stdin'> & { stdin?: NodeProcess['stdin'] },
+): NodeProcess {
 	return {
 		argv: overrides?.argv ?? [],
 		env: overrides?.env ?? {},
 		cwd: overrides?.cwd ?? (() => '/'),
 		platform: overrides?.platform ?? 'linux',
-		stdin: overrides?.stdin ?? {},
+		stdin: overrides?.stdin ?? mockStdin(),
 		stdout: overrides?.stdout ?? { write: vi.fn() },
 		stderr: overrides?.stderr ?? { write: vi.fn() },
 		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
@@ -172,7 +185,7 @@ describe('createNodeAdapter', () => {
 			env: { NODE_ENV: 'test' },
 			cwd: () => '/mock/cwd',
 			platform: 'linux',
-			stdin: { isTTY: true },
+			stdin: mockStdin({ isTTY: true }),
 			stdout: {
 				isTTY: true,
 				write: vi.fn(),
@@ -449,7 +462,7 @@ describe('createTestAdapter stdin', () => {
 
 describe('createNodeAdapter stdin', () => {
 	it('stdinIsTTY is true when stdin.isTTY is true', () => {
-		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: true } }));
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: mockStdin({ isTTY: true }) }));
 		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
@@ -459,7 +472,7 @@ describe('createNodeAdapter stdin', () => {
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is false', () => {
-		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: false } }));
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: mockStdin({ isTTY: false }) }));
 		expect(adapter.stdinIsTTY).toBe(false);
 	});
 

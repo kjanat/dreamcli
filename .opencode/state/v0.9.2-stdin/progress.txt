@@ -1,0 +1,35 @@
+# Progress Log
+
+PRD: v0.9.2-stdin Started: 2026-03-30
+
+## Codebase Patterns
+
+- `RuntimeAdapter` interface in `src/runtime/adapter.ts` — all platform-dependent ops
+- `createTestAdapter()` in same file — test stub, all fields optional with sensible defaults
+- Node adapter: `src/runtime/node.ts`, Bun: `src/runtime/bun.ts` (delegates to Node), Deno: `src/runtime/deno.ts`
+- `ReadFn` from `core/prompt/` = line reader (single-line, for prompts), NOT bulk stdin
+- `ArgSchema` in `src/core/schema/arg.ts` — runtime descriptor for args
+- `resolveArgs()` in `src/core/resolve/index.ts:819` — CLI → env → default chain
+- `ResolveOptions` in `src/core/resolve/index.ts:42` — injectable state for resolver
+- `RunOptions` in `src/core/testkit/index.ts:66` — testing seam
+- `CLIRunOptions` in `src/core/cli/index.ts:174` — runtime seam for `cli().run()`
+- Convention: `exactOptionalPropertyTypes` forces conditional spread `...(x !== undefined ? { x } : {})`
+- Convention: `.ts` extensions in all relative imports
+- Convention: `import type` for type-only imports (verbatimModuleSyntax)
+
+---
+
+<!-- Task logs below - APPEND ONLY -->
+
+## Task - adapter-readStdin
+
+- Added `readStdin(): Promise<string | null>` to `RuntimeAdapter` interface
+- Node: `readNodeStdinAll()` — async iterator over `process.stdin` chunks, TextDecoder streaming
+- Deno: `readDenoStdinAll()` — `ReadableStream.getReader()` loop, TextDecoder streaming
+- Bun: delegates to Node (unchanged pattern)
+- Test adapter: `stdinData?: string` on `TestAdapterOptions`, wired in `createTestAdapter()`
+- Both Node and Deno return `null` immediately when `stdinIsTTY` is true
+- Added `[Symbol.asyncIterator]` to `NodeProcess.stdin` type — required for `for await`
+- Fixed test helpers in `runtime.test.ts` and `bun.test.ts` — `mockStdin()` factory with async iterator
+- **Files changed:** `adapter.ts`, `node.ts`, `deno.ts`, `runtime.test.ts`, `bun.test.ts`
+- **Learnings:** `exactOptionalPropertyTypes` + `Partial<T>` is painful for overrides with required nested properties — use `Omit<Partial<T>, 'key'> & { key?: T['key'] }` pattern to preserve exact type for the nested property
