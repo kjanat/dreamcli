@@ -80,6 +80,9 @@ The convention:
 Spinners (`⠋ Loading...`) and progress bars (`[████░░░░] 50%`) make waiting feel faster.
 But they only make sense when a human is watching.
 
+<img src="/animations/spinner.svg" alt="Animated loading spinner" />
+<img src="/animations/loadingbar.svg" alt="Animated progress bar" />
+
 In a **TTY**:
 
 ```
