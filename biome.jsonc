@@ -10,12 +10,7 @@
 		"includes": ["**"],
 		"ignoreUnknown": true
 	},
-	"formatter": {
-		"enabled": false,
-		"indentStyle": "tab",
-		"indentWidth": 2,
-		"lineWidth": 100
-	},
+	"formatter": { "enabled": false },
 	"linter": {
 		"enabled": true,
 		"rules": {

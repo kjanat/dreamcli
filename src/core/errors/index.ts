@@ -7,6 +7,7 @@
  *
  * @module dreamcli/core/errors
  */
+// deno-lint-ignore-file ban-types
 
 // ---------------------------------------------------------------------------
 // Error codes — discriminated string union per category

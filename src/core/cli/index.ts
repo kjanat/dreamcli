@@ -1063,6 +1063,7 @@ class CLIBuilder {
 
 		// Package.json discovery (only when .packageJson() was called)
 		// Skip for completions subcommand — no metadata needed.
+		// deno-lint-ignore no-this-alias
 		let effectiveBuilder: CLIBuilder = this;
 		if (this.schema.packageJsonSettings !== undefined && !isCompletions) {
 			const pkg = await discoverPackageJson(adapter);

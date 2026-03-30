@@ -8,6 +8,7 @@
  *
  * @module dreamcli/core/schema/command
  */
+// deno-lint-ignore-file ban-types
 
 import { CLIError } from '../errors/index.ts';
 import type {

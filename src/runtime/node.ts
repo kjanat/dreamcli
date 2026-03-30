@@ -267,42 +267,32 @@ async function readNodeStdinAll(proc: NodeProcess, stdinIsTTY: boolean): Promise
 }
 
 /**
- * Read a single line from Node's stdin using the readline module.
+ * Read a single line from Node's stdin via its async iterator.
  *
- * Creates a one-shot readline interface for each call, reads one line,
- * then closes it. Returns `null` on EOF.
- *
- * This is intentionally simple (no raw mode) — the terminal prompter
- * handles retries and validation. The readline interface is created
- * per-call to avoid holding stdin open between prompts.
+ * Iterates stdin chunks manually (without `for-await` to avoid calling
+ * `iterator.return()` which would close the stream). Returns `null`
+ * on EOF.
  *
  * @internal
  */
 async function createNodeReadLine(proc: NodeProcess): Promise<string | null> {
-	// Dynamic import avoids pulling readline into environments that don't need it.
-	// Node and Bun both provide 'readline' — Deno has its own adapter.
-	const rlMod = await import('node:readline');
+	const iter = proc.stdin[Symbol.asyncIterator]();
+	const decoder = new TextDecoder();
+	let buffer = '';
+	let result = await iter.next();
 
-	return new Promise<string | null>((resolve) => {
-		const rl = rlMod.createInterface({
-			input: proc.stdin,
-			terminal: false,
-		});
+	while (!result.done) {
+		buffer += decoder.decode(result.value, { stream: true });
+		const nlIndex = buffer.indexOf('\n');
+		if (nlIndex !== -1) {
+			return buffer.slice(0, nlIndex).replace(/\r$/, '');
+		}
+		result = await iter.next();
+	}
 
-		let answered = false;
-
-		rl.once('line', (line: string) => {
-			answered = true;
-			rl.close();
-			resolve(line);
-		});
-
-		rl.once('close', () => {
-			if (!answered) {
-				resolve(null); // EOF
-			}
-		});
-	});
+	// Flush remaining bytes after stream end
+	buffer += decoder.decode();
+	return buffer.length > 0 ? buffer : null;
 }
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,11 @@
 			"command": "deno publish --dry-run --no-check"
 		}
 	},
+	"imports": {
+		"dreamcli": "./src/index.ts",
+		"dreamcli/runtime": "./src/runtime.ts",
+		"dreamcli/testkit": "./src/testkit.ts"
+	},
 	"exports": {
 		"./runtime": "./src/runtime.ts",
 		"./testkit": "./src/testkit.ts",
@@ -27,6 +32,20 @@
 		"include": ["src", "LICENSE"],
 		"exclude": ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/**/AGENTS.md"]
 	},
+	"lib": ["deno.ns", "deno.shared_globals"],
+	"lint": {
+		"rules": {
+			"exclude": ["require-await"]
+		}
+	},
 	"nodeModulesDir": "manual",
-	"exclude": ["dist/", "coverage/", "scripts/", ".opencode/"]
+	"exclude": [
+		"**/*.test.ts",
+		"**/test-helpers.ts",
+		"cache/",
+		"dist/",
+		"coverage/",
+		"scripts/",
+		".opencode/"
+	]
 }

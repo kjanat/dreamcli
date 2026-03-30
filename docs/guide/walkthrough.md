@@ -123,7 +123,7 @@ Three things to notice:
 
 1. `flag.enum([...])` constrains the value — `flags.state` is `'open' | 'closed' | 'merged' | 'all'`,
    not `string`.\
-  Try passing `--state bogus` and dreamcli rejects it with a "did you mean?" error.
+   Try passing `--state bogus` and dreamcli rejects it with a "did you mean?" error.
 2. `.default('open')` means `flags.state` is always defined — no `undefined` to check.
 3. `flag.number()` parses `--limit 5` into the number `5`, not the string `"5"`.
 
@@ -485,7 +485,7 @@ That's a CLI with:
 - Structured errors with suggestions and error codes
 - Full testability via in-process test harness
 
-The complete source is at [`examples/gh-clone.ts`](gh-clone) — about 170 lines, zero runtime dependencies.
+The complete source is at [`examples/gh-clone.ts`][gh-clone] — about 170 lines, zero runtime dependencies.
 
 ## What's next?
 

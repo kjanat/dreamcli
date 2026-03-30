@@ -264,7 +264,7 @@ function createTestPrompter(
  */
 function createTerminalPrompter(read: ReadFn, write: WriteFn): PromptEngine {
 	return {
-		async promptOne(config): Promise<PromptResult> {
+		promptOne(config): Promise<PromptResult> {
 			switch (config.kind) {
 				case 'confirm':
 					return promptConfirm(config, read, write);

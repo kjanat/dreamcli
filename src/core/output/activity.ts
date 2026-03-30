@@ -53,7 +53,7 @@ const noopSpinnerHandle: SpinnerHandle = {
 	succeed() {},
 	fail() {},
 	stop() {},
-	async wrap<T>(promise: Promise<T>): Promise<T> {
+	wrap<T>(promise: Promise<T>): Promise<T> {
 		return promise;
 	},
 };
