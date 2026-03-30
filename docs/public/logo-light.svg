@@ -1,8 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-	<!-- dreamcli logo — for light backgrounds -->
-	<path d="M58,16 C20,38 20,90 58,112 C46,88 46,40 58,16 Z" fill="#2b2b2b" opacity="0.35" />
-	<path d="M70,16 C108,38 108,90 70,112 C82,88 82,40 70,16 Z" fill="#2b2b2b" opacity="0.35" />
-	<path d="M54,8 C8,32 8,96 54,120 C38,94 38,34 54,8 Z" fill="#2b2b2b" opacity="0.1" />
-	<path d="M74,8 C120,32 120,96 74,120 C90,94 90,34 74,8 Z" fill="#2b2b2b" opacity="0.1" />
-	<ellipse cx="64" cy="64" rx="7" ry="14" fill="#D6A24A" />
+  <!-- dreamcli logo — for light backgrounds -->
+  <path
+    d="M58,16 C20,38 20,90 58,112 C46,88 46,40 58,16 Z"
+    fill="#2b2b2b"
+    opacity="0.35"
+  />
+  <path
+    d="M70,16 C108,38 108,90 70,112 C82,88 82,40 70,16 Z"
+    fill="#2b2b2b"
+    opacity="0.35"
+  />
+  <path
+    d="M54,8 C8,32 8,96 54,120 C38,94 38,34 54,8 Z"
+    fill="#2b2b2b"
+    opacity="0.1"
+  />
+  <path
+    d="M74,8 C120,32 120,96 74,120 C90,94 90,34 74,8 Z"
+    fill="#2b2b2b"
+    opacity="0.1"
+  />
+  <ellipse cx="64" cy="64" rx="7" ry="14" fill="#D6A24A" />
 </svg>

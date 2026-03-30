@@ -22,11 +22,11 @@ Control every dimension of CLI behavior from tests:
 
 ```ts
 const result = await runCommand(deploy, ['production'], {
-	env: { DEPLOY_REGION: 'eu' }, // environment variables
-	config: { deploy: { region: 'us' } }, // config file values
-	answers: ['ap'], // prompt answers (consumed in order)
-	jsonMode: true, // simulate --json mode
-	verbosity: 'quiet', // verbosity level
+  env: { DEPLOY_REGION: 'eu' }, // environment variables
+  config: { deploy: { region: 'us' } }, // config file values
+  answers: ['ap'], // prompt answers (consumed in order)
+  jsonMode: true, // simulate --json mode
+  verbosity: 'quiet', // verbosity level
 });
 ```
 
@@ -46,16 +46,20 @@ const result = await runCommand(deploy, ['production'], {
 ## Testing Prompts
 
 ```ts
-import { runCommand, createTestPrompter, PROMPT_CANCEL } from 'dreamcli/testkit';
+import {
+  runCommand,
+  createTestPrompter,
+  PROMPT_CANCEL,
+} from 'dreamcli/testkit';
 
 // Sequential answers
 const result = await runCommand(cmd, [], {
-	answers: ['eu', true, 'my-name'],
+  answers: ['eu', true, 'my-name'],
 });
 
 // Simulate prompt cancellation
 const cancelResult = await runCommand(cmd, [], {
-	prompter: createTestPrompter([PROMPT_CANCEL]),
+  prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```
 
@@ -66,8 +70,12 @@ Spinners and progress bars emit testable events:
 ```ts
 const result = await runCommand(cmd, ['deploy']);
 
-expect(result.activity).toContainEqual(expect.objectContaining({ type: 'spinner:start' }));
-expect(result.activity).toContainEqual(expect.objectContaining({ type: 'spinner:stop' }));
+expect(result.activity).toContainEqual(
+  expect.objectContaining({ type: 'spinner:start' }),
+);
+expect(result.activity).toContainEqual(
+  expect.objectContaining({ type: 'spinner:stop' }),
+);
 ```
 
 ## Captured Output

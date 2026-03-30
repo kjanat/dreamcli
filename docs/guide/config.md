@@ -16,9 +16,9 @@ provide a value, the config file is checked next.
 
 ```ts
 cli('mycli')
-	.config('mycli') // app name for file discovery
-	.command(deploy)
-	.run();
+  .config('mycli') // app name for file discovery
+  .command(deploy)
+  .run();
 ```
 
 This searches standard locations for config files named `mycli.json`, `.myclirc`, etc.
@@ -41,9 +41,9 @@ import { configFormat } from 'dreamcli';
 import { parse as parseYAML } from 'yaml';
 
 cli('mycli')
-	.config('mycli')
-	.configLoader(configFormat(['yaml', 'yml'], parseYAML))
-	.run();
+  .config('mycli')
+  .configLoader(configFormat(['yaml', 'yml'], parseYAML))
+  .run();
 ```
 
 The loader receives a file extension list and a parse function `(content: string) => unknown`.

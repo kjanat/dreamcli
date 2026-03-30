@@ -60,8 +60,8 @@ For example, in `~/.config/mycli/config.json`:
 
 ```json
 {
-	"region": "eu",
-	"format": "json"
+  "region": "eu",
+  "format": "json"
 }
 ```
 

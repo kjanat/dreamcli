@@ -54,8 +54,8 @@ The test harness uses a built-in test adapter that doesn't touch real process st
 import { runCommand } from 'dreamcli/testkit';
 
 const result = await runCommand(cmd, ['--flag', 'value'], {
-	env: { MY_VAR: 'test' },
-	// Uses test adapter internally — no real process access
+  env: { MY_VAR: 'test' },
+  // Uses test adapter internally — no real process access
 });
 ```
 

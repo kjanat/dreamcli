@@ -42,11 +42,11 @@ Start with the simplest useful thing — listing pull requests:
 import { cli, command } from 'dreamcli';
 
 const prList = command('list')
-	.description('List pull requests')
-	.action(({ out }) => {
-		out.log('PR #142: Add dark mode toggle');
-		out.log('PR #141: Fix OAuth redirect loop');
-	});
+  .description('List pull requests')
+  .action(({ out }) => {
+    out.log('PR #142: Add dark mode toggle');
+    out.log('PR #141: Fix OAuth redirect loop');
+  });
 
 cli('gh').command(prList).run();
 ```
@@ -61,41 +61,59 @@ Real CLIs filter things. Let's add mock data and flags to filter by state:
 import { cli, command, flag } from 'dreamcli';
 
 type PR = {
-	readonly number: number;
-	readonly title: string;
-	readonly state: 'open' | 'closed' | 'merged';
-	readonly author: string;
+  readonly number: number;
+  readonly title: string;
+  readonly state: 'open' | 'closed' | 'merged';
+  readonly author: string;
 };
 
 const pullRequests: readonly PR[] = [
-	{ number: 142, title: 'Add dark mode toggle', state: 'open', author: 'alice' },
-	{ number: 141, title: 'Fix OAuth redirect loop', state: 'open', author: 'bob' },
-	{ number: 140, title: 'Bump dependencies', state: 'merged', author: 'dependabot' },
-	{ number: 139, title: 'Add rate limiting', state: 'closed', author: 'carol' },
+  {
+    number: 142,
+    title: 'Add dark mode toggle',
+    state: 'open',
+    author: 'alice',
+  },
+  {
+    number: 141,
+    title: 'Fix OAuth redirect loop',
+    state: 'open',
+    author: 'bob',
+  },
+  {
+    number: 140,
+    title: 'Bump dependencies',
+    state: 'merged',
+    author: 'dependabot',
+  },
+  { number: 139, title: 'Add rate limiting', state: 'closed', author: 'carol' },
 ];
 
 const prList = command('list')
-	.description('List pull requests')
-	.flag(
-		'state',
-		flag
-			.enum(['open', 'closed', 'merged', 'all'])
-			.default('open')
-			.alias('s')
-			.describe('Filter by state'),
-	)
-	.flag('limit', flag.number().default(10).alias('L').describe('Maximum number of results'))
-	.action(({ flags, out }) => {
-		let results = [...pullRequests];
-		if (flags.state !== 'all') {
-			results = results.filter((p) => p.state === flags.state);
-		}
-		results = results.slice(0, flags.limit);
+  .description('List pull requests')
+  .flag(
+    'state',
+    flag
+      .enum(['open', 'closed', 'merged', 'all'])
+      .default('open')
+      .alias('s')
+      .describe('Filter by state'),
+  )
+  .flag(
+    'limit',
+    flag.number().default(10).alias('L').describe('Maximum number of results'),
+  )
+  .action(({ flags, out }) => {
+    let results = [...pullRequests];
+    if (flags.state !== 'all') {
+      results = results.filter((p) => p.state === flags.state);
+    }
+    results = results.slice(0, flags.limit);
 
-		for (const p of results) {
-			out.log(`#${p.number} ${p.title} (${p.state})`);
-		}
-	});
+    for (const p of results) {
+      out.log(`#${p.number} ${p.title} (${p.state})`);
+    }
+  });
 ```
 
 Three things to notice:
@@ -163,16 +181,16 @@ import { cli, command, group, flag } from 'dreamcli';
 
 // Auth commands
 const authLogin = command('login')
-	.description('Authenticate with GitHub')
-	.action(({ out }) => {
-		out.log('Logging in...');
-	});
+  .description('Authenticate with GitHub')
+  .action(({ out }) => {
+    out.log('Logging in...');
+  });
 
 const authStatus = command('status')
-	.description('Show authentication status')
-	.action(({ out }) => {
-		out.log('Logged in');
-	});
+  .description('Show authentication status')
+  .action(({ out }) => {
+    out.log('Logged in');
+  });
 
 // PR commands
 const prList = command('list').description('List pull requests');
@@ -180,19 +198,19 @@ const prList = command('list').description('List pull requests');
 
 // Groups
 const auth = group('auth')
-	.description('Manage authentication')
-	.command(authLogin)
-	.command(authStatus);
+  .description('Manage authentication')
+  .command(authLogin)
+  .command(authStatus);
 
 const pr = group('pr').description('Manage pull requests').command(prList);
 
 // Assemble
 cli('gh')
-	.version('0.1.0')
-	.description('A minimal GitHub CLI clone')
-	.command(auth)
-	.command(pr)
-	.run();
+  .version('0.1.0')
+  .description('A minimal GitHub CLI clone')
+  .command(auth)
+  .command(pr)
+  .run();
 ```
 
 ```bash
@@ -221,24 +239,24 @@ the first thing after `view`:
 import { arg, CLIError } from 'dreamcli';
 
 const prView = command('view')
-	.description('View a pull request')
-	.arg('number', arg.string().describe('PR number'))
-	.action(({ args, out }) => {
-		const num = parseInt(args.number, 10);
-		const pr = pullRequests.find((p) => p.number === num);
+  .description('View a pull request')
+  .arg('number', arg.string().describe('PR number'))
+  .action(({ args, out }) => {
+    const num = parseInt(args.number, 10);
+    const pr = pullRequests.find((p) => p.number === num);
 
-		if (!pr) {
-			throw new CLIError(`Pull request #${args.number} not found`, {
-				code: 'NOT_FOUND',
-				exitCode: 1,
-				suggest: 'Try: gh pr list',
-			});
-		}
+    if (!pr) {
+      throw new CLIError(`Pull request #${args.number} not found`, {
+        code: 'NOT_FOUND',
+        exitCode: 1,
+        suggest: 'Try: gh pr list',
+      });
+    }
 
-		out.json(pr);
-		out.log(`#${pr.number} ${pr.title}`);
-		out.log(`State: ${pr.state}  Author: ${pr.author}`);
-	});
+    out.json(pr);
+    out.log(`#${pr.number} ${pr.title}`);
+    out.log(`State: ${pr.state}  Author: ${pr.author}`);
+  });
 ```
 
 Arguments are strings by position — `args.number` is `string` because that's what the shell gives
@@ -254,15 +272,15 @@ action handler, but that's repetitive and error-prone. Middleware solves this:
 import { middleware, CLIError } from 'dreamcli';
 
 const requireAuth = middleware<{ token: string }>(async ({ next, flags }) => {
-	const token = typeof flags.token === 'string' ? flags.token : undefined;
-	if (!token) {
-		throw new CLIError('Authentication required', {
-			code: 'AUTH_REQUIRED',
-			suggest: 'Run `gh auth login` or set GH_TOKEN',
-			exitCode: 1,
-		});
-	}
-	return next({ token });
+  const token = typeof flags.token === 'string' ? flags.token : undefined;
+  if (!token) {
+    throw new CLIError('Authentication required', {
+      code: 'AUTH_REQUIRED',
+      suggest: 'Run `gh auth login` or set GH_TOKEN',
+      exitCode: 1,
+    });
+  }
+  return next({ token });
 });
 ```
 
@@ -300,19 +318,19 @@ dreamcli's resolution chain handles this naturally:
 
 ```ts
 const authLogin = command('login')
-	.description('Authenticate with GitHub')
-	.flag(
-		'token',
-		flag
-			.string()
-			.env('GH_TOKEN')
-			.describe('Authentication token')
-			.prompt({ kind: 'input', message: 'Paste your GitHub token:' }),
-	)
-	.action(({ flags, out }) => {
-		const display = `${flags.token.slice(0, 8)}...${flags.token.slice(-4)}`;
-		out.log(`Logged in with token ${display}`);
-	});
+  .description('Authenticate with GitHub')
+  .flag(
+    'token',
+    flag
+      .string()
+      .env('GH_TOKEN')
+      .describe('Authentication token')
+      .prompt({ kind: 'input', message: 'Paste your GitHub token:' }),
+  )
+  .action(({ flags, out }) => {
+    const display = `${flags.token.slice(0, 8)}...${flags.token.slice(-4)}`;
+    out.log(`Logged in with token ${display}`);
+  });
 ```
 
 The resolution chain tries each source in order:
@@ -339,27 +357,38 @@ Creating a PR involves an API call. In a real terminal, you'd show a spinner:
 
 ```ts
 const prCreate = command('create')
-	.description('Create a pull request')
-	.middleware(requireAuth)
-	.flag(
-		'title',
-		flag.string().alias('t').describe('PR title').prompt({ kind: 'input', message: 'Title:' }),
-	)
-	.flag(
-		'body',
-		flag.string().alias('b').describe('PR body').prompt({ kind: 'input', message: 'Body:' }),
-	)
-	.flag('draft', flag.boolean().alias('d').default(false).describe('Create as draft'))
-	.action(async ({ flags, out }) => {
-		const spinner = out.spinner('Creating pull request...');
+  .description('Create a pull request')
+  .middleware(requireAuth)
+  .flag(
+    'title',
+    flag
+      .string()
+      .alias('t')
+      .describe('PR title')
+      .prompt({ kind: 'input', message: 'Title:' }),
+  )
+  .flag(
+    'body',
+    flag
+      .string()
+      .alias('b')
+      .describe('PR body')
+      .prompt({ kind: 'input', message: 'Body:' }),
+  )
+  .flag(
+    'draft',
+    flag.boolean().alias('d').default(false).describe('Create as draft'),
+  )
+  .action(async ({ flags, out }) => {
+    const spinner = out.spinner('Creating pull request...');
 
-		// Simulate API call
-		await new Promise((r) => setTimeout(r, 1500));
+    // Simulate API call
+    await new Promise((r) => setTimeout(r, 1500));
 
-		spinner.succeed('Pull request created');
-		out.log(`#143 ${flags.title}`);
-		out.log('https://github.com/you/repo/pull/143');
-	});
+    spinner.succeed('Pull request created');
+    out.log(`#143 ${flags.title}`);
+    out.log('https://github.com/you/repo/pull/143');
+  });
 ```
 
 `out.spinner()` returns a handle with `.update()`, `.succeed()`, `.stop()`, and `.wrap()`. In a TTY,
@@ -390,14 +419,14 @@ expect(noAuth.stderr.join('')).toContain('Authentication required');
 
 // Test with a token
 const withAuth = await runCommand(prList, [], {
-	env: { GH_TOKEN: 'ghp_test_token' },
+  env: { GH_TOKEN: 'ghp_test_token' },
 });
 expect(withAuth.exitCode).toBe(0);
 
 // Test interactive prompts
 const create = await runCommand(prCreate, [], {
-	env: { GH_TOKEN: 'ghp_test_token' },
-	answers: ['Fix the bug', 'Detailed description'],
+  env: { GH_TOKEN: 'ghp_test_token' },
+  answers: ['Fix the bug', 'Detailed description'],
 });
 expect(create.exitCode).toBe(0);
 expect(create.stdout.join('')).toContain('#143');
@@ -416,25 +445,25 @@ import { cli, command, group, flag, arg, middleware, CLIError } from 'dreamcli';
 // ...commands defined above...
 
 const auth = group('auth')
-	.description('Manage authentication')
-	.command(authLogin)
-	.command(authStatus);
+  .description('Manage authentication')
+  .command(authLogin)
+  .command(authStatus);
 
 const pr = group('pr')
-	.description('Manage pull requests')
-	.command(prList)
-	.command(prView)
-	.command(prCreate);
+  .description('Manage pull requests')
+  .command(prList)
+  .command(prView)
+  .command(prCreate);
 
 const issue = group('issue').description('Manage issues').command(issueList);
 
 cli('gh')
-	.version('0.1.0')
-	.description('A minimal GitHub CLI clone')
-	.command(auth)
-	.command(pr)
-	.command(issue)
-	.run();
+  .version('0.1.0')
+  .description('A minimal GitHub CLI clone')
+  .command(auth)
+  .command(pr)
+  .command(issue)
+  .run();
 ```
 
 That's a CLI with:

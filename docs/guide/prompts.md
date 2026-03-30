@@ -10,9 +10,9 @@ flag.string().prompt({ kind: 'input', message: 'Name?' });
 flag.boolean().prompt({ kind: 'confirm', message: 'Sure?' });
 flag.enum(['a', 'b']).prompt({ kind: 'select', message: 'Pick one' });
 flag.array(flag.string()).prompt({
-	kind: 'multiselect',
-	message: 'Pick many',
-	choices: [{ value: 'a' }, { value: 'b' }],
+  kind: 'multiselect',
+  message: 'Pick many',
+  choices: [{ value: 'a' }, { value: 'b' }],
 });
 ```
 
@@ -33,12 +33,15 @@ For conditional prompts that depend on other resolved values:
 
 ```ts
 command('deploy')
-	.flag('region', flag.enum(['us', 'eu', 'ap']))
-	.flag('confirm', flag.boolean())
-	.interactive(({ flags }) => ({
-		region: !flags.region && { kind: 'select', message: 'Which region?' },
-		confirm: flags.region === 'us' && { kind: 'confirm', message: 'Deploy to US prod?' },
-	}));
+  .flag('region', flag.enum(['us', 'eu', 'ap']))
+  .flag('confirm', flag.boolean())
+  .interactive(({ flags }) => ({
+    region: !flags.region && { kind: 'select', message: 'Which region?' },
+    confirm: flags.region === 'us' && {
+      kind: 'confirm',
+      message: 'Deploy to US prod?',
+    },
+  }));
 ```
 
 The resolver receives partially resolved flags (after CLI/env/config) and returns prompt configs for
@@ -52,16 +55,20 @@ would have prompted instead produce a structured error with an actionable messag
 ## Testing Prompts
 
 ```ts
-import { runCommand, createTestPrompter, PROMPT_CANCEL } from 'dreamcli/testkit';
+import {
+  runCommand,
+  createTestPrompter,
+  PROMPT_CANCEL,
+} from 'dreamcli/testkit';
 
 // Provide answers in order
 const result = await runCommand(cmd, [], {
-	answers: ['eu', true],
+  answers: ['eu', true],
 });
 
 // Simulate cancellation
 const result = await runCommand(cmd, [], {
-	prompter: createTestPrompter([PROMPT_CANCEL]),
+  prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```
 

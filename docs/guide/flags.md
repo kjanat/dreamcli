@@ -22,16 +22,16 @@ Every flag type supports the same modifier chain:
 
 ```ts
 flag
-	.string()
-	.alias('r') // short alias: -r
-	.describe('Target region') // help text
-	.default('us') // default value (narrows type)
-	.required() // must resolve or error
-	.env('DEPLOY_REGION') // resolve from env var
-	.config('deploy.region') // resolve from config file
-	.prompt({ kind: 'input', message: 'Region?' }) // interactive fallback
-	.deprecated('Use --target instead') // deprecation warning
-	.propagate(); // inherit in subcommands
+  .string()
+  .alias('r') // short alias: -r
+  .describe('Target region') // help text
+  .default('us') // default value (narrows type)
+  .required() // must resolve or error
+  .env('DEPLOY_REGION') // resolve from env var
+  .config('deploy.region') // resolve from config file
+  .prompt({ kind: 'input', message: 'Region?' }) // interactive fallback
+  .deprecated('Use --target instead') // deprecation warning
+  .propagate(); // inherit in subcommands
 ```
 
 ## Resolution Chain
@@ -49,11 +49,11 @@ error before the action handler runs.
 
 ```ts
 flag
-	.enum(['us', 'eu', 'ap'])
-	.env('DEPLOY_REGION')
-	.config('deploy.region')
-	.prompt({ kind: 'select', message: 'Which region?' })
-	.default('us');
+  .enum(['us', 'eu', 'ap'])
+  .env('DEPLOY_REGION')
+  .config('deploy.region')
+  .prompt({ kind: 'select', message: 'Which region?' })
+  .default('us');
 ```
 
 Resolution order:
@@ -84,11 +84,11 @@ flag.boolean();
 
 ```ts
 flag.custom((value) => {
-	const url = new URL(String(value));
-	if (url.protocol !== 'https:') {
-		throw new Error('URL must use HTTPS');
-	}
-	return url;
+  const url = new URL(String(value));
+  if (url.protocol !== 'https:') {
+    throw new Error('URL must use HTTPS');
+  }
+  return url;
 });
 ```
 
@@ -101,13 +101,15 @@ Flags marked with `.propagate()` are inherited by all subcommands:
 
 ```ts
 const nested = command('start').action(({ flags, out }) => {
-	if (flags.verbose) {
-		out.info('Verbose mode enabled');
-	}
+  if (flags.verbose) {
+    out.info('Verbose mode enabled');
+  }
 });
 
 cli('mycli').command(
-	command('deploy').flag('verbose', flag.boolean().alias('v').propagate()).command(nested),
+  command('deploy')
+    .flag('verbose', flag.boolean().alias('v').propagate())
+    .command(nested),
 );
 ```
 

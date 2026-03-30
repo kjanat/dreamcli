@@ -8,16 +8,18 @@ intersection — no manual interface merging.
 ```ts
 import { middleware, CLIError } from 'dreamcli';
 
-const auth = middleware<{ user: { id: string; role: 'admin' | 'user' } }>(async ({ next }) => {
-	const user = await getUser();
-	if (!user) {
-		throw new CLIError('Not authenticated', {
-			code: 'AUTH_REQUIRED',
-			suggest: 'Run `mycli login`',
-		});
-	}
-	return next({ user });
-});
+const auth = middleware<{ user: { id: string; role: 'admin' | 'user' } }>(
+  async ({ next }) => {
+    const user = await getUser();
+    if (!user) {
+      throw new CLIError('Not authenticated', {
+        code: 'AUTH_REQUIRED',
+        suggest: 'Run `mycli login`',
+      });
+    }
+    return next({ user });
+  },
+);
 ```
 
 The generic parameter declares the context shape this middleware provides. The `next()` call passes
@@ -27,16 +29,16 @@ context downstream.
 
 ```ts
 const trace = middleware<{ traceId: string }>(async ({ next }) =>
-	next({ traceId: crypto.randomUUID() }),
+  next({ traceId: crypto.randomUUID() }),
 );
 
 command('deploy')
-	.middleware(auth)
-	.middleware(trace)
-	.action(({ ctx }) => {
-		ctx.user.role; // "admin" | "user" — typed
-		ctx.traceId; // string — typed
-	});
+  .middleware(auth)
+  .middleware(trace)
+  .action(({ ctx }) => {
+    ctx.user.role; // "admin" | "user" — typed
+    ctx.traceId; // string — typed
+  });
 ```
 
 Context types intersect: `{ user: ... } & { traceId: string }`. Each middleware only needs to know
@@ -48,11 +50,11 @@ The middleware handler receives:
 
 ```ts
 middleware<Output>(async ({ flags, args, out, next }) => {
-	// flags — resolved flag values
-	// args  — resolved argument values
-	// out   — output channel
-	// next  — continue chain, passing context
-	return next({ ...context });
+  // flags — resolved flag values
+  // args  — resolved argument values
+  // out   — output channel
+  // next  — continue chain, passing context
+  return next({ ...context });
 });
 ```
 
@@ -62,14 +64,14 @@ Middleware can catch and transform errors:
 
 ```ts
 const errorBoundary = middleware(async ({ next, out }) => {
-	try {
-		return await next({});
-	} catch (err) {
-		if (err instanceof CLIError) {
-			out.error(err.message);
-		}
-		throw err;
-	}
+  try {
+    return await next({});
+  } catch (err) {
+    if (err instanceof CLIError) {
+      out.error(err.message);
+    }
+    throw err;
+  }
 });
 ```
 

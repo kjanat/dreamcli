@@ -113,8 +113,8 @@ mycli list --json
 
 ```json
 [
-	{ "name": "web-1", "status": "running", "uptime": "3d 2h" },
-	{ "name": "web-2", "status": "running", "uptime": "1d 5h" }
+  { "name": "web-1", "status": "running", "uptime": "3d 2h" },
+  { "name": "web-2", "status": "running", "uptime": "1d 5h" }
 ]
 ```
 

@@ -13,10 +13,10 @@ Create a runtime adapter via auto-detection.
 
 ```ts
 import {
-	createAdapter,
-	createNodeAdapter,
-	createBunAdapter,
-	createDenoAdapter,
+  createAdapter,
+  createNodeAdapter,
+  createBunAdapter,
+  createDenoAdapter,
 } from 'dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect

@@ -4,22 +4,22 @@ The main export. Import schema builders, CLI runner, output, parsing, and errors
 
 ```ts
 import {
-	cli,
-	command,
-	group,
-	flag,
-	arg,
-	middleware,
-	CLIError,
-	ParseError,
-	ValidationError,
-	createOutput,
-	generateCompletion,
-	configFormat,
-	formatHelp,
-	parse,
-	tokenize,
-	resolve,
+  cli,
+  command,
+  group,
+  flag,
+  arg,
+  middleware,
+  CLIError,
+  ParseError,
+  ValidationError,
+  createOutput,
+  generateCompletion,
+  configFormat,
+  formatHelp,
+  parse,
+  tokenize,
+  resolve,
 } from 'dreamcli';
 ```
 
@@ -42,7 +42,10 @@ const cmd = command('deploy')
 Create a command group (container for subcommands).
 
 ```ts
-const db = group('db').description('Database operations').command(migrate).command(seed);
+const db = group('db')
+  .description('Database operations')
+  .command(migrate)
+  .command(seed);
 ```
 
 ### `cli(name)`
@@ -51,12 +54,12 @@ Create a multi-command CLI builder.
 
 ```ts
 cli('mycli')
-	.version('1.0.0')
-	.description('My tool')
-	.command(deploy)
-	.default(mainCmd)
-	.config('mycli')
-	.run();
+  .version('1.0.0')
+  .description('My tool')
+  .command(deploy)
+  .default(mainCmd)
+  .config('mycli')
+  .run();
 ```
 
 ### `flag`
@@ -114,6 +117,8 @@ Resolve flag values through the resolution chain.
 Generate a shell completion script from a command schema.
 
 - `shell`: `'bash'` | `'zsh'`
+- `options.functionPrefix?`: override the generated helper function prefix
+- `options.rootMode?`: `'subcommands'` | `'surface'`
 
 ## Config
 

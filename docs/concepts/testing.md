@@ -37,7 +37,10 @@ Run the actual compiled binary as a child process:
 ```ts
 import { execFile } from 'child_process';
 
-const { stdout, stderr, exitCode } = await execFile('./mycli', ['greet', 'Alice']);
+const { stdout, stderr, exitCode } = await execFile('./mycli', [
+  'greet',
+  'Alice',
+]);
 expect(stdout).toBe('Hello, Alice!\n');
 expect(exitCode).toBe(0);
 ```
@@ -83,7 +86,7 @@ Flags resolve from the right source:
 ```ts
 // env var provides the value
 const result = await runCommand(cmd, [], {
-	env: { MY_REGION: 'eu' },
+  env: { MY_REGION: 'eu' },
 });
 expect(result.stdout).toContain('eu');
 ```
@@ -124,7 +127,7 @@ Prompt answers resolve correctly:
 
 ```ts
 const result = await runCommand(cmd, [], {
-	answers: ['eu', true],
+  answers: ['eu', true],
 });
 expect(result.exitCode).toBe(0);
 ```
@@ -135,7 +138,7 @@ Ctrl+C during a prompt exits gracefully:
 
 ```ts
 const result = await runCommand(cmd, [], {
-	answers: [PROMPT_CANCEL],
+  answers: [PROMPT_CANCEL],
 });
 expect(result.exitCode).not.toBe(0);
 ```

@@ -8,10 +8,10 @@ dreamcli provides structured errors with codes, suggestions, and JSON serializat
 import { CLIError } from 'dreamcli';
 
 throw new CLIError('Deployment failed', {
-	code: 'DEPLOY_FAILED',
-	exitCode: 1,
-	suggest: 'Check your credentials with `mycli login`',
-	details: { target, region },
+  code: 'DEPLOY_FAILED',
+  exitCode: 1,
+  suggest: 'Check your credentials with `mycli login`',
+  details: { target, region },
 });
 ```
 
@@ -44,15 +44,15 @@ Parse and validation errors include "did you mean?" suggestions automatically.
 import { isCLIError, isParseError, isValidationError } from 'dreamcli';
 
 try {
-	await cli.run();
+  await cli.run();
 } catch (err) {
-	if (isParseError(err)) {
-		// handle parse error
-	} else if (isValidationError(err)) {
-		// handle validation error
-	} else if (isCLIError(err)) {
-		// handle generic CLI error
-	}
+  if (isParseError(err)) {
+    // handle parse error
+  } else if (isValidationError(err)) {
+    // handle validation error
+  } else if (isCLIError(err)) {
+    // handle generic CLI error
+  }
 }
 ```
 
@@ -62,12 +62,12 @@ In `--json` mode, errors serialize to structured JSON:
 
 ```json
 {
-	"error": {
-		"message": "Deployment failed",
-		"code": "DEPLOY_FAILED",
-		"suggest": "Check your credentials with `mycli login`",
-		"details": { "target": "production", "region": "us" }
-	}
+  "error": {
+    "message": "Deployment failed",
+    "code": "DEPLOY_FAILED",
+    "suggest": "Check your credentials with `mycli login`",
+    "details": { "target": "production", "region": "us" }
+  }
 }
 ```
 

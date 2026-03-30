@@ -10,13 +10,13 @@ The simplest CLI is a single command wrapped in `cli()`:
 import { cli, command, flag, arg } from 'dreamcli';
 
 const greet = command('greet')
-	.description('Greet someone')
-	.arg('name', arg.string().describe('Who to greet'))
-	.flag('loud', flag.boolean().alias('l'))
-	.action(({ args, flags, out }) => {
-		const msg = `Hello, ${args.name}!`;
-		out.log(flags.loud ? msg.toUpperCase() : msg);
-	});
+  .description('Greet someone')
+  .arg('name', arg.string().describe('Who to greet'))
+  .flag('loud', flag.boolean().alias('l'))
+  .action(({ args, flags, out }) => {
+    const msg = `Hello, ${args.name}!`;
+    out.log(flags.loud ? msg.toUpperCase() : msg);
+  });
 
 cli('greet').default(greet).run();
 ```
@@ -29,14 +29,19 @@ Use `cli()` to compose multiple commands:
 import { cli, command, flag } from 'dreamcli';
 
 const deploy = command('deploy')
-	.description('Deploy the app')
-	.action(({ out }) => out.log('deploying...'));
+  .description('Deploy the app')
+  .action(({ out }) => out.log('deploying...'));
 
 const login = command('login')
-	.description('Authenticate')
-	.action(({ out }) => out.log('logging in...'));
+  .description('Authenticate')
+  .action(({ out }) => out.log('logging in...'));
 
-cli('mycli').version('1.0.0').description('My tool').command(deploy).command(login).run();
+cli('mycli')
+  .version('1.0.0')
+  .description('My tool')
+  .command(deploy)
+  .command(login)
+  .run();
 ```
 
 ## Command Groups
@@ -47,14 +52,17 @@ Nest commands under a group for `cli group subcommand` patterns:
 import { command, group } from 'dreamcli';
 
 const migrate = command('migrate')
-	.description('Run migrations')
-	.action(({ out }) => out.log('migrating'));
+  .description('Run migrations')
+  .action(({ out }) => out.log('migrating'));
 
 const seed = command('seed')
-	.description('Seed database')
-	.action(({ out }) => out.log('seeding'));
+  .description('Seed database')
+  .action(({ out }) => out.log('seeding'));
 
-const db = group('db').description('Database operations').command(migrate).command(seed);
+const db = group('db')
+  .description('Database operations')
+  .command(migrate)
+  .command(seed);
 
 // Usage: mycli db migrate, mycli db seed
 ```
@@ -67,9 +75,9 @@ Groups can be nested arbitrarily deep.
 
 ```ts
 command('deploy')
-	.description('Deploy to an environment')
-	.example('deploy production', 'Deploy to prod')
-	.example('deploy staging --force', 'Force deploy to staging');
+  .description('Deploy to an environment')
+  .example('deploy production', 'Deploy to prod')
+  .example('deploy staging --force', 'Force deploy to staging');
 ```
 
 ### Default Command

@@ -26,9 +26,9 @@ When the CLI is invoked with `--json`, all output routes through structured JSON
 type Row = { name: string; status: string; uptime: number };
 
 out.table<Row>(rows, [
-	{ key: 'name', header: 'Name' },
-	{ key: 'status', header: 'Status' },
-	{ key: 'uptime', header: 'Uptime (h)' },
+  { key: 'name', header: 'Name' },
+  { key: 'status', header: 'Status' },
+  { key: 'uptime', header: 'Uptime (h)' },
 ]);
 ```
 
@@ -53,8 +53,8 @@ suppressed entirely.
 const progress = out.progress({ label: 'Uploading', total: 100 });
 
 for (let i = 0; i <= 100; i++) {
-	progress.update(i);
-	await tick();
+  progress.update(i);
+  await tick();
 }
 
 progress.done('Upload complete');

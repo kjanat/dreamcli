@@ -1,0 +1,5 @@
+{
+  "extends": "../.dprint.jsonc",
+  "useTabs": false,
+  "lineWidth": 80
+}

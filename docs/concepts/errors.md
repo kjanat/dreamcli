@@ -117,11 +117,11 @@ $ mycli check --json
 
 ```json
 {
-	"error": {
-		"message": "Config file not found",
-		"code": "CONFIG_NOT_FOUND",
-		"suggest": "Run `mycli init` to create a config file"
-	}
+  "error": {
+    "message": "Config file not found",
+    "code": "CONFIG_NOT_FOUND",
+    "suggest": "Run `mycli init` to create a config file"
+  }
 }
 ```
 
@@ -149,7 +149,7 @@ programmatic handling:
 ```ts
 // Scripts can match on the code
 if (result.error.code === 'AUTH_REQUIRED') {
-	// refresh token and retry
+  // refresh token and retry
 }
 ```
 

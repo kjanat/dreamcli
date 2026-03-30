@@ -31,12 +31,12 @@ One flag declaration:
 
 ```ts
 flag
-	.enum(['us', 'eu', 'ap'])
-	.alias('r')
-	.env('DEPLOY_REGION')
-	.config('deploy.region')
-	.prompt({ kind: 'select', message: 'Which region?' })
-	.default('us');
+  .enum(['us', 'eu', 'ap'])
+  .alias('r')
+  .env('DEPLOY_REGION')
+  .config('deploy.region')
+  .prompt({ kind: 'select', message: 'Which region?' })
+  .default('us');
 ```
 
 This single chain configures:

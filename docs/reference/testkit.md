@@ -4,11 +4,11 @@ Test utilities for running commands in-process.
 
 ```ts
 import {
-	runCommand,
-	createCaptureOutput,
-	createTestPrompter,
-	createTestAdapter,
-	PROMPT_CANCEL,
+  runCommand,
+  createCaptureOutput,
+  createTestPrompter,
+  createTestAdapter,
+  PROMPT_CANCEL,
 } from 'dreamcli/testkit';
 ```
 
@@ -73,6 +73,6 @@ Sentinel value to simulate prompt cancellation.
 
 ```ts
 const result = await runCommand(cmd, [], {
-	prompter: createTestPrompter([PROMPT_CANCEL]),
+  prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```

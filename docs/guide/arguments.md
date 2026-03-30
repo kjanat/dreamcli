@@ -16,12 +16,12 @@ arg.custom((v) => new URL(v)); // URL
 
 ```ts
 command('deploy')
-	.arg('target', arg.string().describe('Deploy target'))
-	.arg('version', arg.string().describe('Version tag').optional())
-	.action(({ args }) => {
-		args.target; // string (required)
-		args.version; // string | undefined (optional)
-	});
+  .arg('target', arg.string().describe('Deploy target'))
+  .arg('version', arg.string().describe('Version tag').optional())
+  .action(({ args }) => {
+    args.target; // string (required)
+    args.version; // string | undefined (optional)
+  });
 ```
 
 Arguments are positional — order matters:
@@ -50,10 +50,10 @@ The last argument can be variadic, collecting all remaining positional values:
 
 ```ts
 command('copy')
-	.arg('files', arg.string().variadic().describe('Files to copy'))
-	.action(({ args }) => {
-		args.files; // string[]
-	});
+  .arg('files', arg.string().variadic().describe('Files to copy'))
+  .action(({ args }) => {
+    args.files; // string[]
+  });
 ```
 
 ```bash
