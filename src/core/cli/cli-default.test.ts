@@ -263,16 +263,19 @@ describe('.default() — nested unknown does not delegate to default', () => {
 // ===================================================================
 
 describe('.default() — help and version', () => {
-	it('--help shows default command help when it is the only visible command', async () => {
+	it('--help shows merged root and default command help when it is the only visible command', async () => {
 		const app = cli('mycli').version('1.0.0').default(deployCommand());
 		const result = await app.execute(['--help']);
 
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
-		expect(output).toContain('Usage: mycli deploy [flags] <target>');
-		expect(output).toContain('Deploy to an environment');
-		expect(output).not.toContain('mycli v1.0.0');
-		expect(output).not.toContain('Commands:');
+		expect(output).toContain('mycli v1.0.0');
+		expect(output).toContain('Usage: mycli [command] [options]');
+		expect(output).toContain('Commands:');
+		expect(output).toContain('deploy (default)');
+		expect(output).toContain('       mycli deploy [flags] <target>');
+		expect(output).not.toContain('\n\nDeploy to an environment\n\nArguments:');
+		expect(output).not.toContain("Run 'mycli [command] --help' for more information.");
 	});
 
 	it('--help shows root help when siblings exist', async () => {
@@ -287,12 +290,15 @@ describe('.default() — help and version', () => {
 		expect(output).toContain('status');
 	});
 
-	it('-h shows default command help when it is the only visible command', async () => {
+	it('-h shows merged root and default command help when it is the only visible command', async () => {
 		const app = cli('mycli').default(deployCommand());
 		const result = await app.execute(['-h']);
 
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout.join('')).toContain('Usage: mycli deploy [flags] <target>');
+		const output = result.stdout.join('');
+		expect(output).toContain('Usage: mycli [command] [options]');
+		expect(output).toContain('       mycli deploy [flags] <target>');
+		expect(output).toContain('Commands:');
 	});
 
 	it('--version shows version, not default command', async () => {
@@ -317,6 +323,16 @@ describe('.default() — JSON mode', () => {
 
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout.join('')).toContain('"ok":true');
+	});
+
+	it('merged root help still respects jsonMode', async () => {
+		const result = await cli('mycli').default(deployCommand()).execute(['--help', '--json']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual([]);
+		const output = result.stderr.join('');
+		expect(output).toContain('Usage: mycli [command] [options]');
+		expect(output).toContain('       mycli deploy [flags] <target>');
 	});
 });
 
@@ -348,10 +364,25 @@ describe('formatRootHelp — default command', () => {
 	});
 
 	it('footer uses [command] when default exists', () => {
-		const app = cli('mycli').default(deployCommand());
+		const app = cli('mycli').default(deployCommand()).command(statusCommand());
 		const help = formatRootHelp(app.schema);
 
 		expect(help).toContain("Run 'mycli [command] --help' for more information.");
+	});
+
+	it('omits footer when root help is merged with the default command help', () => {
+		const app = cli('mycli').default(deployCommand());
+		const help = formatRootHelp(app.schema);
+
+		expect(help).not.toContain("Run 'mycli [command] --help' for more information.");
+	});
+
+	it('includes the default command usage when root help is merged', () => {
+		const app = cli('mycli').default(deployCommand());
+		const help = formatRootHelp(app.schema);
+
+		expect(help).toContain('Usage: mycli [command] [options]');
+		expect(help).toContain('       mycli deploy [flags] <target>');
 	});
 
 	it('footer uses <command> when no default', () => {
@@ -381,7 +412,7 @@ describe('formatRootHelp — default command', () => {
 });
 
 describe('.default() — same-name command help', () => {
-	it('collapses duplicate binary and command names in root help', async () => {
+	it('collapses duplicate binary and command names in merged root help', async () => {
 		const greet = command('greet')
 			.description('Greet someone')
 			.arg('name', arg.string().describe('Who to greet'))
@@ -394,7 +425,9 @@ describe('.default() — same-name command help', () => {
 
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
-		expect(output).toContain('Usage: greet [flags] <name>');
+		expect(output).toContain('Usage: greet [command] [options]');
+		expect(output).toContain('Commands:');
+		expect(output).toContain('       greet [flags] <name>');
 		expect(output).not.toContain('Usage: greet greet [flags] <name>');
 	});
 
@@ -413,5 +446,19 @@ describe('.default() — same-name command help', () => {
 		const output = result.stdout.join('');
 		expect(output).toContain('Usage: greet [flags] <name>');
 		expect(output).not.toContain('Usage: greet greet [flags] <name>');
+	});
+
+	it('includes nested default-command subcommands in merged root help', async () => {
+		const run = command('run')
+			.description('Default runner')
+			.command(command('check').description('Run checks'));
+		const app = cli('mycli').default(run);
+		const result = await app.execute(['--help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('run (default)');
+		expect(output).toContain('       mycli run <command>');
+		expect(output).toContain('check');
 	});
 });

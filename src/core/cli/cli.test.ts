@@ -393,7 +393,7 @@ describe('help virtual subcommand', () => {
 		expect(output).toContain('deploy');
 	});
 
-	it('bare `help` shows default command help for single-command default CLIs', async () => {
+	it('bare `help` shows merged root and default command help for single-command default CLIs', async () => {
 		const defaultCmd = command('run')
 			.description('Default runner')
 			.arg('target', arg.string().describe('Run target'))
@@ -405,9 +405,11 @@ describe('help virtual subcommand', () => {
 
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
-		expect(output).toContain('Usage: mycli run <target>');
+		expect(output).toContain('mycli');
+		expect(output).toContain('Usage: mycli [command] [options]');
+		expect(output).toContain('Commands:');
+		expect(output).toContain('       mycli run <target>');
 		expect(output).toContain('Default runner');
-		expect(output).not.toContain('Commands:');
 	});
 });
 

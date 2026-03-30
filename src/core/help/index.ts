@@ -251,31 +251,6 @@ function formatArgDescription(schema: ArgSchema): string {
 // Main generator
 // ---------------------------------------------------------------------------
 
-/**
- * Generate help text from a command schema.
- *
- * Low-level formatter: most applications reach this through `--help`,
- * `help <command>`, or root help rendering in `CLIBuilder`. Call
- * `formatHelp()` directly when embedding DreamCLI help text into custom UIs,
- * tests, or generated docs.
- *
- * Sections rendered (in order):
- * 1. **Usage** line — `program <command> [flags] <args>`
- * 2. **Description** — the command's `.description()` text
- * 3. **Commands** — subcommands table (if any, skips hidden)
- * 4. **Arguments** — positional args table (if any)
- * 5. **Flags** — flags table with type hints and defaults
- * 6. **Examples** — usage examples (if any)
- *
- * @param schema - The command schema to render help for.
- * @param options - Formatting options (width, binary name).
- * @returns The formatted help string.
- *
- * @example
- * ```ts
- * const text = formatHelp(deploy.schema, { binName: 'mycli' });
- * ```
- */
 function formatHelpSections(schema: CommandSchema, options?: HelpOptions): readonly string[] {
 	const opts = resolveOptions(options);
 	const sections: string[] = [];
@@ -313,6 +288,31 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 	return sections;
 }
 
+/**
+ * Generate help text from a command schema.
+ *
+ * Low-level formatter: most applications reach this through `--help`,
+ * `help <command>`, or root help rendering in `CLIBuilder`. Call
+ * `formatHelp()` directly when embedding DreamCLI help text into custom UIs,
+ * tests, or generated docs.
+ *
+ * Sections rendered (in order):
+ * 1. **Usage** line — `program <command> [flags] <args>`
+ * 2. **Description** — the command's `.description()` text
+ * 3. **Commands** — subcommands table (if any, skips hidden)
+ * 4. **Arguments** — positional args table (if any)
+ * 5. **Flags** — flags table with type hints and defaults
+ * 6. **Examples** — usage examples (if any)
+ *
+ * @param schema - The command schema to render help for.
+ * @param options - Formatting options (width, binary name).
+ * @returns The formatted help string.
+ *
+ * @example
+ * ```ts
+ * const text = formatHelp(deploy.schema, { binName: 'mycli' });
+ * ```
+ */
 function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 	return `${formatHelpSections(schema, options).join('\n\n')}\n`;
 }

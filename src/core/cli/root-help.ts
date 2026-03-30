@@ -9,6 +9,8 @@
  */
 
 import type { HelpOptions } from '../help/index.ts';
+import { formatHelpSections } from '../help/index.ts';
+import type { CommandSchema } from '../schema/command.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
 // Only the shape matters — we read `.name`, `.version`, `.description`, `.commands`,
@@ -18,13 +20,9 @@ interface CLISchemaLike {
 	readonly version: string | undefined;
 	readonly description: string | undefined;
 	readonly commands: ReadonlyArray<{
-		readonly schema: {
-			readonly name: string;
-			readonly description: string | undefined;
-			readonly hidden: boolean | undefined;
-		};
+		readonly schema: CommandSchema;
 	}>;
-	readonly defaultCommand: { readonly schema: { readonly name: string } } | undefined;
+	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,13 +32,52 @@ interface CLISchemaLike {
 /**
  * Generate root-level help text for the CLI program.
  *
- * Shows program name, version, description, usage line, available
- * commands (excluding hidden), and a footer hint.
+ * Shows program name, version, description, usage line, and available
+ * commands. When the default command is the only visible top-level
+ * command, merges the root summary with that command's detailed help.
  *
  * @internal
  */
 function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	const width = options?.width ?? 80;
+	const visibleCommands = schema.commands.filter((c) => !c.schema.hidden);
+	if (shouldMergeDefaultHelp(schema, visibleCommands)) {
+		const defaultCommand = schema.defaultCommand;
+		if (defaultCommand !== undefined) {
+			const sections = buildRootSections(schema, visibleCommands, width);
+			const usageIndex = sections.findIndex((section) => section.startsWith('Usage: '));
+			const commandSections = [
+				...formatHelpSections(defaultCommand.schema, {
+					...options,
+					binName: schema.name,
+				}),
+			];
+			const commandUsage = commandSections.shift();
+			if (usageIndex !== -1 && commandUsage !== undefined) {
+				sections[usageIndex] = mergeUsageSections(sections[usageIndex] ?? '', commandUsage);
+			}
+			if (
+				defaultCommand.schema.description !== undefined &&
+				commandSections[0] === defaultCommand.schema.description
+			) {
+				commandSections.shift();
+			}
+			sections.push(...commandSections);
+			return `${sections.join('\n\n')}\n`;
+		}
+	}
+
+	const sections = buildRootSections(schema, visibleCommands, width);
+	sections.push(`Run '${schema.name} ${commandPlaceholder(schema)} --help' for more information.`);
+
+	return `${sections.join('\n\n')}\n`;
+}
+
+function buildRootSections(
+	schema: CLISchemaLike,
+	visibleCommands: readonly { readonly schema: CommandSchema }[],
+	width: number,
+): string[] {
 	const sections: string[] = [];
 
 	// ---- Header: name + version ---------------------------------------------
@@ -53,48 +90,76 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	}
 
 	// ---- Usage line ---------------------------------------------------------
-	// `[command]` (optional) when a default command exists; `<command>` (required) otherwise.
-	const commandPlaceholder = schema.defaultCommand !== undefined ? '[command]' : '<command>';
-	sections.push(`Usage: ${schema.name} ${commandPlaceholder} [options]`);
+	sections.push(`Usage: ${schema.name} ${commandPlaceholder(schema)} [options]`);
 
 	// ---- Commands list (skip hidden) ----------------------------------------
-	const visibleCommands = schema.commands.filter((c) => !c.schema.hidden);
-	const defaultName = schema.defaultCommand?.schema.name;
 	if (visibleCommands.length > 0) {
-		const lines: string[] = ['Commands:'];
-		const GAP = 2;
-		const DEFAULT_TAG = ' (default)';
-
-		// Compute max command name length for alignment (account for default tag)
-		let maxNameLen = 0;
-		for (const cmd of visibleCommands) {
-			const tagLen = cmd.schema.name === defaultName ? DEFAULT_TAG.length : 0;
-			const nameLen = cmd.schema.name.length + tagLen;
-			if (nameLen > maxNameLen) {
-				maxNameLen = nameLen;
-			}
-		}
-
-		const descCol = 2 + maxNameLen + GAP; // 2 for indent
-		for (const cmd of visibleCommands) {
-			const isDefault = cmd.schema.name === defaultName;
-			const label = isDefault ? `${cmd.schema.name}${DEFAULT_TAG}` : cmd.schema.name;
-			const padded = padEnd(`  ${label}`, descCol);
-			const desc = cmd.schema.description ?? '';
-			if (desc.length === 0) {
-				lines.push(padded.trimEnd());
-			} else {
-				lines.push(`${padded}${wrapText(desc, width, descCol)}`);
-			}
-		}
-
-		sections.push(lines.join('\n'));
+		sections.push(
+			formatRootCommandsSection(visibleCommands, schema.defaultCommand?.schema.name, width),
+		);
 	}
 
-	// ---- Footer hint --------------------------------------------------------
-	sections.push(`Run '${schema.name} ${commandPlaceholder} --help' for more information.`);
+	return sections;
+}
 
-	return `${sections.join('\n\n')}\n`;
+function commandPlaceholder(schema: CLISchemaLike): string {
+	// `[command]` (optional) when a default command exists; `<command>` (required) otherwise.
+	return schema.defaultCommand !== undefined ? '[command]' : '<command>';
+}
+
+function shouldMergeDefaultHelp(
+	schema: CLISchemaLike,
+	visibleCommands: readonly { readonly schema: CommandSchema }[],
+): boolean {
+	const defaultName = schema.defaultCommand?.schema.name;
+	return (
+		defaultName !== undefined &&
+		visibleCommands.length === 1 &&
+		visibleCommands[0]?.schema.name === defaultName
+	);
+}
+
+function formatRootCommandsSection(
+	visibleCommands: readonly { readonly schema: CommandSchema }[],
+	defaultName: string | undefined,
+	width: number,
+): string {
+	const lines: string[] = ['Commands:'];
+	const GAP = 2;
+	const DEFAULT_TAG = ' (default)';
+
+	// Compute max command name length for alignment (account for default tag)
+	let maxNameLen = 0;
+	for (const cmd of visibleCommands) {
+		const tagLen = cmd.schema.name === defaultName ? DEFAULT_TAG.length : 0;
+		const nameLen = cmd.schema.name.length + tagLen;
+		if (nameLen > maxNameLen) {
+			maxNameLen = nameLen;
+		}
+	}
+
+	const descCol = 2 + maxNameLen + GAP; // 2 for indent
+	for (const cmd of visibleCommands) {
+		const isDefault = cmd.schema.name === defaultName;
+		const label = isDefault ? `${cmd.schema.name}${DEFAULT_TAG}` : cmd.schema.name;
+		const padded = padEnd(`  ${label}`, descCol);
+		const desc = cmd.schema.description ?? '';
+		if (desc.length === 0) {
+			lines.push(padded.trimEnd());
+		} else {
+			lines.push(`${padded}${wrapText(desc, width, descCol)}`);
+		}
+	}
+
+	return lines.join('\n');
+}
+
+function mergeUsageSections(rootUsage: string, commandUsage: string): string {
+	const usagePrefix = 'Usage: ';
+	const commandSuffix = commandUsage.startsWith(usagePrefix)
+		? commandUsage.slice(usagePrefix.length)
+		: commandUsage;
+	return `${rootUsage}\n${' '.repeat(usagePrefix.length)}${commandSuffix}`;
 }
 
 // ---------------------------------------------------------------------------
