@@ -41,6 +41,15 @@ import type { PromptConfig } from '../schema/prompt.ts';
  */
 interface ResolveOptions {
 	/**
+	 * Full stdin contents for args configured with `.stdin()`.
+	 *
+	 * When an arg has `stdinMode: true`, resolution checks this value after
+	 * CLI argv and before env/default. `null` means stdin was checked but no
+	 * piped data was available.
+	 */
+	readonly stdinData?: string | null;
+
+	/**
 	 * Environment variables to resolve against.
 	 *
 	 * For each flag with `schema.envVar` set, the resolver looks up the
@@ -167,6 +176,7 @@ async function resolve(
 	parsed: ParseResult,
 	options?: ResolveOptions,
 ): Promise<ResolveResult> {
+	const stdinData = options?.stdinData;
 	const env = options?.env ?? {};
 	const config = options?.config ?? {};
 	const prompter = options?.prompter;
@@ -180,7 +190,7 @@ async function resolve(
 		schema.interactive,
 		deprecations,
 	);
-	const args = resolveArgs(schema.args, parsed.args, env, deprecations);
+	const args = resolveArgs(schema.args, parsed.args, stdinData, env, deprecations);
 	return { flags, args, deprecations };
 }
 
@@ -806,19 +816,21 @@ function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: stri
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve arg values: CLI → env → default, then validate required.
+ * Resolve arg values: CLI → stdin → env → default, then validate required.
  *
  * For each declared arg in the schema (ordered):
  * 1. If the parser produced a value → use it
- * 2. Else if the arg declares `envVar` and the env record has it → coerce + use
- * 3. Else if the schema has a default → use it
- * 4. Else if variadic with no value → use `[]`
- * 5. Else if required → collect a validation error
- * 6. Else (optional) → leave absent (`undefined` when accessed)
+ * 2. Else if `.stdin()` is enabled and stdin data is available → coerce + use
+ * 3. Else if the arg declares `envVar` and the env record has it → coerce + use
+ * 4. Else if the schema has a default → use it
+ * 5. Else if variadic with no value → use `[]`
+ * 6. Else if required → collect a validation error
+ * 7. Else (optional) → leave absent (`undefined` when accessed)
  */
 function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,
+	stdinData: string | null | undefined,
 	env: Readonly<Record<string, string | undefined>>,
 	deprecations: DeprecationWarning[],
 ): Readonly<Record<string, unknown>> {
@@ -828,8 +840,9 @@ function resolveArgs(
 	for (const entry of argEntries) {
 		const { name, schema } = entry;
 		const parsedValue = parsedArgs[name];
+		const usesCliValue = parsedValue !== undefined && (!schema.stdinMode || parsedValue !== '-');
 
-		if (parsedValue !== undefined) {
+		if (usesCliValue) {
 			if (schema.deprecated !== undefined) {
 				deprecations.push({ kind: 'arg', name, message: schema.deprecated });
 			}
@@ -854,11 +867,31 @@ function resolveArgs(
 			continue;
 		}
 
-		// 2. Env variable
+		if (schema.stdinMode && (parsedValue === undefined || parsedValue === '-')) {
+			if (stdinData !== undefined && stdinData !== null) {
+				const coerced = coerceArgStringValue(name, { kind: 'stdin' }, stdinData, schema);
+				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						deprecations.push({ kind: 'arg', name, message: schema.deprecated });
+					}
+					resolved[name] = coerced.value;
+					continue;
+				}
+				errors.push(coerced.error);
+				continue;
+			}
+		}
+
+		// 3. Env variable
 		if (schema.envVar !== undefined) {
 			const envValue = env[schema.envVar];
 			if (envValue !== undefined) {
-				const coerced = coerceArgEnvValue(name, schema.envVar, envValue, schema);
+				const coerced = coerceArgStringValue(
+					name,
+					{ kind: 'env', envVar: schema.envVar },
+					envValue,
+					schema,
+				);
 				if (coerced.ok) {
 					if (schema.deprecated !== undefined) {
 						deprecations.push({ kind: 'arg', name, message: schema.deprecated });
@@ -920,15 +953,53 @@ function resolveArgs(
 // ---------------------------------------------------------------------------
 
 /**
- * Coerce a raw env string to the arg's declared kind.
+ * Describes the source of a raw string being coerced for an arg.
+ *
+ * Arg stdin/env resolution both provide strings, but the source still affects
+ * error messages and suggestions.
+ */
+
+type ArgStringSource =
+	| { readonly kind: 'env'; readonly envVar: string }
+	| { readonly kind: 'stdin' };
+
+/** Format an arg source label for error messages. */
+function argSourceLabel(source: ArgStringSource): string {
+	return source.kind === 'env' ? `from env ${source.envVar}` : 'from stdin';
+}
+
+/** Build source-specific detail keys for arg error objects. */
+function argSourceDetails(source: ArgStringSource): Record<string, unknown> {
+	return source.kind === 'env' ? { envVar: source.envVar } : { source: 'stdin' };
+}
+
+/** Build an arg coercion suggestion based on source and expected kind. */
+function buildArgCoercionSuggest(
+	argName: string,
+	source: ArgStringSource,
+	expected: 'number' | 'custom',
+): string {
+	if (source.kind === 'env') {
+		return expected === 'number'
+			? `Set ${source.envVar} to a valid number`
+			: `Set ${source.envVar} to a valid value for <${argName}>`;
+	}
+
+	return expected === 'number'
+		? `Pipe a valid number to stdin for <${argName}>`
+		: `Pipe a valid value to stdin for <${argName}>`;
+}
+
+/**
+ * Coerce a raw stdin/env string to the arg's declared kind.
  *
  * Arg kinds are a strict subset of flag kinds (`string | number | custom`),
  * so coercion is simpler: strings pass through, numbers parse via `Number()`,
  * and custom args invoke their parse function.
  */
-function coerceArgEnvValue(
+function coerceArgStringValue(
 	argName: string,
-	envVar: string,
+	source: ArgStringSource,
 	raw: string,
 	schema: ArgSchema,
 ): CoerceResult {
@@ -942,11 +1013,16 @@ function coerceArgEnvValue(
 				return {
 					ok: false,
 					error: new ValidationError(
-						`Invalid number value '${raw}' from env ${envVar} for argument <${argName}>`,
+						`Invalid number value '${raw}' ${argSourceLabel(source)} for argument <${argName}>`,
 						{
 							code: 'TYPE_MISMATCH',
-							details: { arg: argName, envVar, value: raw, expected: 'number' },
-							suggest: `Set ${envVar} to a valid number`,
+							details: {
+								arg: argName,
+								...argSourceDetails(source),
+								value: raw,
+								expected: 'number',
+							},
+							suggest: buildArgCoercionSuggest(argName, source, 'number'),
 						},
 					),
 				};
@@ -966,11 +1042,16 @@ function coerceArgEnvValue(
 				return {
 					ok: false,
 					error: new ValidationError(
-						`Invalid value '${raw}' from env ${envVar} for argument <${argName}>: ${message}`,
+						`Invalid value '${raw}' ${argSourceLabel(source)} for argument <${argName}>: ${message}`,
 						{
 							code: 'TYPE_MISMATCH',
-							details: { arg: argName, envVar, value: raw, expected: 'custom' },
-							suggest: `Set ${envVar} to a valid value for <${argName}>`,
+							details: {
+								arg: argName,
+								...argSourceDetails(source),
+								value: raw,
+								expected: 'custom',
+							},
+							suggest: buildArgCoercionSuggest(argName, source, 'custom'),
 						},
 					),
 				};

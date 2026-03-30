@@ -23,7 +23,7 @@
 			"title": "Wire stdin data into resolve chain via ResolveOptions + resolveArgs()",
 			"description": "Add `stdinData?: string | null` to `ResolveOptions`. In `resolveArgs()`, insert stdin resolution between parser value and env var: if arg has `stdinMode: true` and parsedValue is undefined (or is the string '-'), check `stdinData`. If `stdinData` is a non-null string, coerce it through `coerceArgEnvValue` (reuse existing coercion, source label 'stdin'). Thread `stdinData` from `RunOptions` (testkit) through `runCommand()` into `ResolveOptions`. Thread from `CLIRunOptions` through `execute()` → `buildCommandRunOptions()` → resolve call. In `run()`, call `adapter.readStdin()` once before execute and pass as `stdinData`.",
 			"priority": "integration",
-			"passes": false,
+			"passes": true,
 			"overseerId": "task_01KH86GXS2SF9AC2JBE85PYY24"
 		},
 		{

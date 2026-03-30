@@ -82,6 +82,13 @@ interface RunOptions {
 	readonly config?: Readonly<Record<string, unknown>>;
 
 	/**
+	 * Full stdin contents for args configured with `.stdin()`.
+	 *
+	 * Lets tests inject piped input without a runtime adapter.
+	 */
+	readonly stdinData?: string | null;
+
+	/**
 	 * Prompt engine for interactive flag resolution.
 	 *
 	 * When provided, flags with `.prompt()` configured that have no value
@@ -246,6 +253,7 @@ async function runCommand<
 			options?.prompter ??
 			(options?.answers !== undefined ? createTestPrompter(options.answers) : undefined);
 		const resolveOptions: ResolveOptions = {
+			...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
 			...(options?.env !== undefined ? { env: options.env } : {}),
 			...(options?.config !== undefined ? { config: options.config } : {}),
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),

@@ -198,6 +198,14 @@ interface CLIRunOptions {
 	readonly config?: Readonly<Record<string, unknown>>;
 
 	/**
+	 * Full stdin contents for args configured with `.stdin()`.
+	 *
+	 * `run()` populates this from `adapter.readStdin()`. `execute()` accepts it
+	 * directly so tests can simulate piped input without a runtime adapter.
+	 */
+	readonly stdinData?: string | null;
+
+	/**
 	 * Prompt engine for interactive flag resolution.
 	 *
 	 * When provided, flags with `.prompt()` configured that have no value
@@ -338,6 +346,7 @@ function buildCommandRunOptions(
 		...(meta !== undefined ? { meta } : {}),
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
+		...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
 		...(options?.answers !== undefined ? { answers: options.answers } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
@@ -963,12 +972,14 @@ class CLIBuilder {
 			options?.prompter === undefined && adapter.stdinIsTTY
 				? createTerminalPrompter(adapter.stdin, adapter.stderr)
 				: undefined;
+		const adapterStdinData = await adapter.readStdin();
 
 		// Source env, isTTY, and config from adapter when not explicitly provided in options
 		const executeOptions: CLIRunOptions = {
 			...options,
 			...(options?.env === undefined ? { env: adapter.env } : {}),
 			...(options?.isTTY === undefined ? { isTTY: adapter.isTTY } : {}),
+			...(options?.stdinData === undefined ? { stdinData: adapterStdinData } : {}),
 			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
 			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
 		};
