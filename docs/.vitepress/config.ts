@@ -16,6 +16,7 @@ export default defineConfig({
 			dark: '/logo-dark.svg',
 		},
 		nav: [
+			{ text: 'Concepts', link: '/concepts/anatomy' },
 			{ text: 'Guide', link: '/guide/getting-started' },
 			{ text: 'Reference', link: '/reference/api' },
 			{
@@ -28,6 +29,19 @@ export default defineConfig({
 			},
 		],
 		sidebar: {
+			'/concepts/': [
+				{
+					text: 'CLI Fundamentals',
+					items: [
+						{ text: 'Anatomy of a CLI', link: '/concepts/anatomy' },
+						{ text: 'Input Sources', link: '/concepts/input' },
+						{ text: 'Output and TTY', link: '/concepts/output' },
+						{ text: 'Exit Codes', link: '/concepts/exit-codes' },
+						{ text: 'Errors', link: '/concepts/errors' },
+						{ text: 'Testing CLIs', link: '/concepts/testing' },
+					],
+				},
+			],
 			'/guide/': [
 				{
 					text: 'Introduction',
