@@ -127,16 +127,19 @@ interactive prompts live in separate universes. Testing means hacking `process.a
 
 dreamcli collapses all of that into a single typed schema:
 
-| Capability                                               | Commander / Yargs | Citty / CAC | Cleye     | dreamcli                           |
-| -------------------------------------------------------- | ----------------- | ----------- | --------- | ---------------------------------- |
-| Type inference from definition                           | Manual interfaces | Basic       | Good      | Full — flags, args, context        |
-| Resolution chain (CLI → env → config → prompt → default) | DIY glue          | CLI only    | CLI only  | Built-in, per-flag                 |
-| Interactive prompts from schema                          | Separate library  | No          | No        | Integrated                         |
-| Middleware with typed context                            | No                | No          | No        | Yes — accumulates via intersection |
-| In-process test harness                                  | Shell out         | Shell out   | Shell out | `runCommand()` + capture           |
-| Shell completions from schema                            | Plugin            | No          | No        | Built-in (bash/zsh)                |
-| Structured output (`--json`, tables, spinners)           | DIY               | No          | No        | Built-in                           |
-| Config file discovery                                    | DIY               | No          | No        | Built-in (XDG paths, JSON)         |
+Approximate comparison of first-party, built-in support as documented by each project.
+Third-party plugins and custom glue can extend the other libraries.
+
+| Capability                                 | Commander           | Yargs                  | Citty           | CAC           | Cleye         | dreamcli                              |
+| ------------------------------------------ | ------------------- | ---------------------- | --------------- | ------------- | ------------- | ------------------------------------- |
+| Type inference from definition             | Manual `.opts<T>()` | Good                   | Good            | Basic         | Good          | Full — flags, args, context           |
+| Built-in value sources                     | CLI, defaults, env  | CLI, env, config       | CLI, defaults   | CLI, defaults | CLI, defaults | CLI, env, config, prompt, default     |
+| Schema-driven prompts                      | No                  | No                     | No              | No            | No            | Integrated                            |
+| Middleware / hooks                         | Lifecycle hooks     | Middleware             | Plugins / hooks | Events        | No            | Yes — typed middleware                |
+| Built-in test harness with output capture  | No                  | No                     | No              | No            | No            | `runCommand()` + capture              |
+| Shell completions from command definitions | No                  | Built-in (bash/zsh)    | No              | No            | No            | Built-in (bash/zsh)                   |
+| Structured output primitives               | DIY                 | DIY                    | DIY             | DIY           | DIY           | Built-in (`--json`, tables, spinners) |
+| Config file support                        | DIY                 | Built-in (`.config()`) | No              | No            | No            | Built-in (XDG discovery, JSON)        |
 
 The closest analog is what tRPC did to API routes — individual pieces existed, the insight was
 wiring them so types flow end-to-end.
