@@ -48,6 +48,7 @@ export default defineConfig({
 					items: [
 						{ text: 'Getting Started', link: '/guide/getting-started' },
 						{ text: 'Why dreamcli', link: '/guide/why' },
+						{ text: 'Walkthrough: GitHub CLI', link: '/guide/walkthrough' },
 					],
 				},
 				{

@@ -1,0 +1,458 @@
+# Walkthrough: Building a GitHub CLI
+
+Let's build something real. We're going to recreate a miniature version of `gh` — GitHub's official
+CLI — using dreamcli. By the end, you'll have touched every major feature: commands, groups, flags,
+arguments, middleware, env vars, prompts, tables, JSON mode, spinners, and error handling.
+
+The full source is at
+[`examples/gh-clone.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/gh-clone.ts).
+
+## What we're building
+
+```bash
+$ gh pr list
+#    TITLE                     STATE   AUTHOR
+142  Add dark mode toggle      open    alice
+141  Fix OAuth redirect loop   open    bob
+137  Fix date parsing Safari   open    dave
+
+$ gh pr list --state all --json
+[{"number":142,"title":"Add dark mode toggle",...},...]
+
+$ gh pr create
+? Title: Fix the login bug
+? Body: OAuth was redirecting to the wrong callback URL
+Creating pull request... done
+#143 Fix the login bug
+https://github.com/you/repo/pull/143
+
+$ gh auth login
+? Paste your GitHub token: ghp_abc123...
+Logged in with token ghp_abc1...3def
+```
+
+Commands, flags, prompts, spinners, tables, JSON mode — all in one tool. Let's build it piece by
+piece.
+
+## Step 1: A single command
+
+Start with the simplest useful thing — listing pull requests:
+
+```ts
+import { cli, command } from 'dreamcli';
+
+const prList = command('list')
+	.description('List pull requests')
+	.action(({ out }) => {
+		out.log('PR #142: Add dark mode toggle');
+		out.log('PR #141: Fix OAuth redirect loop');
+	});
+
+cli('gh').command(prList).run();
+```
+
+That's a working CLI. But it's hardcoded and flat. Let's fix both.
+
+## Step 2: Data and flags
+
+Real CLIs filter things. Let's add mock data and flags to filter by state:
+
+```ts
+import { cli, command, flag } from 'dreamcli';
+
+type PR = {
+	readonly number: number;
+	readonly title: string;
+	readonly state: 'open' | 'closed' | 'merged';
+	readonly author: string;
+};
+
+const pullRequests: readonly PR[] = [
+	{ number: 142, title: 'Add dark mode toggle', state: 'open', author: 'alice' },
+	{ number: 141, title: 'Fix OAuth redirect loop', state: 'open', author: 'bob' },
+	{ number: 140, title: 'Bump dependencies', state: 'merged', author: 'dependabot' },
+	{ number: 139, title: 'Add rate limiting', state: 'closed', author: 'carol' },
+];
+
+const prList = command('list')
+	.description('List pull requests')
+	.flag(
+		'state',
+		flag
+			.enum(['open', 'closed', 'merged', 'all'])
+			.default('open')
+			.alias('s')
+			.describe('Filter by state'),
+	)
+	.flag('limit', flag.number().default(10).alias('L').describe('Maximum number of results'))
+	.action(({ flags, out }) => {
+		let results = [...pullRequests];
+		if (flags.state !== 'all') {
+			results = results.filter((p) => p.state === flags.state);
+		}
+		results = results.slice(0, flags.limit);
+
+		for (const p of results) {
+			out.log(`#${p.number} ${p.title} (${p.state})`);
+		}
+	});
+```
+
+Three things to notice:
+
+1. `flag.enum([...])` constrains the value — `flags.state` is `'open' | 'closed' | 'merged' | 'all'`,
+   not `string`. Try passing `--state bogus` and dreamcli rejects it with a "did you mean?" error.
+2. `.default('open')` means `flags.state` is always defined — no `undefined` to check.
+3. `flag.number()` parses `--limit 5` into the number `5`, not the string `"5"`.
+
+```bash
+$ gh pr list
+#142 Add dark mode toggle (open)
+#141 Fix OAuth redirect loop (open)
+
+$ gh pr list --state all --limit 2
+#142 Add dark mode toggle (open)
+#141 Fix OAuth redirect loop (open)
+```
+
+## Step 3: Tables and JSON mode
+
+Printing lines is fine, but tabular data deserves a table. And scripts need JSON.
+
+Replace the `for` loop with `out.table()` and add `out.json()`:
+
+```ts
+.action(({ flags, out }) => {
+  let results = [...pullRequests];
+  if (flags.state !== 'all') {
+    results = results.filter(p => p.state === flags.state);
+  }
+  results = results.slice(0, flags.limit);
+
+  // out.json() emits structured data — only reaches stdout in --json mode
+  out.json(results);
+
+  // out.table() renders a formatted table in TTY, plain text when piped
+  out.table(
+    results.map(p => ({ '#': p.number, title: p.title, state: p.state, author: p.author })),
+  );
+});
+```
+
+Now you get both:
+
+```bash
+$ gh pr list
+#    TITLE                     STATE   AUTHOR
+142  Add dark mode toggle      open    alice
+141  Fix OAuth redirect loop   open    bob
+
+$ gh pr list --json
+[{"number":142,"title":"Add dark mode toggle","state":"open","author":"alice"},...]
+```
+
+`--json` is handled automatically by `cli()`. When active, `out.json()` writes to stdout and
+`out.table()` / `out.log()` are suppressed. Scripts get clean JSON; humans get pretty tables.
+
+## Step 4: Command groups
+
+A flat list of commands doesn't scale. `gh` organizes commands into groups — `pr list`, `pr create`,
+`auth login`. dreamcli has `group()` for this:
+
+```ts
+import { cli, command, group, flag } from 'dreamcli';
+
+// Auth commands
+const authLogin = command('login')
+	.description('Authenticate with GitHub')
+	.action(({ out }) => {
+		out.log('Logging in...');
+	});
+
+const authStatus = command('status')
+	.description('Show authentication status')
+	.action(({ out }) => {
+		out.log('Logged in');
+	});
+
+// PR commands
+const prList = command('list').description('List pull requests');
+// ...flags and action from above...
+
+// Groups
+const auth = group('auth')
+	.description('Manage authentication')
+	.command(authLogin)
+	.command(authStatus);
+
+const pr = group('pr').description('Manage pull requests').command(prList);
+
+// Assemble
+cli('gh')
+	.version('0.1.0')
+	.description('A minimal GitHub CLI clone')
+	.command(auth)
+	.command(pr)
+	.run();
+```
+
+```bash
+$ gh --help
+A minimal GitHub CLI clone
+
+Commands:
+  auth    Manage authentication
+  pr      Manage pull requests
+
+$ gh pr --help
+Manage pull requests
+
+Commands:
+  list    List pull requests
+```
+
+Groups are just commands that contain other commands. You can nest them as deep as you want.
+
+## Step 5: Arguments
+
+`gh pr view 142` takes a PR number as a positional argument — not a flag, not a named value, just
+the first thing after `view`:
+
+```ts
+import { arg, CLIError } from 'dreamcli';
+
+const prView = command('view')
+	.description('View a pull request')
+	.arg('number', arg.string().describe('PR number'))
+	.action(({ args, out }) => {
+		const num = parseInt(args.number, 10);
+		const pr = pullRequests.find((p) => p.number === num);
+
+		if (!pr) {
+			throw new CLIError(`Pull request #${args.number} not found`, {
+				code: 'NOT_FOUND',
+				exitCode: 1,
+				suggest: 'Try: gh pr list',
+			});
+		}
+
+		out.json(pr);
+		out.log(`#${pr.number} ${pr.title}`);
+		out.log(`State: ${pr.state}  Author: ${pr.author}`);
+	});
+```
+
+Arguments are strings by position — `args.number` is `string` because that's what the shell gives
+us. We parse it ourselves. The `CLIError` with `suggest` gives the user a helpful nudge when things
+go wrong, and in `--json` mode it serializes as structured JSON on stderr.
+
+## Step 6: Middleware
+
+Every `pr` and `issue` command needs authentication. You *could* check for a token in every single
+action handler, but that's repetitive and error-prone. Middleware solves this:
+
+```ts
+import { middleware, CLIError } from 'dreamcli';
+
+const requireAuth = middleware<{ token: string }>(async ({ next }) => {
+	const token = process.env.GH_TOKEN;
+	if (!token) {
+		throw new CLIError('Authentication required', {
+			code: 'AUTH_REQUIRED',
+			suggest: 'Run `gh auth login` or set GH_TOKEN',
+			exitCode: 1,
+		});
+	}
+	return next({ token });
+});
+```
+
+The generic `<{ token: string }>` declares what this middleware provides. `next({ token })` passes
+it downstream. Now wire it up:
+
+```ts
+const prList = command('list')
+  .description('List pull requests')
+  .middleware(requireAuth)  // <-- must be authenticated
+  .flag('state', ...)
+  .action(({ flags, ctx, out }) => {
+    // ctx.token is typed as `string` — guaranteed by middleware
+    out.info(`Authenticated with ${ctx.token.slice(0, 8)}...`);
+    // ...list PRs...
+  });
+```
+
+If `GH_TOKEN` isn't set, the middleware throws before the action runs. No token check needed in the
+handler. The auth commands (`login`, `status`) don't use the middleware, so they work without a
+token.
+
+Middleware stacks. If you had `requireAuth` and `timing`, each one's context accumulates via type
+intersection — `ctx` becomes `{ token: string } & { startTime: number }`.
+
+## Step 7: Env vars and prompts
+
+The real `gh auth login` lets you paste a token interactively or set `GH_TOKEN` in your environment.
+dreamcli's resolution chain handles this naturally:
+
+```ts
+const authLogin = command('login')
+	.description('Authenticate with GitHub')
+	.flag(
+		'token',
+		flag
+			.string()
+			.env('GH_TOKEN')
+			.describe('Authentication token')
+			.prompt({ kind: 'input', message: 'Paste your GitHub token:' }),
+	)
+	.action(({ flags, out }) => {
+		const display = `${flags.token.slice(0, 8)}...${flags.token.slice(-4)}`;
+		out.log(`Logged in with token ${display}`);
+	});
+```
+
+The resolution chain tries each source in order:
+
+1. `--token ghp_abc` (explicit flag) — highest priority
+2. `GH_TOKEN=ghp_abc` (env var via `.env()`)
+3. Interactive prompt (via `.prompt()`) — only in TTY
+4. If none: error (no default, no way to resolve)
+
+So all of these work:
+
+```bash
+$ gh auth login --token ghp_abc123           # flag
+$ GH_TOKEN=ghp_abc123 gh auth login          # env var
+$ gh auth login                              # prompts interactively
+? Paste your GitHub token: ghp_abc123...
+```
+
+One flag definition. Three ways to provide the value. The user picks what's convenient.
+
+## Step 8: Spinners
+
+Creating a PR involves an API call. In a real terminal, you'd show a spinner:
+
+```ts
+const prCreate = command('create')
+	.description('Create a pull request')
+	.middleware(requireAuth)
+	.flag(
+		'title',
+		flag.string().alias('t').describe('PR title').prompt({ kind: 'input', message: 'Title:' }),
+	)
+	.flag(
+		'body',
+		flag.string().alias('b').describe('PR body').prompt({ kind: 'input', message: 'Body:' }),
+	)
+	.flag('draft', flag.boolean().alias('d').default(false).describe('Create as draft'))
+	.action(async ({ flags, out }) => {
+		const spinner = out.spinner('Creating pull request...');
+
+		// Simulate API call
+		await new Promise((r) => setTimeout(r, 1500));
+
+		spinner.succeed('Pull request created');
+		out.log(`#143 ${flags.title}`);
+		out.log('https://github.com/you/repo/pull/143');
+	});
+```
+
+`out.spinner()` returns a handle with `.update()`, `.succeed()`, `.stop()`, and `.wrap()`. In a TTY,
+you get an animated spinner. When piped or in `--json` mode, spinners are suppressed automatically —
+no garbage escape codes in your logs.
+
+## Step 9: Testing
+
+This is where it gets interesting. You don't want to spawn subprocesses to test a CLI. dreamcli's
+testkit lets you run commands in-process with full control:
+
+```ts
+import { runCommand } from 'dreamcli/testkit';
+
+// Test that pr list returns open PRs by default
+const result = await runCommand(prList, ['--state', 'open']);
+expect(result.exitCode).toBe(0);
+expect(result.stdout.join('')).toContain('dark mode');
+```
+
+You can inject env vars, config, and prompt answers:
+
+```ts
+// Test that middleware blocks unauthenticated access
+const noAuth = await runCommand(prList, []);
+expect(noAuth.exitCode).toBe(1);
+expect(noAuth.stderr.join('')).toContain('Authentication required');
+
+// Test with a token
+const withAuth = await runCommand(prList, [], {
+	env: { GH_TOKEN: 'ghp_test_token' },
+});
+expect(withAuth.exitCode).toBe(0);
+
+// Test interactive prompts
+const create = await runCommand(prCreate, [], {
+	env: { GH_TOKEN: 'ghp_test_token' },
+	answers: ['Fix the bug', 'Detailed description'],
+});
+expect(create.exitCode).toBe(0);
+expect(create.stdout.join('')).toContain('#143');
+```
+
+No subprocesses. No `process.argv` mutation. No shell scripts. Each test is isolated — inject what
+you need, assert what you expect.
+
+## Putting it together
+
+Here's the final assembly — all the commands wired into groups:
+
+```ts
+import { cli, command, group, flag, arg, middleware, CLIError } from 'dreamcli';
+
+// ...commands defined above...
+
+const auth = group('auth')
+	.description('Manage authentication')
+	.command(authLogin)
+	.command(authStatus);
+
+const pr = group('pr')
+	.description('Manage pull requests')
+	.command(prList)
+	.command(prView)
+	.command(prCreate);
+
+const issue = group('issue').description('Manage issues').command(issueList);
+
+cli('gh')
+	.version('0.1.0')
+	.description('A minimal GitHub CLI clone')
+	.command(auth)
+	.command(pr)
+	.command(issue)
+	.run();
+```
+
+That's a CLI with:
+
+- 6 commands across 3 groups
+- Enum, string, number, and boolean flags
+- Positional arguments
+- Auth middleware with typed context
+- Env var resolution (`GH_TOKEN`)
+- Interactive prompts with resolution chain fallback
+- Table output with automatic JSON mode
+- Spinners with TTY-aware suppression
+- Structured errors with suggestions and error codes
+- Full testability via in-process test harness
+
+The complete source is at
+[`examples/gh-clone.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/gh-clone.ts) —
+about 170 lines, zero runtime dependencies.
+
+## What's next?
+
+- [Commands](/guide/commands) — everything about command builders, nesting, and groups
+- [Flags](/guide/flags) — all flag types, modifiers, and the resolution chain in detail
+- [Middleware](/guide/middleware) — context accumulation, short-circuit, onion model
+- [Testing](/guide/testing) — the full testkit API
