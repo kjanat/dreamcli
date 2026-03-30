@@ -14,7 +14,7 @@
  */
 
 import type { CLISchema } from '../../cli/index.ts';
-import type { CommandSchema, FlagSchema } from '../../schema/index.ts';
+import type { FlagSchema } from '../../schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import { quoteShellArg, sanitizeShellIdentifier, versionTag, walkCommandTree } from './shared.ts';
 
@@ -122,9 +122,10 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 			} else {
 				// Leaf command — emit flags inline
 				const node = nodes.find((n) => n.path.length === 1 && n.schema.name === cmd.name);
-				const flagSpecs = node
-					? buildZshFlagSpecsFromFlags(node.mergedFlags)
-					: buildZshFlagSpecs(cmd);
+				if (node === undefined) {
+					throw new Error(`Missing completion node for command '${cmd.name}'`);
+				}
+				const flagSpecs = buildZshFlagSpecsFromFlags(node.mergedFlags);
 
 				if (flagSpecs.length > 0) {
 					lines.push('\t\t\t\t\t_arguments \\');
@@ -316,20 +317,5 @@ function buildZshFlagSpecsFromFlags(
 	}
 	return specs;
 }
-
-/**
- * Build `_arguments` flag spec strings for a command.
- *
- * Delegates to {@link buildZshFlagSpecsFromFlags} using the command's own flags.
- *
- * @internal
- */
-function buildZshFlagSpecs(cmd: CommandSchema): readonly string[] {
-	return buildZshFlagSpecsFromFlags(cmd.flags);
-}
-
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
 
 export { generateZshCompletion };

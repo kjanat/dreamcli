@@ -8,6 +8,7 @@
  * @internal
  */
 
+/** @internal */
 interface ImportMeta {
 	readonly url: string;
 }

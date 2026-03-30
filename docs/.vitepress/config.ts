@@ -3,10 +3,29 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
 	title: 'dreamcli',
 	description: 'Schema-first, fully typed TypeScript CLI framework',
+	cleanUrls: true,
 	sitemap: {
 		hostname: 'https://dreamcli.kjanat.com',
 	},
 	head: [
+		[
+			'link',
+			{
+				rel: 'icon',
+				type: 'image/svg+xml',
+				href: '/favicon.svg',
+				media: '(prefers-color-scheme: light)',
+			},
+		],
+		[
+			'link',
+			{
+				rel: 'icon',
+				type: 'image/svg+xml',
+				href: '/favicon-dark.svg',
+				media: '(prefers-color-scheme: dark)',
+			},
+		],
 		['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
 		['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
 	],

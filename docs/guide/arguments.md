@@ -9,7 +9,6 @@ import { arg } from 'dreamcli';
 
 arg.string(); // string
 arg.number(); // number
-arg.enum(['dev', 'staging', 'prod']); // "dev" | "staging" | "prod"
 arg.custom((v) => new URL(v)); // URL
 ```
 

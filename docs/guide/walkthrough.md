@@ -253,8 +253,8 @@ action handler, but that's repetitive and error-prone. Middleware solves this:
 ```ts
 import { middleware, CLIError } from 'dreamcli';
 
-const requireAuth = middleware<{ token: string }>(async ({ next }) => {
-	const token = process.env.GH_TOKEN;
+const requireAuth = middleware<{ token: string }>(async ({ next, flags }) => {
+	const token = typeof flags.token === 'string' ? flags.token : undefined;
 	if (!token) {
 		throw new CLIError('Authentication required', {
 			code: 'AUTH_REQUIRED',
@@ -266,12 +266,17 @@ const requireAuth = middleware<{ token: string }>(async ({ next }) => {
 });
 ```
 
+This assumes each protected command resolves a `token` value first, typically via
+`flag.string().env('GH_TOKEN')`, so middleware can consume resolved input instead of reaching for
+`process.env` directly.
+
 The generic `<{ token: string }>` declares what this middleware provides. `next({ token })` passes
 it downstream. Now wire it up:
 
 ```ts
 const prList = command('list')
   .description('List pull requests')
+  .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
   .middleware(requireAuth)  // <-- must be authenticated
   .flag('state', ...)
   .action(({ flags, ctx, out }) => {
@@ -281,7 +286,7 @@ const prList = command('list')
   });
 ```
 
-If `GH_TOKEN` isn't set, the middleware throws before the action runs. No token check needed in the
+If no token resolves, the middleware throws before the action runs. No token check needed in the
 handler. The auth commands (`login`, `status`) don't use the middleware, so they work without a
 token.
 

@@ -8,8 +8,8 @@ definition.
 ```ts
 import { generateCompletion } from 'dreamcli';
 
-generateCompletion(myCli, 'bash');
-generateCompletion(myCli, 'zsh');
+generateCompletion(myCli.schema, 'bash');
+generateCompletion(myCli.schema, 'zsh');
 ```
 
 ## Supported Shells
@@ -24,13 +24,23 @@ generateCompletion(myCli, 'zsh');
 A common pattern is to add a `completions` subcommand:
 
 ```ts
-import { command, flag, generateCompletion } from 'dreamcli';
+import { arg, command, generateCompletion } from 'dreamcli';
 
 const completions = command('completions')
 	.description('Generate shell completion script')
-	.flag('shell', flag.enum(['bash', 'zsh']).required().describe('Target shell'))
-	.action(({ flags, out }) => {
-		const script = generateCompletion(myCli, flags.shell);
+	.arg(
+		'shell',
+		arg
+			.custom((raw): 'bash' | 'zsh' => {
+				if (raw !== 'bash' && raw !== 'zsh') {
+					throw new Error('Expected bash or zsh');
+				}
+				return raw;
+			})
+			.describe('Target shell'),
+	)
+	.action(({ args, out }) => {
+		const script = generateCompletion(myCli.schema, args.shell);
 		out.log(script);
 	});
 ```
@@ -39,10 +49,10 @@ Users install completions by sourcing the output:
 
 ```bash
 # bash
-mycli completions --shell bash >> ~/.bashrc
+mycli completions bash >> ~/.bashrc
 
 # zsh
-mycli completions --shell zsh >> ~/.zshrc
+mycli completions zsh >> ~/.zshrc
 ```
 
 ## What Completes

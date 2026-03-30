@@ -122,19 +122,21 @@ describe('dreamcli', () => {
 	});
 });
 
-it('keeps runtime export surface curated', async () => {
-	const mod = await import('./runtime.ts');
-	expect(Object.keys(mod).sort()).toEqual(
-		[
-			'ExitError',
-			'RUNTIMES',
-			'createAdapter',
-			'createBunAdapter',
-			'createDenoAdapter',
-			'createNodeAdapter',
-			'detectRuntime',
-		].sort(),
-	);
+describe('dreamcli/runtime — export surface', () => {
+	it('keeps runtime export surface curated', async () => {
+		const mod = await import('./runtime.ts');
+		expect(Object.keys(mod).sort()).toEqual(
+			[
+				'ExitError',
+				'RUNTIMES',
+				'createAdapter',
+				'createBunAdapter',
+				'createDenoAdapter',
+				'createNodeAdapter',
+				'detectRuntime',
+			].sort(),
+		);
+	});
 });
 
 // === Subpath exports

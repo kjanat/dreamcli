@@ -100,8 +100,14 @@ validation errors with the flag name in context.
 Flags marked with `.propagate()` are inherited by all subcommands:
 
 ```ts
+const nested = command('start').action(({ flags, out }) => {
+	if (flags.verbose) {
+		out.info('Verbose mode enabled');
+	}
+});
+
 cli('mycli').command(
-	command('deploy').flag('verbose', flag.boolean().alias('v').propagate()).command(nested), // also gets --verbose
+	command('deploy').flag('verbose', flag.boolean().alias('v').propagate()).command(nested),
 );
 ```
 

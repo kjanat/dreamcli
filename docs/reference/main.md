@@ -76,12 +76,11 @@ Flag factory with typed builders:
 
 Argument factory:
 
-| Factory               | Type            |
-| --------------------- | --------------- |
-| `arg.string()`        | `string`        |
-| `arg.number()`        | `number`        |
-| `arg.enum(values)`    | Union of values |
-| `arg.custom(parseFn)` | Return type     |
+| Factory               | Type        |
+| --------------------- | ----------- |
+| `arg.string()`        | `string`    |
+| `arg.number()`        | `number`    |
+| `arg.custom(parseFn)` | Return type |
 
 ### `middleware<Context>(handler)`
 

@@ -65,7 +65,7 @@ const errorBoundary = middleware(async ({ next, out }) => {
 	try {
 		return await next({});
 	} catch (err) {
-		if (isCLIError(err)) {
+		if (err instanceof CLIError) {
 			out.error(err.message);
 		}
 		throw err;

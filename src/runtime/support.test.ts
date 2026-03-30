@@ -30,7 +30,7 @@ function parsePackageEngines(contents: string): Readonly<Record<string, string |
 	return result;
 }
 
-describe('runtime compatibility matrix', () => {
+describe('runtime — compatibility matrix stays aligned', () => {
 	it('matches package.json engines', async () => {
 		const packageJson = await readUtf8(new URL('../../package.json', import.meta.url));
 		const engines = parsePackageEngines(packageJson);

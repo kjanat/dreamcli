@@ -132,12 +132,25 @@ function walkCommandTree(
 /**
  * Sanitize a string for use as a shell function identifier.
  * Replaces non-alphanumeric/underscore characters with underscores.
+ * When sanitization changes the name, appends a short stable hash suffix so
+ * distinct originals cannot collide on the same helper identifier.
  * Used by both bash and zsh generators.
  *
  * @internal
  */
 function sanitizeShellIdentifier(name: string): string {
-	return name.replace(/[^a-zA-Z0-9_]/g, '_');
+	const sanitized = name.replace(/[^a-zA-Z0-9_]/g, '_');
+	if (sanitized === name) {
+		return sanitized;
+	}
+
+	let hash = 2166136261;
+	for (let i = 0; i < name.length; i += 1) {
+		hash ^= name.charCodeAt(i);
+		hash = Math.imul(hash, 16777619);
+	}
+
+	return `${sanitized}_${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
 /**

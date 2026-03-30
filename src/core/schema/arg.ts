@@ -283,7 +283,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * The generic constraint `V extends C['valueType']` ensures the default
 	 * matches the arg's declared type.
 	 *
-	 * Resolution order: CLI → env → **default**.
+	 * Resolution order when extra sources are configured: CLI → stdin → env → **default**.
 	 *
 	 * @param value - Fallback used when no CLI value or env var resolves.
 	 *
@@ -368,7 +368,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * coerced to the arg's declared kind (passthrough for strings, parsed
 	 * for numbers, run through `parseFn` for custom args).
 	 *
-	 * Resolution order: **CLI → env → default**.
+	 * Resolution order when extra sources are configured: **CLI → stdin → env → default**.
 	 *
 	 * Help output shows `[env: VAR]` next to the arg description.
 	 *
@@ -454,8 +454,8 @@ class ArgBuilder<C extends ArgConfig> {
  * and initial type-level config. Chain modifiers (`.optional()`, `.env()`,
  * `.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.
  *
- * All args are **required** by default. Resolution order when env is
- * configured: **CLI → env → default**.
+ * All args are **required** by default. Resolution order when extra
+ * sources are configured: **CLI → stdin → env → default**.
  *
  * @example Overview — all three kinds with common modifier patterns
  * ```ts

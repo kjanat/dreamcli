@@ -32,15 +32,16 @@ out.table<Row>(rows, [
 ]);
 ```
 
-::: tip Use a `type` alias (not `interface`) for table rows. TypeScript's structural typing requires
-`Record<string, unknown>` compatibility. :::
+::: tip Use a `type` alias (not `interface`) for table rows.
+TypeScript's structural typing requires `Record<string, unknown>` compatibility.
+:::
 
 ## Spinners
 
 ```ts
 const spinner = out.spinner('Deploying...');
 await deploy();
-spinner.stop('Done');
+spinner.succeed('Done');
 ```
 
 Spinners auto-disable when stdout is not a TTY (CI, piped output). In `--json` mode, spinners are
@@ -49,14 +50,14 @@ suppressed entirely.
 ## Progress Bars
 
 ```ts
-const progress = out.progress({ message: 'Uploading', total: 100 });
+const progress = out.progress({ label: 'Uploading', total: 100 });
 
 for (let i = 0; i <= 100; i++) {
 	progress.update(i);
 	await tick();
 }
 
-progress.finish();
+progress.done('Upload complete');
 ```
 
 ## Output Modes

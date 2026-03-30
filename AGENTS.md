@@ -130,8 +130,8 @@ at the schema boundary (only cli dispatch calls it, always with full `RunOptions
 ## COMMANDS
 
 ```bash
-bun run check        # tsgo --noEmit (native TS type check)
-bun run check:tsc    # tsc --noEmit (standard fallback)
+bun run typecheck     # tsgo --noEmit (native TS type check)
+bun run typecheck:tsc # tsc --noEmit (standard fallback)
 bun run lint         # biome check .
 bun run lint:fix     # biome check --fix .
 bun run format       # dprint fmt

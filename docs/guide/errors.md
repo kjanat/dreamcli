@@ -24,7 +24,7 @@ throw new CLIError('Deployment failed', {
 | `exitCode` | `number`  | Process exit code (default varies by type) |
 | `suggest`  | `string`  | Actionable hint for the user               |
 | `details`  | `unknown` | Structured payload for JSON output         |
-| `cause`    | `Error`   | Underlying cause                           |
+| `cause`    | `Error?`  | Underlying cause (optional)                |
 
 ## Error Types
 

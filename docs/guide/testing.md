@@ -25,7 +25,7 @@ const result = await runCommand(deploy, ['production'], {
 	env: { DEPLOY_REGION: 'eu' }, // environment variables
 	config: { deploy: { region: 'us' } }, // config file values
 	answers: ['ap'], // prompt answers (consumed in order)
-	json: true, // simulate --json mode
+	jsonMode: true, // simulate --json mode
 	verbosity: 'quiet', // verbosity level
 });
 ```
@@ -38,8 +38,8 @@ const result = await runCommand(deploy, ['production'], {
 | `config`    | `Record<string, unknown>` | Config file values      |
 | `answers`   | `unknown[]`               | Prompt answers in order |
 | `prompter`  | `PromptEngine`            | Custom prompt handler   |
-| `json`      | `boolean`                 | Simulate `--json` mode  |
-| `help`      | `boolean`                 | Simulate `--help`       |
+| `jsonMode`  | `boolean`                 | Simulate `--json` mode  |
+| `help`      | `HelpOptions`             | Help formatting options |
 | `verbosity` | `string`                  | Output verbosity level  |
 | `adapter`   | `RuntimeAdapter`          | Custom runtime adapter  |
 
@@ -54,7 +54,7 @@ const result = await runCommand(cmd, [], {
 });
 
 // Simulate prompt cancellation
-const result = await runCommand(cmd, [], {
+const cancelResult = await runCommand(cmd, [], {
 	prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```

@@ -139,6 +139,7 @@ const authLogin = command('login')
 		flag
 			.string()
 			.env('GH_TOKEN')
+			.required()
 			.describe('Authentication token')
 			.prompt({ kind: 'input', message: 'Paste your GitHub token:' }),
 	)
@@ -197,7 +198,16 @@ const prView = command('view')
 	.middleware(requireAuth)
 	.arg('number', arg.string().describe('PR number'))
 	.action(({ args, out }) => {
-		const num = parseInt(args.number, 10);
+		if (!/^\d+$/.test(args.number)) {
+			throw new CLIError(`Invalid pull request number: ${args.number}`, {
+				code: 'INVALID_INPUT',
+				exitCode: 1,
+				suggest: 'PR number must be a positive integer',
+				details: { requested: args.number },
+			});
+		}
+
+		const num = Number(args.number);
 		const pr = pullRequests.find((p) => p.number === num);
 
 		if (!pr) {

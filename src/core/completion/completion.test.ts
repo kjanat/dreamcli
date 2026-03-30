@@ -213,7 +213,7 @@ describe('generateBashCompletion — functionPrefix option', () => {
 	it('sanitizes non-identifier characters in prefix', () => {
 		const script = generateBashCompletion(minimalSchema(), { functionPrefix: 'my-app.v2' });
 
-		expect(script).toContain('_my_app_v2_completions() {');
+		expect(script).toMatch(/_my_app_v2_[0-9a-f]{8}_completions\(\) \{/);
 	});
 });
 
@@ -637,16 +637,16 @@ describe('generateBashCompletion — name sanitization', () => {
 		const schema = minimalSchema({ name: 'my-cli-tool' });
 		const script = generateBashCompletion(schema);
 
-		expect(script).toContain('_my_cli_tool_completions() {');
+		expect(script).toMatch(/_my_cli_tool_[0-9a-f]{8}_completions\(\) \{/);
 		// complete line still uses original name
-		expect(script).toContain('complete -F _my_cli_tool_completions my-cli-tool');
+		expect(script).toMatch(/complete -F _my_cli_tool_[0-9a-f]{8}_completions my-cli-tool/);
 	});
 
 	it('replaces dots in CLI name for function identifier', () => {
 		const schema = minimalSchema({ name: 'app.cli' });
 		const script = generateBashCompletion(schema);
 
-		expect(script).toContain('_app_cli_completions() {');
+		expect(script).toMatch(/_app_cli_[0-9a-f]{8}_completions\(\) \{/);
 	});
 });
 
@@ -658,31 +658,31 @@ describe('generateBashCompletion — name escaping', () => {
 	it('leaves shell-safe names unquoted in complete line', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'my-cli' }));
 
-		expect(script).toContain('complete -F _my_cli_completions my-cli');
+		expect(script).toMatch(/complete -F _my_cli_[0-9a-f]{8}_completions my-cli/);
 	});
 
 	it('leaves dotted names unquoted in complete line', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'app.v2' }));
 
-		expect(script).toContain('complete -F _app_v2_completions app.v2');
+		expect(script).toMatch(/complete -F _app_v2_[0-9a-f]{8}_completions app\.v2/);
 	});
 
 	it('single-quotes names with spaces in complete line', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'my cli' }));
 
-		expect(script).toContain("complete -F _my_cli_completions 'my cli'");
+		expect(script).toMatch(/complete -F _my_cli_[0-9a-f]{8}_completions 'my cli'/);
 	});
 
 	it('escapes single quotes in CLI name', () => {
 		const script = generateBashCompletion(minimalSchema({ name: "it's" }));
 
-		expect(script).toContain("complete -F _it_s_completions 'it'\\''s'");
+		expect(script).toMatch(/complete -F _it_s_[0-9a-f]{8}_completions 'it'\\''s'/);
 	});
 
 	it('single-quotes names with backticks', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'cli`whoami`' }));
 
-		expect(script).toContain("complete -F _cli_whoami__completions 'cli`whoami`'");
+		expect(script).toMatch(/complete -F _cli_whoami__+[0-9a-f]{8}_completions 'cli`whoami`'/);
 	});
 
 	it('single-quotes names with semicolons', () => {
@@ -694,7 +694,7 @@ describe('generateBashCompletion — name escaping', () => {
 	it('single-quotes names with dollar signs', () => {
 		const script = generateBashCompletion(minimalSchema({ name: '$HOME' }));
 
-		expect(script).toContain("complete -F __HOME_completions '$HOME'");
+		expect(script).toMatch(/complete -F __HOME_[0-9a-f]{8}_completions '\$HOME'/);
 	});
 });
 
@@ -788,7 +788,7 @@ describe('generateZshCompletion — functionPrefix option', () => {
 	it('sanitizes non-identifier characters in prefix', () => {
 		const script = generateZshCompletion(minimalSchema(), { functionPrefix: 'my-app.v2' });
 
-		expect(script).toContain('_my_app_v2() {');
+		expect(script).toMatch(/_my_app_v2_[0-9a-f]{8}\(\) \{/);
 	});
 
 	it('keeps #compdef using original CLI name, not prefix', () => {
@@ -1142,7 +1142,7 @@ describe('generateZshCompletion — name sanitization', () => {
 		const schema = minimalSchema({ name: 'my-cli-tool' });
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('_my_cli_tool() {');
+		expect(script).toMatch(/_my_cli_tool_[0-9a-f]{8}\(\) \{/);
 		// compdef still uses original name
 		expect(script).toContain('#compdef my-cli-tool');
 	});
@@ -1151,7 +1151,7 @@ describe('generateZshCompletion — name sanitization', () => {
 		const schema = minimalSchema({ name: 'app.cli' });
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('_app_cli() {');
+		expect(script).toMatch(/_app_cli_[0-9a-f]{8}\(\) \{/);
 	});
 });
 

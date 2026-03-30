@@ -19,9 +19,13 @@ interface User {
 	readonly role: 'admin' | 'user';
 }
 
+async function getAuthenticatedUser(): Promise<User | null> {
+	// In real code, read a token from env/config/keychain and return null when missing.
+	return { id: 'u-1', name: 'Alice', role: 'admin' };
+}
+
 const auth = middleware<{ user: User }>(async ({ next }) => {
-	// In real code, read a token from env/config/keychain.
-	const user: User = { id: 'u-1', name: 'Alice', role: 'admin' };
+	const user = await getAuthenticatedUser();
 
 	if (!user) {
 		// Short-circuits the chain — action never runs.
@@ -39,10 +43,9 @@ const auth = middleware<{ user: User }>(async ({ next }) => {
 
 const timing = middleware<{ startTime: number }>(async ({ out, next }) => {
 	const start = performance.now();
-	const result = next({ startTime: start });
+	const result = await next({ startTime: start });
 
 	// Code after `next()` runs after the action completes (onion model).
-	await result;
 	const elapsed = (performance.now() - start).toFixed(0);
 	out.info(`Completed in ${elapsed}ms`);
 

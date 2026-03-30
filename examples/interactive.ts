@@ -30,6 +30,7 @@ const deploy = command('deploy')
 			.env('DEPLOY_REGION')
 			.config('deploy.region')
 			.prompt({ kind: 'select', message: 'Which region?' })
+			.default('us')
 			.describe('Target region'),
 	)
 	.flag(

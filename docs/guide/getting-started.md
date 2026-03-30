@@ -76,7 +76,9 @@ cli('mycli').version('1.0.0').description('My awesome tool').command(deploy).com
 
 ```bash
 $ mycli deploy production --force
+Deploying production to default
 $ mycli login --token abc123
+Logged in with token: abc123
 ```
 
 ## What's Next?

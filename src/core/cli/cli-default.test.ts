@@ -68,12 +68,9 @@ describe('.default() — builder', () => {
 	});
 
 	it('throws DUPLICATE_DEFAULT when called twice', () => {
-		expect(() => {
-			cli('mycli').default(deployCommand()).default(noArgCommand());
-		}).toThrow(CLIError);
-
 		try {
 			cli('mycli').default(deployCommand()).default(noArgCommand());
+			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(err).toBeInstanceOf(CLIError);
 			expect((err as CLIError).code).toBe('DUPLICATE_DEFAULT');
@@ -81,12 +78,9 @@ describe('.default() — builder', () => {
 	});
 
 	it('throws DUPLICATE_COMMAND when command name already registered', () => {
-		expect(() => {
-			cli('mycli').command(deployCommand()).default(deployCommand());
-		}).toThrow(CLIError);
-
 		try {
 			cli('mycli').command(deployCommand()).default(deployCommand());
+			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(err).toBeInstanceOf(CLIError);
 			expect((err as CLIError).code).toBe('DUPLICATE_COMMAND');

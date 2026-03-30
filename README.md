@@ -28,7 +28,7 @@ const deploy = command('deploy')
 
 By the time `action` runs, `flags.region` is `"us" | "eu" | "ap"` — not `string | undefined`.
 
-The value resolved through a documented chain: **CLI → env → config → interactive prompt →
+The value is resolved through a documented chain: **CLI → env → config → interactive prompt →
 default**. Every step is opt-in. Every step preserves types.
 
 ## Install
@@ -229,12 +229,12 @@ Handlers receive `out` instead of `console`. Adapts to context automatically:
   out.json({ status: 'ok', count: 42 });
   out.table(rows, [{ key: 'name', header: 'Name' }, { key: 'status', header: 'Status' }]);
 
-  const spinner = out.spinner({ message: 'Deploying...' });
-  spinner.stop('Done');
+  const spinner = out.spinner('Deploying...');
+  spinner.succeed('Done');
 
-  const progress = out.progress({ message: 'Uploading', total: 100 });
+  const progress = out.progress({ label: 'Uploading', total: 100 });
   progress.update(50);
-  progress.finish();
+  progress.done('Upload complete');
 })
 ```
 
@@ -249,8 +249,8 @@ Generated from the command schema — always in sync:
 ```ts
 import { generateCompletion } from 'dreamcli';
 
-generateCompletion(myCli, 'bash');
-generateCompletion(myCli, 'zsh');
+generateCompletion(myCli.schema, 'bash');
+generateCompletion(myCli.schema, 'zsh');
 ```
 
 ### Config file discovery

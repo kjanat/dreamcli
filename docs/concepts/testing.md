@@ -113,7 +113,7 @@ expect(result.stderr.join('')).toContain('Missing required');
 Structured output is valid JSON:
 
 ```ts
-const result = await runCommand(cmd, ['list'], { json: true });
+const result = await runCommand(cmd, ['list'], { jsonMode: true });
 const data = JSON.parse(result.stdout.join(''));
 expect(data).toBeInstanceOf(Array);
 ```

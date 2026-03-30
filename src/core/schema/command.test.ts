@@ -204,12 +204,9 @@ describe('.arg()', () => {
 	});
 
 	it('throws DUPLICATE_STDIN_ARG when a second stdin arg is registered', () => {
-		expect(() => {
-			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin());
-		}).toThrowError(CLIError);
-
 		try {
 			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin());
+			expect.unreachable('should have thrown');
 		} catch (error) {
 			expect(error).toBeInstanceOf(CLIError);
 			if (error instanceof CLIError) {
@@ -219,12 +216,9 @@ describe('.arg()', () => {
 	});
 
 	it('rejects stdin then variadic args at build time', () => {
-		expect(() => {
-			command('copy').arg('files', arg.string().stdin().variadic());
-		}).toThrowError(CLIError);
-
 		try {
 			command('copy').arg('files', arg.string().stdin().variadic());
+			expect.unreachable('should have thrown');
 		} catch (error) {
 			expect(error).toBeInstanceOf(CLIError);
 			if (error instanceof CLIError) {
@@ -234,12 +228,9 @@ describe('.arg()', () => {
 	});
 
 	it('rejects variadic then stdin args at build time', () => {
-		expect(() => {
-			command('copy').arg('files', arg.string().variadic().stdin());
-		}).toThrowError(CLIError);
-
 		try {
 			command('copy').arg('files', arg.string().variadic().stdin());
+			expect.unreachable('should have thrown');
 		} catch (error) {
 			expect(error).toBeInstanceOf(CLIError);
 			if (error instanceof CLIError) {

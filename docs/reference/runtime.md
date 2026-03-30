@@ -20,16 +20,21 @@ const adapter = createAdapter('deno');
 
 ### RuntimeAdapter Interface
 
-| Method           | Description                        |
-| ---------------- | ---------------------------------- |
-| `argv()`         | Command-line arguments             |
-| `env()`          | Environment variables              |
-| `cwd()`          | Current working directory          |
-| `exit(code)`     | Exit the process                   |
-| `isTTY()`        | Whether stdin/stdout is a TTY      |
-| `readFile(path)` | Read a file (for config discovery) |
-| `homedir()`      | User home directory                |
-| `configDir()`    | XDG config directory               |
+| Member           | Kind     | Description                               |
+| ---------------- | -------- | ----------------------------------------- |
+| `argv`           | readonly | Raw command-line arguments                |
+| `env`            | readonly | Environment variables                     |
+| `cwd`            | readonly | Current working directory                 |
+| `stdout`         | readonly | Stdout writer used by the output channel  |
+| `stderr`         | readonly | Stderr writer used by the output channel  |
+| `stdin`          | readonly | Line reader used for interactive prompts  |
+| `readStdin()`    | method   | Read all piped stdin as a single string   |
+| `isTTY`          | readonly | Whether stdout is connected to a TTY      |
+| `stdinIsTTY`     | readonly | Whether stdin is connected to a TTY       |
+| `exit(code)`     | method   | Exit the process                          |
+| `readFile(path)` | method   | Read a UTF-8 file for config discovery    |
+| `homedir`        | readonly | User home directory                       |
+| `configDir`      | readonly | Platform-specific configuration directory |
 
 ## `detectRuntime()`
 

@@ -95,7 +95,7 @@ interface CLIPlugin {
  * ```
  */
 function plugin(hooks: CLIPluginHooks, name?: string): CLIPlugin {
-	return { hooks, ...(name !== undefined ? { name } : { name: undefined }) };
+	return { hooks, name };
 }
 
 export type {
