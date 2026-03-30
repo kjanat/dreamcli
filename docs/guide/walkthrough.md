@@ -119,7 +119,7 @@ $ gh pr list --state all --limit 2
 
 Printing lines is fine, but tabular data deserves a table. And scripts need JSON.
 
-Replace the `for` loop with `out.table()` and add `out.json()`:
+Replace the `for` loop with `out.table()`:
 
 ```ts
 .action(({ flags, out }) => {
@@ -129,10 +129,7 @@ Replace the `for` loop with `out.table()` and add `out.json()`:
   }
   results = results.slice(0, flags.limit);
 
-  // out.json() emits structured data — only reaches stdout in --json mode
-  out.json(results);
-
-  // out.table() renders a formatted table in TTY, plain text when piped
+  // out.table() renders a formatted table in TTY, JSON array in --json mode
   out.table(
     results.map(p => ({ '#': p.number, title: p.title, state: p.state, author: p.author })),
   );
@@ -148,11 +145,13 @@ $ gh pr list
 141  Fix OAuth redirect loop   open    bob
 
 $ gh pr list --json
-[{"number":142,"title":"Add dark mode toggle","state":"open","author":"alice"},...]
+[{"#":142,"title":"Add dark mode toggle","state":"open","author":"alice"},...]
 ```
 
-`--json` is handled automatically by `cli()`. When active, `out.json()` writes to stdout and
-`out.table()` / `out.log()` are suppressed. Scripts get clean JSON; humans get pretty tables.
+`--json` is handled automatically by `cli()`. `out.table()` renders a formatted table for humans
+and emits JSON when `--json` is active. `out.log()` is suppressed in JSON mode. For single-object
+responses (like `pr view`), use `out.json(data)` instead — it writes structured JSON to stdout only
+in `--json` mode.
 
 ## Step 4: Command groups
 
