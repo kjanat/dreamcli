@@ -6,69 +6,259 @@
   role="img"
   aria-label="Animated progress bar"
 >
-  <style>@import url('loadingbar.css');</style>
+  <style>svg {
+    background: transparent;
+    color: #111827;
+  }
+
+  text {
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+    font-size: 24px;
+    dominant-baseline: middle;
+  }
+
+  .frame {
+    opacity: 0;
+  }
+
+  .bracket, .pct {
+    fill: currentColor;
+  }
+
+  .filled {
+    fill: #111827;
+    stroke: #111827;
+    stroke-width: 0.5px;
+  }
+
+  .empty {
+    fill: #9ca3af;
+    stroke: #9ca3af;
+    stroke-width: 0.5px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    svg {
+      color: #f3f4f6;
+    }
+
+    .filled {
+      fill: #f3f4f6;
+      stroke: #f3f4f6;
+    }
+
+    .empty {
+      fill: #4b5563;
+      stroke: #4b5563;
+    }
+  }
+
+  .f0 {
+    animation: show0 2.7s steps(1, end) infinite;
+  }
+
+  .f1 {
+    animation: show1 2.7s steps(1, end) infinite;
+  }
+
+  .f2 {
+    animation: show2 2.7s steps(1, end) infinite;
+  }
+
+  .f3 {
+    animation: show3 2.7s steps(1, end) infinite;
+  }
+
+  .f4 {
+    animation: show4 2.7s steps(1, end) infinite;
+  }
+
+  .f5 {
+    animation: show5 2.7s steps(1, end) infinite;
+  }
+
+  .f6 {
+    animation: show6 2.7s steps(1, end) infinite;
+  }
+
+  .f7 {
+    animation: show7 2.7s steps(1, end) infinite;
+  }
+
+  .f8 {
+    animation: show8 2.7s steps(1, end) infinite;
+  }
+
+  @keyframes show0 {
+    0%, 0.000% {
+      opacity: 0;
+    }
+    0.000%, 11.111% {
+      opacity: 1;
+    }
+    11.112%, 100% {
+      opacity: 0;
+  }
+
+  @keyframes show1 {
+    0%, 11.110% {
+      opacity: 0;
+    }
+    11.111%, 22.222% {
+      opacity: 1;
+    }
+    22.223%, 100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes show2 {
+    0%, 22.221% {
+      opacity: 0;
+    }
+    22.222%, 33.333% {
+      opacity: 1;
+    }
+    33.334%, 100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes show3 {
+    0%, 33.332% {
+      opacity: 0;
+    }
+    33.333%, 44.444% {
+      opacity: 1;
+    }
+    44.445%, 100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes show4 {
+    0%, 44.443% {
+      opacity: 0;
+    }
+    44.444%, 55.556% {
+      opacity: 1;
+    }
+    55.557%, 100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes show5 {
+    0%, 55.555% {
+      opacity: 0;
+    }
+    55.556%, 66.667% {
+      opacity: 1;
+    }
+    66.668%, 100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes show6 {
+    0%, 66.666% {
+      opacity: 0;
+    }
+    66.667%, 77.778% {
+      opacity: 1;
+    }
+    77.779%, 100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes show7 {
+    0%, 77.777% {
+      opacity: 0;
+    }
+    77.778%, 88.889% {
+      opacity: 1;
+    }
+    88.890%, 100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes show8 {
+    0%, 88.888% {
+      opacity: 0;
+    }
+    88.889%, 100.000% {
+      opacity: 1;
+    }
+    100.000%, 100% {
+      opacity: 0;
+    }
+  }</style>
 
   <text class="frame f0" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled"></tspan>
-    <tspan class="empty">░░░░░░░░</tspan>
+    <tspan class="empty">█████████</tspan>
     <tspan class="bracket">]</tspan>
-    <tspan class="pct">0%</tspan>
+    <tspan class="pct">&#x00A0;&#x00A0;&#x00A0;0%</tspan>
   </text>
   <text class="frame f1" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled">█</tspan>
-    <tspan class="empty">░░░░░░░</tspan>
+    <tspan class="empty">███████</tspan>
     <tspan class="bracket">]</tspan>
     <tspan class="pct">12.5%</tspan>
   </text>
   <text class="frame f2" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled">██</tspan>
-    <tspan class="empty">░░░░░░</tspan>
+    <tspan class="empty">██████</tspan>
     <tspan class="bracket">]</tspan>
-    <tspan class="pct">25%</tspan>
+    <tspan class="pct">&#x00A0;&#x00A0;25%</tspan>
   </text>
   <text class="frame f3" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled">███</tspan>
-    <tspan class="empty">░░░░░</tspan>
+    <tspan class="empty">█████</tspan>
     <tspan class="bracket">]</tspan>
     <tspan class="pct">37.5%</tspan>
   </text>
   <text class="frame f4" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled">████</tspan>
-    <tspan class="empty">░░░░</tspan>
+    <tspan class="empty">████</tspan>
     <tspan class="bracket">]</tspan>
-    <tspan class="pct">50%</tspan>
+    <tspan class="pct">&#x00A0;&#x00A0;50%</tspan>
   </text>
   <text class="frame f5" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled">█████</tspan>
-    <tspan class="empty">░░░</tspan>
+    <tspan class="empty">███</tspan>
     <tspan class="bracket">]</tspan>
     <tspan class="pct">62.5%</tspan>
   </text>
   <text class="frame f6" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled">██████</tspan>
-    <tspan class="empty">░░</tspan>
+    <tspan class="empty">██</tspan>
     <tspan class="bracket">]</tspan>
-    <tspan class="pct">75%</tspan>
+    <tspan class="pct">&#x00A0;&#x00A0;75%</tspan>
   </text>
   <text class="frame f7" x="12" y="20">
     <tspan class="bracket">[</tspan>
     <tspan class="filled">███████</tspan>
-    <tspan class="empty">░</tspan>
+    <tspan class="empty">█</tspan>
     <tspan class="bracket">]</tspan>
     <tspan class="pct">87.5%</tspan>
   </text>
   <text class="frame f8" x="12" y="20">
     <tspan class="bracket">[</tspan>
-    <tspan class="filled">████████</tspan>
+    <tspan class="filled">█████████</tspan>
     <tspan class="empty"></tspan>
     <tspan class="bracket">]</tspan>
-    <tspan class="pct">100%</tspan>
+    <tspan class="pct">&#x00A0;100%</tspan>
   </text>
 </svg>

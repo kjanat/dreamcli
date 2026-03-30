@@ -6,7 +6,53 @@
   role="img"
   aria-label="Loading spinner"
 >
-  <style>@import url('spinner.css');</style>
+  <style>svg {
+      background: transparent;
+      color: #6b7280;
+    }
+
+    text {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 24px;
+      dominant-baseline: middle;
+    }
+
+    .label {
+      fill: currentColor;
+    }
+
+    .spinner-frame {
+      opacity: 0;
+      fill: #111827;
+      animation: frame 1s linear infinite;
+    }
+
+    .f0 { animation-delay: 0s; }
+    .f1 { animation-delay: -0.9s; }
+    .f2 { animation-delay: -0.8s; }
+    .f3 { animation-delay: -0.7s; }
+    .f4 { animation-delay: -0.6s; }
+    .f5 { animation-delay: -0.5s; }
+    .f6 { animation-delay: -0.4s; }
+    .f7 { animation-delay: -0.3s; }
+    .f8 { animation-delay: -0.2s; }
+    .f9 { animation-delay: -0.1s; }
+
+    @media (prefers-color-scheme: dark) {
+      svg {
+        color: #9ca3af;
+      }
+
+      .spinner-frame {
+        fill: #f3f4f6;
+      }
+    }
+
+    @keyframes frame {
+      0%, 9.999% { opacity: 1; }
+      10%, 100% { opacity: 0; }
+    }</style>
+
   <text class="spinner-frame f0" x="12" y="20">⠋</text>
   <text class="spinner-frame f1" x="12" y="20">⠙</text>
   <text class="spinner-frame f2" x="12" y="20">⠹</text>
@@ -17,5 +63,6 @@
   <text class="spinner-frame f7" x="12" y="20">⠧</text>
   <text class="spinner-frame f8" x="12" y="20">⠇</text>
   <text class="spinner-frame f9" x="12" y="20">⠏</text>
-  <text x="40" y="20">Loading...</text>
+
+  <text class="label" x="40" y="20">Loading...</text>
 </svg>
