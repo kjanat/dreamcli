@@ -8,16 +8,14 @@
 import { vi } from 'vitest';
 
 /**
- * Install a minimal mock Deno namespace on globalThis for the duration of `fn`.
+ * Create a minimal mock Deno namespace for adapter tests.
  *
- * `createDenoAdapter()` reads from `globalThis.Deno` when no explicit
- * namespace is provided. In vitest (Node), there is no real Deno global,
- * so Deno-path tests in `createAdapter` must install a mock temporarily.
+ * Tests that exercise the Deno adapter path through `createAdapter()`
+ * can pass this namespace via the injected `globals` parameter instead
+ * of mutating `globalThis.Deno`.
  */
-export function withMockDenoGlobal<T>(fn: () => T): T {
-	const g = globalThis as Record<string, unknown>;
-	const prev = g['Deno'];
-	g['Deno'] = {
+export function createMockDenoNamespace() {
+	return {
 		args: [],
 		env: { get: () => undefined, toObject: () => ({}) },
 		cwd: () => '/deno/mock',
@@ -36,13 +34,4 @@ export function withMockDenoGlobal<T>(fn: () => T): T {
 		readTextFile: () => Promise.reject(Object.assign(new Error('not found'), { name: 'NotFound' })),
 		version: { deno: '2.6.0' },
 	};
-	try {
-		return fn();
-	} finally {
-		if (prev === undefined) {
-			delete g['Deno'];
-		} else {
-			g['Deno'] = prev;
-		}
-	}
 }

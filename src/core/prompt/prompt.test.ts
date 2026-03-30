@@ -634,9 +634,9 @@ describe('resolvePromptConfig', () => {
 
 describe('type contracts', () => {
 	it('PromptEngine has correct promptOne signature', () => {
-		expectTypeOf<PromptEngine['promptOne']>().toBeFunction();
-		expectTypeOf<PromptEngine['promptOne']>().parameter(0).toMatchTypeOf<ResolvedPromptConfig>();
-		expectTypeOf<PromptEngine['promptOne']>().returns.toMatchTypeOf<Promise<PromptResult>>();
+		expectTypeOf<PromptEngine['promptOne']>().toEqualTypeOf<
+			(config: ResolvedPromptConfig) => Promise<PromptResult>
+		>();
 	});
 
 	it('ReadFn returns Promise<string | null>', () => {

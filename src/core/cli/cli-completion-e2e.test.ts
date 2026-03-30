@@ -573,17 +573,15 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 
 	it('auto-adapter creates valid adapter for simulated Deno runtime', async () => {
 		const { createAdapter } = await import('../../runtime/auto.ts');
-		const { withMockDenoGlobal } = await import('../../runtime/test-helpers.ts');
+		const { createMockDenoNamespace } = await import('../../runtime/test-helpers.ts');
 
-		withMockDenoGlobal(() => {
-			const globals: GlobalForDetect = {
-				Deno: { version: { deno: '2.6.0' } },
-			};
-			const adapter = createAdapter(globals);
-			expect(adapter).toBeDefined();
-			expect(typeof adapter.stdout).toBe('function');
-			expect(typeof adapter.stderr).toBe('function');
-		});
+		const globals: GlobalForDetect = {
+			Deno: createMockDenoNamespace(),
+		};
+		const adapter = createAdapter(globals);
+		expect(adapter).toBeDefined();
+		expect(typeof adapter.stdout).toBe('function');
+		expect(typeof adapter.stderr).toBe('function');
 	});
 });
 

@@ -12,7 +12,7 @@ import type { RuntimeAdapter } from './adapter.ts';
 import { createAdapter } from './auto.ts';
 import type { GlobalForDetect } from './detect.ts';
 import { RUNTIMES } from './detect.ts';
-import { withMockDenoGlobal } from './test-helpers.ts';
+import { createMockDenoNamespace } from './test-helpers.ts';
 
 // ===================================================================
 // Helpers
@@ -70,13 +70,11 @@ describe('createAdapter — runtime dispatch', () => {
 	// -------------------------------------------------------------------
 
 	it('creates adapter for Deno runtime', () => {
-		withMockDenoGlobal(() => {
-			const globals: GlobalForDetect = {
-				Deno: { version: { deno: '2.6.0' } },
-			};
-			const adapter = createAdapter(globals);
-			assertAdapterShape(adapter);
-		});
+		const globals: GlobalForDetect = {
+			Deno: createMockDenoNamespace(),
+		};
+		const adapter = createAdapter(globals);
+		assertAdapterShape(adapter);
 	});
 
 	// -------------------------------------------------------------------
@@ -110,17 +108,15 @@ describe('createAdapter — exhaustiveness', () => {
 		const globalsForRuntime: Record<string, GlobalForDetect> = {
 			node: { process: { versions: { node: '22.0.0' } } },
 			bun: { Bun: { version: '1.3.11' }, process: { versions: { node: '22.0.0' } } },
-			deno: { Deno: { version: { deno: '2.6.0' } } },
+			deno: { Deno: createMockDenoNamespace() },
 			unknown: {},
 		};
 
-		withMockDenoGlobal(() => {
-			for (const runtime of RUNTIMES) {
-				const adapter = createAdapter(globalsForRuntime[runtime]);
-				expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
-				assertAdapterShape(adapter);
-			}
-		});
+		for (const runtime of RUNTIMES) {
+			const adapter = createAdapter(globalsForRuntime[runtime]);
+			expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
+			assertAdapterShape(adapter);
+		}
 	});
 });
 

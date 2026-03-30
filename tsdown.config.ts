@@ -12,15 +12,8 @@ const revision = (() => {
 
 export default defineConfig({
 	entry: ['src/index.ts', { testkit: 'src/testkit.ts', runtime: 'src/runtime.ts' }],
-	format: {
-		esm: {
-			target: ['ESNext'],
-		},
-		cjs: {
-			target: ['node22'],
-		},
-	},
-	dts: true,
+	format: ['esm', 'cjs'],
+	dts: { enabled: true, tsgo: true },
 	clean: true,
 	platform: 'node',
 	exports: {
@@ -31,9 +24,8 @@ export default defineConfig({
 		__DREAMCLI_VERSION__: JSON.stringify(pkg.version),
 		__DREAMCLI_REVISION__: JSON.stringify(revision),
 	},
-	unbundle: true,
-	minify: 'dce-only',
+	minify: true,
 	publint: true,
 	attw: { profile: 'strict', level: 'error', ignoreRules: ['no-resolution'] },
-	onSuccess: 'bunx sort-package-json package.json', // ensures proper sorting of the exports
+	onSuccess: 'bunx sort-package-json', // ensures proper sorting of the exports
 });

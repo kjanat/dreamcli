@@ -11,6 +11,7 @@
 
 import type { RuntimeAdapter } from './adapter.ts';
 import { createBunAdapter } from './bun.ts';
+import type { DenoNamespace } from './deno.ts';
 import { createDenoAdapter } from './deno.ts';
 import type { GlobalForDetect } from './detect.ts';
 import { detectRuntime } from './detect.ts';
@@ -35,6 +36,30 @@ function detectRuntimeVersion(
 			return _exhaustive;
 		}
 	}
+}
+
+function isDenoNamespace(value: unknown): value is DenoNamespace {
+	if (typeof value !== 'object' || value === null) return false;
+
+	const candidate = value as Partial<DenoNamespace>;
+	return (
+		Array.isArray(candidate.args) &&
+		typeof candidate.cwd === 'function' &&
+		typeof candidate.exit === 'function' &&
+		typeof candidate.readTextFile === 'function' &&
+		typeof candidate.env?.get === 'function' &&
+		typeof candidate.env.toObject === 'function' &&
+		typeof candidate.stdout?.write === 'function' &&
+		typeof candidate.stdout.isTerminal === 'function' &&
+		typeof candidate.stderr?.write === 'function' &&
+		typeof candidate.stdin?.isTerminal === 'function' &&
+		typeof candidate.stdin?.readable?.getReader === 'function'
+	);
+}
+
+function getInjectedDenoNamespace(globals: GlobalForDetect): DenoNamespace | undefined {
+	const candidate = (globals as { readonly Deno?: unknown }).Deno;
+	return isDenoNamespace(candidate) ? candidate : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +96,7 @@ function createAdapter(globals?: GlobalForDetect): RuntimeAdapter {
 		case 'bun':
 			return createBunAdapter();
 		case 'deno':
-			return createDenoAdapter();
+			return createDenoAdapter(getInjectedDenoNamespace(runtimeGlobals));
 		case 'node':
 		case 'unknown':
 			return createNodeAdapter();
