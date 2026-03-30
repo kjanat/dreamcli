@@ -11,6 +11,7 @@ Started: 2026-03-30
 - Cross-cutting CLI pipeline changes usually thread through `src/core/cli/index.ts`, `src/core/testkit/index.ts`, and `src/core/resolve/index.ts`
 - CLI-wide lifecycle extensions live in `src/core/cli/plugin.ts` and are threaded through `RunOptions.plugins`; hooks wrap parse, resolve, and action stages outside command middleware in registration order
 - Runtime support policy should live in one internal source (`src/runtime/support.ts`) and feed adapter guards, docs assertions, and `package.json` engine checks to avoid version drift
+- Public-doc coverage is easiest to lock at the curated barrels: a TypeScript compiler-API test can resolve aliased exports from `src/index.ts`, `src/testkit.ts`, and `src/runtime.ts` back to source declarations and fail on missing JSDoc
 
 ---
 <!-- Task logs below - APPEND ONLY -->
@@ -37,3 +38,10 @@ Started: 2026-03-30
 - Added a focused runtime subpath export-surface test so the public runtime barrel stays limited to the supported adapter factories and runtime values
 - Files changed: `src/index.ts`, `src/runtime.ts`, `src/index.test.ts`, `.opencode/state/v1.0/prd.json`, `.opencode/state/v1.0/progress.txt`
 - **Learnings:** public API audits are safest at the top-level barrels; internal barrels can keep wider exports for implementation seams without widening the shipped subpath surface
+
+## Task - [jsdoc-public-api]
+
+- Added the missing public JSDoc for `createTestAdapter()` in `src/runtime/adapter.ts` and kept the existing example at the declaration site that ships through `dreamcli/testkit`
+- Added a public API documentation guard in `src/index.test.ts` that walks the three curated entry points with the TypeScript compiler API and fails if any exported symbol resolves to an undocumented declaration
+- Files changed: `src/runtime/adapter.ts`, `src/index.test.ts`, `.opencode/state/v1.0/prd.json`, `.opencode/state/v1.0/progress.txt`
+- **Learnings:** re-export-heavy packages are safer to verify from the public barrels than by scanning source files directly because alias resolution catches the shipped symbol, not just local declarations

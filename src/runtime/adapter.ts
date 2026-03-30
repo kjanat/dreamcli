@@ -264,6 +264,26 @@ const eofRead: ReadFn = () => Promise.resolve(null);
 /** Noop file reader — returns `null` (not found) for all paths. */
 const noopReadFile: (path: string) => Promise<string | null> = () => Promise.resolve(null);
 
+/**
+ * Create a test runtime adapter with injectable process state.
+ *
+ * Use this in `dreamcli/testkit` tests when you need to simulate argv,
+ * environment variables, TTY state, stdin, or config-file reads without
+ * touching the host process.
+ *
+ * @param options - Optional overrides for any adapter field.
+ * @returns A `RuntimeAdapter` suitable for test scenarios.
+ *
+ * @example
+ * ```ts
+ * const adapter = createTestAdapter({
+ *   argv: ['node', 'cli.js', 'deploy', '--force'],
+ *   env: { DEPLOY_REGION: 'us' },
+ * });
+ *
+ * const result = await cli('mycli').run({ adapter });
+ * ```
+ */
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 	const stdinData = options?.stdinData;
 	return {

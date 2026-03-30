@@ -32,7 +32,7 @@
 			"description": "Add or tighten JSDoc on every public exported function, type, interface, and class across the main, runtime, and testkit entry points. Include targeted examples where they materially help, and verify the docs surface is complete for release readiness.",
 			"priority": "polish",
 			"overseerId": "task_01KH1QBXNRAJT2D0J5XJ2KD8EK",
-			"passes": false
+			"passes": true
 		}
 	]
 }

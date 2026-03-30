@@ -1,9 +1,124 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+
+const repoRoot = fileURLToPath(new URL('../', import.meta.url));
+const publicEntryPoints = ['src/index.ts', 'src/testkit.ts', 'src/runtime.ts'];
+
+function getDocTarget(declaration: ts.Declaration): ts.Node {
+	if (
+		ts.isVariableDeclaration(declaration) &&
+		ts.isVariableDeclarationList(declaration.parent) &&
+		ts.isVariableStatement(declaration.parent.parent)
+	) {
+		return declaration.parent.parent;
+	}
+
+	return declaration;
+}
+
+function hasJsDoc(node: ts.Node): boolean {
+	return ts.getJSDocCommentsAndTags(node).length > 0;
+}
+
+function collectPublicExportsWithoutJsDoc(): readonly string[] {
+	const configPath = ts.findConfigFile(repoRoot, ts.sys.fileExists, 'tsconfig.json');
+
+	if (configPath === undefined) {
+		throw new Error('Expected tsconfig.json at repository root');
+	}
+
+	const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+
+	if (configFile.error !== undefined) {
+		throw new Error(
+			ts.formatDiagnosticsWithColorAndContext([configFile.error], {
+				getCanonicalFileName: (fileName) => fileName,
+				getCurrentDirectory: () => repoRoot,
+				getNewLine: () => '\n',
+			}),
+		);
+	}
+
+	const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, repoRoot);
+	const program = ts.createProgram({
+		rootNames: parsedConfig.fileNames,
+		options: parsedConfig.options,
+	});
+	const checker = program.getTypeChecker();
+	const missing = new Set<string>();
+	const seen = new Set<string>();
+
+	for (const entryPoint of publicEntryPoints) {
+		const sourceFile = program.getSourceFile(path.join(repoRoot, entryPoint));
+
+		if (sourceFile === undefined) {
+			throw new Error(`Expected source file for ${entryPoint}`);
+		}
+
+		const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+
+		if (moduleSymbol === undefined) {
+			throw new Error(`Expected module symbol for ${entryPoint}`);
+		}
+
+		for (const exportedSymbol of checker.getExportsOfModule(moduleSymbol)) {
+			const symbol =
+				exportedSymbol.flags & ts.SymbolFlags.Alias
+					? checker.getAliasedSymbol(exportedSymbol)
+					: exportedSymbol;
+			const key = checker.getFullyQualifiedName(symbol);
+
+			if (seen.has(key)) {
+				continue;
+			}
+
+			seen.add(key);
+
+			const declarations = (symbol.getDeclarations() ?? []).filter((declaration) => {
+				const fileName = declaration.getSourceFile().fileName;
+				return fileName.startsWith(path.join(repoRoot, 'src')) && !fileName.includes('.test.');
+			});
+
+			if (declarations.length === 0) {
+				continue;
+			}
+
+			const documented = declarations.some((declaration) => hasJsDoc(getDocTarget(declaration)));
+
+			if (documented) {
+				continue;
+			}
+
+			const firstDeclaration = declarations[0];
+
+			if (firstDeclaration === undefined) {
+				continue;
+			}
+
+			const relativePath = path.relative(repoRoot, firstDeclaration.getSourceFile().fileName);
+			const line =
+				ts.getLineAndCharacterOfPosition(
+					firstDeclaration.getSourceFile(),
+					firstDeclaration.getStart(),
+				).line + 1;
+
+			missing.add(`${symbol.getName()} - ${relativePath}:${line}`);
+		}
+	}
+
+	return [...missing].sort();
+}
 
 describe('dreamcli', () => {
 	it('module loads without error', async () => {
 		const mod = await import('./index.ts');
 		expect(mod).toBeDefined();
+	});
+
+	it('keeps public export JSDoc coverage complete', () => {
+		expect(collectPublicExportsWithoutJsDoc()).toEqual([]);
 	});
 });
 
