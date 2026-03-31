@@ -955,7 +955,23 @@ class CLIBuilder {
 				}
 
 				if (result.input === '') {
-					// Only flags, no command, no default — show root help.
+					// Only flags, no command, no default.
+					// Extract the first flag token to report it as unknown.
+					const unknownFlag = filteredArgv.find((t) => t.startsWith('-'));
+					if (unknownFlag !== undefined) {
+						const err = new ParseError(`Unknown flag ${unknownFlag}`, {
+							code: 'UNKNOWN_FLAG',
+							suggest: `Run '${this.schema.name} --help' for available commands`,
+						});
+						if (jsonMode) {
+							out.json({ error: err.toJSON() });
+						} else {
+							out.error(err.message);
+							out.error(`Suggestion: ${err.suggest}`);
+						}
+						return buildResult(2, captured, err);
+					}
+					// Truly empty (shouldn't reach here — handled above) — show help.
 					const helpText = formatRootHelp(this.schema, helpOptions);
 					out.log(helpText);
 					return buildResult(0, captured, undefined);

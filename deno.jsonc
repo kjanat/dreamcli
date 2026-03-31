@@ -25,9 +25,9 @@
 		"#internals/*": "./src/*"
 	},
 	"exports": {
+		".": "./src/index.ts",
 		"./runtime": "./src/runtime.ts",
-		"./testkit": "./src/testkit.ts",
-		".": "./src/index.ts"
+		"./testkit": "./src/testkit.ts"
 	},
 	"compilerOptions": {
 		"module": "preserve",

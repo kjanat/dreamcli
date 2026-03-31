@@ -30,6 +30,7 @@ import {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 } from './activity.ts';
+import { formatDisplayValue } from './display-value.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 
@@ -392,35 +393,6 @@ function inferColumns<T extends Record<string, unknown>>(
 	const first = rows[0];
 	if (first === undefined) return [];
 	return Object.keys(first).map((key) => ({ key: key as keyof T & string }));
-}
-
-/** Format an unknown runtime value for plain-text table output. */
-function formatDisplayValue(value: unknown): string {
-	if (value === null || value === undefined) return '';
-
-	if (
-		typeof value === 'string' ||
-		typeof value === 'number' ||
-		typeof value === 'boolean' ||
-		typeof value === 'bigint' ||
-		typeof value === 'symbol'
-	) {
-		return String(value);
-	}
-
-	if (value instanceof Date) {
-		return value.toISOString();
-	}
-
-	if (typeof value === 'function') {
-		return value.name.length > 0 ? `[Function: ${value.name}]` : '[Function]';
-	}
-
-	try {
-		return JSON.stringify(value) ?? '[unserializable]';
-	} catch {
-		return '[unserializable]';
-	}
 }
 
 /**

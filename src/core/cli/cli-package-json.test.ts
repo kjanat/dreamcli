@@ -110,13 +110,14 @@ describe('CLIBuilder.run() — package.json version', () => {
 		expect(stdout.join('')).toBe('9.9.9\n');
 	});
 
-	it('falls through to help for --version when neither explicit nor discovered', async () => {
+	it('rejects --version when neither explicit nor discovered', async () => {
 		const app = cli('myapp').packageJson().command(infoCommand());
 
-		const { stdout } = await runWithAdapter(app, ['--version']);
+		const { exitCode, stderr } = await runWithAdapter(app, ['--version']);
 
-		// No version configured → --version is not intercepted, root shows help
-		expect(stdout.join('')).toContain('Usage: myapp');
+		// No version configured → --version falls through as unknown flag
+		expect(exitCode).toBe(2);
+		expect(stderr.join('')).toContain('Unknown flag --version');
 	});
 });
 

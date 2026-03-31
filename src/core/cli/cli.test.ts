@@ -237,12 +237,13 @@ describe('root help', () => {
 		expect(output).toContain('login');
 	});
 
-	it('shows help when unknown root flag is passed', async () => {
+	it('rejects unknown root flag', async () => {
 		const app = cli('mycli').command(deployCommand());
 		const result = await app.execute(['--unknown-flag']);
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout.join('')).toContain('Commands:');
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
+		expect(result.stderr.join('')).toContain('Unknown flag --unknown-flag');
 	});
 });
 

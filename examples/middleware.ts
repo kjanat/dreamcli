@@ -44,13 +44,11 @@ const auth = middleware<{ user: User }>(async ({ next }) => {
 
 const timing = middleware<{ startTime: number }>(async ({ out, next }) => {
 	const start = performance.now();
-	const result = await next({ startTime: start });
+	await next({ startTime: start });
 
 	// Code after `next()` runs after the action completes (onion model).
 	const elapsed = (performance.now() - start).toFixed(0);
 	out.info(`Completed in ${elapsed}ms`);
-
-	return result;
 });
 
 // --- Command using both middlewares ---
