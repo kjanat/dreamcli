@@ -14,6 +14,8 @@ import {
   ParseError,
   ValidationError,
   createOutput,
+  generateSchema,
+  generateInputSchema,
   generateCompletion,
   configFormat,
   formatHelp,
@@ -109,6 +111,34 @@ Parse argv against a command schema, returning `ParseResult`.
 ### `resolve(schema, parseResult, options)`
 
 Resolve flag values through the resolution chain.
+
+## Schema Export
+
+### `generateSchema(schema, options?)`
+
+Generate a definition metadata document describing the CLI's structure.
+
+- `schema`: `CLISchema` from `cli.schema`
+- `options.includeHidden?`: include hidden commands (default: `true`)
+- `options.includePrompts?`: include prompt config on flags (default: `true`)
+
+```ts
+const definition = generateSchema(myCli.schema);
+```
+
+### `generateInputSchema(schema, options?)`
+
+Generate a JSON Schema (draft 2020-12) for validating CLI input as JSON.
+
+- `schema`: `CLISchema` or `CommandSchema`
+- `options.includeHidden?`: include hidden commands (default: `true`)
+
+Accepts a full `CLISchema` (discriminated union across commands) or a
+single `CommandSchema` (flat object schema).
+
+```ts
+const inputSchema = generateInputSchema(myCli.schema);
+```
 
 ## Completions
 
