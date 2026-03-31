@@ -16,6 +16,7 @@ import { vi } from 'vitest';
  */
 export function createMockDenoNamespace() {
 	return {
+		build: { os: 'linux' as const },
 		args: [],
 		env: { get: () => undefined, toObject: () => ({}) },
 		cwd: () => '/deno/mock',
