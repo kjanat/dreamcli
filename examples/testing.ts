@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Testing examples using dreamcli/testkit.
  *

@@ -605,6 +605,36 @@ class CommandBuilder<
 	 *
 	 * @example
 	 * ```ts
+	 * import { CLIError, command, middleware } from 'dreamcli';
+	 *
+	 * interface User {
+	 *   id: string;
+	 *   email: string;
+	 * }
+	 *
+	 * async function getCurrentUser(): Promise<User | null> {
+	 *   return { id: 'u_123', email: 'dev@example.com' };
+	 * }
+	 *
+	 * function startTrace(name: string): string {
+	 *   return `trace:${name}`;
+	 * }
+	 *
+	 * // Resolve the current user and expose it as `ctx.user` downstream.
+	 * const auth = middleware<{ user: User }>(async ({ next }) => {
+	 *   const user = await getCurrentUser();
+	 *   if (!user) {
+	 *     throw new CLIError('Not authenticated', { code: 'AUTH_REQUIRED' });
+	 *   }
+	 *   await next({ user });
+	 * });
+	 *
+	 * // Create a trace id for this command run and expose it as `ctx.traceId`.
+	 * const telemetry = middleware<{ traceId: string }>(async ({ meta, next }) => {
+	 *   const traceId = startTrace(`${meta.name}.${meta.command}`);
+	 *   await next({ traceId });
+	 * });
+	 *
 	 * command('deploy')
 	 *   .middleware(auth)      // C becomes { user: User }
 	 *   .middleware(telemetry) // C becomes { user: User } & { traceId: string }

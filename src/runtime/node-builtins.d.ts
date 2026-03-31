@@ -8,11 +8,6 @@
  * @internal
  */
 
-/** @internal */
-interface ImportMeta {
-	readonly url: string;
-}
-
 declare module 'node:readline' {
 	interface ReadlineInterface {
 		once(event: 'line', listener: (line: string) => void): void;

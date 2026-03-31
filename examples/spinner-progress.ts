@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Spinner and progress bar usage.
  *

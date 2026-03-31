@@ -12,6 +12,8 @@ Dual ESM/CJS via tsdown.
 
 Our goals are described in @GOALS.md
 
+Agent memory for non-obvious repo gotchas lives in @DISCOVERIES.md
+
 ## STRUCTURE
 
 ```tree
@@ -138,7 +140,7 @@ bun run format       # dprint fmt
 bun run format:check # dprint check
 bun run test         # vitest run
 bun run test:watch   # vitest (watch mode)
-bun run build        # tsdown (bundle + dts + publint + attw)
+bun run bd           # tsdown (bundle + dts + publint + attw)
 bun run ci           # check → lint → test → build (sequential)
 ```
 

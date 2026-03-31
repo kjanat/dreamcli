@@ -23,6 +23,7 @@
 		"noFallthroughCasesInSwitch": true,
 		"forceConsistentCasingInFileNames": true,
 
+		"rootDir": ".",
 		"paths": {
 			"dreamcli": ["./src/index.ts"],
 			"dreamcli/runtime": ["./src/runtime.ts"],

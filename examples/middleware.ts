@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Middleware patterns: auth guard, request timing, error handling.
  *

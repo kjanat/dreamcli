@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Multi-command CLI with nested command groups (git-like).
  *

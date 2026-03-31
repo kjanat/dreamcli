@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Interactive prompts with config file fallback.
  *

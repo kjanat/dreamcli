@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * JSON mode and structured output.
  *
@@ -40,7 +41,7 @@ const list = command('list')
 	)
 	.action(({ flags, out }) => {
 		// out.json() emits structured data to stdout.
-		// In --json mode, ONLY out.json() goes to stdout; log/info go to stderr.
+		// In --json mode, ONLY stderr side-channel output should accompany it.
 		out.json(services);
 
 		// out.table() renders a formatted table in TTY, or falls back to plain.
@@ -52,7 +53,7 @@ const list = command('list')
 			]);
 		} else {
 			for (const s of services) {
-				out.log(`${s.name}: ${s.status} (${s.uptime}%)`);
+				out.error(`${s.name}: ${s.status} (${s.uptime}%)`);
 			}
 		}
 	});
@@ -74,7 +75,7 @@ const show = command('show')
 		}
 
 		out.json(service);
-		out.log(`${service.name}: ${service.status} (uptime ${service.uptime}%)`);
+		out.error(`${service.name}: ${service.status} (uptime ${service.uptime}%)`);
 	});
 
 // --- CLI with --json support ---

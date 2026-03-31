@@ -35,6 +35,16 @@ function ttyBranchCommand() {
 		});
 }
 
+/** Command that emits spinner activity. */
+function spinnerCommand() {
+	return command('build')
+		.description('Build with spinner')
+		.action(({ out }) => {
+			const spinner = out.spinner('Preparing build environment...');
+			spinner.succeed('Environment ready');
+		});
+}
+
 // ---------------------------------------------------------------------------
 // isTTY through CLIBuilder.execute()
 // ---------------------------------------------------------------------------
@@ -154,5 +164,26 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		expect(stdoutLines.length).toBe(1);
 		const parsed = JSON.parse(stdoutLines[0] ?? '');
 		expect(parsed.isTTY).toBe(false);
+	});
+
+	it('renders spinner activity to adapter stderr in TTY mode', async () => {
+		const stderrLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'build'],
+			isTTY: true,
+			stderr: (s) => stderrLines.push(s),
+		});
+
+		const app = cli('test').command(spinnerCommand());
+
+		try {
+			await app.run({ adapter });
+		} catch (e) {
+			if (!(e instanceof ExitError)) throw e;
+		}
+
+		const rendered = stderrLines.join('');
+		expect(rendered).toContain('Preparing build environment...');
+		expect(rendered).toContain('Environment ready');
 	});
 });

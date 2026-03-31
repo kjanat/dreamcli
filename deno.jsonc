@@ -21,7 +21,11 @@
 	"imports": {
 		"dreamcli": "./src/index.ts",
 		"dreamcli/runtime": "./src/runtime.ts",
-		"dreamcli/testkit": "./src/testkit.ts"
+		"dreamcli/testkit": "./src/testkit.ts",
+		"#dreamcli": "./src/index.ts",
+		"#dreamcli/runtime": "./src/runtime.ts",
+		"#dreamcli/testkit": "./src/testkit.ts",
+		"#internals/*": "./src/*"
 	},
 	"exports": {
 		"./runtime": "./src/runtime.ts",

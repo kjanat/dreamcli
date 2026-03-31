@@ -149,6 +149,22 @@ interface RunOptions {
 	readonly isTTY?: boolean;
 
 	/**
+	 * Output channel override used by live CLI execution.
+	 *
+	 * @internal — `run()` passes a real output channel so activity renders to
+	 * the terminal instead of being captured.
+	 */
+	readonly out?: Out;
+
+	/**
+	 * Capture buffers override paired with `out`.
+	 *
+	 * @internal — when omitted, `runCommand()` creates empty buffers for the
+	 * returned `RunResult` while writing directly to the provided `out`.
+	 */
+	readonly captured?: CapturedOutput;
+
+	/**
 	 * Help formatting options (width, binName).
 	 * Used when `--help` is detected.
 	 */
@@ -220,14 +236,21 @@ async function runCommand<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
 >(cmd: CommandBuilder<F, A, C>, argv: readonly string[], options?: RunOptions): Promise<RunResult> {
-	const captureOptions = {
-		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
-		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
-		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
-	};
-	const [out, captured] = createCaptureOutput(
-		Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
-	);
+	let out: Out;
+	let captured: CapturedOutput;
+	if (options?.out !== undefined) {
+		out = options.out;
+		captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
+	} else {
+		const captureOptions = {
+			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+			...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
+			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+		};
+		[out, captured] = createCaptureOutput(
+			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
+		);
+	}
 
 	// Use merged schema (with propagated flags) when provided by dispatch layer,
 	// otherwise fall back to the command's own schema.

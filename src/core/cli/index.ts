@@ -20,7 +20,7 @@ import { CLIError, ParseError } from '../errors/index.ts';
 import type { HelpOptions } from '../help/index.ts';
 import { formatHelp } from '../help/index.ts';
 import type { CapturedOutput, Verbosity } from '../output/index.ts';
-import { createCaptureOutput } from '../output/index.ts';
+import { createCaptureOutput, createOutput } from '../output/index.ts';
 import { parse } from '../parse/index.ts';
 import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
 import { createTerminalPrompter } from '../prompt/index.ts';
@@ -31,6 +31,7 @@ import type {
 	CommandMeta,
 	CommandSchema,
 	ErasedCommand,
+	Out,
 } from '../schema/command.ts';
 import { command } from '../schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
@@ -271,6 +272,21 @@ interface CLIRunOptions {
 	readonly isTTY?: boolean;
 
 	/**
+	 * Output channel override used by `run()` for live terminal rendering.
+	 *
+	 * @internal — `execute()` remains capture-first by default.
+	 */
+	readonly out?: Out;
+
+	/**
+	 * Capture buffers paired with `out`.
+	 *
+	 * @internal — `run()` omits this and accepts empty buffers in the returned
+	 * `RunResult` because output is already written to the real adapter streams.
+	 */
+	readonly captured?: CapturedOutput;
+
+	/**
 	 * Help formatting options (width, binName).
 	 * `binName` defaults to the CLI program name.
 	 */
@@ -368,6 +384,8 @@ function buildCommandRunOptions(
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+		...(options?.out !== undefined ? { out: options.out } : {}),
+		...(options?.captured !== undefined ? { captured: options.captured } : {}),
 	};
 }
 
@@ -817,9 +835,16 @@ class CLIBuilder {
 			...(jsonMode ? { jsonMode } : {}),
 			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 		};
-		const [out, captured] = createCaptureOutput(
-			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
-		);
+		let out: Out;
+		let captured: CapturedOutput;
+		if (options?.out !== undefined) {
+			out = options.out;
+			captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
+		} else {
+			[out, captured] = createCaptureOutput(
+				Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
+			);
+		}
 
 		// Resolve help options — default binName to CLI program name
 		const helpOptions: HelpOptions = {
@@ -1110,6 +1135,13 @@ class CLIBuilder {
 			...(adapterStdinData !== undefined ? { stdinData: adapterStdinData } : {}),
 			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
 			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
+			out: createOutput({
+				stdout: adapter.stdout,
+				stderr: adapter.stderr,
+				jsonMode: hasJsonFlag,
+				isTTY: options?.isTTY ?? adapter.isTTY,
+				...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+			}),
 		};
 		const result = await effectiveBuilder.execute(filteredArgv, executeOptions);
 

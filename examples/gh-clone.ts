@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Walkthrough example: a miniature `gh` (GitHub CLI) clone.
  *

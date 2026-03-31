@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Basic single-command CLI.
  *

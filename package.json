@@ -20,6 +20,12 @@
 	"license": "MIT",
 	"author": "Kaj Kowalski <info@kajkowalski.nl> (https://github.com/kjanat)",
 	"type": "module",
+	"imports": {
+		"#dreamcli": "./src/index.ts",
+		"#dreamcli/runtime": "./src/runtime.ts",
+		"#dreamcli/testkit": "./src/testkit.ts",
+		"#internals/*": "./src/*"
+	},
 	"exports": {
 		".": {
 			"import": "./dist/index.mjs",
@@ -49,8 +55,8 @@
 		"!src/**/*.test.ts"
 	],
 	"scripts": {
-		"bd": "bun --bun run build",
-		"build": "tsdown",
+		"bd": "bun run build",
+		"build": "bunx --bun tsdown",
 		"ci": "bun typecheck && bun lint && bun run test && bun bd",
 		"docs:build": "vitepress build docs",
 		"docs:dev": "vitepress dev docs",
