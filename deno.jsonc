@@ -28,6 +28,13 @@
 		"./testkit": "./src/testkit.ts",
 		".": "./src/index.ts"
 	},
+	"compilerOptions": {
+		"paths": {
+			"dreamcli": ["./src/index.ts"],
+			"dreamcli/runtime": ["./src/runtime.ts"],
+			"dreamcli/testkit": ["./src/testkit.ts"]
+		}
+	},
 	"publish": {
 		"include": ["src", "LICENSE"],
 		"exclude": ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/**/AGENTS.md"]
