@@ -16,7 +16,7 @@ export default defineConfig({
 	dts: { enabled: true, tsgo: true },
 	clean: true,
 	platform: 'node',
-	exports: true,
+	exports: false,
 	define: {
 		__DREAMCLI_VERSION__: JSON.stringify(version),
 		__DREAMCLI_REVISION__: JSON.stringify(revision),

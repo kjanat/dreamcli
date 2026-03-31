@@ -569,7 +569,8 @@ function argKindToType(schema: ArgSchema): Record<string, unknown> {
  * Used to guard default-value inclusion in serialized output.
  */
 function isJsonSerializable(value: unknown): boolean {
-	if (value === null || value === undefined) return true;
+	if (value === undefined) return false;
+	if (value === null) return true;
 	const t = typeof value;
 	if (t === 'string' || t === 'number' || t === 'boolean') return true;
 	if (t === 'function' || t === 'symbol' || t === 'bigint') return false;

@@ -23,7 +23,7 @@
 	"yaml": { "printWidth": 160 },
 	"exec": {
 		"cwd": "${configDir}",
-		"commands": [{ "command": "npx -y sort-package-json --stdin", "fileNames": ["package.json"] }]
+		"commands": [{ "command": "bunx sort-package-json --stdin", "fileNames": ["package.json"] }]
 	},
 	"excludes": ["**/node_modules", "**/*-lock.json", "**/*-lock.*", "**/bun.lock*", "**/snapshots"],
 	"plugins": [
