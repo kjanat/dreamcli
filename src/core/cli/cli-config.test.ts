@@ -32,6 +32,10 @@ async function runWithAdapter(
 	app: ReturnType<typeof cli>,
 	argv: readonly string[],
 	files?: Readonly<Record<string, string>>,
+	adapterOptions?: {
+		readonly cwd?: string;
+		readonly configDir?: string;
+	},
 ): Promise<{ stdout: string[]; stderr: string[]; exitCode: number }> {
 	const stdoutLines: string[] = [];
 	const stderrLines: string[] = [];
@@ -39,6 +43,8 @@ async function runWithAdapter(
 
 	const adapter = createTestAdapter({
 		argv: ['node', 'test', ...argv],
+		...(adapterOptions?.cwd !== undefined ? { cwd: adapterOptions.cwd } : {}),
+		...(adapterOptions?.configDir !== undefined ? { configDir: adapterOptions.configDir } : {}),
 		stdout: (s) => stdoutLines.push(s),
 		stderr: (s) => stderrLines.push(s),
 		readFile: async (path: string) => files?.[path] ?? null,
@@ -123,6 +129,25 @@ describe('CLIBuilder.run() — config auto-discovery', () => {
 
 		expect(stdout.length).toBe(1);
 		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'af' });
+	});
+
+	it('loads config from AppData on Windows', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout } = await runWithAdapter(
+			app,
+			['deploy'],
+			{
+				'C:\\Users\\alice\\AppData\\Roaming\\myapp\\config.json': '{"deploy":{"region":"sa"}}',
+			},
+			{
+				cwd: 'C:\\Users\\alice\\project',
+				configDir: 'C:\\Users\\alice\\AppData\\Roaming',
+			},
+		);
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'sa' });
 	});
 
 	it('uses default when no config found', async () => {

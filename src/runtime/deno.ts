@@ -22,6 +22,7 @@
 import type { WriteFn } from '../core/output/index.ts';
 import type { ReadFn } from '../core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
+import { isWindowsEnv, resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 import { assertRuntimeVersionSupported } from './support.ts';
 
 // ---------------------------------------------------------------------------
@@ -326,18 +327,15 @@ async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
  * @internal
  */
 function resolveDenoHomedir(env: Readonly<Record<string, string | undefined>>): string {
-	// Deno runs on all platforms — check Windows-style vars first
-	if (env.USERPROFILE) return env.USERPROFILE;
-	if (env.HOMEDRIVE && env.HOMEPATH) return env.HOMEDRIVE + env.HOMEPATH;
-	return env.HOME || '/';
+	return resolveHomeDirectory(env, isWindowsEnv(env));
 }
 
 /**
  * Resolve the platform-specific user configuration directory.
  *
  * Without `--allow-sys` we can't call `Deno.build.os` reliably in all
- * permission modes. Instead we use the same env-based heuristic as the
- * Node adapter: presence of `APPDATA` implies Windows.
+ * permission modes. Instead we use env heuristics to detect Windows-ish
+ * environments and then apply the same fallback chain as the Node adapter.
  *
  * @internal
  */
@@ -345,11 +343,7 @@ function resolveDenoConfigDir(
 	env: Readonly<Record<string, string | undefined>>,
 	homedir: string,
 ): string {
-	// APPDATA present and non-empty → Windows
-	if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
-	// XDG_CONFIG_HOME → Unix override
-	if (env.XDG_CONFIG_HOME) return env.XDG_CONFIG_HOME;
-	return `${homedir}/.config`;
+	return resolveConfigDirectory(env, isWindowsEnv(env), homedir);
 }
 
 // ---------------------------------------------------------------------------

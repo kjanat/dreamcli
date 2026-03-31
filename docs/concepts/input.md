@@ -58,7 +58,8 @@ Same result, different input source. The flag wins if both are present.
 
 For settings you use every time, typing flags gets old fast. Config files solve this:
 
-For example, in `~/.config/mycli/config.json`:
+For example, in `~/.config/mycli/config.json` on Unix
+or `%APPDATA%\\mycli\\config.json` on Windows:
 
 ```json
 {
@@ -71,12 +72,14 @@ Now `mycli upload photo.jpg` reads `region` from the config file automatically. 
 
 Common config file locations:
 
-- **Project-local**: `./mycli.json`, `./.myclirc`
-- **User-level**: `~/.config/mycli/config.json` (Linux/Mac)
+- **Project-local**: `./.mycli.json`, `./mycli.config.json`
+- **User-level**: `~/.config/mycli/config.json` (Linux/Mac) or
+  `%APPDATA%\\mycli\\config.json` (Windows)
 - **System-level**: `/etc/mycli/config.json`
 
-The convention on Linux and Mac follows **XDG** — a standard for where config files should live. You
-don't need to memorize it; good CLIs handle the search automatically.
+On Linux and Mac, the convention follows **XDG**.
+On Windows, the equivalent user config location is usually `%APPDATA%`.
+You don't need to memorize it; good CLIs handle the search automatically.
 
 ## stdin — Standard Input
 

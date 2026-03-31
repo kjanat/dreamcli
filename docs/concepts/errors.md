@@ -27,6 +27,7 @@ Error: Config file not found: ./config.json
   Looked in:
     ./config.json
     ~/.config/mycli/config.json
+    %APPDATA%\\mycli\\config.json
 
   Try: mycli init --config to create one
 ```

@@ -21,16 +21,18 @@ cli('mycli')
   .run();
 ```
 
-This searches standard locations for config files named `mycli.json`, `.myclirc`, etc.
+This searches standard locations for config files named `.mycli.json`, `mycli.config.json`, etc.
 
 ### Search Paths
 
-Config discovery follows XDG conventions:
+Config discovery is platform-aware:
 
 1. `--config <path>` (explicit override)
-2. `./.myclirc`, `./mycli.json` (project-local)
-3. `$XDG_CONFIG_HOME/mycli/config.json`
-4. `~/.config/mycli/config.json`
+2. `./.mycli.json`, `./mycli.config.json` (project-local)
+3. Unix: `$XDG_CONFIG_HOME/mycli/config.json`
+4. Unix fallback: `~/.config/mycli/config.json`
+5. Windows: `%APPDATA%\\mycli\\config.json`
+6. Windows fallback: `%USERPROFILE%\\AppData\\Roaming\\mycli\\config.json`
 
 ## Custom Formats
 

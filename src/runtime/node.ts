@@ -15,6 +15,7 @@
 import type { WriteFn } from '../core/output/index.ts';
 import type { ReadFn } from '../core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
+import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 import { assertRuntimeVersionSupported } from './support.ts';
 
 // ---------------------------------------------------------------------------
@@ -122,14 +123,7 @@ function resolveHomedir(
 	env: Readonly<Record<string, string | undefined>>,
 	platform: string,
 ): string {
-	if (platform === 'win32') {
-		if (env.USERPROFILE) return env.USERPROFILE;
-		if (env.HOMEDRIVE && env.HOMEPATH) {
-			return env.HOMEDRIVE + env.HOMEPATH;
-		}
-		return env.HOME || 'C:\\';
-	}
-	return env.HOME || '/';
+	return resolveHomeDirectory(env, platform === 'win32');
 }
 
 /**
@@ -145,14 +139,7 @@ function resolveConfigDir(
 	platform: string,
 	homedir: string,
 ): string {
-	if (platform === 'win32') {
-		if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
-		// Strip trailing separator(s) to avoid doubled backslash when
-		// homedir is a drive root like 'C:\'.
-		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
-		return `${normalizedHome}\\AppData\\Roaming`;
-	}
-	return env.XDG_CONFIG_HOME || `${homedir}/.config`;
+	return resolveConfigDirectory(env, platform === 'win32', homedir);
 }
 
 function assertProcessRuntimeSupported(proc: NodeProcess): void {

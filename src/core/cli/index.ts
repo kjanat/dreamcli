@@ -139,7 +139,9 @@ interface ConfigSettings {
 	 * Application name used to build config search paths.
 	 *
 	 * Search paths: `.{appName}.json` (cwd), `{appName}.config.json` (cwd),
-	 * `$CONFIG_DIR/{appName}/config.json` (XDG / AppData).
+	 * and `{configDir}/{appName}/config.json` where `configDir` is
+	 * `$XDG_CONFIG_HOME` / `~/.config` on Unix or `%APPDATA%` /
+	 * `%USERPROFILE%\\AppData\\Roaming` on Windows.
 	 */
 	readonly appName: string;
 
@@ -519,6 +521,8 @@ class CLIBuilder {
 	 * 1. `$CWD/.{appName}.json`
 	 * 2. `$CWD/{appName}.config.json`
 	 * 3. `$CONFIG_DIR/{appName}/config.json`
+	 *    (`$XDG_CONFIG_HOME` / `~/.config` on Unix,
+	 *    `%APPDATA%` / `%USERPROFILE%\\AppData\\Roaming` on Windows)
 	 *
 	 * The user can override the path via `--config <path>`.
 	 *

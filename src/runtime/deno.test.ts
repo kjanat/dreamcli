@@ -481,8 +481,10 @@ describe('createDenoAdapter — configDir', () => {
 		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
 	});
 
-	it('treats empty APPDATA as unset', () => {
-		const env: Record<string, string> = { HOME: '/home/alice', APPDATA: '' };
+	it('defaults to AppData\\Roaming on Windows', () => {
+		const env: Record<string, string> = {
+			USERPROFILE: 'C:\\Users\\alice',
+		};
 		const ns = mockDeno({
 			env: {
 				get: (k: string) => env[k],
@@ -490,7 +492,61 @@ describe('createDenoAdapter — configDir', () => {
 			},
 		});
 		const adapter = createDenoAdapter(ns);
-		expect(adapter.configDir).toBe('/home/alice/.config');
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('uses HOMEDRIVE and HOMEPATH fallback on Windows', () => {
+		const env: Record<string, string> = {
+			HOMEDRIVE: 'C:',
+			HOMEPATH: '\\Users\\alice',
+		};
+		const ns = mockDeno({
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('treats empty APPDATA as unset', () => {
+		const env: Record<string, string> = {
+			USERPROFILE: 'C:\\Users\\alice',
+			APPDATA: '',
+		};
+		const ns = mockDeno({
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('normalizes trailing separator in Windows homedir', () => {
+		const env: Record<string, string> = { USERPROFILE: 'C:\\' };
+		const ns = mockDeno({
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\AppData\\Roaming');
+	});
+
+	it('normalizes trailing slash in Windows homedir', () => {
+		const env: Record<string, string> = { USERPROFILE: 'C:\\Users\\alice\\' };
+		const ns = mockDeno({
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
 	});
 });
 

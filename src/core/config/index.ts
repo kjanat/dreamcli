@@ -148,6 +148,8 @@ function getExtension(path: string): string {
  * 1. `$CWD/.{appName}.json` — dotfile in project root
  * 2. `$CWD/{appName}.config.json` — explicit config in project root
  * 3. `$CONFIG_DIR/{appName}/config.json` — XDG / AppData standard
+ *    (`$XDG_CONFIG_HOME` / `~/.config` on Unix,
+ *    `%APPDATA%` / `%USERPROFILE%\\AppData\\Roaming` on Windows)
  *
  * When custom {@link ConfigDiscoveryOptions.loaders | loaders} are registered,
  * each path pattern is repeated per supported extension (JSON always first).
