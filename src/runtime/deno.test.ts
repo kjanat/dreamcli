@@ -44,6 +44,7 @@ function mockReadableStream(chunks: string[]): ReadableStream<Uint8Array> {
 /** Create a minimal mock DenoNamespace with optional overrides. */
 function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 	return {
+		build: overrides?.build ?? { os: 'linux' },
 		version: overrides?.version ?? { deno: '2.6.0' },
 		args: overrides?.args ?? [],
 		env: overrides?.env ?? {
@@ -409,6 +410,7 @@ describe('createDenoAdapter — homedir', () => {
 
 	it('uses USERPROFILE on Windows', () => {
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => ({ USERPROFILE: 'C:\\Users\\alice' })[k],
 				toObject: () => ({ USERPROFILE: 'C:\\Users\\alice' }),
@@ -421,6 +423,7 @@ describe('createDenoAdapter — homedir', () => {
 	it('uses HOMEDRIVE+HOMEPATH when USERPROFILE unset', () => {
 		const env: Record<string, string> = { HOMEDRIVE: 'D:', HOMEPATH: '\\Users\\bob' };
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -472,6 +475,7 @@ describe('createDenoAdapter — configDir', () => {
 			APPDATA: 'C:\\Users\\alice\\AppData\\Roaming',
 		};
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -486,6 +490,7 @@ describe('createDenoAdapter — configDir', () => {
 			USERPROFILE: 'C:\\Users\\alice',
 		};
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -501,6 +506,7 @@ describe('createDenoAdapter — configDir', () => {
 			HOMEPATH: '\\Users\\alice',
 		};
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -516,6 +522,7 @@ describe('createDenoAdapter — configDir', () => {
 			APPDATA: '',
 		};
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -528,6 +535,7 @@ describe('createDenoAdapter — configDir', () => {
 	it('normalizes trailing separator in Windows homedir', () => {
 		const env: Record<string, string> = { USERPROFILE: 'C:\\' };
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -540,6 +548,7 @@ describe('createDenoAdapter — configDir', () => {
 	it('normalizes trailing slash in Windows homedir', () => {
 		const env: Record<string, string> = { USERPROFILE: 'C:\\Users\\alice\\' };
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,

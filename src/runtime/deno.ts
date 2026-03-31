@@ -22,7 +22,7 @@
 import type { WriteFn } from '../core/output/index.ts';
 import type { ReadFn } from '../core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
-import { isWindowsEnv, resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
+import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 import { assertRuntimeVersionSupported } from './support.ts';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +40,18 @@ import { assertRuntimeVersionSupported } from './support.ts';
  * an empty env object.
  */
 interface DenoNamespace {
+	readonly build: {
+		readonly os:
+			| 'darwin'
+			| 'linux'
+			| 'android'
+			| 'windows'
+			| 'freebsd'
+			| 'netbsd'
+			| 'aix'
+			| 'solaris'
+			| 'illumos';
+	};
 	readonly version?: {
 		readonly deno?: string;
 	};
@@ -196,10 +208,10 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	};
 
 	// --- Home directory ---
-	const homedir = resolveDenoHomedir(env);
+	const homedir = resolveDenoHomedir(env, d.build.os === 'windows');
 
 	// --- Config directory ---
-	const configDir = resolveDenoConfigDir(env, homedir);
+	const configDir = resolveDenoConfigDir(env, homedir, d.build.os === 'windows');
 
 	const stdinIsTTY = d.stdin.isTerminal();
 
@@ -326,24 +338,27 @@ async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
  *
  * @internal
  */
-function resolveDenoHomedir(env: Readonly<Record<string, string | undefined>>): string {
-	return resolveHomeDirectory(env, isWindowsEnv(env));
+function resolveDenoHomedir(
+	env: Readonly<Record<string, string | undefined>>,
+	isWindows: boolean,
+): string {
+	return resolveHomeDirectory(env, isWindows);
 }
 
 /**
  * Resolve the platform-specific user configuration directory.
  *
- * Without `--allow-sys` we can't call `Deno.build.os` reliably in all
- * permission modes. Instead we use env heuristics to detect Windows-ish
- * environments and then apply the same fallback chain as the Node adapter.
+ * Uses `Deno.build.os` for platform detection, then applies the same fallback
+ * chain as the Node adapter.
  *
  * @internal
  */
 function resolveDenoConfigDir(
 	env: Readonly<Record<string, string | undefined>>,
 	homedir: string,
+	isWindows: boolean,
 ): string {
-	return resolveConfigDirectory(env, isWindowsEnv(env), homedir);
+	return resolveConfigDirectory(env, isWindows, homedir);
 }
 
 // ---------------------------------------------------------------------------
