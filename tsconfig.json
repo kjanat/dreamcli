@@ -8,13 +8,12 @@
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"resolveJsonModule": true,
-		"types": ["node"],
+		"types": ["node", "bun", "deno", "vitest"],
 
 		// Strictness
 		"strict": true,
 		"noUnusedLocals": true,
-		"declaration": true,
-		"emitDeclarationOnly": true,
+		"noEmit": true,
 		"esModuleInterop": true,
 		"isolatedModules": true,
 		"verbatimModuleSyntax": true,
@@ -30,5 +29,13 @@
 			"dreamcli/testkit": ["./src/testkit.ts"]
 		}
 	},
-	"exclude": ["dist", "node_modules"]
+	"include": [
+		"./src/**/*.ts",
+		"./examples/**/*.ts",
+		"./package.json",
+		"./scripts/**/*.ts",
+		"./docs/**/*.ts",
+		"./*.config.ts"
+	],
+	"exclude": ["**/dist", "**/node_modules", "**/.cache"]
 }

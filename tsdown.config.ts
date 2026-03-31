@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { defineConfig } from 'tsdown';
-import pkg from './package.json' with { type: 'json' };
+import { version } from './package.json' with { type: 'json' };
 
 const revision = (() => {
 	try {
@@ -18,7 +18,7 @@ export default defineConfig({
 	platform: 'node',
 	exports: true,
 	define: {
-		__DREAMCLI_VERSION__: JSON.stringify(pkg.version),
+		__DREAMCLI_VERSION__: JSON.stringify(version),
 		__DREAMCLI_REVISION__: JSON.stringify(revision),
 	},
 	minify: true,

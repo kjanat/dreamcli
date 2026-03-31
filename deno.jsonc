@@ -29,6 +29,7 @@
 		".": "./src/index.ts"
 	},
 	"compilerOptions": {
+		"module": "preserve",
 		"paths": {
 			"dreamcli": ["./src/index.ts"],
 			"dreamcli/runtime": ["./src/runtime.ts"],
