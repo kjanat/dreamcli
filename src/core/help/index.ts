@@ -217,11 +217,13 @@ function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly
 /** Format a positional arg for the usage line. */
 function formatArgUsage(entry: CommandArgEntry): string {
 	const { name, schema } = entry;
+	const label =
+		schema.kind === 'enum' && schema.enumValues !== undefined ? schema.enumValues.join('|') : name;
 	const variadicSuffix = schema.variadic ? '...' : '';
 	if (schema.presence === 'required') {
-		return `<${name}${variadicSuffix}>`;
+		return `<${label}${variadicSuffix}>`;
 	}
-	return `[${name}${variadicSuffix}]`;
+	return `[${label}${variadicSuffix}]`;
 }
 
 /** Format arg description with annotations. */

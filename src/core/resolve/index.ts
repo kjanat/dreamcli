@@ -1006,9 +1006,9 @@ function buildArgCoercionSuggest(
 /**
  * Coerce a raw stdin/env string to the arg's declared kind.
  *
- * Arg kinds are a strict subset of flag kinds (`string | number | custom`),
- * so coercion is simpler: strings pass through, numbers parse via `Number()`,
- * and custom args invoke their parse function.
+ * Arg kinds are a strict subset of flag kinds (`string | number | enum | custom`),
+ * so coercion is simpler: strings and enums validate, numbers parse via
+ * `Number()`, and custom args invoke their parse function.
  */
 function coerceArgStringValue(
 	argName: string,
@@ -1041,6 +1041,33 @@ function coerceArgStringValue(
 				};
 			}
 			return { ok: true, value: n };
+		}
+
+		case 'enum': {
+			const allowed = schema.enumValues ?? [];
+			if (allowed.includes(raw)) {
+				return { ok: true, value: raw };
+			}
+			const allowedList = allowed.join(', ');
+			return {
+				ok: false,
+				error: new ValidationError(
+					`Invalid value '${raw}' ${argSourceLabel(source)} for argument <${argName}>. Allowed: ${allowedList}`,
+					{
+						code: 'INVALID_ENUM',
+						details: {
+							arg: argName,
+							...argSourceDetails(source),
+							value: raw,
+							allowed,
+						},
+						suggest:
+							source.kind === 'env'
+								? `Set ${source.envVar} to one of: ${allowedList}`
+								: `Provide one of: ${allowedList}`,
+					},
+				),
+			};
 		}
 
 		case 'custom': {

@@ -224,6 +224,73 @@ describe('resolve — arg env number', () => {
 });
 
 // ========================================================================
+// Arg env resolution — enum args
+// ========================================================================
+
+describe('resolve — arg env enum', () => {
+	it('accepts valid enum value from env', async () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'region',
+					schema: createArgSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu', 'ap'] }),
+				},
+			],
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { env: { REGION: 'eu' } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.args).toEqual({ region: 'eu' });
+	});
+
+	it('errors on invalid enum value from env', async () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'region',
+					schema: createArgSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu'] }),
+				},
+			],
+		});
+		const parsed = makeParsed();
+		const options: ResolveOptions = { env: { REGION: 'ap' } };
+
+		try {
+			await resolve(schema, parsed, options);
+			expect.unreachable('should have thrown');
+		} catch (e) {
+			expect(isValidationError(e)).toBe(true);
+			const err = e as ValidationError;
+			expect(err.code).toBe('INVALID_ENUM');
+			expect(err.details).toEqual({
+				arg: 'region',
+				envVar: 'REGION',
+				value: 'ap',
+				allowed: ['us', 'eu'],
+			});
+			expect(err.suggest).toBe('Set REGION to one of: us, eu');
+		}
+	});
+
+	it('CLI value wins over env for enum arg', async () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'region',
+					schema: createArgSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu'] }),
+				},
+			],
+		});
+		const parsed = makeParsed({ args: { region: 'us' } });
+		const options: ResolveOptions = { env: { REGION: 'eu' } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.args).toEqual({ region: 'us' });
+	});
+});
+
+// ========================================================================
 // Arg env resolution — custom args
 // ========================================================================
 

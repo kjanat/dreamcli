@@ -236,6 +236,20 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 			return n;
 		}
 
+		case 'enum': {
+			const allowed = schema.enumValues ?? [];
+			if (!allowed.includes(raw)) {
+				throw new ParseError(
+					`Invalid value '${raw}' for argument <${argName}>. Allowed: ${allowed.join(', ')}`,
+					{
+						code: 'INVALID_VALUE',
+						details: { arg: argName, value: raw, allowed },
+					},
+				);
+			}
+			return raw;
+		}
+
 		case 'custom': {
 			if (!schema.parseFn) {
 				return raw;

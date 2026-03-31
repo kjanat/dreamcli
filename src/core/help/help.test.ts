@@ -99,6 +99,18 @@ describe('formatHelp', () => {
 			expect(help).toContain('[target]');
 		});
 
+		it('shows enum arg values in angle brackets', () => {
+			const cmd = command('deploy').arg('region', arg.enum(['us', 'eu', 'ap']));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('<us|eu|ap>');
+		});
+
+		it('shows optional enum arg values in square brackets', () => {
+			const cmd = command('deploy').arg('region', arg.enum(['us', 'eu']).optional());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[us|eu]');
+		});
+
 		it('shows variadic arg with ellipsis', () => {
 			const cmd = command('cat').arg('files', arg.string().variadic());
 			const help = formatHelp(cmd.schema);

@@ -1,7 +1,7 @@
 /**
  * Positional argument schema builder with full type inference.
  *
- * Each factory (`arg.string()`, `arg.number()`, `arg.custom()`) returns an
+ * Each factory (`arg.string()`, `arg.number()`, `arg.enum()`, `arg.custom()`) returns an
  * immutable `ArgBuilder` whose generic parameter tracks the value type,
  * presence state, and variadic flag through the fluent chain.
  *
@@ -88,7 +88,7 @@ type InferArgs<T extends Record<string, ArgBuilder<ArgConfig>>> = {
 // ---------------------------------------------------------------------------
 
 /** Discriminator for the kind of value an arg accepts. */
-type ArgKind = 'string' | 'number' | 'custom';
+type ArgKind = 'string' | 'number' | 'enum' | 'custom';
 
 /** Custom parse function for `arg.custom()`. */
 type ArgParseFn<T> = (raw: string) => T;
@@ -120,6 +120,8 @@ interface ArgSchema {
 	 * @see {@link ArgBuilder.env} for the builder method.
 	 */
 	readonly envVar: string | undefined;
+	/** Allowed literal values when `kind === 'enum'`. */
+	readonly enumValues: readonly string[] | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: ArgParseFn<unknown> | undefined;
 	/**
@@ -164,6 +166,7 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
 		defaultValue: undefined,
 		description: undefined,
 		envVar: undefined,
+		enumValues: undefined,
 		parseFn: undefined,
 		deprecated: undefined,
 		...overrides,
@@ -536,6 +539,36 @@ interface ArgFactory {
 	}>;
 
 	/**
+	 * Enum-valued positional argument. Required by default.
+	 *
+	 * Accepts only the listed string literals. The inferred type is the
+	 * union of those literals (e.g. `'us' | 'eu' | 'ap'`), not `string`.
+	 * Invalid values produce a `ParseError` listing allowed options.
+	 *
+	 * @param values - Non-empty tuple of allowed string values.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.enum(['us', 'eu', 'ap'])              // required, 'us' | 'eu' | 'ap'
+	 * arg.enum(['dev', 'prod']).default('dev')   // defaulted
+	 * arg.enum(['json', 'csv']).optional()       // 'json' | 'csv' | undefined
+	 *
+	 * // In a command:
+	 * command('deploy')
+	 *   .arg('region', arg.enum(['us', 'eu', 'ap']).env('REGION').describe('Target region'))
+	 * // $ mycli deploy us       → 'us'
+	 * // $ mycli deploy invalid  → ParseError: Allowed: us, eu, ap
+	 * ```
+	 */
+	enum<const T extends readonly [string, ...string[]]>(
+		values: T,
+	): ArgBuilder<{
+		readonly valueType: T[number];
+		readonly presence: 'required';
+		readonly variadic: false;
+	}>;
+
+	/**
 	 * Custom-parsed positional argument. Required by default.
 	 *
 	 * The parse function receives the raw string and must return a value of
@@ -571,9 +604,10 @@ interface ArgFactory {
  * an `ArgBuilder`, then chain modifiers and pass the result to
  * `command().arg(name, builder)`.
  *
- * Three kinds are available:
+ * Four kinds are available:
  * - `arg.string()` — raw string (most common)
  * - `arg.number()` — parsed to number, errors on NaN
+ * - `arg.enum(values)` — constrained to listed literals
  * - `arg.custom(fn)` — arbitrary parse function, infers return type
  *
  * @example
@@ -606,6 +640,16 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 	}> {
 		return new ArgBuilder(createArgSchema('number'));
+	},
+
+	enum<const T extends readonly [string, ...string[]]>(
+		values: T,
+	): ArgBuilder<{
+		readonly valueType: T[number];
+		readonly presence: 'required';
+		readonly variadic: false;
+	}> {
+		return new ArgBuilder(createArgSchema('enum', { enumValues: values }));
 	},
 
 	custom<T>(parseFn: ArgParseFn<T>): ArgBuilder<{

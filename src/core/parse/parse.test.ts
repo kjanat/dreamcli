@@ -353,6 +353,55 @@ describe('parse — positional args', () => {
 		expect(result.args.count).toBe(42);
 	});
 
+	it('enum arg passes valid value through', () => {
+		const schema = makeSchema({
+			args: [
+				{ name: 'region', schema: createArgSchema('enum', { enumValues: ['us', 'eu', 'ap'] }) },
+			],
+		});
+		const result = parse(schema, ['eu']);
+		expect(result.args.region).toBe('eu');
+	});
+
+	it('enum arg rejects invalid value', () => {
+		const schema = makeSchema({
+			args: [{ name: 'region', schema: createArgSchema('enum', { enumValues: ['us', 'eu'] }) }],
+		});
+		expect(() => parse(schema, ['ap'])).toThrow(ParseError);
+		try {
+			parse(schema, ['ap']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.code).toBe('INVALID_VALUE');
+			expect(pe.details).toEqual({ arg: 'region', value: 'ap', allowed: ['us', 'eu'] });
+		}
+	});
+
+	it('variadic enum args are validated', () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'regions',
+					schema: createArgSchema('enum', { enumValues: ['us', 'eu'], variadic: true }),
+				},
+			],
+		});
+		const result = parse(schema, ['us', 'eu', 'us']);
+		expect(result.args.regions).toEqual(['us', 'eu', 'us']);
+	});
+
+	it('variadic enum rejects invalid value in list', () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'regions',
+					schema: createArgSchema('enum', { enumValues: ['us', 'eu'], variadic: true }),
+				},
+			],
+		});
+		expect(() => parse(schema, ['us', 'ap'])).toThrow(ParseError);
+	});
+
 	it('custom arg parse function is invoked', () => {
 		const schema = makeSchema({
 			args: [

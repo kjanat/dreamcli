@@ -34,6 +34,46 @@ describe('arg.number()', () => {
 	});
 });
 
+describe('arg.enum()', () => {
+	it('creates an enum arg with required presence', () => {
+		const a = arg.enum(['us', 'eu', 'ap']);
+		expect(a).toBeInstanceOf(ArgBuilder);
+		expect(a.schema.kind).toBe('enum');
+		expect(a.schema.presence).toBe('required');
+		expect(a.schema.variadic).toBe(false);
+		expect(a.schema.enumValues).toEqual(['us', 'eu', 'ap']);
+	});
+
+	it('enum with single value', () => {
+		const a = arg.enum(['only']);
+		expect(a.schema.enumValues).toEqual(['only']);
+	});
+
+	it('.optional() on enum', () => {
+		const a = arg.enum(['a', 'b']).optional();
+		expect(a.schema.presence).toBe('optional');
+		expect(a.schema.enumValues).toEqual(['a', 'b']);
+	});
+
+	it('.default() on enum', () => {
+		const a = arg.enum(['dev', 'prod']).default('dev');
+		expect(a.schema.presence).toBe('defaulted');
+		expect(a.schema.defaultValue).toBe('dev');
+	});
+
+	it('.variadic() on enum', () => {
+		const a = arg.enum(['x', 'y']).variadic();
+		expect(a.schema.variadic).toBe(true);
+		expect(a.schema.enumValues).toEqual(['x', 'y']);
+	});
+
+	it('.env() on enum', () => {
+		const a = arg.enum(['a', 'b']).env('REGION');
+		expect(a.schema.envVar).toBe('REGION');
+		expect(a.schema.enumValues).toEqual(['a', 'b']);
+	});
+});
+
 describe('arg.custom()', () => {
 	it('creates a custom arg with the provided parse function', () => {
 		const a = arg.custom(parsePath);
@@ -213,13 +253,22 @@ describe('schema defaults', () => {
 		expect(s.stdinMode).toBe(false);
 		expect(s.defaultValue).toBeUndefined();
 		expect(s.description).toBeUndefined();
+		expect(s.enumValues).toBeUndefined();
 		expect(s.parseFn).toBeUndefined();
 	});
 
 	it('custom arg has parseFn, others do not', () => {
 		expect(arg.string().schema.parseFn).toBeUndefined();
 		expect(arg.number().schema.parseFn).toBeUndefined();
+		expect(arg.enum(['a']).schema.parseFn).toBeUndefined();
 		expect(arg.custom(() => 'x').schema.parseFn).toBeDefined();
+	});
+
+	it('enum arg has enumValues, others do not', () => {
+		expect(arg.string().schema.enumValues).toBeUndefined();
+		expect(arg.number().schema.enumValues).toBeUndefined();
+		expect(arg.custom(() => 'x').schema.enumValues).toBeUndefined();
+		expect(arg.enum(['a', 'b']).schema.enumValues).toEqual(['a', 'b']);
 	});
 });
 
@@ -236,6 +285,26 @@ describe('type inference', () => {
 	it('number arg: number (required by default)', () => {
 		const a = arg.number();
 		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number>();
+	});
+
+	it('enum arg: literal union (required by default)', () => {
+		const a = arg.enum(['us', 'eu', 'ap']);
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<'us' | 'eu' | 'ap'>();
+	});
+
+	it('.optional() on enum adds undefined', () => {
+		const a = arg.enum(['a', 'b']).optional();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<'a' | 'b' | undefined>();
+	});
+
+	it('.default() on enum removes undefined', () => {
+		const a = arg.enum(['dev', 'prod']).default('dev');
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<'dev' | 'prod'>();
+	});
+
+	it('.variadic() on enum produces union[]', () => {
+		const a = arg.enum(['x', 'y']).variadic();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<('x' | 'y')[]>();
 	});
 
 	it('custom arg: inferred return type (required by default)', () => {
