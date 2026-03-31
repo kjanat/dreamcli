@@ -23,6 +23,6 @@ export default defineConfig({
 	},
 	minify: true,
 	publint: true,
-	attw: { profile: 'strict', level: 'error', ignoreRules: ['no-resolution'] },
+	attw: { profile: 'node16', level: 'error', ignoreRules: [] },
 	onSuccess: 'bunx sort-package-json', // ensures proper sorting of the exports
 });

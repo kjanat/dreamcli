@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import { MermaidMarkdown, MermaidPlugin } from 'vitepress-plugin-mermaid';
 
 export default defineConfig({
   title: 'dreamcli',
@@ -113,5 +114,13 @@ export default defineConfig({
       message: 'Released under the MIT License.',
       copyright: `Copyright © 2026-present Kaj Kowalski`,
     },
+  },
+  markdown: {
+    config: (md) => {
+      md.use(MermaidMarkdown);
+    },
+  },
+  vite: {
+    plugins: [MermaidPlugin()],
   },
 });
