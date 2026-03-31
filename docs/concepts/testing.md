@@ -106,7 +106,7 @@ expect(result.stderr.join('')).toContain('Unknown flag');
 
 ### Missing Required Values
 
-Required flags that aren't provided fail clearly:
+Required flags that aren't provided, fail clearly:
 
 ```ts
 const result = await runCommand(cmd, []);

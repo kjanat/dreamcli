@@ -24,7 +24,8 @@ That's it. Just strings. The CLI framework's job is to parse these strings into 
 
 ::: info Why "vector"?
 It's just a fancy word for "ordered list."
-The name comes from C, where `argv` was literally an array of character pointers.
+
+The name comes from C, where [`argv`](https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Command_002dline-Parameters.html) was literally an array of character pointers.
 You'll see it everywhere in CLI programming.
 :::
 
@@ -49,7 +50,7 @@ A well-designed CLI lets you do:
 ```bash
 # These are equivalent:
 mycli upload --region eu photo.jpg
-UPLOAD_REGION=eu mycli upload photo.jpg
+MYCLI_UPLOAD_REGION=eu mycli upload photo.jpg
 ```
 
 Same result, different input source. The flag wins if both are present.

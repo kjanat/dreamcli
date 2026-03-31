@@ -35,7 +35,7 @@
 		"./package.json",
 		"./scripts/**/*.ts",
 		"./docs/**/*.ts",
-		"./*.config.ts"
+		"./*.ts"
 	],
 	"exclude": ["**/dist", "**/node_modules", "**/.cache"]
 }

@@ -7,7 +7,6 @@
  *
  * @module dreamcli/core/errors
  */
-// deno-lint-ignore-file ban-types
 
 // ---------------------------------------------------------------------------
 // Error codes — discriminated string union per category
@@ -30,6 +29,7 @@ export type ValidationErrorCode =
 	| 'CONSTRAINT_VIOLATED';
 
 /** Any framework error code (extensible via `string & {}`). */
+// deno-lint-ignore ban-types
 export type ErrorCode = ParseErrorCode | ValidationErrorCode | (string & {});
 
 // ---------------------------------------------------------------------------

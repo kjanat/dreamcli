@@ -8,8 +8,6 @@
  *
  * @module dreamcli/core/schema/command
  */
-// deno-lint-ignore-file ban-types
-
 import { CLIError } from '../errors/index.ts';
 import type {
 	ProgressHandle,
@@ -510,9 +508,9 @@ function eraseBuilder<
  * ```
  */
 class CommandBuilder<
-	// biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (F & Record<N, B>)
+	/* biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (F & Record<N, B>) */ // deno-lint-ignore ban-types
 	F extends Record<string, FlagBuilder<FlagConfig>> = {},
-	// biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (A & Record<N, B>)
+	/* biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (A & Record<N, B>) */ // deno-lint-ignore ban-types
 	A extends Record<string, ArgBuilder<ArgConfig>> = {},
 	C extends Record<string, unknown> = Record<string, never>,
 > {
