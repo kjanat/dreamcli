@@ -29,4 +29,4 @@ const greet = command('greet')
 		}
 	});
 
-cli('greet').default(greet).run();
+void cli('greet').default(greet).run();

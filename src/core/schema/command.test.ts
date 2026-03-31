@@ -560,10 +560,11 @@ describe('type inference', () => {
 
 	it('out has log/info/warn/error methods', () => {
 		command('test').action(({ out }) => {
-			expectTypeOf(out.log).toEqualTypeOf<(message: string) => void>();
-			expectTypeOf(out.info).toEqualTypeOf<(message: string) => void>();
-			expectTypeOf(out.warn).toEqualTypeOf<(message: string) => void>();
-			expectTypeOf(out.error).toEqualTypeOf<(message: string) => void>();
+			type Output = typeof out;
+			expectTypeOf<Output['log']>().toEqualTypeOf<(message: string) => void>();
+			expectTypeOf<Output['info']>().toEqualTypeOf<(message: string) => void>();
+			expectTypeOf<Output['warn']>().toEqualTypeOf<(message: string) => void>();
+			expectTypeOf<Output['error']>().toEqualTypeOf<(message: string) => void>();
 		});
 	});
 

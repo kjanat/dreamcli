@@ -109,6 +109,13 @@ describe('table — normal mode', () => {
 		expect(text).toContain('99');
 		expect(text).toContain('true');
 	});
+
+	it('serializes object cell values as JSON', () => {
+		const [out, captured] = createCaptureOutput();
+		out.table([{ meta: { role: 'admin' } }]);
+		const text = captured.stdout.join('');
+		expect(text).toContain('{"role":"admin"}');
+	});
 });
 
 // ---------------------------------------------------------------------------

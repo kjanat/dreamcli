@@ -39,6 +39,10 @@ function dbGroup() {
 		.command(seedCommand());
 }
 
+function hasPropagatedVerbose(flags: Record<string, unknown>): boolean {
+	return flags['verbose'] === true;
+}
+
 // ===================================================================
 // Nested dispatch — basic
 // ===================================================================
@@ -160,8 +164,7 @@ describe('CLIBuilder — propagated flags through nesting', () => {
 		const migrate = command('migrate')
 			.description('Run migrations')
 			.action(({ flags, out }) => {
-				const verbose = flags as Record<string, unknown>;
-				out.log(`verbose=${String(verbose['verbose'] ?? false)}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
 			});
 
 		const db = group('db')
@@ -179,8 +182,7 @@ describe('CLIBuilder — propagated flags through nesting', () => {
 		const up = command('up')
 			.description('Run migrations up')
 			.action(({ flags, out }) => {
-				const f = flags as Record<string, unknown>;
-				out.log(`verbose=${String(f['verbose'] ?? false)}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
 			});
 
 		const migrate = group('migrate').description('Migration commands').command(up);

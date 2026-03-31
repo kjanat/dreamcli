@@ -82,6 +82,35 @@ function wrapText(text: string, width: number, indent: number): string {
 	return lines.map((line, i) => (i === 0 ? line : `${pad}${line}`)).join('\n');
 }
 
+/** Format an unknown runtime value for human-readable help text. */
+function formatDisplayValue(value: unknown): string {
+	if (value === null || value === undefined) return '';
+
+	if (
+		typeof value === 'string' ||
+		typeof value === 'number' ||
+		typeof value === 'boolean' ||
+		typeof value === 'bigint' ||
+		typeof value === 'symbol'
+	) {
+		return String(value);
+	}
+
+	if (value instanceof Date) {
+		return value.toISOString();
+	}
+
+	if (typeof value === 'function') {
+		return value.name.length > 0 ? `[Function: ${value.name}]` : '[Function]';
+	}
+
+	try {
+		return JSON.stringify(value) ?? '[unserializable]';
+	} catch {
+		return '[unserializable]';
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Deprecation formatting
 // ---------------------------------------------------------------------------
@@ -175,7 +204,7 @@ function formatFlagDescription(schema: FlagSchema): string {
 		parts.push('[required]');
 	} else if (schema.presence === 'defaulted' && schema.kind !== 'boolean') {
 		// Don't show "(default: false)" for boolean — it's obvious
-		parts.push(`(default: ${String(schema.defaultValue)})`);
+		parts.push(`(default: ${formatDisplayValue(schema.defaultValue)})`);
 	}
 
 	return parts.join(' ');
@@ -243,7 +272,7 @@ function formatArgDescription(schema: ArgSchema): string {
 	}
 
 	if (schema.presence === 'defaulted' && schema.defaultValue !== undefined) {
-		parts.push(`(default: ${String(schema.defaultValue)})`);
+		parts.push(`(default: ${formatDisplayValue(schema.defaultValue)})`);
 	}
 
 	return parts.join(' ');

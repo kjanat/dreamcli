@@ -281,7 +281,7 @@ const pr = group('pr')
 
 const issue = group('issue').description('Manage issues').command(issueList);
 
-cli('gh')
+void cli('gh')
 	.version('0.1.0')
 	.description('A minimal GitHub CLI clone — dreamcli walkthrough example')
 	.command(auth)

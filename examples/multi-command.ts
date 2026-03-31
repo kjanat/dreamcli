@@ -56,7 +56,7 @@ const db = group('db').description('Database operations').command(migrate).comma
 
 // --- Wire it all up ---
 
-cli('myapp')
+void cli('myapp')
 	.version('1.0.0')
 	.description('Example multi-command CLI')
 	.command(deploy)

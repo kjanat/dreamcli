@@ -22,13 +22,17 @@ function hasJsDoc(node: ts.Node): boolean {
 }
 
 function collectPublicExportsWithoutJsDoc(): readonly string[] {
-	const configPath = ts.findConfigFile(repoRoot, ts.sys.fileExists, 'tsconfig.json');
+	const configPath = ts.findConfigFile(
+		repoRoot,
+		(fileName) => ts.sys.fileExists(fileName),
+		'tsconfig.json',
+	);
 
 	if (configPath === undefined) {
 		throw new Error('Expected tsconfig.json at repository root');
 	}
 
-	const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+	const configFile = ts.readConfigFile(configPath, (fileName) => ts.sys.readFile(fileName));
 
 	if (configFile.error !== undefined) {
 		throw new Error(

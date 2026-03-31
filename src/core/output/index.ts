@@ -394,15 +394,44 @@ function inferColumns<T extends Record<string, unknown>>(
 	return Object.keys(first).map((key) => ({ key: key as keyof T & string }));
 }
 
+/** Format an unknown runtime value for plain-text table output. */
+function formatDisplayValue(value: unknown): string {
+	if (value === null || value === undefined) return '';
+
+	if (
+		typeof value === 'string' ||
+		typeof value === 'number' ||
+		typeof value === 'boolean' ||
+		typeof value === 'bigint' ||
+		typeof value === 'symbol'
+	) {
+		return String(value);
+	}
+
+	if (value instanceof Date) {
+		return value.toISOString();
+	}
+
+	if (typeof value === 'function') {
+		return value.name.length > 0 ? `[Function: ${value.name}]` : '[Function]';
+	}
+
+	try {
+		return JSON.stringify(value) ?? '[unserializable]';
+	} catch {
+		return '[unserializable]';
+	}
+}
+
 /**
  * Convert a cell value to a display string.
  *
  * - `null` / `undefined` → `''`
- * - Everything else → `String(value)`
+ * - Primitives → `String(value)`
+ * - Objects / arrays → JSON
  */
 function cellToString(value: unknown): string {
-	if (value === null || value === undefined) return '';
-	return String(value);
+	return formatDisplayValue(value);
 }
 
 /**

@@ -79,7 +79,7 @@ const show = command('show')
 
 // --- CLI with --json support ---
 
-cli('services')
+void cli('services')
 	.version('1.0.0')
 	.description('Service status dashboard')
 	.command(list)

@@ -69,4 +69,4 @@ const deploy = command('deploy')
 		}
 	});
 
-cli('myapp').default(deploy).run();
+void cli('myapp').default(deploy).run();

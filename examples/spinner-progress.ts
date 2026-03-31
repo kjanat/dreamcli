@@ -45,4 +45,4 @@ const build = command('build')
 		out.log(`Built ${flags.steps} modules`);
 	});
 
-cli('build').default(build).run();
+void cli('build').default(build).run();

@@ -246,6 +246,15 @@ describe('formatHelp', () => {
 			expect(help).toContain('(default: 8080)');
 		});
 
+		it('formats non-primitive defaults as JSON', () => {
+			const cmd = command('run').flag(
+				'tags',
+				flag.array(flag.string()).default(['blue', 'green']).describe('Deployment tags'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('(default: ["blue","green"])');
+		});
+
 		it('does not show default for boolean flags', () => {
 			const cmd = command('run').flag('verbose', flag.boolean().describe('Verbose'));
 			const help = formatHelp(cmd.schema);
