@@ -153,6 +153,7 @@ describe('--version flag', () => {
 		const result = await app.execute(['deploy', '--version']);
 
 		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
 		expect(result.stderr.join('')).toContain('Unknown flag --version');
 	});
 
@@ -161,7 +162,17 @@ describe('--version flag', () => {
 		const result = await app.execute(['-V']);
 
 		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
 		expect(result.stderr.join('')).toContain('Unknown flag -V');
+	});
+
+	it('rejects root --version when no version is configured', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['--version']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
+		expect(result.stderr.join('')).toContain('Unknown flag --version');
 	});
 
 	it('--version takes precedence over commands', async () => {
