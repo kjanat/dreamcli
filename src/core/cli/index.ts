@@ -1067,27 +1067,28 @@ class CLIBuilder {
 
 		// Package.json discovery (only when .packageJson() was called)
 		// Skip for completions subcommand — no metadata needed.
-		// deno-lint-ignore no-this-alias
-		let effectiveBuilder: CLIBuilder = this;
-		if (this.schema.packageJsonSettings !== undefined && !isCompletions) {
-			const pkg = await discoverPackageJson(adapter);
-			if (pkg !== null) {
-				const settings = this.schema.packageJsonSettings;
-				const schema = this.schema;
-				const inferredName = settings.inferName ? inferCliName(pkg) : undefined;
-				effectiveBuilder = new CLIBuilder({
-					...schema,
-					// Explicit > discovered: only fill in undefined fields
-					...(schema.version === undefined && pkg.version !== undefined
-						? { version: pkg.version }
-						: {}),
-					...(schema.description === undefined && pkg.description !== undefined
-						? { description: pkg.description }
-						: {}),
-					...(inferredName !== undefined ? { name: inferredName } : {}),
-				});
-			}
-		}
+		const packageJsonSettings = this.schema.packageJsonSettings;
+		const effectiveBuilder =
+			packageJsonSettings !== undefined && !isCompletions
+				? await (async (): Promise<CLIBuilder> => {
+						const pkg = await discoverPackageJson(adapter);
+						if (pkg === null) return this;
+
+						const schema = this.schema;
+						const inferredName = packageJsonSettings.inferName ? inferCliName(pkg) : undefined;
+						return new CLIBuilder({
+							...schema,
+							// Explicit > discovered: only fill in undefined fields
+							...(schema.version === undefined && pkg.version !== undefined
+								? { version: pkg.version }
+								: {}),
+							...(schema.description === undefined && pkg.description !== undefined
+								? { description: pkg.description }
+								: {}),
+							...(inferredName !== undefined ? { name: inferredName } : {}),
+						});
+					})()
+				: this;
 
 		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
 		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)

@@ -561,8 +561,7 @@ function levenshtein(a: string, b: string): number {
 	const bLen = long.length;
 
 	// Previous row of distances
-	const row = new Array<number>(aLen + 1);
-	for (let i = 0; i <= aLen; i++) row[i] = i;
+	const row = Array.from({ length: aLen + 1 }, (_, i) => i);
 
 	for (let j = 1; j <= bLen; j++) {
 		let prev = row[0] ?? 0;

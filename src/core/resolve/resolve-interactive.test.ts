@@ -104,8 +104,7 @@ describe('CommandBuilder.interactive()', () => {
 			.flag('region', flag.enum(['us', 'eu']))
 			.interactive(() => ({}))
 			.action(({ flags }) => {
-				// Type inference still works
-				flags.region;
+				expectTypeOf(flags.region).toEqualTypeOf<'us' | 'eu' | undefined>();
 			});
 
 		expect(cmd.handler).toBeDefined();

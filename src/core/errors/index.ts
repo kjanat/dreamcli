@@ -128,7 +128,7 @@ export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitC
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ParseError extends CLIError {
-	override readonly name: 'ParseError' = 'ParseError';
+	override readonly name = 'ParseError' as const;
 	declare readonly code: ParseErrorCode;
 
 	constructor(message: string, options: ParseErrorOptions) {
@@ -155,7 +155,7 @@ export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | '
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ValidationError extends CLIError {
-	override readonly name: 'ValidationError' = 'ValidationError';
+	override readonly name = 'ValidationError' as const;
 	declare readonly code: ValidationErrorCode;
 
 	constructor(message: string, options: ValidationErrorOptions) {

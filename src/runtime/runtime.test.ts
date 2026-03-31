@@ -677,7 +677,7 @@ describe('CLIBuilder.run() prompt gating', () => {
 
 		try {
 			await app.run({ adapter });
-		} catch (_) {
+		} catch {
 			// exit expected
 		}
 
