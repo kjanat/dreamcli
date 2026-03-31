@@ -70,15 +70,15 @@ interface DenoNamespace {
 	cwd(): string;
 
 	readonly stdout: {
-		/** Write raw bytes to stdout. */
-		write(p: Uint8Array): Promise<number>;
+		/** Write raw bytes to stdout synchronously. */
+		writeSync(p: Uint8Array): number;
 		/** Whether stdout is connected to a TTY. */
 		isTerminal(): boolean;
 	};
 
 	readonly stderr: {
-		/** Write raw bytes to stderr. */
-		write(p: Uint8Array): Promise<number>;
+		/** Write raw bytes to stderr synchronously. */
+		writeSync(p: Uint8Array): number;
 	};
 
 	readonly stdin: {
@@ -184,10 +184,10 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 
 	// --- I/O writers ---
 	const stdoutWrite: WriteFn = (data) => {
-		void d.stdout.write(encoder.encode(data));
+		d.stdout.writeSync(encoder.encode(data));
 	};
 	const stderrWrite: WriteFn = (data) => {
-		void d.stderr.write(encoder.encode(data));
+		d.stderr.writeSync(encoder.encode(data));
 	};
 
 	// --- Stdin line reading ---

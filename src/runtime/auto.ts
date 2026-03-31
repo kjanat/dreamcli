@@ -49,9 +49,9 @@ function isDenoNamespace(value: unknown): value is DenoNamespace {
 		typeof candidate.readTextFile === 'function' &&
 		typeof candidate.env?.get === 'function' &&
 		typeof candidate.env.toObject === 'function' &&
-		typeof candidate.stdout?.write === 'function' &&
+		typeof candidate.stdout?.writeSync === 'function' &&
 		typeof candidate.stdout.isTerminal === 'function' &&
-		typeof candidate.stderr?.write === 'function' &&
+		typeof candidate.stderr?.writeSync === 'function' &&
 		typeof candidate.stdin?.isTerminal === 'function' &&
 		typeof candidate.stdin?.readable?.getReader === 'function'
 	);

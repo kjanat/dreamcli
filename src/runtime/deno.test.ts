@@ -53,11 +53,11 @@ function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 		},
 		cwd: overrides?.cwd ?? (() => '/deno/project'),
 		stdout: overrides?.stdout ?? {
-			write: vi.fn(() => Promise.resolve(0)),
+			writeSync: vi.fn(() => 0),
 			isTerminal: () => false,
 		},
 		stderr: overrides?.stderr ?? {
-			write: vi.fn(() => Promise.resolve(0)),
+			writeSync: vi.fn(() => 0),
 		},
 		stdin: overrides?.stdin ?? {
 			isTerminal: () => false,
@@ -210,13 +210,13 @@ describe('createDenoAdapter — cwd', () => {
 // ===
 
 describe('createDenoAdapter — stdout/stderr', () => {
-	it('routes stdout writes through TextEncoder to Deno.stdout.write', () => {
+	it('routes stdout writes through TextEncoder to Deno.stdout.writeSync', () => {
 		let captured: Uint8Array | undefined;
 		const ns = mockDeno({
 			stdout: {
-				write: (p: Uint8Array) => {
+				writeSync: (p: Uint8Array) => {
 					captured = p;
-					return Promise.resolve(p.length);
+					return p.length;
 				},
 				isTerminal: () => false,
 			},
@@ -228,13 +228,13 @@ describe('createDenoAdapter — stdout/stderr', () => {
 		expect(new TextDecoder().decode(captured)).toBe('hello deno');
 	});
 
-	it('routes stderr writes through TextEncoder to Deno.stderr.write', () => {
+	it('routes stderr writes through TextEncoder to Deno.stderr.writeSync', () => {
 		let captured: Uint8Array | undefined;
 		const ns = mockDeno({
 			stderr: {
-				write: (p: Uint8Array) => {
+				writeSync: (p: Uint8Array) => {
 					captured = p;
-					return Promise.resolve(p.length);
+					return p.length;
 				},
 			},
 		});
@@ -253,7 +253,7 @@ describe('createDenoAdapter — stdout/stderr', () => {
 describe('createDenoAdapter — TTY detection', () => {
 	it('isTTY is true when stdout.isTerminal() returns true', () => {
 		const ns = mockDeno({
-			stdout: { write: vi.fn(() => Promise.resolve(0)), isTerminal: () => true },
+			stdout: { writeSync: vi.fn(() => 0), isTerminal: () => true },
 		});
 		const adapter = createDenoAdapter(ns);
 		expect(adapter.isTTY).toBe(true);

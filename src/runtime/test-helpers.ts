@@ -20,8 +20,8 @@ export function createMockDenoNamespace() {
 		args: [],
 		env: { get: () => undefined, toObject: () => ({}) },
 		cwd: () => '/deno/mock',
-		stdout: { write: vi.fn(() => Promise.resolve(0)), isTerminal: () => false },
-		stderr: { write: vi.fn(() => Promise.resolve(0)) },
+		stdout: { writeSync: vi.fn(() => 0), isTerminal: () => false },
+		stderr: { writeSync: vi.fn(() => 0) },
 		stdin: {
 			isTerminal: () => false,
 			readable: {

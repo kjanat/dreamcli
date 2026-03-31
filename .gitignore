@@ -226,3 +226,4 @@ $RECYCLE.BIN/
 docs/.vitepress/cache/
 /_*.md
 /_*.ts
+/*example*.ts
