@@ -12,26 +12,30 @@
  * @module dreamcli/core/testkit
  */
 
-import type { BeforeParseParams, CLIPlugin, ResolvedCommandParams } from '../cli/plugin.ts';
-import { CLIError } from '../errors/index.ts';
-import type { HelpOptions } from '../help/index.ts';
-import { formatHelp } from '../help/index.ts';
-import type { CapturedOutput, Verbosity } from '../output/index.ts';
-import { createCaptureOutput } from '../output/index.ts';
-import { parse } from '../parse/index.ts';
-import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
-import { createTestPrompter } from '../prompt/index.ts';
-import type { DeprecationWarning, ResolveOptions } from '../resolve/index.ts';
-import { resolve } from '../resolve/index.ts';
-import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
+import type {
+	BeforeParseParams,
+	CLIPlugin,
+	ResolvedCommandParams,
+} from '#internals/core/cli/plugin.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import type { HelpOptions } from '#internals/core/help/index.ts';
+import { formatHelp } from '#internals/core/help/index.ts';
+import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
+import { parse } from '#internals/core/parse/index.ts';
+import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
+import { createTestPrompter } from '#internals/core/prompt/index.ts';
+import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
+import { resolve } from '#internals/core/resolve/index.ts';
+import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import type {
 	ActionHandler,
 	CommandBuilder,
 	CommandMeta,
 	CommandSchema,
 	Out,
-} from '../schema/command.ts';
-import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
+} from '#internals/core/schema/command.ts';
+import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -206,7 +210,7 @@ interface RunOptions {
 
 // RunResult is defined in schema/run.ts to avoid the schema→testkit dependency
 // inversion. Re-exported here for public API continuity.
-import type { RunResult } from '../schema/run.ts';
+import type { RunResult } from '#internals/core/schema/run.ts';
 
 // ---------------------------------------------------------------------------
 // Core execution pipeline

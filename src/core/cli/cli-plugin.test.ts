@@ -5,10 +5,10 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
-import { middleware } from '../schema/middleware.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { middleware } from '#internals/core/schema/middleware.ts';
 import { cli, plugin } from './index.ts';
 
 // ---------------------------------------------------------------------------

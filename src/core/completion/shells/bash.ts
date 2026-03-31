@@ -15,8 +15,8 @@
  * @internal
  */
 
-import type { CLISchema } from '../../cli/index.ts';
-import type { CommandSchema, FlagSchema } from '../../schema/index.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
+import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import {
 	quoteShellArg,

@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CLISchema } from '../cli/index.ts';
-import { isCLIError } from '../errors/index.ts';
-import type { ActivityEvent, CommandSchema, FlagSchema } from '../schema/index.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
+import { isCLIError } from '#internals/core/errors/index.ts';
+import type { ActivityEvent, CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,

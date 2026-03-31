@@ -7,12 +7,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
-import type { GlobalForDetect } from '../../runtime/detect.ts';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
-import { middleware } from '../schema/middleware.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
+import type { GlobalForDetect } from '#internals/runtime/detect.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { middleware } from '#internals/core/schema/middleware.ts';
 import { cli } from './index.ts';
 
 // ===================================================================
@@ -580,7 +580,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		// Verify the createAdapter path works with Bun globals.
 		// We test this via the adapter factory directly since run() would
 		// need a real Bun runtime for process.argv etc.
-		const { createAdapter } = await import('../../runtime/auto.ts');
+		const { createAdapter } = await import('#internals/runtime/auto.ts');
 		const globals: GlobalForDetect = {
 			Bun: { version: '1.3.11' },
 			process: { versions: { node: '22.0.0' } },
@@ -592,8 +592,8 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 	});
 
 	it('auto-adapter creates valid adapter for simulated Deno runtime', async () => {
-		const { createAdapter } = await import('../../runtime/auto.ts');
-		const { createMockDenoNamespace } = await import('../../runtime/test-helpers.ts');
+		const { createAdapter } = await import('#internals/runtime/auto.ts');
+		const { createMockDenoNamespace } = await import('#internals/runtime/test-helpers.ts');
 
 		const globals: GlobalForDetect = {
 			Deno: createMockDenoNamespace(),

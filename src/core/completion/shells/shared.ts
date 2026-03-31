@@ -9,10 +9,10 @@
  * @internal
  */
 
-import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '../../../version.ts';
-import { collectPropagatedFlags } from '../../cli/propagate.ts';
-import { resolveRootSurface } from '../../cli/root-surface.ts';
-import type { CommandSchema, FlagSchema } from '../../schema/index.ts';
+import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
+import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
+import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
 // ---------------------------------------------------------------------------
 // Version tag for generated script headers
@@ -271,7 +271,6 @@ function quoteShellArg(value: string): string {
 // Exports
 // ---------------------------------------------------------------------------
 
-export type { CommandNode, CompletionOptions, RootCompletionSurface };
 export {
 	quoteShellArg,
 	resolveRootCompletionSurface,
@@ -279,3 +278,4 @@ export {
 	versionTag,
 	walkCommandTree,
 };
+export type { CommandNode, CompletionOptions, RootCompletionSurface };

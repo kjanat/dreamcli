@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLIError } from '../errors/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.ts';
 import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.ts';
 

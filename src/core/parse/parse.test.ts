@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ParseError } from '../errors/index.ts';
-import { createArgSchema } from '../schema/arg.ts';
-import type { CommandSchema } from '../schema/command.ts';
-import { createSchema } from '../schema/flag.ts';
+import { ParseError } from '#internals/core/errors/index.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import { parse, tokenize } from './index.ts';
 
 // ---------------------------------------------------------------------------

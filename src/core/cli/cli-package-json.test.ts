@@ -5,9 +5,9 @@
  * name inference, precedence (explicit wins), and completions skip.
  */
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/index.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
 // ===================================================================
@@ -110,13 +110,13 @@ describe('CLIBuilder.run() — package.json version', () => {
 		expect(stdout.join('')).toBe('9.9.9\n');
 	});
 
-	it('shows nothing for --version when neither explicit nor discovered', async () => {
+	it('falls through to help for --version when neither explicit nor discovered', async () => {
 		const app = cli('myapp').packageJson().command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version']);
 
-		// No version output (empty)
-		expect(stdout.join('')).toBe('');
+		// No version configured → --version is not intercepted, root shows help
+		expect(stdout.join('')).toContain('Usage: myapp');
 	});
 });
 

@@ -8,7 +8,7 @@
  * @module dreamcli/core/config/package-json
  */
 
-import type { RuntimeAdapter } from '../../runtime/adapter.ts';
+import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
 // ---------------------------------------------------------------------------
 // Narrowing helpers

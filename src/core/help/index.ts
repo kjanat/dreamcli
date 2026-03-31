@@ -14,7 +14,7 @@ import type {
 	CommandExample,
 	CommandSchema,
 	FlagSchema,
-} from '../schema/index.ts';
+} from '#internals/core/schema/index.ts';
 
 // ---------------------------------------------------------------------------
 // Configuration

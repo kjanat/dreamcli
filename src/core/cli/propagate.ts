@@ -9,7 +9,7 @@
  * @module dreamcli/core/cli/propagate
  */
 
-import type { CommandSchema, FlagSchema } from '../schema/index.ts';
+import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 
 // ---------------------------------------------------------------------------
 // Propagated flag collection

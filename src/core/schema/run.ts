@@ -8,7 +8,7 @@
  * @module dreamcli/core/schema/run
  */
 
-import type { CLIError } from '../errors/index.ts';
+import type { CLIError } from '#internals/core/errors/index.ts';
 import type { ActivityEvent } from './activity.ts';
 
 /**

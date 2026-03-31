@@ -18,14 +18,14 @@
  * @module dreamcli/core/prompt
  */
 
-import type { WriteFn } from '../output/index.ts';
+import type { WriteFn } from '#internals/core/output/index.ts';
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
 	PromptConfig,
 	PromptResult,
 	SelectChoice,
-} from '../schema/prompt.ts';
+} from '#internals/core/schema/prompt.ts';
 
 // ---------------------------------------------------------------------------
 // Resolved prompt config — choices guaranteed present for select kinds

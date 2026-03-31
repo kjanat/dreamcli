@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { command } from '../schema/command.ts';
+import { command } from '#internals/core/schema/command.ts';
 import { runCommand } from './index.ts';
 
 // ---------------------------------------------------------------------------

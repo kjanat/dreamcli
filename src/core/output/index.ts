@@ -18,8 +18,8 @@ import type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
-} from '../schema/activity.ts';
-import type { Out } from '../schema/command.ts';
+} from '#internals/core/schema/activity.ts';
+import type { Out } from '#internals/core/schema/command.ts';
 import {
 	CaptureProgressHandle,
 	CaptureSpinnerHandle,

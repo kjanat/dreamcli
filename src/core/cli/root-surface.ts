@@ -9,7 +9,7 @@
  * @internal
  */
 
-import type { CommandSchema } from '../schema/command.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
 
 /**
  * Structural CLI shape needed for root-surface analysis.

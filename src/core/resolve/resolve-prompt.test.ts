@@ -7,11 +7,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ValidationError } from '../errors/index.ts';
-import type { ParseResult } from '../parse/index.ts';
-import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.ts';
-import type { CommandSchema } from '../schema/index.ts';
-import { createSchema } from '../schema/index.ts';
+import { ValidationError } from '#internals/core/errors/index.ts';
+import type { ParseResult } from '#internals/core/parse/index.ts';
+import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
+import type { CommandSchema } from '#internals/core/schema/index.ts';
+import { createSchema } from '#internals/core/schema/index.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 

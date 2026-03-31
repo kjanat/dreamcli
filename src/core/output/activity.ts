@@ -20,7 +20,7 @@ import type {
 	ProgressHandle,
 	ProgressOptions,
 	SpinnerHandle,
-} from '../schema/activity.ts';
+} from '#internals/core/schema/activity.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 

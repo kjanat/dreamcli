@@ -13,7 +13,7 @@
  *   1 — a check failed
  */
 
-import type { RuntimeAdapter } from '../src/runtime.ts';
+import type { RuntimeAdapter } from '#dreamcli/runtime';
 
 // Import from built output (not source) to verify the published shape.
 // Use a file URL expression so repository typecheck does not require a prebuilt dist/.

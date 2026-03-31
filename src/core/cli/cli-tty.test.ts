@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
-import { command } from '../schema/command.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
+import { command } from '#internals/core/schema/command.ts';
 import { cli } from './index.ts';
 
 // ---------------------------------------------------------------------------

@@ -5,12 +5,12 @@
  * and precedence between explicit options.config and loaded config.
  */
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/index.ts';
-import type { FormatLoader } from '../config/index.ts';
-import { configFormat } from '../config/index.ts';
-import { CLIError } from '../errors/index.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
+import type { FormatLoader } from '#internals/core/config/index.ts';
+import { configFormat } from '#internals/core/config/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
 // ===================================================================

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandSchema } from '../schema/command.ts';
-import { createSchema } from '../schema/flag.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 
 // ---------------------------------------------------------------------------

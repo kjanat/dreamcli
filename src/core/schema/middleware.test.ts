@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { CLIError } from '../errors/index.ts';
-import { runCommand } from '../testkit/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { runCommand } from '#internals/core/testkit/index.ts';
 import { arg } from './arg.ts';
 import { command } from './command.ts';
 import { flag } from './flag.ts';

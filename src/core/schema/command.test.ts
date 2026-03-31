@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { CLIError } from '../errors/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
 import { arg } from './arg.ts';
 import type { ActionParams, CommandArgEntry, CommandSchema, Out } from './command.ts';
 import { CommandBuilder, command, group } from './command.ts';

@@ -8,9 +8,9 @@
  * @internal
  */
 
-import type { HelpOptions } from '../help/index.ts';
-import { formatHelpSections } from '../help/index.ts';
-import type { CommandSchema } from '../schema/command.ts';
+import type { HelpOptions } from '#internals/core/help/index.ts';
+import { formatHelpSections } from '#internals/core/help/index.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { resolveRootSurface } from './root-surface.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.

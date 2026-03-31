@@ -6,9 +6,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { arg } from '../schema/arg.ts';
-import { command, group } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command, group } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
 // ===================================================================

@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { Out } from '../schema/command.ts';
+import type { Out } from '#internals/core/schema/command.ts';
 import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
 import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 

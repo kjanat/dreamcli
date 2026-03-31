@@ -570,7 +570,7 @@ describe('public surface — Deno adapter', () => {
 	});
 
 	it('exports createDenoAdapter from runtime subpath', async () => {
-		const mod = await import('../runtime.ts');
+		const mod = await import('#dreamcli/runtime');
 		expect(mod.createDenoAdapter).toBeDefined();
 	});
 });

@@ -13,7 +13,7 @@
  * @module dreamcli/core/json-schema
  */
 
-import type { CLISchema } from '../cli/index.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -22,7 +22,7 @@ import type {
 	FlagSchema,
 	PromptConfig,
 	SelectChoice,
-} from '../schema/index.ts';
+} from '#internals/core/schema/index.ts';
 
 // ---------------------------------------------------------------------------
 // Options

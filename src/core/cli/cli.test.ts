@@ -3,12 +3,12 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/index.ts';
-import { ParseError } from '../errors/index.ts';
-import { arg } from '../schema/arg.ts';
-import type { CommandMeta } from '../schema/command.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
+import { ParseError } from '#internals/core/errors/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import type { CommandMeta } from '#internals/core/schema/command.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { CLIBuilder, cli, formatRootHelp } from './index.ts';
 
 // ---------------------------------------------------------------------------
@@ -843,12 +843,12 @@ describe('edge cases', () => {
 
 describe('public exports', () => {
 	it('exports cli factory', async () => {
-		const { cli: cliExport } = await import('../../index.ts');
+		const { cli: cliExport } = await import('#internals/index.ts');
 		expect(typeof cliExport).toBe('function');
 	});
 
 	it('exports CLIBuilder class', async () => {
-		const { CLIBuilder: CLIBuilderExport } = await import('../../index.ts');
+		const { CLIBuilder: CLIBuilderExport } = await import('#internals/index.ts');
 		expect(typeof CLIBuilderExport).toBe('function');
 	});
 });

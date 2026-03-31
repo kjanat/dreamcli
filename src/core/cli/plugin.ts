@@ -7,8 +7,8 @@
  * @module dreamcli/core/cli/plugin
  */
 
-import type { DeprecationWarning } from '../resolve/index.ts';
-import type { CommandMeta, CommandSchema, Out } from '../schema/command.ts';
+import type { DeprecationWarning } from '#internals/core/resolve/index.ts';
+import type { CommandMeta, CommandSchema, Out } from '#internals/core/schema/command.ts';
 
 /** Shared hook payload for a concrete command execution. */
 interface PluginCommandContext {

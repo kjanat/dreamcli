@@ -8,7 +8,7 @@
  *
  * @module dreamcli/core/schema/command
  */
-import { CLIError } from '../errors/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,

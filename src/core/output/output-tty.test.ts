@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Out } from '../schema/command.ts';
+import type { Out } from '#internals/core/schema/command.ts';
 import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 
 // ---------------------------------------------------------------------------

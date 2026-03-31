@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { PromptResult, SelectChoice } from '../schema/prompt.ts';
+import type { PromptResult, SelectChoice } from '#internals/core/schema/prompt.ts';
 import type {
 	PromptEngine,
 	ReadFn,

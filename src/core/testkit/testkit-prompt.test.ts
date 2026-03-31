@@ -7,11 +7,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { cli } from '../cli/index.ts';
-import { createTestPrompter, PROMPT_CANCEL } from '../prompt/index.ts';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { cli } from '#internals/core/cli/index.ts';
+import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from './index.ts';
 
 // ========================================================================

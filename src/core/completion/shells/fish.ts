@@ -5,8 +5,8 @@
  * @internal
  */
 
-import type { CLISchema } from '../../cli/index.ts';
-import { CLIError } from '../../errors/index.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { CompletionOptions } from './shared.ts';
 
 /**

@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CommandSchema, ErasedCommand } from '../schema/command.ts';
+import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import { dispatch, findClosestCommand, levenshtein, uniqueCommands } from './dispatch.ts';
 
 // ===================================================================

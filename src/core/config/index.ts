@@ -11,8 +11,8 @@
  * @module dreamcli/core/config
  */
 
-import type { RuntimeAdapter } from '../../runtime/adapter.ts';
-import { CLIError } from '../errors/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
 // ---------------------------------------------------------------------------
 // Types — format loaders
@@ -375,8 +375,9 @@ function configFormat(
 // Exports
 // ---------------------------------------------------------------------------
 
-export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';
 export { discoverPackageJson, inferCliName } from './package-json.ts';
+export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';
+export { buildConfigSearchPaths, configFormat, discoverConfig };
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,
@@ -385,4 +386,3 @@ export type {
 	ConfigNotFound,
 	FormatLoader,
 };
-export { buildConfigSearchPaths, configFormat, discoverConfig };

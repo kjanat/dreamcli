@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isValidationError, ValidationError } from '../errors/index.ts';
-import type { ParseResult } from '../parse/index.ts';
-import { createArgSchema } from '../schema/arg.ts';
-import type { CommandSchema } from '../schema/command.ts';
-import { createSchema } from '../schema/flag.ts';
+import { isValidationError, ValidationError } from '#internals/core/errors/index.ts';
+import type { ParseResult } from '#internals/core/parse/index.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
 // ---------------------------------------------------------------------------

@@ -9,34 +9,34 @@
  * @module dreamcli/core/cli
  */
 
-import type { RuntimeAdapter } from '../../runtime/adapter.ts';
-import { createAdapter } from '../../runtime/auto.ts';
-import type { CompletionOptions, Shell } from '../completion/index.ts';
-import { generateCompletion, SHELLS } from '../completion/index.ts';
-import type { FormatLoader } from '../config/index.ts';
-import { discoverConfig } from '../config/index.ts';
-import { discoverPackageJson, inferCliName } from '../config/package-json.ts';
-import { CLIError, ParseError } from '../errors/index.ts';
-import type { HelpOptions } from '../help/index.ts';
-import { formatHelp } from '../help/index.ts';
-import type { CapturedOutput, Verbosity } from '../output/index.ts';
-import { createCaptureOutput, createOutput } from '../output/index.ts';
-import { parse } from '../parse/index.ts';
-import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
-import { createTerminalPrompter } from '../prompt/index.ts';
-import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
-import { arg } from '../schema/arg.ts';
+import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import { createAdapter } from '#internals/runtime/auto.ts';
+import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
+import { generateCompletion, SHELLS } from '#internals/core/completion/index.ts';
+import type { FormatLoader } from '#internals/core/config/index.ts';
+import { discoverConfig } from '#internals/core/config/index.ts';
+import { discoverPackageJson, inferCliName } from '#internals/core/config/package-json.ts';
+import { CLIError, ParseError } from '#internals/core/errors/index.ts';
+import type { HelpOptions } from '#internals/core/help/index.ts';
+import { formatHelp } from '#internals/core/help/index.ts';
+import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
+import { createCaptureOutput, createOutput } from '#internals/core/output/index.ts';
+import { parse } from '#internals/core/parse/index.ts';
+import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
+import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
+import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
+import { arg } from '#internals/core/schema/arg.ts';
 import type {
 	CommandBuilder,
 	CommandMeta,
 	CommandSchema,
 	ErasedCommand,
 	Out,
-} from '../schema/command.ts';
-import { command } from '../schema/command.ts';
-import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
-import type { RunOptions, RunResult } from '../testkit/index.ts';
-import { runCommand } from '../testkit/index.ts';
+} from '#internals/core/schema/command.ts';
+import { command } from '#internals/core/schema/command.ts';
+import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
+import type { RunOptions, RunResult } from '#internals/core/testkit/index.ts';
+import { runCommand } from '#internals/core/testkit/index.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';

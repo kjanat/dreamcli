@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parse } from '../parse/index.ts';
-import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
+import { parse } from '#internals/core/parse/index.ts';
+import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
 import { resolve } from './index.ts';
 
 function parseCommandArg(target: ArgBuilder<ArgConfig>, argv: readonly string[]) {

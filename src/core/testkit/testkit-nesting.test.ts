@@ -7,11 +7,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { cli } from '../cli/index.ts';
-import { arg } from '../schema/arg.ts';
-import { command, group } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
-import { middleware } from '../schema/middleware.ts';
+import { cli } from '#internals/core/cli/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command, group } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { middleware } from '#internals/core/schema/middleware.ts';
 import { runCommand } from './index.ts';
 
 // ===================================================================

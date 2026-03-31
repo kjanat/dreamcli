@@ -3,10 +3,10 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { cli } from '../core/cli/index.ts';
-import { arg } from '../core/schema/arg.ts';
-import { command } from '../core/schema/command.ts';
-import { flag } from '../core/schema/flag.ts';
+import { cli } from '#internals/core/cli/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import type { RuntimeAdapter } from './adapter.ts';
 import { createTestAdapter, ExitError } from './adapter.ts';
 import type { NodeProcess } from './node.ts';
@@ -587,7 +587,7 @@ describe('CLIBuilder.run() prompt gating', () => {
 		});
 
 		// Provide explicit prompter — should take precedence
-		const { createTestPrompter } = await import('../core/prompt/index.ts');
+		const { createTestPrompter } = await import('#internals/core/prompt/index.ts');
 		const explicitPrompter = createTestPrompter(['ExplicitAnswer']);
 
 		const app = cli('mycli').command(cmd);
@@ -886,13 +886,13 @@ describe('public surface', () => {
 	});
 
 	it('exports adapter factories from runtime barrel', async () => {
-		const mod = await import('../runtime.ts');
+		const mod = await import('#dreamcli/runtime');
 		expect(mod.createNodeAdapter).toBeDefined();
 		expect(mod.ExitError).toBeDefined();
 	});
 
 	it('exports test adapter from testkit barrel', async () => {
-		const mod = await import('../testkit.ts');
+		const mod = await import('#dreamcli/testkit');
 		expect(mod.createTestAdapter).toBeDefined();
 	});
 });

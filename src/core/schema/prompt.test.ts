@@ -431,7 +431,7 @@ describe('public surface exports', () => {
 	});
 
 	it('prompt types are re-exported from public surface', async () => {
-		const dreamcli = await import('../../index.ts');
+		const dreamcli = await import('#dreamcli');
 		expect(dreamcli).toBeDefined();
 	});
 });

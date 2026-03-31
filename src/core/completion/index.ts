@@ -9,7 +9,7 @@
  * @module dreamcli/core/completion
  */
 
-import type { CLISchema } from '../cli/index.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
 import { generateBashCompletion } from './shells/bash.ts';
 import { generateFishCompletion } from './shells/fish.ts';
 import { generatePowerShellCompletion } from './shells/powershell.ts';

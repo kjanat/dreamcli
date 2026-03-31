@@ -3,8 +3,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CLISchema } from '../cli/index.ts';
-import type { ActivityEvent, CommandArgEntry, CommandSchema, FlagSchema } from '../schema/index.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
+import type {
+	ActivityEvent,
+	CommandArgEntry,
+	CommandSchema,
+	FlagSchema,
+} from '#internals/core/schema/index.ts';
 import { generateInputSchema, generateSchema } from './index.ts';
 
 // ===================================================================
@@ -93,7 +98,7 @@ function minimalCLI(overrides: MinimalCLIOverrides = {}): CLISchema {
 /** Shorthand for creating a CommandArgEntry. */
 function argEntry(
 	name: string,
-	overrides: Partial<import('../schema/index.ts').ArgSchema> = {},
+	overrides: Partial<import('#internals/core/schema/index.ts').ArgSchema> = {},
 ): CommandArgEntry {
 	return {
 		name,
