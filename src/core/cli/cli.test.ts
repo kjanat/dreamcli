@@ -148,12 +148,20 @@ describe('--version flag', () => {
 		expect(result.stdout).toEqual(['1.0.0\n']);
 	});
 
-	it('outputs nothing when version is not set', async () => {
-		const app = cli('mycli');
-		const result = await app.execute(['--version']);
+	it('does not swallow --version when no version is configured', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['deploy', '--version']);
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual([]);
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Unknown flag --version');
+	});
+
+	it('does not swallow -V when the default command handles argv', async () => {
+		const app = cli('mycli').default(deployCommand());
+		const result = await app.execute(['-V']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Unknown flag -V');
 	});
 
 	it('--version takes precedence over commands', async () => {

@@ -861,10 +861,11 @@ class CLIBuilder {
 		};
 
 		// -- Root --version -------------------------------------------------------
-		if (filteredArgv.includes('--version') || filteredArgv.includes('-V')) {
-			if (this.schema.version !== undefined) {
-				out.log(this.schema.version);
-			}
+		if (
+			this.schema.version !== undefined &&
+			(filteredArgv.includes('--version') || filteredArgv.includes('-V'))
+		) {
+			out.log(this.schema.version);
 			return buildResult(0, captured, undefined);
 		}
 
