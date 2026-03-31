@@ -89,6 +89,7 @@ interface MinimalSchemaOverrides {
 function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	return {
 		name: overrides.name ?? 'testcli',
+		inheritName: false,
 		version: 'version' in overrides ? overrides.version : '1.0.0',
 		description: 'description' in overrides ? overrides.description : 'A test CLI',
 		commands: overrides.commands ?? [],

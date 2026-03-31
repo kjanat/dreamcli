@@ -175,6 +175,26 @@ describe('E2E — bash completion via .completions()', () => {
 		expect(script).toContain('--help');
 		expect(script).not.toContain('--version');
 	});
+
+	it('uses the inherited runtime name in generated scripts', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', '/usr/bin/xxxhotbabe.ts', 'completions', 'bash'],
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli({ inherit: true }).command(deployCommand()).completions();
+
+		try {
+			await app.run({ adapter });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		const script = stdoutLines.join('');
+		expect(script).toContain('# Bash completion for xxxhotbabe.ts');
+		expect(script).toContain('source <(xxxhotbabe.ts completions bash)');
+	});
 });
 
 // ===================================================================

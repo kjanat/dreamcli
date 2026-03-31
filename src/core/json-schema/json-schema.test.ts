@@ -79,6 +79,7 @@ interface MinimalCLIOverrides {
 function minimalCLI(overrides: MinimalCLIOverrides = {}): CLISchema {
 	return {
 		name: overrides.name ?? 'test-cli',
+		inheritName: false,
 		version: overrides.version ?? undefined,
 		description: overrides.description ?? undefined,
 		commands: overrides.commands ?? [],

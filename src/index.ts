@@ -20,6 +20,7 @@
 
 export type {
 	BeforeParseParams,
+	CLIOptions,
 	CLIPlugin,
 	CLIPluginHooks,
 	CLIRunOptions,

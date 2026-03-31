@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { createTestAdapter, ExitError } from '../../runtime/index.ts';
 import { ParseError } from '../errors/index.ts';
 import { arg } from '../schema/arg.ts';
 import type { CommandMeta } from '../schema/command.ts';
@@ -67,6 +68,19 @@ describe('cli() factory', () => {
 		const app = cli('mycli');
 		expect(app).toBeInstanceOf(CLIBuilder);
 		expect(app.schema.name).toBe('mycli');
+	});
+
+	it('accepts an options object with an explicit name', () => {
+		const app = cli({ name: 'mycli' });
+		expect(app).toBeInstanceOf(CLIBuilder);
+		expect(app.schema.name).toBe('mycli');
+		expect(app.schema.inheritName).toBe(false);
+	});
+
+	it('enables runtime name inheritance from the options object', () => {
+		const app = cli({ inherit: true });
+		expect(app.schema.name).toBe('cli');
+		expect(app.schema.inheritName).toBe(true);
 	});
 
 	it('starts with undefined version and description', () => {
@@ -221,6 +235,51 @@ describe('root help', () => {
 
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout.join('')).toContain('Commands:');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Runtime name inheritance
+// ---------------------------------------------------------------------------
+
+describe('CLIBuilder.run — runtime name inheritance', () => {
+	it('uses the invoked entry basename in root help during .run()', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', '/usr/bin/xxxhotbabe.ts', '--help'],
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli({ inherit: true }).command(deployCommand());
+
+		try {
+			await app.run({ adapter });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		const output = stdoutLines.join('');
+		expect(output).toContain('Usage: xxxhotbabe.ts <command> [options]');
+		expect(output).not.toContain('Usage: cli <command> [options]');
+	});
+
+	it('falls back to the configured name when no invocation name can be inferred', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['deno', 'run', '--help'],
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli({ name: 'fallback', inherit: true }).command(deployCommand());
+
+		try {
+			await app.run({ adapter });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		const output = stdoutLines.join('');
+		expect(output).toContain('Usage: fallback <command> [options]');
 	});
 });
 

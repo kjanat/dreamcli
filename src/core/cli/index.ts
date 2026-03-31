@@ -93,8 +93,14 @@ function eraseCommand<
  * Built incrementally by `CLIBuilder`.
  */
 interface CLISchema {
-	/** Program name (used in help text and usage line). */
+	/** Program name (used in help text, usage lines, and completion scripts). */
 	readonly name: string;
+	/**
+	 * Whether `.run()` should replace `name` with the invoked program name.
+	 *
+	 * Set via the `cli({ inherit: true })` factory form.
+	 */
+	readonly inheritName: boolean;
 	/** Program version (shown by `--version`). */
 	readonly version: string | undefined;
 	/** Program description (shown in root help). */
@@ -799,8 +805,10 @@ class CLIBuilder {
 					.env('SHELL')
 					.describe(`Target shell (${SHELLS.join(', ')})`),
 			)
-			.action(({ args, out }) => {
-				const script = generateCompletion(cliSchema, args.shell, completionOptions);
+			.action(({ args, meta, out }) => {
+				const completionSchema =
+					meta.bin === cliSchema.name ? cliSchema : { ...cliSchema, name: meta.bin };
+				const script = generateCompletion(completionSchema, args.shell, completionOptions);
 				if (out.jsonMode) {
 					out.json({ shell: args.shell, script });
 				} else {
@@ -1031,6 +1039,7 @@ class CLIBuilder {
 	 */
 	async run(options?: CLIRunOptions): Promise<never> {
 		const adapter = options?.adapter ?? createAdapter();
+		const inheritedName = this.schema.inheritName ? inferInvocationName(adapter.argv) : undefined;
 
 		const rawArgv = adapter.argv.slice(2);
 
@@ -1093,7 +1102,7 @@ class CLIBuilder {
 		// Package.json discovery (only when .packageJson() was called)
 		// Skip for completions subcommand — no metadata needed.
 		const packageJsonSettings = this.schema.packageJsonSettings;
-		const effectiveBuilder =
+		const builderWithPackageJson =
 			packageJsonSettings !== undefined && !isCompletions
 				? await (async (): Promise<CLIBuilder> => {
 						const pkg = await discoverPackageJson(adapter);
@@ -1114,6 +1123,10 @@ class CLIBuilder {
 						});
 					})()
 				: this;
+		const effectiveBuilder =
+			inheritedName !== undefined
+				? new CLIBuilder({ ...builderWithPackageJson.schema, name: inheritedName })
+				: builderWithPackageJson;
 
 		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
 		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)
@@ -1176,14 +1189,89 @@ function buildResult(
 	};
 }
 
+const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);
+
+/** Extract the final path segment from a path-like or URL-like string. */
+function basename(input: string): string | undefined {
+	const trimmed = input.replace(/[\\/]+$/g, '');
+	if (trimmed.length === 0) return undefined;
+	const slashIdx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+	const name = slashIdx >= 0 ? trimmed.slice(slashIdx + 1) : trimmed;
+	return name.length > 0 ? name : undefined;
+}
+
+/** Detect known interpreter/runtime binary names. */
+function isRuntimeBinaryName(input: string): boolean {
+	const normalized = input.toLowerCase().replace(/\.exe$/i, '');
+	return RUNTIME_BINARIES.has(normalized);
+}
+
+/**
+ * Infer the displayed CLI name from the current runtime invocation.
+ *
+ * Resolution order:
+ * 1. Node/Bun/tsx-style interpreters → script/entry argument basename
+ * 2. Standalone executable invocations → argv[0] basename
+ * 3. `undefined` when no stable entrypoint can be inferred (e.g. Deno synthetic argv)
+ */
+function inferInvocationName(argv: readonly string[]): string | undefined {
+	const argv0 = argv[0];
+	const argv1 = argv[1];
+	const runtimeName = argv0 !== undefined ? basename(argv0) : undefined;
+
+	if (runtimeName !== undefined && isRuntimeBinaryName(runtimeName)) {
+		if (runtimeName === 'bun' && argv1 === 'run') {
+			const entryArg = argv[2];
+			if (entryArg === undefined || entryArg.startsWith('-')) return undefined;
+			return basename(entryArg);
+		}
+		if (runtimeName === 'deno' && argv1 === 'run') return undefined;
+		if (argv1 === undefined || argv1.startsWith('-')) return undefined;
+		return basename(argv1);
+	}
+
+	return argv0 !== undefined ? basename(argv0) : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Factory function
 // ---------------------------------------------------------------------------
 
 /**
+ * Options for the `cli({...})` factory form.
+ *
+ * This form is useful when the displayed CLI name should be inferred from the
+ * current runtime invocation instead of always being hard-coded.
+ */
+interface CLIOptions {
+	/**
+	 * Explicit fallback CLI name.
+	 *
+	 * Used by `.execute()`, and by `.run()` when runtime name inheritance is
+	 * disabled or the invocation name cannot be inferred.
+	 *
+	 * @default 'cli'
+	 */
+	readonly name?: string;
+
+	/**
+	 * Replace `name` with the invoked program basename during `.run()`.
+	 *
+	 * Examples:
+	 * - `node ./bin/mycli.ts` → `mycli.ts`
+	 * - `/usr/local/bin/mycli` → `mycli`
+	 *
+	 * @default false
+	 */
+	readonly inherit?: boolean;
+}
+
+/**
  * Create a new CLI program builder.
  *
- * @param name - The program name (used in help text and usage line).
+ * The CLI name is used in help text, usage lines, and generated completion scripts.
+ *
+ * @param nameOrOptions - Either the explicit CLI name or factory options.
  *
  * @example
  * ```ts
@@ -1193,11 +1281,22 @@ function buildResult(
  *   .command(deploy)
  *   .command(login)
  *   .run();
+ *
+ * cli({ inherit: true })
+ *   .command(deploy)
+ *   .run();
  * ```
  */
-function cli(name: string): CLIBuilder {
+
+function cli(name: string): CLIBuilder;
+function cli(options: CLIOptions): CLIBuilder;
+function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
+	const name = typeof nameOrOptions === 'string' ? nameOrOptions : (nameOrOptions.name ?? 'cli');
+	const inheritName = typeof nameOrOptions === 'string' ? false : (nameOrOptions.inherit ?? false);
+
 	return new CLIBuilder({
 		name,
+		inheritName,
 		version: undefined,
 		description: undefined,
 		commands: [],
@@ -1219,5 +1318,5 @@ export type {
 	PluginCommandContext,
 	ResolvedCommandParams,
 } from './plugin.ts';
-export type { CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };
+export type { CLIOptions, CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };
 export { CLIBuilder, cli, formatRootHelp, plugin };
