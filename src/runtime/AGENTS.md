@@ -9,17 +9,16 @@ adapter factories, `ExitError`, detection. `createTestAdapter`/`TestAdapterOptio
 
 ## FILES
 
-| File                 | Status     | Lines | Purpose                                                                |
-| -------------------- | ---------- | ----: | ---------------------------------------------------------------------- |
-| `adapter.ts`         | **Active** |   120 | `RuntimeAdapter` interface — process/env/IO abstraction                |
-| `auto.ts`            | **Active** |    64 | `createAdapter()` — auto-detecting adapter factory                     |
-| `node.ts`            | **Active** |   230 | `createNodeAdapter()` — Node.js implementation                         |
-| `bun.ts`             | **Active** |    20 | `createBunAdapter()` — delegates to Node adapter                       |
-| `deno.ts`            | **Active** |   318 | `createDenoAdapter()` — Deno namespace implementation                  |
-| `detect.ts`          | **Active** |    90 | `detectRuntime()` — Bun/Deno/Node feature detection                    |
-| `node-builtins.d.ts` | Types      |    45 | `@internal` — ambient decls for `node:readline`, `node:fs/promises`    |
-| `deno-builtins.d.ts` | Types      |    30 | `@internal` — ambient decls for TextEncoder/TextDecoder/ReadableStream |
-| `index.ts`           | Barrel     |    30 | Re-exports `RuntimeAdapter`, adapters, `ExitError`                     |
+| File                 | Status     | Lines | Purpose                                                             |
+| -------------------- | ---------- | ----: | ------------------------------------------------------------------- |
+| `adapter.ts`         | **Active** |   120 | `RuntimeAdapter` interface — process/env/IO abstraction             |
+| `auto.ts`            | **Active** |    64 | `createAdapter()` — auto-detecting adapter factory                  |
+| `node.ts`            | **Active** |   230 | `createNodeAdapter()` — Node.js implementation                      |
+| `bun.ts`             | **Active** |    20 | `createBunAdapter()` — delegates to Node adapter                    |
+| `deno.ts`            | **Active** |   318 | `createDenoAdapter()` — Deno namespace implementation               |
+| `detect.ts`          | **Active** |    90 | `detectRuntime()` — Bun/Deno/Node feature detection                 |
+| `node-builtins.d.ts` | Types      |    45 | `@internal` — ambient decls for `node:readline`, `node:fs/promises` |
+| `index.ts`           | Barrel     |    30 | Re-exports `RuntimeAdapter`, adapters, `ExitError`                  |
 
 ## `RuntimeAdapter` INTERFACE
 
@@ -72,4 +71,4 @@ joinPath(...segments: string[]): string
 - Deno.args pre-strips binary/script — adapter prepends synthetic `['deno', 'run']` for argv parity
 - Permission-safe: env/cwd catch `PermissionDenied`, readFile returns null for both `NotFound` and
   `PermissionDenied`
-- `deno-builtins.d.ts` needed because `lib: ["ES2022"]` excludes web platform APIs
+- Deno/web globals used by `deno.ts` come from `deno.jsonc` (`lib: ["deno.ns", "deno.shared_globals"]`)
