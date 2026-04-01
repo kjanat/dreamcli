@@ -293,7 +293,9 @@ This assumes each protected command resolves a `token` value first, typically vi
 Returning `{ token }` merges that value into `ctx` downstream.
 Now wire it up:
 
-```ts
+::: code-group
+
+```ts [derive()]
 const prList = command('list')
   .description('List pull requests')
   .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
@@ -306,10 +308,40 @@ const prList = command('list')
   });
 ```
 
+```ts [middleware()]
+import { CLIError, middleware } from 'dreamcli';
+
+const requireAuth = middleware<{ token: string }>(({ flags, next }) => {
+  if (typeof flags.token !== 'string') {
+    throw new CLIError('Authentication required', {
+      code: 'AUTH_REQUIRED',
+      suggest: 'Run `gh auth login` or set GH_TOKEN',
+      exitCode: 1,
+    });
+  }
+
+  return next({ token: flags.token });
+});
+
+const prList = command('list')
+  .description('List pull requests')
+  .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
+  .middleware(requireAuth)
+  .flag('state', ...)
+  .action(({ flags, ctx, out }) => {
+    out.info(`Authenticated with ${ctx.token.slice(0, 8)}...`);
+    // ...list PRs...
+  });
+```
+
+:::
+
 If no token resolves, the derive handler throws before the action runs.
 No token check needed in the handler.
 The auth commands (`login`, `status`) don't use derive, so they work without a token.
 
+Technically you could also do this with middleware, but it has to narrow `flags.token` itself
+because middleware is reusable and command-agnostic.
 Use `derive()` when you need typed resolved input.
 Use `middleware()` when you need to wrap downstream execution for timing, logging, retries, cleanup, or error boundaries.
 
