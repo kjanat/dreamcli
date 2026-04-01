@@ -32,7 +32,12 @@
  */
 type WriteFn = (data: string) => void;
 
-/** Write a message followed by a newline. */
+/**
+ * Write a message followed by a newline.
+ *
+ * @param write   - The underlying write function.
+ * @param message - The text to write.
+ */
 function writeLine(write: WriteFn, message: string): void {
 	write(`${message}\n`);
 }

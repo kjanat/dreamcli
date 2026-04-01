@@ -8,7 +8,12 @@
  * @internal
  */
 
-/** Format an unknown runtime value for human-readable output. */
+/**
+ * Format an unknown runtime value for human-readable output.
+ *
+ * @param value - The value to format (any type).
+ * @returns A string representation suitable for table cells and help text.
+ */
 function formatDisplayValue(value: unknown): string {
 	if (value === null || value === undefined) return '';
 

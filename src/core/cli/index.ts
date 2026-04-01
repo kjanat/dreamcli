@@ -341,6 +341,11 @@ function extractConfigFlag(argv: readonly string[]): {
 /**
  * Build {@link CommandMeta} from CLI-level schema and the leaf command name.
  *
+ * @param cliSchema - Root CLI schema providing program name and version.
+ * @param helpOptions - Help formatting options; `binName` overrides the program name when set.
+ * @param commandName - Name of the matched leaf command.
+ * @returns Metadata record consumed by command actions and help formatters.
+ *
  * @internal
  */
 function buildMeta(
@@ -359,8 +364,13 @@ function buildMeta(
 // --- Command run options builder
 
 /**
- * Build `RunOptions` from `CLIRunOptions`, handling
- * `exactOptionalPropertyTypes` by conditionally spreading each field.
+ * Build `RunOptions` from `CLIRunOptions`, conditionally spreading each
+ * field to satisfy `exactOptionalPropertyTypes`.
+ *
+ * @param options - CLI-level run options (may be `undefined` for defaults).
+ * @param helpOptions - Help formatting options forwarded to commands.
+ * @param meta - Optional command metadata (omitted for root-level dispatch).
+ * @returns Options record ready for `ErasedCommand._execute()`.
  *
  * @internal
  */
@@ -386,6 +396,14 @@ function buildCommandRunOptions(
 	};
 }
 
+/**
+ * Index commands by name and alias for O(1) dispatch lookup.
+ *
+ * @param commands - Registered top-level commands.
+ * @returns Map keyed by command name and every alias.
+ *
+ * @internal
+ */
 function buildRootCommandMap(
 	commands: readonly ErasedCommand[],
 ): ReadonlyMap<string, ErasedCommand> {
@@ -399,6 +417,15 @@ function buildRootCommandMap(
 	return rootCommands;
 }
 
+/**
+ * Check whether a single command's args require stdin for the given argv.
+ *
+ * @param schema - Command schema whose args are inspected for `.stdin()` configuration.
+ * @param argv - Remaining argv tokens after dispatch (excludes the command name).
+ * @returns `true` when at least one arg has `stdinMode` and its parsed value is absent or `'-'`.
+ *
+ * @internal
+ */
 function commandInvocationNeedsStdin(schema: CommandSchema, argv: readonly string[]): boolean {
 	if (argv.includes('--help') || argv.includes('-h')) {
 		return false;
@@ -418,6 +445,20 @@ function commandInvocationNeedsStdin(schema: CommandSchema, argv: readonly strin
 	}
 }
 
+/**
+ * Determine whether the full CLI invocation will need stdin data.
+ *
+ * Dispatches argv through the command tree to find the target command,
+ * then delegates to {@link commandInvocationNeedsStdin}. Short-circuits
+ * to `false` for `--help`, `--version`, virtual `help`, and empty argv
+ * without a default command.
+ *
+ * @param builder - CLI builder whose schema and command tree are inspected.
+ * @param argv - Raw argv tokens (after `--json` stripping).
+ * @returns `true` when the resolved command has args that require stdin.
+ *
+ * @internal
+ */
 function invocationNeedsStdin(builder: CLIBuilder, argv: readonly string[]): boolean {
 	const filteredArgv = argv.includes('--json') ? argv.filter((arg) => arg !== '--json') : argv;
 
@@ -741,6 +782,8 @@ class CLIBuilder {
 	 * Plugins run in registration order. At each lifecycle stage, all hooks for
 	 * the first plugin run before hooks for the second plugin, and so on.
 	 *
+	 * @param definition - A frozen {@link CLIPlugin} created by {@link plugin}.
+	 * @returns The builder (for chaining).
 	 * @see {@link plugin} to construct plugin definitions.
 	 */
 	plugin(definition: CLIPlugin): CLIBuilder {
@@ -1200,7 +1243,16 @@ class CLIBuilder {
 
 // --- Helpers
 
-/** Build a `RunResult` from parts. */
+/**
+ * Assemble a {@link RunResult} from its constituent parts.
+ *
+ * @param exitCode - Process exit code (0 = success).
+ * @param captured - Captured stdout/stderr/activity buffers.
+ * @param error - The originating error, if any.
+ * @returns Structured run result.
+ *
+ * @internal
+ */
 function buildResult(
 	exitCode: number,
 	captured: CapturedOutput,
@@ -1217,7 +1269,14 @@ function buildResult(
 
 const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);
 
-/** Extract the final path segment from a path-like or URL-like string. */
+/**
+ * Extract the final path segment from a path-like or URL-like string.
+ *
+ * @param input - Forward- or backslash-delimited path.
+ * @returns Trailing segment, or `undefined` when the input is empty or slash-only.
+ *
+ * @internal
+ */
 function basename(input: string): string | undefined {
 	const trimmed = input.replace(/[\\/]+$/g, '');
 	if (trimmed.length === 0) return undefined;
@@ -1226,7 +1285,14 @@ function basename(input: string): string | undefined {
 	return name.length > 0 ? name : undefined;
 }
 
-/** Detect known interpreter/runtime binary names. */
+/**
+ * Detect known interpreter/runtime binary names (node, bun, deno, tsx).
+ *
+ * @param input - Candidate binary name, with or without `.exe` suffix.
+ * @returns `true` when `input` matches a known runtime after normalization.
+ *
+ * @internal
+ */
 function isRuntimeBinaryName(input: string): boolean {
 	const normalized = input.toLowerCase().replace(/\.exe$/i, '');
 	return RUNTIME_BINARIES.has(normalized);
@@ -1239,6 +1305,11 @@ function isRuntimeBinaryName(input: string): boolean {
  * 1. Node/Bun/tsx-style interpreters → script/entry argument basename
  * 2. Standalone executable invocations → argv[0] basename
  * 3. `undefined` when no stable entrypoint can be inferred (e.g. Deno synthetic argv)
+ *
+ * @param argv - Full process argv (typically `process.argv` or adapter equivalent).
+ * @returns Inferred program name, or `undefined` when inference is ambiguous.
+ *
+ * @internal
  */
 function inferInvocationName(argv: readonly string[]): string | undefined {
 	const argv0 = argv[0];

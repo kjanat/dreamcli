@@ -5,6 +5,9 @@
  *
  * Finds the last `compgen -W '...' -- "$cur"` block and returns the
  * space-separated words as an array.
+ *
+ * @param script - The full generated bash completion script.
+ * @returns The root-level completion words.
  */
 function extractBashRootWords(script: string): readonly string[] {
 	const matches = [...script.matchAll(/compgen -W '([^']*)' -- "\$cur"/g)];
@@ -21,6 +24,7 @@ function extractBashRootWords(script: string): readonly string[] {
  *
  * @param script - The full generated zsh completion script.
  * @param funcName - The function name to locate (e.g. `'_mycli'`).
+ * @returns The function body (from signature through closing brace).
  */
 function extractZshRootFunction(script: string, funcName: string): string {
 	const start = script.indexOf(`${funcName}() {`);

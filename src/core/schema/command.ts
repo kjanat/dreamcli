@@ -149,12 +149,10 @@ interface Out {
 	/**
 	 * Emit a structured JSON value to stdout.
 	 *
-	 * - In `--json` mode: serialises `value` as JSON to stdout.
-	 * - In normal mode: serialises `value` as JSON to stdout.
-	 *
-	 * Handlers should prefer `json()` over `log(JSON.stringify(...))` so
-	 * the output channel can enforce consistent formatting and future
-	 * features (pretty-print in TTY, streaming JSON, etc.).
+	 * Always serialises `value` as JSON to stdout regardless of output
+	 * mode. Prefer this over `log(JSON.stringify(...))` so the output
+	 * channel can enforce consistent formatting and future features
+	 * (pretty-print in TTY, streaming JSON, etc.).
 	 */
 	json(value: unknown): void;
 	/**

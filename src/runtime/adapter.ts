@@ -237,25 +237,6 @@ class ExitError extends Error {
 /** Noop writer — silently discards output. */
 const noopWrite: WriteFn = () => {};
 
-/**
- * Create a test adapter with injectable state.
- *
- * Provides sensible defaults for testing: empty env, noop I/O, non-TTY,
- * and an `exit` that throws `ExitError` instead of killing the process.
- *
- * @param options - Optional overrides for any adapter field.
- * @returns A `RuntimeAdapter` suitable for test scenarios.
- *
- * @example
- * ```ts
- * const adapter = createTestAdapter({
- *   argv: ['node', 'cli.js', 'deploy', '--force'],
- *   env: { DEPLOY_REGION: 'us' },
- * });
- *
- * const result = await cli('mycli').run({ adapter });
- * ```
- */
 /** Noop reader — returns `null` (EOF) immediately. */
 const eofRead: ReadFn = () => Promise.resolve(null);
 

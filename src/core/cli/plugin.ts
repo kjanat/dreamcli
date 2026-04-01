@@ -93,6 +93,8 @@ interface CLIPlugin {
  *
  * cli('mycli').plugin(trace).command(deploy);
  * ```
+ *
+ * @returns A frozen {@link CLIPlugin} definition.
  */
 function plugin(hooks: CLIPluginHooks, name?: string): CLIPlugin {
 	const frozenHooks = Object.freeze({ ...hooks });

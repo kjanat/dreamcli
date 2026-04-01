@@ -16,6 +16,7 @@ import { resolveRootSurface } from './root-surface.ts';
 // Re-use CLISchema inline to avoid circular import through the barrel.
 // Only the shape matters — we read `.name`, `.version`, `.description`, `.commands`,
 // `.defaultCommand`.
+/** Structural subset of `CLISchema` — avoids circular imports through the barrel. */
 interface CLISchemaLike {
 	readonly name: string;
 	readonly version: string | undefined;
@@ -82,6 +83,15 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	return `${sections.join('\n\n')}\n`;
 }
 
+/**
+ * Assemble the header, description, usage, and commands sections for root help.
+ *
+ * @param schema - The CLI schema.
+ * @param visibleCommands - Non-hidden top-level commands.
+ * @param width - Terminal width for text wrapping.
+ * @returns Ordered help sections (joined later with blank lines).
+ * @internal
+ */
 function buildRootSections(
 	schema: CLISchemaLike,
 	visibleCommands: readonly CommandSchema[],
@@ -116,6 +126,14 @@ function buildRootSections(
 	return sections;
 }
 
+/**
+ * Return the usage-line placeholder for commands (`<command>`, `[command]`, or empty).
+ *
+ * @param visibleCommands - Non-hidden top-level commands.
+ * @param defaultCommand - The default command, if any.
+ * @returns Placeholder string for the usage line.
+ * @internal
+ */
 function commandPlaceholder(
 	visibleCommands: readonly CommandSchema[],
 	defaultCommand: CommandSchema | undefined,
@@ -127,6 +145,15 @@ function commandPlaceholder(
 	return defaultCommand !== undefined ? '[command]' : '<command>';
 }
 
+/**
+ * Format the "Commands:" section with aligned names and descriptions.
+ *
+ * @param visibleCommands - Non-hidden top-level commands.
+ * @param defaultName - Name of the default command (appends " (default)" tag).
+ * @param width - Terminal width for description wrapping.
+ * @returns Formatted commands block.
+ * @internal
+ */
 function formatRootCommandsSection(
 	visibleCommands: readonly CommandSchema[],
 	defaultName: string | undefined,
@@ -162,6 +189,14 @@ function formatRootCommandsSection(
 	return lines.join('\n');
 }
 
+/**
+ * Merge root and default-command usage lines into a single block.
+ *
+ * @param rootUsage - The root usage line (e.g. `Usage: mycli [command] [options]`).
+ * @param commandUsage - The default command's usage line.
+ * @returns Combined usage block with aligned continuation.
+ * @internal
+ */
 function mergeUsageSections(rootUsage: string, commandUsage: string): string {
 	const usagePrefix = 'Usage: ';
 	const commandSuffix = commandUsage.startsWith(usagePrefix)
@@ -172,13 +207,26 @@ function mergeUsageSections(rootUsage: string, commandUsage: string): string {
 
 // --- Text helpers (duplicated from help module to avoid coupling)
 
-/** Pad `text` to `length` with trailing spaces. */
+/**
+ * Pad `text` to `length` with trailing spaces.
+ *
+ * @param text - The string to pad.
+ * @param length - Target width.
+ * @returns Padded string.
+ */
 function padEnd(text: string, length: number): string {
 	if (text.length >= length) return text;
 	return text + ' '.repeat(length - text.length);
 }
 
-/** Wrap text to `width`, preserving leading indent on continuation lines. */
+/**
+ * Wrap text to `width`, preserving leading indent on continuation lines.
+ *
+ * @param text - The text to wrap.
+ * @param width - Maximum line width.
+ * @param indent - Indentation for continuation lines.
+ * @returns Wrapped text with continuation indentation.
+ */
 function wrapText(text: string, width: number, indent: number): string {
 	if (text.length + indent <= width) return text;
 

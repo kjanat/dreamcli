@@ -237,6 +237,14 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param value - Fallback value used when no source provides one.
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.number().default(8080).describe('Port to listen on')
+	 *
+	 * // $ mycli serve            → port = 8080
+	 * // $ mycli serve --port 443 → port = 443
+	 * ```
 	 */
 	default<V extends C['valueType']>(value: V): FlagBuilder<WithPresence<C, 'defaulted'>> {
 		return new FlagBuilder({
@@ -251,6 +259,16 @@ class FlagBuilder<C extends FlagConfig> {
 	 * will emit a `ValidationError` before the action handler runs.
 	 *
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().required().describe('Deploy target')
+	 *
+	 * // $ mycli deploy
+	 * // #   → Error: Missing required flag --target
+	 * // $ mycli deploy --target staging
+	 * // #   → target = 'staging'
+	 * ```
 	 */
 	required(): FlagBuilder<WithPresence<C, 'required'>> {
 		return new FlagBuilder({
@@ -267,6 +285,14 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param name - Single-char short alias or alternative long name.
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.boolean().alias('v').describe('Enable verbose output')
+	 *
+	 * // $ mycli build -v         → verbose = true
+	 * // $ mycli build --verbose  → verbose = true
+	 * ```
 	 */
 	alias(name: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -280,6 +306,14 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param varName - Environment variable name (e.g. `'PORT'`).
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().env('API_KEY').describe('Service API key')
+	 *
+	 * // $ API_KEY=sk-123 mycli request   → apiKey = 'sk-123'
+	 * // $ mycli request --api-key sk-456 → apiKey = 'sk-456' (CLI wins)
+	 * ```
 	 */
 	env(varName: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -293,6 +327,16 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param path - Dotted config key (e.g. `'deploy.region'`).
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().config('deploy.region').default('us-east-1')
+	 * // Config file: { "deploy": { "region": "eu-west-1" } }
+	 * // $ mycli deploy
+	 * // #   → region = 'eu-west-1' (from config)
+	 * // $ mycli deploy --region ap-south-1
+	 * // #   → CLI flag wins
+	 * ```
 	 */
 	config(path: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -324,6 +368,14 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param config - {@link PromptConfig} describing the interactive prompt.
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().prompt({ kind: 'input', message: 'Enter value:' })
+	 *
+	 * // $ mycli init              → prompts "Enter value:" interactively
+	 * // $ mycli init --name foo   → skips prompt, uses CLI value
+	 * ```
 	 */
 	prompt(config: PromptConfig): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -342,6 +394,14 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param message - Optional migration reason/guidance.
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().deprecated('Use --target instead')
+	 *
+	 * // $ mycli deploy --dest staging
+	 * // ⚠ --dest is deprecated: Use --target instead
+	 * ```
 	 */
 	deprecated(message?: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -360,6 +420,16 @@ class FlagBuilder<C extends FlagConfig> {
 	 * Does not change the flag's type-level config — it's metadata only.
 	 *
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.boolean().alias('v').propagate().describe('Enable verbose output')
+	 *
+	 * // $ mycli --verbose deploy staging
+	 * // #   → verbose = true in deploy handler
+	 * // $ mycli deploy --verbose staging
+	 * // #   → same, inherited from parent
+	 * ```
 	 */
 	propagate(): FlagBuilder<C> {
 		return new FlagBuilder({

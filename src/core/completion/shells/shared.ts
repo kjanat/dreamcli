@@ -123,6 +123,13 @@ function resolveRootCompletionSurface(
 	};
 }
 
+/**
+ * Build the synthetic root-level flags (`--help`, optionally `--version`).
+ *
+ * @param hasVersion - Whether to include a `--version` flag.
+ * @returns A record of root flag schemas.
+ * @internal
+ */
 function createRootFlags(hasVersion: boolean): Readonly<Record<string, FlagSchema>> {
 	return {
 		help: createSyntheticRootFlag('Show help text'),
@@ -130,6 +137,13 @@ function createRootFlags(hasVersion: boolean): Readonly<Record<string, FlagSchem
 	};
 }
 
+/**
+ * Create a minimal boolean {@link FlagSchema} for a synthetic root flag.
+ *
+ * @param description - Help text for the flag.
+ * @returns A complete flag schema with all optional fields defaulted.
+ * @internal
+ */
 function createSyntheticRootFlag(description: string): FlagSchema {
 	return {
 		kind: 'boolean',

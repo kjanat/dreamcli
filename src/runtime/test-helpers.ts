@@ -13,6 +13,8 @@ import { vi } from 'vitest';
  * Tests that exercise the Deno adapter path through `createAdapter()`
  * can pass this namespace via the injected `globals` parameter instead
  * of mutating `globalThis.Deno`.
+ *
+ * @returns A mock Deno namespace with stubbed I/O, env, and exit.
  */
 export function createMockDenoNamespace() {
 	return {

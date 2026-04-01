@@ -377,12 +377,18 @@ class CaptureOutputChannel extends OutputChannel {
 		super(options);
 	}
 
-	/** Return a {@link CaptureSpinnerHandle} that records events into the activity log. @override */
+	/**
+	 * Return a {@link CaptureSpinnerHandle} that records events into the activity log.
+	 * @override
+	 */
 	override spinner(text: string, _options?: SpinnerOptions): SpinnerHandle {
 		return new CaptureSpinnerHandle(text, this.activity);
 	}
 
-	/** Return a {@link CaptureProgressHandle} that records events into the activity log. @override */
+	/**
+	 * Return a {@link CaptureProgressHandle} that records events into the activity log.
+	 * @override
+	 */
 	override progress(opts: ProgressOptions): ProgressHandle {
 		return new CaptureProgressHandle(opts, this.activity);
 	}

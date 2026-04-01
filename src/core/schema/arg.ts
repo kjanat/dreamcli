@@ -365,6 +365,13 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Only one arg per command may enable stdin mode.
 	 *
 	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().describe('Input text').stdin()
+	 * // $ echo "hello" | mycli transform   → input = 'hello' (from stdin)
+	 * // $ mycli transform "hello"          → input = 'hello' (from CLI)
+	 * ```
 	 */
 	stdin(): ArgBuilder<C> {
 		return new ArgBuilder({

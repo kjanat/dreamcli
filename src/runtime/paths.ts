@@ -8,7 +8,14 @@
  * @module dreamcli/runtime/paths
  */
 
-/** @internal */
+/**
+ * Resolve the user's home directory from environment variables.
+ *
+ * @param env - Environment variable map.
+ * @param isWindows - Whether the platform is Windows.
+ * @returns Absolute path to the home directory.
+ * @internal
+ */
 function resolveHomeDirectory(
 	env: Readonly<Record<string, string | undefined>>,
 	isWindows: boolean,
@@ -23,7 +30,15 @@ function resolveHomeDirectory(
 	return env.HOME || '/';
 }
 
-/** @internal */
+/**
+ * Resolve the user's config directory (`XDG_CONFIG_HOME` / `APPDATA`).
+ *
+ * @param env - Environment variable map.
+ * @param isWindows - Whether the platform is Windows.
+ * @param homedir - Pre-resolved home directory (from {@link resolveHomeDirectory}).
+ * @returns Absolute path to the config directory.
+ * @internal
+ */
 function resolveConfigDirectory(
 	env: Readonly<Record<string, string | undefined>>,
 	isWindows: boolean,
