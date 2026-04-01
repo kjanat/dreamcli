@@ -42,6 +42,19 @@ describe('resolve — stdin args', () => {
 		expect(result.args).toEqual({ target: 'dash-target' });
 	});
 
+	it("falls through from '-' to env and default when stdin has no data", async () => {
+		const { schema, parsed } = parseCommandArg(
+			arg.string().stdin().env('DEPLOY_TARGET').default('default-target'),
+			['-'],
+		);
+
+		const result = await resolve(schema, parsed, {
+			env: { DEPLOY_TARGET: 'env-target' },
+		});
+
+		expect(result.args).toEqual({ target: 'env-target' });
+	});
+
 	it('uses stdin before env for stdin-mode args', async () => {
 		const { schema, parsed } = parseCommandArg(arg.string().stdin().env('DEPLOY_TARGET'), []);
 
