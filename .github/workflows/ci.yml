@@ -43,7 +43,7 @@ jobs:
       matrix:
         include:
           - { runtime: bun, bun-version: latest }
-          - { runtime: node, node-version: 22.2.2 }
+          - { runtime: node, node-version: 22.22.2 }
           - { runtime: node, node-version: latest }
     steps:
       - uses: actions/checkout@v6
