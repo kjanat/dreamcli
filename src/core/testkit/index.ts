@@ -29,7 +29,6 @@ import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve
 import { resolve } from '#internals/core/resolve/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import type {
-	ActionHandler,
 	CommandBuilder,
 	CommandMeta,
 	CommandSchema,
@@ -224,7 +223,7 @@ import type { RunResult } from '#internals/core/schema/run.ts';
  * 2. Parse argv against the command schema
  * 3. Resolve values (CLI → env → config → default)
  * 4. Create a capture output channel
- * 5. Invoke the action handler
+ * 5. Run derive/middleware/action execution steps
  * 6. Return structured result
  *
  * All errors are caught and converted to structured `RunResult`s with
@@ -330,7 +329,7 @@ async function runCommand<
 		// is just a function accepting a plain object. `executeWithMiddleware`
 		// runs the middleware chain then invokes the handler at the end.
 		await runResolvedHooks(options?.plugins, 'beforeAction', resolvedParams);
-		await executeWithMiddleware(cmd.schema, cmd.handler, resolved.flags, resolved.args, out, meta);
+		await executeWithExecutionSteps(cmd, resolved.flags, resolved.args, out, meta);
 		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return buildResult(0, captured, undefined);
@@ -396,11 +395,15 @@ async function runResolvedHooks(
 // ---------------------------------------------------------------------------
 
 /**
- * Execute the middleware chain followed by the action handler.
+ * Execute the derive/middleware chain followed by the action handler.
  *
- * Builds a continuation chain: each middleware's `next()` calls the next
- * middleware, with the final `next()` invoking the action handler.
- * Context accumulates via `{ ...ctx, ...additions }` at each step.
+ * Builds a continuation chain from the registered execution steps, preserving
+ * registration order across `derive()` and `middleware()`.
+ *
+ * - Derive steps run once, may validate/throw, and optionally return context
+ *   additions merged into `ctx`.
+ * - Middleware steps can wrap downstream execution via `next(additions)`.
+ * - The terminal step invokes the action handler with the final accumulated ctx.
  *
  * This is the sole point where we bridge the phantom-type gap. The
  * parse→resolve pipeline guarantees the runtime values match the schema;
@@ -408,19 +411,25 @@ async function runResolvedHooks(
  *
  * @internal
  */
-async function executeWithMiddleware<
+async function executeWithExecutionSteps<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown>,
 >(
-	schema: CommandSchema,
-	handler: ActionHandler<F, A, C>,
+	cmd: CommandBuilder<F, A, C>,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
 	out: Out,
 	meta: CommandMeta,
 ): Promise<void> {
-	const middlewares = schema.middleware;
+	const steps = cmd._executionSteps;
+	const handler = cmd.handler;
+	if (handler === undefined) {
+		throw new CLIError(`Command '${cmd.schema.name}' has no action handler`, {
+			code: 'NO_ACTION',
+			suggest: `Add an .action() handler to the '${cmd.schema.name}' command`,
+		});
+	}
 
 	// Terminal action — receives the final accumulated context.
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
@@ -431,23 +440,44 @@ async function executeWithMiddleware<
 		await (handler as (p: HandlerParams) => void | Promise<void>)(params);
 	};
 
-	// Wrap from back to front so the first registered middleware is outermost.
-	for (let i = middlewares.length - 1; i >= 0; i--) {
-		const mw = middlewares[i];
-		if (mw === undefined) continue; // satisfy noUncheckedIndexedAccess
+	// Wrap from back to front so registration order is preserved.
+	for (let i = steps.length - 1; i >= 0; i--) {
+		const step = steps[i];
+		if (step === undefined) continue; // satisfy noUncheckedIndexedAccess
 		const downstream = chain; // capture for closure
-		chain = async (ctx) => {
-			await mw({
-				args,
-				flags,
-				ctx,
-				out,
-				meta,
-				next: async (additions) => {
+		switch (step.kind) {
+			case 'derive':
+				chain = async (ctx) => {
+					const additions = await step.handler({ args, flags, ctx, out, meta });
+					if (additions === undefined) {
+						await downstream(ctx);
+						return;
+					}
+					if (typeof additions !== 'object' || additions === null || Array.isArray(additions)) {
+						throw new CLIError('derive() must return an object or undefined', {
+							code: 'INVALID_BUILDER_STATE',
+							suggest:
+								'Return an object to add context, or return nothing for validation-only derive handlers',
+						});
+					}
 					await downstream({ ...ctx, ...additions });
-				},
-			});
-		};
+				};
+				break;
+			case 'middleware':
+				chain = async (ctx) => {
+					await step.handler({
+						args,
+						flags,
+						ctx,
+						out,
+						meta,
+						next: async (additions) => {
+							await downstream({ ...ctx, ...additions });
+						},
+					});
+				};
+				break;
+		}
 	}
 
 	// Start with empty context — middleware builds it up.

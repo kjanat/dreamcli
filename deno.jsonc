@@ -2,7 +2,7 @@
 	// https://docs.deno.com/runtime/fundamentals/configuration/
 	"$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
 	"name": "@kjanat/dreamcli",
-	"version": "0.9.1",
+	"version": "1.0.0",
 	"license": "MIT",
 	"tasks": {
 		"check": {

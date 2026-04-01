@@ -1,6 +1,6 @@
 {
 	"name": "dreamcli",
-	"version": "0.9.1",
+	"version": "1.0.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"keywords": [
 		"cli",

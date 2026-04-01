@@ -753,6 +753,15 @@ describe('.command()', () => {
 		expect(parent._subcommands).toHaveLength(1);
 	});
 
+	it('preserves subcommands across .derive()', () => {
+		const parent = command('db')
+			.flag('token', flag.string())
+			.command(command('migrate'))
+			.derive(() => ({ token: 'test' }));
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
 	it('preserves subcommands across .interactive()', () => {
 		const parent = command('db')
 			.flag('env', flag.string())

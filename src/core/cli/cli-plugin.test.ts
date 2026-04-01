@@ -65,6 +65,10 @@ describe('CLIBuilder.plugin() — hook ordering', () => {
 
 		const deploy = command('deploy')
 			.middleware(trace)
+			.derive(() => {
+				order.push('derive');
+				return { ready: true };
+			})
 			.action(() => {
 				order.push('action');
 			});
@@ -96,6 +100,7 @@ describe('CLIBuilder.plugin() — hook ordering', () => {
 			'afterResolve',
 			'beforeAction',
 			'middleware-before',
+			'derive',
 			'action',
 			'middleware-after',
 			'afterAction',

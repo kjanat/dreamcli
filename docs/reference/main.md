@@ -35,6 +35,8 @@ import type {
   CommandSchema,
   CommandMeta,
   DeprecationWarning,
+  DeriveHandler,
+  DeriveParams,
   Out,
   PluginCommandContext,
   ResolvedCommandParams,
@@ -127,7 +129,25 @@ Argument factory:
 
 ### `middleware<Context>(handler)`
 
-Create typed middleware that adds context to the chain.
+Create typed middleware that can wrap downstream execution and add context to the chain.
+
+### `.derive(handler)`
+
+Register a command-scoped typed pre-action handler. Derive runs after resolution, receives typed
+`{ args, flags, ctx, out, meta }`, and may either return `void` for validation-only behavior or
+return an object to merge additional properties into `ctx`.
+
+```ts
+command('deploy')
+  .flag('token', flag.string().env('AUTH_TOKEN'))
+  .derive(({ flags }) => {
+    if (!flags.token) throw new CLIError('Not authenticated');
+    return { token: flags.token };
+  })
+  .action(({ ctx }) => {
+    ctx.token; // string
+  });
+```
 
 ### `plugin(hooks, name?)`
 

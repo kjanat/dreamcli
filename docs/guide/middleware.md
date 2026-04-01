@@ -1,42 +1,35 @@
 # Middleware
 
-Middleware adds typed context to the command handler chain. Context accumulates via type
-intersection — no manual interface merging.
+Middleware wraps downstream execution and can add typed context to the command handler chain.
+Use `derive()` when you need typed resolved flags or args before the action. Use middleware when
+you need `next()` around the rest of the pipeline.
 
 ## Defining Middleware
 
 ```ts
-import { middleware, CLIError } from 'dreamcli';
+import { middleware } from 'dreamcli';
 
-const auth = middleware<{ user: { id: string; role: 'admin' | 'user' } }>(
-  async ({ next }) => {
-    const user = await getUser();
-    if (!user) {
-      throw new CLIError('Not authenticated', {
-        code: 'AUTH_REQUIRED',
-        suggest: 'Run `mycli login`',
-      });
-    }
-    return next({ user });
-  },
+const timing = middleware<{ startTime: number }>(async ({ next }) => {
+  const startTime = Date.now();
+  await next({ startTime });
+});
+
+const trace = middleware<{ traceId: string }>(async ({ next }) =>
+  next({ traceId: crypto.randomUUID() }),
 );
 ```
 
 The generic parameter declares the context shape this middleware provides.
-The `next()` call passes context downstream.
+The `next()` call passes context downstream and continues the chain.
 
 ## Stacking Middleware
 
 ```ts
-const trace = middleware<{ traceId: string }>(async ({ next }) =>
-  next({ traceId: crypto.randomUUID() }),
-);
-
 command('deploy')
-  .middleware(auth)
+  .middleware(timing)
   .middleware(trace)
   .action(({ ctx }) => {
-    ctx.user.role; // "admin" | "user" — typed
+    ctx.startTime; // number — typed
     ctx.traceId; // string — typed
   });
 ```
@@ -50,14 +43,16 @@ The middleware handler receives:
 
 ```ts
 middleware<Output>(async ({ flags, args, out, meta, next }) => {
-  // flags — resolved flag values
-  // args  — resolved argument values
+  // flags — resolved flag values (type-erased)
+  // args  — resolved argument values (type-erased)
   // out   — output channel
   // meta  — CLI program metadata (name, version, command)
   // next  — continue chain, passing context
   return next({ ...context });
 });
 ```
+
+If you need typed command-scoped access to resolved inputs, prefer `command(...).derive(...)`.
 
 ## Error Handling
 

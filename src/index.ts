@@ -107,6 +107,8 @@ export type {
 	CommandMeta,
 	CommandSchema,
 	ConfirmPromptConfig,
+	DeriveHandler,
+	DeriveParams,
 	Fallback,
 	FlagConfig,
 	FlagFactory,

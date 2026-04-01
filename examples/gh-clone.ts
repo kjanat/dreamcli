@@ -3,7 +3,7 @@
  * Walkthrough example: a miniature `gh` (GitHub CLI) clone.
  *
  * Demonstrates every major dreamcli feature in a single, recognizable tool:
- * commands, groups, flags, arguments, middleware, env vars, prompts,
+ * commands, groups, flags, arguments, derive, env vars, prompts,
  * tables, JSON mode, spinners, and structured errors.
  *
  * Usage:
@@ -20,7 +20,7 @@
  */
 
 import process from 'node:process';
-import { arg, CLIError, cli, command, flag, group, middleware } from 'dreamcli';
+import { arg, CLIError, cli, command, flag, group } from 'dreamcli';
 
 // ── Mock data ─────────────────────────────────────────────────────────
 // In a real CLI, this would come from the GitHub API.
@@ -116,12 +116,11 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// ── Auth middleware ───────────────────────────────────────────────────
+// ── Auth derive helper ────────────────────────────────────────────────
 // Checks for a resolved token value on protected commands.
 // This example resolves `token` from `--token` or `GH_TOKEN`.
 
-const requireAuth = middleware<{ token: string }>(async ({ flags, next }) => {
-	const token = typeof flags.token === 'string' ? flags.token : undefined;
+function requireAuth(token: string | undefined): { readonly token: string } {
 	if (!token) {
 		throw new CLIError('Authentication required', {
 			code: 'AUTH_REQUIRED',
@@ -129,8 +128,8 @@ const requireAuth = middleware<{ token: string }>(async ({ flags, next }) => {
 			exitCode: 1,
 		});
 	}
-	return next({ token });
-});
+	return { token };
+}
 
 // ── Auth commands ─────────────────────────────────────────────────────
 
@@ -169,7 +168,7 @@ const authStatus = command('status')
 const prList = command('list')
 	.description('List pull requests')
 	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.middleware(requireAuth)
+	.derive(({ flags }) => requireAuth(flags.token))
 	.flag(
 		'state',
 		flag
@@ -199,7 +198,7 @@ const prList = command('list')
 const prView = command('view')
 	.description('View a pull request')
 	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.middleware(requireAuth)
+	.derive(({ flags }) => requireAuth(flags.token))
 	.arg('number', arg.number().describe('PR number'))
 	.action(({ args, out }) => {
 		const pr = pullRequests.find((p) => p.number === args.number);
@@ -222,7 +221,7 @@ const prView = command('view')
 const prCreate = command('create')
 	.description('Create a pull request')
 	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.middleware(requireAuth)
+	.derive(({ flags }) => requireAuth(flags.token))
 	.flag(
 		'title',
 		flag.string().alias('t').describe('PR title').prompt({ kind: 'input', message: 'Title:' }),
@@ -248,7 +247,7 @@ const prCreate = command('create')
 const issueList = command('list')
 	.description('List issues')
 	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.middleware(requireAuth)
+	.derive(({ flags }) => requireAuth(flags.token))
 	.flag(
 		'state',
 		flag.enum(['open', 'closed', 'all']).default('open').alias('s').describe('Filter by state'),

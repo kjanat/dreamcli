@@ -192,19 +192,37 @@ command('deploy')
 	}));
 ```
 
+### Derive typed context from resolved input
+
+```ts
+import { CLIError } from 'dreamcli';
+
+command('deploy')
+	.flag('token', flag.string().env('AUTH_TOKEN'))
+	.derive(({ flags }) => {
+		if (!flags.token)
+			throw new CLIError('Not authenticated', {
+				code: 'AUTH_REQUIRED',
+				suggest: 'Run `mycli login`',
+			});
+		return { token: flags.token };
+	})
+	.action(({ ctx }) => {
+		ctx.token; // string — typed
+	});
+```
+
+Use `derive()` when you need typed, command-scoped access to fully resolved flags and args before
+the action handler runs.
+
 ### Middleware with typed context
 
 ```ts
-import { middleware, CLIError } from 'dreamcli';
+import { middleware } from 'dreamcli';
 
-const auth = middleware<{ user: { id: string; role: 'admin' | 'user' } }>(async ({ next }) => {
-	const user = await getUser();
-	if (!user)
-		throw new CLIError('Not authenticated', {
-			code: 'AUTH_REQUIRED',
-			suggest: 'Run `mycli login`',
-		});
-	return next({ user });
+const timing = middleware<{ startTime: number }>(async ({ next }) => {
+	const startTime = Date.now();
+	await next({ startTime });
 });
 
 const trace = middleware<{ traceId: string }>(async ({ next }) =>
@@ -212,15 +230,16 @@ const trace = middleware<{ traceId: string }>(async ({ next }) =>
 );
 
 command('deploy')
-	.middleware(auth)
+	.middleware(timing)
 	.middleware(trace)
 	.action(({ ctx }) => {
-		ctx.user.role; // "admin" | "user" — typed
+		ctx.startTime; // number — typed
 		ctx.traceId; // string — typed
 	});
 ```
 
 Context accumulates through the middleware chain via type intersection. No manual interface merging.
+Use middleware when you need wrapper behavior with `next()`.
 
 ### Output channel
 

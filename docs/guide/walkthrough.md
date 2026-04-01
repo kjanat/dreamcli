@@ -5,7 +5,7 @@ We're going to recreate a miniature version of `gh` — GitHub's official
 CLI — using dreamcli.
 
 By the end, you'll have touched every major feature: commands, groups, flags,
-arguments, middleware, env vars, prompts, tables, JSON mode, spinners, and error handling.
+arguments, derive, env vars, prompts, tables, JSON mode, spinners, and error handling.
 
 The full source is at [`examples/gh-clone.ts`][gh-clone].
 
@@ -265,18 +265,17 @@ const prView = command('view')
 The `CLIError` with `suggest` gives the user a helpful nudge when things
 go wrong, and in `--json` mode it serializes as structured JSON on stderr.
 
-## Step 6: Middleware
+## Step 6: Derive Context
 
 Every `pr` and `issue` command needs authentication.
 You *could* check for a token in every single action handler, but that's repetitive and error-prone.
 
-Middleware solves this:
+`derive()` solves this cleanly:
 
 ```ts
-import { middleware, CLIError } from 'dreamcli';
+import { CLIError } from 'dreamcli';
 
-const requireAuth = middleware<{ token: string }>(async ({ next, flags }) => {
-  const token = typeof flags.token === 'string' ? flags.token : undefined;
+function requireAuth(token: string | undefined): { token: string } {
   if (!token) {
     throw new CLIError('Authentication required', {
       code: 'AUTH_REQUIRED',
@@ -284,35 +283,35 @@ const requireAuth = middleware<{ token: string }>(async ({ next, flags }) => {
       exitCode: 1,
     });
   }
-  return next({ token });
-});
+  return { token };
+}
 ```
 
-This assumes each protected command resolves a `token` value first, typically via `flag.string().env('GH_TOKEN')`, so middleware can consume resolved input instead of reaching for `process.env` directly.
+This assumes each protected command resolves a `token` value first, typically via `flag.string().env('GH_TOKEN')`, so derive can consume resolved input instead of reaching for `process.env` directly.
 
-The generic `<{ token: string }>` declares what this middleware provides.
-`next({ token })` passes it downstream.
+`derive()` is command-scoped and gets typed resolved flags and args.
+Returning `{ token }` merges that value into `ctx` downstream.
 Now wire it up:
 
 ```ts
 const prList = command('list')
   .description('List pull requests')
   .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-  .middleware(requireAuth)  // <-- must be authenticated
+  .derive(({ flags }) => requireAuth(flags.token))
   .flag('state', ...)
   .action(({ flags, ctx, out }) => {
-    // ctx.token is typed as `string` — guaranteed by middleware
+    // ctx.token is typed as `string` — guaranteed by derive
     out.info(`Authenticated with ${ctx.token.slice(0, 8)}...`);
     // ...list PRs...
   });
 ```
 
-If no token resolves, the middleware throws before the action runs.
+If no token resolves, the derive handler throws before the action runs.
 No token check needed in the handler.
-The auth commands (`login`, `status`) don't use the middleware, so they work without a token.
+The auth commands (`login`, `status`) don't use derive, so they work without a token.
 
-Middleware stacks.
-If you had `requireAuth` and `timing`, each one's context accumulates via type intersection — `ctx` becomes `{ token: string } & { startTime: number }`.
+Use `derive()` when you need typed resolved input.
+Use `middleware()` when you need to wrap downstream execution for timing, logging, retries, cleanup, or error boundaries.
 
 ## Step 7: Env vars and prompts
 
@@ -362,7 +361,8 @@ Creating a PR involves an API call. In a real terminal, you'd show a spinner:
 ```ts
 const prCreate = command('create')
   .description('Create a pull request')
-  .middleware(requireAuth)
+  .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
+  .derive(({ flags }) => requireAuth(flags.token))
   .flag(
     'title',
     flag
@@ -416,7 +416,7 @@ expect(result.stdout.join('')).toContain('dark mode');
 You can inject env vars, config, and prompt answers:
 
 ```ts
-// Test that middleware blocks unauthenticated access
+// Test that derive blocks unauthenticated access
 const noAuth = await runCommand(prList, []);
 expect(noAuth.exitCode).toBe(1);
 expect(noAuth.stderr.join('')).toContain('Authentication required');
@@ -444,7 +444,7 @@ Each test is isolated — inject what you need, assert what you expect.
 Here's the final assembly — all the commands wired into groups:
 
 ```ts
-import { cli, command, group, flag, arg, middleware, CLIError } from 'dreamcli';
+import { cli, command, group, flag, arg, CLIError } from 'dreamcli';
 
 // ...commands defined above...
 
@@ -475,7 +475,7 @@ That's a CLI with:
 - 6 commands across 3 groups
 - Enum, string, number, and boolean flags
 - Positional arguments
-- Auth middleware with typed context
+- Auth derive with typed context
 - Env var resolution (`GH_TOKEN`)
 - Interactive prompts with resolution chain fallback
 - Table output with automatic JSON mode

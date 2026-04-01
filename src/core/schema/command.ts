@@ -41,6 +41,16 @@ import type { RunResult } from './run.ts';
 type WidenContext<C extends Record<string, unknown>, Output extends Record<string, unknown>> =
 	C extends Record<string, never> ? Output : C & Output;
 
+/**
+ * Widen the context type when adding command-scoped derived context.
+ *
+ * Validation-only derive handlers return `void`, preserving `C`.
+ * Context-producing derive handlers return an object that merges into `C`
+ * using the same first-call replacement rules as middleware.
+ */
+type WidenDerivedContext<C extends Record<string, unknown>, Output> =
+	Awaited<Output> extends Record<string, unknown> ? WidenContext<C, Awaited<Output>> : C;
+
 // ---------------------------------------------------------------------------
 // Type-level configuration (phantom state tracked through the chain)
 // ---------------------------------------------------------------------------
@@ -274,13 +284,12 @@ interface CommandMeta {
  *
  * - `args`  — fully resolved positional arguments
  * - `flags` — fully resolved flags
- * - `ctx`   — middleware-provided context (typed via middleware chain)
+ * - `ctx`   — derive/middleware-provided context
  * - `out`   — output channel
  * - `meta`  — CLI program metadata (name, bin, version, command)
  *
  * The `C` parameter defaults to `Record<string, never>`, making `ctx`
- * property access a type error until middleware extends it. Each
- * `.middleware()` call on `CommandBuilder` widens `C` via intersection.
+ * property access a type error until derive or middleware extends it.
  */
 interface ActionParams<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -306,6 +315,65 @@ type ActionHandler<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
 > = (params: ActionParams<F, A, C>) => void | Promise<void>;
+
+/**
+ * The bag of values received by a derive handler.
+ *
+ * Identical to {@link ActionParams}: derives run after full resolution and
+ * before the action handler, with typed args/flags/current context plus `out`
+ * and `meta`.
+ */
+type DeriveParams<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown> = Record<string, never>,
+> = ActionParams<F, A, C>;
+
+/**
+ * Command-scoped typed pre-action handler.
+ *
+ * Derive handlers may:
+ * - validate resolved input and throw `CLIError`
+ * - return `void` to continue without changing context
+ * - return an object whose properties merge into `ctx` downstream
+ *
+ * They cannot wrap downstream execution; use `middleware()` for that.
+ */
+type DeriveHandler<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown> = Record<string, never>,
+	Output extends Record<string, unknown> | void = void,
+> = (params: DeriveParams<F, A, C>) => Output | Promise<Output>;
+
+/**
+ * Type-erased derive handler stored on the command builder.
+ *
+ * @internal
+ */
+type ErasedDeriveHandler = (params: {
+	readonly args: Readonly<Record<string, unknown>>;
+	readonly flags: Readonly<Record<string, unknown>>;
+	readonly ctx: Readonly<Record<string, unknown>>;
+	readonly out: Out;
+	readonly meta: CommandMeta;
+}) => void | Readonly<Record<string, unknown>> | Promise<void | Readonly<Record<string, unknown>>>;
+
+/**
+ * Internal execution step union preserving registration order across
+ * `derive()` and `middleware()`.
+ *
+ * @internal
+ */
+type ExecutionStep =
+	| {
+			readonly kind: 'derive';
+			readonly handler: ErasedDeriveHandler;
+	  }
+	| {
+			readonly kind: 'middleware';
+			readonly handler: ErasedMiddlewareHandler;
+	  };
 
 // ---------------------------------------------------------------------------
 // Runtime schema data
@@ -493,11 +561,11 @@ function eraseBuilder<
  *
  * The type parameters `F` (flags), `A` (args), and `C` (context) are
  * phantom types that accumulate builder types as `.flag()`, `.arg()`,
- * and `.middleware()` are chained. The `.action()` handler receives
+ * `.derive()`, and `.middleware()` are chained. The `.action()` handler receives
  * fully typed `ActionParams<F, A, C>`.
  *
  * `C` defaults to `Record<string, never>`, making `ctx` property
- * access a type error until middleware extends it via `.middleware()`.
+ * access a type error until derive or middleware extends it.
  *
  * @example
  * ```ts
@@ -537,6 +605,15 @@ class CommandBuilder<
 	readonly _subcommands: readonly AnyCommandBuilder[];
 
 	/**
+	 * @internal Execution steps in registration order.
+	 *
+	 * Distinct from `schema.middleware`: middleware handlers remain in schema
+	 * for backward compatibility, while derives stay command-local and builder-
+	 * scoped so future shared/global middleware can compose cleanly.
+	 */
+	readonly _executionSteps: readonly ExecutionStep[];
+
+	/**
 	 * @internal Type brands — exist only in the type system (`declare`
 	 * produces no runtime property). Used for type inference.
 	 */
@@ -548,10 +625,12 @@ class CommandBuilder<
 		schema: CommandSchema,
 		handler?: ActionHandler<F, A, C>,
 		subcommands?: readonly AnyCommandBuilder[],
+		executionSteps?: readonly ExecutionStep[],
 	) {
 		this.schema = schema;
 		this.handler = handler;
 		this._subcommands = subcommands ?? [];
+		this._executionSteps = executionSteps ?? [];
 	}
 
 	// -- Interactive resolver ------------------------------------------------
@@ -593,6 +672,61 @@ class CommandBuilder<
 			{ ...this.schema, interactive: erased },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
+		);
+	}
+
+	// -- Derive --------------------------------------------------------------
+
+	/**
+	 * Register a command-scoped typed pre-action handler.
+	 *
+	 * Derive runs after full resolution and before the action handler.
+	 * It receives typed `{ args, flags, ctx, out, meta }` and may either:
+	 *
+	 * - return `void` for validation-only behavior
+	 * - return an object to merge additional properties into `ctx`
+	 *
+	 * Unlike middleware, derive cannot wrap downstream execution and does not
+	 * use `next()`. Use `middleware()` for timing, logging, retries, cleanup,
+	 * or error-boundary patterns.
+	 *
+	 * Adding derive drops the current handler (like `.flag()`, `.arg()`, and
+	 * `.middleware()`) because the action handler's `ctx` type may change.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .flag('token', flag.string().env('AUTH_TOKEN'))
+	 *   .derive(({ flags }) => {
+	 *     if (!flags.token) {
+	 *       throw new CLIError('Not authenticated', {
+	 *         code: 'AUTH_REQUIRED',
+	 *         suggest: 'Run `mycli login` or set AUTH_TOKEN',
+	 *       });
+	 *     }
+	 *     return { token: flags.token };
+	 *   })
+	 *   .action(({ ctx }) => {
+	 *     ctx.token; // string
+	 *   });
+	 * ```
+	 */
+	derive<Output extends Record<string, unknown> | void>(
+		handler: DeriveHandler<F, A, C, Output>,
+	): CommandBuilder<F, A, WidenDerivedContext<C, Output>> {
+		const erased = handler as unknown as ErasedDeriveHandler;
+		return new CommandBuilder<F, A, WidenDerivedContext<C, Output>>(
+			{ ...this.schema, hasAction: false },
+			undefined,
+			this._subcommands,
+			[
+				...this._executionSteps,
+				{
+					kind: 'derive',
+					handler: erased,
+				},
+			],
 		);
 	}
 
@@ -663,6 +797,13 @@ class CommandBuilder<
 			// Handler intentionally dropped — C changed, invalidating handler signature.
 			undefined,
 			this._subcommands,
+			[
+				...this._executionSteps,
+				{
+					kind: 'middleware',
+					handler: m._handler,
+				},
+			],
 		);
 	}
 
@@ -693,6 +834,7 @@ class CommandBuilder<
 			{ ...this.schema, description: text },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -722,6 +864,7 @@ class CommandBuilder<
 			{ ...this.schema, aliases: [...this.schema.aliases, name] },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -743,7 +886,12 @@ class CommandBuilder<
 	 * ```
 	 */
 	hidden(): CommandBuilder<F, A, C> {
-		return new CommandBuilder({ ...this.schema, hidden: true }, this.handler, this._subcommands);
+		return new CommandBuilder(
+			{ ...this.schema, hidden: true },
+			this.handler,
+			this._subcommands,
+			this._executionSteps,
+		);
 	}
 
 	/**
@@ -779,6 +927,7 @@ class CommandBuilder<
 			{ ...this.schema, examples: [...this.schema.examples, entry] },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -834,6 +983,7 @@ class CommandBuilder<
 			// the previous handler's type signature
 			undefined,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -889,6 +1039,7 @@ class CommandBuilder<
 			// the previous handler's type signature
 			undefined,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -926,6 +1077,7 @@ class CommandBuilder<
 			},
 			this.handler,
 			[...this._subcommands, eraseBuilder(sub)],
+			this._executionSteps,
 		);
 	}
 
@@ -935,7 +1087,8 @@ class CommandBuilder<
 	 * Register the action handler for this command.
 	 *
 	 * The handler receives fully typed `{ args, flags, ctx, out }` derived
-	 * from the accumulated `.flag()`, `.arg()`, and `.middleware()` definitions.
+	 * from the accumulated `.flag()`, `.arg()`, `.derive()`, and `.middleware()`
+	 * definitions.
 	 *
 	 * May be synchronous or async. Return values are ignored; command handlers
 	 * communicate through `out`, thrown errors, and side effects.
@@ -970,7 +1123,12 @@ class CommandBuilder<
 	 *   });
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
-		return new CommandBuilder({ ...this.schema, hasAction: true }, handler, this._subcommands);
+		return new CommandBuilder(
+			{ ...this.schema, hasAction: true },
+			handler,
+			this._subcommands,
+			this._executionSteps,
+		);
 	}
 }
 
@@ -1047,7 +1205,10 @@ export type {
 	CommandExample,
 	CommandMeta,
 	CommandSchema,
+	DeriveHandler,
+	DeriveParams,
 	ErasedCommand,
+	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
 	InteractiveParams,
 	InteractiveResolver,
