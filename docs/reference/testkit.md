@@ -30,26 +30,27 @@ const result = await runCommand(greet, ['Alice', '--loud']);
 
 ### RunOptions
 
-| Option      | Type                      | Description             |
-| ----------- | ------------------------- | ----------------------- |
-| `env`       | `Record<string, string>`  | Environment variables   |
-| `config`    | `Record<string, unknown>` | Config file values      |
-| `answers`   | `unknown[]`               | Prompt answers in order |
-| `prompter`  | `PromptEngine`            | Custom prompt handler   |
-| `jsonMode`  | `boolean`                 | Simulate `--json` mode  |
-| `help`      | `HelpOptions`             | Help formatting options |
-| `verbosity` | `Verbosity`               | Output verbosity        |
-| `isTTY`     | `boolean`                 | Simulate TTY connection |
+| Option      | Type                      | Description                             |
+| ----------- | ------------------------- | --------------------------------------- |
+| `env`       | `Record<string, string>`  | Environment variables                   |
+| `config`    | `Record<string, unknown>` | Config file values                      |
+| `stdinData` | `string \| null`          | Data to pipe to process stdin for tests |
+| `answers`   | `unknown[]`               | Prompt answers in order                 |
+| `prompter`  | `PromptEngine`            | Custom prompt handler                   |
+| `jsonMode`  | `boolean`                 | Simulate `--json` mode                  |
+| `help`      | `HelpOptions`             | Help formatting options                 |
+| `verbosity` | `Verbosity`               | Output verbosity                        |
+| `isTTY`     | `boolean`                 | Simulate TTY connection                 |
 
 ### RunResult
 
-| Field      | Type                 | Description             |
-| ---------- | -------------------- | ----------------------- |
-| `exitCode` | `number`             | Process exit code       |
-| `stdout`   | `string[]`           | Captured stdout lines   |
-| `stderr`   | `string[]`           | Captured stderr lines   |
-| `error`    | `Error \| undefined` | Error if action threw   |
-| `activity` | `ActivityEvent[]`    | Spinner/progress events |
+| Field      | Type                    | Description                              |
+| ---------- | ----------------------- | ---------------------------------------- |
+| `exitCode` | `number`                | Process exit code                        |
+| `stdout`   | `string[]`              | Captured stdout lines                    |
+| `stderr`   | `string[]`              | Captured stderr lines                    |
+| `error`    | `CLIError \| undefined` | Structured error, `undefined` on success |
+| `activity` | `ActivityEvent[]`       | Spinner/progress events                  |
 
 ## `createCaptureOutput()`
 

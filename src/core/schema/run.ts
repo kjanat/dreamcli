@@ -14,8 +14,8 @@ import type { ActivityEvent } from './activity.ts';
 /**
  * Structured result from running a command.
  *
- * Contains the exit code, captured stdout/stderr output, and optionally
- * the error that caused a non-zero exit.
+ * Contains the exit code, captured stdout/stderr output, and an `error`
+ * field that is `undefined` on success and populated on failure.
  */
 interface RunResult {
 	/** Process exit code. 0 = success. */
@@ -37,7 +37,7 @@ interface RunResult {
 	readonly activity: readonly ActivityEvent[];
 
 	/**
-	 * The error that caused a non-zero exit, if any.
+	 * The error that caused a non-zero exit, or `undefined` on success.
 	 * `CLIError` instances are preserved; unknown errors are wrapped.
 	 */
 	readonly error: CLIError | undefined;

@@ -235,7 +235,8 @@ class ArgBuilder<C extends ArgConfig> {
 
 	/**
 	 * Mark the arg as required (this is the default for positional args).
-	 * Produces an error if not supplied via CLI or env.
+	 * Produces an error if no value resolves from any configured source
+	 * (CLI → stdin → env → default).
 	 *
 	 * @example
 	 * ```ts
