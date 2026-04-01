@@ -16,7 +16,8 @@ flag.array(flag.string()).prompt({
 });
 ```
 
-Prompts fire only if the flag wasn't resolved by CLI argv, env var, config, or default.
+Prompts fire only if the flag wasn't resolved by CLI argv, env var, or config. Defaults apply only
+after prompts are skipped or unanswered.
 
 ## Prompt Types
 

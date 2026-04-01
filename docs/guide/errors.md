@@ -17,14 +17,14 @@ throw new CLIError('Deployment failed', {
 
 ### Fields
 
-| Field      | Type      | Description                                |
-| ---------- | --------- | ------------------------------------------ |
-| `message`  | `string`  | Human-readable error message               |
-| `code`     | `string`  | Stable machine identifier                  |
-| `exitCode` | `number`  | Process exit code (default varies by type) |
-| `suggest`  | `string`  | Actionable hint for the user               |
-| `details`  | `unknown` | Structured payload for JSON output         |
-| `cause`    | `Error?`  | Underlying cause (optional)                |
+| Field      | Type                 | Description                                |
+| ---------- | -------------------- | ------------------------------------------ |
+| `message`  | `string`             | Human-readable error message               |
+| `code`     | `string`             | Stable machine identifier                  |
+| `exitCode` | `number`             | Process exit code (default varies by type) |
+| `suggest`  | `string`             | Actionable hint for the user               |
+| `details`  | `unknown`            | Structured payload for JSON output         |
+| `cause`    | `Error \| undefined` | Underlying cause (optional)                |
 
 ## Error Types
 

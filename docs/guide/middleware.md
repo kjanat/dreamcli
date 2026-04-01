@@ -49,10 +49,11 @@ Each middleware only needs to know about its own context shape.
 The middleware handler receives:
 
 ```ts
-middleware<Output>(async ({ flags, args, out, next }) => {
+middleware<Output>(async ({ flags, args, out, meta, next }) => {
   // flags — resolved flag values
   // args  — resolved argument values
   // out   — output channel
+  // meta  — CLI program metadata (name, version, command)
   // next  — continue chain, passing context
   return next({ ...context });
 });

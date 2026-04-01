@@ -26,6 +26,8 @@ const result = await runCommand(deploy, ['production'], {
   env: { DEPLOY_REGION: 'eu' },
   // config file values
   config: { deploy: { region: 'us' } },
+  // piped stdin for args configured with .stdin()
+  stdinData: '<your input>',
   // prompt answers (consumed in order)
   answers: ['ap'],
   // simulate --json mode
@@ -37,16 +39,17 @@ const result = await runCommand(deploy, ['production'], {
 
 ### Available Options
 
-| Option      | Type                      | Description             |
-| ----------- | ------------------------- | ----------------------- |
-| `env`       | `Record<string, string>`  | Environment variables   |
-| `config`    | `Record<string, unknown>` | Config file values      |
-| `answers`   | `unknown[]`               | Prompt answers in order |
-| `prompter`  | `PromptEngine`            | Custom prompt handler   |
-| `jsonMode`  | `boolean`                 | Simulate `--json` mode  |
-| `help`      | `HelpOptions`             | Help formatting options |
-| `verbosity` | `string`                  | Output verbosity level  |
-| `adapter`   | `RuntimeAdapter`          | Custom runtime adapter  |
+| Option      | Type                      | Description                                        |
+| ----------- | ------------------------- | -------------------------------------------------- |
+| `env`       | `Record<string, string>`  | Environment variables                              |
+| `config`    | `Record<string, unknown>` | Config file values                                 |
+| `stdinData` | `string \| null`          | Data supplied to command stdin for `.stdin()` args |
+| `answers`   | `unknown[]`               | Prompt answers in order                            |
+| `prompter`  | `PromptEngine`            | Custom prompt handler                              |
+| `jsonMode`  | `boolean`                 | Simulate `--json` mode                             |
+| `help`      | `HelpOptions`             | Help formatting options                            |
+| `verbosity` | `Verbosity`               | Output verbosity level                             |
+| `isTTY`     | `boolean`                 | Simulate a TTY stdout connection                   |
 
 ## Testing Prompts
 
@@ -95,8 +98,8 @@ result.stderr; // string[]
 // Exit code
 result.exitCode; // number
 
-// Error (if action threw)
-result.error; // Error | undefined
+// Error (if command failed)
+result.error; // CLIError | undefined
 
 // Activity events (spinner/progress)
 result.activity; // ActivityEvent[]

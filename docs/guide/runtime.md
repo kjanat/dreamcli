@@ -5,11 +5,11 @@ A thin `RuntimeAdapter` interface abstracts the platform-specific edges.
 
 ## Supported Runtimes
 
-| Runtime       | Status    | Package                  |
-| ------------- | --------- | ------------------------ |
-| Node.js >= 22 | Supported | `dreamcli` (npm)         |
-| Bun >= 1.3    | Supported | `dreamcli` (npm)         |
-| Deno >= 2.6   | Supported | `@kjanat/dreamcli` (JSR) |
+| Runtime            | Status    | Package                  |
+| ------------------ | --------- | ------------------------ |
+| Node.js >= 22.22.2 | Supported | `dreamcli` (npm)         |
+| Bun >= 1.3.11      | Supported | `dreamcli` (npm)         |
+| Deno >= 2.6        | Supported | `@kjanat/dreamcli` (JSR) |
 
 Adapters validate these minimum versions during creation.
 Unsupported runtimes fail fast with a descriptive error before command execution starts.
@@ -22,8 +22,11 @@ Instead, a `RuntimeAdapter` provides:
 - `argv` — command-line arguments
 - `env` — environment variables
 - `cwd` — current working directory
+- `stdin` — line reader for interactive prompts
+- `readStdin` — full piped stdin reader for `.stdin()` arguments
 - `exit` — process exit
 - `isTTY` — terminal detection
+- `stdinIsTTY` — interactive stdin detection
 - `readFile` / `homedir` / `configDir` — filesystem access
 
 Runtime detection is automatic — dreamcli picks the right adapter at startup.

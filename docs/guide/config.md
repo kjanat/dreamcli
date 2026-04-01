@@ -49,7 +49,10 @@ cli('mycli')
   .run();
 ```
 
-The loader receives a file extension list and a parse function `(content: string) => unknown`.
+`configFormat(exts, parser)` creates a loader config from the extension list and parse function,
+and `configLoader(loader)` registers that loader with the CLI. For example,
+`configLoader(configFormat(['yaml', 'yml'], parseYAML))` adds YAML support on top of the built-in
+JSON loader.
 
 ## What's Next?
 

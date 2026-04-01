@@ -37,14 +37,19 @@ Good luck doing that with shell scripts.
 Run the actual compiled binary as a child process:
 
 ```ts
-import { execFile } from 'child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
-const { stdout, stderr, exitCode } = await execFile('./mycli', [
-  'greet',
-  'Alice',
-]);
-expect(stdout).toBe('Hello, Alice!\n');
-expect(exitCode).toBe(0);
+const execFileAsync = promisify(execFile);
+
+try {
+  const { stdout, stderr } = await execFileAsync('./mycli', ['greet', 'Alice']);
+  expect(stdout).toBe('Hello, Alice!\n');
+  expect(stderr).toBe('');
+} catch (error) {
+  // execFileAsync throws on non-zero exit; read error.code if you need the exit code
+  throw error;
+}
 ```
 
 **Pros:** Tests the real thing. Catches packaging issues.\
@@ -140,6 +145,8 @@ expect(result.exitCode).toBe(0);
 Ctrl+C during a prompt exits gracefully:
 
 ```ts
+import { PROMPT_CANCEL, runCommand } from 'dreamcli/testkit';
+
 const result = await runCommand(cmd, [], {
   answers: [PROMPT_CANCEL],
 });
