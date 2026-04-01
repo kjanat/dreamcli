@@ -34,7 +34,8 @@ function resolveConfigDirectory(
 		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
 		return `${normalizedHome}\\AppData\\Roaming`;
 	}
-	return env.XDG_CONFIG_HOME || `${homedir}/.config`;
+	const normalizedHome = homedir.replace(/\/+$/, '') || homedir;
+	return env.XDG_CONFIG_HOME || `${normalizedHome}/.config`;
 }
 
 export { resolveConfigDirectory, resolveHomeDirectory };

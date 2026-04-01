@@ -13,24 +13,13 @@
 	],
 	"languages": {
 		"JavaScript": {
-			"formatter": [
-				{ "code_action": "fixAll.biome" },
-				{ "code_action": "organizeImports.biome" },
-				{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
-			],
+			"code_actions_on_format": { "fixAll.biome": true, "organizeImports.biome": true },
 			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
 		},
 		"TypeScript": {
-			"formatter": [
-				{ "code_action": "fixAll.biome" },
-				{ "code_action": "organizeImports.biome" },
-				{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
-			],
+			"code_actions_on_format": { "fixAll.biome": true, "organizeImports.biome": true },
 			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
 		}
 	},
-	"lsp": {
-		"biome": { "settings": { "config_path": "./biome.jsonc" } },
-		"deno": { "settings": { "deno": { "enable": true } } }
-	}
+	"lsp": { "deno": { "settings": { "deno": { "enable": true } } } }
 }

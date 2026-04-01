@@ -24,7 +24,7 @@ const SUPPORTED_RUNTIMES: readonly RuntimeSupportEntry[] = [
 		runtime: 'node',
 		displayName: 'Node.js',
 		minimum: '22',
-		engineRange: '>=22',
+		engineRange: '>=22.22.2',
 		packageName: 'dreamcli',
 		adapterName: 'NodeAdapter',
 	},
