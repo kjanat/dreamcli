@@ -1,0 +1,24 @@
+{
+  "name": "gh",
+  "version": "example",
+  "private": true,
+  "type": "module",
+  "module": "src/main.ts",
+  "bin": {
+    "gh": "src/main.ts"
+  },
+  "scripts": {
+    "bd": "bun run build",
+    "build": "tsdown"
+  },
+  "dependencies": {
+    "dreamcli": "workspace:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "tsdown": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  }
+}

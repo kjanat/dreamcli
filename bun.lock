@@ -8,7 +8,7 @@
         "@arethetypeswrong/cli": "^0.18.2",
         "@arethetypeswrong/core": "^0.18.2",
         "@biomejs/biome": "^2.4.10",
-        "@types/bun": "^1.3.0",
+        "@types/bun": "catalog:",
         "@types/deno": "^2.5.0",
         "@types/node": ">=22.0.0, <23.0.0",
         "@typescript/native-preview": "^7.0.0-dev.20260331.1",
@@ -16,13 +16,34 @@
         "dprint": "^0.53.1",
         "mermaid": "^11.13.0",
         "publint": "^0.3.18",
-        "tsdown": "^0.21.7",
-        "typescript": "^6.0.2",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
         "vitepress": "^2.0.0-alpha.17",
         "vitepress-plugin-mermaid": "^2.0.17",
         "vitest": "^4.1.2",
       },
     },
+    "examples/gh": {
+      "name": "gh",
+      "bin": {
+        "gh": "src/main.ts",
+      },
+      "dependencies": {
+        "dreamcli": "workspace:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "tsdown": "catalog:",
+      },
+      "peerDependencies": {
+        "typescript": "catalog:",
+      },
+    },
+  },
+  "catalog": {
+    "@types/bun": "^1.3.0",
+    "tsdown": "^0.21.7",
+    "typescript": "^6.0.2",
   },
   "packages": {
     "@andrewbranch/untar.js": ["@andrewbranch/untar.js@1.0.3", "", {}, "sha512-Jh15/qVmrLGhkKJBdXlK1+9tY4lZruYjsgkDFj08ZmDiWVBLJcqkok7Z0/R0In+i1rScBpJlSvrTS2Lm41Pbnw=="],
@@ -611,6 +632,8 @@
 
     "dprint": ["dprint@0.53.1", "", { "optionalDependencies": { "@dprint/darwin-arm64": "0.53.1", "@dprint/darwin-x64": "0.53.1", "@dprint/linux-arm64-glibc": "0.53.1", "@dprint/linux-arm64-musl": "0.53.1", "@dprint/linux-loong64-glibc": "0.53.1", "@dprint/linux-loong64-musl": "0.53.1", "@dprint/linux-riscv64-glibc": "0.53.1", "@dprint/linux-x64-glibc": "0.53.1", "@dprint/linux-x64-musl": "0.53.1", "@dprint/win32-arm64": "0.53.1", "@dprint/win32-x64": "0.53.1" }, "bin": { "dprint": "bin.cjs" } }, "sha512-NeVcviyC4NEBOZc8l4mhmtpSgzZHEXnIZZkRp3kk/12LvZQgDmR71vktH2PxUdXiyEVcvlqE9V3WUqG6DoVdyA=="],
 
+    "dreamcli": ["gh@workspace:examples/gh"],
+
     "dts-resolver": ["dts-resolver@2.1.3", "", {}, "sha512-bihc7jPC90VrosXNzK0LTE2cuLP6jr0Ro8jk+kMugHReJVLIpHz/xadeq3MhuwyO4TD4OA3L1Q8pBBFRc08Tsw=="],
 
     "emoji-regex": ["emoji-regex@8.0.0", "", {}, "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A=="],
@@ -644,6 +667,8 @@
     "get-caller-file": ["get-caller-file@2.0.5", "", {}, "sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg=="],
 
     "get-tsconfig": ["get-tsconfig@4.13.7", "", { "dependencies": { "resolve-pkg-maps": "^1.0.0" } }, "sha512-7tN6rFgBlMgpBML5j8typ92BKFi2sFQvIdpAqLA2beia5avZDrMs0FLZiM5etShWq5irVyGcGMEA1jcDaK7A/Q=="],
+
+    "gh": ["gh@workspace:examples/gh"],
 
     "hachure-fill": ["hachure-fill@0.5.2", "", {}, "sha512-3GKBOn+m2LX9iq+JC1064cSFprJY4jL1jCXTcpnfER5HYE2l/4EfWSGzkPa/ZDBmYI0ZOEj5VHV/eKnPGkHuOg=="],
 
