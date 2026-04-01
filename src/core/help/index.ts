@@ -38,6 +38,12 @@ interface ResolvedHelpOptions {
 
 const DEFAULT_WIDTH = 80;
 
+/**
+ * Apply defaults to optional {@link HelpOptions}.
+ *
+ * @param options - User-supplied help options, or `undefined` for all defaults.
+ * @returns Fully resolved options with defaults applied.
+ */
 function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 	return {
 		width: options?.width ?? DEFAULT_WIDTH,
@@ -48,13 +54,26 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 
 // --- Internal helpers
 
-/** Pad `text` to `length` with trailing spaces. */
+/**
+ * Pad `text` to `length` with trailing spaces.
+ *
+ * @param text - The string to pad.
+ * @param length - Target length in characters.
+ * @returns The padded string, unchanged if already at or beyond `length`.
+ */
 function padEnd(text: string, length: number): string {
 	if (text.length >= length) return text;
 	return text + ' '.repeat(length - text.length);
 }
 
-/** Wrap text to `width`, preserving leading indent on continuation lines. */
+/**
+ * Wrap text to `width`, preserving leading indent on continuation lines.
+ *
+ * @param text - The text to wrap.
+ * @param width - Maximum line width in columns.
+ * @param indent - Number of leading spaces for continuation lines.
+ * @returns The wrapped string with newlines inserted as needed.
+ */
 function wrapText(text: string, width: number, indent: number): string {
 	if (text.length + indent <= width) return text;
 
@@ -85,7 +104,12 @@ function wrapText(text: string, width: number, indent: number): string {
 
 // --- Deprecation formatting
 
-/** Format a deprecation annotation for help text. */
+/**
+ * Format a deprecation annotation for help text.
+ *
+ * @param deprecated - `true` for a generic marker, or a string explaining the deprecation.
+ * @returns Bracketed deprecation label, e.g. `[deprecated]` or `[deprecated: use --foo]`.
+ */
 function formatDeprecated(deprecated: string | true): string {
 	return typeof deprecated === 'string' ? `[deprecated: ${deprecated}]` : '[deprecated]';
 }
@@ -98,7 +122,13 @@ interface FlagEntry {
 	readonly description: string;
 }
 
-/** Format a flag's left column: `-a, --name <type>` */
+/**
+ * Format a flag's left column: `-a, --name <type>`.
+ *
+ * @param name - Long flag name (without `--` prefix).
+ * @param schema - The {@link FlagSchema} describing the flag.
+ * @returns Formatted left-column string for the flags table.
+ */
 function formatFlagLeft(name: string, schema: FlagSchema): string {
 	const parts: string[] = [];
 
@@ -119,7 +149,12 @@ function formatFlagLeft(name: string, schema: FlagSchema): string {
 	return parts.join(' ');
 }
 
-/** Produce a type hint like `<string>`, `<number>`, `<us|eu|ap>`. */
+/**
+ * Produce a type hint like `<string>`, `<number>`, `<us|eu|ap>`.
+ *
+ * @param schema - The {@link FlagSchema} whose value type determines the hint.
+ * @returns Angle-bracketed hint string, or empty string for booleans.
+ */
 function formatValueHint(schema: FlagSchema): string {
 	switch (schema.kind) {
 		case 'string':
@@ -144,7 +179,12 @@ function formatValueHint(schema: FlagSchema): string {
 	}
 }
 
-/** Build description with env/config/prompt/default/required/deprecated annotations. */
+/**
+ * Build description with env/config/prompt/default/required/deprecated annotations.
+ *
+ * @param schema - The {@link FlagSchema} to describe.
+ * @returns Concatenated description string with metadata annotations.
+ */
 function formatFlagDescription(schema: FlagSchema): string {
 	const parts: string[] = [];
 
@@ -178,7 +218,12 @@ function formatFlagDescription(schema: FlagSchema): string {
 	return parts.join(' ');
 }
 
-/** Build the flag entries sorted: short-aliased first, then alphabetical. */
+/**
+ * Build the flag entries sorted: short-aliased first, then alphabetical.
+ *
+ * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @returns Sorted array of {@link FlagEntry} objects for the flags table.
+ */
 function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly FlagEntry[] {
 	const names = Object.keys(flags);
 	if (names.length === 0) return [];
@@ -209,7 +254,12 @@ function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly
 
 // --- Arg formatting
 
-/** Format a positional arg for the usage line. */
+/**
+ * Format a positional arg for the usage line.
+ *
+ * @param entry - The {@link CommandArgEntry} containing name and schema.
+ * @returns Bracketed arg token, e.g. `<file>` or `[output]...`.
+ */
 function formatArgUsage(entry: CommandArgEntry): string {
 	const { name, schema } = entry;
 	const label =
@@ -221,7 +271,12 @@ function formatArgUsage(entry: CommandArgEntry): string {
 	return `[${label}]${variadicSuffix}`;
 }
 
-/** Format arg description with annotations. */
+/**
+ * Format arg description with annotations.
+ *
+ * @param schema - The {@link ArgSchema} to describe.
+ * @returns Concatenated description string with metadata annotations.
+ */
 function formatArgDescription(schema: ArgSchema): string {
 	const parts: string[] = [];
 
@@ -247,7 +302,12 @@ function formatArgDescription(schema: ArgSchema): string {
 // --- Main generator
 
 /**
+ * Build the ordered help sections without joining them.
+ *
  * @internal
+ * @param schema - The {@link CommandSchema} to render.
+ * @param options - Optional {@link HelpOptions} for width/bin name.
+ * @returns Array of section strings (usage, description, commands, args, flags, examples).
  */
 function formatHelpSections(schema: CommandSchema, options?: HelpOptions): readonly string[] {
 	const opts = resolveOptions(options);
@@ -317,6 +377,13 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 
 // --- Section renderers
 
+/**
+ * Render the `Usage:` line for a command.
+ *
+ * @param schema - The {@link CommandSchema} to summarize.
+ * @param opts - Resolved help options (bin name, default-help flag).
+ * @returns Single-line usage string, e.g. `Usage: mycli deploy [flags] <env>`.
+ */
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const parts: string[] = ['Usage:'];
 	const cmdName =
@@ -346,6 +413,13 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 	return parts.join(' ');
 }
 
+/**
+ * Render the `Arguments:` help section.
+ *
+ * @param args - Positional arg entries from the {@link CommandSchema}.
+ * @param opts - Resolved help options for line-width wrapping.
+ * @returns Multi-line arguments section string.
+ */
 function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpOptions): string {
 	const lines: string[] = ['Arguments:'];
 	const GAP = 2;
@@ -374,6 +448,13 @@ function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpO
 	return lines.join('\n');
 }
 
+/**
+ * Render the `Flags:` help section.
+ *
+ * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @param opts - Resolved help options for line-width wrapping.
+ * @returns Multi-line flags section string.
+ */
 function formatFlagsSection(
 	flags: Readonly<Record<string, FlagSchema>>,
 	opts: ResolvedHelpOptions,
@@ -406,6 +487,13 @@ function formatFlagsSection(
 	return lines.join('\n');
 }
 
+/**
+ * Render the `Commands:` help section.
+ *
+ * @param commands - Visible subcommand schemas (hidden commands pre-filtered).
+ * @param opts - Resolved help options for line-width wrapping.
+ * @returns Multi-line commands section string.
+ */
 function formatCommandsSection(
 	commands: readonly CommandSchema[],
 	opts: ResolvedHelpOptions,
@@ -437,6 +525,12 @@ function formatCommandsSection(
 	return lines.join('\n');
 }
 
+/**
+ * Render the `Examples:` help section.
+ *
+ * @param examples - Array of {@link CommandExample} entries.
+ * @returns Multi-line examples section string.
+ */
 function formatExamplesSection(examples: readonly CommandExample[]): string {
 	const lines: string[] = ['Examples:'];
 

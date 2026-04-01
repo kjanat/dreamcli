@@ -143,6 +143,10 @@ interface ArgSchema {
  * responsible for preserving invariants such as variadic ordering and
  * compatible `parseFn` / `kind` combinations.
  *
+ * @param kind - Discriminator for the value type this arg accepts.
+ * @param overrides - Partial schema fields shallow-merged onto defaults.
+ * @returns A fully populated {@link ArgSchema}.
+ *
  * @example
  * ```ts
  * const schema = createArgSchema('custom', {
@@ -219,6 +223,9 @@ class ArgBuilder<C extends ArgConfig> {
 	 */
 	declare readonly _config: C;
 
+	/**
+	 * @param schema - Runtime descriptor for this positional argument.
+	 */
 	constructor(schema: ArgSchema) {
 		this.schema = schema;
 	}
@@ -240,6 +247,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ mycli deploy
 	 * // Error: Missing required argument <target>
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	required(): ArgBuilder<WithArgPresence<C, 'required'>> {
 		return new ArgBuilder({
@@ -264,6 +273,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ mycli greet        → args.name is undefined
 	 * // $ mycli greet Alice  → args.name is 'Alice'
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	optional(): ArgBuilder<WithArgPresence<C, 'optional'>> {
 		return new ArgBuilder({
@@ -282,6 +293,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Resolution order when extra sources are configured: CLI → stdin → env → **default**.
 	 *
 	 * @param value - Fallback used when no CLI value or env var resolves.
+	 * @returns The builder (for chaining).
 	 *
 	 * @example
 	 * ```ts
@@ -333,6 +345,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ mycli build main.ts a.ts b.ts
 	 * // → entry = 'main.ts', extras = ['a.ts', 'b.ts']
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	variadic(): ArgBuilder<WithVariadic<C>> {
 		return new ArgBuilder({
@@ -346,6 +360,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 *
 	 * Resolution order becomes: CLI value -> stdin -> env -> default.
 	 * Only one arg per command may enable stdin mode.
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	stdin(): ArgBuilder<C> {
 		return new ArgBuilder({
@@ -369,6 +385,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Help output shows `[env: VAR]` next to the arg description.
 	 *
 	 * @param varName - Environment variable name (e.g. `'DEPLOY_TARGET'`).
+	 * @returns The builder (for chaining).
 	 *
 	 * @example
 	 * ```ts
@@ -394,6 +411,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Human-readable description shown in help output.
 	 *
 	 * @param description - Text displayed next to the arg in `--help`.
+	 * @returns The builder (for chaining).
 	 *
 	 * @example
 	 * ```ts
@@ -420,6 +438,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Does not change the arg's type-level config — it's metadata only.
 	 *
 	 * @param message - Optional migration reason/guidance.
+	 * @returns The builder (for chaining).
 	 *
 	 * @example
 	 * ```ts
@@ -496,6 +515,8 @@ interface ArgFactory {
 	 * command('deploy')
 	 *   .arg('target', arg.string().env('DEPLOY_TARGET').describe('Deploy target'))
 	 * ```
+	 *
+	 * @returns A required string {@link ArgBuilder}.
 	 */
 	string(): ArgBuilder<{
 		readonly valueType: string;
@@ -522,6 +543,8 @@ interface ArgFactory {
 	 * // $ PORT=9090 mycli serve → 9090
 	 * // $ mycli serve          → 3000
 	 * ```
+	 *
+	 * @returns A required number {@link ArgBuilder}.
 	 */
 	number(): ArgBuilder<{
 		readonly valueType: number;
@@ -537,6 +560,7 @@ interface ArgFactory {
 	 * Invalid values produce a `ParseError` listing allowed options.
 	 *
 	 * @param values - Non-empty tuple of allowed string values.
+	 * @returns A required enum {@link ArgBuilder} typed to the union of `values`.
 	 *
 	 * @example
 	 * ```ts
@@ -565,6 +589,9 @@ interface ArgFactory {
 	 * The parse function receives the raw string and must return a value of
 	 * type `T`. Throw an `Error` (or `ParseError`) to signal invalid input.
 	 * The same parse function is used for both CLI and env values.
+	 *
+	 * @param parseFn - Converts the raw CLI string to `T`.
+	 * @returns A required custom {@link ArgBuilder} typed to the return of `parseFn`.
 	 *
 	 * @example
 	 * ```ts

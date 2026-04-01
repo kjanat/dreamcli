@@ -160,6 +160,10 @@ interface FlagSchema {
  * `overrides` are shallow-merged on top of the default shape, so callers are
  * responsible for keeping the resulting schema internally consistent.
  *
+ * @param kind - Discriminator for the value type this flag accepts.
+ * @param overrides - Partial {@link FlagSchema} fields merged onto defaults.
+ * @returns A fully populated {@link FlagSchema}.
+ *
  * @example
  * ```ts
  * const schema = createSchema('enum', {
@@ -215,6 +219,9 @@ class FlagBuilder<C extends FlagConfig> {
 	 */
 	declare readonly _config: C;
 
+	/**
+	 * @param schema - Runtime descriptor seeding this builder's state.
+	 */
 	constructor(schema: FlagSchema) {
 		this.schema = schema;
 	}
@@ -227,6 +234,9 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * The generic constraint `V extends C['valueType']` ensures the default
 	 * matches the flag's declared type.
+	 *
+	 * @param value - Fallback value used when no source provides one.
+	 * @returns The builder (for chaining).
 	 */
 	default<V extends C['valueType']>(value: V): FlagBuilder<WithPresence<C, 'defaulted'>> {
 		return new FlagBuilder({
@@ -239,6 +249,8 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Mark the flag as required. If not resolved from any source the framework
 	 * will emit a `ValidationError` before the action handler runs.
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	required(): FlagBuilder<WithPresence<C, 'required'>> {
 		return new FlagBuilder({
@@ -252,6 +264,9 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Add a short or long alias (e.g. `'f'` for `--force`, `'verbose'` as an
 	 * alternative long name).
+	 *
+	 * @param name - Single-char short alias or alternative long name.
+	 * @returns The builder (for chaining).
 	 */
 	alias(name: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -260,7 +275,12 @@ class FlagBuilder<C extends FlagConfig> {
 		});
 	}
 
-	/** Bind to an environment variable (resolved in v0.2+). */
+	/**
+	 * Bind to an environment variable (resolved in v0.2+).
+	 *
+	 * @param varName - Environment variable name (e.g. `'PORT'`).
+	 * @returns The builder (for chaining).
+	 */
 	env(varName: string): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
@@ -268,7 +288,12 @@ class FlagBuilder<C extends FlagConfig> {
 		});
 	}
 
-	/** Bind to a dotted config path (resolved in v0.2+). */
+	/**
+	 * Bind to a dotted config path (resolved in v0.2+).
+	 *
+	 * @param path - Dotted config key (e.g. `'deploy.region'`).
+	 * @returns The builder (for chaining).
+	 */
 	config(path: string): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
@@ -276,7 +301,12 @@ class FlagBuilder<C extends FlagConfig> {
 		});
 	}
 
-	/** Human-readable description shown in help output. */
+	/**
+	 * Human-readable description shown in help output.
+	 *
+	 * @param description - Text displayed next to the flag in `--help`.
+	 * @returns The builder (for chaining).
+	 */
 	describe(description: string): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
@@ -291,6 +321,9 @@ class FlagBuilder<C extends FlagConfig> {
 	 * prompt engine uses this config to interactively ask the user.
 	 * In non-interactive contexts (CI, piped stdin) prompts are skipped
 	 * and resolution falls through to default or required validation.
+	 *
+	 * @param config - {@link PromptConfig} describing the interactive prompt.
+	 * @returns The builder (for chaining).
 	 */
 	prompt(config: PromptConfig): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -308,6 +341,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * Does not change the flag's type-level config — it's metadata only.
 	 *
 	 * @param message - Optional migration reason/guidance.
+	 * @returns The builder (for chaining).
 	 */
 	deprecated(message?: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -324,6 +358,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * a flag with the same name shadows the propagated parent flag.
 	 *
 	 * Does not change the flag's type-level config — it's metadata only.
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	propagate(): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -336,20 +372,26 @@ class FlagBuilder<C extends FlagConfig> {
 // --- Factory namespace
 
 /**
- * Flag factory functions.
- *
- * Each function creates a `FlagBuilder` seeded with the correct `FlagKind`
- * and initial type-level config.
+ * Factory that creates {@link FlagBuilder} instances seeded with the correct
+ * {@link FlagKind} and initial type-level config.
  */
 interface FlagFactory {
-	/** String-valued flag. */
+	/**
+	 * String-valued flag.
+	 *
+	 * @returns A {@link FlagBuilder} for `string` values.
+	 */
 	string(): FlagBuilder<{
 		readonly valueType: string;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 	}>;
 
-	/** Number-valued flag. */
+	/**
+	 * Number-valued flag.
+	 *
+	 * @returns A {@link FlagBuilder} for `number` values.
+	 */
 	number(): FlagBuilder<{
 		readonly valueType: number;
 		readonly presence: 'optional';
@@ -359,6 +401,8 @@ interface FlagFactory {
 	/**
 	 * Boolean flag. Implicitly defaults to `false` — the only flag kind where
 	 * the absence of a value is still meaningful (not `undefined`).
+	 *
+	 * @returns A {@link FlagBuilder} for `boolean` values (defaulted to `false`).
 	 */
 	boolean(): FlagBuilder<{
 		readonly valueType: boolean;
@@ -377,6 +421,9 @@ interface FlagFactory {
 	 * flag.enum(['us', 'eu', 'ap'])
 	 * // inferred type: 'us' | 'eu' | 'ap'
 	 * ```
+	 *
+	 * @param values - Non-empty tuple of allowed string literals.
+	 * @returns A {@link FlagBuilder} whose value type is the union of `values`.
 	 */
 	enum<const T extends readonly [string, ...string[]]>(
 		values: T,
@@ -394,6 +441,9 @@ interface FlagFactory {
 	 * flag.array(flag.string())
 	 * // inferred type: string[]
 	 * ```
+	 *
+	 * @param element - {@link FlagBuilder} describing the element type.
+	 * @returns A {@link FlagBuilder} for arrays of the element type.
 	 */
 	array<E extends FlagConfig>(
 		element: FlagBuilder<E>,
@@ -428,6 +478,9 @@ interface FlagFactory {
 	 * flag.custom((raw) => new URL(String(raw)))
 	 * // inferred type: URL | undefined
 	 * ```
+	 *
+	 * @param parseFn - Converts the raw input into a value of type `T`.
+	 * @returns A {@link FlagBuilder} whose value type is inferred from `parseFn`.
 	 */
 	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
 		readonly valueType: T;
@@ -436,7 +489,10 @@ interface FlagFactory {
 	}>;
 }
 
-/** Flag schema factory. Use `flag.<kind>()` to create a builder. */
+/**
+ * Flag schema factory. Call `flag.<kind>()` to create an immutable
+ * {@link FlagBuilder} with full type inference and safe modifier chaining.
+ */
 const flag: FlagFactory = {
 	string(): FlagBuilder<{
 		readonly valueType: string;

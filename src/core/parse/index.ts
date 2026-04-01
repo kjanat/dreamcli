@@ -50,6 +50,9 @@ type Token =
  * - `-`         → positional (convention: stdin placeholder)
  * - everything else → positional
  *
+ * @param argv - Raw argument strings to tokenize
+ * @returns Ordered token array ready for {@link parse}
+ *
  * @example
  * ```ts
  * tokenize(['deploy', '--force', '--region=eu', '-v']);
@@ -115,9 +118,12 @@ interface ParseResult {
 // --- Internal lookup helpers
 
 /**
- * Build a map from flag name/alias → [canonicalName, FlagSchema].
+ * Build a map from flag name/alias → [canonicalName, {@link FlagSchema}].
  *
  * Supports both long names and single-char aliases for short flag expansion.
+ *
+ * @param flags - Flag schemas keyed by canonical name
+ * @returns Lookup map covering all names and aliases
  */
 function buildFlagLookup(
 	flags: Readonly<Record<string, FlagSchema>>,
@@ -132,7 +138,12 @@ function buildFlagLookup(
 	return lookup;
 }
 
-/** Whether a flag kind expects a value argument (vs. being a bare boolean). */
+/**
+ * Whether a flag kind expects a value argument (vs. being a bare boolean).
+ *
+ * @param schema - Flag schema to check
+ * @returns `true` if the flag expects a value token after it
+ */
 function flagExpectsValue(schema: FlagSchema): boolean {
 	return schema.kind !== 'boolean';
 }
@@ -142,6 +153,10 @@ function flagExpectsValue(schema: FlagSchema): boolean {
 /**
  * Coerce a raw string to the flag's declared kind.
  *
+ * @param flagName - Canonical flag name (for error messages)
+ * @param raw - Raw string value from argv
+ * @param schema - {@link FlagSchema} declaring the expected kind
+ * @returns Coerced value matching the schema's kind
  * @throws ParseError on type mismatch
  */
 function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unknown {
@@ -215,6 +230,10 @@ function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unk
 /**
  * Coerce a raw string to the arg's declared kind.
  *
+ * @param argName - Positional arg name (for error messages)
+ * @param raw - Raw string value from argv
+ * @param schema - {@link ArgSchema} declaring the expected kind
+ * @returns Coerced value matching the schema's kind
  * @throws ParseError on type mismatch or custom parse failure
  */
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
@@ -327,7 +346,16 @@ function parse(schema: CommandSchema, argv: readonly string[]): ParseResult {
 
 // --- Long flag parsing
 
-/** Parse a long flag token, consuming a value from the next token if needed. */
+/**
+ * Parse a long flag token, consuming a value from the next token if needed.
+ *
+ * @param token - Long-flag token to process
+ * @param tokens - Full token array (for lookahead)
+ * @param startIdx - Current index of `token` in the array
+ * @param flagLookup - Name/alias → [canonical, schema] map from {@link buildFlagLookup}
+ * @param flags - Mutable accumulator for resolved flag values
+ * @returns Next index to continue parsing from
+ */
 function parseLongFlag(
 	token: { readonly kind: 'long-flag'; readonly name: string; readonly value: string | undefined },
 	tokens: readonly Token[],
@@ -380,7 +408,16 @@ function parseLongFlag(
 
 // --- Short flag parsing
 
-/** Parse combined short flags, expanding -abc into individual flags. */
+/**
+ * Parse combined short flags, expanding -abc into individual flags.
+ *
+ * @param token - Short-flags token to expand
+ * @param tokens - Full token array (for lookahead)
+ * @param startIdx - Current index of `token` in the array
+ * @param flagLookup - Name/alias → [canonical, schema] map from {@link buildFlagLookup}
+ * @param flags - Mutable accumulator for resolved flag values
+ * @returns Next index to continue parsing from
+ */
 function parseShortFlags(
 	token: { readonly kind: 'short-flags'; readonly chars: string },
 	tokens: readonly Token[],
@@ -434,7 +471,14 @@ function parseShortFlags(
 
 // --- Flag value setter (handles array accumulation)
 
-/** Set or accumulate a flag value, handling array flags specially. */
+/**
+ * Set or accumulate a flag value, handling array flags specially.
+ *
+ * @param flags - Mutable accumulator for resolved flag values
+ * @param name - Canonical flag name
+ * @param schema - {@link FlagSchema} declaring the expected kind
+ * @param rawValue - Raw string value from argv
+ */
 function setFlagValue(
 	flags: Record<string, unknown>,
 	name: string,
@@ -460,6 +504,9 @@ function setFlagValue(
 /**
  * Map positional values to named args based on schema ordering.
  *
+ * @param argEntries - Ordered arg schemas from the command
+ * @param positionals - Positional values collected during tokenization
+ * @returns Named arg values keyed by arg name
  * @throws ParseError if too many positionals and no variadic arg absorbs them
  */
 function mapPositionals(
@@ -506,7 +553,9 @@ function mapPositionals(
 /**
  * Suggest the closest flag name if the edit distance is small enough.
  *
- * Returns `undefined` if no close match exists.
+ * @param input - Misspelled flag name from the user
+ * @param lookup - Flag lookup map from {@link buildFlagLookup}
+ * @returns Closest flag name, or `undefined` if no close match exists
  */
 function suggestFlag(
 	input: string,
@@ -532,6 +581,10 @@ function suggestFlag(
 
 /**
  * Classic Levenshtein distance using a single-row DP approach.
+ *
+ * @param a - First string
+ * @param b - Second string
+ * @returns Edit distance between `a` and `b`
  */
 function levenshtein(a: string, b: string): number {
 	if (a === b) return 0;

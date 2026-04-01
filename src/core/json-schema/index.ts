@@ -65,6 +65,12 @@ interface ResolvedOptions {
 	readonly includePrompts: boolean;
 }
 
+/**
+ * Apply defaults to optional {@link JsonSchemaOptions}.
+ *
+ * @param options - User-supplied schema generation options, or `undefined` for all defaults.
+ * @returns Fully resolved options with defaults applied.
+ */
 function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions {
 	return {
 		includeHidden: options?.includeHidden ?? true,
@@ -132,6 +138,13 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 
 // --- Command serialization
 
+/**
+ * Serialize a single {@link CommandSchema} into a plain object.
+ *
+ * @param schema - The command schema to serialize.
+ * @param opts - Resolved generation options (hidden/prompt inclusion).
+ * @returns JSON-serializable object representing the command.
+ */
 function serializeCommand(schema: CommandSchema, opts: ResolvedOptions): Record<string, unknown> {
 	const result: Record<string, unknown> = { name: schema.name };
 
@@ -168,6 +181,13 @@ function serializeCommand(schema: CommandSchema, opts: ResolvedOptions): Record<
 
 // --- Flag serialization
 
+/**
+ * Serialize a {@link FlagSchema} into a plain object.
+ *
+ * @param schema - The flag schema to serialize.
+ * @param opts - Resolved generation options (prompt inclusion).
+ * @returns JSON-serializable object representing the flag.
+ */
 function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string, unknown> {
 	const result: Record<string, unknown> = {
 		kind: schema.kind,
@@ -210,6 +230,12 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
 
 // --- Arg serialization
 
+/**
+ * Serialize a {@link CommandArgEntry} into a plain object.
+ *
+ * @param entry - The positional arg entry (name + {@link ArgSchema}).
+ * @returns JSON-serializable object representing the arg.
+ */
 function serializeArgEntry(entry: CommandArgEntry): Record<string, unknown> {
 	const { name, schema } = entry;
 	const result: Record<string, unknown> = {
@@ -245,6 +271,12 @@ function serializeArgEntry(entry: CommandArgEntry): Record<string, unknown> {
 
 // --- Prompt serialization
 
+/**
+ * Serialize a {@link PromptConfig} into a plain object.
+ *
+ * @param prompt - The prompt configuration to serialize.
+ * @returns JSON-serializable object representing the prompt.
+ */
 function serializePrompt(prompt: PromptConfig): Record<string, unknown> {
 	const result: Record<string, unknown> = {
 		kind: prompt.kind,
@@ -281,6 +313,12 @@ function serializePrompt(prompt: PromptConfig): Record<string, unknown> {
 	return result;
 }
 
+/**
+ * Serialize a {@link SelectChoice} into a plain object.
+ *
+ * @param choice - The select/multiselect choice to serialize.
+ * @returns JSON-serializable object with value, optional label and description.
+ */
 function serializeChoice(choice: SelectChoice): Record<string, unknown> {
 	const result: Record<string, unknown> = { value: choice.value };
 	if (choice.label !== undefined) {
@@ -294,6 +332,12 @@ function serializeChoice(choice: SelectChoice): Record<string, unknown> {
 
 // --- Example serialization
 
+/**
+ * Serialize a {@link CommandExample} into a plain object.
+ *
+ * @param example - The example to serialize.
+ * @returns JSON-serializable object with command and optional description.
+ */
 function serializeExample(example: CommandExample): Record<string, unknown> {
 	const result: Record<string, unknown> = { command: example.command };
 	if (example.description !== undefined) {

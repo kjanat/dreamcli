@@ -149,6 +149,12 @@ function getExtension(path: string): string {
  * When custom {@link ConfigDiscoveryOptions.loaders | loaders} are registered,
  * each path pattern is repeated per supported extension (JSON always first).
  *
+ * @param appName - CLI application name used to derive config filenames.
+ * @param cwd - Current working directory (project-root search location).
+ * @param configDir - Platform config directory (XDG / AppData).
+ * @param loaders - Optional custom {@link FormatLoader}s whose extensions expand the search set.
+ * @returns Ordered list of candidate config file paths (first match wins).
+ *
  * @example
  * ```ts
  * const paths = buildConfigSearchPaths('mycli', '/repo', '/home/me/.config');
@@ -178,6 +184,9 @@ function buildConfigSearchPaths(
 /**
  * Collect unique extensions from the built-in JSON loader + any custom loaders.
  * JSON always comes first. Order otherwise matches loader registration order.
+ *
+ * @param loaders - Optional custom {@link FormatLoader}s to append after JSON.
+ * @returns Deduplicated, lowercased extension list (JSON first).
  *
  * @internal
  */
@@ -215,6 +224,9 @@ function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[
 /**
  * Build extension → loader lookup. Later loaders for the same extension
  * override earlier ones (allows user to replace the built-in JSON loader).
+ *
+ * @param loaders - Optional custom {@link FormatLoader}s (later entries override earlier for same extension).
+ * @returns Map from lowercased extension to its {@link FormatLoader}.
  *
  * @internal
  */
@@ -342,6 +354,7 @@ async function discoverConfig(
  *
  * @param extensions - File extensions this loader handles (without dot, e.g. `'yaml'`).
  * @param parse - Parse function: takes file content string and returns a plain config object.
+ * @returns A {@link FormatLoader} ready to pass to {@link ConfigDiscoveryOptions.loaders}.
  *
  * @example
  * ```ts

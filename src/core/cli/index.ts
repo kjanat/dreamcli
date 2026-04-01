@@ -305,6 +305,9 @@ interface CLIRunOptions {
  * The `--config=<path>` form is checked first so that a bare `--config`
  * token does not consume the next element when an equals-form is present.
  *
+ * @param argv - Raw argument vector to scan for `--config`.
+ * @returns The extracted config path and filtered argv with the flag removed.
+ *
  * @internal
  */
 function extractConfigFlag(argv: readonly string[]): {
@@ -514,12 +517,22 @@ class CLIBuilder {
 
 	// -- Metadata modifiers --------------------------------------------------
 
-	/** Set the program version (shown by `--version`). */
+	/**
+	 * Set the program version (shown by `--version`).
+	 *
+	 * @param v - Semantic version string.
+	 * @returns The builder (for chaining).
+	 */
 	version(v: string): CLIBuilder {
 		return new CLIBuilder({ ...this.schema, version: v });
 	}
 
-	/** Set the program description (shown in root help). */
+	/**
+	 * Set the program description (shown in root help).
+	 *
+	 * @param text - Short description displayed in root help output.
+	 * @returns The builder (for chaining).
+	 */
 	description(text: string): CLIBuilder {
 		return new CLIBuilder({ ...this.schema, description: text });
 	}
@@ -544,7 +557,8 @@ class CLIBuilder {
 	 * `options.config` directly).
 	 *
 	 * @param appName - Name used to build search paths.
-	 * @param loaders - Additional format loaders (JSON is built-in).
+	 * @param loaders - Additional {@link FormatLoader}s (JSON is built-in).
+	 * @returns The builder (for chaining).
 	 */
 	config(appName: string, loaders?: readonly FormatLoader[]): CLIBuilder {
 		return new CLIBuilder({
@@ -566,6 +580,7 @@ class CLIBuilder {
 	 * Requires `.config()` to have been called first (sets the app name).
 	 *
 	 * @param loader - Format loader (or extensions + parse function).
+	 * @returns The builder (for chaining).
 	 *
 	 * @example
 	 * ```ts
@@ -648,6 +663,9 @@ class CLIBuilder {
 	 * The command's type parameters are erased for heterogeneous storage.
 	 * Type safety is preserved inside the closure that delegates to
 	 * `runCommand()`.
+	 *
+	 * @param cmd - {@link CommandBuilder} to register.
+	 * @returns The builder (for chaining).
 	 */
 	command<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -686,6 +704,9 @@ class CLIBuilder {
 	 *   .command(status)
 	 *   .run();
 	 * ```
+	 *
+	 * @param cmd - {@link CommandBuilder} to register as the default.
+	 * @returns The builder (for chaining).
 	 */
 	default<
 		F extends Record<string, FlagBuilder<FlagConfig>>,

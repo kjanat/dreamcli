@@ -23,7 +23,10 @@ type Fallback = 'silent' | 'static';
 
 /** Options for {@link Out.spinner}. */
 interface SpinnerOptions {
-	/** Fallback strategy when `!isTTY` or `jsonMode`. Defaults to `'silent'`. */
+	/**
+	 * Fallback strategy when `!isTTY` or `jsonMode`.
+	 * @default 'silent'
+	 */
 	readonly fallback?: Fallback;
 }
 
@@ -67,7 +70,10 @@ interface ProgressOptions {
 	readonly total?: number;
 	/** Label displayed alongside the progress bar. */
 	readonly label?: string;
-	/** Fallback strategy when `!isTTY` or `jsonMode`. Defaults to `'silent'`. */
+	/**
+	 * Fallback strategy when `!isTTY` or `jsonMode`.
+	 * @default 'silent'
+	 */
 	readonly fallback?: Fallback;
 }
 
@@ -97,16 +103,66 @@ interface ProgressHandle {
  * without polluting stdout/stderr arrays.
  */
 type ActivityEvent =
-	| { readonly type: 'spinner:start'; readonly text: string }
-	| { readonly type: 'spinner:update'; readonly text: string }
-	| { readonly type: 'spinner:succeed'; readonly text: string }
-	| { readonly type: 'spinner:fail'; readonly text: string }
-	| { readonly type: 'spinner:stop' }
-	| { readonly type: 'progress:start'; readonly label: string; readonly total: number | undefined }
-	| { readonly type: 'progress:increment'; readonly delta: number }
-	| { readonly type: 'progress:update'; readonly value: number }
-	| { readonly type: 'progress:done'; readonly text: string | undefined }
-	| { readonly type: 'progress:fail'; readonly text: string | undefined };
+	| {
+			/** Spinner created and started. */
+			readonly type: 'spinner:start';
+			/** Initial spinner text. */
+			readonly text: string;
+	  }
+	| {
+			/** Spinner text changed. */
+			readonly type: 'spinner:update';
+			/** Updated spinner text. */
+			readonly text: string;
+	  }
+	| {
+			/** Spinner completed successfully. */
+			readonly type: 'spinner:succeed';
+			/** Success message. */
+			readonly text: string;
+	  }
+	| {
+			/** Spinner stopped with an error. */
+			readonly type: 'spinner:fail';
+			/** Failure message. */
+			readonly text: string;
+	  }
+	| {
+			/** Spinner stopped without a final status. */
+			readonly type: 'spinner:stop';
+	  }
+	| {
+			/** Progress bar created and started. */
+			readonly type: 'progress:start';
+			/** Bar label. */
+			readonly label: string;
+			/** Known total, or `undefined` for indeterminate. */
+			readonly total: number | undefined;
+	  }
+	| {
+			/** Progress bar advanced. */
+			readonly type: 'progress:increment';
+			/** Amount advanced. */
+			readonly delta: number;
+	  }
+	| {
+			/** Progress bar set to an absolute value. */
+			readonly type: 'progress:update';
+			/** New absolute value. */
+			readonly value: number;
+	  }
+	| {
+			/** Progress bar completed. */
+			readonly type: 'progress:done';
+			/** Completion message, if any. */
+			readonly text: string | undefined;
+	  }
+	| {
+			/** Progress bar stopped with an error. */
+			readonly type: 'progress:fail';
+			/** Failure message, if any. */
+			readonly text: string | undefined;
+	  };
 
 // --- Table column descriptor
 
@@ -120,7 +176,7 @@ interface TableColumn<T extends Record<string, unknown>> {
 	readonly key: keyof T & string;
 	/**
 	 * Header label for the column.
-	 * Defaults to the `key` value when omitted.
+	 * @default the {@link TableColumn.key | key} value
 	 */
 	readonly header?: string;
 }
@@ -139,10 +195,31 @@ type TableStream = 'stdout' | 'stderr';
  * `format: 'text'` always renders a human-readable table; when `stream` is
  * omitted, text defaults to stdout in normal mode and stderr in jsonMode.
  */
-type TableOptions =
-	| { readonly format?: 'auto' }
-	| { readonly format: 'json' }
-	| { readonly format: 'text'; readonly stream?: TableStream };
+/** Preserve the mode-dependent default — text tables in normal mode, JSON in `jsonMode`. */
+interface TableOptionsAuto {
+	/**
+	 * Follow the current output mode (text in normal, JSON in jsonMode).
+	 * @default 'auto'
+	 */
+	readonly format?: 'auto';
+}
+
+/** Force JSON array output to stdout regardless of output mode. */
+interface TableOptionsJson {
+	/** Always emit a JSON array to stdout. */
+	readonly format: 'json';
+}
+
+/** Force human-readable text table output, optionally routed to a specific {@link TableStream}. */
+interface TableOptionsText {
+	/** Always render a human-readable text table. */
+	readonly format: 'text';
+	/** Target stream for text output. Falls back to stdout (stderr in jsonMode). */
+	readonly stream?: TableStream;
+}
+
+/** Per-call rendering options for {@link Out.table}. */
+type TableOptions = TableOptionsAuto | TableOptionsJson | TableOptionsText;
 
 // --- Exports
 

@@ -277,6 +277,11 @@ const MAX_RETRIES = 10;
  *
  * Displays `(Y/n)` or `(y/N)` depending on the default (if any).
  * Accepts: y, yes, n, no, empty (uses default). Case-insensitive.
+ *
+ * @param config - {@link ConfirmPromptConfig} with the question message
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering prompt text
+ * @returns Resolved {@link PromptResult} — `true`/`false` value, or cancelled on EOF
  */
 async function promptConfirm(
 	config: ConfirmPromptConfig,
@@ -308,6 +313,11 @@ async function promptConfirm(
  *
  * Displays the message, reads a line, and optionally validates via
  * `config.validate`. Loops on invalid input up to `MAX_RETRIES`.
+ *
+ * @param config - {@link InputPromptConfig} with message, optional placeholder and validator
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering prompt text and validation errors
+ * @returns Resolved {@link PromptResult} — trimmed string value, or cancelled on EOF/exhausted retries
  */
 async function promptInput(
 	config: InputPromptConfig,
@@ -347,6 +357,11 @@ async function promptInput(
  *
  * Displays choices with 1-based indices. User enters the number of
  * their selection.
+ *
+ * @param config - {@link ResolvedSelectPromptConfig} with message and guaranteed non-empty choices
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering the choice list and validation errors
+ * @returns Resolved {@link PromptResult} — selected {@link SelectChoice.value}, or cancelled on EOF/exhausted retries
  */
 async function promptSelect(
 	config: ResolvedSelectPromptConfig,
@@ -397,6 +412,11 @@ async function promptSelect(
  * numbers of their selections (e.g. `1,3,5`).
  *
  * Validates against `min`/`max` constraints if configured.
+ *
+ * @param config - {@link ResolvedMultiselectPromptConfig} with message, guaranteed non-empty choices, and optional min/max
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering the choice list, hints, and validation errors
+ * @returns Resolved {@link PromptResult} — array of selected {@link SelectChoice.value} strings, or cancelled on EOF/exhausted retries
  */
 async function promptMultiselect(
 	config: ResolvedMultiselectPromptConfig,

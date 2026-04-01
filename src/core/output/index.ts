@@ -390,6 +390,9 @@ class CaptureOutputChannel extends OutputChannel {
  * When no explicit columns are provided, all keys from the first row
  * become columns in insertion order. This is a convenience — callers
  * who need stable ordering should provide explicit columns.
+ *
+ * @param rows - Data rows to derive columns from.
+ * @returns Column descriptors, one per key of the first row (empty if `rows` is empty).
  */
 function inferColumns<T extends Record<string, unknown>>(
 	rows: readonly T[],
@@ -399,12 +402,25 @@ function inferColumns<T extends Record<string, unknown>>(
 	return Object.keys(first).map((key) => ({ key: key as keyof T & string }));
 }
 
+/**
+ * Type guard: is `value` a {@link TableColumn} array (not {@link TableOptions})?
+ *
+ * @param value - The ambiguous argument to discriminate.
+ * @returns `true` when `value` is a column descriptor array.
+ */
 function isTableColumns<T extends Record<string, unknown>>(
 	value: readonly TableColumn<T>[] | TableOptions | undefined,
 ): value is readonly TableColumn<T>[] {
 	return Array.isArray(value);
 }
 
+/**
+ * Disambiguate the overloaded `table()` arguments.
+ *
+ * @param columnsOrOptions - Either column descriptors or table options (from the 2-arg overload).
+ * @param options - Explicit table options (from the 3-arg overload).
+ * @returns Separated `columns` and `options`, each possibly `undefined`.
+ */
 function resolveTableArgs<T extends Record<string, unknown>>(
 	columnsOrOptions?: readonly TableColumn<T>[] | TableOptions,
 	options?: TableOptions,
@@ -426,7 +442,13 @@ function resolveTableArgs<T extends Record<string, unknown>>(
 	return { columns: undefined, options: columnsOrOptions };
 }
 
-/** Keep only the keys listed in `columns`, preserving column order. */
+/**
+ * Keep only the keys listed in `columns`, preserving column order.
+ *
+ * @param rows - Source data rows.
+ * @param columns - Column descriptors controlling which keys to retain.
+ * @returns Projected rows containing only the specified keys.
+ */
 function projectTableRows<T extends Record<string, unknown>>(
 	rows: readonly T[],
 	columns: readonly TableColumn<T>[],
@@ -434,6 +456,15 @@ function projectTableRows<T extends Record<string, unknown>>(
 	return rows.map((row) => Object.fromEntries(columns.map((c) => [c.key, row[c.key]])));
 }
 
+/**
+ * Determine the concrete table format (`'text'` or `'json'`).
+ *
+ * Resolves `'auto'` / `undefined` by falling back to the channel's `jsonMode`.
+ *
+ * @param jsonMode - Whether the channel is in JSON output mode.
+ * @param options - Per-call table options (may specify an explicit format).
+ * @returns `'text'` or `'json'`.
+ */
 function resolveTableFormat(jsonMode: boolean, options?: TableOptions): 'text' | 'json' {
 	switch (options?.format) {
 		case 'json':
@@ -446,6 +477,17 @@ function resolveTableFormat(jsonMode: boolean, options?: TableOptions): 'text' |
 	}
 }
 
+/**
+ * Pick the {@link WriteFn} for a text-mode table.
+ *
+ * Respects `tableOptions.stream` when present; otherwise falls back to
+ * the channel's default (stderr in JSON mode, stdout otherwise).
+ *
+ * @param options - Resolved channel options.
+ * @param format - Resolved table format.
+ * @param tableOptions - Per-call table options (may specify a stream override).
+ * @returns The writer to use.
+ */
 function resolveTextTableWriter(
 	options: ResolvedOutputOptions,
 	format: 'text' | 'json',
@@ -469,6 +511,9 @@ function resolveTextTableWriter(
  * - `null` / `undefined` → `''`
  * - Primitives → `String(value)`
  * - Objects / arrays → JSON
+ *
+ * @param value - The raw cell value.
+ * @returns Display string for the cell.
  */
 function cellToString(value: unknown): string {
 	return formatDisplayValue(value);
@@ -483,6 +528,10 @@ function cellToString(value: unknown): string {
  * Column widths are computed as the max of header and all cell values.
  * Cells are left-aligned, padded with spaces. Columns are separated by
  * two spaces.
+ *
+ * @param rows - Data rows to render.
+ * @param columns - Column descriptors controlling key, header, and order.
+ * @returns The formatted table string, or `''` when there is nothing to render.
  */
 function formatTable<T extends Record<string, unknown>>(
 	rows: readonly T[],
@@ -537,6 +586,8 @@ function formatTable<T extends Record<string, unknown>>(
  * @param options - Optional configuration. When omitted, output is
  *   discarded (useful for silent test runs). Pass `stdout`/`stderr`
  *   writers to direct output somewhere useful.
+ *
+ * @returns An {@link Out} instance backed by an {@link OutputChannel}.
  *
  * @example
  * ```ts
@@ -593,8 +644,11 @@ interface CapturedOutput {
  * Useful in tests to assert on what a handler wrote without touching
  * real I/O.
  *
- * @returns A tuple of `[out, captured]` — the output channel and the
- *   captured buffers.
+ * @param options - Optional {@link OutputOptions} (minus `stdout`/`stderr`,
+ *   which are wired to the capture buffers automatically).
+ *
+ * @returns A tuple of `[out, captured]` — the {@link Out} channel and the
+ *   {@link CapturedOutput} buffers.
  *
  * @example
  * ```ts

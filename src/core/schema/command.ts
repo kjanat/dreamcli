@@ -131,10 +131,11 @@ type ErasedInteractiveResolver = (params: {
 // --- Handler types
 
 /**
- * Minimal output channel stub — the real `Out` will be defined in
- * `src/core/output/` (task output-1). For now we expose the shape that
- * handlers will use so the command builder's `.action()` signature is
- * correct from day one.
+ * Output channel available inside action handlers.
+ *
+ * Provides structured methods for stdout/stderr, JSON output,
+ * spinners, progress bars, and tables. The real implementation lives in
+ * `src/core/output/`; this interface defines the shape that handlers consume.
  */
 interface Out {
 	/** Write to stdout (normal output). */
@@ -196,6 +197,7 @@ interface Out {
 	 * @param rows - Array of row objects.
 	 */
 	table<T extends Record<string, unknown>>(rows: readonly T[], options: TableOptions): void;
+	/** Render tabular data with explicit column selection. */
 	table<T extends Record<string, unknown>>(
 		rows: readonly T[],
 		columns?: readonly TableColumn<T>[],
@@ -210,6 +212,7 @@ interface Out {
 	 *
 	 * @param text    - Initial spinner text.
 	 * @param options - Fallback strategy for non-TTY environments.
+	 * @returns A {@link SpinnerHandle} for lifecycle control.
 	 */
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle;
 
@@ -220,6 +223,7 @@ interface Out {
 	 * determinate mode (percentage bar); omit for indeterminate (pulsing).
 	 *
 	 * @param options - Progress configuration (total, label, fallback).
+	 * @returns A {@link ProgressHandle} for updating progress.
 	 */
 	progress(options: ProgressOptions): ProgressHandle;
 
@@ -253,8 +257,9 @@ interface Out {
 }
 
 /**
- * Metadata about the running CLI program, available to action handlers
- * and middleware.
+ * Runtime metadata about the CLI program and current command execution.
+ *
+ * Available to action handlers and middleware.
  *
  * Populated by the CLI dispatch layer from {@link CLISchema} and
  * {@link CommandSchema}. For standalone `runCommand()` calls without
@@ -381,8 +386,11 @@ interface CommandExample {
 }
 
 /**
- * The runtime descriptor built by `CommandBuilder`. Consumers (parser, help
- * generator, CLI dispatcher) read this to understand the command's shape.
+ * Runtime descriptor produced by {@link CommandBuilder}.
+ *
+ * Consumers (parser, help generator, CLI dispatcher) read this to
+ * understand the command's shape — flags, args, aliases, subcommands,
+ * middleware, and interactive resolver.
  */
 interface CommandSchema {
 	/** The command name (used for dispatch, e.g. `'deploy'`). */
@@ -430,7 +438,12 @@ interface CommandSchema {
 	readonly commands: readonly CommandSchema[];
 }
 
-/** A named positional arg entry in the command schema. */
+/**
+ * A named positional argument entry in the command schema.
+ *
+ * Pairs a user-facing arg name with its {@link ArgSchema} descriptor.
+ * The array ordering in {@link CommandSchema.args} determines CLI position.
+ */
 interface CommandArgEntry {
 	readonly name: string;
 	readonly schema: ArgSchema;
@@ -506,7 +519,7 @@ interface ErasedCommand {
 // --- Type-erased builder alias (for heterogeneous subcommand storage)
 
 /**
- * Type-erased command builder for heterogeneous storage in `_subcommands`.
+ * Type-erased {@link CommandBuilder} for heterogeneous subcommand storage.
  *
  * Advanced helper alias: useful only when working on DreamCLI internals or
  * custom tooling that mirrors the framework's type-erasure boundary.
@@ -605,6 +618,12 @@ class CommandBuilder<
 	declare readonly _args: A;
 	declare readonly _ctx: C;
 
+	/**
+	 * @param schema         - Runtime command descriptor.
+	 * @param handler        - Action handler, if registered.
+	 * @param subcommands    - Nested sub-command builders (type-erased).
+	 * @param executionSteps - Derive/middleware steps in registration order.
+	 */
 	constructor(
 		schema: CommandSchema,
 		handler?: ActionHandler<F, A, C>,
@@ -645,6 +664,9 @@ class CommandBuilder<
 	 *   }))
 	 *   .action(({ flags }) => { ... });
 	 * ```
+	 *
+	 * @param resolver - Function receiving partially resolved flags and returning prompt configs.
+	 * @returns The builder (for chaining).
 	 */
 	interactive(resolver: InteractiveResolver<F>): CommandBuilder<F, A, C> {
 		// The resolver is type-erased for storage on CommandSchema.
@@ -695,6 +717,9 @@ class CommandBuilder<
 	 *     ctx.token; // string
 	 *   });
 	 * ```
+	 *
+	 * @param handler - Derive function receiving typed args/flags/ctx.
+	 * @returns The builder (for chaining).
 	 */
 	derive<Output extends Record<string, unknown> | undefined>(
 		handler: DeriveHandler<F, A, C, Output>,
@@ -768,6 +793,9 @@ class CommandBuilder<
 	 *     ctx.traceId; // string — typed
 	 *   });
 	 * ```
+	 *
+	 * @param m - {@link Middleware} instance created via `middleware()`.
+	 * @returns The builder (for chaining).
 	 */
 	middleware<Output extends Record<string, unknown>>(
 		m: Middleware<Output>,
@@ -812,6 +840,8 @@ class CommandBuilder<
 	 * //
 	 * // Deploy the application to a target environment
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	description(text: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
@@ -842,6 +872,8 @@ class CommandBuilder<
 	 * // $ mycli d
 	 * // $ mycli push
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	alias(name: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
@@ -868,6 +900,8 @@ class CommandBuilder<
 	 * // $ mycli --help     → 'debug-dump' is not listed
 	 * // $ mycli debug-dump → still works
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	hidden(): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
@@ -903,6 +937,8 @@ class CommandBuilder<
 	 * //   deploy production      Deploy to production
 	 * //   deploy staging -f      Force deploy to staging
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	example(cmd: string, description?: string): CommandBuilder<F, A, C> {
 		const entry: CommandExample =
@@ -955,6 +991,8 @@ class CommandBuilder<
 	 * // $ mycli serve --port 8080 -v
 	 * // $ PORT=9090 mycli serve
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
 		name: N & Exclude<N, keyof F>,
@@ -1009,6 +1047,8 @@ class CommandBuilder<
 	 * // $ mycli deploy production 8080
 	 * // $ DEPLOY_TARGET=staging mycli deploy
 	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	arg<N extends string, B extends ArgBuilder<ArgConfig>>(
 		name: N & Exclude<N, keyof A>,
@@ -1048,6 +1088,9 @@ class CommandBuilder<
 	 *   .command(migrateCmd)
 	 *   .command(seedCmd);
 	 * ```
+	 *
+	 * @param sub - Child {@link CommandBuilder} to nest under this command.
+	 * @returns The builder (for chaining).
 	 */
 	command<
 		F2 extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1105,6 +1148,8 @@ class CommandBuilder<
 	 *     spinner.stop();
 	 *     out.log('Done');
 	 *   });
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
@@ -1133,6 +1178,8 @@ class CommandBuilder<
  *     out.log(flags.loud ? msg.toUpperCase() : msg);
  *   });
  * ```
+ *
+ * @returns A fresh {@link CommandBuilder} with empty flags, args, and context.
  */
 function command(name: string): CommandBuilder {
 	return new CommandBuilder({
@@ -1169,6 +1216,8 @@ function command(name: string): CommandBuilder {
  *   .command(migrateCmd)
  *   .command(seedCmd);
  * ```
+ *
+ * @returns A fresh {@link CommandBuilder} with empty flags, args, and context.
  */
 function group(name: string): CommandBuilder {
 	return command(name);
