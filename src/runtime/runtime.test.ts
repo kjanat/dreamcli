@@ -425,6 +425,13 @@ describe('createTestAdapter stdin', () => {
 		expect(result).toBeNull();
 	});
 
+	it('readStdin consumes stdinData once', async () => {
+		const adapter = createTestAdapter({ stdinData: 'stdin-target' });
+
+		expect(await adapter.readStdin()).toBe('stdin-target');
+		expect(await adapter.readStdin()).toBeNull();
+	});
+
 	it('default stdinIsTTY is false', () => {
 		const adapter = createTestAdapter();
 		expect(adapter.stdinIsTTY).toBe(false);
@@ -449,6 +456,16 @@ describe('createTestAdapter stdin', () => {
 	it('accepts custom stdinIsTTY', () => {
 		const adapter = createTestAdapter({ stdinIsTTY: true });
 		expect(adapter.stdinIsTTY).toBe(true);
+	});
+
+	it('readStdin returns null when stdinIsTTY is true', async () => {
+		const adapter = createTestAdapter({
+			stdinData: 'stdin-target',
+			stdinIsTTY: true,
+		});
+
+		expect(await adapter.readStdin()).toBeNull();
+		expect(await adapter.readStdin()).toBeNull();
 	});
 
 	it('stdinIsTTY is independent of isTTY', () => {

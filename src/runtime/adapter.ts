@@ -161,8 +161,9 @@ interface TestAdapterOptions {
 	/**
 	 * Piped stdin data for testing args with `.stdin()` configured.
 	 *
-	 * When provided, `readStdin()` returns this string. When absent,
-	 * `readStdin()` returns `null` (no piped data).
+	 * When provided and `stdinIsTTY` is `false`, `readStdin()` returns this
+	 * string once, then `null` on subsequent reads. When absent, or when
+	 * `stdinIsTTY` is `true`, `readStdin()` returns `null`.
 	 *
 	 * @example
 	 * ```ts
@@ -285,7 +286,8 @@ const noopReadFile: (path: string) => Promise<string | null> = () => Promise.res
  * ```
  */
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
-	const stdinData = options?.stdinData;
+	const stdinIsTTY = options?.stdinIsTTY ?? false;
+	let stdinData = !stdinIsTTY ? options?.stdinData : undefined;
 	return {
 		argv: options?.argv ?? ['node', 'test'],
 		env: options?.env ?? {},
@@ -293,9 +295,16 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
 		stdin: options?.stdin ?? eofRead,
-		readStdin: () => Promise.resolve(stdinData !== undefined ? stdinData : null),
+		readStdin: () => {
+			if (stdinData === undefined) {
+				return Promise.resolve(null);
+			}
+			const result = stdinData;
+			stdinData = undefined;
+			return Promise.resolve(result);
+		},
 		isTTY: options?.isTTY ?? false,
-		stdinIsTTY: options?.stdinIsTTY ?? false,
+		stdinIsTTY,
 		exit:
 			options?.exit ??
 			((code: number): never => {
