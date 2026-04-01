@@ -258,7 +258,8 @@ function getDenoNamespace(): DenoNamespace {
  *
  * Returns `null` immediately if stdin is a TTY — the user is typing
  * interactively, so there's no piped data to consume. When stdin is
- * piped, collects all chunks via the `ReadableStream` until EOF.
+ * piped, collects all chunks via the `ReadableStream` until EOF and
+ * returns the decoded string, which may be empty for an empty pipe.
  *
  * @internal
  */
@@ -283,8 +284,7 @@ async function readDenoStdinAll(deno: DenoNamespace, stdinIsTTY: boolean): Promi
 		reader.releaseLock();
 	}
 
-	const result = chunks.join('');
-	return result.length > 0 ? result : null;
+	return chunks.join('');
 }
 
 /**

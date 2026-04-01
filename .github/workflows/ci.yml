@@ -41,16 +41,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { runtime: bun, bun-version: latest }
-          - { runtime: node, node-version: 22.22.2 }
-          - { runtime: node, node-version: latest }
+        runtime: [bun, node]
+        node-version: [22.22.2, latest]
+        exclude: [{ runtime: bun, node-version: 22.22.2 }]
     steps:
       - uses: actions/checkout@v6
 
       # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: "${{ matrix.bun-version }}" }
+        with: { bun-version: latest }
 
       - uses: actions/setup-node@v6
         if: matrix.runtime == 'node'

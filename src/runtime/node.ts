@@ -233,7 +233,8 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
  *
  * Returns `null` immediately if stdin is a TTY — the user is typing
  * interactively, so there's no piped data to consume. When stdin is
- * piped, collects all chunks via the async iterator until EOF.
+ * piped, collects all chunks via the async iterator until EOF and
+ * returns the decoded string, which may be empty for an empty pipe.
  *
  * @internal
  */
@@ -249,8 +250,7 @@ async function readNodeStdinAll(proc: NodeProcess, stdinIsTTY: boolean): Promise
 	// Flush any remaining bytes held by the streaming decoder
 	chunks.push(decoder.decode());
 
-	const result = chunks.join('');
-	return result.length > 0 ? result : null;
+	return chunks.join('');
 }
 
 /**

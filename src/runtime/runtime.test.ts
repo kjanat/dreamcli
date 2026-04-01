@@ -503,6 +503,11 @@ describe('createNodeAdapter stdin', () => {
 		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(typeof adapter.stdin).toBe('function');
 	});
+
+	it('readStdin returns empty string for empty non-TTY stdin', async () => {
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: mockStdin({ isTTY: false }) }));
+		expect(await adapter.readStdin()).toBe('');
+	});
 });
 
 // ---------------------------------------------------------------------------

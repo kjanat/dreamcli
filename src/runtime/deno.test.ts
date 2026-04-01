@@ -305,6 +305,14 @@ describe('createDenoAdapter — stdin', () => {
 		expect(typeof adapter.stdin).toBe('function');
 	});
 
+	it('readStdin returns empty string for empty non-TTY stdin', async () => {
+		const ns = mockDeno({
+			stdin: { isTerminal: () => false, readable: mockReadableStream([]) },
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(await adapter.readStdin()).toBe('');
+	});
+
 	it('reads a line from stdin stream', async () => {
 		const ns = mockDeno({
 			stdin: { isTerminal: () => false, readable: mockReadableStream(['hello\n']) },
