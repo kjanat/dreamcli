@@ -66,7 +66,7 @@ const prompter = createTestPrompter(['eu', true, 'my-name']);
 
 ## `createTestAdapter(options?)`
 
-Create a runtime adapter for testing (no real process access).
+Returns a runtime adapter for testing (no real process access).
 
 ## `PROMPT_CANCEL`
 

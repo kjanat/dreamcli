@@ -43,8 +43,13 @@ function dbGroup() {
 		.command(seedCommand());
 }
 
-function hasPropagatedVerbose(flags: Record<string, unknown>): boolean {
-	return flags['verbose'] === true;
+function hasPropagatedVerbose(flags: unknown): boolean {
+	return (
+		typeof flags === 'object' &&
+		flags !== null &&
+		'verbose' in flags &&
+		(flags as { readonly verbose?: unknown }).verbose === true
+	);
 }
 
 // ===================================================================
@@ -56,7 +61,7 @@ describe('runCommand — mergedSchema injection', () => {
 		const cmd = command('migrate')
 			.description('Run migrations')
 			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		// Simulate what dispatch does: merge a propagated "verbose" flag
@@ -78,7 +83,7 @@ describe('runCommand — mergedSchema injection', () => {
 		const cmd = command('migrate')
 			.description('Run migrations')
 			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		const mergedSchema = {
@@ -100,7 +105,7 @@ describe('runCommand — mergedSchema injection', () => {
 			.flag('steps', flag.number().describe('Steps'))
 			.action(({ flags, out }) => {
 				out.log(
-					`steps=${String(flags.steps ?? 'all')} verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`,
+					`steps=${String(flags.steps ?? 'all')} verbose=${String(hasPropagatedVerbose(flags))}`,
 				);
 			});
 
@@ -171,7 +176,7 @@ describe('CLIBuilder.execute — nested dispatch with env injection', () => {
 		const migrate = command('migrate')
 			.description('Run migrations')
 			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		const db = group('db')
@@ -518,7 +523,7 @@ describe('CLIBuilder.execute — 3-level nesting with testkit options', () => {
 		const up = command('up')
 			.description('Migrate up')
 			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		const migrate = group('migrate').description('Migration commands').command(up);

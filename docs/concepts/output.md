@@ -33,7 +33,7 @@ mycli list | grep "important"
 
 ## What's a TTY?
 
-**TTY** stands for "teletypewriter" — a physical terminal from the 1960s.
+**TTY** stands for "teletypewriter" — a physical terminal from the 1960s.\
 Today it means "is a human looking at this output in a real terminal?"
 
 Your program can check: *is my stdout connected to a terminal, or to a pipe/file?*
@@ -52,8 +52,7 @@ Why does this matter? Because the right behavior changes:
 | Piped/redirected     | Plain text, no colors, no animations, stable format |
 
 ::: warning
-If you pipe colored output to a file, you get garbage like
-`\x1b[32mSuccess\x1b[0m` instead of `Success`.
+If you pipe colored output to a file, you get garbage like `\x1b[32mSuccess\x1b[0m` instead of `Success`.\
 Good CLIs detect this and strip colors automatically.
 :::
 
@@ -68,12 +67,20 @@ Colors make output scannable for humans:
 But colors are just escape codes — special characters that terminals interpret.
 They're meaningless (and ugly) in log files, pipes, or CI output.
 
-The convention:
+The convention many CLIs follow:
 
 - **TTY** → colors on
 - **Not TTY** → colors off
 - **`NO_COLOR` env var set** → colors off (it's a [standard](https://no-color.org/))
 - **`--no-color` flag** → colors off
+
+::: info DreamCLI today
+DreamCLI does not currently provide built-in colored text output, so
+`NO_COLOR` and `--no-color` are not framework-level controls today.\
+In practice, the framework currently exposes TTY and JSON-mode signals
+(`isTTY` / `jsonMode`) that handlers can use to decide whether to emit decorative
+output at all.
+:::
 
 ## Spinners and Progress Bars
 
@@ -95,8 +102,14 @@ In a **pipe or CI**:
 Uploading files... done (10 files)
 ```
 
-The spinner version redraws the same line (using terminal escape codes). The plain version just
-prints a line when it's done. Same information, different presentation.
+In many CLIs, non-TTY spinner/progress output defaults to a `silent` fallback,
+so often nothing is emitted at all. A one-shot `plain` message like the example
+above usually appears only when the caller explicitly opts into a static/plain
+fallback, rather than happening automatically.
+
+The spinner version redraws the same line (using terminal escape codes). The
+plain version just prints a line when it's done. Same information, different
+presentation.
 
 ## Tables
 

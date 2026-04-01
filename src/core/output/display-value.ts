@@ -23,6 +23,9 @@ function formatDisplayValue(value: unknown): string {
 	}
 
 	if (value instanceof Date) {
+		if (Number.isNaN(value.getTime())) {
+			return 'Invalid Date';
+		}
 		return value.toISOString();
 	}
 

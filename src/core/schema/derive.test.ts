@@ -16,6 +16,7 @@ describe('CommandBuilder.derive() — type inference', () => {
 			.flag('token', flag.string())
 			.derive(({ flags }) => {
 				expectTypeOf(flags.token).toEqualTypeOf<string | undefined>();
+				return undefined;
 			})
 			.action(({ ctx }) => {
 				expectTypeOf(ctx).toEqualTypeOf<Readonly<Record<string, never>>>();
@@ -123,6 +124,7 @@ describe('CommandBuilder.derive() — runtime', () => {
 						exitCode: 2,
 					});
 				}
+				return undefined;
 			})
 			.action(({ ctx }) => {
 				receivedCtx = ctx;

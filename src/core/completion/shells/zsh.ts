@@ -14,6 +14,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import {
@@ -135,7 +136,9 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 				// Leaf command — emit flags inline
 				const node = nodes.find((n) => n.path.length === 1 && n.schema.name === cmd.name);
 				if (node === undefined) {
-					throw new Error(`Missing completion node for command '${cmd.name}'`);
+					throw new CLIError(`Missing completion node for command '${cmd.name}'`, {
+						code: 'UNEXPECTED_ERROR',
+					});
 				}
 				const flagSpecs = buildZshFlagSpecsFromFlags(node.mergedFlags);
 

@@ -367,6 +367,9 @@ async function runCommand<
 
 type ResolvedHookName = Exclude<keyof CLIPlugin['hooks'], 'beforeParse'>;
 
+/**
+ * @internal
+ */
 async function runBeforeParseHooks(
 	plugins: readonly CLIPlugin[] | undefined,
 	params: BeforeParseParams,
@@ -378,6 +381,9 @@ async function runBeforeParseHooks(
 	}
 }
 
+/**
+ * @internal
+ */
 async function runResolvedHooks(
 	plugins: readonly CLIPlugin[] | undefined,
 	hookName: ResolvedHookName,
