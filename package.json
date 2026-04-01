@@ -32,9 +32,11 @@
 			"deno": "./src/index.ts",
 			"types": {
 				"import": "./dist/index.d.mts",
+				"require": "./dist/index.d.cts",
 				"default": "./dist/index.d.cts"
 			},
 			"import": "./dist/index.mjs",
+			"require": "./dist/index.cjs",
 			"default": "./dist/index.cjs"
 		},
 		"./runtime": {
@@ -42,9 +44,11 @@
 			"deno": "./src/runtime.ts",
 			"types": {
 				"import": "./dist/runtime.d.mts",
+				"require": "./dist/runtime.d.cts",
 				"default": "./dist/runtime.d.cts"
 			},
 			"import": "./dist/runtime.mjs",
+			"require": "./dist/runtime.cjs",
 			"default": "./dist/runtime.cjs"
 		},
 		"./testkit": {
@@ -52,16 +56,15 @@
 			"deno": "./src/testkit.ts",
 			"types": {
 				"import": "./dist/testkit.d.mts",
+				"require": "./dist/testkit.d.cts",
 				"default": "./dist/testkit.d.cts"
 			},
 			"import": "./dist/testkit.mjs",
+			"require": "./dist/testkit.cjs",
 			"default": "./dist/testkit.cjs"
 		},
 		"./package.json": "./package.json"
 	},
-	"main": "./dist/index.cjs",
-	"module": "./dist/index.mjs",
-	"types": "./dist/index.d.cts",
 	"files": [
 		"README.md",
 		"LICENSE",
