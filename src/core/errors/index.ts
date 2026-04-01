@@ -38,7 +38,7 @@ export interface CLIErrorOptions {
 	readonly code: ErrorCode;
 	/**
 	 * Process exit code.
-	 * @default 1
+	 * @defaultValue `1`
 	 */
 	readonly exitCode?: number;
 	/** One-liner actionable hint shown to the user. */
@@ -109,7 +109,7 @@ export interface CLIErrorJSON {
 export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
 	readonly code: ParseErrorCode;
 	/**
-	 * @default 2
+	 * @defaultValue `2`
 	 */
 	readonly exitCode?: number;
 }
@@ -134,7 +134,7 @@ export class ParseError extends CLIError {
 export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
 	readonly code: ValidationErrorCode;
 	/**
-	 * @default 2
+	 * @defaultValue `2`
 	 */
 	readonly exitCode?: number;
 }

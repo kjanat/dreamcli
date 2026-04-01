@@ -143,7 +143,7 @@ interface FlagSchema {
 	 * commands. A child command that defines a flag with the same name
 	 * shadows the propagated parent flag.
 	 *
-	 * Defaults to `false`.
+	 * @defaultValue `false`
 	 */
 	readonly propagate: boolean;
 }

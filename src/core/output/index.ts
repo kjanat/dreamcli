@@ -88,7 +88,7 @@ interface OutputOptions {
 	 * so that stdout is reserved exclusively for structured `json()` output.
 	 * `warn` and `error` continue to write to stderr as normal.
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly jsonMode?: boolean;
 }

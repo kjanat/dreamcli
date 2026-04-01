@@ -74,7 +74,7 @@ interface RunOptions {
 
 	/**
 	 * Verbosity level for the output channel.
-	 * @default 'normal'
+	 * @defaultValue `'normal'`
 	 */
 	readonly verbosity?: Verbosity;
 
@@ -85,7 +85,7 @@ interface RunOptions {
 	 * so that stdout is reserved exclusively for structured `json()` output.
 	 * Errors are also rendered as JSON to stderr.
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly jsonMode?: boolean;
 
@@ -96,7 +96,7 @@ interface RunOptions {
 	 * output (spinners, progress bars, ANSI codes). Defaults to `false`
 	 * (safe default for tests — non-TTY until proven otherwise).
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly isTTY?: boolean;
 

@@ -25,7 +25,7 @@ type Fallback = 'silent' | 'static';
 interface SpinnerOptions {
 	/**
 	 * Fallback strategy when `!isTTY` or `jsonMode`.
-	 * @default 'silent'
+	 * @defaultValue `'silent'`
 	 */
 	readonly fallback?: Fallback;
 }
@@ -72,7 +72,7 @@ interface ProgressOptions {
 	readonly label?: string;
 	/**
 	 * Fallback strategy when `!isTTY` or `jsonMode`.
-	 * @default 'silent'
+	 * @defaultValue `'silent'`
 	 */
 	readonly fallback?: Fallback;
 }
@@ -176,7 +176,7 @@ interface TableColumn<T extends Record<string, unknown>> {
 	readonly key: keyof T & string;
 	/**
 	 * Header label for the column.
-	 * @default the {@link TableColumn.key | key} value
+	 * @defaultValue the {@link TableColumn.key | key} value
 	 */
 	readonly header?: string;
 }
@@ -199,7 +199,7 @@ type TableStream = 'stdout' | 'stderr';
 interface TableOptionsAuto {
 	/**
 	 * Follow the current output mode (text in normal, JSON in jsonMode).
-	 * @default 'auto'
+	 * @defaultValue `'auto'`
 	 */
 	readonly format?: 'auto';
 }

@@ -166,7 +166,7 @@ interface PackageJsonSettings {
 	 * Explicit `.version()`/`.description()` calls still take precedence
 	 * over discovered values.
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly inferName: boolean;
 }
@@ -245,7 +245,7 @@ interface CLIRunOptions {
 
 	/**
 	 * Verbosity level for the output channel.
-	 * @default 'normal'
+	 * @defaultValue `'normal'`
 	 */
 	readonly verbosity?: Verbosity;
 
@@ -256,7 +256,7 @@ interface CLIRunOptions {
 	 * so that stdout is reserved exclusively for structured `json()` output.
 	 * Errors are also rendered as JSON to stderr.
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly jsonMode?: boolean;
 
@@ -267,7 +267,7 @@ interface CLIRunOptions {
 	 * In `.run()`, automatically sourced from `adapter.isTTY` when not
 	 * explicitly set.
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly isTTY?: boolean;
 
@@ -1274,7 +1274,7 @@ interface CLIOptions {
 	 * Used by `.execute()`, and by `.run()` when runtime name inheritance is
 	 * disabled or the invocation name cannot be inferred.
 	 *
-	 * @default 'cli'
+	 * @defaultValue `'cli'`
 	 */
 	readonly name?: string;
 
@@ -1285,7 +1285,7 @@ interface CLIOptions {
 	 * - `node ./bin/mycli.ts` → `mycli.ts`
 	 * - `/usr/local/bin/mycli` → `mycli`
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly inherit?: boolean;
 }

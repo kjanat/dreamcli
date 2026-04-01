@@ -64,7 +64,7 @@ interface CompletionOptions {
 	 * - `'surface'` exposes the default command's root-usable flags at the
 	 *   root whenever a visible default command exists.
 	 *
-	 * @default 'subcommands'
+	 * @defaultValue `'subcommands'`
 	 */
 	readonly rootMode?: 'subcommands' | 'surface';
 }

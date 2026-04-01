@@ -3,7 +3,6 @@
 telemetry = false
 
 [install]
-exact = true
 auto = "auto"
 lockfile.save = true
 

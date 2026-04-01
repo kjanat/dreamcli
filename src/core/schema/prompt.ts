@@ -69,12 +69,12 @@ interface MultiselectPromptConfig extends PromptConfigBase {
 	readonly choices?: readonly SelectChoice[];
 	/**
 	 * Minimum number of selections required.
-	 * @default 0
+	 * @defaultValue `0`
 	 */
 	readonly min?: number;
 	/**
 	 * Maximum number of selections allowed.
-	 * @default Infinity
+	 * @defaultValue `Infinity`
 	 */
 	readonly max?: number;
 }
@@ -87,7 +87,7 @@ interface SelectChoice {
 	readonly value: string;
 	/**
 	 * Display label shown to the user.
-	 * @default value
+	 * @defaultValue {@link SelectChoice.value | value}
 	 */
 	readonly label?: string;
 	/** Optional description shown alongside the choice. */

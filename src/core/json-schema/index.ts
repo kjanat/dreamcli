@@ -40,7 +40,7 @@ interface JsonSchemaOptions {
 	 * `hidden: true` (definition schema) or as valid branches (input schema).
 	 * When `false`, hidden commands and their entire subtrees are excluded.
 	 *
-	 * @default true
+	 * @defaultValue `true`
 	 */
 	readonly includeHidden?: boolean;
 
@@ -54,7 +54,7 @@ interface JsonSchemaOptions {
 	 * Only affects {@link generateSchema} output — prompt configs are never
 	 * included in {@link generateInputSchema} output.
 	 *
-	 * @default true
+	 * @defaultValue `true`
 	 */
 	readonly includePrompts?: boolean;
 }

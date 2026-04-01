@@ -99,7 +99,10 @@ interface ArgSchema {
 	readonly presence: ArgPresence;
 	/** Whether this arg consumes all remaining positionals. */
 	readonly variadic: boolean;
-	/** Whether this arg may read from stdin during resolution. */
+	/**
+	 * Whether this arg may read from stdin during resolution.
+	 * @defaultValue `false`
+	 */
 	readonly stdinMode: boolean;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;

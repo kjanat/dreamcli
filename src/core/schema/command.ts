@@ -197,7 +197,13 @@ interface Out {
 	 * @param rows - Array of row objects.
 	 */
 	table<T extends Record<string, unknown>>(rows: readonly T[], options: TableOptions): void;
-	/** Render tabular data with explicit column selection. */
+	/**
+	 * Render tabular data with explicit column selection.
+	 *
+	 * @param rows - Array of row objects.
+	 * @param columns - Column descriptors controlling which keys are shown and header labels.
+	 * @param options - Per-call rendering options (format, stream).
+	 */
 	table<T extends Record<string, unknown>>(
 		rows: readonly T[],
 		columns?: readonly TableColumn<T>[],
@@ -449,6 +455,18 @@ interface CommandArgEntry {
 	readonly schema: ArgSchema;
 }
 
+/**
+ * Validate a new arg entry against invariants before adding it to the command.
+ *
+ * @param name - Arg name being registered.
+ * @param schema - Runtime descriptor of the arg.
+ * @param args - Already-registered arg entries on this command.
+ *
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` if both `.stdin()` and `.variadic()` are set.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_ARG` if another arg already uses `.stdin()`.
+ *
+ * @internal
+ */
 function validateArgEntry(name: string, schema: ArgSchema, args: readonly CommandArgEntry[]): void {
 	if (schema.stdinMode && schema.variadic) {
 		throw new CLIError(`Argument <${name}> cannot be both variadic and stdin-backed`, {
