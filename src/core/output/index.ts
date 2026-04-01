@@ -223,13 +223,14 @@ class OutputChannel implements Out {
 	): void {
 		const { columns, options: tableOptions } = resolveTableArgs(columnsOrOptions, options);
 		const format = resolveTableFormat(this.options.jsonMode, tableOptions);
+		const resolved = columns ?? inferColumns(rows);
 
 		if (format === 'json') {
-			this.json(columns ? projectTableRows(rows, columns) : rows);
+			this.json(projectTableRows(rows, resolved));
 			return;
 		}
 
-		const text = formatTable(rows, columns);
+		const text = formatTable(rows, resolved);
 		if (text.length === 0) return;
 
 		writeLine(resolveTextTableWriter(this.options, format, tableOptions), text);
@@ -485,20 +486,17 @@ function cellToString(value: unknown): string {
  */
 function formatTable<T extends Record<string, unknown>>(
 	rows: readonly T[],
-	columns?: readonly TableColumn<T>[],
+	columns: readonly TableColumn<T>[],
 ): string {
-	if (rows.length === 0) return '';
-
-	const cols = columns ?? inferColumns(rows);
-	if (cols.length === 0) return '';
+	if (rows.length === 0 || columns.length === 0) return '';
 
 	const SEPARATOR = '  ';
 
 	// Resolve headers
-	const headers = cols.map((c) => c.header ?? c.key);
+	const headers = columns.map((c) => c.header ?? c.key);
 
 	// Convert all cells to strings
-	const cellGrid: string[][] = rows.map((row) => cols.map((c) => cellToString(row[c.key])));
+	const cellGrid: string[][] = rows.map((row) => columns.map((c) => cellToString(row[c.key])));
 
 	// Compute column widths
 	const widths: number[] = headers.map((h, i) => {
@@ -622,7 +620,7 @@ function createCaptureOutput(
 
 // --- Exports
 
-export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };
+export type { CapturedOutput, OutputOptions, Verbosity, WriteFn };
 export {
 	CaptureOutputChannel,
 	CaptureProgressHandle,
