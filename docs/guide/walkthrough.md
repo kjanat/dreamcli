@@ -7,7 +7,8 @@ CLI — using dreamcli.
 By the end, you'll have touched every major feature: commands, groups, flags,
 arguments, derive, env vars, prompts, tables, JSON mode, spinners, and error handling.
 
-The full source is at [`examples/gh-clone.ts`][gh-clone].
+The full source lives in [`examples/gh/src/main.ts`][gh-main] with supporting
+modules under [`examples/gh/src/`][gh-src].
 
 ## What we're building
 
@@ -515,7 +516,8 @@ That's a CLI with:
 - Structured errors with suggestions and error codes
 - Full testability via in-process test harness
 
-The complete source is at [`examples/gh-clone.ts`][gh-clone] — about 170 lines, zero runtime dependencies.
+The complete source lives in [`examples/gh/src/main.ts`][gh-main] with the rest
+of the example package under [`examples/gh/src/`][gh-src].
 
 ## What's next?
 
@@ -524,4 +526,5 @@ The complete source is at [`examples/gh-clone.ts`][gh-clone] — about 170 lines
 - [Middleware](/guide/middleware) — context accumulation, short-circuit, onion model
 - [Testing](/guide/testing) — the full testkit API
 
-[gh-clone]: https://github.com/kjanat/dreamcli/blob/master/examples/gh-clone.ts
+[gh-main]: https://github.com/kjanat/dreamcli/blob/master/examples/gh/src/main.ts
+[gh-src]: https://github.com/kjanat/dreamcli/tree/master/examples/gh/src

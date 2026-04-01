@@ -10,7 +10,7 @@ Organized by feature area, with implementation options and trade-offs.
 | Concepts    | 6 (anatomy, input, output, exit codes, errors, testing) | Complete                    |
 | Guide       | 15 (getting-started through testing, schema-export)     | Complete                    |
 | Reference   | 4 (overview, main, testkit, runtime)                    | Hand-written, minimal depth |
-| Examples    | 8 files in `examples/`, no docs page                    | Undiscoverable              |
+| Examples    | 8 entries in `examples/`, no docs page                  | Undiscoverable              |
 | Changelog   | `CHANGELOG.md` at repo root, not in docs                | Inaccessible from site      |
 | Docs health | None                                                    | —                           |
 
@@ -24,7 +24,7 @@ Organized by feature area, with implementation options and trade-offs.
 - **No frontmatter**: Only `index.md` has frontmatter. Every other page
   lacks `title`/`description` for SEO and search.
 - **No cross-links**: Guide pages don't link to matching `examples/*.ts`
-  files. Only `walkthrough.md` references `gh-clone.ts`.
+  files. Only `walkthrough.md` references `examples/gh/src/main.ts`.
 - **No "Edit this page"** links — VitePress supports `editLink` natively.
 - **No `lastUpdated`** timestamps — one config line enables this.
 
@@ -129,7 +129,7 @@ Surface the 8 example files as a browsable, categorized page in the docs.
 | `spinner-progress.ts` | Intermediate | spinners, progress bars, TTY detection            |
 | `middleware.ts`       | Intermediate | middleware, typed context, onion model            |
 | `testing.ts`          | Intermediate | testkit, `runCommand`, prompt mocking             |
-| `gh-clone.ts`         | Advanced     | all features combined (has walkthrough)           |
+| `gh/`                 | Advanced     | all features combined (has walkthrough)           |
 
 ### Option A: Hand-Written Categorized List (simplest)
 
@@ -214,7 +214,7 @@ Mapping:
 - `guide/middleware.md` → `middleware.ts`
 - `guide/prompts.md` → `interactive.ts`
 - `guide/testing.md` → `testing.ts`
-- `guide/walkthrough.md` → `gh-clone.ts` (already linked)
+- `guide/walkthrough.md` → `examples/gh/src/main.ts` (already linked)
 - `guide/completions.md` → (no example yet)
 - `guide/config.md` → `interactive.ts`
 - `guide/runtime.md` → (no example yet)

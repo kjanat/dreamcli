@@ -1,5 +1,4 @@
 {
-	"extends": ["../../tsconfig.json", "../tsconfig.json"],
 	"compilerOptions": {
 		// Environment setup & latest features
 		"lib": ["ESNext"],
@@ -26,10 +25,13 @@
 		"noUnusedParameters": true,
 		"noPropertyAccessFromIndexSignature": false,
 
+		"composite": true,
+
+		"types": ["bun"],
+		"rootDir": ".",
 		"paths": {
-			"dreamcli": ["../../src/index.ts"],
-			"dreamcli/testkit": ["../../src/testkit.ts"],
-			"dreamcli/runtime": ["../../src/runtime.ts"]
+			"$gh": ["./src/main.ts"],
+			"$gh/*": ["./src/*"]
 		}
 	}
 }

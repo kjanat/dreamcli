@@ -32,7 +32,7 @@
 	},
 	"include": [
 		"./src/**/*.ts",
-		"./examples/**/*.ts",
+		"./examples/*.ts",
 		"./package.json",
 		"./scripts/**/*.ts",
 		"./docs/**/*.ts",

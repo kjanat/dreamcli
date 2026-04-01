@@ -13,5 +13,5 @@
 			"dreamcli/runtime": ["../src/runtime.ts"]
 		}
 	},
-	"exclude": ["**/dist", "**/node_modules", "**/.cache"]
+	"exclude": ["**/dist", "**/node_modules", "**/.cache", "gh"]
 }

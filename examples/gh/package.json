@@ -1,24 +1,35 @@
 {
-  "name": "gh",
-  "version": "example",
-  "private": true,
-  "type": "module",
-  "module": "src/main.ts",
-  "bin": {
-    "gh": "src/main.ts"
-  },
-  "scripts": {
-    "bd": "bun run build",
-    "build": "tsdown"
-  },
-  "dependencies": {
-    "dreamcli": "workspace:"
-  },
-  "devDependencies": {
-    "@types/bun": "catalog:",
-    "tsdown": "catalog:"
-  },
-  "peerDependencies": {
-    "typescript": "catalog:"
-  }
+	"name": "gh",
+	"version": "0.0.0-example",
+	"private": true,
+	"description": "A minimal GitHub CLI clone — dreamcli walkthrough example",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/kjanat/dreamcli.git",
+		"directory": "examples/gh"
+	},
+	"type": "module",
+	"module": "src/main.ts",
+	"bin": {
+		"gh": "src/main.ts",
+		"gh-dist": "dist/main.js"
+	},
+	"files": [
+		"dist",
+		"src"
+	],
+	"scripts": {
+		"bd": "bun run build",
+		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external dreamcli",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"dreamcli": "link:dreamcli"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:"
+	},
+	"peerDependencies": {
+		"typescript": "catalog:"
+	}
 }
