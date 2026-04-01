@@ -6,12 +6,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { cli } from '#internals/core/cli/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 
 // --- Test commands
 

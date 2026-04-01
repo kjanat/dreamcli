@@ -3,10 +3,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { cli } from '#internals/core/cli/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { runCommand } from './index.ts';
 
 function jsonStdinCommand() {

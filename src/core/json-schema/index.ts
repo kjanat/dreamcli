@@ -638,15 +638,37 @@ function isJsonSerializable(
 	if (Array.isArray(value)) {
 		if (seen.has(value)) return false;
 		seen.add(value);
-		return value.every((entry) => isJsonSerializable(entry, seen));
+		try {
+			return value.every((entry) => isJsonSerializable(entry, seen));
+		} finally {
+			seen.delete(value);
+		}
 	}
 	if (t === 'object') {
 		const objectValue = value as Record<string, unknown>;
+		if (!isPlainJsonObject(objectValue)) return false;
 		if (seen.has(objectValue)) return false;
 		seen.add(objectValue);
-		return Object.values(objectValue).every((entry) => isJsonSerializable(entry, seen));
+		try {
+			return Object.values(objectValue).every((entry) => isJsonSerializable(entry, seen));
+		} finally {
+			seen.delete(objectValue);
+		}
 	}
 	return false;
+}
+
+/**
+ * Check whether an object is a plain JSON object.
+ *
+ * Accepts objects with `Object.prototype` or a null prototype, which are the
+ * only object shapes that round-trip through JSON as structural objects.
+ *
+ * @internal
+ */
+function isPlainJsonObject(value: object): value is Record<string, unknown> {
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
 }
 
 // === Exports

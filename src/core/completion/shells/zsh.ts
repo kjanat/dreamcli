@@ -111,8 +111,7 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 		lines.push('\t\tsubcmd)');
 		lines.push('\t\t\tsubcmds=(');
 		for (const cmd of visibleCommands) {
-			const desc = escapeZshDescription(cmd.description ?? cmd.name);
-			lines.push(`\t\t\t\t'${cmd.name}:${desc}'`);
+			lines.push(`\t\t\t\t${quoteShellArg(`${cmd.name}:${cmd.description ?? cmd.name}`)}`);
 		}
 		lines.push('\t\t\t)');
 		lines.push("\t\t\t_describe 'command' subcmds");
@@ -122,7 +121,7 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 		lines.push('\t\targs)');
 		lines.push('\t\t\tcase "$line[1]" in');
 		for (const cmd of visibleCommands) {
-			const allNames = [cmd.name, ...cmd.aliases];
+			const allNames = [cmd.name, ...cmd.aliases].map(escapeZshCasePatternValue);
 			const childCommands = cmd.commands.filter((c) => !c.hidden);
 			lines.push(`\t\t\t\t${allNames.join('|')})`);
 
@@ -206,8 +205,7 @@ function emitZshGroupFunction(
 	lines.push('\t\tsubcmd)');
 	lines.push('\t\t\tsubcmds=(');
 	for (const child of node.children) {
-		const desc = escapeZshDescription(child.description ?? child.name);
-		lines.push(`\t\t\t\t'${child.name}:${desc}'`);
+		lines.push(`\t\t\t\t${quoteShellArg(`${child.name}:${child.description ?? child.name}`)}`);
 	}
 	lines.push('\t\t\t)');
 	lines.push("\t\t\t_describe 'command' subcmds");
@@ -216,7 +214,7 @@ function emitZshGroupFunction(
 	lines.push('\t\targs)');
 	lines.push('\t\t\tcase "$line[1]" in');
 	for (const child of node.children) {
-		const allNames = [child.name, ...child.aliases];
+		const allNames = [child.name, ...child.aliases].map(escapeZshCasePatternValue);
 		const childPath = [...node.path, child.name];
 		const childFuncName = `${rootFuncName}_${childPath.map(sanitizeShellIdentifier).join('_')}`;
 		lines.push(`\t\t\t\t${allNames.join('|')})`);
@@ -254,34 +252,47 @@ function emitZshLeafFunction(lines: string[], helperName: string, node: CommandN
 }
 
 /**
- * Escape single quotes and colons in descriptions for zsh `_describe` format.
- * Zsh uses `'name:description'` syntax — colons in descriptions must be escaped
- * with backslash, and single quotes must be handled.
+ * Escape a value for use in a zsh `case` pattern.
+ *
+ * Escapes glob metacharacters so arbitrary command and alias names match
+ * literally rather than being interpreted as shell patterns.
  *
  * @internal
  */
-function escapeZshDescription(text: string): string {
-	return text.replace(/\\/g, '\\\\').replace(/'/g, "'\\''").replace(/:/g, '\\:');
-}
-
-/**
- * Escape a single enum value for use inside a zsh `(v1 v2)` value list.
- *
- * Simple identifier-like values (matching `[a-zA-Z0-9_\-.]`) pass through
- * unescaped. Values containing spaces, quotes, backslashes, or parentheses
- * are escaped with backslash prefixes for each special character, which
- * is the standard mechanism within zsh parenthesized completion lists.
- *
- * @internal
- */
-function escapeZshEnumValue(value: string): string {
+function escapeZshCasePatternValue(value: string): string {
 	if (/^[a-zA-Z0-9_\-.]+$/.test(value)) return value;
 	return value
 		.replace(/\\/g, '\\\\')
-		.replace(/'/g, "'\\''")
-		.replace(/ /g, '\\ ')
+		.replace(/'/g, "\\'")
+		.replace(/"/g, '\\"')
+		.replace(/`/g, '\\`')
+		.replace(/\|/g, '\\|')
+		.replace(/\*/g, '\\*')
+		.replace(/\?/g, '\\?')
+		.replace(/\[/g, '\\[')
+		.replace(/\]/g, '\\]')
 		.replace(/\(/g, '\\(')
-		.replace(/\)/g, '\\)');
+		.replace(/\)/g, '\\)')
+		.replace(/\{/g, '\\{')
+		.replace(/\}/g, '\\}')
+		.replace(/\+/g, '\\+')
+		.replace(/!/g, '\\!')
+		.replace(/@/g, '\\@')
+		.replace(/#/g, '\\#')
+		.replace(/~/g, '\\~')
+		.replace(/\s/g, (match) => (match === ' ' ? '\\ ' : `\\${match}`));
+}
+
+/**
+ * Escape a description for use inside a zsh `_arguments` flag spec.
+ *
+ * `]` closes the description segment, so it must be escaped. Backslashes are
+ * escaped as well so descriptions with literal escapes remain stable.
+ *
+ * @internal
+ */
+function escapeZshDescription(value: string): string {
+	return value.replace(/\\/g, '\\\\').replace(/\]/g, '\\]');
 }
 
 /**
@@ -317,13 +328,36 @@ function buildZshFlagSpecsFromFlags(
 			// Mutual exclusion group with ALL short aliases + long flag
 			// Format: '(-v -V --verbose)'{-v,-V,--verbose}'[desc]:value'
 			const allForms = [...shortFlags, longFlag];
-			const excl = `(${allForms.join(' ')})`;
-			specs.push(`'${excl}'{${allForms.join(',')}}'[${desc}]${valuePart}'`);
+			const escapedForms = allForms.map(escapeZshCasePatternValue).join(',');
+			specs.push(
+				`${quoteShellArg(`(${allForms.join(' ')})`)}{${escapedForms}}${quoteShellArg(
+					`[${desc}]${valuePart}`,
+				)}`,
+			);
 		} else {
-			specs.push(`'${longFlag}[${desc}]${valuePart}'`);
+			specs.push(quoteShellArg(`${longFlag}[${desc}]${valuePart}`));
 		}
 	}
 	return specs;
+}
+
+/**
+ * Escape a single enum value for use inside a zsh `(v1 v2)` value list.
+ *
+ * Simple identifier-like values (matching `[a-zA-Z0-9_\-.]`) pass through
+ * unescaped. Values containing spaces, quotes, backslashes, or parentheses
+ * are escaped with backslash prefixes for each special character, which
+ * is the standard mechanism within zsh parenthesized completion lists.
+ *
+ * @internal
+ */
+function escapeZshEnumValue(value: string): string {
+	if (/^[a-zA-Z0-9_\-.]+$/.test(value)) return value;
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/ /g, '\\ ')
+		.replace(/\(/g, '\\(')
+		.replace(/\)/g, '\\)');
 }
 
 export { generateZshCompletion };

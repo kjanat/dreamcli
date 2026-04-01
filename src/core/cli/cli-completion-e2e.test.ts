@@ -7,12 +7,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
-import type { GlobalForDetect } from '#internals/runtime/detect.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
+import type { GlobalForDetect } from '#internals/runtime/detect.ts';
 import { cli } from './index.ts';
 
 // === Shared test commands

@@ -613,7 +613,7 @@ describe('configFormat — convenience factory', () => {
 
 		try {
 			await discoverConfig('myapp', adapter, {
-				loaders: [configFormat(['toml'], () => new ConfigShape() as Record<string, unknown>)],
+				loaders: [configFormat(['toml'], () => new ConfigShape())],
 			});
 			expect.unreachable('should have thrown');
 		} catch (e: unknown) {

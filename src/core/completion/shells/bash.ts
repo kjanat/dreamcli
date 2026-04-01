@@ -202,9 +202,9 @@ function emitBashPathDetection(
 	lines.push(`\t\t\t'')`);
 	lines.push(`\t\t\t\tcase "\${words[i]}" in`);
 	for (const command of visibleCommands) {
-		const patterns = [command.name, ...command.aliases];
+		const patterns = [command.name, ...command.aliases].map(escapeBashCasePatternValue);
 		lines.push(`\t\t\t\t\t${patterns.join('|')})`);
-		lines.push(`\t\t\t\t\t\tsubcmd_path="${command.name}"`);
+		lines.push(`\t\t\t\t\t\tsubcmd_path="${escapeBashDoubleQuotedValue(command.name)}"`);
 		lines.push(`\t\t\t\t\t\t;;`);
 	}
 	lines.push(`\t\t\t\tesac`);
@@ -218,9 +218,11 @@ function emitBashPathDetection(
 			lines.push(`\t\t\t${quoteShellCasePattern(pathKey)})`);
 			lines.push(`\t\t\t\tcase "\${words[i]}" in`);
 			for (const child of node.children) {
-				const childPatterns = [child.name, ...child.aliases];
+				const childPatterns = [child.name, ...child.aliases].map(escapeBashCasePatternValue);
 				lines.push(`\t\t\t\t\t${childPatterns.join('|')})`);
-				lines.push(`\t\t\t\t\t\tsubcmd_path="$subcmd_path ${child.name}"`);
+				lines.push(
+					`\t\t\t\t\t\tsubcmd_path="$subcmd_path ${escapeBashDoubleQuotedValue(child.name)}"`,
+				);
 				lines.push(`\t\t\t\t\t\t;;`);
 			}
 			lines.push(`\t\t\t\tesac`);
@@ -232,14 +234,60 @@ function emitBashPathDetection(
 }
 
 /**
- * Quote a string for use as a bash `case` pattern. Patterns containing
- * spaces need quoting to match as a single string.
+ * Escape a string for use as a bash `case` pattern.
+ *
+ * Escapes glob metacharacters so arbitrary command, alias, and flag names are
+ * matched literally rather than being interpreted as shell patterns.
  *
  * @internal
  */
 function quoteShellCasePattern(pattern: string): string {
-	if (!pattern.includes(' ')) return pattern;
-	return `"${pattern}"`;
+	if (pattern.includes(' ')) return `"${escapeBashDoubleQuotedValue(pattern)}"`;
+	return escapeBashCasePatternValue(pattern);
+}
+
+/**
+ * Escape a value for use in a bash `case` pattern.
+ *
+ * Escapes glob metacharacters so arbitrary command and flag names are matched
+ * literally rather than being interpreted as shell patterns.
+ *
+ * @internal
+ */
+function escapeBashCasePatternValue(value: string): string {
+	if (/^[a-zA-Z0-9_\-.]+$/.test(value)) return value;
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/'/g, "\\'")
+		.replace(/"/g, '\\"')
+		.replace(/\|/g, '\\|')
+		.replace(/\*/g, '\\*')
+		.replace(/\?/g, '\\?')
+		.replace(/\[/g, '\\[')
+		.replace(/\]/g, '\\]')
+		.replace(/\(/g, '\\(')
+		.replace(/\)/g, '\\)')
+		.replace(/\{/g, '\\{')
+		.replace(/\}/g, '\\}')
+		.replace(/\+/g, '\\+')
+		.replace(/!/g, '\\!')
+		.replace(/@/g, '\\@')
+		.replace(/#/g, '\\#')
+		.replace(/~/g, '\\~')
+		.replace(/\s/g, (match) => (match === ' ' ? '\\ ' : `\\${match}`));
+}
+
+/**
+ * Escape a value for interpolation inside a bash double-quoted string.
+ *
+ * @internal
+ */
+function escapeBashDoubleQuotedValue(value: string): string {
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"')
+		.replace(/\$/g, '\\$')
+		.replace(/`/g, '\\`');
 }
 
 /**
@@ -359,7 +407,7 @@ function collectEnumCasesFromFlags(
 		const flagForms = [
 			`--${name}`,
 			...schema.aliases.map((a) => (a.length === 1 ? `-${a}` : `--${a}`)),
-		];
+		].map(escapeBashCasePatternValue);
 		cases.push({ flags: flagForms.join('|'), values: schema.enumValues });
 	}
 	return cases;

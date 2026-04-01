@@ -840,7 +840,9 @@ function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: stri
 		if (current === null || current === undefined || typeof current !== 'object') {
 			return undefined;
 		}
-		// Safe indexed access on a plain object
+		if (!Object.hasOwn(current, segment)) {
+			return undefined;
+		}
 		current = (current as Record<string, unknown>)[segment];
 	}
 

@@ -77,6 +77,22 @@ describe('resolve — config string flags', () => {
 		expect(result.flags).toEqual({ host: 'db.example.com' });
 	});
 
+	it('ignores inherited nested config properties', async () => {
+		const schema = makeSchema({
+			flags: {
+				host: createSchema('string', { configPath: 'server.database.host' }),
+			},
+		});
+		const parsed = makeParsed();
+		const database = Object.create({ host: 'db.inherited.example.com' });
+		database['port'] = 5432;
+		const server = { database };
+		const options: ResolveOptions = { config: { server } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.flags).toEqual({});
+	});
+
 	it('coerces number to string from config', async () => {
 		const schema = makeSchema({
 			flags: {

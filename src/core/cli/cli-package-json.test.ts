@@ -5,9 +5,9 @@
  * name inference, precedence (explicit wins), and completions skip.
  */
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { cli } from './index.ts';
 
 // === Test helpers

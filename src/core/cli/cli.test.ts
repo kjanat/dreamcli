@@ -3,12 +3,12 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { ParseError } from '#internals/core/errors/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandMeta } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { CLIBuilder, cli, formatRootHelp } from './index.ts';
 
 // --- Test commands

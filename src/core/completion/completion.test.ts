@@ -252,6 +252,40 @@ describe('generateBashCompletion — subcommand completions', () => {
 		// Aliases should appear in the case pattern for subcommand detection
 		expect(script).toContain('deploy|d|ship)');
 	});
+
+	it('escapes quotes in subcommand detection', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: "it's", aliases: ['quo"te'] }))],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('it\\\'s|quo\\"te)');
+	});
+
+	it('escapes metacharacters in top-level command aliases', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] }))],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('depl\\*oy|d\\?|ship\\|it)');
+	});
+
+	it('escapes metacharacters in nested command paths', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'db*',
+						commands: [commandSchema({ name: 'migr?te' })],
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('"db* migr?te"');
+	});
 });
 
 // === generateBashCompletion — root completion policy
@@ -441,6 +475,50 @@ describe('generateBashCompletion — enum value completions', () => {
 		const script = generateBashCompletion(schema);
 
 		expect(script).toContain('--region|-r)');
+	});
+
+	it('escapes metacharacters in enum flag case patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							're*gion': flagSchema({
+								kind: 'enum',
+								aliases: ['r?'],
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('--re\\*gion|--r\\?)');
+	});
+
+	it('escapes quotes in enum flag case patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							"we'ird": flagSchema({
+								kind: 'enum',
+								aliases: ["quo'te"],
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain("--we\\'ird|--quo\\'te)");
 	});
 
 	it('omits enum case section when no enum flags exist', () => {
@@ -889,11 +967,39 @@ describe('generateZshCompletion — subcommand completions', () => {
 
 	it('includes command aliases in case pattern', () => {
 		const schema = minimalSchema({
-			commands: [erased(commandSchema({ name: 'deploy', aliases: ['d', 'ship'] }))],
+			commands: [erased(commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] }))],
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('deploy|d|ship)');
+		expect(script).toContain('depl\\*oy|d\\?|ship\\|it)');
+	});
+
+	it('escapes quotes in subcommand lists and dispatch patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(commandSchema({ name: "it's", aliases: ['quo"te'], description: 'Deploy' })),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("'it'\\''s:Deploy'");
+		expect(script).toContain('it\\\'s|quo\\"te)');
+	});
+
+	it('escapes metacharacters in child command dispatch patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'db',
+						commands: [commandSchema({ name: 'migr?te', aliases: ['move|it'] })],
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain('migr\\?te|move\\|it)');
 	});
 
 	it('uses command name as description when description is undefined', () => {
@@ -911,7 +1017,7 @@ describe('generateZshCompletion — subcommand completions', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain("'deploy:Deploy\\: now'");
+		expect(script).toContain("'deploy:Deploy: now'");
 	});
 });
 
@@ -1037,6 +1143,27 @@ describe('generateZshCompletion — flag completions', () => {
 		expect(script).toContain("(-f --force)'{-f,--force}'[Force]");
 	});
 
+	it('escapes quotes in flag spec names', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							"we'ird": flagSchema({
+								kind: 'boolean',
+								description: 'Has quote',
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("--we'\\''ird[Has quote]");
+	});
+
 	it('omits value part for boolean flags', () => {
 		const schema = minimalSchema({
 			commands: [
@@ -1074,6 +1201,24 @@ describe('generateZshCompletion — flag completions', () => {
 		expect(script).toContain("'--name[Name]:value:'");
 	});
 
+	it('escapes closing brackets in flag descriptions', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							name: flagSchema({ kind: 'string', description: 'A]B' }),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("'--name[A\\]B]:value:'");
+	});
+
 	it('adds enum values for enum flags', () => {
 		const schema = minimalSchema({
 			commands: [
@@ -1093,7 +1238,7 @@ describe('generateZshCompletion — flag completions', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('--region[Region]:value:(us-east-1 eu-west-1)');
+		expect(script).toContain("'--region[Region]:value:(us-east-1 eu-west-1)'");
 	});
 
 	it('uses flag name as description when description is undefined', () => {
@@ -1534,6 +1679,22 @@ describe('generateBashCompletion — nested subcommand path detection', () => {
 		expect(script).toContain('"db migrate"');
 		// Should have case branch for "db seed"
 		expect(script).toContain('"db seed"');
+	});
+
+	it('escapes quotes in nested subcmd_path assignments', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'db',
+						commands: [commandSchema({ name: 'it"migrate' })],
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('subcmd_path="$subcmd_path it\\"migrate"');
 	});
 
 	it('includes flags for nested leaf commands', () => {

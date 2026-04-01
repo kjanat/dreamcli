@@ -477,6 +477,41 @@ describe('generateSchema — definition metadata', () => {
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'meta', 'defaultValue']);
 	});
 
+	it('keeps shared-reference defaultValue objects', () => {
+		const shared = { region: 'eu' };
+		const graph = { primary: shared, secondary: shared };
+		const cmd = commandDef({
+			name: 'test',
+			flags: { meta: flagDef({ presence: 'defaulted', defaultValue: graph }) },
+		});
+		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'meta', 'defaultValue'], graph);
+	});
+
+	it('omits lossy object instances from defaultValue', () => {
+		class ConfigShape {
+			readonly region = 'eu';
+		}
+
+		const cases = [
+			new Date('2026-01-01T00:00:00.000Z'),
+			new Map([['region', 'eu']]),
+			/region/i,
+			new ConfigShape(),
+		];
+
+		for (const defaultValue of cases) {
+			const cmd = commandDef({
+				name: 'test',
+				flags: { meta: flagDef({ presence: 'defaulted', defaultValue }) },
+			});
+			const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+
+			expect(result).not.toHaveProperty(['commands', 0, 'flags', 'meta', 'defaultValue']);
+		}
+	});
+
 	it('includes arg deprecation marker', () => {
 		const cmd = commandDef({
 			name: 'test',

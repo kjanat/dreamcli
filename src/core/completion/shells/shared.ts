@@ -273,6 +273,7 @@ function quoteShellArg(value: string): string {
 
 // --- Exports
 
+export type { CommandNode, CompletionOptions, RootCompletionSurface };
 export {
 	quoteShellArg,
 	resolveRootCompletionSurface,
@@ -280,4 +281,3 @@ export {
 	versionTag,
 	walkCommandTree,
 };
-export type { CommandNode, CompletionOptions, RootCompletionSurface };
