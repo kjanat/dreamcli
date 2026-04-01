@@ -35,7 +35,7 @@ import type {
 } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
-import type { RunOptions, RunResult } from '#internals/core/testkit/index.ts';
+import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';

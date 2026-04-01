@@ -21,7 +21,7 @@ import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
-import type { RunResult } from './run.ts';
+import type { RunOptions, RunResult } from './run.ts';
 
 // ---------------------------------------------------------------------------
 // Context type utilities
@@ -512,10 +512,7 @@ interface ErasedCommand {
 	 */
 	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
 	/** Execute this command against argv. Closes over the typed CommandBuilder. */
-	readonly _execute: (
-		argv: readonly string[],
-		options?: Readonly<Record<string, unknown>>,
-	) => Promise<RunResult>;
+	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
 }
 
 // ---------------------------------------------------------------------------

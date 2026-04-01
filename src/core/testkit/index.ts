@@ -18,23 +18,17 @@ import type {
 	ResolvedCommandParams,
 } from '#internals/core/cli/plugin.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
-import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
-import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
+import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
-import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
-import type {
-	CommandBuilder,
-	CommandMeta,
-	CommandSchema,
-	Out,
-} from '#internals/core/schema/command.ts';
+import type { CommandBuilder, CommandMeta, Out } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
+import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -56,160 +50,9 @@ interface HandlerParams {
 	readonly meta: CommandMeta;
 }
 
-// ---------------------------------------------------------------------------
-// Run options — injectable runtime state for testing
-// ---------------------------------------------------------------------------
-
-/**
- * Options accepted by `commandBuilder.run()` and `runCommand()`.
- *
- * Every field is optional — sensible defaults are applied. This is the
- * primary testing seam: inject env, config, I/O writers, etc. without
- * touching process state.
- */
-interface RunOptions {
-	/**
-	 * Environment variables for flag resolution.
-	 *
-	 * Flags with `.env('VAR')` configured resolve from this record
-	 * when no CLI value is provided (CLI → env → config → prompt → default).
-	 */
-	readonly env?: Readonly<Record<string, string | undefined>>;
-
-	/**
-	 * Configuration object for flag resolution.
-	 *
-	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
-	 * Config is plain JSON — file loading is the caller's responsibility.
-	 */
-	readonly config?: Readonly<Record<string, unknown>>;
-
-	/**
-	 * Full stdin contents for args configured with `.stdin()`.
-	 *
-	 * Lets tests inject piped input without a runtime adapter.
-	 */
-	readonly stdinData?: string | null;
-
-	/**
-	 * Prompt engine for interactive flag resolution.
-	 *
-	 * When provided, flags with `.prompt()` configured that have no value
-	 * after CLI/env/config resolution will be prompted interactively.
-	 *
-	 * When absent (and `answers` is also absent), prompting is skipped
-	 * and resolution falls through to default/required.
-	 *
-	 * Takes precedence over `answers` when both are provided.
-	 */
-	readonly prompter?: PromptEngine;
-
-	/**
-	 * Pre-configured prompt answers for testing convenience.
-	 *
-	 * When provided, a test prompter is created from these answers via
-	 * `createTestPrompter(answers)`. Each entry is consumed in order —
-	 * use `PROMPT_CANCEL` to simulate cancellation.
-	 *
-	 * Ignored when an explicit `prompter` is provided.
-	 *
-	 * @example
-	 * ```ts
-	 * const result = await runCommand(cmd, [], {
-	 *   answers: ['eu', true],
-	 * });
-	 * ```
-	 */
-	readonly answers?: readonly TestAnswer[];
-
-	/**
-	 * Verbosity level for the output channel.
-	 * @default 'normal'
-	 */
-	readonly verbosity?: Verbosity;
-
-	/**
-	 * Enable JSON output mode.
-	 *
-	 * When `true`, `log` and `info` messages are redirected to stderr
-	 * so that stdout is reserved exclusively for structured `json()` output.
-	 * Errors are also rendered as JSON to stderr.
-	 *
-	 * @default false
-	 */
-	readonly jsonMode?: boolean;
-
-	/**
-	 * Whether stdout is connected to a TTY.
-	 *
-	 * Handlers can check `out.isTTY` to decide whether to emit decorative
-	 * output (spinners, progress bars, ANSI codes). Defaults to `false`
-	 * (safe default for tests — non-TTY until proven otherwise).
-	 *
-	 * @default false
-	 */
-	readonly isTTY?: boolean;
-
-	/**
-	 * Output channel override used by live CLI execution.
-	 *
-	 * @internal — `run()` passes a real output channel so activity renders to
-	 * the terminal instead of being captured.
-	 */
-	readonly out?: Out;
-
-	/**
-	 * Capture buffers override paired with `out`.
-	 *
-	 * @internal — when omitted, `runCommand()` creates empty buffers for the
-	 * returned `RunResult` while writing directly to the provided `out`.
-	 */
-	readonly captured?: CapturedOutput;
-
-	/**
-	 * Help formatting options (width, binName).
-	 * Used when `--help` is detected.
-	 */
-	readonly help?: HelpOptions;
-
-	/**
-	 * Command schema with propagated flags merged in.
-	 *
-	 * When provided, used for parsing and resolution instead of `cmd.schema`.
-	 * Set by the CLI dispatch layer after collecting propagated flags from
-	 * the command ancestry path.
-	 *
-	 * @internal — set by dispatch layer, not for public use.
-	 */
-	readonly mergedSchema?: CommandSchema;
-
-	/**
-	 * CLI program metadata passed to action handlers and middleware.
-	 *
-	 * When provided (by CLI dispatch layer), handlers receive this as `meta`.
-	 * When absent (standalone `runCommand()`), a minimal meta is constructed
-	 * from the command's own schema.
-	 *
-	 * @internal — populated by CLI dispatch, not for public use.
-	 */
-	readonly meta?: CommandMeta;
-
-	/**
-	 * CLI plugins registered on the parent `CLIBuilder`.
-	 *
-	 * @internal — threaded through from CLI dispatch.
-	 */
-	readonly plugins?: readonly CLIPlugin[];
-}
-
-// ---------------------------------------------------------------------------
-// Run result — re-exported from schema layer (canonical definition)
-// ---------------------------------------------------------------------------
-
-// RunResult is defined in schema/run.ts to avoid the schema→testkit dependency
-// inversion. Re-exported here for public API continuity.
-import type { RunResult } from '#internals/core/schema/run.ts';
+// RunOptions and RunResult are defined in schema/run.ts so the execution
+// contract is shared by schema, CLI dispatch, and testkit. Re-exported here
+// for public testkit continuity.
 
 // ---------------------------------------------------------------------------
 // Core execution pipeline
