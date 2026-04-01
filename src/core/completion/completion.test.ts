@@ -104,26 +104,7 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	};
 }
 
-function extractBashRootWords(script: string): readonly string[] {
-	const matches = [...script.matchAll(/compgen -W '([^']*)' -- "\$cur"/g)];
-	const words = matches[matches.length - 1]?.[1];
-	if (words === undefined) {
-		throw new Error('Could not find root bash completion words');
-	}
-	return words.split(' ').filter(Boolean);
-}
-
-function extractZshRootFunction(script: string, funcName = '_testcli'): string {
-	const start = script.indexOf(`${funcName}() {`);
-	if (start === -1) {
-		throw new Error(`Could not find zsh root function '${funcName}'`);
-	}
-	const end = script.indexOf(`\n}\n\n${funcName} "$@"`, start);
-	if (end === -1) {
-		throw new Error(`Could not find end of zsh root function '${funcName}'`);
-	}
-	return script.slice(start, end);
-}
+import { extractBashRootWords, extractZshRootFunction } from './completion-test-helpers.ts';
 
 // === Shell type — SHELLS constant
 
@@ -952,7 +933,7 @@ describe('generateZshCompletion — root completion policy', () => {
 			defaultCommand: serve,
 		});
 
-		const rootFunction = extractZshRootFunction(generateZshCompletion(schema));
+		const rootFunction = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
 
 		expect(rootFunction).toContain("'--help[Show help text]'");
 		expect(rootFunction).toContain("'--version[Show version]'");
@@ -988,6 +969,7 @@ describe('generateZshCompletion — root completion policy', () => {
 
 		const rootFunction = extractZshRootFunction(
 			generateZshCompletion(schema, { rootMode: 'surface' }),
+			'_testcli',
 		);
 
 		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
@@ -1009,7 +991,7 @@ describe('generateZshCompletion — root completion policy', () => {
 			defaultCommand: serve,
 		});
 
-		const rootFunction = extractZshRootFunction(generateZshCompletion(schema));
+		const rootFunction = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
 
 		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 	});

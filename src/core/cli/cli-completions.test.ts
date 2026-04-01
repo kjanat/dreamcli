@@ -58,26 +58,10 @@ function statusCommand() {
 		});
 }
 
-function extractBashRootWords(script: string): readonly string[] {
-	const matches = [...script.matchAll(/compgen -W '([^']*)' -- "\$cur"/g)];
-	const words = matches[matches.length - 1]?.[1];
-	if (words === undefined) {
-		throw new Error('Could not find root bash completion words');
-	}
-	return words.split(' ').filter(Boolean);
-}
-
-function extractZshRootFunction(script: string, funcName = '_mycli'): string {
-	const start = script.indexOf(`${funcName}() {`);
-	if (start === -1) {
-		throw new Error(`Could not find zsh root function '${funcName}'`);
-	}
-	const end = script.indexOf(`\n}\n\n${funcName} "$@"`, start);
-	if (end === -1) {
-		throw new Error(`Could not find end of zsh root function '${funcName}'`);
-	}
-	return script.slice(start, end);
-}
+import {
+	extractBashRootWords,
+	extractZshRootFunction,
+} from '#internals/core/completion/completion-test-helpers.ts';
 
 // === .completions() builder method
 
@@ -240,7 +224,7 @@ describe('.completions() — zsh output', () => {
 	it('keeps hybrid default-command root completion command-centric by default', async () => {
 		const app = cli('mycli').default(serveDefaultCommand()).command(statusCommand()).completions();
 		const result = await app.execute(['completions', 'zsh']);
-		const rootFunction = extractZshRootFunction(result.stdout.join(''));
+		const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
 		expect(rootFunction).toContain("'--help[Show help text]'");
 		expect(rootFunction).toContain("'serve:Start the server'");
@@ -254,7 +238,7 @@ describe('.completions() — zsh output', () => {
 			.command(statusCommand())
 			.completions({ rootMode: 'surface' });
 		const result = await app.execute(['completions', 'zsh']);
-		const rootFunction = extractZshRootFunction(result.stdout.join(''));
+		const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
 		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 		expect(rootFunction).toContain("'--verbose[Verbose logging]'");
@@ -264,7 +248,7 @@ describe('.completions() — zsh output', () => {
 	it('exposes default-command flags for a single visible default in default mode', async () => {
 		const app = cli('mycli').default(serveDefaultCommand()).completions();
 		const result = await app.execute(['completions', 'zsh']);
-		const rootFunction = extractZshRootFunction(result.stdout.join(''));
+		const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
 		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 		expect(rootFunction).toContain("'--verbose[Verbose logging]'");
