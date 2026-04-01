@@ -6,8 +6,8 @@
 
 import { arg, CLIError, command, flag, group } from 'dreamcli';
 
-import { requireAuth } from '$gh/commands/auth.ts';
 import pullRequests from '$gh/data/pull-requests.yaml' with { type: 'yaml' };
+import { requireAuth } from '$gh/lib/auth.ts';
 import { normalizeLimit, sleep } from '$gh/lib/utils.ts';
 
 const prList = command('list')

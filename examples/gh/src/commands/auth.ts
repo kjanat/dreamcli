@@ -5,20 +5,7 @@
  */
 
 import { env } from 'node:process';
-
-import { CLIError, command, flag, group } from 'dreamcli';
-
-export function requireAuth(token: string | undefined): { readonly token: string } {
-	if (!token) {
-		throw new CLIError('Authentication required', {
-			code: 'AUTH_REQUIRED',
-			suggest: 'Run `gh auth login` or set GH_TOKEN',
-			exitCode: 1,
-		});
-	}
-
-	return { token };
-}
+import { command, flag, group } from 'dreamcli';
 
 const authLogin = command('login')
 	.description('Authenticate with GitHub')

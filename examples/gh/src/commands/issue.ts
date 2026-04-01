@@ -5,9 +5,8 @@
  */
 
 import { command, flag, group } from 'dreamcli';
-
-import { requireAuth } from '$gh/commands/auth.ts';
 import issues from '$gh/data/issues.yaml' with { type: 'yaml' };
+import { requireAuth } from '$gh/lib/auth.ts';
 import { normalizeLimit } from '$gh/lib/utils.ts';
 
 const issueList = command('list')
