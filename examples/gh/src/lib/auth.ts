@@ -18,6 +18,12 @@ export function requireAuth(token: string | undefined): { readonly token: string
 	return { token };
 }
 
+/** Redacts a token for display, keeping the first 8 and last 4 characters visible. */
+export function redactToken(token: string): string {
+	if (token.length <= 12) return '***';
+	return `${token.slice(0, 8)}...${token.slice(-4)}`;
+}
+
 /** A {@linkcode command} pre-wired with a `--token` / `GH_TOKEN` flag and auth guard. */
 export function authedCommand(name: string) {
 	return command(name)

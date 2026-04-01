@@ -6,6 +6,7 @@
 
 import { env } from 'node:process';
 import { command, flag, group } from 'dreamcli';
+import { redactToken } from '$gh/lib/auth.ts';
 
 const authLogin = command('login')
 	.description('Authenticate with GitHub')
@@ -20,8 +21,7 @@ const authLogin = command('login')
 	)
 	.action(({ flags, out }) => {
 		// In a real CLI, validate the token via API and write to config.
-		const display = `${flags.token.slice(0, 8)}...${flags.token.slice(-4)}`;
-		out.log(`Logged in with token ${display}`);
+		out.log(`Logged in with token ${redactToken(flags.token)}`);
 		out.info('Token would be saved to ~/.config/gh/config.json');
 	});
 
@@ -31,9 +31,8 @@ const authStatus = command('status')
 		const token = env.GH_TOKEN;
 
 		if (token) {
-			out.log(`\
-github.com
-  Logged in with token ${token.slice(0, 8)}...`);
+			out.log('github.com');
+			out.log(`Logged in with token ${redactToken(token)}`);
 			return;
 		}
 

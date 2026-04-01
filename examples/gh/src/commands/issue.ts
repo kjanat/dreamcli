@@ -33,11 +33,13 @@ const issueList = authedCommand('list')
 
 		out.table(
 			results.map((issue) => ({
-				'#': issue.number,
-				title: issue.title,
-				state: issue.state,
-				author: issue.author,
+				// '#': issue.number,
+				// title: issue.title,
+				// state: issue.state,
+				// author: issue.author,
+				...issue,
 			})),
+			{ stream: 'stderr', format: 'text' },
 		);
 	});
 
