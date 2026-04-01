@@ -58,6 +58,7 @@ export interface CLIErrorOptions {
  * consistent shape for rendering (TTY pretty-print, `--json`, test assertions).
  */
 export class CLIError extends Error {
+	/** @override */
 	override readonly name: string = 'CLIError';
 
 	/** Stable machine-readable identifier. */
@@ -80,7 +81,10 @@ export class CLIError extends Error {
 		this.details = options.details;
 	}
 
-	/** Serialise to a plain object suitable for JSON output. */
+	/**
+	 * Serialise to a plain object suitable for JSON output.
+	 * @sealed
+	 */
 	toJSON(): CLIErrorJSON {
 		return {
 			name: this.name,
@@ -120,6 +124,7 @@ export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitC
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ParseError extends CLIError {
+	/** @override */
 	override readonly name = 'ParseError' as const;
 	declare readonly code: ParseErrorCode;
 
@@ -145,6 +150,7 @@ export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | '
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ValidationError extends CLIError {
+	/** @override */
 	override readonly name = 'ValidationError' as const;
 	declare readonly code: ValidationErrorCode;
 

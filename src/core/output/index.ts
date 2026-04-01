@@ -281,6 +281,8 @@ class OutputChannel implements Out {
 	 *
 	 * If another spinner or progress handle is active, it is implicitly
 	 * stopped before the new one starts.
+	 *
+	 * @virtual
 	 */
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
 		const fallback = options?.fallback ?? 'silent';
@@ -324,6 +326,8 @@ class OutputChannel implements Out {
 	 *
 	 * If another spinner or progress handle is active, it is implicitly
 	 * stopped before the new one starts.
+	 *
+	 * @virtual
 	 */
 	progress(opts: ProgressOptions): ProgressHandle {
 		const fallback = opts.fallback ?? 'silent';
@@ -373,10 +377,12 @@ class CaptureOutputChannel extends OutputChannel {
 		super(options);
 	}
 
+	/** Return a {@link CaptureSpinnerHandle} that records events into the activity log. @override */
 	override spinner(text: string, _options?: SpinnerOptions): SpinnerHandle {
 		return new CaptureSpinnerHandle(text, this.activity);
 	}
 
+	/** Return a {@link CaptureProgressHandle} that records events into the activity log. @override */
 	override progress(opts: ProgressOptions): ProgressHandle {
 		return new CaptureProgressHandle(opts, this.activity);
 	}

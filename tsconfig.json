@@ -21,6 +21,7 @@
 		"noUncheckedIndexedAccess": true,
 		"exactOptionalPropertyTypes": true,
 		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
 		"forceConsistentCasingInFileNames": true,
 
 		"rootDir": ".",

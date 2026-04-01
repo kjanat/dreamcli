@@ -222,6 +222,7 @@ interface TestAdapterOptions {
  * ```
  */
 class ExitError extends Error {
+	/** @override */
 	override readonly name = 'ExitError';
 
 	/** The exit code passed to `exit()`. */
