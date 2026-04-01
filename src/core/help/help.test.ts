@@ -114,7 +114,7 @@ describe('formatHelp', () => {
 		it('shows variadic arg with ellipsis', () => {
 			const cmd = command('cat').arg('files', arg.string().variadic());
 			const help = formatHelp(cmd.schema);
-			expect(help).toContain('<files...>');
+			expect(help).toContain('<files>...');
 		});
 
 		it('includes binName prefix when provided', () => {

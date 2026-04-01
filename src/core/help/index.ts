@@ -222,9 +222,9 @@ function formatArgUsage(entry: CommandArgEntry): string {
 		schema.kind === 'enum' && schema.enumValues !== undefined ? schema.enumValues.join('|') : name;
 	const variadicSuffix = schema.variadic ? '...' : '';
 	if (schema.presence === 'required') {
-		return `<${label}${variadicSuffix}>`;
+		return `<${label}>${variadicSuffix}`;
 	}
-	return `[${label}${variadicSuffix}]`;
+	return `[${label}]${variadicSuffix}`;
 }
 
 /** Format arg description with annotations. */

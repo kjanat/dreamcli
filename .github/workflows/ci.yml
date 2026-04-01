@@ -22,7 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
@@ -44,13 +43,14 @@ jobs:
       matrix:
         include:
           - { runtime: bun, bun-version: latest }
-          - { runtime: node, node-version: lts/* }
+          - { runtime: node, node-version: 22.2.2 }
+          - { runtime: node, node-version: latest }
     steps:
       - uses: actions/checkout@v6
 
       # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
+        with: { bun-version: "${{ matrix.bun-version }}" }
 
       - uses: actions/setup-node@v6
         if: matrix.runtime == 'node'
@@ -66,7 +66,7 @@ jobs:
         run: bunx --bun vitest run
 
       # Node: run vitest via npx (uses Node, not Bun, as the runtime)
-      - name: Test (Node)
+      - name: Test (Node ${{ matrix.node-version }})
         if: matrix.runtime == 'node'
         run: npx vitest run
 
@@ -85,13 +85,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
       - uses: denoland/setup-deno@v2
-        with: { deno-version: v2.x }
       - run: bun install --frozen-lockfile
       - run: bun run build
       - name: Deno adapter smoke test
         run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
+      - run: deno run -A npm:vitest run
 
   # ─────────────────────────────────────────────────────────────────
   # Build — verifies the package builds, types are correct, and
@@ -105,6 +104,5 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
       - run: bun install --frozen-lockfile
       - run: bun run build
