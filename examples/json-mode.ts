@@ -1,14 +1,16 @@
 #!/usr/bin/env bun
 /**
- * JSON mode and structured output.
+ * Mixed machine-readable JSON and human-readable side-channel output.
  *
- * Demonstrates: --json flag, out.json(), out.table(),
- * structured error output, CLIError with details.
+ * Demonstrates: always-on `out.json()` machine output to stdout,
+ * human-readable stderr side channels via `out.table(..., { format: 'text',
+ * stream: 'stderr' })` / `out.error()`, plus `--json` for CLI-managed JSON
+ * behavior such as structured errors.
  *
  * Usage:
- *   npx tsx examples/json-mode.ts list
- *   npx tsx examples/json-mode.ts list --json          # JSON array to stdout
- *   npx tsx examples/json-mode.ts list --format table  # table output
+ *   npx tsx examples/json-mode.ts list                  # JSON stdout + plain stderr side channel
+ *   npx tsx examples/json-mode.ts list --format table   # JSON stdout + table stderr side channel
+ *   npx tsx examples/json-mode.ts list --json           # same success output; CLI-managed errors stay JSON-safe
  *   npx tsx examples/json-mode.ts show web-api
  *   npx tsx examples/json-mode.ts show nonexistent     # structured error
  *   npx tsx examples/json-mode.ts show nonexistent --json  # JSON error
@@ -40,8 +42,8 @@ const list = command('list')
 		flag.enum(['table', 'plain']).default('plain').alias('f').describe('Output format'),
 	)
 	.action(({ flags, out }) => {
-		// This example intentionally emits both machine-readable JSON and a
-		// human-oriented side channel on stderr.
+		// This example always emits machine-readable JSON to stdout. `--json`
+		// still matters for DreamCLI-managed output such as structured errors.
 		out.json(services);
 
 		if (flags.format === 'table') {

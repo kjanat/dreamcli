@@ -423,6 +423,13 @@ function resolveTableArgs<T extends Record<string, unknown>>(
 	readonly columns: readonly TableColumn<T>[] | undefined;
 	readonly options: TableOptions | undefined;
 } {
+	if (options !== undefined) {
+		return {
+			columns: isTableColumns(columnsOrOptions) ? columnsOrOptions : undefined,
+			options,
+		};
+	}
+
 	if (isTableColumns(columnsOrOptions)) {
 		return { columns: columnsOrOptions, options };
 	}

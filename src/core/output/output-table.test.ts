@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { TableColumn } from '#internals/core/schema/index.ts';
 import { createCaptureOutput } from './index.ts';
 
 // ---------------------------------------------------------------------------
@@ -179,6 +180,24 @@ describe('table — JSON mode', () => {
 		out.table(rows, { format: 'json' });
 		expect(captured.stdout).toEqual([`${JSON.stringify(rows)}\n`]);
 		expect(captured.stderr).toEqual([]);
+	});
+
+	it('preserves explicit options when columns argument is undefined', () => {
+		const [out, captured] = createCaptureOutput();
+		const rows = [{ name: 'Alice' }];
+		const columns: readonly TableColumn<(typeof rows)[number]>[] | undefined = undefined;
+		out.table(rows, columns, { format: 'json' });
+		expect(captured.stdout).toEqual([`${JSON.stringify(rows)}\n`]);
+		expect(captured.stderr).toEqual([]);
+	});
+
+	it('preserves text-stream overrides when columns argument is undefined', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		const rows = [{ name: 'Alice' }];
+		const columns: readonly TableColumn<(typeof rows)[number]>[] | undefined = undefined;
+		out.table(rows, columns, { format: 'text' });
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr.join('')).toContain('Alice');
 	});
 });
 
