@@ -6,9 +6,7 @@ import { CommandBuilder, command, group } from './command.ts';
 import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
-// ---------------------------------------------------------------------------
-// Factory function
-// ---------------------------------------------------------------------------
+// --- Factory function
 
 describe('command()', () => {
 	it('creates a command builder with the given name', () => {
@@ -30,9 +28,7 @@ describe('command()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Metadata modifiers
-// ---------------------------------------------------------------------------
+// --- Metadata modifiers
 
 describe('.description()', () => {
 	it('sets the description', () => {
@@ -107,9 +103,7 @@ describe('.example()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Flag accumulation — runtime
-// ---------------------------------------------------------------------------
+// --- Flag accumulation — runtime
 
 describe('.flag()', () => {
 	it('adds a flag schema to the command', () => {
@@ -157,9 +151,7 @@ describe('.flag()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Arg accumulation — runtime
-// ---------------------------------------------------------------------------
+// --- Arg accumulation — runtime
 
 describe('.arg()', () => {
 	it('adds an arg entry to the command', () => {
@@ -240,9 +232,7 @@ describe('.arg()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Action handler — runtime
-// ---------------------------------------------------------------------------
+// --- Action handler — runtime
 
 describe('.action()', () => {
 	it('registers the handler', () => {
@@ -269,9 +259,7 @@ describe('.action()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Full composition — runtime
-// ---------------------------------------------------------------------------
+// --- Full composition — runtime
 
 describe('full command composition', () => {
 	it('builds a complete command schema', () => {
@@ -346,9 +334,7 @@ describe('full command composition', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Chaining order independence
-// ---------------------------------------------------------------------------
+// --- Chaining order independence
 
 describe('chaining order', () => {
 	it('metadata before flags/args', () => {
@@ -381,9 +367,7 @@ describe('chaining order', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type inference — compile-time checks via expectTypeOf
-// ---------------------------------------------------------------------------
+// --- Type inference — compile-time checks via expectTypeOf
 
 describe('type inference', () => {
 	it('infers empty flags and args for bare command', () => {
@@ -577,9 +561,7 @@ describe('type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CommandSchema shape
-// ---------------------------------------------------------------------------
+// --- CommandSchema shape
 
 describe('CommandSchema', () => {
 	it('satisfies the CommandSchema interface', () => {
@@ -603,9 +585,7 @@ describe('CommandSchema', () => {
 	});
 });
 
-// =========================================================================
-// Subcommand nesting — .command()
-// =========================================================================
+// === Subcommand nesting — .command()
 
 describe('.command()', () => {
 	// --- Schema population -------------------------------------------------
@@ -816,9 +796,7 @@ describe('.command()', () => {
 	});
 });
 
-// =========================================================================
-// group() factory
-// =========================================================================
+// === group() factory
 
 describe('group()', () => {
 	it('creates a CommandBuilder', () => {
@@ -860,9 +838,7 @@ describe('group()', () => {
 	});
 });
 
-// =========================================================================
-// command() factory — commands field defaults
-// =========================================================================
+// === command() factory — commands field defaults
 
 describe('command() — commands field', () => {
 	it('starts with empty commands array', () => {

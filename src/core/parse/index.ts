@@ -21,9 +21,7 @@ import type {
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
 
-// ---------------------------------------------------------------------------
-// Tokenizer — schema-agnostic argv splitting
-// ---------------------------------------------------------------------------
+// --- Tokenizer — schema-agnostic argv splitting
 
 /**
  * Token discriminated union.
@@ -99,9 +97,7 @@ function tokenize(argv: readonly string[]): readonly Token[] {
 	return tokens;
 }
 
-// ---------------------------------------------------------------------------
-// Parse result
-// ---------------------------------------------------------------------------
+// --- Parse result
 
 /**
  * Raw parsed values before resolution (defaults, env, config, etc.).
@@ -116,9 +112,7 @@ interface ParseResult {
 	readonly args: Readonly<Record<string, unknown>>;
 }
 
-// ---------------------------------------------------------------------------
-// Internal lookup helpers
-// ---------------------------------------------------------------------------
+// --- Internal lookup helpers
 
 /**
  * Build a map from flag name/alias → [canonicalName, FlagSchema].
@@ -143,9 +137,7 @@ function flagExpectsValue(schema: FlagSchema): boolean {
 	return schema.kind !== 'boolean';
 }
 
-// ---------------------------------------------------------------------------
-// Value coercion
-// ---------------------------------------------------------------------------
+// --- Value coercion
 
 /**
  * Coerce a raw string to the flag's declared kind.
@@ -274,9 +266,7 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Parser — schema-aware token interpretation
-// ---------------------------------------------------------------------------
+// --- Parser — schema-aware token interpretation
 
 /**
  * Parse tokenized argv against a command schema.
@@ -335,9 +325,7 @@ function parse(schema: CommandSchema, argv: readonly string[]): ParseResult {
 	return { flags, args };
 }
 
-// ---------------------------------------------------------------------------
-// Long flag parsing
-// ---------------------------------------------------------------------------
+// --- Long flag parsing
 
 /** Parse a long flag token, consuming a value from the next token if needed. */
 function parseLongFlag(
@@ -390,9 +378,7 @@ function parseLongFlag(
 	return startIdx + 2;
 }
 
-// ---------------------------------------------------------------------------
-// Short flag parsing
-// ---------------------------------------------------------------------------
+// --- Short flag parsing
 
 /** Parse combined short flags, expanding -abc into individual flags. */
 function parseShortFlags(
@@ -446,9 +432,7 @@ function parseShortFlags(
 	return nextIdx;
 }
 
-// ---------------------------------------------------------------------------
-// Flag value setter (handles array accumulation)
-// ---------------------------------------------------------------------------
+// --- Flag value setter (handles array accumulation)
 
 /** Set or accumulate a flag value, handling array flags specially. */
 function setFlagValue(
@@ -471,9 +455,7 @@ function setFlagValue(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Positional arg mapping
-// ---------------------------------------------------------------------------
+// --- Positional arg mapping
 
 /**
  * Map positional values to named args based on schema ordering.
@@ -519,9 +501,7 @@ function mapPositionals(
 	return args;
 }
 
-// ---------------------------------------------------------------------------
-// Suggestion helper (Levenshtein-based "did you mean?")
-// ---------------------------------------------------------------------------
+// --- Suggestion helper (Levenshtein-based "did you mean?")
 
 /**
  * Suggest the closest flag name if the edit distance is small enough.
@@ -586,9 +566,7 @@ function levenshtein(a: string, b: string): number {
 	return row[aLen] ?? 0;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { ParseResult, Token };
 export { parse, tokenize };

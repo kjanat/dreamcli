@@ -14,9 +14,7 @@ import type { GlobalForDetect } from './detect.ts';
 import { RUNTIMES } from './detect.ts';
 import { createMockDenoNamespace } from './test-helpers.ts';
 
-// ===================================================================
-// Helpers
-// ===================================================================
+// === Helpers
 
 /**
  * Assert that a value satisfies the RuntimeAdapter interface shape.
@@ -35,9 +33,7 @@ function assertAdapterShape(adapter: RuntimeAdapter): void {
 	expect(typeof adapter.exit).toBe('function');
 }
 
-// ===================================================================
-// createAdapter — runtime dispatch
-// ===================================================================
+// === createAdapter — runtime dispatch
 
 describe('createAdapter — runtime dispatch', () => {
 	// -------------------------------------------------------------------
@@ -96,9 +92,7 @@ describe('createAdapter — runtime dispatch', () => {
 	});
 });
 
-// ===================================================================
-// createAdapter — exhaustiveness
-// ===================================================================
+// === createAdapter — exhaustiveness
 
 describe('createAdapter — exhaustiveness', () => {
 	it('handles every Runtime variant without returning undefined', () => {
@@ -120,9 +114,7 @@ describe('createAdapter — exhaustiveness', () => {
 	});
 });
 
-// ===================================================================
-// createAdapter — default (no globals override)
-// ===================================================================
+// === createAdapter — default (no globals override)
 
 describe('createAdapter — default globalThis', () => {
 	it('creates adapter without explicit globals', () => {
@@ -144,9 +136,7 @@ describe('createAdapter — default globalThis', () => {
 	});
 });
 
-// ===================================================================
-// createAdapter — adapter is functional
-// ===================================================================
+// === createAdapter — adapter is functional
 
 describe('createAdapter — adapter functionality', () => {
 	it('stdout writer is callable', () => {

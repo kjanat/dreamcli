@@ -29,9 +29,7 @@ import type {
 } from '#internals/core/schema/index.ts';
 import type { PromptConfig } from '#internals/core/schema/prompt.ts';
 
-// ---------------------------------------------------------------------------
-// Resolve options — injectable external state for the resolution chain
-// ---------------------------------------------------------------------------
+// --- Resolve options — injectable external state for the resolution chain
 
 /**
  * Options controlling the resolution chain.
@@ -96,9 +94,7 @@ interface ResolveOptions {
 	readonly prompter?: PromptEngine;
 }
 
-// ---------------------------------------------------------------------------
-// Result type
-// ---------------------------------------------------------------------------
+// --- Result type
 
 /**
  * Fully resolved flag and arg values — guaranteed present for required
@@ -146,9 +142,7 @@ interface DeprecationWarning {
 	readonly message: string | true;
 }
 
-// ---------------------------------------------------------------------------
-// Resolver
-// ---------------------------------------------------------------------------
+// --- Resolver
 
 /**
  * Resolve parsed values against a command schema.
@@ -207,9 +201,7 @@ async function resolve(
 	return { flags, args, deprecations };
 }
 
-// ---------------------------------------------------------------------------
-// Flag resolution
-// ---------------------------------------------------------------------------
+// --- Flag resolution
 
 /**
  * Resolve flag values: CLI -> env -> config -> interactive/prompt -> default,
@@ -405,9 +397,7 @@ async function resolveFlags(
 	return resolved;
 }
 
-// ---------------------------------------------------------------------------
-// Prompt value resolution
-// ---------------------------------------------------------------------------
+// --- Prompt value resolution
 
 /**
  * Result of attempting to resolve a flag value via prompting.
@@ -455,9 +445,7 @@ async function resolvePromptValueWithConfig(
 	return coerceValue(flagName, { kind: 'prompt' }, result.value, schema);
 }
 
-// ---------------------------------------------------------------------------
-// Required flag suggestion builder
-// ---------------------------------------------------------------------------
+// --- Required flag suggestion builder
 
 /**
  * Build an actionable suggestion listing all configured resolution sources
@@ -494,9 +482,7 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	return sources.length === 2 ? `${rest.join('')} or ${last}` : `${rest.join(', ')}, or ${last}`;
 }
 
-// ---------------------------------------------------------------------------
-// Unified value coercion
-// ---------------------------------------------------------------------------
+// --- Unified value coercion
 
 /**
  * Describes the source of a raw value being coerced.
@@ -796,9 +782,7 @@ function coerceValue(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Config path resolution
-// ---------------------------------------------------------------------------
+// --- Config path resolution
 
 /**
  * Resolve a dotted path against a nested config object.
@@ -825,9 +809,7 @@ function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: stri
 	return current;
 }
 
-// ---------------------------------------------------------------------------
-// Arg resolution
-// ---------------------------------------------------------------------------
+// --- Arg resolution
 
 /**
  * Resolve arg values: CLI → stdin → env → default, then validate required.
@@ -948,9 +930,7 @@ function resolveArgs(
 	return resolved;
 }
 
-// ---------------------------------------------------------------------------
-// Arg env coercion
-// ---------------------------------------------------------------------------
+// --- Arg env coercion
 
 /**
  * Describes the source of a raw string being coerced for an arg.
@@ -1160,9 +1140,7 @@ function coerceArgStringValue(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Required arg suggestion builder
-// ---------------------------------------------------------------------------
+// --- Required arg suggestion builder
 
 /**
  * Build an actionable suggestion for a required arg that was not provided.
@@ -1193,18 +1171,14 @@ function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boo
 	return `${sources.slice(0, -1).join(', ')}, or ${sources[sources.length - 1]}`;
 }
 
-// ---------------------------------------------------------------------------
-// Type narrowing helpers
-// ---------------------------------------------------------------------------
+// --- Type narrowing helpers
 
 /** Narrow a plain array to a non-empty tuple. */
 function isNonEmpty<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
 	return arr.length > 0;
 }
 
-// ---------------------------------------------------------------------------
-// Error aggregation
-// ---------------------------------------------------------------------------
+// --- Error aggregation
 
 /**
  * Throw a single `ValidationError` that aggregates multiple missing-value
@@ -1229,9 +1203,7 @@ function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationE
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { DeprecationWarning, ResolveOptions, ResolveResult };
 export { resolve };

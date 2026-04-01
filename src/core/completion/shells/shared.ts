@@ -14,9 +14,7 @@ import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
-// ---------------------------------------------------------------------------
-// Version tag for generated script headers
-// ---------------------------------------------------------------------------
+// --- Version tag for generated script headers
 
 /**
  * Format a version tag for generated completion script headers.
@@ -32,9 +30,7 @@ function versionTag(): string {
 	return `dreamcli v${DREAMCLI_VERSION}${rev}`;
 }
 
-// ---------------------------------------------------------------------------
-// CompletionOptions — generator configuration
-// ---------------------------------------------------------------------------
+// --- CompletionOptions — generator configuration
 
 /**
  * Options for completion script generation.
@@ -73,9 +69,7 @@ interface CompletionOptions {
 	readonly rootMode?: 'subcommands' | 'surface';
 }
 
-// ---------------------------------------------------------------------------
-// Root completion surface — shared policy resolver
-// ---------------------------------------------------------------------------
+// --- Root completion surface — shared policy resolver
 
 /**
  * Normalized root completion surface consumed by shell generators.
@@ -154,9 +148,7 @@ function createSyntheticRootFlag(description: string): FlagSchema {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Command tree walking — shared infrastructure
-// ---------------------------------------------------------------------------
+// --- Command tree walking — shared infrastructure
 
 /**
  * A flattened node from the command tree, carrying its ancestry context.
@@ -220,9 +212,7 @@ function walkCommandTree(
 	return nodes;
 }
 
-// ---------------------------------------------------------------------------
-// Shell escaping utilities
-// ---------------------------------------------------------------------------
+// --- Shell escaping utilities
 
 /**
  * Sanitize a string for use as a shell function identifier.
@@ -267,9 +257,7 @@ function quoteShellArg(value: string): string {
 	return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export {
 	quoteShellArg,

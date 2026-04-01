@@ -12,9 +12,7 @@
 import type { WriteFn } from '#internals/core/output/index.ts';
 import type { ReadFn } from '#internals/core/prompt/index.ts';
 
-// ---------------------------------------------------------------------------
-// Runtime adapter interface — the single platform abstraction boundary
-// ---------------------------------------------------------------------------
+// --- Runtime adapter interface — the single platform abstraction boundary
 
 /**
  * Runtime adapter interface.
@@ -124,9 +122,7 @@ interface RuntimeAdapter {
 	readonly configDir: string;
 }
 
-// ---------------------------------------------------------------------------
-// Test adapter — injectable stub for testing
-// ---------------------------------------------------------------------------
+// --- Test adapter — injectable stub for testing
 
 /**
  * Options for creating a test adapter.
@@ -316,9 +312,7 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { RuntimeAdapter, TestAdapterOptions };
 export { createTestAdapter, ExitError };

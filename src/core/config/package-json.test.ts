@@ -9,9 +9,7 @@ import { describe, expect, it } from 'vitest';
 import type { PackageJsonAdapter } from './package-json.ts';
 import { discoverPackageJson, inferCliName } from './package-json.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Create a minimal adapter with a virtual filesystem. */
 function createAdapter(
@@ -24,9 +22,7 @@ function createAdapter(
 	};
 }
 
-// ===================================================================
-// discoverPackageJson — walk-up resolution
-// ===================================================================
+// === discoverPackageJson — walk-up resolution
 
 describe('discoverPackageJson — walk-up resolution', () => {
 	it('finds package.json in cwd', async () => {
@@ -93,9 +89,7 @@ describe('discoverPackageJson — walk-up resolution', () => {
 	});
 });
 
-// ===================================================================
-// discoverPackageJson — field extraction
-// ===================================================================
+// === discoverPackageJson — field extraction
 
 describe('discoverPackageJson — field extraction', () => {
 	it('extracts all fields', async () => {
@@ -183,9 +177,7 @@ describe('discoverPackageJson — field extraction', () => {
 	});
 });
 
-// ===================================================================
-// discoverPackageJson — error resilience
-// ===================================================================
+// === discoverPackageJson — error resilience
 
 describe('discoverPackageJson — error resilience', () => {
 	it('returns null for malformed JSON', async () => {
@@ -266,9 +258,7 @@ describe('discoverPackageJson — error resilience', () => {
 	});
 });
 
-// ===================================================================
-// discoverPackageJson — Windows paths
-// ===================================================================
+// === discoverPackageJson — Windows paths
 
 describe('discoverPackageJson — Windows paths', () => {
 	it('walks up Windows paths', async () => {
@@ -291,9 +281,7 @@ describe('discoverPackageJson — Windows paths', () => {
 	});
 });
 
-// ===================================================================
-// inferCliName — resolution order
-// ===================================================================
+// === inferCliName — resolution order
 
 describe('inferCliName — resolution order', () => {
 	it('prefers first bin key', () => {

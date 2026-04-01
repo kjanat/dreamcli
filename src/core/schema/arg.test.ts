@@ -10,9 +10,7 @@ function parsePath(raw: string): ParsedPath {
 	return { segments: raw.split('/') };
 }
 
-// ---------------------------------------------------------------------------
-// Factory functions — runtime schema
-// ---------------------------------------------------------------------------
+// --- Factory functions — runtime schema
 
 describe('arg.string() — creates and modifies string args', () => {
 	it('creates a string arg with required presence', () => {
@@ -90,9 +88,7 @@ describe('arg.custom() — creates and modifies custom args', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Modifiers — runtime schema mutations
-// ---------------------------------------------------------------------------
+// --- Modifiers — runtime schema mutations
 
 describe('.required()', () => {
 	it('sets presence to required (explicit)', () => {
@@ -161,9 +157,7 @@ describe('.describe()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Immutability
-// ---------------------------------------------------------------------------
+// --- Immutability
 
 describe('immutability', () => {
 	it('each modifier returns a new builder', () => {
@@ -204,9 +198,7 @@ describe('immutability', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Chaining — complex builder chains
-// ---------------------------------------------------------------------------
+// --- Chaining — complex builder chains
 
 describe('chaining', () => {
 	it('supports PRD deploy target example', () => {
@@ -240,9 +232,7 @@ describe('chaining', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Schema data defaults
-// ---------------------------------------------------------------------------
+// --- Schema data defaults
 
 describe('schema defaults', () => {
 	it('all optional fields default to undefined or sensible values', () => {
@@ -272,9 +262,7 @@ describe('schema defaults', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type inference — compile-time checks via expectTypeOf
-// ---------------------------------------------------------------------------
+// --- Type inference — compile-time checks via expectTypeOf
 
 describe('type inference', () => {
 	it('string arg: string (required by default)', () => {
@@ -393,9 +381,7 @@ describe('type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('edge cases', () => {
 	it('overriding default replaces the value', () => {
@@ -435,9 +421,7 @@ describe('edge cases', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// .deprecated() modifier
-// ---------------------------------------------------------------------------
+// --- .deprecated() modifier
 
 describe('.deprecated()', () => {
 	it('sets deprecated to true when called with no argument', () => {

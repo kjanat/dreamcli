@@ -9,9 +9,7 @@ import { command, group } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli, formatRootHelp } from './index.ts';
 
-// ===================================================================
-// Helpers
-// ===================================================================
+// === Helpers
 
 function deployCommand() {
 	return command('deploy')
@@ -40,9 +38,7 @@ function noArgCommand() {
 		});
 }
 
-// ===================================================================
-// .default() builder method
-// ===================================================================
+// === .default() builder method
 
 describe('.default() — builder', () => {
 	it('stores the default command reference in schema', () => {
@@ -88,9 +84,7 @@ describe('.default() — builder', () => {
 	});
 });
 
-// ===================================================================
-// Pure single-command CLI — no siblings
-// ===================================================================
+// === Pure single-command CLI — no siblings
 
 describe('.default() — single-command dispatch', () => {
 	it('dispatches to default on empty argv', async () => {
@@ -143,9 +137,7 @@ describe('.default() — single-command dispatch', () => {
 	});
 });
 
-// ===================================================================
-// Hybrid CLI — default + sibling commands
-// ===================================================================
+// === Hybrid CLI — default + sibling commands
 
 describe('.default() — hybrid dispatch (default + siblings)', () => {
 	it('dispatches to named sibling command', async () => {
@@ -193,9 +185,7 @@ describe('.default() — hybrid dispatch (default + siblings)', () => {
 	});
 });
 
-// ===================================================================
-// Nested unknowns — default command must NOT swallow nested errors
-// ===================================================================
+// === Nested unknowns — default command must NOT swallow nested errors
 
 describe('.default() — nested unknown does not delegate to default', () => {
 	it('surfaces unknown-command error inside a group instead of delegating', async () => {
@@ -258,9 +248,7 @@ describe('.default() — nested unknown does not delegate to default', () => {
 	});
 });
 
-// ===================================================================
-// --help / --version with default command
-// ===================================================================
+// === --help / --version with default command
 
 describe('.default() — help and version', () => {
 	it('--help shows merged root and default command help when it is the only visible command', async () => {
@@ -310,9 +298,7 @@ describe('.default() — help and version', () => {
 	});
 });
 
-// ===================================================================
-// --json mode with default command
-// ===================================================================
+// === --json mode with default command
 
 describe('.default() — JSON mode', () => {
 	it('default command receives jsonMode context via --json', async () => {
@@ -336,9 +322,7 @@ describe('.default() — JSON mode', () => {
 	});
 });
 
-// ===================================================================
-// Root help formatting with default command
-// ===================================================================
+// === Root help formatting with default command
 
 describe('formatRootHelp — default command', () => {
 	it('shows [command] (optional) when default exists', () => {

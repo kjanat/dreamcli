@@ -6,9 +6,7 @@ import { createSchema } from '#internals/core/schema/flag.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -35,9 +33,7 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
 	};
 }
 
-// ========================================================================
-// Env resolution — basic value coercion
-// ========================================================================
+// === Env resolution — basic value coercion
 
 describe('resolve — env string flags', () => {
 	it('resolves string flag from env when CLI absent', async () => {
@@ -114,9 +110,7 @@ describe('resolve — env string flags', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — number coercion
-// ========================================================================
+// === Env resolution — number coercion
 
 describe('resolve — env number flags', () => {
 	it('coerces env string to number', async () => {
@@ -185,9 +179,7 @@ describe('resolve — env number flags', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — boolean coercion
-// ========================================================================
+// === Env resolution — boolean coercion
 
 describe('resolve — env boolean flags', () => {
 	const booleanCases: ReadonlyArray<readonly [string, boolean]> = [
@@ -251,9 +243,7 @@ describe('resolve — env boolean flags', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — enum coercion
-// ========================================================================
+// === Env resolution — enum coercion
 
 describe('resolve — env enum flags', () => {
 	it('resolves valid enum value from env', async () => {
@@ -297,9 +287,7 @@ describe('resolve — env enum flags', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — array coercion
-// ========================================================================
+// === Env resolution — array coercion
 
 describe('resolve — env array flags', () => {
 	it('resolves comma-separated env value to string array', async () => {
@@ -381,9 +369,7 @@ describe('resolve — env array flags', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — required flag satisfaction
-// ========================================================================
+// === Env resolution — required flag satisfaction
 
 describe('resolve — env satisfies required flags', () => {
 	it('env value satisfies required flag', async () => {
@@ -412,9 +398,7 @@ describe('resolve — env satisfies required flags', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — no options provided (backward compat)
-// ========================================================================
+// === Env resolution — no options provided (backward compat)
 
 describe('resolve — no env options (backward compatibility)', () => {
 	it('works without options (v0.1 behavior)', async () => {
@@ -456,9 +440,7 @@ describe('resolve — no env options (backward compatibility)', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — precedence chain: CLI > env > default
-// ========================================================================
+// === Env resolution — precedence chain: CLI > env > default
 
 describe('resolve — full precedence chain', () => {
 	it('CLI > env > default: CLI wins', async () => {
@@ -513,9 +495,7 @@ describe('resolve — full precedence chain', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — error aggregation with env
-// ========================================================================
+// === Env resolution — error aggregation with env
 
 describe('resolve — env error aggregation', () => {
 	it('aggregates env coercion error with missing required error', async () => {
@@ -542,9 +522,7 @@ describe('resolve — env error aggregation', () => {
 	});
 });
 
-// ========================================================================
-// Env resolution — mixed scenarios
-// ========================================================================
+// === Env resolution — mixed scenarios
 
 describe('resolve — env custom flags', () => {
 	it('resolves custom flag from env via parseFn', async () => {

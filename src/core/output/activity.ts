@@ -24,21 +24,17 @@ import type {
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 
-// ---------------------------------------------------------------------------
-// Timer globals — minimal declarations for setInterval/clearInterval.
+// --- Timer globals — minimal declarations for setInterval/clearInterval.
 //
 // The project targets ES2022 without DOM or Node lib typings. Timer APIs
 // are universally available across Node, Bun, Deno, and browsers, but the
 // type checker doesn't know about them. Declaring the subset we need here
 // avoids adding `@types/node` as a dependency.
-// ---------------------------------------------------------------------------
 
 declare function setInterval(callback: () => void, ms: number): unknown;
 declare function clearInterval(handle: unknown): void;
 
-// ---------------------------------------------------------------------------
-// Noop activity handles — silent mode (non-TTY, fallback='silent')
-// ---------------------------------------------------------------------------
+// --- Noop activity handles — silent mode (non-TTY, fallback='silent')
 
 /**
  * Noop spinner handle singleton.
@@ -73,9 +69,7 @@ const noopProgressHandle: ProgressHandle = {
 	fail() {},
 };
 
-// ---------------------------------------------------------------------------
-// Static activity handles — plain text mode (non-TTY, fallback='static')
-// ---------------------------------------------------------------------------
+// --- Static activity handles — plain text mode (non-TTY, fallback='static')
 
 /**
  * Static spinner handle — emits plain text at lifecycle boundaries.
@@ -186,9 +180,7 @@ class StaticProgressHandle implements ProgressHandle {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// ANSI escape sequences
-// ---------------------------------------------------------------------------
+// --- ANSI escape sequences
 
 /** Hide the terminal cursor. @internal */
 const HIDE_CURSOR = '\x1b[?25l';
@@ -232,9 +224,7 @@ const PULSE_WIDTH = 3;
 /** Animation interval for indeterminate progress pulse (ms). @internal */
 const PULSE_INTERVAL_MS = 80;
 
-// ---------------------------------------------------------------------------
-// TTY activity handles — animated mode (isTTY && !jsonMode)
-// ---------------------------------------------------------------------------
+// --- TTY activity handles — animated mode (isTTY && !jsonMode)
 
 /**
  * TTY spinner handle — animated braille frames with ANSI line overwrite.
@@ -463,9 +453,7 @@ class TTYProgressHandle implements ProgressHandle {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Capture activity handles — testkit recording mode
-// ---------------------------------------------------------------------------
+// --- Capture activity handles — testkit recording mode
 
 /**
  * Spinner handle that records lifecycle events to a shared `ActivityEvent[]`.
@@ -566,9 +554,7 @@ class CaptureProgressHandle implements ProgressHandle {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export {
 	CaptureProgressHandle,

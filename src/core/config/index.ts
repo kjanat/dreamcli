@@ -19,9 +19,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-// ---------------------------------------------------------------------------
-// Types — format loaders
-// ---------------------------------------------------------------------------
+// --- Types — format loaders
 
 /**
  * Format loader — parses file content into a config object.
@@ -46,9 +44,7 @@ interface FormatLoader {
 	readonly parse: (content: string) => Record<string, unknown>;
 }
 
-// ---------------------------------------------------------------------------
-// Types — discovery options + result
-// ---------------------------------------------------------------------------
+// --- Types — discovery options + result
 
 /** Options for {@link discoverConfig}. */
 interface ConfigDiscoveryOptions {
@@ -91,9 +87,7 @@ interface ConfigNotFound {
 /** Discriminated result of config discovery. */
 type ConfigDiscoveryResult = ConfigFound | ConfigNotFound;
 
-// ---------------------------------------------------------------------------
-// Built-in JSON loader
-// ---------------------------------------------------------------------------
+// --- Built-in JSON loader
 
 /** @internal */
 const jsonLoader: FormatLoader = {
@@ -107,9 +101,7 @@ const jsonLoader: FormatLoader = {
 	},
 };
 
-// ---------------------------------------------------------------------------
-// Path utilities
-// ---------------------------------------------------------------------------
+// --- Path utilities
 
 /**
  * Join path segments using the separator detected from the base path.
@@ -138,9 +130,7 @@ function getExtension(path: string): string {
 	return path.slice(lastDot + 1).toLowerCase();
 }
 
-// ---------------------------------------------------------------------------
-// buildConfigSearchPaths
-// ---------------------------------------------------------------------------
+// --- buildConfigSearchPaths
 
 /**
  * Build the default config search paths for an app.
@@ -220,9 +210,7 @@ function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// buildLoaderMap
-// ---------------------------------------------------------------------------
+// --- buildLoaderMap
 
 /**
  * Build extension → loader lookup. Later loaders for the same extension
@@ -245,9 +233,7 @@ function buildLoaderMap(loaders?: readonly FormatLoader[]): ReadonlyMap<string, 
 	return map;
 }
 
-// ---------------------------------------------------------------------------
-// discoverConfig
-// ---------------------------------------------------------------------------
+// --- discoverConfig
 
 /**
  * The subset of {@link RuntimeAdapter} needed for config discovery.
@@ -342,9 +328,7 @@ async function discoverConfig(
 	return { found: false };
 }
 
-// ---------------------------------------------------------------------------
-// configFormat — convenience factory for FormatLoader
-// ---------------------------------------------------------------------------
+// --- configFormat — convenience factory for FormatLoader
 
 /**
  * Create a {@link FormatLoader} from extensions and a parse function.
@@ -379,9 +363,7 @@ function configFormat(
 	return { extensions, parse };
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export { discoverPackageJson, inferCliName } from './package-json.ts';
 export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';

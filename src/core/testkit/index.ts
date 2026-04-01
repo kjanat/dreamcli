@@ -30,9 +30,7 @@ import type { CommandBuilder, CommandMeta, Out } from '#internals/core/schema/co
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
-// ---------------------------------------------------------------------------
-// Internal types
-// ---------------------------------------------------------------------------
+// --- Internal types
 
 /**
  * The runtime shape of action handler params — unbranded.
@@ -54,9 +52,7 @@ interface HandlerParams {
 // contract is shared by schema, CLI dispatch, and testkit. Re-exported here
 // for public testkit continuity.
 
-// ---------------------------------------------------------------------------
-// Core execution pipeline
-// ---------------------------------------------------------------------------
+// --- Core execution pipeline
 
 /**
  * Run a command builder against the given argv with injected options.
@@ -239,9 +235,7 @@ async function runResolvedHooks(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /**
  * Execute the derive/middleware chain followed by the action handler.
@@ -348,9 +342,7 @@ function buildResult(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Deprecation formatting (presentation layer — not resolve's responsibility)
-// ---------------------------------------------------------------------------
+// --- Deprecation formatting (presentation layer — not resolve's responsibility)
 
 /**
  * Format a structured deprecation warning for human-readable stderr output.
@@ -367,9 +359,7 @@ function formatDeprecation(d: DeprecationWarning): string {
 		: `Warning: ${entity} is deprecated`;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { RunOptions, RunResult };
 export { runCommand };

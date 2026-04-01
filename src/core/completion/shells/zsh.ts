@@ -25,9 +25,7 @@ import {
 	walkCommandTree,
 } from './shared.ts';
 
-// ---------------------------------------------------------------------------
-// Public generator
-// ---------------------------------------------------------------------------
+// --- Public generator
 
 /**
  * Generate a zsh completion script for the CLI.
@@ -173,9 +171,7 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 	return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Zsh helpers — internal
-// ---------------------------------------------------------------------------
+// --- Zsh helpers — internal
 
 /**
  * Emit a zsh helper function for a group command (has subcommands).

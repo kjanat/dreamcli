@@ -11,9 +11,7 @@ import type { RuntimeAdapter } from './adapter.ts';
 import { createBunAdapter } from './bun.ts';
 import type { NodeProcess } from './node.ts';
 
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
+// --- Test helpers
 
 /** Empty async iterator — yields nothing, returns immediately. */
 async function* emptyAsyncIterator(): AsyncGenerator<Uint8Array> {}
@@ -42,9 +40,7 @@ function mockProcess(
 	};
 }
 
-// ===================================================================
-// createBunAdapter — basic contract
-// ===================================================================
+// === createBunAdapter — basic contract
 
 describe('createBunAdapter', () => {
 	it('returns a RuntimeAdapter with all required fields', () => {
@@ -68,9 +64,7 @@ describe('createBunAdapter', () => {
 	});
 });
 
-// ===================================================================
-// createBunAdapter — delegates to process fields
-// ===================================================================
+// === createBunAdapter — delegates to process fields
 
 describe('createBunAdapter — process delegation', () => {
 	it('reads argv from process', () => {
@@ -119,9 +113,7 @@ describe('createBunAdapter — process delegation', () => {
 	});
 });
 
-// ===================================================================
-// createBunAdapter — TTY detection
-// ===================================================================
+// === createBunAdapter — TTY detection
 
 describe('createBunAdapter — TTY detection', () => {
 	it('isTTY is true when stdout.isTTY is true', () => {
@@ -149,9 +141,7 @@ describe('createBunAdapter — TTY detection', () => {
 	});
 });
 
-// ===================================================================
-// createBunAdapter — stdin
-// ===================================================================
+// === createBunAdapter — stdin
 
 describe('createBunAdapter — stdin', () => {
 	it('stdin is a ReadFn (function)', () => {

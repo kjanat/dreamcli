@@ -11,9 +11,7 @@
 
 import type { PromptConfig } from './prompt.ts';
 
-// ---------------------------------------------------------------------------
-// Type-level configuration (phantom state tracked through the chain)
-// ---------------------------------------------------------------------------
+// --- Type-level configuration (phantom state tracked through the chain)
 
 /**
  * Presence describes whether a flag value is guaranteed to exist when the
@@ -49,9 +47,7 @@ interface FlagConfig {
 	readonly optionalFallback: OptionalFallback;
 }
 
-// ---------------------------------------------------------------------------
-// Type-level helpers
-// ---------------------------------------------------------------------------
+// --- Type-level helpers
 
 /**
  * Advanced type helper used by `FlagBuilder` modifiers to replace presence.
@@ -88,9 +84,7 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 	[K in keyof T]: InferFlag<T[K]>;
 };
 
-// ---------------------------------------------------------------------------
-// Runtime schema data
-// ---------------------------------------------------------------------------
+// --- Runtime schema data
 
 /** Discriminator for the kind of value a flag accepts. */
 type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
@@ -193,9 +187,7 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 	};
 }
 
-// ---------------------------------------------------------------------------
-// FlagBuilder — immutable builder with type-level tracking
-// ---------------------------------------------------------------------------
+// --- FlagBuilder — immutable builder with type-level tracking
 
 /**
  * Immutable flag schema builder.
@@ -341,9 +333,7 @@ class FlagBuilder<C extends FlagConfig> {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Factory namespace
-// ---------------------------------------------------------------------------
+// --- Factory namespace
 
 /**
  * Flag factory functions.
@@ -506,9 +496,7 @@ const flag: FlagFactory = {
 	},
 };
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 // Re-export prompt types for consumers
 export type {

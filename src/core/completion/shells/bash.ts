@@ -26,9 +26,7 @@ import {
 	walkCommandTree,
 } from './shared.ts';
 
-// ---------------------------------------------------------------------------
-// Public generator
-// ---------------------------------------------------------------------------
+// --- Public generator
 
 /**
  * Generate a bash completion script for the CLI.
@@ -182,9 +180,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Bash helpers — internal
-// ---------------------------------------------------------------------------
+// --- Bash helpers — internal
 
 /**
  * Emit bash case branches for progressive subcommand path detection.
@@ -369,8 +365,6 @@ function collectEnumCasesFromFlags(
 	return cases;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export { generateBashCompletion };

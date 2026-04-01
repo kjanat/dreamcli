@@ -12,9 +12,7 @@ import type {
 } from '#internals/core/schema/index.ts';
 import { generateInputSchema, generateSchema } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Minimal FlagSchema with all required fields. */
 function flagDef(overrides: Partial<FlagSchema> = {}): FlagSchema {
@@ -118,9 +116,7 @@ function argEntry(
 	};
 }
 
-// ===================================================================
-// generateSchema — definition metadata
-// ===================================================================
+// === generateSchema — definition metadata
 
 describe('generateSchema — definition metadata', () => {
 	// -------------------------------------------------------------------
@@ -537,9 +533,7 @@ describe('generateSchema — definition metadata', () => {
 	});
 });
 
-// ===================================================================
-// generateInputSchema — JSON Schema validation
-// ===================================================================
+// === generateInputSchema — JSON Schema validation
 
 describe('generateInputSchema — input validation', () => {
 	// -------------------------------------------------------------------

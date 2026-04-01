@@ -7,9 +7,7 @@
  * @module dreamcli/core/schema/activity
  */
 
-// ---------------------------------------------------------------------------
-// Fallback strategy
-// ---------------------------------------------------------------------------
+// --- Fallback strategy
 
 /**
  * Non-TTY fallback strategy for spinners and progress bars.
@@ -21,9 +19,7 @@
  */
 type Fallback = 'silent' | 'static';
 
-// ---------------------------------------------------------------------------
-// Spinner
-// ---------------------------------------------------------------------------
+// --- Spinner
 
 /** Options for {@link Out.spinner}. */
 interface SpinnerOptions {
@@ -60,9 +56,7 @@ interface SpinnerHandle {
 	): Promise<T>;
 }
 
-// ---------------------------------------------------------------------------
-// Progress
-// ---------------------------------------------------------------------------
+// --- Progress
 
 /** Options for {@link Out.progress}. */
 interface ProgressOptions {
@@ -94,9 +88,7 @@ interface ProgressHandle {
 	fail(text?: string): void;
 }
 
-// ---------------------------------------------------------------------------
-// Activity events
-// ---------------------------------------------------------------------------
+// --- Activity events
 
 /**
  * Discriminated union of spinner and progress lifecycle events.
@@ -116,9 +108,7 @@ type ActivityEvent =
 	| { readonly type: 'progress:done'; readonly text: string | undefined }
 	| { readonly type: 'progress:fail'; readonly text: string | undefined };
 
-// ---------------------------------------------------------------------------
-// Table column descriptor
-// ---------------------------------------------------------------------------
+// --- Table column descriptor
 
 /**
  * Describes a single column in table output.
@@ -154,9 +144,7 @@ type TableOptions =
 	| { readonly format: 'json' }
 	| { readonly format: 'text'; readonly stream?: TableStream };
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	ActivityEvent,

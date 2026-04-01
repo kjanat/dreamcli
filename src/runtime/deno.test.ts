@@ -11,9 +11,7 @@ import type { RuntimeAdapter } from './adapter.ts';
 import type { DenoNamespace } from './deno.ts';
 import { createDenoAdapter } from './deno.ts';
 
-// ---
-// Test helpers
-// ---
+// --- Test helpers
 
 /** Minimal readable stream that yields chunks then signals done. */
 function mockReadableStream(chunks: string[]): ReadableStream<Uint8Array> {
@@ -75,9 +73,7 @@ function makeDenoError(name: string, message?: string): Error {
 	return err;
 }
 
-// ===
-// createDenoAdapter — basic contract
-// ===
+// === createDenoAdapter — basic contract
 
 describe('createDenoAdapter — basic contract', () => {
 	it('returns a RuntimeAdapter with all required fields', () => {
@@ -108,9 +104,7 @@ describe('createDenoAdapter — basic contract', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — argv synthesis
-// ===
+// === createDenoAdapter — argv synthesis
 
 describe('createDenoAdapter — argv synthesis', () => {
 	it('prepends synthetic binary+script to Deno.args', () => {
@@ -132,9 +126,7 @@ describe('createDenoAdapter — argv synthesis', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — environment
-// ===
+// === createDenoAdapter — environment
 
 describe('createDenoAdapter — environment', () => {
 	it('reads env from Deno.env.toObject()', () => {
@@ -174,9 +166,7 @@ describe('createDenoAdapter — environment', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — cwd
-// ===
+// === createDenoAdapter — cwd
 
 describe('createDenoAdapter — cwd', () => {
 	it('reads cwd from Deno.cwd()', () => {
@@ -205,9 +195,7 @@ describe('createDenoAdapter — cwd', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — I/O
-// ===
+// === createDenoAdapter — I/O
 
 describe('createDenoAdapter — stdout/stderr', () => {
 	it('routes stdout writes through TextEncoder to Deno.stdout.writeSync', () => {
@@ -246,9 +234,7 @@ describe('createDenoAdapter — stdout/stderr', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — TTY detection
-// ===
+// === createDenoAdapter — TTY detection
 
 describe('createDenoAdapter — TTY detection', () => {
 	it('isTTY is true when stdout.isTerminal() returns true', () => {
@@ -280,9 +266,7 @@ describe('createDenoAdapter — TTY detection', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — exit
-// ===
+// === createDenoAdapter — exit
 
 describe('createDenoAdapter — exit', () => {
 	it('delegates exit to Deno.exit', () => {
@@ -295,9 +279,7 @@ describe('createDenoAdapter — exit', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — stdin line reading
-// ===
+// === createDenoAdapter — stdin line reading
 
 describe('createDenoAdapter — stdin', () => {
 	it('stdin is a ReadFn (function)', () => {
@@ -359,9 +341,7 @@ describe('createDenoAdapter — stdin', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — readFile
-// ===
+// === createDenoAdapter — readFile
 
 describe('createDenoAdapter — readFile', () => {
 	it('returns file contents on success', async () => {
@@ -400,9 +380,7 @@ describe('createDenoAdapter — readFile', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — homedir
-// ===
+// === createDenoAdapter — homedir
 
 describe('createDenoAdapter — homedir', () => {
 	it('uses HOME env on Unix', () => {
@@ -448,9 +426,7 @@ describe('createDenoAdapter — homedir', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — configDir
-// ===
+// === createDenoAdapter — configDir
 
 describe('createDenoAdapter — configDir', () => {
 	it('uses XDG_CONFIG_HOME on Unix', () => {
@@ -567,9 +543,7 @@ describe('createDenoAdapter — configDir', () => {
 	});
 });
 
-// ===
-// Public surface exports
-// ===
+// === Public surface exports
 
 describe('public surface — Deno adapter', () => {
 	it('exports createDenoAdapter from runtime barrel', async () => {

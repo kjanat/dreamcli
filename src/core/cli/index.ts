@@ -43,9 +43,7 @@ import { plugin } from './plugin.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 import { formatRootHelp } from './root-help.ts';
 
-// ---------------------------------------------------------------------------
-// Type-erased command — erasure function (interface now in schema/command.ts)
-// ---------------------------------------------------------------------------
+// --- Type-erased command — erasure function (interface now in schema/command.ts)
 
 /**
  * Erase a typed CommandBuilder into an ErasedCommand, recursively
@@ -82,9 +80,7 @@ function eraseCommand<
 	};
 }
 
-// ---------------------------------------------------------------------------
-// CLI schema — runtime descriptor for the CLI program
-// ---------------------------------------------------------------------------
+// --- CLI schema — runtime descriptor for the CLI program
 
 /**
  * Runtime descriptor for the CLI program.
@@ -175,9 +171,7 @@ interface PackageJsonSettings {
 	readonly inferName: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Options for execute/run
-// ---------------------------------------------------------------------------
+// --- Options for execute/run
 
 /**
  * Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.
@@ -299,9 +293,7 @@ interface CLIRunOptions {
 	readonly help?: HelpOptions;
 }
 
-// ---------------------------------------------------------------------------
-// --config flag extraction
-// ---------------------------------------------------------------------------
+// --- --config flag extraction
 
 /**
  * Extract `--config <path>` or `--config=<path>` from argv.
@@ -341,9 +333,7 @@ function extractConfigFlag(argv: readonly string[]): {
 	return { configPath: nextArg, filteredArgv };
 }
 
-// ---------------------------------------------------------------------------
-// CLI → CommandMeta builder
-// ---------------------------------------------------------------------------
+// --- CLI → CommandMeta builder
 
 /**
  * Build {@link CommandMeta} from CLI-level schema and the leaf command name.
@@ -363,9 +353,7 @@ function buildMeta(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Command run options builder
-// ---------------------------------------------------------------------------
+// --- Command run options builder
 
 /**
  * Build `RunOptions` from `CLIRunOptions`, handling
@@ -487,9 +475,7 @@ function invocationNeedsStdin(builder: CLIBuilder, argv: readonly string[]): boo
 	}
 }
 
-// ---------------------------------------------------------------------------
-// CLIBuilder — immutable builder for the CLI program
-// ---------------------------------------------------------------------------
+// --- CLIBuilder — immutable builder for the CLI program
 
 /**
  * Immutable CLI program builder.
@@ -1189,9 +1175,7 @@ class CLIBuilder {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /** Build a `RunResult` from parts. */
 function buildResult(
@@ -1252,9 +1236,7 @@ function inferInvocationName(argv: readonly string[]): string | undefined {
 	return argv0 !== undefined ? basename(argv0) : undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Factory function
-// ---------------------------------------------------------------------------
+// --- Factory function
 
 /**
  * Options for the `cli({...})` factory form.
@@ -1326,9 +1308,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	BeforeParseParams,

@@ -5,9 +5,7 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { parse, tokenize } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers — build minimal CommandSchema for testing
-// ---------------------------------------------------------------------------
+// --- Helpers — build minimal CommandSchema for testing
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -26,9 +24,7 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	};
 }
 
-// ========================================================================
-// Tokenizer
-// ========================================================================
+// === Tokenizer
 
 describe('tokenize', () => {
 	it('empty argv produces empty tokens', () => {
@@ -96,9 +92,7 @@ describe('tokenize', () => {
 	});
 });
 
-// ========================================================================
-// Parser — flags
-// ========================================================================
+// === Parser — flags
 
 describe('parse — flags', () => {
 	it('parses long boolean flag', () => {
@@ -226,9 +220,7 @@ describe('parse — flags', () => {
 	});
 });
 
-// ========================================================================
-// Parser — short flags
-// ========================================================================
+// === Parser — short flags
 
 describe('parse — short flags', () => {
 	it('single short boolean flag', () => {
@@ -320,9 +312,7 @@ describe('parse — short flags', () => {
 	});
 });
 
-// ========================================================================
-// Parser — positional args
-// ========================================================================
+// === Parser — positional args
 
 describe('parse — positional args', () => {
 	it('single string arg', () => {
@@ -450,9 +440,7 @@ describe('parse — positional args', () => {
 	});
 });
 
-// ========================================================================
-// Parser — flags + args mixed
-// ========================================================================
+// === Parser — flags + args mixed
 
 describe('parse — mixed flags and args', () => {
 	it('flags and positionals interleaved', () => {
@@ -486,9 +474,7 @@ describe('parse — mixed flags and args', () => {
 	});
 });
 
-// ========================================================================
-// Parser — error cases
-// ========================================================================
+// === Parser — error cases
 
 describe('parse — errors', () => {
 	it('unknown long flag throws ParseError UNKNOWN_FLAG', () => {
@@ -654,9 +640,7 @@ describe('parse — errors', () => {
 	});
 });
 
-// ========================================================================
-// Custom flag parsing
-// ========================================================================
+// === Custom flag parsing
 
 describe('parse — custom flags', () => {
 	it('custom flag invokes parseFn on the raw string', () => {
@@ -748,9 +732,7 @@ describe('parse — custom flags', () => {
 	});
 });
 
-// ========================================================================
-// Edge cases
-// ========================================================================
+// === Edge cases
 
 describe('parse — edge cases', () => {
 	it('flag value that looks like a flag (--name --other)', () => {

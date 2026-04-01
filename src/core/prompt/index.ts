@@ -27,9 +27,7 @@ import type {
 	SelectChoice,
 } from '#internals/core/schema/prompt.ts';
 
-// ---------------------------------------------------------------------------
-// Resolved prompt config — choices guaranteed present for select kinds
-// ---------------------------------------------------------------------------
+// --- Resolved prompt config — choices guaranteed present for select kinds
 
 /**
  * A select prompt config with choices guaranteed non-empty.
@@ -70,9 +68,7 @@ type ResolvedPromptConfig =
 	| ResolvedSelectPromptConfig
 	| ResolvedMultiselectPromptConfig;
 
-// ---------------------------------------------------------------------------
-// PromptEngine interface — the pluggable seam
-// ---------------------------------------------------------------------------
+// --- PromptEngine interface — the pluggable seam
 
 /**
  * Prompt engine interface.
@@ -107,9 +103,7 @@ interface PromptEngine {
 	promptOne(config: ResolvedPromptConfig): Promise<PromptResult>;
 }
 
-// ---------------------------------------------------------------------------
-// ReadFn — the minimal stdin abstraction
-// ---------------------------------------------------------------------------
+// --- ReadFn — the minimal stdin abstraction
 
 /**
  * A function that reads a single line of user input.
@@ -123,9 +117,7 @@ interface PromptEngine {
  */
 type ReadFn = () => Promise<string | null>;
 
-// ---------------------------------------------------------------------------
-// Sentinel for cancelled prompts in test prompter
-// ---------------------------------------------------------------------------
+// --- Sentinel for cancelled prompts in test prompter
 
 /**
  * Sentinel value representing a cancelled/aborted prompt in the test
@@ -162,9 +154,7 @@ const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typ
  */
 type TestAnswer = unknown;
 
-// ---------------------------------------------------------------------------
-// Test prompter
-// ---------------------------------------------------------------------------
+// --- Test prompter
 
 /**
  * Options for `createTestPrompter`.
@@ -229,9 +219,7 @@ function createTestPrompter(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Terminal prompter — line-based interactive prompts
-// ---------------------------------------------------------------------------
+// --- Terminal prompter — line-based interactive prompts
 
 /**
  * Create a prompt engine backed by line-based terminal I/O.
@@ -279,9 +267,7 @@ function createTerminalPrompter(read: ReadFn, write: WriteFn): PromptEngine {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Per-kind prompt implementations
-// ---------------------------------------------------------------------------
+// --- Per-kind prompt implementations
 
 /** Maximum retries for invalid input before treating as cancel. */
 const MAX_RETRIES = 10;
@@ -494,9 +480,7 @@ async function promptMultiselect(
 	return { answered: false };
 }
 
-// ---------------------------------------------------------------------------
-// Utility: prepare resolved prompt config from raw config + flag schema
-// ---------------------------------------------------------------------------
+// --- Utility: prepare resolved prompt config from raw config + flag schema
 
 /**
  * Prepare a `ResolvedPromptConfig` from a raw `PromptConfig` and optional
@@ -548,9 +532,7 @@ function resolvePromptConfig(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	PromptEngine,

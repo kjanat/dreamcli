@@ -15,9 +15,7 @@ import { createSchema } from '#internals/core/schema/index.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 function makeSchema(overrides?: Partial<CommandSchema>): CommandSchema {
 	return {
@@ -44,9 +42,7 @@ function makeParsed(overrides?: Partial<ParseResult>): ParseResult {
 	};
 }
 
-// ========================================================================
-// Prompt resolution — basic
-// ========================================================================
+// === Prompt resolution — basic
 
 describe('resolve — prompt resolution', () => {
 	it('resolves flag from prompt when no CLI/env/config value', async () => {
@@ -131,9 +127,7 @@ describe('resolve — prompt resolution', () => {
 	});
 });
 
-// ========================================================================
-// Prompt resolution — precedence
-// ========================================================================
+// === Prompt resolution — precedence
 
 describe('resolve — prompt precedence', () => {
 	it('CLI value takes priority over prompt', async () => {
@@ -255,9 +249,7 @@ describe('resolve — prompt precedence', () => {
 	});
 });
 
-// ========================================================================
-// Prompt resolution — cancellation and fallthrough
-// ========================================================================
+// === Prompt resolution — cancellation and fallthrough
 
 describe('resolve — prompt cancellation', () => {
 	it('falls through to default when prompt is cancelled', async () => {
@@ -309,9 +301,7 @@ describe('resolve — prompt cancellation', () => {
 	});
 });
 
-// ========================================================================
-// Non-interactive mode — no prompter
-// ========================================================================
+// === Non-interactive mode — no prompter
 
 describe('resolve — non-interactive (no prompter)', () => {
 	it('skips prompt when no prompter provided', async () => {
@@ -365,9 +355,7 @@ describe('resolve — non-interactive (no prompter)', () => {
 	});
 });
 
-// ========================================================================
-// Prompt coercion errors
-// ========================================================================
+// === Prompt coercion errors
 
 describe('resolve — prompt coercion errors', () => {
 	it('throws for invalid number from prompt', async () => {
@@ -402,9 +390,7 @@ describe('resolve — prompt coercion errors', () => {
 	});
 });
 
-// ========================================================================
-// Backward compatibility — existing tests should still pass
-// ========================================================================
+// === Backward compatibility — existing tests should still pass
 
 describe('resolve — backward compatibility', () => {
 	it('works without options (sync-like behavior)', async () => {
@@ -433,9 +419,7 @@ describe('resolve — backward compatibility', () => {
 	});
 });
 
-// ========================================================================
-// Multiple flags with prompts
-// ========================================================================
+// === Multiple flags with prompts
 
 describe('resolve — multiple prompted flags', () => {
 	it('prompts multiple flags in schema order', async () => {
@@ -489,9 +473,7 @@ describe('resolve — multiple prompted flags', () => {
 	});
 });
 
-// ========================================================================
-// Deprecation warnings — prompt path
-// ========================================================================
+// === Deprecation warnings — prompt path
 
 describe('resolve — deprecation warnings via prompt', () => {
 	it('collects structured deprecation when deprecated flag is resolved from prompt', async () => {

@@ -5,9 +5,7 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -54,9 +52,7 @@ async function catchValidationError(
 	throw new Error('unreachable');
 }
 
-// ========================================================================
-// Actionable required flag hints — resolution source suggestions
-// ========================================================================
+// === Actionable required flag hints — resolution source suggestions
 
 describe('resolve — required flag actionable hints', () => {
 	// -- CLI-only (no env/config configured) ---------------------------------

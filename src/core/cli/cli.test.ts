@@ -11,9 +11,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { CLIBuilder, cli, formatRootHelp } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Test commands
-// ---------------------------------------------------------------------------
+// --- Test commands
 
 function deployCommand() {
 	return command('deploy')
@@ -59,9 +57,7 @@ function aliasedCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
+// --- Factory
 
 describe('cli() factory', () => {
 	it('creates a CLIBuilder with the given name', () => {
@@ -95,9 +91,7 @@ describe('cli() factory', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Immutability
-// ---------------------------------------------------------------------------
+// --- Immutability
 
 describe('CLIBuilder immutability', () => {
 	it('.version() returns a new builder', () => {
@@ -125,9 +119,7 @@ describe('CLIBuilder immutability', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Version
-// ---------------------------------------------------------------------------
+// --- Version
 
 describe('--version flag', () => {
 	it('outputs version and exits 0', async () => {
@@ -184,9 +176,7 @@ describe('--version flag', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Root help
-// ---------------------------------------------------------------------------
+// --- Root help
 
 describe('root help', () => {
 	it('shows help when no args provided', async () => {
@@ -258,9 +248,7 @@ describe('root help', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Runtime name inheritance
-// ---------------------------------------------------------------------------
+// --- Runtime name inheritance
 
 describe('CLIBuilder.run — runtime name inheritance', () => {
 	it('uses the invoked entry basename in root help during .run()', async () => {
@@ -303,9 +291,7 @@ describe('CLIBuilder.run — runtime name inheritance', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Command dispatch
-// ---------------------------------------------------------------------------
+// --- Command dispatch
 
 describe('command dispatch', () => {
 	it('dispatches to the correct command by name', async () => {
@@ -358,9 +344,7 @@ describe('command dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Per-command --help
-// ---------------------------------------------------------------------------
+// --- Per-command --help
 
 describe('per-command --help', () => {
 	it('shows command help text', async () => {
@@ -384,9 +368,7 @@ describe('per-command --help', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// `help` virtual subcommand
-// ---------------------------------------------------------------------------
+// --- `help` virtual subcommand
 
 describe('help virtual subcommand — behavior', () => {
 	it('bare `help` shows root help', async () => {
@@ -492,9 +474,7 @@ describe('help virtual subcommand — behavior', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Error handling
-// ---------------------------------------------------------------------------
+// --- Error handling
 
 describe('error handling', () => {
 	it('returns error for unknown command', async () => {
@@ -559,9 +539,7 @@ describe('error handling', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Async handlers
-// ---------------------------------------------------------------------------
+// --- Async handlers
 
 describe('async command handlers', () => {
 	it('awaits async handlers', async () => {
@@ -578,9 +556,7 @@ describe('async command handlers', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Options passthrough
-// ---------------------------------------------------------------------------
+// --- Options passthrough
 
 describe('options passthrough', () => {
 	it('passes verbosity through to commands', async () => {
@@ -611,9 +587,7 @@ describe('options passthrough', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Complex composition
-// ---------------------------------------------------------------------------
+// --- Complex composition
 
 describe('complex CLI composition', () => {
 	it('handles a full multi-command CLI', async () => {
@@ -655,9 +629,7 @@ describe('complex CLI composition', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// formatRootHelp
-// ---------------------------------------------------------------------------
+// --- formatRootHelp
 
 describe('formatRootHelp', () => {
 	it('includes name and version', () => {
@@ -749,9 +721,7 @@ describe('formatRootHelp', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Builder chaining
-// ---------------------------------------------------------------------------
+// --- Builder chaining
 
 describe('builder chaining', () => {
 	it('supports fluent chaining', async () => {
@@ -781,9 +751,7 @@ describe('builder chaining', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('edge cases', () => {
 	it('empty argv shows help', async () => {
@@ -849,9 +817,7 @@ describe('edge cases', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Module loading (public surface)
-// ---------------------------------------------------------------------------
+// --- Module loading (public surface)
 
 describe('public exports', () => {
 	it('exports cli factory', async () => {
@@ -865,9 +831,7 @@ describe('public exports', () => {
 	});
 });
 
-// ===========================================================================
-// CommandMeta — dispatch populates meta from CLI schema
-// ===========================================================================
+// === CommandMeta — dispatch populates meta from CLI schema
 
 describe('cli.execute — meta', () => {
 	it('populates meta with CLI name, version, and command name', async () => {

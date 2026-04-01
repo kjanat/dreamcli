@@ -16,9 +16,7 @@ import { generatePowerShellCompletion } from './shells/powershell.ts';
 import type { CompletionOptions } from './shells/shared.ts';
 import { generateZshCompletion } from './shells/zsh.ts';
 
-// ---------------------------------------------------------------------------
-// Shell type — supported completion targets
-// ---------------------------------------------------------------------------
+// --- Shell type — supported completion targets
 
 /**
  * Supported shell targets for completion script generation.
@@ -43,9 +41,7 @@ const SHELLS: Readonly<readonly ['bash', 'zsh']> = Object.freeze([
 	'zsh',
 ] as const satisfies readonly ['bash', 'zsh']);
 
-// ---------------------------------------------------------------------------
-// Shell-agnostic dispatch
-// ---------------------------------------------------------------------------
+// --- Shell-agnostic dispatch
 
 /**
  * Generate a completion script for the given shell.
@@ -80,9 +76,7 @@ function generateCompletion(schema: CLISchema, shell: Shell, options?: Completio
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { CompletionOptions, Shell };
 export { generateBashCompletion, generateCompletion, generateZshCompletion, SHELLS };

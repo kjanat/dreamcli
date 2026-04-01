@@ -12,9 +12,7 @@ import { createTestAdapter, ExitError } from './adapter.ts';
 import type { NodeProcess } from './node.ts';
 import { createNodeAdapter } from './node.ts';
 
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
+// --- Test helpers
 
 /** Empty async iterator — yields nothing, returns immediately. */
 async function* emptyAsyncIterator(): AsyncGenerator<Uint8Array> {}
@@ -55,9 +53,7 @@ function deployCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// createTestAdapter
-// ---------------------------------------------------------------------------
+// --- createTestAdapter
 
 describe('createTestAdapter', () => {
 	it('returns a RuntimeAdapter with all required fields', () => {
@@ -147,9 +143,7 @@ describe('createTestAdapter', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// ExitError
-// ---------------------------------------------------------------------------
+// --- ExitError
 
 describe('ExitError', () => {
 	it('is an Error subclass', () => {
@@ -175,9 +169,7 @@ describe('ExitError', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createNodeAdapter
-// ---------------------------------------------------------------------------
+// --- createNodeAdapter
 
 describe('createNodeAdapter', () => {
 	it('creates adapter from mock NodeProcess', () => {
@@ -262,9 +254,7 @@ describe('createNodeAdapter', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// RuntimeAdapter satisfies interface contract
-// ---------------------------------------------------------------------------
+// --- RuntimeAdapter satisfies interface contract
 
 describe('RuntimeAdapter interface', () => {
 	it('test adapter satisfies RuntimeAdapter', () => {
@@ -290,9 +280,7 @@ describe('RuntimeAdapter interface', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Integration: CLIBuilder.run() with adapter injection
-// ---------------------------------------------------------------------------
+// --- Integration: CLIBuilder.run() with adapter injection
 
 describe('CLIBuilder.run() with adapter', () => {
 	it('uses injected adapter for argv and output', async () => {
@@ -414,9 +402,7 @@ describe('CLIBuilder.run() with adapter', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createTestAdapter — stdin fields
-// ---------------------------------------------------------------------------
+// --- createTestAdapter — stdin fields
 
 describe('createTestAdapter stdin', () => {
 	it('default stdin returns null (EOF)', async () => {
@@ -479,9 +465,7 @@ describe('createTestAdapter stdin', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createNodeAdapter — stdin fields
-// ---------------------------------------------------------------------------
+// --- createNodeAdapter — stdin fields
 
 describe('createNodeAdapter stdin', () => {
 	it('stdinIsTTY is true when stdin.isTTY is true', () => {
@@ -510,9 +494,7 @@ describe('createNodeAdapter stdin', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// RuntimeAdapter interface — stdin contract
-// ---------------------------------------------------------------------------
+// --- RuntimeAdapter interface — stdin contract
 
 describe('RuntimeAdapter interface — stdin', () => {
 	it('test adapter satisfies RuntimeAdapter stdin fields', () => {
@@ -528,9 +510,7 @@ describe('RuntimeAdapter interface — stdin', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CLIBuilder.run() — auto-prompter from adapter stdin
-// ---------------------------------------------------------------------------
+// --- CLIBuilder.run() — auto-prompter from adapter stdin
 
 describe('CLIBuilder.run() prompt gating', () => {
 	it('does not auto-create prompter when stdinIsTTY is false', async () => {
@@ -709,9 +689,7 @@ describe('CLIBuilder.run() prompt gating', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createTestAdapter — filesystem fields
-// ---------------------------------------------------------------------------
+// --- createTestAdapter — filesystem fields
 
 describe('createTestAdapter — filesystem', () => {
 	it('default readFile returns null (file not found)', async () => {
@@ -751,9 +729,7 @@ describe('createTestAdapter — filesystem', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createNodeAdapter — filesystem fields
-// ---------------------------------------------------------------------------
+// --- createNodeAdapter — filesystem fields
 
 describe('createNodeAdapter — filesystem', () => {
 	it('readFile is a function', () => {
@@ -875,9 +851,7 @@ describe('createNodeAdapter — filesystem', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// RuntimeAdapter interface — filesystem contract
-// ---------------------------------------------------------------------------
+// --- RuntimeAdapter interface — filesystem contract
 
 describe('RuntimeAdapter interface — filesystem', () => {
 	it('test adapter satisfies RuntimeAdapter filesystem fields', () => {
@@ -895,9 +869,7 @@ describe('RuntimeAdapter interface — filesystem', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Public surface exports
-// ---------------------------------------------------------------------------
+// --- Public surface exports
 
 describe('public surface', () => {
 	it('exports RuntimeAdapter type and factories from runtime barrel', async () => {

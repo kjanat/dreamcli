@@ -10,9 +10,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Command that outputs flags as JSON. */
 function infoCommand() {
@@ -56,9 +54,7 @@ async function runWithAdapter(
 	return { stdout: stdoutLines, stderr: stderrLines, exitCode };
 }
 
-// ===================================================================
-// CLIBuilder.packageJson() — builder method
-// ===================================================================
+// === CLIBuilder.packageJson() — builder method
 
 describe('CLIBuilder.packageJson() — builder method', () => {
 	it('returns a new CLIBuilder (immutability)', () => {
@@ -85,9 +81,7 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — version discovery
-// ===================================================================
+// === CLIBuilder.run() — version discovery
 
 describe('CLIBuilder.run() — package.json version', () => {
 	it('fills version from package.json', async () => {
@@ -121,9 +115,7 @@ describe('CLIBuilder.run() — package.json version', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — description discovery
-// ===================================================================
+// === CLIBuilder.run() — description discovery
 
 describe('CLIBuilder.run() — package.json description', () => {
 	it('fills description from package.json into help', async () => {
@@ -148,9 +140,7 @@ describe('CLIBuilder.run() — package.json description', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — name inference
-// ===================================================================
+// === CLIBuilder.run() — name inference
 
 describe('CLIBuilder.run() — package.json name inference', () => {
 	it('infers name from bin key when inferName: true', async () => {
@@ -192,9 +182,7 @@ describe('CLIBuilder.run() — package.json name inference', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — walk-up resolution
-// ===================================================================
+// === CLIBuilder.run() — walk-up resolution
 
 describe('CLIBuilder.run() — package.json walk-up', () => {
 	it('walks up to find package.json in parent directory', async () => {
@@ -211,9 +199,7 @@ describe('CLIBuilder.run() — package.json walk-up', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — no discovery when not opted in
-// ===================================================================
+// === CLIBuilder.run() — no discovery when not opted in
 
 describe('CLIBuilder.run() — no discovery without .packageJson()', () => {
 	it('does not read package.json when .packageJson() not called', async () => {
@@ -241,9 +227,7 @@ describe('CLIBuilder.run() — no discovery without .packageJson()', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — completions skip package.json
-// ===================================================================
+// === CLIBuilder.run() — completions skip package.json
 
 describe('CLIBuilder.run() — completions skip package.json', () => {
 	it('completions subcommand does not trigger package.json loading', async () => {
@@ -271,9 +255,7 @@ describe('CLIBuilder.run() — completions skip package.json', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — error resilience
-// ===================================================================
+// === CLIBuilder.run() — error resilience
 
 describe('CLIBuilder.run() — package.json error resilience', () => {
 	it('malformed package.json is silently ignored', async () => {
@@ -296,9 +278,7 @@ describe('CLIBuilder.run() — package.json error resilience', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — combined with .config()
-// ===================================================================
+// === CLIBuilder.run() — combined with .config()
 
 describe('CLIBuilder.run() — package.json combined with config', () => {
 	it('both .packageJson() and .config() work together', async () => {

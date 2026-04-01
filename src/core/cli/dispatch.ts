@@ -12,9 +12,7 @@
 
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 
-// ---------------------------------------------------------------------------
-// Dispatch result types (discriminated union)
-// ---------------------------------------------------------------------------
+// --- Dispatch result types (discriminated union)
 
 /** Successful dispatch — target command found with argv path. */
 interface DispatchMatch {
@@ -49,9 +47,7 @@ interface DispatchUnknown {
 
 type DispatchResult = DispatchMatch | DispatchNeedsSubcommand | DispatchUnknown;
 
-// ---------------------------------------------------------------------------
-// Recursive dispatch
-// ---------------------------------------------------------------------------
+// --- Recursive dispatch
 
 /**
  * Recursively walk argv, consuming command name segments from the front.
@@ -188,9 +184,7 @@ function dispatch(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// "Did you mean?" suggestion
-// ---------------------------------------------------------------------------
+// --- "Did you mean?" suggestion
 
 /**
  * Levenshtein distance between two strings.
@@ -260,9 +254,7 @@ function findClosestCommand(input: string, commands: readonly ErasedCommand[]): 
 	return bestDist <= MAX_DISTANCE ? bestName : undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /**
  * Deduplicate commands from a name+alias map.
@@ -284,9 +276,7 @@ function uniqueCommands(commands: ReadonlyMap<string, ErasedCommand>): readonly 
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { DispatchMatch, DispatchNeedsSubcommand, DispatchResult, DispatchUnknown };
 export { dispatch, findClosestCommand, levenshtein, uniqueCommands };

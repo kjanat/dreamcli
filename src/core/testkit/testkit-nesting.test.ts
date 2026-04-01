@@ -14,9 +14,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { runCommand } from './index.ts';
 
-// ===================================================================
-// Helpers
-// ===================================================================
+// === Helpers
 
 function migrateCommand() {
 	return command('migrate')
@@ -52,9 +50,7 @@ function hasPropagatedVerbose(flags: unknown): boolean {
 	);
 }
 
-// ===================================================================
-// runCommand — mergedSchema injection seam
-// ===================================================================
+// === runCommand — mergedSchema injection seam
 
 describe('runCommand — mergedSchema injection', () => {
 	it('resolves propagated flag via mergedSchema', async () => {
@@ -144,9 +140,7 @@ describe('runCommand — mergedSchema injection', () => {
 	});
 });
 
-// ===================================================================
-// runCommand — command with subcommands (help rendering)
-// ===================================================================
+// === runCommand — command with subcommands (help rendering)
 
 describe('runCommand — command with subcommands', () => {
 	it('help shows Commands section for command with nested subcommands', async () => {
@@ -167,9 +161,7 @@ describe('runCommand — command with subcommands', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested dispatch with env injection
-// ===================================================================
+// === CLIBuilder.execute — nested dispatch with env injection
 
 describe('CLIBuilder.execute — nested dispatch with env injection', () => {
 	it('propagated env flag resolves in nested subcommand', async () => {
@@ -211,9 +203,7 @@ describe('CLIBuilder.execute — nested dispatch with env injection', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested dispatch with config injection
-// ===================================================================
+// === CLIBuilder.execute — nested dispatch with config injection
 
 describe('CLIBuilder.execute — nested dispatch with config injection', () => {
 	it('config value resolves in nested subcommand', async () => {
@@ -253,9 +243,7 @@ describe('CLIBuilder.execute — nested dispatch with config injection', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested dispatch with middleware
-// ===================================================================
+// === CLIBuilder.execute — nested dispatch with middleware
 
 describe('CLIBuilder.execute — nested dispatch with middleware', () => {
 	it('middleware on leaf command runs in nested context', async () => {
@@ -283,9 +271,7 @@ describe('CLIBuilder.execute — nested dispatch with middleware', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested dispatch with verbosity
-// ===================================================================
+// === CLIBuilder.execute — nested dispatch with verbosity
 
 describe('CLIBuilder.execute — nested dispatch with verbosity', () => {
 	it('quiet mode suppresses info in nested subcommand', async () => {
@@ -311,9 +297,7 @@ describe('CLIBuilder.execute — nested dispatch with verbosity', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested dispatch with JSON mode
-// ===================================================================
+// === CLIBuilder.execute — nested dispatch with JSON mode
 
 describe('CLIBuilder.execute — nested dispatch with JSON mode', () => {
 	it('JSON mode works in nested subcommand via options', async () => {
@@ -341,9 +325,7 @@ describe('CLIBuilder.execute — nested dispatch with JSON mode', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested dispatch with TTY
-// ===================================================================
+// === CLIBuilder.execute — nested dispatch with TTY
 
 describe('CLIBuilder.execute — nested dispatch with TTY', () => {
 	it('isTTY propagates to nested subcommand output', async () => {
@@ -367,9 +349,7 @@ describe('CLIBuilder.execute — nested dispatch with TTY', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested dispatch error cases
-// ===================================================================
+// === CLIBuilder.execute — nested dispatch error cases
 
 describe('CLIBuilder.execute — nested dispatch error cases', () => {
 	it('parse error in nested subcommand returns exit 2', async () => {
@@ -429,9 +409,7 @@ describe('CLIBuilder.execute — nested dispatch error cases', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — nested help through various paths
-// ===================================================================
+// === CLIBuilder.execute — nested help through various paths
 
 describe('CLIBuilder.execute — nested help variations', () => {
 	it('--help on group shows subcommand list', async () => {
@@ -472,9 +450,7 @@ describe('CLIBuilder.execute — nested help variations', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.execute — 3-level nesting through testkit options
-// ===================================================================
+// === CLIBuilder.execute — 3-level nesting through testkit options
 
 describe('CLIBuilder.execute — 3-level nesting with testkit options', () => {
 	function threeLevel() {

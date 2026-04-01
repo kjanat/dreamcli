@@ -17,9 +17,7 @@ import type {
 } from '#internals/core/schema/index.ts';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
+// --- Configuration
 
 /** Options for customising help output. */
 interface HelpOptions {
@@ -48,9 +46,7 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
+// --- Internal helpers
 
 /** Pad `text` to `length` with trailing spaces. */
 function padEnd(text: string, length: number): string {
@@ -87,18 +83,14 @@ function wrapText(text: string, width: number, indent: number): string {
 	return lines.map((line, i) => (i === 0 ? line : `${pad}${line}`)).join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Deprecation formatting
-// ---------------------------------------------------------------------------
+// --- Deprecation formatting
 
 /** Format a deprecation annotation for help text. */
 function formatDeprecated(deprecated: string | true): string {
 	return typeof deprecated === 'string' ? `[deprecated: ${deprecated}]` : '[deprecated]';
 }
 
-// ---------------------------------------------------------------------------
-// Flag formatting
-// ---------------------------------------------------------------------------
+// --- Flag formatting
 
 /** Formatted flag entry for the flags table. */
 interface FlagEntry {
@@ -215,9 +207,7 @@ function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly
 	return entries;
 }
 
-// ---------------------------------------------------------------------------
-// Arg formatting
-// ---------------------------------------------------------------------------
+// --- Arg formatting
 
 /** Format a positional arg for the usage line. */
 function formatArgUsage(entry: CommandArgEntry): string {
@@ -254,9 +244,7 @@ function formatArgDescription(schema: ArgSchema): string {
 	return parts.join(' ');
 }
 
-// ---------------------------------------------------------------------------
-// Main generator
-// ---------------------------------------------------------------------------
+// --- Main generator
 
 /**
  * @internal
@@ -327,9 +315,7 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 	return `${formatHelpSections(schema, options).join('\n\n')}\n`;
 }
 
-// ---------------------------------------------------------------------------
-// Section renderers
-// ---------------------------------------------------------------------------
+// --- Section renderers
 
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const parts: string[] = ['Usage:'];
@@ -466,9 +452,7 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 	return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { HelpOptions };
 export { formatHelp, formatHelpSections };

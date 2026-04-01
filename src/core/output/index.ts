@@ -35,9 +35,7 @@ import { formatDisplayValue } from './display-value.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 
-// ---------------------------------------------------------------------------
-// Verbosity
-// ---------------------------------------------------------------------------
+// --- Verbosity
 
 /**
  * Controls which messages are emitted.
@@ -47,9 +45,7 @@ import { writeLine } from './writer.ts';
  */
 type Verbosity = 'normal' | 'quiet';
 
-// ---------------------------------------------------------------------------
-// Options
-// ---------------------------------------------------------------------------
+// --- Options
 
 /**
  * Configuration for creating an output channel.
@@ -97,9 +93,7 @@ interface OutputOptions {
 	readonly jsonMode?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Resolved options (all fields required, filled from defaults)
-// ---------------------------------------------------------------------------
+// --- Resolved options (all fields required, filled from defaults)
 
 /** Fully resolved output options with no optional fields. */
 interface ResolvedOutputOptions {
@@ -127,9 +121,7 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// OutputChannel — the concrete Out implementation
-// ---------------------------------------------------------------------------
+// --- OutputChannel — the concrete Out implementation
 
 /**
  * Concrete implementation of the `Out` interface.
@@ -233,7 +225,7 @@ class OutputChannel implements Out {
 		const format = resolveTableFormat(this.options.jsonMode, tableOptions);
 
 		if (format === 'json') {
-			this.json(rows);
+			this.json(columns ? projectTableRows(rows, columns) : rows);
 			return;
 		}
 
@@ -361,9 +353,7 @@ class OutputChannel implements Out {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// CaptureOutputChannel — testkit subclass that records activity events
-// ---------------------------------------------------------------------------
+// --- CaptureOutputChannel — testkit subclass that records activity events
 
 /**
  * Output channel variant that returns capture handles for spinner/progress.
@@ -391,9 +381,7 @@ class CaptureOutputChannel extends OutputChannel {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Table formatting
-// ---------------------------------------------------------------------------
+// --- Table formatting
 
 /**
  * Infer column descriptors from the keys of the first row.
@@ -435,6 +423,14 @@ function resolveTableArgs<T extends Record<string, unknown>>(
 	}
 
 	return { columns: undefined, options: columnsOrOptions };
+}
+
+/** Keep only the keys listed in `columns`, preserving column order. */
+function projectTableRows<T extends Record<string, unknown>>(
+	rows: readonly T[],
+	columns: readonly TableColumn<T>[],
+): Record<string, unknown>[] {
+	return rows.map((row) => Object.fromEntries(columns.map((c) => [c.key, row[c.key]])));
 }
 
 function resolveTableFormat(jsonMode: boolean, options?: TableOptions): 'text' | 'json' {
@@ -530,9 +526,7 @@ function formatTable<T extends Record<string, unknown>>(
 	return [headerLine, separatorLine, ...dataLines].join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
+// --- Factory
 
 /**
  * Create an output channel.
@@ -567,9 +561,7 @@ function createOutput(options?: OutputOptions): Out {
 	return new OutputChannel(resolveOptions(options));
 }
 
-// ---------------------------------------------------------------------------
-// Test helper — captures output into arrays
-// ---------------------------------------------------------------------------
+// --- Test helper — captures output into arrays
 
 /** Captured output from a `createCaptureOutput` instance. */
 interface CapturedOutput {
@@ -628,9 +620,7 @@ function createCaptureOutput(
 	return [out, captured];
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };
 export {

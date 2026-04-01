@@ -11,9 +11,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { cli, plugin } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Hook observation
-// ---------------------------------------------------------------------------
+// --- Hook observation
 
 describe('CLIBuilder.plugin() — hook observation', () => {
 	it('observes argv and resolved values for the matched command', async () => {
@@ -48,9 +46,7 @@ describe('CLIBuilder.plugin() — hook observation', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Hook ordering
-// ---------------------------------------------------------------------------
+// --- Hook ordering
 
 describe('CLIBuilder.plugin() — hook ordering', () => {
 	it('runs lifecycle hooks around middleware and action in registration order', async () => {

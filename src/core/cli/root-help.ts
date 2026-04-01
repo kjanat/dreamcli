@@ -26,9 +26,7 @@ interface CLISchemaLike {
 	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Root help formatter
-// ---------------------------------------------------------------------------
+// --- Root help formatter
 
 /**
  * Generate root-level help text for the CLI program.
@@ -172,9 +170,7 @@ function mergeUsageSections(rootUsage: string, commandUsage: string): string {
 	return `${rootUsage}\n${' '.repeat(usagePrefix.length)}${commandSuffix}`;
 }
 
-// ---------------------------------------------------------------------------
-// Text helpers (duplicated from help module to avoid coupling)
-// ---------------------------------------------------------------------------
+// --- Text helpers (duplicated from help module to avoid coupling)
 
 /** Pad `text` to `length` with trailing spaces. */
 function padEnd(text: string, length: number): string {
@@ -211,8 +207,6 @@ function wrapText(text: string, width: number, indent: number): string {
 	return lines.map((line, i) => (i === 0 ? line : `${pad}${line}`)).join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export { formatRootHelp };

@@ -25,9 +25,7 @@ import type { RuntimeAdapter } from './adapter.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 import { assertRuntimeVersionSupported } from './support.ts';
 
-// ---------------------------------------------------------------------------
-// Minimal Deno namespace shape — avoids @types/deno dependency
-// ---------------------------------------------------------------------------
+// --- Minimal Deno namespace shape — avoids @types/deno dependency
 
 /**
  * Minimal subset of the Deno namespace needed by the adapter.
@@ -95,9 +93,7 @@ interface DenoNamespace {
 	readTextFile(path: string): Promise<string>;
 }
 
-// ---------------------------------------------------------------------------
-// Permission-safe helpers
-// ---------------------------------------------------------------------------
+// --- Permission-safe helpers
 
 /**
  * Detect whether an unknown thrown value is a Deno error by name.
@@ -141,9 +137,7 @@ function safeCwd(deno: DenoNamespace): string {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Deno adapter factory
-// ---------------------------------------------------------------------------
+// --- Deno adapter factory
 
 /**
  * Create a runtime adapter backed by the Deno namespace.
@@ -232,9 +226,7 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Deno namespace access — isolated for testability
-// ---------------------------------------------------------------------------
+// --- Deno namespace access — isolated for testability
 
 /**
  * Access the global `Deno` namespace.
@@ -249,9 +241,7 @@ function getDenoNamespace(): DenoNamespace {
 	return (globalThis as unknown as { Deno: DenoNamespace }).Deno;
 }
 
-// ---------------------------------------------------------------------------
-// Stdin reading — line (prompts) and full (piped data)
-// ---------------------------------------------------------------------------
+// --- Stdin reading — line (prompts) and full (piped data)
 
 /**
  * Read all of stdin as a single string (for piped data).
@@ -326,9 +316,7 @@ async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Home / config directory resolution
-// ---------------------------------------------------------------------------
+// --- Home / config directory resolution
 
 /**
  * Resolve the user's home directory from environment variables.
@@ -361,9 +349,7 @@ function resolveDenoConfigDir(
 	return resolveConfigDirectory(env, isWindows, homedir);
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { DenoNamespace };
 export { createDenoAdapter };

@@ -12,13 +12,9 @@ import { flag } from '#internals/core/schema/flag.ts';
 
 import { formatHelp } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
-// ---------------------------------------------------------------------------
-// Basic command (no flags, no args)
-// ---------------------------------------------------------------------------
+// --- Basic command (no flags, no args)
 
 describe('formatHelp', () => {
 	describe('minimal command', () => {

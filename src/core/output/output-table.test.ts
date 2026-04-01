@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TableColumn } from '#internals/core/schema/index.ts';
 import { createCaptureOutput } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// table() — TTY (non-JSON) mode
-// ---------------------------------------------------------------------------
+// --- table() — TTY (non-JSON) mode
 
 describe('table — normal mode', () => {
 	it('renders a simple table with auto-inferred columns', () => {
@@ -129,9 +127,7 @@ describe('table — normal mode', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// table() — JSON mode
-// ---------------------------------------------------------------------------
+// --- table() — JSON mode
 
 describe('table — JSON mode', () => {
 	it('emits rows as JSON array to stdout', () => {
@@ -158,13 +154,12 @@ describe('table — JSON mode', () => {
 		expect(captured.stdout).toEqual(['[]\n']);
 	});
 
-	it('ignores columns parameter in JSON mode — emits full rows', () => {
+	it('projects columns in JSON mode — emits only listed keys', () => {
 		const [out, captured] = createCaptureOutput({ jsonMode: true });
 		const rows = [{ id: 1, name: 'Alice', extra: true }];
 		out.table(rows, [{ key: 'name' }]);
-		// Full row objects emitted, not filtered by columns
 		const parsed: unknown = JSON.parse(captured.stdout.join(''));
-		expect(parsed).toEqual(rows);
+		expect(parsed).toEqual([{ name: 'Alice' }]);
 	});
 
 	it('can force text tables in JSON mode and defaults them to stderr', () => {
@@ -201,9 +196,7 @@ describe('table — JSON mode', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// table() — piped (non-TTY, non-JSON)
-// ---------------------------------------------------------------------------
+// --- table() — piped (non-TTY, non-JSON)
 
 describe('table — piped mode', () => {
 	it('renders aligned text in non-TTY mode', () => {
@@ -220,9 +213,7 @@ describe('table — piped mode', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// table() — interaction with other output methods
-// ---------------------------------------------------------------------------
+// --- table() — interaction with other output methods
 
 describe('table — combined with other output', () => {
 	it('table output goes to stdout via log()', () => {

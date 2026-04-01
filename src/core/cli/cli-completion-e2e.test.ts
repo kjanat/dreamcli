@@ -15,9 +15,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Shared test commands
-// ===================================================================
+// === Shared test commands
 
 function deployCommand() {
 	return command('deploy')
@@ -61,9 +59,7 @@ function hiddenDebugCommand() {
 		});
 }
 
-// ===================================================================
-// E2E — Bash completion via CLI dispatch
-// ===================================================================
+// === E2E — Bash completion via CLI dispatch
 
 describe('E2E — bash completion via .completions()', () => {
 	it('generates valid bash script through full CLI dispatch', async () => {
@@ -197,9 +193,7 @@ describe('E2E — bash completion via .completions()', () => {
 	});
 });
 
-// ===================================================================
-// E2E — Zsh completion via CLI dispatch
-// ===================================================================
+// === E2E — Zsh completion via CLI dispatch
 
 describe('E2E — zsh completion via .completions()', () => {
 	it('generates valid zsh script through full CLI dispatch', async () => {
@@ -306,9 +300,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	});
 });
 
-// ===================================================================
-// E2E — Completion script completeness
-// ===================================================================
+// === E2E — Completion script completeness
 
 describe('E2E — completion scripts include all registered commands and flags', () => {
 	it('bash: complex CLI with many commands reflects full schema', async () => {
@@ -432,9 +424,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 	});
 });
 
-// ===================================================================
-// E2E — Auto-adapter wiring via CLIBuilder.run()
-// ===================================================================
+// === E2E — Auto-adapter wiring via CLIBuilder.run()
 
 describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 	it('run() uses adapter argv for command dispatch', async () => {
@@ -554,9 +544,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 	});
 });
 
-// ===================================================================
-// E2E — detectRuntime integration via auto-adapter
-// ===================================================================
+// === E2E — detectRuntime integration via auto-adapter
 
 describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 	it('run() without explicit adapter uses auto-detection (Node in vitest)', async () => {
@@ -605,9 +593,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 	});
 });
 
-// ===================================================================
-// E2E — Cross-cutting: completions + runtime + error handling
-// ===================================================================
+// === E2E — Cross-cutting: completions + runtime + error handling
 
 describe('E2E — completions error paths via CLI dispatch', () => {
 	it('unsupported planned shell is rejected by the user-facing shell arg', async () => {
@@ -654,9 +640,7 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 	});
 });
 
-// ===================================================================
-// E2E — Completions with version and description
-// ===================================================================
+// === E2E — Completions with version and description
 
 describe('E2E — completions integrate with CLI metadata', () => {
 	it('bash completion script uses CLI name from builder', async () => {
@@ -721,9 +705,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	});
 });
 
-// ===================================================================
-// E2E — Nested command completion via CLI dispatch
-// ===================================================================
+// === E2E — Nested command completion via CLI dispatch
 
 function dbCommand() {
 	const migrateCmd = command('migrate')

@@ -13,9 +13,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Command that reads a flag from config and outputs it as JSON. */
 function regionCommand() {
@@ -63,9 +61,7 @@ async function runWithAdapter(
 	return { stdout: stdoutLines, stderr: stderrLines, exitCode };
 }
 
-// ===================================================================
-// CLIBuilder.config() — builder method
-// ===================================================================
+// === CLIBuilder.config() — builder method
 
 describe('CLIBuilder.config() — builder method', () => {
 	it('returns a new CLIBuilder (immutability)', () => {
@@ -93,9 +89,7 @@ describe('CLIBuilder.config() — builder method', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — auto-discovery
-// ===================================================================
+// === CLIBuilder.run() — auto-discovery
 
 describe('CLIBuilder.run() — config auto-discovery', () => {
 	it('loads config from dotfile in cwd', async () => {
@@ -172,9 +166,7 @@ describe('CLIBuilder.run() — config auto-discovery', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — --config flag
-// ===================================================================
+// === CLIBuilder.run() — --config flag
 
 describe('CLIBuilder.run() — --config flag', () => {
 	it('overrides auto-discovery with explicit path', async () => {
@@ -257,9 +249,7 @@ describe('CLIBuilder.run() — --config flag', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — error rendering
-// ===================================================================
+// === CLIBuilder.run() — error rendering
 
 describe('CLIBuilder.run() — config errors', () => {
 	it('renders CONFIG_NOT_FOUND error when explicit path missing', async () => {
@@ -313,9 +303,7 @@ describe('CLIBuilder.run() — config errors', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — precedence
-// ===================================================================
+// === CLIBuilder.run() — precedence
 
 describe('CLIBuilder.run() — config precedence', () => {
 	it('explicit options.config takes precedence over loaded config', async () => {
@@ -354,9 +342,7 @@ describe('CLIBuilder.run() — config precedence', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — completions subcommand skip
-// ===================================================================
+// === CLIBuilder.run() — completions subcommand skip
 
 describe('CLIBuilder.run() — completions skip config', () => {
 	it('completions subcommand does not trigger config loading', async () => {
@@ -385,9 +371,7 @@ describe('CLIBuilder.run() — completions skip config', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.configLoader() — incremental plugin registration
-// ===================================================================
+// === CLIBuilder.configLoader() — incremental plugin registration
 
 describe('CLIBuilder.configLoader() — builder method', () => {
 	it('returns a new CLIBuilder (immutability)', () => {
@@ -426,9 +410,7 @@ describe('CLIBuilder.configLoader() — builder method', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.configLoader() — integration with .run()
-// ===================================================================
+// === CLIBuilder.configLoader() — integration with .run()
 
 describe('CLIBuilder.configLoader() — run() integration', () => {
 	/** Trivial TOML-ish parser for tests. */

@@ -18,9 +18,7 @@ import type { RuntimeAdapter } from './adapter.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 import { assertRuntimeVersionSupported } from './support.ts';
 
-// ---------------------------------------------------------------------------
-// Node.js error shape — for ENOENT detection without @types/node
-// ---------------------------------------------------------------------------
+// --- Node.js error shape — for ENOENT detection without @types/node
 
 /**
  * Minimal shape for Node.js system errors (e.g. `ENOENT`, `EACCES`).
@@ -34,9 +32,7 @@ interface NodeSystemError {
 	readonly code: string;
 }
 
-// ---------------------------------------------------------------------------
-// Minimal process shape — avoids @types/node dependency
-// ---------------------------------------------------------------------------
+// --- Minimal process shape — avoids @types/node dependency
 
 /**
  * Minimal subset of the Node.js `process` object needed by the adapter.
@@ -70,9 +66,7 @@ interface NodeProcess {
 	exit(code: number): never;
 }
 
-// ---------------------------------------------------------------------------
-// Process access — isolated for testability
-// ---------------------------------------------------------------------------
+// --- Process access — isolated for testability
 
 /**
  * Access the global `process` object without importing `@types/node`.
@@ -87,9 +81,7 @@ function getNodeProcess(): NodeProcess {
 	return (globalThis as unknown as { process: NodeProcess }).process;
 }
 
-// ---------------------------------------------------------------------------
-// Filesystem & path helpers — config discovery primitives
-// ---------------------------------------------------------------------------
+// --- Filesystem & path helpers — config discovery primitives
 
 /**
  * Detect whether an unknown thrown value is a Node.js system error
@@ -151,9 +143,7 @@ function assertProcessRuntimeSupported(proc: NodeProcess): void {
 	assertRuntimeVersionSupported('node', proc.versions?.node);
 }
 
-// ---------------------------------------------------------------------------
-// Node adapter factory
-// ---------------------------------------------------------------------------
+// --- Node adapter factory
 
 /**
  * Create a runtime adapter backed by Node.js `process` globals.
@@ -282,9 +272,7 @@ async function createNodeReadLine(proc: NodeProcess): Promise<string | null> {
 	return buffer.length > 0 ? buffer : null;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { NodeProcess };
 export { createNodeAdapter };

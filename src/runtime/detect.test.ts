@@ -17,9 +17,7 @@ function currentHostRuntime(): Runtime {
 	return 'unknown';
 }
 
-// ===================================================================
-// RUNTIMES constant
-// ===================================================================
+// === RUNTIMES constant
 
 describe('RUNTIMES constant', () => {
 	it('contains all four runtime values', () => {
@@ -31,9 +29,7 @@ describe('RUNTIMES constant', () => {
 	});
 });
 
-// ===================================================================
-// detectRuntime — mocked globalThis
-// ===================================================================
+// === detectRuntime — mocked globalThis
 
 describe('detectRuntime — environment detection', () => {
 	// -------------------------------------------------------------------
@@ -138,9 +134,7 @@ describe('detectRuntime — environment detection', () => {
 	});
 });
 
-// ===================================================================
-// detectRuntime — detection priority
-// ===================================================================
+// === detectRuntime — detection priority
 
 describe('detectRuntime — priority order', () => {
 	it('Bun takes precedence over Deno and Node', () => {
@@ -161,9 +155,7 @@ describe('detectRuntime — priority order', () => {
 	});
 });
 
-// ===================================================================
-// detectRuntime — default (real globalThis)
-// ===================================================================
+// === detectRuntime — default (real globalThis)
 
 describe('detectRuntime — default globalThis', () => {
 	it('detects current runtime without explicit globals', () => {

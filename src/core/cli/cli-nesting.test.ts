@@ -11,9 +11,7 @@ import { command, group } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Helpers
-// ===================================================================
+// === Helpers
 
 function migrateCommand() {
 	return command('migrate')
@@ -43,9 +41,7 @@ function hasPropagatedVerbose(flags: { readonly verbose?: boolean }): boolean {
 	return flags.verbose === true;
 }
 
-// ===================================================================
-// Nested dispatch — basic
-// ===================================================================
+// === Nested dispatch — basic
 
 describe('CLIBuilder — nested dispatch', () => {
 	it('dispatches to nested subcommand', async () => {
@@ -86,9 +82,7 @@ describe('CLIBuilder — nested dispatch', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — 3 levels deep
-// ===================================================================
+// === Nested dispatch — 3 levels deep
 
 describe('CLIBuilder — 3-level nesting', () => {
 	it('dispatches through 3 levels', async () => {
@@ -109,9 +103,7 @@ describe('CLIBuilder — 3-level nesting', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — hybrid groups (group with own action + subcommands)
-// ===================================================================
+// === Nested dispatch — hybrid groups (group with own action + subcommands)
 
 describe('CLIBuilder — hybrid group with action + subcommands', () => {
 	it('runs group action when no subcommand given', async () => {
@@ -155,9 +147,7 @@ describe('CLIBuilder — hybrid group with action + subcommands', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — propagated flags
-// ===================================================================
+// === Nested dispatch — propagated flags
 
 describe('CLIBuilder — propagated flags through nesting', () => {
 	it('propagates parent flag to nested subcommand', async () => {
@@ -242,9 +232,7 @@ describe('CLIBuilder — propagated flags through nesting', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — --help
-// ===================================================================
+// === Nested dispatch — --help
 
 describe('CLIBuilder — nested help', () => {
 	it('shows command help with --help on nested subcommand', async () => {
@@ -275,9 +263,7 @@ describe('CLIBuilder — nested help', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — --json mode
-// ===================================================================
+// === Nested dispatch — --json mode
 
 describe('CLIBuilder — nested dispatch with --json', () => {
 	it('propagates --json to nested subcommand', async () => {
@@ -305,9 +291,7 @@ describe('CLIBuilder — nested dispatch with --json', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — aliases
-// ===================================================================
+// === Nested dispatch — aliases
 
 describe('CLIBuilder — nested dispatch with aliases', () => {
 	it('dispatches to nested subcommand via alias', async () => {
@@ -327,9 +311,7 @@ describe('CLIBuilder — nested dispatch with aliases', () => {
 	});
 });
 
-// ===================================================================
-// Scoped "did you mean?" suggestions
-// ===================================================================
+// === Scoped "did you mean?" suggestions
 
 describe('CLIBuilder — scoped suggestions', () => {
 	it('suggests sibling subcommand for typo within group', async () => {

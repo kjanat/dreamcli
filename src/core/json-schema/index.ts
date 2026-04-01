@@ -24,9 +24,7 @@ import type {
 	SelectChoice,
 } from '#internals/core/schema/index.ts';
 
-// ---------------------------------------------------------------------------
-// Options
-// ---------------------------------------------------------------------------
+// --- Options
 
 /**
  * Options for JSON Schema generation.
@@ -74,9 +72,7 @@ function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// --- Constants
 
 /** Meta-schema URL for the definition schema format. */
 const DEFINITION_SCHEMA_URL = 'https://dreamcli.kjanat.com/schemas/cli/v1.json';
@@ -88,9 +84,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-// ===================================================================
-// Definition schema — generateSchema()
-// ===================================================================
+// === Definition schema — generateSchema()
 
 /**
  * Generate a definition metadata document describing the CLI's structure.
@@ -136,9 +130,7 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Command serialization
-// ---------------------------------------------------------------------------
+// --- Command serialization
 
 function serializeCommand(schema: CommandSchema, opts: ResolvedOptions): Record<string, unknown> {
 	const result: Record<string, unknown> = { name: schema.name };
@@ -174,9 +166,7 @@ function serializeCommand(schema: CommandSchema, opts: ResolvedOptions): Record<
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Flag serialization
-// ---------------------------------------------------------------------------
+// --- Flag serialization
 
 function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string, unknown> {
 	const result: Record<string, unknown> = {
@@ -218,9 +208,7 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Arg serialization
-// ---------------------------------------------------------------------------
+// --- Arg serialization
 
 function serializeArgEntry(entry: CommandArgEntry): Record<string, unknown> {
 	const { name, schema } = entry;
@@ -255,9 +243,7 @@ function serializeArgEntry(entry: CommandArgEntry): Record<string, unknown> {
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Prompt serialization
-// ---------------------------------------------------------------------------
+// --- Prompt serialization
 
 function serializePrompt(prompt: PromptConfig): Record<string, unknown> {
 	const result: Record<string, unknown> = {
@@ -306,9 +292,7 @@ function serializeChoice(choice: SelectChoice): Record<string, unknown> {
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Example serialization
-// ---------------------------------------------------------------------------
+// --- Example serialization
 
 function serializeExample(example: CommandExample): Record<string, unknown> {
 	const result: Record<string, unknown> = { command: example.command };
@@ -318,9 +302,7 @@ function serializeExample(example: CommandExample): Record<string, unknown> {
 	return result;
 }
 
-// ===================================================================
-// Input validation schema — generateInputSchema()
-// ===================================================================
+// === Input validation schema — generateInputSchema()
 
 /**
  * Generate a JSON Schema (draft 2020-12) for validating CLI input as JSON.
@@ -395,9 +377,7 @@ function generateInputSchema(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Input schema helpers
-// ---------------------------------------------------------------------------
+// --- Input schema helpers
 
 /**
  * Discriminate between CLISchema and CommandSchema at runtime.
@@ -504,9 +484,7 @@ function stripCommandDiscriminator(branch: Record<string, unknown>): Record<stri
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Type mapping — flags → JSON Schema types
-// ---------------------------------------------------------------------------
+// --- Type mapping — flags → JSON Schema types
 
 function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 	const result: Record<string, unknown> = {};
@@ -551,9 +529,7 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// Type mapping — args → JSON Schema types
-// ---------------------------------------------------------------------------
+// --- Type mapping — args → JSON Schema types
 
 function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 	const kind = argKindToType(schema);
@@ -593,9 +569,7 @@ function argKindToType(schema: ArgSchema): Record<string, unknown> {
 	}
 }
 
-// ===================================================================
-// Utilities
-// ===================================================================
+// === Utilities
 
 /**
  * Check whether a value can survive a JSON round-trip.
@@ -616,9 +590,7 @@ function isJsonSerializable(value: unknown): boolean {
 	return false;
 }
 
-// ===================================================================
-// Exports
-// ===================================================================
+// === Exports
 
 export type { JsonSchemaOptions };
 export { generateInputSchema, generateSchema };

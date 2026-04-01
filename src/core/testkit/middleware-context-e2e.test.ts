@@ -23,9 +23,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { runCommand } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Shared middleware definitions — realistic patterns
-// ---------------------------------------------------------------------------
+// --- Shared middleware definitions — realistic patterns
 
 interface User {
 	readonly id: string;
@@ -47,9 +45,7 @@ const tenantMiddleware = middleware<{ tenantId: string }>(async ({ flags, next }
 	return next({ tenantId });
 });
 
-// ---------------------------------------------------------------------------
-// Multi-middleware context composition — runCommand path
-// ---------------------------------------------------------------------------
+// --- Multi-middleware context composition — runCommand path
 
 describe('e2e: multi-middleware context composition (runCommand)', () => {
 	it('three middleware compose a rich context object', async () => {
@@ -142,9 +138,7 @@ describe('e2e: multi-middleware context composition (runCommand)', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Typed context in action handlers — compile-time assertions
-// ---------------------------------------------------------------------------
+// --- Typed context in action handlers — compile-time assertions
 
 describe('e2e: typed ctx in action handlers', () => {
 	it('ctx type narrows through middleware chain', () => {
@@ -193,9 +187,7 @@ describe('e2e: typed ctx in action handlers', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Error middleware patterns
-// ---------------------------------------------------------------------------
+// --- Error middleware patterns
 
 describe('e2e: error middleware patterns', () => {
 	it('middleware CLIError propagates with exit code and structured error', async () => {
@@ -321,9 +313,7 @@ describe('e2e: error middleware patterns', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware ordering and wrap-around patterns
-// ---------------------------------------------------------------------------
+// --- Middleware ordering and wrap-around patterns
 
 describe('e2e: middleware ordering and wrap-around', () => {
 	it('onion model: three middleware wrap action in correct order', async () => {
@@ -421,9 +411,7 @@ describe('e2e: middleware ordering and wrap-around', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Full CLI dispatch path — e2e through cli().execute()
-// ---------------------------------------------------------------------------
+// --- Full CLI dispatch path — e2e through cli().execute()
 
 describe('e2e: middleware through CLI dispatch', () => {
 	it('realistic auth + tracing pipeline via cli.execute()', async () => {
@@ -550,9 +538,7 @@ describe('e2e: middleware through CLI dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware + output modes (JSON, TTY) e2e
-// ---------------------------------------------------------------------------
+// --- Middleware + output modes (JSON, TTY) e2e
 
 describe('e2e: middleware + output modes', () => {
 	it('middleware output in JSON mode: log→stderr, json→stdout', async () => {
@@ -656,9 +642,7 @@ describe('e2e: middleware + output modes', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware + resolution chain interplay
-// ---------------------------------------------------------------------------
+// --- Middleware + resolution chain interplay
 
 describe('e2e: middleware + resolution chain', () => {
 	it('middleware sees values after full env + config + default resolution', async () => {
@@ -745,9 +729,7 @@ describe('e2e: middleware + resolution chain', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('e2e: middleware edge cases', () => {
 	it('middleware with async work still preserves context', async () => {
@@ -872,9 +854,7 @@ describe('e2e: middleware edge cases', () => {
 	});
 });
 
-// ===========================================================================
-// Middleware — receives meta
-// ===========================================================================
+// === Middleware — receives meta
 
 describe('middleware — meta access', () => {
 	it('middleware receives meta with command info', async () => {

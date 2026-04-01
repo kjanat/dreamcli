@@ -9,9 +9,7 @@ import { describe, expect, it } from 'vitest';
 import type { Out } from '#internals/core/schema/command.ts';
 import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// isTTY on Out interface
-// ---------------------------------------------------------------------------
+// --- isTTY on Out interface
 
 describe('Out.isTTY', () => {
 	it('defaults to false when not provided', () => {
@@ -35,9 +33,7 @@ describe('Out.isTTY', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// isTTY on OutputChannel directly
-// ---------------------------------------------------------------------------
+// --- isTTY on OutputChannel directly
 
 describe('OutputChannel.isTTY', () => {
 	it('stores isTTY from resolved options', () => {
@@ -72,9 +68,7 @@ describe('OutputChannel.isTTY', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// isTTY through createCaptureOutput
-// ---------------------------------------------------------------------------
+// --- isTTY through createCaptureOutput
 
 describe('createCaptureOutput — isTTY', () => {
 	it('defaults to false', () => {
@@ -93,9 +87,7 @@ describe('createCaptureOutput — isTTY', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Output mode inference — isTTY × jsonMode combinations
-// ---------------------------------------------------------------------------
+// --- Output mode inference — isTTY × jsonMode combinations
 
 describe('output mode inference', () => {
 	it('TTY + no JSON: normal interactive mode', () => {
@@ -123,9 +115,7 @@ describe('output mode inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Handlers can use isTTY to branch output
-// ---------------------------------------------------------------------------
+// --- Handlers can use isTTY to branch output
 
 describe('handler output branching on isTTY', () => {
 	it('handler can skip decorative output when not TTY', () => {
@@ -165,9 +155,7 @@ describe('handler output branching on isTTY', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// table() output respects mode combinations
-// ---------------------------------------------------------------------------
+// --- table() output respects mode combinations
 
 describe('table() with TTY modes', () => {
 	const rows = [

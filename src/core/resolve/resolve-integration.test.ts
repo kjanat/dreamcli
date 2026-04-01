@@ -13,9 +13,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 
-// ---------------------------------------------------------------------------
-// Test commands
-// ---------------------------------------------------------------------------
+// --- Test commands
 
 /** Command with env-resolvable flags. */
 function envCommand() {
@@ -73,9 +71,7 @@ function stdinCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// runCommand() — env threading
-// ---------------------------------------------------------------------------
+// --- runCommand() — env threading
 
 describe('runCommand — env resolution', () => {
 	it('resolves flag from env when no CLI value provided', async () => {
@@ -138,9 +134,7 @@ describe('runCommand — env resolution', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// runCommand() — config threading
-// ---------------------------------------------------------------------------
+// --- runCommand() — config threading
 
 describe('runCommand — config resolution', () => {
 	it('resolves flag from config when no CLI value provided', async () => {
@@ -184,9 +178,7 @@ describe('runCommand — config resolution', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// runCommand() — full chain: CLI > env > config > default
-// ---------------------------------------------------------------------------
+// --- runCommand() — full chain: CLI > env > config > default
 
 describe('runCommand — full resolution chain', () => {
 	it('stdin fills stdin-mode arg before env', async () => {
@@ -264,9 +256,7 @@ describe('runCommand — full resolution chain', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CLIBuilder.execute() — env/config threading
-// ---------------------------------------------------------------------------
+// --- CLIBuilder.execute() — env/config threading
 
 describe('CLIBuilder.execute — env/config threading', () => {
 	it('threads stdinData through to command resolution', async () => {
@@ -365,9 +355,7 @@ describe('CLIBuilder.execute — env/config threading', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CLIBuilder.run() — adapter.env auto-sourcing with config
-// ---------------------------------------------------------------------------
+// --- CLIBuilder.run() — adapter.env auto-sourcing with config
 
 describe('CLIBuilder.run — adapter env/config integration', () => {
 	it('reads stdin once from adapter and threads it into execute', async () => {
@@ -539,9 +527,7 @@ describe('CLIBuilder.run — adapter env/config integration', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Backward compatibility
-// ---------------------------------------------------------------------------
+// --- Backward compatibility
 
 describe('backward compatibility', () => {
 	it('runCommand works without env/config options', async () => {
@@ -580,9 +566,7 @@ describe('backward compatibility', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// runCommand() — custom flag integration
-// ---------------------------------------------------------------------------
+// --- runCommand() — custom flag integration
 
 describe('runCommand — custom flag integration', () => {
 	it('custom flag parsed from CLI argv', async () => {

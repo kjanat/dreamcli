@@ -8,9 +8,7 @@
  * @module dreamcli/core/schema/arg
  */
 
-// ---------------------------------------------------------------------------
-// Type-level configuration (phantom state tracked through the chain)
-// ---------------------------------------------------------------------------
+// --- Type-level configuration (phantom state tracked through the chain)
 
 /**
  * Presence describes whether a positional arg is guaranteed to exist when the
@@ -34,9 +32,7 @@ interface ArgConfig {
 	readonly variadic: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Type-level helpers
-// ---------------------------------------------------------------------------
+// --- Type-level helpers
 
 /**
  * Advanced type helper used by `ArgBuilder` modifiers to replace presence.
@@ -83,9 +79,7 @@ type InferArgs<T extends Record<string, ArgBuilder<ArgConfig>>> = {
 	[K in keyof T]: InferArg<T[K]>;
 };
 
-// ---------------------------------------------------------------------------
-// Runtime schema data
-// ---------------------------------------------------------------------------
+// --- Runtime schema data
 
 /** Discriminator for the kind of value an arg accepts. */
 type ArgKind = 'string' | 'number' | 'enum' | 'custom';
@@ -173,9 +167,7 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
 	};
 }
 
-// ---------------------------------------------------------------------------
-// ArgBuilder — immutable builder with type-level tracking
-// ---------------------------------------------------------------------------
+// --- ArgBuilder — immutable builder with type-level tracking
 
 /**
  * Immutable positional argument schema builder.
@@ -447,9 +439,7 @@ class ArgBuilder<C extends ArgConfig> {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Factory namespace
-// ---------------------------------------------------------------------------
+// --- Factory namespace
 
 /**
  * Arg factory functions — the public API for creating positional arguments.
@@ -662,9 +652,7 @@ const arg: ArgFactory = {
 	},
 };
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	ArgConfig,

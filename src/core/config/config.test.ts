@@ -3,9 +3,7 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.ts';
 import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Create a minimal adapter stub with a virtual filesystem. */
 function stubAdapter(
@@ -35,9 +33,7 @@ const tomlLoader: FormatLoader = {
 	},
 };
 
-// ===================================================================
-// buildConfigSearchPaths
-// ===================================================================
+// === buildConfigSearchPaths
 
 describe('buildConfigSearchPaths', () => {
 	it('returns 3 JSON paths in priority order', () => {
@@ -84,9 +80,7 @@ describe('buildConfigSearchPaths', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — probing order
-// ===================================================================
+// === discoverConfig — probing order
 
 describe('discoverConfig — path probing', () => {
 	it('returns { found: false } when no config files exist', async () => {
@@ -147,9 +141,7 @@ describe('discoverConfig — path probing', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — explicit configPath
-// ===================================================================
+// === discoverConfig — explicit configPath
 
 describe('discoverConfig — explicit configPath', () => {
 	it('loads the exact path when it exists', async () => {
@@ -192,9 +184,7 @@ describe('discoverConfig — explicit configPath', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — custom search paths
-// ===================================================================
+// === discoverConfig — custom search paths
 
 describe('discoverConfig — custom searchPaths', () => {
 	it('uses custom search paths instead of defaults', async () => {
@@ -219,9 +209,7 @@ describe('discoverConfig — custom searchPaths', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — parse errors
-// ===================================================================
+// === discoverConfig — parse errors
 
 describe('discoverConfig — parse errors', () => {
 	it('throws CONFIG_PARSE_ERROR for invalid JSON', async () => {
@@ -289,9 +277,7 @@ describe('discoverConfig — parse errors', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — custom loaders
-// ===================================================================
+// === discoverConfig — custom loaders
 
 describe('discoverConfig — custom loaders', () => {
 	it('uses custom loader for matching extension', async () => {
@@ -388,9 +374,7 @@ describe('discoverConfig — custom loaders', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — adapter error propagation
-// ===================================================================
+// === discoverConfig — adapter error propagation
 
 describe('discoverConfig — adapter error propagation', () => {
 	it('propagates non-ENOENT readFile errors', async () => {
@@ -404,9 +388,7 @@ describe('discoverConfig — adapter error propagation', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — result type narrowing
-// ===================================================================
+// === discoverConfig — result type narrowing
 
 describe('discoverConfig — type narrowing', () => {
 	it('found discriminant narrows to ConfigFound', async () => {
@@ -439,9 +421,7 @@ describe('discoverConfig — type narrowing', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — empty / nested config content
-// ===================================================================
+// === discoverConfig — empty / nested config content
 
 describe('discoverConfig — content edge cases', () => {
 	it('accepts empty JSON object', async () => {
@@ -470,9 +450,7 @@ describe('discoverConfig — content edge cases', () => {
 	});
 });
 
-// ===================================================================
-// configFormat — convenience factory
-// ===================================================================
+// === configFormat — convenience factory
 
 describe('configFormat — convenience factory', () => {
 	it('creates a FormatLoader with given extensions and parse', () => {

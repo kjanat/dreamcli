@@ -14,9 +14,7 @@ import {
 	SHELLS,
 } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Minimal FlagSchema with all required fields. */
 function flagSchema(overrides: Partial<FlagSchema> = {}): FlagSchema {
@@ -127,9 +125,7 @@ function extractZshRootFunction(script: string, funcName = '_testcli'): string {
 	return script.slice(start, end);
 }
 
-// ===================================================================
-// Shell type — SHELLS constant
-// ===================================================================
+// === Shell type — SHELLS constant
 
 describe('Shell type — SHELLS constant', () => {
 	it('contains only implemented shell targets', () => {
@@ -141,9 +137,7 @@ describe('Shell type — SHELLS constant', () => {
 	});
 });
 
-// ===================================================================
-// CompletionOptions — type contract
-// ===================================================================
+// === CompletionOptions — type contract
 
 describe('CompletionOptions — type contract', () => {
 	it('accepts empty options', () => {
@@ -162,9 +156,7 @@ describe('CompletionOptions — type contract', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — script structure
-// ===================================================================
+// === generateBashCompletion — script structure
 
 describe('generateBashCompletion — script structure', () => {
 	it('generates shebang and header comment', () => {
@@ -225,9 +217,7 @@ describe('generateBashCompletion — script structure', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — functionPrefix option
-// ===================================================================
+// === generateBashCompletion — functionPrefix option
 
 describe('generateBashCompletion — functionPrefix option', () => {
 	it('uses functionPrefix instead of schema name for function', () => {
@@ -244,9 +234,7 @@ describe('generateBashCompletion — functionPrefix option', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — subcommand completions
-// ===================================================================
+// === generateBashCompletion — subcommand completions
 
 describe('generateBashCompletion — subcommand completions', () => {
 	it('lists subcommand names at root level', () => {
@@ -285,9 +273,7 @@ describe('generateBashCompletion — subcommand completions', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — root completion policy
-// ===================================================================
+// === generateBashCompletion — root completion policy
 
 describe('generateBashCompletion — root completion policy', () => {
 	it('keeps hybrid CLIs command-centric by default', () => {
@@ -366,9 +352,7 @@ describe('generateBashCompletion — root completion policy', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — flag completions
-// ===================================================================
+// === generateBashCompletion — flag completions
 
 describe('generateBashCompletion — flag completions', () => {
 	it('includes --flagname for each registered flag', () => {
@@ -430,9 +414,7 @@ describe('generateBashCompletion — flag completions', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — enum value completions
-// ===================================================================
+// === generateBashCompletion — enum value completions
 
 describe('generateBashCompletion — enum value completions', () => {
 	it('generates case branch for enum flag values', () => {
@@ -595,9 +577,7 @@ describe('generateBashCompletion — enum value completions', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — enum value escaping
-// ===================================================================
+// === generateBashCompletion — enum value escaping
 
 describe('generateBashCompletion — enum value escaping', () => {
 	it('passes simple values through unescaped', () => {
@@ -715,9 +695,7 @@ describe('generateBashCompletion — enum value escaping', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — no commands (flags-only CLI)
-// ===================================================================
+// === generateBashCompletion — no commands (flags-only CLI)
 
 describe('generateBashCompletion — no commands', () => {
 	it('generates script with --help and --version when version defined', () => {
@@ -736,9 +714,7 @@ describe('generateBashCompletion — no commands', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — CLI name sanitization
-// ===================================================================
+// === generateBashCompletion — CLI name sanitization
 
 describe('generateBashCompletion — name sanitization', () => {
 	it('replaces hyphens in CLI name for function identifier', () => {
@@ -758,9 +734,7 @@ describe('generateBashCompletion — name sanitization', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — name escaping (shell injection prevention)
-// ===================================================================
+// === generateBashCompletion — name escaping (shell injection prevention)
 
 describe('generateBashCompletion — name escaping', () => {
 	it('leaves shell-safe names unquoted in complete line', () => {
@@ -806,9 +780,7 @@ describe('generateBashCompletion — name escaping', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — script structure
-// ===================================================================
+// === generateZshCompletion — script structure
 
 describe('generateZshCompletion — script structure', () => {
 	it('generates #compdef directive with CLI name', () => {
@@ -881,9 +853,7 @@ describe('generateZshCompletion — script structure', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — functionPrefix option
-// ===================================================================
+// === generateZshCompletion — functionPrefix option
 
 describe('generateZshCompletion — functionPrefix option', () => {
 	it('uses functionPrefix instead of schema name for function', () => {
@@ -906,9 +876,7 @@ describe('generateZshCompletion — functionPrefix option', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — subcommand completions
-// ===================================================================
+// === generateZshCompletion — subcommand completions
 
 describe('generateZshCompletion — subcommand completions', () => {
 	it('lists subcommands with _describe', () => {
@@ -966,9 +934,7 @@ describe('generateZshCompletion — subcommand completions', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — root completion policy
-// ===================================================================
+// === generateZshCompletion — root completion policy
 
 describe('generateZshCompletion — root completion policy', () => {
 	it('keeps hybrid CLIs command-centric by default', () => {
@@ -1049,9 +1015,7 @@ describe('generateZshCompletion — root completion policy', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — flag completions
-// ===================================================================
+// === generateZshCompletion — flag completions
 
 describe('generateZshCompletion — flag completions', () => {
 	it('generates _arguments specs for command flags', () => {
@@ -1169,9 +1133,7 @@ describe('generateZshCompletion — flag completions', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — enum value escaping
-// ===================================================================
+// === generateZshCompletion — enum value escaping
 
 describe('generateZshCompletion — enum value escaping', () => {
 	it('passes simple values through unescaped', () => {
@@ -1309,9 +1271,7 @@ describe('generateZshCompletion — enum value escaping', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — no commands (flags-only CLI)
-// ===================================================================
+// === generateZshCompletion — no commands (flags-only CLI)
 
 describe('generateZshCompletion — no commands', () => {
 	it('generates script with only --help when no commands', () => {
@@ -1324,9 +1284,7 @@ describe('generateZshCompletion — no commands', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — name sanitization
-// ===================================================================
+// === generateZshCompletion — name sanitization
 
 describe('generateZshCompletion — name sanitization', () => {
 	it('replaces hyphens in CLI name for function identifier', () => {
@@ -1346,9 +1304,7 @@ describe('generateZshCompletion — name sanitization', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — name escaping (shell injection prevention)
-// ===================================================================
+// === generateZshCompletion — name escaping (shell injection prevention)
 
 describe('generateZshCompletion — name escaping', () => {
 	it('leaves shell-safe names unquoted in #compdef', () => {
@@ -1382,9 +1338,7 @@ describe('generateZshCompletion — name escaping', () => {
 	});
 });
 
-// ===================================================================
-// generateCompletion — unified dispatcher
-// ===================================================================
+// === generateCompletion — unified dispatcher
 
 describe('generateCompletion — dispatcher', () => {
 	it('delegates bash to generateBashCompletion', () => {
@@ -1470,9 +1424,7 @@ describe('generateCompletion — dispatcher', () => {
 	});
 });
 
-// ===================================================================
-// Nested command completion helpers
-// ===================================================================
+// === Nested command completion helpers
 
 /** Build a nested command tree for testing. */
 function nestedSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
@@ -1568,9 +1520,7 @@ function deepNestedSchema(): CLISchema {
 	return minimalSchema({ commands: [erased(dbCmd)] });
 }
 
-// ===================================================================
-// generateBashCompletion — nested command completions
-// ===================================================================
+// === generateBashCompletion — nested command completions
 
 describe('generateBashCompletion — nested subcommand path detection', () => {
 	it('generates subcmd_path variable for nested commands', () => {
@@ -1698,9 +1648,7 @@ describe('generateBashCompletion — nested hidden commands', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — nested command completions
-// ===================================================================
+// === generateZshCompletion — nested command completions
 
 describe('generateZshCompletion — nested helper functions', () => {
 	it('generates helper function for group commands', () => {

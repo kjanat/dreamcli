@@ -23,9 +23,7 @@ import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { RunOptions, RunResult } from './run.ts';
 
-// ---------------------------------------------------------------------------
-// Context type utilities
-// ---------------------------------------------------------------------------
+// --- Context type utilities
 
 /**
  * Widen the context type when adding middleware.
@@ -51,9 +49,7 @@ type WidenContext<C extends Record<string, unknown>, Output extends Record<strin
 type WidenDerivedContext<C extends Record<string, unknown>, Output> =
 	Awaited<Output> extends Record<string, unknown> ? WidenContext<C, Awaited<Output>> : C;
 
-// ---------------------------------------------------------------------------
-// Type-level configuration (phantom state tracked through the chain)
-// ---------------------------------------------------------------------------
+// --- Type-level configuration (phantom state tracked through the chain)
 
 /**
  * Compile-time state carried through the command builder chain.
@@ -66,9 +62,7 @@ interface CommandConfig {
 	readonly args: Record<string, ArgBuilder<ArgConfig>>;
 }
 
-// ---------------------------------------------------------------------------
-// Interactive resolver types
-// ---------------------------------------------------------------------------
+// --- Interactive resolver types
 
 /**
  * Parameters received by the interactive resolver function.
@@ -134,9 +128,7 @@ type ErasedInteractiveResolver = (params: {
 	readonly flags: Readonly<Record<string, unknown>>;
 }) => InteractiveResult;
 
-// ---------------------------------------------------------------------------
-// Handler types
-// ---------------------------------------------------------------------------
+// --- Handler types
 
 /**
  * Minimal output channel stub — the real `Out` will be defined in
@@ -378,9 +370,7 @@ type ExecutionStep =
 			readonly handler: ErasedMiddlewareHandler;
 	  };
 
-// ---------------------------------------------------------------------------
-// Runtime schema data
-// ---------------------------------------------------------------------------
+// --- Runtime schema data
 
 /** A single usage example shown in help text. */
 interface CommandExample {
@@ -474,9 +464,7 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Type-erased command interface (shared between schema and CLI layers)
-// ---------------------------------------------------------------------------
+// --- Type-erased command interface (shared between schema and CLI layers)
 
 /**
  * A type-erased command entry for heterogeneous command storage.
@@ -515,9 +503,7 @@ interface ErasedCommand {
 	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
 }
 
-// ---------------------------------------------------------------------------
-// Type-erased builder alias (for heterogeneous subcommand storage)
-// ---------------------------------------------------------------------------
+// --- Type-erased builder alias (for heterogeneous subcommand storage)
 
 /**
  * Type-erased command builder for heterogeneous storage in `_subcommands`.
@@ -552,9 +538,7 @@ function eraseBuilder<
 	return builder as unknown as AnyCommandBuilder;
 }
 
-// ---------------------------------------------------------------------------
-// CommandBuilder — immutable builder with type-level tracking
-// ---------------------------------------------------------------------------
+// --- CommandBuilder — immutable builder with type-level tracking
 
 /**
  * Immutable command schema builder.
@@ -1132,9 +1116,7 @@ class CommandBuilder<
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Factory function
-// ---------------------------------------------------------------------------
+// --- Factory function
 
 /**
  * Create a new command builder.
@@ -1192,9 +1174,7 @@ function group(name: string): CommandBuilder {
 	return command(name);
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	ActionHandler,

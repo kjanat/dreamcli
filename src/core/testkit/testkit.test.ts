@@ -10,9 +10,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /** Build a simple greet command for testing. */
 function greetCommand() {
@@ -29,9 +27,7 @@ function greetCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// Basic execution
-// ---------------------------------------------------------------------------
+// --- Basic execution
 
 describe('runCommand — basic execution', () => {
 	it('runs a command and captures stdout', async () => {
@@ -95,9 +91,7 @@ describe('runCommand — basic execution', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Help detection
-// ---------------------------------------------------------------------------
+// --- Help detection
 
 describe('runCommand — help detection', () => {
 	it('prints help for --help and exits 0', async () => {
@@ -137,9 +131,7 @@ describe('runCommand — help detection', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Error handling — parse errors
-// ---------------------------------------------------------------------------
+// --- Error handling — parse errors
 
 describe('runCommand — parse errors', () => {
 	it('returns exit 2 for unknown flags', async () => {
@@ -162,9 +154,7 @@ describe('runCommand — parse errors', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Error handling — validation errors
-// ---------------------------------------------------------------------------
+// --- Error handling — validation errors
 
 describe('runCommand — validation errors', () => {
 	it('returns exit 2 for missing required args', async () => {
@@ -202,9 +192,7 @@ describe('runCommand — validation errors', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Error handling — handler errors
-// ---------------------------------------------------------------------------
+// --- Error handling — handler errors
 
 describe('runCommand — handler errors', () => {
 	it('catches CLIError thrown by handler', async () => {
@@ -265,9 +253,7 @@ describe('runCommand — handler errors', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// No action handler
-// ---------------------------------------------------------------------------
+// --- No action handler
 
 describe('runCommand — no action handler', () => {
 	it('returns exit 1 when no action is registered', async () => {
@@ -282,9 +268,7 @@ describe('runCommand — no action handler', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Run options
-// ---------------------------------------------------------------------------
+// --- Run options
 
 describe('runCommand — options', () => {
 	it('respects verbosity: quiet suppresses info', async () => {
@@ -317,9 +301,7 @@ describe('runCommand — options', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Complex commands
-// ---------------------------------------------------------------------------
+// --- Complex commands
 
 describe('runCommand — complex commands', () => {
 	it('handles enum flags correctly', async () => {
@@ -399,9 +381,7 @@ describe('runCommand — complex commands', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Result structure
-// ---------------------------------------------------------------------------
+// --- Result structure
 
 describe('runCommand — result structure', () => {
 	it('result has all required fields', async () => {
@@ -444,9 +424,7 @@ describe('runCommand — result structure', () => {
 	});
 });
 
-// ========================================================================
-// Deprecation warnings — end-to-end
-// ========================================================================
+// === Deprecation warnings — end-to-end
 
 describe('runCommand — deprecation warnings', () => {
 	it('emits deprecated flag warning to stderr', async () => {
@@ -496,9 +474,7 @@ describe('runCommand — deprecation warnings', () => {
 	});
 });
 
-// ===========================================================================
-// CommandMeta — handler receives metadata
-// ===========================================================================
+// === CommandMeta — handler receives metadata
 
 describe('runCommand — meta', () => {
 	it('provides default meta derived from command schema', async () => {

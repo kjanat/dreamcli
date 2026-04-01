@@ -62,9 +62,7 @@ function getInjectedDenoNamespace(globals: GlobalForDetect): DenoNamespace | und
 	return isDenoNamespace(candidate) ? candidate : undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Auto-adapter factory
-// ---------------------------------------------------------------------------
+// --- Auto-adapter factory
 
 /**
  * Create a runtime adapter for the current environment.
@@ -107,8 +105,6 @@ function createAdapter(globals?: GlobalForDetect): RuntimeAdapter {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export { createAdapter };

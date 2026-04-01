@@ -6,9 +6,7 @@ import { command } from './command.ts';
 import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
-// ---------------------------------------------------------------------------
-// Type inference
-// ---------------------------------------------------------------------------
+// --- Type inference
 
 describe('CommandBuilder.derive() — type inference', () => {
 	it('validation-only derive preserves ctx type', () => {
@@ -59,9 +57,7 @@ describe('CommandBuilder.derive() — type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Runtime behavior
-// ---------------------------------------------------------------------------
+// --- Runtime behavior
 
 describe('CommandBuilder.derive() — runtime', () => {
 	it('does not add handlers to schema.middleware', () => {

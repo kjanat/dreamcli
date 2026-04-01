@@ -9,9 +9,7 @@
  * @module dreamcli/core/schema/prompt
  */
 
-// ---------------------------------------------------------------------------
-// Prompt kind discriminator
-// ---------------------------------------------------------------------------
+// --- Prompt kind discriminator
 
 /**
  * The kind of interactive prompt to present.
@@ -23,9 +21,7 @@
  */
 type PromptKind = 'confirm' | 'input' | 'select' | 'multiselect';
 
-// ---------------------------------------------------------------------------
-// Per-kind prompt configuration (discriminated union)
-// ---------------------------------------------------------------------------
+// --- Per-kind prompt configuration (discriminated union)
 
 /** Shared fields across all prompt kinds. */
 interface PromptConfigBase {
@@ -77,9 +73,7 @@ interface MultiselectPromptConfig extends PromptConfigBase {
 	readonly max?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Supporting types
-// ---------------------------------------------------------------------------
+// --- Supporting types
 
 /** A selectable option for select/multiselect prompts. */
 interface SelectChoice {
@@ -107,9 +101,7 @@ type PromptConfig =
 	| SelectPromptConfig
 	| MultiselectPromptConfig;
 
-// ---------------------------------------------------------------------------
-// Prompt result
-// ---------------------------------------------------------------------------
+// --- Prompt result
 
 /**
  * The raw result returned by a prompt engine for a single prompt.
@@ -124,9 +116,7 @@ type PromptResult =
 	| { readonly answered: true; readonly value: unknown }
 	| { readonly answered: false };
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	ConfirmPromptConfig,

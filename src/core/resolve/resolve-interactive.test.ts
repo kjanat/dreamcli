@@ -8,9 +8,7 @@ import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { createSchema, flag } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 function makeSchema(overrides?: Partial<CommandSchema>): CommandSchema {
 	return {
@@ -37,9 +35,7 @@ function makeParsed(overrides?: Partial<ParseResult>): ParseResult {
 	};
 }
 
-// ========================================================================
-// CommandBuilder.interactive() — schema storage and chaining
-// ========================================================================
+// === CommandBuilder.interactive() — schema storage and chaining
 
 describe('CommandBuilder.interactive()', () => {
 	it('stores interactive resolver on schema', () => {
@@ -112,9 +108,7 @@ describe('CommandBuilder.interactive()', () => {
 	});
 });
 
-// ========================================================================
-// Resolution chain with interactive resolver
-// ========================================================================
+// === Resolution chain with interactive resolver
 
 describe('resolve with interactive resolver', () => {
 	it('interactive resolver prompt config overrides per-flag prompt', async () => {
@@ -512,9 +506,7 @@ describe('resolve with interactive resolver', () => {
 	});
 });
 
-// ========================================================================
-// Type inference
-// ========================================================================
+// === Type inference
 
 describe('InteractiveResolver type inference', () => {
 	it('resolver receives typed partial flags', () => {
@@ -547,9 +539,7 @@ describe('InteractiveResolver type inference', () => {
 	});
 });
 
-// ========================================================================
-// Integration through CommandBuilder
-// ========================================================================
+// === Integration through CommandBuilder
 
 describe('CommandBuilder interactive integration', () => {
 	it('interactive resolver runs through command.schema in resolve()', async () => {

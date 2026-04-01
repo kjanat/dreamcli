@@ -16,9 +16,7 @@
 
 import type { CommandMeta, Out } from './command.ts';
 
-// ---------------------------------------------------------------------------
-// Middleware parameter types
-// ---------------------------------------------------------------------------
+// --- Middleware parameter types
 
 /**
  * Parameters received by a middleware function at runtime.
@@ -48,9 +46,7 @@ interface MiddlewareParams {
 	readonly next: (additions: Record<string, unknown>) => Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Handler types
-// ---------------------------------------------------------------------------
+// --- Handler types
 
 /**
  * Type-erased middleware handler stored on `CommandSchema`.
@@ -78,9 +74,7 @@ type MiddlewareHandler<Output extends Record<string, unknown>> = (params: {
 	readonly next: (additions: Output) => Promise<void>;
 }) => void | Promise<void>;
 
-// ---------------------------------------------------------------------------
-// Middleware type — phantom-branded
-// ---------------------------------------------------------------------------
+// --- Middleware type — phantom-branded
 
 /**
  * Internal runtime representation of middleware.
@@ -116,9 +110,7 @@ type Middleware<Output extends Record<string, unknown>> = MiddlewareImpl & {
 	readonly _output: Output;
 };
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
+// --- Factory
 
 /**
  * Create a middleware definition.
@@ -167,9 +159,7 @@ function middleware<Output extends Record<string, unknown>>(
 	return impl as Middleware<Output>;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	ErasedMiddlewareHandler,

@@ -3,9 +3,7 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers — build minimal CommandSchema for testing
-// ---------------------------------------------------------------------------
+// --- Helpers — build minimal CommandSchema for testing
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -32,9 +30,7 @@ function localFlag(kind: 'string' | 'boolean' | 'number' = 'boolean') {
 	return createSchema(kind, { propagate: false });
 }
 
-// ========================================================================
-// collectPropagatedFlags
-// ========================================================================
+// === collectPropagatedFlags
 
 describe('collectPropagatedFlags', () => {
 	// --- Base cases --------------------------------------------------------

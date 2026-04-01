@@ -7,9 +7,7 @@ import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { cli } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /** Command that reports output mode state. */
 function modeCommand() {
@@ -45,9 +43,7 @@ function spinnerCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// isTTY through CLIBuilder.execute()
-// ---------------------------------------------------------------------------
+// --- isTTY through CLIBuilder.execute()
 
 describe('CLIBuilder.execute() — isTTY propagation', () => {
 	it('passes isTTY=true to command handler', async () => {
@@ -97,9 +93,7 @@ describe('CLIBuilder.execute() — isTTY propagation', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// isTTY through CLIBuilder.run() — wired from adapter
-// ---------------------------------------------------------------------------
+// --- isTTY through CLIBuilder.run() — wired from adapter
 
 describe('CLIBuilder.run() — isTTY from adapter', () => {
 	it('sources isTTY from adapter.isTTY', async () => {

@@ -22,9 +22,7 @@ function resolveBunVersion(proc?: NodeProcess): string | undefined {
 	return (globalThis as unknown as { Bun?: { version?: string } }).Bun?.version;
 }
 
-// ---------------------------------------------------------------------------
-// Bun adapter factory
-// ---------------------------------------------------------------------------
+// --- Bun adapter factory
 
 /**
  * Create a runtime adapter backed by Bun's Node-compatible `process` global.
@@ -52,8 +50,6 @@ function createBunAdapter(proc?: NodeProcess): RuntimeAdapter {
 	return createNodeAdapter(proc);
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export { createBunAdapter };

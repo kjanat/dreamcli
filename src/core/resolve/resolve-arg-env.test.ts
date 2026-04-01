@@ -6,9 +6,7 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -35,9 +33,7 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
 	};
 }
 
-// ========================================================================
-// Arg env resolution — string args
-// ========================================================================
+// === Arg env resolution — string args
 
 describe('resolve — arg env string', () => {
 	it('resolves string arg from env when CLI absent', async () => {
@@ -171,9 +167,7 @@ describe('resolve — arg env string', () => {
 	});
 });
 
-// ========================================================================
-// Arg env resolution — number args
-// ========================================================================
+// === Arg env resolution — number args
 
 describe('resolve — arg env number', () => {
 	it('coerces env string to number', async () => {
@@ -222,9 +216,7 @@ describe('resolve — arg env number', () => {
 	});
 });
 
-// ========================================================================
-// Arg env resolution — enum args
-// ========================================================================
+// === Arg env resolution — enum args
 
 describe('resolve — arg env enum', () => {
 	it('accepts valid enum value from env', async () => {
@@ -288,9 +280,7 @@ describe('resolve — arg env enum', () => {
 	});
 });
 
-// ========================================================================
-// Arg env resolution — custom args
-// ========================================================================
+// === Arg env resolution — custom args
 
 describe('resolve — arg env custom', () => {
 	it('coerces env string via custom parseFn', async () => {
@@ -343,9 +333,7 @@ describe('resolve — arg env custom', () => {
 	});
 });
 
-// ========================================================================
-// Arg env resolution — deprecation
-// ========================================================================
+// === Arg env resolution — deprecation
 
 describe('resolve — arg env deprecation', () => {
 	it('emits deprecation warning when env resolves deprecated arg', async () => {
@@ -391,9 +379,7 @@ describe('resolve — arg env deprecation', () => {
 	});
 });
 
-// ========================================================================
-// Arg env resolution — precedence chain
-// ========================================================================
+// === Arg env resolution — precedence chain
 
 describe('resolve — arg env precedence', () => {
 	it('CLI > env > default: full chain', async () => {

@@ -16,9 +16,7 @@
  * @module dreamcli/runtime/detect
  */
 
-// ---------------------------------------------------------------------------
-// Runtime type
-// ---------------------------------------------------------------------------
+// --- Runtime type
 
 /**
  * Known JavaScript runtime environments.
@@ -49,9 +47,7 @@ const RUNTIMES: readonly ['node', 'bun', 'deno', 'unknown'] = [
 	'unknown',
 ] as const satisfies readonly Runtime[];
 
-// ---------------------------------------------------------------------------
-// Minimal global shapes — avoid importing @types/* for each runtime
-// ---------------------------------------------------------------------------
+// --- Minimal global shapes — avoid importing @types/* for each runtime
 
 /**
  * Minimal `globalThis` shape used for runtime detection.
@@ -66,9 +62,7 @@ interface GlobalForDetect {
 	readonly process?: { readonly versions?: { readonly node?: string; readonly bun?: string } };
 }
 
-// ---------------------------------------------------------------------------
-// Detection
-// ---------------------------------------------------------------------------
+// --- Detection
 
 /**
  * Detect the current JavaScript runtime.
@@ -102,9 +96,7 @@ function detectRuntime(globals?: GlobalForDetect): Runtime {
 	return 'unknown';
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { GlobalForDetect, Runtime };
 export { detectRuntime, RUNTIMES };

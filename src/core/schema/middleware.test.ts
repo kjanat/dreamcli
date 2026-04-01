@@ -6,9 +6,7 @@ import { command } from './command.ts';
 import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
-// ---------------------------------------------------------------------------
-// Factory function
-// ---------------------------------------------------------------------------
+// --- Factory function
 
 describe('middleware()', () => {
 	it('creates a middleware with _handler property', () => {
@@ -29,9 +27,7 @@ describe('middleware()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type inference — compile-time
-// ---------------------------------------------------------------------------
+// --- Type inference — compile-time
 
 describe('middleware type inference', () => {
 	it('next() constrains additions type', () => {
@@ -69,9 +65,7 @@ describe('middleware type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CommandBuilder.middleware() — runtime
-// ---------------------------------------------------------------------------
+// --- CommandBuilder.middleware() — runtime
 
 describe('CommandBuilder.middleware()', () => {
 	it('adds middleware handler to schema', () => {
@@ -128,9 +122,7 @@ describe('CommandBuilder.middleware()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CommandBuilder.middleware() — type inference
-// ---------------------------------------------------------------------------
+// --- CommandBuilder.middleware() — type inference
 
 describe('CommandBuilder.middleware() — type inference', () => {
 	it('widens C via single middleware', () => {
@@ -184,9 +176,7 @@ describe('CommandBuilder.middleware() — type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware execution via runCommand
-// ---------------------------------------------------------------------------
+// --- Middleware execution via runCommand
 
 describe('middleware execution via runCommand', () => {
 	it('middleware adds context to action handler', async () => {

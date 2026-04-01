@@ -14,9 +14,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from './index.ts';
 
-// ========================================================================
-// runCommand — answers convenience field
-// ========================================================================
+// === runCommand — answers convenience field
 
 describe('runCommand — answers convenience', () => {
 	it('resolves a prompted flag from answers', async () => {
@@ -248,9 +246,7 @@ describe('runCommand — answers convenience', () => {
 	});
 });
 
-// ========================================================================
-// runCommand — answers + interactive resolver
-// ========================================================================
+// === runCommand — answers + interactive resolver
 
 describe('runCommand — answers with interactive resolver', () => {
 	it('interactive resolver can override per-flag prompt via answers', async () => {
@@ -290,9 +286,7 @@ describe('runCommand — answers with interactive resolver', () => {
 	});
 });
 
-// ========================================================================
-// CLIBuilder.execute() — answers threading
-// ========================================================================
+// === CLIBuilder.execute() — answers threading
 
 describe('CLIBuilder.execute() — answers threading', () => {
 	it('threads answers through to command execution', async () => {
@@ -364,9 +358,7 @@ describe('CLIBuilder.execute() — answers threading', () => {
 	});
 });
 
-// ========================================================================
-// Help text — [prompt] annotation
-// ========================================================================
+// === Help text — [prompt] annotation
 
 describe('help text — prompt annotation', () => {
 	it('shows [prompt] annotation for promptable flags', async () => {
@@ -446,9 +438,7 @@ describe('help text — prompt annotation', () => {
 	});
 });
 
-// ========================================================================
-// Backward compatibility
-// ========================================================================
+// === Backward compatibility
 
 describe('backward compatibility', () => {
 	it('existing tests without answers/prompter continue to work', async () => {
@@ -508,9 +498,7 @@ describe('backward compatibility', () => {
 	});
 });
 
-// ========================================================================
-// Full resolution chain through testkit: CLI > env > config > prompt > default
-// ========================================================================
+// === Full resolution chain through testkit: CLI > env > config > prompt > default
 
 describe('full resolution chain through testkit', () => {
 	it('CLI > env > config > prompt > default', async () => {
@@ -563,9 +551,7 @@ describe('full resolution chain through testkit', () => {
 	});
 });
 
-// ========================================================================
-// Public surface exports
-// ========================================================================
+// === Public surface exports
 
 describe('public surface exports', () => {
 	it('RunOptions type accepts answers field', async () => {

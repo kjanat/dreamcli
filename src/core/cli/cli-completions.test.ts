@@ -9,9 +9,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 function deployCommand() {
 	return command('deploy')
@@ -81,9 +79,7 @@ function extractZshRootFunction(script: string, funcName = '_mycli'): string {
 	return script.slice(start, end);
 }
 
-// ===================================================================
-// .completions() builder method
-// ===================================================================
+// === .completions() builder method
 
 describe('.completions() — builder registration', () => {
 	it('registers a "completions" subcommand', () => {
@@ -107,9 +103,7 @@ describe('.completions() — builder registration', () => {
 	});
 });
 
-// ===================================================================
-// Double .completions() guard
-// ===================================================================
+// === Double .completions() guard
 
 describe('.completions() — double call guard', () => {
 	it('throws CLIError on second .completions() call', () => {
@@ -134,9 +128,7 @@ describe('.completions() — double call guard', () => {
 	});
 });
 
-// ===================================================================
-// Bash completion generation via completions subcommand
-// ===================================================================
+// === Bash completion generation via completions subcommand
 
 describe('.completions() — bash output', () => {
 	it('generates bash completion script', async () => {
@@ -217,9 +209,7 @@ describe('.completions() — bash output', () => {
 	});
 });
 
-// ===================================================================
-// Zsh completion generation via completions subcommand
-// ===================================================================
+// === Zsh completion generation via completions subcommand
 
 describe('.completions() — zsh output', () => {
 	it('generates zsh completion script', async () => {
@@ -282,9 +272,7 @@ describe('.completions() — zsh output', () => {
 	});
 });
 
-// ===================================================================
-// Error handling
-// ===================================================================
+// === Error handling
 
 describe('.completions() — error handling', () => {
 	it('errors when shell arg is missing', async () => {
@@ -345,9 +333,7 @@ describe('.completions() — error handling', () => {
 	});
 });
 
-// ===================================================================
-// Schema snapshot behavior
-// ===================================================================
+// === Schema snapshot behavior
 
 describe('.completions() — schema snapshot', () => {
 	it('captures commands registered before .completions()', async () => {
@@ -376,9 +362,7 @@ describe('.completions() — schema snapshot', () => {
 	});
 });
 
-// ===================================================================
-// --json mode behavior
-// ===================================================================
+// === --json mode behavior
 
 describe('.completions() — --json mode', () => {
 	it('outputs JSON with shell + script fields to stdout in --json mode', async () => {
@@ -425,9 +409,7 @@ describe('.completions() — --json mode', () => {
 	});
 });
 
-// ===
-// Alias dispatch
-// ===
+// === Alias dispatch
 
 describe('.completions() — alias dispatch', () => {
 	it('dispatches via "completion" (singular) alias', async () => {
@@ -439,9 +421,7 @@ describe('.completions() — alias dispatch', () => {
 	});
 });
 
-// ---
-// Install instruction headers
-// ---
+// --- Install instruction headers
 
 describe('.completions() — install instruction headers', () => {
 	it('bash script includes install instructions in header', async () => {
@@ -461,9 +441,7 @@ describe('.completions() — install instruction headers', () => {
 	});
 });
 
-// ===================================================================
-// Root help integration
-// ===================================================================
+// === Root help integration
 
 describe('.completions() — root help', () => {
 	it('completions command appears in root --help', async () => {

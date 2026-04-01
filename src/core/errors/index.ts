@@ -8,9 +8,7 @@
  * @module dreamcli/core/errors
  */
 
-// ---------------------------------------------------------------------------
-// Error codes — discriminated string union per category
-// ---------------------------------------------------------------------------
+// --- Error codes — discriminated string union per category
 
 /** Codes emitted during argv parsing. */
 export type ParseErrorCode =
@@ -32,9 +30,7 @@ export type ValidationErrorCode =
 // deno-lint-ignore ban-types
 export type ErrorCode = ParseErrorCode | ValidationErrorCode | (string & {});
 
-// ---------------------------------------------------------------------------
-// Options bag for CLIError construction
-// ---------------------------------------------------------------------------
+// --- Options bag for CLIError construction
 
 /** Options accepted by the `CLIError` constructor. */
 export interface CLIErrorOptions {
@@ -53,9 +49,7 @@ export interface CLIErrorOptions {
 	readonly cause?: unknown;
 }
 
-// ---------------------------------------------------------------------------
-// CLIError — base structured error
-// ---------------------------------------------------------------------------
+// --- CLIError — base structured error
 
 /**
  * Base structured error for DreamCLI.
@@ -109,9 +103,7 @@ export interface CLIErrorJSON {
 	readonly details?: Readonly<Record<string, unknown>>;
 }
 
-// ---------------------------------------------------------------------------
-// ParseError — argv parsing failures
-// ---------------------------------------------------------------------------
+// --- ParseError — argv parsing failures
 
 /** Options for `ParseError`. Code is narrowed to parse-specific codes. */
 export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
@@ -136,9 +128,7 @@ export class ParseError extends CLIError {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// ValidationError — post-parse validation / resolution failures
-// ---------------------------------------------------------------------------
+// --- ValidationError — post-parse validation / resolution failures
 
 /** Options for `ValidationError`. Code is narrowed to validation-specific codes. */
 export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
@@ -163,9 +153,7 @@ export class ValidationError extends CLIError {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Type guard utilities
-// ---------------------------------------------------------------------------
+// --- Type guard utilities
 
 /** Narrows an unknown value to `CLIError`. */
 export function isCLIError(value: unknown): value is CLIError {

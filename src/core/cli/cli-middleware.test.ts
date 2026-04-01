@@ -13,9 +13,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { cli } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Middleware flows through CLI dispatch
-// ---------------------------------------------------------------------------
+// --- Middleware flows through CLI dispatch
 
 describe('middleware through CLI dispatch', () => {
 	it('middleware adds context to action handler via cli.execute()', async () => {
@@ -92,9 +90,7 @@ describe('middleware through CLI dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware receives resolved values
-// ---------------------------------------------------------------------------
+// --- Middleware receives resolved values
 
 describe('middleware receives resolved flags/args via CLI dispatch', () => {
 	it('middleware receives parsed flags and args', async () => {
@@ -142,9 +138,7 @@ describe('middleware receives resolved flags/args via CLI dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware error handling via CLI
-// ---------------------------------------------------------------------------
+// --- Middleware error handling via CLI
 
 describe('middleware errors via CLI dispatch', () => {
 	it('CLIError in middleware propagates with correct exit code', async () => {
@@ -206,9 +200,7 @@ describe('middleware errors via CLI dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware + output channel integration
-// ---------------------------------------------------------------------------
+// --- Middleware + output channel integration
 
 describe('middleware + output channel via CLI dispatch', () => {
 	it('middleware can write to output channel', async () => {
@@ -276,9 +268,7 @@ describe('middleware + output channel via CLI dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware on different commands (independent middleware chains)
-// ---------------------------------------------------------------------------
+// --- Middleware on different commands (independent middleware chains)
 
 describe('independent middleware chains per command', () => {
 	it('each command runs its own middleware', async () => {
@@ -310,9 +300,7 @@ describe('independent middleware chains per command', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware with --help bypass
-// ---------------------------------------------------------------------------
+// --- Middleware with --help bypass
 
 describe('middleware + --help interaction', () => {
 	it('--help bypasses middleware (help shown, middleware not run)', async () => {
@@ -337,9 +325,7 @@ describe('middleware + --help interaction', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Backward compatibility: commands without middleware
-// ---------------------------------------------------------------------------
+// --- Backward compatibility: commands without middleware
 
 describe('backward compatibility: no middleware', () => {
 	it('commands without middleware still work through CLI dispatch', async () => {

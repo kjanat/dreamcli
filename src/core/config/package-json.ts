@@ -10,18 +10,14 @@
 
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
-// ---------------------------------------------------------------------------
-// Narrowing helpers
-// ---------------------------------------------------------------------------
+// --- Narrowing helpers
 
 /** Type guard: narrows `unknown` to a plain (non-array) object. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// --- Types
 
 /**
  * Subset of package.json fields relevant to CLI metadata.
@@ -43,9 +39,7 @@ interface PackageJsonData {
  */
 type PackageJsonAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd'>;
 
-// ---------------------------------------------------------------------------
-// Path utilities
-// ---------------------------------------------------------------------------
+// --- Path utilities
 
 /**
  * Compute the parent directory of a path using the separator detected
@@ -85,9 +79,7 @@ function joinPath(base: string, segment: string): string {
 	return base.endsWith(sep) ? `${base}${segment}` : `${base}${sep}${segment}`;
 }
 
-// ---------------------------------------------------------------------------
-// discoverPackageJson
-// ---------------------------------------------------------------------------
+// --- discoverPackageJson
 
 /**
  * Discover the nearest `package.json` by walking up from `adapter.cwd`.
@@ -133,9 +125,7 @@ async function discoverPackageJson(adapter: PackageJsonAdapter): Promise<Package
 	return null;
 }
 
-// ---------------------------------------------------------------------------
-// parsePackageJson
-// ---------------------------------------------------------------------------
+// --- parsePackageJson
 
 /**
  * Parse a package.json content string into {@link PackageJsonData}.
@@ -186,9 +176,7 @@ function parseBinField(value: unknown): string | Readonly<Record<string, string>
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// inferCliName
-// ---------------------------------------------------------------------------
+// --- inferCliName
 
 /**
  * Infer the CLI binary name from package.json data.
@@ -222,9 +210,7 @@ function inferCliName(pkg: PackageJsonData): string | undefined {
 	return undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type { PackageJsonAdapter, PackageJsonData };
 export { discoverPackageJson, inferCliName };
