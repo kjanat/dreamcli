@@ -18,6 +18,7 @@ import type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
+	TableOptions,
 } from '#internals/core/schema/activity.ts';
 import type { Out } from '#internals/core/schema/command.ts';
 import {
@@ -210,22 +211,36 @@ class OutputChannel implements Out {
 	/**
 	 * Render tabular data.
 	 *
-	 * In JSON mode: emits the rows as a JSON array to stdout.
-	 * Otherwise: pretty-prints aligned columns with headers to stdout
-	 * (via `log()`, which respects JSON-mode redirection).
+	 * Default behavior matches the current output mode:
+	 * - normal mode → text table to stdout
+	 * - jsonMode → JSON array to stdout
+	 *
+	 * Per-call options can force text/json rendering and route text tables to
+	 * stdout or stderr.
 	 */
+	table<T extends Record<string, unknown>>(rows: readonly T[], options: TableOptions): void;
 	table<T extends Record<string, unknown>>(
 		rows: readonly T[],
 		columns?: readonly TableColumn<T>[],
+		options?: TableOptions,
+	): void;
+	table<T extends Record<string, unknown>>(
+		rows: readonly T[],
+		columnsOrOptions?: readonly TableColumn<T>[] | TableOptions,
+		options?: TableOptions,
 	): void {
-		if (this.options.jsonMode) {
+		const { columns, options: tableOptions } = resolveTableArgs(columnsOrOptions, options);
+		const format = resolveTableFormat(this.options.jsonMode, tableOptions);
+
+		if (format === 'json') {
 			this.json(rows);
 			return;
 		}
+
 		const text = formatTable(rows, columns);
-		if (text.length > 0) {
-			this.log(text);
-		}
+		if (text.length === 0) return;
+
+		writeLine(resolveTextTableWriter(this.options, tableOptions), text);
 	}
 
 	// ----- Active handle tracking -----
@@ -393,6 +408,49 @@ function inferColumns<T extends Record<string, unknown>>(
 	const first = rows[0];
 	if (first === undefined) return [];
 	return Object.keys(first).map((key) => ({ key: key as keyof T & string }));
+}
+
+function isTableColumns<T extends Record<string, unknown>>(
+	value: readonly TableColumn<T>[] | TableOptions | undefined,
+): value is readonly TableColumn<T>[] {
+	return Array.isArray(value);
+}
+
+function resolveTableArgs<T extends Record<string, unknown>>(
+	columnsOrOptions?: readonly TableColumn<T>[] | TableOptions,
+	options?: TableOptions,
+): {
+	readonly columns: readonly TableColumn<T>[] | undefined;
+	readonly options: TableOptions | undefined;
+} {
+	if (isTableColumns(columnsOrOptions)) {
+		return { columns: columnsOrOptions, options };
+	}
+
+	return { columns: undefined, options: columnsOrOptions };
+}
+
+function resolveTableFormat(jsonMode: boolean, options?: TableOptions): 'text' | 'json' {
+	switch (options?.format) {
+		case 'json':
+			return 'json';
+		case 'text':
+			return 'text';
+		case 'auto':
+		case undefined:
+			return jsonMode ? 'json' : 'text';
+	}
+}
+
+function resolveTextTableWriter(
+	options: ResolvedOutputOptions,
+	tableOptions?: TableOptions,
+): WriteFn {
+	if (tableOptions?.format === 'text' && tableOptions.stream !== undefined) {
+		return tableOptions.stream === 'stderr' ? options.stderr : options.stdout;
+	}
+
+	return options.jsonMode ? options.stderr : options.stdout;
 }
 
 /**

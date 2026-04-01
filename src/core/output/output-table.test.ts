@@ -116,6 +116,16 @@ describe('table — normal mode', () => {
 		const text = captured.stdout.join('');
 		expect(text).toContain('{"role":"admin"}');
 	});
+
+	it('can route text tables to stderr explicitly with columns and options', () => {
+		const [out, captured] = createCaptureOutput();
+		out.table([{ name: 'Alice' }], [{ key: 'name', header: 'Name' }], {
+			format: 'text',
+			stream: 'stderr',
+		});
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr.join('')).toContain('Alice');
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -154,6 +164,21 @@ describe('table — JSON mode', () => {
 		// Full row objects emitted, not filtered by columns
 		const parsed: unknown = JSON.parse(captured.stdout.join(''));
 		expect(parsed).toEqual(rows);
+	});
+
+	it('can force text tables in JSON mode and defaults them to stderr', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.table([{ name: 'Alice' }], { format: 'text' });
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr.join('')).toContain('Alice');
+	});
+
+	it('can force JSON output in normal mode', () => {
+		const [out, captured] = createCaptureOutput();
+		const rows = [{ name: 'Alice' }];
+		out.table(rows, { format: 'json' });
+		expect(captured.stdout).toEqual([`${JSON.stringify(rows)}\n`]);
+		expect(captured.stderr).toEqual([]);
 	});
 });
 

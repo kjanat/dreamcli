@@ -12,6 +12,9 @@ export type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
+	TableFormat,
+	TableOptions,
+	TableStream,
 } from './activity.ts';
 export type {
 	ArgConfig,

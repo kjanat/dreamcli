@@ -40,17 +40,20 @@ const list = command('list')
 		flag.enum(['table', 'plain']).default('plain').alias('f').describe('Output format'),
 	)
 	.action(({ flags, out }) => {
-		// out.json() emits structured data to stdout.
-		// In --json mode, ONLY stderr side-channel output should accompany it.
+		// This example intentionally emits both machine-readable JSON and a
+		// human-oriented side channel on stderr.
 		out.json(services);
 
-		// out.table() renders a formatted table in TTY, or falls back to plain.
 		if (flags.format === 'table') {
-			out.table(services, [
-				{ key: 'name', header: 'Service' },
-				{ key: 'status', header: 'Status' },
-				{ key: 'uptime', header: 'Uptime %' },
-			]);
+			out.table(
+				services,
+				[
+					{ key: 'name', header: 'Service' },
+					{ key: 'status', header: 'Status' },
+					{ key: 'uptime', header: 'Uptime %' },
+				],
+				{ format: 'text', stream: 'stderr' },
+			);
 		} else {
 			for (const s of services) {
 				out.error(`${s.name}: ${s.status} (${s.uptime}%)`);

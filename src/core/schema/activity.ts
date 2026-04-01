@@ -135,6 +135,25 @@ interface TableColumn<T extends Record<string, unknown>> {
 	readonly header?: string;
 }
 
+/** Render format override for {@link Out.table}. */
+type TableFormat = 'auto' | 'text' | 'json';
+
+/** Output stream override for text table rendering. */
+type TableStream = 'stdout' | 'stderr';
+
+/**
+ * Per-call table output options.
+ *
+ * `format: 'auto'` preserves the current mode-dependent behavior.
+ * `format: 'json'` always emits a JSON array to stdout.
+ * `format: 'text'` always renders a human-readable table; when `stream` is
+ * omitted, text defaults to stdout in normal mode and stderr in jsonMode.
+ */
+type TableOptions =
+	| { readonly format?: 'auto' }
+	| { readonly format: 'json' }
+	| { readonly format: 'text'; readonly stream?: TableStream };
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
@@ -147,4 +166,7 @@ export type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
+	TableFormat,
+	TableOptions,
+	TableStream,
 };

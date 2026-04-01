@@ -15,6 +15,7 @@ import type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
+	TableOptions,
 } from './activity.ts';
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
@@ -181,16 +182,22 @@ interface Out {
 	 * - **JSON mode** (`--json`): Emit the rows as a JSON array to stdout.
 	 * - **Piped** (non-TTY, non-JSON): Same aligned text output as TTY
 	 *   (useful for `grep`, `awk`, etc.).
+	 * - Pass `{ format: 'text', stream: 'stderr' }` to keep a human-readable
+	 *   side channel while `json()` writes machine output to stdout.
 	 *
 	 * When `columns` is omitted, columns are auto-inferred from the keys
 	 * of the first row. Column headers default to the key name.
 	 *
-	 * @param rows    - Array of row objects.
-	 * @param columns - Optional column descriptors for ordering and headers.
+	 * `format: 'json'` always emits the full row objects; `columns` only affect
+	 * text rendering.
+	 *
+	 * @param rows - Array of row objects.
 	 */
+	table<T extends Record<string, unknown>>(rows: readonly T[], options: TableOptions): void;
 	table<T extends Record<string, unknown>>(
 		rows: readonly T[],
 		columns?: readonly TableColumn<T>[],
+		options?: TableOptions,
 	): void;
 
 	/**
