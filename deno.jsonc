@@ -55,6 +55,7 @@
 		"dist/",
 		"coverage/",
 		"scripts/",
-		".opencode/"
+		".opencode/",
+		"examples/gh/"
 	]
 }

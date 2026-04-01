@@ -1,26 +1,5 @@
 ---
-- number: 89
-  title: Login fails on Firefox
-  state: open
-  author: eve
-  labels:
-    - bug
-- number: 88
-  title: Add keyboard shortcuts
-  state: open
-  author: frank
-  labels:
-    - enhancement
-- number: 87
-  title: Typo in README
-  state: closed
-  author: grace
-  labels:
-    - docs
-- number: 86
-  title: Dark mode colors wrong
-  state: open
-  author: alice
-  labels:
-    - bug
-    - ui
+- { number: 86, title: Dark mode colors wrong, state: open, author: alice, labels: [bug, ui] }
+- { number: 87, title: Typo in README, state: closed, author: grace, labels: [docs] }
+- { number: 88, title: Add keyboard shortcuts, state: open, author: frank, labels: [enhancement] }
+- { number: 89, title: Login fails on Firefox, state: open, author: eve, labels: [bug] }

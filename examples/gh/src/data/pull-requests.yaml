@@ -1,44 +1,7 @@
 ---
-- number: 142
-  title: Add dark mode toggle
-  state: open
-  author: alice
-  labels:
-    - enhancement
-    - ui
-  draft: false
-- number: 141
-  title: Fix OAuth redirect loop
-  state: open
-  author: bob
-  labels:
-    - bug
-  draft: false
-- number: 140
-  title: Bump dependencies
-  state: merged
-  author: dependabot
-  labels:
-    - chore
-  draft: false
-- number: 139
-  title: Add rate limiting
-  state: closed
-  author: carol
-  labels:
-    - enhancement
-  draft: true
-- number: 138
-  title: Refactor auth module
-  state: merged
-  author: alice
-  labels:
-    - refactor
-  draft: false
-- number: 137
-  title: Fix date parsing in Safari
-  state: open
-  author: dave
-  labels:
-    - bug
-  draft: false
+- { number: 137, title: Fix date parsing in Safari, state: open, author: dave, labels: [bug], draft: false }
+- { number: 138, title: Refactor auth module, state: merged, author: alice, labels: [refactor], draft: false }
+- { number: 139, title: Add rate limiting, state: closed, author: carol, labels: [enhancement], draft: true }
+- { number: 140, title: Bump dependencies, state: merged, author: dependabot, labels: [chore], draft: false }
+- { number: 141, title: Fix OAuth redirect loop, state: open, author: bob, labels: [bug], draft: false }
+- { number: 142, title: Add dark mode toggle, state: open, author: alice, labels: [enhancement, ui], draft: false }
