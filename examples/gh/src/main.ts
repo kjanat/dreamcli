@@ -15,15 +15,23 @@
  * @module
  */
 
-import { cli } from 'dreamcli';
+import { type CLIBuilder, cli } from 'dreamcli';
 
 import { auth } from '$gh/commands/auth.ts';
 import { issue } from '$gh/commands/issue.ts';
 import { pr } from '$gh/commands/pr.ts';
 
-const gh = cli('gh')
-	// Reads name, version, and description from package.json.
-	.packageJson();
+/**
+ * Create the example CLI and register commands.
+ *
+ * {@linkcode CLIBuilder.packageJson | packageJson()} fills `version` and `description` from the nearest `package.json`.\
+ * The CLI name still comes from `cli('gh')` unless `packageJson({ inferName: true })` is used.
+ *
+ * Command registration order determines the order shown in `--help`.
+ */
+const gh = cli('gh').packageJson();
 
-// Command order here determines `--help` output order.
-void gh.command(auth).command(pr).command(issue).completions().run();
+// Run the CLI if this file is executed directly (e.g. `bun src/main.ts ...`).
+if (import.meta.main) {
+	void gh.command(auth).command(pr).command(issue).completions().run();
+}
