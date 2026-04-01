@@ -21,17 +21,9 @@ import { auth } from '$gh/commands/auth.ts';
 import { issue } from '$gh/commands/issue.ts';
 import { pr } from '$gh/commands/pr.ts';
 
-// Define the CLI, set the name to 'gh'.
 const gh = cli('gh')
-	// Set the name, version, and description from package.json.
-	//
-	// Note! The name defined above is overridden by the name in package.json.
-	//
-	// If you'd like instead for the cli name to be inferred from the distributed filename,
-	// use: `packageJson({inferName: true})`.
-	// E.g.: `bin: { "yoyoyo": "dist/b-ass-nigga.js" }`, would infer the name to be `b-ass-nigga.js`,
-	// because of the built filename: `b-ass-nigga.js`.
+	// Reads name, version, and description from package.json.
 	.packageJson();
 
-// Register commands. The order here determines the order in `--help` output.
+// Command order here determines `--help` output order.
 void gh.command(auth).command(pr).command(issue).completions().run();

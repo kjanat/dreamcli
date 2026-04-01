@@ -4,7 +4,14 @@
  * @module
  */
 
-import type { PR } from '$gh/data/types.ts';
+type PR = {
+	readonly number: number;
+	readonly title: string;
+	readonly state: 'open' | 'closed' | 'merged';
+	readonly author: string;
+	readonly labels: readonly string[];
+	readonly draft: boolean;
+};
 
 declare const contents: readonly PR[];
 

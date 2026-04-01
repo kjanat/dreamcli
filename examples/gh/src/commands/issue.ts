@@ -4,15 +4,13 @@
  * @module
  */
 
-import { command, flag, group } from 'dreamcli';
+import { flag, group } from 'dreamcli';
 import issues from '$gh/data/issues.yaml' with { type: 'yaml' };
-import { requireAuth } from '$gh/lib/auth.ts';
+import { authedCommand } from '$gh/lib/auth.ts';
 import { normalizeLimit } from '$gh/lib/utils.ts';
 
-const issueList = command('list')
+const issueList = authedCommand('list')
 	.description('List issues')
-	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.derive(({ flags }) => requireAuth(flags.token))
 	.flag(
 		'state',
 		flag.enum(['open', 'closed', 'all']).default('open').alias('s').describe('Filter by state'),

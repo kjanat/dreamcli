@@ -4,16 +4,14 @@
  * @module
  */
 
-import { arg, CLIError, command, flag, group } from 'dreamcli';
+import { arg, CLIError, flag, group } from 'dreamcli';
 
 import pullRequests from '$gh/data/pull-requests.yaml' with { type: 'yaml' };
-import { requireAuth } from '$gh/lib/auth.ts';
+import { authedCommand } from '$gh/lib/auth.ts';
 import { normalizeLimit, sleep } from '$gh/lib/utils.ts';
 
-const prList = command('list')
+const prList = authedCommand('list')
 	.description('List pull requests')
-	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.derive(({ flags }) => requireAuth(flags.token))
 	.flag(
 		'state',
 		flag
@@ -48,10 +46,8 @@ const prList = command('list')
 		);
 	});
 
-const prView = command('view')
+const prView = authedCommand('view')
 	.description('View a pull request')
-	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.derive(({ flags }) => requireAuth(flags.token))
 	.arg('number', arg.number().describe('PR number'))
 	.action(({ args, out }) => {
 		const pr = pullRequests.find((candidate) => candidate.number === args.number);
@@ -72,10 +68,8 @@ State:  ${pr.state}  Author: ${pr.author}  Draft: ${String(pr.draft)}
 Labels: ${pr.labels.join(', ')}`);
 	});
 
-const prCreate = command('create')
+const prCreate = authedCommand('create')
 	.description('Create a pull request')
-	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-	.derive(({ flags }) => requireAuth(flags.token))
 	.flag(
 		'title',
 		flag
