@@ -1,7 +1,8 @@
 import { execSync } from 'node:child_process';
 import { defineConfig } from 'tsdown';
-import { version } from './package.json' with { type: 'json' };
+import pkg from './package.json' with { type: 'json' };
 
+const version = pkg.version;
 const revision = (() => {
 	try {
 		return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
