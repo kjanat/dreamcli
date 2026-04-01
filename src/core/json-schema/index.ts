@@ -338,7 +338,7 @@ function generateInputSchema(
 ): Record<string, unknown> {
 	const opts = resolveOptions(options);
 
-	// Discriminate: CommandSchema has `flags`, CLISchema does not
+	// Discriminate between a leaf/group command schema and the CLI root schema.
 	if (isCommandSchema(schema)) {
 		return {
 			$schema: JSON_SCHEMA_DRAFT,
@@ -382,10 +382,12 @@ function generateInputSchema(
 /**
  * Discriminate between CLISchema and CommandSchema at runtime.
  *
- * CommandSchema always has a `flags` record; CLISchema does not.
+ * Use a command-only field combination rather than a single shape check:
+ * command schemas always carry flags, args, middleware, and hasAction, while
+ * the CLI root schema does not expose that execution surface.
  */
 function isCommandSchema(schema: CLISchema | CommandSchema): schema is CommandSchema {
-	return 'flags' in schema;
+	return 'flags' in schema && 'args' in schema && 'middleware' in schema && 'hasAction' in schema;
 }
 
 /** Recursively collect input schema branches for all invocable commands. */

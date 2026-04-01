@@ -34,8 +34,6 @@ describe('discoverPackageJson — walk-up resolution', () => {
 		expect(result).toEqual({
 			name: 'myapp',
 			version: '1.0.0',
-			description: undefined,
-			bin: undefined,
 		});
 	});
 
@@ -51,8 +49,6 @@ describe('discoverPackageJson — walk-up resolution', () => {
 		expect(result).toEqual({
 			name: 'root',
 			version: '2.0.0',
-			description: undefined,
-			bin: undefined,
 		});
 	});
 
@@ -129,12 +125,7 @@ describe('discoverPackageJson — field extraction', () => {
 		});
 
 		const result = await discoverPackageJson(adapter);
-		expect(result).toEqual({
-			name: undefined,
-			version: undefined,
-			description: undefined,
-			bin: undefined,
-		});
+		expect(result).toEqual({});
 	});
 
 	it('ignores non-string name/version/description', async () => {

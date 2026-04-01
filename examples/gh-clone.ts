@@ -19,7 +19,7 @@
  * @module
  */
 
-import process from 'node:process';
+import { env } from 'node:process';
 import { arg, CLIError, cli, command, flag, group } from 'dreamcli';
 
 // ── Mock data ─────────────────────────────────────────────────────────
@@ -116,6 +116,13 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeLimit(value: number): number {
+	if (!Number.isFinite(value)) {
+		return 10;
+	}
+	return Math.max(1, Math.floor(value));
+}
+
 // ── Auth derive helper ────────────────────────────────────────────────
 // Checks for a resolved token value on protected commands.
 // This example resolves `token` from `--token` or `GH_TOKEN`.
@@ -154,10 +161,11 @@ const authLogin = command('login')
 const authStatus = command('status')
 	.description('Show authentication status')
 	.action(({ out }) => {
-		const token = process.env.GH_TOKEN;
+		const token = env.GH_TOKEN;
 		if (token) {
-			out.log('github.com');
-			out.log(`  Logged in with token ${token.slice(0, 8)}...`);
+			out.log(`\
+github.com
+  Logged in with token ${token.slice(0, 8)}...`);
 		} else {
 			out.warn('Not logged in. Run `gh auth login`.');
 		}
@@ -188,7 +196,8 @@ const prList = command('list')
 			const label = flags.label;
 			results = results.filter((p) => p.labels.includes(label));
 		}
-		results = results.slice(0, flags.limit);
+		const limit = normalizeLimit(flags.limit);
+		results = results.slice(0, limit);
 
 		out.table(
 			results.map((p) => ({ '#': p.number, title: p.title, state: p.state, author: p.author })),
@@ -213,9 +222,10 @@ const prView = command('view')
 		}
 
 		out.json(pr);
-		out.log(`#${pr.number} ${pr.title}`);
-		out.log(`State:  ${pr.state}  Author: ${pr.author}  Draft: ${String(pr.draft)}`);
-		out.log(`Labels: ${pr.labels.join(', ')}`);
+		out.log(`\
+#${pr.number} ${pr.title}
+State:  ${pr.state}  Author: ${pr.author}  Draft: ${String(pr.draft)}
+Labels: ${pr.labels.join(', ')}`);
 	});
 
 const prCreate = command('create')
@@ -273,7 +283,8 @@ const issueList = command('list')
 			const label = flags.label;
 			results = results.filter((i) => i.labels.includes(label));
 		}
-		results = results.slice(0, flags.limit);
+		const limit = normalizeLimit(flags.limit);
+		results = results.slice(0, limit);
 
 		out.table(
 			results.map((i) => ({ '#': i.number, title: i.title, state: i.state, author: i.author })),

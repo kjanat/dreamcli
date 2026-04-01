@@ -190,8 +190,8 @@ interface Out {
 	 * When `columns` is omitted, columns are auto-inferred from the keys
 	 * of the first row. Column headers default to the key name.
 	 *
-	 * `format: 'json'` always emits the full row objects; `columns` only affect
-	 * text rendering.
+	 * When `columns` is provided, both text and JSON output are projected to
+	 * only the listed keys.
 	 *
 	 * @param rows - Array of row objects.
 	 */
