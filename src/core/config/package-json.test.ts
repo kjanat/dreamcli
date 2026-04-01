@@ -299,8 +299,6 @@ describe('inferCliName — resolution order', () => {
 	it('prefers first bin key', () => {
 		const name = inferCliName({
 			name: 'pkg-name',
-			version: undefined,
-			description: undefined,
 			bin: { mycli: './dist/cli.js', other: './dist/other.js' },
 		});
 		expect(name).toBe('mycli');
@@ -309,9 +307,6 @@ describe('inferCliName — resolution order', () => {
 	it('falls back to package name', () => {
 		const name = inferCliName({
 			name: 'my-tool',
-			version: undefined,
-			description: undefined,
-			bin: undefined,
 		});
 		expect(name).toBe('my-tool');
 	});
@@ -319,28 +314,18 @@ describe('inferCliName — resolution order', () => {
 	it('strips scope from package name', () => {
 		const name = inferCliName({
 			name: '@scope/my-tool',
-			version: undefined,
-			description: undefined,
-			bin: undefined,
 		});
 		expect(name).toBe('my-tool');
 	});
 
 	it('returns undefined when no name or bin', () => {
-		const name = inferCliName({
-			name: undefined,
-			version: undefined,
-			description: undefined,
-			bin: undefined,
-		});
+		const name = inferCliName({});
 		expect(name).toBeUndefined();
 	});
 
 	it('ignores string bin (not useful for name inference)', () => {
 		const name = inferCliName({
 			name: 'fallback',
-			version: undefined,
-			description: undefined,
 			bin: './dist/cli.js',
 		});
 		// String bin has no key to extract — falls back to name
@@ -350,8 +335,6 @@ describe('inferCliName — resolution order', () => {
 	it('ignores empty bin object', () => {
 		const name = inferCliName({
 			name: 'fallback',
-			version: undefined,
-			description: undefined,
 			bin: {},
 		});
 		expect(name).toBe('fallback');

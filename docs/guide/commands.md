@@ -102,10 +102,12 @@ Adds `--version` / `-V` automatically.
 The `.action()` callback receives a single object with typed fields:
 
 ```ts
-.action(({ args, flags, ctx, out }) => {
+.action(({ args, flags, ctx, meta, out }) => {
   // args  — typed positional arguments
   // flags — typed flag values (fully resolved)
   // ctx   — typed middleware context
+  // meta  — CLI metadata: name (program name), bin (invoked binary name),
+  //         version (program version), command (leaf command name)
   // out   — output channel
 })
 ```

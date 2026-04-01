@@ -27,12 +27,15 @@ interface HelpOptions {
 	readonly width?: number;
 	/** Binary/program name shown in the usage line. Defaults to command name. */
 	readonly binName?: string;
+	/** @internal Whether this usage line is being rendered as merged root/default help. */
+	readonly isDefaultHelp?: boolean;
 }
 
 /** Resolved help options with defaults applied. */
 interface ResolvedHelpOptions {
 	readonly width: number;
 	readonly binName: string | undefined;
+	readonly isDefaultHelp: boolean;
 }
 
 const DEFAULT_WIDTH = 80;
@@ -41,6 +44,7 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 	return {
 		width: options?.width ?? DEFAULT_WIDTH,
 		binName: options?.binName,
+		isDefaultHelp: options?.isDefaultHelp ?? false,
 	};
 }
 
@@ -254,6 +258,9 @@ function formatArgDescription(schema: ArgSchema): string {
 // Main generator
 // ---------------------------------------------------------------------------
 
+/**
+ * @internal
+ */
 function formatHelpSections(schema: CommandSchema, options?: HelpOptions): readonly string[] {
 	const opts = resolveOptions(options);
 	const sections: string[] = [];
@@ -326,12 +333,12 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const parts: string[] = ['Usage:'];
-	// Avoid redundant usage like "greet greet" when a default command shares
-	// the same name as the binary that invoked it.
 	const cmdName =
-		opts.binName === undefined || opts.binName === schema.name
+		opts.binName === undefined
 			? schema.name
-			: `${opts.binName} ${schema.name}`;
+			: opts.isDefaultHelp && opts.binName === schema.name
+				? schema.name
+				: `${opts.binName} ${schema.name}`;
 	parts.push(cmdName);
 
 	// Subcommand placeholder — groups show <command> before flags/args

@@ -5,12 +5,21 @@ import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { resolve } from './index.ts';
 
+// ===
+// Helpers
+// ===
+
+// ---
 function parseCommandArg(target: ArgBuilder<ArgConfig>, argv: readonly string[]) {
 	const schema = command('deploy')
 		.arg('target', target)
 		.action(() => {}).schema;
 	return { schema, parsed: parse(schema, argv) };
 }
+
+// ===
+// resolve — stdin args
+// ===
 
 describe('resolve — stdin args', () => {
 	it('resolves stdin data when no CLI value is provided', async () => {

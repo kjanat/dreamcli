@@ -86,7 +86,7 @@ const login = command('login')
 	.description('Authenticate with the service')
 	.flag('token', flag.string().describe('Auth token'))
 	.action(({ flags, out }) => {
-		out.log(`Logged in with token: ${flags.token ?? 'interactive'}`);
+		out.log(flags.token ? 'Authenticated via token' : 'Authenticated interactively');
 	});
 
 // Nested command groups
@@ -355,11 +355,11 @@ Dual ESM/CJS. Source included in package (`src/`).
 
 ## Runtime support
 
-| Runtime       | Status                              |
-| ------------- | ----------------------------------- |
-| Node.js >= 22 | Supported                           |
-| Bun >= 1.3    | Supported                           |
-| Deno >= 2.6   | Supported (JSR: `@kjanat/dreamcli`) |
+| Runtime            | Status                              |
+| ------------------ | ----------------------------------- |
+| Node.js >= 22.22.2 | Supported                           |
+| Bun >= 1.3.11      | Supported                           |
+| Deno >= 2.6.0      | Supported (JSR: `@kjanat/dreamcli`) |
 
 Runtime detection is automatic. The core framework never imports platform-specific APIs directly — a
 thin `RuntimeAdapter` interface handles the divergent edges (argv, env, filesystem, TTY detection,

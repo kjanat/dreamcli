@@ -106,11 +106,14 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 
 		for (const node of nodes) {
 			const pathKey = node.path.join(' ');
-			const allNames = [node.schema.name, ...node.schema.aliases];
 			const mergedFlags = node.mergedFlags;
 			const enumCases = collectEnumCasesFromFlags(mergedFlags);
 			const flagWords = collectFlagWords(mergedFlags);
-			const childNames = node.children.map((c) => escapeForSingleQuote(c.name)).join(' ');
+			const childNames = dedupeWords(
+				node.children.flatMap((child) => [child.name, ...child.aliases]),
+			)
+				.map(escapeForSingleQuote)
+				.join(' ');
 			const escapedFlagWords = flagWords
 				.split(' ')
 				.filter(Boolean)
@@ -119,19 +122,21 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 			const completionWords =
 				childNames.length > 0 ? `${childNames} ${escapedFlagWords}` : escapedFlagWords;
 
-			// Use both name and aliases as case patterns via pathKey variations
-			if (node.path.length === 1) {
-				lines.push(`\t\t${allNames.join('|')})`);
-			} else {
-				// For nested paths, the path key always uses the canonical name
-				lines.push(`\t\t${quoteShellCasePattern(pathKey)})`);
-			}
+			lines.push(`\t\t${quoteShellCasePattern(pathKey)})`);
 
 			if (enumCases.length > 0) {
-				lines.push('\t\t\tcase "$prev" in');
+				lines.push('\t\t\tlocal enum_flag=""');
+				lines.push('\t\t\tlocal enum_cur="$cur"');
+				lines.push('\t\t\tlocal enum_prefix=""');
+				lines.push('\t\t\tif [[ "$cur" == --*=* ]]; then');
+				lines.push(`\t\t\t\tenum_flag="\${cur%%=*}"`);
+				lines.push(`\t\t\t\tenum_cur="\${cur#*=}"`);
+				lines.push(`\t\t\t\tenum_prefix="\${cur%%=*}="`);
+				lines.push('\t\t\tfi');
+				lines.push(`\t\t\tcase "\${enum_flag:-$prev}" in`);
 				for (const ec of enumCases) {
 					lines.push(`\t\t\t\t${ec.flags})`);
-					lines.push(formatBashEnumCompletion(ec.values, '\t\t\t\t\t'));
+					lines.push(formatBashEnumCompletion(ec.values, '\t\t\t\t\t', 'enum_cur', 'enum_prefix'));
 					lines.push('\t\t\t\t\treturn');
 					lines.push('\t\t\t\t\t;;');
 				}
@@ -156,7 +161,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 			? collectFlagWords(rootSurface.defaultFlags).split(' ').filter(Boolean)
 			: [];
 		const completionWords = dedupeWords([
-			...visibleCommands.map((command) => command.name),
+			...visibleCommands.flatMap((command) => [command.name, ...command.aliases]),
 			...rootFlagWords,
 			...defaultFlagWords,
 		])
@@ -197,13 +202,15 @@ function emitBashPathDetection(
 	maxDepth: number,
 ): void {
 	// Depth 0: match top-level command names
-	const topLevelPatterns = visibleCommands.flatMap((s) => [s.name, ...s.aliases]);
 	lines.push(`\t\tcase "$subcmd_path" in`);
 	lines.push(`\t\t\t'')`);
 	lines.push(`\t\t\t\tcase "\${words[i]}" in`);
-	lines.push(`\t\t\t\t\t${topLevelPatterns.join('|')})`);
-	lines.push(`\t\t\t\t\t\tsubcmd_path="\${words[i]}"`);
-	lines.push(`\t\t\t\t\t\t;;`);
+	for (const command of visibleCommands) {
+		const patterns = [command.name, ...command.aliases];
+		lines.push(`\t\t\t\t\t${patterns.join('|')})`);
+		lines.push(`\t\t\t\t\t\tsubcmd_path="${command.name}"`);
+		lines.push(`\t\t\t\t\t\t;;`);
+	}
 	lines.push(`\t\t\t\tesac`);
 	lines.push(`\t\t\t\t;;`);
 
@@ -211,13 +218,15 @@ function emitBashPathDetection(
 	if (maxDepth > 1) {
 		for (const node of groupNodes) {
 			const pathKey = node.path.join(' ');
-			const childPatterns = node.children.flatMap((c) => [c.name, ...c.aliases]);
 
 			lines.push(`\t\t\t${quoteShellCasePattern(pathKey)})`);
 			lines.push(`\t\t\t\tcase "\${words[i]}" in`);
-			lines.push(`\t\t\t\t\t${childPatterns.join('|')})`);
-			lines.push(`\t\t\t\t\t\tsubcmd_path="$subcmd_path \${words[i]}"`);
-			lines.push(`\t\t\t\t\t\t;;`);
+			for (const child of node.children) {
+				const childPatterns = [child.name, ...child.aliases];
+				lines.push(`\t\t\t\t\t${childPatterns.join('|')})`);
+				lines.push(`\t\t\t\t\t\tsubcmd_path="$subcmd_path ${child.name}"`);
+				lines.push(`\t\t\t\t\t\t;;`);
+			}
 			lines.push(`\t\t\t\tesac`);
 			lines.push(`\t\t\t\t;;`);
 		}
@@ -264,14 +273,31 @@ function escapeForSingleQuote(value: string): string {
  *
  * @internal
  */
-function formatBashEnumCompletion(values: readonly string[], indent: string): string {
+function formatBashEnumCompletion(
+	values: readonly string[],
+	indent: string,
+	currentVar = 'cur',
+	prefixVar?: string,
+): string {
+	const lines: string[] = [];
 	const needsDollarQuoting = values.some((v) => !/^[a-zA-Z0-9_\-.]+$/.test(v));
 	if (needsDollarQuoting) {
 		const escaped = values.map(escapeBashDollarQuote);
 		const joined = escaped.join('\\n');
-		return `${indent}local IFS=$'\\n'\n${indent}COMPREPLY=($(compgen -W $'${joined}' -- "$cur"))`;
+		lines.push(`${indent}local IFS=$'\\n'`);
+		lines.push(`${indent}COMPREPLY=($(compgen -W $'${joined}' -- "$${currentVar}"))`);
+	} else {
+		lines.push(`${indent}COMPREPLY=($(compgen -W '${values.join(' ')}' -- "$${currentVar}"))`);
 	}
-	return `${indent}COMPREPLY=($(compgen -W '${values.join(' ')}' -- "$cur"))`;
+	if (prefixVar !== undefined) {
+		lines.push(`${indent}if [[ -n "$${prefixVar}" && "\${#COMPREPLY[@]}" -gt 0 ]]; then`);
+		lines.push(`${indent}\tlocal i`);
+		lines.push(`${indent}\tfor ((i = 0; i < \${#COMPREPLY[@]}; i++)); do`);
+		lines.push(`${indent}\t\tCOMPREPLY[i]="$${prefixVar}\${COMPREPLY[i]}"`);
+		lines.push(`${indent}\tdone`);
+		lines.push(`${indent}fi`);
+	}
+	return lines.join('\n');
 }
 
 /**

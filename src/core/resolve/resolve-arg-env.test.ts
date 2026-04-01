@@ -204,7 +204,6 @@ describe('resolve — arg env number', () => {
 			expect(err.details).toEqual({
 				arg: 'port',
 				envVar: 'PORT',
-				value: 'abc',
 				expected: 'number',
 			});
 			expect(err.suggest).toBe('Set PORT to a valid number');
@@ -266,7 +265,6 @@ describe('resolve — arg env enum', () => {
 			expect(err.details).toEqual({
 				arg: 'region',
 				envVar: 'REGION',
-				value: 'ap',
 				allowed: ['us', 'eu'],
 			});
 			expect(err.suggest).toBe('Set REGION to one of: us, eu');
@@ -339,7 +337,6 @@ describe('resolve — arg env custom', () => {
 			expect(err.details).toEqual({
 				arg: 'color',
 				envVar: 'COLOR',
-				value: 'zzz',
 				expected: 'custom',
 			});
 		}

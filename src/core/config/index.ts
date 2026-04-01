@@ -14,6 +14,11 @@
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
+/** @internal */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 // ---------------------------------------------------------------------------
 // Types — format loaders
 // ---------------------------------------------------------------------------
@@ -316,6 +321,9 @@ async function discoverConfig(
 
 		try {
 			const data = loader.parse(content);
+			if (!isPlainObject(data)) {
+				throw new Error('Config loader must return a plain object');
+			}
 			return { found: true, path: candidatePath, data, format: ext };
 		} catch (cause: unknown) {
 			throw new CLIError(`Failed to parse config file: ${candidatePath}`, {

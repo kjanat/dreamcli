@@ -51,6 +51,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 				...formatHelpSections(defaultCommand, {
 					...options,
 					binName: schema.name,
+					isDefaultHelp: true,
 				}),
 			];
 			const commandUsage = commandSections.shift();
@@ -59,7 +60,8 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 			}
 			if (
 				defaultCommand.description !== undefined &&
-				commandSections[0] === defaultCommand.description
+				schema.description !== undefined &&
+				defaultCommand.description === schema.description
 			) {
 				commandSections.shift();
 			}
@@ -69,7 +71,15 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	}
 
 	const sections = buildRootSections(schema, rootSurface.visibleCommands, width);
-	sections.push(`Run '${schema.name} ${commandPlaceholder(schema)} --help' for more information.`);
+	const placeholder = commandPlaceholder(
+		rootSurface.visibleCommands,
+		rootSurface.visibleDefaultCommand,
+	);
+	sections.push(
+		placeholder.length > 0
+			? `Run '${schema.name} ${placeholder} --help' for more information.`
+			: `Run '${schema.name} --help' for more information.`,
+	);
 
 	return `${sections.join('\n\n')}\n`;
 }
@@ -91,7 +101,12 @@ function buildRootSections(
 	}
 
 	// ---- Usage line ---------------------------------------------------------
-	sections.push(`Usage: ${schema.name} ${commandPlaceholder(schema)} [options]`);
+	const placeholder = commandPlaceholder(visibleCommands, schema.defaultCommand?.schema);
+	sections.push(
+		placeholder.length > 0
+			? `Usage: ${schema.name} ${placeholder} [options]`
+			: `Usage: ${schema.name} [options]`,
+	);
 
 	// ---- Commands list (skip hidden) ----------------------------------------
 	if (visibleCommands.length > 0) {
@@ -103,9 +118,15 @@ function buildRootSections(
 	return sections;
 }
 
-function commandPlaceholder(schema: CLISchemaLike): string {
-	// `[command]` (optional) when a default command exists; `<command>` (required) otherwise.
-	return schema.defaultCommand !== undefined ? '[command]' : '<command>';
+function commandPlaceholder(
+	visibleCommands: readonly CommandSchema[],
+	defaultCommand: CommandSchema | undefined,
+): string {
+	if (visibleCommands.length === 0 && defaultCommand === undefined) {
+		return '';
+	}
+
+	return defaultCommand !== undefined ? '[command]' : '<command>';
 }
 
 function formatRootCommandsSection(

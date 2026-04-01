@@ -327,9 +327,9 @@ Add something conceptually like:
 
 ```json
 {
-  "docs:prepare": "bun run scripts/docs/build-docs-data.ts",
-  "docs:dev": "bun run docs:prepare && vitepress dev docs",
-  "docs:build": "bun run docs:prepare && vitepress build docs"
+	"docs:prepare": "bun run scripts/docs/build-docs-data.ts",
+	"docs:dev": "bun run docs:prepare && vitepress dev docs",
+	"docs:build": "bun run docs:prepare && vitepress build docs"
 }
 ```
 

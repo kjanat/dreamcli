@@ -16,12 +16,11 @@ Organized by feature area, with implementation options and trade-offs.
 
 ### Known Gaps
 
-- **API doc coverage**: ~54% of value exports from `dreamcli` are documented
-  in reference pages. 16 undocumented: `ArgBuilder`, `CLIBuilder`,
-  `CommandBuilder`, `FlagBuilder`, `SHELLS`, `buildConfigSearchPaths`,
-  `createArgSchema`, `createSchema`, `createTerminalPrompter`,
-  `discoverConfig`, `discoverPackageJson`, `generateBashCompletion`,
-  `generateZshCompletion`, `inferCliName`, `plugin`, `resolvePromptConfig`.
+- **API doc coverage**: ~68% of value exports from `dreamcli` are documented
+  in reference pages. 11 undocumented: `ArgBuilder`, `CLIBuilder`,
+  `CommandBuilder`, `FlagBuilder`, `SHELLS`, `createArgSchema`,
+  `createSchema`, `createTerminalPrompter`, `generateBashCompletion`,
+  `generateZshCompletion`, `resolvePromptConfig`.
 - **No frontmatter**: Only `index.md` has frontmatter. Every other page
   lacks `title`/`description` for SEO and search.
 - **No cross-links**: Guide pages don't link to matching `examples/*.ts`
@@ -275,9 +274,9 @@ files into `docs/reference/api/` and a sidebar JSON for navigation.
 
 ```json
 {
-  "predocs": "typedoc",
-  "docs:dev": "npm run predocs && vitepress dev docs",
-  "docs:build": "npm run predocs && vitepress build docs"
+	"predocs": "typedoc",
+	"docs:dev": "npm run predocs && vitepress dev docs",
+	"docs:build": "npm run predocs && vitepress build docs"
 }
 ```
 
@@ -469,8 +468,8 @@ options are chosen for the features above.
 ```ts
 // .vitepress/config.ts
 export default defineConfig({
-  lastUpdated: true,
-  // ...
+	lastUpdated: true,
+	// ...
 });
 ```
 
@@ -493,8 +492,8 @@ Adds "Edit this page" link to every page. Two lines.
 
 ```ts
 export default defineConfig({
-  deadLinks: 'fail', // or 'warn'
-  // ...
+	deadLinks: 'fail', // or 'warn'
+	// ...
 });
 ```
 

@@ -95,7 +95,8 @@ interface CLIPlugin {
  * ```
  */
 function plugin(hooks: CLIPluginHooks, name?: string): CLIPlugin {
-	return { hooks, name };
+	const frozenHooks = Object.freeze({ ...hooks });
+	return Object.freeze({ hooks: frozenHooks, name });
 }
 
 export type {

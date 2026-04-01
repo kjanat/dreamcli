@@ -81,7 +81,7 @@ Bugs in the program itself:
 
 ```bash
 Internal error: unexpected null in parseConfig
-Please report this at: https://github.com/...
+Please report this at: https://github.com/kjanat/dreamcli/issues
 ```
 
 These are rare in production but should:

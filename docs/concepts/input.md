@@ -125,7 +125,11 @@ Good CLIs handle this gracefully:
 
 ## Resolution Order
 
-When a value can come from multiple places, there's a natural priority:
+When a value can come from multiple places, there's a natural priority.
+
+The first source that has a value wins.
+
+Flags:
 
 ```text
 1. Command-line flag     (highest — you typed it explicitly)
@@ -135,8 +139,18 @@ When a value can come from multiple places, there's a natural priority:
 5. Default value         (fallback)
 ```
 
-The first source that has a value wins. This way, you can set defaults in a config file but override
-them per-command or per-environment.
+Positional arguments that opt into extra sources:
+
+Only positional arguments that call methods like `.stdin()` or `.env()` participate in this
+priority chain. Positional args without those opt-ins remain CLI-only and therefore stay
+required-or-optional based on their own declaration.
+
+```text
+1. Command-line argument token
+2. STDIN
+3. Environment variable
+4. Default value
+```
 
 ## What's Next?
 

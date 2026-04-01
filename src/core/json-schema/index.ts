@@ -84,6 +84,10 @@ const DEFINITION_SCHEMA_URL = 'https://dreamcli.kjanat.com/schemas/cli/v1.json';
 /** Meta-schema URL for JSON Schema draft 2020-12 (input validation). */
 const JSON_SCHEMA_DRAFT = 'https://json-schema.org/draft/2020-12/schema';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 // ===================================================================
 // Definition schema — generateSchema()
 // ===================================================================
@@ -369,9 +373,10 @@ function generateInputSchema(
 
 	// Single branch: emit flat (no oneOf wrapper)
 	if (branches.length === 1) {
+		const branch = stripCommandDiscriminator(branches[0] ?? {});
 		return {
 			$schema: JSON_SCHEMA_DRAFT,
-			...branches[0],
+			...branch,
 		};
 	}
 
@@ -460,10 +465,40 @@ function commandToInputSchema(
 	const result: Record<string, unknown> = {
 		type: 'object',
 		properties,
+		additionalProperties: false,
 	};
 
 	if (required.length > 0) {
 		result.required = required;
+	}
+
+	return result;
+}
+
+/** @internal */
+function stripCommandDiscriminator(branch: Record<string, unknown>): Record<string, unknown> {
+	const propertiesValue = branch.properties;
+	const requiredValue = branch.required;
+	const properties = isRecord(propertiesValue) ? { ...propertiesValue } : undefined;
+	const required = Array.isArray(requiredValue)
+		? requiredValue.filter((value): value is string => typeof value === 'string')
+		: undefined;
+
+	if (properties !== undefined) {
+		delete properties.command;
+	}
+
+	const cleanedRequired = required?.filter((value) => value !== 'command');
+	const result: Record<string, unknown> = { ...branch };
+
+	if (properties !== undefined) {
+		result.properties = properties;
+	}
+
+	if (cleanedRequired !== undefined && cleanedRequired.length > 0) {
+		result.required = cleanedRequired;
+	} else {
+		delete result.required;
 	}
 
 	return result;

@@ -104,7 +104,7 @@ describe('createDenoAdapter — basic contract', () => {
 
 	it('throws for unsupported Deno versions', () => {
 		const ns = mockDeno({ version: { deno: '2.5.4' } });
-		expect(() => createDenoAdapter(ns)).toThrow('dreamcli requires Deno >= 2.6');
+		expect(() => createDenoAdapter(ns)).toThrow('dreamcli requires Deno >= 2.6.0');
 	});
 });
 

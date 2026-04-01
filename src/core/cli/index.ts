@@ -793,9 +793,11 @@ class CLIBuilder {
 				'shell',
 				arg
 					.custom((raw: string): Shell => {
-						// Normalize $SHELL paths: /bin/zsh → zsh, /usr/local/bin/bash → bash
-						const segments = raw.split('/');
-						const name = segments[segments.length - 1] ?? raw;
+						// Normalize $SHELL paths across Unix/Windows:
+						// /bin/zsh → zsh, C:\Program Files\PowerShell\7\pwsh.exe → pwsh
+						const segments = raw.split(/[\\/]/);
+						const basename = segments[segments.length - 1] ?? raw;
+						const name = basename.replace(/\.(?:exe|cmd|bat)$/i, '');
 						const shell = shellMap.get(name);
 						if (shell === undefined) {
 							throw new Error(`Unknown shell '${name}'. Valid shells: ${SHELLS.join(', ')}`);

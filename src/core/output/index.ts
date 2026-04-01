@@ -240,7 +240,7 @@ class OutputChannel implements Out {
 		const text = formatTable(rows, columns);
 		if (text.length === 0) return;
 
-		writeLine(resolveTextTableWriter(this.options, tableOptions), text);
+		writeLine(resolveTextTableWriter(this.options, format, tableOptions), text);
 	}
 
 	// ----- Active handle tracking -----
@@ -451,9 +451,15 @@ function resolveTableFormat(jsonMode: boolean, options?: TableOptions): 'text' |
 
 function resolveTextTableWriter(
 	options: ResolvedOutputOptions,
+	format: 'text' | 'json',
 	tableOptions?: TableOptions,
 ): WriteFn {
-	if (tableOptions?.format === 'text' && tableOptions.stream !== undefined) {
+	if (
+		format === 'text' &&
+		tableOptions !== undefined &&
+		'stream' in tableOptions &&
+		tableOptions.stream !== undefined
+	) {
 		return tableOptions.stream === 'stderr' ? options.stderr : options.stdout;
 	}
 

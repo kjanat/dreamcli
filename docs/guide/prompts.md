@@ -68,7 +68,7 @@ const result = await runCommand(cmd, [], {
 });
 
 // Simulate cancellation
-const result = await runCommand(cmd, [], {
+const cancelled = await runCommand(cmd, [], {
   prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```

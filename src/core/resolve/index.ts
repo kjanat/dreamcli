@@ -853,28 +853,14 @@ function resolveArgs(
 	for (const entry of argEntries) {
 		const { name, schema } = entry;
 		const parsedValue = parsedArgs[name];
-		const usesCliValue = parsedValue !== undefined && (!schema.stdinMode || parsedValue !== '-');
+		const usesCliValue =
+			parsedValue !== undefined &&
+			(!schema.stdinMode || parsedValue !== '-') &&
+			!(schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0);
 
 		if (usesCliValue) {
 			if (schema.deprecated !== undefined) {
 				deprecations.push({ kind: 'arg', name, message: schema.deprecated });
-			}
-			// For variadic args, the parser produces an array. An empty array
-			// means "present but no values" — still valid unless required checks.
-			if (schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0) {
-				// Variadic with zero values — check if required
-				if (schema.presence === 'required') {
-					errors.push(
-						new ValidationError(`Missing required argument <${name}>`, {
-							code: 'REQUIRED_ARG',
-							details: { arg: name, variadic: true },
-							suggest: buildRequiredArgSuggest(name, schema, true),
-						}),
-					);
-					continue;
-				}
-				resolved[name] = [];
-				continue;
 			}
 			resolved[name] = parsedValue;
 			continue;
@@ -1003,6 +989,131 @@ function buildArgCoercionSuggest(
 		: `Pipe a valid value to stdin for <${argName}>`;
 }
 
+// Arg stdin/env coercion currently only covers string-backed arg kinds
+// (`string | number | enum | custom`). Mapping `stdin` to the flag-side
+// `prompt` source is therefore safe today because prompt-only behaviors such
+// as boolean `y`/`n` parsing and array trimming cannot apply. If arg sources
+// are extended to support boolean or array coercion later, this helper must
+// be updated to preserve those distinctions explicitly.
+function argSourceToCoerceSource(source: ArgStringSource): CoerceSource {
+	return source.kind === 'env' ? { kind: 'env', envVar: source.envVar } : { kind: 'prompt' };
+}
+
+function argSchemaToFlagSchema(schema: ArgSchema): FlagSchema {
+	const base = {
+		presence: 'optional' as const,
+		defaultValue: undefined,
+		aliases: [],
+		envVar: undefined,
+		configPath: undefined,
+		description: schema.description,
+		prompt: undefined,
+		deprecated: schema.deprecated,
+		propagate: false,
+		enumValues: undefined,
+		elementSchema: undefined,
+		parseFn: undefined as ((raw: unknown) => unknown) | undefined,
+	};
+
+	switch (schema.kind) {
+		case 'string':
+			return { ...base, kind: 'string' };
+		case 'number':
+			return { ...base, kind: 'number' };
+		case 'enum':
+			return { ...base, kind: 'enum', enumValues: schema.enumValues };
+		case 'custom': {
+			if (schema.parseFn === undefined) {
+				return { ...base, kind: 'custom', parseFn: undefined };
+			}
+			const parseFn = schema.parseFn;
+			return {
+				...base,
+				kind: 'custom',
+				parseFn: (raw: unknown): unknown => parseFn(typeof raw === 'string' ? raw : String(raw)),
+			};
+		}
+		default: {
+			const _exhaustive: never = schema.kind;
+			return _exhaustive;
+		}
+	}
+}
+
+function redactArgCoercionMessage(
+	argName: string,
+	source: ArgStringSource,
+	schema: ArgSchema,
+	error: ValidationError,
+): string {
+	switch (schema.kind) {
+		case 'number':
+			return `Invalid number value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		case 'enum': {
+			const allowed = Array.isArray(error.details?.allowed)
+				? error.details.allowed.filter((value): value is string => typeof value === 'string')
+				: [];
+			return `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>. Allowed: ${allowed.join(', ')}`;
+		}
+		case 'custom': {
+			const match = /: ([^:]+)$/.exec(error.message);
+			const suffix = match?.[1];
+			return suffix !== undefined
+				? `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>: ${suffix}`
+				: `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		}
+		case 'string':
+			return `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		default: {
+			const _exhaustive: never = schema.kind;
+			return _exhaustive;
+		}
+	}
+}
+
+function redactArgCoercionDetails(
+	argName: string,
+	source: ArgStringSource,
+	schema: ArgSchema,
+	error: ValidationError,
+): Readonly<Record<string, unknown>> {
+	return {
+		arg: argName,
+		...argSourceDetails(source),
+		...(schema.kind === 'number' || schema.kind === 'custom' ? { expected: schema.kind } : {}),
+		...(schema.kind === 'enum' && Array.isArray(error.details?.allowed)
+			? {
+					allowed: error.details.allowed.filter(
+						(value): value is string => typeof value === 'string',
+					),
+				}
+			: {}),
+	};
+}
+
+function redactArgCoercionSuggest(
+	argName: string,
+	source: ArgStringSource,
+	schema: ArgSchema,
+	error: ValidationError,
+): string | undefined {
+	if (schema.kind === 'number' || schema.kind === 'custom') {
+		return buildArgCoercionSuggest(argName, source, schema.kind);
+	}
+
+	if (schema.kind === 'enum') {
+		const allowed = Array.isArray(error.details?.allowed)
+			? error.details.allowed.filter((value): value is string => typeof value === 'string')
+			: [];
+		const allowedList = allowed.join(', ');
+		return source.kind === 'env'
+			? `Set ${source.envVar} to one of: ${allowedList}`
+			: `Provide one of: ${allowedList}`;
+	}
+
+	return undefined;
+}
+
 /**
  * Coerce a raw stdin/env string to the arg's declared kind.
  *
@@ -1016,93 +1127,36 @@ function coerceArgStringValue(
 	raw: string,
 	schema: ArgSchema,
 ): CoerceResult {
-	switch (schema.kind) {
-		case 'string':
-			return { ok: true, value: raw };
-
-		case 'number': {
-			const n = Number(raw);
-			if (Number.isNaN(n)) {
-				return {
-					ok: false,
-					error: new ValidationError(
-						`Invalid number value '${raw}' ${argSourceLabel(source)} for argument <${argName}>`,
-						{
-							code: 'TYPE_MISMATCH',
-							details: {
-								arg: argName,
-								...argSourceDetails(source),
-								value: raw,
-								expected: 'number',
-							},
-							suggest: buildArgCoercionSuggest(argName, source, 'number'),
-						},
-					),
-				};
-			}
-			return { ok: true, value: n };
-		}
-
-		case 'enum': {
-			const allowed = schema.enumValues ?? [];
-			if (allowed.includes(raw)) {
-				return { ok: true, value: raw };
-			}
-			const allowedList = allowed.join(', ');
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid value '${raw}' ${argSourceLabel(source)} for argument <${argName}>. Allowed: ${allowedList}`,
-					{
-						code: 'INVALID_ENUM',
-						details: {
-							arg: argName,
-							...argSourceDetails(source),
-							value: raw,
-							allowed,
-						},
-						suggest:
-							source.kind === 'env'
-								? `Set ${source.envVar} to one of: ${allowedList}`
-								: `Provide one of: ${allowedList}`,
-					},
-				),
-			};
-		}
-
-		case 'custom': {
-			if (schema.parseFn === undefined) {
-				// Defensive — custom args always have a parseFn
-				return { ok: true, value: raw };
-			}
-			try {
-				return { ok: true, value: schema.parseFn(raw) };
-			} catch (err) {
-				const message = err instanceof Error ? err.message : `Failed to parse '${raw}'`;
-				return {
-					ok: false,
-					error: new ValidationError(
-						`Invalid value '${raw}' ${argSourceLabel(source)} for argument <${argName}>: ${message}`,
-						{
-							code: 'TYPE_MISMATCH',
-							details: {
-								arg: argName,
-								...argSourceDetails(source),
-								value: raw,
-								expected: 'custom',
-							},
-							suggest: buildArgCoercionSuggest(argName, source, 'custom'),
-						},
-					),
-				};
-			}
-		}
-
-		default: {
-			const _exhaustive: never = schema.kind;
-			return _exhaustive;
-		}
+	const coerced = coerceValue(
+		argName,
+		argSourceToCoerceSource(source),
+		raw,
+		argSchemaToFlagSchema(schema),
+	);
+	if (coerced.ok) {
+		return coerced;
 	}
+
+	const suggest = redactArgCoercionSuggest(argName, source, schema, coerced.error);
+	const options =
+		suggest === undefined
+			? {
+					code: coerced.error.code,
+					details: redactArgCoercionDetails(argName, source, schema, coerced.error),
+				}
+			: {
+					code: coerced.error.code,
+					details: redactArgCoercionDetails(argName, source, schema, coerced.error),
+					suggest,
+				};
+
+	return {
+		ok: false,
+		error: new ValidationError(
+			redactArgCoercionMessage(argName, source, schema, coerced.error),
+			options,
+		),
+	};
 }
 
 // ---------------------------------------------------------------------------

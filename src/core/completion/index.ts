@@ -29,24 +29,19 @@ import { generateZshCompletion } from './shells/zsh.ts';
 type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 
 /**
- * All shell values as a frozen readonly non-empty tuple (useful for validation + flag.enum()).
+ * Implemented shell values as a frozen readonly non-empty tuple.
  *
- * **Only `bash` and `zsh` are implemented.** `fish` and `powershell` are reserved for future use
- * and will throw a {@link CLIError} with code `UNSUPPORTED_OPERATION` at generation time.
- * Because `flag.enum(SHELLS)` exposes all four values, callers should be aware that selecting
- * an unimplemented shell produces a runtime error, not a validation error.
- *
- * This tuple is mainly useful for CLI validation and shell selection UIs;
- * most consumers will pass a concrete string literal to {@link generateCompletion}.
+ * Use this tuple for user-facing validation and shell selection UIs.
+ * Unimplemented planned shells remain part of the broader {@link Shell} union
+ * for direct generator calls and future expansion, but they are intentionally
+ * omitted here so user-facing CLIs do not advertise unsupported targets.
  *
  * @see {@link Shell} for the union type matching these entries.
  */
-const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish', 'powershell']> = Object.freeze([
+const SHELLS: Readonly<readonly ['bash', 'zsh']> = Object.freeze([
 	'bash',
 	'zsh',
-	'fish',
-	'powershell',
-] as const satisfies readonly [Shell, ...Shell[]]);
+] as const satisfies readonly ['bash', 'zsh']);
 
 // ---------------------------------------------------------------------------
 // Shell-agnostic dispatch

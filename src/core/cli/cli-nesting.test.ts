@@ -39,8 +39,8 @@ function dbGroup() {
 		.command(seedCommand());
 }
 
-function hasPropagatedVerbose(flags: Record<string, unknown>): boolean {
-	return flags['verbose'] === true;
+function hasPropagatedVerbose(flags: { readonly verbose?: boolean }): boolean {
+	return flags.verbose === true;
 }
 
 // ===================================================================
@@ -164,7 +164,7 @@ describe('CLIBuilder — propagated flags through nesting', () => {
 		const migrate = command('migrate')
 			.description('Run migrations')
 			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		const db = group('db')
@@ -182,7 +182,7 @@ describe('CLIBuilder — propagated flags through nesting', () => {
 		const up = command('up')
 			.description('Run migrations up')
 			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags as Record<string, unknown>))}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		const migrate = group('migrate').description('Migration commands').command(up);

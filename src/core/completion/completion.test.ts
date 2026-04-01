@@ -132,8 +132,8 @@ function extractZshRootFunction(script: string, funcName = '_testcli'): string {
 // ===================================================================
 
 describe('Shell type — SHELLS constant', () => {
-	it('contains all four shell targets', () => {
-		expect(SHELLS).toEqual(['bash', 'zsh', 'fish', 'powershell']);
+	it('contains only implemented shell targets', () => {
+		expect(SHELLS).toEqual(['bash', 'zsh']);
 	});
 
 	it('is a frozen readonly tuple', () => {
@@ -453,7 +453,7 @@ describe('generateBashCompletion — enum value completions', () => {
 		});
 		const script = generateBashCompletion(schema);
 
-		expect(script).toContain('case "$prev" in');
+		expect(script).toContain(`case "\${enum_flag:-$prev}" in`);
 		expect(script).toContain('--region)');
 		expect(script).toContain("'us-east-1 eu-west-1 ap-south-1'");
 	});
@@ -495,7 +495,7 @@ describe('generateBashCompletion — enum value completions', () => {
 		});
 		const script = generateBashCompletion(schema);
 
-		expect(script).not.toContain('case "$prev" in');
+		expect(script).not.toContain(`case "\${enum_flag:-$prev}" in`);
 	});
 
 	// --- Cross-command enum isolation ---
@@ -587,11 +587,11 @@ describe('generateBashCompletion — enum value completions', () => {
 		const buildBlock = flagSection.slice(buildIdx).join('\n');
 
 		// Deploy should have enum case block
-		expect(deployBlock).toContain('case "$prev" in');
+		expect(deployBlock).toContain(`case "\${enum_flag:-$prev}" in`);
 		expect(deployBlock).toContain("'prod staging'");
 
 		// Build should NOT have enum case block (no enum flags)
-		expect(buildBlock).not.toContain('case "$prev" in');
+		expect(buildBlock).not.toContain(`case "\${enum_flag:-$prev}" in`);
 	});
 });
 
@@ -1583,14 +1583,16 @@ describe('generateBashCompletion — nested subcommand path detection', () => {
 		const script = generateBashCompletion(nestedSchema());
 
 		// Top-level detection should include db, database, deploy
-		expect(script).toContain('db|database|deploy)');
+		expect(script).toContain('db|database)');
+		expect(script).toContain('deploy)');
 	});
 
 	it('generates path extension for group commands with children', () => {
 		const script = generateBashCompletion(nestedSchema());
 
 		// When subcmd_path is "db", should match child names
-		expect(script).toContain('migrate|seed|s)');
+		expect(script).toContain('migrate)');
+		expect(script).toContain('seed|s)');
 	});
 
 	it('generates case branches for nested command paths', () => {

@@ -14,7 +14,7 @@ function parsePath(raw: string): ParsedPath {
 // Factory functions — runtime schema
 // ---------------------------------------------------------------------------
 
-describe('arg.string()', () => {
+describe('arg.string() — creates and modifies string args', () => {
 	it('creates a string arg with required presence', () => {
 		const a = arg.string();
 		expect(a).toBeInstanceOf(ArgBuilder);
@@ -25,7 +25,7 @@ describe('arg.string()', () => {
 	});
 });
 
-describe('arg.number()', () => {
+describe('arg.number() — creates and modifies number args', () => {
 	it('creates a number arg with required presence', () => {
 		const a = arg.number();
 		expect(a.schema.kind).toBe('number');
@@ -34,7 +34,7 @@ describe('arg.number()', () => {
 	});
 });
 
-describe('arg.enum()', () => {
+describe('arg.enum() — creates and modifies enum args', () => {
 	it('creates an enum arg with required presence', () => {
 		const a = arg.enum(['us', 'eu', 'ap']);
 		expect(a).toBeInstanceOf(ArgBuilder);
@@ -74,7 +74,7 @@ describe('arg.enum()', () => {
 	});
 });
 
-describe('arg.custom()', () => {
+describe('arg.custom() — creates and modifies custom args', () => {
 	it('creates a custom arg with the provided parse function', () => {
 		const a = arg.custom(parsePath);
 		expect(a.schema.kind).toBe('custom');

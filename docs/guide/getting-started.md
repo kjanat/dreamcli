@@ -20,8 +20,8 @@ deno add jsr:@kjanat/dreamcli
 
 Supported minimum runtimes:
 Node.js >= 22.22.2,
-Bun >= 1.3,
-Deno >= 2.6.
+Bun >= 1.3.11,
+Deno >= 2.6.0.
 
 ## Your First Command
 
@@ -71,7 +71,9 @@ const login = command('login')
   .description('Authenticate with the service')
   .flag('token', flag.string())
   .action(({ flags, out }) => {
-    out.log(`Logged in with token: ${flags.token ?? 'interactive'}`);
+    out.log(
+      flags.token ? 'Authenticated via token' : 'Authenticated interactively',
+    );
   });
 
 cli('mycli')
@@ -87,7 +89,7 @@ $ mycli deploy production --force
 Deploying production to default
 
 $ mycli login --token abc123
-Logged in with token: abc123
+Authenticated via token
 ```
 
 ## What's Next?

@@ -224,11 +224,21 @@ const prCreate = command('create')
 	.derive(({ flags }) => requireAuth(flags.token))
 	.flag(
 		'title',
-		flag.string().alias('t').describe('PR title').prompt({ kind: 'input', message: 'Title:' }),
+		flag
+			.string()
+			.required()
+			.alias('t')
+			.describe('PR title')
+			.prompt({ kind: 'input', message: 'Title:' }),
 	)
 	.flag(
 		'body',
-		flag.string().alias('b').describe('PR body').prompt({ kind: 'input', message: 'Body:' }),
+		flag
+			.string()
+			.required()
+			.alias('b')
+			.describe('PR body')
+			.prompt({ kind: 'input', message: 'Body:' }),
 	)
 	.flag('draft', flag.boolean().alias('d').default(false).describe('Create as draft'))
 	.action(async ({ flags, out }) => {

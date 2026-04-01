@@ -27,21 +27,21 @@ const denoAdapter = createDenoAdapter(); // explicit Deno
 
 ### RuntimeAdapter Interface
 
-| Member           | Kind     | Description                               |
-| ---------------- | -------- | ----------------------------------------- |
-| `argv`           | readonly | Raw command-line arguments                |
-| `env`            | readonly | Environment variables                     |
-| `cwd`            | readonly | Current working directory                 |
-| `stdout`         | readonly | Stdout writer used by the output channel  |
-| `stderr`         | readonly | Stderr writer used by the output channel  |
-| `stdin`          | readonly | Line reader used for interactive prompts  |
-| `readStdin()`    | method   | Read all piped stdin as a single string   |
-| `isTTY`          | readonly | Whether stdout is connected to a TTY      |
-| `stdinIsTTY`     | readonly | Whether stdin is connected to a TTY       |
-| `exit(code)`     | method   | Exit the process                          |
-| `readFile(path)` | method   | Read a UTF-8 file for config discovery    |
-| `homedir`        | readonly | User home directory                       |
-| `configDir`      | readonly | Platform-specific configuration directory |
+| Member           | Kind     | Description                                                                               |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `argv`           | readonly | Raw command-line arguments                                                                |
+| `env`            | readonly | Environment variables                                                                     |
+| `cwd`            | readonly | Current working directory                                                                 |
+| `stdout`         | readonly | Stdout writer used by the output channel                                                  |
+| `stderr`         | readonly | Stderr writer used by the output channel                                                  |
+| `stdin`          | readonly | Line reader used for interactive prompts                                                  |
+| `readStdin()`    | method   | Read all piped stdin as a single string, or `null` when stdin is a TTY / no data is piped |
+| `isTTY`          | readonly | Whether stdout is connected to a TTY                                                      |
+| `stdinIsTTY`     | readonly | Whether stdin is connected to a TTY                                                       |
+| `exit(code)`     | method   | Exit the process                                                                          |
+| `readFile(path)` | method   | Read a UTF-8 file for config discovery                                                    |
+| `homedir`        | readonly | User home directory                                                                       |
+| `configDir`      | readonly | Platform-specific configuration directory                                                 |
 
 ## `detectRuntime()`
 
@@ -54,10 +54,10 @@ const runtime = detectRuntime();
 
 ## Supported Runtimes
 
-| Runtime       | Adapter       | Notes                          |
-| ------------- | ------------- | ------------------------------ |
-| Node.js >= 22 | `NodeAdapter` | Full support                   |
-| Bun >= 1.3    | `BunAdapter`  | Delegates to Node adapter      |
-| Deno >= 2.6   | `DenoAdapter` | Permission-safe Deno namespace |
+| Runtime            | Adapter       | Notes                          |
+| ------------------ | ------------- | ------------------------------ |
+| Node.js >= 22.22.2 | `NodeAdapter` | Full support                   |
+| Bun >= 1.3.11      | `BunAdapter`  | Delegates to Node adapter      |
+| Deno >= 2.6.0      | `DenoAdapter` | Permission-safe Deno namespace |
 
 Adapter creation validates these minimum versions and throws immediately when the host runtime is too old.

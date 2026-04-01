@@ -274,7 +274,7 @@ describe('.default() — help and version', () => {
 		expect(output).toContain('Commands:');
 		expect(output).toContain('deploy (default)');
 		expect(output).toContain('       mycli deploy [flags] <target>');
-		expect(output).not.toContain('\n\nDeploy to an environment\n\nArguments:');
+		expect(output).toContain('\n\nDeploy to an environment\n\nArguments:');
 		expect(output).not.toContain("Run 'mycli [command] --help' for more information.");
 	});
 
@@ -431,7 +431,7 @@ describe('.default() — same-name command help', () => {
 		expect(output).not.toContain('Usage: greet greet [flags] <name>');
 	});
 
-	it('collapses duplicate binary and command names for explicit command help', async () => {
+	it('keeps binary and command names for explicit command help', async () => {
 		const greet = command('greet')
 			.description('Greet someone')
 			.arg('name', arg.string().describe('Who to greet'))
@@ -444,8 +444,7 @@ describe('.default() — same-name command help', () => {
 
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
-		expect(output).toContain('Usage: greet [flags] <name>');
-		expect(output).not.toContain('Usage: greet greet [flags] <name>');
+		expect(output).toContain('Usage: greet greet [flags] <name>');
 	});
 
 	it('includes nested default-command subcommands in merged root help', async () => {

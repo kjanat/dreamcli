@@ -44,7 +44,7 @@ type WidenContext<C extends Record<string, unknown>, Output extends Record<strin
 /**
  * Widen the context type when adding command-scoped derived context.
  *
- * Validation-only derive handlers return `void`, preserving `C`.
+ * Validation-only derive handlers return `undefined`, preserving `C`.
  * Context-producing derive handlers return an object that merges into `C`
  * using the same first-call replacement rules as middleware.
  */
@@ -334,7 +334,7 @@ type DeriveParams<
  *
  * Derive handlers may:
  * - validate resolved input and throw `CLIError`
- * - return `void` to continue without changing context
+ * - return `undefined` to continue without changing context
  * - return an object whose properties merge into `ctx` downstream
  *
  * They cannot wrap downstream execution; use `middleware()` for that.
@@ -343,7 +343,7 @@ type DeriveHandler<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
-	Output extends Record<string, unknown> | void = void,
+	Output extends Record<string, unknown> | undefined = undefined,
 > = (params: DeriveParams<F, A, C>) => Output | Promise<Output>;
 
 /**
@@ -357,7 +357,10 @@ type ErasedDeriveHandler = (params: {
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	readonly meta: CommandMeta;
-}) => void | Readonly<Record<string, unknown>> | Promise<void | Readonly<Record<string, unknown>>>;
+}) =>
+	| undefined
+	| Readonly<Record<string, unknown>>
+	| Promise<undefined | Readonly<Record<string, unknown>>>;
 
 /**
  * Internal execution step union preserving registration order across
@@ -684,7 +687,7 @@ class CommandBuilder<
 	 * Derive runs after full resolution and before the action handler.
 	 * It receives typed `{ args, flags, ctx, out, meta }` and may either:
 	 *
-	 * - return `void` for validation-only behavior
+	 * - return `undefined` for validation-only behavior
 	 * - return an object to merge additional properties into `ctx`
 	 *
 	 * Unlike middleware, derive cannot wrap downstream execution and does not
@@ -712,7 +715,7 @@ class CommandBuilder<
 	 *   });
 	 * ```
 	 */
-	derive<Output extends Record<string, unknown> | void>(
+	derive<Output extends Record<string, unknown> | undefined>(
 		handler: DeriveHandler<F, A, C, Output>,
 	): CommandBuilder<F, A, WidenDerivedContext<C, Output>> {
 		const erased = handler as unknown as ErasedDeriveHandler;

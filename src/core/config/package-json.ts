@@ -29,10 +29,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * All fields are optional — a valid package.json may omit any of them.
  */
 interface PackageJsonData {
-	readonly name: string | undefined;
-	readonly version: string | undefined;
-	readonly description: string | undefined;
-	readonly bin: string | Readonly<Record<string, string>> | undefined;
+	readonly name?: string;
+	readonly version?: string;
+	readonly description?: string;
+	readonly bin?: string | Readonly<Record<string, string>>;
 }
 
 /**
@@ -122,7 +122,10 @@ async function discoverPackageJson(adapter: PackageJsonAdapter): Promise<Package
 			// syscall failures — skip this directory and keep walking up.
 		}
 		if (content !== null) {
-			return parsePackageJson(content);
+			const parsed = parsePackageJson(content);
+			if (parsed !== null) {
+				return parsed;
+			}
 		}
 		dir = parentDir(dir);
 	}
@@ -147,11 +150,16 @@ function parsePackageJson(content: string): PackageJsonData | null {
 		if (!isPlainObject(parsed)) {
 			return null;
 		}
+		const name = typeof parsed['name'] === 'string' ? parsed['name'] : undefined;
+		const version = typeof parsed['version'] === 'string' ? parsed['version'] : undefined;
+		const description =
+			typeof parsed['description'] === 'string' ? parsed['description'] : undefined;
+		const bin = parseBinField(parsed['bin']);
 		return {
-			name: typeof parsed['name'] === 'string' ? parsed['name'] : undefined,
-			version: typeof parsed['version'] === 'string' ? parsed['version'] : undefined,
-			description: typeof parsed['description'] === 'string' ? parsed['description'] : undefined,
-			bin: parseBinField(parsed['bin']),
+			...(name !== undefined ? { name } : {}),
+			...(version !== undefined ? { version } : {}),
+			...(description !== undefined ? { description } : {}),
+			...(bin !== undefined ? { bin } : {}),
 		};
 	} catch {
 		return null;

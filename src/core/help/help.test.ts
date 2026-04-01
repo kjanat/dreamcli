@@ -123,11 +123,10 @@ describe('formatHelp', () => {
 			expect(help).toContain('Usage: mycli deploy');
 		});
 
-		it('collapses duplicate binName and command name', () => {
+		it('includes both binName and command name for explicit command help', () => {
 			const cmd = command('greet').arg('target', arg.string());
 			const help = formatHelp(cmd.schema, { binName: 'greet' });
-			expect(help).toContain('Usage: greet <target>');
-			expect(help).not.toContain('Usage: greet greet <target>');
+			expect(help).toContain('Usage: greet greet <target>');
 		});
 
 		it('shows flags and args together in correct order', () => {

@@ -312,20 +312,20 @@ describe('.completions() — error handling', () => {
 		expect(output).toContain('#!/usr/bin/env bash');
 	});
 
-	it('errors with UNSUPPORTED_OPERATION for unimplemented shell', async () => {
+	it('errors when fish is requested through the user-facing shell arg', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'fish']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain('not yet supported');
+		expect(result.error?.message).toContain("Unknown shell 'fish'");
 	});
 
-	it('errors with UNSUPPORTED_OPERATION for powershell', async () => {
+	it('errors when powershell is requested through the user-facing shell arg', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'powershell']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain('not yet supported');
+		expect(result.error?.message).toContain("Unknown shell 'powershell'");
 	});
 
 	it('errors when shell arg has unsupported value', async () => {
@@ -425,9 +425,9 @@ describe('.completions() — --json mode', () => {
 	});
 });
 
-// ===================================================================
+// ===
 // Alias dispatch
-// ===================================================================
+// ===
 
 describe('.completions() — alias dispatch', () => {
 	it('dispatches via "completion" (singular) alias', async () => {
@@ -439,9 +439,9 @@ describe('.completions() — alias dispatch', () => {
 	});
 });
 
-// ===================================================================
+// ---
 // Install instruction headers
-// ===================================================================
+// ---
 
 describe('.completions() — install instruction headers', () => {
 	it('bash script includes install instructions in header', async () => {

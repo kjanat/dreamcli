@@ -583,7 +583,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		const { createAdapter } = await import('#internals/runtime/auto.ts');
 		const globals: GlobalForDetect = {
 			Bun: { version: '1.3.11' },
-			process: { versions: { node: '22.0.0' } },
+			process: { versions: { node: '22.22.2' } },
 		};
 		const adapter = createAdapter(globals);
 		expect(adapter).toBeDefined();
@@ -610,15 +610,14 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 // ===================================================================
 
 describe('E2E — completions error paths via CLI dispatch', () => {
-	it('unsupported shell produces descriptive UNSUPPORTED_OPERATION error', async () => {
+	it('unsupported planned shell is rejected by the user-facing shell arg', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		// 'fish' is a valid Shell enum value but not yet implemented —
-		// generateCompletion throws a CLIError with a clear message
+		// The public completions command only exposes implemented shells.
 		const result = await app.execute(['completions', 'fish']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain('not yet supported');
+		expect(result.error?.message).toContain("Unknown shell 'fish'");
 	});
 
 	it('missing shell arg via run() path outputs error', async () => {
@@ -792,8 +791,8 @@ describe('E2E — nested bash completion via .completions()', () => {
 		const lines = script.split('\n');
 		const completeSectionIdx = lines.findIndex((l) => l.includes('Complete flags'));
 		const completeSection = lines.slice(completeSectionIdx);
-		// Find db|database) inside the completion case (after "Complete flags" comment)
-		const dbIdx = completeSection.findIndex((l) => l.trim().startsWith('db|database)'));
+		// Find db) inside the completion case (after "Complete flags" comment)
+		const dbIdx = completeSection.findIndex((l) => l.trim().startsWith('db)'));
 		expect(dbIdx).toBeGreaterThan(-1);
 		const dbBlock = completeSection.slice(dbIdx, dbIdx + 15).join('\n');
 		expect(dbBlock).toContain('migrate');

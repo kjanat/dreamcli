@@ -388,7 +388,7 @@ describe('per-command --help', () => {
 // `help` virtual subcommand
 // ---------------------------------------------------------------------------
 
-describe('help virtual subcommand', () => {
+describe('help virtual subcommand — behavior', () => {
 	it('bare `help` shows root help', async () => {
 		const app = cli('mycli').version('1.0.0').command(deployCommand()).command(loginCommand());
 		const result = await app.execute(['help']);
@@ -686,7 +686,7 @@ describe('formatRootHelp', () => {
 		const app = cli('mycli');
 		const help = formatRootHelp(app.schema);
 
-		expect(help).toContain('Usage: mycli <command> [options]');
+		expect(help).toContain('Usage: mycli [options]');
 	});
 
 	it('lists visible commands with descriptions', () => {

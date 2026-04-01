@@ -711,7 +711,8 @@ describe('generateInputSchema — input validation', () => {
 
 		expect(result).not.toHaveProperty('oneOf');
 		expect(result).toHaveProperty('type', 'object');
-		expect(result).toHaveProperty(['properties', 'command'], { const: 'deploy' });
+		expect(result).not.toHaveProperty(['properties', 'command']);
+		expect(result).toHaveProperty('additionalProperties', false);
 	});
 
 	it('uses dot-path for nested subcommands', () => {
@@ -736,7 +737,8 @@ describe('generateInputSchema — input validation', () => {
 		// Single invocable command — flat schema
 		expect(result).not.toHaveProperty('oneOf');
 		expect(result).toHaveProperty('type', 'object');
-		expect(result).toHaveProperty(['properties', 'command'], { const: 'group.leaf' });
+		expect(result).not.toHaveProperty(['properties', 'command']);
+		expect(result).toHaveProperty('additionalProperties', false);
 	});
 
 	it('handles deep nesting with dot-paths', () => {
@@ -747,7 +749,8 @@ describe('generateInputSchema — input validation', () => {
 		const result = generateInputSchema(cli);
 
 		expect(result).toHaveProperty('type', 'object');
-		expect(result).toHaveProperty(['properties', 'command'], { const: 'a.b.c' });
+		expect(result).not.toHaveProperty(['properties', 'command']);
+		expect(result).toHaveProperty('additionalProperties', false);
 	});
 
 	// -------------------------------------------------------------------
@@ -770,7 +773,8 @@ describe('generateInputSchema — input validation', () => {
 
 		expect(result).not.toHaveProperty('oneOf');
 		expect(result).toHaveProperty('type', 'object');
-		expect(result).toHaveProperty(['properties', 'command'], { const: 'visible' });
+		expect(result).not.toHaveProperty(['properties', 'command']);
+		expect(result).toHaveProperty('additionalProperties', false);
 	});
 
 	// -------------------------------------------------------------------

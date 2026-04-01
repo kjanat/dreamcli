@@ -85,7 +85,7 @@ Shells use exit codes to chain commands:
 
 ```bash
 # && = run next only if previous succeeded (exit 0)
-npm install && npm test && npm build
+npm install && npm test && npm run build
 
 # || = run next only if previous failed (exit non-zero)
 mycli check || echo "Check failed!"

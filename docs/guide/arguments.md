@@ -92,6 +92,10 @@ When the CLI value is omitted, dreamcli resolves arguments in this order:
 `CLI → stdin → env → default`. With `stdinData: 'hello'` in tests or piped input at runtime,
 `args.data === 'hello'`.
 
+Passing the literal sentinel `-` means “skip normal CLI resolution for this slot and read stdin
+instead”. Omitted positional input follows `CLI → stdin → env → default`, while `-` bypasses the
+CLI step and therefore resolves through `stdin → env → default`.
+
 ### `.stdin()` Constraints
 
 Only one argument per command may call `.stdin()`, and stdin-backed arguments cannot also be

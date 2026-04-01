@@ -172,7 +172,7 @@ $ gh pr list --json
 
 `--json` is handled automatically by `cli()`. `out.table()` renders a formatted table for humans and emits JSON when `--json` is active.
 `out.log()` is suppressed in JSON mode.
-For single-object responses (like `pr view`), use `out.json(data)` instead — it writes structured JSON to stdout only in `--json` mode.
+For single-object responses (like `pr view`), use `out.json(data)` instead — it always writes structured JSON to stdout, regardless of `--json` mode.
 
 ## Step 4: Command groups
 
