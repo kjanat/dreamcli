@@ -585,12 +585,14 @@ class CLIBuilder {
 	 * @example
 	 * ```ts
 	 * import { configFormat } from 'dreamcli';
-	 * import { parse as parseYAML } from 'yaml';
+	 * import { parse as parseYaml } from 'yaml';
 	 * import { parse as parseTOML } from '@iarna/toml';
 	 *
 	 * cli('myapp')
 	 *   .config('myapp')
-	 *   .configLoader(configFormat(['yaml', 'yml'], parseYAML))
+	 *   .configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))
+	 *   .configLoader(configFormat(['toml'], Bun.TOML.parse))
+	 *   .configLoader(configFormat(['yaml', 'yml'], parseYaml))
 	 *   .configLoader(configFormat(['toml'], parseTOML))
 	 *   .run();
 	 * ```

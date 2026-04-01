@@ -340,7 +340,14 @@ to `.configLoader(...)` or `discoverConfig(...)` to add YAML, TOML, or other for
 built-in JSON loader.
 
 ```ts
-configFormat(['yaml', 'yml'], parseYAML);
+configFormat(['yaml', 'yml'], Bun.YAML.parse);
+configFormat(['toml'], Bun.TOML.parse);
+
+import { parse as parseYaml } from 'yaml';
+import { parse as parseTOML } from '@iarna/toml';
+
+configFormat(['yaml', 'yml'], parseYaml);
+configFormat(['toml'], parseTOML);
 ```
 
 ### `discoverConfig(appName, adapter, options?)`
@@ -351,7 +358,12 @@ parsed config data or `{ found: false }` when no config file exists.
 
 ```ts
 const result = await discoverConfig('mycli', adapter, {
-  loaders: [configFormat(['yaml', 'yml'], parseYAML)],
+  loaders: [
+    configFormat(['yaml', 'yml'], Bun.YAML.parse),
+    configFormat(['toml'], Bun.TOML.parse),
+    configFormat(['yaml', 'yml'], parseYaml),
+    configFormat(['toml'], parseTOML),
+  ],
 });
 ```
 

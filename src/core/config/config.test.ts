@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { parse as parseTOML } from '@iarna/toml';
+import { parse as parseYaml } from 'yaml';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.ts';
 import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.ts';
@@ -460,6 +462,19 @@ describe('configFormat — convenience factory', () => {
 		expect(loader.parse).toBe(parse);
 	});
 
+	it('accepts Bun parser signatures at the type level', () => {
+		type ConfigParser = Parameters<typeof configFormat>[1];
+		type AcceptsBunYaml = typeof Bun.YAML.parse extends ConfigParser ? true : false;
+		type AcceptsBunToml = typeof Bun.TOML.parse extends ConfigParser ? true : false;
+		type AcceptsYamlPackage = typeof parseYaml extends ConfigParser ? true : false;
+		type AcceptsIarnaToml = typeof parseTOML extends ConfigParser ? true : false;
+
+		expectTypeOf<AcceptsBunYaml>().toEqualTypeOf<true>();
+		expectTypeOf<AcceptsBunToml>().toEqualTypeOf<true>();
+		expectTypeOf<AcceptsYamlPackage>().toEqualTypeOf<true>();
+		expectTypeOf<AcceptsIarnaToml>().toEqualTypeOf<true>();
+	});
+
 	it('created loader works with discoverConfig', async () => {
 		const iniLoader = configFormat(['ini'], (content: string): Record<string, unknown> => {
 			const result: Record<string, unknown> = {};
@@ -480,6 +495,109 @@ describe('configFormat — convenience factory', () => {
 		if (result.found) {
 			expect(result.format).toBe('ini');
 			expect(result.data).toEqual({ region: 'eu', verbose: 'true' });
+		}
+	});
+
+	it('works with Bun.YAML.parse for object-shaped config files', async () => {
+		const bunRuntime = globalThis.Bun;
+		if (bunRuntime === undefined) return;
+
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': 'deploy:\n  region: eu\nverbose: true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['yaml', 'yml'], bunRuntime.YAML.parse)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('yaml');
+			expect(result.data).toEqual({ deploy: { region: 'eu' }, verbose: true });
+		}
+	});
+
+	it('rejects non-object values from Bun.YAML.parse', async () => {
+		const bunRuntime = globalThis.Bun;
+		if (bunRuntime === undefined) return;
+
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': '---\nname: one\n---\nname: two\n',
+		});
+
+		try {
+			await discoverConfig('myapp', adapter, {
+				loaders: [configFormat(['yaml', 'yml'], bunRuntime.YAML.parse)],
+			});
+			expect.unreachable('should have thrown');
+		} catch (e: unknown) {
+			expect(e).toBeInstanceOf(CLIError);
+			const err = e as CLIError;
+			expect(err.code).toBe('CONFIG_PARSE_ERROR');
+			expect(err.details?.['format']).toBe('yaml');
+			expect(err.details?.['message']).toBe('Config loader must return a plain object');
+		}
+	});
+
+	it('works with Bun.TOML.parse for object-shaped config files', async () => {
+		const bunRuntime = globalThis.Bun;
+		if (bunRuntime === undefined) return;
+
+		const adapter = stubAdapter({
+			'/project/.myapp.toml': 'region = "eu"\nverbose = true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['toml'], bunRuntime.TOML.parse)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('toml');
+			expect(result.data).toEqual({ region: 'eu', verbose: true });
+		}
+	});
+
+	it('works with parseYaml from the yaml package for object-shaped config files', async () => {
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': 'deploy:\n  region: eu\nverbose: true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['yaml', 'yml'], parseYaml)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('yaml');
+			expect(result.data).toEqual({ deploy: { region: 'eu' }, verbose: true });
+		}
+	});
+
+	it('rejects non-object values from parseYaml', async () => {
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': '- one\n- two\n',
+		});
+
+		try {
+			await discoverConfig('myapp', adapter, {
+				loaders: [configFormat(['yaml', 'yml'], parseYaml)],
+			});
+			expect.unreachable('should have thrown');
+		} catch (e: unknown) {
+			expect(e).toBeInstanceOf(CLIError);
+			const err = e as CLIError;
+			expect(err.code).toBe('CONFIG_PARSE_ERROR');
+			expect(err.details?.['format']).toBe('yaml');
+			expect(err.details?.['message']).toBe('Config loader must return a plain object');
+		}
+	});
+
+	it('works with parseTOML from @iarna/toml for object-shaped config files', async () => {
+		const adapter = stubAdapter({
+			'/project/.myapp.toml': 'region = "eu"\nverbose = true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['toml'], parseTOML)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('toml');
+			expect(result.data).toEqual({ region: 'eu', verbose: true });
 		}
 	});
 

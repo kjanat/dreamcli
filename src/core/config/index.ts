@@ -25,8 +25,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * Format loader — parses file content into a config object.
  *
  * Register custom config formats by providing file extensions and a parser.
- * Parsers must return a plain object whose keys become the config data fed
- * into the resolution chain.
+ * Parsers may return any parsed value; {@link discoverConfig} validates that
+ * the result is a plain object before feeding it into the resolution chain.
  *
  * Implementations should throw on syntax or shape errors; the caller wraps
  * those failures as {@link CLIError} with code `CONFIG_PARSE_ERROR`.
@@ -36,12 +36,13 @@ interface FormatLoader {
 	readonly extensions: readonly string[];
 
 	/**
-	 * Parse file content into a plain config object.
+	 * Parse file content into a config value.
 	 *
-	 * Returning arrays, primitives, or `null` is considered invalid for config
-	 * loading even if the underlying format parser would normally allow it.
+	 * Arrays, primitives, and `null` are allowed at this boundary so generic
+	 * parsers like `Bun.YAML.parse` can be passed directly. Those values are
+	 * still rejected by {@link discoverConfig}, which requires a plain object.
 	 */
-	readonly parse: (content: string) => Record<string, unknown>;
+	readonly parse: (content: string) => unknown;
 }
 
 // --- Types — discovery options + result
@@ -273,7 +274,10 @@ type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
  * @example
  * ```ts
  * const result = await discoverConfig('mycli', adapter, {
- *   loaders: [configFormat(['yaml', 'yml'], parseYAML)],
+ *   loaders: [
+ *     configFormat(['yaml', 'yml'], Bun.YAML.parse),
+ *     configFormat(['toml'], Bun.TOML.parse),
+ *   ],
  * });
  * ```
  */
@@ -353,25 +357,30 @@ async function discoverConfig(
  * `CONFIG_PARSE_ERROR`.
  *
  * @param extensions - File extensions this loader handles (without dot, e.g. `'yaml'`).
- * @param parse - Parse function: takes file content string and returns a plain config object.
+ * @param parse - Parse function: takes file content string and returns a parsed config value.
  * @returns A {@link FormatLoader} ready to pass to {@link ConfigDiscoveryOptions.loaders}.
  *
  * @example
  * ```ts
  * import { configFormat } from 'dreamcli';
- * import { parse as parseYAML } from 'yaml';
+ * import { parse as parseYaml } from 'yaml';
+ * import { parse as parseTOML } from '@iarna/toml';
  *
- * const yamlLoader = configFormat(['yaml', 'yml'], parseYAML);
+ * const yamlLoader = configFormat(['yaml', 'yml'], Bun.YAML.parse);
+ * const yamlPackageLoader = configFormat(['yaml', 'yml'], parseYaml);
+ * const tomlLoader = configFormat(['toml'], Bun.TOML.parse);
+ * const tomlPackageLoader = configFormat(['toml'], parseTOML);
  *
  * cli('myapp')
  *   .config('myapp')
  *   .configLoader(yamlLoader)
+ *   .configLoader(tomlLoader)
  *   .run();
  * ```
  */
 function configFormat(
 	extensions: readonly string[],
-	parse: (content: string) => Record<string, unknown>,
+	parse: (content: string) => unknown,
 ): FormatLoader {
 	return { extensions, parse };
 }
