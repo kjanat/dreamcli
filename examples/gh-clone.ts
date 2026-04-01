@@ -117,11 +117,11 @@ function sleep(ms: number): Promise<void> {
 }
 
 // ── Auth middleware ───────────────────────────────────────────────────
-// Checks for a token in the GH_TOKEN env var.
-// In a real CLI, you'd also check config files and the system keychain.
+// Checks for a resolved token value on protected commands.
+// This example resolves `token` from `--token` or `GH_TOKEN`.
 
-const requireAuth = middleware<{ token: string }>(async ({ next }) => {
-	const token = process.env.GH_TOKEN;
+const requireAuth = middleware<{ token: string }>(async ({ flags, next }) => {
+	const token = typeof flags.token === 'string' ? flags.token : undefined;
 	if (!token) {
 		throw new CLIError('Authentication required', {
 			code: 'AUTH_REQUIRED',
@@ -168,6 +168,7 @@ const authStatus = command('status')
 
 const prList = command('list')
 	.description('List pull requests')
+	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
 	.middleware(requireAuth)
 	.flag(
 		'state',
@@ -197,6 +198,7 @@ const prList = command('list')
 
 const prView = command('view')
 	.description('View a pull request')
+	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
 	.middleware(requireAuth)
 	.arg('number', arg.number().describe('PR number'))
 	.action(({ args, out }) => {
@@ -219,6 +221,7 @@ const prView = command('view')
 
 const prCreate = command('create')
 	.description('Create a pull request')
+	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
 	.middleware(requireAuth)
 	.flag(
 		'title',
@@ -244,6 +247,7 @@ const prCreate = command('create')
 
 const issueList = command('list')
 	.description('List issues')
+	.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
 	.middleware(requireAuth)
 	.flag(
 		'state',
