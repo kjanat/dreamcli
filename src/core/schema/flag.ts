@@ -19,11 +19,20 @@ import type { PromptConfig } from './prompt.ts';
  * Presence describes whether a flag value is guaranteed to exist when the
  * action handler runs:
  *
- * - `'optional'`  — may be `undefined` if not supplied
+ * - `'optional'`  — not required; unresolved value follows the kind-specific
+ *   optional fallback (`undefined` for most flags, `[]` for arrays)
  * - `'required'`  — must be supplied; error if missing
  * - `'defaulted'` — always present (falls back to default value)
  */
 type FlagPresence = 'optional' | 'required' | 'defaulted';
+
+/**
+ * Fallback behavior when an optional flag resolves no value from any source.
+ *
+ * Most optional flags resolve to `undefined`; array flags instead resolve to
+ * an empty array `[]`.
+ */
+type OptionalFallback = 'undefined' | 'empty-array';
 
 /**
  * Compile-time state carried through the builder chain.
@@ -36,6 +45,8 @@ interface FlagConfig {
 	readonly valueType: unknown;
 	/** Whether the flag is optional, required, or has a default. */
 	readonly presence: FlagPresence;
+	/** What an unresolved optional flag becomes at the action boundary. */
+	readonly optionalFallback: OptionalFallback;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +60,7 @@ interface FlagConfig {
 type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
 	readonly valueType: C['valueType'];
 	readonly presence: P;
+	readonly optionalFallback: C['optionalFallback'];
 };
 
 /**
@@ -57,12 +69,15 @@ type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
  * Advanced type helper: this powers {@link InferFlag} and action-handler
  * inference. Most apps do not need to mention it explicitly.
  *
- * - `'optional'`   → `T | undefined`
+ * - `'optional'` + `'undefined'` fallback  → `T | undefined`
+ * - `'optional'` + `'empty-array'` fallback → `T`
  * - `'required'`   → `T`
  * - `'defaulted'`  → `T`
  */
 type ResolvedValue<C extends FlagConfig> = C['presence'] extends 'optional'
-	? C['valueType'] | undefined
+	? C['optionalFallback'] extends 'empty-array'
+		? C['valueType']
+		: C['valueType'] | undefined
 	: C['valueType'];
 
 /** Extract the resolved value type from a `FlagBuilder`. */
@@ -338,16 +353,28 @@ class FlagBuilder<C extends FlagConfig> {
  */
 interface FlagFactory {
 	/** String-valued flag. */
-	string(): FlagBuilder<{ readonly valueType: string; readonly presence: 'optional' }>;
+	string(): FlagBuilder<{
+		readonly valueType: string;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}>;
 
 	/** Number-valued flag. */
-	number(): FlagBuilder<{ readonly valueType: number; readonly presence: 'optional' }>;
+	number(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}>;
 
 	/**
 	 * Boolean flag. Implicitly defaults to `false` — the only flag kind where
 	 * the absence of a value is still meaningful (not `undefined`).
 	 */
-	boolean(): FlagBuilder<{ readonly valueType: boolean; readonly presence: 'defaulted' }>;
+	boolean(): FlagBuilder<{
+		readonly valueType: boolean;
+		readonly presence: 'defaulted';
+		readonly optionalFallback: 'undefined';
+	}>;
 
 	/**
 	 * Enum flag with literal type inference.
@@ -363,7 +390,11 @@ interface FlagFactory {
 	 */
 	enum<const T extends readonly [string, ...string[]]>(
 		values: T,
-	): FlagBuilder<{ readonly valueType: T[number]; readonly presence: 'optional' }>;
+	): FlagBuilder<{
+		readonly valueType: T[number];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}>;
 
 	/**
 	 * Array flag — collects multiple values of the same element type.
@@ -376,7 +407,11 @@ interface FlagFactory {
 	 */
 	array<E extends FlagConfig>(
 		element: FlagBuilder<E>,
-	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }>;
+	): FlagBuilder<{
+		readonly valueType: E['valueType'][];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'empty-array';
+	}>;
 
 	/**
 	 * Custom-parsed flag. The parse function receives the raw value and must
@@ -407,20 +442,33 @@ interface FlagFactory {
 	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
 		readonly valueType: T;
 		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
 	}>;
 }
 
 /** Flag schema factory. Use `flag.<kind>()` to create a builder. */
 const flag: FlagFactory = {
-	string(): FlagBuilder<{ readonly valueType: string; readonly presence: 'optional' }> {
+	string(): FlagBuilder<{
+		readonly valueType: string;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(createSchema('string'));
 	},
 
-	number(): FlagBuilder<{ readonly valueType: number; readonly presence: 'optional' }> {
+	number(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(createSchema('number'));
 	},
 
-	boolean(): FlagBuilder<{ readonly valueType: boolean; readonly presence: 'defaulted' }> {
+	boolean(): FlagBuilder<{
+		readonly valueType: boolean;
+		readonly presence: 'defaulted';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(
 			createSchema('boolean', {
 				presence: 'defaulted',
@@ -431,19 +479,28 @@ const flag: FlagFactory = {
 
 	enum<const T extends readonly [string, ...string[]]>(
 		values: T,
-	): FlagBuilder<{ readonly valueType: T[number]; readonly presence: 'optional' }> {
+	): FlagBuilder<{
+		readonly valueType: T[number];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(createSchema('enum', { enumValues: values }));
 	},
 
 	array<E extends FlagConfig>(
 		element: FlagBuilder<E>,
-	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }> {
+	): FlagBuilder<{
+		readonly valueType: E['valueType'][];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'empty-array';
+	}> {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
 
 	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
 		readonly valueType: T;
 		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
 	}> {
 		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
 	},

@@ -117,7 +117,7 @@ Flag factory with typed builders:
 | `flag.number()`        | `number \| undefined`          | —       |
 | `flag.boolean()`       | `boolean`                      | `false` |
 | `flag.enum(values)`    | Union of values \| `undefined` | —       |
-| `flag.array(inner)`    | `T[] \| undefined`             | —       |
+| `flag.array(inner)`    | `T[]`                          | `[]`    |
 | `flag.custom(parseFn)` | Return type \| `undefined`     | —       |
 
 ### `arg`

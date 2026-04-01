@@ -265,9 +265,9 @@ describe('type inference', () => {
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<'us' | 'eu' | 'ap' | undefined>();
 	});
 
-	it('array flag: element[] | undefined', () => {
+	it('array flag: element[]', () => {
 		const f = flag.array(flag.string());
-		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[] | undefined>();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[]>();
 	});
 
 	it('.default() removes undefined from string', () => {
@@ -326,13 +326,13 @@ describe('type inference', () => {
 			region: 'us' | 'eu' | 'ap' | undefined;
 			port: number;
 			name: string;
-			tags: string[] | undefined;
+			tags: string[];
 		}>();
 	});
 
 	it('array of number elements infers number[]', () => {
 		const f = flag.array(flag.number());
-		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number[] | undefined>();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number[]>();
 	});
 
 	it('required array removes undefined', () => {

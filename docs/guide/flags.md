@@ -12,9 +12,13 @@ flag.string(); // string | undefined
 flag.number(); // number | undefined
 flag.boolean(); // boolean (defaults to false)
 flag.enum(['us', 'eu', 'ap']); // "us" | "eu" | "ap" | undefined
-flag.array(flag.string()); // string[] | undefined
+flag.array(flag.string()); // string[] (falls back to [])
 flag.custom((v) => new URL(String(v))); // URL | undefined
 ```
+
+Array flags are the one optional flag kind that still resolve to a value when
+unset: if no CLI/env/config/prompt/default value is found, they fall back to
+an empty array `[]`.
 
 ## Modifiers
 

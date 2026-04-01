@@ -232,8 +232,9 @@ async function resolve(
  * Without an interactive resolver, behaviour is identical to the single-pass
  * approach (per-flag prompt configs used directly).
  *
- * Array flags that were not provided and have no explicit default get
- * an empty array `[]` (more useful than `undefined` for consumers).
+ * Optional array flags that were not provided and have no explicit default get
+ * an empty array `[]` (more useful than `undefined` for consumers). Required
+ * array flags still fail validation when no source resolves them.
  */
 async function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
@@ -373,7 +374,7 @@ async function resolveFlags(
 			continue;
 		}
 
-		if (schema.kind === 'array') {
+		if (schema.kind === 'array' && schema.presence !== 'required') {
 			resolved[name] = [];
 			continue;
 		}

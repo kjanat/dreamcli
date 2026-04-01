@@ -300,7 +300,7 @@ describe('FlagBuilder.prompt()', () => {
 		});
 		expect(f.schema.kind).toBe('array');
 		expect(f.schema.prompt?.kind).toBe('multiselect');
-		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[] | undefined>();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[]>();
 	});
 });
 

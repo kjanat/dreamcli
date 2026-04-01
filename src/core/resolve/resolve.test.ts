@@ -243,6 +243,27 @@ describe('resolve — flags', () => {
 		}
 	});
 
+	it('required array flag errors when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				tags: createSchema('array', { presence: 'required' }),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		try {
+			await resolve(schema, parsed);
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('REQUIRED_FLAG');
+				expect(err.details).toEqual({ flag: 'tags', kind: 'array' });
+				expect(err.suggest).toBe('Provide --tags <value>');
+			}
+		}
+	});
+
 	it('required boolean flag suggest omits <value>', async () => {
 		const schema = makeSchema({
 			flags: {

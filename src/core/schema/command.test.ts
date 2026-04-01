@@ -446,11 +446,11 @@ describe('type inference', () => {
 			});
 	});
 
-	it('infers array flag as element[] | undefined', () => {
+	it('infers array flag as element[]', () => {
 		command('test')
 			.flag('tags', flag.array(flag.string()))
 			.action(({ flags }) => {
-				expectTypeOf(flags.tags).toEqualTypeOf<string[] | undefined>();
+				expectTypeOf(flags.tags).toEqualTypeOf<string[]>();
 			});
 	});
 
@@ -511,7 +511,7 @@ describe('type inference', () => {
 				expectTypeOf(flags.force).toEqualTypeOf<boolean>();
 				expectTypeOf(flags.region).toEqualTypeOf<'us' | 'eu'>();
 				expectTypeOf(flags.timeout).toEqualTypeOf<number>();
-				expectTypeOf(flags.tags).toEqualTypeOf<string[] | undefined>();
+				expectTypeOf(flags.tags).toEqualTypeOf<string[]>();
 			});
 	});
 
