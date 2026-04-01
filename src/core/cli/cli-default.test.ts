@@ -230,7 +230,7 @@ describe('.default() — nested unknown does not delegate to default', () => {
 		expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
 	});
 
-	it('still delegates root-level unknowns to default command', async () => {
+	it('routes root args through default command', async () => {
 		const dbCmd = group('db')
 			.description('Database operations')
 			.command(
@@ -345,6 +345,15 @@ describe('formatRootHelp — default command', () => {
 
 		expect(help).toContain('deploy (default)');
 		expect(help).not.toContain('status (default)');
+	});
+
+	it('treats hidden defaults as invisible in root help', () => {
+		const app = cli('mycli').default(deployCommand().hidden()).command(statusCommand());
+		const help = formatRootHelp(app.schema);
+
+		expect(help).toContain('Usage: mycli <command> [options]');
+		expect(help).not.toContain('(default)');
+		expect(help).not.toContain('deploy');
 	});
 
 	it('footer uses [command] when default exists', () => {

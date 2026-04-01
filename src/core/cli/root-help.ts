@@ -44,7 +44,12 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	if (rootSurface.hasSingleVisibleDefault) {
 		const defaultCommand = rootSurface.visibleDefaultCommand;
 		if (defaultCommand !== undefined) {
-			const sections = buildRootSections(schema, rootSurface.visibleCommands, width);
+			const sections = buildRootSections(
+				schema,
+				rootSurface.visibleCommands,
+				rootSurface.visibleDefaultCommand,
+				width,
+			);
 			const usageIndex = sections.findIndex((section) => section.startsWith('Usage: '));
 			const commandSections = [
 				...formatHelpSections(defaultCommand, {
@@ -69,7 +74,12 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 		}
 	}
 
-	const sections = buildRootSections(schema, rootSurface.visibleCommands, width);
+	const sections = buildRootSections(
+		schema,
+		rootSurface.visibleCommands,
+		rootSurface.visibleDefaultCommand,
+		width,
+	);
 	const placeholder = commandPlaceholder(
 		rootSurface.visibleCommands,
 		rootSurface.visibleDefaultCommand,
@@ -95,6 +105,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 function buildRootSections(
 	schema: CLISchemaLike,
 	visibleCommands: readonly CommandSchema[],
+	visibleDefaultCommand: CommandSchema | undefined,
 	width: number,
 ): string[] {
 	const sections: string[] = [];
@@ -109,7 +120,7 @@ function buildRootSections(
 	}
 
 	// ---- Usage line ---------------------------------------------------------
-	const placeholder = commandPlaceholder(visibleCommands, schema.defaultCommand?.schema);
+	const placeholder = commandPlaceholder(visibleCommands, visibleDefaultCommand);
 	sections.push(
 		placeholder.length > 0
 			? `Usage: ${schema.name} ${placeholder} [options]`
@@ -118,9 +129,7 @@ function buildRootSections(
 
 	// ---- Commands list (skip hidden) ----------------------------------------
 	if (visibleCommands.length > 0) {
-		sections.push(
-			formatRootCommandsSection(visibleCommands, schema.defaultCommand?.schema.name, width),
-		);
+		sections.push(formatRootCommandsSection(visibleCommands, visibleDefaultCommand?.name, width));
 	}
 
 	return sections;

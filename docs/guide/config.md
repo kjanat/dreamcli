@@ -27,7 +27,7 @@ This searches standard locations for config files named `.mycli.json`, `mycli.co
 
 Config discovery is platform-aware:
 
-1. `--config <path>` (explicit override)
+1. `--config <path>` or `--config=<path>` (explicit override)
 2. `./.mycli.json`, `./mycli.config.json` (project-local)
 3. Unix: `$XDG_CONFIG_HOME/mycli/config.json`
 4. Unix fallback: `~/.config/mycli/config.json`

@@ -188,7 +188,16 @@ function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unk
 			);
 
 		case 'enum': {
-			const allowed = schema.enumValues ?? [];
+			const allowed = schema.enumValues;
+			if (allowed === undefined) {
+				throw new ParseError(
+					`Enum flag --${flagName} is misconfigured: no allowed values declared`,
+					{
+						code: 'INVALID_SCHEMA',
+						details: { flag: flagName, kind: 'enum', missing: 'enumValues' },
+					},
+				);
+			}
 			if (!allowed.includes(raw)) {
 				throw new ParseError(
 					`Invalid value '${raw}' for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
@@ -253,7 +262,16 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 		}
 
 		case 'enum': {
-			const allowed = schema.enumValues ?? [];
+			const allowed = schema.enumValues;
+			if (allowed === undefined) {
+				throw new ParseError(
+					`Enum argument <${argName}> is misconfigured: no allowed values declared`,
+					{
+						code: 'INVALID_SCHEMA',
+						details: { arg: argName, kind: 'enum', missing: 'enumValues' },
+					},
+				);
+			}
 			if (!allowed.includes(raw)) {
 				throw new ParseError(
 					`Invalid value '${raw}' for argument <${argName}>. Allowed: ${allowed.join(', ')}`,

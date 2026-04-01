@@ -9,8 +9,6 @@
  * @module dreamcli/core/cli
  */
 
-import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
-import { createAdapter } from '#internals/runtime/auto.ts';
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import { generateCompletion, SHELLS } from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
@@ -37,6 +35,8 @@ import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
+import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import { createAdapter } from '#internals/runtime/auto.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
@@ -588,7 +588,7 @@ class CLIBuilder {
 	 *    (`$XDG_CONFIG_HOME` / `~/.config` on Unix,
 	 *    `%APPDATA%` / `%USERPROFILE%\\AppData\\Roaming` on Windows)
 	 *
-	 * The user can override the path via `--config <path>`.
+	 * The user can override the path via `--config <path>` or `--config=<path>`.
 	 *
 	 * Loaded config feeds into the resolution chain
 	 * (CLI → env → **config** → prompt → default) for flags that
@@ -1114,7 +1114,7 @@ class CLIBuilder {
 
 		const rawArgv = adapter.argv.slice(2);
 
-		// Extract --config <path> before command dispatch (requires I/O via adapter)
+		// Extract --config <path> / --config=<path> before command dispatch (requires I/O via adapter)
 		const { configPath, filteredArgv } = extractConfigFlag(rawArgv);
 
 		// Detect --json early for error rendering during config loading

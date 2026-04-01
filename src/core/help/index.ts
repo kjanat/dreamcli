@@ -8,6 +8,7 @@
  * @module dreamcli/core/help
  */
 
+import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -15,7 +16,6 @@ import type {
 	CommandSchema,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
-import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 
 // --- Configuration
 
@@ -112,6 +112,13 @@ function wrapText(text: string, width: number, indent: number): string {
  */
 function formatDeprecated(deprecated: string | true): string {
 	return typeof deprecated === 'string' ? `[deprecated: ${deprecated}]` : '[deprecated]';
+}
+
+/** Format a default value for help output, preserving nullish sentinels. */
+function formatHelpDefaultValue(value: unknown): string {
+	if (value === undefined) return 'undefined';
+	if (value === null) return 'null';
+	return formatDisplayValue(value);
 }
 
 // --- Flag formatting
@@ -212,7 +219,7 @@ function formatFlagDescription(schema: FlagSchema): string {
 		parts.push('[required]');
 	} else if (schema.presence === 'defaulted' && schema.kind !== 'boolean') {
 		// Don't show "(default: false)" for boolean — it's obvious
-		parts.push(`(default: ${formatDisplayValue(schema.defaultValue)})`);
+		parts.push(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
 	}
 
 	return parts.join(' ');
@@ -292,8 +299,8 @@ function formatArgDescription(schema: ArgSchema): string {
 		parts.push(`[env: ${schema.envVar}]`);
 	}
 
-	if (schema.presence === 'defaulted' && schema.defaultValue !== undefined) {
-		parts.push(`(default: ${formatDisplayValue(schema.defaultValue)})`);
+	if (schema.presence === 'defaulted') {
+		parts.push(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
 	}
 
 	return parts.join(' ');

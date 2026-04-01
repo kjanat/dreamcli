@@ -277,14 +277,15 @@ You *could* check for a token in every single action handler, but that's repetit
 import { CLIError } from 'dreamcli';
 
 function requireAuth(token: string | undefined): { token: string } {
-  if (!token) {
+  const normalizedToken = token?.trim();
+  if (!normalizedToken) {
     throw new CLIError('Authentication required', {
       code: 'AUTH_REQUIRED',
       suggest: 'Run `gh auth login` or set GH_TOKEN',
       exitCode: 1,
     });
   }
-  return { token };
+  return { token: normalizedToken };
 }
 ```
 

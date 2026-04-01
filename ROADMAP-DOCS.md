@@ -339,7 +339,7 @@ Keep the current reference pages but enrich them with:
 - Embedded `@example` blocks copied from JSDoc
 - Parameter tables with types and defaults
 - Cross-references to guide pages and examples
-- Cover the 16 undocumented exports
+- Cover the 11 undocumented exports
 
 - **Effort**: 1-2 days for full coverage
 - **Pros**: Full editorial control, no build complexity, human-curated

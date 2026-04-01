@@ -16,6 +16,7 @@ export type ParseErrorCode =
 	| 'UNKNOWN_COMMAND'
 	| 'MISSING_VALUE'
 	| 'INVALID_VALUE'
+	| 'INVALID_SCHEMA'
 	| 'UNEXPECTED_POSITIONAL';
 
 /** Codes emitted during post-parse validation / resolution. */

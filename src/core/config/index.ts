@@ -16,7 +16,11 @@ import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
 /** @internal */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
 }
 
 // --- Types — format loaders
@@ -387,9 +391,8 @@ function configFormat(
 
 // --- Exports
 
-export { discoverPackageJson, inferCliName } from './package-json.ts';
 export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';
-export { buildConfigSearchPaths, configFormat, discoverConfig };
+export { discoverPackageJson, inferCliName } from './package-json.ts';
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,
@@ -398,3 +401,4 @@ export type {
 	ConfigNotFound,
 	FormatLoader,
 };
+export { buildConfigSearchPaths, configFormat, discoverConfig };

@@ -6,9 +6,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { arg } from '#internals/core/schema/arg.ts';
+import { arg, createArgSchema } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
-import { flag } from '#internals/core/schema/flag.ts';
+import { createSchema, flag } from '#internals/core/schema/flag.ts';
 
 import { formatHelp } from './index.ts';
 
@@ -161,6 +161,39 @@ describe('formatHelp', () => {
 			expect(help).toContain('(default: production)');
 		});
 
+		it('renders nullish sentinels for defaulted args', () => {
+			const base = command('deploy');
+			const nullHelp = formatHelp({
+				...base.schema,
+				args: [
+					{
+						name: 'env',
+						schema: createArgSchema('string', {
+							presence: 'defaulted',
+							defaultValue: null,
+							description: 'Environment',
+						}),
+					},
+				],
+			});
+			const undefinedHelp = formatHelp({
+				...base.schema,
+				args: [
+					{
+						name: 'env',
+						schema: createArgSchema('string', {
+							presence: 'defaulted',
+							defaultValue: undefined,
+							description: 'Environment',
+						}),
+					},
+				],
+			});
+
+			expect(nullHelp).toContain('(default: null)');
+			expect(undefinedHelp).toContain('(default: undefined)');
+		});
+
 		it('renders arg without description', () => {
 			const cmd = command('deploy').arg('target', arg.string());
 			const help = formatHelp(cmd.schema);
@@ -239,6 +272,33 @@ describe('formatHelp', () => {
 			const cmd = command('run').flag('port', flag.number().default(8080).describe('Port'));
 			const help = formatHelp(cmd.schema);
 			expect(help).toContain('(default: 8080)');
+		});
+
+		it('renders nullish sentinels for defaulted flags', () => {
+			const base = command('run');
+			const nullHelp = formatHelp({
+				...base.schema,
+				flags: {
+					token: createSchema('string', {
+						presence: 'defaulted',
+						defaultValue: null,
+						description: 'Token',
+					}),
+				},
+			});
+			const undefinedHelp = formatHelp({
+				...base.schema,
+				flags: {
+					token: createSchema('string', {
+						presence: 'defaulted',
+						defaultValue: undefined,
+						description: 'Token',
+					}),
+				},
+			});
+
+			expect(nullHelp).toContain('(default: null)');
+			expect(undefinedHelp).toContain('(default: undefined)');
 		});
 
 		it('formats non-primitive defaults as JSON', () => {

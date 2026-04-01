@@ -338,11 +338,17 @@ describe('.completions() — schema snapshot', () => {
 
 	it('works with no other commands registered', async () => {
 		const app = cli('mycli').completions();
-		const result = await app.execute(['completions', 'bash']);
-		expect(result.exitCode).toBe(0);
-		const output = result.stdout.join('');
-		expect(output).toContain('#!/usr/bin/env bash');
-		expect(output).toContain('complete -F');
+		const bashResult = await app.execute(['completions', 'bash']);
+		expect(bashResult.exitCode).toBe(0);
+		const bashOutput = bashResult.stdout.join('');
+		expect(bashOutput).toContain('#!/usr/bin/env bash');
+		expect(bashOutput).toContain('complete -F');
+
+		const zshResult = await app.execute(['completions', 'zsh']);
+		expect(zshResult.exitCode).toBe(0);
+		const zshOutput = zshResult.stdout.join('');
+		expect(zshOutput).toContain('#compdef mycli');
+		expect(zshOutput).toContain('_mycli() {');
 	});
 });
 

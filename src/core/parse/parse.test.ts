@@ -560,6 +560,20 @@ describe('parse — errors', () => {
 		}
 	});
 
+	it('malformed enum flag schema throws INVALID_SCHEMA', () => {
+		const schema = makeSchema({
+			flags: { region: createSchema('enum', { enumValues: undefined }) },
+		});
+		expect(() => parse(schema, ['--region', 'us'])).toThrow(ParseError);
+		try {
+			parse(schema, ['--region', 'us']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.code).toBe('INVALID_SCHEMA');
+			expect(pe.message).toContain('Enum flag --region is misconfigured');
+		}
+	});
+
 	it('invalid boolean flag value throws INVALID_VALUE', () => {
 		const schema = makeSchema({
 			flags: { verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }) },
@@ -572,6 +586,20 @@ describe('parse — errors', () => {
 			args: [{ name: 'count', schema: createArgSchema('number') }],
 		});
 		expect(() => parse(schema, ['abc'])).toThrow(ParseError);
+	});
+
+	it('malformed enum arg schema throws INVALID_SCHEMA', () => {
+		const schema = makeSchema({
+			args: [{ name: 'region', schema: createArgSchema('enum', { enumValues: undefined }) }],
+		});
+		expect(() => parse(schema, ['us'])).toThrow(ParseError);
+		try {
+			parse(schema, ['us']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.code).toBe('INVALID_SCHEMA');
+			expect(pe.message).toContain('Enum argument <region> is misconfigured');
+		}
 	});
 
 	it('custom arg parse failure throws INVALID_VALUE', () => {

@@ -1,6 +1,12 @@
-/** Shared test helpers for extracting structure from generated completion scripts. */
+/**
+ * Shared test helpers for extracting structure from generated completion scripts.
+ *
+ * @module dreamcli/core/completion/completion-test-helpers
+ * @internal
+ */
 
 /**
+ * @internal
  * Extract the root-level completion words from a bash completion script.
  *
  * Finds the last `compgen -W '...' -- "$cur"` block and returns the
@@ -19,6 +25,7 @@ function extractBashRootWords(script: string): readonly string[] {
 }
 
 /**
+ * @internal
  * Extract the body of the root zsh completion function from a zsh
  * completion script.
  *

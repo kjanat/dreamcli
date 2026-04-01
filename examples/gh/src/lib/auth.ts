@@ -7,7 +7,8 @@
 import { CLIError, command, flag } from 'dreamcli';
 
 export function requireAuth(token: string | undefined): { readonly token: string } {
-	if (!token) {
+	const normalizedToken = token?.trim();
+	if (!normalizedToken) {
 		throw new CLIError('Authentication required', {
 			code: 'AUTH_REQUIRED',
 			suggest: 'Run `gh auth login` or set GH_TOKEN',
@@ -15,7 +16,7 @@ export function requireAuth(token: string | undefined): { readonly token: string
 		});
 	}
 
-	return { token };
+	return { token: normalizedToken };
 }
 
 /** Redacts a token for display, keeping the first 8 and last 4 characters visible. */

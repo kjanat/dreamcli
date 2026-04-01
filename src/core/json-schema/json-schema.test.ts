@@ -149,6 +149,22 @@ describe('generateSchema — definition metadata', () => {
 		expect(result).toHaveProperty('defaultCommand', 'deploy');
 	});
 
+	it('omits hidden defaultCommand when includeHidden is false', () => {
+		const hiddenDefault = commandDef({ name: 'secret', hidden: true });
+		const visible = commandDef({ name: 'visible' });
+		const result = generateSchema(
+			minimalCLI({
+				commands: [erased(hiddenDefault), erased(visible)],
+				defaultCommand: erased(hiddenDefault),
+			}),
+			{ includeHidden: false },
+		);
+
+		expect(result).not.toHaveProperty('defaultCommand');
+		expect(result).toHaveProperty(['commands', 'length'], 1);
+		expect(result).toHaveProperty(['commands', 0, 'name'], 'visible');
+	});
+
 	// -------------------------------------------------------------------
 	// Command serialization
 	// -------------------------------------------------------------------
@@ -447,6 +463,18 @@ describe('generateSchema — definition metadata', () => {
 		});
 		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
 		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'defaultValue'], 'prod');
+	});
+
+	it('omits cyclic defaultValue objects', () => {
+		const cycle: Record<string, unknown> = {};
+		cycle['self'] = cycle;
+		const cmd = commandDef({
+			name: 'test',
+			flags: { meta: flagDef({ presence: 'defaulted', defaultValue: cycle }) },
+		});
+		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+
+		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'meta', 'defaultValue']);
 	});
 
 	it('includes arg deprecation marker', () => {

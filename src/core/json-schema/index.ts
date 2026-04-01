@@ -125,7 +125,10 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 	if (schema.description !== undefined) {
 		result.description = schema.description;
 	}
-	if (schema.defaultCommand !== undefined) {
+	if (
+		schema.defaultCommand !== undefined &&
+		(opts.includeHidden || !schema.defaultCommand.schema.hidden)
+	) {
 		result.defaultCommand = schema.defaultCommand.schema.name;
 	}
 
@@ -623,15 +626,25 @@ function argKindToType(schema: ArgSchema): Record<string, unknown> {
  * Returns `false` for functions, symbols, bigints, and objects containing them.
  * Used to guard default-value inclusion in serialized output.
  */
-function isJsonSerializable(value: unknown): boolean {
+function isJsonSerializable(
+	value: unknown,
+	seen: WeakSet<object> = new WeakSet<object>(),
+): boolean {
 	if (value === undefined) return false;
 	if (value === null) return true;
 	const t = typeof value;
 	if (t === 'string' || t === 'number' || t === 'boolean') return true;
 	if (t === 'function' || t === 'symbol' || t === 'bigint') return false;
-	if (Array.isArray(value)) return value.every(isJsonSerializable);
+	if (Array.isArray(value)) {
+		if (seen.has(value)) return false;
+		seen.add(value);
+		return value.every((entry) => isJsonSerializable(entry, seen));
+	}
 	if (t === 'object') {
-		return Object.values(value as Record<string, unknown>).every(isJsonSerializable);
+		const objectValue = value as Record<string, unknown>;
+		if (seen.has(objectValue)) return false;
+		seen.add(objectValue);
+		return Object.values(objectValue).every((entry) => isJsonSerializable(entry, seen));
 	}
 	return false;
 }

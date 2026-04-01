@@ -1,6 +1,6 @@
 import { parse as parseTOML } from '@iarna/toml';
-import { parse as parseYaml } from 'yaml';
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.ts';
 import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.ts';
@@ -583,6 +583,43 @@ describe('configFormat — convenience factory', () => {
 			const err = e as CLIError;
 			expect(err.code).toBe('CONFIG_PARSE_ERROR');
 			expect(err.details?.['format']).toBe('yaml');
+			expect(err.details?.['message']).toBe('Config loader must return a plain object');
+		}
+	});
+
+	it('accepts Object.create(null) results from custom loaders', async () => {
+		const adapter = stubAdapter({ '/project/.myapp.toml': 'ignored' });
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [
+				configFormat(['toml'], () => {
+					const data = Object.create(null) as Record<string, unknown>;
+					data['region'] = 'eu';
+					return data;
+				}),
+			],
+		});
+
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.data).toEqual({ region: 'eu' });
+		}
+	});
+
+	it('rejects class instances from custom loaders', async () => {
+		class ConfigShape {
+			readonly region = 'eu';
+		}
+		const adapter = stubAdapter({ '/project/.myapp.toml': 'ignored' });
+
+		try {
+			await discoverConfig('myapp', adapter, {
+				loaders: [configFormat(['toml'], () => new ConfigShape() as Record<string, unknown>)],
+			});
+			expect.unreachable('should have thrown');
+		} catch (e: unknown) {
+			expect(e).toBeInstanceOf(CLIError);
+			const err = e as CLIError;
+			expect(err.code).toBe('CONFIG_PARSE_ERROR');
 			expect(err.details?.['message']).toBe('Config loader must return a plain object');
 		}
 	});

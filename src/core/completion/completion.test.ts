@@ -1181,7 +1181,7 @@ describe('generateZshCompletion — enum value escaping', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain(":value:(it\\'s normal)");
+		expect(script).toContain(":value:(it'\\''s normal)");
 	});
 
 	it('escapes backslashes in enum values', () => {
@@ -1247,7 +1247,7 @@ describe('generateZshCompletion — enum value escaping', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain("it\\'s\\ here");
+		expect(script).toContain("it'\\''s\\ here");
 		expect(script).toContain('C:\\\\path');
 		expect(script).toContain('normal');
 	});
