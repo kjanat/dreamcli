@@ -17,6 +17,7 @@ Started: 2026-04-02
 - For extraction-first refactors, land a narrow internal contract module plus one reused helper before moving control flow; it gives tests and later module splits a concrete seam without forcing a full rewrite.
 - For contract-definition tasks in hot modules, extract the contract to a sibling `contracts.ts` file and have the implementation consume those types; it makes the seam testable without moving behavior yet.
 - For policy-heavy modules, extract pure policy helpers that return semantic mode/stream/cleanup facts, then make the renderer consume them; it separates contract from mechanics without forcing a big structural split.
+- For planner characterization work, extract one pure `planInvocation()`-style helper that owns root interception and command-plan assembly, then test that seam directly instead of asserting through handlers.
 
 ## Project Tracking
 
@@ -58,3 +59,11 @@ Started: 2026-04-02
 - Added `src/core/output/contracts.test.ts` plus `docs/reference/output-contract.md`, and linked the new contract page from the reference nav, API overview, and support matrix.
 - Files changed: `src/core/output/contracts.ts`, `src/core/output/contracts.test.ts`, `src/core/output/index.ts`, `src/core/cli/planner.ts`, `docs/reference/output-contract.md`, `docs/.vitepress/config.ts`, `docs/reference/api.md`, `docs/reference/support-matrix.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: output-policy seams stabilize best when helpers return pure routing and cleanup facts first; once those facts exist, `OutputChannel` can consume them without changing the shipped behavior.
+
+## Task - [planner-contract-tests]
+
+- Extracted a pure `planInvocation()` helper in `src/core/cli/planner.ts` so root help/version/default-command planning, nested dispatch outcomes, and command-plan assembly can be validated without invoking real handlers.
+- Added `src/core/cli/planner.test.ts` to lock down root interception, virtual-help rewriting, default-command fallback, nested unknown/needs-subcommand outcomes, propagated-flag masking, and `--json` extraction ordering.
+- Routed `CLIBuilder.execute()` through the planner helper while preserving existing renderer behavior and feedback-loop output.
+- Files changed: `src/core/cli/planner.ts`, `src/core/cli/index.ts`, `src/core/cli/planner.test.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: planner contract suites get much simpler once root interception and default-command fallback move behind one pure seam; the renderer can stay thin and behavior stays black-box testable.

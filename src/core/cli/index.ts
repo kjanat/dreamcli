@@ -38,8 +38,8 @@ import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
-import type { CommandExecutionPlan, OutputPolicy } from './planner.ts';
-import { buildCommandExecutionPlan, mergeCommandSchema } from './planner.ts';
+import type { OutputPolicy } from './planner.ts';
+import { buildRootCommandMap, mergeCommandSchema, planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
 import { formatRootHelp } from './root-help.ts';
@@ -337,31 +337,6 @@ function extractConfigFlag(argv: readonly string[]): {
 	return { configPath: nextArg, filteredArgv };
 }
 
-// --- CLI → CommandMeta builder
-
-/**
- * Build {@link CommandMeta} from CLI-level schema and the leaf command name.
- *
- * @param cliSchema - Root CLI schema providing program name and version.
- * @param helpOptions - Help formatting options; `binName` overrides the program name when set.
- * @param commandName - Name of the matched leaf command.
- * @returns Metadata record consumed by command actions and help formatters.
- *
- * @internal
- */
-function buildMeta(
-	cliSchema: CLISchema,
-	helpOptions: HelpOptions,
-	commandName: string,
-): CommandMeta {
-	return {
-		name: cliSchema.name,
-		bin: helpOptions.binName ?? cliSchema.name,
-		version: cliSchema.version,
-		command: commandName,
-	};
-}
-
 // --- Command run options builder
 
 /**
@@ -395,27 +370,6 @@ function buildCommandRunOptions(
 		...(options?.out !== undefined ? { out: options.out } : {}),
 		...(options?.captured !== undefined ? { captured: options.captured } : {}),
 	};
-}
-
-/**
- * Index commands by name and alias for O(1) dispatch lookup.
- *
- * @param commands - Registered top-level commands.
- * @returns Map keyed by command name and every alias.
- *
- * @internal
- */
-function buildRootCommandMap(
-	commands: readonly ErasedCommand[],
-): ReadonlyMap<string, ErasedCommand> {
-	const rootCommands = new Map<string, ErasedCommand>();
-	for (const cmd of commands) {
-		rootCommands.set(cmd.schema.name, cmd);
-		for (const alias of cmd.schema.aliases) {
-			rootCommands.set(alias, cmd);
-		}
-	}
-	return rootCommands;
 }
 
 /**
@@ -917,183 +871,62 @@ class CLIBuilder {
 			binName: options?.help?.binName ?? this.schema.name,
 		};
 
-		// -- Root --version -------------------------------------------------------
-		if (
-			this.schema.version !== undefined &&
-			(filteredArgv.includes('--version') || filteredArgv.includes('-V'))
-		) {
-			out.log(this.schema.version);
-			return buildResult(0, captured, undefined);
-		}
-
-		// -- Extract first arg for root-level checks --------------------------------
-		const firstArg = filteredArgv.length > 0 ? filteredArgv[0] : undefined;
-
-		// -- Root --help (explicit root-level help request) -----------------------
-		// Only intercept when --help/-h is the first token — subcommand-level
-		// help (e.g. `myapp deploy --help`) flows through dispatch.
-		if (firstArg === '--help' || firstArg === '-h') {
-			const helpText = formatRootHelp(this.schema, helpOptions);
-			out.log(helpText);
-			return buildResult(0, captured, undefined);
-		}
-
-		// -- `help [command...]` virtual subcommand ------------------------------
-		// Rewrite `help <cmd>` → `<cmd> --help` so it flows through normal
-		// dispatch and per-command help rendering. Bare `help` → root help.
-		// Only activates when the user hasn't registered a real `help` command.
-		if (firstArg === 'help') {
-			const hasRealHelpCommand = this.schema.commands.some(
-				(c) => c.schema.name === 'help' || c.schema.aliases.includes('help'),
-			);
-			if (!hasRealHelpCommand) {
-				const rest = filteredArgv.slice(1);
-				if (rest.length === 0) {
-					const helpText = formatRootHelp(this.schema, helpOptions);
-					out.log(helpText);
-					return buildResult(0, captured, undefined);
-				}
-				// Recurse with rewritten argv: `help deploy --force` → `deploy --force --help`
-				// Propagate jsonMode — `--json` was already stripped from filteredArgv above.
-				return this.execute([...rest, '--help'], jsonMode ? { ...options, jsonMode } : options);
-			}
-		}
-
-		// -- Empty argv without a default command → root help ---------------------
-		if (firstArg === undefined && this.schema.defaultCommand === undefined) {
-			const helpText = formatRootHelp(this.schema, helpOptions);
-			out.log(helpText);
-			return buildResult(0, captured, undefined);
-		}
-
-		// -- No commands registered -----------------------------------------------
-		if (this.schema.commands.length === 0) {
-			const err = new CLIError('No commands registered', {
-				code: 'NO_ACTION',
-				suggest: 'Add commands via .command() before calling .run()',
-			});
-			if (jsonMode) {
-				out.json({ error: err.toJSON() });
-			} else {
-				out.error(err.message);
-			}
-			return buildResult(1, captured, err);
-		}
-
-		// -- Build root command map for dispatch -----------------------------------
-		const rootCommands = buildRootCommandMap(this.schema.commands);
-
-		// -- Recursive dispatch ---------------------------------------------------
-		const result = dispatch(filteredArgv, rootCommands);
-
-		// -- Resolve default command (if configured) ------------------------------
-		const defaultCmd = this.schema.defaultCommand;
-
 		// -- Shared options for command execution ----------------------------------
 		const effectiveOptions: CLIRunOptions = {
 			...options,
 			plugins: this.schema.plugins,
 			...(jsonMode ? { jsonMode } : {}),
 		};
+		const output: OutputPolicy = {
+			jsonMode,
+			isTTY: out.isTTY,
+			verbosity: options?.verbosity ?? 'normal',
+		};
+		const planned = planInvocation({
+			schema: this.schema,
+			argv: filteredArgv,
+			help: helpOptions,
+			output,
+		});
 
-		switch (result.kind) {
-			case 'unknown': {
-				if (defaultCmd !== undefined && result.parentPath.length === 0) {
-					// Only delegate to the default command for root-level unknowns.
-					// Nested unknowns (parentPath non-empty) should surface an error
-					// so typo suggestions work correctly within command groups.
-					const suggestion =
-						result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
-					if (suggestion === undefined) {
-						const meta = buildMeta(this.schema, helpOptions, defaultCmd.schema.name);
-						const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions, meta);
-						return defaultCmd._execute(filteredArgv, { ...commandRunOptions });
-					}
-				}
+		switch (planned.kind) {
+			case 'root-version':
+				out.log(planned.version);
+				return buildResult(0, captured, undefined);
 
-				if (result.input === '') {
-					// Only flags, no command, no default.
-					// Extract the first flag token to report it as unknown.
-					const unknownFlag = filteredArgv.find((t) => t.startsWith('-'));
-					if (unknownFlag !== undefined) {
-						const err = new ParseError(`Unknown flag ${unknownFlag}`, {
-							code: 'UNKNOWN_FLAG',
-							suggest: `Run '${this.schema.name} --help' for available commands`,
-						});
-						if (jsonMode) {
-							out.json({ error: err.toJSON() });
-						} else {
-							out.error(err.message);
-							out.error(`Suggestion: ${err.suggest}`);
-						}
-						return buildResult(2, captured, err);
-					}
-					// Truly empty (shouldn't reach here — handled above) — show help.
-					const helpText = formatRootHelp(this.schema, helpOptions);
-					out.log(helpText);
-					return buildResult(0, captured, undefined);
-				}
-				const suggestion = findClosestCommand(result.input, result.candidates);
+			case 'root-help': {
+				const helpText = formatRootHelp(this.schema, planned.help);
+				out.log(helpText);
+				return buildResult(0, captured, undefined);
+			}
 
-				// Build scoped help path from ancestor context.
-				// e.g. for `myapp db migrat` → parentPath = [dbSchema] → "myapp db --help"
-				const scopePath =
-					result.parentPath.length > 0
-						? `${this.schema.name} ${result.parentPath.map((s) => s.name).join(' ')}`
-						: this.schema.name;
-
-				const err = new ParseError(`Unknown command: ${result.input}`, {
-					code: 'UNKNOWN_COMMAND',
-					suggest:
-						suggestion !== undefined
-							? `Did you mean '${suggestion}'?`
-							: `Run '${scopePath} --help' for available commands`,
-				});
+			case 'dispatch-error': {
 				if (jsonMode) {
-					out.json({ error: err.toJSON() });
+					out.json({ error: planned.error.toJSON() });
 				} else {
-					out.error(err.message);
-					if (err.suggest !== undefined) {
-						out.error(`Suggestion: ${err.suggest}`);
+					out.error(planned.error.message);
+					if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
+						out.error(`Suggestion: ${planned.error.suggest}`);
 					}
 				}
-				return buildResult(2, captured, err);
+				return buildResult(planned.error.exitCode, captured, planned.error);
 			}
 
 			case 'needs-subcommand': {
-				// Group command with no handler — show its help via formatHelp().
-				// Build binName from full command path so usage reads "myapp db" not just "db".
-				const ancestorNames = result.commandPath.slice(0, -1).map((s) => s.name);
-				const groupBinName = [this.schema.name, ...ancestorNames].join(' ');
-				const groupHelpOptions: HelpOptions = {
-					...helpOptions,
-					binName: groupBinName,
-				};
-				const helpText = formatHelp(result.command.schema, groupHelpOptions);
+				const helpText = formatHelp(planned.command.schema, planned.help);
 				out.log(helpText);
 				return buildResult(0, captured, undefined);
 			}
 
 			case 'match': {
-				const meta = buildMeta(this.schema, helpOptions, result.command.schema.name);
-				const output: OutputPolicy = {
-					jsonMode,
-					isTTY: out.isTTY,
-					verbosity: options?.verbosity ?? 'normal',
-				};
-				const plan: CommandExecutionPlan = buildCommandExecutionPlan({
-					command: result.command,
-					commandPath: result.commandPath,
-					argv: result.remainingArgv,
-					meta,
-					plugins: this.schema.plugins,
-					output,
-					help: helpOptions,
-				});
-				const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions, meta);
-				return plan.command._execute(plan.argv, {
+				const commandRunOptions = buildCommandRunOptions(
+					effectiveOptions,
+					planned.plan.help ?? helpOptions,
+					planned.plan.meta,
+				);
+				return planned.plan.command._execute(planned.plan.argv, {
 					...commandRunOptions,
-					mergedSchema: plan.mergedSchema,
+					mergedSchema: planned.plan.mergedSchema,
 				});
 			}
 		}

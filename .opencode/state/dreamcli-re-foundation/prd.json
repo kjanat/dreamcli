@@ -45,7 +45,7 @@
 			"description": "Add black-box tests for root help/version, default command, dispatch outcomes, propagated flag masking, and extraction ordering. Done when: planner behavior can be validated without running handlers and intended behavior is explicitly locked down.",
 			"depends": ["planner-contracts"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "resolver-matrix-tests",
