@@ -649,8 +649,9 @@ function argKindToType(schema: ArgSchema): Record<string, unknown> {
 /**
  * Check whether a value can survive a JSON round-trip.
  *
- * Returns `false` for functions, symbols, bigints, and objects containing them.
- * Used to guard default-value inclusion in serialized output.
+ * Returns `false` for functions, symbols, bigints, non-finite numbers, and
+ * objects containing them. Used to guard default-value inclusion in
+ * serialized output.
  */
 function isJsonSerializable(
 	value: unknown,
@@ -659,7 +660,8 @@ function isJsonSerializable(
 	if (value === undefined) return false;
 	if (value === null) return true;
 	const t = typeof value;
-	if (t === 'string' || t === 'number' || t === 'boolean') return true;
+	if (t === 'string' || t === 'boolean') return true;
+	if (t === 'number') return Number.isFinite(value);
 	if (t === 'function' || t === 'symbol' || t === 'bigint') return false;
 	if (Array.isArray(value)) {
 		if (seen.has(value)) return false;

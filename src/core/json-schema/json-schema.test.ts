@@ -285,6 +285,24 @@ describe('generateSchema — definition metadata', () => {
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'custom', 'defaultValue']);
 	});
 
+	it('omits non-finite numeric defaults from definition schema output', () => {
+		const cases = [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+
+		for (const defaultValue of cases) {
+			const cmd = commandDef({
+				name: 'test',
+				flags: {
+					count: flagDef({ kind: 'number', presence: 'defaulted', defaultValue }),
+				},
+				args: [argEntry('target', { kind: 'number', presence: 'defaulted', defaultValue })],
+			});
+			const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+
+			expect(result).not.toHaveProperty(['commands', 0, 'flags', 'count', 'defaultValue']);
+			expect(result).not.toHaveProperty(['commands', 0, 'args', 0, 'defaultValue']);
+		}
+	});
+
 	it('includes flag aliases, envVar, configPath, description', () => {
 		const cmd = commandDef({
 			name: 'test',
@@ -735,6 +753,24 @@ describe('generateInputSchema — input validation', () => {
 		const result = generateInputSchema(cmd);
 		expect(result).toHaveProperty(['properties', 'target', 'description'], 'Deploy target');
 		expect(result).toHaveProperty(['properties', 'target', 'default'], 'prod');
+	});
+
+	it('omits non-finite numeric defaults from input schema output', () => {
+		const cases = [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+
+		for (const defaultValue of cases) {
+			const cmd = commandDef({
+				name: 'test',
+				flags: {
+					count: flagDef({ kind: 'number', presence: 'defaulted', defaultValue }),
+				},
+				args: [argEntry('target', { kind: 'number', presence: 'defaulted', defaultValue })],
+			});
+			const result = generateInputSchema(cmd);
+
+			expect(result).not.toHaveProperty(['properties', 'count', 'default']);
+			expect(result).not.toHaveProperty(['properties', 'target', 'default']);
+		}
 	});
 
 	// -------------------------------------------------------------------
