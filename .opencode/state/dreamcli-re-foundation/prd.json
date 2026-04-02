@@ -126,7 +126,7 @@
 			"description": "Decompose resolver code by concern: orchestration, coercion, lookup, and error helpers. Done when: resolver no longer centralizes unrelated logic in one file and behavior remains protected by contract tests.",
 			"depends": ["resolver-matrix-tests", "scaffold-core-execution"],
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "redesign-error-agg",

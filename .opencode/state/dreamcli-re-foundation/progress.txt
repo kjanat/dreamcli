@@ -21,6 +21,7 @@ Started: 2026-04-02
 - For planner characterization work, extract one pure `planInvocation()`-style helper that owns root interception and command-plan assembly, then test that seam directly instead of asserting through handlers.
 - When subsystem helpers already aggregate their own `ValidationError`s, do cross-domain aggregation at the top boundary by flattening nested error JSON back into `ValidationError`s instead of weakening the lower-level helpers.
 - For execution refactors, extract a minimal `executeCommand()` seam with explicit request/result types and a shared `buildRunResult()` helper first; keep CLI and testkit as thin bootstrap wrappers until routing work lands.
+- For oversized hot modules, keep `index.ts` as the orchestration boundary and extract sibling concern modules first (`args`, `flags`, `coerce`, `config`, `errors`) before changing behavior; the contract tests stay stable while the file shape improves.
 
 ## Project Tracking
 
@@ -90,3 +91,10 @@ Started: 2026-04-02
 - Slimmed `runCommand()` down to output/bootstrap work so it now delegates the canonical execution flow to `executeCommand()`, and reused `buildRunResult()` from the new module in both testkit and CLI root-level result assembly.
 - Files changed: `src/core/execution/index.ts`, `src/core/testkit/index.ts`, `src/core/cli/index.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the safest first extraction is the semantic executor core, not full caller rewiring; once request/result types exist, later CLI and testkit routing work can shrink to adapter changes instead of re-extracting behavior.
+
+## Task - [split-resolver-modules]
+
+- Split the resolver into focused sibling modules so `src/core/resolve/index.ts` now only orchestrates top-level flag/arg resolution and aggregated error handling.
+- Extracted `src/core/resolve/flags.ts`, `src/core/resolve/args.ts`, `src/core/resolve/coerce.ts`, `src/core/resolve/config.ts`, and `src/core/resolve/errors.ts` to separate flag policy, arg policy, shared coercion, config lookup, and validation aggregation concerns.
+- Files changed: `src/core/resolve/index.ts`, `src/core/resolve/flags.ts`, `src/core/resolve/args.ts`, `src/core/resolve/coerce.ts`, `src/core/resolve/config.ts`, `src/core/resolve/errors.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: keeping the public `resolve()` seam in place while extracting sibling helper modules is the lowest-risk way to break up a policy-heavy hot file; the existing resolver contract suite stays useful without any test rewrites.
