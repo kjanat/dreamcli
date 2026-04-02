@@ -39,25 +39,37 @@ Config discovery is platform-aware:
 JSON is built-in.
 Add YAML, TOML, or any other format via `configFormat()`:
 
-```ts
+::: code-group
+
+```ts [Bun built-ins]
+import { configFormat } from 'dreamcli';
+
+cli('mycli')
+  .config('mycli')
+  .configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))
+  .configLoader(configFormat(['toml'], Bun.TOML.parse))
+  .run();
+```
+
+```ts [npm packages]
 import { configFormat } from 'dreamcli';
 import { parse as parseYaml } from 'yaml';
 import { parse as parseTOML } from '@iarna/toml';
 
 cli('mycli')
   .config('mycli')
-  .configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))
-  .configLoader(configFormat(['toml'], Bun.TOML.parse))
   .configLoader(configFormat(['yaml', 'yml'], parseYaml))
   .configLoader(configFormat(['toml'], parseTOML))
   .run();
 ```
 
+:::
+
 `configFormat(exts, parser)` creates a loader config from the extension list and parse function,
-and `configLoader(loader)` registers that loader with the CLI. For example,
-`configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))` adds YAML support on top of the
-built-in JSON loader, and `configLoader(configFormat(['yaml', 'yml'], parseYaml))` works the same
-way with the `yaml` package. The parsed value still has to be a plain object, so YAML scalars,
+and `configLoader(loader)` registers that loader with the CLI.
+Each extension should only be registered once per chain — registering the same extension
+with different parsers causes duplicate loading.
+The parsed value still has to be a plain object, so YAML scalars,
 arrays, `null`, or multi-document YAML that parses to an array will fail as `CONFIG_PARSE_ERROR`.
 
 ## What's Next?

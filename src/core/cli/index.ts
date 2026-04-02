@@ -623,7 +623,18 @@ class CLIBuilder {
 	 * @param loader - Format loader (or extensions + parse function).
 	 * @returns The builder (for chaining).
 	 *
-	 * @example
+	 * @example Bun built-in parsers
+	 * ```ts
+	 * import { configFormat } from 'dreamcli';
+	 *
+	 * cli('myapp')
+	 *   .config('myapp')
+	 *   .configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))
+	 *   .configLoader(configFormat(['toml'], Bun.TOML.parse))
+	 *   .run();
+	 * ```
+	 *
+	 * @example npm package parsers
 	 * ```ts
 	 * import { configFormat } from 'dreamcli';
 	 * import { parse as parseYaml } from 'yaml';
@@ -631,8 +642,6 @@ class CLIBuilder {
 	 *
 	 * cli('myapp')
 	 *   .config('myapp')
-	 *   .configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))
-	 *   .configLoader(configFormat(['toml'], Bun.TOML.parse))
 	 *   .configLoader(configFormat(['yaml', 'yml'], parseYaml))
 	 *   .configLoader(configFormat(['toml'], parseTOML))
 	 *   .run();

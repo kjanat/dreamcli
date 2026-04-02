@@ -264,7 +264,7 @@ const prView = command('view')
 
 `arg.number()` coerces the shell string to a `number` automatically — `args.number` is typed and validated as numeric at parse time. If someone passes `abc`, they get a parse error before the action ever runs.
 The `CLIError` with `suggest` gives the user a helpful nudge when things
-go wrong, and in `--json` mode it serializes as structured JSON on stderr.
+go wrong, and in `--json` mode it serializes as structured JSON on stdout so scripts and pipes receive parseable output.
 
 ## Step 6: Derive Context
 
