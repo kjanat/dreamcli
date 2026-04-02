@@ -8,6 +8,7 @@
  *   GH_TOKEN=ghp_abc123 bun --cwd=examples/gh src/main.ts pr view 142
  *   GH_TOKEN=ghp_abc123 bun --cwd=examples/gh src/main.ts pr create
  *   GH_TOKEN=ghp_abc123 bun --cwd=examples/gh src/main.ts issue list --label bug
+ *   GH_TOKEN=ghp_abc123 bun --cwd=examples/gh src/main.ts issue triage 89
  *   bun --cwd=examples/gh src/main.ts auth login
  *   bun --cwd=examples/gh src/main.ts auth status
  *   bun --cwd=examples/gh src/main.ts --help

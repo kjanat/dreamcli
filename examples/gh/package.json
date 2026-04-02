@@ -21,6 +21,7 @@
 	"scripts": {
 		"bd": "bun run build",
 		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external dreamcli",
+		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

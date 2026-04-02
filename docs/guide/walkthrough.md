@@ -5,10 +5,14 @@ We're going to recreate a miniature version of `gh` — GitHub's official
 CLI — using dreamcli.
 
 By the end, you'll have touched every major feature: commands, groups, flags,
-arguments, derive, env vars, prompts, tables, JSON mode, spinners, and error handling.
+arguments, derive, env vars, per-flag prompts, command-level interactive prompts,
+tables, JSON mode, spinners, and error handling.
 
 The full source lives in [`examples/gh/src/main.ts`][gh-main] with supporting
 modules under [`examples/gh/src/`][gh-src].
+
+Inside this repo, run it with `bun --cwd=examples/gh src/main.ts ...`.
+In a standalone project, you'd install `dreamcli` normally — the Bun workspace wiring here is just repo-local convenience.
 
 ## What we're building
 
@@ -20,14 +24,13 @@ $ gh pr list
 137  Fix date parsing Safari   open    dave
 
 $ gh pr list --state all --json
-[{"number":142,"title":"Add dark mode toggle",...},...]
+[{"#":142,"title":"Add dark mode toggle",...},...]
 
-$ gh pr create
-? Title: Fix the login bug
-? Body: OAuth was redirecting to the wrong callback URL
-Creating pull request... done
-#143 Fix the login bug
-https://github.com/you/repo/pull/143
+$ gh issue triage 89 --decision backlog
+? Which labels still fit? bug, ui
+#89 Login fails on Firefox
+Status: open (backlog)
+Labels: bug, ui
 
 $ gh auth login
 ? Paste your GitHub token: ghp_abc123...
@@ -173,12 +176,12 @@ $ gh pr list --json
 
 `--json` is handled automatically by `cli()`. `out.table()` renders a formatted table for humans and emits JSON when `--json` is active.
 `out.log()` is suppressed in JSON mode.
-For single-object responses (like `pr view`), use `out.json(data)` instead — it always writes structured JSON to stdout, regardless of `--json` mode.
+For single-object responses (like `pr view`), branch on `out.jsonMode`: emit `out.json(data)` in machine mode, or human text otherwise. Don't mix both surfaces in the same response.
 
 ## Step 4: Command groups
 
 A flat list of commands doesn't scale.
-`gh` organizes commands into groups — `pr list`, `pr create`, `auth login`. dreamcli has `group()` for this:
+`gh` organizes commands into groups — `pr list`, `issue triage`, `auth login`. dreamcli has `group()` for this:
 
 ```ts
 import { cli, command, group, flag } from 'dreamcli';
@@ -200,6 +203,10 @@ const authStatus = command('status')
 const prList = command('list').description('List pull requests');
 // ...flags and action from above...
 
+// Issue commands
+const issueList = command('list').description('List issues');
+const issueTriage = command('triage').description('Triage an issue');
+
 // Groups
 const auth = group('auth')
   .description('Manage authentication')
@@ -207,6 +214,10 @@ const auth = group('auth')
   .command(authStatus);
 
 const pr = group('pr').description('Manage pull requests').command(prList);
+const issue = group('issue')
+  .description('Manage issues')
+  .command(issueList)
+  .command(issueTriage);
 
 // Assemble
 cli('gh')
@@ -214,6 +225,7 @@ cli('gh')
   .description('A minimal GitHub CLI clone')
   .command(auth)
   .command(pr)
+  .command(issue)
   .run();
 ```
 
@@ -224,6 +236,7 @@ A minimal GitHub CLI clone
 Commands:
   auth    Manage authentication
   pr      Manage pull requests
+  issue   Manage issues
 
 $ gh pr --help
 Manage pull requests
@@ -256,7 +269,11 @@ const prView = command('view')
       });
     }
 
-    out.json(pr);
+    if (out.jsonMode) {
+      out.json(pr);
+      return;
+    }
+
     out.log(`#${pr.number} ${pr.title}`);
     out.log(`State: ${pr.state}  Author: ${pr.author}`);
   });
@@ -265,6 +282,7 @@ const prView = command('view')
 `arg.number()` coerces the shell string to a `number` automatically — `args.number` is typed and validated as numeric at parse time. If someone passes `abc`, they get a parse error before the action ever runs.
 The `CLIError` with `suggest` gives the user a helpful nudge when things
 go wrong, and in `--json` mode it serializes as structured JSON on stdout so scripts and pipes receive parseable output.
+Single-object commands should pick one surface per run: human text by default, JSON when `--json` is active.
 
 ## Step 6: Derive Context
 
@@ -387,8 +405,75 @@ $ gh auth login                           # prompts interactively
 ```
 
 One flag definition. Three ways to provide the value. The user picks what's convenient.
+That same `tokenFlag()` helper also powers `auth status` and every protected command, so the example sticks to one input story all the way through.
 
-## Step 8: Spinners
+## Step 8: Guided workflows
+
+Per-flag prompts are great when every command always asks the same question.
+`issue triage` needs a different follow-up depending on the primary decision:
+
+- `--decision backlog` should ask which labels still fit
+- `--decision close` should ask whether to post a follow-up comment
+
+That's what `.interactive()` is for:
+
+```ts
+const issueTriage = authedCommand('triage')
+  .description('Triage an issue with guided prompts')
+  .arg('number', arg.number().describe('Issue number'))
+  .flag(
+    'decision',
+    flag
+      .enum(['backlog', 'close'])
+      .required()
+      .describe('How to handle the issue'),
+  )
+  .flag(
+    'label',
+    flag
+      .array(flag.string())
+      .describe('Labels to keep when leaving the issue open'),
+  )
+  .flag('comment', flag.boolean().describe('Post a follow-up comment'))
+  .interactive(({ flags }) => {
+    const labels = flags.label ?? [];
+
+    return {
+      label: flags.decision === 'backlog' &&
+        labels.length === 0 && {
+          kind: 'multiselect',
+          message: 'Which labels still fit?',
+          choices: issueLabelChoices,
+        },
+      comment: flags.decision === 'close' &&
+        !flags.comment && {
+          kind: 'confirm',
+          message: 'Post a follow-up comment?',
+        },
+    };
+  });
+```
+
+```bash
+$ gh issue triage 89 --decision backlog
+? Which labels still fit? bug, ui
+#89 Login fails on Firefox
+Status: open (backlog)
+Labels: bug, ui
+
+$ gh issue triage 89 --decision close
+? Post a follow-up comment? yes
+#89 Login fails on Firefox
+Status: closed
+```
+
+The key difference from `.prompt()` is timing.
+`.interactive()` runs after CLI/env/config resolution and only decides which prompts to show for the still-missing flags.
+Use `.prompt()` for unconditional fallback input.
+Use `.interactive()` when the set of prompts itself depends on earlier resolved flags.
+That's also why `issue` stays smaller than `pr`: `pr` teaches the core API-shaped commands, and `issue triage` teaches the guided-workflow pattern without repeating `view` and `create` all over again.
+
+## Step 9: Spinners
 
 Creating a PR involves an API call. In a real terminal, you'd show a spinner:
 
@@ -424,8 +509,20 @@ const prCreate = command('create')
     await new Promise((r) => setTimeout(r, 1500));
 
     spinner.succeed('Pull request created');
-    out.log(`#143 ${flags.title}`);
-    out.log('https://github.com/you/repo/pull/143');
+
+    const createdPr = {
+      number: 143,
+      title: flags.title,
+      url: 'https://github.com/you/repo/pull/143',
+    };
+
+    if (out.jsonMode) {
+      out.json(createdPr);
+      return;
+    }
+
+    out.log(`#${createdPr.number} ${createdPr.title}`);
+    out.log(createdPr.url);
   });
 ```
 
@@ -433,7 +530,7 @@ const prCreate = command('create')
 In a TTY, you get an animated spinner.
 When piped or in `--json` mode, spinners are suppressed automatically — no garbage escape codes in your logs.
 
-## Step 9: Testing
+## Step 10: Testing
 
 This is where it gets interesting.
 You don't want to spawn subprocesses to test a CLI. dreamcli's testkit lets you run commands in-process with full control:
@@ -461,13 +558,13 @@ const withAuth = await runCommand(prList, [], {
 });
 expect(withAuth.exitCode).toBe(0);
 
-// Test interactive prompts
-const create = await runCommand(prCreate, [], {
+// Test guided prompts
+const triage = await runCommand(issueTriage, ['89', '--decision', 'backlog'], {
   env: { GH_TOKEN: 'ghp_test_token' },
-  answers: ['Fix the bug', 'Detailed description'],
+  answers: [['bug', 'ui']],
 });
-expect(create.exitCode).toBe(0);
-expect(create.stdout.join('')).toContain('#143');
+expect(triage.exitCode).toBe(0);
+expect(triage.stdout.join('')).toContain('Labels: bug, ui');
 ```
 
 No subprocesses. No `process.argv` mutation. No shell scripts.
@@ -493,7 +590,10 @@ const pr = group('pr')
   .command(prView)
   .command(prCreate);
 
-const issue = group('issue').description('Manage issues').command(issueList);
+const issue = group('issue')
+  .description('Manage issues')
+  .command(issueList)
+  .command(issueTriage);
 
 cli('gh')
   .version('0.1.0')
@@ -506,12 +606,14 @@ cli('gh')
 
 That's a CLI with:
 
-- 6 commands across 3 groups
+- 7 commands across 3 groups
 - Enum, string, number, and boolean flags
+- Array flags with multiselect prompts
 - Positional arguments
 - Auth derive with typed context
 - Env var resolution (`GH_TOKEN`)
 - Interactive prompts with resolution chain fallback
+- Command-level interactive resolver for guided follow-up questions
 - Table output with automatic JSON mode
 - Spinners with TTY-aware suppression
 - Structured errors with suggestions and error codes

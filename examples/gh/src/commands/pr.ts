@@ -61,7 +61,11 @@ const prView = authedCommand('view')
 			});
 		}
 
-		out.json(pr);
+		if (out.jsonMode) {
+			out.json(pr);
+			return;
+		}
+
 		out.log(`\
 #${pr.number} ${pr.title}
 State:  ${pr.state}  Author: ${pr.author}  Draft: ${String(pr.draft)}
@@ -94,13 +98,25 @@ const prCreate = authedCommand('create')
 		await sleep(1500);
 		spinner.succeed('Pull request created');
 
-		out.json({ number: 143, title: flags.title, url: 'https://github.com/you/repo/pull/143' });
-		out.log(`#143 ${flags.title}`);
+		const createdPr = {
+			number: 143,
+			title: flags.title,
+			url: 'https://github.com/you/repo/pull/143',
+		};
+
+		if (out.jsonMode) {
+			out.json(createdPr);
+			return;
+		}
+
+		out.log(`#${createdPr.number} ${createdPr.title}`);
 		if (flags.draft) {
 			out.info('Marked as draft');
 		}
-		out.log('https://github.com/you/repo/pull/143');
+		out.log(createdPr.url);
 	});
+
+export { prCreate, prList, prView };
 
 export const pr = group('pr')
 	.description('Manage pull requests')

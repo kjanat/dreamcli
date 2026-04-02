@@ -6,6 +6,10 @@
 
 import { CLIError, command, flag } from 'dreamcli';
 
+export function tokenFlag(description = 'GitHub token') {
+	return flag.string().env('GH_TOKEN').describe(description);
+}
+
 export function requireAuth(token: string | undefined): { readonly token: string } {
 	const normalizedToken = token?.trim();
 	if (!normalizedToken) {
@@ -28,6 +32,6 @@ export function redactToken(token: string): string {
 /** A {@linkcode command} pre-wired with a `--token` / `GH_TOKEN` flag and auth guard. */
 export function authedCommand(name: string) {
 	return command(name)
-		.flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
+		.flag('token', tokenFlag())
 		.derive(({ flags }) => requireAuth(flags.token));
 }
