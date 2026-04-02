@@ -404,7 +404,7 @@ function collectValueFlagPattern(
 		for (const [name, schema] of Object.entries(flags)) {
 			if (schema.kind === 'boolean') continue;
 			forms.add(`--${name}`);
-			for (const alias of getFlagAliasNames(schema)) {
+			for (const alias of getFlagAliasNames(schema, { includeHidden: true })) {
 				forms.add(alias.length === 1 ? `-${alias}` : `--${alias}`);
 			}
 		}
@@ -445,7 +445,7 @@ function collectEnumCasesFromFlags(
 		if (schema.kind !== 'enum' || schema.enumValues === undefined) continue;
 		const flagForms = [
 			`--${name}`,
-			...getFlagAliasNames(schema).map((alias) =>
+			...getFlagAliasNames(schema, { includeHidden: true }).map((alias) =>
 				alias.length === 1 ? `-${alias}` : `--${alias}`,
 			),
 		].map(escapeBashCasePatternValue);

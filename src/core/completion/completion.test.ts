@@ -5,13 +5,13 @@
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { isCLIError } from '#internals/core/errors/index.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import type {
 	ActivityEvent,
 	CommandSchema,
 	FlagSchema,
 	FlagSchemaOverrides,
 } from '#internals/core/schema/index.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
 import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,
@@ -536,6 +536,28 @@ describe('generateBashCompletion — enum value completions', () => {
 		const script = generateBashCompletion(schema);
 
 		expect(script).toContain("--we\\'ird|--quo\\'te)");
+	});
+
+	it('keeps hidden long aliases in enum case patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							'skip-pass': flagSchema({
+								kind: 'enum',
+								aliases: [{ name: 'skipPass', hidden: true }],
+								enumValues: ['yes', 'no'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('--skip-pass|--skipPass)');
 	});
 
 	it('omits enum case section when no enum flags exist', () => {
@@ -1909,6 +1931,30 @@ describe('generateBashCompletion — flag operand and -- handling', () => {
 		expect(skipLine).toBeDefined();
 		expect(skipLine).toContain('--output');
 		expect(skipLine).toContain('-o');
+	});
+
+	it('keeps hidden long aliases in the value-flag skip pattern', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'run',
+						flags: {
+							'config-path': flagSchema({
+								kind: 'string',
+								aliases: [{ name: 'configPath', hidden: true }],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		expect(skipLine).toBeDefined();
+		expect(skipLine).toContain('--config-path');
+		expect(skipLine).toContain('--configPath');
 	});
 
 	it('omits value-flag skip line when all flags are boolean', () => {
