@@ -41,6 +41,12 @@ interface OutputPolicy {
 	readonly verbosity: Verbosity;
 }
 
+interface ResolveOutputPolicyOptions {
+	readonly jsonMode: boolean;
+	readonly isTTY: boolean;
+	readonly verbosity: Verbosity;
+}
+
 /** Concrete activity policy chosen for spinner/progress creation. */
 interface ActivityPolicy {
 	readonly mode: Exclude<ActivityRenderMode, 'capture'>;
@@ -66,6 +72,15 @@ const outputContract = {
 	spinnerCleanupUsesStop: true,
 	progressCleanupUsesDone: true,
 } satisfies OutputContract;
+
+/** Build the stable output-policy snapshot for one channel instance. */
+function resolveOutputPolicy(options: ResolveOutputPolicyOptions): OutputPolicy {
+	return {
+		jsonMode: options.jsonMode,
+		isTTY: options.isTTY,
+		verbosity: options.verbosity,
+	};
+}
 
 /** Resolve the default text stream for non-JSON structured output. */
 function resolveTextStream(policy: OutputPolicy): OutputStream {
@@ -142,6 +157,7 @@ export type {
 	OutputContract,
 	OutputPolicy,
 	OutputStream,
+	ResolveOutputPolicyOptions,
 	Verbosity,
 };
 export {
@@ -151,6 +167,7 @@ export {
 	OUTPUT_VERBOSITY_LEVELS,
 	outputContract,
 	resolveActivityRenderMode,
+	resolveOutputPolicy,
 	resolveProgressPolicy,
 	resolveSpinnerPolicy,
 	resolveTableFormat,

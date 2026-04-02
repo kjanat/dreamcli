@@ -189,6 +189,21 @@ describe('OutputChannel', () => {
 		expect(channel.options.isTTY).toBe(true);
 		expect(channel.options.verbosity).toBe('quiet');
 	});
+
+	it('stores an explicit output policy snapshot', () => {
+		const channel = new OutputChannel({
+			stdout: () => {},
+			stderr: () => {},
+			isTTY: true,
+			verbosity: 'quiet',
+			jsonMode: true,
+		});
+		expect(channel.policy).toEqual({
+			jsonMode: true,
+			isTTY: true,
+			verbosity: 'quiet',
+		});
+	});
 });
 
 // --- Newline behavior

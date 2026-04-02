@@ -3,6 +3,7 @@ import type { TableOptions } from '#internals/core/schema/activity.ts';
 import type { ActivityPolicy, OutputPolicy, OutputStream, Verbosity } from './contracts.ts';
 import {
 	outputContract,
+	resolveOutputPolicy,
 	resolveProgressPolicy,
 	resolveSpinnerPolicy,
 	resolveTableFormat,
@@ -29,6 +30,10 @@ describe('output contracts — text routing', () => {
 	it('suppresses info only in quiet mode', () => {
 		expect(shouldEmitInfo(normalPolicy)).toBe(true);
 		expect(shouldEmitInfo({ ...normalPolicy, verbosity: 'quiet' })).toBe(false);
+	});
+
+	it('builds an explicit output policy snapshot', () => {
+		expect(resolveOutputPolicy(normalPolicy)).toEqual(normalPolicy);
 	});
 
 	it('keeps text tables on requested stream when forced', () => {

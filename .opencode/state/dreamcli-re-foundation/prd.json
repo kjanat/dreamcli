@@ -162,7 +162,7 @@
 			"description": "Refactor output internals so policy choice is distinct from concrete rendering and activity handling. Done when: output mode selection is explicit and output behavior is easier to extend and test.",
 			"depends": ["output-contracts", "route-cli-executor"],
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "implement-fish-comp",

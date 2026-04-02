@@ -24,6 +24,7 @@ Started: 2026-04-02
 - For oversized hot modules, keep `index.ts` as the orchestration boundary and extract sibling concern modules first (`args`, `flags`, `coerce`, `config`, `errors`) before changing behavior; the contract tests stay stable while the file shape improves.
 - When centralizing execution ownership, wrap the whole executor in one `try/finally` so fast exits like `--help` and missing-handler guards still clean up active output handles.
 - When a new internal seam broadens a hot test helper interface, make the seam optional and keep the old path as a fallback for fake test doubles; production wiring can move first without forcing broad fixture churn.
+- For output-layer policy refactors, freeze one `policy` snapshot per channel and route concrete writer or handle creation through sibling renderer helpers; that splits semantic mode choice from mechanics without changing the public `Out` surface.
 
 ## Project Tracking
 
@@ -115,3 +116,10 @@ Started: 2026-04-02
 - Added CLI-level coverage proving injected output handles still clean up on matched-command failures, and updated the support matrix to say both CLI and testkit now delegate directly to the shared executor.
 - Files changed: `src/core/cli/index.ts`, `src/core/cli/cli.test.ts`, `src/core/schema/command.ts`, `docs/reference/support-matrix.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: moving the real CLI path first is low-risk if the erased-command seam can carry the raw builder optionally; internal fake commands can stay lightweight while production dispatch stops depending on testkit.
+
+## Task - [decouple-output-policy]
+
+- Added `src/core/output/renderers.ts` as a narrow internal renderer/factory seam so concrete stdout/stderr writer selection and spinner/progress handle construction no longer live inline in `OutputChannel`.
+- Made `OutputChannel` hold an explicit `policy` snapshot, routed log/info/table/activity decisions through that policy, and updated the output contract doc to reflect the new split while keeping the public API unchanged.
+- Files changed: `src/core/output/renderers.ts`, `src/core/output/contracts.ts`, `src/core/output/index.ts`, `src/core/output/contracts.test.ts`, `src/core/output/output.test.ts`, `docs/reference/output-contract.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the smallest safe output split is policy snapshot plus renderer helpers; capture can stay subclass-based while normal output stops branching on concrete handle classes inline.

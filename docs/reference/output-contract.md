@@ -80,5 +80,5 @@ The frozen facts in `outputContract` are:
 ## Current Status
 
 - output policy facts are now named in one internal contract module
-- `OutputChannel` consumes policy helpers instead of embedding every routing rule inline
-- full output-layer decomposition is still future work; rendering and capture behavior remain in `src/core/output/index.ts`
+- `OutputChannel` now keeps an explicit `policy` snapshot and delegates concrete writer and activity-handle selection through internal renderer helpers
+- capture behavior still stays in `src/core/output/index.ts`; a full output-layer split remains future work

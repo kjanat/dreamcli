@@ -31,8 +31,9 @@ import {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 } from './activity.ts';
-import type { Verbosity } from './contracts.ts';
+import type { OutputPolicy, Verbosity } from './contracts.ts';
 import {
+	resolveOutputPolicy,
 	resolveProgressPolicy,
 	resolveSpinnerPolicy,
 	resolveTableFormat,
@@ -41,6 +42,11 @@ import {
 	shouldEmitInfo,
 } from './contracts.ts';
 import { formatDisplayValue } from './display-value.ts';
+import {
+	createProgressHandleFromPolicy,
+	createSpinnerHandleFromPolicy,
+	resolveWriterForStream,
+} from './renderers.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 
@@ -138,6 +144,9 @@ class OutputChannel implements Out {
 	/** @internal Resolved configuration. */
 	readonly options: ResolvedOutputOptions;
 
+	/** Semantic output policy snapshot shared by routing helpers. */
+	readonly policy: OutputPolicy;
+
 	/** Whether JSON output mode is active. */
 	readonly jsonMode: boolean;
 
@@ -152,6 +161,7 @@ class OutputChannel implements Out {
 
 	constructor(options: ResolvedOutputOptions) {
 		this.options = options;
+		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
 		this.isTTY = options.isTTY;
 	}
@@ -163,8 +173,7 @@ class OutputChannel implements Out {
 	 * structured `json()` output only.
 	 */
 	log(message: string): void {
-		const writer =
-			resolveTextStream(this.options) === 'stderr' ? this.options.stderr : this.options.stdout;
+		const writer = resolveWriterForStream(this.options, resolveTextStream(this.policy));
 		writeLine(writer, message);
 	}
 
@@ -175,9 +184,8 @@ class OutputChannel implements Out {
 	 * In JSON mode, redirected to stderr.
 	 */
 	info(message: string): void {
-		if (!shouldEmitInfo(this.options)) return;
-		const writer =
-			resolveTextStream(this.options) === 'stderr' ? this.options.stderr : this.options.stdout;
+		if (!shouldEmitInfo(this.policy)) return;
+		const writer = resolveWriterForStream(this.options, resolveTextStream(this.policy));
 		writeLine(writer, message);
 	}
 
@@ -223,7 +231,7 @@ class OutputChannel implements Out {
 		options?: TableOptions,
 	): void {
 		const { columns, options: tableOptions } = resolveTableArgs(columnsOrOptions, options);
-		const format = resolveTableFormat(this.options, tableOptions);
+		const format = resolveTableFormat(this.policy, tableOptions);
 		const resolved = columns ?? inferColumns(rows);
 
 		if (format === 'json') {
@@ -234,7 +242,7 @@ class OutputChannel implements Out {
 		const text = formatTable(rows, resolved);
 		if (text.length === 0) return;
 
-		writeLine(resolveTextTableWriter(this.options, format, tableOptions), text);
+		writeLine(resolveTextTableWriter(this.options, this.policy, format, tableOptions), text);
 	}
 
 	// ----- Active handle tracking -----
@@ -286,25 +294,17 @@ class OutputChannel implements Out {
 	 * @virtual
 	 */
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
-		const policy = resolveSpinnerPolicy(this.options, options?.fallback ?? 'silent');
+		const policy = resolveSpinnerPolicy(this.policy, options?.fallback ?? 'silent');
+		const rendered = createSpinnerHandleFromPolicy(policy, text, this.options.stderr);
 
-		if (policy.mode === 'noop') {
-			return noopSpinnerHandle;
+		if (rendered.cleanup === undefined) {
+			return rendered.handle;
 		}
 
 		// Stop any active handle before creating a new one.
 		this.stopActive();
-
-		if (policy.mode === 'tty') {
-			const handle = new TTYSpinnerHandle(text, this.options.stderr);
-			this.activeCleanup = () => handle.stop();
-			return handle;
-		}
-
-		// Non-TTY, static fallback.
-		const handle = new StaticSpinnerHandle(text, this.options.stderr);
-		this.activeCleanup = () => handle.stop();
-		return handle;
+		this.activeCleanup = rendered.cleanup;
+		return rendered.handle;
 	}
 
 	/**
@@ -325,25 +325,17 @@ class OutputChannel implements Out {
 	 * @virtual
 	 */
 	progress(opts: ProgressOptions): ProgressHandle {
-		const policy = resolveProgressPolicy(this.options, opts.fallback ?? 'silent');
+		const policy = resolveProgressPolicy(this.policy, opts.fallback ?? 'silent');
+		const rendered = createProgressHandleFromPolicy(policy, opts, this.options.stderr);
 
-		if (policy.mode === 'noop') {
-			return noopProgressHandle;
+		if (rendered.cleanup === undefined) {
+			return rendered.handle;
 		}
 
 		// Stop any active handle before creating a new one.
 		this.stopActive();
-
-		if (policy.mode === 'tty') {
-			const handle = new TTYProgressHandle(opts, this.options.stderr);
-			this.activeCleanup = () => handle.done();
-			return handle;
-		}
-
-		// Non-TTY, static fallback.
-		const handle = new StaticProgressHandle(opts.label, this.options.stderr);
-		this.activeCleanup = () => handle.done();
-		return handle;
+		this.activeCleanup = rendered.cleanup;
+		return rendered.handle;
 	}
 }
 
@@ -479,6 +471,7 @@ function projectTableRows<T extends Record<string, unknown>>(
  */
 function resolveTextTableWriter(
 	options: ResolvedOutputOptions,
+	policy: OutputPolicy,
 	format: 'text' | 'json',
 	tableOptions?: TableOptions,
 ): WriteFn {
@@ -486,9 +479,7 @@ function resolveTextTableWriter(
 		return options.stdout;
 	}
 
-	return resolveTableTextStream(options, tableOptions) === 'stderr'
-		? options.stderr
-		: options.stdout;
+	return resolveWriterForStream(options, resolveTableTextStream(policy, tableOptions));
 }
 
 /**
