@@ -12,24 +12,19 @@
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import { generateCompletion, SHELLS } from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
-import { discoverConfig } from '#internals/core/config/index.ts';
-import { discoverPackageJson, inferCliName } from '#internals/core/config/package-json.ts';
-import { CLIError, ParseError } from '#internals/core/errors/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import { createCaptureOutput, createOutput } from '#internals/core/output/index.ts';
-import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
-import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type {
 	AnyCommandBuilder,
 	CommandBuilder,
 	CommandMeta,
-	CommandSchema,
 	ErasedCommand,
 	Out,
 } from '#internals/core/schema/command.ts';
@@ -39,12 +34,12 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
-import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { OutputPolicy } from './planner.ts';
-import { buildRootCommandMap, mergeCommandSchema, planInvocation } from './planner.ts';
+import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
 import { formatRootHelp } from './root-help.ts';
+import { prepareRuntimePreflight } from './runtime-preflight.ts';
 
 // --- Type-erased command — erasure function (interface now in schema/command.ts)
 
@@ -297,49 +292,6 @@ interface CLIRunOptions {
 	readonly help?: HelpOptions;
 }
 
-// --- --config flag extraction
-
-/**
- * Extract `--config <path>` or `--config=<path>` from argv.
- *
- * Returns the config path (if present) and the filtered argv with the
- * flag (and its value) removed. Bare `--config` at end of argv (no value)
- * and `--config=` (empty value) are silently ignored (treated as absent).
- *
- * The `--config=<path>` form is checked first so that a bare `--config`
- * token does not consume the next element when an equals-form is present.
- *
- * @param argv - Raw argument vector to scan for `--config`.
- * @returns The extracted config path and filtered argv with the flag removed.
- *
- * @internal
- */
-function extractConfigFlag(argv: readonly string[]): {
-	readonly configPath: string | undefined;
-	readonly filteredArgv: readonly string[];
-} {
-	// --- equals form: --config=<path> ---
-	const eqIdx = argv.findIndex((arg) => arg.startsWith('--config='));
-	if (eqIdx !== -1) {
-		const value = (argv[eqIdx] as string).slice('--config='.length);
-		// Always strip the element; empty value (--config=) treated as absent.
-		const filteredArgv = [...argv.slice(0, eqIdx), ...argv.slice(eqIdx + 1)];
-		return {
-			configPath: value.length > 0 ? value : undefined,
-			filteredArgv,
-		};
-	}
-
-	// --- space-separated form: --config <path> ---
-	const idx = argv.indexOf('--config');
-	const nextArg = idx >= 0 ? argv[idx + 1] : undefined;
-	if (idx === -1 || nextArg === undefined) {
-		return { configPath: undefined, filteredArgv: argv };
-	}
-	const filteredArgv = [...argv.slice(0, idx), ...argv.slice(idx + 2)];
-	return { configPath: nextArg, filteredArgv };
-}
-
 // --- Command run options builder
 
 /**
@@ -373,101 +325,6 @@ function buildCommandRunOptions(
 		...(options?.out !== undefined ? { out: options.out } : {}),
 		...(options?.captured !== undefined ? { captured: options.captured } : {}),
 	};
-}
-
-/**
- * Check whether a single command's args require stdin for the given argv.
- *
- * @param schema - Command schema whose args are inspected for `.stdin()` configuration.
- * @param argv - Remaining argv tokens after dispatch (excludes the command name).
- * @returns `true` when at least one arg has `stdinMode` and its parsed value is absent or `'-'`.
- *
- * @internal
- */
-function commandInvocationNeedsStdin(schema: CommandSchema, argv: readonly string[]): boolean {
-	if (argv.includes('--help') || argv.includes('-h')) {
-		return false;
-	}
-
-	try {
-		const parsed = parse(schema, argv);
-		return schema.args.some(({ name, schema: argSchema }) => {
-			const parsedValue = parsed.args[name];
-			return argSchema.stdinMode && (parsedValue === undefined || parsedValue === '-');
-		});
-	} catch (err: unknown) {
-		if (err instanceof ParseError) {
-			return false;
-		}
-		throw err;
-	}
-}
-
-/**
- * Determine whether the full CLI invocation will need stdin data.
- *
- * Dispatches argv through the command tree to find the target command,
- * then delegates to {@link commandInvocationNeedsStdin}. Short-circuits
- * to `false` for `--help`, `--version`, virtual `help`, and empty argv
- * without a default command.
- *
- * @param builder - CLI builder whose schema and command tree are inspected.
- * @param argv - Raw argv tokens (after `--json` stripping).
- * @returns `true` when the resolved command has args that require stdin.
- *
- * @internal
- */
-function invocationNeedsStdin(builder: CLIBuilder, argv: readonly string[]): boolean {
-	const filteredArgv = argv.includes('--json') ? argv.filter((arg) => arg !== '--json') : argv;
-
-	if (filteredArgv.includes('--version') || filteredArgv.includes('-V')) {
-		return false;
-	}
-	if (filteredArgv.includes('--help') || filteredArgv.includes('-h')) {
-		return false;
-	}
-
-	const firstArg = filteredArgv[0];
-	if (firstArg === 'help') {
-		const hasRealHelpCommand = builder.schema.commands.some(
-			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
-		);
-		if (!hasRealHelpCommand) {
-			return false;
-		}
-	}
-
-	if (firstArg === undefined && builder.schema.defaultCommand === undefined) {
-		return false;
-	}
-	if (builder.schema.commands.length === 0) {
-		return false;
-	}
-
-	const rootCommands = buildRootCommandMap(builder.schema.commands);
-	const result = dispatch(filteredArgv, rootCommands);
-	const defaultCommand = builder.schema.defaultCommand;
-
-	switch (result.kind) {
-		case 'unknown': {
-			if (defaultCommand !== undefined && result.parentPath.length === 0) {
-				const suggestion =
-					result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
-				if (suggestion === undefined) {
-					return commandInvocationNeedsStdin(defaultCommand.schema, filteredArgv);
-				}
-			}
-			return false;
-		}
-
-		case 'needs-subcommand':
-			return false;
-
-		case 'match': {
-			const mergedSchema = mergeCommandSchema(result.command, result.commandPath);
-			return commandInvocationNeedsStdin(mergedSchema, result.remainingArgv);
-		}
-	}
 }
 
 // --- CLIBuilder — immutable builder for the CLI program
@@ -966,123 +823,41 @@ class CLIBuilder {
 		const adapter = options?.adapter ?? createAdapter();
 		const inheritedName = this.schema.inheritName ? inferInvocationName(adapter.argv) : undefined;
 
-		const rawArgv = adapter.argv.slice(2);
+		const preflight = await prepareRuntimePreflight({
+			schema: this.schema,
+			adapter,
+			options,
+			inheritedName,
+		});
 
-		// Extract --config <path> / --config=<path> before command dispatch (requires I/O via adapter)
-		const { configPath, filteredArgv } = extractConfigFlag(rawArgv);
-
-		// Detect --json early for error rendering during config loading
-		const hasJsonFlag = filteredArgv.includes('--json');
-		const jsonMode = hasJsonFlag || options?.jsonMode === true;
-
-		// Config discovery (only when .config() was called on the builder)
-		// Skip for completions subcommand — shell completions don't need config.
-		// Resolve the first argv token against registered commands (by name + aliases)
-		// so aliases or shadowed names are handled correctly.
-		// When no subcommand token is present and a default command exists, check
-		// whether the default command is 'completions' (unlikely but correct).
-		const firstToken = filteredArgv[0];
-		const matchedCommand =
-			firstToken !== undefined
-				? this.schema.commands.find(
-						(c) => c.schema.name === firstToken || c.schema.aliases.includes(firstToken),
-					)
-				: undefined;
-		const effectiveCommandName =
-			matchedCommand?.schema.name ?? this.schema.defaultCommand?.schema.name;
-		const isCompletions = effectiveCommandName === 'completions';
-		let loadedConfig: Readonly<Record<string, unknown>> | undefined;
-
-		if (
-			this.schema.configSettings !== undefined &&
-			!isCompletions &&
-			options?.config === undefined
-		) {
-			try {
-				const result = await discoverConfig(this.schema.configSettings.appName, adapter, {
-					...(configPath !== undefined ? { configPath } : {}),
-					...(this.schema.configSettings.loaders !== undefined
-						? { loaders: this.schema.configSettings.loaders }
-						: {}),
-				});
-				if (result.found) {
-					loadedConfig = result.data;
+		if (preflight.kind === 'config-error') {
+			if (preflight.jsonMode) {
+				adapter.stdout(`${JSON.stringify({ error: preflight.error.toJSON() })}\n`);
+			} else {
+				adapter.stderr(`Error: ${preflight.error.message}\n`);
+				if (preflight.error.suggest !== undefined) {
+					adapter.stderr(`Suggestion: ${preflight.error.suggest}\n`);
 				}
-			} catch (err: unknown) {
-				// Config errors are fatal — render and exit
-				if (err instanceof CLIError) {
-					if (jsonMode) {
-						adapter.stdout(`${JSON.stringify({ error: err.toJSON() })}\n`);
-					} else {
-						adapter.stderr(`Error: ${err.message}\n`);
-						if (err.suggest !== undefined) {
-							adapter.stderr(`Suggestion: ${err.suggest}\n`);
-						}
-					}
-					return adapter.exit(err.exitCode);
-				}
-				throw err;
 			}
+			return adapter.exit(preflight.error.exitCode);
 		}
 
-		// Package.json discovery (only when .packageJson() was called)
-		// Skip for completions subcommand — no metadata needed.
-		const packageJsonSettings = this.schema.packageJsonSettings;
-		const builderWithPackageJson =
-			packageJsonSettings !== undefined && !isCompletions
-				? await (async (): Promise<CLIBuilder> => {
-						const pkg = await discoverPackageJson(adapter);
-						if (pkg === null) return this;
-
-						const schema = this.schema;
-						const inferredName = packageJsonSettings.inferName ? inferCliName(pkg) : undefined;
-						return new CLIBuilder({
-							...schema,
-							// Explicit > discovered: only fill in undefined fields
-							...(schema.version === undefined && pkg.version !== undefined
-								? { version: pkg.version }
-								: {}),
-							...(schema.description === undefined && pkg.description !== undefined
-								? { description: pkg.description }
-								: {}),
-							...(inferredName !== undefined ? { name: inferredName } : {}),
-						});
-					})()
-				: this;
 		const effectiveBuilder =
-			inheritedName !== undefined
-				? new CLIBuilder({ ...builderWithPackageJson.schema, name: inheritedName })
-				: builderWithPackageJson;
-
-		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
-		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)
-		// get stdinIsTTY=false → no auto-prompter → prompts skipped → falls through to default/required.
-		const autoPrompter =
-			options?.prompter === undefined && adapter.stdinIsTTY
-				? createTerminalPrompter(adapter.stdin, adapter.stderr)
-				: undefined;
-		const adapterStdinData =
-			options?.stdinData === undefined && invocationNeedsStdin(effectiveBuilder, filteredArgv)
-				? await adapter.readStdin()
-				: undefined;
-
-		// Source env, isTTY, and config from adapter when not explicitly provided in options
+			preflight.schema === this.schema ? this : new CLIBuilder(preflight.schema);
 		const executeOptions: CLIRunOptions = {
 			...options,
-			...(options?.env === undefined ? { env: adapter.env } : {}),
-			...(options?.isTTY === undefined ? { isTTY: adapter.isTTY } : {}),
-			...(adapterStdinData !== undefined ? { stdinData: adapterStdinData } : {}),
-			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
-			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
+			...preflight.inputs,
 			out: createOutput({
 				stdout: adapter.stdout,
 				stderr: adapter.stderr,
-				jsonMode,
-				isTTY: options?.isTTY ?? adapter.isTTY,
-				...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+				jsonMode: preflight.inputs.jsonMode,
+				isTTY: preflight.inputs.isTTY,
+				...(preflight.inputs.verbosity !== 'normal'
+					? { verbosity: preflight.inputs.verbosity }
+					: {}),
 			}),
 		};
-		const result = await effectiveBuilder.execute(filteredArgv, executeOptions);
+		const result = await effectiveBuilder.execute(preflight.filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {

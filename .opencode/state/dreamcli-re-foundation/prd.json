@@ -108,7 +108,7 @@
 			"description": "Separate adapter/config/package/stdin/prompt sourcing from planner and executor logic. Done when: runtime preflight is explicit, locally testable, and no longer entangled with dispatch branching.",
 			"depends": ["route-cli-executor"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "extract-invocation-planner",

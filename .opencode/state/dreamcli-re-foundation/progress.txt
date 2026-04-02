@@ -25,6 +25,7 @@ Started: 2026-04-02
 - When centralizing execution ownership, wrap the whole executor in one `try/finally` so fast exits like `--help` and missing-handler guards still clean up active output handles.
 - When a new internal seam broadens a hot test helper interface, make the seam optional and keep the old path as a fallback for fake test doubles; production wiring can move first without forcing broad fixture churn.
 - For output-layer policy refactors, freeze one `policy` snapshot per channel and route concrete writer or handle creation through sibling renderer helpers; that splits semantic mode choice from mechanics without changing the public `Out` surface.
+- For CLI run-path refactors, extract adapter-driven config/package/stdin/prompt sourcing into a `runtime-preflight` helper that consumes planner outcomes; it removes duplicate dispatch branching while keeping `run()` as a thin runtime shell.
 
 ## Project Tracking
 
@@ -123,3 +124,11 @@ Started: 2026-04-02
 - Made `OutputChannel` hold an explicit `policy` snapshot, routed log/info/table/activity decisions through that policy, and updated the output contract doc to reflect the new split while keeping the public API unchanged.
 - Files changed: `src/core/output/renderers.ts`, `src/core/output/contracts.ts`, `src/core/output/index.ts`, `src/core/output/contracts.test.ts`, `src/core/output/output.test.ts`, `docs/reference/output-contract.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the smallest safe output split is policy snapshot plus renderer helpers; capture can stay subclass-based while normal output stops branching on concrete handle classes inline.
+
+## Task - [extract-runtime-preflight]
+
+- Added `src/core/cli/runtime-preflight.ts` as the explicit runtime sourcing seam for `CLIBuilder.run()`, owning config-path stripping, package/config discovery, prompt auto-wiring, and invocation-scoped stdin reads.
+- Slimmed `CLIBuilder.run()` down to adapter setup, preflight error rendering, output creation, and the final handoff into `execute()`.
+- Added `src/core/cli/runtime-preflight.test.ts` to lock down package/config discovery, completions skip behavior, stdin gating, prompt gating, and config-error outcomes.
+- Files changed: `src/core/cli/runtime-preflight.ts`, `src/core/cli/runtime-preflight.test.ts`, `src/core/cli/index.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: using `planInvocation()` inside preflight is the cleanest way to decide stdin/completions behavior without re-encoding dispatch rules in the runtime layer.
