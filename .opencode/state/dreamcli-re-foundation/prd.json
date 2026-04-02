@@ -36,7 +36,7 @@
 			"description": "Specify output policy concepts for jsonMode, isTTY, verbosity, and activity cleanup. Done when: output policy is separable from rendering, supported shell/output claims are aligned, and later refactors have a stable boundary.",
 			"depends": ["support-truth-matrix"],
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "planner-contract-tests",

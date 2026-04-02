@@ -49,6 +49,7 @@ Most applications start from `dreamcli`.
 - [CLI Semantics](/guide/semantics) — exact parser, resolver, and root-surface behavior
 - [Planner Contract](/reference/planner-contract) — internal dispatch outcomes and matched-command handoff
 - [Resolver Contract](/reference/resolver-contract) — internal precedence, diagnostics, and resolved-value handoff
+- [Output Contract](/reference/output-contract) — internal routing, activity mode, and cleanup policy facts
 - [Testing Commands](/guide/testing) — higher-level testkit usage patterns
 - [Runtime Support](/guide/runtime) — runtime packages and adapter expectations
 - [Support Matrix](/reference/support-matrix) — audited support status, evidence, and deferred work

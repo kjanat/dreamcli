@@ -11,22 +11,10 @@
 
 import type { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
-import type { Verbosity } from '#internals/core/output/index.ts';
+import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import type { CommandMeta, CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { collectPropagatedFlags } from './propagate.ts';
-
-/**
- * Output mode facts chosen before command execution starts.
- *
- * This is intentionally narrower than `OutputOptions`: planner code only
- * needs stable semantic facts, not concrete writers or renderer details.
- */
-interface OutputPolicy {
-	readonly jsonMode: boolean;
-	readonly isTTY: boolean;
-	readonly verbosity: Verbosity;
-}
 
 /** Root-level help interception outcome. */
 interface RootHelpOutcome {

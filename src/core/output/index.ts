@@ -31,19 +31,18 @@ import {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 } from './activity.ts';
+import type { Verbosity } from './contracts.ts';
+import {
+	resolveProgressPolicy,
+	resolveSpinnerPolicy,
+	resolveTableFormat,
+	resolveTableTextStream,
+	resolveTextStream,
+	shouldEmitInfo,
+} from './contracts.ts';
 import { formatDisplayValue } from './display-value.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
-
-// --- Verbosity
-
-/**
- * Controls which messages are emitted.
- *
- * - `'normal'` — all messages
- * - `'quiet'`  — suppresses `info`; keeps `log`, `warn`, `error`
- */
-type Verbosity = 'normal' | 'quiet';
 
 // --- Options
 
@@ -164,7 +163,8 @@ class OutputChannel implements Out {
 	 * structured `json()` output only.
 	 */
 	log(message: string): void {
-		const writer = this.options.jsonMode ? this.options.stderr : this.options.stdout;
+		const writer =
+			resolveTextStream(this.options) === 'stderr' ? this.options.stderr : this.options.stdout;
 		writeLine(writer, message);
 	}
 
@@ -175,8 +175,9 @@ class OutputChannel implements Out {
 	 * In JSON mode, redirected to stderr.
 	 */
 	info(message: string): void {
-		if (this.options.verbosity === 'quiet') return;
-		const writer = this.options.jsonMode ? this.options.stderr : this.options.stdout;
+		if (!shouldEmitInfo(this.options)) return;
+		const writer =
+			resolveTextStream(this.options) === 'stderr' ? this.options.stderr : this.options.stdout;
 		writeLine(writer, message);
 	}
 
@@ -222,7 +223,7 @@ class OutputChannel implements Out {
 		options?: TableOptions,
 	): void {
 		const { columns, options: tableOptions } = resolveTableArgs(columnsOrOptions, options);
-		const format = resolveTableFormat(this.options.jsonMode, tableOptions);
+		const format = resolveTableFormat(this.options, tableOptions);
 		const resolved = columns ?? inferColumns(rows);
 
 		if (format === 'json') {
@@ -285,22 +286,16 @@ class OutputChannel implements Out {
 	 * @virtual
 	 */
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
-		const fallback = options?.fallback ?? 'silent';
+		const policy = resolveSpinnerPolicy(this.options, options?.fallback ?? 'silent');
 
-		// JSON mode: always suppress activity indicators.
-		if (this.options.jsonMode) {
-			return noopSpinnerHandle;
-		}
-
-		// Non-TTY, silent fallback: noop.
-		if (!this.options.isTTY && fallback === 'silent') {
+		if (policy.mode === 'noop') {
 			return noopSpinnerHandle;
 		}
 
 		// Stop any active handle before creating a new one.
 		this.stopActive();
 
-		if (this.options.isTTY) {
+		if (policy.mode === 'tty') {
 			const handle = new TTYSpinnerHandle(text, this.options.stderr);
 			this.activeCleanup = () => handle.stop();
 			return handle;
@@ -330,22 +325,16 @@ class OutputChannel implements Out {
 	 * @virtual
 	 */
 	progress(opts: ProgressOptions): ProgressHandle {
-		const fallback = opts.fallback ?? 'silent';
+		const policy = resolveProgressPolicy(this.options, opts.fallback ?? 'silent');
 
-		// JSON mode: always suppress activity indicators.
-		if (this.options.jsonMode) {
-			return noopProgressHandle;
-		}
-
-		// Non-TTY, silent fallback: noop.
-		if (!this.options.isTTY && fallback === 'silent') {
+		if (policy.mode === 'noop') {
 			return noopProgressHandle;
 		}
 
 		// Stop any active handle before creating a new one.
 		this.stopActive();
 
-		if (this.options.isTTY) {
+		if (policy.mode === 'tty') {
 			const handle = new TTYProgressHandle(opts, this.options.stderr);
 			this.activeCleanup = () => handle.done();
 			return handle;
@@ -477,23 +466,11 @@ function projectTableRows<T extends Record<string, unknown>>(
  * @param options - Per-call table options (may specify an explicit format).
  * @returns `'text'` or `'json'`.
  */
-function resolveTableFormat(jsonMode: boolean, options?: TableOptions): 'text' | 'json' {
-	switch (options?.format) {
-		case 'json':
-			return 'json';
-		case 'text':
-			return 'text';
-		case 'auto':
-		case undefined:
-			return jsonMode ? 'json' : 'text';
-	}
-}
-
 /**
  * Pick the {@link WriteFn} for a text-mode table.
  *
  * Respects `tableOptions.stream` when present; otherwise falls back to
- * the channel's default (stderr in JSON mode, stdout otherwise).
+ * the channel's default policy-owned text stream.
  *
  * @param options - Resolved channel options.
  * @param format - Resolved table format.
@@ -505,16 +482,13 @@ function resolveTextTableWriter(
 	format: 'text' | 'json',
 	tableOptions?: TableOptions,
 ): WriteFn {
-	if (
-		format === 'text' &&
-		tableOptions !== undefined &&
-		'stream' in tableOptions &&
-		tableOptions.stream !== undefined
-	) {
-		return tableOptions.stream === 'stderr' ? options.stderr : options.stdout;
+	if (format === 'json') {
+		return options.stdout;
 	}
 
-	return options.jsonMode ? options.stderr : options.stdout;
+	return resolveTableTextStream(options, tableOptions) === 'stderr'
+		? options.stderr
+		: options.stdout;
 }
 
 /**

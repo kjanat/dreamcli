@@ -16,6 +16,7 @@ Started: 2026-04-02
 - Before comitting, always run `dprint fmt`
 - For extraction-first refactors, land a narrow internal contract module plus one reused helper before moving control flow; it gives tests and later module splits a concrete seam without forcing a full rewrite.
 - For contract-definition tasks in hot modules, extract the contract to a sibling `contracts.ts` file and have the implementation consume those types; it makes the seam testable without moving behavior yet.
+- For policy-heavy modules, extract pure policy helpers that return semantic mode/stream/cleanup facts, then make the renderer consume them; it separates contract from mechanics without forcing a big structural split.
 
 ## Project Tracking
 
@@ -49,3 +50,11 @@ Started: 2026-04-02
 - Added `docs/reference/resolver-contract.md` and linked it from the reference nav and API overview so later resolver tests and decomposition work have one contract page to target.
 - Files changed: `src/core/resolve/contracts.ts`, `src/core/resolve/index.ts`, `docs/reference/resolver-contract.md`, `docs/.vitepress/config.ts`, `docs/reference/api.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: resolver contracts are easiest to stabilize by naming source/precedence facts in a sibling module first, then letting the main resolver file import them; that keeps future module splitting honest without forcing behavior changes early.
+
+## Task - [output-contracts]
+
+- Added an explicit internal output contract module at `src/core/output/contracts.ts` covering text routing, table routing, activity-mode selection, and cleanup semantics for spinners and progress handles.
+- Routed `src/core/output/index.ts` and `src/core/cli/planner.ts` through the shared output policy types and helpers so output-policy decisions now live in one owned seam instead of staying embedded in rendering code.
+- Added `src/core/output/contracts.test.ts` plus `docs/reference/output-contract.md`, and linked the new contract page from the reference nav, API overview, and support matrix.
+- Files changed: `src/core/output/contracts.ts`, `src/core/output/contracts.test.ts`, `src/core/output/index.ts`, `src/core/cli/planner.ts`, `docs/reference/output-contract.md`, `docs/.vitepress/config.ts`, `docs/reference/api.md`, `docs/reference/support-matrix.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: output-policy seams stabilize best when helpers return pure routing and cleanup facts first; once those facts exist, `OutputChannel` can consume them without changing the shipped behavior.
