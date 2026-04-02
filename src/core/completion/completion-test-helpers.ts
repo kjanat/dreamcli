@@ -42,7 +42,7 @@ function extractZshRootFunction(script: string, funcName: string): string {
 	if (end === -1) {
 		throw new Error(`Could not find end of zsh root function '${funcName}'`);
 	}
-	return script.slice(start, end);
+	return script.slice(start, end + 2);
 }
 
 export { extractBashRootWords, extractZshRootFunction };

@@ -1115,6 +1115,16 @@ describe('generateZshCompletion — root completion policy', () => {
 	});
 });
 
+describe('extractZshRootFunction — boundary', () => {
+	it('includes the closing brace', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: 'run' }))],
+		});
+		const body = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
+		expect(body).toMatch(/\}$/);
+	});
+});
+
 // === generateZshCompletion — flag completions
 
 describe('generateZshCompletion — flag completions', () => {
