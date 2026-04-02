@@ -161,10 +161,12 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 	});
 
 	it('renders spinner activity to adapter stderr in TTY mode', async () => {
+		const stdoutLines: string[] = [];
 		const stderrLines: string[] = [];
 		const adapter = createTestAdapter({
 			argv: ['node', 'test', 'build'],
 			isTTY: true,
+			stdout: (s) => stdoutLines.push(s),
 			stderr: (s) => stderrLines.push(s),
 		});
 
@@ -179,5 +181,9 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		const rendered = stderrLines.join('');
 		expect(rendered).toContain('Preparing build environment...');
 		expect(rendered).toContain('Environment ready');
+
+		const stdoutRendered = stdoutLines.join('');
+		expect(stdoutRendered).not.toContain('Preparing build environment...');
+		expect(stdoutRendered).not.toContain('Environment ready');
 	});
 });

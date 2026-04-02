@@ -271,7 +271,7 @@ describe('generateBashCompletion — subcommand completions', () => {
 		expect(script).toContain('depl\\*oy|d\\?|ship\\|it)');
 	});
 
-	it('escapes metacharacters in nested command paths', () => {
+	it('preserves metacharacters in double-quoted nested command paths', () => {
 		const schema = minimalSchema({
 			commands: [
 				erased(
