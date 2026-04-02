@@ -34,6 +34,9 @@ async function runWithAdapter(
 		readonly cwd?: string;
 		readonly configDir?: string;
 	},
+	runOptions?: {
+		readonly jsonMode?: boolean;
+	},
 ): Promise<{ stdout: string[]; stderr: string[]; exitCode: number }> {
 	const stdoutLines: string[] = [];
 	const stderrLines: string[] = [];
@@ -49,7 +52,10 @@ async function runWithAdapter(
 	});
 
 	try {
-		await app.run({ adapter });
+		await app.run({
+			adapter,
+			...(runOptions?.jsonMode !== undefined ? { jsonMode: runOptions.jsonMode } : {}),
+		});
 	} catch (e: unknown) {
 		if (e instanceof ExitError) {
 			exitCode = e.code;
@@ -273,6 +279,24 @@ describe('CLIBuilder.run() — config errors', () => {
 		]);
 
 		expect(exitCode).toBe(1);
+		expect(stdout.length).toBe(1);
+		const parsed = JSON.parse(stdout[0] ?? '');
+		expect(parsed.error.code).toBe('CONFIG_NOT_FOUND');
+	});
+
+	it('renders CONFIG_NOT_FOUND as JSON when jsonMode option is true', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout, stderr, exitCode } = await runWithAdapter(
+			app,
+			['--config', '/missing.json', 'deploy'],
+			undefined,
+			undefined,
+			{ jsonMode: true },
+		);
+
+		expect(exitCode).toBe(1);
+		expect(stderr).toEqual([]);
 		expect(stdout.length).toBe(1);
 		const parsed = JSON.parse(stdout[0] ?? '');
 		expect(parsed.error.code).toBe('CONFIG_NOT_FOUND');

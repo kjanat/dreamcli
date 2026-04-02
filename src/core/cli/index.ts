@@ -1128,6 +1128,7 @@ class CLIBuilder {
 
 		// Detect --json early for error rendering during config loading
 		const hasJsonFlag = filteredArgv.includes('--json');
+		const jsonMode = hasJsonFlag || options?.jsonMode === true;
 
 		// Config discovery (only when .config() was called on the builder)
 		// Skip for completions subcommand — shell completions don't need config.
@@ -1165,7 +1166,7 @@ class CLIBuilder {
 			} catch (err: unknown) {
 				// Config errors are fatal — render and exit
 				if (err instanceof CLIError) {
-					if (hasJsonFlag) {
+					if (jsonMode) {
 						adapter.stdout(`${JSON.stringify({ error: err.toJSON() })}\n`);
 					} else {
 						adapter.stderr(`Error: ${err.message}\n`);
@@ -1231,7 +1232,7 @@ class CLIBuilder {
 			out: createOutput({
 				stdout: adapter.stdout,
 				stderr: adapter.stderr,
-				jsonMode: hasJsonFlag,
+				jsonMode,
 				isTTY: options?.isTTY ?? adapter.isTTY,
 				...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 			}),

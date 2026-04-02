@@ -138,6 +138,27 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		expect(parsed.isTTY).toBe(false);
 	});
 
+	it('jsonMode via options overrides adapter mode decisions in run', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'status'],
+			isTTY: true,
+			stdout: (s) => stdoutLines.push(s),
+		});
+
+		const app = cli('test').command(ttyBranchCommand());
+
+		try {
+			await app.run({ adapter, jsonMode: true });
+		} catch (e) {
+			if (!(e instanceof ExitError)) throw e;
+		}
+
+		expect(stdoutLines.length).toBe(1);
+		const parsed = JSON.parse(stdoutLines[0] ?? '');
+		expect(parsed).toEqual({ status: 'ok' });
+	});
+
 	it('explicit isTTY in options overrides adapter', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
