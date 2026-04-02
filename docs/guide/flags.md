@@ -20,6 +20,9 @@ Array flags are the one optional flag kind that still resolve to a value when
 unset: if no CLI/env/config/prompt/default value is found, they fall back to
 an empty array `[]`.
 
+For the exact parser rules around repeated flags, short-flag stacking, `--`
+separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics).
+
 ## Modifiers
 
 Every flag type supports the same modifier chain:
@@ -135,3 +138,4 @@ cli('mycli').command(
 - [Arguments](/guide/arguments) — positional argument types
 - [Config Files](/guide/config) — config file resolution
 - [Interactive Prompts](/guide/prompts) — prompt integration
+- [CLI Semantics](/guide/semantics) — exact parser and precedence rules

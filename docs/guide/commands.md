@@ -89,6 +89,14 @@ Set a default command that runs when no subcommand is specified:
 cli('mycli').default(mainCommand).command(other).run();
 ```
 
+Root behavior depends on what else is visible:
+
+- a single visible default command merges its command help into root help
+- visible sibling commands keep root help command-centric
+- hidden defaults remain executable but are omitted from root help and root completions
+
+For the exact root, help, and completion rules, see [CLI Semantics](/guide/semantics).
+
 ### Version
 
 ```ts
@@ -126,3 +134,4 @@ Actions can be `async`:
 - [Flags](/guide/flags) — all flag types and modifiers
 - [Arguments](/guide/arguments) — positional argument types
 - [Middleware](/guide/middleware) — typed context propagation
+- [CLI Semantics](/guide/semantics) — exact root and resolution behavior

@@ -83,7 +83,11 @@ When your CLI has a default command, root completion can expose different surfac
 
 For a single visible default command, default mode still exposes that command's flags at the root.
 
+Hidden defaults stay executable but are omitted from root completions.
+For the exact root-surface rules and examples, see [CLI Semantics](/guide/semantics).
+
 ## What's Next?
 
 - [Interactive Prompts](/guide/prompts) — prompt integration
 - [Runtime Support](/guide/runtime) — cross-runtime behavior
+- [CLI Semantics](/guide/semantics) — exact root help and completion surface rules

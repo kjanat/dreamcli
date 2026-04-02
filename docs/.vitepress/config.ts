@@ -86,6 +86,7 @@ export default defineConfig({
           items: [
             { text: 'Middleware', link: '/guide/middleware' },
             { text: 'Config Files', link: '/guide/config' },
+            { text: 'CLI Semantics', link: '/guide/semantics' },
             { text: 'Schema Export', link: '/guide/schema-export' },
             { text: 'Shell Completions', link: '/guide/completions' },
             { text: 'Interactive Prompts', link: '/guide/prompts' },

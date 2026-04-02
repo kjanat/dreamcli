@@ -19,6 +19,9 @@ flag.array(flag.string()).prompt({
 Prompts fire only if the flag wasn't resolved by CLI argv, env var, or config. Defaults apply only
 after prompts are skipped or unanswered.
 
+For the exact non-interactive rules, cancellation fallthrough, and full
+precedence chain, see [CLI Semantics](/guide/semantics).
+
 ## Prompt Types
 
 | Kind          | Input            | Output     |
@@ -77,3 +80,4 @@ const cancelled = await runCommand(cmd, [], {
 
 - [Testing](/guide/testing) — full test harness documentation
 - [Flags](/guide/flags) — flag resolution chain
+- [CLI Semantics](/guide/semantics) — prompt precedence and non-interactive behavior

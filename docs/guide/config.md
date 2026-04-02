@@ -12,6 +12,10 @@ flag.enum(['us', 'eu', 'ap']).config('deploy.region');
 This resolves `deploy.region` from the config file using dot-notation.
 If CLI argv and env var don't provide a value, the config file is checked next.
 
+Config never overrides a value that was explicitly provided earlier in the
+chain. For the full precedence rules and examples, see
+[CLI Semantics](/guide/semantics).
+
 ## Enabling Config Discovery
 
 ```ts
@@ -76,3 +80,4 @@ arrays, `null`, or multi-document YAML that parses to an array will fail as `CON
 
 - [Shell Completions](/guide/completions) — generate completion scripts
 - [Flags](/guide/flags) — full flag resolution chain
+- [CLI Semantics](/guide/semantics) — exact precedence and masking behavior
