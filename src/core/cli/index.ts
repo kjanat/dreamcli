@@ -703,11 +703,9 @@ class CLIBuilder {
 	 * @returns Structured result with exit code and captured output.
 	 */
 	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
-		// -- Detect --json flag (global, extracted before command dispatch) ------
+		// -- Detect global --json mode before building output ---------------------
 		const hasJsonFlag = argv.includes('--json');
 		const jsonMode = hasJsonFlag || options?.jsonMode === true;
-		// Strip --json from argv so commands don't see it as an unknown flag
-		const filteredArgv = hasJsonFlag ? argv.filter((a) => a !== '--json') : argv;
 
 		const captureOptions = {
 			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
@@ -744,7 +742,7 @@ class CLIBuilder {
 		};
 		const planned = planInvocation({
 			schema: this.schema,
-			argv: filteredArgv,
+			argv,
 			help: helpOptions,
 			output,
 		});

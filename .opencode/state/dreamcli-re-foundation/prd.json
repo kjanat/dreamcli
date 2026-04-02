@@ -117,7 +117,7 @@
 			"description": "Pull root help/version/default-command/dispatch/propagation logic into an explicit planner layer. Done when: planner outcomes are represented as a DU and can be reasoned about separately from execution.",
 			"depends": ["route-cli-executor", "extract-runtime-preflight"],
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "split-resolver-modules",

@@ -2,8 +2,9 @@
  * Internal planner contract for CLI dispatch outcomes.
  *
  * Captures the stable seam between CLI-facing invocation planning and the
- * lower-level execution pipeline. This module documents the current contract
- * in code before the planner is extracted into its own execution stage.
+ * lower-level execution pipeline. This module is now the explicit invocation
+ * planner seam: it owns root interception, command dispatch, default-command
+ * fallback, propagated-flag merging, and match handoff shaping.
  *
  * @module dreamcli/core/cli/planner
  * @internal
@@ -52,8 +53,8 @@ interface PlannerMatchOutcome {
 /**
  * Stable planner result union for the re-foundation workstream.
  *
- * The current CLI still handles some branches inline, but these are the
- * bounded outcomes the extracted planner will eventually own.
+ * `CLIBuilder.execute()` still renders and executes these outcomes, but
+ * planning itself is intentionally bounded to this union.
  */
 type DispatchOutcome =
 	| RootHelpOutcome

@@ -10,6 +10,7 @@ It is a stability target for tests and refactors, not a public API guarantee.
 - apply default-command fallback
 - merge propagated flags while honoring child shadowing
 - build the execution handoff for the matched command
+- normalize invocation argv for planner-owned global concerns like root `--json`
 
 ## Non-Responsibilities
 
@@ -71,6 +72,6 @@ Field meaning:
 
 ## Current Status
 
-- planner outcomes are now named explicitly in code
-- matched-command handoff is built through one plan shape
-- full planner extraction is still future work; current CLI orchestration remains in `CLIBuilder.execute()`
+- planner outcomes are named explicitly in code
+- raw invocation shaping, root interception, dispatch, and default-command fallback live in `src/core/cli/planner.ts`
+- `CLIBuilder.execute()` now consumes planner outcomes as a render-and-execute shell rather than owning command-routing policy
