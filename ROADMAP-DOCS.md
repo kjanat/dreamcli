@@ -16,7 +16,7 @@ Organized by feature area, with implementation options and trade-offs.
 
 ### Known Gaps
 
-- **API doc coverage**: ~68% of value exports from `dreamcli` are documented
+- **API doc coverage**: ~68% of exported values from `dreamcli` are documented
   in reference pages. 11 undocumented: `ArgBuilder`, `CLIBuilder`,
   `CommandBuilder`, `FlagBuilder`, `SHELLS`, `createArgSchema`,
   `createSchema`, `createTerminalPrompter`, `generateBashCompletion`,

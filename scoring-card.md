@@ -24,12 +24,12 @@ You may also apply a **weighting** per domain. A suggested weighting is included
 
 Assess whether the project solves a real problem and whether that problem is clearly defined.
 
-| Criterion                    | 1                          | 3                                      | 5                                                  | Score |
-| ---------------------------- | -------------------------- | -------------------------------------- | -------------------------------------------------- | ----- |
-| Problem statement            | Unclear or vague           | Understandable but not sharply defined | Very clear, concrete, and convincing               | __    |
-| Relevance to target audience | Barely relevant            | Reasonably relevant                    | Clearly useful or important to a specific audience | __    |
-| Scope definition             | Chaotic or unfocused       | Somewhat delimited                     | Clear boundaries and conscious choices             | __    |
-| Distinctiveness              | Feels like everything else | Some original angle                    | Clear unique position or strong vision             | __    |
+| Criterion                    | 1                                     | 3                                          | 5                                             | Score |
+| ---------------------------- | ------------------------------------- | ------------------------------------------ | --------------------------------------------- | ----- |
+| Problem statement            | Absent or lacks specifics             | Identifiable but missing key constraints   | Fully specific, reproducible, and compelling  | __    |
+| Relevance to target audience | No identified audience or use case    | Addresses a real audience with partial fit | Precisely matched to a defined audience need  | __    |
+| Scope definition             | No stated boundaries or focus         | Boundaries exist but gaps remain           | Explicit boundaries with justified exclusions | __    |
+| Distinctiveness              | Indistinguishable from existing tools | One differentiating angle articulated      | Unique position with a defensible rationale   | __    |
 
 **Domain subtotal 1:** `____ / 20`
 
@@ -47,13 +47,13 @@ Assess whether the project solves a real problem and whether that problem is cle
 
 Assess whether the architecture is logical, coherent, and maintainable.
 
-| Criterion               | 1                                  | 3                           | 5                                                   | Score |
-| ----------------------- | ---------------------------------- | --------------------------- | --------------------------------------------------- | ----- |
-| Architectural coherence | Loose parts without a clear line   | Reasonably coherent         | Strong, cohesive design with clear principles       | __    |
-| Modularity              | Tightly coupled and hard to extend | Somewhat modular            | Clear separation of concerns                        | __    |
-| Scalability of design   | Breaks quickly under growth        | Works for the current scope | Can credibly support more complex use cases         | __    |
-| Type/interface design   | Inconsistent or leaky              | Reasonably usable           | Elegant, safe, and pleasant to use                  | __    |
-| Technical trade-offs    | Barely considered                  | Some choices are motivated  | Clear trade-offs and consciously chosen limitations | __    |
+| Criterion               | 1                                         | 3                                                    | 5                                                             | Score |
+| ----------------------- | ----------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------- | ----- |
+| Architectural coherence | No unifying design principle visible      | Coherent within modules but inconsistent across them | Single design philosophy applied consistently throughout      | __    |
+| Modularity              | Components cannot be changed in isolation | Modules exist but share hidden dependencies          | Each module has an explicit contract and no implicit coupling | __    |
+| Scalability of design   | Breaks under minimal growth               | Supports current scope without structural changes    | Supports ten-fold growth without architectural changes        | __    |
+| Type/interface design   | Types leak internals or contradict usage  | Types are correct but not self-documenting           | Types encode invariants and guide correct usage               | __    |
+| Technical trade-offs    | No trade-offs documented or considered    | Trade-offs acknowledged but rationale is incomplete  | Each trade-off documented with alternatives and rationale     | __    |
 
 **Domain subtotal 2:** `____ / 25`
 
@@ -71,14 +71,14 @@ Assess whether the architecture is logical, coherent, and maintainable.
 
 This is about execution. Not just whether it works, but whether it is built well.
 
-| Criterion                            | 1                                    | 3                        | 5                                          | Score |
-| ------------------------------------ | ------------------------------------ | ------------------------ | ------------------------------------------ | ----- |
-| Correctness of implementation        | Many errors or inconsistent behavior | Mostly correct           | Robust and reliable                        | __    |
-| Code readability                     | Messy or hard to follow              | Generally understandable | Clear, disciplined, and maintainable       | __    |
-| Consistency of style/patterns        | All over the place                   | Somewhat consistent      | Highly consistent in code and API          | __    |
-| Error handling                       | Weak or ad hoc                       | Basic level present      | Thoughtful, predictable, and well designed | __    |
-| Maintainability                      | Hard to modify                       | Reasonably maintainable  | Easy to extend and refactor                | __    |
-| Type safety / correctness guarantees | Barely present                       | Reasonable               | Strong and deliberately leveraged          | __    |
+| Criterion                            | 1                                            | 3                                                  | 5                                                      | Score |
+| ------------------------------------ | -------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------ | ----- |
+| Correctness of implementation        | Produces wrong output for common inputs      | Correct for primary paths, edge cases untested     | Correct across all documented inputs and edge cases    | __    |
+| Code readability                     | Control flow requires tracing to understand  | Readable with occasional indirection               | Each function readable in isolation without context    | __    |
+| Consistency of style/patterns        | Multiple conflicting conventions in use      | One convention dominant, exceptions remain         | Single convention applied uniformly across codebase    | __    |
+| Error handling                       | Errors silenced or handled inconsistently    | Errors surfaced but messages lack context          | Every error path returns actionable, typed diagnostics | __    |
+| Maintainability                      | Changing one module forces changes elsewhere | Isolated changes possible with manual verification | Any module replaceable without modifying dependents    | __    |
+| Type safety / correctness guarantees | No compile-time enforcement of invariants    | Key invariants typed, others left to runtime       | All domain invariants enforced at the type level       | __    |
 
 **Domain subtotal 3:** `____ / 30`
 
@@ -96,13 +96,13 @@ This is about execution. Not just whether it works, but whether it is built well
 
 Assess whether the promised functionality is actually delivered and whether it feels coherent.
 
-| Criterion                        | 1                         | 3                           | 5                                                   | Score |
-| -------------------------------- | ------------------------- | --------------------------- | --------------------------------------------------- | ----- |
-| Core functionality present       | Crucial parts are missing | Most core parts are present | Complete and convincing                             | __    |
-| Functional fit to goal           | Weak match                | Reasonable match            | Precisely aligned with the problem and audience     | __    |
-| Depth of features                | Superficial or gimmicky   | Workable                    | Deep enough for real-world use cases                | __    |
-| Coherence between features       | Feature soup              | Reasonably coherent         | Strong product logic, features reinforce each other | __    |
-| Edge cases / real-world behavior | Barely addressed          | Partially addressed         | Convincingly thought through                        | __    |
+| Criterion                        | 1                                               | 3                                               | 5                                                        | Score |
+| -------------------------------- | ----------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------- | ----- |
+| Core functionality present       | One or more advertised features non-functional  | All advertised features work, minor gaps remain | Every documented feature complete and exercisable        | __    |
+| Functional fit to goal           | Features do not map to stated problem           | Features address the problem with unused extras | Each feature traceable to a stated requirement           | __    |
+| Depth of features                | Only trivial inputs or demo scenarios supported | Handles representative real-world inputs        | Handles production-scale inputs and compound workflows   | __    |
+| Coherence between features       | Features conflict or duplicate each other       | Features coexist without friction               | Features compose — output of one feeds naturally to next | __    |
+| Edge cases / real-world behavior | No edge cases identified or tested              | Known edge cases listed, most handled           | Edge cases enumerated, handled, and regression-tested    | __    |
 
 **Domain subtotal 4:** `____ / 25`
 
@@ -120,13 +120,13 @@ Assess whether the promised functionality is actually delivered and whether it f
 
 For a framework, this matters a lot. If it is technically nice but feels awful to use, you are still screwed.
 
-| Criterion                 | 1                             | 3                           | 5                                          | Score |
-| ------------------------- | ----------------------------- | --------------------------- | ------------------------------------------ | ----- |
-| API ergonomics            | Clumsy or confusing           | Reasonably usable           | Intuitive, pleasant, elegant               | __    |
-| Learning curve            | Needlessly steep              | Manageable with some effort | Quick to grasp without dumbing things down | __    |
-| Feedback / error messages | Vague or frustrating          | Acceptable                  | Clear, actionable, and pleasant            | __    |
-| Documentation usability   | Incomplete or marketing fluff | Adequate                    | Strong, concrete, and convincing           | __    |
-| Testability for users     | Difficult or painful          | Possible                    | Very well supported                        | __    |
+| Criterion                 | 1                                              | 3                                                   | 5                                                           | Score |
+| ------------------------- | ---------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- | ----- |
+| API ergonomics            | Common tasks require non-obvious steps         | Common tasks achievable in expected number of steps | Every task achievable via the shortest plausible call chain | __    |
+| Learning curve            | Requires reading source code to get started    | Usable after reading docs, few surprises            | First working example achievable within minutes from docs   | __    |
+| Feedback / error messages | Errors lack location, cause, or next steps     | Errors identify the cause but not how to fix it     | Every error includes location, cause, and suggested fix     | __    |
+| Documentation usability   | Key sections missing or contain only marketing | All features documented, examples are sparse        | Each feature documented with runnable example and rationale | __    |
+| Testability for users     | No testing utilities or guidance provided      | Tests possible with manual setup                    | Dedicated test helpers, fixtures, and documented patterns   | __    |
 
 **Domain subtotal 5:** `____ / 25`
 
@@ -144,13 +144,13 @@ For a framework, this matters a lot. If it is technically nice but feels awful t
 
 Assess how well the project is supported by tests and evidence of reliability.
 
-| Criterion                             | 1                                    | 3                      | 5                                                         | Score |
-| ------------------------------------- | ------------------------------------ | ---------------------- | --------------------------------------------------------- | ----- |
-| Test coverage of core functionality   | Weak                                 | Reasonable             | Strong and targeted                                       | __    |
-| Quality of testing strategy           | Loose tests without a clear strategy | Somewhat systematic    | Thoughtful mix of unit, integration, and end-to-end tests | __    |
-| Validation of edge cases              | Barely present                       | Some key cases covered | Broad and convincing coverage                             | __    |
-| Reproducibility                       | Difficult                            | Reasonable             | Highly reproducible, CI/CD is clear                       | __    |
-| Reliability across runtimes/platforms | Barely demonstrated                  | Partially demonstrated | Convincingly demonstrated                                 | __    |
+| Criterion                             | 1                                                   | 3                                                      | 5                                                           | Score |
+| ------------------------------------- | --------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------- | ----- |
+| Test coverage of core functionality   | Core paths untested or tests do not assert outcomes | Primary paths tested, secondary paths uncovered        | Every public API path tested with expected and error inputs | __    |
+| Quality of testing strategy           | Tests exist without a visible strategy              | One test type dominant, other layers missing           | Distinct unit, integration, and end-to-end layers present   | __    |
+| Validation of edge cases              | No edge-case tests identifiable                     | Known edge cases listed, most covered by tests         | Edge cases enumerated in tests with boundary-value coverage | __    |
+| Reproducibility                       | Test results vary between runs or environments      | Reproducible locally, CI not configured                | Deterministic results in CI with pinned dependencies        | __    |
+| Reliability across runtimes/platforms | Tested on one runtime only                          | Tested on target runtime, other platforms not verified | Tested on all supported runtimes with documented results    | __    |
 
 **Domain subtotal 6:** `____ / 25`
 
@@ -168,12 +168,12 @@ Assess how well the project is supported by tests and evidence of reliability.
 
 This domain assesses how well the work is documented, transferable, and defensible.
 
-| Criterion                       | 1                   | 3                          | 5                                 | Score |
-| ------------------------------- | ------------------- | -------------------------- | --------------------------------- | ----- |
-| Structure of documentation      | Messy               | Reasonably logical         | Very clear and easy to navigate   | __    |
-| Technical depth of explanation  | Too superficial     | Adequate                   | Strong and precise                | __    |
-| Transparency about limitations  | Barely acknowledged | Some limitations mentioned | Very honest and analytical        | __    |
-| Justification of design choices | Weak                | Reasonable                 | Strongly motivated and convincing | __    |
+| Criterion                       | 1                                           | 3                                                 | 5                                                        | Score |
+| ------------------------------- | ------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------- | ----- |
+| Structure of documentation      | No table of contents or logical ordering    | Sections organized but cross-references missing   | Hierarchical structure with working cross-references     | __    |
+| Technical depth of explanation  | Describes what, never why or how            | Explains how, but omits design rationale          | Covers what, how, and why for each major decision        | __    |
+| Transparency about limitations  | No limitations section or known-issues list | Limitations listed without impact analysis        | Each limitation documented with scope and workarounds    | __    |
+| Justification of design choices | Choices presented without rationale         | Rationale given for major choices, minor ones not | Every design choice linked to a requirement or trade-off | __    |
 
 **Domain subtotal 7:** `____ / 20`
 
