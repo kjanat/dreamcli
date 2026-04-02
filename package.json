@@ -97,7 +97,7 @@
 		"gh-project:sync": "bun scripts/gh-project.ts sync",
 		"lint": "biome lint",
 		"lint:fix": "biome lint --fix",
-		"prepack": "bun bd",
+		"prepack": "bunx tsdown --logLevel silent",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"typecheck": "tsgo --noEmit",
