@@ -761,6 +761,22 @@ describe('generateInputSchema — input validation', () => {
 		expect(result).toHaveProperty(['oneOf', 1, 'required'], ['command']);
 	});
 
+	it('omits the command discriminator for a visible default command with siblings', () => {
+		const deploy = commandDef({ name: 'deploy' });
+		const status = commandDef({ name: 'status' });
+		const cli = minimalCLI({
+			commands: [erased(deploy), erased(status)],
+			defaultCommand: erased(deploy),
+		});
+		const result = generateInputSchema(cli);
+
+		expect(result).toHaveProperty(['oneOf', 'length'], 2);
+		expect(result).not.toHaveProperty(['oneOf', 0, 'properties', 'command']);
+		expect(result).not.toHaveProperty(['oneOf', 0, 'required']);
+		expect(result).toHaveProperty(['oneOf', 1, 'properties', 'command'], { const: 'status' });
+		expect(result).toHaveProperty(['oneOf', 1, 'required'], ['command']);
+	});
+
 	it('produces flat schema for single-command CLI', () => {
 		const deploy = commandDef({ name: 'deploy' });
 		const cli = minimalCLI({ commands: [erased(deploy)] });

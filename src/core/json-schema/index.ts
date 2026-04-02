@@ -411,9 +411,23 @@ function generateInputSchema(
 
 	// Multiple branches: discriminated union
 	if (branches.length > 0) {
+		const defaultBranchName =
+			schema.defaultCommand !== undefined &&
+			(opts.includeHidden || !schema.defaultCommand.schema.hidden)
+				? schema.defaultCommand.schema.name
+				: undefined;
+		const normalizedBranches =
+			defaultBranchName !== undefined
+				? branches.map((branch) =>
+						getBranchCommandDiscriminator(branch) === defaultBranchName
+							? stripCommandDiscriminator(branch)
+							: branch,
+					)
+				: branches;
+
 		return {
 			$schema: JSON_SCHEMA_DRAFT,
-			oneOf: branches,
+			oneOf: normalizedBranches,
 		};
 	}
 
@@ -531,6 +545,18 @@ function stripCommandDiscriminator(branch: Record<string, unknown>): Record<stri
 	}
 
 	return result;
+}
+
+function getBranchCommandDiscriminator(branch: Record<string, unknown>): string | undefined {
+	const propertiesValue = branch.properties;
+	if (!isRecord(propertiesValue)) {
+		return undefined;
+	}
+
+	const commandValue = propertiesValue.command;
+	return isRecord(commandValue) && typeof commandValue.const === 'string'
+		? commandValue.const
+		: undefined;
 }
 
 // --- Type mapping — flags → JSON Schema types
