@@ -27,7 +27,7 @@
 			"description": "Specify resolved input, precedence guarantees, error aggregation behavior, and source-aware diagnostic expectations. Done when: resolver input/output is explicit, redesign boundaries are noted, and tests can target stable behavior.",
 			"depends": ["support-truth-matrix"],
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "output-contracts",

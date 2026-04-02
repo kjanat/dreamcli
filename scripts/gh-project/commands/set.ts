@@ -31,7 +31,11 @@ const setWorkflow = command('set')
 			return;
 		}
 
-		out.log(`Set ${args.taskId} -> ${args.workflow}`);
+		for (const update of applied) {
+			out.log(
+				`${update.taskId}: Status ${update.previousStatus ?? 'unset'} -> ${update.status}, Workflow ${update.previousWorkflow ?? 'unset'} -> ${update.workflow}`,
+			);
+		}
 	});
 
 export { setWorkflow };

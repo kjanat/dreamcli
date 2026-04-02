@@ -22,6 +22,7 @@
 
 - Use GitHub Project `4`.
 - Use `scripts/gh-project.ts` instead of ad hoc `gh project` calls. It is Bun-native, uses DreamCLI for the command surface, reads `.opencode/state/dreamcli-re-foundation/prd.json`, and batches project metadata fetches once per invocation.
+- The visible board state on GitHub is driven by built-in `Status`, not the custom `Workflow` field. The helper must update both. Workflow keeps `Backlog/Ready/Blocked` detail; Status is the coarse mirror the board actually shows: `Backlog|Ready -> Todo`, `In Progress|Blocked -> In Progress`, `Done -> Done`.
 - Exact commands future agents should use:
 
 ```bash

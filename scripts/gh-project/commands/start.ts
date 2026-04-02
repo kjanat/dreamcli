@@ -30,7 +30,7 @@ const start = command('start')
 			return;
 		}
 
-		out.log(`Set ${args.taskId} -> In Progress`);
+		out.log(`${args.taskId}: Status -> In Progress, Workflow -> In Progress`);
 	});
 
 export { start };

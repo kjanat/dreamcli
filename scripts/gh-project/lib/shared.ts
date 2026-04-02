@@ -5,7 +5,14 @@
  */
 
 import { CLIError, flag } from 'dreamcli';
-import type { ListRow, PrdState, PrdTask, ProjectContext, Workflow } from './types.ts';
+import type {
+	ListRow,
+	PrdState,
+	PrdTask,
+	ProjectContext,
+	ProjectStatus,
+	Workflow,
+} from './types.ts';
 import { DEFAULT_OWNER, DEFAULT_PRD_NAME, DEFAULT_PROJECT_NUMBER } from './types.ts';
 
 function fail(message: string, suggest?: string): never {
@@ -146,6 +153,34 @@ function parseWorkflow(raw: unknown): Workflow {
 	}
 }
 
+function parseProjectStatus(raw: unknown): ProjectStatus {
+	if (typeof raw !== 'string') {
+		return fail('Status must be a string', 'Use one of: Todo, In Progress, Done');
+	}
+
+	switch (raw) {
+		case 'Todo':
+		case 'In Progress':
+		case 'Done':
+			return raw;
+		default:
+			return fail(`Unsupported status '${raw}'`, 'Use one of: Todo, In Progress, Done');
+	}
+}
+
+function statusForWorkflow(workflow: Workflow): ProjectStatus {
+	switch (workflow) {
+		case 'Backlog':
+		case 'Ready':
+			return 'Todo';
+		case 'In Progress':
+		case 'Blocked':
+			return 'In Progress';
+		case 'Done':
+			return 'Done';
+	}
+}
+
 function compareTasks(a: PrdTask, b: PrdTask): number {
 	const phaseA = a.phase ?? Number.MAX_SAFE_INTEGER;
 	const phaseB = b.phase ?? Number.MAX_SAFE_INTEGER;
@@ -199,6 +234,7 @@ function buildListRows(project: ProjectContext, prd: PrdState): readonly ListRow
 			return {
 				taskId: task.id,
 				passes: task.passes ? 'yes' : 'no',
+				status: item?.status ?? 'missing',
 				workflow: item?.workflow ?? 'missing',
 				phase: item?.phase ?? (task.phase !== undefined ? String(task.phase) : '-'),
 				priority: item?.priority ?? task.priority,
@@ -240,6 +276,7 @@ export {
 	formatError,
 	ownerFlag,
 	parseJson,
+	parseProjectStatus,
 	parseWorkflow,
 	prdFlag,
 	projectFlag,
@@ -249,4 +286,5 @@ export {
 	readOptionalString,
 	readOptionalStringArray,
 	readString,
+	statusForWorkflow,
 };

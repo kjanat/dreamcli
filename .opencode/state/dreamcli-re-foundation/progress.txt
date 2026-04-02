@@ -15,6 +15,7 @@ Started: 2026-04-02
 - When a public type surface is broader than the real support surface, add an audited support-matrix page and make docs state the runtime behavior explicitly instead of staying silent.
 - Before comitting, always run `dprint fmt`
 - For extraction-first refactors, land a narrow internal contract module plus one reused helper before moving control flow; it gives tests and later module splits a concrete seam without forcing a full rewrite.
+- For contract-definition tasks in hot modules, extract the contract to a sibling `contracts.ts` file and have the implementation consume those types; it makes the seam testable without moving behavior yet.
 
 ## Project Tracking
 
@@ -40,3 +41,11 @@ Started: 2026-04-02
 - Added `docs/reference/planner-contract.md` and linked it from the reference nav so the re-foundation has a concrete planner contract page to anchor later tests and extraction work.
 - Files changed: `src/core/cli/planner.ts`, `src/core/cli/index.ts`, `docs/reference/planner-contract.md`, `docs/.vitepress/config.ts`, `docs/reference/api.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the most reusable early planner seam is propagated-schema merging plus the matched-command handoff shape; those were the only duplicated planner concerns already present in production code.
+
+## Task - [resolver-contracts]
+
+- Added an explicit internal resolver contract module at `src/core/resolve/contracts.ts` covering invocation input, resolved output, precedence stages, source-aware diagnostic payloads, and frozen contract facts for later tests.
+- Routed `src/core/resolve/index.ts` to consume the named contract types so resolver I/O and diagnostic source boundaries now live in one owned seam instead of staying embedded in the hot path file.
+- Added `docs/reference/resolver-contract.md` and linked it from the reference nav and API overview so later resolver tests and decomposition work have one contract page to target.
+- Files changed: `src/core/resolve/contracts.ts`, `src/core/resolve/index.ts`, `docs/reference/resolver-contract.md`, `docs/.vitepress/config.ts`, `docs/reference/api.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: resolver contracts are easiest to stabilize by naming source/precedence facts in a sibling module first, then letting the main resolver file import them; that keeps future module splitting honest without forcing behavior changes early.

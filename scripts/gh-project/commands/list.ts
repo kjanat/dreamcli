@@ -39,6 +39,7 @@ const list = command('list')
 		out.table<ListRow>(rows, [
 			{ key: 'taskId', header: 'Task ID' },
 			{ key: 'passes', header: 'Passes' },
+			{ key: 'status', header: 'Status' },
 			{ key: 'workflow', header: 'Workflow' },
 			{ key: 'phase', header: 'Phase' },
 			{ key: 'priority', header: 'Priority' },

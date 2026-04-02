@@ -28,119 +28,13 @@ import type {
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
 import type { PromptConfig } from '#internals/core/schema/prompt.ts';
-
-// --- Resolve options — injectable external state for the resolution chain
-
-/**
- * Options controlling the resolution chain.
- *
- * These provide external state (env vars, config objects) that the resolver
- * reads from when CLI-provided values are absent.
- */
-interface ResolveOptions {
-	/**
-	 * Full stdin contents for args configured with `.stdin()`.
-	 *
-	 * When an arg has `stdinMode: true`, resolution checks this value after
-	 * CLI argv and before env/default. `null` means stdin was checked but no
-	 * piped data was available.
-	 */
-	readonly stdinData?: string | null;
-
-	/**
-	 * Environment variables to resolve against.
-	 *
-	 * For each flag with `schema.envVar` set, the resolver looks up the
-	 * env var value here. Values are coerced to the flag's declared kind.
-	 *
-	 * @example
-	 * ```ts
-	 * resolve(schema, parsed, { env: { DEPLOY_REGION: 'eu' } })
-	 * ```
-	 */
-	readonly env?: Readonly<Record<string, string | undefined>>;
-
-	/**
-	 * Configuration object to resolve against.
-	 *
-	 * For each flag with `schema.configPath` set, the resolver looks up the
-	 * value at the dotted path (e.g. `'deploy.region'`). Config values may
-	 * already be typed (number, boolean, array) so coercion is lenient —
-	 * only validates kind compatibility rather than string-parsing.
-	 *
-	 * Config is plain JSON — file loading is the caller's responsibility.
-	 *
-	 * @example
-	 * ```ts
-	 * resolve(schema, parsed, { config: { deploy: { region: 'eu' } } })
-	 * ```
-	 */
-	readonly config?: Readonly<Record<string, unknown>>;
-
-	/**
-	 * Prompt engine for interactive flag resolution.
-	 *
-	 * When provided, flags with `schema.prompt` configured that have no
-	 * value after CLI/env/config resolution will be prompted interactively.
-	 *
-	 * When absent (or in non-interactive contexts), prompting is skipped
-	 * and resolution falls through to default/required.
-	 *
-	 * @example
-	 * ```ts
-	 * resolve(schema, parsed, { prompter: createTestPrompter(['eu']) })
-	 * ```
-	 */
-	readonly prompter?: PromptEngine;
-}
-
-// --- Result type
-
-/**
- * Fully resolved flag and arg values — guaranteed present for required
- * and defaulted entries.
- *
- * At runtime the maps are `Record<string, unknown>` because the generic
- * type info lives in the builder phantom types, not here. Type narrowing
- * happens at the `CommandBuilder.action()` boundary via `InferFlags`/
- * `InferArgs`.
- */
-interface ResolveResult {
-	/** Resolved flag values keyed by canonical flag name. */
-	readonly flags: Readonly<Record<string, unknown>>;
-	/** Resolved arg values keyed by arg name. */
-	readonly args: Readonly<Record<string, unknown>>;
-	/**
-	 * Deprecation notices for flags/args that were explicitly provided.
-	 *
-	 * Populated when a deprecated flag or arg receives a value from any
-	 * explicit source (CLI, env, config, prompt). Not populated for
-	 * default fallthrough.
-	 *
-	 * Consumers decide how to render these — the resolve layer provides
-	 * structured data, not formatted strings.
-	 */
-	readonly deprecations: readonly DeprecationWarning[];
-}
-
-/**
- * Structured deprecation notice emitted when a deprecated flag or arg
- * is explicitly provided.
- *
- * Consumers (testkit, CLI layer) decide formatting. The resolve layer
- * only collects facts.
- */
-interface DeprecationWarning {
-	/** Whether the deprecated entity is a flag or a positional arg. */
-	readonly kind: 'flag' | 'arg';
-	/** Canonical name of the flag or arg. */
-	readonly name: string;
-	/**
-	 * Deprecation reason/migration guidance, or `true` for generic
-	 * deprecation with no specific message.
-	 */
-	readonly message: string | true;
-}
+import type {
+	ArgDiagnosticSource,
+	DeprecationWarning,
+	FlagDiagnosticSource,
+	ResolveOptions,
+	ResolveResult,
+} from './contracts.ts';
 
 // --- Resolver
 
@@ -505,10 +399,7 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
  * minor behavioral differences (prompt accepts 'y'/'n', trims array
  * elements) in the unified {@link coerceValue} function.
  */
-type CoerceSource =
-	| { readonly kind: 'env'; readonly envVar: string }
-	| { readonly kind: 'config'; readonly configPath: string }
-	| { readonly kind: 'prompt' };
+type CoerceSource = FlagDiagnosticSource;
 
 /**
  * Result of attempting to coerce a raw value to a flag's declared kind.
@@ -986,9 +877,7 @@ function resolveArgs(
  * error messages and suggestions.
  */
 
-type ArgStringSource =
-	| { readonly kind: 'env'; readonly envVar: string }
-	| { readonly kind: 'stdin' };
+type ArgStringSource = ArgDiagnosticSource;
 
 /**
  * Format an arg source label for error messages.

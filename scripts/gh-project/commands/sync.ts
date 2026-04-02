@@ -62,7 +62,9 @@ const sync = command('sync')
 		}
 
 		for (const update of applied) {
-			out.log(`${update.taskId}: ${update.previousWorkflow ?? 'unset'} -> ${update.workflow}`);
+			out.log(
+				`${update.taskId}: Status ${update.previousStatus ?? 'unset'} -> ${update.status}, Workflow ${update.previousWorkflow ?? 'unset'} -> ${update.workflow}`,
+			);
 		}
 	});
 

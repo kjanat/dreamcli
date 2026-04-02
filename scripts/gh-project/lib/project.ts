@@ -10,16 +10,20 @@ import {
 	fail,
 	formatError,
 	parseJson,
+	parseProjectStatus,
 	parseWorkflow,
 	readArray,
 	readOptionalString,
 	readString,
+	statusForWorkflow,
 } from './shared.ts';
 import type {
 	AppliedWorkflowUpdate,
 	ProjectContext,
 	ProjectItem,
 	ProjectView,
+	StatusField,
+	StatusOption,
 	WorkflowField,
 	WorkflowOption,
 	WorkflowUpdate,
@@ -73,6 +77,36 @@ function parseProjectView(payload: unknown): ProjectView {
 		id: readString(record, 'id', 'project view'),
 		url: readString(record, 'url', 'project view'),
 	};
+}
+
+function parseStatusField(payload: unknown): StatusField {
+	const record = expectRecord(payload, 'field list');
+	const fields = readArray(record, 'fields', 'field list');
+
+	for (const fieldValue of fields) {
+		const field = expectRecord(fieldValue, 'field list field');
+		const name = readOptionalString(field, 'name', 'field list field');
+		if (name !== 'Status') {
+			continue;
+		}
+
+		const optionsRaw = readArray(field, 'options', 'Status field');
+		const options: StatusOption[] = [];
+		for (const optionValue of optionsRaw) {
+			const option = expectRecord(optionValue, 'Status field option');
+			options.push({
+				id: readString(option, 'id', 'Status field option'),
+				name: parseProjectStatus(readString(option, 'name', 'Status field option')),
+			});
+		}
+
+		return {
+			id: readString(field, 'id', 'Status field'),
+			options,
+		};
+	}
+
+	return fail('Could not find built-in Status field on project 4');
 }
 
 function parseWorkflowField(payload: unknown): WorkflowField {
@@ -131,6 +165,7 @@ function parseProjectItems(payload: unknown): readonly ProjectItem[] {
 			id: readString(item, 'id', 'project item'),
 			taskId,
 			title,
+			status: readOptionalString(item, 'status', 'project item'),
 			workflow: readOptionalString(item, 'workflow', 'project item'),
 			phase: readOptionalString(item, 'phase', 'project item'),
 			priority: readOptionalString(item, 'task Priority', 'project item'),
@@ -152,6 +187,7 @@ async function loadProjectContext(projectNumber: number, owner: string): Promise
 		owner,
 		projectNumber,
 		project: parseProjectView(viewPayload),
+		statusField: parseStatusField(fieldPayload),
 		workflowField: parseWorkflowField(fieldPayload),
 		items,
 		itemsByTaskId: new Map(items.map((item) => [item.taskId, item])),
@@ -183,10 +219,15 @@ async function applyWorkflowUpdates(
 			);
 		}
 
-		if (item.workflow === update.workflow) {
+		const status = statusForWorkflow(update.workflow);
+		if (item.workflow === update.workflow && item.status === status) {
 			continue;
 		}
 
+		const statusOption = project.statusField.options.find((entry) => entry.name === status);
+		if (statusOption === undefined) {
+			return fail(`Status option '${status}' is missing from project ${project.projectNumber}`);
+		}
 		const option = project.workflowField.options.find((entry) => entry.name === update.workflow);
 		if (option === undefined) {
 			return fail(
@@ -194,9 +235,14 @@ async function applyWorkflowUpdates(
 			);
 		}
 
+		if (item.status !== status) {
+			await ghProjectItemEdit(item.id, project.project.id, project.statusField.id, statusOption.id);
+		}
 		await ghProjectItemEdit(item.id, project.project.id, project.workflowField.id, option.id);
 		applied.push({
 			taskId: update.taskId,
+			status,
+			previousStatus: item.status,
 			workflow: update.workflow,
 			previousWorkflow: item.workflow,
 		});

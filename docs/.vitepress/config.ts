@@ -104,6 +104,7 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/reference/api' },
             { text: 'Planner Contract', link: '/reference/planner-contract' },
+            { text: 'Resolver Contract', link: '/reference/resolver-contract' },
             { text: 'Support Matrix', link: '/reference/support-matrix' },
             { text: 'dreamcli', link: '/reference/main' },
             { text: 'dreamcli/testkit', link: '/reference/testkit' },
