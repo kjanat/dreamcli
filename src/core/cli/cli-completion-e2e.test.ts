@@ -215,7 +215,7 @@ describe('E2E — zsh completion via .completions()', () => {
 		expect(script).toContain('_myapp()');
 		expect(script).toContain("_describe 'command' subcmds");
 		expect(script).toContain('_arguments -C');
-		expect(script).toContain('_myapp "$@"');
+		expect(script).toContain('compdef _myapp myapp');
 
 		// All visible commands present in _describe list
 		expect(script).toContain("'deploy:");
@@ -665,7 +665,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 
 		expect(script).toContain('#compdef custom-tool');
 		expect(script).toMatch(/_custom_tool_[0-9a-f]{8}\(\)/);
-		expect(script).toMatch(/_custom_tool_[0-9a-f]{8} "\$@"/);
+		expect(script).toMatch(/compdef _custom_tool_[0-9a-f]{8} custom-tool/);
 	});
 
 	it('bash completion for CLI with no commands has only global flags', async () => {

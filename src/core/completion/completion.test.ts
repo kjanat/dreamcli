@@ -910,10 +910,10 @@ describe('generateZshCompletion — script structure', () => {
 		expect(script).toContain('local line state');
 	});
 
-	it('ends with function invocation _<name> "$@"', () => {
+	it('ends with compdef registration', () => {
 		const script = generateZshCompletion(minimalSchema());
 
-		expect(script).toContain('_testcli "$@"');
+		expect(script).toContain('compdef _testcli testcli');
 	});
 
 	it('includes --help in root _arguments', () => {
@@ -958,7 +958,7 @@ describe('generateZshCompletion — functionPrefix option', () => {
 		const script = generateZshCompletion(minimalSchema(), { functionPrefix: 'myapp' });
 
 		expect(script).toContain('_myapp() {');
-		expect(script).toContain('_myapp "$@"');
+		expect(script).toContain('compdef _myapp testcli');
 	});
 
 	it('sanitizes non-identifier characters in prefix', () => {

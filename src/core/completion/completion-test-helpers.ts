@@ -38,7 +38,7 @@ function extractZshRootFunction(script: string, funcName: string): string {
 	if (start === -1) {
 		throw new Error(`Could not find zsh root function '${funcName}'`);
 	}
-	const end = script.indexOf(`\n}\n\n${funcName} "$@"`, start);
+	const end = script.indexOf(`\n}\n\ncompdef ${funcName} `, start);
 	if (end === -1) {
 		throw new Error(`Could not find end of zsh root function '${funcName}'`);
 	}

@@ -163,7 +163,9 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 
 	lines.push('}');
 	lines.push('');
-	lines.push(`${funcName} "$@"`);
+	// Register with compdef for `source <(cmd completions zsh)` usage.
+	// fpath-based autoloading is handled by the `#compdef` directive above.
+	lines.push(`compdef ${funcName} ${quoteShellArg(schema.name)}`);
 	lines.push('');
 
 	return lines.join('\n');
