@@ -211,6 +211,20 @@ describe('parse — flags', () => {
 		expect(result.flags.verbose).toBe(true);
 	});
 
+	it('resolves hidden long alias to the canonical key', () => {
+		const schema = makeSchema({
+			flags: {
+				'skip-pass': createSchema('boolean', {
+					presence: 'defaulted',
+					defaultValue: false,
+					aliases: [{ name: 'skipPass', hidden: true }],
+				}),
+			},
+		});
+		const result = parse(schema, ['--skipPass']);
+		expect(result.flags['skip-pass']).toBe(true);
+	});
+
 	it('no flags supplied returns empty flags object', () => {
 		const schema = makeSchema({
 			flags: { verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }) },
@@ -657,6 +671,26 @@ describe('parse — errors', () => {
 		}
 	});
 
+	it('unknown flag suggestions ignore hidden aliases', () => {
+		const schema = makeSchema({
+			flags: {
+				'skip-pass': createSchema('boolean', {
+					presence: 'defaulted',
+					defaultValue: false,
+					aliases: [{ name: 'skipPass', hidden: true }],
+				}),
+			},
+		});
+		try {
+			parse(schema, ['--skipPas']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.message).toContain('Did you mean --skip-pass');
+			expect(pe.message).not.toContain('--skipPass');
+			expect(pe.suggest).toBe('--skip-pass');
+		}
+	});
+
 	it('all ParseErrors have exitCode 2', () => {
 		const schema = makeSchema();
 		try {
@@ -757,6 +791,40 @@ describe('parse — custom flags', () => {
 		});
 		const result = parse(schema, ['--value', 'hello']);
 		expect(result.flags.value).toBe('hello');
+	});
+
+	it('invalid values echo the typed long alias in the message', () => {
+		const schema = makeSchema({
+			flags: {
+				port: createSchema('number', {
+					aliases: [{ name: 'listenPort', hidden: false }],
+				}),
+			},
+		});
+		try {
+			parse(schema, ['--listenPort', 'abc']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.message).toContain('flag --listenPort');
+			expect(pe.details).toMatchObject({ flag: 'port', input: '--listenPort' });
+		}
+	});
+
+	it('missing values echo the typed hidden alias in the message', () => {
+		const schema = makeSchema({
+			flags: {
+				output: createSchema('string', {
+					aliases: [{ name: 'oldOutput', hidden: true }],
+				}),
+			},
+		});
+		try {
+			parse(schema, ['--oldOutput']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.message).toContain('Flag --oldOutput requires a value');
+			expect(pe.details).toMatchObject({ flag: 'output', input: 'oldOutput' });
+		}
 	});
 });
 

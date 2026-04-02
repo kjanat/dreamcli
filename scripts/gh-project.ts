@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Thin wrapper for the GitHub project helper.
  *

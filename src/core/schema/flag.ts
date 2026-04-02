@@ -97,6 +97,14 @@ type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
  */
 type FlagParseFn<T> = (raw: unknown) => T;
 
+/** Runtime descriptor for a flag alias. */
+interface FlagAlias {
+	/** Alias name without `-` / `--` prefix. */
+	readonly name: string;
+	/** Whether the alias is parser-only and hidden from user-facing surfaces. */
+	readonly hidden: boolean;
+}
+
 /**
  * The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
  * help generator, resolution chain) read this to understand the flag's shape
@@ -109,8 +117,8 @@ interface FlagSchema {
 	readonly presence: FlagPresence;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
-	/** Short/long aliases (e.g. `['f']` for `--force`). */
-	readonly aliases: readonly string[];
+	/** Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`). */
+	readonly aliases: readonly FlagAlias[];
 	/** Environment variable name for v0.2+ resolution. */
 	readonly envVar: string | undefined;
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
@@ -149,6 +157,70 @@ interface FlagSchema {
 }
 
 /**
+ * Low-level overrides accepted by {@link createSchema}.
+ *
+ * `aliases` accepts both legacy string input and structured {@link FlagAlias}
+ * objects so tests and internal fixtures can be migrated incrementally.
+ */
+type FlagSchemaOverrides = Omit<Partial<FlagSchema>, 'aliases'> & {
+	readonly aliases?: readonly (string | FlagAlias)[];
+};
+
+/**
+ * Normalise an alias input into a full {@link FlagAlias} object.
+ *
+ * @param alias - Raw alias name or structured alias object.
+ * @returns Normalised alias record.
+ */
+function normalizeFlagAlias(alias: string | FlagAlias): FlagAlias {
+	if (typeof alias === 'string') {
+		return { name: alias, hidden: false };
+	}
+
+	return {
+		name: alias.name,
+		hidden: alias.hidden,
+	};
+}
+
+/**
+ * Normalise alias input into immutable alias records.
+ *
+ * @param aliases - Alias input values.
+ * @returns Normalised alias objects.
+ */
+function normalizeFlagAliases(aliases: readonly (string | FlagAlias)[]): readonly FlagAlias[] {
+	return aliases.map(normalizeFlagAlias);
+}
+
+/**
+ * List alias names for a flag schema.
+ *
+ * @param schema - Flag schema whose aliases should be listed.
+ * @param options - Visibility and length filtering.
+ * @returns Alias names in registration order.
+ */
+function getFlagAliasNames(
+	schema: FlagSchema,
+	options?: {
+		readonly includeHidden?: boolean;
+		readonly kind?: 'all' | 'short' | 'long';
+	},
+): readonly string[] {
+	const includeHidden = options?.includeHidden ?? false;
+	const kind = options?.kind ?? 'all';
+
+	return schema.aliases
+		.filter((alias) => includeHidden || !alias.hidden)
+		.filter((alias) => {
+			if (kind === 'short') return alias.name.length === 1;
+			if (kind === 'long') return alias.name.length > 1;
+			return true;
+		})
+		.map((alias) => alias.name);
+}
+
+/**
  * Create a raw {@link FlagSchema} object with sensible defaults.
  *
  * Most consumers should prefer the higher-level {@link flag} factory,
@@ -172,12 +244,15 @@ interface FlagSchema {
  * });
  * ```
  */
-function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSchema {
+function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSchema {
+	const aliases =
+		overrides?.aliases !== undefined ? normalizeFlagAliases(overrides.aliases) : ([] as const);
+	const { aliases: _ignoredAliases, ...rest } = overrides ?? {};
+
 	return {
 		kind,
 		presence: 'optional',
 		defaultValue: undefined,
-		aliases: [],
 		envVar: undefined,
 		configPath: undefined,
 		description: undefined,
@@ -187,7 +262,8 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 		parseFn: undefined,
 		deprecated: undefined,
 		propagate: false,
-		...overrides,
+		...rest,
+		aliases,
 	};
 }
 
@@ -284,6 +360,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * alternative long name).
 	 *
 	 * @param name - Single-char short alias or alternative long name.
+	 * @param options - Optional alias metadata. Hidden aliases remain parseable
+	 *   but are omitted from help, completions, and suggestions.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
@@ -294,10 +372,16 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli build --verbose  → verbose = true
 	 * ```
 	 */
-	alias(name: string): FlagBuilder<C> {
+	alias(name: string, options?: { hidden?: boolean }): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
-			aliases: [...this.schema.aliases, name],
+			aliases: [
+				...this.schema.aliases,
+				{
+					name,
+					hidden: options?.hidden ?? false,
+				},
+			],
 		});
 	}
 
@@ -637,15 +721,24 @@ export type {
 	SelectPromptConfig,
 } from './prompt.ts';
 export type {
+	FlagAlias,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
+	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
 	ResolvedValue,
 	WithPresence,
 };
-export { createSchema, FlagBuilder, flag };
+export {
+	createSchema,
+	FlagBuilder,
+	flag,
+	getFlagAliasNames,
+	normalizeFlagAlias,
+	normalizeFlagAliases,
+};

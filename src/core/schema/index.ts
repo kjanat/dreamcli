@@ -52,12 +52,14 @@ export type {
 export { CommandBuilder, command, group } from './command.ts';
 export type {
 	ConfirmPromptConfig,
+	FlagAlias,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
+	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
 	InputPromptConfig,

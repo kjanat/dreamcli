@@ -16,6 +16,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
@@ -377,7 +378,7 @@ function collectFlagWords(flags: Readonly<Record<string, FlagSchema>>): string {
 	const words: string[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
 		words.push(`--${name}`);
-		for (const alias of schema.aliases) {
+		for (const alias of getFlagAliasNames(schema)) {
 			words.push(alias.length === 1 ? `-${alias}` : `--${alias}`);
 		}
 	}
@@ -403,7 +404,7 @@ function collectValueFlagPattern(
 		for (const [name, schema] of Object.entries(flags)) {
 			if (schema.kind === 'boolean') continue;
 			forms.add(`--${name}`);
-			for (const alias of schema.aliases) {
+			for (const alias of getFlagAliasNames(schema)) {
 				forms.add(alias.length === 1 ? `-${alias}` : `--${alias}`);
 			}
 		}
@@ -444,7 +445,9 @@ function collectEnumCasesFromFlags(
 		if (schema.kind !== 'enum' || schema.enumValues === undefined) continue;
 		const flagForms = [
 			`--${name}`,
-			...schema.aliases.map((a) => (a.length === 1 ? `-${a}` : `--${a}`)),
+			...getFlagAliasNames(schema).map((alias) =>
+				alias.length === 1 ? `-${alias}` : `--${alias}`,
+			),
 		].map(escapeBashCasePatternValue);
 		cases.push({ flags: flagForms.join('|'), values: schema.enumValues });
 	}

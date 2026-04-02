@@ -14,6 +14,7 @@
  */
 
 import { ParseError } from '#internals/core/errors/index.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -131,7 +132,7 @@ function buildFlagLookup(
 	const lookup = new Map<string, readonly [string, FlagSchema]>();
 	for (const [name, schema] of Object.entries(flags)) {
 		lookup.set(name, [name, schema]);
-		for (const alias of schema.aliases) {
+		for (const alias of getFlagAliasNames(schema, { includeHidden: true })) {
 			lookup.set(alias, [name, schema]);
 		}
 	}
@@ -159,7 +160,12 @@ function flagExpectsValue(schema: FlagSchema): boolean {
  * @returns Coerced value matching the schema's kind
  * @throws ParseError on type mismatch
  */
-function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unknown {
+function coerceFlagValue(
+	flagName: string,
+	raw: string,
+	schema: FlagSchema,
+	displayName = `--${flagName}`,
+): unknown {
 	switch (schema.kind) {
 		case 'string':
 			return raw;
@@ -167,9 +173,9 @@ function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unk
 		case 'number': {
 			const n = Number(raw);
 			if (Number.isNaN(n)) {
-				throw new ParseError(`Invalid number value '${raw}' for flag --${flagName}`, {
+				throw new ParseError(`Invalid number value '${raw}' for flag ${displayName}`, {
 					code: 'INVALID_VALUE',
-					details: { flag: flagName, value: raw, expected: 'number' },
+					details: { flag: flagName, input: displayName, value: raw, expected: 'number' },
 				});
 			}
 			return n;
@@ -180,10 +186,10 @@ function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unk
 			if (raw === 'true' || raw === '1') return true;
 			if (raw === 'false' || raw === '0') return false;
 			throw new ParseError(
-				`Invalid boolean value '${raw}' for flag --${flagName}. Use true/false or 1/0`,
+				`Invalid boolean value '${raw}' for flag ${displayName}. Use true/false or 1/0`,
 				{
 					code: 'INVALID_VALUE',
-					details: { flag: flagName, value: raw, expected: 'boolean' },
+					details: { flag: flagName, input: displayName, value: raw, expected: 'boolean' },
 				},
 			);
 
@@ -200,10 +206,10 @@ function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unk
 			}
 			if (!allowed.includes(raw)) {
 				throw new ParseError(
-					`Invalid value '${raw}' for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
+					`Invalid value '${raw}' for flag ${displayName}. Allowed: ${allowed.join(', ')}`,
 					{
 						code: 'INVALID_VALUE',
-						details: { flag: flagName, value: raw, allowed },
+						details: { flag: flagName, input: displayName, value: raw, allowed },
 					},
 				);
 			}
@@ -226,9 +232,9 @@ function coerceFlagValue(flagName: string, raw: string, schema: FlagSchema): unk
 			} catch (err) {
 				if (err instanceof ParseError) throw err;
 				const message = err instanceof Error ? err.message : String(err);
-				throw new ParseError(`Failed to parse flag --${flagName}: ${message}`, {
+				throw new ParseError(`Failed to parse flag ${displayName}: ${message}`, {
 					code: 'INVALID_VALUE',
-					details: { flag: flagName, value: raw },
+					details: { flag: flagName, input: displayName, value: raw },
 					cause: err,
 				});
 			}
@@ -399,7 +405,12 @@ function parseLongFlag(
 	if (!flagExpectsValue(flagSchema)) {
 		// Boolean flag
 		if (token.value !== undefined) {
-			flags[canonicalName] = coerceFlagValue(canonicalName, token.value, flagSchema);
+			flags[canonicalName] = coerceFlagValue(
+				canonicalName,
+				token.value,
+				flagSchema,
+				`--${token.name}`,
+			);
 		} else {
 			flags[canonicalName] = true;
 		}
@@ -415,12 +426,12 @@ function parseLongFlag(
 	// --flag value (next token is the value)
 	const nextToken = tokens[startIdx + 1];
 	if (!nextToken || nextToken.kind !== 'positional') {
-		throw new ParseError(`Flag --${canonicalName} requires a value`, {
+		throw new ParseError(`Flag --${token.name} requires a value`, {
 			code: 'MISSING_VALUE',
-			details: { flag: canonicalName, kind: flagSchema.kind },
+			details: { flag: canonicalName, input: token.name, kind: flagSchema.kind },
 		});
 	}
-	setFlagValue(flags, canonicalName, flagSchema, nextToken.value);
+	setFlagValue(flags, canonicalName, flagSchema, nextToken.value, `--${token.name}`);
 	return startIdx + 2;
 }
 
@@ -468,7 +479,7 @@ function parseShortFlags(
 			// Value-expecting flag in the middle of combined shorts:
 			// -oFile → -o with value "File" (rest of chars is the value)
 			const inlineValue = chars.slice(ci + 1);
-			setFlagValue(flags, canonicalName, flagSchema, inlineValue);
+			setFlagValue(flags, canonicalName, flagSchema, inlineValue, `-${ch}`);
 			break; // consumed all remaining chars
 		}
 
@@ -477,10 +488,10 @@ function parseShortFlags(
 		if (!nextToken || nextToken.kind !== 'positional') {
 			throw new ParseError(`Flag -${ch} requires a value`, {
 				code: 'MISSING_VALUE',
-				details: { flag: ch, canonical: canonicalName, kind: flagSchema.kind },
+				details: { flag: canonicalName, input: ch, kind: flagSchema.kind },
 			});
 		}
-		setFlagValue(flags, canonicalName, flagSchema, nextToken.value);
+		setFlagValue(flags, canonicalName, flagSchema, nextToken.value, `-${ch}`);
 		nextIdx++;
 	}
 
@@ -502,8 +513,9 @@ function setFlagValue(
 	name: string,
 	schema: FlagSchema,
 	rawValue: string,
+	displayName = `--${name}`,
 ): void {
-	const coerced = coerceFlagValue(name, rawValue, schema);
+	const coerced = coerceFlagValue(name, rawValue, schema, displayName);
 
 	if (schema.kind === 'array') {
 		const existing = flags[name];
@@ -584,8 +596,14 @@ function suggestFlag(
 	const threshold = Math.max(2, Math.floor(input.length / 2));
 
 	for (const key of lookup.keys()) {
-		// Only suggest long names (not single-char aliases)
+		const entry = lookup.get(key);
+		if (entry === undefined) continue;
+		const [canonicalName, schema] = entry;
+		const alias = schema.aliases.find((candidate) => candidate.name === key);
+
+		// Only suggest canonical names or visible long aliases.
 		if (key.length < 2) continue;
+		if (key !== canonicalName && alias?.hidden) continue;
 
 		const dist = levenshtein(input, key);
 		if (dist < bestDist && dist <= threshold) {

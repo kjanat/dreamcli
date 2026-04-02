@@ -15,6 +15,7 @@
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import {
@@ -314,7 +315,8 @@ function escapeZshDescription(value: string): string {
  * Each flag produces one or more spec strings in zsh `_arguments` format:
  * - `'--name[description]'` for simple flags
  * - `'--name[description]:value:(v1 v2 v3)'` for enum flags
- * - `'(-s --name)'{-s,--name}'[description]'` for flags with short aliases
+ * - `'(-s --name --alias)'{-s,--name,--alias}'[description]'` for flags with
+ *   visible aliases
  *
  * @internal
  */
@@ -325,7 +327,9 @@ function buildZshFlagSpecsFromFlags(
 	for (const [name, schema] of Object.entries(flags)) {
 		const desc = escapeZshDescription(schema.description ?? name);
 		const longFlag = `--${name}`;
-		const shortFlags = schema.aliases.filter((a) => a.length === 1).map((a) => `-${a}`);
+		const shortFlags = getFlagAliasNames(schema, { kind: 'short' }).map((alias) => `-${alias}`);
+		const longAliases = getFlagAliasNames(schema, { kind: 'long' }).map((alias) => `--${alias}`);
+		const allForms = [...shortFlags, longFlag, ...longAliases];
 
 		let valuePart = '';
 		if (schema.kind === 'boolean') {
@@ -337,10 +341,9 @@ function buildZshFlagSpecsFromFlags(
 			valuePart = ':value:';
 		}
 
-		if (shortFlags.length > 0) {
-			// Mutual exclusion group with ALL short aliases + long flag
-			// Format: '(-v -V --verbose)'{-v,-V,--verbose}'[desc]:value'
-			const allForms = [...shortFlags, longFlag];
+		if (allForms.length > 1) {
+			// Mutual exclusion group with all visible forms for the same flag.
+			// Format: '(-v --verbose --verb)'{-v,--verbose,--verb}'[desc]:value'
 			const escapedForms = allForms.map(escapeZshCasePatternValue).join(',');
 			specs.push(
 				`${quoteShellArg(`(${allForms.join(' ')})`)}{${escapedForms}}${quoteShellArg(

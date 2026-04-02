@@ -15,7 +15,13 @@ const sync = command('sync')
 	.flag('owner', ownerFlag())
 	.flag('project', projectFlag())
 	.flag('prd', prdFlag())
-	.flag('overwriteActive', flag.boolean().describe('Also overwrite In Progress and Blocked items'))
+	.flag(
+		'overwrite-active',
+		flag
+			.boolean()
+			.alias('overwriteActive', { hidden: true })
+			.describe('Also overwrite In Progress and Blocked items'),
+	)
 	.action(async ({ flags, out }) => {
 		const [project, prd] = await Promise.all([
 			loadProjectContext(flags.project, flags.owner),
@@ -37,7 +43,7 @@ const sync = command('sync')
 			}
 
 			if (
-				!flags.overwriteActive &&
+				!flags['overwrite-active'] &&
 				(item.workflow === 'In Progress' || item.workflow === 'Blocked')
 			) {
 				continue;

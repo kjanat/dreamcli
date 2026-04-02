@@ -1,6 +1,10 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { FlagSchema, InferFlag, InferFlags } from './flag.ts';
+import type { FlagAlias, FlagSchema, InferFlag, InferFlags } from './flag.ts';
 import { FlagBuilder, flag } from './flag.ts';
+
+function alias(name: string, hidden = false): FlagAlias {
+	return { name, hidden };
+}
 
 // --- Factory functions — runtime schema
 
@@ -117,12 +121,17 @@ describe('.required()', () => {
 describe('.alias()', () => {
 	it('appends an alias', () => {
 		const f = flag.boolean().alias('v');
-		expect(f.schema.aliases).toEqual(['v']);
+		expect(f.schema.aliases).toEqual([alias('v')]);
 	});
 
 	it('accumulates multiple aliases', () => {
 		const f = flag.boolean().alias('v').alias('verbose');
-		expect(f.schema.aliases).toEqual(['v', 'verbose']);
+		expect(f.schema.aliases).toEqual([alias('v'), alias('verbose')]);
+	});
+
+	it('supports hidden aliases', () => {
+		const f = flag.boolean().alias('skipPass', { hidden: true });
+		expect(f.schema.aliases).toEqual([alias('skipPass', true)]);
 	});
 });
 
@@ -165,7 +174,7 @@ describe('immutability', () => {
 
 		expect(base.schema.aliases).toEqual([]);
 		expect(base.schema.description).toBeUndefined();
-		expect(withAlias.schema.aliases).toEqual(['n']);
+		expect(withAlias.schema.aliases).toEqual([alias('n')]);
 		expect(withAlias.schema.description).toBeUndefined();
 		expect(withDesc.schema.aliases).toEqual([]);
 		expect(withDesc.schema.description).toBe('name');
@@ -202,7 +211,7 @@ describe('chaining', () => {
 	it('supports boolean with alias', () => {
 		const f = flag.boolean().alias('f').describe('Force deploy');
 		expect(f.schema.kind).toBe('boolean');
-		expect(f.schema.aliases).toEqual(['f']);
+		expect(f.schema.aliases).toEqual([alias('f')]);
 		expect(f.schema.description).toBe('Force deploy');
 		expect(f.schema.presence).toBe('defaulted');
 		expect(f.schema.defaultValue).toBe(false);
@@ -285,6 +294,11 @@ describe('type inference', () => {
 
 	it('.alias() preserves type', () => {
 		const f = flag.boolean().alias('v');
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<boolean>();
+	});
+
+	it('.alias(..., { hidden }) preserves type', () => {
+		const f = flag.boolean().alias('skipPass', { hidden: true });
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<boolean>();
 	});
 
@@ -460,7 +474,7 @@ describe('.deprecated()', () => {
 
 	it('chains with other modifiers', () => {
 		const f = flag.string().alias('o').env('OUTPUT').deprecated('use --target').describe('Output');
-		expect(f.schema.aliases).toEqual(['o']);
+		expect(f.schema.aliases).toEqual([alias('o')]);
 		expect(f.schema.envVar).toBe('OUTPUT');
 		expect(f.schema.deprecated).toBe('use --target');
 		expect(f.schema.description).toBe('Output');
@@ -524,7 +538,7 @@ describe('.propagate()', () => {
 
 	it('chains with other modifiers', () => {
 		const f = flag.string().alias('v').env('VERBOSE').propagate().describe('Verbose output');
-		expect(f.schema.aliases).toEqual(['v']);
+		expect(f.schema.aliases).toEqual([alias('v')]);
 		expect(f.schema.envVar).toBe('VERBOSE');
 		expect(f.schema.propagate).toBe(true);
 		expect(f.schema.description).toBe('Verbose output');

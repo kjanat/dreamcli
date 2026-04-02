@@ -5,7 +5,13 @@
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { isCLIError } from '#internals/core/errors/index.ts';
-import type { ActivityEvent, CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import type {
+	ActivityEvent,
+	CommandSchema,
+	FlagSchema,
+	FlagSchemaOverrides,
+} from '#internals/core/schema/index.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,
@@ -17,23 +23,8 @@ import {
 // === Test helpers
 
 /** Minimal FlagSchema with all required fields. */
-function flagSchema(overrides: Partial<FlagSchema> = {}): FlagSchema {
-	return {
-		kind: 'string',
-		presence: 'optional',
-		defaultValue: undefined,
-		aliases: [],
-		envVar: undefined,
-		configPath: undefined,
-		description: undefined,
-		enumValues: undefined,
-		elementSchema: undefined,
-		prompt: undefined,
-		parseFn: undefined,
-		deprecated: undefined,
-		propagate: false,
-		...overrides,
-	};
+function flagSchema(overrides: FlagSchemaOverrides = {}): FlagSchema {
+	return createSchema(overrides.kind ?? 'string', overrides);
 }
 
 /** Minimal CommandSchema with all required fields. */
@@ -426,6 +417,32 @@ describe('generateBashCompletion — flag completions', () => {
 		const script = generateBashCompletion(schema);
 
 		expect(script).toContain('--no-confirm');
+	});
+
+	it('excludes hidden aliases from bash completion candidates', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							'skip-pass': flagSchema({
+								kind: 'boolean',
+								aliases: [
+									{ name: 'skipPass', hidden: true },
+									{ name: 'x', hidden: false },
+								],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('--skip-pass');
+		expect(script).toContain('-x');
+		expect(script).not.toContain('--skipPass');
 	});
 });
 
@@ -1163,6 +1180,35 @@ describe('generateZshCompletion — flag completions', () => {
 		const script = generateZshCompletion(schema);
 
 		expect(script).toContain("(-f --force)'{-f,--force}'[Force]");
+	});
+
+	it('includes visible long aliases and excludes hidden aliases in zsh specs', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							'skip-pass': flagSchema({
+								kind: 'boolean',
+								description: 'Skip pass update',
+								aliases: [
+									{ name: 'x', hidden: false },
+									{ name: 'skipPass', hidden: false },
+									{ name: 'legacySkipPass', hidden: true },
+								],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain(
+			"(-x --skip-pass --skipPass)'{-x,--skip-pass,--skipPass}'[Skip pass update]",
+		);
+		expect(script).not.toContain('--legacySkipPass');
 	});
 
 	it('escapes quotes in flag spec names', () => {

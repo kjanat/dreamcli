@@ -493,6 +493,156 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
 	);
 }
 
+// --- Flag collision validation
+
+type FlagFormKind = 'canonical' | 'alias';
+
+interface FlagForm {
+	readonly owner: string;
+	readonly name: string;
+	readonly kind: FlagFormKind;
+	readonly hidden: boolean;
+}
+
+function formatFlagToken(name: string, kind: FlagFormKind): string {
+	return kind === 'alias' && name.length === 1 ? `-${name}` : `--${name}`;
+}
+
+function describeFlagForm(form: FlagForm): string {
+	if (form.kind === 'canonical') {
+		return `canonical flag ${formatFlagToken(form.name, form.kind)}`;
+	}
+
+	const aliasType = form.name.length === 1 ? 'short alias' : 'long alias';
+	return `${form.hidden ? 'hidden ' : ''}${aliasType} ${formatFlagToken(form.name, form.kind)}`;
+}
+
+function listFlagForms(name: string, schema: FlagSchema): readonly FlagForm[] {
+	return [
+		{
+			owner: name,
+			name,
+			kind: 'canonical',
+			hidden: false,
+		},
+		...schema.aliases.map((alias) => ({
+			owner: name,
+			name: alias.name,
+			kind: 'alias' as const,
+			hidden: alias.hidden,
+		})),
+	];
+}
+
+function throwFlagCollisionError(
+	commandName: string,
+	form: FlagForm,
+	existing: FlagForm,
+	options?: { inherited?: boolean },
+): never {
+	const inherited = options?.inherited ?? false;
+	const existingOwner = `flag ${formatFlagToken(existing.owner, 'canonical')}`;
+	const subject = `Command '${commandName}' ${existingOwner}`;
+
+	throw new CLIError(
+		inherited
+			? `${subject} propagates ${describeFlagForm(existing)}, which collides with ${describeFlagForm(form)} on flag ${formatFlagToken(form.owner, 'canonical')}`
+			: `Command '${commandName}' flag ${formatFlagToken(form.owner, 'canonical')} ${describeFlagForm(form)} collides with ${describeFlagForm(existing)} on ${existingOwner}`,
+		{
+			code: inherited ? 'PROPAGATED_FLAG_COLLISION' : 'FLAG_NAME_COLLISION',
+			details: {
+				command: commandName,
+				flag: form.owner,
+				surface: form.name,
+				surfaceKind: form.kind,
+				hidden: form.hidden,
+				existingFlag: existing.owner,
+				existingSurface: existing.name,
+				existingSurfaceKind: existing.kind,
+				existingHidden: existing.hidden,
+				inherited,
+			},
+		},
+	);
+}
+
+function validateLocalFlagCollisions(
+	commandName: string,
+	flags: Readonly<Record<string, FlagSchema>>,
+): void {
+	const seen = new Map<string, FlagForm>();
+
+	for (const [name, schema] of Object.entries(flags)) {
+		for (const form of listFlagForms(name, schema)) {
+			const existing = seen.get(form.name);
+			if (existing !== undefined) {
+				throwFlagCollisionError(commandName, form, existing);
+			}
+			seen.set(form.name, form);
+		}
+	}
+}
+
+function validateInheritedFlagCollisions(
+	commandName: string,
+	inherited: Readonly<Record<string, FlagSchema>>,
+	local: Readonly<Record<string, FlagSchema>>,
+): void {
+	const inheritedForms = new Map<string, FlagForm>();
+
+	for (const [name, schema] of Object.entries(inherited)) {
+		for (const form of listFlagForms(name, schema)) {
+			inheritedForms.set(form.name, form);
+		}
+	}
+
+	for (const [name, schema] of Object.entries(local)) {
+		for (const form of listFlagForms(name, schema)) {
+			const existing = inheritedForms.get(form.name);
+			if (existing !== undefined) {
+				throwFlagCollisionError(commandName, form, existing, { inherited: true });
+			}
+		}
+	}
+}
+
+function buildInheritedFlagsForChildren(
+	inherited: Readonly<Record<string, FlagSchema>>,
+	local: Readonly<Record<string, FlagSchema>>,
+): Readonly<Record<string, FlagSchema>> {
+	const next: Record<string, FlagSchema> = { ...inherited };
+
+	for (const name of Object.keys(local)) {
+		delete next[name];
+	}
+
+	for (const [name, schema] of Object.entries(local)) {
+		if (schema.propagate) {
+			next[name] = schema;
+		}
+	}
+
+	return next;
+}
+
+function validateCommandFlagTree(
+	command: CommandSchema,
+	inheritedFlags: Readonly<Record<string, FlagSchema>> = {},
+): void {
+	validateLocalFlagCollisions(command.name, command.flags);
+
+	const visibleInherited: Record<string, FlagSchema> = { ...inheritedFlags };
+	for (const name of Object.keys(command.flags)) {
+		delete visibleInherited[name];
+	}
+	validateInheritedFlagCollisions(command.name, visibleInherited, command.flags);
+
+	const inheritedForChildren = buildInheritedFlagsForChildren(inheritedFlags, command.flags);
+	for (const child of command.commands) {
+		validateCommandFlagTree(child, inheritedForChildren);
+	}
+}
+
 // --- Type-erased command interface (shared between schema and CLI layers)
 
 /**
@@ -1014,9 +1164,18 @@ class CommandBuilder<
 		name: N & Exclude<N, keyof F>,
 		builder: B,
 	): CommandBuilder<F & Record<N, B>, A, C> {
+		if (name in this.schema.flags) {
+			throw new CLIError(`Command '${this.schema.name}' already defines flag --${name}`, {
+				code: 'FLAG_NAME_COLLISION',
+				details: { command: this.schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
+			});
+		}
+
 		const nextFlags = { ...this.schema.flags, [name]: builder.schema };
+		const nextSchema = { ...this.schema, flags: nextFlags, hasAction: false };
+		validateCommandFlagTree(nextSchema);
 		return new CommandBuilder(
-			{ ...this.schema, flags: nextFlags, hasAction: false },
+			nextSchema,
 			// handler is intentionally dropped — adding a flag invalidates
 			// the previous handler's type signature
 			undefined,
@@ -1113,11 +1272,13 @@ class CommandBuilder<
 		A2 extends Record<string, ArgBuilder<ArgConfig>>,
 		C2 extends Record<string, unknown>,
 	>(sub: CommandBuilder<F2, A2, C2>): CommandBuilder<F, A, C> {
+		const nextSchema = {
+			...this.schema,
+			commands: [...this.schema.commands, sub.schema],
+		};
+		validateCommandFlagTree(nextSchema);
 		return new CommandBuilder(
-			{
-				...this.schema,
-				commands: [...this.schema.commands, sub.schema],
-			},
+			nextSchema,
 			this.handler,
 			[...this._subcommands, eraseBuilder(sub)],
 			this._executionSteps,

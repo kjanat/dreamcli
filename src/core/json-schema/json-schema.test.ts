@@ -9,29 +9,16 @@ import type {
 	CommandArgEntry,
 	CommandSchema,
 	FlagSchema,
+	FlagSchemaOverrides,
 } from '#internals/core/schema/index.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import { generateInputSchema, generateSchema } from './index.ts';
 
 // === Test helpers
 
 /** Minimal FlagSchema with all required fields. */
-function flagDef(overrides: Partial<FlagSchema> = {}): FlagSchema {
-	return {
-		kind: 'string',
-		presence: 'optional',
-		defaultValue: undefined,
-		aliases: [],
-		envVar: undefined,
-		configPath: undefined,
-		description: undefined,
-		enumValues: undefined,
-		elementSchema: undefined,
-		prompt: undefined,
-		parseFn: undefined,
-		deprecated: undefined,
-		propagate: false,
-		...overrides,
-	};
+function flagDef(overrides: FlagSchemaOverrides = {}): FlagSchema {
+	return createSchema(overrides.kind ?? 'string', overrides);
 }
 
 /** Minimal CommandSchema with all required fields. */
@@ -326,6 +313,22 @@ describe('generateSchema — definition metadata', () => {
 			['commands', 0, 'flags', 'region', 'description'],
 			'Target region',
 		);
+	});
+
+	it('omits hidden flag aliases from generated schema', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: {
+				'skip-pass': flagDef({
+					aliases: [
+						{ name: 'skipPass', hidden: true },
+						{ name: 'x', hidden: false },
+					],
+				}),
+			},
+		});
+		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'skip-pass', 'aliases'], ['x']);
 	});
 
 	it('includes flag deprecation markers', () => {

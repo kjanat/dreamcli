@@ -14,6 +14,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -200,8 +201,9 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
 	if (schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)) {
 		result.defaultValue = schema.defaultValue;
 	}
-	if (schema.aliases.length > 0) {
-		result.aliases = [...schema.aliases];
+	const visibleAliases = getFlagAliasNames(schema);
+	if (visibleAliases.length > 0) {
+		result.aliases = [...visibleAliases];
 	}
 	if (schema.envVar !== undefined) {
 		result.envVar = schema.envVar;

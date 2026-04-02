@@ -17,10 +17,16 @@ const finish = command('finish')
 	.flag('project', projectFlag())
 	.flag('prd', prdFlag())
 	.flag('ready', flag.array(flag.string()).describe('Additional tasks to mark Ready'))
-	.flag('skipPass', flag.boolean().describe('Do not write passes=true to prd.json'))
+	.flag(
+		'skip-pass',
+		flag
+			.boolean()
+			.alias('skipPass', { hidden: true })
+			.describe('Do not write passes=true to prd.json'),
+	)
 	.action(async ({ args, flags, out }) => {
 		let prd = await readPrdState(flags.prd);
-		if (!flags.skipPass) {
+		if (!flags['skip-pass']) {
 			prd = await markPrdTaskPassed(prd, args.taskId);
 		}
 
@@ -45,13 +51,13 @@ const finish = command('finish')
 			out.json({
 				project: project.project.url,
 				prd: prd.filePath,
-				passUpdated: !flags.skipPass,
+				passUpdated: !flags['skip-pass'],
 				updates: applied,
 			});
 			return;
 		}
 
-		if (!flags.skipPass) {
+		if (!flags['skip-pass']) {
 			out.log(`Marked ${args.taskId} passed in ${prd.filePath}`);
 		}
 		if (applied.length === 0) {
