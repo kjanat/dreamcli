@@ -15,6 +15,7 @@ import type { FormatLoader } from '#internals/core/config/index.ts';
 import { discoverConfig } from '#internals/core/config/index.ts';
 import { discoverPackageJson, inferCliName } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
+import { buildRunResult } from '#internals/core/execution/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
@@ -892,12 +893,12 @@ class CLIBuilder {
 		switch (planned.kind) {
 			case 'root-version':
 				out.log(planned.version);
-				return buildResult(0, captured, undefined);
+				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 
 			case 'root-help': {
 				const helpText = formatRootHelp(this.schema, planned.help);
 				out.log(helpText);
-				return buildResult(0, captured, undefined);
+				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 			}
 
 			case 'dispatch-error': {
@@ -909,13 +910,13 @@ class CLIBuilder {
 						out.error(`Suggestion: ${planned.error.suggest}`);
 					}
 				}
-				return buildResult(planned.error.exitCode, captured, planned.error);
+				return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
 			}
 
 			case 'needs-subcommand': {
 				const helpText = formatHelp(planned.command.schema, planned.help);
 				out.log(helpText);
-				return buildResult(0, captured, undefined);
+				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 			}
 
 			case 'match': {
@@ -1081,33 +1082,6 @@ class CLIBuilder {
 		return adapter.exit(result.exitCode);
 	}
 }
-
-// --- Helpers
-
-/**
- * Assemble a {@link RunResult} from its constituent parts.
- *
- * @param exitCode - Process exit code (0 = success).
- * @param captured - Captured stdout/stderr/activity buffers.
- * @param error - The originating error, if any.
- * @returns Structured run result.
- *
- * @internal
- */
-function buildResult(
-	exitCode: number,
-	captured: CapturedOutput,
-	error: CLIError | undefined,
-): RunResult {
-	return {
-		exitCode,
-		stdout: captured.stdout,
-		stderr: captured.stderr,
-		activity: captured.activity,
-		error,
-	};
-}
-
 const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);
 
 /**

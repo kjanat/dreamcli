@@ -81,7 +81,7 @@
 			"description": "Create the new internal execution seam and move common execution flow behind it. Done when: there is a concrete shared execution module with explicit inputs/outputs and a narrow responsibility boundary.",
 			"depends": ["executor-contract-tests"],
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "route-testkit-executor",
