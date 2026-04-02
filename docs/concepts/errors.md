@@ -63,7 +63,7 @@ These should:
 
 Something failed during execution:
 
-```
+```bash
 Error: Connection refused: https://api.example.com
 Error: Permission denied: /etc/secrets
 ```
