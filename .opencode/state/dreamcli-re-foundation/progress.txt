@@ -8,6 +8,7 @@ Started: 2026-04-02
 - The real architectural pressure points are `src/core/cli/`, `src/core/testkit/`, `src/core/resolve/`, `src/core/output/`, and `src/core/completion/`.
 - Current execution ownership is effectively centered in `runCommand()` even though the architecture does not present it that way.
 - The safest refactor path is contract-first: truth matrix -> characterization tests -> shared executor -> planner split -> resolver redesign.
+- When execution ownership is implicit, add a dedicated black-box contract suite at the current owner boundary before extraction; it lets later shared seams move without coupling tests to module shape.
 - Docs work must split into low-risk generated foundations versus semantics-sensitive authored docs.
 - `ROADMAP-DOCS-SICK.md` is the main north star for the generated docs platform: examples first, hover on examples only, changelog and docs health, then API inventory, then TypeDoc-based symbol pages.
 - Completion breadth must be backed by real implementation and tests; fish and PowerShell are intentional backlog items, not aspirational claims.
@@ -75,3 +76,9 @@ Started: 2026-04-02
 - Fixed top-level `resolve()` aggregation so flag and arg validation failures are collected together, while preserving the existing lower-level flag-only and arg-only aggregation behavior.
 - Files changed: `src/core/resolve/contracts.test.ts`, `src/core/resolve/index.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the contract suite exposed that cross-domain aggregation was weaker than the documented resolver boundary; flattening nested aggregated errors at the top resolver seam fixed it without changing the inner resolver helpers.
+
+## Task - [executor-contract-tests]
+
+- Added `src/core/testkit/executor-contract.test.ts` to lock down `runCommand()` lifecycle hook ordering, derive/middleware/action execution boundaries, `afterAction` skip-on-failure semantics, cleanup guarantees, and `RunResult` assembly when callers inject output buffers.
+- Files changed: `src/core/testkit/executor-contract.test.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the narrowest executor seam today is still `runCommand()` itself; contract tests there cover plugin ordering and cleanup behavior without freezing the eventual shared executor module shape.

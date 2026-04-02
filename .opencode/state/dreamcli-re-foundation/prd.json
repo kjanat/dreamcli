@@ -63,7 +63,7 @@
 			"description": "Add tests for hook order, derive/middleware/action execution, cleanup guarantees, and result assembly. Done when: the future shared executor is guarded by boundary tests rather than implementation shape.",
 			"depends": ["planner-contract-tests", "resolver-matrix-tests", "output-contracts"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "completion-contract-tests",
