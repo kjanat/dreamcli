@@ -952,6 +952,18 @@ describe('generateZshCompletion — subcommand completions', () => {
 		expect(script).toContain("'build:Build project'");
 	});
 
+	it('includes top-level command aliases in _describe candidates', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(commandSchema({ name: 'deploy', aliases: ['d'], description: 'Deploy app' })),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("'deploy:Deploy app'");
+		expect(script).toContain("'d:Deploy app'");
+	});
+
 	it('excludes hidden commands from completions', () => {
 		const schema = minimalSchema({
 			commands: [
@@ -1821,6 +1833,15 @@ describe('generateZshCompletion — nested helper functions', () => {
 		expect(dbFunc).toContain("'migrate:Run migrations'");
 		expect(dbFunc).toContain("'seed:Seed database'");
 		expect(dbFunc).toContain("_describe 'command' subcmds");
+	});
+
+	it('helper function includes child aliases in _describe candidates', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const dbFuncIdx = lines.findIndex((l) => l.includes('_testcli_db() {'));
+		const dbFunc = lines.slice(dbFuncIdx, dbFuncIdx + 30).join('\n');
+		expect(dbFunc).toContain("'s:Seed database'");
 	});
 
 	it('delegates to leaf helper for nested commands', () => {

@@ -110,9 +110,7 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 		lines.push('\tcase "$state" in');
 		lines.push('\t\tsubcmd)');
 		lines.push('\t\t\tsubcmds=(');
-		for (const cmd of visibleCommands) {
-			lines.push(`\t\t\t\t${quoteShellArg(`${cmd.name}:${cmd.description ?? cmd.name}`)}`);
-		}
+		appendZshCommandCandidates(lines, visibleCommands, '\t\t\t\t');
 		lines.push('\t\t\t)');
 		lines.push("\t\t\t_describe 'command' subcmds");
 		lines.push('\t\t\t;;');
@@ -204,9 +202,7 @@ function emitZshGroupFunction(
 	lines.push('\tcase "$state" in');
 	lines.push('\t\tsubcmd)');
 	lines.push('\t\t\tsubcmds=(');
-	for (const child of node.children) {
-		lines.push(`\t\t\t\t${quoteShellArg(`${child.name}:${child.description ?? child.name}`)}`);
-	}
+	appendZshCommandCandidates(lines, node.children, '\t\t\t\t');
 	lines.push('\t\t\t)');
 	lines.push("\t\t\t_describe 'command' subcmds");
 	lines.push('\t\t\t;;');
@@ -249,6 +245,23 @@ function emitZshLeafFunction(lines: string[], helperName: string, node: CommandN
 	}
 	lines.push('}');
 	lines.push('');
+}
+
+function appendZshCommandCandidates(
+	lines: string[],
+	commands: readonly Array<{
+		readonly name: string;
+		readonly aliases: readonly string[];
+		readonly description?: string;
+	}>,
+	indent: string,
+): void {
+	for (const command of commands) {
+		const description = command.description ?? command.name;
+		for (const alias of [command.name, ...command.aliases]) {
+			lines.push(`${indent}${quoteShellArg(`${alias}:${description}`)}`);
+		}
+	}
 }
 
 /**
