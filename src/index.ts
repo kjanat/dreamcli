@@ -75,7 +75,11 @@ export {
 export type { HelpOptions } from './core/help/index.ts';
 export { formatHelp } from './core/help/index.ts';
 export type { JsonSchemaOptions } from './core/json-schema/index.ts';
-export { generateInputSchema, generateSchema } from './core/json-schema/index.ts';
+export {
+	definitionMetaSchema,
+	generateInputSchema,
+	generateSchema,
+} from './core/json-schema/index.ts';
 export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.ts';
 export { createOutput } from './core/output/index.ts';
 export type { ParseResult, Token } from './core/parse/index.ts';

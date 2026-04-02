@@ -1,5 +1,8 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig } from 'vitepress';
 import { MermaidMarkdown, MermaidPlugin } from 'vitepress-plugin-mermaid';
+import { definitionMetaSchema } from 'dreamcli';
 
 export default defineConfig({
   title: 'dreamcli',
@@ -128,5 +131,10 @@ export default defineConfig({
   },
   vite: {
     plugins: [MermaidPlugin()],
+  },
+  buildEnd({ outDir }) {
+    const dir = join(outDir, 'schemas', 'cli');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'v1.json'), JSON.stringify(definitionMetaSchema, null, '\t'));
   },
 });

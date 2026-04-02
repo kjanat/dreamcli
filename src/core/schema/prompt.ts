@@ -11,6 +11,9 @@
 
 // --- Prompt kind discriminator
 
+/** All prompt kind discriminators as a runtime array. */
+const PROMPT_KINDS = ['confirm', 'input', 'select', 'multiselect'] as const;
+
 /**
  * The kind of interactive prompt to present.
  *
@@ -19,7 +22,7 @@
  * - `'select'`      — single selection from a list
  * - `'multiselect'` — multiple selections from a list
  */
-type PromptKind = 'confirm' | 'input' | 'select' | 'multiselect';
+type PromptKind = (typeof PROMPT_KINDS)[number];
 
 // --- Per-kind prompt configuration (discriminated union)
 
@@ -146,3 +149,4 @@ export type {
 	SelectChoice,
 	SelectPromptConfig,
 };
+export { PROMPT_KINDS };

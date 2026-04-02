@@ -15,6 +15,13 @@
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
+import {
+	ARG_KINDS,
+	ARG_PRESENCES,
+	FLAG_KINDS,
+	FLAG_PRESENCES,
+	PROMPT_KINDS,
+} from '#internals/core/schema/index.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -701,7 +708,133 @@ function isPlainJsonObject(value: object): value is Record<string, unknown> {
 	return proto === Object.prototype || proto === null;
 }
 
+// === Definition meta-schema
+
+/**
+ * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
+ *
+ * Hosted at {@link DEFINITION_SCHEMA_URL} for `$schema` resolution. Also
+ * exported so tooling can validate definition documents without a network
+ * round-trip.
+ *
+ * @example
+ * ```ts
+ * import Ajv from 'ajv/dist/2020';
+ * import { definitionMetaSchema, generateSchema } from 'dreamcli';
+ *
+ * const ajv = new Ajv();
+ * const validate = ajv.compile(definitionMetaSchema);
+ * const valid = validate(generateSchema(myCli.schema));
+ * ```
+ */
+const definitionMetaSchema: Record<string, unknown> = {
+	$schema: JSON_SCHEMA_DRAFT,
+	$id: DEFINITION_SCHEMA_URL,
+	title: 'dreamcli definition schema',
+	description:
+		'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
+	type: 'object',
+	required: ['$schema', 'name', 'commands'],
+	additionalProperties: false,
+	properties: {
+		$schema: { const: DEFINITION_SCHEMA_URL },
+		name: { type: 'string', description: 'CLI program name.' },
+		version: { type: 'string', description: 'CLI version string.' },
+		description: { type: 'string', description: 'One-line CLI description.' },
+		defaultCommand: {
+			type: 'string',
+			description: 'Name of the command invoked when no subcommand is given.',
+		},
+		commands: { type: 'array', items: { $ref: '#/$defs/command' } },
+	},
+	$defs: {
+		command: {
+			type: 'object',
+			required: ['name', 'flags', 'args', 'commands'],
+			additionalProperties: false,
+			properties: {
+				name: { type: 'string' },
+				description: { type: 'string' },
+				aliases: { type: 'array', items: { type: 'string' } },
+				hidden: { const: true },
+				examples: { type: 'array', items: { $ref: '#/$defs/example' } },
+				flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
+				args: { type: 'array', items: { $ref: '#/$defs/arg' } },
+				commands: { type: 'array', items: { $ref: '#/$defs/command' } },
+			},
+		},
+		flag: {
+			type: 'object',
+			required: ['kind', 'presence'],
+			additionalProperties: false,
+			properties: {
+				kind: { enum: [...FLAG_KINDS] },
+				presence: { enum: [...FLAG_PRESENCES] },
+				defaultValue: {},
+				aliases: { type: 'array', items: { type: 'string' } },
+				envVar: { type: 'string' },
+				configPath: { type: 'string' },
+				description: { type: 'string' },
+				enumValues: { type: 'array', items: { type: 'string' } },
+				elementSchema: { $ref: '#/$defs/flag' },
+				prompt: { $ref: '#/$defs/prompt' },
+				deprecated: { type: 'string' },
+				propagate: { const: true },
+			},
+		},
+		arg: {
+			type: 'object',
+			required: ['name', 'kind', 'presence'],
+			additionalProperties: false,
+			properties: {
+				name: { type: 'string' },
+				kind: { enum: [...ARG_KINDS] },
+				presence: { enum: [...ARG_PRESENCES] },
+				variadic: { const: true },
+				stdinMode: { const: true },
+				defaultValue: {},
+				description: { type: 'string' },
+				envVar: { type: 'string' },
+				enumValues: { type: 'array', items: { type: 'string' } },
+				deprecated: { type: 'string' },
+			},
+		},
+		prompt: {
+			type: 'object',
+			required: ['kind', 'message'],
+			additionalProperties: false,
+			properties: {
+				kind: { enum: [...PROMPT_KINDS] },
+				message: { type: 'string' },
+				placeholder: { type: 'string' },
+				choices: { type: 'array', items: { $ref: '#/$defs/choice' } },
+				min: { type: 'integer', minimum: 0 },
+				max: { type: 'integer', minimum: 1 },
+			},
+		},
+		choice: {
+			type: 'object',
+			required: ['value'],
+			additionalProperties: false,
+			properties: {
+				value: { type: 'string' },
+				label: { type: 'string' },
+				description: { type: 'string' },
+			},
+		},
+		example: {
+			type: 'object',
+			required: ['command'],
+			additionalProperties: false,
+			properties: {
+				command: { type: 'string' },
+				description: { type: 'string' },
+			},
+		},
+	},
+};
+
 // === Exports
 
 export type { JsonSchemaOptions };
-export { generateInputSchema, generateSchema };
+export { definitionMetaSchema, generateInputSchema, generateSchema };

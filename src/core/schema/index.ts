@@ -29,7 +29,7 @@ export type {
 	WithArgPresence,
 	WithVariadic,
 } from './arg.ts';
-export { ArgBuilder, arg, createArgSchema } from './arg.ts';
+export { ARG_KINDS, ARG_PRESENCES, ArgBuilder, arg, createArgSchema } from './arg.ts';
 export type {
 	ActionHandler,
 	ActionParams,
@@ -73,7 +73,14 @@ export type {
 	SelectPromptConfig,
 	WithPresence,
 } from './flag.ts';
-export { createSchema, FlagBuilder, flag } from './flag.ts';
+export {
+	createSchema,
+	FLAG_KINDS,
+	FLAG_PRESENCES,
+	FlagBuilder,
+	flag,
+	PROMPT_KINDS,
+} from './flag.ts';
 export type {
 	ErasedMiddlewareHandler,
 	Middleware,

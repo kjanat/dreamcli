@@ -10,6 +10,9 @@
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
+/** All arg presence states as a runtime array. */
+const ARG_PRESENCES = ['required', 'optional', 'defaulted'] as const;
+
 /**
  * Presence describes whether a positional arg is guaranteed to exist when the
  * action handler runs:
@@ -18,7 +21,7 @@
  * - `'optional'`  — may be `undefined` if not supplied
  * - `'defaulted'` — always present (falls back to default value)
  */
-type ArgPresence = 'required' | 'optional' | 'defaulted';
+type ArgPresence = (typeof ARG_PRESENCES)[number];
 
 /**
  * Compile-time state carried through the builder chain.
@@ -81,8 +84,11 @@ type InferArgs<T extends Record<string, ArgBuilder<ArgConfig>>> = {
 
 // --- Runtime schema data
 
+/** All arg kind discriminators as a runtime array. */
+const ARG_KINDS = ['string', 'number', 'enum', 'custom'] as const;
+
 /** Discriminator for the kind of value an arg accepts. */
-type ArgKind = 'string' | 'number' | 'enum' | 'custom';
+type ArgKind = (typeof ARG_KINDS)[number];
 
 /** Custom parse function for `arg.custom()`. */
 type ArgParseFn<T> = (raw: string) => T;
@@ -704,4 +710,4 @@ export type {
 	WithArgPresence,
 	WithVariadic,
 };
-export { ArgBuilder, arg, createArgSchema };
+export { ARG_KINDS, ARG_PRESENCES, ArgBuilder, arg, createArgSchema };

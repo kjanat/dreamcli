@@ -13,6 +13,9 @@ import type { PromptConfig } from './prompt.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
+/** All flag presence states as a runtime array. */
+const FLAG_PRESENCES = ['optional', 'required', 'defaulted'] as const;
+
 /**
  * Presence describes whether a flag value is guaranteed to exist when the
  * action handler runs:
@@ -22,7 +25,7 @@ import type { PromptConfig } from './prompt.ts';
  * - `'required'`  — must be supplied; error if missing
  * - `'defaulted'` — always present (falls back to default value)
  */
-type FlagPresence = 'optional' | 'required' | 'defaulted';
+type FlagPresence = (typeof FLAG_PRESENCES)[number];
 
 /**
  * Fallback behavior when an optional flag resolves no value from any source.
@@ -86,8 +89,11 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 
 // --- Runtime schema data
 
+/** All flag kind discriminators as a runtime array. */
+const FLAG_KINDS = ['string', 'number', 'boolean', 'enum', 'array', 'custom'] as const;
+
 /** Discriminator for the kind of value a flag accepts. */
-type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
+type FlagKind = (typeof FLAG_KINDS)[number];
 
 /**
  * Custom parse function for `flag.custom()`.
@@ -720,6 +726,7 @@ export type {
 	SelectChoice,
 	SelectPromptConfig,
 } from './prompt.ts';
+export { PROMPT_KINDS } from './prompt.ts';
 export type {
 	FlagAlias,
 	FlagConfig,
@@ -736,6 +743,8 @@ export type {
 };
 export {
 	createSchema,
+	FLAG_KINDS,
+	FLAG_PRESENCES,
 	FlagBuilder,
 	flag,
 	getFlagAliasNames,
