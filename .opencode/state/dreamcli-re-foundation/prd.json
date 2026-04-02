@@ -54,7 +54,7 @@
 			"description": "Add precedence and error-behavior matrix tests for flags and args across CLI, env, config, prompt, stdin, and defaults. Done when: source order, prompt gating, and aggregation semantics are protected by focused contract suites.",
 			"depends": ["resolver-contracts"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "executor-contract-tests",

@@ -16,7 +16,7 @@
  */
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
-import { ValidationError } from '#internals/core/errors/index.ts';
+import { isValidationError, ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
@@ -82,16 +82,40 @@ async function resolve(
 	const config = options?.config ?? {};
 	const prompter = options?.prompter;
 	const deprecations: DeprecationWarning[] = [];
-	const flags = await resolveFlags(
-		schema.flags,
-		parsed.flags,
-		env,
-		config,
-		prompter,
-		schema.interactive,
-		deprecations,
-	);
-	const args = resolveArgs(schema.args, parsed.args, stdinData, env, deprecations);
+	let flags: Readonly<Record<string, unknown>> = {};
+	let args: Readonly<Record<string, unknown>> = {};
+	const errors: ValidationError[] = [];
+
+	try {
+		flags = await resolveFlags(
+			schema.flags,
+			parsed.flags,
+			env,
+			config,
+			prompter,
+			schema.interactive,
+			deprecations,
+		);
+	} catch (error) {
+		if (!isValidationError(error)) {
+			throw error;
+		}
+		errors.push(...collectValidationErrors(error));
+	}
+
+	try {
+		args = resolveArgs(schema.args, parsed.args, stdinData, env, deprecations);
+	} catch (error) {
+		if (!isValidationError(error)) {
+			throw error;
+		}
+		errors.push(...collectValidationErrors(error));
+	}
+
+	if (isNonEmpty(errors)) {
+		throwAggregatedErrors(errors);
+	}
+
 	return { flags, args, deprecations };
 }
 
@@ -1184,6 +1208,69 @@ function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boo
  */
 function isNonEmpty<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
 	return arr.length > 0;
+}
+
+function isValidationErrorJson(value: unknown): value is {
+	readonly code: ValidationErrorCode;
+	readonly message: string;
+	readonly exitCode: number;
+	readonly suggest?: string;
+	readonly details?: Readonly<Record<string, unknown>>;
+} {
+	if (value === null || typeof value !== 'object') {
+		return false;
+	}
+
+	if (!('code' in value) || !('message' in value) || !('exitCode' in value)) {
+		return false;
+	}
+
+	if (typeof value.code !== 'string' || typeof value.message !== 'string') {
+		return false;
+	}
+
+	if (typeof value.exitCode !== 'number') {
+		return false;
+	}
+
+	if ('suggest' in value && value.suggest !== undefined && typeof value.suggest !== 'string') {
+		return false;
+	}
+
+	if (
+		'details' in value &&
+		value.details !== undefined &&
+		(value.details === null || typeof value.details !== 'object')
+	) {
+		return false;
+	}
+
+	return true;
+}
+
+function collectValidationErrors(error: ValidationError): readonly ValidationError[] {
+	const nestedErrors = error.details?.errors;
+	if (!Array.isArray(nestedErrors)) {
+		return [error];
+	}
+
+	const flattened: ValidationError[] = [];
+	for (const entry of nestedErrors) {
+		if (!isValidationErrorJson(entry)) {
+			return [error];
+		}
+
+		flattened.push(
+			new ValidationError(entry.message, {
+				code: entry.code,
+				exitCode: entry.exitCode,
+				...(entry.suggest !== undefined ? { suggest: entry.suggest } : {}),
+				...(entry.details !== undefined ? { details: entry.details } : {}),
+			}),
+		);
+	}
+
+	return flattened;
 }
 
 // --- Error aggregation
