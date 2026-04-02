@@ -17,11 +17,11 @@ import type { ActivityEvent } from './activity.ts';
 import type { CommandMeta, CommandSchema, Out } from './command.ts';
 
 /**
- * Options accepted by `commandBuilder.run()` and `runCommand()`.
+ * Options accepted by `runCommand()` and internal command execution paths.
  *
  * Every field is optional — sensible defaults are applied. This is the
- * primary execution seam: inject env, config, prompt I/O, and dispatch-layer
- * metadata without touching process state.
+ * primary process-free execution seam: inject env, config, prompt I/O, and
+ * dispatch-layer metadata without touching process state.
  */
 interface RunOptions {
 	/**

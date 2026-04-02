@@ -1,13 +1,12 @@
 /**
  * Test harness: command.run() with injected state, output capture.
  *
- * Provides `runCommand()` — the core execution pipeline that parses argv,
- * resolves values (CLI → env → config → default), creates an output channel,
- * and invokes the action handler. Returns a structured `RunResult` with
- * exitCode and captured output.
+ * Provides `runCommand()` — the in-process test harness wrapper over DreamCLI's
+ * shared executor. It wires capture output and standalone command metadata,
+ * then returns a structured `RunResult` with exitCode and captured output.
  *
- * `CommandBuilder.run()` delegates to `runCommand()`, making commands
- * testable without touching process state.
+ * This keeps command tests process-free without testkit owning the canonical
+ * parse -> resolve -> execute pipeline.
  *
  * @module dreamcli/core/testkit
  */
@@ -29,16 +28,14 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 /**
  * Run a command builder against the given argv with injected options.
  *
- * This is the core execution pipeline:
- * 1. Detect `--help` / `-h` → print help text, exit 0
- * 2. Parse argv against the command schema
- * 3. Resolve values (CLI → env → config → default)
- * 4. Create a capture output channel
- * 5. Run derive/middleware/action execution steps
- * 6. Return structured result
+ * This is the testkit wrapper around the shared executor:
+ * 1. Create or reuse capture output
+ * 2. Build standalone schema/meta defaults when CLI dispatch did not
+ * 3. Delegate parse -> resolve -> execute to the shared executor
+ * 4. Return the structured result with captured buffers
  *
- * All errors are caught and converted to structured `RunResult`s with
- * appropriate exit codes. The function never throws.
+ * Errors are normalized by the shared executor into structured `RunResult`s
+ * with appropriate exit codes. The function never throws.
  *
  * @param cmd - The command builder (must have an action handler)
  * @param argv - Raw argv strings (NOT including the command name itself)

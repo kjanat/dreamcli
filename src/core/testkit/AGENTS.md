@@ -8,8 +8,9 @@ re-exported from the `dreamcli/testkit` subpath (curating barrel at `src/testkit
 
 **`runCommand(cmd, argv, options?): Promise<RunResult>`**
 
-Complete execution pipeline in-process: argv → parse → resolve → middleware chain → action handler →
-captured output. Calls `out.stopActive()` in `finally` to clean up leaked spinner/progress timers.
+Thin in-process wrapper over the shared executor: create capture output, forward injected execution
+options, and return captured output. Shared executor code owns parse → resolve → middleware → action
+semantics and calls `out.stopActive()` for cleanup.
 
 **`RunResult`** (defined in `schema/run.ts`, re-exported here):
 `{ exitCode, stdout: string[], stderr: string[], activity: ActivityEvent[], error? }`

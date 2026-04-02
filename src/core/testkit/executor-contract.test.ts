@@ -1,8 +1,8 @@
 /**
  * Contract tests for the current execution owner.
  *
- * These lock down the boundary a future shared executor must preserve without
- * coupling the suite to the current implementation shape.
+ * These lock down the boundary the shared executor preserves without coupling
+ * the suite to the current implementation shape.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -135,6 +135,33 @@ describe('runCommand() executor contract', () => {
 		expect(result.exitCode).toBe(1);
 		expect(result.error?.code).toBe('UNEXPECTED_ERROR');
 		expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Working' }]);
+		expect(stopActive).toHaveBeenCalledTimes(1);
+	});
+
+	it('always cleans up injected output handles on help exit', async () => {
+		const [out, captured] = createCaptureOutput();
+		const stopActive = vi.spyOn(out, 'stopActive');
+
+		const cmd = command('build')
+			.description('Build assets')
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--help'], { out, captured });
+
+		expect(result.exitCode).toBe(0);
+		expect(stopActive).toHaveBeenCalledTimes(1);
+	});
+
+	it('always cleans up injected output handles when action is missing', async () => {
+		const [out, captured] = createCaptureOutput();
+		const stopActive = vi.spyOn(out, 'stopActive');
+
+		const cmd = command('build');
+
+		const result = await runCommand(cmd, [], { out, captured });
+
+		expect(result.exitCode).toBe(1);
+		expect(result.error?.code).toBe('NO_ACTION');
 		expect(stopActive).toHaveBeenCalledTimes(1);
 	});
 });

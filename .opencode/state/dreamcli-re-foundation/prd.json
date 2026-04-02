@@ -90,7 +90,7 @@
 			"description": "Make testkit consume the shared executor instead of owning the canonical pipeline. Done when: testkit becomes a thin wrapper over the shared execution path and its behavior stays green under existing and new tests.",
 			"depends": ["scaffold-core-execution"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "route-cli-executor",

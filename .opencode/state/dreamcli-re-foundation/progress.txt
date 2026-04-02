@@ -22,6 +22,7 @@ Started: 2026-04-02
 - When subsystem helpers already aggregate their own `ValidationError`s, do cross-domain aggregation at the top boundary by flattening nested error JSON back into `ValidationError`s instead of weakening the lower-level helpers.
 - For execution refactors, extract a minimal `executeCommand()` seam with explicit request/result types and a shared `buildRunResult()` helper first; keep CLI and testkit as thin bootstrap wrappers until routing work lands.
 - For oversized hot modules, keep `index.ts` as the orchestration boundary and extract sibling concern modules first (`args`, `flags`, `coerce`, `config`, `errors`) before changing behavior; the contract tests stay stable while the file shape improves.
+- When centralizing execution ownership, wrap the whole executor in one `try/finally` so fast exits like `--help` and missing-handler guards still clean up active output handles.
 
 ## Project Tracking
 
@@ -98,3 +99,11 @@ Started: 2026-04-02
 - Extracted `src/core/resolve/flags.ts`, `src/core/resolve/args.ts`, `src/core/resolve/coerce.ts`, `src/core/resolve/config.ts`, and `src/core/resolve/errors.ts` to separate flag policy, arg policy, shared coercion, config lookup, and validation aggregation concerns.
 - Files changed: `src/core/resolve/index.ts`, `src/core/resolve/flags.ts`, `src/core/resolve/args.ts`, `src/core/resolve/coerce.ts`, `src/core/resolve/config.ts`, `src/core/resolve/errors.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: keeping the public `resolve()` seam in place while extracting sibling helper modules is the lowest-risk way to break up a policy-heavy hot file; the existing resolver contract suite stays useful without any test rewrites.
+
+## Task - [route-testkit-executor]
+
+- Tightened `src/core/execution/index.ts` so output cleanup now runs for all executor exit paths, including `--help` and missing-action early returns.
+- Reframed `runCommand()` and related docs as a thin in-process wrapper over the shared executor, and updated the support matrix to reflect that the canonical execution flow now lives in `src/core/execution/index.ts`.
+- Added contract coverage proving injected output handles are cleaned up on help exits and missing-action failures while existing testkit behavior stays green.
+- Files changed: `src/core/execution/index.ts`, `src/core/testkit/index.ts`, `src/core/testkit/executor-contract.test.ts`, `src/core/schema/run.ts`, `src/core/testkit/AGENTS.md`, `docs/reference/support-matrix.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: once testkit delegates execution, the remaining honesty work is mostly boundary truthing plus contract tests for wrapper-sensitive cases like capture cleanup on early executor exits.

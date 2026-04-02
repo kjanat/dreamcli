@@ -70,22 +70,22 @@ async function executeCommand<
 >(request: CommandExecutionRequest<F, A, C>): Promise<CommandExecutionResult> {
 	const { argv, command, meta, options, out, schema } = request;
 
-	if (argv.includes('--help') || argv.includes('-h')) {
-		const helpText = formatHelp(schema, options?.help);
-		out.log(helpText);
-		return { exitCode: 0, error: undefined };
-	}
-
-	if (!command.handler) {
-		const error = new CLIError(`Command '${command.schema.name}' has no action handler`, {
-			code: 'NO_ACTION',
-			suggest: `Add an .action() handler to the '${command.schema.name}' command`,
-		});
-		out.error(error.message);
-		return { exitCode: 1, error };
-	}
-
 	try {
+		if (argv.includes('--help') || argv.includes('-h')) {
+			const helpText = formatHelp(schema, options?.help);
+			out.log(helpText);
+			return { exitCode: 0, error: undefined };
+		}
+
+		if (!command.handler) {
+			const error = new CLIError(`Command '${command.schema.name}' has no action handler`, {
+				code: 'NO_ACTION',
+				suggest: `Add an .action() handler to the '${command.schema.name}' command`,
+			});
+			out.error(error.message);
+			return { exitCode: 1, error };
+		}
+
 		await runBeforeParseHooks(options?.plugins, {
 			argv,
 			command: schema,
