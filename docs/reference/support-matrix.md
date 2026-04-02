@@ -1,0 +1,114 @@
+# Support Matrix
+
+This page is the audited truth source for DreamCLI's current support surface.
+
+Use it for questions like:
+
+- what is fully supported today;
+- what is intentionally deferred;
+- where the supporting code and tests live;
+- which product claims are already true versus planned next.
+
+Last audited: `2026-04-02`
+
+## Status Meanings
+
+| Status       | Meaning                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| Supported    | Shipped today and backed by code, tests, and docs.                                                 |
+| Deferred     | Intentionally not supported yet, or currently represented only by explicit not-supported behavior. |
+| Experimental | Present in some form, but not yet stable enough to recommend as part of the supported surface.     |
+
+## Important Scope Note
+
+The TypeScript surface can be broader than the supported surface.
+
+Example: the completion `Shell` union includes `fish` and `powershell`, but those generators currently
+throw `CLIError` instead of returning a script. Treat this matrix, not the union type alone, as the
+current truth source.
+
+## Execution and Semantics
+
+| Claim                                                            | Status    | Evidence                                                                                                                                                                                                                                                                                              | Notes                                                                                                                 |
+| ---------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Schema-first parse -> resolve -> execute flow                    | Supported | [CLI Semantics](/guide/semantics), [`runCommand()`](/reference/testkit), [`src/core/testkit/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts)                                                                                                                      | Internal execution ownership is being cleaned up in the re-foundation PRD, but the runtime behavior is shipped today. |
+| Root help, version, default-command, and nested command behavior | Supported | [CLI Semantics](/guide/semantics), [`src/core/cli/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts), [`src/core/cli/cli-dispatch.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/cli-dispatch.test.ts)                                           | Planner extraction is planned, not a current user-facing gap.                                                         |
+| Typed derive and middleware execution                            | Supported | [Middleware guide](/guide/middleware), [`src/core/schema/command.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts), [`src/core/testkit/middleware-context-e2e.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/middleware-context-e2e.test.ts) | Internal ownership will move to a shared executor during the re-foundation.                                           |
+| Explicit planner / executor internal boundary                    | Deferred  | [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md)                                                                                                                                                                           | Tracked by `planner-contracts`, `scaffold-core-execution`, and related tasks.                                         |
+
+## Runtime Support
+
+| Claim                                                            | Status    | Evidence                                                                                                                                                                          | Notes                                                                       |
+| ---------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Node.js >= 22.22.2 runtime support                               | Supported | [Runtime Support](/guide/runtime), [`src/runtime/node.ts`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/node.ts), [`docs/reference/runtime.md`](/reference/runtime) | This is the primary adapter implementation.                                 |
+| Bun >= 1.3.11 runtime support                                    | Supported | [Runtime Support](/guide/runtime), [`src/runtime/bun.ts`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/bun.ts), [`docs/reference/runtime.md`](/reference/runtime)   | Bun currently delegates through the Node adapter strategy.                  |
+| Deno >= 2.6.0 runtime support                                    | Supported | [Runtime Support](/guide/runtime), [`src/runtime/deno.ts`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/deno.ts), [`docs/reference/runtime.md`](/reference/runtime) | Deno support is permission-aware and published through JSR.                 |
+| Cross-platform CI coverage for all supported runtimes and shells | Deferred  | [`docs/reference/runtime.md`](/reference/runtime), [`/.github/workflows/ci.yml`](https://github.com/kjanat/dreamcli/blob/master/.github/workflows/ci.yml)                         | Runtime support is shipped, but broader platform coverage is still planned. |
+
+## Input Sources and Resolution
+
+| Claim                                                                             | Status    | Evidence                                                                                                                                                                                                                                                | Notes                                                                                                         |
+| --------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Flag precedence `CLI -> env -> config -> prompt -> default`                       | Supported | [CLI Semantics](/guide/semantics), [Config Files](/guide/config), [Interactive Prompts](/guide/prompts), [`src/core/resolve/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/index.ts)                                        | This is the current supported behavior. Re-foundation work is about internal clarity, not removing the chain. |
+| Positional argument precedence `CLI -> stdin -> env -> default` for opted-in args | Supported | [CLI Semantics](/guide/semantics), [`src/core/resolve/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/index.ts)                                                                                                              | Only args that opt into `.stdin()` or `.env()` use these extra sources.                                       |
+| Built-in JSON config discovery                                                    | Supported | [Config Files](/guide/config), [`src/core/config/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts)                                                                                                                    | JSON is the only built-in format by design.                                                                   |
+| Custom YAML / TOML / other config formats via `configFormat()`                    | Supported | [Config Files](/guide/config), [`docs/reference/main.md`](/reference/main)                                                                                                                                                                              | Additional formats require explicit parser wiring. They are not built-in.                                     |
+| Per-flag prompts and command-level interactive prompts                            | Supported | [Interactive Prompts](/guide/prompts), [`src/core/schema/prompt.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts), [`src/core/resolve/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/index.ts) | Prompts are integrated into the resolution chain.                                                             |
+| Automatic prompts in non-interactive stdin contexts                               | Deferred  | [Interactive Prompts](/guide/prompts), [CLI Semantics](/guide/semantics)                                                                                                                                                                                | DreamCLI intentionally skips prompting when `stdinIsTTY` is false. This is a design choice, not a bug.        |
+
+## Completions
+
+| Claim                                       | Status    | Evidence                                                                                                                                                                                                                                                                                              | Notes                                                                                                                             |
+| ------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Bash completion generation                  | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/bash.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/bash.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts) | Included in the supported shell set today.                                                                                        |
+| Zsh completion generation                   | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/zsh.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/zsh.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)   | Included in the supported shell set today.                                                                                        |
+| Fish completion generation                  | Deferred  | [`src/core/completion/shells/fish.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/fish.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)                                          | The shell is present in the wider type surface but currently throws a not-supported `CLIError`. Tracked by `implement-fish-comp`. |
+| PowerShell completion generation            | Deferred  | [`src/core/completion/shells/powershell.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/powershell.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)                              | The shell is present in the wider type surface but currently throws a not-supported `CLIError`. Tracked by `implement-pwsh-comp`. |
+| Built-in `.completions()` helper on `cli()` | Supported | [Shell Completions](/guide/completions), [`src/core/completion/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts), [`src/core/cli/cli-completions.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/cli-completions.test.ts)                 | Today it surfaces the supported shells backed by `SHELLS`, not the wider union type.                                              |
+
+## Output
+
+| Claim                                                           | Status    | Evidence                                                                                                                                                                                                                                                                 | Notes                                                                                 |
+| --------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Text, warning, error, JSON, and table output                    | Supported | [Output](/guide/output), [`docs/reference/main.md`](/reference/main), [`src/core/output/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/index.ts)                                                                                              | Core output surface is shipped and documented.                                        |
+| Spinner and progress support with testable activity events      | Supported | [Output](/guide/output), [Testing](/guide/testing), [`src/core/output/activity.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/activity.ts), [`src/core/testkit/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts) | Activity behavior is part of the supported output channel.                            |
+| TTY-aware suppression of decorative output in piped / JSON mode | Supported | [Output](/guide/output), [`src/core/output/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/index.ts), [`src/core/testkit/output-e2e.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/output-e2e.test.ts)              | Re-foundation work will clarify internal policy boundaries, not remove this behavior. |
+
+## Testing Surface
+
+| Claim                                                    | Status    | Evidence                                                                                                                                                                              | Notes                                                        |
+| -------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| In-process command testing via `runCommand()`            | Supported | [Testing](/guide/testing), [`docs/reference/testkit.md`](/reference/testkit), [`src/core/testkit/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts) | This is one of DreamCLI's strongest first-class features.    |
+| Injected env/config/stdin/prompt/output test control     | Supported | [Testing](/guide/testing), [`docs/reference/testkit.md`](/reference/testkit), [`src/core/testkit/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts) | Current support is broad; docs depth is still improving.     |
+| Consolidated testing guidance for advanced failure modes | Deferred  | [Testing](/guide/testing), [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md)                                | Tracked later under narrative docs and troubleshooting work. |
+
+## Docs and Learning Surfaces
+
+| Claim                                                                     | Status    | Evidence                                                                                                                                                                                                                                                              | Notes                                                                                 |
+| ------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Authored guides and reference overviews                                   | Supported | [Guide](/guide/getting-started), [API Reference](/reference/api)                                                                                                                                                                                                      | The current docs backbone is real and useful.                                         |
+| Generated examples index and per-example pages                            | Deferred  | [`ROADMAP-DOCS-SICK.md`](https://github.com/kjanat/dreamcli/blob/master/ROADMAP-DOCS-SICK.md), [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md)                                            | Tracked by `generate-example-pages`.                                                  |
+| IDE-like hover on example pages                                           | Deferred  | [`ROADMAP-DOCS-SICK.md`](https://github.com/kjanat/dreamcli/blob/master/ROADMAP-DOCS-SICK.md), [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md)                                            | Tracked by `prototype-hover-path` and `enable-example-hover`.                         |
+| Public docs health page                                                   | Deferred  | [`ROADMAP-DOCS-SICK.md`](https://github.com/kjanat/dreamcli/blob/master/ROADMAP-DOCS-SICK.md), [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md)                                            | Tracked by `surface-changelog-health`.                                                |
+| Generated API index and symbol pages                                      | Deferred  | [`docs/reference/api.md`](/reference/api), [`ROADMAP-DOCS-SICK.md`](https://github.com/kjanat/dreamcli/blob/master/ROADMAP-DOCS-SICK.md), [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md) | Tracked by `generate-api-index`, `normalize-typedoc-data`, and `render-symbol-pages`. |
+| Consolidated rationale, limitations, migration, and troubleshooting pages | Deferred  | [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md)                                                                                                                                           | Tracked by `write-rationale-docs` and `write-migration-guides`.                       |
+
+## Deferred Items Already Tracked in the PRD
+
+| Deferred surface                                   | PRD task IDs                                                          |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| Fish completions                                   | `implement-fish-comp`                                                 |
+| PowerShell completions                             | `implement-pwsh-comp`                                                 |
+| Generated example pages                            | `generate-example-pages`                                              |
+| Example hover                                      | `prototype-hover-path`, `enable-example-hover`                        |
+| Changelog and docs health surfaces                 | `surface-changelog-health`                                            |
+| API index and symbol pages                         | `generate-api-index`, `normalize-typedoc-data`, `render-symbol-pages` |
+| Rationale, limitations, migration, troubleshooting | `write-rationale-docs`, `write-migration-guides`                      |
+
+## Related Pages
+
+- [API Reference](/reference/api)
+- [CLI Semantics](/guide/semantics)
+- [Shell Completions](/guide/completions)
+- [Runtime Support](/guide/runtime)
+- [Testing](/guide/testing)

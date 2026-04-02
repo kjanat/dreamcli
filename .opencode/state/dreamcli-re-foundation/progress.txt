@@ -12,6 +12,8 @@ Started: 2026-04-02
 - `ROADMAP-DOCS-SICK.md` is the main north star for the generated docs platform: examples first, hover on examples only, changelog and docs health, then API inventory, then TypeDoc-based symbol pages.
 - Completion breadth must be backed by real implementation and tests; fish and PowerShell are intentional backlog items, not aspirational claims.
 - The GitHub project should mirror `prd.json` at mixed depth, with draft items rather than real repo issues.
+- When a public type surface is broader than the real support surface, add an audited support-matrix page and make docs state the runtime behavior explicitly instead of staying silent.
+- Before comitting, always run `dprint fmt`
 
 ## Project Tracking
 
@@ -21,3 +23,11 @@ Started: 2026-04-02
 - Custom tracking fields: Workflow, Phase, Task Priority, PRD Task ID
 
 ---
+
+## Task - [support-truth-matrix]
+
+- Implemented an audited support matrix at `docs/reference/support-matrix.md` covering execution semantics, runtimes, input sources, completions, output, testing, and docs surfaces.
+- Wired the matrix into the VitePress reference sidebar and added direct links from `docs/guide/completions.md` and `docs/reference/api.md`.
+- Tightened completion docs so they state the current behavior explicitly: `bash` and `zsh` are supported today; `fish` and `powershell` currently throw not-supported `CLIError`s.
+- Files changed: `docs/reference/support-matrix.md`, `docs/.vitepress/config.ts`, `docs/guide/completions.md`, `docs/reference/api.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: docs truth gaps are easiest to close when the matrix links straight to code and tests; completions were the highest-value honesty fix because the type surface is broader than the shipped shell surface.

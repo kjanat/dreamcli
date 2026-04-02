@@ -9,7 +9,7 @@
 			"title": "Define support truth matrix",
 			"description": "Create an explicit support matrix covering execution semantics, runtimes, completions, output, prompts, config, testing, and docs. Done when: each major claim has status, evidence paths, and notes about redesign or deferral; shell support honesty is explicit; the matrix can drive docs and backlog decisions.",
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "planner-contracts",

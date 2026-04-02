@@ -20,6 +20,13 @@ generateCompletion(myCli.schema, 'bash', { rootMode: 'surface' });
 | bash  | Supported |
 | zsh   | Supported |
 
+`generateCompletion()` currently supports `bash` and `zsh` only.
+Passing `fish` or `powershell` currently throws a structured not-supported `CLIError` rather than
+returning a script.
+
+See the [Support Matrix](/reference/support-matrix) for the current audited shell surface and the
+tracked follow-up work.
+
 ## Adding a Completion Command
 
 A common pattern is to add a `completions` subcommand:
@@ -91,3 +98,4 @@ For the exact root-surface rules and examples, see [CLI Semantics](/guide/semant
 - [Interactive Prompts](/guide/prompts) — prompt integration
 - [Runtime Support](/guide/runtime) — cross-runtime behavior
 - [CLI Semantics](/guide/semantics) — exact root help and completion surface rules
+- [Support Matrix](/reference/support-matrix) — current support truth and deferred shell work
