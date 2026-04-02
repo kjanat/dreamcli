@@ -249,10 +249,10 @@ function emitZshLeafFunction(lines: string[], helperName: string, node: CommandN
 
 function appendZshCommandCandidates(
 	lines: string[],
-	commands: readonly Array<{
+	commands: ReadonlyArray<{
 		readonly name: string;
 		readonly aliases: readonly string[];
-		readonly description?: string;
+		readonly description: string | undefined;
 	}>,
 	indent: string,
 ): void {
