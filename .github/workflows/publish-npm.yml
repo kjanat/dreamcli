@@ -1,4 +1,4 @@
-name: Publish to JSR
+name: Publish to npm
 
 on:
   release:
@@ -14,12 +14,12 @@ jobs:
       url: ${{ steps.version.outputs.url }}
     steps:
       - uses: actions/checkout@v6
-      - name: Resolve JSR package version
+      - name: Resolve npm package version
         id: version
         run: |
-          version=$(awk -F'"' '/^[[:space:]]*"version"[[:space:]]*:/ { print $4; exit }' deno.jsonc)
+          version=$(node -p "require('./package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "url=https://jsr.io/@kjanat/dreamcli@$version" >> "$GITHUB_OUTPUT"
+          echo "url=https://www.npmjs.com/package/dreamcli/v/$version" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Publish
@@ -27,21 +27,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
-      name: jsr
+      name: npm
       url: ${{ needs.meta.outputs.url }}
     permissions:
       contents: read
-      id-token: write # OIDC provenance for JSR
+      id-token: write
     steps:
       - uses: actions/checkout@v6
-      - uses: denoland/setup-deno@v2
-        with: { deno-version: v2.x }
+
       - uses: oven-sh/setup-bun@v2
         with: { bun-version: latest }
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.2
+          registry-url: https://registry.npmjs.org
+
       - run: bun install --frozen-lockfile
       - run: bun run scripts/check-version-sync.ts
       - run: bun run build
-      - name: Deno adapter smoke test
-        run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
-      - name: Publish to JSR
-        run: deno publish --no-check
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
