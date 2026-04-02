@@ -1,0 +1,14 @@
+[
+  {
+    "subpath": ".",
+    "entrypoint": "dreamcli"
+  },
+  {
+    "subpath": "./runtime",
+    "entrypoint": "dreamcli/runtime"
+  },
+  {
+    "subpath": "./testkit",
+    "entrypoint": "dreamcli/testkit"
+  }
+]

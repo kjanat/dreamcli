@@ -1,8 +1,16 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { definitionMetaSchema } from 'dreamcli';
 import { defineConfig } from 'vitepress';
 import { MermaidMarkdown, MermaidPlugin } from 'vitepress-plugin-mermaid';
-import { definitionMetaSchema } from 'dreamcli';
+import { generatedExamples, generatedReferenceSurfaces } from '../.generated/site-data.ts';
+
+const examplesSidebarTitle =
+  generatedExamples.length === 0 ? 'Examples' : `Examples (${generatedExamples.length})`;
+const generatedReferenceTitle =
+  generatedReferenceSurfaces.length === 0
+    ? 'Generated Surfaces'
+    : `Generated Surfaces (${generatedReferenceSurfaces.length})`;
 
 export default defineConfig({
   title: 'dreamcli',
@@ -41,6 +49,7 @@ export default defineConfig({
     nav: [
       { text: 'Concepts', link: '/concepts/anatomy' },
       { text: 'Guide', link: '/guide/getting-started' },
+      { text: 'Examples', link: '/examples/' },
       { text: 'Reference', link: '/reference/api' },
       {
         text: 'Links',
@@ -101,11 +110,18 @@ export default defineConfig({
           items: [{ text: 'Testing Commands', link: '/guide/testing' }],
         },
       ],
+      '/examples/': [
+        {
+          text: examplesSidebarTitle,
+          items: [{ text: 'Overview', link: '/examples/' }],
+        },
+      ],
       '/reference/': [
         {
           text: 'API Reference',
           items: [
             { text: 'Overview', link: '/reference/api' },
+            { text: generatedReferenceTitle, link: '/reference/generated-surfaces' },
             { text: 'Planner Contract', link: '/reference/planner-contract' },
             { text: 'Resolver Contract', link: '/reference/resolver-contract' },
             { text: 'Output Contract', link: '/reference/output-contract' },

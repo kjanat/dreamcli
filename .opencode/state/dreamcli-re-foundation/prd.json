@@ -198,7 +198,7 @@
 			"description": "Add scripts/docs foundation, docs:prepare, generated output directories, and docs wiring. Done when: docs build/dev can regenerate generated artifacts predictably from source inputs.",
 			"depends": ["support-truth-matrix", "scaffold-core-execution"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "generate-example-pages",

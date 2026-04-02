@@ -14,7 +14,8 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
-import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
+import { createSchema, getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import {
 	ARG_KINDS,
 	ARG_PRESENCES,

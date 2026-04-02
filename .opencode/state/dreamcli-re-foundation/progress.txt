@@ -27,6 +27,7 @@ Started: 2026-04-02
 - For output-layer policy refactors, freeze one `policy` snapshot per channel and route concrete writer or handle creation through sibling renderer helpers; that splits semantic mode choice from mechanics without changing the public `Out` surface.
 - For CLI run-path refactors, extract adapter-driven config/package/stdin/prompt sourcing into a `runtime-preflight` helper that consumes planner outcomes; it removes duplicate dispatch branching while keeping `run()` as a thin runtime shell.
 - Once a planner seam exists, pass raw argv into it and let the planner own global invocation normalization like root `--json`; keep `execute()` focused on output setup, rendering, and executor handoff.
+- For generated-docs groundwork, keep source-backed build outputs under `docs/.generated/` and let authored wrapper pages plus VitePress config import one generated manifest; that preserves clean source boundaries while future docs generators can expand without reshaping IA again.
 
 ## Project Tracking
 
@@ -140,3 +141,11 @@ Started: 2026-04-02
 - Updated planner-facing docs and test wording to reflect that invocation planning is now the explicit seam, while `CLIBuilder.execute()` is just the render-and-execute shell over planner outcomes.
 - Files changed: `src/core/cli/index.ts`, `src/core/cli/planner.ts`, `src/core/cli/cli-json.test.ts`, `docs/reference/planner-contract.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: once planner outcomes are explicit, the last cleanup step is usually ownership cleanup rather than structural rewrite; duplicated argv shaping is enough to keep the boundary blurry.
+
+## Task - [build-docs-prepare]
+
+- Added `scripts/docs/build-docs-data.ts` plus shared path helpers to rebuild the docs foundation under `docs/.generated/` from repo source inputs.
+- Wired `docs:prepare` into `docs:dev` and `docs:build`, added authored wrapper pages for `/examples/` and `/reference/generated-surfaces`, and made VitePress consume the generated manifest so docs wiring now depends on prepared artifacts.
+- Seeded stable generated artifacts for examples inventory, changelog mirroring, docs-health counts, and public export inventory under `docs/.generated/`.
+- Files changed: `scripts/docs/build-docs-data.ts`, `scripts/docs/shared/paths.ts`, `package.json`, `docs/.vitepress/config.ts`, `docs/examples/index.md`, `docs/reference/generated-surfaces.md`, `docs/.generated/site-data.ts`, `docs/.generated/examples/index.md`, `docs/.generated/reference/changelog.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/api/public-exports.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: one generated `site-data.ts` manifest is the cleanest early seam for VitePress; config and wrapper pages can depend on prepared data now, while later example/reference generators can keep emitting into `.generated/` without another nav rewrite.
