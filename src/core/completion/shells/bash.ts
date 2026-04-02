@@ -17,7 +17,7 @@
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
-import type { CommandNode, CompletionOptions } from './shared.ts';
+import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	quoteShellArg,
 	resolveRootCompletionSurface,
@@ -80,6 +80,10 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	if (visibleCommands.length > 0) {
 		const groupNodes = nodes.filter((n) => n.children.length > 0);
 
+		// Collect all value-taking flag forms across the entire tree so the
+		// walker can skip their operands instead of treating them as subcommands.
+		const valueFlagPattern = collectValueFlagPattern(nodes, rootSurface);
+
 		// Build subcommand path by scanning COMP_WORDS at each depth level.
 		// At depth 0 we look for top-level command names, at depth 1 we look
 		// for children of the matched depth-0 command, etc.
@@ -89,6 +93,10 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\tfor ((i = 1; i < cword; i++)); do');
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash syntax, not JS template
 		lines.push('\t\tcase "${words[i]}" in');
+		lines.push('\t\t\t--) break ;;');
+		if (valueFlagPattern.length > 0) {
+			lines.push(`\t\t\t${valueFlagPattern}) ((i++)); continue ;;`);
+		}
 		lines.push('\t\t\t-*) continue ;;');
 		lines.push('\t\tesac');
 
@@ -374,6 +382,36 @@ function collectFlagWords(flags: Readonly<Record<string, FlagSchema>>): string {
 		}
 	}
 	return words.join(' ');
+}
+
+/**
+ * Collect all non-boolean flag forms across every node and root surface,
+ * deduplicated and escaped for use in a bash `case` pattern.
+ *
+ * Returns a `|`-joined pattern like `--schema|-s|--output|-o` that the
+ * subcommand-path walker uses to skip the operand following a value-taking
+ * flag.  Returns an empty string when no value-taking flags exist.
+ *
+ * @internal
+ */
+function collectValueFlagPattern(
+	nodes: readonly CommandNode[],
+	rootSurface: RootCompletionSurface,
+): string {
+	const forms = new Set<string>();
+	const addFlags = (flags: Readonly<Record<string, FlagSchema>>): void => {
+		for (const [name, schema] of Object.entries(flags)) {
+			if (schema.kind === 'boolean') continue;
+			forms.add(`--${name}`);
+			for (const alias of schema.aliases) {
+				forms.add(alias.length === 1 ? `-${alias}` : `--${alias}`);
+			}
+		}
+	};
+	for (const node of nodes) addFlags(node.mergedFlags);
+	addFlags(rootSurface.rootFlags);
+	if (rootSurface.includeDefaultFlags) addFlags(rootSurface.defaultFlags);
+	return [...forms].map(escapeBashCasePatternValue).join('|');
 }
 
 function dedupeWords(words: readonly string[]): readonly string[] {

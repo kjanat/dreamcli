@@ -834,6 +834,13 @@ describe('public exports', () => {
 // === CommandMeta — dispatch populates meta from CLI schema
 
 describe('cli.execute — meta', () => {
+	function firstCallMeta(handler: ReturnType<typeof vi.fn>): CommandMeta {
+		expect(handler).toHaveBeenCalledOnce();
+		const call = handler.mock.calls[0];
+		if (call === undefined) throw new Error('expected handler to be called once');
+		return call[0].meta;
+	}
+
 	it('populates meta with CLI name, version, and command name', async () => {
 		const handler = vi.fn();
 		const cmd = command('deploy').action(handler);
@@ -841,13 +848,7 @@ describe('cli.execute — meta', () => {
 
 		await app.execute(['deploy']);
 
-		expect(handler).toHaveBeenCalledOnce();
-		const firstCall = handler.mock.calls[0];
-		if (firstCall === undefined) {
-			throw new Error('expected handler to be called once');
-		}
-		const meta: CommandMeta = firstCall[0].meta;
-		expect(meta).toEqual({
+		expect(firstCallMeta(handler)).toEqual({
 			name: 'myapp',
 			bin: 'myapp',
 			version: '1.0.0',
@@ -862,12 +863,7 @@ describe('cli.execute — meta', () => {
 
 		await app.execute(['deploy'], { help: { binName: 'my-app' } });
 
-		expect(handler).toHaveBeenCalledOnce();
-		const firstCall = handler.mock.calls[0];
-		if (firstCall === undefined) {
-			throw new Error('expected handler to be called once');
-		}
-		const meta: CommandMeta = firstCall[0].meta;
+		const meta = firstCallMeta(handler);
 		expect(meta.bin).toBe('my-app');
 		expect(meta.name).toBe('myapp');
 	});
@@ -879,13 +875,7 @@ describe('cli.execute — meta', () => {
 
 		await app.execute(['deploy']);
 
-		expect(handler).toHaveBeenCalledOnce();
-		const firstCall = handler.mock.calls[0];
-		if (firstCall === undefined) {
-			throw new Error('expected handler to be called once');
-		}
-		const meta: CommandMeta = firstCall[0].meta;
-		expect(meta.version).toBeUndefined();
+		expect(firstCallMeta(handler).version).toBeUndefined();
 	});
 
 	it('populates meta.command for default command', async () => {
@@ -895,12 +885,7 @@ describe('cli.execute — meta', () => {
 
 		await app.execute([]);
 
-		expect(handler).toHaveBeenCalledOnce();
-		const firstCall = handler.mock.calls[0];
-		if (firstCall === undefined) {
-			throw new Error('expected handler to be called once');
-		}
-		const meta: CommandMeta = firstCall[0].meta;
+		const meta = firstCallMeta(handler);
 		expect(meta.command).toBe('main');
 		expect(meta.name).toBe('myapp');
 	});

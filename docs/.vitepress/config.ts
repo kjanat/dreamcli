@@ -26,7 +26,6 @@ export default defineConfig({
         media: '(prefers-color-scheme: dark)',
       },
     ],
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
     ['link', { rel: 'manifest', href: '/site.webmanifest' }],
     ['meta', { name: 'theme-color', content: '#f8f3e7' }],

@@ -1803,6 +1803,80 @@ describe('generateBashCompletion — nested hidden commands', () => {
 	});
 });
 
+describe('generateBashCompletion — flag operand and -- handling', () => {
+	it('breaks on literal -- in the walker', () => {
+		const script = generateBashCompletion(nestedSchema());
+		const lines = script.split('\n');
+		const walkerCase = lines.findIndex((l) => l.includes('--) break'));
+		expect(walkerCase).toBeGreaterThan(-1);
+	});
+
+	it('skips operand after value-taking flags', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+		// --host and --schema are string flags — their operands must be skipped
+		expect(script).toContain('--host');
+		expect(script).toContain('--schema');
+		// Find the value-flag skip line
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		expect(skipLine).toBeDefined();
+		expect(skipLine).toContain('--host');
+		expect(skipLine).toContain('--schema');
+	});
+
+	it('does not include boolean flags in the value-flag skip pattern', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		expect(skipLine).toBeDefined();
+		// --verbose and --if-not-exists are boolean — must NOT be in the skip pattern
+		expect(skipLine).not.toContain('--verbose');
+		expect(skipLine).not.toContain('--if-not-exists');
+	});
+
+	it('includes short aliases for value-taking flags in skip pattern', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'run',
+						flags: {
+							output: flagSchema({ kind: 'string', aliases: ['o'] }),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		expect(skipLine).toBeDefined();
+		expect(skipLine).toContain('--output');
+		expect(skipLine).toContain('-o');
+	});
+
+	it('omits value-flag skip line when all flags are boolean', () => {
+		const script = generateBashCompletion(nestedSchema());
+		// nestedSchema only has boolean flags (dry-run, verbose, force) and one number (count)
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		// count is a number flag, so the skip line should exist
+		expect(skipLine).toBeDefined();
+		expect(skipLine).toContain('--count');
+	});
+
+	it('orders -- break before value-flag skip before boolean skip', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+		const lines = script.split('\n');
+		const breakIdx = lines.findIndex((l) => l.includes('--) break'));
+		const skipIdx = lines.findIndex((l) => l.includes('((i++)); continue'));
+		const boolIdx = lines.findIndex((l) => l.includes('-*) continue'));
+		expect(breakIdx).toBeGreaterThan(-1);
+		expect(skipIdx).toBeGreaterThan(breakIdx);
+		expect(boolIdx).toBeGreaterThan(skipIdx);
+	});
+});
+
 // === generateZshCompletion — nested command completions
 
 describe('generateZshCompletion — nested helper functions', () => {
