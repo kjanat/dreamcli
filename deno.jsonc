@@ -38,7 +38,7 @@
 		}
 	},
 	"publish": {
-		"include": ["src", "LICENSE"],
+		"include": ["src", "LICENSE", "README.md"],
 		"exclude": ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"lib": ["deno.ns", "deno.shared_globals"],
