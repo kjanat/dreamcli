@@ -12,7 +12,8 @@ Dual ESM/CJS via tsdown.
 
 Our goals are described in @GOALS.md
 
-Agent memory for non-obvious repo gotchas lives in @DISCOVERIES.md
+Read @DISCOVERIES.md at the start of every session before planning, editing, or running task workflows.
+Agent memory for non-obvious repo gotchas lives there.
 
 ## STRUCTURE
 
