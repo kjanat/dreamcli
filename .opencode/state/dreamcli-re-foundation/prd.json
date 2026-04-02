@@ -1,0 +1,308 @@
+{
+	"prdName": "dreamcli-re-foundation",
+	"spec": "specs/dreamcli-re-foundation-prd.md",
+	"description": "Re-found DreamCLI's execution architecture, product truth, docs platform, and tracked delivery workflow.",
+	"tasks": [
+		{
+			"id": "support-truth-matrix",
+			"phase": 1,
+			"title": "Define support truth matrix",
+			"description": "Create an explicit support matrix covering execution semantics, runtimes, completions, output, prompts, config, testing, and docs. Done when: each major claim has status, evidence paths, and notes about redesign or deferral; shell support honesty is explicit; the matrix can drive docs and backlog decisions.",
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "planner-contracts",
+			"phase": 1,
+			"title": "Define planner contracts",
+			"description": "Specify the internal planner/dispatch outcomes and command execution plan shape. Done when: planner outcomes are modeled explicitly, responsibilities are bounded, and the contract is ready to anchor tests and extraction work.",
+			"depends": ["support-truth-matrix"],
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "resolver-contracts",
+			"phase": 1,
+			"title": "Define resolver contracts",
+			"description": "Specify resolved input, precedence guarantees, error aggregation behavior, and source-aware diagnostic expectations. Done when: resolver input/output is explicit, redesign boundaries are noted, and tests can target stable behavior.",
+			"depends": ["support-truth-matrix"],
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "output-contracts",
+			"phase": 1,
+			"title": "Define output policy contracts",
+			"description": "Specify output policy concepts for jsonMode, isTTY, verbosity, and activity cleanup. Done when: output policy is separable from rendering, supported shell/output claims are aligned, and later refactors have a stable boundary.",
+			"depends": ["support-truth-matrix"],
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "planner-contract-tests",
+			"phase": 2,
+			"title": "Add planner contract tests",
+			"description": "Add black-box tests for root help/version, default command, dispatch outcomes, propagated flag masking, and extraction ordering. Done when: planner behavior can be validated without running handlers and intended behavior is explicitly locked down.",
+			"depends": ["planner-contracts"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "resolver-matrix-tests",
+			"phase": 2,
+			"title": "Add resolver matrix tests",
+			"description": "Add precedence and error-behavior matrix tests for flags and args across CLI, env, config, prompt, stdin, and defaults. Done when: source order, prompt gating, and aggregation semantics are protected by focused contract suites.",
+			"depends": ["resolver-contracts"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "executor-contract-tests",
+			"phase": 2,
+			"title": "Add executor contract tests",
+			"description": "Add tests for hook order, derive/middleware/action execution, cleanup guarantees, and result assembly. Done when: the future shared executor is guarded by boundary tests rather than implementation shape.",
+			"depends": ["planner-contract-tests", "resolver-matrix-tests", "output-contracts"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "completion-contract-tests",
+			"phase": 2,
+			"title": "Add completion contract tests",
+			"description": "Expand completion tests to cover supported shells, nested commands, propagated flags, and root/default behavior. Done when: shell support can be broadened safely and docs claims can point to concrete evidence.",
+			"depends": ["support-truth-matrix"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "scaffold-core-execution",
+			"phase": 3,
+			"title": "Scaffold shared execution module",
+			"description": "Create the new internal execution seam and move common execution flow behind it. Done when: there is a concrete shared execution module with explicit inputs/outputs and a narrow responsibility boundary.",
+			"depends": ["executor-contract-tests"],
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "route-testkit-executor",
+			"phase": 3,
+			"title": "Route testkit through executor",
+			"description": "Make testkit consume the shared executor instead of owning the canonical pipeline. Done when: testkit becomes a thin wrapper over the shared execution path and its behavior stays green under existing and new tests.",
+			"depends": ["scaffold-core-execution"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "route-cli-executor",
+			"phase": 3,
+			"title": "Route CLI through executor",
+			"description": "Make CLI command invocation consume the same shared executor. Done when: CLI and testkit no longer have separate execution ownership paths and command execution behavior is centralized.",
+			"depends": ["scaffold-core-execution", "route-testkit-executor"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "extract-runtime-preflight",
+			"phase": 3,
+			"title": "Extract runtime preflight",
+			"description": "Separate adapter/config/package/stdin/prompt sourcing from planner and executor logic. Done when: runtime preflight is explicit, locally testable, and no longer entangled with dispatch branching.",
+			"depends": ["route-cli-executor"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "extract-invocation-planner",
+			"phase": 3,
+			"title": "Extract invocation planner",
+			"description": "Pull root help/version/default-command/dispatch/propagation logic into an explicit planner layer. Done when: planner outcomes are represented as a DU and can be reasoned about separately from execution.",
+			"depends": ["route-cli-executor", "extract-runtime-preflight"],
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "split-resolver-modules",
+			"phase": 4,
+			"title": "Split resolver into focused modules",
+			"description": "Decompose resolver code by concern: orchestration, coercion, lookup, and error helpers. Done when: resolver no longer centralizes unrelated logic in one file and behavior remains protected by contract tests.",
+			"depends": ["resolver-matrix-tests", "scaffold-core-execution"],
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "redesign-error-agg",
+			"phase": 4,
+			"title": "Redesign resolver error aggregation",
+			"description": "Improve aggregated diagnostics and clarify source-aware errors across flags and args. Done when: redesigned error behavior is intentional, documented, and verified by dedicated tests.",
+			"depends": ["split-resolver-modules"],
+			"priority": "standard",
+			"passes": false
+		},
+		{
+			"id": "shared-property-model",
+			"phase": 4,
+			"title": "Evaluate shared property model",
+			"description": "Reduce duplicated flag/arg resolution mechanics where a shared property abstraction actually lowers maintenance cost. Done when: either a shared model is introduced safely or an explicit decision records why not.",
+			"depends": ["split-resolver-modules"],
+			"priority": "spike",
+			"passes": false
+		},
+		{
+			"id": "semantic-delta-log",
+			"phase": 4,
+			"title": "Document semantic deltas",
+			"description": "Maintain an explicit log of preserved versus redesigned execution semantics during the re-foundation. Done when: major semantic changes are listed clearly enough to drive changelog, docs, and review.",
+			"depends": ["redesign-error-agg"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "decouple-output-policy",
+			"phase": 5,
+			"title": "Decouple output policy from rendering",
+			"description": "Refactor output internals so policy choice is distinct from concrete rendering and activity handling. Done when: output mode selection is explicit and output behavior is easier to extend and test.",
+			"depends": ["output-contracts", "route-cli-executor"],
+			"priority": "architecture",
+			"passes": false
+		},
+		{
+			"id": "implement-fish-comp",
+			"phase": 5,
+			"title": "Implement fish completions",
+			"description": "Ship real fish shell completion generation. Done when: fish completion generation is implemented, exercised by tests, and reflected truthfully in docs/support surfaces.",
+			"depends": ["completion-contract-tests", "extract-invocation-planner"],
+			"priority": "standard",
+			"passes": false
+		},
+		{
+			"id": "implement-pwsh-comp",
+			"phase": 5,
+			"title": "Implement PowerShell completions",
+			"description": "Ship real PowerShell completion generation. Done when: PowerShell completion generation is implemented, tested, and reflected truthfully in docs/support surfaces.",
+			"depends": ["completion-contract-tests", "extract-invocation-planner"],
+			"priority": "standard",
+			"passes": false
+		},
+		{
+			"id": "align-completion-truth",
+			"phase": 5,
+			"title": "Align completion support truth",
+			"description": "Update support matrix, docs, and type-level shell surfaces to match shipped shell support. Done when: completion claims and implementation fully match across code, tests, and docs.",
+			"depends": ["implement-fish-comp", "implement-pwsh-comp"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "build-docs-prepare",
+			"phase": 6,
+			"title": "Build docs preparation pipeline",
+			"description": "Add scripts/docs foundation, docs:prepare, generated output directories, and docs wiring. Done when: docs build/dev can regenerate generated artifacts predictably from source inputs.",
+			"depends": ["support-truth-matrix", "scaffold-core-execution"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "generate-example-pages",
+			"phase": 7,
+			"title": "Generate example pages",
+			"description": "Extract metadata from examples and generate an examples index plus detail pages. Done when: each example becomes a searchable docs page with summary, usage, source, and related links.",
+			"depends": ["build-docs-prepare"],
+			"priority": "standard",
+			"passes": false
+		},
+		{
+			"id": "prototype-hover-path",
+			"phase": 7,
+			"title": "Prototype example hover path",
+			"description": "Validate Twoslash-backed hover on generated example pages against local DreamCLI source. Done when: a boring, stable, examples-only hover path is proven feasible and constraints are documented.",
+			"depends": ["generate-example-pages"],
+			"priority": "spike",
+			"passes": false
+		},
+		{
+			"id": "enable-example-hover",
+			"phase": 7,
+			"title": "Enable hover on example pages",
+			"description": "Integrate hover on example pages using the validated path. Done when: generated example pages offer calm IDE-like hover without becoming necessary for comprehension.",
+			"depends": ["prototype-hover-path"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "surface-changelog-health",
+			"phase": 7,
+			"title": "Surface changelog and docs health",
+			"description": "Generate docs-visible changelog and docs-health pages from source-of-truth inputs. Done when: release history and factual docs-health metrics are both browsable inside the docs site.",
+			"depends": ["build-docs-prepare"],
+			"priority": "standard",
+			"passes": false
+		},
+		{
+			"id": "generate-api-index",
+			"phase": 8,
+			"title": "Generate API index",
+			"description": "Build a public export inventory grouped by subpath and kind. Done when: every public export appears in a generated API index and the index clearly beats the current manual overview.",
+			"depends": ["build-docs-prepare"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "normalize-typedoc-data",
+			"phase": 8,
+			"title": "Normalize TypeDoc data",
+			"description": "Generate TypeDoc JSON and normalize it into a DreamCLI-owned docs model. Done when: reference rendering no longer depends directly on raw TypeDoc output shape.",
+			"depends": ["generate-api-index"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "render-symbol-pages",
+			"phase": 8,
+			"title": "Render symbol pages",
+			"description": "Generate per-symbol API reference pages from normalized data. Done when: symbol pages are stable, searchable, deep-linkable, and support links from examples and the API index.",
+			"depends": ["normalize-typedoc-data"],
+			"priority": "integration",
+			"passes": false
+		},
+		{
+			"id": "crosslink-doc-surfaces",
+			"phase": 8,
+			"title": "Cross-link docs surfaces",
+			"description": "Link guides, examples, hover targets, symbol pages, changelog, and docs health into one coherent docs system. Done when: users can move fluidly between authored docs, examples, and reference surfaces.",
+			"depends": [
+				"generate-example-pages",
+				"render-symbol-pages",
+				"surface-changelog-health",
+				"enable-example-hover"
+			],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "write-rationale-docs",
+			"phase": 9,
+			"title": "Write rationale and limitations docs",
+			"description": "Author the explanation pages for trade-offs, decisions, limitations, and workarounds once semantics stabilize. Done when: DreamCLI explains major design choices and known limitations clearly and honestly.",
+			"depends": ["semantic-delta-log", "crosslink-doc-surfaces"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "write-migration-guides",
+			"phase": 9,
+			"title": "Write migration and troubleshooting docs",
+			"description": "Author migration/adoption and troubleshooting guidance after the architecture and truth model settle. Done when: serious adopters have clear guidance for evaluation, switching, and common failure modes.",
+			"depends": ["semantic-delta-log", "crosslink-doc-surfaces"],
+			"priority": "polish",
+			"passes": false
+		},
+		{
+			"id": "harden-ci-coverage",
+			"phase": 9,
+			"title": "Harden CI and coverage",
+			"description": "Add coverage thresholds, docs generation verification, and align CI descriptions with real behavior. Done when: architecture and docs regressions are harder to introduce silently and CI reflects truth.",
+			"depends": ["write-rationale-docs", "write-migration-guides", "align-completion-truth"],
+			"priority": "polish",
+			"passes": false
+		}
+	]
+}

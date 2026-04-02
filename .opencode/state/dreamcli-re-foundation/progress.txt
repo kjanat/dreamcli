@@ -1,0 +1,23 @@
+# Progress Log
+
+PRD: dreamcli-re-foundation
+Started: 2026-04-02
+
+## Codebase Patterns
+
+- The real architectural pressure points are `src/core/cli/`, `src/core/testkit/`, `src/core/resolve/`, `src/core/output/`, and `src/core/completion/`.
+- Current execution ownership is effectively centered in `runCommand()` even though the architecture does not present it that way.
+- The safest refactor path is contract-first: truth matrix -> characterization tests -> shared executor -> planner split -> resolver redesign.
+- Docs work must split into low-risk generated foundations versus semantics-sensitive authored docs.
+- `ROADMAP-DOCS-SICK.md` is the main north star for the generated docs platform: examples first, hover on examples only, changelog and docs health, then API inventory, then TypeDoc-based symbol pages.
+- Completion breadth must be backed by real implementation and tests; fish and PowerShell are intentional backlog items, not aspirational claims.
+- The GitHub project should mirror `prd.json` at mixed depth, with draft items rather than real repo issues.
+
+## Project Tracking
+
+- GitHub Project: https://github.com/users/kjanat/projects/4
+- Project number: 4
+- Draft items imported from `prd.json`: 33
+- Custom tracking fields: Workflow, Phase, Task Priority, PRD Task ID
+
+---
