@@ -15,7 +15,7 @@ import type { FormatLoader } from '#internals/core/config/index.ts';
 import { discoverConfig } from '#internals/core/config/index.ts';
 import { discoverPackageJson, inferCliName } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
-import { buildRunResult } from '#internals/core/execution/index.ts';
+import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
@@ -26,6 +26,7 @@ import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type {
+	AnyCommandBuilder,
 	CommandBuilder,
 	CommandMeta,
 	CommandSchema,
@@ -76,6 +77,7 @@ function eraseCommand<
 	return {
 		schema: cmd.schema,
 		subcommands,
+		_command: cmd as unknown as AnyCommandBuilder,
 		_execute(argv, options) {
 			return runCommand(cmd, argv, options);
 		},
@@ -925,10 +927,21 @@ class CLIBuilder {
 					planned.plan.help ?? helpOptions,
 					planned.plan.meta,
 				);
-				return planned.plan.command._execute(planned.plan.argv, {
-					...commandRunOptions,
-					mergedSchema: planned.plan.mergedSchema,
+				if (planned.plan.command._command === undefined) {
+					return planned.plan.command._execute(planned.plan.argv, {
+						...commandRunOptions,
+						mergedSchema: planned.plan.mergedSchema,
+					});
+				}
+				const result = await executeCommand({
+					command: planned.plan.command._command,
+					argv: planned.plan.argv,
+					out,
+					schema: planned.plan.mergedSchema,
+					meta: planned.plan.meta,
+					options: commandRunOptions,
 				});
+				return buildRunResult(result, captured);
 			}
 		}
 	}

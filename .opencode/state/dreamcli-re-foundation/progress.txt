@@ -23,6 +23,7 @@ Started: 2026-04-02
 - For execution refactors, extract a minimal `executeCommand()` seam with explicit request/result types and a shared `buildRunResult()` helper first; keep CLI and testkit as thin bootstrap wrappers until routing work lands.
 - For oversized hot modules, keep `index.ts` as the orchestration boundary and extract sibling concern modules first (`args`, `flags`, `coerce`, `config`, `errors`) before changing behavior; the contract tests stay stable while the file shape improves.
 - When centralizing execution ownership, wrap the whole executor in one `try/finally` so fast exits like `--help` and missing-handler guards still clean up active output handles.
+- When a new internal seam broadens a hot test helper interface, make the seam optional and keep the old path as a fallback for fake test doubles; production wiring can move first without forcing broad fixture churn.
 
 ## Project Tracking
 
@@ -107,3 +108,10 @@ Started: 2026-04-02
 - Added contract coverage proving injected output handles are cleaned up on help exits and missing-action failures while existing testkit behavior stays green.
 - Files changed: `src/core/execution/index.ts`, `src/core/testkit/index.ts`, `src/core/testkit/executor-contract.test.ts`, `src/core/schema/run.ts`, `src/core/testkit/AGENTS.md`, `docs/reference/support-matrix.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: once testkit delegates execution, the remaining honesty work is mostly boundary truthing plus contract tests for wrapper-sensitive cases like capture cleanup on early executor exits.
+
+## Task - [route-cli-executor]
+
+- Routed matched CLI command execution straight to `executeCommand()` instead of bouncing through `runCommand()`, while keeping `_execute()` as a fallback for fake internal `ErasedCommand` test doubles.
+- Added CLI-level coverage proving injected output handles still clean up on matched-command failures, and updated the support matrix to say both CLI and testkit now delegate directly to the shared executor.
+- Files changed: `src/core/cli/index.ts`, `src/core/cli/cli.test.ts`, `src/core/schema/command.ts`, `docs/reference/support-matrix.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: moving the real CLI path first is low-risk if the erased-command seam can carry the raw builder optionally; internal fake commands can stay lightweight while production dispatch stops depending on testkit.

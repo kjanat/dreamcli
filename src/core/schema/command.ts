@@ -678,6 +678,8 @@ interface ErasedCommand {
 	 * @internal
 	 */
 	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
+	/** Original command builder captured at the type-erasure boundary. */
+	readonly _command?: AnyCommandBuilder;
 	/** Execute this command against argv. Closes over the typed CommandBuilder. */
 	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
 }

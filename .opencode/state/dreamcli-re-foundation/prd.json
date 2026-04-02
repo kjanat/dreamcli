@@ -99,7 +99,7 @@
 			"description": "Make CLI command invocation consume the same shared executor. Done when: CLI and testkit no longer have separate execution ownership paths and command execution behavior is centralized.",
 			"depends": ["scaffold-core-execution", "route-testkit-executor"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "extract-runtime-preflight",

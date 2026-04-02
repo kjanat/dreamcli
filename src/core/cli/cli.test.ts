@@ -4,6 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { ParseError } from '#internals/core/errors/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandMeta } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
@@ -559,6 +560,24 @@ describe('async command handlers', () => {
 // --- Options passthrough
 
 describe('options passthrough', () => {
+	it('cleans up injected output handles for matched CLI commands', async () => {
+		const [out, captured] = createCaptureOutput();
+		const stopActive = vi.spyOn(out, 'stopActive');
+
+		const app = cli('mycli').command(
+			command('build').action(({ out }) => {
+				out.spinner('Working');
+				throw new Error('kaboom');
+			}),
+		);
+		const result = await app.execute(['build'], { out, captured });
+
+		expect(result.exitCode).toBe(1);
+		expect(result.error?.code).toBe('UNEXPECTED_ERROR');
+		expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Working' }]);
+		expect(stopActive).toHaveBeenCalledTimes(1);
+	});
+
 	it('passes verbosity through to commands', async () => {
 		const verboseCmd = command('talk').action(({ out }) => {
 			out.info('info message');
