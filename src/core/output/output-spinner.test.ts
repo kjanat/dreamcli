@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { ActivityEvent } from '../schema/activity.ts';
+import type { ActivityEvent } from '#internals/core/schema/activity.ts';
 import type { WriteFn } from './index.ts';
 import {
 	CaptureSpinnerHandle,

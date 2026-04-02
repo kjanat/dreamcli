@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { PromptResult, SelectChoice } from '../schema/prompt.ts';
+import type { PromptResult, SelectChoice } from '#internals/core/schema/prompt.ts';
 import type {
 	PromptEngine,
 	ReadFn,
@@ -16,9 +16,7 @@ import {
 	resolvePromptConfig,
 } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /** Create a ReadFn that returns lines from a queue, null on empty. */
 function mockRead(lines: readonly (string | null)[]): ReadFn {
@@ -37,9 +35,7 @@ function captureWrite(): { write: (data: string) => void; lines: string[] } {
 	return { write: (s: string) => lines.push(s), lines };
 }
 
-// ===========================================================================
-// PROMPT_CANCEL sentinel
-// ===========================================================================
+// === PROMPT_CANCEL sentinel
 
 describe('PROMPT_CANCEL', () => {
 	it('is a symbol', () => {
@@ -56,9 +52,7 @@ describe('PROMPT_CANCEL', () => {
 	});
 });
 
-// ===========================================================================
-// createTestPrompter
-// ===========================================================================
+// === createTestPrompter
 
 describe('createTestPrompter', () => {
 	it('returns answers in order', async () => {
@@ -160,9 +154,7 @@ describe('createTestPrompter', () => {
 	});
 });
 
-// ===========================================================================
-// createTerminalPrompter — confirm
-// ===========================================================================
+// === createTerminalPrompter — confirm
 
 describe('createTerminalPrompter — confirm', () => {
 	it('accepts y as true', async () => {
@@ -219,9 +211,7 @@ describe('createTerminalPrompter — confirm', () => {
 	});
 });
 
-// ===========================================================================
-// createTerminalPrompter — input
-// ===========================================================================
+// === createTerminalPrompter — input
 
 describe('createTerminalPrompter — input', () => {
 	it('reads user input', async () => {
@@ -298,9 +288,7 @@ describe('createTerminalPrompter — input', () => {
 	});
 });
 
-// ===========================================================================
-// createTerminalPrompter — select
-// ===========================================================================
+// === createTerminalPrompter — select
 
 describe('createTerminalPrompter — select', () => {
 	const choices: readonly [SelectChoice, ...SelectChoice[]] = [
@@ -403,9 +391,7 @@ describe('createTerminalPrompter — select', () => {
 	});
 });
 
-// ===========================================================================
-// createTerminalPrompter — multiselect
-// ===========================================================================
+// === createTerminalPrompter — multiselect
 
 describe('createTerminalPrompter — multiselect', () => {
 	const choices: readonly [SelectChoice, ...SelectChoice[]] = [
@@ -529,9 +515,7 @@ describe('createTerminalPrompter — multiselect', () => {
 	});
 });
 
-// ===========================================================================
-// createTerminalPrompter — satisfies PromptEngine
-// ===========================================================================
+// === createTerminalPrompter — satisfies PromptEngine
 
 describe('createTerminalPrompter — interface', () => {
 	it('satisfies PromptEngine interface', () => {
@@ -543,9 +527,7 @@ describe('createTerminalPrompter — interface', () => {
 	});
 });
 
-// ===========================================================================
-// resolvePromptConfig
-// ===========================================================================
+// === resolvePromptConfig
 
 describe('resolvePromptConfig', () => {
 	it('passes through confirm config unchanged', () => {
@@ -628,15 +610,13 @@ describe('resolvePromptConfig', () => {
 	});
 });
 
-// ===========================================================================
-// Type-level tests
-// ===========================================================================
+// === Type-level tests
 
 describe('type contracts', () => {
 	it('PromptEngine has correct promptOne signature', () => {
-		expectTypeOf<PromptEngine['promptOne']>().toBeFunction();
-		expectTypeOf<PromptEngine['promptOne']>().parameter(0).toMatchTypeOf<ResolvedPromptConfig>();
-		expectTypeOf<PromptEngine['promptOne']>().returns.toMatchTypeOf<Promise<PromptResult>>();
+		expectTypeOf<PromptEngine['promptOne']>().toEqualTypeOf<
+			(config: ResolvedPromptConfig) => Promise<PromptResult>
+		>();
 	});
 
 	it('ReadFn returns Promise<string | null>', () => {

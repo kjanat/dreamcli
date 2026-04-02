@@ -13,9 +13,7 @@ import type {
 } from './flag.ts';
 import { flag } from './flag.ts';
 
-// ---------------------------------------------------------------------------
-// PromptConfig discriminated union — type-level tests
-// ---------------------------------------------------------------------------
+// --- PromptConfig discriminated union — type-level tests
 
 describe('PromptConfig types', () => {
 	it('PromptKind covers all four kinds', () => {
@@ -110,9 +108,7 @@ describe('PromptConfig types', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// PromptResult — type-level tests
-// ---------------------------------------------------------------------------
+// --- PromptResult — type-level tests
 
 describe('PromptResult types', () => {
 	it('discriminates on answered field', () => {
@@ -143,9 +139,7 @@ describe('PromptResult types', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// FlagSchema.prompt field
-// ---------------------------------------------------------------------------
+// --- FlagSchema.prompt field
 
 describe('FlagSchema.prompt', () => {
 	it('defaults to undefined in createSchema', () => {
@@ -167,9 +161,7 @@ describe('FlagSchema.prompt', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// FlagBuilder.prompt() method
-// ---------------------------------------------------------------------------
+// --- FlagBuilder.prompt() method
 
 describe('FlagBuilder.prompt()', () => {
 	it('stores confirm prompt config on schema', () => {
@@ -300,13 +292,11 @@ describe('FlagBuilder.prompt()', () => {
 		});
 		expect(f.schema.kind).toBe('array');
 		expect(f.schema.prompt?.kind).toBe('multiselect');
-		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[] | undefined>();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[]>();
 	});
 });
 
-// ---------------------------------------------------------------------------
-// InputPromptConfig.validate — runtime behavior
-// ---------------------------------------------------------------------------
+// --- InputPromptConfig.validate — runtime behavior
 
 describe('InputPromptConfig.validate', () => {
 	it('validate returns true for valid input', () => {
@@ -328,9 +318,7 @@ describe('InputPromptConfig.validate', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Chaining with other builder methods
-// ---------------------------------------------------------------------------
+// --- Chaining with other builder methods
 
 describe('prompt() chaining order', () => {
 	it('prompt before other modifiers', () => {
@@ -382,9 +370,7 @@ describe('prompt() chaining order', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Integration: command builder with prompted flags
-// ---------------------------------------------------------------------------
+// --- Integration: command builder with prompted flags
 
 describe('command builder with prompted flags', () => {
 	// Importing here to avoid circular — these tests validate integration
@@ -418,9 +404,7 @@ describe('command builder with prompted flags', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Public surface exports
-// ---------------------------------------------------------------------------
+// --- Public surface exports
 
 describe('public surface exports', () => {
 	it('prompt types are re-exported from schema barrel', async () => {
@@ -431,7 +415,7 @@ describe('public surface exports', () => {
 	});
 
 	it('prompt types are re-exported from public surface', async () => {
-		const dreamcli = await import('../../index.ts');
+		const dreamcli = await import('#dreamcli');
 		expect(dreamcli).toBeDefined();
 	});
 });

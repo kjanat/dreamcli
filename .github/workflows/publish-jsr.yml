@@ -6,22 +6,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  meta:
+    name: Resolve Release Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      url: ${{ steps.version.outputs.url }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Resolve JSR package version
+        id: version
+        run: |
+          version=$(awk -F'"' '/^[[:space:]]*"version"[[:space:]]*:/ { print $4; exit }' deno.jsonc)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "url=https://jsr.io/@kjanat/dreamcli@$version" >> "$GITHUB_OUTPUT"
+
   publish:
     name: Publish
+    needs: [meta]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment:
+      name: jsr
+      url: ${{ needs.meta.outputs.url }}
     permissions:
       contents: read
       id-token: write # OIDC provenance for JSR
     steps:
       - uses: actions/checkout@v6
       - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+        with: { deno-version: v2.x }
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
       - run: bun install --frozen-lockfile
+      - run: bun run scripts/check-version-sync.ts
       - run: bun run build
       - name: Deno adapter smoke test
         run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts

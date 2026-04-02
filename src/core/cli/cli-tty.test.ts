@@ -3,13 +3,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
-import { command } from '../schema/command.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { cli } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /** Command that reports output mode state. */
 function modeCommand() {
@@ -35,9 +33,17 @@ function ttyBranchCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// isTTY through CLIBuilder.execute()
-// ---------------------------------------------------------------------------
+/** Command that emits spinner activity. */
+function spinnerCommand() {
+	return command('build')
+		.description('Build with spinner')
+		.action(({ out }) => {
+			const spinner = out.spinner('Preparing build environment...');
+			spinner.succeed('Environment ready');
+		});
+}
+
+// --- isTTY through CLIBuilder.execute()
 
 describe('CLIBuilder.execute() — isTTY propagation', () => {
 	it('passes isTTY=true to command handler', async () => {
@@ -87,9 +93,7 @@ describe('CLIBuilder.execute() — isTTY propagation', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// isTTY through CLIBuilder.run() — wired from adapter
-// ---------------------------------------------------------------------------
+// --- isTTY through CLIBuilder.run() — wired from adapter
 
 describe('CLIBuilder.run() — isTTY from adapter', () => {
 	it('sources isTTY from adapter.isTTY', async () => {
@@ -134,6 +138,27 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		expect(parsed.isTTY).toBe(false);
 	});
 
+	it('jsonMode via options overrides adapter mode decisions in run', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'status'],
+			isTTY: true,
+			stdout: (s) => stdoutLines.push(s),
+		});
+
+		const app = cli('test').command(ttyBranchCommand());
+
+		try {
+			await app.run({ adapter, jsonMode: true });
+		} catch (e) {
+			if (!(e instanceof ExitError)) throw e;
+		}
+
+		expect(stdoutLines.length).toBe(1);
+		const parsed = JSON.parse(stdoutLines[0] ?? '');
+		expect(parsed).toEqual({ status: 'ok' });
+	});
+
 	it('explicit isTTY in options overrides adapter', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
@@ -154,5 +179,32 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		expect(stdoutLines.length).toBe(1);
 		const parsed = JSON.parse(stdoutLines[0] ?? '');
 		expect(parsed.isTTY).toBe(false);
+	});
+
+	it('renders spinner activity to adapter stderr in TTY mode', async () => {
+		const stdoutLines: string[] = [];
+		const stderrLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'build'],
+			isTTY: true,
+			stdout: (s) => stdoutLines.push(s),
+			stderr: (s) => stderrLines.push(s),
+		});
+
+		const app = cli('test').command(spinnerCommand());
+
+		try {
+			await app.run({ adapter });
+		} catch (e) {
+			if (!(e instanceof ExitError)) throw e;
+		}
+
+		const rendered = stderrLines.join('');
+		expect(rendered).toContain('Preparing build environment...');
+		expect(rendered).toContain('Environment ready');
+
+		const stdoutRendered = stdoutLines.join('');
+		expect(stdoutRendered).not.toContain('Preparing build environment...');
+		expect(stdoutRendered).not.toContain('Environment ready');
 	});
 });

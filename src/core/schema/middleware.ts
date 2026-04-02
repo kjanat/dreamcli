@@ -14,11 +14,9 @@
  * @module dreamcli/core/schema/middleware
  */
 
-import type { Out } from './command.ts';
+import type { CommandMeta, Out } from './command.ts';
 
-// ---------------------------------------------------------------------------
-// Middleware parameter types
-// ---------------------------------------------------------------------------
+// --- Middleware parameter types
 
 /**
  * Parameters received by a middleware function at runtime.
@@ -36,6 +34,8 @@ interface MiddlewareParams {
 	readonly ctx: Readonly<Record<string, unknown>>;
 	/** Output channel. */
 	readonly out: Out;
+	/** CLI program metadata (name, bin, version, command). */
+	readonly meta: CommandMeta;
 	/**
 	 * Continue to the next middleware or action handler.
 	 *
@@ -46,9 +46,7 @@ interface MiddlewareParams {
 	readonly next: (additions: Record<string, unknown>) => Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Handler types
-// ---------------------------------------------------------------------------
+// --- Handler types
 
 /**
  * Type-erased middleware handler stored on `CommandSchema`.
@@ -71,13 +69,12 @@ type MiddlewareHandler<Output extends Record<string, unknown>> = (params: {
 	readonly flags: Readonly<Record<string, unknown>>;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
+	readonly meta: CommandMeta;
 	/** Pass context additions downstream. Must include all `Output` properties. */
 	readonly next: (additions: Output) => Promise<void>;
 }) => void | Promise<void>;
 
-// ---------------------------------------------------------------------------
-// Middleware type — phantom-branded
-// ---------------------------------------------------------------------------
+// --- Middleware type — phantom-branded
 
 /**
  * Internal runtime representation of middleware.
@@ -113,9 +110,7 @@ type Middleware<Output extends Record<string, unknown>> = MiddlewareImpl & {
 	readonly _output: Output;
 };
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
+// --- Factory
 
 /**
  * Create a middleware definition.
@@ -164,11 +159,8 @@ function middleware<Output extends Record<string, unknown>>(
 	return impl as Middleware<Output>;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { middleware };
 export type {
 	ErasedMiddlewareHandler,
 	Middleware,
@@ -176,3 +168,4 @@ export type {
 	MiddlewareImpl,
 	MiddlewareParams,
 };
+export { middleware };

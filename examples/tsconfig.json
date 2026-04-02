@@ -1,0 +1,17 @@
+{
+	"extends": ["../tsconfig.json"],
+	"compilerOptions": {
+		"composite": true,
+		"noEmit": false,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": ".cache",
+		"declarationDir": ".cache/declarations",
+		"paths": {
+			"dreamcli": ["../src/index.ts"],
+			"dreamcli/testkit": ["../src/testkit.ts"],
+			"dreamcli/runtime": ["../src/runtime.ts"]
+		}
+	},
+	"exclude": ["**/dist", "**/node_modules", "**/.cache", "gh"]
+}

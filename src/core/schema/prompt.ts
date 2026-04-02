@@ -9,9 +9,7 @@
  * @module dreamcli/core/schema/prompt
  */
 
-// ---------------------------------------------------------------------------
-// Prompt kind discriminator
-// ---------------------------------------------------------------------------
+// --- Prompt kind discriminator
 
 /**
  * The kind of interactive prompt to present.
@@ -23,9 +21,7 @@
  */
 type PromptKind = 'confirm' | 'input' | 'select' | 'multiselect';
 
-// ---------------------------------------------------------------------------
-// Per-kind prompt configuration (discriminated union)
-// ---------------------------------------------------------------------------
+// --- Per-kind prompt configuration (discriminated union)
 
 /** Shared fields across all prompt kinds. */
 interface PromptConfigBase {
@@ -33,12 +29,12 @@ interface PromptConfigBase {
 	readonly message: string;
 }
 
-/** Yes/no confirmation prompt — maps to `boolean` flags. */
+/** Yes/no confirmation prompt — maps to `boolean` flags. Part of {@link PromptConfig}. */
 interface ConfirmPromptConfig extends PromptConfigBase {
 	readonly kind: 'confirm';
 }
 
-/** Free-text input prompt — maps to `string` and `number` flags. */
+/** Free-text input prompt — maps to `string` and `number` flags. Part of {@link PromptConfig}. */
 interface InputPromptConfig extends PromptConfigBase {
 	readonly kind: 'input';
 	/** Placeholder text shown before user types (informational only). */
@@ -50,7 +46,7 @@ interface InputPromptConfig extends PromptConfigBase {
 	readonly validate?: (value: string) => true | string;
 }
 
-/** Single-selection prompt — maps to `enum` flags or any flag with choices. */
+/** Single-selection prompt — maps to `enum` flags or any flag with {@link SelectChoice choices}. Part of {@link PromptConfig}. */
 interface SelectPromptConfig extends PromptConfigBase {
 	readonly kind: 'select';
 	/**
@@ -62,7 +58,7 @@ interface SelectPromptConfig extends PromptConfigBase {
 
 /**
  * Multi-selection prompt — maps to `array` flags.
- * Returns an array of selected values.
+ * Returns an array of selected {@link SelectChoice} values. Part of {@link PromptConfig}.
  */
 interface MultiselectPromptConfig extends PromptConfigBase {
 	readonly kind: 'multiselect';
@@ -71,21 +67,28 @@ interface MultiselectPromptConfig extends PromptConfigBase {
 	 * the enum values from the element schema are used automatically.
 	 */
 	readonly choices?: readonly SelectChoice[];
-	/** Minimum number of selections required (default: 0). */
+	/**
+	 * Minimum number of selections required.
+	 * @defaultValue `0`
+	 */
 	readonly min?: number;
-	/** Maximum number of selections allowed (default: unlimited). */
+	/**
+	 * Maximum number of selections allowed.
+	 * @defaultValue `Infinity`
+	 */
 	readonly max?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Supporting types
-// ---------------------------------------------------------------------------
+// --- Supporting types
 
-/** A selectable option for select/multiselect prompts. */
+/** A selectable option for {@link SelectPromptConfig} and {@link MultiselectPromptConfig} prompts. */
 interface SelectChoice {
 	/** The value returned when this choice is selected. */
 	readonly value: string;
-	/** Display label (defaults to `value` if omitted). */
+	/**
+	 * Display label shown to the user.
+	 * @defaultValue {@link SelectChoice.value | value}
+	 */
 	readonly label?: string;
 	/** Optional description shown alongside the choice. */
 	readonly description?: string;
@@ -107,9 +110,7 @@ type PromptConfig =
 	| SelectPromptConfig
 	| MultiselectPromptConfig;
 
-// ---------------------------------------------------------------------------
-// Prompt result
-// ---------------------------------------------------------------------------
+// --- Prompt result
 
 /**
  * The raw result returned by a prompt engine for a single prompt.
@@ -121,12 +122,18 @@ type PromptConfig =
  * prompt engine's.
  */
 type PromptResult =
-	| { readonly answered: true; readonly value: unknown }
-	| { readonly answered: false };
+	| {
+			/** User provided a value. */
+			readonly answered: true;
+			/** The raw value from the prompt engine (not yet coerced). */
+			readonly value: unknown;
+	  }
+	| {
+			/** User cancelled or aborted (Ctrl+C, ESC, etc.). */
+			readonly answered: false;
+	  };
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export type {
 	ConfirmPromptConfig,

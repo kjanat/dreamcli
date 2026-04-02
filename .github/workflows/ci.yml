@@ -22,10 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run check
+      - name: Version sync (package.json ↔ deno.jsonc)
+        run: bun run scripts/check-version-sync.ts
+      - run: bun run typecheck
       - run: bun run lint
       - run: bun run format:check
 
@@ -43,33 +43,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runtime: bun
-            bun-version: latest
-          - runtime: node
-            node-version: lts/*
+        runtime: [bun, node]
+        node-version: [22.22.2, latest]
+        exclude: [{ runtime: bun, node-version: 22.22.2 }]
     steps:
       - uses: actions/checkout@v6
 
       # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
 
       - uses: actions/setup-node@v6
         if: matrix.runtime == 'node'
-        with:
-          node-version: ${{ matrix.node-version }}
+        with: { node-version: "${{ matrix.node-version }}" }
 
       - run: bun install --frozen-lockfile
 
-      # Bun: run vitest via bun
+      # Bun: execute Vitest with Bun directly.
+      # `bun run test` would hit node_modules/.bin/vitest, whose shebang is
+      # `#!/usr/bin/env node`, and therefore use the runner's Node binary.
       - name: Test (Bun)
         if: matrix.runtime == 'bun'
-        run: bun run test
+        run: bunx --bun vitest run
 
       # Node: run vitest via npx (uses Node, not Bun, as the runtime)
-      - name: Test (Node)
+      - name: Test (Node ${{ matrix.node-version }})
         if: matrix.runtime == 'node'
         run: npx vitest run
 
@@ -88,15 +86,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
       - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
       - run: bun install --frozen-lockfile
       - run: bun run build
       - name: Deno adapter smoke test
         run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
+      - run: deno run -A npm:vitest run
 
   # ─────────────────────────────────────────────────────────────────
   # Build — verifies the package builds, types are correct, and
@@ -110,7 +105,5 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run build

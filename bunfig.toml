@@ -1,0 +1,10 @@
+#:schema https://www.schemastore.org/bunfig.json
+
+telemetry = false
+
+[install]
+auto = "auto"
+lockfile.save = true
+
+[run]
+silent = true

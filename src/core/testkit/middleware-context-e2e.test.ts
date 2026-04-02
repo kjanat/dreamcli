@@ -15,17 +15,15 @@
  */
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { cli } from '../cli/index.ts';
-import { CLIError } from '../errors/index.ts';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
-import { middleware } from '../schema/middleware.ts';
+import { cli } from '#internals/core/cli/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { middleware } from '#internals/core/schema/middleware.ts';
 import { runCommand } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Shared middleware definitions — realistic patterns
-// ---------------------------------------------------------------------------
+// --- Shared middleware definitions — realistic patterns
 
 interface User {
 	readonly id: string;
@@ -47,9 +45,7 @@ const tenantMiddleware = middleware<{ tenantId: string }>(async ({ flags, next }
 	return next({ tenantId });
 });
 
-// ---------------------------------------------------------------------------
-// Multi-middleware context composition — runCommand path
-// ---------------------------------------------------------------------------
+// --- Multi-middleware context composition — runCommand path
 
 describe('e2e: multi-middleware context composition (runCommand)', () => {
 	it('three middleware compose a rich context object', async () => {
@@ -142,9 +138,7 @@ describe('e2e: multi-middleware context composition (runCommand)', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Typed context in action handlers — compile-time assertions
-// ---------------------------------------------------------------------------
+// --- Typed context in action handlers — compile-time assertions
 
 describe('e2e: typed ctx in action handlers', () => {
 	it('ctx type narrows through middleware chain', () => {
@@ -193,9 +187,7 @@ describe('e2e: typed ctx in action handlers', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Error middleware patterns
-// ---------------------------------------------------------------------------
+// --- Error middleware patterns
 
 describe('e2e: error middleware patterns', () => {
 	it('middleware CLIError propagates with exit code and structured error', async () => {
@@ -321,9 +313,7 @@ describe('e2e: error middleware patterns', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware ordering and wrap-around patterns
-// ---------------------------------------------------------------------------
+// --- Middleware ordering and wrap-around patterns
 
 describe('e2e: middleware ordering and wrap-around', () => {
 	it('onion model: three middleware wrap action in correct order', async () => {
@@ -421,9 +411,7 @@ describe('e2e: middleware ordering and wrap-around', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Full CLI dispatch path — e2e through cli().execute()
-// ---------------------------------------------------------------------------
+// --- Full CLI dispatch path — e2e through cli().execute()
 
 describe('e2e: middleware through CLI dispatch', () => {
 	it('realistic auth + tracing pipeline via cli.execute()', async () => {
@@ -550,9 +538,7 @@ describe('e2e: middleware through CLI dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware + output modes (JSON, TTY) e2e
-// ---------------------------------------------------------------------------
+// --- Middleware + output modes (JSON, TTY) e2e
 
 describe('e2e: middleware + output modes', () => {
 	it('middleware output in JSON mode: log→stderr, json→stdout', async () => {
@@ -656,9 +642,7 @@ describe('e2e: middleware + output modes', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Middleware + resolution chain interplay
-// ---------------------------------------------------------------------------
+// --- Middleware + resolution chain interplay
 
 describe('e2e: middleware + resolution chain', () => {
 	it('middleware sees values after full env + config + default resolution', async () => {
@@ -745,9 +729,7 @@ describe('e2e: middleware + resolution chain', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('e2e: middleware edge cases', () => {
 	it('middleware with async work still preserves context', async () => {
@@ -869,5 +851,46 @@ describe('e2e: middleware edge cases', () => {
 		for (let i = 0; i < 10; i++) {
 			expect(ctx[`m${i}`]).toBe(i);
 		}
+	});
+});
+
+// === Middleware — receives meta
+
+describe('middleware — meta access', () => {
+	it('middleware receives meta with command info', async () => {
+		const handler = vi.fn();
+
+		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+		const spy = middleware<{}>(async ({ meta, out, next }) => {
+			out.log(`meta:${meta.name}:${meta.command}`);
+			await next({});
+		});
+
+		const cmd = command('deploy').middleware(spy).action(handler);
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContainEqual('meta:deploy:deploy\n');
+		expect(handler).toHaveBeenCalledOnce();
+	});
+
+	it('middleware receives CLI-level meta when dispatched via cli()', async () => {
+		const handler = vi.fn();
+
+		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+		const spy = middleware<{}>(async ({ meta, out, next }) => {
+			out.log(`meta:${meta.name}:${meta.version}:${meta.command}`);
+			await next({});
+		});
+
+		const cmd = command('deploy').middleware(spy).action(handler);
+		const app = cli('myapp').version('3.0.0').command(cmd);
+
+		const result = await app.execute(['deploy']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContainEqual('meta:myapp:3.0.0:deploy\n');
+		expect(handler).toHaveBeenCalledOnce();
 	});
 });

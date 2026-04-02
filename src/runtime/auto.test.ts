@@ -12,11 +12,9 @@ import type { RuntimeAdapter } from './adapter.ts';
 import { createAdapter } from './auto.ts';
 import type { GlobalForDetect } from './detect.ts';
 import { RUNTIMES } from './detect.ts';
-import { withMockDenoGlobal } from './test-helpers.ts';
+import { createMockDenoNamespace } from './test-helpers.ts';
 
-// ===================================================================
-// Helpers
-// ===================================================================
+// === Helpers
 
 /**
  * Assert that a value satisfies the RuntimeAdapter interface shape.
@@ -35,9 +33,7 @@ function assertAdapterShape(adapter: RuntimeAdapter): void {
 	expect(typeof adapter.exit).toBe('function');
 }
 
-// ===================================================================
-// createAdapter — runtime dispatch
-// ===================================================================
+// === createAdapter — runtime dispatch
 
 describe('createAdapter — runtime dispatch', () => {
 	// -------------------------------------------------------------------
@@ -46,7 +42,7 @@ describe('createAdapter — runtime dispatch', () => {
 
 	it('creates adapter for Node.js runtime', () => {
 		const globals: GlobalForDetect = {
-			process: { versions: { node: '22.0.0' } },
+			process: { versions: { node: '22.22.2' } },
 		};
 		const adapter = createAdapter(globals);
 		assertAdapterShape(adapter);
@@ -58,8 +54,8 @@ describe('createAdapter — runtime dispatch', () => {
 
 	it('creates adapter for Bun runtime', () => {
 		const globals: GlobalForDetect = {
-			Bun: { version: '1.1.0' },
-			process: { versions: { node: '22.0.0' } },
+			Bun: { version: '1.3.11' },
+			process: { versions: { node: '22.22.2' } },
 		};
 		const adapter = createAdapter(globals);
 		assertAdapterShape(adapter);
@@ -70,13 +66,11 @@ describe('createAdapter — runtime dispatch', () => {
 	// -------------------------------------------------------------------
 
 	it('creates adapter for Deno runtime', () => {
-		withMockDenoGlobal(() => {
-			const globals: GlobalForDetect = {
-				Deno: { version: { deno: '2.0.0' } },
-			};
-			const adapter = createAdapter(globals);
-			assertAdapterShape(adapter);
-		});
+		const globals: GlobalForDetect = {
+			Deno: createMockDenoNamespace(),
+		};
+		const adapter = createAdapter(globals);
+		assertAdapterShape(adapter);
 	});
 
 	// -------------------------------------------------------------------
@@ -98,9 +92,7 @@ describe('createAdapter — runtime dispatch', () => {
 	});
 });
 
-// ===================================================================
-// createAdapter — exhaustiveness
-// ===================================================================
+// === createAdapter — exhaustiveness
 
 describe('createAdapter — exhaustiveness', () => {
 	it('handles every Runtime variant without returning undefined', () => {
@@ -108,25 +100,21 @@ describe('createAdapter — exhaustiveness', () => {
 		// This test verifies runtime behavior: every known Runtime value
 		// produces a valid RuntimeAdapter.
 		const globalsForRuntime: Record<string, GlobalForDetect> = {
-			node: { process: { versions: { node: '22.0.0' } } },
-			bun: { Bun: { version: '1.1.0' }, process: { versions: { node: '22.0.0' } } },
-			deno: { Deno: { version: { deno: '2.0.0' } } },
+			node: { process: { versions: { node: '22.22.2' } } },
+			bun: { Bun: { version: '1.3.11' }, process: { versions: { node: '22.22.2' } } },
+			deno: { Deno: createMockDenoNamespace() },
 			unknown: {},
 		};
 
-		withMockDenoGlobal(() => {
-			for (const runtime of RUNTIMES) {
-				const adapter = createAdapter(globalsForRuntime[runtime]);
-				expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
-				assertAdapterShape(adapter);
-			}
-		});
+		for (const runtime of RUNTIMES) {
+			const adapter = createAdapter(globalsForRuntime[runtime]);
+			expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
+			assertAdapterShape(adapter);
+		}
 	});
 });
 
-// ===================================================================
-// createAdapter — default (no globals override)
-// ===================================================================
+// === createAdapter — default (no globals override)
 
 describe('createAdapter — default globalThis', () => {
 	it('creates adapter without explicit globals', () => {
@@ -148,9 +136,7 @@ describe('createAdapter — default globalThis', () => {
 	});
 });
 
-// ===================================================================
-// createAdapter — adapter is functional
-// ===================================================================
+// === createAdapter — adapter is functional
 
 describe('createAdapter — adapter functionality', () => {
 	it('stdout writer is callable', () => {
@@ -169,5 +155,30 @@ describe('createAdapter — adapter functionality', () => {
 		// PATH is always present but may be cased as "Path" on Windows
 		const hasPath = adapter.env.PATH !== undefined || adapter.env.Path !== undefined;
 		expect(hasPath).toBe(true);
+	});
+
+	it('throws for unsupported Node.js versions', () => {
+		const globals: GlobalForDetect = {
+			process: { versions: { node: '21.9.0' } },
+		};
+
+		expect(() => createAdapter(globals)).toThrow('dreamcli requires Node.js >= 22.22.2');
+	});
+
+	it('throws for unsupported Bun versions', () => {
+		const globals: GlobalForDetect = {
+			Bun: { version: '1.2.9' },
+			process: { versions: { node: '22.22.2' } },
+		};
+
+		expect(() => createAdapter(globals)).toThrow('dreamcli requires Bun >= 1.3.11');
+	});
+
+	it('throws for unsupported Deno versions', () => {
+		const globals: GlobalForDetect = {
+			Deno: { version: { deno: '2.5.4' } },
+		};
+
+		expect(() => createAdapter(globals)).toThrow('dreamcli requires Deno >= 2.6.0');
 	});
 });

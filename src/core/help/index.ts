@@ -8,17 +8,16 @@
  * @module dreamcli/core/help
  */
 
+import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
 	CommandExample,
 	CommandSchema,
 	FlagSchema,
-} from '../schema/index.ts';
+} from '#internals/core/schema/index.ts';
 
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
+// --- Configuration
 
 /** Options for customising help output. */
 interface HelpOptions {
@@ -26,34 +25,55 @@ interface HelpOptions {
 	readonly width?: number;
 	/** Binary/program name shown in the usage line. Defaults to command name. */
 	readonly binName?: string;
+	/** @internal Whether this usage line is being rendered as merged root/default help. */
+	readonly isDefaultHelp?: boolean;
 }
 
 /** Resolved help options with defaults applied. */
 interface ResolvedHelpOptions {
 	readonly width: number;
 	readonly binName: string | undefined;
+	readonly isDefaultHelp: boolean;
 }
 
 const DEFAULT_WIDTH = 80;
 
+/**
+ * Apply defaults to optional {@link HelpOptions}.
+ *
+ * @param options - User-supplied help options, or `undefined` for all defaults.
+ * @returns Fully resolved options with defaults applied.
+ */
 function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 	return {
 		width: options?.width ?? DEFAULT_WIDTH,
 		binName: options?.binName,
+		isDefaultHelp: options?.isDefaultHelp ?? false,
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
+// --- Internal helpers
 
-/** Pad `text` to `length` with trailing spaces. */
+/**
+ * Pad `text` to `length` with trailing spaces.
+ *
+ * @param text - The string to pad.
+ * @param length - Target length in characters.
+ * @returns The padded string, unchanged if already at or beyond `length`.
+ */
 function padEnd(text: string, length: number): string {
 	if (text.length >= length) return text;
 	return text + ' '.repeat(length - text.length);
 }
 
-/** Wrap text to `width`, preserving leading indent on continuation lines. */
+/**
+ * Wrap text to `width`, preserving leading indent on continuation lines.
+ *
+ * @param text - The text to wrap.
+ * @param width - Maximum line width in columns.
+ * @param indent - Number of leading spaces for continuation lines.
+ * @returns The wrapped string with newlines inserted as needed.
+ */
 function wrapText(text: string, width: number, indent: number): string {
 	if (text.length + indent <= width) return text;
 
@@ -82,18 +102,26 @@ function wrapText(text: string, width: number, indent: number): string {
 	return lines.map((line, i) => (i === 0 ? line : `${pad}${line}`)).join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Deprecation formatting
-// ---------------------------------------------------------------------------
+// --- Deprecation formatting
 
-/** Format a deprecation annotation for help text. */
+/**
+ * Format a deprecation annotation for help text.
+ *
+ * @param deprecated - `true` for a generic marker, or a string explaining the deprecation.
+ * @returns Bracketed deprecation label, e.g. `[deprecated]` or `[deprecated: use --foo]`.
+ */
 function formatDeprecated(deprecated: string | true): string {
 	return typeof deprecated === 'string' ? `[deprecated: ${deprecated}]` : '[deprecated]';
 }
 
-// ---------------------------------------------------------------------------
-// Flag formatting
-// ---------------------------------------------------------------------------
+/** Format a default value for help output, preserving nullish sentinels. */
+function formatHelpDefaultValue(value: unknown): string {
+	if (value === undefined) return 'undefined';
+	if (value === null) return 'null';
+	return formatDisplayValue(value);
+}
+
+// --- Flag formatting
 
 /** Formatted flag entry for the flags table. */
 interface FlagEntry {
@@ -101,7 +129,13 @@ interface FlagEntry {
 	readonly description: string;
 }
 
-/** Format a flag's left column: `-a, --name <type>` */
+/**
+ * Format a flag's left column: `-a, --name <type>`.
+ *
+ * @param name - Long flag name (without `--` prefix).
+ * @param schema - The {@link FlagSchema} describing the flag.
+ * @returns Formatted left-column string for the flags table.
+ */
 function formatFlagLeft(name: string, schema: FlagSchema): string {
 	const parts: string[] = [];
 
@@ -122,7 +156,12 @@ function formatFlagLeft(name: string, schema: FlagSchema): string {
 	return parts.join(' ');
 }
 
-/** Produce a type hint like `<string>`, `<number>`, `<us|eu|ap>`. */
+/**
+ * Produce a type hint like `<string>`, `<number>`, `<us|eu|ap>`.
+ *
+ * @param schema - The {@link FlagSchema} whose value type determines the hint.
+ * @returns Angle-bracketed hint string, or empty string for booleans.
+ */
 function formatValueHint(schema: FlagSchema): string {
 	switch (schema.kind) {
 		case 'string':
@@ -147,7 +186,12 @@ function formatValueHint(schema: FlagSchema): string {
 	}
 }
 
-/** Build description with env/config/prompt/default/required/deprecated annotations. */
+/**
+ * Build description with env/config/prompt/default/required/deprecated annotations.
+ *
+ * @param schema - The {@link FlagSchema} to describe.
+ * @returns Concatenated description string with metadata annotations.
+ */
 function formatFlagDescription(schema: FlagSchema): string {
 	const parts: string[] = [];
 
@@ -175,13 +219,18 @@ function formatFlagDescription(schema: FlagSchema): string {
 		parts.push('[required]');
 	} else if (schema.presence === 'defaulted' && schema.kind !== 'boolean') {
 		// Don't show "(default: false)" for boolean — it's obvious
-		parts.push(`(default: ${String(schema.defaultValue)})`);
+		parts.push(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
 	}
 
 	return parts.join(' ');
 }
 
-/** Build the flag entries sorted: short-aliased first, then alphabetical. */
+/**
+ * Build the flag entries sorted: short-aliased first, then alphabetical.
+ *
+ * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @returns Sorted array of {@link FlagEntry} objects for the flags table.
+ */
 function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly FlagEntry[] {
 	const names = Object.keys(flags);
 	if (names.length === 0) return [];
@@ -210,21 +259,31 @@ function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly
 	return entries;
 }
 
-// ---------------------------------------------------------------------------
-// Arg formatting
-// ---------------------------------------------------------------------------
+// --- Arg formatting
 
-/** Format a positional arg for the usage line. */
+/**
+ * Format a positional arg for the usage line.
+ *
+ * @param entry - The {@link CommandArgEntry} containing name and schema.
+ * @returns Bracketed arg token, e.g. `<file>` or `[output]...`.
+ */
 function formatArgUsage(entry: CommandArgEntry): string {
 	const { name, schema } = entry;
+	const label =
+		schema.kind === 'enum' && schema.enumValues !== undefined ? schema.enumValues.join('|') : name;
 	const variadicSuffix = schema.variadic ? '...' : '';
 	if (schema.presence === 'required') {
-		return `<${name}${variadicSuffix}>`;
+		return `<${label}>${variadicSuffix}`;
 	}
-	return `[${name}${variadicSuffix}]`;
+	return `[${label}]${variadicSuffix}`;
 }
 
-/** Format arg description with annotations. */
+/**
+ * Format arg description with annotations.
+ *
+ * @param schema - The {@link ArgSchema} to describe.
+ * @returns Concatenated description string with metadata annotations.
+ */
 function formatArgDescription(schema: ArgSchema): string {
 	const parts: string[] = [];
 
@@ -236,33 +295,28 @@ function formatArgDescription(schema: ArgSchema): string {
 		parts.push(formatDeprecated(schema.deprecated));
 	}
 
-	if (schema.presence === 'defaulted' && schema.defaultValue !== undefined) {
-		parts.push(`(default: ${String(schema.defaultValue)})`);
+	if (schema.envVar !== undefined) {
+		parts.push(`[env: ${schema.envVar}]`);
+	}
+
+	if (schema.presence === 'defaulted') {
+		parts.push(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
 	}
 
 	return parts.join(' ');
 }
 
-// ---------------------------------------------------------------------------
-// Main generator
-// ---------------------------------------------------------------------------
+// --- Main generator
 
 /**
- * Generate help text from a command schema.
+ * Build the ordered help sections without joining them.
  *
- * Sections rendered (in order):
- * 1. **Usage** line — `program <command> [flags] <args>`
- * 2. **Description** — the command's `.description()` text
- * 3. **Commands** — subcommands table (if any, skips hidden)
- * 4. **Arguments** — positional args table (if any)
- * 5. **Flags** — flags table with type hints and defaults
- * 6. **Examples** — usage examples (if any)
- *
- * @param schema - The command schema to render help for.
- * @param options - Formatting options (width, binary name).
- * @returns The formatted help string.
+ * @internal
+ * @param schema - The {@link CommandSchema} to render.
+ * @param options - Optional {@link HelpOptions} for width/bin name.
+ * @returns Array of section strings (usage, description, commands, args, flags, examples).
  */
-function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
+function formatHelpSections(schema: CommandSchema, options?: HelpOptions): readonly string[] {
 	const opts = resolveOptions(options);
 	const sections: string[] = [];
 
@@ -296,16 +350,55 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 		sections.push(formatExamplesSection(schema.examples));
 	}
 
-	return `${sections.join('\n\n')}\n`;
+	return sections;
 }
 
-// ---------------------------------------------------------------------------
-// Section renderers
-// ---------------------------------------------------------------------------
+/**
+ * Generate help text from a command schema.
+ *
+ * Low-level formatter: most applications reach this through `--help`,
+ * `help <command>`, or root help rendering in `CLIBuilder`. Call
+ * `formatHelp()` directly when embedding DreamCLI help text into custom UIs,
+ * tests, or generated docs.
+ *
+ * Sections rendered (in order):
+ * 1. **Usage** line — `program <command> [flags] <args>`
+ * 2. **Description** — the command's `.description()` text
+ * 3. **Commands** — subcommands table (if any, skips hidden)
+ * 4. **Arguments** — positional args table (if any)
+ * 5. **Flags** — flags table with type hints and defaults
+ * 6. **Examples** — usage examples (if any)
+ *
+ * @param schema - The command schema to render help for.
+ * @param options - Formatting options (width, binary name).
+ * @returns The formatted help string.
+ *
+ * @example
+ * ```ts
+ * const text = formatHelp(deploy.schema, { binName: 'mycli' });
+ * ```
+ */
+function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
+	return `${formatHelpSections(schema, options).join('\n\n')}\n`;
+}
 
+// --- Section renderers
+
+/**
+ * Render the `Usage:` line for a command.
+ *
+ * @param schema - The {@link CommandSchema} to summarize.
+ * @param opts - Resolved help options (bin name, default-help flag).
+ * @returns Single-line usage string, e.g. `Usage: mycli deploy [flags] <env>`.
+ */
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const parts: string[] = ['Usage:'];
-	const cmdName = opts.binName !== undefined ? `${opts.binName} ${schema.name}` : schema.name;
+	const cmdName =
+		opts.binName === undefined
+			? schema.name
+			: opts.isDefaultHelp && opts.binName === schema.name
+				? schema.name
+				: `${opts.binName} ${schema.name}`;
 	parts.push(cmdName);
 
 	// Subcommand placeholder — groups show <command> before flags/args
@@ -327,6 +420,13 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 	return parts.join(' ');
 }
 
+/**
+ * Render the `Arguments:` help section.
+ *
+ * @param args - Positional arg entries from the {@link CommandSchema}.
+ * @param opts - Resolved help options for line-width wrapping.
+ * @returns Multi-line arguments section string.
+ */
 function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpOptions): string {
 	const lines: string[] = ['Arguments:'];
 	const GAP = 2;
@@ -355,6 +455,13 @@ function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpO
 	return lines.join('\n');
 }
 
+/**
+ * Render the `Flags:` help section.
+ *
+ * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @param opts - Resolved help options for line-width wrapping.
+ * @returns Multi-line flags section string.
+ */
 function formatFlagsSection(
 	flags: Readonly<Record<string, FlagSchema>>,
 	opts: ResolvedHelpOptions,
@@ -387,6 +494,13 @@ function formatFlagsSection(
 	return lines.join('\n');
 }
 
+/**
+ * Render the `Commands:` help section.
+ *
+ * @param commands - Visible subcommand schemas (hidden commands pre-filtered).
+ * @param opts - Resolved help options for line-width wrapping.
+ * @returns Multi-line commands section string.
+ */
 function formatCommandsSection(
 	commands: readonly CommandSchema[],
 	opts: ResolvedHelpOptions,
@@ -418,6 +532,12 @@ function formatCommandsSection(
 	return lines.join('\n');
 }
 
+/**
+ * Render the `Examples:` help section.
+ *
+ * @param examples - Array of {@link CommandExample} entries.
+ * @returns Multi-line examples section string.
+ */
 function formatExamplesSection(examples: readonly CommandExample[]): string {
 	const lines: string[] = ['Examples:'];
 
@@ -433,9 +553,7 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 	return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { formatHelp };
 export type { HelpOptions };
+export { formatHelp, formatHelpSections };

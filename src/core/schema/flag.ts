@@ -11,19 +11,26 @@
 
 import type { PromptConfig } from './prompt.ts';
 
-// ---------------------------------------------------------------------------
-// Type-level configuration (phantom state tracked through the chain)
-// ---------------------------------------------------------------------------
+// --- Type-level configuration (phantom state tracked through the chain)
 
 /**
  * Presence describes whether a flag value is guaranteed to exist when the
  * action handler runs:
  *
- * - `'optional'`  — may be `undefined` if not supplied
+ * - `'optional'`  — not required; unresolved value follows the kind-specific
+ *   optional fallback (`undefined` for most flags, `[]` for arrays)
  * - `'required'`  — must be supplied; error if missing
  * - `'defaulted'` — always present (falls back to default value)
  */
 type FlagPresence = 'optional' | 'required' | 'defaulted';
+
+/**
+ * Fallback behavior when an optional flag resolves no value from any source.
+ *
+ * Most optional flags resolve to `undefined`; array flags instead resolve to
+ * an empty array `[]`.
+ */
+type OptionalFallback = 'undefined' | 'empty-array';
 
 /**
  * Compile-time state carried through the builder chain.
@@ -36,27 +43,37 @@ interface FlagConfig {
 	readonly valueType: unknown;
 	/** Whether the flag is optional, required, or has a default. */
 	readonly presence: FlagPresence;
+	/** What an unresolved optional flag becomes at the action boundary. */
+	readonly optionalFallback: OptionalFallback;
 }
 
-// ---------------------------------------------------------------------------
-// Type-level helpers
-// ---------------------------------------------------------------------------
+// --- Type-level helpers
 
-/** Replace the presence in a config. */
+/**
+ * Advanced type helper used by `FlagBuilder` modifiers to replace presence.
+ * Most consumers rely on inference and never reference this directly.
+ */
 type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
 	readonly valueType: C['valueType'];
 	readonly presence: P;
+	readonly optionalFallback: C['optionalFallback'];
 };
 
 /**
  * Compute the final value type from config — this is what handlers receive.
  *
- * - `'optional'`   → `T | undefined`
+ * Advanced type helper: this powers {@link InferFlag} and action-handler
+ * inference. Most apps do not need to mention it explicitly.
+ *
+ * - `'optional'` + `'undefined'` fallback  → `T | undefined`
+ * - `'optional'` + `'empty-array'` fallback → `T`
  * - `'required'`   → `T`
  * - `'defaulted'`  → `T`
  */
 type ResolvedValue<C extends FlagConfig> = C['presence'] extends 'optional'
-	? C['valueType'] | undefined
+	? C['optionalFallback'] extends 'empty-array'
+		? C['valueType']
+		: C['valueType'] | undefined
 	: C['valueType'];
 
 /** Extract the resolved value type from a `FlagBuilder`. */
@@ -67,9 +84,7 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 	[K in keyof T]: InferFlag<T[K]>;
 };
 
-// ---------------------------------------------------------------------------
-// Runtime schema data
-// ---------------------------------------------------------------------------
+// --- Runtime schema data
 
 /** Discriminator for the kind of value a flag accepts. */
 type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
@@ -128,12 +143,35 @@ interface FlagSchema {
 	 * commands. A child command that defines a flag with the same name
 	 * shadows the propagated parent flag.
 	 *
-	 * Defaults to `false`.
+	 * @defaultValue `false`
 	 */
 	readonly propagate: boolean;
 }
 
-/** Create base schema data with sensible defaults. */
+/**
+ * Create a raw {@link FlagSchema} object with sensible defaults.
+ *
+ * Most consumers should prefer the higher-level {@link flag} factory,
+ * which returns an immutable {@link FlagBuilder} with type inference and
+ * safe modifier chaining. `createSchema()` is the low-level escape hatch
+ * for advanced schema composition, tests, or custom factories that need to
+ * work directly with the runtime descriptor.
+ *
+ * `overrides` are shallow-merged on top of the default shape, so callers are
+ * responsible for keeping the resulting schema internally consistent.
+ *
+ * @param kind - Discriminator for the value type this flag accepts.
+ * @param overrides - Partial {@link FlagSchema} fields merged onto defaults.
+ * @returns A fully populated {@link FlagSchema}.
+ *
+ * @example
+ * ```ts
+ * const schema = createSchema('enum', {
+ *   enumValues: ['us', 'eu', 'ap'],
+ *   description: 'Deployment region',
+ * });
+ * ```
+ */
 function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSchema {
 	return {
 		kind,
@@ -153,9 +191,7 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 	};
 }
 
-// ---------------------------------------------------------------------------
-// FlagBuilder — immutable builder with type-level tracking
-// ---------------------------------------------------------------------------
+// --- FlagBuilder — immutable builder with type-level tracking
 
 /**
  * Immutable flag schema builder.
@@ -183,6 +219,9 @@ class FlagBuilder<C extends FlagConfig> {
 	 */
 	declare readonly _config: C;
 
+	/**
+	 * @param schema - Runtime descriptor seeding this builder's state.
+	 */
 	constructor(schema: FlagSchema) {
 		this.schema = schema;
 	}
@@ -195,6 +234,17 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * The generic constraint `V extends C['valueType']` ensures the default
 	 * matches the flag's declared type.
+	 *
+	 * @param value - Fallback value used when no source provides one.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.number().default(8080).describe('Port to listen on')
+	 *
+	 * // $ mycli serve            → port = 8080
+	 * // $ mycli serve --port 443 → port = 443
+	 * ```
 	 */
 	default<V extends C['valueType']>(value: V): FlagBuilder<WithPresence<C, 'defaulted'>> {
 		return new FlagBuilder({
@@ -207,6 +257,18 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Mark the flag as required. If not resolved from any source the framework
 	 * will emit a `ValidationError` before the action handler runs.
+	 *
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().required().describe('Deploy target')
+	 *
+	 * // $ mycli deploy
+	 * // #   → Error: Missing required flag --target
+	 * // $ mycli deploy --target staging
+	 * // #   → target = 'staging'
+	 * ```
 	 */
 	required(): FlagBuilder<WithPresence<C, 'required'>> {
 		return new FlagBuilder({
@@ -220,6 +282,17 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Add a short or long alias (e.g. `'f'` for `--force`, `'verbose'` as an
 	 * alternative long name).
+	 *
+	 * @param name - Single-char short alias or alternative long name.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.boolean().alias('v').describe('Enable verbose output')
+	 *
+	 * // $ mycli build -v         → verbose = true
+	 * // $ mycli build --verbose  → verbose = true
+	 * ```
 	 */
 	alias(name: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -228,7 +301,20 @@ class FlagBuilder<C extends FlagConfig> {
 		});
 	}
 
-	/** Bind to an environment variable (resolved in v0.2+). */
+	/**
+	 * Bind to an environment variable (resolved in v0.2+).
+	 *
+	 * @param varName - Environment variable name (e.g. `'PORT'`).
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().env('API_KEY').describe('Service API key')
+	 *
+	 * // $ API_KEY=sk-123 mycli request   → apiKey = 'sk-123'
+	 * // $ mycli request --api-key sk-456 → apiKey = 'sk-456' (CLI wins)
+	 * ```
+	 */
 	env(varName: string): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
@@ -236,7 +322,22 @@ class FlagBuilder<C extends FlagConfig> {
 		});
 	}
 
-	/** Bind to a dotted config path (resolved in v0.2+). */
+	/**
+	 * Bind to a dotted config path (resolved in v0.2+).
+	 *
+	 * @param path - Dotted config key (e.g. `'deploy.region'`).
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().config('deploy.region').default('us-east-1')
+	 * // Config file: { "deploy": { "region": "eu-west-1" } }
+	 * // $ mycli deploy
+	 * // #   → region = 'eu-west-1' (from config)
+	 * // $ mycli deploy --region ap-south-1
+	 * // #   → CLI flag wins
+	 * ```
+	 */
 	config(path: string): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
@@ -244,7 +345,12 @@ class FlagBuilder<C extends FlagConfig> {
 		});
 	}
 
-	/** Human-readable description shown in help output. */
+	/**
+	 * Human-readable description shown in help output.
+	 *
+	 * @param description - Text displayed next to the flag in `--help`.
+	 * @returns The builder (for chaining).
+	 */
 	describe(description: string): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
@@ -259,6 +365,17 @@ class FlagBuilder<C extends FlagConfig> {
 	 * prompt engine uses this config to interactively ask the user.
 	 * In non-interactive contexts (CI, piped stdin) prompts are skipped
 	 * and resolution falls through to default or required validation.
+	 *
+	 * @param config - {@link PromptConfig} describing the interactive prompt.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().prompt({ kind: 'input', message: 'Enter value:' })
+	 *
+	 * // $ mycli init              → prompts "Enter value:" interactively
+	 * // $ mycli init --name foo   → skips prompt, uses CLI value
+	 * ```
 	 */
 	prompt(config: PromptConfig): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -276,6 +393,15 @@ class FlagBuilder<C extends FlagConfig> {
 	 * Does not change the flag's type-level config — it's metadata only.
 	 *
 	 * @param message - Optional migration reason/guidance.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().deprecated('Use --target instead')
+	 *
+	 * // $ mycli deploy --dest staging
+	 * // ⚠ --dest is deprecated: Use --target instead
+	 * ```
 	 */
 	deprecated(message?: string): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -292,6 +418,18 @@ class FlagBuilder<C extends FlagConfig> {
 	 * a flag with the same name shadows the propagated parent flag.
 	 *
 	 * Does not change the flag's type-level config — it's metadata only.
+	 *
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.boolean().alias('v').propagate().describe('Enable verbose output')
+	 *
+	 * // $ mycli --verbose deploy staging
+	 * // #   → verbose = true in deploy handler
+	 * // $ mycli deploy --verbose staging
+	 * // #   → same, inherited from parent
+	 * ```
 	 */
 	propagate(): FlagBuilder<C> {
 		return new FlagBuilder({
@@ -301,28 +439,46 @@ class FlagBuilder<C extends FlagConfig> {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Factory namespace
-// ---------------------------------------------------------------------------
+// --- Factory namespace
 
 /**
- * Flag factory functions.
- *
- * Each function creates a `FlagBuilder` seeded with the correct `FlagKind`
- * and initial type-level config.
+ * Factory that creates {@link FlagBuilder} instances seeded with the correct
+ * {@link FlagKind} and initial type-level config.
  */
 interface FlagFactory {
-	/** String-valued flag. */
-	string(): FlagBuilder<{ readonly valueType: string; readonly presence: 'optional' }>;
+	/**
+	 * String-valued flag.
+	 *
+	 * @returns A {@link FlagBuilder} for `string` values.
+	 */
+	string(): FlagBuilder<{
+		readonly valueType: string;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}>;
 
-	/** Number-valued flag. */
-	number(): FlagBuilder<{ readonly valueType: number; readonly presence: 'optional' }>;
+	/**
+	 * Number-valued flag.
+	 *
+	 * @returns A {@link FlagBuilder} for `number` values.
+	 */
+	number(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}>;
 
 	/**
 	 * Boolean flag. Implicitly defaults to `false` — the only flag kind where
 	 * the absence of a value is still meaningful (not `undefined`).
+	 *
+	 * @returns A {@link FlagBuilder} for `boolean` values (defaulted to `false`).
 	 */
-	boolean(): FlagBuilder<{ readonly valueType: boolean; readonly presence: 'defaulted' }>;
+	boolean(): FlagBuilder<{
+		readonly valueType: boolean;
+		readonly presence: 'defaulted';
+		readonly optionalFallback: 'undefined';
+	}>;
 
 	/**
 	 * Enum flag with literal type inference.
@@ -335,10 +491,17 @@ interface FlagFactory {
 	 * flag.enum(['us', 'eu', 'ap'])
 	 * // inferred type: 'us' | 'eu' | 'ap'
 	 * ```
+	 *
+	 * @param values - Non-empty tuple of allowed string literals.
+	 * @returns A {@link FlagBuilder} whose value type is the union of `values`.
 	 */
 	enum<const T extends readonly [string, ...string[]]>(
 		values: T,
-	): FlagBuilder<{ readonly valueType: T[number]; readonly presence: 'optional' }>;
+	): FlagBuilder<{
+		readonly valueType: T[number];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}>;
 
 	/**
 	 * Array flag — collects multiple values of the same element type.
@@ -348,10 +511,17 @@ interface FlagFactory {
 	 * flag.array(flag.string())
 	 * // inferred type: string[]
 	 * ```
+	 *
+	 * @param element - {@link FlagBuilder} describing the element type.
+	 * @returns A {@link FlagBuilder} for arrays of the element type.
 	 */
 	array<E extends FlagConfig>(
 		element: FlagBuilder<E>,
-	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }>;
+	): FlagBuilder<{
+		readonly valueType: E['valueType'][];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'empty-array';
+	}>;
 
 	/**
 	 * Custom-parsed flag. The parse function receives the raw value and must
@@ -378,24 +548,43 @@ interface FlagFactory {
 	 * flag.custom((raw) => new URL(String(raw)))
 	 * // inferred type: URL | undefined
 	 * ```
+	 *
+	 * @param parseFn - Converts the raw input into a value of type `T`.
+	 * @returns A {@link FlagBuilder} whose value type is inferred from `parseFn`.
 	 */
 	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
 		readonly valueType: T;
 		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
 	}>;
 }
 
-/** Flag schema factory. Use `flag.<kind>()` to create a builder. */
+/**
+ * Flag schema factory. Call `flag.<kind>()` to create an immutable
+ * {@link FlagBuilder} with full type inference and safe modifier chaining.
+ */
 const flag: FlagFactory = {
-	string(): FlagBuilder<{ readonly valueType: string; readonly presence: 'optional' }> {
+	string(): FlagBuilder<{
+		readonly valueType: string;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(createSchema('string'));
 	},
 
-	number(): FlagBuilder<{ readonly valueType: number; readonly presence: 'optional' }> {
+	number(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(createSchema('number'));
 	},
 
-	boolean(): FlagBuilder<{ readonly valueType: boolean; readonly presence: 'defaulted' }> {
+	boolean(): FlagBuilder<{
+		readonly valueType: boolean;
+		readonly presence: 'defaulted';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(
 			createSchema('boolean', {
 				presence: 'defaulted',
@@ -406,41 +595,35 @@ const flag: FlagFactory = {
 
 	enum<const T extends readonly [string, ...string[]]>(
 		values: T,
-	): FlagBuilder<{ readonly valueType: T[number]; readonly presence: 'optional' }> {
+	): FlagBuilder<{
+		readonly valueType: T[number];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+	}> {
 		return new FlagBuilder(createSchema('enum', { enumValues: values }));
 	},
 
 	array<E extends FlagConfig>(
 		element: FlagBuilder<E>,
-	): FlagBuilder<{ readonly valueType: E['valueType'][]; readonly presence: 'optional' }> {
+	): FlagBuilder<{
+		readonly valueType: E['valueType'][];
+		readonly presence: 'optional';
+		readonly optionalFallback: 'empty-array';
+	}> {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
 
 	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
 		readonly valueType: T;
 		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
 	}> {
 		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
 	},
 };
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { flag, FlagBuilder, createSchema };
-export type {
-	FlagConfig,
-	FlagFactory,
-	FlagKind,
-	FlagParseFn,
-	FlagPresence,
-	FlagSchema,
-	InferFlag,
-	InferFlags,
-	ResolvedValue,
-	WithPresence,
-};
 // Re-export prompt types for consumers
 export type {
 	ConfirmPromptConfig,
@@ -453,3 +636,16 @@ export type {
 	SelectChoice,
 	SelectPromptConfig,
 } from './prompt.ts';
+export type {
+	FlagConfig,
+	FlagFactory,
+	FlagKind,
+	FlagParseFn,
+	FlagPresence,
+	FlagSchema,
+	InferFlag,
+	InferFlags,
+	ResolvedValue,
+	WithPresence,
+};
+export { createSchema, FlagBuilder, flag };

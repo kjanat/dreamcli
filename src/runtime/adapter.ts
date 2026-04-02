@@ -9,12 +9,10 @@
  * @module dreamcli/runtime/adapter
  */
 
-import type { WriteFn } from '../core/output/index.ts';
-import type { ReadFn } from '../core/prompt/index.ts';
+import type { WriteFn } from '#internals/core/output/index.ts';
+import type { ReadFn } from '#internals/core/prompt/index.ts';
 
-// ---------------------------------------------------------------------------
-// Runtime adapter interface — the single platform abstraction boundary
-// ---------------------------------------------------------------------------
+// --- Runtime adapter interface — the single platform abstraction boundary
 
 /**
  * Runtime adapter interface.
@@ -65,6 +63,20 @@ interface RuntimeAdapter {
 	 */
 	readonly stdin: ReadFn;
 
+	/**
+	 * Read all of stdin as a single string (for piped data).
+	 *
+	 * Returns the full stdin contents when data is piped (`stdinIsTTY` is
+	 * false), or `null` when stdin is a TTY (no piped data available).
+	 *
+	 * Used by the resolve chain for args with `.stdin()` configured.
+	 * Unlike {@link stdin} (which reads one line for prompts), this
+	 * consumes the entire stream to EOF.
+	 *
+	 * @returns Full stdin contents as a string, or `null` if stdin is a TTY.
+	 */
+	readonly readStdin: () => Promise<string | null>;
+
 	/** Whether stdout is connected to a TTY. */
 	readonly isTTY: boolean;
 
@@ -110,9 +122,7 @@ interface RuntimeAdapter {
 	readonly configDir: string;
 }
 
-// ---------------------------------------------------------------------------
-// Test adapter — injectable stub for testing
-// ---------------------------------------------------------------------------
+// --- Test adapter — injectable stub for testing
 
 /**
  * Options for creating a test adapter.
@@ -143,6 +153,22 @@ interface TestAdapterOptions {
 	 * Use a custom `ReadFn` to simulate user input in tests.
 	 */
 	readonly stdin?: ReadFn;
+
+	/**
+	 * Piped stdin data for testing args with `.stdin()` configured.
+	 *
+	 * When provided and `stdinIsTTY` is `false`, `readStdin()` returns this
+	 * string once, then `null` on subsequent reads. When absent, or when
+	 * `stdinIsTTY` is `true`, `readStdin()` returns `null`.
+	 *
+	 * @example
+	 * ```ts
+	 * createTestAdapter({
+	 *   stdinData: '{"key": "value"}',
+	 * })
+	 * ```
+	 */
+	readonly stdinData?: string;
 
 	/** TTY flag for stdout (defaults to `false`). */
 	readonly isTTY?: boolean;
@@ -196,6 +222,7 @@ interface TestAdapterOptions {
  * ```
  */
 class ExitError extends Error {
+	/** @override */
 	override readonly name = 'ExitError';
 
 	/** The exit code passed to `exit()`. */
@@ -210,11 +237,18 @@ class ExitError extends Error {
 /** Noop writer — silently discards output. */
 const noopWrite: WriteFn = () => {};
 
+/** Noop reader — returns `null` (EOF) immediately. */
+const eofRead: ReadFn = () => Promise.resolve(null);
+
+/** Noop file reader — returns `null` (not found) for all paths. */
+const noopReadFile: (path: string) => Promise<string | null> = () => Promise.resolve(null);
+
 /**
- * Create a test adapter with injectable state.
+ * Create a test runtime adapter with injectable process state.
  *
- * Provides sensible defaults for testing: empty env, noop I/O, non-TTY,
- * and an `exit` that throws `ExitError` instead of killing the process.
+ * Use this in `dreamcli/testkit` tests when you need to simulate argv,
+ * environment variables, TTY state, stdin, or config-file reads without
+ * touching the host process.
  *
  * @param options - Optional overrides for any adapter field.
  * @returns A `RuntimeAdapter` suitable for test scenarios.
@@ -229,13 +263,9 @@ const noopWrite: WriteFn = () => {};
  * const result = await cli('mycli').run({ adapter });
  * ```
  */
-/** Noop reader — returns `null` (EOF) immediately. */
-const eofRead: ReadFn = () => Promise.resolve(null);
-
-/** Noop file reader — returns `null` (not found) for all paths. */
-const noopReadFile: (path: string) => Promise<string | null> = () => Promise.resolve(null);
-
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
+	const stdinIsTTY = options?.stdinIsTTY ?? false;
+	let stdinData = !stdinIsTTY ? options?.stdinData : undefined;
 	return {
 		argv: options?.argv ?? ['node', 'test'],
 		env: options?.env ?? {},
@@ -243,8 +273,16 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
 		stdin: options?.stdin ?? eofRead,
+		readStdin: () => {
+			if (stdinData === undefined) {
+				return Promise.resolve(null);
+			}
+			const result = stdinData;
+			stdinData = undefined;
+			return Promise.resolve(result);
+		},
 		isTTY: options?.isTTY ?? false,
-		stdinIsTTY: options?.stdinIsTTY ?? false,
+		stdinIsTTY,
 		exit:
 			options?.exit ??
 			((code: number): never => {
@@ -256,9 +294,7 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { createTestAdapter, ExitError };
 export type { RuntimeAdapter, TestAdapterOptions };
+export { createTestAdapter, ExitError };

@@ -8,9 +8,7 @@ import {
 	ValidationError,
 } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// CLIError
-// ---------------------------------------------------------------------------
+// --- CLIError
 
 describe('CLIError', () => {
 	it('stores message, code, and default exitCode', () => {
@@ -81,9 +79,7 @@ describe('CLIError', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// ParseError
-// ---------------------------------------------------------------------------
+// --- ParseError
 
 describe('ParseError', () => {
 	it('defaults exitCode to 2', () => {
@@ -119,9 +115,7 @@ describe('ParseError', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// ValidationError
-// ---------------------------------------------------------------------------
+// --- ValidationError
 
 describe('ValidationError', () => {
 	it('defaults exitCode to 2', () => {
@@ -161,9 +155,7 @@ describe('ValidationError', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type guards
-// ---------------------------------------------------------------------------
+// --- Type guards
 
 describe('type guards', () => {
 	const cliErr = new CLIError('a', { code: 'UNKNOWN_FLAG' });
@@ -192,9 +184,7 @@ describe('type guards', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('edge cases', () => {
 	it('CLIError without cause does not set cause property', () => {

@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isValidationError, ValidationError } from '../errors/index.ts';
-import type { ParseResult } from '../parse/index.ts';
-import type { CommandSchema } from '../schema/command.ts';
-import { createSchema } from '../schema/flag.ts';
+import { isValidationError, ValidationError } from '#internals/core/errors/index.ts';
+import type { ParseResult } from '#internals/core/parse/index.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -35,9 +33,7 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
 	};
 }
 
-// ========================================================================
-// Config resolution — basic string flags
-// ========================================================================
+// === Config resolution — basic string flags
 
 describe('resolve — config string flags', () => {
 	it('resolves string flag from config when CLI and env absent', async () => {
@@ -81,6 +77,22 @@ describe('resolve — config string flags', () => {
 		expect(result.flags).toEqual({ host: 'db.example.com' });
 	});
 
+	it('ignores inherited nested config properties', async () => {
+		const schema = makeSchema({
+			flags: {
+				host: createSchema('string', { configPath: 'server.database.host' }),
+			},
+		});
+		const parsed = makeParsed();
+		const database = Object.create({ host: 'db.inherited.example.com' });
+		database['port'] = 5432;
+		const server = { database };
+		const options: ResolveOptions = { config: { server } };
+
+		const result = await resolve(schema, parsed, options);
+		expect(result.flags).toEqual({});
+	});
+
 	it('coerces number to string from config', async () => {
 		const schema = makeSchema({
 			flags: {
@@ -120,9 +132,7 @@ describe('resolve — config string flags', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — number flags
-// ========================================================================
+// === Config resolution — number flags
 
 describe('resolve — config number flags', () => {
 	it('resolves number directly from config', async () => {
@@ -204,9 +214,7 @@ describe('resolve — config number flags', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — boolean flags
-// ========================================================================
+// === Config resolution — boolean flags
 
 describe('resolve — config boolean flags', () => {
 	it('resolves boolean true directly from config', async () => {
@@ -302,9 +310,7 @@ describe('resolve — config boolean flags', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — enum flags
-// ========================================================================
+// === Config resolution — enum flags
 
 describe('resolve — config enum flags', () => {
 	it('resolves valid enum value from config', async () => {
@@ -369,9 +375,7 @@ describe('resolve — config enum flags', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — array flags
-// ========================================================================
+// === Config resolution — array flags
 
 describe('resolve — config array flags', () => {
 	it('resolves array directly from config', async () => {
@@ -478,9 +482,7 @@ describe('resolve — config array flags', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — custom flags
-// ========================================================================
+// === Config resolution — custom flags
 
 describe('resolve — config custom flags', () => {
 	it('resolves custom flag from config via parseFn (string value)', async () => {
@@ -542,9 +544,7 @@ describe('resolve — config custom flags', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — config path missing / absent
-// ========================================================================
+// === Config resolution — config path missing / absent
 
 describe('resolve — config path navigation', () => {
 	it('falls through when config path does not exist', async () => {
@@ -629,9 +629,7 @@ describe('resolve — config path navigation', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — required flag satisfaction
-// ========================================================================
+// === Config resolution — required flag satisfaction
 
 describe('resolve — config satisfies required flags', () => {
 	it('config value satisfies required flag', async () => {
@@ -660,9 +658,7 @@ describe('resolve — config satisfies required flags', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — precedence chain: CLI > env > config > default
-// ========================================================================
+// === Config resolution — precedence chain: CLI > env > config > default
 
 describe('resolve — full precedence chain with config', () => {
 	it('CLI > env > config > default: CLI wins', async () => {
@@ -747,9 +743,7 @@ describe('resolve — full precedence chain with config', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — backward compatibility
-// ========================================================================
+// === Config resolution — backward compatibility
 
 describe('resolve — no config options (backward compatibility)', () => {
 	it('works without config in options', async () => {
@@ -791,9 +785,7 @@ describe('resolve — no config options (backward compatibility)', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — error aggregation
-// ========================================================================
+// === Config resolution — error aggregation
 
 describe('resolve — config error aggregation', () => {
 	it('aggregates config coercion error with missing required error', async () => {
@@ -849,9 +841,7 @@ describe('resolve — config error aggregation', () => {
 	});
 });
 
-// ========================================================================
-// Config resolution — mixed scenarios
-// ========================================================================
+// === Config resolution — mixed scenarios
 
 describe('resolve — mixed config scenarios', () => {
 	it('resolves complex multi-flag command with mixed sources including config', async () => {

@@ -12,13 +12,13 @@
  * @module dreamcli/runtime/node
  */
 
-import type { WriteFn } from '../core/output/index.ts';
-import type { ReadFn } from '../core/prompt/index.ts';
+import type { WriteFn } from '#internals/core/output/index.ts';
+import type { ReadFn } from '#internals/core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
+import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
+import { assertRuntimeVersionSupported } from './support.ts';
 
-// ---------------------------------------------------------------------------
-// Node.js error shape — for ENOENT detection without @types/node
-// ---------------------------------------------------------------------------
+// --- Node.js error shape — for ENOENT detection without @types/node
 
 /**
  * Minimal shape for Node.js system errors (e.g. `ENOENT`, `EACCES`).
@@ -32,9 +32,7 @@ interface NodeSystemError {
 	readonly code: string;
 }
 
-// ---------------------------------------------------------------------------
-// Minimal process shape — avoids @types/node dependency
-// ---------------------------------------------------------------------------
+// --- Minimal process shape — avoids @types/node dependency
 
 /**
  * Minimal subset of the Node.js `process` object needed by the adapter.
@@ -46,11 +44,17 @@ interface NodeSystemError {
 interface NodeProcess {
 	readonly argv: readonly string[];
 	readonly env: Readonly<Record<string, string | undefined>>;
+	readonly versions?: {
+		readonly node?: string;
+		readonly bun?: string;
+	};
 	cwd(): string;
 	/** Platform identifier (e.g. `'linux'`, `'darwin'`, `'win32'`). */
 	readonly platform: string;
 	readonly stdin: {
 		readonly isTTY?: boolean;
+		/** Async iterable for reading all of stdin (used by readStdin). */
+		[Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 	};
 	readonly stdout: {
 		readonly isTTY?: boolean;
@@ -62,9 +66,7 @@ interface NodeProcess {
 	exit(code: number): never;
 }
 
-// ---------------------------------------------------------------------------
-// Process access — isolated for testability
-// ---------------------------------------------------------------------------
+// --- Process access — isolated for testability
 
 /**
  * Access the global `process` object without importing `@types/node`.
@@ -79,9 +81,7 @@ function getNodeProcess(): NodeProcess {
 	return (globalThis as unknown as { process: NodeProcess }).process;
 }
 
-// ---------------------------------------------------------------------------
-// Filesystem & path helpers — config discovery primitives
-// ---------------------------------------------------------------------------
+// --- Filesystem & path helpers — config discovery primitives
 
 /**
  * Detect whether an unknown thrown value is a Node.js system error
@@ -115,14 +115,7 @@ function resolveHomedir(
 	env: Readonly<Record<string, string | undefined>>,
 	platform: string,
 ): string {
-	if (platform === 'win32') {
-		if (env.USERPROFILE) return env.USERPROFILE;
-		if (env.HOMEDRIVE && env.HOMEPATH) {
-			return env.HOMEDRIVE + env.HOMEPATH;
-		}
-		return env.HOME || 'C:\\';
-	}
-	return env.HOME || '/';
+	return resolveHomeDirectory(env, platform === 'win32');
 }
 
 /**
@@ -138,19 +131,19 @@ function resolveConfigDir(
 	platform: string,
 	homedir: string,
 ): string {
-	if (platform === 'win32') {
-		if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
-		// Strip trailing separator(s) to avoid doubled backslash when
-		// homedir is a drive root like 'C:\'.
-		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
-		return `${normalizedHome}\\AppData\\Roaming`;
-	}
-	return env.XDG_CONFIG_HOME || `${homedir}/.config`;
+	return resolveConfigDirectory(env, platform === 'win32', homedir);
 }
 
-// ---------------------------------------------------------------------------
-// Node adapter factory
-// ---------------------------------------------------------------------------
+function assertProcessRuntimeSupported(proc: NodeProcess): void {
+	if (proc.versions?.bun !== undefined) {
+		assertRuntimeVersionSupported('bun', proc.versions.bun);
+		return;
+	}
+
+	assertRuntimeVersionSupported('node', proc.versions?.node);
+}
+
+// --- Node adapter factory
 
 /**
  * Create a runtime adapter backed by Node.js `process` globals.
@@ -175,6 +168,7 @@ function resolveConfigDir(
  */
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const p = proc ?? getNodeProcess();
+	assertProcessRuntimeSupported(p);
 
 	const stdoutWrite: WriteFn = (data) => {
 		p.stdout.write(data);
@@ -205,6 +199,8 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const homedir = resolveHomedir(p.env, p.platform);
 	const configDir = resolveConfigDir(p.env, p.platform, homedir);
 
+	const stdinIsTTY = p.stdin.isTTY === true;
+
 	return {
 		argv: p.argv,
 		env: p.env,
@@ -212,8 +208,9 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
 		stdin: stdinRead,
+		readStdin: () => readNodeStdinAll(p, stdinIsTTY),
 		isTTY: p.stdout.isTTY === true,
-		stdinIsTTY: p.stdin.isTTY === true,
+		stdinIsTTY,
 		exit: (code) => p.exit(code),
 		readFile,
 		homedir,
@@ -222,47 +219,60 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 }
 
 /**
- * Read a single line from Node's stdin using the readline module.
+ * Read all of stdin as a single string (for piped data).
  *
- * Creates a one-shot readline interface for each call, reads one line,
- * then closes it. Returns `null` on EOF.
+ * Returns `null` immediately if stdin is a TTY — the user is typing
+ * interactively, so there's no piped data to consume. When stdin is
+ * piped, collects all chunks via the async iterator until EOF and
+ * returns the decoded string, which may be empty for an empty pipe.
  *
- * This is intentionally simple (no raw mode) — the terminal prompter
- * handles retries and validation. The readline interface is created
- * per-call to avoid holding stdin open between prompts.
+ * @internal
+ */
+async function readNodeStdinAll(proc: NodeProcess, stdinIsTTY: boolean): Promise<string | null> {
+	if (stdinIsTTY) return null;
+
+	const chunks: string[] = [];
+	const decoder = new TextDecoder();
+
+	for await (const chunk of proc.stdin) {
+		chunks.push(decoder.decode(chunk, { stream: true }));
+	}
+	// Flush any remaining bytes held by the streaming decoder
+	chunks.push(decoder.decode());
+
+	return chunks.join('');
+}
+
+/**
+ * Read a single line from Node's stdin via its async iterator.
+ *
+ * Iterates stdin chunks manually (without `for-await` to avoid calling
+ * `iterator.return()` which would close the stream). Returns `null`
+ * on EOF.
  *
  * @internal
  */
 async function createNodeReadLine(proc: NodeProcess): Promise<string | null> {
-	// Dynamic import avoids pulling readline into environments that don't need it.
-	// Node and Bun both provide 'readline' — Deno has its own adapter.
-	const rlMod = await import('node:readline');
+	const iter = proc.stdin[Symbol.asyncIterator]();
+	const decoder = new TextDecoder();
+	let buffer = '';
+	let result = await iter.next();
 
-	return new Promise<string | null>((resolve) => {
-		const rl = rlMod.createInterface({
-			input: proc.stdin,
-			terminal: false,
-		});
+	while (!result.done) {
+		buffer += decoder.decode(result.value, { stream: true });
+		const nlIndex = buffer.indexOf('\n');
+		if (nlIndex !== -1) {
+			return buffer.slice(0, nlIndex).replace(/\r$/, '');
+		}
+		result = await iter.next();
+	}
 
-		let answered = false;
-
-		rl.once('line', (line: string) => {
-			answered = true;
-			rl.close();
-			resolve(line);
-		});
-
-		rl.once('close', () => {
-			if (!answered) {
-				resolve(null); // EOF
-			}
-		});
-	});
+	// Flush remaining bytes after stream end
+	buffer += decoder.decode();
+	return buffer.length > 0 ? buffer : null;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { createNodeAdapter };
 export type { NodeProcess };
+export { createNodeAdapter };

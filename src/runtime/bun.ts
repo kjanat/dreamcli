@@ -15,10 +15,14 @@
 import type { RuntimeAdapter } from './adapter.ts';
 import type { NodeProcess } from './node.ts';
 import { createNodeAdapter } from './node.ts';
+import { assertRuntimeVersionSupported } from './support.ts';
 
-// ---------------------------------------------------------------------------
-// Bun adapter factory
-// ---------------------------------------------------------------------------
+function resolveBunVersion(proc?: NodeProcess): string | undefined {
+	if (proc?.versions?.bun !== undefined) return proc.versions.bun;
+	return (globalThis as unknown as { Bun?: { version?: string } }).Bun?.version;
+}
+
+// --- Bun adapter factory
 
 /**
  * Create a runtime adapter backed by Bun's Node-compatible `process` global.
@@ -42,11 +46,10 @@ import { createNodeAdapter } from './node.ts';
  * ```
  */
 function createBunAdapter(proc?: NodeProcess): RuntimeAdapter {
+	assertRuntimeVersionSupported('bun', resolveBunVersion(proc));
 	return createNodeAdapter(proc);
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
 export { createBunAdapter };

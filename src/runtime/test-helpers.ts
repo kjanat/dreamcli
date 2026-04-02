@@ -8,21 +8,22 @@
 import { vi } from 'vitest';
 
 /**
- * Install a minimal mock Deno namespace on globalThis for the duration of `fn`.
+ * Create a minimal mock Deno namespace for adapter tests.
  *
- * `createDenoAdapter()` reads from `globalThis.Deno` when no explicit
- * namespace is provided. In vitest (Node), there is no real Deno global,
- * so Deno-path tests in `createAdapter` must install a mock temporarily.
+ * Tests that exercise the Deno adapter path through `createAdapter()`
+ * can pass this namespace via the injected `globals` parameter instead
+ * of mutating `globalThis.Deno`.
+ *
+ * @returns A mock Deno namespace with stubbed I/O, env, and exit.
  */
-export function withMockDenoGlobal<T>(fn: () => T): T {
-	const g = globalThis as Record<string, unknown>;
-	const prev = g['Deno'];
-	g['Deno'] = {
+export function createMockDenoNamespace() {
+	return {
+		build: { os: 'linux' as const },
 		args: [],
 		env: { get: () => undefined, toObject: () => ({}) },
 		cwd: () => '/deno/mock',
-		stdout: { write: vi.fn(() => Promise.resolve(0)), isTerminal: () => false },
-		stderr: { write: vi.fn(() => Promise.resolve(0)) },
+		stdout: { writeSync: vi.fn(() => 0), isTerminal: () => false },
+		stderr: { writeSync: vi.fn(() => 0) },
 		stdin: {
 			isTerminal: () => false,
 			readable: {
@@ -34,15 +35,6 @@ export function withMockDenoGlobal<T>(fn: () => T): T {
 		},
 		exit: vi.fn() as unknown as (code: number) => never,
 		readTextFile: () => Promise.reject(Object.assign(new Error('not found'), { name: 'NotFound' })),
-		version: { deno: '2.0.0' },
+		version: { deno: '2.6.0' },
 	};
-	try {
-		return fn();
-	} finally {
-		if (prev === undefined) {
-			delete g['Deno'];
-		} else {
-			g['Deno'] = prev;
-		}
-	}
 }

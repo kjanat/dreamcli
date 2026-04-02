@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { CLIError } from '../errors/index.ts';
+import { parse as parseTOML } from '@iarna/toml';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { ConfigAdapter, ConfigDiscoveryResult, FormatLoader } from './index.ts';
 import { buildConfigSearchPaths, configFormat, discoverConfig } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Create a minimal adapter stub with a virtual filesystem. */
 function stubAdapter(
@@ -35,9 +35,7 @@ const tomlLoader: FormatLoader = {
 	},
 };
 
-// ===================================================================
-// buildConfigSearchPaths
-// ===================================================================
+// === buildConfigSearchPaths
 
 describe('buildConfigSearchPaths', () => {
 	it('returns 3 JSON paths in priority order', () => {
@@ -84,9 +82,7 @@ describe('buildConfigSearchPaths', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — probing order
-// ===================================================================
+// === discoverConfig — probing order
 
 describe('discoverConfig — path probing', () => {
 	it('returns { found: false } when no config files exist', async () => {
@@ -147,9 +143,7 @@ describe('discoverConfig — path probing', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — explicit configPath
-// ===================================================================
+// === discoverConfig — explicit configPath
 
 describe('discoverConfig — explicit configPath', () => {
 	it('loads the exact path when it exists', async () => {
@@ -192,9 +186,7 @@ describe('discoverConfig — explicit configPath', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — custom search paths
-// ===================================================================
+// === discoverConfig — custom search paths
 
 describe('discoverConfig — custom searchPaths', () => {
 	it('uses custom search paths instead of defaults', async () => {
@@ -219,9 +211,7 @@ describe('discoverConfig — custom searchPaths', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — parse errors
-// ===================================================================
+// === discoverConfig — parse errors
 
 describe('discoverConfig — parse errors', () => {
 	it('throws CONFIG_PARSE_ERROR for invalid JSON', async () => {
@@ -289,9 +279,7 @@ describe('discoverConfig — parse errors', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — custom loaders
-// ===================================================================
+// === discoverConfig — custom loaders
 
 describe('discoverConfig — custom loaders', () => {
 	it('uses custom loader for matching extension', async () => {
@@ -388,9 +376,7 @@ describe('discoverConfig — custom loaders', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — adapter error propagation
-// ===================================================================
+// === discoverConfig — adapter error propagation
 
 describe('discoverConfig — adapter error propagation', () => {
 	it('propagates non-ENOENT readFile errors', async () => {
@@ -404,9 +390,7 @@ describe('discoverConfig — adapter error propagation', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — result type narrowing
-// ===================================================================
+// === discoverConfig — result type narrowing
 
 describe('discoverConfig — type narrowing', () => {
 	it('found discriminant narrows to ConfigFound', async () => {
@@ -439,9 +423,7 @@ describe('discoverConfig — type narrowing', () => {
 	});
 });
 
-// ===================================================================
-// discoverConfig — empty / nested config content
-// ===================================================================
+// === discoverConfig — empty / nested config content
 
 describe('discoverConfig — content edge cases', () => {
 	it('accepts empty JSON object', async () => {
@@ -470,9 +452,7 @@ describe('discoverConfig — content edge cases', () => {
 	});
 });
 
-// ===================================================================
-// configFormat — convenience factory
-// ===================================================================
+// === configFormat — convenience factory
 
 describe('configFormat — convenience factory', () => {
 	it('creates a FormatLoader with given extensions and parse', () => {
@@ -480,6 +460,19 @@ describe('configFormat — convenience factory', () => {
 		const loader = configFormat(['yaml', 'yml'], parse);
 		expect(loader.extensions).toEqual(['yaml', 'yml']);
 		expect(loader.parse).toBe(parse);
+	});
+
+	it('accepts Bun parser signatures at the type level', () => {
+		type ConfigParser = Parameters<typeof configFormat>[1];
+		type AcceptsBunYaml = typeof Bun.YAML.parse extends ConfigParser ? true : false;
+		type AcceptsBunToml = typeof Bun.TOML.parse extends ConfigParser ? true : false;
+		type AcceptsYamlPackage = typeof parseYaml extends ConfigParser ? true : false;
+		type AcceptsIarnaToml = typeof parseTOML extends ConfigParser ? true : false;
+
+		expectTypeOf<AcceptsBunYaml>().toEqualTypeOf<true>();
+		expectTypeOf<AcceptsBunToml>().toEqualTypeOf<true>();
+		expectTypeOf<AcceptsYamlPackage>().toEqualTypeOf<true>();
+		expectTypeOf<AcceptsIarnaToml>().toEqualTypeOf<true>();
 	});
 
 	it('created loader works with discoverConfig', async () => {
@@ -502,6 +495,146 @@ describe('configFormat — convenience factory', () => {
 		if (result.found) {
 			expect(result.format).toBe('ini');
 			expect(result.data).toEqual({ region: 'eu', verbose: 'true' });
+		}
+	});
+
+	it('works with Bun.YAML.parse for object-shaped config files', async () => {
+		const bunRuntime = globalThis.Bun;
+		if (bunRuntime === undefined) return;
+
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': 'deploy:\n  region: eu\nverbose: true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['yaml', 'yml'], bunRuntime.YAML.parse)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('yaml');
+			expect(result.data).toEqual({ deploy: { region: 'eu' }, verbose: true });
+		}
+	});
+
+	it('rejects non-object values from Bun.YAML.parse', async () => {
+		const bunRuntime = globalThis.Bun;
+		if (bunRuntime === undefined) return;
+
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': '---\nname: one\n---\nname: two\n',
+		});
+
+		try {
+			await discoverConfig('myapp', adapter, {
+				loaders: [configFormat(['yaml', 'yml'], bunRuntime.YAML.parse)],
+			});
+			expect.unreachable('should have thrown');
+		} catch (e: unknown) {
+			expect(e).toBeInstanceOf(CLIError);
+			const err = e as CLIError;
+			expect(err.code).toBe('CONFIG_PARSE_ERROR');
+			expect(err.details?.['format']).toBe('yaml');
+			expect(err.details?.['message']).toBe('Config loader must return a plain object');
+		}
+	});
+
+	it('works with Bun.TOML.parse for object-shaped config files', async () => {
+		const bunRuntime = globalThis.Bun;
+		if (bunRuntime === undefined) return;
+
+		const adapter = stubAdapter({
+			'/project/.myapp.toml': 'region = "eu"\nverbose = true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['toml'], bunRuntime.TOML.parse)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('toml');
+			expect(result.data).toEqual({ region: 'eu', verbose: true });
+		}
+	});
+
+	it('works with parseYaml from the yaml package for object-shaped config files', async () => {
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': 'deploy:\n  region: eu\nverbose: true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['yaml', 'yml'], parseYaml)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('yaml');
+			expect(result.data).toEqual({ deploy: { region: 'eu' }, verbose: true });
+		}
+	});
+
+	it('rejects non-object values from parseYaml', async () => {
+		const adapter = stubAdapter({
+			'/project/.myapp.yaml': '- one\n- two\n',
+		});
+
+		try {
+			await discoverConfig('myapp', adapter, {
+				loaders: [configFormat(['yaml', 'yml'], parseYaml)],
+			});
+			expect.unreachable('should have thrown');
+		} catch (e: unknown) {
+			expect(e).toBeInstanceOf(CLIError);
+			const err = e as CLIError;
+			expect(err.code).toBe('CONFIG_PARSE_ERROR');
+			expect(err.details?.['format']).toBe('yaml');
+			expect(err.details?.['message']).toBe('Config loader must return a plain object');
+		}
+	});
+
+	it('accepts Object.create(null) results from custom loaders', async () => {
+		const adapter = stubAdapter({ '/project/.myapp.toml': 'ignored' });
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [
+				configFormat(['toml'], () => {
+					const data = Object.create(null) as Record<string, unknown>;
+					data['region'] = 'eu';
+					return data;
+				}),
+			],
+		});
+
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.data).toEqual({ region: 'eu' });
+		}
+	});
+
+	it('rejects class instances from custom loaders', async () => {
+		class ConfigShape {
+			readonly region = 'eu';
+		}
+		const adapter = stubAdapter({ '/project/.myapp.toml': 'ignored' });
+
+		try {
+			await discoverConfig('myapp', adapter, {
+				loaders: [configFormat(['toml'], () => new ConfigShape())],
+			});
+			expect.unreachable('should have thrown');
+		} catch (e: unknown) {
+			expect(e).toBeInstanceOf(CLIError);
+			const err = e as CLIError;
+			expect(err.code).toBe('CONFIG_PARSE_ERROR');
+			expect(err.details?.['message']).toBe('Config loader must return a plain object');
+		}
+	});
+
+	it('works with parseTOML from @iarna/toml for object-shaped config files', async () => {
+		const adapter = stubAdapter({
+			'/project/.myapp.toml': 'region = "eu"\nverbose = true\n',
+		});
+		const result = await discoverConfig('myapp', adapter, {
+			loaders: [configFormat(['toml'], parseTOML)],
+		});
+		expect(result.found).toBe(true);
+		if (result.found) {
+			expect(result.format).toBe('toml');
+			expect(result.data).toEqual({ region: 'eu', verbose: true });
 		}
 	});
 

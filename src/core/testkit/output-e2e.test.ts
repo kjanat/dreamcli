@@ -15,17 +15,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { cli } from '../cli/index.ts';
-import { CLIError } from '../errors/index.ts';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
-import { middleware } from '../schema/middleware.ts';
+import { cli } from '#internals/core/cli/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { middleware } from '#internals/core/schema/middleware.ts';
 import { runCommand } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Reusable test commands
-// ---------------------------------------------------------------------------
+// --- Reusable test commands
 
 /** Command that exercises all output methods. */
 function fullOutputCommand() {
@@ -141,9 +139,7 @@ function middlewareOutputCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// e2e: --json mode through full pipeline (runCommand)
-// ---------------------------------------------------------------------------
+// --- e2e: --json mode through full pipeline (runCommand)
 
 describe('e2e: --json mode through runCommand', () => {
 	it('json() always writes to stdout, log/info redirect to stderr', async () => {
@@ -220,9 +216,7 @@ describe('e2e: --json mode through runCommand', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: piped mode (non-TTY, non-JSON) through runCommand
-// ---------------------------------------------------------------------------
+// --- e2e: piped mode (non-TTY, non-JSON) through runCommand
 
 describe('e2e: piped mode through runCommand', () => {
 	it('log/info → stdout, warn/error → stderr, no JSON redirection', async () => {
@@ -264,9 +258,7 @@ describe('e2e: piped mode through runCommand', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: TTY mode through runCommand
-// ---------------------------------------------------------------------------
+// --- e2e: TTY mode through runCommand
 
 describe('e2e: TTY mode through runCommand', () => {
 	it('handler sees isTTY=true and uses decorative output', async () => {
@@ -309,9 +301,7 @@ describe('e2e: TTY mode through runCommand', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: mixed output — interleaved json(), log(), table(), warn(), error()
-// ---------------------------------------------------------------------------
+// --- e2e: mixed output — interleaved json(), log(), table(), warn(), error()
 
 describe('e2e: mixed output through full pipeline', () => {
 	it('normal mode: all methods write to expected channels', async () => {
@@ -376,9 +366,7 @@ describe('e2e: mixed output through full pipeline', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: verbosity × jsonMode × isTTY matrix
-// ---------------------------------------------------------------------------
+// --- e2e: verbosity × jsonMode × isTTY matrix
 
 describe('e2e: verbosity × jsonMode × isTTY combinations', () => {
 	it('quiet + normal: info suppressed, log/json/table visible', async () => {
@@ -457,9 +445,7 @@ describe('e2e: verbosity × jsonMode × isTTY combinations', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: error rendering in all output modes
-// ---------------------------------------------------------------------------
+// --- e2e: error rendering in all output modes
 
 describe('e2e: error rendering across output modes', () => {
 	it('CLIError as text in normal mode', async () => {
@@ -543,9 +529,7 @@ describe('e2e: error rendering across output modes', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: CLI dispatch path (cli().execute()) output modes
-// ---------------------------------------------------------------------------
+// --- e2e: CLI dispatch path (cli().execute()) output modes
 
 describe('e2e: CLI dispatch output modes', () => {
 	it('--json flag: command json() → stdout, log/info → stderr', async () => {
@@ -631,9 +615,7 @@ describe('e2e: CLI dispatch output modes', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: capture output correctness
-// ---------------------------------------------------------------------------
+// --- e2e: capture output correctness
 
 describe('e2e: capture output correctness', () => {
 	it('empty command produces no output', async () => {
@@ -721,9 +703,7 @@ describe('e2e: capture output correctness', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// e2e: table auto-columns through pipeline
-// ---------------------------------------------------------------------------
+// --- e2e: table auto-columns through pipeline
 
 describe('e2e: table features through full pipeline', () => {
 	it('auto-inferred columns from row keys', async () => {
@@ -778,7 +758,7 @@ describe('e2e: table features through full pipeline', () => {
 		expect(text).not.toContain('undefined');
 	});
 
-	it('table in json mode emits full rows regardless of column spec', async () => {
+	it('table in json mode projects columns — omits unlisted keys', async () => {
 		const cmd = command('table-json').action(({ out }) => {
 			out.table([{ id: 1, name: 'A', secret: 'data' }], [{ key: 'name' }]);
 		});
@@ -786,6 +766,6 @@ describe('e2e: table features through full pipeline', () => {
 
 		expect(result.stdout).toHaveLength(1);
 		const parsed = JSON.parse(result.stdout[0] ?? '');
-		expect(parsed).toEqual([{ id: 1, name: 'A', secret: 'data' }]);
+		expect(parsed).toEqual([{ name: 'A' }]);
 	});
 });

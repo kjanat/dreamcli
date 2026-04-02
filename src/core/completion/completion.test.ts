@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CLISchema } from '../cli/index.ts';
-import { isCLIError } from '../errors/index.ts';
-import type { CommandSchema, FlagSchema } from '../schema/index.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
+import { isCLIError } from '#internals/core/errors/index.ts';
+import type { ActivityEvent, CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,
@@ -14,9 +14,7 @@ import {
 	SHELLS,
 } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Minimal FlagSchema with all required fields. */
 function flagSchema(overrides: Partial<FlagSchema> = {}): FlagSchema {
@@ -61,37 +59,58 @@ function erased(schema: CommandSchema) {
 	return {
 		schema,
 		subcommands: new Map(),
-		async _execute() {
-			return {
+		_execute() {
+			return Promise.resolve({
 				stdout: [] as string[],
 				stderr: [] as string[],
-				activity: [],
+				activity: [] as ActivityEvent[],
 				exitCode: 0,
 				error: undefined,
-			};
+			});
 		},
 	};
 }
 
+/** Options for `minimalSchema()` — all fields optional, allows explicit `undefined`. */
+interface MinimalSchemaOverrides {
+	readonly name?: string;
+	readonly version?: string | undefined;
+	readonly description?: string | undefined;
+	readonly commands?: CLISchema['commands'];
+	readonly defaultCommand?: CLISchema['defaultCommand'];
+	readonly configSettings?: CLISchema['configSettings'];
+	readonly packageJsonSettings?: CLISchema['packageJsonSettings'];
+	readonly plugins?: CLISchema['plugins'];
+}
+
 /** Minimal CLISchema for completion tests. */
-function minimalSchema(overrides: Partial<CLISchema> = {}): CLISchema {
+function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	return {
-		name: 'testcli',
-		version: '1.0.0',
-		description: 'A test CLI',
-		commands: [],
-		configSettings: undefined,
-		...overrides,
+		name: overrides.name ?? 'testcli',
+		inheritName: false,
+		version: 'version' in overrides ? overrides.version : '1.0.0',
+		description: 'description' in overrides ? overrides.description : 'A test CLI',
+		commands: overrides.commands ?? [],
+		...('defaultCommand' in overrides
+			? { defaultCommand: overrides.defaultCommand }
+			: { defaultCommand: undefined }),
+		...(overrides.configSettings !== undefined
+			? { configSettings: overrides.configSettings }
+			: { configSettings: undefined }),
+		...(overrides.packageJsonSettings !== undefined
+			? { packageJsonSettings: overrides.packageJsonSettings }
+			: { packageJsonSettings: undefined }),
+		plugins: overrides.plugins ?? [],
 	};
 }
 
-// ===================================================================
-// Shell type — SHELLS constant
-// ===================================================================
+import { extractBashRootWords, extractZshRootFunction } from './completion-test-helpers.ts';
+
+// === Shell type — SHELLS constant
 
 describe('Shell type — SHELLS constant', () => {
-	it('contains all four shell targets', () => {
-		expect(SHELLS).toEqual(['bash', 'zsh', 'fish', 'powershell']);
+	it('contains only implemented shell targets', () => {
+		expect(SHELLS).toEqual(['bash', 'zsh']);
 	});
 
 	it('is a frozen readonly tuple', () => {
@@ -99,9 +118,7 @@ describe('Shell type — SHELLS constant', () => {
 	});
 });
 
-// ===================================================================
-// CompletionOptions — type contract
-// ===================================================================
+// === CompletionOptions — type contract
 
 describe('CompletionOptions — type contract', () => {
 	it('accepts empty options', () => {
@@ -113,11 +130,14 @@ describe('CompletionOptions — type contract', () => {
 		const options: CompletionOptions = { functionPrefix: '_myapp' };
 		expect(options.functionPrefix).toBe('_myapp');
 	});
+
+	it('accepts rootMode', () => {
+		const options: CompletionOptions = { rootMode: 'surface' };
+		expect(options.rootMode).toBe('surface');
+	});
 });
 
-// ===================================================================
-// generateBashCompletion — script structure
-// ===================================================================
+// === generateBashCompletion — script structure
 
 describe('generateBashCompletion — script structure', () => {
 	it('generates shebang and header comment', () => {
@@ -178,9 +198,7 @@ describe('generateBashCompletion — script structure', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — functionPrefix option
-// ===================================================================
+// === generateBashCompletion — functionPrefix option
 
 describe('generateBashCompletion — functionPrefix option', () => {
 	it('uses functionPrefix instead of schema name for function', () => {
@@ -193,13 +211,11 @@ describe('generateBashCompletion — functionPrefix option', () => {
 	it('sanitizes non-identifier characters in prefix', () => {
 		const script = generateBashCompletion(minimalSchema(), { functionPrefix: 'my-app.v2' });
 
-		expect(script).toContain('_my_app_v2_completions() {');
+		expect(script).toMatch(/_my_app_v2_[0-9a-f]{8}_completions\(\) \{/);
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — subcommand completions
-// ===================================================================
+// === generateBashCompletion — subcommand completions
 
 describe('generateBashCompletion — subcommand completions', () => {
 	it('lists subcommand names at root level', () => {
@@ -236,11 +252,122 @@ describe('generateBashCompletion — subcommand completions', () => {
 		// Aliases should appear in the case pattern for subcommand detection
 		expect(script).toContain('deploy|d|ship)');
 	});
+
+	it('escapes quotes in subcommand detection', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: "it's", aliases: ['quo"te'] }))],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('it\\\'s|quo\\"te)');
+	});
+
+	it('escapes metacharacters in top-level command aliases', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] }))],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('depl\\*oy|d\\?|ship\\|it)');
+	});
+
+	it('preserves metacharacters in double-quoted nested command paths', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'db*',
+						commands: [commandSchema({ name: 'migr?te' })],
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('"db* migr?te"');
+	});
 });
 
-// ===================================================================
-// generateBashCompletion — flag completions
-// ===================================================================
+// === generateBashCompletion — root completion policy
+
+describe('generateBashCompletion — root completion policy', () => {
+	it('keeps hybrid CLIs command-centric by default', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootWords = extractBashRootWords(generateBashCompletion(schema));
+
+		expect(rootWords).toEqual(['serve', 'status', '--help', '--version']);
+	});
+
+	it('exposes default-command flags at the root in surface mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					verbose: flagSchema({ kind: 'boolean', propagate: true, description: 'Verbose' }),
+				},
+				commands: [
+					commandSchema({
+						name: 'inspect',
+						flags: {
+							childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
+						},
+					}),
+				],
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootWords = extractBashRootWords(generateBashCompletion(schema, { rootMode: 'surface' }));
+
+		expect(rootWords).toContain('serve');
+		expect(rootWords).toContain('status');
+		expect(rootWords).toContain('--help');
+		expect(rootWords).toContain('--version');
+		expect(rootWords).toContain('--port');
+		expect(rootWords).toContain('-p');
+		expect(rootWords).toContain('--verbose');
+		expect(rootWords).not.toContain('--childOnly');
+	});
+
+	it('exposes default-command flags for a single visible default even in subcommands mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const schema = minimalSchema({
+			commands: [serve],
+			defaultCommand: serve,
+		});
+
+		const rootWords = extractBashRootWords(generateBashCompletion(schema));
+
+		expect(rootWords).toEqual(['serve', '--help', '--version', '--port', '-p']);
+	});
+});
+
+// === generateBashCompletion — flag completions
 
 describe('generateBashCompletion — flag completions', () => {
 	it('includes --flagname for each registered flag', () => {
@@ -302,9 +429,7 @@ describe('generateBashCompletion — flag completions', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — enum value completions
-// ===================================================================
+// === generateBashCompletion — enum value completions
 
 describe('generateBashCompletion — enum value completions', () => {
 	it('generates case branch for enum flag values', () => {
@@ -325,7 +450,7 @@ describe('generateBashCompletion — enum value completions', () => {
 		});
 		const script = generateBashCompletion(schema);
 
-		expect(script).toContain('case "$prev" in');
+		expect(script).toContain(`case "\${enum_flag:-$prev}" in`);
 		expect(script).toContain('--region)');
 		expect(script).toContain("'us-east-1 eu-west-1 ap-south-1'");
 	});
@@ -352,6 +477,50 @@ describe('generateBashCompletion — enum value completions', () => {
 		expect(script).toContain('--region|-r)');
 	});
 
+	it('escapes metacharacters in enum flag case patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							're*gion': flagSchema({
+								kind: 'enum',
+								aliases: ['r?'],
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('--re\\*gion|--r\\?)');
+	});
+
+	it('escapes quotes in enum flag case patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							"we'ird": flagSchema({
+								kind: 'enum',
+								aliases: ["quo'te"],
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain("--we\\'ird|--quo\\'te)");
+	});
+
 	it('omits enum case section when no enum flags exist', () => {
 		const schema = minimalSchema({
 			commands: [
@@ -367,7 +536,7 @@ describe('generateBashCompletion — enum value completions', () => {
 		});
 		const script = generateBashCompletion(schema);
 
-		expect(script).not.toContain('case "$prev" in');
+		expect(script).not.toContain(`case "\${enum_flag:-$prev}" in`);
 	});
 
 	// --- Cross-command enum isolation ---
@@ -459,17 +628,15 @@ describe('generateBashCompletion — enum value completions', () => {
 		const buildBlock = flagSection.slice(buildIdx).join('\n');
 
 		// Deploy should have enum case block
-		expect(deployBlock).toContain('case "$prev" in');
+		expect(deployBlock).toContain(`case "\${enum_flag:-$prev}" in`);
 		expect(deployBlock).toContain("'prod staging'");
 
 		// Build should NOT have enum case block (no enum flags)
-		expect(buildBlock).not.toContain('case "$prev" in');
+		expect(buildBlock).not.toContain(`case "\${enum_flag:-$prev}" in`);
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — enum value escaping
-// ===================================================================
+// === generateBashCompletion — enum value escaping
 
 describe('generateBashCompletion — enum value escaping', () => {
 	it('passes simple values through unescaped', () => {
@@ -587,9 +754,7 @@ describe('generateBashCompletion — enum value escaping', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — no commands (flags-only CLI)
-// ===================================================================
+// === generateBashCompletion — no commands (flags-only CLI)
 
 describe('generateBashCompletion — no commands', () => {
 	it('generates script with --help and --version when version defined', () => {
@@ -608,61 +773,57 @@ describe('generateBashCompletion — no commands', () => {
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — CLI name sanitization
-// ===================================================================
+// === generateBashCompletion — CLI name sanitization
 
 describe('generateBashCompletion — name sanitization', () => {
 	it('replaces hyphens in CLI name for function identifier', () => {
 		const schema = minimalSchema({ name: 'my-cli-tool' });
 		const script = generateBashCompletion(schema);
 
-		expect(script).toContain('_my_cli_tool_completions() {');
+		expect(script).toMatch(/_my_cli_tool_[0-9a-f]{8}_completions\(\) \{/);
 		// complete line still uses original name
-		expect(script).toContain('complete -F _my_cli_tool_completions my-cli-tool');
+		expect(script).toMatch(/complete -F _my_cli_tool_[0-9a-f]{8}_completions my-cli-tool/);
 	});
 
 	it('replaces dots in CLI name for function identifier', () => {
 		const schema = minimalSchema({ name: 'app.cli' });
 		const script = generateBashCompletion(schema);
 
-		expect(script).toContain('_app_cli_completions() {');
+		expect(script).toMatch(/_app_cli_[0-9a-f]{8}_completions\(\) \{/);
 	});
 });
 
-// ===================================================================
-// generateBashCompletion — name escaping (shell injection prevention)
-// ===================================================================
+// === generateBashCompletion — name escaping (shell injection prevention)
 
 describe('generateBashCompletion — name escaping', () => {
 	it('leaves shell-safe names unquoted in complete line', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'my-cli' }));
 
-		expect(script).toContain('complete -F _my_cli_completions my-cli');
+		expect(script).toMatch(/complete -F _my_cli_[0-9a-f]{8}_completions my-cli/);
 	});
 
 	it('leaves dotted names unquoted in complete line', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'app.v2' }));
 
-		expect(script).toContain('complete -F _app_v2_completions app.v2');
+		expect(script).toMatch(/complete -F _app_v2_[0-9a-f]{8}_completions app\.v2/);
 	});
 
 	it('single-quotes names with spaces in complete line', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'my cli' }));
 
-		expect(script).toContain("complete -F _my_cli_completions 'my cli'");
+		expect(script).toMatch(/complete -F _my_cli_[0-9a-f]{8}_completions 'my cli'/);
 	});
 
 	it('escapes single quotes in CLI name', () => {
 		const script = generateBashCompletion(minimalSchema({ name: "it's" }));
 
-		expect(script).toContain("complete -F _it_s_completions 'it'\\''s'");
+		expect(script).toMatch(/complete -F _it_s_[0-9a-f]{8}_completions 'it'\\''s'/);
 	});
 
 	it('single-quotes names with backticks', () => {
 		const script = generateBashCompletion(minimalSchema({ name: 'cli`whoami`' }));
 
-		expect(script).toContain("complete -F _cli_whoami__completions 'cli`whoami`'");
+		expect(script).toMatch(/complete -F _cli_whoami__+[0-9a-f]{8}_completions 'cli`whoami`'/);
 	});
 
 	it('single-quotes names with semicolons', () => {
@@ -674,13 +835,11 @@ describe('generateBashCompletion — name escaping', () => {
 	it('single-quotes names with dollar signs', () => {
 		const script = generateBashCompletion(minimalSchema({ name: '$HOME' }));
 
-		expect(script).toContain("complete -F __HOME_completions '$HOME'");
+		expect(script).toMatch(/complete -F __HOME_[0-9a-f]{8}_completions '\$HOME'/);
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — script structure
-// ===================================================================
+// === generateZshCompletion — script structure
 
 describe('generateZshCompletion — script structure', () => {
 	it('generates #compdef directive with CLI name', () => {
@@ -753,9 +912,7 @@ describe('generateZshCompletion — script structure', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — functionPrefix option
-// ===================================================================
+// === generateZshCompletion — functionPrefix option
 
 describe('generateZshCompletion — functionPrefix option', () => {
 	it('uses functionPrefix instead of schema name for function', () => {
@@ -768,7 +925,7 @@ describe('generateZshCompletion — functionPrefix option', () => {
 	it('sanitizes non-identifier characters in prefix', () => {
 		const script = generateZshCompletion(minimalSchema(), { functionPrefix: 'my-app.v2' });
 
-		expect(script).toContain('_my_app_v2() {');
+		expect(script).toMatch(/_my_app_v2_[0-9a-f]{8}\(\) \{/);
 	});
 
 	it('keeps #compdef using original CLI name, not prefix', () => {
@@ -778,9 +935,7 @@ describe('generateZshCompletion — functionPrefix option', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — subcommand completions
-// ===================================================================
+// === generateZshCompletion — subcommand completions
 
 describe('generateZshCompletion — subcommand completions', () => {
 	it('lists subcommands with _describe', () => {
@@ -795,6 +950,18 @@ describe('generateZshCompletion — subcommand completions', () => {
 		expect(script).toContain("_describe 'command' subcmds");
 		expect(script).toContain("'deploy:Deploy app'");
 		expect(script).toContain("'build:Build project'");
+	});
+
+	it('includes top-level command aliases in _describe candidates', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(commandSchema({ name: 'deploy', aliases: ['d'], description: 'Deploy app' })),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("'deploy:Deploy app'");
+		expect(script).toContain("'d:Deploy app'");
 	});
 
 	it('excludes hidden commands from completions', () => {
@@ -812,11 +979,39 @@ describe('generateZshCompletion — subcommand completions', () => {
 
 	it('includes command aliases in case pattern', () => {
 		const schema = minimalSchema({
-			commands: [erased(commandSchema({ name: 'deploy', aliases: ['d', 'ship'] }))],
+			commands: [erased(commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] }))],
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('deploy|d|ship)');
+		expect(script).toContain('depl\\*oy|d\\?|ship\\|it)');
+	});
+
+	it('escapes quotes in subcommand lists and dispatch patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(commandSchema({ name: "it's", aliases: ['quo"te'], description: 'Deploy' })),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("'it'\\''s:Deploy'");
+		expect(script).toContain('it\\\'s|quo\\"te)');
+	});
+
+	it('escapes metacharacters in child command dispatch patterns', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'db',
+						commands: [commandSchema({ name: 'migr?te', aliases: ['move|it'] })],
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain('migr\\?te|move\\|it)');
 	});
 
 	it('uses command name as description when description is undefined', () => {
@@ -834,13 +1029,103 @@ describe('generateZshCompletion — subcommand completions', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain("'deploy:Deploy\\: now'");
+		expect(script).toContain("'deploy:Deploy: now'");
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — flag completions
-// ===================================================================
+// === generateZshCompletion — root completion policy
+
+describe('generateZshCompletion — root completion policy', () => {
+	it('keeps hybrid CLIs command-centric by default', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status', description: 'Status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootFunction = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
+
+		expect(rootFunction).toContain("'--help[Show help text]'");
+		expect(rootFunction).toContain("'--version[Show version]'");
+		expect(rootFunction).not.toContain("'--port[Port]:value:'");
+		expect(rootFunction).toContain("'1: :->subcmd'");
+		expect(rootFunction).toContain("'serve:serve'");
+		expect(rootFunction).toContain("'status:Status'");
+	});
+
+	it('exposes default-command flags at the root in surface mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					verbose: flagSchema({ kind: 'boolean', propagate: true, description: 'Verbose' }),
+				},
+				commands: [
+					commandSchema({
+						name: 'inspect',
+						flags: {
+							childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
+						},
+					}),
+				],
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const rootFunction = extractZshRootFunction(
+			generateZshCompletion(schema, { rootMode: 'surface' }),
+			'_testcli',
+		);
+
+		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+		expect(rootFunction).toContain("'--verbose[Verbose]'");
+		expect(rootFunction).not.toContain("'--childOnly[Child only]'");
+	});
+
+	it('exposes default-command flags for a single visible default even in subcommands mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const schema = minimalSchema({
+			commands: [serve],
+			defaultCommand: serve,
+		});
+
+		const rootFunction = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
+
+		expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+	});
+});
+
+describe('extractZshRootFunction — boundary', () => {
+	it('includes the closing brace', () => {
+		const schema = minimalSchema({
+			commands: [erased(commandSchema({ name: 'run' }))],
+		});
+		const body = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
+		expect(body).toMatch(/\}$/);
+	});
+});
+
+// === generateZshCompletion — flag completions
 
 describe('generateZshCompletion — flag completions', () => {
 	it('generates _arguments specs for command flags', () => {
@@ -880,6 +1165,27 @@ describe('generateZshCompletion — flag completions', () => {
 		expect(script).toContain("(-f --force)'{-f,--force}'[Force]");
 	});
 
+	it('escapes quotes in flag spec names', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							"we'ird": flagSchema({
+								kind: 'boolean',
+								description: 'Has quote',
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("--we'\\''ird[Has quote]");
+	});
+
 	it('omits value part for boolean flags', () => {
 		const schema = minimalSchema({
 			commands: [
@@ -917,6 +1223,24 @@ describe('generateZshCompletion — flag completions', () => {
 		expect(script).toContain("'--name[Name]:value:'");
 	});
 
+	it('escapes closing brackets in flag descriptions', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							name: flagSchema({ kind: 'string', description: 'A]B' }),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateZshCompletion(schema);
+
+		expect(script).toContain("'--name[A\\]B]:value:'");
+	});
+
 	it('adds enum values for enum flags', () => {
 		const schema = minimalSchema({
 			commands: [
@@ -936,7 +1260,7 @@ describe('generateZshCompletion — flag completions', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('--region[Region]:value:(us-east-1 eu-west-1)');
+		expect(script).toContain("'--region[Region]:value:(us-east-1 eu-west-1)'");
 	});
 
 	it('uses flag name as description when description is undefined', () => {
@@ -958,9 +1282,7 @@ describe('generateZshCompletion — flag completions', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — enum value escaping
-// ===================================================================
+// === generateZshCompletion — enum value escaping
 
 describe('generateZshCompletion — enum value escaping', () => {
 	it('passes simple values through unescaped', () => {
@@ -1026,7 +1348,7 @@ describe('generateZshCompletion — enum value escaping', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain(":value:(it\\'s normal)");
+		expect(script).toContain(":value:(it'\\''s normal)");
 	});
 
 	it('escapes backslashes in enum values', () => {
@@ -1092,15 +1414,13 @@ describe('generateZshCompletion — enum value escaping', () => {
 		});
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain("it\\'s\\ here");
+		expect(script).toContain("it'\\''s\\ here");
 		expect(script).toContain('C:\\\\path');
 		expect(script).toContain('normal');
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — no commands (flags-only CLI)
-// ===================================================================
+// === generateZshCompletion — no commands (flags-only CLI)
 
 describe('generateZshCompletion — no commands', () => {
 	it('generates script with only --help when no commands', () => {
@@ -1113,16 +1433,14 @@ describe('generateZshCompletion — no commands', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — name sanitization
-// ===================================================================
+// === generateZshCompletion — name sanitization
 
 describe('generateZshCompletion — name sanitization', () => {
 	it('replaces hyphens in CLI name for function identifier', () => {
 		const schema = minimalSchema({ name: 'my-cli-tool' });
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('_my_cli_tool() {');
+		expect(script).toMatch(/_my_cli_tool_[0-9a-f]{8}\(\) \{/);
 		// compdef still uses original name
 		expect(script).toContain('#compdef my-cli-tool');
 	});
@@ -1131,13 +1449,11 @@ describe('generateZshCompletion — name sanitization', () => {
 		const schema = minimalSchema({ name: 'app.cli' });
 		const script = generateZshCompletion(schema);
 
-		expect(script).toContain('_app_cli() {');
+		expect(script).toMatch(/_app_cli_[0-9a-f]{8}\(\) \{/);
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — name escaping (shell injection prevention)
-// ===================================================================
+// === generateZshCompletion — name escaping (shell injection prevention)
 
 describe('generateZshCompletion — name escaping', () => {
 	it('leaves shell-safe names unquoted in #compdef', () => {
@@ -1171,9 +1487,7 @@ describe('generateZshCompletion — name escaping', () => {
 	});
 });
 
-// ===================================================================
-// generateCompletion — unified dispatcher
-// ===================================================================
+// === generateCompletion — unified dispatcher
 
 describe('generateCompletion — dispatcher', () => {
 	it('delegates bash to generateBashCompletion', () => {
@@ -1190,6 +1504,28 @@ describe('generateCompletion — dispatcher', () => {
 
 		expect(script).toContain('#compdef testcli');
 		expect(script).toContain('_testcli() {');
+	});
+
+	it('passes completion options through to shell generators', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				flags: {
+					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status' }));
+		const schema = minimalSchema({
+			commands: [serve, status],
+			defaultCommand: serve,
+		});
+
+		const script = generateCompletion(schema, 'bash', { rootMode: 'surface' });
+		const rootWords = extractBashRootWords(script);
+
+		expect(rootWords).toContain('--port');
+		expect(rootWords).toContain('-p');
 	});
 
 	it('throws CLIError for fish (unsupported)', () => {
@@ -1237,12 +1573,10 @@ describe('generateCompletion — dispatcher', () => {
 	});
 });
 
-// ===================================================================
-// Nested command completion helpers
-// ===================================================================
+// === Nested command completion helpers
 
 /** Build a nested command tree for testing. */
-function nestedSchema(overrides: Partial<CLISchema> = {}): CLISchema {
+function nestedSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	const migrateCmd = commandSchema({
 		name: 'migrate',
 		description: 'Run migrations',
@@ -1335,9 +1669,7 @@ function deepNestedSchema(): CLISchema {
 	return minimalSchema({ commands: [erased(dbCmd)] });
 }
 
-// ===================================================================
-// generateBashCompletion — nested command completions
-// ===================================================================
+// === generateBashCompletion — nested command completions
 
 describe('generateBashCompletion — nested subcommand path detection', () => {
 	it('generates subcmd_path variable for nested commands', () => {
@@ -1350,14 +1682,16 @@ describe('generateBashCompletion — nested subcommand path detection', () => {
 		const script = generateBashCompletion(nestedSchema());
 
 		// Top-level detection should include db, database, deploy
-		expect(script).toContain('db|database|deploy)');
+		expect(script).toContain('db|database)');
+		expect(script).toContain('deploy)');
 	});
 
 	it('generates path extension for group commands with children', () => {
 		const script = generateBashCompletion(nestedSchema());
 
 		// When subcmd_path is "db", should match child names
-		expect(script).toContain('migrate|seed|s)');
+		expect(script).toContain('migrate)');
+		expect(script).toContain('seed|s)');
 	});
 
 	it('generates case branches for nested command paths', () => {
@@ -1367,6 +1701,22 @@ describe('generateBashCompletion — nested subcommand path detection', () => {
 		expect(script).toContain('"db migrate"');
 		// Should have case branch for "db seed"
 		expect(script).toContain('"db seed"');
+	});
+
+	it('escapes quotes in nested subcmd_path assignments', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'db',
+						commands: [commandSchema({ name: 'it"migrate' })],
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+
+		expect(script).toContain('subcmd_path="$subcmd_path it\\"migrate"');
 	});
 
 	it('includes flags for nested leaf commands', () => {
@@ -1463,9 +1813,81 @@ describe('generateBashCompletion — nested hidden commands', () => {
 	});
 });
 
-// ===================================================================
-// generateZshCompletion — nested command completions
-// ===================================================================
+describe('generateBashCompletion — flag operand and -- handling', () => {
+	it('breaks on literal -- in the walker', () => {
+		const script = generateBashCompletion(nestedSchema());
+		const lines = script.split('\n');
+		const walkerCase = lines.findIndex((l) => l.includes('--) break'));
+		expect(walkerCase).toBeGreaterThan(-1);
+	});
+
+	it('skips operand after value-taking flags', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+		// --host and --schema are string flags — their operands must be skipped
+		expect(script).toContain('--host');
+		expect(script).toContain('--schema');
+		// Find the value-flag skip line
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		expect(skipLine).toBeDefined();
+		expect(skipLine).toContain('--host');
+		expect(skipLine).toContain('--schema');
+	});
+
+	it('does not include boolean flags in the value-flag skip pattern', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		expect(skipLine).toBeDefined();
+		// --verbose and --if-not-exists are boolean — must NOT be in the skip pattern
+		expect(skipLine).not.toContain('--verbose');
+		expect(skipLine).not.toContain('--if-not-exists');
+	});
+
+	it('includes short aliases for value-taking flags in skip pattern', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'run',
+						flags: {
+							output: flagSchema({ kind: 'string', aliases: ['o'] }),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateBashCompletion(schema);
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		expect(skipLine).toBeDefined();
+		expect(skipLine).toContain('--output');
+		expect(skipLine).toContain('-o');
+	});
+
+	it('omits value-flag skip line when all flags are boolean', () => {
+		const script = generateBashCompletion(nestedSchema());
+		// nestedSchema only has boolean flags (dry-run, verbose, force) and one number (count)
+		const lines = script.split('\n');
+		const skipLine = lines.find((l) => l.includes('((i++)); continue'));
+		// count is a number flag, so the skip line should exist
+		expect(skipLine).toBeDefined();
+		expect(skipLine).toContain('--count');
+	});
+
+	it('orders -- break before value-flag skip before boolean skip', () => {
+		const script = generateBashCompletion(deepNestedSchema());
+		const lines = script.split('\n');
+		const breakIdx = lines.findIndex((l) => l.includes('--) break'));
+		const skipIdx = lines.findIndex((l) => l.includes('((i++)); continue'));
+		const boolIdx = lines.findIndex((l) => l.includes('-*) continue'));
+		expect(breakIdx).toBeGreaterThan(-1);
+		expect(skipIdx).toBeGreaterThan(breakIdx);
+		expect(boolIdx).toBeGreaterThan(skipIdx);
+	});
+});
+
+// === generateZshCompletion — nested command completions
 
 describe('generateZshCompletion — nested helper functions', () => {
 	it('generates helper function for group commands', () => {
@@ -1495,6 +1917,15 @@ describe('generateZshCompletion — nested helper functions', () => {
 		expect(dbFunc).toContain("'migrate:Run migrations'");
 		expect(dbFunc).toContain("'seed:Seed database'");
 		expect(dbFunc).toContain("_describe 'command' subcmds");
+	});
+
+	it('helper function includes child aliases in _describe candidates', () => {
+		const script = generateZshCompletion(nestedSchema());
+
+		const lines = script.split('\n');
+		const dbFuncIdx = lines.findIndex((l) => l.includes('_testcli_db() {'));
+		const dbFunc = lines.slice(dbFuncIdx, dbFuncIdx + 30).join('\n');
+		expect(dbFunc).toContain("'s:Seed database'");
 	});
 
 	it('delegates to leaf helper for nested commands', () => {

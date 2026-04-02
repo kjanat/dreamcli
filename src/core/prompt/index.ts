@@ -18,18 +18,16 @@
  * @module dreamcli/core/prompt
  */
 
-import type { WriteFn } from '../output/index.ts';
+import type { WriteFn } from '#internals/core/output/index.ts';
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
 	PromptConfig,
 	PromptResult,
 	SelectChoice,
-} from '../schema/prompt.ts';
+} from '#internals/core/schema/prompt.ts';
 
-// ---------------------------------------------------------------------------
-// Resolved prompt config — choices guaranteed present for select kinds
-// ---------------------------------------------------------------------------
+// --- Resolved prompt config — choices guaranteed present for select kinds
 
 /**
  * A select prompt config with choices guaranteed non-empty.
@@ -70,9 +68,7 @@ type ResolvedPromptConfig =
 	| ResolvedSelectPromptConfig
 	| ResolvedMultiselectPromptConfig;
 
-// ---------------------------------------------------------------------------
-// PromptEngine interface — the pluggable seam
-// ---------------------------------------------------------------------------
+// --- PromptEngine interface — the pluggable seam
 
 /**
  * Prompt engine interface.
@@ -107,9 +103,7 @@ interface PromptEngine {
 	promptOne(config: ResolvedPromptConfig): Promise<PromptResult>;
 }
 
-// ---------------------------------------------------------------------------
-// ReadFn — the minimal stdin abstraction
-// ---------------------------------------------------------------------------
+// --- ReadFn — the minimal stdin abstraction
 
 /**
  * A function that reads a single line of user input.
@@ -123,9 +117,7 @@ interface PromptEngine {
  */
 type ReadFn = () => Promise<string | null>;
 
-// ---------------------------------------------------------------------------
-// Sentinel for cancelled prompts in test prompter
-// ---------------------------------------------------------------------------
+// --- Sentinel for cancelled prompts in test prompter
 
 /**
  * Sentinel value representing a cancelled/aborted prompt in the test
@@ -145,14 +137,24 @@ type ReadFn = () => Promise<string | null>;
 const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typeof PROMPT_CANCEL;
 
 /**
- * A test answer: either a concrete value or `PROMPT_CANCEL` to simulate
- * the user aborting the prompt.
+ * A queued answer consumed by {@link createTestPrompter}.
+ *
+ * The test prompter returns these values exactly as provided; it does not
+ * coerce or validate them. The normal resolution pipeline performs any later
+ * type coercion, so tests can supply values in the same shapes real prompts
+ * would yield:
+ *
+ * - `string` for `input` and `select`
+ * - `boolean` for `confirm`
+ * - `string[]` for `multiselect`
+ * - {@link PROMPT_CANCEL} to simulate user cancellation
+ *
+ * Because the type is intentionally `unknown`, tests may also inject malformed
+ * answers to exercise downstream validation and error reporting.
  */
 type TestAnswer = unknown;
 
-// ---------------------------------------------------------------------------
-// Test prompter
-// ---------------------------------------------------------------------------
+// --- Test prompter
 
 /**
  * Options for `createTestPrompter`.
@@ -217,9 +219,7 @@ function createTestPrompter(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Terminal prompter — line-based interactive prompts
-// ---------------------------------------------------------------------------
+// --- Terminal prompter — line-based interactive prompts
 
 /**
  * Create a prompt engine backed by line-based terminal I/O.
@@ -252,7 +252,7 @@ function createTestPrompter(
  */
 function createTerminalPrompter(read: ReadFn, write: WriteFn): PromptEngine {
 	return {
-		async promptOne(config): Promise<PromptResult> {
+		promptOne(config): Promise<PromptResult> {
 			switch (config.kind) {
 				case 'confirm':
 					return promptConfirm(config, read, write);
@@ -267,9 +267,7 @@ function createTerminalPrompter(read: ReadFn, write: WriteFn): PromptEngine {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Per-kind prompt implementations
-// ---------------------------------------------------------------------------
+// --- Per-kind prompt implementations
 
 /** Maximum retries for invalid input before treating as cancel. */
 const MAX_RETRIES = 10;
@@ -279,6 +277,11 @@ const MAX_RETRIES = 10;
  *
  * Displays `(Y/n)` or `(y/N)` depending on the default (if any).
  * Accepts: y, yes, n, no, empty (uses default). Case-insensitive.
+ *
+ * @param config - {@link ConfirmPromptConfig} with the question message
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering prompt text
+ * @returns Resolved {@link PromptResult} — `true`/`false` value, or cancelled on EOF
  */
 async function promptConfirm(
 	config: ConfirmPromptConfig,
@@ -310,6 +313,11 @@ async function promptConfirm(
  *
  * Displays the message, reads a line, and optionally validates via
  * `config.validate`. Loops on invalid input up to `MAX_RETRIES`.
+ *
+ * @param config - {@link InputPromptConfig} with message, optional placeholder and validator
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering prompt text and validation errors
+ * @returns Resolved {@link PromptResult} — trimmed string value, or cancelled on EOF/exhausted retries
  */
 async function promptInput(
 	config: InputPromptConfig,
@@ -349,6 +357,11 @@ async function promptInput(
  *
  * Displays choices with 1-based indices. User enters the number of
  * their selection.
+ *
+ * @param config - {@link ResolvedSelectPromptConfig} with message and guaranteed non-empty choices
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering the choice list and validation errors
+ * @returns Resolved {@link PromptResult} — selected {@link SelectChoice.value}, or cancelled on EOF/exhausted retries
  */
 async function promptSelect(
 	config: ResolvedSelectPromptConfig,
@@ -399,6 +412,11 @@ async function promptSelect(
  * numbers of their selections (e.g. `1,3,5`).
  *
  * Validates against `min`/`max` constraints if configured.
+ *
+ * @param config - {@link ResolvedMultiselectPromptConfig} with message, guaranteed non-empty choices, and optional min/max
+ * @param read - {@link ReadFn} for reading a line of user input
+ * @param write - {@link WriteFn} for rendering the choice list, hints, and validation errors
+ * @returns Resolved {@link PromptResult} — array of selected {@link SelectChoice.value} strings, or cancelled on EOF/exhausted retries
  */
 async function promptMultiselect(
 	config: ResolvedMultiselectPromptConfig,
@@ -482,9 +500,7 @@ async function promptMultiselect(
 	return { answered: false };
 }
 
-// ---------------------------------------------------------------------------
-// Utility: prepare resolved prompt config from raw config + flag schema
-// ---------------------------------------------------------------------------
+// --- Utility: prepare resolved prompt config from raw config + flag schema
 
 /**
  * Prepare a `ResolvedPromptConfig` from a raw `PromptConfig` and optional
@@ -536,11 +552,8 @@ function resolvePromptConfig(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { createTerminalPrompter, createTestPrompter, PROMPT_CANCEL, resolvePromptConfig };
 export type {
 	PromptEngine,
 	ReadFn,
@@ -550,3 +563,4 @@ export type {
 	TestAnswer,
 	TestPrompterOptions,
 };
+export { createTerminalPrompter, createTestPrompter, PROMPT_CANCEL, resolvePromptConfig };

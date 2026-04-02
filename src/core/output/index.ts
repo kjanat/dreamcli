@@ -18,8 +18,9 @@ import type {
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
-} from '../schema/activity.ts';
-import type { Out } from '../schema/command.ts';
+	TableOptions,
+} from '#internals/core/schema/activity.ts';
+import type { Out } from '#internals/core/schema/command.ts';
 import {
 	CaptureProgressHandle,
 	CaptureSpinnerHandle,
@@ -30,12 +31,11 @@ import {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 } from './activity.ts';
+import { formatDisplayValue } from './display-value.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 
-// ---------------------------------------------------------------------------
-// Verbosity
-// ---------------------------------------------------------------------------
+// --- Verbosity
 
 /**
  * Controls which messages are emitted.
@@ -45,9 +45,7 @@ import { writeLine } from './writer.ts';
  */
 type Verbosity = 'normal' | 'quiet';
 
-// ---------------------------------------------------------------------------
-// Options
-// ---------------------------------------------------------------------------
+// --- Options
 
 /**
  * Configuration for creating an output channel.
@@ -90,14 +88,12 @@ interface OutputOptions {
 	 * so that stdout is reserved exclusively for structured `json()` output.
 	 * `warn` and `error` continue to write to stderr as normal.
 	 *
-	 * @default false
+	 * @defaultValue `false`
 	 */
 	readonly jsonMode?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Resolved options (all fields required, filled from defaults)
-// ---------------------------------------------------------------------------
+// --- Resolved options (all fields required, filled from defaults)
 
 /** Fully resolved output options with no optional fields. */
 interface ResolvedOutputOptions {
@@ -125,9 +121,7 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// OutputChannel — the concrete Out implementation
-// ---------------------------------------------------------------------------
+// --- OutputChannel — the concrete Out implementation
 
 /**
  * Concrete implementation of the `Out` interface.
@@ -137,6 +131,9 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
  *
  * Handlers interact with this via the `Out` interface — they never see
  * `OutputChannel` directly, which keeps the coupling minimal.
+ * Prefer {@link createOutput} unless you are extending the output layer.
+ *
+ * @internal
  */
 class OutputChannel implements Out {
 	/** @internal Resolved configuration. */
@@ -206,22 +203,37 @@ class OutputChannel implements Out {
 	/**
 	 * Render tabular data.
 	 *
-	 * In JSON mode: emits the rows as a JSON array to stdout.
-	 * Otherwise: pretty-prints aligned columns with headers to stdout
-	 * (via `log()`, which respects JSON-mode redirection).
+	 * Default behavior matches the current output mode:
+	 * - normal mode → text table to stdout
+	 * - jsonMode → JSON array to stdout
+	 *
+	 * Per-call options can force text/json rendering and route text tables to
+	 * stdout or stderr.
 	 */
+	table<T extends Record<string, unknown>>(rows: readonly T[], options: TableOptions): void;
 	table<T extends Record<string, unknown>>(
 		rows: readonly T[],
 		columns?: readonly TableColumn<T>[],
+		options?: TableOptions,
+	): void;
+	table<T extends Record<string, unknown>>(
+		rows: readonly T[],
+		columnsOrOptions?: readonly TableColumn<T>[] | TableOptions,
+		options?: TableOptions,
 	): void {
-		if (this.options.jsonMode) {
-			this.json(rows);
+		const { columns, options: tableOptions } = resolveTableArgs(columnsOrOptions, options);
+		const format = resolveTableFormat(this.options.jsonMode, tableOptions);
+		const resolved = columns ?? inferColumns(rows);
+
+		if (format === 'json') {
+			this.json(projectTableRows(rows, resolved));
 			return;
 		}
-		const text = formatTable(rows, columns);
-		if (text.length > 0) {
-			this.log(text);
-		}
+
+		const text = formatTable(rows, resolved);
+		if (text.length === 0) return;
+
+		writeLine(resolveTextTableWriter(this.options, format, tableOptions), text);
 	}
 
 	// ----- Active handle tracking -----
@@ -269,6 +281,8 @@ class OutputChannel implements Out {
 	 *
 	 * If another spinner or progress handle is active, it is implicitly
 	 * stopped before the new one starts.
+	 *
+	 * @virtual
 	 */
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
 		const fallback = options?.fallback ?? 'silent';
@@ -312,6 +326,8 @@ class OutputChannel implements Out {
 	 *
 	 * If another spinner or progress handle is active, it is implicitly
 	 * stopped before the new one starts.
+	 *
+	 * @virtual
 	 */
 	progress(opts: ProgressOptions): ProgressHandle {
 		const fallback = opts.fallback ?? 'silent';
@@ -342,9 +358,7 @@ class OutputChannel implements Out {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// CaptureOutputChannel — testkit subclass that records activity events
-// ---------------------------------------------------------------------------
+// --- CaptureOutputChannel — testkit subclass that records activity events
 
 /**
  * Output channel variant that returns capture handles for spinner/progress.
@@ -363,18 +377,24 @@ class CaptureOutputChannel extends OutputChannel {
 		super(options);
 	}
 
+	/**
+	 * Return a {@link CaptureSpinnerHandle} that records events into the activity log.
+	 * @override
+	 */
 	override spinner(text: string, _options?: SpinnerOptions): SpinnerHandle {
 		return new CaptureSpinnerHandle(text, this.activity);
 	}
 
+	/**
+	 * Return a {@link CaptureProgressHandle} that records events into the activity log.
+	 * @override
+	 */
 	override progress(opts: ProgressOptions): ProgressHandle {
 		return new CaptureProgressHandle(opts, this.activity);
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Table formatting
-// ---------------------------------------------------------------------------
+// --- Table formatting
 
 /**
  * Infer column descriptors from the keys of the first row.
@@ -382,6 +402,9 @@ class CaptureOutputChannel extends OutputChannel {
  * When no explicit columns are provided, all keys from the first row
  * become columns in insertion order. This is a convenience — callers
  * who need stable ordering should provide explicit columns.
+ *
+ * @param rows - Data rows to derive columns from.
+ * @returns Column descriptors, one per key of the first row (empty if `rows` is empty).
  */
 function inferColumns<T extends Record<string, unknown>>(
 	rows: readonly T[],
@@ -392,14 +415,120 @@ function inferColumns<T extends Record<string, unknown>>(
 }
 
 /**
+ * Type guard: is `value` a {@link TableColumn} array (not {@link TableOptions})?
+ *
+ * @param value - The ambiguous argument to discriminate.
+ * @returns `true` when `value` is a column descriptor array.
+ */
+function isTableColumns<T extends Record<string, unknown>>(
+	value: readonly TableColumn<T>[] | TableOptions | undefined,
+): value is readonly TableColumn<T>[] {
+	return Array.isArray(value);
+}
+
+/**
+ * Disambiguate the overloaded `table()` arguments.
+ *
+ * @param columnsOrOptions - Either column descriptors or table options (from the 2-arg overload).
+ * @param options - Explicit table options (from the 3-arg overload).
+ * @returns Separated `columns` and `options`, each possibly `undefined`.
+ */
+function resolveTableArgs<T extends Record<string, unknown>>(
+	columnsOrOptions?: readonly TableColumn<T>[] | TableOptions,
+	options?: TableOptions,
+): {
+	readonly columns: readonly TableColumn<T>[] | undefined;
+	readonly options: TableOptions | undefined;
+} {
+	if (options !== undefined) {
+		return {
+			columns: isTableColumns(columnsOrOptions) ? columnsOrOptions : undefined,
+			options,
+		};
+	}
+
+	if (isTableColumns(columnsOrOptions)) {
+		return { columns: columnsOrOptions, options };
+	}
+
+	return { columns: undefined, options: columnsOrOptions };
+}
+
+/**
+ * Keep only the keys listed in `columns`, preserving column order.
+ *
+ * @param rows - Source data rows.
+ * @param columns - Column descriptors controlling which keys to retain.
+ * @returns Projected rows containing only the specified keys.
+ */
+function projectTableRows<T extends Record<string, unknown>>(
+	rows: readonly T[],
+	columns: readonly TableColumn<T>[],
+): Record<string, unknown>[] {
+	return rows.map((row) => Object.fromEntries(columns.map((c) => [c.key, row[c.key]])));
+}
+
+/**
+ * Determine the concrete table format (`'text'` or `'json'`).
+ *
+ * Resolves `'auto'` / `undefined` by falling back to the channel's `jsonMode`.
+ *
+ * @param jsonMode - Whether the channel is in JSON output mode.
+ * @param options - Per-call table options (may specify an explicit format).
+ * @returns `'text'` or `'json'`.
+ */
+function resolveTableFormat(jsonMode: boolean, options?: TableOptions): 'text' | 'json' {
+	switch (options?.format) {
+		case 'json':
+			return 'json';
+		case 'text':
+			return 'text';
+		case 'auto':
+		case undefined:
+			return jsonMode ? 'json' : 'text';
+	}
+}
+
+/**
+ * Pick the {@link WriteFn} for a text-mode table.
+ *
+ * Respects `tableOptions.stream` when present; otherwise falls back to
+ * the channel's default (stderr in JSON mode, stdout otherwise).
+ *
+ * @param options - Resolved channel options.
+ * @param format - Resolved table format.
+ * @param tableOptions - Per-call table options (may specify a stream override).
+ * @returns The writer to use.
+ */
+function resolveTextTableWriter(
+	options: ResolvedOutputOptions,
+	format: 'text' | 'json',
+	tableOptions?: TableOptions,
+): WriteFn {
+	if (
+		format === 'text' &&
+		tableOptions !== undefined &&
+		'stream' in tableOptions &&
+		tableOptions.stream !== undefined
+	) {
+		return tableOptions.stream === 'stderr' ? options.stderr : options.stdout;
+	}
+
+	return options.jsonMode ? options.stderr : options.stdout;
+}
+
+/**
  * Convert a cell value to a display string.
  *
  * - `null` / `undefined` → `''`
- * - Everything else → `String(value)`
+ * - Primitives → `String(value)`
+ * - Objects / arrays → JSON
+ *
+ * @param value - The raw cell value.
+ * @returns Display string for the cell.
  */
 function cellToString(value: unknown): string {
-	if (value === null || value === undefined) return '';
-	return String(value);
+	return formatDisplayValue(value);
 }
 
 /**
@@ -411,23 +540,24 @@ function cellToString(value: unknown): string {
  * Column widths are computed as the max of header and all cell values.
  * Cells are left-aligned, padded with spaces. Columns are separated by
  * two spaces.
+ *
+ * @param rows - Data rows to render.
+ * @param columns - Column descriptors controlling key, header, and order.
+ * @returns The formatted table string, or `''` when there is nothing to render.
  */
 function formatTable<T extends Record<string, unknown>>(
 	rows: readonly T[],
-	columns?: readonly TableColumn<T>[],
+	columns: readonly TableColumn<T>[],
 ): string {
-	if (rows.length === 0) return '';
-
-	const cols = columns ?? inferColumns(rows);
-	if (cols.length === 0) return '';
+	if (rows.length === 0 || columns.length === 0) return '';
 
 	const SEPARATOR = '  ';
 
 	// Resolve headers
-	const headers = cols.map((c) => c.header ?? c.key);
+	const headers = columns.map((c) => c.header ?? c.key);
 
 	// Convert all cells to strings
-	const cellGrid: string[][] = rows.map((row) => cols.map((c) => cellToString(row[c.key])));
+	const cellGrid: string[][] = rows.map((row) => columns.map((c) => cellToString(row[c.key])));
 
 	// Compute column widths
 	const widths: number[] = headers.map((h, i) => {
@@ -455,16 +585,21 @@ function formatTable<T extends Record<string, unknown>>(
 	return [headerLine, separatorLine, ...dataLines].join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
+// --- Factory
 
 /**
  * Create an output channel.
  *
+ * Low-level factory: action handlers already receive `out` automatically from
+ * `cli()`, `.execute()`, and `runCommand()`. Call `createOutput()` when you
+ * are embedding DreamCLI primitives into a custom runtime or need a standalone
+ * output implementation outside the normal command pipeline.
+ *
  * @param options - Optional configuration. When omitted, output is
  *   discarded (useful for silent test runs). Pass `stdout`/`stderr`
  *   writers to direct output somewhere useful.
+ *
+ * @returns An {@link Out} instance backed by an {@link OutputChannel}.
  *
  * @example
  * ```ts
@@ -487,9 +622,7 @@ function createOutput(options?: OutputOptions): Out {
 	return new OutputChannel(resolveOptions(options));
 }
 
-// ---------------------------------------------------------------------------
-// Test helper — captures output into arrays
-// ---------------------------------------------------------------------------
+// --- Test helper — captures output into arrays
 
 /** Captured output from a `createCaptureOutput` instance. */
 interface CapturedOutput {
@@ -523,8 +656,11 @@ interface CapturedOutput {
  * Useful in tests to assert on what a handler wrote without touching
  * real I/O.
  *
- * @returns A tuple of `[out, captured]` — the output channel and the
- *   captured buffers.
+ * @param options - Optional {@link OutputOptions} (minus `stdout`/`stderr`,
+ *   which are wired to the capture buffers automatically).
+ *
+ * @returns A tuple of `[out, captured]` — the {@link Out} channel and the
+ *   {@link CapturedOutput} buffers.
  *
  * @example
  * ```ts
@@ -548,10 +684,9 @@ function createCaptureOutput(
 	return [out, captured];
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
+export type { CapturedOutput, OutputOptions, Verbosity, WriteFn };
 export {
 	CaptureOutputChannel,
 	CaptureProgressHandle,
@@ -567,4 +702,3 @@ export {
 	TTYSpinnerHandle,
 	writeLine,
 };
-export type { CapturedOutput, OutputOptions, ResolvedOutputOptions, Verbosity, WriteFn };

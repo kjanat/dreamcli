@@ -1,0 +1,126 @@
+// Project tasks configuration. See https://zed.dev/docs/tasks for documentation.
+[
+	{
+		"label": "test",
+		"command": "bun run test",
+		"env": { "FORCE_COLOR": "1" },
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all",
+		"tags": ["ts-test"]
+	},
+	{
+		"label": "test file: $ZED_FILE",
+		"command": "bunx vitest run $ZED_FILE",
+		"env": { "FORCE_COLOR": "1" },
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all",
+		"tags": ["ts-test"]
+	},
+	{
+		"label": "test:watch",
+		"command": "bun run test:watch",
+		"env": { "FORCE_COLOR": "1" },
+		"use_new_terminal": true,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "never",
+		"save": "all"
+	},
+	{
+		"label": "build",
+		"command": "bun run build",
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all"
+	},
+	{
+		"label": "typecheck",
+		"command": "bun run typecheck",
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all"
+	},
+	{
+		"label": "lint",
+		"command": "bun run lint",
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all"
+	},
+	{
+		"label": "lint:fix",
+		"command": "bun run lint:fix",
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all"
+	},
+	{
+		"label": "format",
+		"command": "bun run format",
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all"
+	},
+	{
+		"label": "format:check",
+		"command": "bun run format:check",
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all"
+	},
+	{
+		"label": "ci",
+		"command": "bun run ci",
+		"env": { "FORCE_COLOR": "1" },
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "never",
+		"save": "all"
+	},
+	{
+		"label": "docs:dev",
+		"command": "bun run docs:dev",
+		"use_new_terminal": true,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "never",
+		"save": "all"
+	},
+	{
+		"label": "docs:build",
+		"command": "bun run docs:build",
+		"use_new_terminal": false,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "on_success",
+		"save": "all"
+	},
+	{
+		"label": "docs:preview",
+		"command": "bun run docs:preview",
+		"use_new_terminal": true,
+		"allow_concurrent_runs": false,
+		"reveal": "always",
+		"hide": "never",
+		"save": "all"
+	}
+]

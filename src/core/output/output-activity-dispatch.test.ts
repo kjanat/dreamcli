@@ -14,8 +14,8 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { command } from '../schema/command.ts';
-import { runCommand } from '../testkit/index.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { runCommand } from '#internals/core/testkit/index.ts';
 import { createCaptureOutput, OutputChannel } from './index.ts';
 
 // --- Test helpers ---
@@ -37,9 +37,7 @@ function makeChannel(opts: { jsonMode?: boolean; isTTY?: boolean }): {
 	return { channel, stdout, stderr };
 }
 
-// ===================================================================
-// OutputChannel — mode dispatch for spinner()
-// ===================================================================
+// === OutputChannel — mode dispatch for spinner()
 
 describe('OutputChannel.spinner() — mode dispatch', () => {
 	it('jsonMode → noop handle (no output)', () => {
@@ -92,9 +90,7 @@ describe('OutputChannel.spinner() — mode dispatch', () => {
 	});
 });
 
-// ===================================================================
-// OutputChannel — mode dispatch for progress()
-// ===================================================================
+// === OutputChannel — mode dispatch for progress()
 
 describe('OutputChannel.progress() — mode dispatch', () => {
 	it('jsonMode → noop handle', () => {
@@ -131,9 +127,7 @@ describe('OutputChannel.progress() — mode dispatch', () => {
 	});
 });
 
-// ===================================================================
-// Active handle tracking — implicit stop on overlap
-// ===================================================================
+// === Active handle tracking — implicit stop on overlap
 
 describe('active handle tracking — implicit stop', () => {
 	it('new spinner implicitly stops previous spinner (static)', () => {
@@ -243,9 +237,7 @@ describe('active handle tracking — implicit stop', () => {
 	});
 });
 
-// ===================================================================
-// stopActive — explicit cleanup for leaked handles
-// ===================================================================
+// === stopActive — explicit cleanup for leaked handles
 
 describe('stopActive() — explicit cleanup', () => {
 	it('stops an active TTY spinner timer', () => {
@@ -331,9 +323,7 @@ describe('stopActive() — explicit cleanup', () => {
 	});
 });
 
-// ===================================================================
-// createCaptureOutput — activity event capture
-// ===================================================================
+// === createCaptureOutput — activity event capture
 
 describe('createCaptureOutput — activity capture', () => {
 	it('captures spinner lifecycle events', () => {
@@ -436,9 +426,7 @@ describe('createCaptureOutput — activity capture', () => {
 	});
 });
 
-// ===================================================================
-// Testkit integration — runCommand() with activity capture
-// ===================================================================
+// === Testkit integration — runCommand() with activity capture
 
 describe('runCommand() — activity capture', () => {
 	it('captures spinner events from handler', async () => {

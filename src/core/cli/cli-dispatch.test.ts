@@ -3,12 +3,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CommandSchema, ErasedCommand } from '../schema/command.ts';
+import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import { dispatch, findClosestCommand, levenshtein, uniqueCommands } from './dispatch.ts';
 
-// ===================================================================
-// Helpers
-// ===================================================================
+// === Helpers
 
 /** Minimal CommandSchema for dispatch tests. */
 function commandSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
@@ -60,9 +58,7 @@ function commandMap(...commands: readonly ErasedCommand[]): ReadonlyMap<string, 
 	return map;
 }
 
-// ===================================================================
-// dispatch() — base cases
-// ===================================================================
+// === dispatch() — base cases
 
 describe('dispatch() — base cases', () => {
 	it('returns unknown with empty input on empty argv', () => {
@@ -133,9 +129,7 @@ describe('dispatch() — base cases', () => {
 	});
 });
 
-// ===================================================================
-// dispatch() — nested commands
-// ===================================================================
+// === dispatch() — nested commands
 
 describe('dispatch() — nested commands', () => {
 	it('dispatches to nested subcommand', () => {
@@ -173,9 +167,7 @@ describe('dispatch() — nested commands', () => {
 	});
 });
 
-// ===================================================================
-// dispatch() — groups without handlers
-// ===================================================================
+// === dispatch() — groups without handlers
 
 describe('dispatch() — groups without handlers', () => {
 	it('returns needs-subcommand when group has no handler and no subcommand given', () => {
@@ -200,9 +192,7 @@ describe('dispatch() — groups without handlers', () => {
 	});
 });
 
-// ===================================================================
-// dispatch() — groups with handlers (hybrid commands)
-// ===================================================================
+// === dispatch() — groups with handlers (hybrid commands)
 
 describe('dispatch() — groups with handlers (hybrid commands)', () => {
 	it('dispatches to group handler when no subcommand given', () => {
@@ -240,9 +230,7 @@ describe('dispatch() — groups with handlers (hybrid commands)', () => {
 	});
 });
 
-// ===================================================================
-// levenshtein()
-// ===================================================================
+// === levenshtein()
 
 describe('levenshtein()', () => {
 	it('returns 0 for identical strings', () => {
@@ -259,9 +247,7 @@ describe('levenshtein()', () => {
 	});
 });
 
-// ===================================================================
-// findClosestCommand()
-// ===================================================================
+// === findClosestCommand()
 
 describe('findClosestCommand()', () => {
 	it('returns closest match within threshold', () => {
@@ -280,9 +266,7 @@ describe('findClosestCommand()', () => {
 	});
 });
 
-// ===================================================================
-// uniqueCommands()
-// ===================================================================
+// === uniqueCommands()
 
 describe('uniqueCommands()', () => {
 	it('deduplicates aliased entries', () => {

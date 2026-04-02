@@ -2,16 +2,16 @@
  * Tests for the CLI entry point builder — cli(), dispatch, help, version.
  */
 
-import { describe, expect, it } from 'vitest';
-import { ParseError } from '../errors/index.ts';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { describe, expect, it, vi } from 'vitest';
+import { ParseError } from '#internals/core/errors/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import type { CommandMeta } from '#internals/core/schema/command.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { CLIBuilder, cli, formatRootHelp } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Test commands
-// ---------------------------------------------------------------------------
+// --- Test commands
 
 function deployCommand() {
 	return command('deploy')
@@ -57,15 +57,26 @@ function aliasedCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
+// --- Factory
 
 describe('cli() factory', () => {
 	it('creates a CLIBuilder with the given name', () => {
 		const app = cli('mycli');
 		expect(app).toBeInstanceOf(CLIBuilder);
 		expect(app.schema.name).toBe('mycli');
+	});
+
+	it('accepts an options object with an explicit name', () => {
+		const app = cli({ name: 'mycli' });
+		expect(app).toBeInstanceOf(CLIBuilder);
+		expect(app.schema.name).toBe('mycli');
+		expect(app.schema.inheritName).toBe(false);
+	});
+
+	it('enables runtime name inheritance from the options object', () => {
+		const app = cli({ inherit: true });
+		expect(app.schema.name).toBe('cli');
+		expect(app.schema.inheritName).toBe(true);
 	});
 
 	it('starts with undefined version and description', () => {
@@ -80,9 +91,7 @@ describe('cli() factory', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Immutability
-// ---------------------------------------------------------------------------
+// --- Immutability
 
 describe('CLIBuilder immutability', () => {
 	it('.version() returns a new builder', () => {
@@ -110,9 +119,7 @@ describe('CLIBuilder immutability', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Version
-// ---------------------------------------------------------------------------
+// --- Version
 
 describe('--version flag', () => {
 	it('outputs version and exits 0', async () => {
@@ -133,12 +140,31 @@ describe('--version flag', () => {
 		expect(result.stdout).toEqual(['1.0.0\n']);
 	});
 
-	it('outputs nothing when version is not set', async () => {
-		const app = cli('mycli');
+	it('does not swallow --version when no version is configured', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['deploy', '--version']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
+		expect(result.stderr.join('')).toContain('Unknown flag --version');
+	});
+
+	it('does not swallow -V when the default command handles argv', async () => {
+		const app = cli('mycli').default(deployCommand());
+		const result = await app.execute(['-V']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
+		expect(result.stderr.join('')).toContain('Unknown flag -V');
+	});
+
+	it('rejects root --version when no version is configured', async () => {
+		const app = cli('mycli').command(deployCommand());
 		const result = await app.execute(['--version']);
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual([]);
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
+		expect(result.stderr.join('')).toContain('Unknown flag --version');
 	});
 
 	it('--version takes precedence over commands', async () => {
@@ -150,9 +176,7 @@ describe('--version flag', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Root help
-// ---------------------------------------------------------------------------
+// --- Root help
 
 describe('root help', () => {
 	it('shows help when no args provided', async () => {
@@ -214,18 +238,60 @@ describe('root help', () => {
 		expect(output).toContain('login');
 	});
 
-	it('shows help when unknown root flag is passed', async () => {
+	it('rejects unknown root flag', async () => {
 		const app = cli('mycli').command(deployCommand());
 		const result = await app.execute(['--unknown-flag']);
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout.join('')).toContain('Commands:');
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('UNKNOWN_FLAG');
+		expect(result.stderr.join('')).toContain('Unknown flag --unknown-flag');
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Command dispatch
-// ---------------------------------------------------------------------------
+// --- Runtime name inheritance
+
+describe('CLIBuilder.run — runtime name inheritance', () => {
+	it('uses the invoked entry basename in root help during .run()', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', '/usr/bin/xxxhotbabe.ts', '--help'],
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli({ inherit: true }).command(deployCommand());
+
+		try {
+			await app.run({ adapter });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		const output = stdoutLines.join('');
+		expect(output).toContain('Usage: xxxhotbabe.ts <command> [options]');
+		expect(output).not.toContain('Usage: cli <command> [options]');
+	});
+
+	it('falls back to the configured name when no invocation name can be inferred', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['deno', 'run', '--help'],
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli({ name: 'fallback', inherit: true }).command(deployCommand());
+
+		try {
+			await app.run({ adapter });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		const output = stdoutLines.join('');
+		expect(output).toContain('Usage: fallback <command> [options]');
+	});
+});
+
+// --- Command dispatch
 
 describe('command dispatch', () => {
 	it('dispatches to the correct command by name', async () => {
@@ -278,9 +344,7 @@ describe('command dispatch', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Per-command --help
-// ---------------------------------------------------------------------------
+// --- Per-command --help
 
 describe('per-command --help', () => {
 	it('shows command help text', async () => {
@@ -304,9 +368,113 @@ describe('per-command --help', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Error handling
-// ---------------------------------------------------------------------------
+// --- `help` virtual subcommand
+
+describe('help virtual subcommand — behavior', () => {
+	it('bare `help` shows root help', async () => {
+		const app = cli('mycli').version('1.0.0').command(deployCommand()).command(loginCommand());
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('mycli');
+		expect(output).toContain('deploy');
+		expect(output).toContain('login');
+	});
+
+	it('`help <command>` shows same output as `<command> --help`', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const viaHelp = await app.execute(['help', 'deploy']);
+		const viaFlag = await app.execute(['deploy', '--help']);
+
+		expect(viaHelp.exitCode).toBe(0);
+		expect(viaFlag.exitCode).toBe(0);
+		expect(viaHelp.stdout).toEqual(viaFlag.stdout);
+	});
+
+	it('`help <unknown>` shows unknown command error', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['help', 'nope']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Unknown command: nope');
+	});
+
+	it('defers to real `help` command when registered', async () => {
+		const helpCmd = command('help')
+			.description('Custom help')
+			.action(({ out }) => {
+				out.log('custom help output');
+			});
+		const app = cli('mycli').command(helpCmd).command(deployCommand());
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('custom help output');
+	});
+
+	it('defers to alias `help` when registered', async () => {
+		const infoCmd = command('info')
+			.alias('help')
+			.description('Info command aliased as help')
+			.action(({ out }) => {
+				out.log('info output');
+			});
+		const app = cli('mycli').command(infoCmd).command(deployCommand());
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('info output');
+	});
+
+	it('`help help` terminates — shows root help', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['help', 'help']);
+
+		// help help → ['help', '--help'] → firstArg='help', rest=['--help']
+		// → ['--help', '--help'] → firstArg='--help' → root help
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('mycli');
+		expect(output).toContain('deploy');
+	});
+
+	it('`help` with default and sibling commands still shows root help', async () => {
+		const defaultCmd = command('run')
+			.description('Default runner')
+			.action(({ out }) => {
+				out.log('running');
+			});
+		const app = cli('mycli').command(deployCommand()).default(defaultCmd);
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('mycli');
+		expect(output).toContain('deploy');
+	});
+
+	it('bare `help` shows merged root and default command help for single-command default CLIs', async () => {
+		const defaultCmd = command('run')
+			.description('Default runner')
+			.arg('target', arg.string().describe('Run target'))
+			.action(({ out }) => {
+				out.log('running');
+			});
+		const app = cli('mycli').default(defaultCmd);
+		const result = await app.execute(['help']);
+
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('mycli');
+		expect(output).toContain('Usage: mycli [command] [options]');
+		expect(output).toContain('Commands:');
+		expect(output).toContain('       mycli run <target>');
+		expect(output).toContain('Default runner');
+	});
+});
+
+// --- Error handling
 
 describe('error handling', () => {
 	it('returns error for unknown command', async () => {
@@ -371,9 +539,7 @@ describe('error handling', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Async handlers
-// ---------------------------------------------------------------------------
+// --- Async handlers
 
 describe('async command handlers', () => {
 	it('awaits async handlers', async () => {
@@ -390,9 +556,7 @@ describe('async command handlers', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Options passthrough
-// ---------------------------------------------------------------------------
+// --- Options passthrough
 
 describe('options passthrough', () => {
 	it('passes verbosity through to commands', async () => {
@@ -423,9 +587,7 @@ describe('options passthrough', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Complex composition
-// ---------------------------------------------------------------------------
+// --- Complex composition
 
 describe('complex CLI composition', () => {
 	it('handles a full multi-command CLI', async () => {
@@ -467,9 +629,7 @@ describe('complex CLI composition', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// formatRootHelp
-// ---------------------------------------------------------------------------
+// --- formatRootHelp
 
 describe('formatRootHelp', () => {
 	it('includes name and version', () => {
@@ -498,7 +658,7 @@ describe('formatRootHelp', () => {
 		const app = cli('mycli');
 		const help = formatRootHelp(app.schema);
 
-		expect(help).toContain('Usage: mycli <command> [options]');
+		expect(help).toContain('Usage: mycli [options]');
 	});
 
 	it('lists visible commands with descriptions', () => {
@@ -561,9 +721,7 @@ describe('formatRootHelp', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Builder chaining
-// ---------------------------------------------------------------------------
+// --- Builder chaining
 
 describe('builder chaining', () => {
 	it('supports fluent chaining', async () => {
@@ -593,9 +751,7 @@ describe('builder chaining', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('edge cases', () => {
 	it('empty argv shows help', async () => {
@@ -661,18 +817,76 @@ describe('edge cases', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Module loading (public surface)
-// ---------------------------------------------------------------------------
+// --- Module loading (public surface)
 
 describe('public exports', () => {
 	it('exports cli factory', async () => {
-		const { cli: cliExport } = await import('../../index.ts');
+		const { cli: cliExport } = await import('#internals/index.ts');
 		expect(typeof cliExport).toBe('function');
 	});
 
 	it('exports CLIBuilder class', async () => {
-		const { CLIBuilder: CLIBuilderExport } = await import('../../index.ts');
+		const { CLIBuilder: CLIBuilderExport } = await import('#internals/index.ts');
 		expect(typeof CLIBuilderExport).toBe('function');
+	});
+});
+
+// === CommandMeta — dispatch populates meta from CLI schema
+
+describe('cli.execute — meta', () => {
+	function firstCallMeta(handler: ReturnType<typeof vi.fn>): CommandMeta {
+		expect(handler).toHaveBeenCalledOnce();
+		const call = handler.mock.calls[0];
+		if (call === undefined) throw new Error('expected handler to be called once');
+		return call[0].meta;
+	}
+
+	it('populates meta with CLI name, version, and command name', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+		const app = cli('myapp').version('1.0.0').command(cmd);
+
+		await app.execute(['deploy']);
+
+		expect(firstCallMeta(handler)).toEqual({
+			name: 'myapp',
+			bin: 'myapp',
+			version: '1.0.0',
+			command: 'deploy',
+		});
+	});
+
+	it('uses help.binName for meta.bin', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+		const app = cli('myapp').version('1.0.0').command(cmd);
+
+		await app.execute(['deploy'], { help: { binName: 'my-app' } });
+
+		const meta = firstCallMeta(handler);
+		expect(meta.bin).toBe('my-app');
+		expect(meta.name).toBe('myapp');
+	});
+
+	it('meta.version is undefined when CLI has no version', async () => {
+		const handler = vi.fn();
+		const cmd = command('deploy').action(handler);
+		const app = cli('myapp').command(cmd);
+
+		await app.execute(['deploy']);
+
+		expect(firstCallMeta(handler).version).toBeUndefined();
+	});
+
+	it('populates meta.command for default command', async () => {
+		const handler = vi.fn();
+		const cmd = command('main').action(handler);
+		const app = cli('myapp').version('1.0.0').default(cmd);
+
+		await app.execute([]);
+
+		const meta = firstCallMeta(handler);
+		expect(meta.command).toBe('main');
+		expect(meta.name).toBe('myapp');
 	});
 });

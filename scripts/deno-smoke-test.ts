@@ -1,3 +1,4 @@
+#!/usr/bin/env -S deno run --allow-read --allow-env
 /**
  * Deno adapter smoke test.
  *
@@ -12,9 +13,50 @@
  *   1 — a check failed
  */
 
-// Import from built output (not source) to verify the published shape
-import type { RuntimeAdapter } from '../dist/runtime.mjs';
-import { createDenoAdapter } from '../dist/runtime.mjs';
+import type { RuntimeAdapter } from '#dreamcli/runtime';
+
+// Import from built output (not source) to verify the published shape.
+// Use a file URL expression so repository typecheck does not require a prebuilt dist/.
+const runtimeModuleUrl = new URL('../dist/runtime.mjs', import.meta.url).href;
+const runtimeModule = await import(runtimeModuleUrl);
+
+function failBoundary(message: string): never {
+	throw new Error(`${message} (module: ${runtimeModuleUrl})`);
+}
+
+function assertRuntimeAdapter(value: unknown): RuntimeAdapter {
+	if (typeof value !== 'object' || value === null) {
+		return failBoundary('createDenoAdapter() did not return an adapter object');
+	}
+
+	const candidate = value as Record<string, unknown>;
+	if (
+		typeof candidate.stdout !== 'function' ||
+		typeof candidate.stderr !== 'function' ||
+		typeof candidate.stdin !== 'function' ||
+		typeof candidate.readStdin !== 'function' ||
+		typeof candidate.readFile !== 'function' ||
+		typeof candidate.exit !== 'function' ||
+		typeof candidate.cwd !== 'string' ||
+		typeof candidate.homedir !== 'string' ||
+		typeof candidate.configDir !== 'string' ||
+		typeof candidate.isTTY !== 'boolean' ||
+		typeof candidate.stdinIsTTY !== 'boolean' ||
+		!Array.isArray(candidate.argv) ||
+		typeof candidate.env !== 'object' ||
+		candidate.env === null
+	) {
+		return failBoundary('createDenoAdapter() returned a value that does not match RuntimeAdapter');
+	}
+
+	return value as RuntimeAdapter;
+}
+
+if (typeof runtimeModule.createDenoAdapter !== 'function') {
+	failBoundary('Expected createDenoAdapter export to be a function');
+}
+
+const createDenoAdapter = runtimeModule.createDenoAdapter;
 
 let failures = 0;
 
@@ -33,9 +75,7 @@ function assert(condition: boolean, message: string): void {
 
 console.log('createDenoAdapter()');
 
-const adapter: RuntimeAdapter = createDenoAdapter();
-
-assert(adapter !== null && adapter !== undefined, 'adapter is defined');
+const adapter = assertRuntimeAdapter(createDenoAdapter());
 
 // ───────────────────────────────────────────────────────────────────
 // 2. argv — should have synthetic prefix + Deno.args

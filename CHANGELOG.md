@@ -7,6 +7,183 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-02
+
+### Added
+
+#### Release Automation
+
+- **GitHub Actions npm publish workflow** (`.github/workflows/publish-npm.yml`) — publishes the
+  package to npm on GitHub release with provenance enabled, bringing npm release automation in line
+  with the existing JSR publish flow.
+
+#### Canonical Semantics Guide
+
+- **`docs/guide/semantics.md`** — centralized reference for parser and resolver behavior, including
+  repeated flags, short-flag stacking, `--` separator rules, `--no-*` alias behavior, value-source
+  precedence, non-interactive prompt skipping, propagated-flag masking, and default-command root
+  help/completion semantics.
+
+#### Plugin Lifecycle Hooks
+
+- **`plugin(hooks, name?)`** and **`.plugin(definition)`** expose a typed extension surface around
+  command execution.
+- **Lifecycle phases** — `beforeParse`, `afterResolve`, `beforeAction`, and `afterAction` let
+  plugins observe or instrument execution without reaching into CLI internals.
+
+#### `derive()` Command Context
+
+- **`command(...).derive(handler)`** adds typed command-scoped pre-action context derived from fully
+  resolved flags and args.
+- **Derived context merges into `ctx`** so commands can validate once and consume typed values in
+  the action handler.
+
+#### Schema Export and Validation
+
+- **`generateInputSchema()`** exports JSON Schema from CLI definitions for machine validation and
+  tooling.
+- **Schema export docs and reference coverage** now document export formats, discriminator behavior,
+  and default/hidden command handling.
+
+#### Runtime Surface and Execution Options
+
+- **Runtime support matrix and version guards** added around adapter creation.
+- **`run()` accepts `jsonMode`** in options, letting callers force structured output without
+  shell-level flags.
+- **`out.table()` format and stream overrides** expose finer control over tabular output.
+
+### Changed
+
+- **Docs navigation and entrypoints** — guide pages now link to the canonical semantics guide, the
+  API reference landing page includes quick import guidance and key factories per subpath export,
+  and the VitePress sidebar surfaces the semantics page under the Advanced guide section.
+- **Public API surface tightened** — runtime exports were pruned and guarded, explicit `require`
+  conditions were added to package exports, and self-referencing package imports were hardened.
+- **Docs and examples expanded** — JSDoc/reference coverage grew across exported symbols, schema
+  export/testing/runtime docs were added, and the `gh` walkthrough became a multi-file example
+  package.
+- **CI and packaging hardened** — version-sync checks, supported Node pinning, preview publish
+  verification, and Bun-pack package validation were added around the release surface.
+
+### Fixed
+
+- **Default-command UX** — single-command root help is merged correctly, root completions surface
+  default-command flags, unknown root flags are rejected cleanly, and schema discriminator handling
+  matches the actual default-command surface.
+- **Stdin and runtime behavior** — stdin reads defer until dispatch needs them, empty pipes are
+  distinguished from no pipe, and test adapters now match real runtime behavior more closely.
+- **Parser/help/completion/output edge cases** — optional array flags resolve to `[]`, variadic help
+  formatting is corrected, bash/zsh completion edge cases are hardened, non-finite JSON values are
+  rejected, and table options are preserved correctly.
+
+## [0.9.2] - 2026-03-30
+
+### Added
+
+#### Stdin-Backed Positional Arguments
+
+- **`ArgBuilder.stdin()`** lets positional args consume piped stdin when no CLI token is provided.
+- **`RuntimeAdapter.readStdin()`** adds full stdin reads to the runtime contract across Node, Bun,
+  and Deno adapters.
+- **`RunOptions.stdinData` and testkit plumbing** let in-process tests feed stdin-backed commands
+  without touching real process state.
+- **Comprehensive stdin coverage** added across schema, resolver, runtime, and testkit tests.
+
+### Changed
+
+- Positional-arg resolution for stdin-enabled args expanded from **CLI → env → default** to
+  **CLI → stdin → env → default**.
+- Scripts now separate **`lint`** from **`format`**, so linting no longer doubles as a rewrite step.
+
+## [0.9.1] - 2026-03-30
+
+### Added
+
+#### Default Command Support
+
+- **`CLIBuilder.default(command)`** lets a CLI run a fallback command when no subcommand is
+  specified.
+- **Root args and flags flow through the default command** while explicit subcommands still take
+  precedence.
+
+#### Package.json Auto-Discovery
+
+- **`CLIBuilder.packageJson(settings?)`** — opt-in builder method that enables automatic
+  `package.json` discovery at `.run()` time. Walks up from `cwd` to find the nearest `package.json`
+  and merges `version` and `description` into the CLI schema. Explicit `.version()` and
+  `.description()` calls always take precedence over discovered values.
+- **`PackageJsonSettings.inferName`** — when `true`, infers the CLI binary name from the `bin` key
+  (first key of the object) or the package `name` field (scope stripped). Defaults to `false`.
+- **`discoverPackageJson(adapter)`** — pure function that walks up from `adapter.cwd` to find and
+  parse the nearest `package.json`. Returns `PackageJsonData | null`. All I/O flows through the
+  adapter — fully testable with virtual filesystems.
+- **`inferCliName(pkg)`** — resolves CLI name from `PackageJsonData` with priority: bin key → scoped
+  name (stripped) → `undefined`.
+- **Silent error handling** — malformed JSON, non-object roots, and missing `package.json` all
+  return `null` (not errors). Deno permission denials degrade gracefully via the adapter's existing
+  `readFile` contract.
+- **Completions skip** — package.json discovery is skipped for the `completions` subcommand,
+  matching the existing config discovery skip pattern.
+- **43 new tests** — `package-json.test.ts` (24 unit tests: walk-up resolution, field extraction,
+  error resilience, Windows path termination) and `cli-package-json.test.ts` (19 integration tests:
+  version/description fill, name inference, precedence, walk-up, completions skip, combined with
+  config, error resilience).
+
+#### `help` Virtual Subcommand
+
+- **`BINARY help <command>`** produces the same output as `BINARY <command> --help`. Rewrites argv
+  via recursive `execute()` — no dispatch duplication.
+- **Nested support** — `help db migrate` works like `db migrate --help`.
+- **Bare `help`** shows root help.
+- **Defers to real commands** — if the user registers a command named `help` (or aliased as `help`),
+  it takes priority over the virtual subcommand.
+- **`--json` propagation** — `help --json <command>` correctly preserves json mode (help text routes
+  to stderr, stdout reserved for data).
+- **10 new tests** across `cli.test.ts` (7), `cli-nesting.test.ts` (2), `cli-json.test.ts` (1).
+
+#### Arg Environment Variable Resolution
+
+- **`ArgBuilder.env(varName)`** binds a positional argument to an environment variable. When the CLI
+  value is absent, the resolver reads the env var and coerces the string to the arg's declared kind
+  (passthrough for strings, `Number()` with NaN guard for numbers, `parseFn` invocation for custom
+  args). Resolution order: **CLI → env → default**.
+- **`ArgSchema.envVar`** field (`string | undefined`) stores the env var name on the runtime schema
+  descriptor.
+- **Env coercion for args** via `coerceArgEnvValue()` in the resolver. Handles `string`
+  (passthrough), `number` (parse + NaN guard), and `custom` (delegates to `parseFn`, wraps thrown
+  errors).
+- **`[env: VAR]` annotation** in help output for args with env bindings, matching the existing flag
+  annotation style.
+- **Actionable required-arg error hints** — `buildRequiredArgSuggest()` generates suggestions
+  including the env var when configured (e.g. "Provide a value for \<target\> or set
+  DEPLOY_TARGET").
+- **16 new tests** — `resolve-arg-env.test.ts` (15 tests covering string/number/custom coercion,
+  CLI > env > default precedence, deprecation warnings, error cases) and 1 help output test for the
+  `[env: VAR]` annotation.
+
+#### Command Metadata
+
+- **`CommandMeta`** added to action handlers and middleware, carrying the CLI name, invoked binary,
+  version, and resolved leaf command name.
+
+#### Documentation Site, README, and Examples
+
+- **README** added with project pitch, usage, install guidance, and comparison table.
+- **Examples directory** added with seven implementation examples.
+- **VitePress documentation site** added with concepts, guide, and reference sections.
+- **GitHub Pages deploy workflow and sitemap** added for hosted docs.
+- **Walkthrough guide** added for a GitHub CLI-style example application.
+
+### Changed
+
+- Completion generation was reorganized into shell-specific generators and the package/tooling
+  surface was refreshed for the `0.9.1` milestone.
+- Comprehensive public-facing JSDoc examples were added to the builder APIs.
+
+### Fixed
+
+- Default commands no longer swallow nested unknown-command errors.
+
 ## [0.9.0] - 2026-02-11
 
 ### Added
@@ -475,7 +652,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/9ea29cd...HEAD
+[1.0.0]: https://github.com/kjanat/dreamcli/compare/5b86f72...9ea29cd
+[0.9.2]: https://github.com/kjanat/dreamcli/compare/b26f2d8...5b86f72
+[0.9.1]: https://github.com/kjanat/dreamcli/compare/v0.9.0...b26f2d8
 [0.9.0]: https://github.com/kjanat/dreamcli/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kjanat/dreamcli/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kjanat/dreamcli/compare/v0.6.0...v0.7.0

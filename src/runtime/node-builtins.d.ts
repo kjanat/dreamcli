@@ -19,5 +19,5 @@ declare module 'node:readline' {
 }
 
 declare module 'node:fs/promises' {
-	function readFile(path: string, encoding: 'utf8'): Promise<string>;
+	function readFile(path: string | URL, encoding: 'utf8'): Promise<string>;
 }

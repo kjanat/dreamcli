@@ -6,14 +6,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { arg } from '../schema/arg.ts';
-import { command, group } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command, group } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Helpers
-// ===================================================================
+// === Helpers
 
 function migrateCommand() {
 	return command('migrate')
@@ -39,9 +37,11 @@ function dbGroup() {
 		.command(seedCommand());
 }
 
-// ===================================================================
-// Nested dispatch — basic
-// ===================================================================
+function hasPropagatedVerbose(flags: { readonly verbose?: boolean }): boolean {
+	return flags.verbose === true;
+}
+
+// === Nested dispatch — basic
 
 describe('CLIBuilder — nested dispatch', () => {
 	it('dispatches to nested subcommand', async () => {
@@ -82,9 +82,7 @@ describe('CLIBuilder — nested dispatch', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — 3 levels deep
-// ===================================================================
+// === Nested dispatch — 3 levels deep
 
 describe('CLIBuilder — 3-level nesting', () => {
 	it('dispatches through 3 levels', async () => {
@@ -105,9 +103,7 @@ describe('CLIBuilder — 3-level nesting', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — hybrid groups (group with own action + subcommands)
-// ===================================================================
+// === Nested dispatch — hybrid groups (group with own action + subcommands)
 
 describe('CLIBuilder — hybrid group with action + subcommands', () => {
 	it('runs group action when no subcommand given', async () => {
@@ -151,17 +147,14 @@ describe('CLIBuilder — hybrid group with action + subcommands', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — propagated flags
-// ===================================================================
+// === Nested dispatch — propagated flags
 
 describe('CLIBuilder — propagated flags through nesting', () => {
 	it('propagates parent flag to nested subcommand', async () => {
 		const migrate = command('migrate')
 			.description('Run migrations')
 			.action(({ flags, out }) => {
-				const verbose = flags as Record<string, unknown>;
-				out.log(`verbose=${String(verbose['verbose'] ?? false)}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		const db = group('db')
@@ -179,8 +172,7 @@ describe('CLIBuilder — propagated flags through nesting', () => {
 		const up = command('up')
 			.description('Run migrations up')
 			.action(({ flags, out }) => {
-				const f = flags as Record<string, unknown>;
-				out.log(`verbose=${String(f['verbose'] ?? false)}`);
+				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
 			});
 
 		const migrate = group('migrate').description('Migration commands').command(up);
@@ -240,9 +232,7 @@ describe('CLIBuilder — propagated flags through nesting', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — --help
-// ===================================================================
+// === Nested dispatch — --help
 
 describe('CLIBuilder — nested help', () => {
 	it('shows command help with --help on nested subcommand', async () => {
@@ -253,11 +243,27 @@ describe('CLIBuilder — nested help', () => {
 		expect(output).toContain('migrate');
 		expect(output).toContain('--steps');
 	});
+
+	it('`help db migrate` shows same output as `db migrate --help`', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const viaHelp = await app.execute(['help', 'db', 'migrate']);
+		const viaFlag = await app.execute(['db', 'migrate', '--help']);
+
+		expect(viaHelp.exitCode).toBe(0);
+		expect(viaHelp.stdout).toEqual(viaFlag.stdout);
+	});
+
+	it('`help db` shows group help', async () => {
+		const app = cli('myapp').command(dbGroup());
+		const viaHelp = await app.execute(['help', 'db']);
+		const viaDirect = await app.execute(['db']);
+
+		expect(viaHelp.exitCode).toBe(0);
+		expect(viaHelp.stdout).toEqual(viaDirect.stdout);
+	});
 });
 
-// ===================================================================
-// Nested dispatch — --json mode
-// ===================================================================
+// === Nested dispatch — --json mode
 
 describe('CLIBuilder — nested dispatch with --json', () => {
 	it('propagates --json to nested subcommand', async () => {
@@ -285,9 +291,7 @@ describe('CLIBuilder — nested dispatch with --json', () => {
 	});
 });
 
-// ===================================================================
-// Nested dispatch — aliases
-// ===================================================================
+// === Nested dispatch — aliases
 
 describe('CLIBuilder — nested dispatch with aliases', () => {
 	it('dispatches to nested subcommand via alias', async () => {
@@ -307,9 +311,7 @@ describe('CLIBuilder — nested dispatch with aliases', () => {
 	});
 });
 
-// ===================================================================
-// Scoped "did you mean?" suggestions
-// ===================================================================
+// === Scoped "did you mean?" suggestions
 
 describe('CLIBuilder — scoped suggestions', () => {
 	it('suggests sibling subcommand for typo within group', async () => {

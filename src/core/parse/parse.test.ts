@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ParseError } from '../errors/index.ts';
-import { createArgSchema } from '../schema/arg.ts';
-import type { CommandSchema } from '../schema/command.ts';
-import { createSchema } from '../schema/flag.ts';
+import { ParseError } from '#internals/core/errors/index.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import { parse, tokenize } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers — build minimal CommandSchema for testing
-// ---------------------------------------------------------------------------
+// --- Helpers — build minimal CommandSchema for testing
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -26,9 +24,7 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	};
 }
 
-// ========================================================================
-// Tokenizer
-// ========================================================================
+// === Tokenizer
 
 describe('tokenize', () => {
 	it('empty argv produces empty tokens', () => {
@@ -96,9 +92,7 @@ describe('tokenize', () => {
 	});
 });
 
-// ========================================================================
-// Parser — flags
-// ========================================================================
+// === Parser — flags
 
 describe('parse — flags', () => {
 	it('parses long boolean flag', () => {
@@ -226,9 +220,7 @@ describe('parse — flags', () => {
 	});
 });
 
-// ========================================================================
-// Parser — short flags
-// ========================================================================
+// === Parser — short flags
 
 describe('parse — short flags', () => {
 	it('single short boolean flag', () => {
@@ -320,9 +312,7 @@ describe('parse — short flags', () => {
 	});
 });
 
-// ========================================================================
-// Parser — positional args
-// ========================================================================
+// === Parser — positional args
 
 describe('parse — positional args', () => {
 	it('single string arg', () => {
@@ -351,6 +341,55 @@ describe('parse — positional args', () => {
 		});
 		const result = parse(schema, ['42']);
 		expect(result.args.count).toBe(42);
+	});
+
+	it('enum arg passes valid value through', () => {
+		const schema = makeSchema({
+			args: [
+				{ name: 'region', schema: createArgSchema('enum', { enumValues: ['us', 'eu', 'ap'] }) },
+			],
+		});
+		const result = parse(schema, ['eu']);
+		expect(result.args.region).toBe('eu');
+	});
+
+	it('enum arg rejects invalid value', () => {
+		const schema = makeSchema({
+			args: [{ name: 'region', schema: createArgSchema('enum', { enumValues: ['us', 'eu'] }) }],
+		});
+		expect(() => parse(schema, ['ap'])).toThrow(ParseError);
+		try {
+			parse(schema, ['ap']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.code).toBe('INVALID_VALUE');
+			expect(pe.details).toEqual({ arg: 'region', value: 'ap', allowed: ['us', 'eu'] });
+		}
+	});
+
+	it('variadic enum args are validated', () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'regions',
+					schema: createArgSchema('enum', { enumValues: ['us', 'eu'], variadic: true }),
+				},
+			],
+		});
+		const result = parse(schema, ['us', 'eu', 'us']);
+		expect(result.args.regions).toEqual(['us', 'eu', 'us']);
+	});
+
+	it('variadic enum rejects invalid value in list', () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'regions',
+					schema: createArgSchema('enum', { enumValues: ['us', 'eu'], variadic: true }),
+				},
+			],
+		});
+		expect(() => parse(schema, ['us', 'ap'])).toThrow(ParseError);
 	});
 
 	it('custom arg parse function is invoked', () => {
@@ -401,9 +440,7 @@ describe('parse — positional args', () => {
 	});
 });
 
-// ========================================================================
-// Parser — flags + args mixed
-// ========================================================================
+// === Parser — flags + args mixed
 
 describe('parse — mixed flags and args', () => {
 	it('flags and positionals interleaved', () => {
@@ -437,9 +474,7 @@ describe('parse — mixed flags and args', () => {
 	});
 });
 
-// ========================================================================
-// Parser — error cases
-// ========================================================================
+// === Parser — error cases
 
 describe('parse — errors', () => {
 	it('unknown long flag throws ParseError UNKNOWN_FLAG', () => {
@@ -525,6 +560,20 @@ describe('parse — errors', () => {
 		}
 	});
 
+	it('malformed enum flag schema throws INVALID_SCHEMA', () => {
+		const schema = makeSchema({
+			flags: { region: createSchema('enum', { enumValues: undefined }) },
+		});
+		expect(() => parse(schema, ['--region', 'us'])).toThrow(ParseError);
+		try {
+			parse(schema, ['--region', 'us']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.code).toBe('INVALID_SCHEMA');
+			expect(pe.message).toContain('Enum flag --region is misconfigured');
+		}
+	});
+
 	it('invalid boolean flag value throws INVALID_VALUE', () => {
 		const schema = makeSchema({
 			flags: { verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }) },
@@ -537,6 +586,20 @@ describe('parse — errors', () => {
 			args: [{ name: 'count', schema: createArgSchema('number') }],
 		});
 		expect(() => parse(schema, ['abc'])).toThrow(ParseError);
+	});
+
+	it('malformed enum arg schema throws INVALID_SCHEMA', () => {
+		const schema = makeSchema({
+			args: [{ name: 'region', schema: createArgSchema('enum', { enumValues: undefined }) }],
+		});
+		expect(() => parse(schema, ['us'])).toThrow(ParseError);
+		try {
+			parse(schema, ['us']);
+		} catch (err) {
+			const pe = err as InstanceType<typeof ParseError>;
+			expect(pe.code).toBe('INVALID_SCHEMA');
+			expect(pe.message).toContain('Enum argument <region> is misconfigured');
+		}
 	});
 
 	it('custom arg parse failure throws INVALID_VALUE', () => {
@@ -605,9 +668,7 @@ describe('parse — errors', () => {
 	});
 });
 
-// ========================================================================
-// Custom flag parsing
-// ========================================================================
+// === Custom flag parsing
 
 describe('parse — custom flags', () => {
 	it('custom flag invokes parseFn on the raw string', () => {
@@ -699,9 +760,7 @@ describe('parse — custom flags', () => {
 	});
 });
 
-// ========================================================================
-// Edge cases
-// ========================================================================
+// === Edge cases
 
 describe('parse — edge cases', () => {
 	it('flag value that looks like a flag (--name --other)', () => {

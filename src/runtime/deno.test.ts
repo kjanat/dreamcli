@@ -11,9 +11,7 @@ import type { RuntimeAdapter } from './adapter.ts';
 import type { DenoNamespace } from './deno.ts';
 import { createDenoAdapter } from './deno.ts';
 
-// ---
-// Test helpers
-// ---
+// --- Test helpers
 
 /** Minimal readable stream that yields chunks then signals done. */
 function mockReadableStream(chunks: string[]): ReadableStream<Uint8Array> {
@@ -44,6 +42,8 @@ function mockReadableStream(chunks: string[]): ReadableStream<Uint8Array> {
 /** Create a minimal mock DenoNamespace with optional overrides. */
 function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 	return {
+		build: overrides?.build ?? { os: 'linux' },
+		version: overrides?.version ?? { deno: '2.6.0' },
 		args: overrides?.args ?? [],
 		env: overrides?.env ?? {
 			get: () => undefined,
@@ -51,11 +51,11 @@ function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 		},
 		cwd: overrides?.cwd ?? (() => '/deno/project'),
 		stdout: overrides?.stdout ?? {
-			write: vi.fn(() => Promise.resolve(0)),
+			writeSync: vi.fn(() => 0),
 			isTerminal: () => false,
 		},
 		stderr: overrides?.stderr ?? {
-			write: vi.fn(() => Promise.resolve(0)),
+			writeSync: vi.fn(() => 0),
 		},
 		stdin: overrides?.stdin ?? {
 			isTerminal: () => false,
@@ -73,9 +73,7 @@ function makeDenoError(name: string, message?: string): Error {
 	return err;
 }
 
-// ===
-// createDenoAdapter — basic contract
-// ===
+// === createDenoAdapter — basic contract
 
 describe('createDenoAdapter — basic contract', () => {
 	it('returns a RuntimeAdapter with all required fields', () => {
@@ -99,11 +97,14 @@ describe('createDenoAdapter — basic contract', () => {
 		const adapter: RuntimeAdapter = createDenoAdapter(mockDeno());
 		expect(adapter).toBeDefined();
 	});
+
+	it('throws for unsupported Deno versions', () => {
+		const ns = mockDeno({ version: { deno: '2.5.4' } });
+		expect(() => createDenoAdapter(ns)).toThrow('dreamcli requires Deno >= 2.6.0');
+	});
 });
 
-// ===
-// createDenoAdapter — argv synthesis
-// ===
+// === createDenoAdapter — argv synthesis
 
 describe('createDenoAdapter — argv synthesis', () => {
 	it('prepends synthetic binary+script to Deno.args', () => {
@@ -125,9 +126,7 @@ describe('createDenoAdapter — argv synthesis', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — environment
-// ===
+// === createDenoAdapter — environment
 
 describe('createDenoAdapter — environment', () => {
 	it('reads env from Deno.env.toObject()', () => {
@@ -167,9 +166,7 @@ describe('createDenoAdapter — environment', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — cwd
-// ===
+// === createDenoAdapter — cwd
 
 describe('createDenoAdapter — cwd', () => {
 	it('reads cwd from Deno.cwd()', () => {
@@ -198,18 +195,16 @@ describe('createDenoAdapter — cwd', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — I/O
-// ===
+// === createDenoAdapter — I/O
 
 describe('createDenoAdapter — stdout/stderr', () => {
-	it('routes stdout writes through TextEncoder to Deno.stdout.write', () => {
+	it('routes stdout writes through TextEncoder to Deno.stdout.writeSync', () => {
 		let captured: Uint8Array | undefined;
 		const ns = mockDeno({
 			stdout: {
-				write: (p: Uint8Array) => {
+				writeSync: (p: Uint8Array) => {
 					captured = p;
-					return Promise.resolve(p.length);
+					return p.length;
 				},
 				isTerminal: () => false,
 			},
@@ -221,13 +216,13 @@ describe('createDenoAdapter — stdout/stderr', () => {
 		expect(new TextDecoder().decode(captured)).toBe('hello deno');
 	});
 
-	it('routes stderr writes through TextEncoder to Deno.stderr.write', () => {
+	it('routes stderr writes through TextEncoder to Deno.stderr.writeSync', () => {
 		let captured: Uint8Array | undefined;
 		const ns = mockDeno({
 			stderr: {
-				write: (p: Uint8Array) => {
+				writeSync: (p: Uint8Array) => {
 					captured = p;
-					return Promise.resolve(p.length);
+					return p.length;
 				},
 			},
 		});
@@ -239,14 +234,12 @@ describe('createDenoAdapter — stdout/stderr', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — TTY detection
-// ===
+// === createDenoAdapter — TTY detection
 
 describe('createDenoAdapter — TTY detection', () => {
 	it('isTTY is true when stdout.isTerminal() returns true', () => {
 		const ns = mockDeno({
-			stdout: { write: vi.fn(() => Promise.resolve(0)), isTerminal: () => true },
+			stdout: { writeSync: vi.fn(() => 0), isTerminal: () => true },
 		});
 		const adapter = createDenoAdapter(ns);
 		expect(adapter.isTTY).toBe(true);
@@ -273,9 +266,7 @@ describe('createDenoAdapter — TTY detection', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — exit
-// ===
+// === createDenoAdapter — exit
 
 describe('createDenoAdapter — exit', () => {
 	it('delegates exit to Deno.exit', () => {
@@ -288,14 +279,20 @@ describe('createDenoAdapter — exit', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — stdin line reading
-// ===
+// === createDenoAdapter — stdin line reading
 
 describe('createDenoAdapter — stdin', () => {
 	it('stdin is a ReadFn (function)', () => {
 		const adapter = createDenoAdapter(mockDeno());
 		expect(typeof adapter.stdin).toBe('function');
+	});
+
+	it('readStdin returns empty string for empty non-TTY stdin', async () => {
+		const ns = mockDeno({
+			stdin: { isTerminal: () => false, readable: mockReadableStream([]) },
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(await adapter.readStdin()).toBe('');
 	});
 
 	it('reads a line from stdin stream', async () => {
@@ -344,9 +341,7 @@ describe('createDenoAdapter — stdin', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — readFile
-// ===
+// === createDenoAdapter — readFile
 
 describe('createDenoAdapter — readFile', () => {
 	it('returns file contents on success', async () => {
@@ -385,9 +380,7 @@ describe('createDenoAdapter — readFile', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — homedir
-// ===
+// === createDenoAdapter — homedir
 
 describe('createDenoAdapter — homedir', () => {
 	it('uses HOME env on Unix', () => {
@@ -403,6 +396,7 @@ describe('createDenoAdapter — homedir', () => {
 
 	it('uses USERPROFILE on Windows', () => {
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => ({ USERPROFILE: 'C:\\Users\\alice' })[k],
 				toObject: () => ({ USERPROFILE: 'C:\\Users\\alice' }),
@@ -415,6 +409,7 @@ describe('createDenoAdapter — homedir', () => {
 	it('uses HOMEDRIVE+HOMEPATH when USERPROFILE unset', () => {
 		const env: Record<string, string> = { HOMEDRIVE: 'D:', HOMEPATH: '\\Users\\bob' };
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -431,9 +426,7 @@ describe('createDenoAdapter — homedir', () => {
 	});
 });
 
-// ===
-// createDenoAdapter — configDir
-// ===
+// === createDenoAdapter — configDir
 
 describe('createDenoAdapter — configDir', () => {
 	it('uses XDG_CONFIG_HOME on Unix', () => {
@@ -466,6 +459,38 @@ describe('createDenoAdapter — configDir', () => {
 			APPDATA: 'C:\\Users\\alice\\AppData\\Roaming',
 		};
 		const ns = mockDeno({
+			build: { os: 'windows' },
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('defaults to AppData\\Roaming on Windows', () => {
+		const env: Record<string, string> = {
+			USERPROFILE: 'C:\\Users\\alice',
+		};
+		const ns = mockDeno({
+			build: { os: 'windows' },
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('uses HOMEDRIVE and HOMEPATH fallback on Windows', () => {
+		const env: Record<string, string> = {
+			HOMEDRIVE: 'C:',
+			HOMEPATH: '\\Users\\alice',
+		};
+		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
@@ -476,21 +501,49 @@ describe('createDenoAdapter — configDir', () => {
 	});
 
 	it('treats empty APPDATA as unset', () => {
-		const env: Record<string, string> = { HOME: '/home/alice', APPDATA: '' };
+		const env: Record<string, string> = {
+			USERPROFILE: 'C:\\Users\\alice',
+			APPDATA: '',
+		};
 		const ns = mockDeno({
+			build: { os: 'windows' },
 			env: {
 				get: (k: string) => env[k],
 				toObject: () => env,
 			},
 		});
 		const adapter = createDenoAdapter(ns);
-		expect(adapter.configDir).toBe('/home/alice/.config');
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+	});
+
+	it('normalizes trailing separator in Windows homedir', () => {
+		const env: Record<string, string> = { USERPROFILE: 'C:\\' };
+		const ns = mockDeno({
+			build: { os: 'windows' },
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\AppData\\Roaming');
+	});
+
+	it('normalizes trailing slash in Windows homedir', () => {
+		const env: Record<string, string> = { USERPROFILE: 'C:\\Users\\alice\\' };
+		const ns = mockDeno({
+			build: { os: 'windows' },
+			env: {
+				get: (k: string) => env[k],
+				toObject: () => env,
+			},
+		});
+		const adapter = createDenoAdapter(ns);
+		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
 	});
 });
 
-// ===
-// Public surface exports
-// ===
+// === Public surface exports
 
 describe('public surface — Deno adapter', () => {
 	it('exports createDenoAdapter from runtime barrel', async () => {
@@ -499,7 +552,7 @@ describe('public surface — Deno adapter', () => {
 	});
 
 	it('exports createDenoAdapter from runtime subpath', async () => {
-		const mod = await import('../runtime.ts');
+		const mod = await import('#dreamcli/runtime');
 		expect(mod.createDenoAdapter).toBeDefined();
 	});
 });

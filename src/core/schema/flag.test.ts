@@ -2,9 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { FlagSchema, InferFlag, InferFlags } from './flag.ts';
 import { FlagBuilder, flag } from './flag.ts';
 
-// ---------------------------------------------------------------------------
-// Factory functions — runtime schema
-// ---------------------------------------------------------------------------
+// --- Factory functions — runtime schema
 
 describe('flag.string()', () => {
 	it('creates a string flag with optional presence', () => {
@@ -87,9 +85,7 @@ describe('flag.custom()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Modifiers — runtime schema mutations
-// ---------------------------------------------------------------------------
+// --- Modifiers — runtime schema mutations
 
 describe('.default()', () => {
 	it('sets defaultValue and flips presence to defaulted', () => {
@@ -151,9 +147,7 @@ describe('.describe()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Immutability
-// ---------------------------------------------------------------------------
+// --- Immutability
 
 describe('immutability', () => {
 	it('each modifier returns a new builder', () => {
@@ -187,9 +181,7 @@ describe('immutability', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Chaining — complex builder chains
-// ---------------------------------------------------------------------------
+// --- Chaining — complex builder chains
 
 describe('chaining', () => {
 	it('supports full PRD deploy example', () => {
@@ -224,9 +216,7 @@ describe('chaining', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Schema data defaults
-// ---------------------------------------------------------------------------
+// --- Schema data defaults
 
 describe('schema defaults', () => {
 	it('all optional fields default to undefined or empty', () => {
@@ -240,9 +230,7 @@ describe('schema defaults', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type inference — compile-time checks via expectTypeOf
-// ---------------------------------------------------------------------------
+// --- Type inference — compile-time checks via expectTypeOf
 
 describe('type inference', () => {
 	it('string flag: string | undefined', () => {
@@ -265,9 +253,9 @@ describe('type inference', () => {
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<'us' | 'eu' | 'ap' | undefined>();
 	});
 
-	it('array flag: element[] | undefined', () => {
+	it('array flag: element[]', () => {
 		const f = flag.array(flag.string());
-		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[] | undefined>();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[]>();
 	});
 
 	it('.default() removes undefined from string', () => {
@@ -326,13 +314,13 @@ describe('type inference', () => {
 			region: 'us' | 'eu' | 'ap' | undefined;
 			port: number;
 			name: string;
-			tags: string[] | undefined;
+			tags: string[];
 		}>();
 	});
 
 	it('array of number elements infers number[]', () => {
 		const f = flag.array(flag.number());
-		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number[] | undefined>();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number[]>();
 	});
 
 	it('required array removes undefined', () => {
@@ -375,9 +363,7 @@ describe('type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('edge cases', () => {
 	it('boolean with explicit default(true) stays defaulted', () => {
@@ -429,9 +415,7 @@ describe('edge cases', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// .deprecated() modifier
-// ---------------------------------------------------------------------------
+// --- .deprecated() modifier
 
 describe('.deprecated()', () => {
 	it('sets deprecated to true when called with no argument', () => {
@@ -495,9 +479,7 @@ describe('.deprecated()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// .propagate() modifier
-// ---------------------------------------------------------------------------
+// --- .propagate() modifier
 
 describe('.propagate()', () => {
 	it('sets propagate to true', () => {

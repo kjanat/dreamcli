@@ -15,22 +15,21 @@
  * @module dreamcli/core/resolve
  */
 
-import type { ValidationErrorCode } from '../errors/index.ts';
-import { ValidationError } from '../errors/index.ts';
-import type { ParseResult } from '../parse/index.ts';
-import type { PromptEngine } from '../prompt/index.ts';
-import { resolvePromptConfig } from '../prompt/index.ts';
+import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
+import { ValidationError } from '#internals/core/errors/index.ts';
+import type { ParseResult } from '#internals/core/parse/index.ts';
+import type { PromptEngine } from '#internals/core/prompt/index.ts';
+import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import type {
+	ArgSchema,
 	CommandArgEntry,
 	CommandSchema,
 	ErasedInteractiveResolver,
 	FlagSchema,
-} from '../schema/index.ts';
-import type { PromptConfig } from '../schema/prompt.ts';
+} from '#internals/core/schema/index.ts';
+import type { PromptConfig } from '#internals/core/schema/prompt.ts';
 
-// ---------------------------------------------------------------------------
-// Resolve options — injectable external state for the resolution chain
-// ---------------------------------------------------------------------------
+// --- Resolve options — injectable external state for the resolution chain
 
 /**
  * Options controlling the resolution chain.
@@ -39,6 +38,15 @@ import type { PromptConfig } from '../schema/prompt.ts';
  * reads from when CLI-provided values are absent.
  */
 interface ResolveOptions {
+	/**
+	 * Full stdin contents for args configured with `.stdin()`.
+	 *
+	 * When an arg has `stdinMode: true`, resolution checks this value after
+	 * CLI argv and before env/default. `null` means stdin was checked but no
+	 * piped data was available.
+	 */
+	readonly stdinData?: string | null;
+
 	/**
 	 * Environment variables to resolve against.
 	 *
@@ -86,9 +94,7 @@ interface ResolveOptions {
 	readonly prompter?: PromptEngine;
 }
 
-// ---------------------------------------------------------------------------
-// Result type
-// ---------------------------------------------------------------------------
+// --- Result type
 
 /**
  * Fully resolved flag and arg values — guaranteed present for required
@@ -136,12 +142,15 @@ interface DeprecationWarning {
 	readonly message: string | true;
 }
 
-// ---------------------------------------------------------------------------
-// Resolver
-// ---------------------------------------------------------------------------
+// --- Resolver
 
 /**
  * Resolve parsed values against a command schema.
+ *
+ * Low-level API: most applications should rely on `cli().run()`, `.execute()`,
+ * or `runCommand()`, which already call `resolve()` at the right time. Reach
+ * for this function when testing precedence rules directly or building custom
+ * execution flows around `CommandSchema`.
  *
  * Resolution order:
  * 1. CLI parsed value (from `ParseResult`)
@@ -160,12 +169,21 @@ interface DeprecationWarning {
  * @returns Fully resolved flag and arg values
  * @throws ValidationError if any required flag or arg is missing,
  *   or if an env/config value fails coercion
+ *
+ * @example
+ * ```ts
+ * const parsed = parse(deploy.schema, ['production']);
+ * const resolved = await resolve(deploy.schema, parsed, {
+ *   env: { DEPLOY_REGION: 'eu' },
+ * });
+ * ```
  */
 async function resolve(
 	schema: CommandSchema,
 	parsed: ParseResult,
 	options?: ResolveOptions,
 ): Promise<ResolveResult> {
+	const stdinData = options?.stdinData;
 	const env = options?.env ?? {};
 	const config = options?.config ?? {};
 	const prompter = options?.prompter;
@@ -179,13 +197,11 @@ async function resolve(
 		schema.interactive,
 		deprecations,
 	);
-	const args = resolveArgs(schema.args, parsed.args, deprecations);
+	const args = resolveArgs(schema.args, parsed.args, stdinData, env, deprecations);
 	return { flags, args, deprecations };
 }
 
-// ---------------------------------------------------------------------------
-// Flag resolution
-// ---------------------------------------------------------------------------
+// --- Flag resolution
 
 /**
  * Resolve flag values: CLI -> env -> config -> interactive/prompt -> default,
@@ -208,8 +224,18 @@ async function resolve(
  * Without an interactive resolver, behaviour is identical to the single-pass
  * approach (per-flag prompt configs used directly).
  *
- * Array flags that were not provided and have no explicit default get
- * an empty array `[]` (more useful than `undefined` for consumers).
+ * Optional array flags that were not provided and have no explicit default get
+ * an empty array `[]` (more useful than `undefined` for consumers). Required
+ * array flags still fail validation when no source resolves them.
+ *
+ * @param flagSchemas - Flag schemas keyed by canonical name
+ * @param parsedFlags - Raw parsed values from the parser (CLI source)
+ * @param env - Environment variables to resolve against
+ * @param config - Configuration object to resolve against
+ * @param prompter - Prompt engine for interactive resolution (may be `undefined`)
+ * @param interactive - Command-level interactive resolver (may be `undefined`)
+ * @param deprecations - Mutable array to collect deprecation warnings into
+ * @returns Fully resolved flag values keyed by canonical name
  */
 async function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
@@ -349,7 +375,7 @@ async function resolveFlags(
 			continue;
 		}
 
-		if (schema.kind === 'array') {
+		if (schema.kind === 'array' && schema.presence !== 'required') {
 			resolved[name] = [];
 			continue;
 		}
@@ -380,9 +406,7 @@ async function resolveFlags(
 	return resolved;
 }
 
-// ---------------------------------------------------------------------------
-// Prompt value resolution
-// ---------------------------------------------------------------------------
+// --- Prompt value resolution
 
 /**
  * Result of attempting to resolve a flag value via prompting.
@@ -411,6 +435,7 @@ type PromptResolveResult =
  * @param schema - Flag schema declaring the expected kind
  * @param promptConfig - Prompt configuration to use
  * @param prompter - Prompt engine to call
+ * @returns Three-state {@link PromptResolveResult}: value, coercion error, or cancelled
  */
 async function resolvePromptValueWithConfig(
 	flagName: string,
@@ -430,9 +455,7 @@ async function resolvePromptValueWithConfig(
 	return coerceValue(flagName, { kind: 'prompt' }, result.value, schema);
 }
 
-// ---------------------------------------------------------------------------
-// Required flag suggestion builder
-// ---------------------------------------------------------------------------
+// --- Required flag suggestion builder
 
 /**
  * Build an actionable suggestion listing all configured resolution sources
@@ -443,6 +466,10 @@ async function resolvePromptValueWithConfig(
  * - `"Provide --force"` (boolean, no env/config)
  *
  * The ordering mirrors the resolution chain: CLI → env → config.
+ *
+ * @param name - Canonical flag name
+ * @param schema - {@link FlagSchema} for the missing flag
+ * @returns Human-readable suggestion string
  */
 function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	const sources: string[] = [];
@@ -469,9 +496,7 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	return sources.length === 2 ? `${rest.join('')} or ${last}` : `${rest.join(', ')}, or ${last}`;
 }
 
-// ---------------------------------------------------------------------------
-// Unified value coercion
-// ---------------------------------------------------------------------------
+// --- Unified value coercion
 
 /**
  * Describes the source of a raw value being coerced.
@@ -498,7 +523,12 @@ type CoerceResult =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError };
 
-/** Format a source label for error messages (e.g. "from env MY_VAR", "from config deploy.region"). */
+/**
+ * Format a source label for error messages (e.g. "from env MY_VAR", "from config deploy.region").
+ *
+ * @param source - {@link CoerceSource} to format
+ * @returns Human-readable source label
+ */
 function sourceLabel(source: CoerceSource): string {
 	switch (source.kind) {
 		case 'env':
@@ -510,7 +540,12 @@ function sourceLabel(source: CoerceSource): string {
 	}
 }
 
-/** Build source-specific detail keys for error objects. */
+/**
+ * Build source-specific detail keys for error objects.
+ *
+ * @param source - {@link CoerceSource} to extract details from
+ * @returns Record with source-identifying keys
+ */
 function sourceDetails(source: CoerceSource): Record<string, unknown> {
 	switch (source.kind) {
 		case 'env':
@@ -522,7 +557,19 @@ function sourceDetails(source: CoerceSource): Record<string, unknown> {
 	}
 }
 
-/** Build a coercion error with source-aware message and details. */
+/**
+ * Build a coercion error with source-aware message and details.
+ *
+ * @param flagName - Canonical flag name
+ * @param source - {@link CoerceSource} where the value originated
+ * @param code - Validation error code
+ * @param expected - Expected type label
+ * @param raw - Raw value that failed coercion
+ * @param messageSuffix - Error message prefix (source label is appended)
+ * @param suggest - Actionable suggestion for the user
+ * @param extraDetails - Additional detail keys merged into the error
+ * @returns Failure {@link CoerceResult} wrapping the error
+ */
 function coercionError(
 	flagName: string,
 	source: CoerceSource,
@@ -560,6 +607,7 @@ function coercionError(
  * @param source - Where the raw value came from (env/config/prompt)
  * @param raw - Raw value to coerce
  * @param schema - Flag schema declaring the expected kind
+ * @returns {@link CoerceResult} — success with coerced value or failure with error
  */
 function coerceValue(
 	flagName: string,
@@ -771,9 +819,7 @@ function coerceValue(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Config path resolution
-// ---------------------------------------------------------------------------
+// --- Config path resolution
 
 /**
  * Resolve a dotted path against a nested config object.
@@ -784,6 +830,7 @@ function coerceValue(
  *
  * @param config - Root config object
  * @param path - Dotted path (e.g. `'deploy.region'`)
+ * @returns Resolved value, or `undefined` if any segment is missing
  */
 function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: string): unknown {
 	const segments = path.split('.');
@@ -793,30 +840,41 @@ function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: stri
 		if (current === null || current === undefined || typeof current !== 'object') {
 			return undefined;
 		}
-		// Safe indexed access on a plain object
+		if (!Object.hasOwn(current, segment)) {
+			return undefined;
+		}
 		current = (current as Record<string, unknown>)[segment];
 	}
 
 	return current;
 }
 
-// ---------------------------------------------------------------------------
-// Arg resolution
-// ---------------------------------------------------------------------------
+// --- Arg resolution
 
 /**
- * Resolve arg values: apply defaults, validate required.
+ * Resolve arg values: CLI → stdin → env → default, then validate required.
  *
  * For each declared arg in the schema (ordered):
  * 1. If the parser produced a value → use it
- * 2. Else if the schema has a default → use it
- * 3. Else if variadic with no value → use `[]`
- * 4. Else if required → collect a validation error
- * 5. Else (optional) → leave absent (`undefined` when accessed)
+ * 2. Else if `.stdin()` is enabled and stdin data is available → coerce + use
+ * 3. Else if the arg declares `envVar` and the env record has it → coerce + use
+ * 4. Else if the schema has a default → use it
+ * 5. Else if variadic with no value → use `[]`
+ * 6. Else if required → collect a validation error
+ * 7. Else (optional) → leave absent (`undefined` when accessed)
+ *
+ * @param argEntries - Ordered arg schemas from the command
+ * @param parsedArgs - Raw parsed arg values from the parser
+ * @param stdinData - Full stdin contents, or `null`/`undefined` if unavailable
+ * @param env - Environment variables to resolve against
+ * @param deprecations - Mutable array to collect deprecation warnings into
+ * @returns Fully resolved arg values keyed by arg name
  */
 function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,
+	stdinData: string | null | undefined,
+	env: Readonly<Record<string, string | undefined>>,
 	deprecations: DeprecationWarning[],
 ): Readonly<Record<string, unknown>> {
 	const resolved: Record<string, unknown> = {};
@@ -825,30 +883,54 @@ function resolveArgs(
 	for (const entry of argEntries) {
 		const { name, schema } = entry;
 		const parsedValue = parsedArgs[name];
+		const usesCliValue =
+			parsedValue !== undefined &&
+			(!schema.stdinMode || parsedValue !== '-') &&
+			!(schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0);
 
-		if (parsedValue !== undefined) {
+		if (usesCliValue) {
 			if (schema.deprecated !== undefined) {
 				deprecations.push({ kind: 'arg', name, message: schema.deprecated });
 			}
-			// For variadic args, the parser produces an array. An empty array
-			// means "present but no values" — still valid unless required checks.
-			if (schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0) {
-				// Variadic with zero values — check if required
-				if (schema.presence === 'required') {
-					errors.push(
-						new ValidationError(`Missing required argument <${name}>`, {
-							code: 'REQUIRED_ARG',
-							details: { arg: name, variadic: true },
-							suggest: `Provide at least one value for <${name}>`,
-						}),
-					);
-					continue;
-				}
-				resolved[name] = [];
-				continue;
-			}
 			resolved[name] = parsedValue;
 			continue;
+		}
+
+		if (schema.stdinMode && (parsedValue === undefined || parsedValue === '-')) {
+			if (stdinData !== undefined && stdinData !== null) {
+				const coerced = coerceArgStringValue(name, { kind: 'stdin' }, stdinData, schema);
+				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						deprecations.push({ kind: 'arg', name, message: schema.deprecated });
+					}
+					resolved[name] = coerced.value;
+					continue;
+				}
+				errors.push(coerced.error);
+				continue;
+			}
+		}
+
+		// 3. Env variable
+		if (schema.envVar !== undefined) {
+			const envValue = env[schema.envVar];
+			if (envValue !== undefined) {
+				const coerced = coerceArgStringValue(
+					name,
+					{ kind: 'env', envVar: schema.envVar },
+					envValue,
+					schema,
+				);
+				if (coerced.ok) {
+					if (schema.deprecated !== undefined) {
+						deprecations.push({ kind: 'arg', name, message: schema.deprecated });
+					}
+					resolved[name] = coerced.value;
+					continue;
+				}
+				errors.push(coerced.error);
+				continue;
+			}
 		}
 
 		if (schema.defaultValue !== undefined) {
@@ -864,7 +946,7 @@ function resolveArgs(
 					new ValidationError(`Missing required argument <${name}>`, {
 						code: 'REQUIRED_ARG',
 						details: { arg: name, variadic: true },
-						suggest: `Provide at least one value for <${name}>`,
+						suggest: buildRequiredArgSuggest(name, schema, true),
 					}),
 				);
 				continue;
@@ -878,7 +960,7 @@ function resolveArgs(
 				new ValidationError(`Missing required argument <${name}>`, {
 					code: 'REQUIRED_ARG',
 					details: { arg: name },
-					suggest: `Provide a value for <${name}>`,
+					suggest: buildRequiredArgSuggest(name, schema),
 				}),
 			);
 			continue;
@@ -895,18 +977,327 @@ function resolveArgs(
 	return resolved;
 }
 
-// ---------------------------------------------------------------------------
-// Type narrowing helpers
-// ---------------------------------------------------------------------------
+// --- Arg env coercion
 
-/** Narrow a plain array to a non-empty tuple. */
+/**
+ * Describes the source of a raw string being coerced for an arg.
+ *
+ * Arg stdin/env resolution both provide strings, but the source still affects
+ * error messages and suggestions.
+ */
+
+type ArgStringSource =
+	| { readonly kind: 'env'; readonly envVar: string }
+	| { readonly kind: 'stdin' };
+
+/**
+ * Format an arg source label for error messages.
+ *
+ * @param source - {@link ArgStringSource} to format
+ * @returns Human-readable source label
+ */
+function argSourceLabel(source: ArgStringSource): string {
+	return source.kind === 'env' ? `from env ${source.envVar}` : 'from stdin';
+}
+
+/**
+ * Build source-specific detail keys for arg error objects.
+ *
+ * @param source - {@link ArgStringSource} to extract details from
+ * @returns Record with source-identifying keys
+ */
+function argSourceDetails(source: ArgStringSource): Record<string, unknown> {
+	return source.kind === 'env' ? { envVar: source.envVar } : { source: 'stdin' };
+}
+
+/**
+ * Build an arg coercion suggestion based on source and expected kind.
+ *
+ * @param argName - Positional arg name
+ * @param source - {@link ArgStringSource} where the value originated
+ * @param expected - Expected kind (`'number'` or `'custom'`)
+ * @returns Actionable suggestion string
+ */
+function buildArgCoercionSuggest(
+	argName: string,
+	source: ArgStringSource,
+	expected: 'number' | 'custom',
+): string {
+	if (source.kind === 'env') {
+		return expected === 'number'
+			? `Set ${source.envVar} to a valid number`
+			: `Set ${source.envVar} to a valid value for <${argName}>`;
+	}
+
+	return expected === 'number'
+		? `Pipe a valid number to stdin for <${argName}>`
+		: `Pipe a valid value to stdin for <${argName}>`;
+}
+
+// Arg stdin/env coercion currently only covers string-backed arg kinds
+// (`string | number | enum | custom`). Mapping `stdin` to the flag-side
+// `prompt` source is therefore safe today because prompt-only behaviors such
+// as boolean `y`/`n` parsing and array trimming cannot apply. If arg sources
+// are extended to support boolean or array coercion later, this helper must
+// be updated to preserve those distinctions explicitly.
+/**
+ * Map an {@link ArgStringSource} to the equivalent {@link CoerceSource} for flag coercion reuse.
+ *
+ * @param source - Arg source to convert
+ * @returns Equivalent {@link CoerceSource}
+ */
+function argSourceToCoerceSource(source: ArgStringSource): CoerceSource {
+	return source.kind === 'env' ? { kind: 'env', envVar: source.envVar } : { kind: 'prompt' };
+}
+
+/**
+ * Convert an {@link ArgSchema} to a {@link FlagSchema} for coercion reuse.
+ *
+ * @param schema - Arg schema to convert
+ * @returns Equivalent flag schema
+ */
+function argSchemaToFlagSchema(schema: ArgSchema): FlagSchema {
+	const base = {
+		presence: 'optional' as const,
+		defaultValue: undefined,
+		aliases: [],
+		envVar: undefined,
+		configPath: undefined,
+		description: schema.description,
+		prompt: undefined,
+		deprecated: schema.deprecated,
+		propagate: false,
+		enumValues: undefined,
+		elementSchema: undefined,
+		parseFn: undefined as ((raw: unknown) => unknown) | undefined,
+	};
+
+	switch (schema.kind) {
+		case 'string':
+			return { ...base, kind: 'string' };
+		case 'number':
+			return { ...base, kind: 'number' };
+		case 'enum':
+			return { ...base, kind: 'enum', enumValues: schema.enumValues };
+		case 'custom': {
+			if (schema.parseFn === undefined) {
+				return { ...base, kind: 'custom', parseFn: undefined };
+			}
+			const parseFn = schema.parseFn;
+			return {
+				...base,
+				kind: 'custom',
+				parseFn: (raw: unknown): unknown => parseFn(typeof raw === 'string' ? raw : String(raw)),
+			};
+		}
+		default: {
+			const _exhaustive: never = schema.kind;
+			return _exhaustive;
+		}
+	}
+}
+
+/**
+ * Build a redacted error message for arg coercion failures (hides raw values).
+ *
+ * @param argName - Positional arg name
+ * @param source - {@link ArgStringSource} where the value originated
+ * @param schema - {@link ArgSchema} declaring the expected kind
+ * @param error - Original coercion error (used for enum allowed list)
+ * @returns Redacted error message string
+ */
+function redactArgCoercionMessage(
+	argName: string,
+	source: ArgStringSource,
+	schema: ArgSchema,
+	error: ValidationError,
+): string {
+	switch (schema.kind) {
+		case 'number':
+			return `Invalid number value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		case 'enum': {
+			const allowed = Array.isArray(error.details?.allowed)
+				? error.details.allowed.filter((value): value is string => typeof value === 'string')
+				: [];
+			return `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>. Allowed: ${allowed.join(', ')}`;
+		}
+		case 'custom': {
+			const match = /: ([^:]+)$/.exec(error.message);
+			const suffix = match?.[1];
+			return suffix !== undefined
+				? `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>: ${suffix}`
+				: `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		}
+		case 'string':
+			return `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		default: {
+			const _exhaustive: never = schema.kind;
+			return _exhaustive;
+		}
+	}
+}
+
+/**
+ * Build redacted detail keys for arg coercion error objects.
+ *
+ * @param argName - Positional arg name
+ * @param source - {@link ArgStringSource} where the value originated
+ * @param schema - {@link ArgSchema} declaring the expected kind
+ * @param error - Original coercion error (used for enum allowed list)
+ * @returns Redacted details record (raw value omitted)
+ */
+function redactArgCoercionDetails(
+	argName: string,
+	source: ArgStringSource,
+	schema: ArgSchema,
+	error: ValidationError,
+): Readonly<Record<string, unknown>> {
+	return {
+		arg: argName,
+		...argSourceDetails(source),
+		...(schema.kind === 'number' || schema.kind === 'custom' ? { expected: schema.kind } : {}),
+		...(schema.kind === 'enum' && Array.isArray(error.details?.allowed)
+			? {
+					allowed: error.details.allowed.filter(
+						(value): value is string => typeof value === 'string',
+					),
+				}
+			: {}),
+	};
+}
+
+/**
+ * Build a redacted suggestion for arg coercion failures.
+ *
+ * @param argName - Positional arg name
+ * @param source - {@link ArgStringSource} where the value originated
+ * @param schema - {@link ArgSchema} declaring the expected kind
+ * @param error - Original coercion error (used for enum allowed list)
+ * @returns Suggestion string, or `undefined` for string-kind args
+ */
+function redactArgCoercionSuggest(
+	argName: string,
+	source: ArgStringSource,
+	schema: ArgSchema,
+	error: ValidationError,
+): string | undefined {
+	if (schema.kind === 'number' || schema.kind === 'custom') {
+		return buildArgCoercionSuggest(argName, source, schema.kind);
+	}
+
+	if (schema.kind === 'enum') {
+		const allowed = Array.isArray(error.details?.allowed)
+			? error.details.allowed.filter((value): value is string => typeof value === 'string')
+			: [];
+		const allowedList = allowed.join(', ');
+		return source.kind === 'env'
+			? `Set ${source.envVar} to one of: ${allowedList}`
+			: `Provide one of: ${allowedList}`;
+	}
+
+	return undefined;
+}
+
+/**
+ * Coerce a raw stdin/env string to the arg's declared kind.
+ *
+ * Arg kinds are a strict subset of flag kinds (`string | number | enum | custom`),
+ * so coercion is simpler: strings and enums validate, numbers parse via
+ * `Number()`, and custom args invoke their parse function.
+ *
+ * @param argName - Positional arg name (for error messages)
+ * @param source - {@link ArgStringSource} where the value originated
+ * @param raw - Raw string value to coerce
+ * @param schema - {@link ArgSchema} declaring the expected kind
+ * @returns {@link CoerceResult} with redacted error messages on failure
+ */
+function coerceArgStringValue(
+	argName: string,
+	source: ArgStringSource,
+	raw: string,
+	schema: ArgSchema,
+): CoerceResult {
+	const coerced = coerceValue(
+		argName,
+		argSourceToCoerceSource(source),
+		raw,
+		argSchemaToFlagSchema(schema),
+	);
+	if (coerced.ok) {
+		return coerced;
+	}
+
+	const suggest = redactArgCoercionSuggest(argName, source, schema, coerced.error);
+	const options =
+		suggest === undefined
+			? {
+					code: coerced.error.code,
+					details: redactArgCoercionDetails(argName, source, schema, coerced.error),
+				}
+			: {
+					code: coerced.error.code,
+					details: redactArgCoercionDetails(argName, source, schema, coerced.error),
+					suggest,
+				};
+
+	return {
+		ok: false,
+		error: new ValidationError(
+			redactArgCoercionMessage(argName, source, schema, coerced.error),
+			options,
+		),
+	};
+}
+
+// --- Required arg suggestion builder
+
+/**
+ * Build an actionable suggestion for a required arg that was not provided.
+ *
+ * Mirrors {@link buildRequiredFlagSuggest} but for positional args.
+ *
+ * @param name - Positional arg name
+ * @param schema - {@link ArgSchema} for the missing arg
+ * @param variadic - Whether the arg is variadic (changes wording)
+ * @returns Human-readable suggestion string
+ */
+function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {
+	const sources: [string, ...string[]] = [
+		variadic ? `Provide at least one value for <${name}>` : `Provide a value for <${name}>`,
+	];
+
+	if (schema.stdinMode) {
+		sources.push(`pipe a value to stdin or pass '-'`);
+	}
+
+	if (schema.envVar !== undefined) {
+		sources.push(`set ${schema.envVar}`);
+	}
+
+	if (sources.length === 1) {
+		return sources[0];
+	}
+
+	if (sources.length === 2) {
+		return `${sources[0]} or ${sources[1]}`;
+	}
+
+	return `${sources.slice(0, -1).join(', ')}, or ${sources[sources.length - 1]}`;
+}
+
+// --- Type narrowing helpers
+
+/**
+ * Narrow a plain array to a non-empty tuple.
+ *
+ * @param arr - Array to check
+ * @returns `true` (with narrowed type) if the array has at least one element
+ */
 function isNonEmpty<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
 	return arr.length > 0;
 }
 
-// ---------------------------------------------------------------------------
-// Error aggregation
-// ---------------------------------------------------------------------------
+// --- Error aggregation
 
 /**
  * Throw a single `ValidationError` that aggregates multiple missing-value
@@ -914,6 +1305,9 @@ function isNonEmpty<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
  * listed in `details.errors` for programmatic access.
  *
  * If there's exactly one error, throw it directly (no wrapping overhead).
+ *
+ * @param errors - Non-empty array of validation errors to aggregate
+ * @throws ValidationError always — either the single error or an aggregate
  */
 function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationError[]]): never {
 	if (errors.length === 1) {
@@ -931,9 +1325,7 @@ function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationE
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { resolve };
 export type { DeprecationWarning, ResolveOptions, ResolveResult };
+export { resolve };

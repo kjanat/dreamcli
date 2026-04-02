@@ -5,17 +5,15 @@
  * and precedence between explicit options.config and loaded config.
  */
 import { describe, expect, it } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/index.ts';
-import type { FormatLoader } from '../config/index.ts';
-import { configFormat } from '../config/index.ts';
-import { CLIError } from '../errors/index.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import type { FormatLoader } from '#internals/core/config/index.ts';
+import { configFormat } from '#internals/core/config/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Test helpers
-// ===================================================================
+// === Test helpers
 
 /** Command that reads a flag from config and outputs it as JSON. */
 function regionCommand() {
@@ -32,6 +30,13 @@ async function runWithAdapter(
 	app: ReturnType<typeof cli>,
 	argv: readonly string[],
 	files?: Readonly<Record<string, string>>,
+	adapterOptions?: {
+		readonly cwd?: string;
+		readonly configDir?: string;
+	},
+	runOptions?: {
+		readonly jsonMode?: boolean;
+	},
 ): Promise<{ stdout: string[]; stderr: string[]; exitCode: number }> {
 	const stdoutLines: string[] = [];
 	const stderrLines: string[] = [];
@@ -39,13 +44,18 @@ async function runWithAdapter(
 
 	const adapter = createTestAdapter({
 		argv: ['node', 'test', ...argv],
+		...(adapterOptions?.cwd !== undefined ? { cwd: adapterOptions.cwd } : {}),
+		...(adapterOptions?.configDir !== undefined ? { configDir: adapterOptions.configDir } : {}),
 		stdout: (s) => stdoutLines.push(s),
 		stderr: (s) => stderrLines.push(s),
 		readFile: async (path: string) => files?.[path] ?? null,
 	});
 
 	try {
-		await app.run({ adapter });
+		await app.run({
+			adapter,
+			...(runOptions?.jsonMode !== undefined ? { jsonMode: runOptions.jsonMode } : {}),
+		});
 	} catch (e: unknown) {
 		if (e instanceof ExitError) {
 			exitCode = e.code;
@@ -57,9 +67,7 @@ async function runWithAdapter(
 	return { stdout: stdoutLines, stderr: stderrLines, exitCode };
 }
 
-// ===================================================================
-// CLIBuilder.config() — builder method
-// ===================================================================
+// === CLIBuilder.config() — builder method
 
 describe('CLIBuilder.config() — builder method', () => {
 	it('returns a new CLIBuilder (immutability)', () => {
@@ -87,9 +95,7 @@ describe('CLIBuilder.config() — builder method', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — auto-discovery
-// ===================================================================
+// === CLIBuilder.run() — auto-discovery
 
 describe('CLIBuilder.run() — config auto-discovery', () => {
 	it('loads config from dotfile in cwd', async () => {
@@ -125,6 +131,25 @@ describe('CLIBuilder.run() — config auto-discovery', () => {
 		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'af' });
 	});
 
+	it('loads config from AppData on Windows', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout } = await runWithAdapter(
+			app,
+			['deploy'],
+			{
+				'C:\\Users\\alice\\AppData\\Roaming\\myapp\\config.json': '{"deploy":{"region":"sa"}}',
+			},
+			{
+				cwd: 'C:\\Users\\alice\\project',
+				configDir: 'C:\\Users\\alice\\AppData\\Roaming',
+			},
+		);
+
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'sa' });
+	});
+
 	it('uses default when no config found', async () => {
 		const app = cli('myapp').config('myapp').command(regionCommand());
 
@@ -147,9 +172,7 @@ describe('CLIBuilder.run() — config auto-discovery', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — --config flag
-// ===================================================================
+// === CLIBuilder.run() — --config flag
 
 describe('CLIBuilder.run() — --config flag', () => {
 	it('overrides auto-discovery with explicit path', async () => {
@@ -232,9 +255,7 @@ describe('CLIBuilder.run() — --config flag', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — error rendering
-// ===================================================================
+// === CLIBuilder.run() — error rendering
 
 describe('CLIBuilder.run() — config errors', () => {
 	it('renders CONFIG_NOT_FOUND error when explicit path missing', async () => {
@@ -258,6 +279,24 @@ describe('CLIBuilder.run() — config errors', () => {
 		]);
 
 		expect(exitCode).toBe(1);
+		expect(stdout.length).toBe(1);
+		const parsed = JSON.parse(stdout[0] ?? '');
+		expect(parsed.error.code).toBe('CONFIG_NOT_FOUND');
+	});
+
+	it('renders CONFIG_NOT_FOUND as JSON when jsonMode option is true', async () => {
+		const app = cli('myapp').config('myapp').command(regionCommand());
+
+		const { stdout, stderr, exitCode } = await runWithAdapter(
+			app,
+			['--config', '/missing.json', 'deploy'],
+			undefined,
+			undefined,
+			{ jsonMode: true },
+		);
+
+		expect(exitCode).toBe(1);
+		expect(stderr).toEqual([]);
 		expect(stdout.length).toBe(1);
 		const parsed = JSON.parse(stdout[0] ?? '');
 		expect(parsed.error.code).toBe('CONFIG_NOT_FOUND');
@@ -288,9 +327,7 @@ describe('CLIBuilder.run() — config errors', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — precedence
-// ===================================================================
+// === CLIBuilder.run() — precedence
 
 describe('CLIBuilder.run() — config precedence', () => {
 	it('explicit options.config takes precedence over loaded config', async () => {
@@ -329,16 +366,14 @@ describe('CLIBuilder.run() — config precedence', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.run() — completions subcommand skip
-// ===================================================================
+// === CLIBuilder.run() — completions subcommand skip
 
 describe('CLIBuilder.run() — completions skip config', () => {
 	it('completions subcommand does not trigger config loading', async () => {
 		let readFileCalled = false;
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
-			argv: ['node', 'test', 'completions', '--shell', 'bash'],
+			argv: ['node', 'test', 'completions', 'bash'],
 			stdout: (s) => stdoutLines.push(s),
 			readFile: async () => {
 				readFileCalled = true;
@@ -360,9 +395,7 @@ describe('CLIBuilder.run() — completions skip config', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.configLoader() — incremental plugin registration
-// ===================================================================
+// === CLIBuilder.configLoader() — incremental plugin registration
 
 describe('CLIBuilder.configLoader() — builder method', () => {
 	it('returns a new CLIBuilder (immutability)', () => {
@@ -401,9 +434,7 @@ describe('CLIBuilder.configLoader() — builder method', () => {
 	});
 });
 
-// ===================================================================
-// CLIBuilder.configLoader() — integration with .run()
-// ===================================================================
+// === CLIBuilder.configLoader() — integration with .run()
 
 describe('CLIBuilder.configLoader() — run() integration', () => {
 	/** Trivial TOML-ish parser for tests. */

@@ -11,30 +11,45 @@
  * @module dreamcli/core/config
  */
 
-import type { RuntimeAdapter } from '../../runtime/adapter.ts';
-import { CLIError } from '../errors/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
-// ---------------------------------------------------------------------------
-// Types — format loaders
-// ---------------------------------------------------------------------------
+/** @internal */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
+}
+
+// --- Types — format loaders
 
 /**
  * Format loader — parses file content into a config object.
  *
- * Implementations must throw on syntax errors; the caller wraps them as
- * {@link CLIError} with code `CONFIG_PARSE_ERROR`.
+ * Register custom config formats by providing file extensions and a parser.
+ * Parsers may return any parsed value; {@link discoverConfig} validates that
+ * the result is a plain object before feeding it into the resolution chain.
+ *
+ * Implementations should throw on syntax or shape errors; the caller wraps
+ * those failures as {@link CLIError} with code `CONFIG_PARSE_ERROR`.
  */
 interface FormatLoader {
 	/** File extensions this loader handles (without leading dot, e.g. `'toml'`). */
 	readonly extensions: readonly string[];
 
-	/** Parse file content into a config object. Must return a plain object or throw. */
-	readonly parse: (content: string) => Record<string, unknown>;
+	/**
+	 * Parse file content into a config value.
+	 *
+	 * Arrays, primitives, and `null` are allowed at this boundary so generic
+	 * parsers like `Bun.YAML.parse` can be passed directly. Those values are
+	 * still rejected by {@link discoverConfig}, which requires a plain object.
+	 */
+	readonly parse: (content: string) => unknown;
 }
 
-// ---------------------------------------------------------------------------
-// Types — discovery options + result
-// ---------------------------------------------------------------------------
+// --- Types — discovery options + result
 
 /** Options for {@link discoverConfig}. */
 interface ConfigDiscoveryOptions {
@@ -77,9 +92,7 @@ interface ConfigNotFound {
 /** Discriminated result of config discovery. */
 type ConfigDiscoveryResult = ConfigFound | ConfigNotFound;
 
-// ---------------------------------------------------------------------------
-// Built-in JSON loader
-// ---------------------------------------------------------------------------
+// --- Built-in JSON loader
 
 /** @internal */
 const jsonLoader: FormatLoader = {
@@ -93,9 +106,7 @@ const jsonLoader: FormatLoader = {
 	},
 };
 
-// ---------------------------------------------------------------------------
-// Path utilities
-// ---------------------------------------------------------------------------
+// --- Path utilities
 
 /**
  * Join path segments using the separator detected from the base path.
@@ -124,22 +135,35 @@ function getExtension(path: string): string {
 	return path.slice(lastDot + 1).toLowerCase();
 }
 
-// ---------------------------------------------------------------------------
-// buildConfigSearchPaths
-// ---------------------------------------------------------------------------
+// --- buildConfigSearchPaths
 
 /**
  * Build the default config search paths for an app.
  *
- * Exported for help text rendering, debugging, and custom search logic.
+ * Advanced helper used by DreamCLI's config discovery. Most apps should call
+ * `.config()` or {@link discoverConfig} instead of constructing search paths
+ * manually. Exported for debugging, custom discovery flows, and help text.
  *
  * Search order (first match wins):
  * 1. `$CWD/.{appName}.json` — dotfile in project root
  * 2. `$CWD/{appName}.config.json` — explicit config in project root
  * 3. `$CONFIG_DIR/{appName}/config.json` — XDG / AppData standard
+ *    (`$XDG_CONFIG_HOME` / `~/.config` on Unix,
+ *    `%APPDATA%` / `%USERPROFILE%\\AppData\\Roaming` on Windows)
  *
  * When custom {@link ConfigDiscoveryOptions.loaders | loaders} are registered,
  * each path pattern is repeated per supported extension (JSON always first).
+ *
+ * @param appName - CLI application name used to derive config filenames.
+ * @param cwd - Current working directory (project-root search location).
+ * @param configDir - Platform config directory (XDG / AppData).
+ * @param loaders - Optional custom {@link FormatLoader}s whose extensions expand the search set.
+ * @returns Ordered list of candidate config file paths (first match wins).
+ *
+ * @example
+ * ```ts
+ * const paths = buildConfigSearchPaths('mycli', '/repo', '/home/me/.config');
+ * ```
  */
 function buildConfigSearchPaths(
 	appName: string,
@@ -165,6 +189,9 @@ function buildConfigSearchPaths(
 /**
  * Collect unique extensions from the built-in JSON loader + any custom loaders.
  * JSON always comes first. Order otherwise matches loader registration order.
+ *
+ * @param loaders - Optional custom {@link FormatLoader}s to append after JSON.
+ * @returns Deduplicated, lowercased extension list (JSON first).
  *
  * @internal
  */
@@ -197,13 +224,14 @@ function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[
 	return result;
 }
 
-// ---------------------------------------------------------------------------
-// buildLoaderMap
-// ---------------------------------------------------------------------------
+// --- buildLoaderMap
 
 /**
  * Build extension → loader lookup. Later loaders for the same extension
  * override earlier ones (allows user to replace the built-in JSON loader).
+ *
+ * @param loaders - Optional custom {@link FormatLoader}s (later entries override earlier for same extension).
+ * @returns Map from lowercased extension to its {@link FormatLoader}.
  *
  * @internal
  */
@@ -222,20 +250,22 @@ function buildLoaderMap(loaders?: readonly FormatLoader[]): ReadonlyMap<string, 
 	return map;
 }
 
-// ---------------------------------------------------------------------------
-// discoverConfig
-// ---------------------------------------------------------------------------
+// --- discoverConfig
 
 /**
  * The subset of {@link RuntimeAdapter} needed for config discovery.
  *
- * Using a narrow pick keeps the function easy to test and makes the
- * dependency explicit.
+ * Exported so custom hosts and tests can type the minimal adapter required by
+ * {@link discoverConfig} without depending on the full runtime adapter shape.
  */
 type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
 
 /**
  * Discover and load a config file.
+ *
+ * Low-level discovery helper behind `CLIBuilder.config()`. Most apps should
+ * let the CLI runtime call this automatically; call it directly when testing
+ * config behavior or building custom bootstrapping around `RuntimeAdapter`.
  *
  * Pure function — all filesystem I/O flows through `adapter.readFile`.
  * Returns a discriminated union: `{ found: true, ... }` when a config
@@ -244,6 +274,16 @@ type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
  * @throws {CLIError} code `CONFIG_NOT_FOUND` — explicit `configPath` doesn't exist
  * @throws {CLIError} code `CONFIG_PARSE_ERROR` — file exists but fails to parse
  * @throws {CLIError} code `CONFIG_UNKNOWN_FORMAT` — no loader for the file extension
+ *
+ * @example
+ * ```ts
+ * const result = await discoverConfig('mycli', adapter, {
+ *   loaders: [
+ *     configFormat(['yaml', 'yml'], Bun.YAML.parse),
+ *     configFormat(['toml'], Bun.TOML.parse),
+ *   ],
+ * });
+ * ```
  */
 async function discoverConfig(
 	appName: string,
@@ -287,6 +327,9 @@ async function discoverConfig(
 
 		try {
 			const data = loader.parse(content);
+			if (!isPlainObject(data)) {
+				throw new Error('Config loader must return a plain object');
+			}
 			return { found: true, path: candidatePath, data, format: ext };
 		} catch (cause: unknown) {
 			throw new CLIError(`Failed to parse config file: ${candidatePath}`, {
@@ -305,44 +348,51 @@ async function discoverConfig(
 	return { found: false };
 }
 
-// ---------------------------------------------------------------------------
-// configFormat — convenience factory for FormatLoader
-// ---------------------------------------------------------------------------
+// --- configFormat — convenience factory for FormatLoader
 
 /**
  * Create a {@link FormatLoader} from extensions and a parse function.
  *
- * Convenience factory for the plugin hook — avoids manually constructing
- * the `{ extensions, parse }` object.
+ * Convenience factory for config loading. It avoids manually constructing the
+ * `{ extensions, parse }` object and makes intent clearer at call sites.
+ *
+ * Later loaders registered for the same extension override earlier ones. Any
+ * error thrown by `parse` is wrapped by {@link discoverConfig} as
+ * `CONFIG_PARSE_ERROR`.
  *
  * @param extensions - File extensions this loader handles (without dot, e.g. `'yaml'`).
- * @param parse - Parse function: takes file content string, returns a plain config object.
+ * @param parse - Parse function: takes file content string and returns a parsed config value.
+ * @returns A {@link FormatLoader} ready to pass to {@link ConfigDiscoveryOptions.loaders}.
  *
  * @example
  * ```ts
  * import { configFormat } from 'dreamcli';
- * import { parse as parseYAML } from 'yaml';
+ * import { parse as parseYaml } from 'yaml';
+ * import { parse as parseTOML } from '@iarna/toml';
  *
- * const yamlLoader = configFormat(['yaml', 'yml'], parseYAML);
+ * const yamlLoader = configFormat(['yaml', 'yml'], Bun.YAML.parse);
+ * const yamlPackageLoader = configFormat(['yaml', 'yml'], parseYaml);
+ * const tomlLoader = configFormat(['toml'], Bun.TOML.parse);
+ * const tomlPackageLoader = configFormat(['toml'], parseTOML);
  *
  * cli('myapp')
  *   .config('myapp')
  *   .configLoader(yamlLoader)
+ *   .configLoader(tomlLoader)
  *   .run();
  * ```
  */
 function configFormat(
 	extensions: readonly string[],
-	parse: (content: string) => Record<string, unknown>,
+	parse: (content: string) => unknown,
 ): FormatLoader {
 	return { extensions, parse };
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { buildConfigSearchPaths, configFormat, discoverConfig };
+export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';
+export { discoverPackageJson, inferCliName } from './package-json.ts';
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,
@@ -351,3 +401,4 @@ export type {
 	ConfigNotFound,
 	FormatLoader,
 };
+export { buildConfigSearchPaths, configFormat, discoverConfig };

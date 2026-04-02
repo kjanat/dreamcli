@@ -8,23 +8,22 @@
  *
  * @module dreamcli/core/schema/command
  */
-
-import type { RunOptions, RunResult } from '../testkit/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
 	SpinnerHandle,
 	SpinnerOptions,
 	TableColumn,
+	TableOptions,
 } from './activity.ts';
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
+import type { RunOptions, RunResult } from './run.ts';
 
-// ---------------------------------------------------------------------------
-// Context type utilities
-// ---------------------------------------------------------------------------
+// --- Context type utilities
 
 /**
  * Widen the context type when adding middleware.
@@ -40,9 +39,17 @@ import type { PromptConfig } from './prompt.ts';
 type WidenContext<C extends Record<string, unknown>, Output extends Record<string, unknown>> =
 	C extends Record<string, never> ? Output : C & Output;
 
-// ---------------------------------------------------------------------------
-// Type-level configuration (phantom state tracked through the chain)
-// ---------------------------------------------------------------------------
+/**
+ * Widen the context type when adding command-scoped derived context.
+ *
+ * Validation-only derive handlers return `undefined`, preserving `C`.
+ * Context-producing derive handlers return an object that merges into `C`
+ * using the same first-call replacement rules as middleware.
+ */
+type WidenDerivedContext<C extends Record<string, unknown>, Output> =
+	Awaited<Output> extends Record<string, unknown> ? WidenContext<C, Awaited<Output>> : C;
+
+// --- Type-level configuration (phantom state tracked through the chain)
 
 /**
  * Compile-time state carried through the command builder chain.
@@ -55,9 +62,7 @@ interface CommandConfig {
 	readonly args: Record<string, ArgBuilder<ArgConfig>>;
 }
 
-// ---------------------------------------------------------------------------
-// Interactive resolver types
-// ---------------------------------------------------------------------------
+// --- Interactive resolver types
 
 /**
  * Parameters received by the interactive resolver function.
@@ -110,6 +115,9 @@ type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
 /**
  * Type-erased interactive resolver stored on `CommandSchema`.
  *
+ * Advanced bridge type: most consumers should use {@link InteractiveResolver}
+ * via `command().interactive(...)` and never reference this alias directly.
+ *
  * At runtime, the resolver receives `{ flags: Record<string, unknown> }`
  * and returns `Record<string, PromptConfig | falsy>`. The phantom types
  * from `CommandBuilder<F, A>` are erased.
@@ -120,15 +128,14 @@ type ErasedInteractiveResolver = (params: {
 	readonly flags: Readonly<Record<string, unknown>>;
 }) => InteractiveResult;
 
-// ---------------------------------------------------------------------------
-// Handler types
-// ---------------------------------------------------------------------------
+// --- Handler types
 
 /**
- * Minimal output channel stub — the real `Out` will be defined in
- * `src/core/output/` (task output-1). For now we expose the shape that
- * handlers will use so the command builder's `.action()` signature is
- * correct from day one.
+ * Output channel available inside action handlers.
+ *
+ * Provides structured methods for stdout/stderr, JSON output,
+ * spinners, progress bars, and tables. The real implementation lives in
+ * `src/core/output/`; this interface defines the shape that handlers consume.
  */
 interface Out {
 	/** Write to stdout (normal output). */
@@ -142,12 +149,10 @@ interface Out {
 	/**
 	 * Emit a structured JSON value to stdout.
 	 *
-	 * - In `--json` mode: serialises `value` as JSON to stdout.
-	 * - In normal mode: serialises `value` as JSON to stdout.
-	 *
-	 * Handlers should prefer `json()` over `log(JSON.stringify(...))` so
-	 * the output channel can enforce consistent formatting and future
-	 * features (pretty-print in TTY, streaming JSON, etc.).
+	 * Always serialises `value` as JSON to stdout regardless of output
+	 * mode. Prefer this over `log(JSON.stringify(...))` so the output
+	 * channel can enforce consistent formatting and future features
+	 * (pretty-print in TTY, streaming JSON, etc.).
 	 */
 	json(value: unknown): void;
 	/**
@@ -178,16 +183,29 @@ interface Out {
 	 * - **JSON mode** (`--json`): Emit the rows as a JSON array to stdout.
 	 * - **Piped** (non-TTY, non-JSON): Same aligned text output as TTY
 	 *   (useful for `grep`, `awk`, etc.).
+	 * - Pass `{ format: 'text', stream: 'stderr' }` to keep a human-readable
+	 *   side channel while `json()` writes machine output to stdout.
 	 *
 	 * When `columns` is omitted, columns are auto-inferred from the keys
 	 * of the first row. Column headers default to the key name.
 	 *
-	 * @param rows    - Array of row objects.
-	 * @param columns - Optional column descriptors for ordering and headers.
+	 * When `columns` is provided, both text and JSON output are projected to
+	 * only the listed keys.
+	 *
+	 * @param rows - Array of row objects.
+	 */
+	table<T extends Record<string, unknown>>(rows: readonly T[], options: TableOptions): void;
+	/**
+	 * Render tabular data with explicit column selection.
+	 *
+	 * @param rows - Array of row objects.
+	 * @param columns - Column descriptors controlling which keys are shown and header labels.
+	 * @param options - Per-call rendering options (format, stream).
 	 */
 	table<T extends Record<string, unknown>>(
 		rows: readonly T[],
 		columns?: readonly TableColumn<T>[],
+		options?: TableOptions,
 	): void;
 
 	/**
@@ -198,6 +216,7 @@ interface Out {
 	 *
 	 * @param text    - Initial spinner text.
 	 * @param options - Fallback strategy for non-TTY environments.
+	 * @returns A {@link SpinnerHandle} for lifecycle control.
 	 */
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle;
 
@@ -208,6 +227,7 @@ interface Out {
 	 * determinate mode (percentage bar); omit for indeterminate (pulsing).
 	 *
 	 * @param options - Progress configuration (total, label, fallback).
+	 * @returns A {@link ProgressHandle} for updating progress.
 	 */
 	progress(options: ProgressOptions): ProgressHandle;
 
@@ -241,16 +261,36 @@ interface Out {
 }
 
 /**
+ * Runtime metadata about the CLI program and current command execution.
+ *
+ * Available to action handlers and middleware.
+ *
+ * Populated by the CLI dispatch layer from {@link CLISchema} and
+ * {@link CommandSchema}. For standalone `runCommand()` calls without
+ * a CLI wrapper, a minimal meta is constructed from the command's own schema.
+ */
+interface CommandMeta {
+	/** CLI program name (from `cli('name')` or package.json inference). */
+	readonly name: string;
+	/** Binary display name used in help/usage (may differ from `name`). */
+	readonly bin: string;
+	/** Program version, if set via `.version()` or discovered from package.json. */
+	readonly version: string | undefined;
+	/** The leaf command name currently being executed. */
+	readonly command: string;
+}
+
+/**
  * The bag of values received by an action handler.
  *
  * - `args`  — fully resolved positional arguments
  * - `flags` — fully resolved flags
- * - `ctx`   — middleware-provided context (typed via middleware chain)
+ * - `ctx`   — derive/middleware-provided context
  * - `out`   — output channel
+ * - `meta`  — CLI program metadata (name, bin, version, command)
  *
  * The `C` parameter defaults to `Record<string, never>`, making `ctx`
- * property access a type error until middleware extends it. Each
- * `.middleware()` call on `CommandBuilder` widens `C` via intersection.
+ * property access a type error until derive or middleware extends it.
  */
 interface ActionParams<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -261,6 +301,7 @@ interface ActionParams<
 	readonly flags: Readonly<InferFlags<F>>;
 	readonly ctx: Readonly<C>;
 	readonly out: Out;
+	readonly meta: CommandMeta;
 }
 
 /**
@@ -276,9 +317,69 @@ type ActionHandler<
 	C extends Record<string, unknown> = Record<string, never>,
 > = (params: ActionParams<F, A, C>) => void | Promise<void>;
 
-// ---------------------------------------------------------------------------
-// Runtime schema data
-// ---------------------------------------------------------------------------
+/**
+ * The bag of values received by a derive handler.
+ *
+ * Identical to {@link ActionParams}: derives run after full resolution and
+ * before the action handler, with typed args/flags/current context plus `out`
+ * and `meta`.
+ */
+type DeriveParams<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown> = Record<string, never>,
+> = ActionParams<F, A, C>;
+
+/**
+ * Command-scoped typed pre-action handler.
+ *
+ * Derive handlers may:
+ * - validate resolved input and throw `CLIError`
+ * - return `undefined` to continue without changing context
+ * - return an object whose properties merge into `ctx` downstream
+ *
+ * They cannot wrap downstream execution; use `middleware()` for that.
+ */
+type DeriveHandler<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown> = Record<string, never>,
+	Output extends Record<string, unknown> | undefined = undefined,
+> = (params: DeriveParams<F, A, C>) => Output | Promise<Output>;
+
+/**
+ * Type-erased derive handler stored on the command builder.
+ *
+ * @internal
+ */
+type ErasedDeriveHandler = (params: {
+	readonly args: Readonly<Record<string, unknown>>;
+	readonly flags: Readonly<Record<string, unknown>>;
+	readonly ctx: Readonly<Record<string, unknown>>;
+	readonly out: Out;
+	readonly meta: CommandMeta;
+}) =>
+	| undefined
+	| Readonly<Record<string, unknown>>
+	| Promise<undefined | Readonly<Record<string, unknown>>>;
+
+/**
+ * Internal execution step union preserving registration order across
+ * `derive()` and `middleware()`.
+ *
+ * @internal
+ */
+type ExecutionStep =
+	| {
+			readonly kind: 'derive';
+			readonly handler: ErasedDeriveHandler;
+	  }
+	| {
+			readonly kind: 'middleware';
+			readonly handler: ErasedMiddlewareHandler;
+	  };
+
+// --- Runtime schema data
 
 /** A single usage example shown in help text. */
 interface CommandExample {
@@ -289,8 +390,11 @@ interface CommandExample {
 }
 
 /**
- * The runtime descriptor built by `CommandBuilder`. Consumers (parser, help
- * generator, CLI dispatcher) read this to understand the command's shape.
+ * Runtime descriptor produced by {@link CommandBuilder}.
+ *
+ * Consumers (parser, help generator, CLI dispatcher) read this to
+ * understand the command's shape — flags, args, aliases, subcommands,
+ * middleware, and interactive resolver.
  */
 interface CommandSchema {
 	/** The command name (used for dispatch, e.g. `'deploy'`). */
@@ -338,18 +442,64 @@ interface CommandSchema {
 	readonly commands: readonly CommandSchema[];
 }
 
-/** A named positional arg entry in the command schema. */
+/**
+ * A named positional argument entry in the command schema.
+ *
+ * Pairs a user-facing arg name with its {@link ArgSchema} descriptor.
+ * The array ordering in {@link CommandSchema.args} determines CLI position.
+ */
 interface CommandArgEntry {
 	readonly name: string;
 	readonly schema: ArgSchema;
 }
 
-// ---------------------------------------------------------------------------
-// Type-erased command interface (shared between schema and CLI layers)
-// ---------------------------------------------------------------------------
+/**
+ * Validate a new arg entry against invariants before adding it to the command.
+ *
+ * @param name - Arg name being registered.
+ * @param schema - Runtime descriptor of the arg.
+ * @param args - Already-registered arg entries on this command.
+ *
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` if both `.stdin()` and `.variadic()` are set.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_ARG` if another arg already uses `.stdin()`.
+ *
+ * @internal
+ */
+function validateArgEntry(name: string, schema: ArgSchema, args: readonly CommandArgEntry[]): void {
+	if (schema.stdinMode && schema.variadic) {
+		throw new CLIError(`Argument <${name}> cannot be both variadic and stdin-backed`, {
+			code: 'INVALID_BUILDER_STATE',
+			details: { arg: name, stdinMode: true, variadic: true },
+			suggest: 'Remove .stdin() or .variadic() from this argument',
+		});
+	}
+
+	if (!schema.stdinMode) {
+		return;
+	}
+
+	const existing = args.find((entry) => entry.schema.stdinMode);
+	if (existing === undefined) {
+		return;
+	}
+
+	throw new CLIError(
+		`Only one stdin argument is allowed; <${existing.name}> is already stdin-backed`,
+		{
+			code: 'DUPLICATE_STDIN_ARG',
+			details: { arg: name, existingArg: existing.name },
+			suggest: 'Keep .stdin() on a single argument per command',
+		},
+	);
+}
+
+// --- Type-erased command interface (shared between schema and CLI layers)
 
 /**
  * A type-erased command entry for heterogeneous command storage.
+ *
+ * Advanced/internal bridge type: most consumers should work with
+ * {@link CommandBuilder} and never reference `ErasedCommand` directly.
  *
  * Commands registered via `CLIBuilder.command()` have heterogeneous `F`, `A`,
  * and `C` type parameters. At the dispatch level we only need the runtime
@@ -382,12 +532,13 @@ interface ErasedCommand {
 	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
 }
 
-// ---------------------------------------------------------------------------
-// Type-erased builder alias (for heterogeneous subcommand storage)
-// ---------------------------------------------------------------------------
+// --- Type-erased builder alias (for heterogeneous subcommand storage)
 
 /**
- * Type-erased command builder for heterogeneous storage in `_subcommands`.
+ * Type-erased {@link CommandBuilder} for heterogeneous subcommand storage.
+ *
+ * Advanced helper alias: useful only when working on DreamCLI internals or
+ * custom tooling that mirrors the framework's type-erasure boundary.
  *
  * Uses widest possible generic bounds so any `CommandBuilder<F, A, C>` is
  * assignable. The CLI layer's `eraseCommand()` traverses these to build
@@ -416,20 +567,18 @@ function eraseBuilder<
 	return builder as unknown as AnyCommandBuilder;
 }
 
-// ---------------------------------------------------------------------------
-// CommandBuilder — immutable builder with type-level tracking
-// ---------------------------------------------------------------------------
+// --- CommandBuilder — immutable builder with type-level tracking
 
 /**
  * Immutable command schema builder.
  *
  * The type parameters `F` (flags), `A` (args), and `C` (context) are
  * phantom types that accumulate builder types as `.flag()`, `.arg()`,
- * and `.middleware()` are chained. The `.action()` handler receives
+ * `.derive()`, and `.middleware()` are chained. The `.action()` handler receives
  * fully typed `ActionParams<F, A, C>`.
  *
  * `C` defaults to `Record<string, never>`, making `ctx` property
- * access a type error until middleware extends it via `.middleware()`.
+ * access a type error until derive or middleware extends it.
  *
  * @example
  * ```ts
@@ -447,9 +596,9 @@ function eraseBuilder<
  * ```
  */
 class CommandBuilder<
-	// biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (F & Record<N, B>)
+	/* biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (F & Record<N, B>) */ // deno-lint-ignore ban-types
 	F extends Record<string, FlagBuilder<FlagConfig>> = {},
-	// biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (A & Record<N, B>)
+	/* biome-ignore lint/complexity/noBannedTypes: {} is the correct initial accumulator for intersection-based type growth (A & Record<N, B>) */ // deno-lint-ignore ban-types
 	A extends Record<string, ArgBuilder<ArgConfig>> = {},
 	C extends Record<string, unknown> = Record<string, never>,
 > {
@@ -469,6 +618,15 @@ class CommandBuilder<
 	readonly _subcommands: readonly AnyCommandBuilder[];
 
 	/**
+	 * @internal Execution steps in registration order.
+	 *
+	 * Distinct from `schema.middleware`: middleware handlers remain in schema
+	 * for backward compatibility, while derives stay command-local and builder-
+	 * scoped so future shared/global middleware can compose cleanly.
+	 */
+	readonly _executionSteps: readonly ExecutionStep[];
+
+	/**
 	 * @internal Type brands — exist only in the type system (`declare`
 	 * produces no runtime property). Used for type inference.
 	 */
@@ -476,14 +634,22 @@ class CommandBuilder<
 	declare readonly _args: A;
 	declare readonly _ctx: C;
 
+	/**
+	 * @param schema         - Runtime command descriptor.
+	 * @param handler        - Action handler, if registered.
+	 * @param subcommands    - Nested sub-command builders (type-erased).
+	 * @param executionSteps - Derive/middleware steps in registration order.
+	 */
 	constructor(
 		schema: CommandSchema,
 		handler?: ActionHandler<F, A, C>,
 		subcommands?: readonly AnyCommandBuilder[],
+		executionSteps?: readonly ExecutionStep[],
 	) {
 		this.schema = schema;
 		this.handler = handler;
 		this._subcommands = subcommands ?? [];
+		this._executionSteps = executionSteps ?? [];
 	}
 
 	// -- Interactive resolver ------------------------------------------------
@@ -514,6 +680,9 @@ class CommandBuilder<
 	 *   }))
 	 *   .action(({ flags }) => { ... });
 	 * ```
+	 *
+	 * @param resolver - Function receiving partially resolved flags and returning prompt configs.
+	 * @returns The builder (for chaining).
 	 */
 	interactive(resolver: InteractiveResolver<F>): CommandBuilder<F, A, C> {
 		// The resolver is type-erased for storage on CommandSchema.
@@ -525,6 +694,64 @@ class CommandBuilder<
 			{ ...this.schema, interactive: erased },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
+		);
+	}
+
+	// -- Derive --------------------------------------------------------------
+
+	/**
+	 * Register a command-scoped typed pre-action handler.
+	 *
+	 * Derive runs after full resolution and before the action handler.
+	 * It receives typed `{ args, flags, ctx, out, meta }` and may either:
+	 *
+	 * - return `undefined` for validation-only behavior
+	 * - return an object to merge additional properties into `ctx`
+	 *
+	 * Unlike middleware, derive cannot wrap downstream execution and does not
+	 * use `next()`. Use `middleware()` for timing, logging, retries, cleanup,
+	 * or error-boundary patterns.
+	 *
+	 * Adding derive drops the current handler (like `.flag()`, `.arg()`, and
+	 * `.middleware()`) because the action handler's `ctx` type may change.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .flag('token', flag.string().env('AUTH_TOKEN'))
+	 *   .derive(({ flags }) => {
+	 *     if (!flags.token) {
+	 *       throw new CLIError('Not authenticated', {
+	 *         code: 'AUTH_REQUIRED',
+	 *         suggest: 'Run `mycli login` or set AUTH_TOKEN',
+	 *       });
+	 *     }
+	 *     return { token: flags.token };
+	 *   })
+	 *   .action(({ ctx }) => {
+	 *     ctx.token; // string
+	 *   });
+	 * ```
+	 *
+	 * @param handler - Derive function receiving typed args/flags/ctx.
+	 * @returns The builder (for chaining).
+	 */
+	derive<Output extends Record<string, unknown> | undefined>(
+		handler: DeriveHandler<F, A, C, Output>,
+	): CommandBuilder<F, A, WidenDerivedContext<C, Output>> {
+		const erased = handler as unknown as ErasedDeriveHandler;
+		return new CommandBuilder<F, A, WidenDerivedContext<C, Output>>(
+			{ ...this.schema, hasAction: false },
+			undefined,
+			this._subcommands,
+			[
+				...this._executionSteps,
+				{
+					kind: 'derive',
+					handler: erased,
+				},
+			],
 		);
 	}
 
@@ -544,6 +771,36 @@ class CommandBuilder<
 	 *
 	 * @example
 	 * ```ts
+	 * import { CLIError, command, middleware } from 'dreamcli';
+	 *
+	 * interface User {
+	 *   id: string;
+	 *   email: string;
+	 * }
+	 *
+	 * async function getCurrentUser(): Promise<User | null> {
+	 *   return { id: 'u_123', email: 'dev@example.com' };
+	 * }
+	 *
+	 * function startTrace(name: string): string {
+	 *   return `trace:${name}`;
+	 * }
+	 *
+	 * // Resolve the current user and expose it as `ctx.user` downstream.
+	 * const auth = middleware<{ user: User }>(async ({ next }) => {
+	 *   const user = await getCurrentUser();
+	 *   if (!user) {
+	 *     throw new CLIError('Not authenticated', { code: 'AUTH_REQUIRED' });
+	 *   }
+	 *   await next({ user });
+	 * });
+	 *
+	 * // Create a trace id for this command run and expose it as `ctx.traceId`.
+	 * const telemetry = middleware<{ traceId: string }>(async ({ meta, next }) => {
+	 *   const traceId = startTrace(`${meta.name}.${meta.command}`);
+	 *   await next({ traceId });
+	 * });
+	 *
 	 * command('deploy')
 	 *   .middleware(auth)      // C becomes { user: User }
 	 *   .middleware(telemetry) // C becomes { user: User } & { traceId: string }
@@ -552,6 +809,9 @@ class CommandBuilder<
 	 *     ctx.traceId; // string — typed
 	 *   });
 	 * ```
+	 *
+	 * @param m - {@link Middleware} instance created via `middleware()`.
+	 * @returns The builder (for chaining).
 	 */
 	middleware<Output extends Record<string, unknown>>(
 		m: Middleware<Output>,
@@ -565,35 +825,137 @@ class CommandBuilder<
 			// Handler intentionally dropped — C changed, invalidating handler signature.
 			undefined,
 			this._subcommands,
+			[
+				...this._executionSteps,
+				{
+					kind: 'middleware',
+					handler: m._handler,
+				},
+			],
 		);
 	}
 
 	// -- Metadata modifiers --------------------------------------------------
 
-	/** Set the command's description for help text. */
+	/**
+	 * Set the command's description for help text.
+	 *
+	 * Displayed below the usage line in `--help` output and next to the
+	 * command name in parent command/group help listings.
+	 *
+	 * @param text - One-line description of what the command does.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .description('Deploy the application to a target environment')
+	 *   .action(({ out }) => { out.log('deploying...'); });
+	 *
+	 * // $ mycli deploy --help
+	 * // Usage: deploy [flags]
+	 * //
+	 * // Deploy the application to a target environment
+	 * ```
+	 *
+	 * @returns The builder (for chaining).
+	 */
 	description(text: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, description: text },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
-	/** Add an alternative name for this command. */
+	/**
+	 * Add an alternative name for this command.
+	 *
+	 * Aliases are accepted during dispatch alongside the primary name.
+	 * Multiple aliases can be chained. Aliases are shown in help output.
+	 *
+	 * @param name - Alternative command name (e.g. `'d'` for `deploy`).
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .alias('d')
+	 *   .alias('push')
+	 *   .action(({ out }) => { out.log('deploying...'); });
+	 *
+	 * // All equivalent:
+	 * // $ mycli deploy
+	 * // $ mycli d
+	 * // $ mycli push
+	 * ```
+	 *
+	 * @returns The builder (for chaining).
+	 */
 	alias(name: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, aliases: [...this.schema.aliases, name] },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
-	/** Hide this command from help listings. */
+	/**
+	 * Hide this command from help listings.
+	 *
+	 * The command remains fully functional and dispatchable — it just
+	 * won't appear in `--help` output or shell completions. Useful for
+	 * internal/debug commands.
+	 *
+	 * @example
+	 * ```ts
+	 * command('debug-dump')
+	 *   .hidden()
+	 *   .action(({ out }) => { out.log(JSON.stringify(internalState)); });
+	 *
+	 * // $ mycli --help     → 'debug-dump' is not listed
+	 * // $ mycli debug-dump → still works
+	 * ```
+	 *
+	 * @returns The builder (for chaining).
+	 */
 	hidden(): CommandBuilder<F, A, C> {
-		return new CommandBuilder({ ...this.schema, hidden: true }, this.handler, this._subcommands);
+		return new CommandBuilder(
+			{ ...this.schema, hidden: true },
+			this.handler,
+			this._subcommands,
+			this._executionSteps,
+		);
 	}
 
-	/** Add a usage example to help text. */
+	/**
+	 * Add a usage example to help text.
+	 *
+	 * Examples are rendered in the "Examples:" section of `--help` output.
+	 * Call multiple times to add several examples. Each example shows a
+	 * shell invocation, optionally with a description.
+	 *
+	 * @param cmd - The example command line (without the program name prefix).
+	 * @param description - Optional one-line explanation of what the example does.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   .arg('target', arg.string())
+	 *   .flag('force', flag.boolean().alias('f'))
+	 *   .example('deploy production', 'Deploy to production')
+	 *   .example('deploy staging -f', 'Force deploy to staging')
+	 *   .action(({ args, flags }) => { ... });
+	 *
+	 * // $ mycli deploy --help
+	 * // ...
+	 * // Examples:
+	 * //   deploy production      Deploy to production
+	 * //   deploy staging -f      Force deploy to staging
+	 * ```
+	 *
+	 * @returns The builder (for chaining).
+	 */
 	example(cmd: string, description?: string): CommandBuilder<F, A, C> {
 		const entry: CommandExample =
 			description !== undefined ? { command: cmd, description } : { command: cmd };
@@ -601,6 +963,7 @@ class CommandBuilder<
 			{ ...this.schema, examples: [...this.schema.examples, entry] },
 			this.handler,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -611,6 +974,41 @@ class CommandBuilder<
 	 *
 	 * The flag name is added to the type-level `F` map. Duplicate flag names
 	 * are prevented at the type level via the `Exclude` constraint.
+	 *
+	 * The builder controls the flag's type, presence, aliases, env/config
+	 * bindings, and description. See {@link FlagBuilder} for available modifiers.
+	 *
+	 * @param name - Flag name (used as `--name` on CLI and `flags.*` in handler).
+	 * @param builder - Configured `FlagBuilder` from `flag.string()`, `flag.boolean()`,
+	 *   `flag.number()`, `flag.enum()`, `flag.array()`, or `flag.custom()`.
+	 *
+	 * @example
+	 * ```ts
+	 * command('serve')
+	 *   .flag('port', flag.number()
+	 *     .alias('p')
+	 *     .env('PORT')
+	 *     .default(3000)
+	 *     .describe('Port to listen on'))
+	 *   .flag('host', flag.string()
+	 *     .env('HOST')
+	 *     .default('localhost')
+	 *     .describe('Bind address'))
+	 *   .flag('verbose', flag.boolean()
+	 *     .alias('v')
+	 *     .describe('Enable verbose logging'))
+	 *   .action(({ flags, out }) => {
+	 *     flags.port;    // number
+	 *     flags.host;    // string
+	 *     flags.verbose; // boolean
+	 *     out.log(`Listening on ${flags.host}:${flags.port}`);
+	 *   });
+	 *
+	 * // $ mycli serve --port 8080 -v
+	 * // $ PORT=9090 mycli serve
+	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
 		name: N & Exclude<N, keyof F>,
@@ -623,6 +1021,7 @@ class CommandBuilder<
 			// the previous handler's type signature
 			undefined,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -631,14 +1030,47 @@ class CommandBuilder<
 	/**
 	 * Register a named positional argument on this command.
 	 *
-	 * Args are ordered by registration. The arg name is added to the
-	 * type-level `A` map. Duplicate arg names are prevented at the type
-	 * level via the `Exclude` constraint.
+	 * Args are ordered by registration — position on the CLI matches the
+	 * order of `.arg()` calls. The arg name is added to the type-level `A`
+	 * map. Duplicate arg names are prevented at the type level via the
+	 * `Exclude` constraint.
+	 *
+	 * The builder controls the arg's type, presence, env binding, and
+	 * description. See {@link ArgBuilder} for available modifiers.
+	 *
+	 * @param name - Positional arg name (used in help text and `args.*`).
+	 * @param builder - Configured `ArgBuilder` from `arg.string()`, `arg.number()`,
+	 *   or `arg.custom()`.
+	 *
+	 * @example
+	 * ```ts
+	 * command('deploy')
+	 *   // Required string arg — first positional
+	 *   .arg('target', arg.string()
+	 *     .env('DEPLOY_TARGET')
+	 *     .describe('Deploy target'))
+	 *   // Optional number arg — second positional
+	 *   .arg('port', arg.number()
+	 *     .env('PORT')
+	 *     .default(3000)
+	 *     .describe('Port number'))
+	 *   .action(({ args }) => {
+	 *     args.target; // string
+	 *     args.port;   // number
+	 *   });
+	 *
+	 * // Usage: deploy [flags] <target> [port]
+	 * // $ mycli deploy production 8080
+	 * // $ DEPLOY_TARGET=staging mycli deploy
+	 * ```
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	arg<N extends string, B extends ArgBuilder<ArgConfig>>(
 		name: N & Exclude<N, keyof A>,
 		builder: B,
 	): CommandBuilder<F, A & Record<N, B>, C> {
+		validateArgEntry(name, builder.schema, this.schema.args);
 		const entry: CommandArgEntry = { name, schema: builder.schema };
 		const nextArgs = [...this.schema.args, entry];
 		return new CommandBuilder(
@@ -647,6 +1079,7 @@ class CommandBuilder<
 			// the previous handler's type signature
 			undefined,
 			this._subcommands,
+			this._executionSteps,
 		);
 	}
 
@@ -671,6 +1104,9 @@ class CommandBuilder<
 	 *   .command(migrateCmd)
 	 *   .command(seedCmd);
 	 * ```
+	 *
+	 * @param sub - Child {@link CommandBuilder} to nest under this command.
+	 * @returns The builder (for chaining).
 	 */
 	command<
 		F2 extends Record<string, FlagBuilder<FlagConfig>>,
@@ -684,6 +1120,7 @@ class CommandBuilder<
 			},
 			this.handler,
 			[...this._subcommands, eraseBuilder(sub)],
+			this._executionSteps,
 		);
 	}
 
@@ -693,16 +1130,54 @@ class CommandBuilder<
 	 * Register the action handler for this command.
 	 *
 	 * The handler receives fully typed `{ args, flags, ctx, out }` derived
-	 * from the accumulated `.flag()`, `.arg()`, and `.middleware()` definitions.
+	 * from the accumulated `.flag()`, `.arg()`, `.derive()`, and `.middleware()`
+	 * definitions.
+	 *
+	 * May be synchronous or async. Return values are ignored; command handlers
+	 * communicate through `out`, thrown errors, and side effects.
+	 *
+	 * @param handler - Function receiving `ActionParams<F, A, C>`.
+	 *
+	 * @example
+	 * // Minimal
+	 * command('greet')
+	 *   .arg('name', arg.string())
+	 *   .action(({ args, out }) => {
+	 *     out.log(`Hello, ${args.name}!`);
+	 *   });
+	 *
+	 * @example
+	 * // Full params — flags, args, context, output
+	 * command('deploy')
+	 *   .arg('target', arg.string().env('DEPLOY_TARGET'))
+	 *   .flag('force', flag.boolean().alias('f'))
+	 *   .flag('region', flag.enum(['us', 'eu', 'ap']).env('REGION'))
+	 *   .middleware(auth)
+	 *   .action(async ({ args, flags, ctx, out }) => {
+	 *     args.target;  // string
+	 *     flags.force;  // boolean
+	 *     flags.region; // 'us' | 'eu' | 'ap' | undefined
+	 *     ctx.user;     // User (from auth middleware)
+	 *
+	 *     const spinner = out.spinner('Deploying...');
+	 *     await deploy(args.target, { force: flags.force });
+	 *     spinner.stop();
+	 *     out.log('Done');
+	 *   });
+	 *
+	 * @returns The builder (for chaining).
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
-		return new CommandBuilder({ ...this.schema, hasAction: true }, handler, this._subcommands);
+		return new CommandBuilder(
+			{ ...this.schema, hasAction: true },
+			handler,
+			this._subcommands,
+			this._executionSteps,
+		);
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Factory function
-// ---------------------------------------------------------------------------
+// --- Factory function
 
 /**
  * Create a new command builder.
@@ -719,6 +1194,8 @@ class CommandBuilder<
  *     out.log(flags.loud ? msg.toUpperCase() : msg);
  *   });
  * ```
+ *
+ * @returns A fresh {@link CommandBuilder} with empty flags, args, and context.
  */
 function command(name: string): CommandBuilder {
 	return new CommandBuilder({
@@ -755,16 +1232,15 @@ function command(name: string): CommandBuilder {
  *   .command(migrateCmd)
  *   .command(seedCmd);
  * ```
+ *
+ * @returns A fresh {@link CommandBuilder} with empty flags, args, and context.
  */
 function group(name: string): CommandBuilder {
 	return command(name);
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { command, group, CommandBuilder };
 export type {
 	ActionHandler,
 	ActionParams,
@@ -772,11 +1248,16 @@ export type {
 	CommandArgEntry,
 	CommandConfig,
 	CommandExample,
+	CommandMeta,
 	CommandSchema,
+	DeriveHandler,
+	DeriveParams,
 	ErasedCommand,
+	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
 };
+export { CommandBuilder, command, group };

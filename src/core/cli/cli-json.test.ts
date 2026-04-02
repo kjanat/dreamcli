@@ -3,14 +3,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CLIError } from '../errors/index.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Test commands
-// ---------------------------------------------------------------------------
+// --- Test commands
 
 function dataCommand() {
 	return command('data')
@@ -38,9 +36,7 @@ function failCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// --json flag detection and stripping
-// ---------------------------------------------------------------------------
+// --- --json flag detection and stripping
 
 describe('CLIBuilder --json flag', () => {
 	it('strips --json from argv before command dispatch', async () => {
@@ -93,9 +89,7 @@ describe('CLIBuilder --json flag', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// --json error rendering
-// ---------------------------------------------------------------------------
+// --- --json error rendering
 
 describe('CLIBuilder --json error rendering', () => {
 	it('renders command errors as JSON in --json mode', async () => {
@@ -121,9 +115,7 @@ describe('CLIBuilder --json error rendering', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// --json CLI-level error rendering (dispatch errors, not command errors)
-// ---------------------------------------------------------------------------
+// --- --json CLI-level error rendering (dispatch errors, not command errors)
 
 describe('CLIBuilder --json CLI-level error rendering', () => {
 	it('renders "no commands registered" as JSON in --json mode', async () => {
@@ -194,9 +186,7 @@ describe('CLIBuilder --json CLI-level error rendering', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// --json combined with --version / --help
-// ---------------------------------------------------------------------------
+// --- --json combined with --version / --help
 
 describe('CLIBuilder --json with root flags', () => {
 	it('--version still works with --json present', async () => {
@@ -214,6 +204,16 @@ describe('CLIBuilder --json with root flags', () => {
 
 		expect(result.exitCode).toBe(0);
 		// Help text goes to stderr in JSON mode
+		expect(result.stderr.length).toBeGreaterThan(0);
+		expect(result.stdout).toEqual([]);
+	});
+
+	it('`help --json <command>` preserves json mode', async () => {
+		const app = cli('test').version('1.0.0').command(dataCommand());
+		const result = await app.execute(['help', '--json', 'data']);
+
+		expect(result.exitCode).toBe(0);
+		// Help text goes to stderr in JSON mode (stdout reserved for data)
 		expect(result.stderr.length).toBeGreaterThan(0);
 		expect(result.stdout).toEqual([]);
 	});

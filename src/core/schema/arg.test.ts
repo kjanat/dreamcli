@@ -10,11 +10,9 @@ function parsePath(raw: string): ParsedPath {
 	return { segments: raw.split('/') };
 }
 
-// ---------------------------------------------------------------------------
-// Factory functions — runtime schema
-// ---------------------------------------------------------------------------
+// --- Factory functions — runtime schema
 
-describe('arg.string()', () => {
+describe('arg.string() — creates and modifies string args', () => {
 	it('creates a string arg with required presence', () => {
 		const a = arg.string();
 		expect(a).toBeInstanceOf(ArgBuilder);
@@ -25,7 +23,7 @@ describe('arg.string()', () => {
 	});
 });
 
-describe('arg.number()', () => {
+describe('arg.number() — creates and modifies number args', () => {
 	it('creates a number arg with required presence', () => {
 		const a = arg.number();
 		expect(a.schema.kind).toBe('number');
@@ -34,7 +32,47 @@ describe('arg.number()', () => {
 	});
 });
 
-describe('arg.custom()', () => {
+describe('arg.enum() — creates and modifies enum args', () => {
+	it('creates an enum arg with required presence', () => {
+		const a = arg.enum(['us', 'eu', 'ap']);
+		expect(a).toBeInstanceOf(ArgBuilder);
+		expect(a.schema.kind).toBe('enum');
+		expect(a.schema.presence).toBe('required');
+		expect(a.schema.variadic).toBe(false);
+		expect(a.schema.enumValues).toEqual(['us', 'eu', 'ap']);
+	});
+
+	it('enum with single value', () => {
+		const a = arg.enum(['only']);
+		expect(a.schema.enumValues).toEqual(['only']);
+	});
+
+	it('.optional() on enum', () => {
+		const a = arg.enum(['a', 'b']).optional();
+		expect(a.schema.presence).toBe('optional');
+		expect(a.schema.enumValues).toEqual(['a', 'b']);
+	});
+
+	it('.default() on enum', () => {
+		const a = arg.enum(['dev', 'prod']).default('dev');
+		expect(a.schema.presence).toBe('defaulted');
+		expect(a.schema.defaultValue).toBe('dev');
+	});
+
+	it('.variadic() on enum', () => {
+		const a = arg.enum(['x', 'y']).variadic();
+		expect(a.schema.variadic).toBe(true);
+		expect(a.schema.enumValues).toEqual(['x', 'y']);
+	});
+
+	it('.env() on enum', () => {
+		const a = arg.enum(['a', 'b']).env('REGION');
+		expect(a.schema.envVar).toBe('REGION');
+		expect(a.schema.enumValues).toEqual(['a', 'b']);
+	});
+});
+
+describe('arg.custom() — creates and modifies custom args', () => {
 	it('creates a custom arg with the provided parse function', () => {
 		const a = arg.custom(parsePath);
 		expect(a.schema.kind).toBe('custom');
@@ -50,9 +88,7 @@ describe('arg.custom()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Modifiers — runtime schema mutations
-// ---------------------------------------------------------------------------
+// --- Modifiers — runtime schema mutations
 
 describe('.required()', () => {
 	it('sets presence to required (explicit)', () => {
@@ -95,6 +131,25 @@ describe('.variadic()', () => {
 	});
 });
 
+describe('.stdin()', () => {
+	it('sets stdinMode to true', () => {
+		const a = arg.string().stdin();
+		expect(a.schema.stdinMode).toBe(true);
+	});
+
+	it('preserves type inference', () => {
+		const a = arg.number().stdin();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number>();
+	});
+
+	it('does not mutate original', () => {
+		const base = arg.string();
+		const stdinArg = base.stdin();
+		expect(base.schema.stdinMode).toBe(false);
+		expect(stdinArg.schema.stdinMode).toBe(true);
+	});
+});
+
 describe('.describe()', () => {
 	it('stores the description', () => {
 		const a = arg.string().describe('Target environment');
@@ -102,9 +157,7 @@ describe('.describe()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Immutability
-// ---------------------------------------------------------------------------
+// --- Immutability
 
 describe('immutability', () => {
 	it('each modifier returns a new builder', () => {
@@ -145,9 +198,7 @@ describe('immutability', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Chaining — complex builder chains
-// ---------------------------------------------------------------------------
+// --- Chaining — complex builder chains
 
 describe('chaining', () => {
 	it('supports PRD deploy target example', () => {
@@ -181,9 +232,7 @@ describe('chaining', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Schema data defaults
-// ---------------------------------------------------------------------------
+// --- Schema data defaults
 
 describe('schema defaults', () => {
 	it('all optional fields default to undefined or sensible values', () => {
@@ -191,21 +240,29 @@ describe('schema defaults', () => {
 		expect(s.kind).toBe('string');
 		expect(s.presence).toBe('required');
 		expect(s.variadic).toBe(false);
+		expect(s.stdinMode).toBe(false);
 		expect(s.defaultValue).toBeUndefined();
 		expect(s.description).toBeUndefined();
+		expect(s.enumValues).toBeUndefined();
 		expect(s.parseFn).toBeUndefined();
 	});
 
 	it('custom arg has parseFn, others do not', () => {
 		expect(arg.string().schema.parseFn).toBeUndefined();
 		expect(arg.number().schema.parseFn).toBeUndefined();
+		expect(arg.enum(['a']).schema.parseFn).toBeUndefined();
 		expect(arg.custom(() => 'x').schema.parseFn).toBeDefined();
+	});
+
+	it('enum arg has enumValues, others do not', () => {
+		expect(arg.string().schema.enumValues).toBeUndefined();
+		expect(arg.number().schema.enumValues).toBeUndefined();
+		expect(arg.custom(() => 'x').schema.enumValues).toBeUndefined();
+		expect(arg.enum(['a', 'b']).schema.enumValues).toEqual(['a', 'b']);
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type inference — compile-time checks via expectTypeOf
-// ---------------------------------------------------------------------------
+// --- Type inference — compile-time checks via expectTypeOf
 
 describe('type inference', () => {
 	it('string arg: string (required by default)', () => {
@@ -216,6 +273,26 @@ describe('type inference', () => {
 	it('number arg: number (required by default)', () => {
 		const a = arg.number();
 		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number>();
+	});
+
+	it('enum arg: literal union (required by default)', () => {
+		const a = arg.enum(['us', 'eu', 'ap']);
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<'us' | 'eu' | 'ap'>();
+	});
+
+	it('.optional() on enum adds undefined', () => {
+		const a = arg.enum(['a', 'b']).optional();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<'a' | 'b' | undefined>();
+	});
+
+	it('.default() on enum removes undefined', () => {
+		const a = arg.enum(['dev', 'prod']).default('dev');
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<'dev' | 'prod'>();
+	});
+
+	it('.variadic() on enum produces union[]', () => {
+		const a = arg.enum(['x', 'y']).variadic();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<('x' | 'y')[]>();
 	});
 
 	it('custom arg: inferred return type (required by default)', () => {
@@ -304,9 +381,7 @@ describe('type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
+// --- Edge cases
 
 describe('edge cases', () => {
 	it('overriding default replaces the value', () => {
@@ -346,9 +421,7 @@ describe('edge cases', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// .deprecated() modifier
-// ---------------------------------------------------------------------------
+// --- .deprecated() modifier
 
 describe('.deprecated()', () => {
 	it('sets deprecated to true when called with no argument', () => {

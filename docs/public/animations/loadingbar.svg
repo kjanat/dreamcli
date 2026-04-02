@@ -1,0 +1,136 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="300"
+  height="40"
+  viewBox="0 0 300 40"
+  role="img"
+  aria-label="Animated progress bar"
+>
+  <style>svg {
+      background: transparent;
+      color: #111827;
+    }
+
+    text {
+      font-family:
+        ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+      font-size: 24px;
+      dominant-baseline: middle;
+      text-rendering: geometricPrecision;
+    }
+
+    .base {
+      fill: #9ca3af;
+    }
+
+    .fill {
+      fill: currentColor;
+    }
+
+    .pct-frame {
+      opacity: 0;
+    }
+
+    .p0 { animation: show0 2.7s steps(1, end) infinite; }
+    .p1 { animation: show1 2.7s steps(1, end) infinite; }
+    .p2 { animation: show2 2.7s steps(1, end) infinite; }
+    .p3 { animation: show3 2.7s steps(1, end) infinite; }
+    .p4 { animation: show4 2.7s steps(1, end) infinite; }
+    .p5 { animation: show5 2.7s steps(1, end) infinite; }
+    .p6 { animation: show6 2.7s steps(1, end) infinite; }
+    .p7 { animation: show7 2.7s steps(1, end) infinite; }
+    .p8 { animation: show8 2.7s steps(1, end) infinite; }
+
+    @media (prefers-color-scheme: dark) {
+      svg {
+        color: #f3f4f6;
+      }
+
+      .base {
+        fill: #4b5563;
+      }
+    }
+
+    @keyframes show0 {
+      0%, 11.111% { opacity: 1; }
+      11.112%, 100% { opacity: 0; }
+    }
+
+    @keyframes show1 {
+      0%, 11.110% { opacity: 0; }
+      11.111%, 22.222% { opacity: 1; }
+      22.223%, 100% { opacity: 0; }
+    }
+
+    @keyframes show2 {
+      0%, 22.221% { opacity: 0; }
+      22.222%, 33.333% { opacity: 1; }
+      33.334%, 100% { opacity: 0; }
+    }
+
+    @keyframes show3 {
+      0%, 33.332% { opacity: 0; }
+      33.333%, 44.444% { opacity: 1; }
+      44.445%, 100% { opacity: 0; }
+    }
+
+    @keyframes show4 {
+      0%, 44.443% { opacity: 0; }
+      44.444%, 55.556% { opacity: 1; }
+      55.557%, 100% { opacity: 0; }
+    }
+
+    @keyframes show5 {
+      0%, 55.555% { opacity: 0; }
+      55.556%, 66.667% { opacity: 1; }
+      66.668%, 100% { opacity: 0; }
+    }
+
+    @keyframes show6 {
+      0%, 66.666% { opacity: 0; }
+      66.667%, 77.778% { opacity: 1; }
+      77.779%, 100% { opacity: 0; }
+    }
+
+    @keyframes show7 {
+      0%, 77.777% { opacity: 0; }
+      77.778%, 88.889% { opacity: 1; }
+      88.890%, 100% { opacity: 0; }
+    }
+
+    @keyframes show8 {
+      0%, 88.888% { opacity: 0; }
+      88.889%, 100% { opacity: 1; }
+    }</style>
+
+  <!-- empty bar -->
+  <text class="base" x="12" y="20">[█████████]</text>
+
+  <!-- animated filled overlay -->
+  <clipPath id="clip">
+    <rect x="24" y="2" width="0" height="36">
+      <!-- svg-lint-disable-next-line InvalidChild -->
+      <animate
+        attributeName="width"
+        dur="2.7s"
+        repeatCount="indefinite"
+        calcMode="discrete"
+        values="0;14.5;29;43.5;58;72.5;87;101.5;116"
+      />
+    </rect>
+  </clipPath>
+
+  <text class="fill" x="12" y="20" clip-path="url(#clip)">[█████████]</text>
+
+  <!-- percentage, fixed right edge -->
+  <text class="fill pct-frame p0" x="288" y="20" text-anchor="end">0%</text>
+  <text class="fill pct-frame p1" x="288" y="20" text-anchor="end">12.5%</text>
+  <text class="fill pct-frame p2" x="288" y="20" text-anchor="end">25%</text>
+  <text class="fill pct-frame p3" x="288" y="20" text-anchor="end">37.5%</text>
+  <text class="fill pct-frame p4" x="288" y="20" text-anchor="end">50%</text>
+  <text class="fill pct-frame p5" x="288" y="20" text-anchor="end">62.5%</text>
+  <text class="fill pct-frame p6" x="288" y="20" text-anchor="end">75%</text>
+  <text class="fill pct-frame p7" x="288" y="20" text-anchor="end">87.5%</text>
+  <text class="fill pct-frame p8" x="288" y="20" text-anchor="end">100%</text>
+</svg>

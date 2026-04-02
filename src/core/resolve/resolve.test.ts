@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isValidationError, ValidationError } from '../errors/index.ts';
-import type { ParseResult } from '../parse/index.ts';
-import { createArgSchema } from '../schema/arg.ts';
-import type { CommandSchema } from '../schema/command.ts';
-import { createSchema } from '../schema/flag.ts';
+import { isValidationError, ValidationError } from '#internals/core/errors/index.ts';
+import type { ParseResult } from '#internals/core/parse/index.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers — build minimal schemas and parse results
-// ---------------------------------------------------------------------------
+// --- Helpers — build minimal schemas and parse results
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -35,9 +33,7 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
 	};
 }
 
-// ========================================================================
-// Flag resolution
-// ========================================================================
+// === Flag resolution
 
 describe('resolve — flags', () => {
 	// -- CLI value passthrough -----------------------------------------------
@@ -243,6 +239,27 @@ describe('resolve — flags', () => {
 		}
 	});
 
+	it('required array flag errors when not provided', async () => {
+		const schema = makeSchema({
+			flags: {
+				tags: createSchema('array', { presence: 'required' }),
+			},
+		});
+		const parsed = makeParsed({ flags: {} });
+
+		try {
+			await resolve(schema, parsed);
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('REQUIRED_FLAG');
+				expect(err.details).toEqual({ flag: 'tags', kind: 'array' });
+				expect(err.suggest).toBe('Provide --tags <value>');
+			}
+		}
+	});
+
 	it('required boolean flag suggest omits <value>', async () => {
 		const schema = makeSchema({
 			flags: {
@@ -323,9 +340,7 @@ describe('resolve — flags', () => {
 	});
 });
 
-// ========================================================================
-// Custom flag resolution
-// ========================================================================
+// === Custom flag resolution
 
 describe('resolve — custom flags', () => {
 	it('passes through CLI-provided custom flag value', async () => {
@@ -388,9 +403,7 @@ describe('resolve — custom flags', () => {
 	});
 });
 
-// ========================================================================
-// Arg resolution
-// ========================================================================
+// === Arg resolution
 
 describe('resolve — args', () => {
 	// -- CLI value passthrough -----------------------------------------------
@@ -490,6 +503,26 @@ describe('resolve — args', () => {
 				expect(err.code).toBe('REQUIRED_ARG');
 				expect(err.details).toEqual({ arg: 'target' });
 				expect(err.suggest).toBe('Provide a value for <target>');
+			}
+		}
+	});
+
+	it('mentions stdin for missing required stdin-backed args', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { stdinMode: true }) }],
+		});
+		const parsed = makeParsed({ args: {} });
+
+		try {
+			await resolve(schema, parsed);
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('REQUIRED_ARG');
+				expect(err.suggest).toBe(
+					"Provide a value for <target> or pipe a value to stdin or pass '-'",
+				);
 			}
 		}
 	});
@@ -600,9 +633,7 @@ describe('resolve — args', () => {
 	});
 });
 
-// ========================================================================
-// Combined flag + arg resolution
-// ========================================================================
+// === Combined flag + arg resolution
 
 describe('resolve — combined', () => {
 	it('resolves both flags and args together', async () => {
@@ -678,9 +709,7 @@ describe('resolve — combined', () => {
 	});
 });
 
-// ========================================================================
-// Error details
-// ========================================================================
+// === Error details
 
 describe('resolve — error details', () => {
 	it('single missing flag throws directly (not aggregated)', async () => {
@@ -759,9 +788,7 @@ describe('resolve — error details', () => {
 	});
 });
 
-// ========================================================================
-// Deprecation warnings
-// ========================================================================
+// === Deprecation warnings
 
 describe('resolve — deprecation warnings', () => {
 	// --- Flags ---------------------------------------------------------------

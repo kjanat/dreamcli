@@ -11,7 +11,7 @@ re-exported from the `dreamcli/testkit` subpath (curating barrel at `src/testkit
 Complete execution pipeline in-process: argv → parse → resolve → middleware chain → action handler →
 captured output. Calls `out.stopActive()` in `finally` to clean up leaked spinner/progress timers.
 
-**`RunResult`**:
+**`RunResult`** (defined in `schema/run.ts`, re-exported here):
 `{ exitCode, stdout: string[], stderr: string[], activity: ActivityEvent[], error? }`
 
 **`RunOptions`** — the injectable testing seam:

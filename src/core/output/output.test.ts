@@ -1,11 +1,9 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { Out } from '../schema/command.ts';
+import type { Out } from '#internals/core/schema/command.ts';
 import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
 import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// createOutput — factory
-// ---------------------------------------------------------------------------
+// --- createOutput — factory
 
 describe('createOutput', () => {
 	it('returns an object satisfying the Out interface', () => {
@@ -72,9 +70,7 @@ describe('createOutput', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Verbosity — quiet mode
-// ---------------------------------------------------------------------------
+// --- Verbosity — quiet mode
 
 describe('verbosity', () => {
 	it('emits all messages in normal mode', () => {
@@ -104,9 +100,7 @@ describe('verbosity', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// TTY detection
-// ---------------------------------------------------------------------------
+// --- TTY detection
 
 describe('isTTY', () => {
 	it('defaults to false', () => {
@@ -127,9 +121,7 @@ describe('isTTY', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createCaptureOutput — test helper
-// ---------------------------------------------------------------------------
+// --- createCaptureOutput — test helper
 
 describe('createCaptureOutput', () => {
 	it('returns [Out, CapturedOutput] tuple', () => {
@@ -170,9 +162,7 @@ describe('createCaptureOutput', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// OutputChannel — direct construction
-// ---------------------------------------------------------------------------
+// --- OutputChannel — direct construction
 
 describe('OutputChannel', () => {
 	it('can be constructed directly with resolved options', () => {
@@ -201,9 +191,7 @@ describe('OutputChannel', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Newline behavior
-// ---------------------------------------------------------------------------
+// --- Newline behavior
 
 describe('newline handling', () => {
 	it('appends newline to each message', () => {
@@ -225,9 +213,7 @@ describe('newline handling', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Multiple calls accumulate
-// ---------------------------------------------------------------------------
+// --- Multiple calls accumulate
 
 describe('accumulation', () => {
 	it('accumulates multiple log calls', () => {
@@ -249,9 +235,7 @@ describe('accumulation', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type inference
-// ---------------------------------------------------------------------------
+// --- Type inference
 
 describe('type inference', () => {
 	it('WriteFn accepts string parameter', () => {
@@ -284,9 +268,7 @@ describe('type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// json() method
-// ---------------------------------------------------------------------------
+// --- json() method
 
 describe('json', () => {
 	it('serialises an object to stdout', () => {
@@ -339,9 +321,7 @@ describe('json', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// jsonMode — output redirection
-// ---------------------------------------------------------------------------
+// --- jsonMode — output redirection
 
 describe('jsonMode', () => {
 	it('defaults to false', () => {

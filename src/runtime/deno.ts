@@ -19,13 +19,13 @@
  * @module dreamcli/runtime/deno
  */
 
-import type { WriteFn } from '../core/output/index.ts';
-import type { ReadFn } from '../core/prompt/index.ts';
+import type { WriteFn } from '#internals/core/output/index.ts';
+import type { ReadFn } from '#internals/core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
+import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
+import { assertRuntimeVersionSupported } from './support.ts';
 
-// ---------------------------------------------------------------------------
-// Minimal Deno namespace shape — avoids @types/deno dependency
-// ---------------------------------------------------------------------------
+// --- Minimal Deno namespace shape — avoids @types/deno dependency
 
 /**
  * Minimal subset of the Deno namespace needed by the adapter.
@@ -38,6 +38,21 @@ import type { RuntimeAdapter } from './adapter.ts';
  * an empty env object.
  */
 interface DenoNamespace {
+	readonly build: {
+		readonly os:
+			| 'darwin'
+			| 'linux'
+			| 'android'
+			| 'windows'
+			| 'freebsd'
+			| 'netbsd'
+			| 'aix'
+			| 'solaris'
+			| 'illumos';
+	};
+	readonly version?: {
+		readonly deno?: string;
+	};
 	/** Raw command-line args (excludes the binary/script — Deno pre-strips them). */
 	readonly args: readonly string[];
 
@@ -53,15 +68,15 @@ interface DenoNamespace {
 	cwd(): string;
 
 	readonly stdout: {
-		/** Write raw bytes to stdout. */
-		write(p: Uint8Array): Promise<number>;
+		/** Write raw bytes to stdout synchronously. */
+		writeSync(p: Uint8Array): number;
 		/** Whether stdout is connected to a TTY. */
 		isTerminal(): boolean;
 	};
 
 	readonly stderr: {
-		/** Write raw bytes to stderr. */
-		write(p: Uint8Array): Promise<number>;
+		/** Write raw bytes to stderr synchronously. */
+		writeSync(p: Uint8Array): number;
 	};
 
 	readonly stdin: {
@@ -78,9 +93,7 @@ interface DenoNamespace {
 	readTextFile(path: string): Promise<string>;
 }
 
-// ---------------------------------------------------------------------------
-// Permission-safe helpers
-// ---------------------------------------------------------------------------
+// --- Permission-safe helpers
 
 /**
  * Detect whether an unknown thrown value is a Deno error by name.
@@ -124,9 +137,7 @@ function safeCwd(deno: DenoNamespace): string {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Deno adapter factory
-// ---------------------------------------------------------------------------
+// --- Deno adapter factory
 
 /**
  * Create a runtime adapter backed by the Deno namespace.
@@ -153,6 +164,7 @@ function safeCwd(deno: DenoNamespace): string {
  */
 function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	const d = ns ?? getDenoNamespace();
+	assertRuntimeVersionSupported('deno', d.version?.deno);
 	const encoder = new TextEncoder();
 
 	// --- Synthetic argv: Deno.args has user args only (no binary/script) ---
@@ -166,10 +178,10 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 
 	// --- I/O writers ---
 	const stdoutWrite: WriteFn = (data) => {
-		void d.stdout.write(encoder.encode(data));
+		d.stdout.writeSync(encoder.encode(data));
 	};
 	const stderrWrite: WriteFn = (data) => {
-		void d.stderr.write(encoder.encode(data));
+		d.stderr.writeSync(encoder.encode(data));
 	};
 
 	// --- Stdin line reading ---
@@ -190,10 +202,12 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	};
 
 	// --- Home directory ---
-	const homedir = resolveDenoHomedir(env);
+	const homedir = resolveDenoHomedir(env, d.build.os === 'windows');
 
 	// --- Config directory ---
-	const configDir = resolveDenoConfigDir(env, homedir);
+	const configDir = resolveDenoConfigDir(env, homedir, d.build.os === 'windows');
+
+	const stdinIsTTY = d.stdin.isTerminal();
 
 	return {
 		argv,
@@ -202,8 +216,9 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
 		stdin: stdinRead,
+		readStdin: () => readDenoStdinAll(d, stdinIsTTY),
 		isTTY: d.stdout.isTerminal(),
-		stdinIsTTY: d.stdin.isTerminal(),
+		stdinIsTTY,
 		exit: (code) => d.exit(code),
 		readFile,
 		homedir,
@@ -211,9 +226,7 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Deno namespace access — isolated for testability
-// ---------------------------------------------------------------------------
+// --- Deno namespace access — isolated for testability
 
 /**
  * Access the global `Deno` namespace.
@@ -228,9 +241,41 @@ function getDenoNamespace(): DenoNamespace {
 	return (globalThis as unknown as { Deno: DenoNamespace }).Deno;
 }
 
-// ---------------------------------------------------------------------------
-// Stdin line reading
-// ---------------------------------------------------------------------------
+// --- Stdin reading — line (prompts) and full (piped data)
+
+/**
+ * Read all of stdin as a single string (for piped data).
+ *
+ * Returns `null` immediately if stdin is a TTY — the user is typing
+ * interactively, so there's no piped data to consume. When stdin is
+ * piped, collects all chunks via the `ReadableStream` until EOF and
+ * returns the decoded string, which may be empty for an empty pipe.
+ *
+ * @internal
+ */
+async function readDenoStdinAll(deno: DenoNamespace, stdinIsTTY: boolean): Promise<string | null> {
+	if (stdinIsTTY) return null;
+
+	const reader = deno.stdin.readable.getReader();
+	const decoder = new TextDecoder();
+	const chunks: string[] = [];
+
+	try {
+		for (;;) {
+			const { value, done } = await reader.read();
+			if (done) {
+				// Flush any trailing bytes held by the streaming decoder
+				chunks.push(decoder.decode());
+				break;
+			}
+			chunks.push(decoder.decode(value, { stream: true }));
+		}
+	} finally {
+		reader.releaseLock();
+	}
+
+	return chunks.join('');
+}
 
 /**
  * Read a single line from Deno's stdin.
@@ -271,9 +316,7 @@ async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Home / config directory resolution
-// ---------------------------------------------------------------------------
+// --- Home / config directory resolution
 
 /**
  * Resolve the user's home directory from environment variables.
@@ -283,36 +326,30 @@ async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
  *
  * @internal
  */
-function resolveDenoHomedir(env: Readonly<Record<string, string | undefined>>): string {
-	// Deno runs on all platforms — check Windows-style vars first
-	if (env.USERPROFILE) return env.USERPROFILE;
-	if (env.HOMEDRIVE && env.HOMEPATH) return env.HOMEDRIVE + env.HOMEPATH;
-	return env.HOME || '/';
+function resolveDenoHomedir(
+	env: Readonly<Record<string, string | undefined>>,
+	isWindows: boolean,
+): string {
+	return resolveHomeDirectory(env, isWindows);
 }
 
 /**
  * Resolve the platform-specific user configuration directory.
  *
- * Without `--allow-sys` we can't call `Deno.build.os` reliably in all
- * permission modes. Instead we use the same env-based heuristic as the
- * Node adapter: presence of `APPDATA` implies Windows.
+ * Uses `Deno.build.os` for platform detection, then applies the same fallback
+ * chain as the Node adapter.
  *
  * @internal
  */
 function resolveDenoConfigDir(
 	env: Readonly<Record<string, string | undefined>>,
 	homedir: string,
+	isWindows: boolean,
 ): string {
-	// APPDATA present and non-empty → Windows
-	if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
-	// XDG_CONFIG_HOME → Unix override
-	if (env.XDG_CONFIG_HOME) return env.XDG_CONFIG_HOME;
-	return `${homedir}/.config`;
+	return resolveConfigDirectory(env, isWindows, homedir);
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { createDenoAdapter };
 export type { DenoNamespace };
+export { createDenoAdapter };

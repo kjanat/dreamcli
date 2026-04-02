@@ -223,3 +223,8 @@ $RECYCLE.BIN/
 .serena/
 .jj-shim/
 .envrc
+docs/.vitepress/cache/
+/_*.md
+/_*.ts
+/*example*.ts
+.codex

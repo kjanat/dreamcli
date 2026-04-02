@@ -6,19 +6,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { arg, createArgSchema } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { createSchema, flag } from '#internals/core/schema/flag.ts';
 
 import { formatHelp } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
-// ---------------------------------------------------------------------------
-// Basic command (no flags, no args)
-// ---------------------------------------------------------------------------
+// --- Basic command (no flags, no args)
 
 describe('formatHelp', () => {
 	describe('minimal command', () => {
@@ -99,16 +95,34 @@ describe('formatHelp', () => {
 			expect(help).toContain('[target]');
 		});
 
+		it('shows enum arg values in angle brackets', () => {
+			const cmd = command('deploy').arg('region', arg.enum(['us', 'eu', 'ap']));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('<us|eu|ap>');
+		});
+
+		it('shows optional enum arg values in square brackets', () => {
+			const cmd = command('deploy').arg('region', arg.enum(['us', 'eu']).optional());
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[us|eu]');
+		});
+
 		it('shows variadic arg with ellipsis', () => {
 			const cmd = command('cat').arg('files', arg.string().variadic());
 			const help = formatHelp(cmd.schema);
-			expect(help).toContain('<files...>');
+			expect(help).toContain('<files>...');
 		});
 
 		it('includes binName prefix when provided', () => {
 			const cmd = command('deploy').arg('target', arg.string());
 			const help = formatHelp(cmd.schema, { binName: 'mycli' });
 			expect(help).toContain('Usage: mycli deploy');
+		});
+
+		it('includes both binName and command name for explicit command help', () => {
+			const cmd = command('greet').arg('target', arg.string());
+			const help = formatHelp(cmd.schema, { binName: 'greet' });
+			expect(help).toContain('Usage: greet greet <target>');
 		});
 
 		it('shows flags and args together in correct order', () => {
@@ -147,11 +161,53 @@ describe('formatHelp', () => {
 			expect(help).toContain('(default: production)');
 		});
 
+		it('renders nullish sentinels for defaulted args', () => {
+			const base = command('deploy');
+			const nullHelp = formatHelp({
+				...base.schema,
+				args: [
+					{
+						name: 'env',
+						schema: createArgSchema('string', {
+							presence: 'defaulted',
+							defaultValue: null,
+							description: 'Environment',
+						}),
+					},
+				],
+			});
+			const undefinedHelp = formatHelp({
+				...base.schema,
+				args: [
+					{
+						name: 'env',
+						schema: createArgSchema('string', {
+							presence: 'defaulted',
+							defaultValue: undefined,
+							description: 'Environment',
+						}),
+					},
+				],
+			});
+
+			expect(nullHelp).toContain('(default: null)');
+			expect(undefinedHelp).toContain('(default: undefined)');
+		});
+
 		it('renders arg without description', () => {
 			const cmd = command('deploy').arg('target', arg.string());
 			const help = formatHelp(cmd.schema);
 			expect(help).toContain('Arguments:');
 			expect(help).toContain('<target>');
+		});
+
+		it('shows [env: VAR] when arg has envVar', () => {
+			const cmd = command('deploy').arg(
+				'target',
+				arg.string().env('DEPLOY_TARGET').describe('Deploy target'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('[env: DEPLOY_TARGET]');
 		});
 	});
 
@@ -216,6 +272,42 @@ describe('formatHelp', () => {
 			const cmd = command('run').flag('port', flag.number().default(8080).describe('Port'));
 			const help = formatHelp(cmd.schema);
 			expect(help).toContain('(default: 8080)');
+		});
+
+		it('renders nullish sentinels for defaulted flags', () => {
+			const base = command('run');
+			const nullHelp = formatHelp({
+				...base.schema,
+				flags: {
+					token: createSchema('string', {
+						presence: 'defaulted',
+						defaultValue: null,
+						description: 'Token',
+					}),
+				},
+			});
+			const undefinedHelp = formatHelp({
+				...base.schema,
+				flags: {
+					token: createSchema('string', {
+						presence: 'defaulted',
+						defaultValue: undefined,
+						description: 'Token',
+					}),
+				},
+			});
+
+			expect(nullHelp).toContain('(default: null)');
+			expect(undefinedHelp).toContain('(default: undefined)');
+		});
+
+		it('formats non-primitive defaults as JSON', () => {
+			const cmd = command('run').flag(
+				'tags',
+				flag.array(flag.string()).default(['blue', 'green']).describe('Deployment tags'),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('(default: ["blue","green"])');
 		});
 
 		it('does not show default for boolean flags', () => {

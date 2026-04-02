@@ -4,5 +4,7 @@
 	"no-hard-tabs": { "code_blocks": false },
 	"no-bare-urls": false,
 	"no-duplicate-heading": false,
-	"fenced-code-language": false
+	"fenced-code-language": false,
+	"no-inline-html": false,
+	"commands-show-output": false
 }

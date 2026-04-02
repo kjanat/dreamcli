@@ -6,18 +6,16 @@
  * CLIBuilder × completion generators × runtime detection × adapter factory.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-import { createTestAdapter, ExitError } from '../../runtime/adapter.ts';
-import type { GlobalForDetect } from '../../runtime/detect.ts';
-import { arg } from '../schema/arg.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
-import { middleware } from '../schema/middleware.ts';
+import { describe, expect, it } from 'vitest';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { middleware } from '#internals/core/schema/middleware.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
+import type { GlobalForDetect } from '#internals/runtime/detect.ts';
 import { cli } from './index.ts';
 
-// ===================================================================
-// Shared test commands
-// ===================================================================
+// === Shared test commands
 
 function deployCommand() {
 	return command('deploy')
@@ -61,9 +59,7 @@ function hiddenDebugCommand() {
 		});
 }
 
-// ===================================================================
-// E2E — Bash completion via CLI dispatch
-// ===================================================================
+// === E2E — Bash completion via CLI dispatch
 
 describe('E2E — bash completion via .completions()', () => {
 	it('generates valid bash script through full CLI dispatch', async () => {
@@ -74,7 +70,7 @@ describe('E2E — bash completion via .completions()', () => {
 			.command(configCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		expect(result.error).toBeUndefined();
 
@@ -103,7 +99,7 @@ describe('E2E — bash completion via .completions()', () => {
 			.command(configCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// deploy flags
@@ -125,7 +121,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script includes enum value completions', async () => {
 		const app = cli('myapp').command(deployCommand()).command(configCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// Enum values for --region (us eu ap)
@@ -138,7 +134,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script includes command aliases in case patterns', async () => {
 		const app = cli('myapp').command(configCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// The 'cfg' alias should appear in the case pattern alongside 'config'
@@ -148,7 +144,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script excludes hidden commands', async () => {
 		const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('deploy');
@@ -159,7 +155,7 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script includes --help and --version when version set', async () => {
 		const app = cli('myapp').version('1.0.0').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('--help');
@@ -169,17 +165,35 @@ describe('E2E — bash completion via .completions()', () => {
 	it('bash script omits --version when no version set', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('--help');
 		expect(script).not.toContain('--version');
 	});
+
+	it('uses the inherited runtime name in generated scripts', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', '/usr/bin/xxxhotbabe.ts', 'completions', 'bash'],
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli({ inherit: true }).command(deployCommand()).completions();
+
+		try {
+			await app.run({ adapter });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		const script = stdoutLines.join('');
+		expect(script).toContain('# Bash completion for xxxhotbabe.ts');
+		expect(script).toContain('source <(xxxhotbabe.ts completions bash)');
+	});
 });
 
-// ===================================================================
-// E2E — Zsh completion via CLI dispatch
-// ===================================================================
+// === E2E — Zsh completion via CLI dispatch
 
 describe('E2E — zsh completion via .completions()', () => {
 	it('generates valid zsh script through full CLI dispatch', async () => {
@@ -190,7 +204,7 @@ describe('E2E — zsh completion via .completions()', () => {
 			.command(configCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
 		expect(result.error).toBeUndefined();
 
@@ -212,7 +226,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes all flag specs from all commands', async () => {
 		const app = cli('myapp').command(deployCommand()).command(loginCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// deploy flags with descriptions
@@ -230,7 +244,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes enum values in flag specs', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Enum flag should include values in (v1 v2 v3) format
@@ -240,7 +254,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script uses mutual exclusion groups for aliased flags', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Short alias -f and --force should be in a mutual exclusion group
@@ -250,7 +264,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes command aliases in case patterns', async () => {
 		const app = cli('myapp').command(configCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// cfg alias should appear alongside config in case pattern
@@ -260,7 +274,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script excludes hidden commands', async () => {
 		const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain("'deploy:");
@@ -270,7 +284,7 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script includes --version when version is set', async () => {
 		const app = cli('myapp').version('3.0.0').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('--version[Show version]');
@@ -279,16 +293,14 @@ describe('E2E — zsh completion via .completions()', () => {
 	it('zsh script omits --version when no version set', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).not.toContain('--version');
 	});
 });
 
-// ===================================================================
-// E2E — Completion script completeness
-// ===================================================================
+// === E2E — Completion script completeness
 
 describe('E2E — completion scripts include all registered commands and flags', () => {
 	it('bash: complex CLI with many commands reflects full schema', async () => {
@@ -321,7 +333,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 			.command(test)
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// All commands present
@@ -366,7 +378,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 
 		const app = cli('devtool').version('1.0.0').command(serve).command(build).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Commands in _describe list
@@ -403,7 +415,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 		const app = cli('myapp').command(protected_).completions();
 
 		// Completion script generation works with middleware commands
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 		expect(script).toContain('protected');
@@ -412,9 +424,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 	});
 });
 
-// ===================================================================
-// E2E — Auto-adapter wiring via CLIBuilder.run()
-// ===================================================================
+// === E2E — Auto-adapter wiring via CLIBuilder.run()
 
 describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 	it('run() uses adapter argv for command dispatch', async () => {
@@ -422,7 +432,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
-			argv: ['node', 'myapp', 'completions', '--shell', 'bash'],
+			argv: ['node', 'myapp', 'completions', 'bash'],
 			stdout: (line) => stdoutLines.push(line),
 		});
 
@@ -534,9 +544,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 	});
 });
 
-// ===================================================================
-// E2E — detectRuntime integration via auto-adapter
-// ===================================================================
+// === E2E — detectRuntime integration via auto-adapter
 
 describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 	it('run() without explicit adapter uses auto-detection (Node in vitest)', async () => {
@@ -560,10 +568,10 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 		// Verify the createAdapter path works with Bun globals.
 		// We test this via the adapter factory directly since run() would
 		// need a real Bun runtime for process.argv etc.
-		const { createAdapter } = await import('../../runtime/auto.ts');
+		const { createAdapter } = await import('#internals/runtime/auto.ts');
 		const globals: GlobalForDetect = {
-			Bun: { version: '1.2.0' },
-			process: { versions: { node: '22.0.0' } },
+			Bun: { version: '1.3.11' },
+			process: { versions: { node: '22.22.2' } },
 		};
 		const adapter = createAdapter(globals);
 		expect(adapter).toBeDefined();
@@ -572,38 +580,33 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 	});
 
 	it('auto-adapter creates valid adapter for simulated Deno runtime', async () => {
-		const { createAdapter } = await import('../../runtime/auto.ts');
-		const { withMockDenoGlobal } = await import('../../runtime/test-helpers.ts');
+		const { createAdapter } = await import('#internals/runtime/auto.ts');
+		const { createMockDenoNamespace } = await import('#internals/runtime/test-helpers.ts');
 
-		withMockDenoGlobal(() => {
-			const globals: GlobalForDetect = {
-				Deno: { version: { deno: '2.1.0' } },
-			};
-			const adapter = createAdapter(globals);
-			expect(adapter).toBeDefined();
-			expect(typeof adapter.stdout).toBe('function');
-			expect(typeof adapter.stderr).toBe('function');
-		});
+		const globals: GlobalForDetect = {
+			Deno: createMockDenoNamespace(),
+		};
+		const adapter = createAdapter(globals);
+		expect(adapter).toBeDefined();
+		expect(typeof adapter.stdout).toBe('function');
+		expect(typeof adapter.stderr).toBe('function');
 	});
 });
 
-// ===================================================================
-// E2E — Cross-cutting: completions + runtime + error handling
-// ===================================================================
+// === E2E — Cross-cutting: completions + runtime + error handling
 
 describe('E2E — completions error paths via CLI dispatch', () => {
-	it('unsupported shell produces descriptive UNSUPPORTED_OPERATION error', async () => {
+	it('unsupported planned shell is rejected by the user-facing shell arg', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		// 'fish' is a valid Shell enum value but not yet implemented —
-		// generateCompletion throws a CLIError with a clear message
-		const result = await app.execute(['completions', '--shell', 'fish']);
+		// The public completions command only exposes implemented shells.
+		const result = await app.execute(['completions', 'fish']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain('not yet supported');
+		expect(result.error?.message).toContain("Unknown shell 'fish'");
 	});
 
-	it('missing --shell flag via run() path outputs error', async () => {
+	it('missing shell arg via run() path outputs error', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
 		const result = await app.execute(['completions']);
@@ -618,13 +621,13 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
 		expect(output).toContain('completions');
-		expect(output).toContain('--shell');
+		expect(output).toContain('shell');
 	});
 
 	it('completions command with --json flag renders error as JSON', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		// No --shell provided → error, and --json makes it JSON
+		// No shell arg provided → error, and --json makes it JSON
 		const result = await app.execute(['--json', 'completions']);
 		expect(result.exitCode).not.toBe(0);
 
@@ -637,9 +640,7 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 	});
 });
 
-// ===================================================================
-// E2E — Completions with version and description
-// ===================================================================
+// === E2E — Completions with version and description
 
 describe('E2E — completions integrate with CLI metadata', () => {
 	it('bash completion script uses CLI name from builder', async () => {
@@ -649,28 +650,28 @@ describe('E2E — completions integrate with CLI metadata', () => {
 			.command(deployCommand())
 			.completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('custom-tool');
-		expect(script).toContain('complete -F _custom_tool_completions custom-tool');
+		expect(script).toMatch(/complete -F _custom_tool_[0-9a-f]{8}_completions custom-tool/);
 	});
 
 	it('zsh completion script uses CLI name in compdef directive', async () => {
 		const app = cli('custom-tool').version('5.0.0').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		expect(script).toContain('#compdef custom-tool');
-		expect(script).toContain('_custom_tool()');
-		expect(script).toContain('_custom_tool "$@"');
+		expect(script).toMatch(/_custom_tool_[0-9a-f]{8}\(\)/);
+		expect(script).toMatch(/_custom_tool_[0-9a-f]{8} "\$@"/);
 	});
 
 	it('bash completion for CLI with no commands has only global flags', async () => {
 		const app = cli('minimal').version('1.0.0').completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -683,7 +684,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	it('bash completion for CLI with no commands omits --version when unset', async () => {
 		const app = cli('minimal').completions();
 
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -694,7 +695,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	it('zsh completion for CLI with no commands has only global flags', async () => {
 		const app = cli('minimal').completions();
 
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -704,9 +705,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 	});
 });
 
-// ===================================================================
-// E2E — Nested command completion via CLI dispatch
-// ===================================================================
+// === E2E — Nested command completion via CLI dispatch
 
 function dbCommand() {
 	const migrateCmd = command('migrate')
@@ -738,7 +737,7 @@ function dbCommand() {
 describe('E2E — nested bash completion via .completions()', () => {
 	it('includes nested subcommand names in bash script', async () => {
 		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -752,7 +751,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 
 	it('includes propagated flags for nested commands in bash', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// db migrate path should have --verbose (propagated) + --dry-run (own)
@@ -766,7 +765,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 
 	it('db group completes both subcommands and own flags in bash', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'bash']);
+		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
 
 		// In the "Complete flags" section, the db path should have
@@ -774,8 +773,8 @@ describe('E2E — nested bash completion via .completions()', () => {
 		const lines = script.split('\n');
 		const completeSectionIdx = lines.findIndex((l) => l.includes('Complete flags'));
 		const completeSection = lines.slice(completeSectionIdx);
-		// Find db|database) inside the completion case (after "Complete flags" comment)
-		const dbIdx = completeSection.findIndex((l) => l.trim().startsWith('db|database)'));
+		// Find db) inside the completion case (after "Complete flags" comment)
+		const dbIdx = completeSection.findIndex((l) => l.trim().startsWith('db)'));
 		expect(dbIdx).toBeGreaterThan(-1);
 		const dbBlock = completeSection.slice(dbIdx, dbIdx + 15).join('\n');
 		expect(dbBlock).toContain('migrate');
@@ -787,7 +786,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 describe('E2E — nested zsh completion via .completions()', () => {
 	it('generates helper functions for nested commands in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
 		const script = result.stdout.join('');
 
@@ -799,7 +798,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 
 	it('includes propagated flags for nested commands in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// migrate helper should have --verbose (propagated) + --dry-run (own)
@@ -813,7 +812,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 
 	it('db group function lists subcommands via _describe in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		const lines = script.split('\n');
@@ -826,7 +825,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 
 	it('root function dispatches to db helper in zsh', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
-		const result = await app.execute(['completions', '--shell', 'zsh']);
+		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
 
 		// Main function should dispatch db to _myapp_db

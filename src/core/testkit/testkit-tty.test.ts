@@ -3,12 +3,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { command } from '../schema/command.ts';
+import { command } from '#internals/core/schema/command.ts';
 import { runCommand } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /** Command that branches output on isTTY. */
 function ttyAwareCommand() {
@@ -34,9 +32,7 @@ function modeReportCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// isTTY propagation through runCommand
-// ---------------------------------------------------------------------------
+// --- isTTY propagation through runCommand
 
 describe('runCommand — isTTY', () => {
 	it('defaults isTTY to false', async () => {
@@ -67,9 +63,7 @@ describe('runCommand — isTTY', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Handler branching on isTTY
-// ---------------------------------------------------------------------------
+// --- Handler branching on isTTY
 
 describe('runCommand — handler isTTY branching', () => {
 	it('handler sees isTTY=false by default (piped mode)', async () => {
@@ -98,9 +92,7 @@ describe('runCommand — handler isTTY branching', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Combined isTTY × jsonMode state
-// ---------------------------------------------------------------------------
+// --- Combined isTTY × jsonMode state
 
 describe('runCommand — isTTY × jsonMode combinations', () => {
 	it('isTTY=false, jsonMode=false: plain mode', async () => {

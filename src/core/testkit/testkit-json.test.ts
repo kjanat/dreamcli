@@ -3,14 +3,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CLIError } from '../errors/index.ts';
-import { command } from '../schema/command.ts';
-import { flag } from '../schema/flag.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers
 
 /** Command that uses json() output. */
 function statusCommand() {
@@ -50,9 +48,7 @@ function alwaysJsonCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// json() method in runCommand
-// ---------------------------------------------------------------------------
+// --- json() method in runCommand
 
 describe('runCommand — json() output', () => {
 	it('json() writes serialised JSON to stdout', async () => {
@@ -91,9 +87,7 @@ describe('runCommand — json() output', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// jsonMode — output redirection in runCommand
-// ---------------------------------------------------------------------------
+// --- jsonMode — output redirection in runCommand
 
 describe('runCommand — jsonMode', () => {
 	it('redirects log() to stderr in JSON mode', async () => {

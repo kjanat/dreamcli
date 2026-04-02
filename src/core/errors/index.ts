@@ -8,9 +8,7 @@
  * @module dreamcli/core/errors
  */
 
-// ---------------------------------------------------------------------------
-// Error codes — discriminated string union per category
-// ---------------------------------------------------------------------------
+// --- Error codes — discriminated string union per category
 
 /** Codes emitted during argv parsing. */
 export type ParseErrorCode =
@@ -18,6 +16,7 @@ export type ParseErrorCode =
 	| 'UNKNOWN_COMMAND'
 	| 'MISSING_VALUE'
 	| 'INVALID_VALUE'
+	| 'INVALID_SCHEMA'
 	| 'UNEXPECTED_POSITIONAL';
 
 /** Codes emitted during post-parse validation / resolution. */
@@ -29,11 +28,10 @@ export type ValidationErrorCode =
 	| 'CONSTRAINT_VIOLATED';
 
 /** Any framework error code (extensible via `string & {}`). */
+// deno-lint-ignore ban-types
 export type ErrorCode = ParseErrorCode | ValidationErrorCode | (string & {});
 
-// ---------------------------------------------------------------------------
-// Options bag for CLIError construction
-// ---------------------------------------------------------------------------
+// --- Options bag for CLIError construction
 
 /** Options accepted by the `CLIError` constructor. */
 export interface CLIErrorOptions {
@@ -41,7 +39,7 @@ export interface CLIErrorOptions {
 	readonly code: ErrorCode;
 	/**
 	 * Process exit code.
-	 * @default 1
+	 * @defaultValue `1`
 	 */
 	readonly exitCode?: number;
 	/** One-liner actionable hint shown to the user. */
@@ -52,9 +50,7 @@ export interface CLIErrorOptions {
 	readonly cause?: unknown;
 }
 
-// ---------------------------------------------------------------------------
-// CLIError — base structured error
-// ---------------------------------------------------------------------------
+// --- CLIError — base structured error
 
 /**
  * Base structured error for DreamCLI.
@@ -63,6 +59,7 @@ export interface CLIErrorOptions {
  * consistent shape for rendering (TTY pretty-print, `--json`, test assertions).
  */
 export class CLIError extends Error {
+	/** @override */
 	override readonly name: string = 'CLIError';
 
 	/** Stable machine-readable identifier. */
@@ -85,7 +82,10 @@ export class CLIError extends Error {
 		this.details = options.details;
 	}
 
-	/** Serialise to a plain object suitable for JSON output. */
+	/**
+	 * Serialise to a plain object suitable for JSON output.
+	 * @sealed
+	 */
 	toJSON(): CLIErrorJSON {
 		return {
 			name: this.name,
@@ -108,15 +108,13 @@ export interface CLIErrorJSON {
 	readonly details?: Readonly<Record<string, unknown>>;
 }
 
-// ---------------------------------------------------------------------------
-// ParseError — argv parsing failures
-// ---------------------------------------------------------------------------
+// --- ParseError — argv parsing failures
 
 /** Options for `ParseError`. Code is narrowed to parse-specific codes. */
 export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
 	readonly code: ParseErrorCode;
 	/**
-	 * @default 2
+	 * @defaultValue `2`
 	 */
 	readonly exitCode?: number;
 }
@@ -127,7 +125,8 @@ export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitC
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ParseError extends CLIError {
-	override readonly name: 'ParseError' = 'ParseError';
+	/** @override */
+	override readonly name = 'ParseError' as const;
 	declare readonly code: ParseErrorCode;
 
 	constructor(message: string, options: ParseErrorOptions) {
@@ -135,15 +134,13 @@ export class ParseError extends CLIError {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// ValidationError — post-parse validation / resolution failures
-// ---------------------------------------------------------------------------
+// --- ValidationError — post-parse validation / resolution failures
 
 /** Options for `ValidationError`. Code is narrowed to validation-specific codes. */
 export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
 	readonly code: ValidationErrorCode;
 	/**
-	 * @default 2
+	 * @defaultValue `2`
 	 */
 	readonly exitCode?: number;
 }
@@ -154,7 +151,8 @@ export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | '
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ValidationError extends CLIError {
-	override readonly name: 'ValidationError' = 'ValidationError';
+	/** @override */
+	override readonly name = 'ValidationError' as const;
 	declare readonly code: ValidationErrorCode;
 
 	constructor(message: string, options: ValidationErrorOptions) {
@@ -162,9 +160,7 @@ export class ValidationError extends CLIError {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Type guard utilities
-// ---------------------------------------------------------------------------
+// --- Type guard utilities
 
 /** Narrows an unknown value to `CLIError`. */
 export function isCLIError(value: unknown): value is CLIError {

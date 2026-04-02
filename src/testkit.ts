@@ -4,6 +4,12 @@
  * Provides `runCommand()` — the in-process test harness — plus test doubles
  * for output capture, prompt simulation, and runtime adaptation.
  *
+ * Start here for most tests:
+ * - {@link runCommand} to execute a command in-process
+ * - {@link createCaptureOutput} to assert on raw output behavior
+ * - {@link createTestPrompter} to script interactive answers
+ * - {@link createTestAdapter} when you need adapter-level control
+ *
  * @module dreamcli/testkit
  */
 

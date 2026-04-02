@@ -1,13 +1,12 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { CLIError } from '#internals/core/errors/index.ts';
 import { arg } from './arg.ts';
 import type { ActionParams, CommandArgEntry, CommandSchema, Out } from './command.ts';
 import { CommandBuilder, command, group } from './command.ts';
 import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
-// ---------------------------------------------------------------------------
-// Factory function
-// ---------------------------------------------------------------------------
+// --- Factory function
 
 describe('command()', () => {
 	it('creates a command builder with the given name', () => {
@@ -29,9 +28,7 @@ describe('command()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Metadata modifiers
-// ---------------------------------------------------------------------------
+// --- Metadata modifiers
 
 describe('.description()', () => {
 	it('sets the description', () => {
@@ -106,9 +103,7 @@ describe('.example()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Flag accumulation — runtime
-// ---------------------------------------------------------------------------
+// --- Flag accumulation — runtime
 
 describe('.flag()', () => {
 	it('adds a flag schema to the command', () => {
@@ -156,9 +151,7 @@ describe('.flag()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Arg accumulation — runtime
-// ---------------------------------------------------------------------------
+// --- Arg accumulation — runtime
 
 describe('.arg()', () => {
 	it('adds an arg entry to the command', () => {
@@ -201,11 +194,45 @@ describe('.arg()', () => {
 		expect(b.handler).toBeUndefined();
 		expect(b.schema.hasAction).toBe(false);
 	});
+
+	it('throws DUPLICATE_STDIN_ARG when a second stdin arg is registered', () => {
+		try {
+			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin());
+			expect.unreachable('should have thrown');
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (error instanceof CLIError) {
+				expect(error.code).toBe('DUPLICATE_STDIN_ARG');
+			}
+		}
+	});
+
+	it('rejects stdin then variadic args at build time', () => {
+		try {
+			command('copy').arg('files', arg.string().stdin().variadic());
+			expect.unreachable('should have thrown');
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (error instanceof CLIError) {
+				expect(error.code).toBe('INVALID_BUILDER_STATE');
+			}
+		}
+	});
+
+	it('rejects variadic then stdin args at build time', () => {
+		try {
+			command('copy').arg('files', arg.string().variadic().stdin());
+			expect.unreachable('should have thrown');
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (error instanceof CLIError) {
+				expect(error.code).toBe('INVALID_BUILDER_STATE');
+			}
+		}
+	});
 });
 
-// ---------------------------------------------------------------------------
-// Action handler — runtime
-// ---------------------------------------------------------------------------
+// --- Action handler — runtime
 
 describe('.action()', () => {
 	it('registers the handler', () => {
@@ -232,9 +259,7 @@ describe('.action()', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Full composition — runtime
-// ---------------------------------------------------------------------------
+// --- Full composition — runtime
 
 describe('full command composition', () => {
 	it('builds a complete command schema', () => {
@@ -300,6 +325,7 @@ describe('full command composition', () => {
 			flags: { loud: true },
 			ctx: {},
 			out: mockOut,
+			meta: { name: 'test', bin: 'test', version: undefined, command: 'greet' },
 		};
 
 		await cmd.handler?.(params);
@@ -308,9 +334,7 @@ describe('full command composition', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Chaining order independence
-// ---------------------------------------------------------------------------
+// --- Chaining order independence
 
 describe('chaining order', () => {
 	it('metadata before flags/args', () => {
@@ -343,9 +367,7 @@ describe('chaining order', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Type inference — compile-time checks via expectTypeOf
-// ---------------------------------------------------------------------------
+// --- Type inference — compile-time checks via expectTypeOf
 
 describe('type inference', () => {
 	it('infers empty flags and args for bare command', () => {
@@ -408,11 +430,11 @@ describe('type inference', () => {
 			});
 	});
 
-	it('infers array flag as element[] | undefined', () => {
+	it('infers array flag as element[]', () => {
 		command('test')
 			.flag('tags', flag.array(flag.string()))
 			.action(({ flags }) => {
-				expectTypeOf(flags.tags).toEqualTypeOf<string[] | undefined>();
+				expectTypeOf(flags.tags).toEqualTypeOf<string[]>();
 			});
 	});
 
@@ -473,7 +495,7 @@ describe('type inference', () => {
 				expectTypeOf(flags.force).toEqualTypeOf<boolean>();
 				expectTypeOf(flags.region).toEqualTypeOf<'us' | 'eu'>();
 				expectTypeOf(flags.timeout).toEqualTypeOf<number>();
-				expectTypeOf(flags.tags).toEqualTypeOf<string[] | undefined>();
+				expectTypeOf(flags.tags).toEqualTypeOf<string[]>();
 			});
 	});
 
@@ -522,10 +544,11 @@ describe('type inference', () => {
 
 	it('out has log/info/warn/error methods', () => {
 		command('test').action(({ out }) => {
-			expectTypeOf(out.log).toEqualTypeOf<(message: string) => void>();
-			expectTypeOf(out.info).toEqualTypeOf<(message: string) => void>();
-			expectTypeOf(out.warn).toEqualTypeOf<(message: string) => void>();
-			expectTypeOf(out.error).toEqualTypeOf<(message: string) => void>();
+			type Output = typeof out;
+			expectTypeOf<Output['log']>().toEqualTypeOf<(message: string) => void>();
+			expectTypeOf<Output['info']>().toEqualTypeOf<(message: string) => void>();
+			expectTypeOf<Output['warn']>().toEqualTypeOf<(message: string) => void>();
+			expectTypeOf<Output['error']>().toEqualTypeOf<(message: string) => void>();
 		});
 	});
 
@@ -538,9 +561,7 @@ describe('type inference', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CommandSchema shape
-// ---------------------------------------------------------------------------
+// --- CommandSchema shape
 
 describe('CommandSchema', () => {
 	it('satisfies the CommandSchema interface', () => {
@@ -564,9 +585,7 @@ describe('CommandSchema', () => {
 	});
 });
 
-// =========================================================================
-// Subcommand nesting — .command()
-// =========================================================================
+// === Subcommand nesting — .command()
 
 describe('.command()', () => {
 	// --- Schema population -------------------------------------------------
@@ -714,6 +733,15 @@ describe('.command()', () => {
 		expect(parent._subcommands).toHaveLength(1);
 	});
 
+	it('preserves subcommands across .derive()', () => {
+		const parent = command('db')
+			.flag('token', flag.string())
+			.command(command('migrate'))
+			.derive(() => ({ token: 'test' }));
+		expect(parent.schema.commands).toHaveLength(1);
+		expect(parent._subcommands).toHaveLength(1);
+	});
+
 	it('preserves subcommands across .interactive()', () => {
 		const parent = command('db')
 			.flag('env', flag.string())
@@ -768,9 +796,7 @@ describe('.command()', () => {
 	});
 });
 
-// =========================================================================
-// group() factory
-// =========================================================================
+// === group() factory
 
 describe('group()', () => {
 	it('creates a CommandBuilder', () => {
@@ -812,9 +838,7 @@ describe('group()', () => {
 	});
 });
 
-// =========================================================================
-// command() factory — commands field defaults
-// =========================================================================
+// === command() factory — commands field defaults
 
 describe('command() — commands field', () => {
 	it('starts with empty commands array', () => {

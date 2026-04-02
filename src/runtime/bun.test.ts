@@ -11,26 +11,36 @@ import type { RuntimeAdapter } from './adapter.ts';
 import { createBunAdapter } from './bun.ts';
 import type { NodeProcess } from './node.ts';
 
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
+// --- Test helpers
 
-function mockProcess(overrides?: Partial<NodeProcess>): NodeProcess {
+/** Empty async iterator — yields nothing, returns immediately. */
+async function* emptyAsyncIterator(): AsyncGenerator<Uint8Array> {}
+
+/** Minimal stdin stub with async iterator (yields nothing). */
+function mockStdin(overrides?: Partial<NodeProcess['stdin']>): NodeProcess['stdin'] {
+	return {
+		[Symbol.asyncIterator]: emptyAsyncIterator,
+		...overrides,
+	};
+}
+
+function mockProcess(
+	overrides?: Omit<Partial<NodeProcess>, 'stdin'> & { stdin?: NodeProcess['stdin'] },
+): NodeProcess {
 	return {
 		argv: overrides?.argv ?? ['bun', 'cli.ts'],
 		env: overrides?.env ?? {},
+		versions: overrides?.versions ?? { node: '22.22.2', bun: '1.3.11' },
 		cwd: overrides?.cwd ?? (() => '/bun/project'),
 		platform: overrides?.platform ?? 'linux',
-		stdin: overrides?.stdin ?? {},
+		stdin: overrides?.stdin ?? mockStdin(),
 		stdout: overrides?.stdout ?? { isTTY: false, write: vi.fn() },
 		stderr: overrides?.stderr ?? { write: vi.fn() },
 		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
 	};
 }
 
-// ===================================================================
-// createBunAdapter — basic contract
-// ===================================================================
+// === createBunAdapter — basic contract
 
 describe('createBunAdapter', () => {
 	it('returns a RuntimeAdapter with all required fields', () => {
@@ -54,9 +64,7 @@ describe('createBunAdapter', () => {
 	});
 });
 
-// ===================================================================
-// createBunAdapter — delegates to process fields
-// ===================================================================
+// === createBunAdapter — delegates to process fields
 
 describe('createBunAdapter — process delegation', () => {
 	it('reads argv from process', () => {
@@ -105,9 +113,7 @@ describe('createBunAdapter — process delegation', () => {
 	});
 });
 
-// ===================================================================
-// createBunAdapter — TTY detection
-// ===================================================================
+// === createBunAdapter — TTY detection
 
 describe('createBunAdapter — TTY detection', () => {
 	it('isTTY is true when stdout.isTTY is true', () => {
@@ -123,26 +129,34 @@ describe('createBunAdapter — TTY detection', () => {
 	});
 
 	it('stdinIsTTY is true when stdin.isTTY is true', () => {
-		const proc = mockProcess({ stdin: { isTTY: true } });
+		const proc = mockProcess({ stdin: mockStdin({ isTTY: true }) });
 		const adapter = createBunAdapter(proc);
 		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is undefined', () => {
-		const proc = mockProcess({ stdin: {} });
+		const proc = mockProcess({ stdin: mockStdin() });
 		const adapter = createBunAdapter(proc);
 		expect(adapter.stdinIsTTY).toBe(false);
 	});
 });
 
-// ===================================================================
-// createBunAdapter — stdin
-// ===================================================================
+// === createBunAdapter — stdin
 
 describe('createBunAdapter — stdin', () => {
 	it('stdin is a ReadFn (function)', () => {
 		const proc = mockProcess();
 		const adapter = createBunAdapter(proc);
 		expect(typeof adapter.stdin).toBe('function');
+	});
+
+	it('accepts Bun when Node compatibility version is below the Node minimum', () => {
+		const proc = mockProcess({ versions: { node: '20.20.1', bun: '1.3.11' } });
+		expect(() => createBunAdapter(proc)).not.toThrow();
+	});
+
+	it('throws for unsupported Bun versions', () => {
+		const proc = mockProcess({ versions: { node: '22.22.2', bun: '1.2.9' } });
+		expect(() => createBunAdapter(proc)).toThrow('dreamcli requires Bun >= 1.3.11');
 	});
 });

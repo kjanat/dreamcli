@@ -12,24 +12,25 @@
  * @module dreamcli/core/testkit
  */
 
-import { CLIError } from '../errors/index.ts';
-import type { HelpOptions } from '../help/index.ts';
-import { formatHelp } from '../help/index.ts';
-import type { CapturedOutput, Verbosity } from '../output/index.ts';
-import { createCaptureOutput } from '../output/index.ts';
-import { parse } from '../parse/index.ts';
-import type { PromptEngine, TestAnswer } from '../prompt/index.ts';
-import { createTestPrompter } from '../prompt/index.ts';
-import type { DeprecationWarning, ResolveOptions } from '../resolve/index.ts';
-import { resolve } from '../resolve/index.ts';
-import type { ActivityEvent } from '../schema/activity.ts';
-import type { ArgBuilder, ArgConfig } from '../schema/arg.ts';
-import type { ActionHandler, CommandBuilder, CommandSchema, Out } from '../schema/command.ts';
-import type { FlagBuilder, FlagConfig } from '../schema/flag.ts';
+import type {
+	BeforeParseParams,
+	CLIPlugin,
+	ResolvedCommandParams,
+} from '#internals/core/cli/plugin.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { formatHelp } from '#internals/core/help/index.ts';
+import type { CapturedOutput } from '#internals/core/output/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
+import { parse } from '#internals/core/parse/index.ts';
+import { createTestPrompter } from '#internals/core/prompt/index.ts';
+import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
+import { resolve } from '#internals/core/resolve/index.ts';
+import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
+import type { CommandBuilder, CommandMeta, Out } from '#internals/core/schema/command.ts';
+import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
+import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
-// ---------------------------------------------------------------------------
-// Internal types
-// ---------------------------------------------------------------------------
+// --- Internal types
 
 /**
  * The runtime shape of action handler params — unbranded.
@@ -44,153 +45,14 @@ interface HandlerParams {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
+	readonly meta: CommandMeta;
 }
 
-// ---------------------------------------------------------------------------
-// Run options — injectable runtime state for testing
-// ---------------------------------------------------------------------------
+// RunOptions and RunResult are defined in schema/run.ts so the execution
+// contract is shared by schema, CLI dispatch, and testkit. Re-exported here
+// for public testkit continuity.
 
-/**
- * Options accepted by `commandBuilder.run()` and `runCommand()`.
- *
- * Every field is optional — sensible defaults are applied. This is the
- * primary testing seam: inject env, config, I/O writers, etc. without
- * touching process state.
- */
-interface RunOptions {
-	/**
-	 * Environment variables for flag resolution.
-	 *
-	 * Flags with `.env('VAR')` configured resolve from this record
-	 * when no CLI value is provided (CLI → env → config → prompt → default).
-	 */
-	readonly env?: Readonly<Record<string, string | undefined>>;
-
-	/**
-	 * Configuration object for flag resolution.
-	 *
-	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
-	 * Config is plain JSON — file loading is the caller's responsibility.
-	 */
-	readonly config?: Readonly<Record<string, unknown>>;
-
-	/**
-	 * Prompt engine for interactive flag resolution.
-	 *
-	 * When provided, flags with `.prompt()` configured that have no value
-	 * after CLI/env/config resolution will be prompted interactively.
-	 *
-	 * When absent (and `answers` is also absent), prompting is skipped
-	 * and resolution falls through to default/required.
-	 *
-	 * Takes precedence over `answers` when both are provided.
-	 */
-	readonly prompter?: PromptEngine;
-
-	/**
-	 * Pre-configured prompt answers for testing convenience.
-	 *
-	 * When provided, a test prompter is created from these answers via
-	 * `createTestPrompter(answers)`. Each entry is consumed in order —
-	 * use `PROMPT_CANCEL` to simulate cancellation.
-	 *
-	 * Ignored when an explicit `prompter` is provided.
-	 *
-	 * @example
-	 * ```ts
-	 * const result = await runCommand(cmd, [], {
-	 *   answers: ['eu', true],
-	 * });
-	 * ```
-	 */
-	readonly answers?: readonly TestAnswer[];
-
-	/**
-	 * Verbosity level for the output channel.
-	 * @default 'normal'
-	 */
-	readonly verbosity?: Verbosity;
-
-	/**
-	 * Enable JSON output mode.
-	 *
-	 * When `true`, `log` and `info` messages are redirected to stderr
-	 * so that stdout is reserved exclusively for structured `json()` output.
-	 * Errors are also rendered as JSON to stderr.
-	 *
-	 * @default false
-	 */
-	readonly jsonMode?: boolean;
-
-	/**
-	 * Whether stdout is connected to a TTY.
-	 *
-	 * Handlers can check `out.isTTY` to decide whether to emit decorative
-	 * output (spinners, progress bars, ANSI codes). Defaults to `false`
-	 * (safe default for tests — non-TTY until proven otherwise).
-	 *
-	 * @default false
-	 */
-	readonly isTTY?: boolean;
-
-	/**
-	 * Help formatting options (width, binName).
-	 * Used when `--help` is detected.
-	 */
-	readonly help?: HelpOptions;
-
-	/**
-	 * Command schema with propagated flags merged in.
-	 *
-	 * When provided, used for parsing and resolution instead of `cmd.schema`.
-	 * Set by the CLI dispatch layer after collecting propagated flags from
-	 * the command ancestry path.
-	 *
-	 * @internal — set by dispatch layer, not for public use.
-	 */
-	readonly mergedSchema?: CommandSchema;
-}
-
-// ---------------------------------------------------------------------------
-// Run result — structured output from command execution
-// ---------------------------------------------------------------------------
-
-/**
- * Structured result from running a command.
- *
- * Contains the exit code, captured stdout/stderr output, and optionally
- * the error that caused a non-zero exit.
- */
-interface RunResult {
-	/** Process exit code. 0 = success. */
-	readonly exitCode: number;
-
-	/** Captured stdout lines (from `out.log` and `out.info`). */
-	readonly stdout: readonly string[];
-
-	/** Captured stderr lines (from `out.warn` and `out.error`). */
-	readonly stderr: readonly string[];
-
-	/**
-	 * Captured spinner and progress lifecycle events.
-	 *
-	 * Recorded separately from stdout/stderr — handlers that call
-	 * `out.spinner()` or `out.progress()` produce events here, enabling
-	 * targeted assertions on activity lifecycle without parsing text.
-	 */
-	readonly activity: readonly ActivityEvent[];
-
-	/**
-	 * The error that caused a non-zero exit, if any.
-	 * `CLIError` instances are preserved; unknown errors are wrapped.
-	 */
-	readonly error: CLIError | undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Core execution pipeline
-// ---------------------------------------------------------------------------
+// --- Core execution pipeline
 
 /**
  * Run a command builder against the given argv with injected options.
@@ -200,7 +62,7 @@ interface RunResult {
  * 2. Parse argv against the command schema
  * 3. Resolve values (CLI → env → config → default)
  * 4. Create a capture output channel
- * 5. Invoke the action handler
+ * 5. Run derive/middleware/action execution steps
  * 6. Return structured result
  *
  * All errors are caught and converted to structured `RunResult`s with
@@ -216,18 +78,31 @@ async function runCommand<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
 >(cmd: CommandBuilder<F, A, C>, argv: readonly string[], options?: RunOptions): Promise<RunResult> {
-	const captureOptions = {
-		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
-		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
-		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
-	};
-	const [out, captured] = createCaptureOutput(
-		Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
-	);
+	let out: Out;
+	let captured: CapturedOutput;
+	if (options?.out !== undefined) {
+		out = options.out;
+		captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
+	} else {
+		const captureOptions = {
+			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+			...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
+			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+		};
+		[out, captured] = createCaptureOutput(
+			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
+		);
+	}
 
 	// Use merged schema (with propagated flags) when provided by dispatch layer,
 	// otherwise fall back to the command's own schema.
 	const schema = options?.mergedSchema ?? cmd.schema;
+	const meta: CommandMeta = options?.meta ?? {
+		name: schema.name,
+		bin: options?.help?.binName ?? schema.name,
+		version: undefined,
+		command: schema.name,
+	};
 
 	// -- Help detection -------------------------------------------------------
 	if (argv.includes('--help') || argv.includes('-h')) {
@@ -247,6 +122,13 @@ async function runCommand<
 	}
 
 	try {
+		await runBeforeParseHooks(options?.plugins, {
+			argv,
+			command: schema,
+			meta,
+			out,
+		});
+
 		// -- Parse ---------------------------------------------------------------
 		const parsed = parse(schema, argv);
 
@@ -257,11 +139,22 @@ async function runCommand<
 			options?.prompter ??
 			(options?.answers !== undefined ? createTestPrompter(options.answers) : undefined);
 		const resolveOptions: ResolveOptions = {
+			...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
 			...(options?.env !== undefined ? { env: options.env } : {}),
 			...(options?.config !== undefined ? { config: options.config } : {}),
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
 		};
 		const resolved = await resolve(schema, parsed, resolveOptions);
+		const resolvedParams: ResolvedCommandParams = {
+			args: resolved.args,
+			flags: resolved.flags,
+			deprecations: resolved.deprecations,
+			command: schema,
+			meta,
+			out,
+		};
+
+		await runResolvedHooks(options?.plugins, 'afterResolve', resolvedParams);
 
 		// -- Deprecation warnings ------------------------------------------------
 		for (const d of resolved.deprecations) {
@@ -274,7 +167,9 @@ async function runCommand<
 		// types on CommandBuilder<F, A> are erased at runtime — the handler
 		// is just a function accepting a plain object. `executeWithMiddleware`
 		// runs the middleware chain then invokes the handler at the end.
-		await executeWithMiddleware(cmd.schema, cmd.handler, resolved.flags, resolved.args, out);
+		await runResolvedHooks(options?.plugins, 'beforeAction', resolvedParams);
+		await executeWithExecutionSteps(cmd, resolved.flags, resolved.args, out, meta);
+		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return buildResult(0, captured, undefined);
 	} catch (err: unknown) {
@@ -309,16 +204,49 @@ async function runCommand<
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+type ResolvedHookName = Exclude<keyof CLIPlugin['hooks'], 'beforeParse'>;
 
 /**
- * Execute the middleware chain followed by the action handler.
+ * @internal
+ */
+async function runBeforeParseHooks(
+	plugins: readonly CLIPlugin[] | undefined,
+	params: BeforeParseParams,
+): Promise<void> {
+	if (plugins === undefined) return;
+	for (const current of plugins) {
+		const hook = current.hooks.beforeParse;
+		if (hook !== undefined) await hook(params);
+	}
+}
+
+/**
+ * @internal
+ */
+async function runResolvedHooks(
+	plugins: readonly CLIPlugin[] | undefined,
+	hookName: ResolvedHookName,
+	params: ResolvedCommandParams,
+): Promise<void> {
+	if (plugins === undefined) return;
+	for (const current of plugins) {
+		const hook = current.hooks[hookName];
+		if (hook !== undefined) await hook(params);
+	}
+}
+
+// --- Helpers
+
+/**
+ * Execute the derive/middleware chain followed by the action handler.
  *
- * Builds a continuation chain: each middleware's `next()` calls the next
- * middleware, with the final `next()` invoking the action handler.
- * Context accumulates via `{ ...ctx, ...additions }` at each step.
+ * Builds a continuation chain from the registered execution steps, preserving
+ * registration order across `derive()` and `middleware()`.
+ *
+ * - Derive steps run once, may validate/throw, and optionally return context
+ *   additions merged into `ctx`.
+ * - Middleware steps can wrap downstream execution via `next(additions)`.
+ * - The terminal step invokes the action handler with the final accumulated ctx.
  *
  * This is the sole point where we bridge the phantom-type gap. The
  * parse→resolve pipeline guarantees the runtime values match the schema;
@@ -326,44 +254,73 @@ async function runCommand<
  *
  * @internal
  */
-async function executeWithMiddleware<
+async function executeWithExecutionSteps<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown>,
 >(
-	schema: CommandSchema,
-	handler: ActionHandler<F, A, C>,
+	cmd: CommandBuilder<F, A, C>,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
 	out: Out,
+	meta: CommandMeta,
 ): Promise<void> {
-	const middlewares = schema.middleware;
+	const steps = cmd._executionSteps;
+	const handler = cmd.handler;
+	if (handler === undefined) {
+		throw new CLIError(`Command '${cmd.schema.name}' has no action handler`, {
+			code: 'NO_ACTION',
+			suggest: `Add an .action() handler to the '${cmd.schema.name}' command`,
+		});
+	}
 
 	// Terminal action — receives the final accumulated context.
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 
 	let chain: ChainFn = async (ctx) => {
-		const params: HandlerParams = { flags, args, ctx, out };
+		const params: HandlerParams = { flags, args, ctx, out, meta };
 		// Phantom-type erasure: handler is (params: object) => void | Promise<void> at runtime.
 		await (handler as (p: HandlerParams) => void | Promise<void>)(params);
 	};
 
-	// Wrap from back to front so the first registered middleware is outermost.
-	for (let i = middlewares.length - 1; i >= 0; i--) {
-		const mw = middlewares[i];
-		if (mw === undefined) continue; // satisfy noUncheckedIndexedAccess
+	// Wrap from back to front so registration order is preserved.
+	for (let i = steps.length - 1; i >= 0; i--) {
+		const step = steps[i];
+		if (step === undefined) continue; // satisfy noUncheckedIndexedAccess
 		const downstream = chain; // capture for closure
-		chain = async (ctx) => {
-			await mw({
-				args,
-				flags,
-				ctx,
-				out,
-				next: async (additions) => {
+		switch (step.kind) {
+			case 'derive':
+				chain = async (ctx) => {
+					const additions = await step.handler({ args, flags, ctx, out, meta });
+					if (additions === undefined) {
+						await downstream(ctx);
+						return;
+					}
+					if (typeof additions !== 'object' || additions === null || Array.isArray(additions)) {
+						throw new CLIError('derive() must return an object or undefined', {
+							code: 'INVALID_BUILDER_STATE',
+							suggest:
+								'Return an object to add context, or return nothing for validation-only derive handlers',
+						});
+					}
 					await downstream({ ...ctx, ...additions });
-				},
-			});
-		};
+				};
+				break;
+			case 'middleware':
+				chain = async (ctx) => {
+					await step.handler({
+						args,
+						flags,
+						ctx,
+						out,
+						meta,
+						next: async (additions) => {
+							await downstream({ ...ctx, ...additions });
+						},
+					});
+				};
+				break;
+		}
 	}
 
 	// Start with empty context — middleware builds it up.
@@ -385,9 +342,7 @@ function buildResult(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Deprecation formatting (presentation layer — not resolve's responsibility)
-// ---------------------------------------------------------------------------
+// --- Deprecation formatting (presentation layer — not resolve's responsibility)
 
 /**
  * Format a structured deprecation warning for human-readable stderr output.
@@ -404,9 +359,7 @@ function formatDeprecation(d: DeprecationWarning): string {
 		: `Warning: ${entity} is deprecated`;
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// --- Exports
 
-export { runCommand };
 export type { RunOptions, RunResult };
+export { runCommand };

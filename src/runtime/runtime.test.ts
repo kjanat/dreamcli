@@ -3,27 +3,39 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { cli } from '../core/cli/index.ts';
-import { arg } from '../core/schema/arg.ts';
-import { command } from '../core/schema/command.ts';
-import { flag } from '../core/schema/flag.ts';
+import { cli } from '#internals/core/cli/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import type { RuntimeAdapter } from './adapter.ts';
 import { createTestAdapter, ExitError } from './adapter.ts';
 import type { NodeProcess } from './node.ts';
 import { createNodeAdapter } from './node.ts';
 
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
+// --- Test helpers
+
+/** Empty async iterator — yields nothing, returns immediately. */
+async function* emptyAsyncIterator(): AsyncGenerator<Uint8Array> {}
+
+/** Minimal stdin stub with async iterator (yields nothing). */
+function mockStdin(overrides?: Partial<NodeProcess['stdin']>): NodeProcess['stdin'] {
+	return {
+		[Symbol.asyncIterator]: emptyAsyncIterator,
+		...overrides,
+	};
+}
 
 /** Create a minimal mock NodeProcess with optional overrides. */
-function mockNodeProcess(overrides?: Partial<NodeProcess>): NodeProcess {
+function mockNodeProcess(
+	overrides?: Omit<Partial<NodeProcess>, 'stdin'> & { stdin?: NodeProcess['stdin'] },
+): NodeProcess {
 	return {
 		argv: overrides?.argv ?? [],
 		env: overrides?.env ?? {},
+		versions: overrides?.versions ?? { node: '22.22.2' },
 		cwd: overrides?.cwd ?? (() => '/'),
 		platform: overrides?.platform ?? 'linux',
-		stdin: overrides?.stdin ?? {},
+		stdin: overrides?.stdin ?? mockStdin(),
 		stdout: overrides?.stdout ?? { write: vi.fn() },
 		stderr: overrides?.stderr ?? { write: vi.fn() },
 		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
@@ -41,9 +53,7 @@ function deployCommand() {
 		});
 }
 
-// ---------------------------------------------------------------------------
-// createTestAdapter
-// ---------------------------------------------------------------------------
+// --- createTestAdapter
 
 describe('createTestAdapter', () => {
 	it('returns a RuntimeAdapter with all required fields', () => {
@@ -133,9 +143,7 @@ describe('createTestAdapter', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// ExitError
-// ---------------------------------------------------------------------------
+// --- ExitError
 
 describe('ExitError', () => {
 	it('is an Error subclass', () => {
@@ -161,9 +169,7 @@ describe('ExitError', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createNodeAdapter
-// ---------------------------------------------------------------------------
+// --- createNodeAdapter
 
 describe('createNodeAdapter', () => {
 	it('creates adapter from mock NodeProcess', () => {
@@ -172,7 +178,7 @@ describe('createNodeAdapter', () => {
 			env: { NODE_ENV: 'test' },
 			cwd: () => '/mock/cwd',
 			platform: 'linux',
-			stdin: { isTTY: true },
+			stdin: mockStdin({ isTTY: true }),
 			stdout: {
 				isTTY: true,
 				write: vi.fn(),
@@ -212,6 +218,11 @@ describe('createNodeAdapter', () => {
 		expect(writeFn).toHaveBeenCalledWith('error message');
 	});
 
+	it('throws for unsupported Node.js versions', () => {
+		const mockProc = mockNodeProcess({ versions: { node: '21.9.0' } });
+		expect(() => createNodeAdapter(mockProc)).toThrow('dreamcli requires Node.js >= 22.22.2');
+	});
+
 	it('delegates exit to process.exit', () => {
 		const exitFn = vi.fn() as unknown as (code: number) => never;
 		const mockProc = mockNodeProcess({ exit: exitFn });
@@ -243,9 +254,7 @@ describe('createNodeAdapter', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// RuntimeAdapter satisfies interface contract
-// ---------------------------------------------------------------------------
+// --- RuntimeAdapter satisfies interface contract
 
 describe('RuntimeAdapter interface', () => {
 	it('test adapter satisfies RuntimeAdapter', () => {
@@ -271,9 +280,7 @@ describe('RuntimeAdapter interface', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Integration: CLIBuilder.run() with adapter injection
-// ---------------------------------------------------------------------------
+// --- Integration: CLIBuilder.run() with adapter injection
 
 describe('CLIBuilder.run() with adapter', () => {
 	it('uses injected adapter for argv and output', async () => {
@@ -395,15 +402,20 @@ describe('CLIBuilder.run() with adapter', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createTestAdapter — stdin fields
-// ---------------------------------------------------------------------------
+// --- createTestAdapter — stdin fields
 
 describe('createTestAdapter stdin', () => {
 	it('default stdin returns null (EOF)', async () => {
 		const adapter = createTestAdapter();
 		const result = await adapter.stdin();
 		expect(result).toBeNull();
+	});
+
+	it('readStdin consumes stdinData once', async () => {
+		const adapter = createTestAdapter({ stdinData: 'stdin-target' });
+
+		expect(await adapter.readStdin()).toBe('stdin-target');
+		expect(await adapter.readStdin()).toBeNull();
 	});
 
 	it('default stdinIsTTY is false', () => {
@@ -432,6 +444,16 @@ describe('createTestAdapter stdin', () => {
 		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
+	it('readStdin returns null when stdinIsTTY is true', async () => {
+		const adapter = createTestAdapter({
+			stdinData: 'stdin-target',
+			stdinIsTTY: true,
+		});
+
+		expect(await adapter.readStdin()).toBeNull();
+		expect(await adapter.readStdin()).toBeNull();
+	});
+
 	it('stdinIsTTY is independent of isTTY', () => {
 		const a1 = createTestAdapter({ isTTY: true, stdinIsTTY: false });
 		expect(a1.isTTY).toBe(true);
@@ -443,13 +465,11 @@ describe('createTestAdapter stdin', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createNodeAdapter — stdin fields
-// ---------------------------------------------------------------------------
+// --- createNodeAdapter — stdin fields
 
 describe('createNodeAdapter stdin', () => {
 	it('stdinIsTTY is true when stdin.isTTY is true', () => {
-		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: true } }));
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: mockStdin({ isTTY: true }) }));
 		expect(adapter.stdinIsTTY).toBe(true);
 	});
 
@@ -459,7 +479,7 @@ describe('createNodeAdapter stdin', () => {
 	});
 
 	it('stdinIsTTY is false when stdin.isTTY is false', () => {
-		const adapter = createNodeAdapter(mockNodeProcess({ stdin: { isTTY: false } }));
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: mockStdin({ isTTY: false }) }));
 		expect(adapter.stdinIsTTY).toBe(false);
 	});
 
@@ -467,11 +487,14 @@ describe('createNodeAdapter stdin', () => {
 		const adapter = createNodeAdapter(mockNodeProcess());
 		expect(typeof adapter.stdin).toBe('function');
 	});
+
+	it('readStdin returns empty string for empty non-TTY stdin', async () => {
+		const adapter = createNodeAdapter(mockNodeProcess({ stdin: mockStdin({ isTTY: false }) }));
+		expect(await adapter.readStdin()).toBe('');
+	});
 });
 
-// ---------------------------------------------------------------------------
-// RuntimeAdapter interface — stdin contract
-// ---------------------------------------------------------------------------
+// --- RuntimeAdapter interface — stdin contract
 
 describe('RuntimeAdapter interface — stdin', () => {
 	it('test adapter satisfies RuntimeAdapter stdin fields', () => {
@@ -487,9 +510,7 @@ describe('RuntimeAdapter interface — stdin', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// CLIBuilder.run() — auto-prompter from adapter stdin
-// ---------------------------------------------------------------------------
+// --- CLIBuilder.run() — auto-prompter from adapter stdin
 
 describe('CLIBuilder.run() prompt gating', () => {
 	it('does not auto-create prompter when stdinIsTTY is false', async () => {
@@ -568,7 +589,7 @@ describe('CLIBuilder.run() prompt gating', () => {
 		});
 
 		// Provide explicit prompter — should take precedence
-		const { createTestPrompter } = await import('../core/prompt/index.ts');
+		const { createTestPrompter } = await import('#internals/core/prompt/index.ts');
 		const explicitPrompter = createTestPrompter(['ExplicitAnswer']);
 
 		const app = cli('mycli').command(cmd);
@@ -658,7 +679,7 @@ describe('CLIBuilder.run() prompt gating', () => {
 
 		try {
 			await app.run({ adapter });
-		} catch (_) {
+		} catch {
 			// exit expected
 		}
 
@@ -668,9 +689,7 @@ describe('CLIBuilder.run() prompt gating', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createTestAdapter — filesystem fields
-// ---------------------------------------------------------------------------
+// --- createTestAdapter — filesystem fields
 
 describe('createTestAdapter — filesystem', () => {
 	it('default readFile returns null (file not found)', async () => {
@@ -710,9 +729,7 @@ describe('createTestAdapter — filesystem', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// createNodeAdapter — filesystem fields
-// ---------------------------------------------------------------------------
+// --- createNodeAdapter — filesystem fields
 
 describe('createNodeAdapter — filesystem', () => {
 	it('readFile is a function', () => {
@@ -834,9 +851,7 @@ describe('createNodeAdapter — filesystem', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// RuntimeAdapter interface — filesystem contract
-// ---------------------------------------------------------------------------
+// --- RuntimeAdapter interface — filesystem contract
 
 describe('RuntimeAdapter interface — filesystem', () => {
 	it('test adapter satisfies RuntimeAdapter filesystem fields', () => {
@@ -854,9 +869,7 @@ describe('RuntimeAdapter interface — filesystem', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Public surface exports
-// ---------------------------------------------------------------------------
+// --- Public surface exports
 
 describe('public surface', () => {
 	it('exports RuntimeAdapter type and factories from runtime barrel', async () => {
@@ -867,13 +880,13 @@ describe('public surface', () => {
 	});
 
 	it('exports adapter factories from runtime barrel', async () => {
-		const mod = await import('../runtime.ts');
+		const mod = await import('#dreamcli/runtime');
 		expect(mod.createNodeAdapter).toBeDefined();
 		expect(mod.ExitError).toBeDefined();
 	});
 
 	it('exports test adapter from testkit barrel', async () => {
-		const mod = await import('../testkit.ts');
+		const mod = await import('#dreamcli/testkit');
 		expect(mod.createTestAdapter).toBeDefined();
 	});
 });

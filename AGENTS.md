@@ -12,6 +12,8 @@ Dual ESM/CJS via tsdown.
 
 Our goals are described in @GOALS.md
 
+Agent memory for non-obvious repo gotchas lives in @DISCOVERIES.md
+
 ## STRUCTURE
 
 ```tree
@@ -80,9 +82,10 @@ Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts
 `runtime/adapter.ts` imports `WriteFn` from `core/output/` and `ReadFn` from `core/prompt/` —
 runtime depends on core types (not truly independent layer).
 
-`schema/command.ts` has a type-only `import type` from `testkit/index.ts` for `RunOptions`/
-`RunResult` — inverts stated dependency direction but is compile-time only (`verbatimModuleSyntax`
-guarantees erasure).
+`RunResult` lives in `schema/run.ts` (not testkit) — schema is its natural home since
+`ErasedCommand._execute` returns it. `testkit/index.ts` re-exports `RunResult` from schema.
+`ErasedCommand._execute` options parameter is `Readonly<Record<string, unknown>>` — maximally loose
+at the schema boundary (only cli dispatch calls it, always with full `RunOptions`).
 
 ## CONVENTIONS
 
@@ -129,15 +132,15 @@ guarantees erasure).
 ## COMMANDS
 
 ```bash
-bun run check        # tsgo --noEmit (native TS type check)
-bun run check:tsc    # tsc --noEmit (standard fallback)
+bun run typecheck     # tsgo --noEmit (native TS type check)
+bun run typecheck:tsc # tsc --noEmit (standard fallback)
 bun run lint         # biome check .
 bun run lint:fix     # biome check --fix .
 bun run format       # dprint fmt
 bun run format:check # dprint check
 bun run test         # vitest run
 bun run test:watch   # vitest (watch mode)
-bun run build        # tsdown (bundle + dts + publint + attw)
+bun run bd           # tsdown (bundle + dts + publint + attw)
 bun run ci           # check → lint → test → build (sequential)
 ```
 

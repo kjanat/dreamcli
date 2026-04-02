@@ -12,6 +12,7 @@ Only multi-file module in `core/`. All others use single `index.ts`.
 | `arg.ts`        |   341 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                                                               |
 | `middleware.ts` |   164 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>` type                                                   |
 | `prompt.ts`     |    70 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                                  |
+| `run.ts`        |    47 | `RunResult` — structured execution result (canonical definition, re-exported by testkit)                                            |
 | `index.ts`      |    80 | Barrel — re-exports all public symbols                                                                                              |
 
 ## TYPE SYSTEM PATTERNS

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { TableColumn } from '#internals/core/schema/index.ts';
 import { createCaptureOutput } from './index.ts';
 
-// ---------------------------------------------------------------------------
-// table() — TTY (non-JSON) mode
-// ---------------------------------------------------------------------------
+// --- table() — TTY (non-JSON) mode
 
 describe('table — normal mode', () => {
 	it('renders a simple table with auto-inferred columns', () => {
@@ -109,11 +108,26 @@ describe('table — normal mode', () => {
 		expect(text).toContain('99');
 		expect(text).toContain('true');
 	});
+
+	it('serializes object cell values as JSON', () => {
+		const [out, captured] = createCaptureOutput();
+		out.table([{ meta: { role: 'admin' } }]);
+		const text = captured.stdout.join('');
+		expect(text).toContain('{"role":"admin"}');
+	});
+
+	it('can route text tables to stderr explicitly with columns and options', () => {
+		const [out, captured] = createCaptureOutput();
+		out.table([{ name: 'Alice' }], [{ key: 'name', header: 'Name' }], {
+			format: 'text',
+			stream: 'stderr',
+		});
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr.join('')).toContain('Alice');
+	});
 });
 
-// ---------------------------------------------------------------------------
-// table() — JSON mode
-// ---------------------------------------------------------------------------
+// --- table() — JSON mode
 
 describe('table — JSON mode', () => {
 	it('emits rows as JSON array to stdout', () => {
@@ -140,19 +154,49 @@ describe('table — JSON mode', () => {
 		expect(captured.stdout).toEqual(['[]\n']);
 	});
 
-	it('ignores columns parameter in JSON mode — emits full rows', () => {
+	it('projects columns in JSON mode — emits only listed keys', () => {
 		const [out, captured] = createCaptureOutput({ jsonMode: true });
 		const rows = [{ id: 1, name: 'Alice', extra: true }];
 		out.table(rows, [{ key: 'name' }]);
-		// Full row objects emitted, not filtered by columns
 		const parsed: unknown = JSON.parse(captured.stdout.join(''));
-		expect(parsed).toEqual(rows);
+		expect(parsed).toEqual([{ name: 'Alice' }]);
+	});
+
+	it('can force text tables in JSON mode and defaults them to stderr', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.table([{ name: 'Alice' }], { format: 'text' });
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr.join('')).toContain('Alice');
+	});
+
+	it('can force JSON output in normal mode', () => {
+		const [out, captured] = createCaptureOutput();
+		const rows = [{ name: 'Alice' }];
+		out.table(rows, { format: 'json' });
+		expect(captured.stdout).toEqual([`${JSON.stringify(rows)}\n`]);
+		expect(captured.stderr).toEqual([]);
+	});
+
+	it('preserves explicit options when columns argument is undefined', () => {
+		const [out, captured] = createCaptureOutput();
+		const rows = [{ name: 'Alice' }];
+		const columns: readonly TableColumn<(typeof rows)[number]>[] | undefined = undefined;
+		out.table(rows, columns, { format: 'json' });
+		expect(captured.stdout).toEqual([`${JSON.stringify(rows)}\n`]);
+		expect(captured.stderr).toEqual([]);
+	});
+
+	it('preserves text-stream overrides when columns argument is undefined', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		const rows = [{ name: 'Alice' }];
+		const columns: readonly TableColumn<(typeof rows)[number]>[] | undefined = undefined;
+		out.table(rows, columns, { format: 'text' });
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr.join('')).toContain('Alice');
 	});
 });
 
-// ---------------------------------------------------------------------------
-// table() — piped (non-TTY, non-JSON)
-// ---------------------------------------------------------------------------
+// --- table() — piped (non-TTY, non-JSON)
 
 describe('table — piped mode', () => {
 	it('renders aligned text in non-TTY mode', () => {
@@ -169,9 +213,7 @@ describe('table — piped mode', () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// table() — interaction with other output methods
-// ---------------------------------------------------------------------------
+// --- table() — interaction with other output methods
 
 describe('table — combined with other output', () => {
 	it('table output goes to stdout via log()', () => {

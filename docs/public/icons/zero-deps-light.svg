@@ -1,0 +1,20 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="48"
+  height="48"
+  viewBox="0 0 48 48"
+  fill="none"
+  stroke="#D6A24A"
+  stroke-width="2.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <!-- Quill feather — lightweight -->
+  <path d="M39 8c-8 1-14 5-19 12-5 6-8 14-8 20 6 0 14-3 20-8 7-5 11-11 12-19-1-2-3-4-5-5z" />
+  <path d="M15 35L34 16" />
+  <path d="M19 31l-5-5" />
+  <path d="M23 27l-6-6" />
+  <path d="M27 23l-6-6" />
+  <path d="M31 19l-5-5" />
+  <path d="M13 37l-6 6" />
+</svg>
