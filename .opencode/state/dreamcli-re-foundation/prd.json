@@ -18,7 +18,7 @@
 			"description": "Specify the internal planner/dispatch outcomes and command execution plan shape. Done when: planner outcomes are modeled explicitly, responsibilities are bounded, and the contract is ready to anchor tests and extraction work.",
 			"depends": ["support-truth-matrix"],
 			"priority": "architecture",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "resolver-contracts",

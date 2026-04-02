@@ -38,9 +38,10 @@ import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
+import type { CommandExecutionPlan, OutputPolicy } from './planner.ts';
+import { buildCommandExecutionPlan, mergeCommandSchema } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
-import { collectPropagatedFlags } from './propagate.ts';
 import { formatRootHelp } from './root-help.ts';
 
 // --- Type-erased command — erasure function (interface now in schema/command.ts)
@@ -506,14 +507,7 @@ function invocationNeedsStdin(builder: CLIBuilder, argv: readonly string[]): boo
 			return false;
 
 		case 'match': {
-			const propagated = collectPropagatedFlags(result.commandPath);
-			const mergedSchema =
-				Object.keys(propagated).length > 0
-					? {
-							...result.command.schema,
-							flags: { ...propagated, ...result.command.schema.flags },
-						}
-					: result.command.schema;
+			const mergedSchema = mergeCommandSchema(result.command, result.commandPath);
 			return commandInvocationNeedsStdin(mergedSchema, result.remainingArgv);
 		}
 	}
@@ -1081,21 +1075,25 @@ class CLIBuilder {
 			}
 
 			case 'match': {
-				// Merge propagated flags from ancestor path into target's schema.
-				const propagated = collectPropagatedFlags(result.commandPath);
-				const hasPropagated = Object.keys(propagated).length > 0;
-				const mergedSchema: CommandSchema | undefined = hasPropagated
-					? {
-							...result.command.schema,
-							flags: { ...propagated, ...result.command.schema.flags },
-						}
-					: undefined;
-
 				const meta = buildMeta(this.schema, helpOptions, result.command.schema.name);
+				const output: OutputPolicy = {
+					jsonMode,
+					isTTY: out.isTTY,
+					verbosity: options?.verbosity ?? 'normal',
+				};
+				const plan: CommandExecutionPlan = buildCommandExecutionPlan({
+					command: result.command,
+					commandPath: result.commandPath,
+					argv: result.remainingArgv,
+					meta,
+					plugins: this.schema.plugins,
+					output,
+					help: helpOptions,
+				});
 				const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions, meta);
-				return result.command._execute(result.remainingArgv, {
+				return plan.command._execute(plan.argv, {
 					...commandRunOptions,
-					...(mergedSchema !== undefined ? { mergedSchema } : {}),
+					mergedSchema: plan.mergedSchema,
 				});
 			}
 		}

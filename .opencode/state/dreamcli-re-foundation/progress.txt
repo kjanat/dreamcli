@@ -14,6 +14,7 @@ Started: 2026-04-02
 - The GitHub project should mirror `prd.json` at mixed depth, with draft items rather than real repo issues.
 - When a public type surface is broader than the real support surface, add an audited support-matrix page and make docs state the runtime behavior explicitly instead of staying silent.
 - Before comitting, always run `dprint fmt`
+- For extraction-first refactors, land a narrow internal contract module plus one reused helper before moving control flow; it gives tests and later module splits a concrete seam without forcing a full rewrite.
 
 ## Project Tracking
 
@@ -31,3 +32,11 @@ Started: 2026-04-02
 - Tightened completion docs so they state the current behavior explicitly: `bash` and `zsh` are supported today; `fish` and `powershell` currently throw not-supported `CLIError`s.
 - Files changed: `docs/reference/support-matrix.md`, `docs/.vitepress/config.ts`, `docs/guide/completions.md`, `docs/reference/api.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: docs truth gaps are easiest to close when the matrix links straight to code and tests; completions were the highest-value honesty fix because the type surface is broader than the shipped shell surface.
+
+## Task - [planner-contracts]
+
+- Added an explicit internal planner contract module at `src/core/cli/planner.ts` with `DispatchOutcome`, `CommandExecutionPlan`, `OutputPolicy`, and shared schema-merging helpers.
+- Routed CLI matched-command execution and stdin preflight through the shared planner helpers so propagated-flag merging now has one owned seam instead of duplicated inline logic.
+- Added `docs/reference/planner-contract.md` and linked it from the reference nav so the re-foundation has a concrete planner contract page to anchor later tests and extraction work.
+- Files changed: `src/core/cli/planner.ts`, `src/core/cli/index.ts`, `docs/reference/planner-contract.md`, `docs/.vitepress/config.ts`, `docs/reference/api.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the most reusable early planner seam is propagated-schema merging plus the matched-command handoff shape; those were the only duplicated planner concerns already present in production code.
