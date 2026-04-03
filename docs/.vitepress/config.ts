@@ -132,6 +132,7 @@ export default defineConfig({
             { text: generatedReferenceTitle, link: '/reference/generated-surfaces' },
             { text: 'Changelog', link: '/reference/changelog' },
             { text: 'Docs Health', link: '/reference/docs-health' },
+            { text: 'Semantic Delta Log', link: '/reference/semantic-delta-log' },
             { text: 'Planner Contract', link: '/reference/planner-contract' },
             { text: 'Resolver Contract', link: '/reference/resolver-contract' },
             { text: 'Output Contract', link: '/reference/output-contract' },

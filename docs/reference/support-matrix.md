@@ -106,6 +106,7 @@ planned scope could diverge.
 ## Related Pages
 
 - [API Reference](/reference/api)
+- [Semantic Delta Log](/reference/semantic-delta-log)
 - [CLI Semantics](/guide/semantics)
 - [Shell Completions](/guide/completions)
 - [Runtime Support](/guide/runtime)

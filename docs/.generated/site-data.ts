@@ -2481,7 +2481,7 @@ export const generatedSymbolPages = [
 ];
 
 export const docsHealthSnapshot = {
-  authoredPageCount: 34,
+  authoredPageCount: 35,
   generatedArtifactCount: 175,
   exampleCount: 7,
   publicEntrypointCount: 4,

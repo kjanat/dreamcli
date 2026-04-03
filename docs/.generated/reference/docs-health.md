@@ -6,7 +6,7 @@ This file is rebuilt by `bun run docs:prepare` and keeps the first factual metri
 
 | Metric                  | Value |
 | ----------------------- | ----- |
-| Authored markdown pages | 34    |
+| Authored markdown pages | 35    |
 | Generated artifacts     | 175   |
 | Source-backed examples  | 7     |
 | Public API entrypoints  | 4     |

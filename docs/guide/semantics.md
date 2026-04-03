@@ -240,3 +240,4 @@ Examples:
 - [Config Files](/guide/config)
 - [Interactive Prompts](/guide/prompts)
 - [Shell Completions](/guide/completions)
+- [Semantic Delta Log](/reference/semantic-delta-log)

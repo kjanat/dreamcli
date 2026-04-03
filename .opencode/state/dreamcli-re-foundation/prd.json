@@ -153,7 +153,7 @@
 			"description": "Maintain an explicit log of preserved versus redesigned execution semantics during the re-foundation. Done when: major semantic changes are listed clearly enough to drive changelog, docs, and review.",
 			"depends": ["redesign-error-agg"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "decouple-output-policy",
