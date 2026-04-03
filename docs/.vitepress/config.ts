@@ -179,5 +179,8 @@ export default defineConfig({
   },
   vite: {
     plugins: [MermaidPlugin()],
+    ssr: {
+      noExternal: ['vue'],
+    },
   },
 });
