@@ -14,6 +14,7 @@ This page is the stable hand-authored entrypoint for source-backed reference art
 - Public API entrypoints discovered: `{{ generatedPublicApi.length }}`
 - Public API symbols indexed: `{{ docsHealthSnapshot.publicSymbolCount }}`
 - Symbol pages rendered: `{{ docsHealthSnapshot.symbolPageCount }}`
+- Public generated pages: [`/reference/changelog`](/reference/changelog), [`/reference/docs-health`](/reference/docs-health)
 
 ## Prepared Artifacts
 

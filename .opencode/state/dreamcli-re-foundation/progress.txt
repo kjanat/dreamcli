@@ -36,6 +36,7 @@ Started: 2026-04-02
 - For resolver diagnostic redesign, keep nested `ValidationError` JSON stable and add a parallel per-issue summary at the aggregate wrapper; it clarifies mixed flag/arg failures without weakening existing leaf-error assertions.
 - For generated docs routes, detect case-insensitive slug collisions at generation time and suffix only the colliding non-lowercase export; VitePress lowercases page keys during render, so case-only route differences are unstable.
 - For docs interactivity rollouts, keep generated example pages readable without hover by putting `ts twoslash` only on the source block and leaving summary, usage, and related-link sections plain.
+- For generated docs surfaces that need public routes, keep the source-of-truth artifact under `docs/.generated/` and emit the browsable `docs/reference/*.md` page from the same shared renderer so metrics and public copy stay in lockstep.
 
 ## Project Tracking
 
@@ -217,3 +218,11 @@ Started: 2026-04-02
 - Removed the now-redundant `/examples/hover-prototype` page wiring from the examples sidebar and docs generator, while updating the hover reference page and support matrix to describe the shipped examples-only rollout.
 - Files changed: `scripts/docs/shared/examples.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/build-docs-data.ts`, `docs/.vitepress/config.ts`, `docs/examples/index.md`, `docs/reference/example-hover-prototype.md`, `docs/reference/support-matrix.md`, `docs/examples/*.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the clean rollout path was to reuse the exact prototype generator path on the real example pages, then delete the dedicated proof route once docs truth moved to the shipped surface.
+
+## Task - [surface-changelog-health]
+
+- Generated public docs routes at `docs/reference/changelog.md` and `docs/reference/docs-health.md` from the same source-backed renderers that still write the underlying `.generated` artifacts.
+- Extracted `scripts/docs/shared/reference-surfaces.ts` plus `scripts/docs/shared/reference-surfaces.test.ts` so changelog/docs-health rendering and generated-surface metadata are tested without depending on the full docs build script shape.
+- Updated reference navigation and docs truth pages so the new changelog/docs-health surfaces are browsable from the site and marked supported.
+- Files changed: `scripts/docs/shared/reference-surfaces.ts`, `scripts/docs/shared/reference-surfaces.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `docs/.vitepress/config.ts`, `docs/reference/generated-surfaces.md`, `docs/reference/support-matrix.md`, `docs/reference/changelog.md`, `docs/reference/docs-health.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: changelog/docs-health are easiest to keep honest when one shared renderer owns both the hidden generated artifact and the public docs route; VitePress/Twoslash docs builds also need to be verified sequentially because `docs:build` reruns `docs:prepare` and mutates generated files.

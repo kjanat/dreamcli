@@ -234,7 +234,7 @@
 			"description": "Generate docs-visible changelog and docs-health pages from source-of-truth inputs. Done when: release history and factual docs-health metrics are both browsable inside the docs site.",
 			"depends": ["build-docs-prepare"],
 			"priority": "standard",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "generate-api-index",

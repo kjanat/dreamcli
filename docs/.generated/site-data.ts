@@ -324,7 +324,7 @@ export const generatedReferenceSurfaces = [
     sourceInputs: ['CHANGELOG.md'],
     status: 'prepared',
     notes:
-      'Foundation mirror only. Public navigation still lands on the authored wrapper until later tasks render the final surface.',
+      'Feeds the public `/reference/changelog` page from the repository changelog without reading project-root files at VitePress render time.',
   },
   {
     id: 'generated-docs-health',
@@ -333,7 +333,7 @@ export const generatedReferenceSurfaces = [
     sourceInputs: ['docs/**/*.md', 'docs/.generated/**/*'],
     status: 'prepared',
     notes:
-      'Current output is factual counts only so later health work can extend the same artifact path.',
+      'Feeds the public `/reference/docs-health` page with factual docs-surface counts rebuilt during `bun run docs:prepare`.',
   },
   {
     id: 'generated-api-index',
@@ -2482,7 +2482,7 @@ export const generatedSymbolPages = [
 
 export const docsHealthSnapshot = {
   authoredPageCount: 34,
-  generatedArtifactCount: 173,
+  generatedArtifactCount: 175,
   exampleCount: 7,
   publicEntrypointCount: 4,
   publicSymbolCount: 159,
