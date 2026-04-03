@@ -293,3 +293,11 @@ Started: 2026-04-02
 - Regenerated docs-health artifacts so the authored-page counts stay factual after adding the new docs.
 - Files changed: `docs/guide/rationale.md`, `docs/guide/limitations.md`, `docs/guide/why.md`, `docs/.vitepress/config.ts`, `docs/reference/support-matrix.md`, `docs/reference/semantic-delta-log.md`, `docs/reference/docs-health.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: narrative docs need truth-surface follow-through; if support and semantic tracking still lump shipped rationale pages together with deferred migration work, the docs story stays misleading even when the authored pages exist.
+
+## Task - [write-migration-guides]
+
+- Added `docs/guide/migration.md` and `docs/guide/troubleshooting.md` to cover evaluator-facing adoption guidance, phased migration strategy, and the common prompt/config/stdin/output/completion failure modes serious adopters hit first.
+- Wired both pages into the guide sidebar, linked them from the surrounding authored guides, and updated support/semantic truth pages so migration and troubleshooting are now treated as shipped instead of deferred.
+- Regenerated docs-health artifacts so authored-page counts and generated site metadata stay factual after adding the new narrative docs.
+- Files changed: `docs/guide/migration.md`, `docs/guide/troubleshooting.md`, `docs/.vitepress/config.ts`, `docs/guide/limitations.md`, `docs/guide/why.md`, `docs/reference/support-matrix.md`, `docs/reference/semantic-delta-log.md`, `docs/reference/docs-health.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: evaluator-facing migration docs land cleanly when they stay authored, but the same change must also update sidebar wiring and truth surfaces; otherwise support pages keep advertising the guides as deferred after they ship.

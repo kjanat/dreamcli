@@ -100,6 +100,8 @@ export default defineConfig({
           items: [
             { text: 'Architecture Rationale', link: '/guide/rationale' },
             { text: 'Limitations And Workarounds', link: '/guide/limitations' },
+            { text: 'Migration And Adoption', link: '/guide/migration' },
+            { text: 'Troubleshooting', link: '/guide/troubleshooting' },
             { text: 'Middleware', link: '/guide/middleware' },
             { text: 'Config Files', link: '/guide/config' },
             { text: 'CLI Semantics', link: '/guide/semantics' },

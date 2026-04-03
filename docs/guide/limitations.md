@@ -106,22 +106,20 @@ Workarounds:
 
 References: [Why dreamcli](/guide/why), [Architecture Rationale](/guide/rationale)
 
-## Some Narrative Guidance Is Still Landing
+## Adoption Guidance Lives Elsewhere On Purpose
 
-This page closes the rationale and limitations gap, but migration and troubleshooting guidance are still tracked separately.
+This page is about current constraints, not the whole adoption story.
 
-Current status:
+Use these companion pages when you need the rest of that picture:
 
-- rationale and limitations are now published;
-- migration and troubleshooting remain follow-up work.
-
-Tracking:
-
-- `write-migration-guides`
+- [Migration And Adoption](/guide/migration) for when to switch and how to phase the move;
+- [Troubleshooting](/guide/troubleshooting) for likely real failure modes and diagnosis steps.
 
 ## Related Pages
 
 - [Architecture Rationale](/guide/rationale)
+- [Migration And Adoption](/guide/migration)
+- [Troubleshooting](/guide/troubleshooting)
 - [Support Matrix](/reference/support-matrix)
 - [CLI Semantics](/guide/semantics)
 - [Runtime Support](/guide/runtime)

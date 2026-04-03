@@ -302,7 +302,7 @@
 			"description": "Author migration/adoption and troubleshooting guidance after the architecture and truth model settle. Done when: serious adopters have clear guidance for evaluation, switching, and common failure modes.",
 			"depends": ["semantic-delta-log", "crosslink-doc-surfaces"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "harden-ci-coverage",

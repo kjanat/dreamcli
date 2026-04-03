@@ -61,4 +61,6 @@ This single chain configures:
 
 - [Architecture Rationale](/guide/rationale)
 - [Limitations And Workarounds](/guide/limitations)
+- [Migration And Adoption](/guide/migration)
+- [Troubleshooting](/guide/troubleshooting)
 - [CLI Semantics](/guide/semantics)

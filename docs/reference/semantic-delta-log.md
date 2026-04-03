@@ -34,15 +34,22 @@ These are the main semantic deltas the re-foundation intentionally introduced.
 | Resolver aggregate diagnostics | Mixed flag/arg validation failures were aggregated, but the top-level diagnostic was weaker and less source-aware.                   | Aggregate validation errors now carry per-issue summaries with normalized labels like `flag --port` and `argument <count>` plus source labels like `env PORT` and `stdin`. | [`src/core/resolve/resolve-aggregation.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/resolve-aggregation.test.ts), [`src/core/resolve/errors.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/errors.ts), [Resolver Contract](/reference/resolver-contract)                                                                                                                                                  | This improved the user-facing failure story without breaking nested `ValidationError` JSON used by existing tests and consumers.      |
 | Completion support truth       | The type/docs surface was broader than reality and only `bash` plus `zsh` were actually shipped.                                     | `fish` and `powershell` completion generation are now shipped, tested, and reflected consistently across docs and support-truth surfaces.                                  | [`src/core/completion/shells/fish.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/fish.ts), [`src/core/completion/shells/powershell.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/powershell.ts), [`src/core/cli/cli-completion-contract.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/cli-completion-contract.test.ts), [Support Matrix](/reference/support-matrix) | The supported shell surface is now truthful across code, tests, and docs instead of relying on a wider union type or deferred claims. |
 
-## Still Deferred
+## Remaining Deferred
 
 These areas are still intentionally deferred and should not be described as shipped semantic changes yet.
 
-| Area                                        | Current state                                                                                                           | Tracking                                                                                      |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Consolidated rationale and limitations docs | Published. Evaluator-facing rationale and current-edge docs now describe the stabilized architecture and product scope. | [Architecture Rationale](/guide/rationale), [Limitations And Workarounds](/guide/limitations) |
-| Migration and troubleshooting docs          | Still deferred until the post-stabilization adoption guidance lands.                                                    | `write-migration-guides` in `.opencode/state/dreamcli-re-foundation/prd.json`                 |
-| Broader CI/runtime-shell coverage claims    | Runtime support is shipped, but broader cross-platform CI coverage is still not claimed as complete.                    | [Support Matrix](/reference/support-matrix), `harden-ci-coverage`                             |
+| Area                                     | Current state                                                                                        | Tracking                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Broader CI/runtime-shell coverage claims | Runtime support is shipped, but broader cross-platform CI coverage is still not claimed as complete. | [Support Matrix](/reference/support-matrix), `harden-ci-coverage` |
+
+## Narrative Follow-Through
+
+The post-stabilization narrative docs set is now published:
+
+- [Architecture Rationale](/guide/rationale)
+- [Limitations And Workarounds](/guide/limitations)
+- [Migration And Adoption](/guide/migration)
+- [Troubleshooting](/guide/troubleshooting)
 
 ## Related Pages
 
