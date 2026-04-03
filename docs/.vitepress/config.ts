@@ -113,7 +113,6 @@ export default defineConfig({
           text: examplesSidebarTitle,
           items: [
             { text: 'Overview', link: '/examples/' },
-            { text: 'Hover Prototype', link: '/examples/hover-prototype' },
             ...generatedExamples.map((example) => ({
               text: example.title,
               link: example.routePath,
@@ -130,7 +129,7 @@ export default defineConfig({
             { text: 'Planner Contract', link: '/reference/planner-contract' },
             { text: 'Resolver Contract', link: '/reference/resolver-contract' },
             { text: 'Output Contract', link: '/reference/output-contract' },
-            { text: 'Example Hover Prototype', link: '/reference/example-hover-prototype' },
+            { text: 'Example Hover', link: '/reference/example-hover-prototype' },
             { text: 'Support Matrix', link: '/reference/support-matrix' },
             { text: 'dreamcli', link: '/reference/main' },
             { text: 'dreamcli/testkit', link: '/reference/testkit' },

@@ -27,7 +27,7 @@ echo '{}' | npx tsx examples/interactive.ts        # non-interactive: uses defau
 
 ## Source
 
-```ts
+```ts twoslash
 #!/usr/bin/env bun
 /**
  * Interactive prompts with config file fallback.

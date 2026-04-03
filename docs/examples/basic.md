@@ -27,7 +27,7 @@ npx tsx examples/basic.ts --help
 
 ## Source
 
-```ts
+```ts twoslash
 #!/usr/bin/env bun
 /**
  * Basic single-command CLI.

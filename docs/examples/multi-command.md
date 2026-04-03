@@ -32,7 +32,7 @@ npx tsx examples/multi-command.ts --version
 
 ## Source
 
-```ts
+```ts twoslash
 #!/usr/bin/env bun
 /**
  * Multi-command CLI with nested command groups (git-like).

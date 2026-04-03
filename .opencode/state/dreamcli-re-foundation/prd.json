@@ -225,7 +225,7 @@
 			"description": "Integrate hover on example pages using the validated path. Done when: generated example pages offer calm IDE-like hover without becoming necessary for comprehension.",
 			"depends": ["prototype-hover-path"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "surface-changelog-health",

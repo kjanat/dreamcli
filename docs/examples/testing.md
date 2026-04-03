@@ -27,7 +27,7 @@ bun test examples/testing.ts
 
 ## Source
 
-```ts
+```ts twoslash
 #!/usr/bin/env bun
 /**
  * Testing examples using dreamcli/testkit.

@@ -35,6 +35,7 @@ Started: 2026-04-02
 - For generated example docs, render full source-backed detail pages to `docs/examples/*.md`, but keep `docs/.generated/site-data.ts` limited to nav/index metadata; pushing full source blobs into VitePress config metadata creates avoidable churn.
 - For resolver diagnostic redesign, keep nested `ValidationError` JSON stable and add a parallel per-issue summary at the aggregate wrapper; it clarifies mixed flag/arg failures without weakening existing leaf-error assertions.
 - For generated docs routes, detect case-insensitive slug collisions at generation time and suffix only the colliding non-lowercase export; VitePress lowercases page keys during render, so case-only route differences are unstable.
+- For docs interactivity rollouts, keep generated example pages readable without hover by putting `ts twoslash` only on the source block and leaving summary, usage, and related-link sections plain.
 
 ## Project Tracking
 
@@ -209,3 +210,10 @@ Started: 2026-04-02
 - Fixed a pre-existing docs-build blocker by disambiguating case-colliding generated symbol routes (for example `middleware` vs `Middleware`) in the symbol-page and API-index generators so VitePress can render the docs site reliably.
 - Files changed: `package.json`, `bun.lock`, `docs/.vitepress/config.ts`, `docs/.vitepress/theme/index.ts`, `docs/examples/index.md`, `docs/reference/example-hover-prototype.md`, `docs/reference/support-matrix.md`, `scripts/docs/shared/examples.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/shared/symbol-pages.ts`, `scripts/docs/shared/symbol-pages.test.ts`, `scripts/docs/shared/api-index.ts`, `scripts/docs/shared/api-index.test.ts`, `scripts/docs/build-docs-data.ts`, `docs/.generated/**/*`, `docs/examples/hover-prototype.md`, `docs/reference/symbols/main/middleware-type.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the smallest safe hover spike is one generated proof page plus default Twoslash UI; the actual rollout can stay separate. Also, generated docs route policy must account for VitePress's case-insensitive page hashing or unrelated docs features will surface brittle collisions.
+
+## Task - [enable-example-hover]
+
+- Enabled Twoslash-backed hover on the real generated example routes by switching every generated example source fence to `ts twoslash` and regenerating the example pages.
+- Removed the now-redundant `/examples/hover-prototype` page wiring from the examples sidebar and docs generator, while updating the hover reference page and support matrix to describe the shipped examples-only rollout.
+- Files changed: `scripts/docs/shared/examples.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/build-docs-data.ts`, `docs/.vitepress/config.ts`, `docs/examples/index.md`, `docs/reference/example-hover-prototype.md`, `docs/reference/support-matrix.md`, `docs/examples/*.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the clean rollout path was to reuse the exact prototype generator path on the real example pages, then delete the dedicated proof route once docs truth moved to the shipped surface.

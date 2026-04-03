@@ -316,8 +316,6 @@ export const generatedExamples = [
   },
 ];
 
-export const generatedExampleHoverPrototypeRoute = '/examples/hover-prototype';
-
 export const generatedReferenceSurfaces = [
   {
     id: 'generated-changelog',

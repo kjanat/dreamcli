@@ -27,7 +27,7 @@ npx tsx examples/middleware.ts deploy production --verbose
 
 ## Source
 
-```ts
+```ts twoslash
 #!/usr/bin/env bun
 /**
  * Middleware patterns: auth guard, request timing, error handling.

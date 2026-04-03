@@ -30,7 +30,7 @@ npx tsx examples/json-mode.ts show nonexistent --json  # JSON error
 
 ## Source
 
-```ts
+```ts twoslash
 #!/usr/bin/env bun
 /**
  * Mixed machine-readable JSON and human-readable side-channel output.

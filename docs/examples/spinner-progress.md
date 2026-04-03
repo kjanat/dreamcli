@@ -25,7 +25,7 @@ echo | npx tsx examples/spinner-progress.ts     # non-TTY: spinners silent
 
 ## Source
 
-```ts
+```ts twoslash
 #!/usr/bin/env bun
 /**
  * Spinner and progress bar usage.
