@@ -22,6 +22,10 @@ import {
 	renderExamplesIndex,
 } from './shared/examples.ts';
 import {
+	buildDefinitionMetaSchemaDescriptions,
+	renderDefinitionMetaSchemaDescriptions,
+} from './shared/meta-schema-descriptions.ts';
+import {
 	changelogPath,
 	docsRoot,
 	exampleDocsRoot,
@@ -33,6 +37,7 @@ import {
 	generatedDocsHealthPath,
 	generatedExamplesDir,
 	generatedExamplesIndexPath,
+	generatedMetaSchemaDescriptionsPath,
 	generatedNormalizedTypeDocPath,
 	generatedReferenceDir,
 	generatedRoot,
@@ -77,6 +82,7 @@ async function rebuildDocsArtifacts(): Promise<void> {
 	]);
 	const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
 	const symbolPages = collectSymbolPages(typeDoc.normalized, symbolPagesRoot);
+	const metaSchemaDescriptions = buildDefinitionMetaSchemaDescriptions(typeDoc.normalized);
 
 	const docsHealth = await collectDocsHealth(examples.length, publicApi, symbolPages.length);
 	const generatedReferenceSurfaces = buildReferenceSurfaces(symbolPages.length);
@@ -100,6 +106,10 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		writeFile(
 			generatedNormalizedTypeDocPath,
 			`${JSON.stringify(typeDoc.normalized, null, '\t')}\n`,
+		),
+		writeFile(
+			generatedMetaSchemaDescriptionsPath,
+			renderDefinitionMetaSchemaDescriptions(metaSchemaDescriptions),
 		),
 		...symbolPages.map(async (page) => {
 			await mkdir(dirname(page.filePath), { recursive: true });

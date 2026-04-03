@@ -7,7 +7,7 @@ Generated reference page for the `generateInputSchema` function export.
 - Import: `dreamcli`
 - Export kind: function
 - Declared in: `src/core/json-schema/index.ts`
-- Source link: [`src/core/json-schema/index.ts:392`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L392)
+- Source link: [`src/core/json-schema/index.ts:393`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L393)
 
 ## Signatures
 

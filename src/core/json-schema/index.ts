@@ -26,6 +26,7 @@ import type {
 } from '#internals/core/schema/index.ts';
 import { parseSchema } from '#internals/core/schema-dsl/runtime.ts';
 import { nodeToJsonSchema } from '#internals/core/schema-dsl/to-json-schema.ts';
+import { definitionMetaSchemaDescriptions } from './meta-descriptions.generated.ts';
 
 // --- Options
 
@@ -716,6 +717,78 @@ function def(source: string): Record<string, unknown> {
 	return nodeToJsonSchema(parseSchema(source));
 }
 
+interface DefinitionMetaSchemaDescriptionNode {
+	readonly description?: string;
+	readonly properties?: Readonly<Record<string, DefinitionMetaSchemaDescriptionNode>>;
+}
+
+function withDefinitionDescriptions(
+	schema: Record<string, unknown>,
+	descriptions: DefinitionMetaSchemaDescriptionNode,
+): Record<string, unknown> {
+	const propertiesValue = schema.properties;
+	const describedProperties =
+		typeof propertiesValue === 'object' &&
+		propertiesValue !== null &&
+		isPlainJsonObject(propertiesValue) &&
+		descriptions.properties !== undefined
+			? Object.fromEntries(
+					Object.entries(propertiesValue).map(([name, propertySchema]) => {
+						const propertyDescriptions = descriptions.properties?.[name];
+						if (
+							propertyDescriptions === undefined ||
+							typeof propertySchema !== 'object' ||
+							propertySchema === null ||
+							!isPlainJsonObject(propertySchema)
+						) {
+							return [name, propertySchema];
+						}
+
+						return [name, withDefinitionDescriptions(propertySchema, propertyDescriptions)];
+					}),
+				)
+			: undefined;
+
+	return {
+		...schema,
+		...(descriptions.description !== undefined ? { description: descriptions.description } : {}),
+		...(describedProperties !== undefined ? { properties: describedProperties } : {}),
+	};
+}
+
+function withDefinitionMetaSchemaDescriptions(
+	schema: Record<string, unknown>,
+	descriptions: {
+		readonly root: DefinitionMetaSchemaDescriptionNode;
+		readonly defs: Readonly<Record<string, DefinitionMetaSchemaDescriptionNode>>;
+	},
+): Record<string, unknown> {
+	const describedRoot = withDefinitionDescriptions(schema, descriptions.root);
+	const defsValue = describedRoot.$defs;
+	if (typeof defsValue !== 'object' || defsValue === null || !isPlainJsonObject(defsValue)) {
+		return describedRoot;
+	}
+
+	return {
+		...describedRoot,
+		$defs: Object.fromEntries(
+			Object.entries(defsValue).map(([name, defSchema]) => {
+				const defDescriptions = descriptions.defs[name];
+				if (
+					defDescriptions === undefined ||
+					typeof defSchema !== 'object' ||
+					defSchema === null ||
+					!isPlainJsonObject(defSchema)
+				) {
+					return [name, defSchema];
+				}
+
+				return [name, withDefinitionDescriptions(defSchema, defDescriptions)];
+			}),
+		),
+	};
+}
+
 /**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
  *
@@ -738,13 +811,14 @@ function def(source: string): Record<string, unknown> {
  * const valid = validate(generateSchema(myCli.schema));
  * ```
  */
-const definitionMetaSchema: Record<string, unknown> = {
-	$schema: JSON_SCHEMA_DRAFT,
-	$id: DEFINITION_SCHEMA_URL,
-	title: 'dreamcli definition schema',
-	description:
-		'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
-	...def(`{
+const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDescriptions(
+	{
+		$schema: JSON_SCHEMA_DRAFT,
+		$id: DEFINITION_SCHEMA_URL,
+		title: 'dreamcli definition schema',
+		description:
+			'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
+		...def(`{
 		$schema: '${DEFINITION_SCHEMA_URL}';
 		name: string;
 		version?: string;
@@ -752,8 +826,8 @@ const definitionMetaSchema: Record<string, unknown> = {
 		defaultCommand?: string;
 		commands: @command[]
 	}`),
-	$defs: {
-		command: def(`{
+		$defs: {
+			command: def(`{
 			name: string;
 			description?: string;
 			aliases?: string[];
@@ -763,7 +837,7 @@ const definitionMetaSchema: Record<string, unknown> = {
 			args: @arg[];
 			commands: @command[]
 		}`),
-		flag: def(`{
+			flag: def(`{
 			kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
 			presence: 'optional' | 'required' | 'defaulted';
 			defaultValue?: unknown;
@@ -777,7 +851,7 @@ const definitionMetaSchema: Record<string, unknown> = {
 			deprecated?: string | true;
 			propagate?: true
 		}`),
-		arg: def(`{
+			arg: def(`{
 			name: string;
 			kind: 'string' | 'number' | 'enum' | 'custom';
 			presence: 'required' | 'optional' | 'defaulted';
@@ -789,7 +863,7 @@ const definitionMetaSchema: Record<string, unknown> = {
 			enumValues?: string[];
 			deprecated?: string | true
 		}`),
-		prompt: def(`{
+			prompt: def(`{
 			kind: 'confirm' | 'input' | 'select' | 'multiselect';
 			message: string;
 			placeholder?: string;
@@ -797,17 +871,19 @@ const definitionMetaSchema: Record<string, unknown> = {
 			min?: integer;
 			max?: integer
 		}`),
-		choice: def(`{
+			choice: def(`{
 			value: string;
 			label?: string;
 			description?: string
 		}`),
-		example: def(`{
+			example: def(`{
 			command: string;
 			description?: string
 		}`),
+		},
 	},
-};
+	definitionMetaSchemaDescriptions,
+);
 
 // === Exports
 

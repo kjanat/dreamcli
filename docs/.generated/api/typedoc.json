@@ -20152,9 +20152,9 @@
               "sources": [
                 {
                   "fileName": "src/core/json-schema/index.ts",
-                  "line": 48,
+                  "line": 49,
                   "character": 10,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L48"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L49"
                 }
               ],
               "type": {
@@ -20221,9 +20221,9 @@
               "sources": [
                 {
                   "fileName": "src/core/json-schema/index.ts",
-                  "line": 62,
+                  "line": 63,
                   "character": 10,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L62"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L63"
                 }
               ],
               "type": {
@@ -20241,9 +20241,9 @@
           "sources": [
             {
               "fileName": "src/core/json-schema/index.ts",
-              "line": 38,
+              "line": 39,
               "character": 10,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L38"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L39"
             }
           ]
         },
@@ -32391,9 +32391,9 @@
           "sources": [
             {
               "fileName": "src/core/json-schema/index.ts",
-              "line": 741,
+              "line": 814,
               "character": 6,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L741"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L814"
             }
           ],
           "type": {
@@ -34810,9 +34810,9 @@
           "sources": [
             {
               "fileName": "src/core/json-schema/index.ts",
-              "line": 392,
+              "line": 393,
               "character": 9,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L392"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L393"
             }
           ],
           "signatures": [
@@ -34905,9 +34905,9 @@
               "sources": [
                 {
                   "fileName": "src/core/json-schema/index.ts",
-                  "line": 392,
+                  "line": 393,
                   "character": 9,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L392"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L393"
                 }
               ],
               "parameters": [
@@ -34999,9 +34999,9 @@
           "sources": [
             {
               "fileName": "src/core/json-schema/index.ts",
-              "line": 123,
+              "line": 124,
               "character": 9,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L123"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L124"
             }
           ],
           "signatures": [
@@ -35050,9 +35050,9 @@
               "sources": [
                 {
                   "fileName": "src/core/json-schema/index.ts",
-                  "line": 123,
+                  "line": 124,
                   "character": 9,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L123"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L124"
                 }
               ],
               "parameters": [

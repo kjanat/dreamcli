@@ -261,7 +261,7 @@
 			"description": "Extract TSDoc comments from schema types (CLISchema, FlagSchema, ArgSchema, etc.) via the normalized TypeDoc data and inject them as description annotations into the definition meta-schema. Done when: the generated meta-schema carries property descriptions derived from source TSDoc, not hand-written strings.",
 			"depends": ["normalize-typedoc-data"],
 			"priority": "standard",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "render-symbol-pages",

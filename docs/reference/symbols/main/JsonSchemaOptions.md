@@ -10,7 +10,7 @@ options to control which parts of the CLI schema are included in the output.
 - Import: `dreamcli`
 - Export kind: interface
 - Declared in: `src/core/json-schema/index.ts`
-- Source link: [`src/core/json-schema/index.ts:38`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L38)
+- Source link: [`src/core/json-schema/index.ts:39`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L39)
 
 ## Signatures
 

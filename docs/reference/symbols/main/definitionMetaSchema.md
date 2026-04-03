@@ -16,7 +16,7 @@ round-trip.
 - Import: `dreamcli`
 - Export kind: constant
 - Declared in: `src/core/json-schema/index.ts`
-- Source link: [`src/core/json-schema/index.ts:741`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L741)
+- Source link: [`src/core/json-schema/index.ts:814`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L814)
 
 ## Signatures
 

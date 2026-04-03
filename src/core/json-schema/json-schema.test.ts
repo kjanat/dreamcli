@@ -12,7 +12,7 @@ import type {
 	FlagSchema,
 	FlagSchemaOverrides,
 } from '#internals/core/schema/index.ts';
-import { generateInputSchema, generateSchema } from './index.ts';
+import { definitionMetaSchema, generateInputSchema, generateSchema } from './index.ts';
 
 // === Test helpers
 
@@ -614,6 +614,25 @@ describe('generateSchema — definition metadata', () => {
 		expect(output).not.toContain('middleware');
 		expect(output).not.toContain('_execute');
 		expect(output).not.toContain('hasAction');
+	});
+
+	it('annotates the definition meta-schema with source-backed descriptions', () => {
+		expect(definitionMetaSchema).toHaveProperty(
+			['properties', 'name', 'description'],
+			'Program name (used in help text, usage lines, and completion scripts).',
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'flag', 'properties', 'configPath', 'description'],
+			"Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'prompt', 'properties', 'message', 'description'],
+			'The question displayed to the user.',
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'example', 'properties', 'command', 'description'],
+			"The command invocation (e.g. `'deploy production --force'`).",
+		);
 	});
 });
 
