@@ -29,9 +29,8 @@ type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
  * Implemented shell values as a frozen readonly non-empty tuple.
  *
  * Use this tuple for user-facing validation and shell selection UIs.
- * Unimplemented planned shells remain part of the broader {@link Shell} union
- * for direct generator calls and future expansion, but they are intentionally
- * omitted here so user-facing CLIs do not advertise unsupported targets.
+ * It intentionally matches the shipped {@link Shell} union exactly so docs,
+ * help output, and completion generation advertise the same support surface.
  *
  * @see {@link Shell} for the union type matching these entries.
  */

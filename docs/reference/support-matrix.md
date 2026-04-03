@@ -21,10 +21,10 @@ Last audited: `2026-04-03`
 
 ## Important Scope Note
 
-The TypeScript surface can be broader than the supported surface.
+Some TypeScript surfaces can be broader than the supported surface.
 
-Treat this matrix, not the union type alone, as the current truth source whenever implementation and
-planned scope could diverge.
+Treat this matrix as the current truth source whenever implementation and planned scope could diverge.
+For completions specifically, `Shell` and `SHELLS` now match the shipped shell set.
 
 ## Execution and Semantics
 
@@ -57,13 +57,13 @@ planned scope could diverge.
 
 ## Completions
 
-| Claim                                       | Status    | Evidence                                                                                                                                                                                                                                                                                                          | Notes                                                                                |
-| ------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Bash completion generation                  | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/bash.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/bash.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)             | Included in the supported shell set today.                                           |
-| Zsh completion generation                   | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/zsh.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/zsh.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)               | Included in the supported shell set today.                                           |
-| Fish completion generation                  | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/fish.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/fish.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)             | Included in the supported shell set today.                                           |
-| PowerShell completion generation            | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/powershell.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/powershell.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts) | Included in the supported shell set today.                                           |
-| Built-in `.completions()` helper on `cli()` | Supported | [Shell Completions](/guide/completions), [`src/core/completion/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts), [`src/core/cli/cli-completions.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/cli-completions.test.ts)                             | Today it surfaces the supported shells backed by `SHELLS`, not the wider union type. |
+| Claim                                       | Status    | Evidence                                                                                                                                                                                                                                                                                                          | Notes                                                                                                 |
+| ------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Bash completion generation                  | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/bash.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/bash.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)             | Included in the supported shell set today.                                                            |
+| Zsh completion generation                   | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/zsh.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/zsh.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)               | Included in the supported shell set today.                                                            |
+| Fish completion generation                  | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/fish.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/fish.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)             | Included in the supported shell set today.                                                            |
+| PowerShell completion generation            | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/powershell.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/powershell.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts) | Included in the supported shell set today.                                                            |
+| Built-in `.completions()` helper on `cli()` | Supported | [Shell Completions](/guide/completions), [`src/core/completion/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts), [`src/core/cli/cli-completions.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/cli-completions.test.ts)                             | The user-facing helper, `Shell` union, and `SHELLS` tuple now advertise the same four shipped shells. |
 
 ## Output
 
@@ -96,8 +96,6 @@ planned scope could diverge.
 
 | Deferred surface                                   | PRD task IDs                                                          |
 | -------------------------------------------------- | --------------------------------------------------------------------- |
-| Fish completions                                   | None                                                                  |
-| PowerShell completions                             | None                                                                  |
 | Generated example pages                            | None                                                                  |
 | Example hover                                      | None                                                                  |
 | API index and symbol pages                         | `generate-api-index`, `normalize-typedoc-data`, `render-symbol-pages` |

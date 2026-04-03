@@ -36,6 +36,7 @@ Started: 2026-04-02
 - For generated example docs, render full source-backed detail pages to `docs/examples/*.md`, but keep `docs/.generated/site-data.ts` limited to nav/index metadata; pushing full source blobs into VitePress config metadata creates avoidable churn.
 - For resolver diagnostic redesign, keep nested `ValidationError` JSON stable and add a parallel per-issue summary at the aggregate wrapper; it clarifies mixed flag/arg failures without weakening existing leaf-error assertions.
 - For generated docs routes, detect case-insensitive slug collisions at generation time and suffix only the colliding non-lowercase export; VitePress lowercases page keys during render, so case-only route differences are unstable.
+- When a formerly overbroad public support surface becomes real, collapse the source JSDoc, audited truth docs, and generated reference artifacts to one exact shipped set in the same change.
 - For docs interactivity rollouts, keep generated example pages readable without hover by putting `ts twoslash` only on the source block and leaving summary, usage, and related-link sections plain.
 - For generated docs surfaces that need public routes, keep the source-of-truth artifact under `docs/.generated/` and emit the browsable `docs/reference/*.md` page from the same shared renderer so metrics and public copy stay in lockstep.
 - For source-backed schema metadata, derive one generated TS description map from the normalized TypeDoc model and let runtime exports consume that generated module; it keeps the shipped schema asset and in-process constant aligned without hand-written doc strings.
@@ -267,3 +268,11 @@ Started: 2026-04-02
 - Linked the new page from the reference sidebar, the support matrix, and the semantics guide, then regenerated docs health artifacts so the docs metadata stays factual after adding the new authored page.
 - Files changed: `docs/reference/semantic-delta-log.md`, `docs/.vitepress/config.ts`, `docs/reference/support-matrix.md`, `docs/guide/semantics.md`, `docs/reference/docs-health.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: semantic-baseline docs stay maintainable when one page owns the preserved-vs-redesigned split and points straight at the contract tests and truth surfaces that justify each row.
+
+## Task - [align-completion-truth]
+
+- Aligned the completion truth source in `src/core/completion/index.ts` so `Shell` and `SHELLS` now document the same four shipped shells instead of implying a broader planned union.
+- Updated the completions guide and support matrix to state that the public type surface, user-facing `.completions()` helper, and audited support claims all match the shipped shell set.
+- Regenerated the TypeDoc-backed docs artifacts so generated symbol/reference pages reflect the new completion support wording.
+- Files changed: `src/core/completion/index.ts`, `docs/guide/completions.md`, `docs/reference/support-matrix.md`, `docs/reference/symbols/main/SHELLS.md`, `docs/reference/symbols/main/generateCompletion.md`, `docs/.generated/site-data.ts`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: once a shipped support surface catches up with earlier deferred claims, the cleanup work is mostly source-comment and truth-doc convergence; the generated API docs then fall back into line automatically via `bun run docs:prepare`.

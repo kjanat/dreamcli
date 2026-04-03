@@ -2244,9 +2244,9 @@
         "sources": [
           {
             "path": "src/core/completion/index.ts",
-            "line": 66,
+            "line": 65,
             "character": 9,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L65"
           }
         ],
         "defaultValue": null,
@@ -2277,9 +2277,9 @@
             "sources": [
               {
                 "path": "src/core/completion/index.ts",
-                "line": 66,
+                "line": 65,
                 "character": 9,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L65"
               }
             ],
             "defaultValue": null,
@@ -15993,7 +15993,7 @@
         "kind": "variable",
         "flags": ["isConst"],
         "comment": {
-          "summary": "Implemented shell values as a frozen readonly non-empty tuple.\n\nUse this tuple for user-facing validation and shell selection UIs.\nUnimplemented planned shells remain part of the broader Shell union\nfor direct generator calls and future expansion, but they are intentionally\nomitted here so user-facing CLIs do not advertise unsupported targets.",
+          "summary": "Implemented shell values as a frozen readonly non-empty tuple.\n\nUse this tuple for user-facing validation and shell selection UIs.\nIt intentionally matches the shipped Shell union exactly so docs,\nhelp output, and completion generation advertise the same support surface.",
           "blockTags": [
             {
               "tag": "@see",
@@ -16007,9 +16007,9 @@
         "sources": [
           {
             "path": "src/core/completion/index.ts",
-            "line": 38,
+            "line": 37,
             "character": 6,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L38"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L37"
           }
         ],
         "defaultValue": "...",

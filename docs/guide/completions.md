@@ -26,6 +26,8 @@ generateCompletion(myCli.schema, 'bash', { rootMode: 'surface' });
 
 `generateCompletion()` currently supports `bash`, `zsh`, `fish`, and `powershell`.
 
+The public `Shell` union and exported `SHELLS` tuple match this shipped set exactly.
+
 See the [Support Matrix](/reference/support-matrix) for the current audited shell surface and the
 tracked follow-up work.
 

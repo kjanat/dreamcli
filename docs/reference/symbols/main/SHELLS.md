@@ -5,14 +5,13 @@
 Implemented shell values as a frozen readonly non-empty tuple.
 
 Use this tuple for user-facing validation and shell selection UIs.
-Unimplemented planned shells remain part of the broader Shell union
-for direct generator calls and future expansion, but they are intentionally
-omitted here so user-facing CLIs do not advertise unsupported targets.
+It intentionally matches the shipped Shell union exactly so docs,
+help output, and completion generation advertise the same support surface.
 
 - Import: `dreamcli`
 - Export kind: constant
 - Declared in: `src/core/completion/index.ts`
-- Source link: [`src/core/completion/index.ts:38`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L38)
+- Source link: [`src/core/completion/index.ts:37`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L37)
 
 ## Signatures
 

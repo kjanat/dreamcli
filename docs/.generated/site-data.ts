@@ -2209,7 +2209,7 @@ export const generatedSymbolPages = [
     entrypoint: 'dreamcli',
     routePath: '/reference/symbols/main/SHELLS',
     summary:
-      'Implemented shell values as a frozen readonly non-empty tuple.\n\nUse this tuple for user-facing validation and shell selection UIs.\nUnimplemented planned shells remain part of the broader Shell union\nfor direct generator calls and future expansion, but they are intentionally\nomitted here so user-facing CLIs do not advertise unsupported targets.',
+      'Implemented shell values as a frozen readonly non-empty tuple.\n\nUse this tuple for user-facing validation and shell selection UIs.\nIt intentionally matches the shipped Shell union exactly so docs,\nhelp output, and completion generation advertise the same support surface.',
   },
   {
     id: 'dreamcli:SpinnerHandle',

@@ -189,7 +189,7 @@
 			"description": "Update support matrix, docs, and type-level shell surfaces to match shipped shell support. Done when: completion claims and implementation fully match across code, tests, and docs.",
 			"depends": ["implement-fish-comp", "implement-pwsh-comp"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "build-docs-prepare",

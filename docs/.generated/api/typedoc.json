@@ -32480,7 +32480,7 @@
             "summary": [
               {
                 "kind": "text",
-                "text": "Implemented shell values as a frozen readonly non-empty tuple.\n\nUse this tuple for user-facing validation and shell selection UIs.\nUnimplemented planned shells remain part of the broader "
+                "text": "Implemented shell values as a frozen readonly non-empty tuple.\n\nUse this tuple for user-facing validation and shell selection UIs.\nIt intentionally matches the shipped "
               },
               {
                 "kind": "inline-tag",
@@ -32490,7 +32490,7 @@
               },
               {
                 "kind": "text",
-                "text": " union\nfor direct generator calls and future expansion, but they are intentionally\nomitted here so user-facing CLIs do not advertise unsupported targets."
+                "text": " union exactly so docs,\nhelp output, and completion generation advertise the same support surface."
               }
             ],
             "blockTags": [
@@ -32514,9 +32514,9 @@
           "sources": [
             {
               "fileName": "src/core/completion/index.ts",
-              "line": 38,
+              "line": 37,
               "character": 6,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L38"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L37"
             }
           ],
           "type": {
@@ -34678,9 +34678,9 @@
           "sources": [
             {
               "fileName": "src/core/completion/index.ts",
-              "line": 66,
+              "line": 65,
               "character": 9,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L65"
             }
           ],
           "signatures": [
@@ -34721,9 +34721,9 @@
               "sources": [
                 {
                   "fileName": "src/core/completion/index.ts",
-                  "line": 66,
+                  "line": 65,
                   "character": 9,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L65"
                 }
               ],
               "parameters": [
