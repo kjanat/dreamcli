@@ -30,6 +30,7 @@ Started: 2026-04-02
 - For generated-docs groundwork, keep source-backed build outputs under `docs/.generated/` and let authored wrapper pages plus VitePress config import one generated manifest; that preserves clean source boundaries while future docs generators can expand without reshaping IA again.
 - For generated reference work, build one source-backed inventory model first and emit both JSON and markdown artifacts from it; authored wrapper pages can stay on stable routes while later normalization work reuses the same data seam.
 - For TypeDoc-backed reference work, keep the public export inventory as coverage truth, generate raw `typedoc.json` beside a smaller DreamCLI-owned normalized model keyed by `entrypoint:symbol`, and force stable source links so generated artifacts do not churn on every commit.
+- When flags and args partially overlap, share only the coercion-compatible property shape in a dedicated resolver helper and keep precedence, fallback, and required-value rules separate; broad shared property loops hide real semantic differences.
 
 ## Project Tracking
 
@@ -167,3 +168,11 @@ Started: 2026-04-02
 - Added `scripts/docs/shared/typedoc.test.ts`, updated `docs/reference/api.md`, and fixed the `cli()` factory TSDoc so the new docs path runs without steady TypeDoc warning noise.
 - Files changed: `package.json`, `bun.lock`, `scripts/docs/shared/typedoc.ts`, `scripts/docs/shared/typedoc.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `vitest.config.ts`, `docs/reference/api.md`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `src/core/cli/index.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: raw TypeDoc output is useful as an audit artifact, but later rendering work should consume the normalized model keyed by public export coverage; otherwise every symbol-page step stays coupled to TypeDoc's raw reflection shape and source-link churn.
+
+## Task - [shared-property-model]
+
+- Added `src/core/resolve/property.ts` as the explicit shared property-model seam for resolver coercion, with a contract that keeps precedence, fallback, and required-value behavior out of the abstraction.
+- Routed arg coercion through the new shared property adapters instead of fabricating a temporary `FlagSchema`, and split common scalar coercion in `src/core/resolve/coerce.ts` from flag-only boolean/array handling.
+- Documented the decision in `docs/reference/resolver-contract.md` and added `src/core/resolve/property.test.ts` to lock the scope down.
+- Files changed: `src/core/resolve/property.ts`, `src/core/resolve/property.test.ts`, `src/core/resolve/coerce.ts`, `docs/reference/resolver-contract.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the only shared flag/arg model justified today is coercion metadata for overlapping kinds; pushing precedence or fallback policy into the same abstraction would make the resolver harder to reason about, not easier.

@@ -9,6 +9,8 @@ import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import type { ArgDiagnosticSource, FlagDiagnosticSource } from './contracts.ts';
+import type { SharedPropertySchema } from './property.ts';
+import { toSharedArgPropertySchema, toSharedFlagPropertySchema } from './property.ts';
 
 type CoerceSource = FlagDiagnosticSource;
 
@@ -63,6 +65,101 @@ function coerceValue(
 	source: CoerceSource,
 	raw: unknown,
 	schema: FlagSchema,
+): CoerceResult {
+	const sharedSchema = toSharedFlagPropertySchema(schema);
+	if (sharedSchema !== undefined) {
+		return coerceSharedPropertyValue(flagName, source, raw, sharedSchema);
+	}
+
+	switch (schema.kind) {
+		case 'boolean': {
+			if (typeof raw === 'boolean') return { ok: true, value: raw };
+			if (typeof raw === 'string') {
+				const lower = raw.toLowerCase();
+				const truthy =
+					lower === 'true' ||
+					lower === '1' ||
+					lower === 'yes' ||
+					(source.kind === 'prompt' && lower === 'y');
+				if (truthy) return { ok: true, value: true };
+				const falsy =
+					lower === 'false' ||
+					lower === '0' ||
+					lower === 'no' ||
+					lower === '' ||
+					(source.kind === 'prompt' && lower === 'n');
+				if (falsy) return { ok: true, value: false };
+			}
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'boolean',
+				raw,
+				typeof raw === 'string' ? `Invalid boolean value '${raw}'` : 'Invalid boolean value',
+				source.kind === 'env'
+					? `Set ${source.envVar} to true/false, 1/0, or yes/no`
+					: source.kind === 'config'
+						? `Set ${source.configPath} to true or false in your config`
+						: `Answer yes or no for --${flagName}`,
+			);
+		}
+
+		case 'array': {
+			if (Array.isArray(raw)) {
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const element of raw) {
+						const result = coerceValue(flagName, source, element, schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
+				}
+				return { ok: true, value: raw };
+			}
+			if (typeof raw === 'string') {
+				if (raw === '') return { ok: true, value: [] };
+				const parts = raw.split(',');
+				if (schema.elementSchema) {
+					const coerced: unknown[] = [];
+					for (const part of parts) {
+						const element = source.kind === 'prompt' ? part.trim() : part;
+						const result = coerceValue(flagName, source, element, schema.elementSchema);
+						if (!result.ok) return result;
+						coerced.push(result.value);
+					}
+					return { ok: true, value: coerced };
+				}
+				return {
+					ok: true,
+					value: source.kind === 'prompt' ? parts.map((part) => part.trim()) : parts,
+				};
+			}
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'array',
+				raw,
+				'Invalid array value',
+				source.kind === 'env'
+					? `Set ${source.envVar} to comma-separated values`
+					: source.kind === 'config'
+						? `Set ${source.configPath} to an array in your config`
+						: `Provide valid values for --${flagName}`,
+			);
+		}
+	}
+
+	throw new Error(`Unreachable flag coercion kind: ${schema.kind}`);
+}
+
+function coerceSharedPropertyValue(
+	flagName: string,
+	source: CoerceSource,
+	raw: unknown,
+	schema: SharedPropertySchema,
 ): CoerceResult {
 	switch (schema.kind) {
 		case 'string': {
@@ -122,39 +219,6 @@ function coerceValue(
 			);
 		}
 
-		case 'boolean': {
-			if (typeof raw === 'boolean') return { ok: true, value: raw };
-			if (typeof raw === 'string') {
-				const lower = raw.toLowerCase();
-				const truthy =
-					lower === 'true' ||
-					lower === '1' ||
-					lower === 'yes' ||
-					(source.kind === 'prompt' && lower === 'y');
-				if (truthy) return { ok: true, value: true };
-				const falsy =
-					lower === 'false' ||
-					lower === '0' ||
-					lower === 'no' ||
-					lower === '' ||
-					(source.kind === 'prompt' && lower === 'n');
-				if (falsy) return { ok: true, value: false };
-			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'boolean',
-				raw,
-				typeof raw === 'string' ? `Invalid boolean value '${raw}'` : 'Invalid boolean value',
-				source.kind === 'env'
-					? `Set ${source.envVar} to true/false, 1/0, or yes/no`
-					: source.kind === 'config'
-						? `Set ${source.configPath} to true or false in your config`
-						: `Answer yes or no for --${flagName}`,
-			);
-		}
-
 		case 'enum': {
 			const allowed = schema.enumValues ?? [];
 			if (typeof raw === 'string' && allowed.includes(raw)) {
@@ -179,87 +243,42 @@ function coerceValue(
 		}
 
 		case 'custom': {
-			if (schema.parseFn) {
-				try {
-					return { ok: true, value: schema.parseFn(raw) };
-				} catch (error) {
-					const message = error instanceof Error ? error.message : String(error);
-					const sourceRef =
-						source.kind === 'env'
-							? `env ${source.envVar}`
-							: source.kind === 'config'
-								? `config ${source.configPath}`
-								: 'prompt value';
-					return {
-						ok: false,
-						error: new ValidationError(
-							`Failed to parse ${sourceRef} for flag --${flagName}: ${message}`,
-							{
-								code: 'TYPE_MISMATCH',
-								details: {
-									flag: flagName,
-									...sourceDetails(source),
-									value: raw,
-									expected: 'custom',
-								},
-								suggest:
-									source.kind === 'env'
-										? `Set ${source.envVar} to a valid value for --${flagName}`
-										: source.kind === 'config'
-											? `Set ${source.configPath} to a valid value for --${flagName} in your config`
-											: `Enter a valid value for --${flagName}`,
-							},
-						),
-					};
-				}
-			}
-			return { ok: true, value: raw };
-		}
-
-		case 'array': {
-			if (Array.isArray(raw)) {
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const element of raw) {
-						const result = coerceValue(flagName, source, element, schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
+			if (schema.parseFn === undefined) {
 				return { ok: true, value: raw };
 			}
-			if (typeof raw === 'string') {
-				if (raw === '') return { ok: true, value: [] };
-				const parts = raw.split(',');
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const part of parts) {
-						const element = source.kind === 'prompt' ? part.trim() : part;
-						const result = coerceValue(flagName, source, element, schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
+
+			try {
+				return { ok: true, value: schema.parseFn(raw) };
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				const sourceRef =
+					source.kind === 'env'
+						? `env ${source.envVar}`
+						: source.kind === 'config'
+							? `config ${source.configPath}`
+							: 'prompt value';
 				return {
-					ok: true,
-					value: source.kind === 'prompt' ? parts.map((part) => part.trim()) : parts,
+					ok: false,
+					error: new ValidationError(
+						`Failed to parse ${sourceRef} for flag --${flagName}: ${message}`,
+						{
+							code: 'TYPE_MISMATCH',
+							details: {
+								flag: flagName,
+								...sourceDetails(source),
+								value: raw,
+								expected: 'custom',
+							},
+							suggest:
+								source.kind === 'env'
+									? `Set ${source.envVar} to a valid value for --${flagName}`
+									: source.kind === 'config'
+										? `Set ${source.configPath} to a valid value for --${flagName} in your config`
+										: `Enter a valid value for --${flagName}`,
+						},
+					),
 				};
 			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'array',
-				raw,
-				'Invalid array value',
-				source.kind === 'env'
-					? `Set ${source.envVar} to comma-separated values`
-					: source.kind === 'config'
-						? `Set ${source.configPath} to an array in your config`
-						: `Provide valid values for --${flagName}`,
-			);
 		}
 	}
 }
@@ -292,47 +311,6 @@ function buildArgCoercionSuggest(
 
 function argSourceToCoerceSource(source: ArgStringSource): CoerceSource {
 	return source.kind === 'env' ? { kind: 'env', envVar: source.envVar } : { kind: 'prompt' };
-}
-
-function argSchemaToFlagSchema(schema: ArgSchema): FlagSchema {
-	const base = {
-		presence: 'optional' as const,
-		defaultValue: undefined,
-		aliases: [],
-		envVar: undefined,
-		configPath: undefined,
-		description: schema.description,
-		prompt: undefined,
-		deprecated: schema.deprecated,
-		propagate: false,
-		enumValues: undefined,
-		elementSchema: undefined,
-		parseFn: undefined as ((raw: unknown) => unknown) | undefined,
-	};
-
-	switch (schema.kind) {
-		case 'string':
-			return { ...base, kind: 'string' };
-		case 'number':
-			return { ...base, kind: 'number' };
-		case 'enum':
-			return { ...base, kind: 'enum', enumValues: schema.enumValues };
-		case 'custom': {
-			if (schema.parseFn === undefined) {
-				return { ...base, kind: 'custom', parseFn: undefined };
-			}
-			const parseFn = schema.parseFn;
-			return {
-				...base,
-				kind: 'custom',
-				parseFn: (raw: unknown): unknown => parseFn(typeof raw === 'string' ? raw : String(raw)),
-			};
-		}
-		default: {
-			const exhaustive: never = schema.kind;
-			return exhaustive;
-		}
-	}
 }
 
 function redactArgCoercionMessage(
@@ -415,11 +393,11 @@ function coerceArgStringValue(
 	raw: string,
 	schema: ArgSchema,
 ): CoerceResult {
-	const coerced = coerceValue(
+	const coerced = coerceSharedPropertyValue(
 		argName,
 		argSourceToCoerceSource(source),
 		raw,
-		argSchemaToFlagSchema(schema),
+		toSharedArgPropertySchema(schema),
 	);
 	if (coerced.ok) {
 		return coerced;

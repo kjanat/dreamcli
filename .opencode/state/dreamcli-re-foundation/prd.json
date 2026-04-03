@@ -144,7 +144,7 @@
 			"description": "Reduce duplicated flag/arg resolution mechanics where a shared property abstraction actually lowers maintenance cost. Done when: either a shared model is introduced safely or an explicit decision records why not.",
 			"depends": ["split-resolver-modules"],
 			"priority": "spike",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "semantic-delta-log",

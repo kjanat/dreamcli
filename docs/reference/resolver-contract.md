@@ -83,9 +83,25 @@ This contract intentionally freezes behavior before deeper resolver work:
 - aggregated diagnostics can improve, but source-aware details and explicit precedence must remain testable
 - any shared flag/arg property model must preserve the current stage ordering unless a later contract explicitly changes it
 
+## Shared Property Model Decision
+
+The current resolver now makes that decision explicit in `src/core/resolve/property.ts`:
+
+- the shared flag/arg property model is **coercion-only**
+- it only covers the overlapping kinds: `string`, `number`, `enum`, and `custom`
+- it does **not** own precedence order, fallback order, prompt/stdin policy, or required-value validation
+
+That split is intentional.
+
+Flags still own `cli -> env -> config -> prompt -> default`.
+Args still own `cli -> stdin -> env -> default`.
+
+Trying to force those flows through one broad property abstraction would hide real semantic differences instead of reducing maintenance cost. The shared model is only used where the overlap is real: coercion shape and shared kind metadata.
+
 ## Evidence
 
 - Contract module: `src/core/resolve/contracts.ts`
+- Shared property model: `src/core/resolve/property.ts`
 - Current implementation: `src/core/resolve/index.ts`
 - Existing behavior tests: `src/core/resolve/*.test.ts`
 - RFC / PRD source: `specs/dreamcli-re-foundation.md`, `specs/dreamcli-re-foundation-prd.md`
