@@ -1,7 +1,11 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { defineConfig } from 'vitepress';
 import { MermaidMarkdown, MermaidPlugin } from 'vitepress-plugin-mermaid';
 import { generatedExamples, generatedReferenceSurfaces } from '../.generated/site-data.ts';
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 const examplesSidebarTitle =
   generatedExamples.length === 0 ? 'Examples' : `Examples (${generatedExamples.length})`;
@@ -126,6 +130,8 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/reference/api' },
             { text: generatedReferenceTitle, link: '/reference/generated-surfaces' },
+            { text: 'Changelog', link: '/reference/changelog' },
+            { text: 'Docs Health', link: '/reference/docs-health' },
             { text: 'Planner Contract', link: '/reference/planner-contract' },
             { text: 'Resolver Contract', link: '/reference/resolver-contract' },
             { text: 'Output Contract', link: '/reference/output-contract' },
@@ -146,7 +152,26 @@ export default defineConfig({
     },
   },
   markdown: {
-    codeTransformers: [transformerTwoslash({ explicitTrigger: true })],
+    codeTransformers: [
+      transformerTwoslash({
+        explicitTrigger: true,
+        twoslashOptions: {
+          vfsRoot: projectRoot,
+          compilerOptions: {
+            baseUrl: projectRoot,
+            paths: {
+              dreamcli: ['./src/index.ts'],
+              'dreamcli/runtime': ['./src/runtime.ts'],
+              'dreamcli/testkit': ['./src/testkit.ts'],
+            },
+            module: 99 /* ModuleKind.ESNext */,
+            moduleResolution: 100 /* ModuleResolutionKind.Bundler */,
+            allowImportingTsExtensions: true,
+            noEmit: true,
+          },
+        },
+      }),
+    ],
     languages: ['js', 'jsx', 'ts', 'tsx'],
     config: (md) => {
       md.use(MermaidMarkdown);
