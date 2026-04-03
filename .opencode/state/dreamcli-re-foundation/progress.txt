@@ -43,6 +43,7 @@ Started: 2026-04-02
 - For new shell generators, emit one generated per-path metadata table plus a thin shell-native resolver instead of re-encoding planner logic ad hoc in the script; nested-command and propagated-flag behavior stay aligned with the shared walker.
 - For re-foundation semantic tracking, keep one maintained reference page that splits preserved guarantees from intentional redesigns and links each row to tests, docs, and implementation files; that gives changelog and narrative docs a stable source instead of re-deriving deltas from commits.
 - For docs-surface cross-linking, keep example metadata as the source of truth for guide and symbol relations, then derive symbol-page backlinks from that shared example model instead of hand-linking reference pages.
+- For late-stage narrative docs, ship the authored guide pages together with support-matrix and semantic-delta updates so truth surfaces do not keep bundling newly shipped docs with still-deferred follow-ups.
 
 ## Project Tracking
 
@@ -284,3 +285,11 @@ Started: 2026-04-02
 - Tightened the reference surface itself so API/changelog/docs-health/generated-surfaces/example-hover pages now point across the shipped docs system instead of acting like isolated endpoints, and added direct guide-to-example links on the matching authored guide pages.
 - Files changed: `scripts/docs/shared/crosslinks.ts`, `scripts/docs/shared/examples.ts`, `scripts/docs/shared/symbol-pages.ts`, `scripts/docs/shared/reference-surfaces.ts`, `scripts/docs/build-docs-data.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/shared/symbol-pages.test.ts`, `scripts/docs/shared/reference-surfaces.test.ts`, `docs/guide/commands.md`, `docs/guide/output.md`, `docs/guide/prompts.md`, `docs/guide/middleware.md`, `docs/guide/testing.md`, `docs/reference/api.md`, `docs/reference/generated-surfaces.md`, `docs/reference/example-hover-prototype.md`, `docs/reference/changelog.md`, `docs/reference/docs-health.md`, `docs/.generated/site-data.ts`, `docs/examples/*.md`, `docs/reference/symbols/**/*.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: docs cross-links stay maintainable when authored guide links stay selective and the heavier example/reference backlink graph is generated from one shared metadata seam instead of being duplicated across markdown pages.
+
+## Task - [write-rationale-docs]
+
+- Added `docs/guide/rationale.md` and `docs/guide/limitations.md` as the new authored narrative pages covering DreamCLI's architecture trade-offs, product bets, current edges, and practical workarounds.
+- Wired both pages into the guide sidebar, linked them from `docs/guide/why.md`, and updated the support matrix plus semantic delta log so rationale/limitations are now treated as shipped while migration/troubleshooting remain deferred.
+- Regenerated docs-health artifacts so the authored-page counts stay factual after adding the new docs.
+- Files changed: `docs/guide/rationale.md`, `docs/guide/limitations.md`, `docs/guide/why.md`, `docs/.vitepress/config.ts`, `docs/reference/support-matrix.md`, `docs/reference/semantic-delta-log.md`, `docs/reference/docs-health.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: narrative docs need truth-surface follow-through; if support and semantic tracking still lump shipped rationale pages together with deferred migration work, the docs story stays misleading even when the authored pages exist.

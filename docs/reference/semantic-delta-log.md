@@ -38,10 +38,11 @@ These are the main semantic deltas the re-foundation intentionally introduced.
 
 These areas are still intentionally deferred and should not be described as shipped semantic changes yet.
 
-| Area                                                                     | Current state                                                                                        | Tracking                                                                                              |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Consolidated rationale, limitations, migration, and troubleshooting docs | Deferred until the semantic baseline is stable enough for evaluator-facing narrative docs.           | `write-rationale-docs`, `write-migration-guides` in `.opencode/state/dreamcli-re-foundation/prd.json` |
-| Broader CI/runtime-shell coverage claims                                 | Runtime support is shipped, but broader cross-platform CI coverage is still not claimed as complete. | [Support Matrix](/reference/support-matrix), `harden-ci-coverage`                                     |
+| Area                                        | Current state                                                                                                           | Tracking                                                                                      |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Consolidated rationale and limitations docs | Published. Evaluator-facing rationale and current-edge docs now describe the stabilized architecture and product scope. | [Architecture Rationale](/guide/rationale), [Limitations And Workarounds](/guide/limitations) |
+| Migration and troubleshooting docs          | Still deferred until the post-stabilization adoption guidance lands.                                                    | `write-migration-guides` in `.opencode/state/dreamcli-re-foundation/prd.json`                 |
+| Broader CI/runtime-shell coverage claims    | Runtime support is shipped, but broader cross-platform CI coverage is still not claimed as complete.                    | [Support Matrix](/reference/support-matrix), `harden-ci-coverage`                             |
 
 ## Related Pages
 

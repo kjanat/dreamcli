@@ -293,7 +293,7 @@
 			"description": "Author the explanation pages for trade-offs, decisions, limitations, and workarounds once semantics stabilize. Done when: DreamCLI explains major design choices and known limitations clearly and honestly.",
 			"depends": ["semantic-delta-log", "crosslink-doc-surfaces"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "write-migration-guides",

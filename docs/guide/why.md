@@ -56,3 +56,9 @@ This single chain configures:
 3. **Deterministic behavior.** Resolution rules are explicit and consistent.
 4. **Portable by default.** Core avoids runtime-specific APIs; adapters handle the edges.
 5. **Ergonomic, not clever.** Predictable DX over type-theory stunts.
+
+## Related Pages
+
+- [Architecture Rationale](/guide/rationale)
+- [Limitations And Workarounds](/guide/limitations)
+- [CLI Semantics](/guide/semantics)
