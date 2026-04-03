@@ -967,8 +967,6 @@ interface CLIOptions {
  *
  * The CLI name is used in help text, usage lines, and generated completion scripts.
  *
- * @param nameOrOptions - Either the explicit CLI name or factory options.
- *
  * @example
  * ```ts
  * cli('mycli')

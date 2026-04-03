@@ -252,7 +252,7 @@
 			"description": "Generate TypeDoc JSON and normalize it into a DreamCLI-owned docs model. Done when: reference rendering no longer depends directly on raw TypeDoc output shape.",
 			"depends": ["generate-api-index"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "enrich-meta-schema-descriptions",

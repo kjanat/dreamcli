@@ -29,6 +29,7 @@ Started: 2026-04-02
 - Once a planner seam exists, pass raw argv into it and let the planner own global invocation normalization like root `--json`; keep `execute()` focused on output setup, rendering, and executor handoff.
 - For generated-docs groundwork, keep source-backed build outputs under `docs/.generated/` and let authored wrapper pages plus VitePress config import one generated manifest; that preserves clean source boundaries while future docs generators can expand without reshaping IA again.
 - For generated reference work, build one source-backed inventory model first and emit both JSON and markdown artifacts from it; authored wrapper pages can stay on stable routes while later normalization work reuses the same data seam.
+- For TypeDoc-backed reference work, keep the public export inventory as coverage truth, generate raw `typedoc.json` beside a smaller DreamCLI-owned normalized model keyed by `entrypoint:symbol`, and force stable source links so generated artifacts do not churn on every commit.
 
 ## Project Tracking
 
@@ -158,3 +159,11 @@ Started: 2026-04-02
 - Added `scripts/docs/shared/api-index.test.ts` to lock down key symbol classification and rendered index output against the live public entrypoints.
 - Files changed: `scripts/docs/shared/api-index.ts`, `scripts/docs/shared/api-index.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `docs/reference/api.md`, `docs/reference/generated-surfaces.md`, `docs/.generated/site-data.ts`, `docs/.generated/api/index.md`, `docs/.generated/api/public-exports.json`, `docs/.generated/reference/docs-health.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: using the TypeScript checker against the public entrypoint barrels is the smallest reliable way to inventory real exports across re-export chains; syntax-only parsing misses local export lists like `export { CLIBuilder, cli, plugin }`.
+
+## Task - [normalize-typedoc-data]
+
+- Added `scripts/docs/shared/typedoc.ts` to generate raw TypeDoc JSON from the public TS entrypoints and normalize matched exports into a DreamCLI-owned docs model keyed by `entrypoint:symbol`.
+- Wired `scripts/docs/build-docs-data.ts` and `scripts/docs/shared/paths.ts` to emit `docs/.generated/api/typedoc.json` plus `docs/.generated/api/typedoc-normalized.json`, updated generated-surface/docs-health metadata, and taught `vitest.config.ts` to run docs-script tests.
+- Added `scripts/docs/shared/typedoc.test.ts`, updated `docs/reference/api.md`, and fixed the `cli()` factory TSDoc so the new docs path runs without steady TypeDoc warning noise.
+- Files changed: `package.json`, `bun.lock`, `scripts/docs/shared/typedoc.ts`, `scripts/docs/shared/typedoc.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `vitest.config.ts`, `docs/reference/api.md`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `src/core/cli/index.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: raw TypeDoc output is useful as an audit artifact, but later rendering work should consume the normalized model keyed by public export coverage; otherwise every symbol-page step stays coupled to TypeDoc's raw reflection shape and source-link churn.

@@ -10,7 +10,7 @@ subpath-specific detail pages.
 
 - Public entrypoints: `{{ docsHealthSnapshot.publicEntrypointCount }}`
 - Public symbols indexed: `{{ docsHealthSnapshot.publicSymbolCount }}`
-- Generated artifacts: `docs/.generated/api/index.md`, `docs/.generated/api/public-exports.json`
+- Generated artifacts: `docs/.generated/api/index.md`, `docs/.generated/api/public-exports.json`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`
 
 ## Choose an Import
 

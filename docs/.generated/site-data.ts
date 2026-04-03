@@ -122,7 +122,22 @@ export const generatedReferenceSurfaces = [
     sourceInputs: ['package.json', 'src/index.ts', 'src/runtime.ts', 'src/testkit.ts'],
     status: 'prepared',
     notes:
-      'The generated markdown index is backed by a structured JSON inventory at `docs/.generated/api/public-exports.json` so later TypeDoc normalization can reuse the same public-entrypoint model.',
+      'The generated markdown index is backed by `docs/.generated/api/public-exports.json`; full signature work now flows through the raw `typedoc.json` artifact and the normalized `typedoc-normalized.json` model beside it.',
+  },
+  {
+    id: 'generated-typedoc-model',
+    title: 'Normalized TypeDoc Model',
+    artifactPath: 'docs/.generated/api/typedoc-normalized.json',
+    sourceInputs: [
+      'package.json',
+      'tsconfig.json',
+      'src/index.ts',
+      'src/runtime.ts',
+      'src/testkit.ts',
+    ],
+    status: 'prepared',
+    notes:
+      'This DreamCLI-owned JSON model is derived from TypeDoc output so later symbol pages and schema-description enrichment do not depend on raw TypeDoc shape.',
   },
 ];
 
@@ -1048,7 +1063,7 @@ export const generatedPublicApi = [
 
 export const docsHealthSnapshot = {
   authoredPageCount: 33,
-  generatedArtifactCount: 5,
+  generatedArtifactCount: 7,
   exampleCount: 7,
   publicEntrypointCount: 4,
   publicSymbolCount: 159,

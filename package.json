@@ -122,6 +122,7 @@
 		"mermaid": "^11.14.0",
 		"publint": "^0.3.18",
 		"tsdown": "^0.21.7",
+		"typedoc": "^0.28.18",
 		"typescript": "catalog:",
 		"vitepress": "^2.0.0-alpha.17",
 		"vitepress-plugin-mermaid": "^2.0.17",

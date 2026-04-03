@@ -26,11 +26,14 @@ import {
 	generatedDocsHealthPath,
 	generatedExamplesDir,
 	generatedExamplesIndexPath,
+	generatedNormalizedTypeDocPath,
 	generatedReferenceDir,
 	generatedRoot,
 	generatedSiteDataPath,
+	generatedTypeDocJsonPath,
 	packageJsonPath,
 } from './shared/paths.ts';
+import { collectTypeDocModel } from './shared/typedoc.ts';
 
 interface ExampleEntry {
 	slug: string;
@@ -74,6 +77,7 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		collectPublicApiIndex(packageJsonPath),
 		readFile(changelogPath, 'utf8'),
 	]);
+	const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
 
 	const docsHealth = await collectDocsHealth(examples.length, publicApi);
 	const generatedReferenceSurfaces = buildReferenceSurfaces();
@@ -88,6 +92,11 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		writeFile(generatedDocsHealthPath, renderDocsHealth(docsHealth)),
 		writeFile(generatedApiIndexPath, `${JSON.stringify(publicApi, null, '\t')}\n`),
 		writeFile(generatedApiPagePath, renderPublicApiIndex(publicApi)),
+		writeFile(generatedTypeDocJsonPath, `${JSON.stringify(typeDoc.rawProject, null, '\t')}\n`),
+		writeFile(
+			generatedNormalizedTypeDocPath,
+			`${JSON.stringify(typeDoc.normalized, null, '\t')}\n`,
+		),
 	]);
 }
 
@@ -207,7 +216,7 @@ async function collectDocsHealth(
 		(relativePath) =>
 			!relativePath.startsWith('.generated/') && !relativePath.startsWith('.vitepress/'),
 	);
-	const generatedArtifactCount = 5;
+	const generatedArtifactCount = 7;
 
 	return {
 		authoredPageCount,
@@ -276,7 +285,22 @@ function buildReferenceSurfaces(): readonly GeneratedReferenceSurface[] {
 			sourceInputs: ['package.json', 'src/index.ts', 'src/runtime.ts', 'src/testkit.ts'],
 			status: 'prepared',
 			notes:
-				'The generated markdown index is backed by a structured JSON inventory at `docs/.generated/api/public-exports.json` so later TypeDoc normalization can reuse the same public-entrypoint model.',
+				'The generated markdown index is backed by `docs/.generated/api/public-exports.json`; full signature work now flows through the raw `typedoc.json` artifact and the normalized `typedoc-normalized.json` model beside it.',
+		},
+		{
+			id: 'generated-typedoc-model',
+			title: 'Normalized TypeDoc Model',
+			artifactPath: 'docs/.generated/api/typedoc-normalized.json',
+			sourceInputs: [
+				'package.json',
+				'tsconfig.json',
+				'src/index.ts',
+				'src/runtime.ts',
+				'src/testkit.ts',
+			],
+			status: 'prepared',
+			notes:
+				'This DreamCLI-owned JSON model is derived from TypeDoc output so later symbol pages and schema-description enrichment do not depend on raw TypeDoc shape.',
 		},
 	];
 }
