@@ -71,8 +71,12 @@ describe('api-index', () => {
 		expect(markdown).toContain('# Generated API Index');
 		expect(markdown).toContain('## `dreamcli`');
 		expect(markdown).toContain('### Functions');
-		expect(markdown).toContain('| `cli` | `src/core/cli/index.ts` |');
-		expect(markdown).toContain('| `RuntimeAdapter` | `src/runtime/adapter.ts` |');
+		expect(markdown).toContain(
+			'| [`cli`](/reference/symbols/main/cli) | `src/core/cli/index.ts` |',
+		);
+		expect(markdown).toContain(
+			'| [`RuntimeAdapter`](/reference/symbols/runtime/RuntimeAdapter) | `src/runtime/adapter.ts` |',
+		);
 		expect(markdown).toContain('| `schema` | `dreamcli.schema.json` |');
 	});
 });

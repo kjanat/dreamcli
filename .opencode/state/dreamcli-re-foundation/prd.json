@@ -270,7 +270,7 @@
 			"description": "Generate per-symbol API reference pages from normalized data. Done when: symbol pages are stable, searchable, deep-linkable, and support links from examples and the API index.",
 			"depends": ["normalize-typedoc-data"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "crosslink-doc-surfaces",

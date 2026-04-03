@@ -7,7 +7,7 @@
  */
 
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, extname, join, relative } from 'node:path';
+import { basename, dirname, extname, join, relative } from 'node:path';
 
 import {
 	collectPublicApiIndex,
@@ -32,7 +32,9 @@ import {
 	generatedSiteDataPath,
 	generatedTypeDocJsonPath,
 	packageJsonPath,
+	symbolPagesRoot,
 } from './shared/paths.ts';
+import { collectSymbolPages } from './shared/symbol-pages.ts';
 import { collectTypeDocModel } from './shared/typedoc.ts';
 
 interface ExampleEntry {
@@ -59,6 +61,7 @@ interface DocsHealthSnapshot {
 	exampleCount: number;
 	publicEntrypointCount: number;
 	publicSymbolCount: number;
+	symbolPageCount: number;
 }
 
 const GENERATED_HEADER =
@@ -68,9 +71,11 @@ await rebuildDocsArtifacts();
 
 async function rebuildDocsArtifacts(): Promise<void> {
 	await rm(generatedRoot, { recursive: true, force: true });
+	await rm(symbolPagesRoot, { recursive: true, force: true });
 	await mkdir(generatedExamplesDir, { recursive: true });
 	await mkdir(generatedReferenceDir, { recursive: true });
 	await mkdir(generatedApiDir, { recursive: true });
+	await mkdir(symbolPagesRoot, { recursive: true });
 
 	const [examples, publicApi, changelog] = await Promise.all([
 		collectExamples(),
@@ -78,14 +83,15 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		readFile(changelogPath, 'utf8'),
 	]);
 	const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
+	const symbolPages = collectSymbolPages(typeDoc.normalized, symbolPagesRoot);
 
-	const docsHealth = await collectDocsHealth(examples.length, publicApi);
-	const generatedReferenceSurfaces = buildReferenceSurfaces();
+	const docsHealth = await collectDocsHealth(examples.length, publicApi, symbolPages.length);
+	const generatedReferenceSurfaces = buildReferenceSurfaces(symbolPages.length);
 
 	await Promise.all([
 		writeFile(
 			generatedSiteDataPath,
-			renderSiteData(examples, publicApi, generatedReferenceSurfaces, docsHealth),
+			renderSiteData(examples, publicApi, generatedReferenceSurfaces, docsHealth, symbolPages),
 		),
 		writeFile(generatedExamplesIndexPath, renderExamplesIndex(examples)),
 		writeFile(generatedChangelogPath, renderChangelog(changelog)),
@@ -97,6 +103,10 @@ async function rebuildDocsArtifacts(): Promise<void> {
 			generatedNormalizedTypeDocPath,
 			`${JSON.stringify(typeDoc.normalized, null, '\t')}\n`,
 		),
+		...symbolPages.map(async (page) => {
+			await mkdir(dirname(page.filePath), { recursive: true });
+			await writeFile(page.filePath, page.content);
+		}),
 	]);
 }
 
@@ -210,13 +220,14 @@ function titleFromSlug(slug: string): string {
 async function collectDocsHealth(
 	exampleCount: number,
 	publicApi: readonly PublicApiEntrypoint[],
+	symbolPageCount: number,
 ): Promise<DocsHealthSnapshot> {
 	const authoredPageCount = await countMarkdownFiles(
 		docsRoot,
 		(relativePath) =>
 			!relativePath.startsWith('.generated/') && !relativePath.startsWith('.vitepress/'),
 	);
-	const generatedArtifactCount = 7;
+	const generatedArtifactCount = 7 + symbolPageCount;
 
 	return {
 		authoredPageCount,
@@ -224,6 +235,7 @@ async function collectDocsHealth(
 		exampleCount,
 		publicEntrypointCount: publicApi.length,
 		publicSymbolCount: countPublicApiSymbols(publicApi),
+		symbolPageCount,
 	};
 }
 
@@ -249,7 +261,8 @@ async function countMarkdownFiles(
 			include(docsRelativePath) &&
 			repoPath !== 'docs/.generated/examples/index.md' &&
 			repoPath !== 'docs/.generated/reference/changelog.md' &&
-			repoPath !== 'docs/.generated/reference/docs-health.md'
+			repoPath !== 'docs/.generated/reference/docs-health.md' &&
+			!repoPath.startsWith('docs/reference/symbols/')
 		) {
 			count += 1;
 		}
@@ -258,7 +271,7 @@ async function countMarkdownFiles(
 	return count;
 }
 
-function buildReferenceSurfaces(): readonly GeneratedReferenceSurface[] {
+function buildReferenceSurfaces(symbolPageCount: number): readonly GeneratedReferenceSurface[] {
 	return [
 		{
 			id: 'generated-changelog',
@@ -302,6 +315,14 @@ function buildReferenceSurfaces(): readonly GeneratedReferenceSurface[] {
 			notes:
 				'This DreamCLI-owned JSON model is derived from TypeDoc output so later symbol pages and schema-description enrichment do not depend on raw TypeDoc shape.',
 		},
+		{
+			id: 'generated-symbol-pages',
+			title: 'Rendered Symbol Pages',
+			artifactPath: 'docs/reference/symbols/**/*.md',
+			sourceInputs: ['docs/.generated/api/typedoc-normalized.json'],
+			status: 'prepared',
+			notes: `Public symbol reference pages rendered from the normalized model. Current count: ${symbolPageCount}.`,
+		},
 	];
 }
 
@@ -310,7 +331,22 @@ function renderSiteData(
 	publicApi: readonly PublicApiEntrypoint[],
 	referenceSurfaces: readonly GeneratedReferenceSurface[],
 	docsHealth: DocsHealthSnapshot,
+	symbolPages: readonly {
+		id: string;
+		routePath: string;
+		entrypoint: string;
+		name: string;
+		summary: string | null;
+	}[],
 ): string {
+	const symbolPageIndex = symbolPages.map((page) => ({
+		id: page.id,
+		name: page.name,
+		entrypoint: page.entrypoint,
+		routePath: page.routePath,
+		summary: page.summary,
+	}));
+
 	return [
 		'/**',
 		' * Generated docs metadata consumed by VitePress config and wrapper pages.',
@@ -323,6 +359,8 @@ function renderSiteData(
 		`export const generatedReferenceSurfaces = ${JSON.stringify(referenceSurfaces, null, '\t')};`,
 		'',
 		`export const generatedPublicApi = ${JSON.stringify(publicApi, null, '\t')};`,
+		'',
+		`export const generatedSymbolPages = ${JSON.stringify(symbolPageIndex, null, '\t')};`,
 		'',
 		`export const docsHealthSnapshot = ${JSON.stringify(docsHealth, null, '\t')};`,
 		'',
@@ -377,6 +415,7 @@ function renderDocsHealth(docsHealth: DocsHealthSnapshot): string {
 		`| Source-backed examples | ${docsHealth.exampleCount} |`,
 		`| Public API entrypoints | ${docsHealth.publicEntrypointCount} |`,
 		`| Public API symbols | ${docsHealth.publicSymbolCount} |`,
+		`| Symbol reference pages | ${docsHealth.symbolPageCount} |`,
 		'',
 	].join('\n');
 }

@@ -139,6 +139,14 @@ export const generatedReferenceSurfaces = [
     notes:
       'This DreamCLI-owned JSON model is derived from TypeDoc output so later symbol pages and schema-description enrichment do not depend on raw TypeDoc shape.',
   },
+  {
+    id: 'generated-symbol-pages',
+    title: 'Rendered Symbol Pages',
+    artifactPath: 'docs/reference/symbols/**/*.md',
+    sourceInputs: ['docs/.generated/api/typedoc-normalized.json'],
+    status: 'prepared',
+    notes: 'Public symbol reference pages rendered from the normalized model. Current count: 158.',
+  },
 ];
 
 export const generatedPublicApi = [
@@ -1061,10 +1069,1202 @@ export const generatedPublicApi = [
   },
 ];
 
+export const generatedSymbolPages = [
+  {
+    id: 'dreamcli:ActionHandler',
+    name: 'ActionHandler',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ActionHandler',
+    summary:
+      'Action handler function signature.\n\nMay be sync or async — the framework will `await` the return value\nregardless. The `C` parameter carries the accumulated middleware\ncontext type (defaults to empty).',
+  },
+  {
+    id: 'dreamcli:ActionParams',
+    name: 'ActionParams',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ActionParams',
+    summary:
+      'The bag of values received by an action handler.\n\n- `args`  — fully resolved positional arguments\n- `flags` — fully resolved flags\n- `ctx`   — derive/middleware-provided context\n- `out`   — output channel\n- `meta`  — CLI program metadata (name, bin, version, command)\n\nThe `C` parameter defaults to `Record<string, never>`, making `ctx`\nproperty access a type error until derive or middleware extends it.',
+  },
+  {
+    id: 'dreamcli:ActivityEvent',
+    name: 'ActivityEvent',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ActivityEvent',
+    summary:
+      'Discriminated union of spinner and progress lifecycle events.\n\nCaptured by testkit in RunResult.activity for assertion\nwithout polluting stdout/stderr arrays.',
+  },
+  {
+    id: 'dreamcli:AnyCommandBuilder',
+    name: 'AnyCommandBuilder',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/AnyCommandBuilder',
+    summary:
+      "Type-erased CommandBuilder for heterogeneous subcommand storage.\n\nAdvanced helper alias: useful only when working on DreamCLI internals or\ncustom tooling that mirrors the framework's type-erasure boundary.\n\nUses widest possible generic bounds so any `CommandBuilder<F, A, C>` is\nassignable. The CLI layer's `eraseCommand()` traverses these to build\nthe execution tree.",
+  },
+  {
+    id: 'dreamcli:arg',
+    name: 'arg',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/arg',
+    summary:
+      'Positional argument schema factory.\n\nEntry point for defining args on a command. Use `arg.<kind>()` to create\nan `ArgBuilder`, then chain modifiers and pass the result to\n`command().arg(name, builder)`.\n\nFour kinds are available:\n- `arg.string()` — raw string (most common)\n- `arg.number()` — parsed to number, errors on NaN\n- `arg.enum(values)` — constrained to listed literals\n- `arg.custom(fn)` — arbitrary parse function, infers return type',
+  },
+  {
+    id: 'dreamcli:ArgBuilder',
+    name: 'ArgBuilder',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ArgBuilder',
+    summary:
+      'Immutable positional argument schema builder.\n\nThe type parameter `C` is a phantom that tracks the value type, presence,\nand variadic state through the fluent chain. Each modifier returns a **new**\nbuilder — the original is never mutated.',
+  },
+  {
+    id: 'dreamcli:ArgConfig',
+    name: 'ArgConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ArgConfig',
+    summary: 'Compile-time state carried through the builder chain.',
+  },
+  {
+    id: 'dreamcli:ArgFactory',
+    name: 'ArgFactory',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ArgFactory',
+    summary:
+      'Arg factory functions — the public API for creating positional arguments.\n\nEach method returns an `ArgBuilder` seeded with the correct `ArgKind`\nand initial type-level config. Chain modifiers (`.optional()`, `.env()`,\n`.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.\n\nAll args are **required** by default. Resolution order when extra\nsources are configured: **CLI → stdin → env → default**.',
+  },
+  {
+    id: 'dreamcli:ArgKind',
+    name: 'ArgKind',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ArgKind',
+    summary: 'Discriminator for the kind of value an arg accepts.',
+  },
+  {
+    id: 'dreamcli:ArgParseFn',
+    name: 'ArgParseFn',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ArgParseFn',
+    summary: 'Custom parse function for `arg.custom()`.',
+  },
+  {
+    id: 'dreamcli:ArgPresence',
+    name: 'ArgPresence',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ArgPresence',
+    summary:
+      "Presence describes whether a positional arg is guaranteed to exist when the\naction handler runs:\n\n- `'required'`  — must be supplied; error if missing (default)\n- `'optional'`  — may be `undefined` if not supplied\n- `'defaulted'` — always present (falls back to default value)",
+  },
+  {
+    id: 'dreamcli:ArgSchema',
+    name: 'ArgSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ArgSchema',
+    summary:
+      "The runtime descriptor stored inside every `ArgBuilder`. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics.",
+  },
+  {
+    id: 'dreamcli:BeforeParseParams',
+    name: 'BeforeParseParams',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/BeforeParseParams',
+    summary: 'Payload for `beforeParse`.',
+  },
+  {
+    id: 'dreamcli:buildConfigSearchPaths',
+    name: 'buildConfigSearchPaths',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/buildConfigSearchPaths',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:cli',
+    name: 'cli',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/cli',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:CLIBuilder',
+    name: 'CLIBuilder',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIBuilder',
+    summary:
+      'Immutable CLI program builder.\n\nRegisters commands, handles root-level `--help`/`--version`, and\ndispatches to the matched command based on argv.\n\nTwo execution paths:\n- `.execute(argv, options?)` — testable, returns `RunResult`\n- `.run(options?)` — production entry, reads `process.argv`, exits process',
+  },
+  {
+    id: 'dreamcli:CLIError',
+    name: 'CLIError',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIError',
+    summary:
+      'Base structured error for DreamCLI.\n\nEvery error surfaced by the framework extends this class, ensuring a\nconsistent shape for rendering (TTY pretty-print, `--json`, test assertions).',
+  },
+  {
+    id: 'dreamcli:CLIErrorJSON',
+    name: 'CLIErrorJSON',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIErrorJSON',
+    summary: 'Shape returned by `CLIError.toJSON()`.',
+  },
+  {
+    id: 'dreamcli:CLIErrorOptions',
+    name: 'CLIErrorOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIErrorOptions',
+    summary: 'Options accepted by the `CLIError` constructor.',
+  },
+  {
+    id: 'dreamcli:CLIOptions',
+    name: 'CLIOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIOptions',
+    summary:
+      'Options for the `cli({...})` factory form.\n\nThis form is useful when the displayed CLI name should be inferred from the\ncurrent runtime invocation instead of always being hard-coded.',
+  },
+  {
+    id: 'dreamcli:CLIPlugin',
+    name: 'CLIPlugin',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIPlugin',
+    summary:
+      'Immutable plugin definition registered via `CLIBuilder.plugin()`.\n\nUse plugin to construct values of this shape instead of manually\nassembling the object.',
+  },
+  {
+    id: 'dreamcli:CLIPluginHooks',
+    name: 'CLIPluginHooks',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIPluginHooks',
+    summary:
+      'Individual lifecycle hooks that a plugin may implement.\n\nHook order for a successful command run is:\n`beforeParse` → `afterResolve` → `beforeAction` → middleware/action → `afterAction`.\n\nHooks are awaited serially and run in plugin registration order at each\nstage. Throwing from any hook aborts the command just like throwing from\nmiddleware or the action handler. `afterAction` runs only after the\nmiddleware chain and action complete successfully.',
+  },
+  {
+    id: 'dreamcli:CLIRunOptions',
+    name: 'CLIRunOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLIRunOptions',
+    summary:
+      'Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.\n\nMirrors `RunOptions` from testkit but adds CLI-level concerns\n(version display, root help formatting, runtime adapter).',
+  },
+  {
+    id: 'dreamcli:CLISchema',
+    name: 'CLISchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CLISchema',
+    summary:
+      'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\nBuilt incrementally by `CLIBuilder`.',
+  },
+  {
+    id: 'dreamcli:command',
+    name: 'command',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/command',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:CommandArgEntry',
+    name: 'CommandArgEntry',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CommandArgEntry',
+    summary:
+      'A named positional argument entry in the command schema.\n\nPairs a user-facing arg name with its ArgSchema descriptor.\nThe array ordering in CommandSchema.args determines CLI position.',
+  },
+  {
+    id: 'dreamcli:CommandBuilder',
+    name: 'CommandBuilder',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CommandBuilder',
+    summary:
+      'Immutable command schema builder.\n\nThe type parameters `F` (flags), `A` (args), and `C` (context) are\nphantom types that accumulate builder types as `.flag()`, `.arg()`,\n`.derive()`, and `.middleware()` are chained. The `.action()` handler receives\nfully typed `ActionParams<F, A, C>`.\n\n`C` defaults to `Record<string, never>`, making `ctx` property\naccess a type error until derive or middleware extends it.',
+  },
+  {
+    id: 'dreamcli:CommandConfig',
+    name: 'CommandConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CommandConfig',
+    summary:
+      'Compile-time state carried through the command builder chain.\n\n`F` accumulates named flag builders; `A` accumulates named arg builders.\nBoth start empty (`{}`) and grow as `.flag()` / `.arg()` are called.',
+  },
+  {
+    id: 'dreamcli:CommandExample',
+    name: 'CommandExample',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CommandExample',
+    summary: 'A single usage example shown in help text.',
+  },
+  {
+    id: 'dreamcli:CommandMeta',
+    name: 'CommandMeta',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CommandMeta',
+    summary:
+      "Runtime metadata about the CLI program and current command execution.\n\nAvailable to action handlers and middleware.\n\nPopulated by the CLI dispatch layer from CLISchema and\nCommandSchema. For standalone `runCommand()` calls without\na CLI wrapper, a minimal meta is constructed from the command's own schema.",
+  },
+  {
+    id: 'dreamcli:CommandSchema',
+    name: 'CommandSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CommandSchema',
+    summary:
+      "Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nmiddleware, and interactive resolver.",
+  },
+  {
+    id: 'dreamcli:CompletionOptions',
+    name: 'CompletionOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/CompletionOptions',
+    summary:
+      'Options for completion script generation.\n\nPassed to individual shell generators alongside the CLI schema.\n\nThese options affect the generated script text, not runtime completion\nbehavior after installation.',
+  },
+  {
+    id: 'dreamcli:ConfigAdapter',
+    name: 'ConfigAdapter',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ConfigAdapter',
+    summary:
+      'The subset of RuntimeAdapter needed for config discovery.\n\nExported so custom hosts and tests can type the minimal adapter required by\ndiscoverConfig without depending on the full runtime adapter shape.',
+  },
+  {
+    id: 'dreamcli:ConfigDiscoveryOptions',
+    name: 'ConfigDiscoveryOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ConfigDiscoveryOptions',
+    summary: 'Options for discoverConfig.',
+  },
+  {
+    id: 'dreamcli:ConfigDiscoveryResult',
+    name: 'ConfigDiscoveryResult',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ConfigDiscoveryResult',
+    summary: 'Discriminated result of config discovery.',
+  },
+  {
+    id: 'dreamcli:configFormat',
+    name: 'configFormat',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/configFormat',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:ConfigFound',
+    name: 'ConfigFound',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ConfigFound',
+    summary: 'Successful config discovery — file found and parsed.',
+  },
+  {
+    id: 'dreamcli:ConfigNotFound',
+    name: 'ConfigNotFound',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ConfigNotFound',
+    summary: 'No config file found at any candidate path (not an error).',
+  },
+  {
+    id: 'dreamcli:ConfigSettings',
+    name: 'ConfigSettings',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ConfigSettings',
+    summary:
+      'Config discovery settings for automatic config file loading.\n\nStored in CLISchema and consumed by `CLIBuilder.run()` to\ncall discoverConfig before dispatching to a command.',
+  },
+  {
+    id: 'dreamcli:ConfirmPromptConfig',
+    name: 'ConfirmPromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ConfirmPromptConfig',
+    summary: 'Yes/no confirmation prompt — maps to `boolean` flags. Part of PromptConfig.',
+  },
+  {
+    id: 'dreamcli:createArgSchema',
+    name: 'createArgSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/createArgSchema',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:createOutput',
+    name: 'createOutput',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/createOutput',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:createSchema',
+    name: 'createSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/createSchema',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:createTerminalPrompter',
+    name: 'createTerminalPrompter',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/createTerminalPrompter',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:definitionMetaSchema',
+    name: 'definitionMetaSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/definitionMetaSchema',
+    summary:
+      'JSON Schema (draft 2020-12) that validates the output of generateSchema.\n\nEach `$defs` entry is defined once as a schema DSL string — the DSL\nparser produces a runtime AST, and nodeToJsonSchema converts\nthat AST to a JSON Schema fragment. No probe fixtures, no override\nmaps, no manually maintained type definitions.\n\nHosted at DEFINITION_SCHEMA_URL for `$schema` resolution. Also\nexported so tooling can validate definition documents without a network\nround-trip.',
+  },
+  {
+    id: 'dreamcli:DeprecationWarning',
+    name: 'DeprecationWarning',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/DeprecationWarning',
+    summary: 'Structured deprecation notice emitted for explicitly sourced values.',
+  },
+  {
+    id: 'dreamcli:DeriveHandler',
+    name: 'DeriveHandler',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/DeriveHandler',
+    summary:
+      'Command-scoped typed pre-action handler.\n\nDerive handlers may:\n- validate resolved input and throw `CLIError`\n- return `undefined` to continue without changing context\n- return an object whose properties merge into `ctx` downstream\n\nThey cannot wrap downstream execution; use `middleware()` for that.',
+  },
+  {
+    id: 'dreamcli:DeriveParams',
+    name: 'DeriveParams',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/DeriveParams',
+    summary:
+      'The bag of values received by a derive handler.\n\nIdentical to ActionParams: derives run after full resolution and\nbefore the action handler, with typed args/flags/current context plus `out`\nand `meta`.',
+  },
+  {
+    id: 'dreamcli:discoverConfig',
+    name: 'discoverConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/discoverConfig',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:discoverPackageJson',
+    name: 'discoverPackageJson',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/discoverPackageJson',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:ErrorCode',
+    name: 'ErrorCode',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ErrorCode',
+    summary: 'Any framework error code (extensible via `string & {}`).',
+  },
+  {
+    id: 'dreamcli:Fallback',
+    name: 'Fallback',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/Fallback',
+    summary:
+      "Non-TTY fallback strategy for spinners and progress bars.\n\n- `'silent'` — no output at all (default). Ideal for CI where decorative\n  output is noise.\n- `'static'` — emit plain text via `out.log()` / `out.error()` at\n  lifecycle boundaries (start, succeed, fail). No animation.",
+  },
+  {
+    id: 'dreamcli:flag',
+    name: 'flag',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/flag',
+    summary:
+      'Flag schema factory. Call `flag.<kind>()` to create an immutable\nFlagBuilder with full type inference and safe modifier chaining.',
+  },
+  {
+    id: 'dreamcli:FlagBuilder',
+    name: 'FlagBuilder',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FlagBuilder',
+    summary:
+      'Immutable flag schema builder.\n\nThe type parameter `C` is a phantom that tracks the value type and presence\nthrough the fluent chain. Each modifier returns a **new** builder — the\noriginal is never mutated.',
+  },
+  {
+    id: 'dreamcli:FlagConfig',
+    name: 'FlagConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FlagConfig',
+    summary:
+      'Compile-time state carried through the builder chain.\n\nAdding new tracked properties only requires extending this interface — no\nbuilder signature changes.',
+  },
+  {
+    id: 'dreamcli:FlagFactory',
+    name: 'FlagFactory',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FlagFactory',
+    summary:
+      'Factory that creates FlagBuilder instances seeded with the correct\nFlagKind and initial type-level config.',
+  },
+  {
+    id: 'dreamcli:FlagKind',
+    name: 'FlagKind',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FlagKind',
+    summary: 'Discriminator for the kind of value a flag accepts.',
+  },
+  {
+    id: 'dreamcli:FlagParseFn',
+    name: 'FlagParseFn',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FlagParseFn',
+    summary:
+      'Custom parse function for `flag.custom()`.\n\nReceives `string` from CLI argv and env vars, or any JSON-representable\nvalue from config files. Narrow inside the function as needed.',
+  },
+  {
+    id: 'dreamcli:FlagPresence',
+    name: 'FlagPresence',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FlagPresence',
+    summary:
+      "Presence describes whether a flag value is guaranteed to exist when the\naction handler runs:\n\n- `'optional'`  — not required; unresolved value follows the kind-specific\n  optional fallback (`undefined` for most flags, `[]` for arrays)\n- `'required'`  — must be supplied; error if missing\n- `'defaulted'` — always present (falls back to default value)",
+  },
+  {
+    id: 'dreamcli:FlagSchema',
+    name: 'FlagSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FlagSchema',
+    summary:
+      "The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
+  },
+  {
+    id: 'dreamcli:formatHelp',
+    name: 'formatHelp',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/formatHelp',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:FormatLoader',
+    name: 'FormatLoader',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/FormatLoader',
+    summary:
+      'Format loader — parses file content into a config object.\n\nRegister custom config formats by providing file extensions and a parser.\nParsers may return any parsed value; discoverConfig validates that\nthe result is a plain object before feeding it into the resolution chain.\n\nImplementations should throw on syntax or shape errors; the caller wraps\nthose failures as CLIError with code `CONFIG_PARSE_ERROR`.',
+  },
+  {
+    id: 'dreamcli:generateBashCompletion',
+    name: 'generateBashCompletion',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/generateBashCompletion',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:generateCompletion',
+    name: 'generateCompletion',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/generateCompletion',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:generateInputSchema',
+    name: 'generateInputSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/generateInputSchema',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:generateSchema',
+    name: 'generateSchema',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/generateSchema',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:generateZshCompletion',
+    name: 'generateZshCompletion',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/generateZshCompletion',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:group',
+    name: 'group',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/group',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:HelpOptions',
+    name: 'HelpOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/HelpOptions',
+    summary: 'Options for customising help output.',
+  },
+  {
+    id: 'dreamcli:InferArg',
+    name: 'InferArg',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InferArg',
+    summary: 'Extract the resolved value type from an `ArgBuilder`.',
+  },
+  {
+    id: 'dreamcli:InferArgs',
+    name: 'InferArgs',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InferArgs',
+    summary: 'Extract resolved value types from a record of builders.',
+  },
+  {
+    id: 'dreamcli:inferCliName',
+    name: 'inferCliName',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/inferCliName',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:InferFlag',
+    name: 'InferFlag',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InferFlag',
+    summary: 'Extract the resolved value type from a `FlagBuilder`.',
+  },
+  {
+    id: 'dreamcli:InferFlags',
+    name: 'InferFlags',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InferFlags',
+    summary: 'Extract resolved value types from a record of builders.',
+  },
+  {
+    id: 'dreamcli:InputPromptConfig',
+    name: 'InputPromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InputPromptConfig',
+    summary: 'Free-text input prompt — maps to `string` and `number` flags. Part of PromptConfig.',
+  },
+  {
+    id: 'dreamcli:InteractiveParams',
+    name: 'InteractiveParams',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InteractiveParams',
+    summary:
+      'Parameters received by the interactive resolver function.\n\n`flags` contains partially resolved values — present for flags resolved\nvia CLI, env, or config, `undefined` for unresolved flags. The resolver\nuses this to decide which prompts to show based on current state.',
+  },
+  {
+    id: 'dreamcli:InteractiveResolver',
+    name: 'InteractiveResolver',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InteractiveResolver',
+    summary:
+      'Interactive resolver function for command-level prompt control.\n\nCalled after CLI/env/config resolution but before per-flag prompts fire.\nReceives partially resolved values and returns a prompt schema for\nflags that should be prompted. Commands without `.interactive()` use\nper-flag prompt configs directly.',
+  },
+  {
+    id: 'dreamcli:InteractiveResult',
+    name: 'InteractiveResult',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/InteractiveResult',
+    summary:
+      "A record mapping flag names to prompt configs or falsy values.\n\n- `PromptConfig` — show this prompt for the flag\n- `false | undefined | null | 0 | ''` — skip prompting for this flag\n\nOnly flag names that need prompting should have truthy values.\nFlags not mentioned are handled by their per-flag `.prompt()` config.",
+  },
+  {
+    id: 'dreamcli:isCLIError',
+    name: 'isCLIError',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/isCLIError',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:isParseError',
+    name: 'isParseError',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/isParseError',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:isValidationError',
+    name: 'isValidationError',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/isValidationError',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:JsonSchemaOptions',
+    name: 'JsonSchemaOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/JsonSchemaOptions',
+    summary:
+      'Options for JSON Schema generation.\n\nBoth generateSchema and generateInputSchema accept these\noptions to control which parts of the CLI schema are included in the output.',
+  },
+  {
+    id: 'dreamcli:middleware',
+    name: 'middleware',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/middleware',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:Middleware',
+    name: 'Middleware',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/Middleware',
+    summary:
+      'Middleware with phantom output type.\n\nThe `Output` parameter tracks what this middleware adds to context at\ncompile time. The `_output` brand is phantom — it exists only in the\ntype system for inference, not at runtime.\n\nCreated via the `middleware()` factory. Attached to commands via\n`CommandBuilder.middleware()`.',
+  },
+  {
+    id: 'dreamcli:MiddlewareHandler',
+    name: 'MiddlewareHandler',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/MiddlewareHandler',
+    summary:
+      'Middleware handler function with typed `next()` parameter.\n\nThe `Output` generic constrains what properties must be passed to\n`next()`, ensuring type-safe context additions at the call site.',
+  },
+  {
+    id: 'dreamcli:MiddlewareParams',
+    name: 'MiddlewareParams',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/MiddlewareParams',
+    summary:
+      "Parameters received by a middleware function at runtime.\n\nMiddleware receives erased args/flags (since it's defined independently\nof commands) plus the accumulated context from prior middleware and a\n`next` function to continue the chain.",
+  },
+  {
+    id: 'dreamcli:MultiselectPromptConfig',
+    name: 'MultiselectPromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/MultiselectPromptConfig',
+    summary:
+      'Multi-selection prompt — maps to `array` flags.\nReturns an array of selected SelectChoice values. Part of PromptConfig.',
+  },
+  {
+    id: 'dreamcli:Out',
+    name: 'Out',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/Out',
+    summary:
+      'Output channel available inside action handlers.\n\nProvides structured methods for stdout/stderr, JSON output,\nspinners, progress bars, and tables. The real implementation lives in\n`src/core/output/`; this interface defines the shape that handlers consume.',
+  },
+  {
+    id: 'dreamcli:OutputOptions',
+    name: 'OutputOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/OutputOptions',
+    summary:
+      'Configuration for creating an output channel.\n\nEvery field is optional — sensible defaults are applied when omitted.',
+  },
+  {
+    id: 'dreamcli:PackageJsonAdapter',
+    name: 'PackageJsonAdapter',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PackageJsonAdapter',
+    summary:
+      'The subset of RuntimeAdapter needed for package.json discovery.\n\nUsing a narrow pick keeps the function easy to test and makes the\ndependency explicit.',
+  },
+  {
+    id: 'dreamcli:PackageJsonData',
+    name: 'PackageJsonData',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PackageJsonData',
+    summary:
+      'Subset of package.json fields relevant to CLI metadata.\n\nAll fields are optional — a valid package.json may omit any of them.',
+  },
+  {
+    id: 'dreamcli:PackageJsonSettings',
+    name: 'PackageJsonSettings',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PackageJsonSettings',
+    summary:
+      'Package.json auto-discovery settings.\n\nStored in CLISchema and consumed by `CLIBuilder.run()` to\ncall discoverPackageJson before dispatching to a command.',
+  },
+  {
+    id: 'dreamcli:parse',
+    name: 'parse',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/parse',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:ParseError',
+    name: 'ParseError',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ParseError',
+    summary:
+      'Error thrown when argv tokenization / parsing fails.\n\nExit code defaults to `2` (standard for CLI usage errors).',
+  },
+  {
+    id: 'dreamcli:ParseErrorCode',
+    name: 'ParseErrorCode',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ParseErrorCode',
+    summary: 'Codes emitted during argv parsing.',
+  },
+  {
+    id: 'dreamcli:ParseErrorOptions',
+    name: 'ParseErrorOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ParseErrorOptions',
+    summary: 'Options for `ParseError`. Code is narrowed to parse-specific codes.',
+  },
+  {
+    id: 'dreamcli:ParseResult',
+    name: 'ParseResult',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ParseResult',
+    summary:
+      'Raw parsed values before resolution (defaults, env, config, etc.).\n\nFlag values are `unknown` because type coercion happens here but the\ngeneric type info lives in the schema builders, not at runtime.',
+  },
+  {
+    id: 'dreamcli:plugin',
+    name: 'plugin',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/plugin',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:PluginCommandContext',
+    name: 'PluginCommandContext',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PluginCommandContext',
+    summary: 'Shared hook payload for a concrete command execution.',
+  },
+  {
+    id: 'dreamcli:ProgressHandle',
+    name: 'ProgressHandle',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ProgressHandle',
+    summary:
+      'Handle returned by Out.progress for lifecycle control.\n\nTerminal methods (`done`, `fail`) are idempotent — calling any\nof them after the handle is already stopped is a no-op.',
+  },
+  {
+    id: 'dreamcli:ProgressOptions',
+    name: 'ProgressOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ProgressOptions',
+    summary: 'Options for Out.progress.',
+  },
+  {
+    id: 'dreamcli:PromptConfig',
+    name: 'PromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PromptConfig',
+    summary:
+      "Discriminated union of all prompt configurations.\n\nUse the `kind` field to narrow:\n```ts\nif (config.kind === 'select') {\n  config.choices // readonly SelectChoice[] | undefined\n}\n```",
+  },
+  {
+    id: 'dreamcli:PromptConfigBase',
+    name: 'PromptConfigBase',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PromptConfigBase',
+    summary: 'Shared fields across all prompt kinds.',
+  },
+  {
+    id: 'dreamcli:PromptEngine',
+    name: 'PromptEngine',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PromptEngine',
+    summary:
+      'Prompt engine interface.\n\nImplementations render a single prompt to the user and return the\nresult. The engine is stateless per call — each `promptOne` is\nindependent.\n\nThe resolution chain calls `promptOne` for each flag that needs\ninteractive input. Engines do not need schema knowledge — all\nrelevant context (message, choices, validation) is in the config.',
+  },
+  {
+    id: 'dreamcli:PromptKind',
+    name: 'PromptKind',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PromptKind',
+    summary:
+      "The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list",
+  },
+  {
+    id: 'dreamcli:PromptResult',
+    name: 'PromptResult',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/PromptResult',
+    summary:
+      "The raw result returned by a prompt engine for a single prompt.\n\n- `answered: true`  — user provided a value\n- `answered: false` — user cancelled/aborted (Ctrl+C, ESC, etc.)\n\nCoercion to the flag's kind is the resolver's responsibility, not the\nprompt engine's.",
+  },
+  {
+    id: 'dreamcli:ReadFn',
+    name: 'ReadFn',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ReadFn',
+    summary:
+      "A function that reads a single line of user input.\n\nReturns `null` on EOF (Ctrl+D on Unix, Ctrl+Z on Windows),\nindicating the user closed the input stream (treated as cancel).\n\nThe terminal prompter uses this as its sole input seam. The\nresolution chain (prompt-adapter-1) will wire this to the\nruntime adapter's stdin.",
+  },
+  {
+    id: 'dreamcli:resolve',
+    name: 'resolve',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/resolve',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:ResolvedArgValue',
+    name: 'ResolvedArgValue',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolvedArgValue',
+    summary:
+      "Compute the final value type from config — this is what handlers receive.\n\nAdvanced type helper: this powers InferArg and action-handler\ninference. Most apps do not need to mention it explicitly.\n\nVariadic args always produce an array. Non-variadic:\n- `'optional'`  → `T | undefined`\n- `'required'`  → `T`\n- `'defaulted'` → `T`",
+  },
+  {
+    id: 'dreamcli:ResolvedCommandParams',
+    name: 'ResolvedCommandParams',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolvedCommandParams',
+    summary: 'Payload for hooks that observe resolved inputs.',
+  },
+  {
+    id: 'dreamcli:ResolvedMultiselectPromptConfig',
+    name: 'ResolvedMultiselectPromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolvedMultiselectPromptConfig',
+    summary:
+      'A multiselect prompt config with choices guaranteed non-empty.\n\nSame guarantee as `ResolvedSelectPromptConfig` — choices are always\npresent and non-empty.',
+  },
+  {
+    id: 'dreamcli:ResolvedPromptConfig',
+    name: 'ResolvedPromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolvedPromptConfig',
+    summary:
+      'Prompt config variant where select/multiselect choices are guaranteed\npresent. The prompt engine receives this (not raw `PromptConfig`),\nso it never needs to merge enum values from `FlagSchema`.\n\nconfirm and input configs pass through unchanged.',
+  },
+  {
+    id: 'dreamcli:ResolvedSelectPromptConfig',
+    name: 'ResolvedSelectPromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolvedSelectPromptConfig',
+    summary:
+      "A select prompt config with choices guaranteed non-empty.\n\nThe resolution chain populates choices from `FlagSchema.enumValues`\nwhen the user's `PromptConfig` omits them.",
+  },
+  {
+    id: 'dreamcli:ResolvedValue',
+    name: 'ResolvedValue',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolvedValue',
+    summary:
+      "Compute the final value type from config — this is what handlers receive.\n\nAdvanced type helper: this powers InferFlag and action-handler\ninference. Most apps do not need to mention it explicitly.\n\n- `'optional'` + `'undefined'` fallback  → `T | undefined`\n- `'optional'` + `'empty-array'` fallback → `T`\n- `'required'`   → `T`\n- `'defaulted'`  → `T`",
+  },
+  {
+    id: 'dreamcli:ResolveOptions',
+    name: 'ResolveOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolveOptions',
+    summary:
+      'External state the resolver may consult after parsing.\n\nThe resolver never reaches into `process`, files, or terminal APIs directly;\ncallers inject those facts through this contract.',
+  },
+  {
+    id: 'dreamcli:resolvePromptConfig',
+    name: 'resolvePromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/resolvePromptConfig',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:ResolveResult',
+    name: 'ResolveResult',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ResolveResult',
+    summary: 'Fully resolved command input handed to the executor layer.',
+  },
+  {
+    id: 'dreamcli:RunResult',
+    name: 'RunResult',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/RunResult',
+    summary:
+      'Structured result from running a command.\n\nContains the exit code, captured stdout/stderr output, and an `error`\nfield that is `undefined` on success and populated on failure.',
+  },
+  {
+    id: 'dreamcli:SelectChoice',
+    name: 'SelectChoice',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/SelectChoice',
+    summary: 'A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts.',
+  },
+  {
+    id: 'dreamcli:SelectPromptConfig',
+    name: 'SelectPromptConfig',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/SelectPromptConfig',
+    summary:
+      'Single-selection prompt — maps to `enum` flags or any flag with choices. Part of PromptConfig.',
+  },
+  {
+    id: 'dreamcli:Shell',
+    name: 'Shell',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/Shell',
+    summary:
+      'Supported shell targets for completion script generation.\n\n`bash` and `zsh` are implemented first; `fish` and `powershell` are\ndeclared for forward compatibility but currently throw on generation.',
+  },
+  {
+    id: 'dreamcli:SHELLS',
+    name: 'SHELLS',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/SHELLS',
+    summary:
+      'Implemented shell values as a frozen readonly non-empty tuple.\n\nUse this tuple for user-facing validation and shell selection UIs.\nUnimplemented planned shells remain part of the broader Shell union\nfor direct generator calls and future expansion, but they are intentionally\nomitted here so user-facing CLIs do not advertise unsupported targets.',
+  },
+  {
+    id: 'dreamcli:SpinnerHandle',
+    name: 'SpinnerHandle',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/SpinnerHandle',
+    summary:
+      'Handle returned by Out.spinner for lifecycle control.\n\nTerminal methods (`succeed`, `fail`, `stop`) are idempotent — calling any\nof them after the handle is already stopped is a no-op, not an error.',
+  },
+  {
+    id: 'dreamcli:SpinnerOptions',
+    name: 'SpinnerOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/SpinnerOptions',
+    summary: 'Options for Out.spinner.',
+  },
+  {
+    id: 'dreamcli:TableColumn',
+    name: 'TableColumn',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/TableColumn',
+    summary: 'Describes a single column in table output.',
+  },
+  {
+    id: 'dreamcli:TableFormat',
+    name: 'TableFormat',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/TableFormat',
+    summary: 'Render format override for Out.table.',
+  },
+  {
+    id: 'dreamcli:TableOptions',
+    name: 'TableOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/TableOptions',
+    summary: 'Per-call rendering options for Out.table.',
+  },
+  {
+    id: 'dreamcli:TableStream',
+    name: 'TableStream',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/TableStream',
+    summary: 'Output stream override for text table rendering.',
+  },
+  {
+    id: 'dreamcli:Token',
+    name: 'Token',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/Token',
+    summary:
+      'Token discriminated union.\n\nThe tokenizer produces these from raw argv strings. The parser then\ninterprets them against a command schema.',
+  },
+  {
+    id: 'dreamcli:tokenize',
+    name: 'tokenize',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/tokenize',
+    summary: null,
+  },
+  {
+    id: 'dreamcli:ValidationError',
+    name: 'ValidationError',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ValidationError',
+    summary:
+      'Error thrown when resolved values fail validation constraints.\n\nExit code defaults to `2` (standard for CLI usage errors).',
+  },
+  {
+    id: 'dreamcli:ValidationErrorCode',
+    name: 'ValidationErrorCode',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ValidationErrorCode',
+    summary: 'Codes emitted during post-parse validation / resolution.',
+  },
+  {
+    id: 'dreamcli:ValidationErrorOptions',
+    name: 'ValidationErrorOptions',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/ValidationErrorOptions',
+    summary: 'Options for `ValidationError`. Code is narrowed to validation-specific codes.',
+  },
+  {
+    id: 'dreamcli:Verbosity',
+    name: 'Verbosity',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/Verbosity',
+    summary: 'Stable text verbosity labels.',
+  },
+  {
+    id: 'dreamcli:WithArgPresence',
+    name: 'WithArgPresence',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/WithArgPresence',
+    summary:
+      'Advanced type helper used by `ArgBuilder` modifiers to replace presence.\nMost consumers rely on inference and never reference this directly.',
+  },
+  {
+    id: 'dreamcli:WithPresence',
+    name: 'WithPresence',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/WithPresence',
+    summary:
+      'Advanced type helper used by `FlagBuilder` modifiers to replace presence.\nMost consumers rely on inference and never reference this directly.',
+  },
+  {
+    id: 'dreamcli:WithVariadic',
+    name: 'WithVariadic',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/WithVariadic',
+    summary:
+      'Advanced type helper used by `ArgBuilder.variadic()`.\nMost consumers rely on inference and never reference this directly.',
+  },
+  {
+    id: 'dreamcli:WriteFn',
+    name: 'WriteFn',
+    entrypoint: 'dreamcli',
+    routePath: '/reference/symbols/main/WriteFn',
+    summary:
+      'A function that writes a string somewhere.\n\nThis is the only write primitive the output layer depends on.\nIn production it usually wraps `process.stdout.write` or\n`process.stderr.write`; in tests it is often a simple string accumulator.\n\nThe contract is intentionally tiny:\n- writes are synchronous fire-and-forget\n- callers decide whether to append a trailing newline\n- there is no backpressure or flush signal',
+  },
+  {
+    id: 'dreamcli/runtime:createAdapter',
+    name: 'createAdapter',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/createAdapter',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/runtime:createBunAdapter',
+    name: 'createBunAdapter',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/createBunAdapter',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/runtime:createDenoAdapter',
+    name: 'createDenoAdapter',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/createDenoAdapter',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/runtime:createNodeAdapter',
+    name: 'createNodeAdapter',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/createNodeAdapter',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/runtime:detectRuntime',
+    name: 'detectRuntime',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/detectRuntime',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/runtime:ExitError',
+    name: 'ExitError',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/ExitError',
+    summary:
+      'Error thrown by the default test adapter exit function.\n\nIn tests, `process.exit` would kill the test runner. Instead, the test\nadapter throws this error, allowing tests to assert on exit codes:\n\n```ts\ntry {\n  await cli.run({ adapter: createTestAdapter() });\n} catch (e) {\n  if (e instanceof ExitError) expect(e.code).toBe(0);\n}\n```',
+  },
+  {
+    id: 'dreamcli/runtime:Runtime',
+    name: 'Runtime',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/Runtime',
+    summary:
+      "Known JavaScript runtime environments.\n\n- `'node'` — Node.js\n- `'bun'` — Bun\n- `'deno'` — Deno\n- `'unknown'` — Unrecognized environment",
+  },
+  {
+    id: 'dreamcli/runtime:RuntimeAdapter',
+    name: 'RuntimeAdapter',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/RuntimeAdapter',
+    summary:
+      'Runtime adapter interface.\n\nDefines the minimal contract between the platform-agnostic core and\nthe host runtime (Node.js, Bun, Deno). Every platform-dependent\noperation flows through this interface — the core never calls\n`process.*`, `Deno.*`, or `Bun.*` directly.\n\nAdapters are designed to be:\n- **Immutable in shape:** all properties are readonly\n- **Minimal:** only the operations the framework actually needs\n- **Testable:** easily stubbed in tests via `createTestAdapter()`',
+  },
+  {
+    id: 'dreamcli/runtime:RUNTIMES',
+    name: 'RUNTIMES',
+    entrypoint: 'dreamcli/runtime',
+    routePath: '/reference/symbols/runtime/RUNTIMES',
+    summary:
+      'All known runtime values as a readonly tuple.\n\nUseful for validation, iteration, and exhaustiveness checks.',
+  },
+  {
+    id: 'dreamcli/testkit:CapturedOutput',
+    name: 'CapturedOutput',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/CapturedOutput',
+    summary: 'Captured output from a `createCaptureOutput` instance.',
+  },
+  {
+    id: 'dreamcli/testkit:createCaptureOutput',
+    name: 'createCaptureOutput',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/createCaptureOutput',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/testkit:createTestAdapter',
+    name: 'createTestAdapter',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/createTestAdapter',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/testkit:createTestPrompter',
+    name: 'createTestPrompter',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/createTestPrompter',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/testkit:PROMPT_CANCEL',
+    name: 'PROMPT_CANCEL',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/PROMPT_CANCEL',
+    summary:
+      "Sentinel value representing a cancelled/aborted prompt in the test\nprompter's answer queue.\n\nUses `Symbol.for()` for cross-bundle safety — the same symbol is\nreturned regardless of which copy of the module is loaded.",
+  },
+  {
+    id: 'dreamcli/testkit:runCommand',
+    name: 'runCommand',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/runCommand',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/testkit:RunOptions',
+    name: 'RunOptions',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/RunOptions',
+    summary:
+      'Options accepted by `runCommand()` and internal command execution paths.\n\nEvery field is optional — sensible defaults are applied. This is the\nprimary process-free execution seam: inject env, config, prompt I/O, and\ndispatch-layer metadata without touching process state.',
+  },
+  {
+    id: 'dreamcli/testkit:RunResult',
+    name: 'RunResult',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/RunResult',
+    summary: null,
+  },
+  {
+    id: 'dreamcli/testkit:TestAdapterOptions',
+    name: 'TestAdapterOptions',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/TestAdapterOptions',
+    summary:
+      'Options for creating a test adapter.\n\nAll fields are optional — sensible defaults are applied for testing\nscenarios (empty argv, empty env, noop stdout/stderr, non-TTY, exit\nthrows instead of killing the process).',
+  },
+  {
+    id: 'dreamcli/testkit:TestAnswer',
+    name: 'TestAnswer',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/TestAnswer',
+    summary:
+      'A queued answer consumed by createTestPrompter.\n\nThe test prompter returns these values exactly as provided; it does not\ncoerce or validate them. The normal resolution pipeline performs any later\ntype coercion, so tests can supply values in the same shapes real prompts\nwould yield:\n\n- `string` for `input` and `select`\n- `boolean` for `confirm`\n- `string[]` for `multiselect`\n- PROMPT_CANCEL to simulate user cancellation\n\nBecause the type is intentionally `unknown`, tests may also inject malformed\nanswers to exercise downstream validation and error reporting.',
+  },
+  {
+    id: 'dreamcli/testkit:TestPrompterOptions',
+    name: 'TestPrompterOptions',
+    entrypoint: 'dreamcli/testkit',
+    routePath: '/reference/symbols/testkit/TestPrompterOptions',
+    summary: 'Options for `createTestPrompter`.',
+  },
+];
+
 export const docsHealthSnapshot = {
   authoredPageCount: 33,
-  generatedArtifactCount: 7,
+  generatedArtifactCount: 165,
   exampleCount: 7,
   publicEntrypointCount: 4,
   publicSymbolCount: 159,
+  symbolPageCount: 158,
 };

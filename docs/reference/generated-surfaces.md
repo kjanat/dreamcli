@@ -13,6 +13,7 @@ This page is the stable hand-authored entrypoint for source-backed reference art
 - Generated root: `docs/.generated/`
 - Public API entrypoints discovered: `{{ generatedPublicApi.length }}`
 - Public API symbols indexed: `{{ docsHealthSnapshot.publicSymbolCount }}`
+- Symbol pages rendered: `{{ docsHealthSnapshot.symbolPageCount }}`
 
 ## Prepared Artifacts
 
@@ -31,3 +32,4 @@ This page is the stable hand-authored entrypoint for source-backed reference art
 - Source-backed examples: `{{ docsHealthSnapshot.exampleCount }}`
 - Public API entrypoints: `{{ docsHealthSnapshot.publicEntrypointCount }}`
 - Public API symbols: `{{ docsHealthSnapshot.publicSymbolCount }}`
+- Symbol reference pages: `{{ docsHealthSnapshot.symbolPageCount }}`

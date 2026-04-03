@@ -9,6 +9,8 @@ import { dirname, extname, relative, resolve } from 'node:path';
 
 import ts from 'typescript';
 
+import { toSymbolPageRoute } from './symbol-pages.ts';
+
 export type PublicApiSymbolKind =
 	| 'asset'
 	| 'class'
@@ -130,7 +132,8 @@ export function renderPublicApiIndex(entrypoints: readonly PublicApiEntrypoint[]
 			'| Symbol | Source |',
 			'| --- | --- |',
 			...group.symbols.map(
-				(symbol) => `| \`${symbol.name}\` | \`${escapeTable(symbol.sourcePath)}\` |`,
+				(symbol) =>
+					`| ${renderSymbolCell(entrypoint.entrypoint, symbol)} | \`${escapeTable(symbol.sourcePath)}\` |`,
 			),
 			'',
 		]);
@@ -344,6 +347,14 @@ function toEntrypointName(subpath: string): string {
 
 function escapeTable(value: string): string {
 	return value.replaceAll('|', '\\|');
+}
+
+function renderSymbolCell(entrypoint: string, symbol: PublicApiSymbol): string {
+	if (symbol.kind === 'asset') {
+		return `\`${symbol.name}\``;
+	}
+
+	return `[\`${symbol.name}\`](${toSymbolPageRoute(entrypoint, symbol.name)})`;
 }
 
 async function readJsonFile(filePath: string): Promise<Record<string, unknown>> {

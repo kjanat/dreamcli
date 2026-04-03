@@ -15,166 +15,166 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 
 ### Functions (27)
 
-| Symbol                   | Source                               |
-| ------------------------ | ------------------------------------ |
-| `buildConfigSearchPaths` | `src/core/config/index.ts`           |
-| `cli`                    | `src/core/cli/index.ts`              |
-| `command`                | `src/core/schema/command.ts`         |
-| `configFormat`           | `src/core/config/index.ts`           |
-| `createArgSchema`        | `src/core/schema/arg.ts`             |
-| `createOutput`           | `src/core/output/index.ts`           |
-| `createSchema`           | `src/core/schema/flag.ts`            |
-| `createTerminalPrompter` | `src/core/prompt/index.ts`           |
-| `discoverConfig`         | `src/core/config/index.ts`           |
-| `discoverPackageJson`    | `src/core/config/package-json.ts`    |
-| `formatHelp`             | `src/core/help/index.ts`             |
-| `generateBashCompletion` | `src/core/completion/shells/bash.ts` |
-| `generateCompletion`     | `src/core/completion/index.ts`       |
-| `generateInputSchema`    | `src/core/json-schema/index.ts`      |
-| `generateSchema`         | `src/core/json-schema/index.ts`      |
-| `generateZshCompletion`  | `src/core/completion/shells/zsh.ts`  |
-| `group`                  | `src/core/schema/command.ts`         |
-| `inferCliName`           | `src/core/config/package-json.ts`    |
-| `isCLIError`             | `src/core/errors/index.ts`           |
-| `isParseError`           | `src/core/errors/index.ts`           |
-| `isValidationError`      | `src/core/errors/index.ts`           |
-| `middleware`             | `src/core/schema/middleware.ts`      |
-| `parse`                  | `src/core/parse/index.ts`            |
-| `plugin`                 | `src/core/cli/plugin.ts`             |
-| `resolve`                | `src/core/resolve/index.ts`          |
-| `resolvePromptConfig`    | `src/core/prompt/index.ts`           |
-| `tokenize`               | `src/core/parse/index.ts`            |
+| Symbol                                                                     | Source                               |
+| -------------------------------------------------------------------------- | ------------------------------------ |
+| [`buildConfigSearchPaths`](/reference/symbols/main/buildConfigSearchPaths) | `src/core/config/index.ts`           |
+| [`cli`](/reference/symbols/main/cli)                                       | `src/core/cli/index.ts`              |
+| [`command`](/reference/symbols/main/command)                               | `src/core/schema/command.ts`         |
+| [`configFormat`](/reference/symbols/main/configFormat)                     | `src/core/config/index.ts`           |
+| [`createArgSchema`](/reference/symbols/main/createArgSchema)               | `src/core/schema/arg.ts`             |
+| [`createOutput`](/reference/symbols/main/createOutput)                     | `src/core/output/index.ts`           |
+| [`createSchema`](/reference/symbols/main/createSchema)                     | `src/core/schema/flag.ts`            |
+| [`createTerminalPrompter`](/reference/symbols/main/createTerminalPrompter) | `src/core/prompt/index.ts`           |
+| [`discoverConfig`](/reference/symbols/main/discoverConfig)                 | `src/core/config/index.ts`           |
+| [`discoverPackageJson`](/reference/symbols/main/discoverPackageJson)       | `src/core/config/package-json.ts`    |
+| [`formatHelp`](/reference/symbols/main/formatHelp)                         | `src/core/help/index.ts`             |
+| [`generateBashCompletion`](/reference/symbols/main/generateBashCompletion) | `src/core/completion/shells/bash.ts` |
+| [`generateCompletion`](/reference/symbols/main/generateCompletion)         | `src/core/completion/index.ts`       |
+| [`generateInputSchema`](/reference/symbols/main/generateInputSchema)       | `src/core/json-schema/index.ts`      |
+| [`generateSchema`](/reference/symbols/main/generateSchema)                 | `src/core/json-schema/index.ts`      |
+| [`generateZshCompletion`](/reference/symbols/main/generateZshCompletion)   | `src/core/completion/shells/zsh.ts`  |
+| [`group`](/reference/symbols/main/group)                                   | `src/core/schema/command.ts`         |
+| [`inferCliName`](/reference/symbols/main/inferCliName)                     | `src/core/config/package-json.ts`    |
+| [`isCLIError`](/reference/symbols/main/isCLIError)                         | `src/core/errors/index.ts`           |
+| [`isParseError`](/reference/symbols/main/isParseError)                     | `src/core/errors/index.ts`           |
+| [`isValidationError`](/reference/symbols/main/isValidationError)           | `src/core/errors/index.ts`           |
+| [`middleware`](/reference/symbols/main/middleware)                         | `src/core/schema/middleware.ts`      |
+| [`parse`](/reference/symbols/main/parse)                                   | `src/core/parse/index.ts`            |
+| [`plugin`](/reference/symbols/main/plugin)                                 | `src/core/cli/plugin.ts`             |
+| [`resolve`](/reference/symbols/main/resolve)                               | `src/core/resolve/index.ts`          |
+| [`resolvePromptConfig`](/reference/symbols/main/resolvePromptConfig)       | `src/core/prompt/index.ts`           |
+| [`tokenize`](/reference/symbols/main/tokenize)                             | `src/core/parse/index.ts`            |
 
 ### Classes (7)
 
-| Symbol            | Source                       |
-| ----------------- | ---------------------------- |
-| `ArgBuilder`      | `src/core/schema/arg.ts`     |
-| `CLIBuilder`      | `src/core/cli/index.ts`      |
-| `CLIError`        | `src/core/errors/index.ts`   |
-| `CommandBuilder`  | `src/core/schema/command.ts` |
-| `FlagBuilder`     | `src/core/schema/flag.ts`    |
-| `ParseError`      | `src/core/errors/index.ts`   |
-| `ValidationError` | `src/core/errors/index.ts`   |
+| Symbol                                                       | Source                       |
+| ------------------------------------------------------------ | ---------------------------- |
+| [`ArgBuilder`](/reference/symbols/main/ArgBuilder)           | `src/core/schema/arg.ts`     |
+| [`CLIBuilder`](/reference/symbols/main/CLIBuilder)           | `src/core/cli/index.ts`      |
+| [`CLIError`](/reference/symbols/main/CLIError)               | `src/core/errors/index.ts`   |
+| [`CommandBuilder`](/reference/symbols/main/CommandBuilder)   | `src/core/schema/command.ts` |
+| [`FlagBuilder`](/reference/symbols/main/FlagBuilder)         | `src/core/schema/flag.ts`    |
+| [`ParseError`](/reference/symbols/main/ParseError)           | `src/core/errors/index.ts`   |
+| [`ValidationError`](/reference/symbols/main/ValidationError) | `src/core/errors/index.ts`   |
 
 ### Constants (4)
 
-| Symbol                 | Source                          |
-| ---------------------- | ------------------------------- |
-| `arg`                  | `src/core/schema/arg.ts`        |
-| `definitionMetaSchema` | `src/core/json-schema/index.ts` |
-| `flag`                 | `src/core/schema/flag.ts`       |
-| `SHELLS`               | `src/core/completion/index.ts`  |
+| Symbol                                                                 | Source                          |
+| ---------------------------------------------------------------------- | ------------------------------- |
+| [`arg`](/reference/symbols/main/arg)                                   | `src/core/schema/arg.ts`        |
+| [`definitionMetaSchema`](/reference/symbols/main/definitionMetaSchema) | `src/core/json-schema/index.ts` |
+| [`flag`](/reference/symbols/main/flag)                                 | `src/core/schema/flag.ts`       |
+| [`SHELLS`](/reference/symbols/main/SHELLS)                             | `src/core/completion/index.ts`  |
 
 ### Interfaces (57)
 
-| Symbol                            | Source                                 |
-| --------------------------------- | -------------------------------------- |
-| `ActionParams`                    | `src/core/schema/command.ts`           |
-| `ArgConfig`                       | `src/core/schema/arg.ts`               |
-| `ArgFactory`                      | `src/core/schema/arg.ts`               |
-| `ArgSchema`                       | `src/core/schema/arg.ts`               |
-| `BeforeParseParams`               | `src/core/cli/plugin.ts`               |
-| `CLIErrorJSON`                    | `src/core/errors/index.ts`             |
-| `CLIErrorOptions`                 | `src/core/errors/index.ts`             |
-| `CLIOptions`                      | `src/core/cli/index.ts`                |
-| `CLIPlugin`                       | `src/core/cli/plugin.ts`               |
-| `CLIPluginHooks`                  | `src/core/cli/plugin.ts`               |
-| `CLIRunOptions`                   | `src/core/cli/index.ts`                |
-| `CLISchema`                       | `src/core/cli/index.ts`                |
-| `CommandArgEntry`                 | `src/core/schema/command.ts`           |
-| `CommandConfig`                   | `src/core/schema/command.ts`           |
-| `CommandExample`                  | `src/core/schema/command.ts`           |
-| `CommandMeta`                     | `src/core/schema/command.ts`           |
-| `CommandSchema`                   | `src/core/schema/command.ts`           |
-| `CompletionOptions`               | `src/core/completion/shells/shared.ts` |
-| `ConfigDiscoveryOptions`          | `src/core/config/index.ts`             |
-| `ConfigFound`                     | `src/core/config/index.ts`             |
-| `ConfigNotFound`                  | `src/core/config/index.ts`             |
-| `ConfigSettings`                  | `src/core/cli/index.ts`                |
-| `ConfirmPromptConfig`             | `src/core/schema/prompt.ts`            |
-| `DeprecationWarning`              | `src/core/resolve/contracts.ts`        |
-| `FlagConfig`                      | `src/core/schema/flag.ts`              |
-| `FlagFactory`                     | `src/core/schema/flag.ts`              |
-| `FlagSchema`                      | `src/core/schema/flag.ts`              |
-| `FormatLoader`                    | `src/core/config/index.ts`             |
-| `HelpOptions`                     | `src/core/help/index.ts`               |
-| `InputPromptConfig`               | `src/core/schema/prompt.ts`            |
-| `InteractiveParams`               | `src/core/schema/command.ts`           |
-| `JsonSchemaOptions`               | `src/core/json-schema/index.ts`        |
-| `MiddlewareParams`                | `src/core/schema/middleware.ts`        |
-| `MultiselectPromptConfig`         | `src/core/schema/prompt.ts`            |
-| `Out`                             | `src/core/schema/command.ts`           |
-| `OutputOptions`                   | `src/core/output/index.ts`             |
-| `PackageJsonData`                 | `src/core/config/package-json.ts`      |
-| `PackageJsonSettings`             | `src/core/cli/index.ts`                |
-| `ParseErrorOptions`               | `src/core/errors/index.ts`             |
-| `ParseResult`                     | `src/core/parse/index.ts`              |
-| `PluginCommandContext`            | `src/core/cli/plugin.ts`               |
-| `ProgressHandle`                  | `src/core/schema/activity.ts`          |
-| `ProgressOptions`                 | `src/core/schema/activity.ts`          |
-| `PromptConfigBase`                | `src/core/schema/prompt.ts`            |
-| `PromptEngine`                    | `src/core/prompt/index.ts`             |
-| `ResolvedCommandParams`           | `src/core/cli/plugin.ts`               |
-| `ResolvedMultiselectPromptConfig` | `src/core/prompt/index.ts`             |
-| `ResolvedSelectPromptConfig`      | `src/core/prompt/index.ts`             |
-| `ResolveOptions`                  | `src/core/resolve/contracts.ts`        |
-| `ResolveResult`                   | `src/core/resolve/contracts.ts`        |
-| `RunResult`                       | `src/core/schema/run.ts`               |
-| `SelectChoice`                    | `src/core/schema/prompt.ts`            |
-| `SelectPromptConfig`              | `src/core/schema/prompt.ts`            |
-| `SpinnerHandle`                   | `src/core/schema/activity.ts`          |
-| `SpinnerOptions`                  | `src/core/schema/activity.ts`          |
-| `TableColumn`                     | `src/core/schema/activity.ts`          |
-| `ValidationErrorOptions`          | `src/core/errors/index.ts`             |
+| Symbol                                                                                       | Source                                 |
+| -------------------------------------------------------------------------------------------- | -------------------------------------- |
+| [`ActionParams`](/reference/symbols/main/ActionParams)                                       | `src/core/schema/command.ts`           |
+| [`ArgConfig`](/reference/symbols/main/ArgConfig)                                             | `src/core/schema/arg.ts`               |
+| [`ArgFactory`](/reference/symbols/main/ArgFactory)                                           | `src/core/schema/arg.ts`               |
+| [`ArgSchema`](/reference/symbols/main/ArgSchema)                                             | `src/core/schema/arg.ts`               |
+| [`BeforeParseParams`](/reference/symbols/main/BeforeParseParams)                             | `src/core/cli/plugin.ts`               |
+| [`CLIErrorJSON`](/reference/symbols/main/CLIErrorJSON)                                       | `src/core/errors/index.ts`             |
+| [`CLIErrorOptions`](/reference/symbols/main/CLIErrorOptions)                                 | `src/core/errors/index.ts`             |
+| [`CLIOptions`](/reference/symbols/main/CLIOptions)                                           | `src/core/cli/index.ts`                |
+| [`CLIPlugin`](/reference/symbols/main/CLIPlugin)                                             | `src/core/cli/plugin.ts`               |
+| [`CLIPluginHooks`](/reference/symbols/main/CLIPluginHooks)                                   | `src/core/cli/plugin.ts`               |
+| [`CLIRunOptions`](/reference/symbols/main/CLIRunOptions)                                     | `src/core/cli/index.ts`                |
+| [`CLISchema`](/reference/symbols/main/CLISchema)                                             | `src/core/cli/index.ts`                |
+| [`CommandArgEntry`](/reference/symbols/main/CommandArgEntry)                                 | `src/core/schema/command.ts`           |
+| [`CommandConfig`](/reference/symbols/main/CommandConfig)                                     | `src/core/schema/command.ts`           |
+| [`CommandExample`](/reference/symbols/main/CommandExample)                                   | `src/core/schema/command.ts`           |
+| [`CommandMeta`](/reference/symbols/main/CommandMeta)                                         | `src/core/schema/command.ts`           |
+| [`CommandSchema`](/reference/symbols/main/CommandSchema)                                     | `src/core/schema/command.ts`           |
+| [`CompletionOptions`](/reference/symbols/main/CompletionOptions)                             | `src/core/completion/shells/shared.ts` |
+| [`ConfigDiscoveryOptions`](/reference/symbols/main/ConfigDiscoveryOptions)                   | `src/core/config/index.ts`             |
+| [`ConfigFound`](/reference/symbols/main/ConfigFound)                                         | `src/core/config/index.ts`             |
+| [`ConfigNotFound`](/reference/symbols/main/ConfigNotFound)                                   | `src/core/config/index.ts`             |
+| [`ConfigSettings`](/reference/symbols/main/ConfigSettings)                                   | `src/core/cli/index.ts`                |
+| [`ConfirmPromptConfig`](/reference/symbols/main/ConfirmPromptConfig)                         | `src/core/schema/prompt.ts`            |
+| [`DeprecationWarning`](/reference/symbols/main/DeprecationWarning)                           | `src/core/resolve/contracts.ts`        |
+| [`FlagConfig`](/reference/symbols/main/FlagConfig)                                           | `src/core/schema/flag.ts`              |
+| [`FlagFactory`](/reference/symbols/main/FlagFactory)                                         | `src/core/schema/flag.ts`              |
+| [`FlagSchema`](/reference/symbols/main/FlagSchema)                                           | `src/core/schema/flag.ts`              |
+| [`FormatLoader`](/reference/symbols/main/FormatLoader)                                       | `src/core/config/index.ts`             |
+| [`HelpOptions`](/reference/symbols/main/HelpOptions)                                         | `src/core/help/index.ts`               |
+| [`InputPromptConfig`](/reference/symbols/main/InputPromptConfig)                             | `src/core/schema/prompt.ts`            |
+| [`InteractiveParams`](/reference/symbols/main/InteractiveParams)                             | `src/core/schema/command.ts`           |
+| [`JsonSchemaOptions`](/reference/symbols/main/JsonSchemaOptions)                             | `src/core/json-schema/index.ts`        |
+| [`MiddlewareParams`](/reference/symbols/main/MiddlewareParams)                               | `src/core/schema/middleware.ts`        |
+| [`MultiselectPromptConfig`](/reference/symbols/main/MultiselectPromptConfig)                 | `src/core/schema/prompt.ts`            |
+| [`Out`](/reference/symbols/main/Out)                                                         | `src/core/schema/command.ts`           |
+| [`OutputOptions`](/reference/symbols/main/OutputOptions)                                     | `src/core/output/index.ts`             |
+| [`PackageJsonData`](/reference/symbols/main/PackageJsonData)                                 | `src/core/config/package-json.ts`      |
+| [`PackageJsonSettings`](/reference/symbols/main/PackageJsonSettings)                         | `src/core/cli/index.ts`                |
+| [`ParseErrorOptions`](/reference/symbols/main/ParseErrorOptions)                             | `src/core/errors/index.ts`             |
+| [`ParseResult`](/reference/symbols/main/ParseResult)                                         | `src/core/parse/index.ts`              |
+| [`PluginCommandContext`](/reference/symbols/main/PluginCommandContext)                       | `src/core/cli/plugin.ts`               |
+| [`ProgressHandle`](/reference/symbols/main/ProgressHandle)                                   | `src/core/schema/activity.ts`          |
+| [`ProgressOptions`](/reference/symbols/main/ProgressOptions)                                 | `src/core/schema/activity.ts`          |
+| [`PromptConfigBase`](/reference/symbols/main/PromptConfigBase)                               | `src/core/schema/prompt.ts`            |
+| [`PromptEngine`](/reference/symbols/main/PromptEngine)                                       | `src/core/prompt/index.ts`             |
+| [`ResolvedCommandParams`](/reference/symbols/main/ResolvedCommandParams)                     | `src/core/cli/plugin.ts`               |
+| [`ResolvedMultiselectPromptConfig`](/reference/symbols/main/ResolvedMultiselectPromptConfig) | `src/core/prompt/index.ts`             |
+| [`ResolvedSelectPromptConfig`](/reference/symbols/main/ResolvedSelectPromptConfig)           | `src/core/prompt/index.ts`             |
+| [`ResolveOptions`](/reference/symbols/main/ResolveOptions)                                   | `src/core/resolve/contracts.ts`        |
+| [`ResolveResult`](/reference/symbols/main/ResolveResult)                                     | `src/core/resolve/contracts.ts`        |
+| [`RunResult`](/reference/symbols/main/RunResult)                                             | `src/core/schema/run.ts`               |
+| [`SelectChoice`](/reference/symbols/main/SelectChoice)                                       | `src/core/schema/prompt.ts`            |
+| [`SelectPromptConfig`](/reference/symbols/main/SelectPromptConfig)                           | `src/core/schema/prompt.ts`            |
+| [`SpinnerHandle`](/reference/symbols/main/SpinnerHandle)                                     | `src/core/schema/activity.ts`          |
+| [`SpinnerOptions`](/reference/symbols/main/SpinnerOptions)                                   | `src/core/schema/activity.ts`          |
+| [`TableColumn`](/reference/symbols/main/TableColumn)                                         | `src/core/schema/activity.ts`          |
+| [`ValidationErrorOptions`](/reference/symbols/main/ValidationErrorOptions)                   | `src/core/errors/index.ts`             |
 
 ### Types (43)
 
-| Symbol                  | Source                            |
-| ----------------------- | --------------------------------- |
-| `ActionHandler`         | `src/core/schema/command.ts`      |
-| `ActivityEvent`         | `src/core/schema/activity.ts`     |
-| `AnyCommandBuilder`     | `src/core/schema/command.ts`      |
-| `ArgKind`               | `src/core/schema/arg.ts`          |
-| `ArgParseFn`            | `src/core/schema/arg.ts`          |
-| `ArgPresence`           | `src/core/schema/arg.ts`          |
-| `ConfigAdapter`         | `src/core/config/index.ts`        |
-| `ConfigDiscoveryResult` | `src/core/config/index.ts`        |
-| `DeriveHandler`         | `src/core/schema/command.ts`      |
-| `DeriveParams`          | `src/core/schema/command.ts`      |
-| `ErrorCode`             | `src/core/errors/index.ts`        |
-| `Fallback`              | `src/core/schema/activity.ts`     |
-| `FlagKind`              | `src/core/schema/flag.ts`         |
-| `FlagParseFn`           | `src/core/schema/flag.ts`         |
-| `FlagPresence`          | `src/core/schema/flag.ts`         |
-| `InferArg`              | `src/core/schema/arg.ts`          |
-| `InferArgs`             | `src/core/schema/arg.ts`          |
-| `InferFlag`             | `src/core/schema/flag.ts`         |
-| `InferFlags`            | `src/core/schema/flag.ts`         |
-| `InteractiveResolver`   | `src/core/schema/command.ts`      |
-| `InteractiveResult`     | `src/core/schema/command.ts`      |
-| `Middleware`            | `src/core/schema/middleware.ts`   |
-| `MiddlewareHandler`     | `src/core/schema/middleware.ts`   |
-| `PackageJsonAdapter`    | `src/core/config/package-json.ts` |
-| `ParseErrorCode`        | `src/core/errors/index.ts`        |
-| `PromptConfig`          | `src/core/schema/prompt.ts`       |
-| `PromptKind`            | `src/core/schema/prompt.ts`       |
-| `PromptResult`          | `src/core/schema/prompt.ts`       |
-| `ReadFn`                | `src/core/prompt/index.ts`        |
-| `ResolvedArgValue`      | `src/core/schema/arg.ts`          |
-| `ResolvedPromptConfig`  | `src/core/prompt/index.ts`        |
-| `ResolvedValue`         | `src/core/schema/flag.ts`         |
-| `Shell`                 | `src/core/completion/index.ts`    |
-| `TableFormat`           | `src/core/schema/activity.ts`     |
-| `TableOptions`          | `src/core/schema/activity.ts`     |
-| `TableStream`           | `src/core/schema/activity.ts`     |
-| `Token`                 | `src/core/parse/index.ts`         |
-| `ValidationErrorCode`   | `src/core/errors/index.ts`        |
-| `Verbosity`             | `src/core/output/contracts.ts`    |
-| `WithArgPresence`       | `src/core/schema/arg.ts`          |
-| `WithPresence`          | `src/core/schema/flag.ts`         |
-| `WithVariadic`          | `src/core/schema/arg.ts`          |
-| `WriteFn`               | `src/core/output/writer.ts`       |
+| Symbol                                                                   | Source                            |
+| ------------------------------------------------------------------------ | --------------------------------- |
+| [`ActionHandler`](/reference/symbols/main/ActionHandler)                 | `src/core/schema/command.ts`      |
+| [`ActivityEvent`](/reference/symbols/main/ActivityEvent)                 | `src/core/schema/activity.ts`     |
+| [`AnyCommandBuilder`](/reference/symbols/main/AnyCommandBuilder)         | `src/core/schema/command.ts`      |
+| [`ArgKind`](/reference/symbols/main/ArgKind)                             | `src/core/schema/arg.ts`          |
+| [`ArgParseFn`](/reference/symbols/main/ArgParseFn)                       | `src/core/schema/arg.ts`          |
+| [`ArgPresence`](/reference/symbols/main/ArgPresence)                     | `src/core/schema/arg.ts`          |
+| [`ConfigAdapter`](/reference/symbols/main/ConfigAdapter)                 | `src/core/config/index.ts`        |
+| [`ConfigDiscoveryResult`](/reference/symbols/main/ConfigDiscoveryResult) | `src/core/config/index.ts`        |
+| [`DeriveHandler`](/reference/symbols/main/DeriveHandler)                 | `src/core/schema/command.ts`      |
+| [`DeriveParams`](/reference/symbols/main/DeriveParams)                   | `src/core/schema/command.ts`      |
+| [`ErrorCode`](/reference/symbols/main/ErrorCode)                         | `src/core/errors/index.ts`        |
+| [`Fallback`](/reference/symbols/main/Fallback)                           | `src/core/schema/activity.ts`     |
+| [`FlagKind`](/reference/symbols/main/FlagKind)                           | `src/core/schema/flag.ts`         |
+| [`FlagParseFn`](/reference/symbols/main/FlagParseFn)                     | `src/core/schema/flag.ts`         |
+| [`FlagPresence`](/reference/symbols/main/FlagPresence)                   | `src/core/schema/flag.ts`         |
+| [`InferArg`](/reference/symbols/main/InferArg)                           | `src/core/schema/arg.ts`          |
+| [`InferArgs`](/reference/symbols/main/InferArgs)                         | `src/core/schema/arg.ts`          |
+| [`InferFlag`](/reference/symbols/main/InferFlag)                         | `src/core/schema/flag.ts`         |
+| [`InferFlags`](/reference/symbols/main/InferFlags)                       | `src/core/schema/flag.ts`         |
+| [`InteractiveResolver`](/reference/symbols/main/InteractiveResolver)     | `src/core/schema/command.ts`      |
+| [`InteractiveResult`](/reference/symbols/main/InteractiveResult)         | `src/core/schema/command.ts`      |
+| [`Middleware`](/reference/symbols/main/Middleware)                       | `src/core/schema/middleware.ts`   |
+| [`MiddlewareHandler`](/reference/symbols/main/MiddlewareHandler)         | `src/core/schema/middleware.ts`   |
+| [`PackageJsonAdapter`](/reference/symbols/main/PackageJsonAdapter)       | `src/core/config/package-json.ts` |
+| [`ParseErrorCode`](/reference/symbols/main/ParseErrorCode)               | `src/core/errors/index.ts`        |
+| [`PromptConfig`](/reference/symbols/main/PromptConfig)                   | `src/core/schema/prompt.ts`       |
+| [`PromptKind`](/reference/symbols/main/PromptKind)                       | `src/core/schema/prompt.ts`       |
+| [`PromptResult`](/reference/symbols/main/PromptResult)                   | `src/core/schema/prompt.ts`       |
+| [`ReadFn`](/reference/symbols/main/ReadFn)                               | `src/core/prompt/index.ts`        |
+| [`ResolvedArgValue`](/reference/symbols/main/ResolvedArgValue)           | `src/core/schema/arg.ts`          |
+| [`ResolvedPromptConfig`](/reference/symbols/main/ResolvedPromptConfig)   | `src/core/prompt/index.ts`        |
+| [`ResolvedValue`](/reference/symbols/main/ResolvedValue)                 | `src/core/schema/flag.ts`         |
+| [`Shell`](/reference/symbols/main/Shell)                                 | `src/core/completion/index.ts`    |
+| [`TableFormat`](/reference/symbols/main/TableFormat)                     | `src/core/schema/activity.ts`     |
+| [`TableOptions`](/reference/symbols/main/TableOptions)                   | `src/core/schema/activity.ts`     |
+| [`TableStream`](/reference/symbols/main/TableStream)                     | `src/core/schema/activity.ts`     |
+| [`Token`](/reference/symbols/main/Token)                                 | `src/core/parse/index.ts`         |
+| [`ValidationErrorCode`](/reference/symbols/main/ValidationErrorCode)     | `src/core/errors/index.ts`        |
+| [`Verbosity`](/reference/symbols/main/Verbosity)                         | `src/core/output/contracts.ts`    |
+| [`WithArgPresence`](/reference/symbols/main/WithArgPresence)             | `src/core/schema/arg.ts`          |
+| [`WithPresence`](/reference/symbols/main/WithPresence)                   | `src/core/schema/flag.ts`         |
+| [`WithVariadic`](/reference/symbols/main/WithVariadic)                   | `src/core/schema/arg.ts`          |
+| [`WriteFn`](/reference/symbols/main/WriteFn)                             | `src/core/output/writer.ts`       |
 
 ## `dreamcli/runtime`
 
@@ -184,37 +184,37 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 
 ### Functions (5)
 
-| Symbol              | Source                  |
-| ------------------- | ----------------------- |
-| `createAdapter`     | `src/runtime/auto.ts`   |
-| `createBunAdapter`  | `src/runtime/bun.ts`    |
-| `createDenoAdapter` | `src/runtime/deno.ts`   |
-| `createNodeAdapter` | `src/runtime/node.ts`   |
-| `detectRuntime`     | `src/runtime/detect.ts` |
+| Symbol                                                              | Source                  |
+| ------------------------------------------------------------------- | ----------------------- |
+| [`createAdapter`](/reference/symbols/runtime/createAdapter)         | `src/runtime/auto.ts`   |
+| [`createBunAdapter`](/reference/symbols/runtime/createBunAdapter)   | `src/runtime/bun.ts`    |
+| [`createDenoAdapter`](/reference/symbols/runtime/createDenoAdapter) | `src/runtime/deno.ts`   |
+| [`createNodeAdapter`](/reference/symbols/runtime/createNodeAdapter) | `src/runtime/node.ts`   |
+| [`detectRuntime`](/reference/symbols/runtime/detectRuntime)         | `src/runtime/detect.ts` |
 
 ### Classes (1)
 
-| Symbol      | Source                   |
-| ----------- | ------------------------ |
-| `ExitError` | `src/runtime/adapter.ts` |
+| Symbol                                              | Source                   |
+| --------------------------------------------------- | ------------------------ |
+| [`ExitError`](/reference/symbols/runtime/ExitError) | `src/runtime/adapter.ts` |
 
 ### Constants (1)
 
-| Symbol     | Source                  |
-| ---------- | ----------------------- |
-| `RUNTIMES` | `src/runtime/detect.ts` |
+| Symbol                                            | Source                  |
+| ------------------------------------------------- | ----------------------- |
+| [`RUNTIMES`](/reference/symbols/runtime/RUNTIMES) | `src/runtime/detect.ts` |
 
 ### Interfaces (1)
 
-| Symbol           | Source                   |
-| ---------------- | ------------------------ |
-| `RuntimeAdapter` | `src/runtime/adapter.ts` |
+| Symbol                                                        | Source                   |
+| ------------------------------------------------------------- | ------------------------ |
+| [`RuntimeAdapter`](/reference/symbols/runtime/RuntimeAdapter) | `src/runtime/adapter.ts` |
 
 ### Types (1)
 
-| Symbol    | Source                  |
-| --------- | ----------------------- |
-| `Runtime` | `src/runtime/detect.ts` |
+| Symbol                                          | Source                  |
+| ----------------------------------------------- | ----------------------- |
+| [`Runtime`](/reference/symbols/runtime/Runtime) | `src/runtime/detect.ts` |
 
 ## `dreamcli/schema`
 
@@ -236,31 +236,31 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 
 ### Functions (4)
 
-| Symbol                | Source                      |
-| --------------------- | --------------------------- |
-| `createCaptureOutput` | `src/core/output/index.ts`  |
-| `createTestAdapter`   | `src/runtime/adapter.ts`    |
-| `createTestPrompter`  | `src/core/prompt/index.ts`  |
-| `runCommand`          | `src/core/testkit/index.ts` |
+| Symbol                                                                  | Source                      |
+| ----------------------------------------------------------------------- | --------------------------- |
+| [`createCaptureOutput`](/reference/symbols/testkit/createCaptureOutput) | `src/core/output/index.ts`  |
+| [`createTestAdapter`](/reference/symbols/testkit/createTestAdapter)     | `src/runtime/adapter.ts`    |
+| [`createTestPrompter`](/reference/symbols/testkit/createTestPrompter)   | `src/core/prompt/index.ts`  |
+| [`runCommand`](/reference/symbols/testkit/runCommand)                   | `src/core/testkit/index.ts` |
 
 ### Constants (1)
 
-| Symbol          | Source                     |
-| --------------- | -------------------------- |
-| `PROMPT_CANCEL` | `src/core/prompt/index.ts` |
+| Symbol                                                      | Source                     |
+| ----------------------------------------------------------- | -------------------------- |
+| [`PROMPT_CANCEL`](/reference/symbols/testkit/PROMPT_CANCEL) | `src/core/prompt/index.ts` |
 
 ### Interfaces (5)
 
-| Symbol                | Source                     |
-| --------------------- | -------------------------- |
-| `CapturedOutput`      | `src/core/output/index.ts` |
-| `RunOptions`          | `src/core/schema/run.ts`   |
-| `RunResult`           | `src/core/schema/run.ts`   |
-| `TestAdapterOptions`  | `src/runtime/adapter.ts`   |
-| `TestPrompterOptions` | `src/core/prompt/index.ts` |
+| Symbol                                                                  | Source                     |
+| ----------------------------------------------------------------------- | -------------------------- |
+| [`CapturedOutput`](/reference/symbols/testkit/CapturedOutput)           | `src/core/output/index.ts` |
+| [`RunOptions`](/reference/symbols/testkit/RunOptions)                   | `src/core/schema/run.ts`   |
+| [`RunResult`](/reference/symbols/testkit/RunResult)                     | `src/core/schema/run.ts`   |
+| [`TestAdapterOptions`](/reference/symbols/testkit/TestAdapterOptions)   | `src/runtime/adapter.ts`   |
+| [`TestPrompterOptions`](/reference/symbols/testkit/TestPrompterOptions) | `src/core/prompt/index.ts` |
 
 ### Types (1)
 
-| Symbol       | Source                     |
-| ------------ | -------------------------- |
-| `TestAnswer` | `src/core/prompt/index.ts` |
+| Symbol                                                | Source                     |
+| ----------------------------------------------------- | -------------------------- |
+| [`TestAnswer`](/reference/symbols/testkit/TestAnswer) | `src/core/prompt/index.ts` |

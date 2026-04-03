@@ -29,3 +29,4 @@ export const generatedApiIndexPath = join(generatedApiDir, 'public-exports.json'
 export const generatedApiPagePath = join(generatedApiDir, 'index.md');
 export const generatedTypeDocJsonPath = join(generatedApiDir, 'typedoc.json');
 export const generatedNormalizedTypeDocPath = join(generatedApiDir, 'typedoc-normalized.json');
+export const symbolPagesRoot = join(docsRoot, 'reference', 'symbols');

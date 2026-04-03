@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { docsHealthSnapshot, generatedPublicApi } from '../.generated/site-data.ts';
+import { docsHealthSnapshot, generatedPublicApi, generatedSymbolPages } from '../.generated/site-data.ts';
+
+const symbolRouteById = new Map(
+	generatedSymbolPages.map((page) => [`${page.entrypoint}:${page.name}`, page.routePath]),
+);
+
+function symbolHref(entrypoint: string, name: string): string {
+	return symbolRouteById.get(`${entrypoint}:${name}`) ?? '/reference/api';
+}
 </script>
 
 # API Reference
@@ -10,6 +18,7 @@ subpath-specific detail pages.
 
 - Public entrypoints: `{{ docsHealthSnapshot.publicEntrypointCount }}`
 - Public symbols indexed: `{{ docsHealthSnapshot.publicSymbolCount }}`
+- Symbol pages rendered: `{{ docsHealthSnapshot.symbolPageCount }}`
 - Generated artifacts: `docs/.generated/api/index.md`, `docs/.generated/api/public-exports.json`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`
 
 ## Choose an Import
@@ -46,7 +55,7 @@ subpath-specific detail pages.
 			</thead>
 			<tbody>
 				<tr v-for="symbol in group.symbols" :key="`${entrypoint.entrypoint}-${symbol.name}`">
-					<td><code>{{ symbol.name }}</code></td>
+					<td><a :href="symbolHref(entrypoint.entrypoint, symbol.name)"><code>{{ symbol.name }}</code></a></td>
 					<td><code>{{ symbol.sourcePath }}</code></td>
 				</tr>
 			</tbody>
