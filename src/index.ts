@@ -76,6 +76,8 @@ export type { HelpOptions } from './core/help/index.ts';
 export { formatHelp } from './core/help/index.ts';
 export type { JsonSchemaOptions } from './core/json-schema/index.ts';
 export {
+	DEFINITION_SCHEMA_FILENAME,
+	DEFINITION_SCHEMA_VERSION,
 	definitionMetaSchema,
 	generateInputSchema,
 	generateSchema,

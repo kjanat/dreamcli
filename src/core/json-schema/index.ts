@@ -14,15 +14,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
-import { createArgSchema } from '#internals/core/schema/arg.ts';
-import { createSchema, getFlagAliasNames } from '#internals/core/schema/flag.ts';
-import {
-	ARG_KINDS,
-	ARG_PRESENCES,
-	FLAG_KINDS,
-	FLAG_PRESENCES,
-	PROMPT_KINDS,
-} from '#internals/core/schema/index.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -32,6 +24,8 @@ import type {
 	PromptConfig,
 	SelectChoice,
 } from '#internals/core/schema/index.ts';
+import { parseSchema } from '#internals/core/schema-dsl/runtime.ts';
+import { nodeToJsonSchema } from '#internals/core/schema-dsl/to-json-schema.ts';
 
 // --- Options
 
@@ -89,8 +83,23 @@ function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions
 
 // --- Constants
 
-/** Meta-schema URL for the definition schema format. */
-const DEFINITION_SCHEMA_URL = 'https://dreamcli.kjanat.com/schemas/cli/v1.json';
+/**
+ * Definition schema version.
+ *
+ * Bump when the meta-schema contract changes (new required properties,
+ * removed properties, changed types). Drives the `$id` URL, the docs
+ * output path, and the `$schema` reference in generated definitions.
+ */
+const DEFINITION_SCHEMA_VERSION = 1;
+
+/** Base URL for hosted definition schemas. */
+const DEFINITION_SCHEMA_BASE = 'https://dreamcli.kjanat.com/schemas/cli';
+
+/** Full `$id` / `$schema` URL for the current definition schema version. */
+const DEFINITION_SCHEMA_URL = `${DEFINITION_SCHEMA_BASE}/v${String(DEFINITION_SCHEMA_VERSION)}.json`;
+
+/** Filename component for the docs build output (e.g. `v1.json`). */
+const DEFINITION_SCHEMA_FILENAME = `v${String(DEFINITION_SCHEMA_VERSION)}.json`;
 
 /** Meta-schema URL for JSON Schema draft 2020-12 (input validation). */
 const JSON_SCHEMA_DRAFT = 'https://json-schema.org/draft/2020-12/schema';
@@ -709,10 +718,20 @@ function isPlainJsonObject(value: object): value is Record<string, unknown> {
 	return proto === Object.prototype || proto === null;
 }
 
-// === Definition meta-schema
+// === Definition meta-schema — derived from schema DSL definitions
+
+/** Convert a DSL string to a JSON Schema object definition. */
+function def(source: string): Record<string, unknown> {
+	return nodeToJsonSchema(parseSchema(source));
+}
 
 /**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
+ *
+ * Each `$defs` entry is defined once as a schema DSL string — the DSL
+ * parser produces a runtime AST, and {@link nodeToJsonSchema} converts
+ * that AST to a JSON Schema fragment. No probe fixtures, no override
+ * maps, no manually maintained type definitions.
  *
  * Hosted at {@link DEFINITION_SCHEMA_URL} for `$schema` resolution. Also
  * exported so tooling can validate definition documents without a network
@@ -734,108 +753,78 @@ const definitionMetaSchema: Record<string, unknown> = {
 	title: 'dreamcli definition schema',
 	description:
 		'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
-	type: 'object',
-	required: ['$schema', 'name', 'commands'],
-	additionalProperties: false,
-	properties: {
-		$schema: { const: DEFINITION_SCHEMA_URL },
-		name: { type: 'string', description: 'CLI program name.' },
-		version: { type: 'string', description: 'CLI version string.' },
-		description: { type: 'string', description: 'One-line CLI description.' },
-		defaultCommand: {
-			type: 'string',
-			description: 'Name of the command invoked when no subcommand is given.',
-		},
-		commands: { type: 'array', items: { $ref: '#/$defs/command' } },
-	},
+	...def(`{
+		$schema: '${DEFINITION_SCHEMA_URL}';
+		name: string;
+		version?: string;
+		description?: string;
+		defaultCommand?: string;
+		commands: @command[]
+	}`),
 	$defs: {
-		command: {
-			type: 'object',
-			required: ['name', 'flags', 'args', 'commands'],
-			additionalProperties: false,
-			properties: {
-				name: { type: 'string' },
-				description: { type: 'string' },
-				aliases: { type: 'array', items: { type: 'string' } },
-				hidden: { const: true },
-				examples: { type: 'array', items: { $ref: '#/$defs/example' } },
-				flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
-				args: { type: 'array', items: { $ref: '#/$defs/arg' } },
-				commands: { type: 'array', items: { $ref: '#/$defs/command' } },
-			},
-		},
-		flag: {
-			type: 'object',
-			required: ['kind', 'presence'],
-			additionalProperties: false,
-			properties: {
-				kind: { enum: [...FLAG_KINDS] },
-				presence: { enum: [...FLAG_PRESENCES] },
-				defaultValue: {},
-				aliases: { type: 'array', items: { type: 'string' } },
-				envVar: { type: 'string' },
-				configPath: { type: 'string' },
-				description: { type: 'string' },
-				enumValues: { type: 'array', items: { type: 'string' } },
-				elementSchema: { $ref: '#/$defs/flag' },
-				prompt: { $ref: '#/$defs/prompt' },
-				deprecated: { type: 'string' },
-				propagate: { const: true },
-			},
-		},
-		arg: {
-			type: 'object',
-			required: ['name', 'kind', 'presence'],
-			additionalProperties: false,
-			properties: {
-				name: { type: 'string' },
-				kind: { enum: [...ARG_KINDS] },
-				presence: { enum: [...ARG_PRESENCES] },
-				variadic: { const: true },
-				stdinMode: { const: true },
-				defaultValue: {},
-				description: { type: 'string' },
-				envVar: { type: 'string' },
-				enumValues: { type: 'array', items: { type: 'string' } },
-				deprecated: { type: 'string' },
-			},
-		},
-		prompt: {
-			type: 'object',
-			required: ['kind', 'message'],
-			additionalProperties: false,
-			properties: {
-				kind: { enum: [...PROMPT_KINDS] },
-				message: { type: 'string' },
-				placeholder: { type: 'string' },
-				choices: { type: 'array', items: { $ref: '#/$defs/choice' } },
-				min: { type: 'integer', minimum: 0 },
-				max: { type: 'integer', minimum: 1 },
-			},
-		},
-		choice: {
-			type: 'object',
-			required: ['value'],
-			additionalProperties: false,
-			properties: {
-				value: { type: 'string' },
-				label: { type: 'string' },
-				description: { type: 'string' },
-			},
-		},
-		example: {
-			type: 'object',
-			required: ['command'],
-			additionalProperties: false,
-			properties: {
-				command: { type: 'string' },
-				description: { type: 'string' },
-			},
-		},
+		command: def(`{
+			name: string;
+			description?: string;
+			aliases?: string[];
+			hidden?: true;
+			examples?: @example[];
+			flags: Record<string, @flag>;
+			args: @arg[];
+			commands: @command[]
+		}`),
+		flag: def(`{
+			kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
+			presence: 'optional' | 'required' | 'defaulted';
+			defaultValue?: unknown;
+			aliases?: string[];
+			envVar?: string;
+			configPath?: string;
+			description?: string;
+			enumValues?: string[];
+			elementSchema?: @flag;
+			prompt?: @prompt;
+			deprecated?: string | true;
+			propagate?: true
+		}`),
+		arg: def(`{
+			name: string;
+			kind: 'string' | 'number' | 'enum' | 'custom';
+			presence: 'required' | 'optional' | 'defaulted';
+			variadic?: true;
+			stdinMode?: true;
+			defaultValue?: unknown;
+			description?: string;
+			envVar?: string;
+			enumValues?: string[];
+			deprecated?: string | true
+		}`),
+		prompt: def(`{
+			kind: 'confirm' | 'input' | 'select' | 'multiselect';
+			message: string;
+			placeholder?: string;
+			choices?: @choice[];
+			min?: integer;
+			max?: integer
+		}`),
+		choice: def(`{
+			value: string;
+			label?: string;
+			description?: string
+		}`),
+		example: def(`{
+			command: string;
+			description?: string
+		}`),
 	},
 };
 
 // === Exports
 
 export type { JsonSchemaOptions };
-export { definitionMetaSchema, generateInputSchema, generateSchema };
+export {
+	DEFINITION_SCHEMA_FILENAME,
+	DEFINITION_SCHEMA_VERSION,
+	definitionMetaSchema,
+	generateInputSchema,
+	generateSchema,
+};

@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import type {
 	ActivityEvent,
 	CommandArgEntry,
@@ -11,7 +12,6 @@ import type {
 	FlagSchema,
 	FlagSchemaOverrides,
 } from '#internals/core/schema/index.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
 import { generateInputSchema, generateSchema } from './index.ts';
 
 // === Test helpers

@@ -77,7 +77,7 @@
 	],
 	"workspaces": [
 		".",
-		"examples/*"
+		"examples/gh"
 	],
 	"scripts": {
 		"bd": "bun run build",
@@ -85,7 +85,7 @@
 		"ci": "bun typecheck && bun lint && bun run test && bun bd",
 		"docs:build": "bun run docs:prepare && vitepress build docs",
 		"docs:dev": "bun run docs:prepare && vitepress dev docs",
-		"docs:prepare": "bun scripts/docs/build-docs-data.ts",
+		"docs:prepare": "bun scripts/docs/build-docs-data.ts && bun fmt",
 		"docs:preview": "vitepress preview docs",
 		"fmt": "dprint fmt",
 		"format": "dprint fmt",
