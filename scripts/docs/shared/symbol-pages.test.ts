@@ -16,6 +16,7 @@ describe('symbol page generation', () => {
 		const pages = collectSymbolPages(normalized, symbolPagesRoot);
 
 		const cliPage = pages.find((page) => page.id === 'dreamcli:cli');
+		const middlewareInterfacePage = pages.find((page) => page.id === 'dreamcli:Middleware');
 		expect(cliPage).toMatchObject({
 			entrypoint: 'dreamcli',
 			name: 'cli',
@@ -27,10 +28,20 @@ describe('symbol page generation', () => {
 		expect(cliPage?.content).toContain('function cli(name: string): CLIBuilder;');
 		expect(cliPage?.content).toContain('## Examples');
 		expect(cliPage?.content).toContain('- [API overview](/reference/api)');
+		expect(middlewareInterfacePage).toMatchObject({
+			routePath: '/reference/symbols/main/middleware-type',
+			filePath: expect.stringContaining('/docs/reference/symbols/main/middleware-type.md'),
+		});
 	});
 
 	it('keeps API index links aligned with rendered symbol routes', () => {
 		expect(toSymbolPageRoute('dreamcli', 'cli')).toBe('/reference/symbols/main/cli');
+		expect(
+			toSymbolPageRoute('dreamcli', 'Middleware', {
+				publicKind: 'type',
+				hasCaseInsensitiveCollision: true,
+			}),
+		).toBe('/reference/symbols/main/middleware-type');
 		expect(toSymbolPageRoute('dreamcli/runtime', 'RuntimeAdapter')).toBe(
 			'/reference/symbols/runtime/RuntimeAdapter',
 		);

@@ -316,6 +316,8 @@ export const generatedExamples = [
   },
 ];
 
+export const generatedExampleHoverPrototypeRoute = '/examples/hover-prototype';
+
 export const generatedReferenceSurfaces = [
   {
     id: 'generated-changelog',
@@ -1915,7 +1917,7 @@ export const generatedSymbolPages = [
     id: 'dreamcli:Middleware',
     name: 'Middleware',
     entrypoint: 'dreamcli',
-    routePath: '/reference/symbols/main/Middleware',
+    routePath: '/reference/symbols/main/middleware-type',
     summary:
       'Middleware with phantom output type.\n\nThe `Output` parameter tracks what this middleware adds to context at\ncompile time. The `_output` brand is phantom — it exists only in the\ntype system for inference, not at runtime.\n\nCreated via the `middleware()` factory. Attached to commands via\n`CommandBuilder.middleware()`.',
   },
@@ -2481,8 +2483,8 @@ export const generatedSymbolPages = [
 ];
 
 export const docsHealthSnapshot = {
-  authoredPageCount: 33,
-  generatedArtifactCount: 172,
+  authoredPageCount: 34,
+  generatedArtifactCount: 173,
   exampleCount: 7,
   publicEntrypointCount: 4,
   publicSymbolCount: 159,

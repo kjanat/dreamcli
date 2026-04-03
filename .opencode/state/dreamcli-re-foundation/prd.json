@@ -216,7 +216,7 @@
 			"description": "Validate Twoslash-backed hover on generated example pages against local DreamCLI source. Done when: a boring, stable, examples-only hover path is proven feasible and constraints are documented.",
 			"depends": ["generate-example-pages"],
 			"priority": "spike",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "enable-example-hover",

@@ -113,6 +113,7 @@
 		"@arethetypeswrong/core": "^0.18.2",
 		"@biomejs/biome": "^2.4.10",
 		"@iarna/toml": "^2.2.5",
+		"@shikijs/vitepress-twoslash": "^4.0.2",
 		"@types/bun": "catalog:",
 		"@types/deno": "^2.5.0",
 		"@types/node": ">=22.0.0, <23.0.0",

@@ -126,6 +126,7 @@ export function countPublicApiSymbols(entrypoints: readonly PublicApiEntrypoint[
 
 export function renderPublicApiIndex(entrypoints: readonly PublicApiEntrypoint[]): string {
 	const sections = entrypoints.flatMap((entrypoint) => {
+		const caseInsensitiveCollisions = collectEntrypointCaseInsensitiveCollisions(entrypoint);
 		const groupSections = entrypoint.kindGroups.flatMap((group) => [
 			`### ${group.title} (${group.symbols.length})`,
 			'',
@@ -133,7 +134,7 @@ export function renderPublicApiIndex(entrypoints: readonly PublicApiEntrypoint[]
 			'| --- | --- |',
 			...group.symbols.map(
 				(symbol) =>
-					`| ${renderSymbolCell(entrypoint.entrypoint, symbol)} | \`${escapeTable(symbol.sourcePath)}\` |`,
+					`| ${renderSymbolCell(entrypoint.entrypoint, symbol, caseInsensitiveCollisions)} | \`${escapeTable(symbol.sourcePath)}\` |`,
 			),
 			'',
 		]);
@@ -349,12 +350,40 @@ function escapeTable(value: string): string {
 	return value.replaceAll('|', '\\|');
 }
 
-function renderSymbolCell(entrypoint: string, symbol: PublicApiSymbol): string {
+function renderSymbolCell(
+	entrypoint: string,
+	symbol: PublicApiSymbol,
+	caseInsensitiveCollisions: ReadonlySet<string>,
+): string {
 	if (symbol.kind === 'asset') {
 		return `\`${symbol.name}\``;
 	}
 
-	return `[\`${symbol.name}\`](${toSymbolPageRoute(entrypoint, symbol.name)})`;
+	const href = toSymbolPageRoute(entrypoint, symbol.name, {
+		publicKind: symbol.kind,
+		hasCaseInsensitiveCollision: caseInsensitiveCollisions.has(
+			`${entrypoint}:${symbol.name.toLowerCase()}`,
+		),
+	});
+	return `[\`${symbol.name}\`](${href})`;
+}
+
+function collectEntrypointCaseInsensitiveCollisions(
+	entrypoint: PublicApiEntrypoint,
+): ReadonlySet<string> {
+	const counts = new Map<string, number>();
+	for (const group of entrypoint.kindGroups) {
+		for (const symbol of group.symbols) {
+			const key = `${entrypoint.entrypoint}:${symbol.name.toLowerCase()}`;
+			counts.set(key, (counts.get(key) ?? 0) + 1);
+		}
+	}
+
+	return new Set(
+		Array.from(counts.entries())
+			.filter(([, count]) => count > 1)
+			.map(([key]) => key),
+	);
 }
 
 async function readJsonFile(filePath: string): Promise<Record<string, unknown>> {

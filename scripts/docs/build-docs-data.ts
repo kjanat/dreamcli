@@ -17,7 +17,9 @@ import {
 } from './shared/api-index.ts';
 import {
 	collectExamples,
+	EXAMPLE_HOVER_PROTOTYPE_ROUTE_PATH,
 	type ExampleEntry,
+	renderExampleHoverPrototypePage,
 	renderExamplePage,
 	renderExamplesIndex,
 } from './shared/examples.ts';
@@ -97,6 +99,14 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		...examples.map((example) =>
 			writeFile(join(exampleDocsRoot, `${example.slug}.md`), renderExamplePage(example)),
 		),
+		...(examples[0] === undefined
+			? []
+			: [
+					writeFile(
+						join(exampleDocsRoot, 'hover-prototype.md'),
+						renderExampleHoverPrototypePage(examples[0]),
+					),
+				]),
 		writeFile(generatedChangelogPath, renderChangelog(changelog)),
 		writeFile(generatedDocsHealthPath, renderDocsHealth(docsHealth)),
 		writeFile(generatedApiIndexPath, `${JSON.stringify(publicApi, null, '\t')}\n`),
@@ -123,7 +133,7 @@ async function collectDocsHealth(
 		(relativePath) =>
 			!relativePath.startsWith('.generated/') && !relativePath.startsWith('.vitepress/'),
 	);
-	const generatedArtifactCount = 7 + symbolPageCount + exampleCount;
+	const generatedArtifactCount = 8 + symbolPageCount + exampleCount;
 
 	return {
 		authoredPageCount,
@@ -280,6 +290,8 @@ function renderSiteData(
 		' */',
 		'',
 		`export const generatedExamples = ${JSON.stringify(exampleIndex, null, '\t')};`,
+		'',
+		`export const generatedExampleHoverPrototypeRoute = ${JSON.stringify(EXAMPLE_HOVER_PROTOTYPE_ROUTE_PATH)};`,
 		'',
 		`export const generatedReferenceSurfaces = ${JSON.stringify(referenceSurfaces, null, '\t')};`,
 		'',

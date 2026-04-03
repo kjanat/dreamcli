@@ -34,6 +34,7 @@ Started: 2026-04-02
 - For generated reference work, keep the heavy source-of-truth model under `docs/.generated/`, but emit lightweight searchable public routes from that model and keep VitePress metadata limited to route/index facts instead of full page payloads.
 - For generated example docs, render full source-backed detail pages to `docs/examples/*.md`, but keep `docs/.generated/site-data.ts` limited to nav/index metadata; pushing full source blobs into VitePress config metadata creates avoidable churn.
 - For resolver diagnostic redesign, keep nested `ValidationError` JSON stable and add a parallel per-issue summary at the aggregate wrapper; it clarifies mixed flag/arg failures without weakening existing leaf-error assertions.
+- For generated docs routes, detect case-insensitive slug collisions at generation time and suffix only the colliding non-lowercase export; VitePress lowercases page keys during render, so case-only route differences are unstable.
 
 ## Project Tracking
 
@@ -200,3 +201,11 @@ Started: 2026-04-02
 - Wired the examples sidebar and examples overview page to the generated routes, and made each example page include summary, usage snippets, GitHub source links, related API links, and the full source listing.
 - Files changed: `scripts/docs/shared/examples.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `docs/.vitepress/config.ts`, `docs/examples/index.md`, `docs/.generated/examples/index.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `docs/examples/*.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: example pages fit the existing docs pipeline best when generation owns the detail routes outright and derives related links from imported public symbols; the authored overview page can stay thin while generated pages carry the searchable content.
+
+## Task - [prototype-hover-path]
+
+- Added a narrow Twoslash-backed hover proof for generated docs: `docs/examples/hover-prototype.md` is now emitted from the examples pipeline and renders a real DreamCLI example with a `ts twoslash` fence against local source imports.
+- Wired VitePress Twoslash support through `docs/.vitepress/config.ts` and `docs/.vitepress/theme/index.ts`, and documented the proof scope and rollout constraints in `docs/reference/example-hover-prototype.md` plus the examples overview/support matrix.
+- Fixed a pre-existing docs-build blocker by disambiguating case-colliding generated symbol routes (for example `middleware` vs `Middleware`) in the symbol-page and API-index generators so VitePress can render the docs site reliably.
+- Files changed: `package.json`, `bun.lock`, `docs/.vitepress/config.ts`, `docs/.vitepress/theme/index.ts`, `docs/examples/index.md`, `docs/reference/example-hover-prototype.md`, `docs/reference/support-matrix.md`, `scripts/docs/shared/examples.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/shared/symbol-pages.ts`, `scripts/docs/shared/symbol-pages.test.ts`, `scripts/docs/shared/api-index.ts`, `scripts/docs/shared/api-index.test.ts`, `scripts/docs/build-docs-data.ts`, `docs/.generated/**/*`, `docs/examples/hover-prototype.md`, `docs/reference/symbols/main/middleware-type.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the smallest safe hover spike is one generated proof page plus default Twoslash UI; the actual rollout can stay separate. Also, generated docs route policy must account for VitePress's case-insensitive page hashing or unrelated docs features will surface brittle collisions.

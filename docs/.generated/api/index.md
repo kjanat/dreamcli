@@ -153,7 +153,7 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 | [`InferFlags`](/reference/symbols/main/InferFlags)                       | `src/core/schema/flag.ts`         |
 | [`InteractiveResolver`](/reference/symbols/main/InteractiveResolver)     | `src/core/schema/command.ts`      |
 | [`InteractiveResult`](/reference/symbols/main/InteractiveResult)         | `src/core/schema/command.ts`      |
-| [`Middleware`](/reference/symbols/main/Middleware)                       | `src/core/schema/middleware.ts`   |
+| [`Middleware`](/reference/symbols/main/middleware-type)                  | `src/core/schema/middleware.ts`   |
 | [`MiddlewareHandler`](/reference/symbols/main/MiddlewareHandler)         | `src/core/schema/middleware.ts`   |
 | [`PackageJsonAdapter`](/reference/symbols/main/PackageJsonAdapter)       | `src/core/config/package-json.ts` |
 | [`ParseErrorCode`](/reference/symbols/main/ParseErrorCode)               | `src/core/errors/index.ts`        |

@@ -33,16 +33,27 @@ export function collectSymbolPages(
 	model: NormalizedApiModel,
 	symbolPagesRoot: string,
 ): readonly GeneratedSymbolPage[] {
+	const caseInsensitiveCollisions = collectCaseInsensitiveCollisions(model.exports);
+
 	return model.exports
 		.map((entry) => {
-			const routePath = toSymbolPageRoute(entry.entrypoint, entry.name);
+			const hasCaseInsensitiveCollision = caseInsensitiveCollisions.has(
+				toCollisionKey(entry.entrypoint, entry.name),
+			);
+			const routePath = toSymbolPageRoute(entry.entrypoint, entry.name, {
+				publicKind: entry.publicKind,
+				hasCaseInsensitiveCollision,
+			});
 			return {
 				id: entry.id,
 				name: entry.name,
 				entrypoint: entry.entrypoint,
 				publicKind: entry.publicKind,
 				routePath,
-				filePath: toSymbolPageFilePath(symbolPagesRoot, entry.entrypoint, entry.name),
+				filePath: toSymbolPageFilePath(symbolPagesRoot, entry.entrypoint, entry.name, {
+					publicKind: entry.publicKind,
+					hasCaseInsensitiveCollision,
+				}),
 				content: renderSymbolPage(entry),
 				summary: summarizeComment(entry.reflection.comment),
 			} satisfies GeneratedSymbolPage;
@@ -50,16 +61,65 @@ export function collectSymbolPages(
 		.sort((left, right) => left.id.localeCompare(right.id));
 }
 
-export function toSymbolPageRoute(entrypoint: string, symbolName: string): string {
-	return `/reference/symbols/${toSymbolPageSection(entrypoint)}/${symbolName}`;
+export function toSymbolPageRoute(
+	entrypoint: string,
+	symbolName: string,
+	options?: {
+		publicKind?: string;
+		hasCaseInsensitiveCollision?: boolean;
+	},
+): string {
+	return `/reference/symbols/${toSymbolPageSection(entrypoint)}/${toSymbolPageSlug(symbolName, options)}`;
 }
 
 export function toSymbolPageFilePath(
 	symbolPagesRoot: string,
 	entrypoint: string,
 	symbolName: string,
+	options?: {
+		publicKind?: string;
+		hasCaseInsensitiveCollision?: boolean;
+	},
 ): string {
-	return join(symbolPagesRoot, toSymbolPageSection(entrypoint), `${symbolName}.md`);
+	return join(
+		symbolPagesRoot,
+		toSymbolPageSection(entrypoint),
+		`${toSymbolPageSlug(symbolName, options)}.md`,
+	);
+}
+
+function collectCaseInsensitiveCollisions(
+	entries: readonly { entrypoint: string; name: string }[],
+): ReadonlySet<string> {
+	const counts = new Map<string, number>();
+	for (const entry of entries) {
+		const key = toCollisionKey(entry.entrypoint, entry.name);
+		counts.set(key, (counts.get(key) ?? 0) + 1);
+	}
+
+	return new Set(
+		Array.from(counts.entries())
+			.filter(([, count]) => count > 1)
+			.map(([key]) => key),
+	);
+}
+
+function toCollisionKey(entrypoint: string, symbolName: string): string {
+	return `${entrypoint}:${symbolName.toLowerCase()}`;
+}
+
+function toSymbolPageSlug(
+	symbolName: string,
+	options?: {
+		publicKind?: string;
+		hasCaseInsensitiveCollision?: boolean;
+	},
+): string {
+	if (options?.hasCaseInsensitiveCollision !== true || symbolName === symbolName.toLowerCase()) {
+		return symbolName;
+	}
+
+	return `${symbolName.toLowerCase()}-${options.publicKind ?? 'symbol'}`;
 }
 
 function toSymbolPageSection(entrypoint: string): string {

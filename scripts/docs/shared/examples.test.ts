@@ -4,7 +4,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { collectExamples, renderExamplePage, renderExamplesIndex } from './examples.ts';
+import {
+	collectExamples,
+	renderExampleHoverPrototypePage,
+	renderExamplePage,
+	renderExamplesIndex,
+} from './examples.ts';
 import { examplesRoot, rootDirPath } from './paths.ts';
 
 describe('example docs generation', () => {
@@ -56,6 +61,19 @@ describe('example docs generation', () => {
 		expect(page).toContain('## Related Links');
 		expect(page).toContain('- [`command`](/reference/symbols/main/command)');
 		expect(page).toContain('## Source');
+		expect(page).toContain("import { arg, cli, command, flag } from 'dreamcli';");
+	});
+
+	it('renders a Twoslash-backed hover prototype page from a real example', async () => {
+		const [example] = await collectExamples(examplesRoot, rootDirPath);
+		if (example === undefined) {
+			throw new Error('expected at least one example');
+		}
+
+		const page = renderExampleHoverPrototypePage(example);
+		expect(page).toContain('# Example Hover Prototype');
+		expect(page).toContain('```ts twoslash');
+		expect(page).toContain('- Scope: examples only');
 		expect(page).toContain("import { arg, cli, command, flag } from 'dreamcli';");
 	});
 });
