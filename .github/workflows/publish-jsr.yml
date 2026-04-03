@@ -26,22 +26,24 @@ jobs:
     needs: [meta]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: jsr
-      url: ${{ needs.meta.outputs.url }}
+    environment: { name: jsr, url: "${{ needs.meta.outputs.url }}" }
     permissions:
       contents: read
       id-token: write # OIDC provenance for JSR
     steps:
       - uses: actions/checkout@v6
+
       - uses: denoland/setup-deno@v2
         with: { deno-version: v2.x }
+
       - uses: oven-sh/setup-bun@v2
         with: { bun-version: latest }
+
       - run: bun install --frozen-lockfile
       - run: bun run scripts/check-version-sync.ts
       - run: deno run -A scripts/emit-definition-schema.ts
       - name: Deno adapter smoke test
         run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
+
       - name: Publish to JSR
         run: deno publish --no-check

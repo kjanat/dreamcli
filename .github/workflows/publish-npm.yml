@@ -1,8 +1,7 @@
 name: Publish to npm
 
 on:
-  release:
-    types: [published]
+  release: { types: [published] }
   workflow_dispatch:
 
 jobs:
@@ -31,9 +30,7 @@ jobs:
     needs: [meta]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: npm
-      url: ${{ needs.meta.outputs.url }}
+    environment: { name: npm, url: "${{ needs.meta.outputs.url }}" }
     permissions:
       contents: read
       id-token: write
@@ -44,9 +41,7 @@ jobs:
         with: { bun-version: latest }
 
       - uses: actions/setup-node@v6
-        with:
-          node-version: 22.22.2
-          registry-url: https://registry.npmjs.org
+        with: { node-version: latest, registry-url: https://registry.npmjs.org }
 
       - run: bun install --frozen-lockfile
       - run: bun run scripts/check-version-sync.ts
@@ -54,5 +49,4 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
