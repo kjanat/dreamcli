@@ -312,6 +312,15 @@
 			"depends": ["write-rationale-docs", "write-migration-guides", "align-completion-truth"],
 			"priority": "polish",
 			"passes": false
+		},
+		{
+			"id": "rename-to-scoped-package",
+			"phase": 10,
+			"title": "Rename package to @kjanat/dreamcli",
+			"description": "Rename npm package from 'dreamcli' to '@kjanat/dreamcli'. npm blocks unscoped 'dreamcli' due to typosquat similarity with abandoned 'dream-cli' (v0.2.1, 2014, 6 downloads/week). Update package.json name, all import references in docs/examples, JSR config, publish workflows, and README/docs site references. Done when: npm publish succeeds under the scoped name and all surfaces reference @kjanat/dreamcli consistently.",
+			"depends": ["harden-ci-coverage"],
+			"priority": "standard",
+			"passes": false
 		}
 	]
 }
