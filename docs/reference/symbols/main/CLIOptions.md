@@ -10,7 +10,7 @@ current runtime invocation instead of always being hard-coded.
 - Import: `dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/index.ts`
-- Source link: [`src/core/cli/index.ts:942`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L942)
+- Source link: [`src/core/cli/index.ts:943`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L943)
 
 ## Signatures
 

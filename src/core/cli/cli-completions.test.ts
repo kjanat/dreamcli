@@ -285,6 +285,16 @@ describe('.completions() — error handling', () => {
 		expect(output).toContain('#!/usr/bin/env bash');
 	});
 
+	it('normalizes pwsh.exe $SHELL path to powershell', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions'], {
+			env: { SHELL: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('# PowerShell completion for mycli');
+	});
+
 	it('accepts fish through the user-facing shell arg', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'fish']);
@@ -292,12 +302,11 @@ describe('.completions() — error handling', () => {
 		expect(result.stdout.join('')).toContain('# Fish completion for mycli');
 	});
 
-	it('errors when powershell is requested through the user-facing shell arg', async () => {
+	it('accepts powershell through the user-facing shell arg', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'powershell']);
-		expect(result.exitCode).not.toBe(0);
-		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain("Unknown shell 'powershell'");
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('# PowerShell completion for mycli');
 	});
 
 	it('errors when shell arg has unsupported value', async () => {
@@ -355,6 +364,12 @@ describe('.completions() — schema snapshot', () => {
 		const fishOutput = fishResult.stdout.join('');
 		expect(fishOutput).toContain('# Fish completion for mycli');
 		expect(fishOutput).toContain('complete -c mycli -f');
+
+		const powershellResult = await app.execute(['completions', 'powershell']);
+		expect(powershellResult.exitCode).toBe(0);
+		const powershellOutput = powershellResult.stdout.join('');
+		expect(powershellOutput).toContain('# PowerShell completion for mycli');
+		expect(powershellOutput).toContain('Register-ArgumentCompleter -Native -CommandName');
 	});
 });
 

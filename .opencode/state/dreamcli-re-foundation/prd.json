@@ -180,7 +180,7 @@
 			"description": "Ship real PowerShell completion generation. Done when: PowerShell completion generation is implemented, tested, and reflected truthfully in docs/support surfaces.",
 			"depends": ["completion-contract-tests", "extract-invocation-planner"],
 			"priority": "standard",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "align-completion-truth",

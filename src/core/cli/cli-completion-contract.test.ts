@@ -88,15 +88,15 @@ describe('Completion contract — supported shell surface', () => {
 		expect(output).toContain('bash');
 		expect(output).toContain('zsh');
 		expect(output).toContain('fish');
-		expect(output).not.toContain('powershell');
+		expect(output).toContain('powershell');
 	});
 
-	it('rejects only unsupported planned shells at the command boundary', async () => {
+	it('accepts powershell at the command boundary', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const powershellResult = await app.execute(['completions', 'powershell']);
 
-		expect(powershellResult.exitCode).not.toBe(0);
-		expect(powershellResult.error?.message).toContain("Unknown shell 'powershell'");
+		expect(powershellResult.exitCode).toBe(0);
+		expect(powershellResult.stdout.join('')).toContain('# PowerShell completion for mycli');
 	});
 });
 

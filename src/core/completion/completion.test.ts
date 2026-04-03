@@ -4,7 +4,6 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
-import { isCLIError } from '#internals/core/errors/index.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import type {
 	ActivityEvent,
@@ -17,6 +16,7 @@ import {
 	generateBashCompletion,
 	generateCompletion,
 	generateFishCompletion,
+	generatePowerShellCompletion,
 	generateZshCompletion,
 	SHELLS,
 } from './index.ts';
@@ -106,7 +106,7 @@ import {
 
 describe('Shell type — SHELLS constant', () => {
 	it('contains only implemented shell targets', () => {
-		expect(SHELLS).toEqual(['bash', 'zsh', 'fish']);
+		expect(SHELLS).toEqual(['bash', 'zsh', 'fish', 'powershell']);
 	});
 
 	it('is a frozen readonly tuple', () => {
@@ -1609,22 +1609,12 @@ describe('generateCompletion — dispatcher', () => {
 		expect(script).toContain('function __testcli_completions_path');
 	});
 
-	it('throws CLIError for powershell (unsupported)', () => {
+	it('delegates powershell to generatePowerShellCompletion', () => {
 		const schema = minimalSchema();
+		const script = generateCompletion(schema, 'powershell');
 
-		let caught: unknown;
-		try {
-			generateCompletion(schema, 'powershell');
-		} catch (e: unknown) {
-			caught = e;
-		}
-		expect(caught).toBeDefined();
-		expect(isCLIError(caught)).toBe(true);
-		if (isCLIError(caught)) {
-			expect(caught.code).toBe('UNSUPPORTED_OPERATION');
-			expect(caught.message).toContain('powershell');
-			expect(caught.message).toContain('not yet supported');
-		}
+		expect(script).toContain('# PowerShell completion for testcli');
+		expect(script).toContain('Register-ArgumentCompleter -Native -CommandName');
 	});
 
 	it('passes options through to bash generator', () => {
@@ -2275,5 +2265,91 @@ describe('generateFishCompletion — script structure', () => {
 		expect(rootLines.join('\n')).toContain('-l port');
 		expect(rootLines.join('\n')).toContain('-s p');
 		expect(rootLines.join('\n')).toContain('-l verbose');
+	});
+});
+
+// === generatePowerShellCompletion — script structure
+
+describe('generatePowerShellCompletion — script structure', () => {
+	it('generates header, registration, and install instructions', () => {
+		const script = generatePowerShellCompletion(minimalSchema());
+
+		expect(script).toContain('# PowerShell completion for testcli');
+		expect(script).toContain('testcli completions powershell | Invoke-Expression');
+		expect(script).toContain('$PROFILE.CurrentUserCurrentHost');
+		expect(script).toContain('Register-ArgumentCompleter -Native -CommandName');
+		expect(script).toContain('$script:__testcli_completions_paths = @{');
+	});
+
+	it('includes root commands and root flags', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(commandSchema({ name: 'deploy', description: 'Deploy app' })),
+				erased(commandSchema({ name: 'build', description: 'Build app' })),
+			],
+		});
+		const script = generatePowerShellCompletion(schema);
+
+		expect(script).toContain("'' = @{");
+		expect(script).toContain("CanonicalName = 'deploy'");
+		expect(script).toContain("CanonicalName = 'build'");
+		expect(script).toContain("Forms = @('--help')");
+		expect(script).toContain("Forms = @('--version')");
+	});
+
+	it('includes nested propagated flags and child commands', () => {
+		const script = generatePowerShellCompletion(nestedSchema());
+
+		expect(script).toMatch(
+			/'db' = @\{[\s\S]*CanonicalName = 'migrate'[\s\S]*CanonicalName = 'seed'/,
+		);
+		expect(script).toMatch(
+			/'db migrate' = @\{[\s\S]*Forms = @\('--verbose', '-v'\)[\s\S]*Forms = @\('--dry-run'\)/,
+		);
+	});
+
+	it('surfaces default-command flags at the root in surface mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				description: 'Start server',
+				flags: {
+					port: flagSchema({ kind: 'number', aliases: ['p'], description: 'Port' }),
+					verbose: flagSchema({ kind: 'boolean', description: 'Verbose logging' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status', description: 'Show status' }));
+		const script = generatePowerShellCompletion(
+			minimalSchema({ commands: [serve, status], defaultCommand: serve }),
+			{ rootMode: 'surface' },
+		);
+
+		expect(script).toMatch(
+			/'' = @\{[\s\S]*Forms = @\('--port', '-p'\)[\s\S]*Forms = @\('--verbose'\)/,
+		);
+	});
+
+	it('includes enum values in the generated flag metadata', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								description: 'Environment',
+								enumValues: ['dev', 'prod'],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generatePowerShellCompletion(schema);
+
+		expect(script).toContain("EnumValues = @('dev', 'prod')");
+		expect(script).toContain('_AddInlineEnumResults');
 	});
 });

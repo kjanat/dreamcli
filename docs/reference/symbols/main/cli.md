@@ -7,7 +7,7 @@ Generated reference page for the `cli` function export.
 - Import: `dreamcli`
 - Export kind: function
 - Declared in: `src/core/cli/index.ts`
-- Source link: [`src/core/cli/index.ts:985`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L985)
+- Source link: [`src/core/cli/index.ts:986`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L986)
 
 ## Signatures
 

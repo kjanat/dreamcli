@@ -12,12 +12,12 @@ omitted here so user-facing CLIs do not advertise unsupported targets.
 - Import: `dreamcli`
 - Export kind: constant
 - Declared in: `src/core/completion/index.ts`
-- Source link: [`src/core/completion/index.ts:39`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L39)
+- Source link: [`src/core/completion/index.ts:38`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L38)
 
 ## Signatures
 
 ```ts
-const SHELLS: Readonly<readonly ["bash", "zsh", "fish"]>;
+const SHELLS: Readonly<readonly ["bash", "zsh", "fish", "powershell"]>;
 ```
 
 ## See Also

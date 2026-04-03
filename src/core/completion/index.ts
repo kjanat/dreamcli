@@ -21,8 +21,7 @@ import { generateZshCompletion } from './shells/zsh.ts';
 /**
  * Supported shell targets for completion script generation.
  *
- * `bash`, `zsh`, and `fish` are implemented today. `powershell` remains
- * planned and currently throws on generation.
+ * `bash`, `zsh`, `fish`, and `powershell` are implemented today.
  */
 type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 
@@ -36,11 +35,12 @@ type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
  *
  * @see {@link Shell} for the union type matching these entries.
  */
-const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish']> = Object.freeze([
+const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish', 'powershell']> = Object.freeze([
 	'bash',
 	'zsh',
 	'fish',
-] as const satisfies readonly ['bash', 'zsh', 'fish']);
+	'powershell',
+] as const satisfies readonly ['bash', 'zsh', 'fish', 'powershell']);
 
 // --- Shell-agnostic dispatch
 
@@ -56,7 +56,6 @@ const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish']> = Object.freeze([
  * @param options - Optional generator configuration such as function naming
  *   and root default-command completion behavior.
  * @returns A complete shell completion script as a string.
- * @throws {CLIError} If the shell is not yet supported.
  *
  * @example
  * ```ts
@@ -84,6 +83,7 @@ export {
 	generateBashCompletion,
 	generateCompletion,
 	generateFishCompletion,
+	generatePowerShellCompletion,
 	generateZshCompletion,
 	SHELLS,
 };

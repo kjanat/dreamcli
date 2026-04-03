@@ -654,6 +654,7 @@ class CLIBuilder {
 		// Supported shells for validation. Keep in sync with completion/index.ts SHELLS.
 		const shellMap = new Map<string, Shell>();
 		for (const s of SHELLS) shellMap.set(s, s);
+		shellMap.set('pwsh', 'powershell');
 
 		const cmd = command('completions')
 			.alias('completion')

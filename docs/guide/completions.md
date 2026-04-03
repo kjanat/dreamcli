@@ -11,20 +11,20 @@ import { generateCompletion } from 'dreamcli';
 generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
 generateCompletion(myCli.schema, 'fish');
+generateCompletion(myCli.schema, 'powershell');
 generateCompletion(myCli.schema, 'bash', { rootMode: 'surface' });
 ```
 
 ## Supported Shells
 
-| Shell | Status    |
-| ----- | --------- |
-| bash  | Supported |
-| zsh   | Supported |
-| fish  | Supported |
+| Shell      | Status    |
+| ---------- | --------- |
+| bash       | Supported |
+| zsh        | Supported |
+| fish       | Supported |
+| powershell | Supported |
 
-`generateCompletion()` currently supports `bash`, `zsh`, and `fish`.
-Passing `powershell` currently throws a structured not-supported `CLIError` rather than returning a
-script.
+`generateCompletion()` currently supports `bash`, `zsh`, `fish`, and `powershell`.
 
 See the [Support Matrix](/reference/support-matrix) for the current audited shell surface and the
 tracked follow-up work.
@@ -41,9 +41,14 @@ const completions = command('completions')
   .arg(
     'shell',
     arg
-      .custom((raw): 'bash' | 'zsh' | 'fish' => {
-        if (raw !== 'bash' && raw !== 'zsh' && raw !== 'fish') {
-          throw new Error('Expected bash, zsh, or fish');
+      .custom((raw): 'bash' | 'zsh' | 'fish' | 'powershell' => {
+        if (
+          raw !== 'bash' &&
+          raw !== 'zsh' &&
+          raw !== 'fish' &&
+          raw !== 'powershell'
+        ) {
+          throw new Error('Expected bash, zsh, fish, or powershell');
         }
         return raw;
       })
@@ -75,6 +80,9 @@ mycli completions zsh >> ~/.zshrc
 
 # fish
 mycli completions fish > ~/.config/fish/completions/mycli.fish
+
+# powershell
+mycli completions powershell | Invoke-Expression
 ```
 
 ## What Completes
@@ -103,4 +111,4 @@ For the exact root-surface rules and examples, see [CLI Semantics](/guide/semant
 - [Interactive Prompts](/guide/prompts) — prompt integration
 - [Runtime Support](/guide/runtime) — cross-runtime behavior
 - [CLI Semantics](/guide/semantics) — exact root help and completion surface rules
-- [Support Matrix](/reference/support-matrix) — current support truth and deferred shell work
+- [Support Matrix](/reference/support-matrix) — current support truth

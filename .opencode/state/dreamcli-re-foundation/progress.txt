@@ -39,6 +39,7 @@ Started: 2026-04-02
 - For docs interactivity rollouts, keep generated example pages readable without hover by putting `ts twoslash` only on the source block and leaving summary, usage, and related-link sections plain.
 - For generated docs surfaces that need public routes, keep the source-of-truth artifact under `docs/.generated/` and emit the browsable `docs/reference/*.md` page from the same shared renderer so metrics and public copy stay in lockstep.
 - For source-backed schema metadata, derive one generated TS description map from the normalized TypeDoc model and let runtime exports consume that generated module; it keeps the shipped schema asset and in-process constant aligned without hand-written doc strings.
+- For new shell generators, emit one generated per-path metadata table plus a thin shell-native resolver instead of re-encoding planner logic ad hoc in the script; nested-command and propagated-flag behavior stay aligned with the shared walker.
 
 ## Project Tracking
 
@@ -248,5 +249,13 @@ Started: 2026-04-02
 - Implemented real fish completion generation in `src/core/completion/shells/fish.ts` with a canonical path helper, per-path `complete` entries for nested commands, propagated flags, enum values, and root default-command surface handling.
 - Expanded completion coverage across the generator, `.completions()` contract/integration suites, and end-to-end CLI tests so fish is now part of the shipped shell surface while PowerShell remains the only deferred shell.
 - Regenerated the public docs artifacts and updated authored completion/support docs so `SHELLS`, `generateCompletion()`, and the audited support matrix all describe the same shipped behavior.
+
+## Task - [implement-pwsh-comp]
+
+- Implemented native PowerShell completion generation in `src/core/completion/shells/powershell.ts` with a generated per-path metadata table, nested-command path resolution, propagated ancestor flags, enum-value completion metadata, and root default-command surface handling.
+- Expanded completion coverage across the shared generator suite, built-in `.completions()` contract/integration tests, and CLI end-to-end dispatch so PowerShell is now part of the shipped shell surface, including `pwsh.exe` env-path normalization.
+- Regenerated the public docs artifacts and updated authored completion/support docs so `SHELLS`, generated API docs, shell guides, and the audited support matrix all describe the same shipped PowerShell support.
+- Files changed: `src/core/completion/shells/powershell.ts`, `src/core/completion/index.ts`, `src/core/completion/completion.test.ts`, `src/core/cli/index.ts`, `src/core/cli/cli-completion-contract.test.ts`, `src/core/cli/cli-completions.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`, `docs/guide/completions.md`, `docs/reference/support-matrix.md`, `docs/.generated/**/*`, `docs/reference/symbols/main/*.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: PowerShell fits the existing completion architecture best when the generator emits static path/flag metadata and the runtime script only does shell-native token walking and filtering; that keeps the shared command-tree truth in TypeScript while avoiding shell-specific duplication of planner policy.
 - Files changed: `src/core/completion/shells/fish.ts`, `src/core/completion/index.ts`, `src/core/completion/completion-test-helpers.ts`, `src/core/completion/completion.test.ts`, `src/core/cli/cli-completion-contract.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`, `src/core/cli/cli-completions.test.ts`, `docs/guide/completions.md`, `docs/reference/support-matrix.md`, `docs/.generated/site-data.ts`, `docs/reference/symbols/main/SHELLS.md`, `docs/reference/symbols/main/Shell.md`, `docs/reference/symbols/main/generateCompletion.md`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: fish support fits best as the same schema-driven command-path model used by other shells; a tiny generated path helper plus per-path `complete` lines keeps nested command truth and propagated-flag behavior aligned without inventing a separate completion planner.

@@ -2322,9 +2322,9 @@
               "sources": [
                 {
                   "fileName": "src/core/cli/index.ts",
-                  "line": 705,
+                  "line": 706,
                   "character": 7,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L705"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L706"
                 }
               ],
               "signatures": [
@@ -2364,9 +2364,9 @@
                   "sources": [
                     {
                       "fileName": "src/core/cli/index.ts",
-                      "line": 705,
+                      "line": 706,
                       "character": 7,
-                      "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L705"
+                      "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L706"
                     }
                   ],
                   "parameters": [
@@ -2777,9 +2777,9 @@
               "sources": [
                 {
                   "fileName": "src/core/cli/index.ts",
-                  "line": 820,
+                  "line": 821,
                   "character": 7,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L820"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L821"
                 }
               ],
               "signatures": [
@@ -2824,9 +2824,9 @@
                   "sources": [
                     {
                       "fileName": "src/core/cli/index.ts",
-                      "line": 820,
+                      "line": 821,
                       "character": 7,
-                      "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L820"
+                      "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L821"
                     }
                   ],
                   "parameters": [
@@ -13315,9 +13315,9 @@
               "sources": [
                 {
                   "fileName": "src/core/cli/index.ts",
-                  "line": 962,
+                  "line": 963,
                   "character": 10,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L962"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L963"
                 }
               ],
               "type": {
@@ -13372,9 +13372,9 @@
               "sources": [
                 {
                   "fileName": "src/core/cli/index.ts",
-                  "line": 951,
+                  "line": 952,
                   "character": 10,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L951"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L952"
                 }
               ],
               "type": {
@@ -13392,9 +13392,9 @@
           "sources": [
             {
               "fileName": "src/core/cli/index.ts",
-              "line": 942,
+              "line": 943,
               "character": 10,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L942"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L943"
             }
           ]
         },
@@ -31106,7 +31106,7 @@
               },
               {
                 "kind": "text",
-                "text": ", and "
+                "text": ", "
               },
               {
                 "kind": "code",
@@ -31114,7 +31114,7 @@
               },
               {
                 "kind": "text",
-                "text": " are implemented today. "
+                "text": ", and "
               },
               {
                 "kind": "code",
@@ -31122,16 +31122,16 @@
               },
               {
                 "kind": "text",
-                "text": " remains\nplanned and currently throws on generation."
+                "text": " are implemented today."
               }
             ]
           },
           "sources": [
             {
               "fileName": "src/core/completion/index.ts",
-              "line": 27,
+              "line": 26,
               "character": 5,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L27"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L26"
             }
           ],
           "type": {
@@ -32514,9 +32514,9 @@
           "sources": [
             {
               "fileName": "src/core/completion/index.ts",
-              "line": 39,
+              "line": 38,
               "character": 6,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L39"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L38"
             }
           ],
           "type": {
@@ -32544,6 +32544,10 @@
                     {
                       "type": "literal",
                       "value": "fish"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "powershell"
                     }
                   ]
                 }
@@ -32818,12 +32822,6 @@
           "sources": [
             {
               "fileName": "src/core/cli/index.ts",
-              "line": 985,
-              "character": 9,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L985"
-            },
-            {
-              "fileName": "src/core/cli/index.ts",
               "line": 986,
               "character": 9,
               "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L986"
@@ -32833,6 +32831,12 @@
               "line": 987,
               "character": 9,
               "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L987"
+            },
+            {
+              "fileName": "src/core/cli/index.ts",
+              "line": 988,
+              "character": 9,
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L988"
             }
           ],
           "signatures": [
@@ -32864,9 +32868,9 @@
               "sources": [
                 {
                   "fileName": "src/core/cli/index.ts",
-                  "line": 985,
+                  "line": 986,
                   "character": 9,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L985"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L986"
                 }
               ],
               "parameters": [
@@ -32917,9 +32921,9 @@
               "sources": [
                 {
                   "fileName": "src/core/cli/index.ts",
-                  "line": 986,
+                  "line": 987,
                   "character": 9,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L986"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L987"
                 }
               ],
               "parameters": [
@@ -34674,9 +34678,9 @@
           "sources": [
             {
               "fileName": "src/core/completion/index.ts",
-              "line": 67,
+              "line": 66,
               "character": 9,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L67"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
             }
           ],
           "signatures": [
@@ -34704,15 +34708,6 @@
                     ]
                   },
                   {
-                    "tag": "@throws",
-                    "content": [
-                      {
-                        "kind": "text",
-                        "text": "If the shell is not yet supported."
-                      }
-                    ]
-                  },
-                  {
                     "tag": "@example",
                     "content": [
                       {
@@ -34726,9 +34721,9 @@
               "sources": [
                 {
                   "fileName": "src/core/completion/index.ts",
-                  "line": 67,
+                  "line": 66,
                   "character": 9,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L67"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
                 }
               ],
               "parameters": [

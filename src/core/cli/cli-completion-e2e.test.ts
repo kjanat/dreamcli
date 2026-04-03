@@ -596,13 +596,13 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 // === E2E — Cross-cutting: completions + runtime + error handling
 
 describe('E2E — completions error paths via CLI dispatch', () => {
-	it('remaining unsupported planned shell is rejected by the user-facing shell arg', async () => {
+	it('powershell is accepted by the user-facing shell arg', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
 		const result = await app.execute(['completions', 'powershell']);
-		expect(result.exitCode).not.toBe(0);
-		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain("Unknown shell 'powershell'");
+		expect(result.exitCode).toBe(0);
+		expect(result.error).toBeUndefined();
+		expect(result.stdout.join('')).toContain('# PowerShell completion for myapp');
 	});
 
 	it('missing shell arg via run() path outputs error', async () => {
