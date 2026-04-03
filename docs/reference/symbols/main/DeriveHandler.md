@@ -15,7 +15,7 @@ They cannot wrap downstream execution; use `middleware()` for that.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:343`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L343)
+- Source link: [`src/core/schema/command.ts:365`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L365)
 
 ## Signatures
 

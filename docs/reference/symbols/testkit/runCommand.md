@@ -7,27 +7,23 @@ Generated reference page for the `runCommand` function export.
 - Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/core/testkit/index.ts`
-- Source link: [`src/core/testkit/index.ts:45`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L45)
+- Source link: [`src/core/testkit/index.ts:43`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L43)
 
 ## Signatures
 
 ```ts
-function runCommand<
-  F extends Record<string, FlagBuilder<FlagConfig>>,
-  A extends Record<string, ArgBuilder<ArgConfig>>,
-  C extends Record<string, unknown>,
->(
-  cmd: CommandBuilder<F, A, C>,
+function runCommand(
+  cmd: RunnableCommand,
   argv: readonly string[],
   options?: RunOptions,
 ): Promise<RunResult>;
 ```
 
-| Parameter | Type                           | Description                                              |
-| --------- | ------------------------------ | -------------------------------------------------------- |
-| `cmd`     | `cmd: CommandBuilder<F, A, C>` | The command builder (must have an action handler)        |
-| `argv`    | `argv: readonly string[]`      | Raw argv strings (NOT including the command name itself) |
-| `options` | `options?: RunOptions`         | Injectable runtime state                                 |
+| Parameter | Type                      | Description                                              |
+| --------- | ------------------------- | -------------------------------------------------------- |
+| `cmd`     | `cmd: RunnableCommand`    | The command builder (must have an action handler)        |
+| `argv`    | `argv: readonly string[]` | Raw argv strings (NOT including the command name itself) |
+| `options` | `options?: RunOptions`    | Injectable runtime state                                 |
 
 ## Related Examples
 

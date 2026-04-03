@@ -630,9 +630,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 1363,
+            "line": 1401,
             "character": 9,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1363"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1401"
           }
         ],
         "defaultValue": null,
@@ -663,9 +663,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1363,
+                "line": 1401,
                 "character": 9,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1363"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1401"
               }
             ],
             "defaultValue": null,
@@ -2931,9 +2931,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 1401,
+            "line": 1439,
             "character": 9,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1401"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1439"
           }
         ],
         "defaultValue": null,
@@ -2964,9 +2964,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1401,
+                "line": 1439,
                 "character": 9,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1401"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1439"
               }
             ],
             "defaultValue": null,
@@ -8770,7 +8770,12 @@
           },
           {
             "title": "Methods",
-            "childNames": ["toJSON", "captureStackTrace", "isError", "prepareStackTrace"]
+            "childNames": [
+              "toJSON",
+              "captureStackTrace",
+              "isError",
+              "prepareStackTrace"
+            ]
           }
         ]
       }
@@ -8802,9 +8807,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 750,
+            "line": 788,
             "character": 6,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L750"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L788"
           }
         ],
         "defaultValue": null,
@@ -8975,9 +8980,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 795,
+                "line": 833,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L795"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L833"
               }
             ],
             "defaultValue": null,
@@ -8993,9 +8998,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 795,
+                    "line": 833,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L795"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L833"
                   }
                 ],
                 "defaultValue": null,
@@ -9091,44 +9096,13 @@
                     "defaultValue": null,
                     "type": {
                       "kind": "reference",
-                      "name": "ActionHandler",
-                      "target": "425",
+                      "name": "ErasedActionHandler",
+                      "target": "@kjanat/dreamcli:src/core/schema/command.ts:ErasedActionHandler",
                       "packageName": "@kjanat/dreamcli",
                       "qualifiedName": null,
                       "externalUrl": null,
                       "refersToTypeParameter": false,
-                      "typeArguments": [
-                        {
-                          "kind": "reference",
-                          "name": "F",
-                          "target": "856",
-                          "packageName": "@kjanat/dreamcli",
-                          "qualifiedName": "CommandBuilder.F",
-                          "externalUrl": null,
-                          "refersToTypeParameter": true,
-                          "typeArguments": []
-                        },
-                        {
-                          "kind": "reference",
-                          "name": "A",
-                          "target": "858",
-                          "packageName": "@kjanat/dreamcli",
-                          "qualifiedName": "CommandBuilder.A",
-                          "externalUrl": null,
-                          "refersToTypeParameter": true,
-                          "typeArguments": []
-                        },
-                        {
-                          "kind": "reference",
-                          "name": "C",
-                          "target": "860",
-                          "packageName": "@kjanat/dreamcli",
-                          "qualifiedName": "CommandBuilder.C",
-                          "externalUrl": null,
-                          "refersToTypeParameter": true,
-                          "typeArguments": []
-                        }
-                      ]
+                      "typeArguments": []
                     },
                     "signatures": [],
                     "parameters": [],
@@ -9406,9 +9380,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 786,
+                "line": 824,
                 "character": 18,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L786"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L824"
               }
             ],
             "defaultValue": null,
@@ -9443,9 +9417,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 787,
+                "line": 825,
                 "character": 18,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L787"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L825"
               }
             ],
             "defaultValue": null,
@@ -9484,9 +9458,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 779,
+                "line": 817,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L779"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L817"
               }
             ],
             "defaultValue": null,
@@ -9532,9 +9506,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 785,
+                "line": 823,
                 "character": 18,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L785"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L823"
               }
             ],
             "defaultValue": null,
@@ -9573,9 +9547,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 770,
+                "line": 808,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L770"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L808"
               }
             ],
             "defaultValue": null,
@@ -9613,7 +9587,7 @@
             "kind": "property",
             "flags": ["isReadonly"],
             "comment": {
-              "summary": "The action handler, if registered.",
+              "summary": "The action handler, if registered (type-erased for covariance).",
               "blockTags": [],
               "modifierTags": ["@internal"]
             },
@@ -9621,9 +9595,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 761,
+                "line": 799,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L761"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L799"
               }
             ],
             "defaultValue": null,
@@ -9632,44 +9606,13 @@
               "types": [
                 {
                   "kind": "reference",
-                  "name": "ActionHandler",
-                  "target": "425",
+                  "name": "ErasedActionHandler",
+                  "target": "@kjanat/dreamcli:src/core/schema/command.ts:ErasedActionHandler",
                   "packageName": "@kjanat/dreamcli",
                   "qualifiedName": null,
                   "externalUrl": null,
                   "refersToTypeParameter": false,
-                  "typeArguments": [
-                    {
-                      "kind": "reference",
-                      "name": "F",
-                      "target": "856",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": "CommandBuilder.F",
-                      "externalUrl": null,
-                      "refersToTypeParameter": true,
-                      "typeArguments": []
-                    },
-                    {
-                      "kind": "reference",
-                      "name": "A",
-                      "target": "858",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": "CommandBuilder.A",
-                      "externalUrl": null,
-                      "refersToTypeParameter": true,
-                      "typeArguments": []
-                    },
-                    {
-                      "kind": "reference",
-                      "name": "C",
-                      "target": "860",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": "CommandBuilder.C",
-                      "externalUrl": null,
-                      "refersToTypeParameter": true,
-                      "typeArguments": []
-                    }
-                  ]
+                  "typeArguments": []
                 },
                 {
                   "kind": "intrinsic",
@@ -9702,9 +9645,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 758,
+                "line": 796,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L758"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L796"
               }
             ],
             "defaultValue": null,
@@ -9739,9 +9682,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1333,
+                "line": 1371,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1333"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1371"
               }
             ],
             "defaultValue": null,
@@ -9777,9 +9720,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1333,
+                    "line": 1371,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1333"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1371"
                   }
                 ],
                 "defaultValue": null,
@@ -9922,9 +9865,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1046,
+                "line": 1084,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1046"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1084"
               }
             ],
             "defaultValue": null,
@@ -9955,9 +9898,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1046,
+                    "line": 1084,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1046"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1084"
                   }
                 ],
                 "defaultValue": null,
@@ -10063,9 +10006,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1230,
+                "line": 1268,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1230"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1268"
               }
             ],
             "defaultValue": null,
@@ -10096,9 +10039,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1230,
+                    "line": 1268,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1230"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1268"
                   }
                 ],
                 "defaultValue": null,
@@ -10386,9 +10329,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1272,
+                "line": 1310,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1272"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1310"
               }
             ],
             "defaultValue": null,
@@ -10419,9 +10362,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1272,
+                    "line": 1310,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1272"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1310"
                   }
                 ],
                 "defaultValue": null,
@@ -10716,9 +10659,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 892,
+                "line": 930,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L892"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L930"
               }
             ],
             "defaultValue": null,
@@ -10749,9 +10692,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 892,
+                    "line": 930,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L892"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L930"
                   }
                 ],
                 "defaultValue": null,
@@ -10974,9 +10917,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1014,
+                "line": 1052,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1014"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1052"
               }
             ],
             "defaultValue": null,
@@ -11007,9 +10950,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1014,
+                    "line": 1052,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1014"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1052"
                   }
                 ],
                 "defaultValue": null,
@@ -11115,9 +11058,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1111,
+                "line": 1149,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1111"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1149"
               }
             ],
             "defaultValue": null,
@@ -11148,9 +11091,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1111,
+                    "line": 1149,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1111"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1149"
                   }
                 ],
                 "defaultValue": null,
@@ -11284,9 +11227,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1165,
+                "line": 1203,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1165"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1203"
               }
             ],
             "defaultValue": null,
@@ -11317,9 +11260,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1165,
+                    "line": 1203,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1165"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1203"
                   }
                 ],
                 "defaultValue": null,
@@ -11607,9 +11550,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 1074,
+                "line": 1112,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1074"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1112"
               }
             ],
             "defaultValue": null,
@@ -11640,9 +11583,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 1074,
+                    "line": 1112,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1074"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1112"
                   }
                 ],
                 "defaultValue": null,
@@ -11719,9 +11662,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 839,
+                "line": 877,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L839"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L877"
               }
             ],
             "defaultValue": null,
@@ -11752,9 +11695,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 839,
+                    "line": 877,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L839"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L877"
                   }
                 ],
                 "defaultValue": null,
@@ -11877,9 +11820,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 968,
+                "line": 1006,
                 "character": 1,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L968"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1006"
               }
             ],
             "defaultValue": null,
@@ -11910,9 +11853,9 @@
                 "sources": [
                   {
                     "path": "src/core/schema/command.ts",
-                    "line": 968,
+                    "line": 1006,
                     "character": 1,
-                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L968"
+                    "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1006"
                   }
                 ],
                 "defaultValue": null,
@@ -14717,7 +14660,12 @@
           },
           {
             "title": "Methods",
-            "childNames": ["toJSON", "captureStackTrace", "isError", "prepareStackTrace"]
+            "childNames": [
+              "toJSON",
+              "captureStackTrace",
+              "isError",
+              "prepareStackTrace"
+            ]
           }
         ]
       }
@@ -15807,7 +15755,12 @@
           },
           {
             "title": "Methods",
-            "childNames": ["toJSON", "captureStackTrace", "isError", "prepareStackTrace"]
+            "childNames": [
+              "toJSON",
+              "captureStackTrace",
+              "isError",
+              "prepareStackTrace"
+            ]
           }
         ]
       }
@@ -18692,7 +18645,14 @@
         "groups": [
           {
             "title": "Properties",
-            "childNames": ["code", "details", "exitCode", "message", "name", "suggest"]
+            "childNames": [
+              "code",
+              "details",
+              "exitCode",
+              "message",
+              "name",
+              "suggest"
+            ]
           }
         ]
       }
@@ -19780,7 +19740,12 @@
         "groups": [
           {
             "title": "Properties",
-            "childNames": ["afterAction", "afterResolve", "beforeAction", "beforeParse"]
+            "childNames": [
+              "afterAction",
+              "afterResolve",
+              "beforeAction",
+              "beforeParse"
+            ]
           }
         ]
       }
@@ -20928,9 +20893,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 451,
+            "line": 473,
             "character": 10,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L451"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L473"
           }
         ],
         "defaultValue": null,
@@ -20949,9 +20914,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 452,
+                "line": 474,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L452"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L474"
               }
             ],
             "defaultValue": null,
@@ -20980,9 +20945,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 453,
+                "line": 475,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L453"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L475"
               }
             ],
             "defaultValue": null,
@@ -21214,9 +21179,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 385,
+            "line": 407,
             "character": 10,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L385"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L407"
           }
         ],
         "defaultValue": null,
@@ -21239,9 +21204,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 387,
+                "line": 409,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L387"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L409"
               }
             ],
             "defaultValue": null,
@@ -21274,9 +21239,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 389,
+                "line": 411,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L389"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L411"
               }
             ],
             "defaultValue": null,
@@ -21525,9 +21490,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 399,
+            "line": 421,
             "character": 10,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L399"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L421"
           }
         ],
         "defaultValue": null,
@@ -21550,9 +21515,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 405,
+                "line": 427,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L405"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L427"
               }
             ],
             "defaultValue": null,
@@ -21592,9 +21557,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 413,
+                "line": 435,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L413"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L435"
               }
             ],
             "defaultValue": null,
@@ -21640,9 +21605,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 442,
+                "line": 464,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L442"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L464"
               }
             ],
             "defaultValue": null,
@@ -21688,9 +21653,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 403,
+                "line": 425,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L403"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L425"
               }
             ],
             "defaultValue": null,
@@ -21732,9 +21697,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 409,
+                "line": 431,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L409"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L431"
               }
             ],
             "defaultValue": null,
@@ -21780,9 +21745,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 411,
+                "line": 433,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L411"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L433"
               }
             ],
             "defaultValue": null,
@@ -21847,9 +21812,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 415,
+                "line": 437,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L415"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L437"
               }
             ],
             "defaultValue": null,
@@ -21882,9 +21847,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 407,
+                "line": 429,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L407"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L429"
               }
             ],
             "defaultValue": null,
@@ -21923,9 +21888,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 426,
+                "line": 448,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L426"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L448"
               }
             ],
             "defaultValue": null,
@@ -21973,9 +21938,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 435,
+                "line": 457,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L435"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L457"
               }
             ],
             "defaultValue": null,
@@ -22021,9 +21986,9 @@
             "sources": [
               {
                 "path": "src/core/schema/command.ts",
-                "line": 401,
+                "line": 423,
                 "character": 10,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L401"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L423"
               }
             ],
             "defaultValue": null,
@@ -23473,7 +23438,11 @@
                         "groups": [
                           {
                             "title": "Properties",
-                            "childNames": ["optionalFallback", "presence", "valueType"]
+                            "childNames": [
+                              "optionalFallback",
+                              "presence",
+                              "valueType"
+                            ]
                           }
                         ]
                       }
@@ -23750,7 +23719,11 @@
                         "groups": [
                           {
                             "title": "Properties",
-                            "childNames": ["optionalFallback", "presence", "valueType"]
+                            "childNames": [
+                              "optionalFallback",
+                              "presence",
+                              "valueType"
+                            ]
                           }
                         ]
                       }
@@ -23966,7 +23939,11 @@
                         "groups": [
                           {
                             "title": "Properties",
-                            "childNames": ["optionalFallback", "presence", "valueType"]
+                            "childNames": [
+                              "optionalFallback",
+                              "presence",
+                              "valueType"
+                            ]
                           }
                         ]
                       }
@@ -24252,7 +24229,11 @@
                         "groups": [
                           {
                             "title": "Properties",
-                            "childNames": ["optionalFallback", "presence", "valueType"]
+                            "childNames": [
+                              "optionalFallback",
+                              "presence",
+                              "valueType"
+                            ]
                           }
                         ]
                       }
@@ -24525,7 +24506,11 @@
                         "groups": [
                           {
                             "title": "Properties",
-                            "childNames": ["optionalFallback", "presence", "valueType"]
+                            "childNames": [
+                              "optionalFallback",
+                              "presence",
+                              "valueType"
+                            ]
                           }
                         ]
                       }
@@ -24725,7 +24710,11 @@
                         "groups": [
                           {
                             "title": "Properties",
-                            "childNames": ["optionalFallback", "presence", "valueType"]
+                            "childNames": [
+                              "optionalFallback",
+                              "presence",
+                              "valueType"
+                            ]
                           }
                         ]
                       }
@@ -24763,7 +24752,14 @@
         "groups": [
           {
             "title": "Methods",
-            "childNames": ["array", "boolean", "custom", "enum", "number", "string"]
+            "childNames": [
+              "array",
+              "boolean",
+              "custom",
+              "enum",
+              "number",
+              "string"
+            ]
           }
         ]
       }
@@ -30674,7 +30670,14 @@
         "groups": [
           {
             "title": "Properties",
-            "childNames": ["args", "command", "deprecations", "flags", "meta", "out"]
+            "childNames": [
+              "args",
+              "command",
+              "deprecations",
+              "flags",
+              "meta",
+              "out"
+            ]
           }
         ]
       }
@@ -34732,9 +34735,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 701,
+            "line": 739,
             "character": 5,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L701"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L739"
           }
         ],
         "defaultValue": null,
@@ -35273,9 +35276,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 343,
+            "line": 365,
             "character": 5,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L343"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L365"
           }
         ],
         "defaultValue": null,
@@ -35655,9 +35658,9 @@
         "sources": [
           {
             "path": "src/core/schema/command.ts",
-            "line": 327,
+            "line": 349,
             "character": 5,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L327"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L349"
           }
         ],
         "defaultValue": null,
@@ -37770,7 +37773,14 @@
                         "groups": [
                           {
                             "title": "Properties",
-                            "childNames": ["args", "ctx", "flags", "meta", "next", "out"]
+                            "childNames": [
+                              "args",
+                              "ctx",
+                              "flags",
+                              "meta",
+                              "next",
+                              "out"
+                            ]
                           }
                         ]
                       }
@@ -41905,7 +41915,14 @@
           },
           {
             "title": "Properties",
-            "childNames": ["cause", "code", "message", "name", "stack", "stackTraceLimit"]
+            "childNames": [
+              "cause",
+              "code",
+              "message",
+              "name",
+              "stack",
+              "stackTraceLimit"
+            ]
           },
           {
             "title": "Methods",
@@ -43041,7 +43058,7 @@
       "publicKind": "function",
       "sourcePath": "src/runtime/adapter.ts",
       "reflection": {
-        "reflectionId": 1101,
+        "reflectionId": 1098,
         "name": "createTestAdapter",
         "kind": "function",
         "flags": [],
@@ -43059,7 +43076,7 @@
         "type": null,
         "signatures": [
           {
-            "reflectionId": 1102,
+            "reflectionId": 1099,
             "name": "createTestAdapter",
             "kind": "callSignature",
             "flags": [],
@@ -43102,7 +43119,7 @@
             "signatures": [],
             "parameters": [
               {
-                "reflectionId": 1103,
+                "reflectionId": 1100,
                 "name": "options",
                 "kind": "parameter",
                 "flags": ["isOptional"],
@@ -43117,7 +43134,7 @@
                 "type": {
                   "kind": "reference",
                   "name": "TestAdapterOptions",
-                  "target": "1081",
+                  "target": "1078",
                   "packageName": "@kjanat/dreamcli",
                   "qualifiedName": null,
                   "externalUrl": null,
@@ -43333,9 +43350,9 @@
         "sources": [
           {
             "path": "src/core/testkit/index.ts",
-            "line": 45,
+            "line": 43,
             "character": 15,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L45"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L43"
           }
         ],
         "defaultValue": null,
@@ -43361,9 +43378,9 @@
             "sources": [
               {
                 "path": "src/core/testkit/index.ts",
-                "line": 45,
+                "line": 43,
                 "character": 15,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L45"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L43"
               }
             ],
             "defaultValue": null,
@@ -43391,7 +43408,7 @@
             "signatures": [],
             "parameters": [
               {
-                "reflectionId": 1078,
+                "reflectionId": 1075,
                 "name": "cmd",
                 "kind": "parameter",
                 "flags": [],
@@ -43405,44 +43422,13 @@
                 "defaultValue": null,
                 "type": {
                   "kind": "reference",
-                  "name": "CommandBuilder",
-                  "target": "855",
+                  "name": "RunnableCommand",
+                  "target": "@kjanat/dreamcli:src/core/schema/command.ts:RunnableCommand",
                   "packageName": "@kjanat/dreamcli",
                   "qualifiedName": null,
                   "externalUrl": null,
                   "refersToTypeParameter": false,
-                  "typeArguments": [
-                    {
-                      "kind": "reference",
-                      "name": "F",
-                      "target": "1075",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": null,
-                      "externalUrl": null,
-                      "refersToTypeParameter": true,
-                      "typeArguments": []
-                    },
-                    {
-                      "kind": "reference",
-                      "name": "A",
-                      "target": "1076",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": null,
-                      "externalUrl": null,
-                      "refersToTypeParameter": true,
-                      "typeArguments": []
-                    },
-                    {
-                      "kind": "reference",
-                      "name": "C",
-                      "target": "1077",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": null,
-                      "externalUrl": null,
-                      "refersToTypeParameter": true,
-                      "typeArguments": []
-                    }
-                  ]
+                  "typeArguments": []
                 },
                 "signatures": [],
                 "parameters": [],
@@ -43456,7 +43442,7 @@
                 "groups": []
               },
               {
-                "reflectionId": 1079,
+                "reflectionId": 1076,
                 "name": "argv",
                 "kind": "parameter",
                 "flags": [],
@@ -43491,7 +43477,7 @@
                 "groups": []
               },
               {
-                "reflectionId": 1080,
+                "reflectionId": 1077,
                 "name": "options",
                 "kind": "parameter",
                 "flags": ["isOptional"],
@@ -43525,159 +43511,7 @@
                 "groups": []
               }
             ],
-            "typeParameters": [
-              {
-                "reflectionId": 1075,
-                "name": "F",
-                "kind": "typeParameter",
-                "flags": [],
-                "comment": null,
-                "sourcePath": null,
-                "sources": [],
-                "defaultValue": null,
-                "type": {
-                  "kind": "reference",
-                  "name": "Record",
-                  "target": "typescript:lib/lib.es5.d.ts:Record",
-                  "packageName": "typescript",
-                  "qualifiedName": null,
-                  "externalUrl": null,
-                  "refersToTypeParameter": false,
-                  "typeArguments": [
-                    {
-                      "kind": "intrinsic",
-                      "name": "string"
-                    },
-                    {
-                      "kind": "reference",
-                      "name": "FlagBuilder",
-                      "target": "934",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": null,
-                      "externalUrl": null,
-                      "refersToTypeParameter": false,
-                      "typeArguments": [
-                        {
-                          "kind": "reference",
-                          "name": "FlagConfig",
-                          "target": "566",
-                          "packageName": "@kjanat/dreamcli",
-                          "qualifiedName": null,
-                          "externalUrl": null,
-                          "refersToTypeParameter": false,
-                          "typeArguments": []
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "signatures": [],
-                "parameters": [],
-                "typeParameters": [],
-                "children": [],
-                "indexSignatures": [],
-                "getSignature": null,
-                "setSignature": null,
-                "extendedTypes": [],
-                "implementedTypes": [],
-                "groups": []
-              },
-              {
-                "reflectionId": 1076,
-                "name": "A",
-                "kind": "typeParameter",
-                "flags": [],
-                "comment": null,
-                "sourcePath": null,
-                "sources": [],
-                "defaultValue": null,
-                "type": {
-                  "kind": "reference",
-                  "name": "Record",
-                  "target": "typescript:lib/lib.es5.d.ts:Record",
-                  "packageName": "typescript",
-                  "qualifiedName": null,
-                  "externalUrl": null,
-                  "refersToTypeParameter": false,
-                  "typeArguments": [
-                    {
-                      "kind": "intrinsic",
-                      "name": "string"
-                    },
-                    {
-                      "kind": "reference",
-                      "name": "ArgBuilder",
-                      "target": "825",
-                      "packageName": "@kjanat/dreamcli",
-                      "qualifiedName": null,
-                      "externalUrl": null,
-                      "refersToTypeParameter": false,
-                      "typeArguments": [
-                        {
-                          "kind": "reference",
-                          "name": "ArgConfig",
-                          "target": "473",
-                          "packageName": "@kjanat/dreamcli",
-                          "qualifiedName": null,
-                          "externalUrl": null,
-                          "refersToTypeParameter": false,
-                          "typeArguments": []
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "signatures": [],
-                "parameters": [],
-                "typeParameters": [],
-                "children": [],
-                "indexSignatures": [],
-                "getSignature": null,
-                "setSignature": null,
-                "extendedTypes": [],
-                "implementedTypes": [],
-                "groups": []
-              },
-              {
-                "reflectionId": 1077,
-                "name": "C",
-                "kind": "typeParameter",
-                "flags": [],
-                "comment": null,
-                "sourcePath": null,
-                "sources": [],
-                "defaultValue": null,
-                "type": {
-                  "kind": "reference",
-                  "name": "Record",
-                  "target": "typescript:lib/lib.es5.d.ts:Record",
-                  "packageName": "typescript",
-                  "qualifiedName": null,
-                  "externalUrl": null,
-                  "refersToTypeParameter": false,
-                  "typeArguments": [
-                    {
-                      "kind": "intrinsic",
-                      "name": "string"
-                    },
-                    {
-                      "kind": "intrinsic",
-                      "name": "unknown"
-                    }
-                  ]
-                },
-                "signatures": [],
-                "parameters": [],
-                "typeParameters": [],
-                "children": [],
-                "indexSignatures": [],
-                "getSignature": null,
-                "setSignature": null,
-                "extendedTypes": [],
-                "implementedTypes": [],
-                "groups": []
-              }
-            ],
+            "typeParameters": [],
             "children": [],
             "indexSignatures": [],
             "getSignature": null,
@@ -44665,7 +44499,7 @@
       "publicKind": "interface",
       "sourcePath": "src/runtime/adapter.ts",
       "reflection": {
-        "reflectionId": 1081,
+        "reflectionId": 1078,
         "name": "TestAdapterOptions",
         "kind": "interface",
         "flags": [],
@@ -44690,7 +44524,7 @@
         "typeParameters": [],
         "children": [
           {
-            "reflectionId": 1082,
+            "reflectionId": 1079,
             "name": "argv",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -44732,7 +44566,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1100,
+            "reflectionId": 1097,
             "name": "configDir",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -44767,7 +44601,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1084,
+            "reflectionId": 1081,
             "name": "cwd",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -44802,7 +44636,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1083,
+            "reflectionId": 1080,
             "name": "env",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -44872,7 +44706,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1091,
+            "reflectionId": 1088,
             "name": "exit",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -44894,7 +44728,7 @@
             "type": {
               "kind": "reflection",
               "declaration": {
-                "reflectionId": 1092,
+                "reflectionId": 1089,
                 "name": "__type",
                 "kind": "typeLiteral",
                 "flags": [],
@@ -44905,7 +44739,7 @@
                 "type": null,
                 "signatures": [
                   {
-                    "reflectionId": 1093,
+                    "reflectionId": 1090,
                     "name": "__type",
                     "kind": "callSignature",
                     "flags": [],
@@ -44920,7 +44754,7 @@
                     "signatures": [],
                     "parameters": [
                       {
-                        "reflectionId": 1094,
+                        "reflectionId": 1091,
                         "name": "code",
                         "kind": "parameter",
                         "flags": [],
@@ -44977,7 +44811,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1099,
+            "reflectionId": 1096,
             "name": "homedir",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -45012,7 +44846,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1089,
+            "reflectionId": 1086,
             "name": "isTTY",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -45047,7 +44881,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1095,
+            "reflectionId": 1092,
             "name": "readFile",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -45069,7 +44903,7 @@
             "type": {
               "kind": "reflection",
               "declaration": {
-                "reflectionId": 1096,
+                "reflectionId": 1093,
                 "name": "__type",
                 "kind": "typeLiteral",
                 "flags": [],
@@ -45080,7 +44914,7 @@
                 "type": null,
                 "signatures": [
                   {
-                    "reflectionId": 1097,
+                    "reflectionId": 1094,
                     "name": "__type",
                     "kind": "callSignature",
                     "flags": [],
@@ -45115,7 +44949,7 @@
                     "signatures": [],
                     "parameters": [
                       {
-                        "reflectionId": 1098,
+                        "reflectionId": 1095,
                         "name": "path",
                         "kind": "parameter",
                         "flags": [],
@@ -45172,7 +45006,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1086,
+            "reflectionId": 1083,
             "name": "stderr",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -45213,7 +45047,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1087,
+            "reflectionId": 1084,
             "name": "stdin",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -45254,7 +45088,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1088,
+            "reflectionId": 1085,
             "name": "stdinData",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -45295,7 +45129,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1090,
+            "reflectionId": 1087,
             "name": "stdinIsTTY",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],
@@ -45330,7 +45164,7 @@
             "groups": []
           },
           {
-            "reflectionId": 1085,
+            "reflectionId": 1082,
             "name": "stdout",
             "kind": "property",
             "flags": ["isOptional", "isReadonly"],

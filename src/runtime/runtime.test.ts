@@ -220,7 +220,9 @@ describe('createNodeAdapter', () => {
 
 	it('throws for unsupported Node.js versions', () => {
 		const mockProc = mockNodeProcess({ versions: { node: '21.9.0' } });
-		expect(() => createNodeAdapter(mockProc)).toThrow('dreamcli requires Node.js >= 22.22.2');
+		expect(() => createNodeAdapter(mockProc)).toThrow(
+			'@kjanat/dreamcli requires Node.js >= 22.22.2',
+		);
 	});
 
 	it('delegates exit to process.exit', () => {
@@ -841,7 +843,7 @@ describe('createNodeAdapter — filesystem', () => {
 		// Use the adapter's own cwd to find a file we know exists
 		const content = await adapter.readFile(`${adapter.cwd}/package.json`);
 		expect(content).not.toBeNull();
-		expect(content).toContain('dreamcli');
+		expect(content).toContain('@kjanat/dreamcli');
 	});
 
 	it('readFile returns null for nonexistent files', async () => {

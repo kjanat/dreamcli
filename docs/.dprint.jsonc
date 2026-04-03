@@ -2,7 +2,9 @@
   "extends": "../.dprint.jsonc",
   "useTabs": false,
   "lineWidth": 80,
-  "svg": {
-    "useTabs": false
-  }
+  "svg": { "useTabs": false },
+  "json": { "useTabs": false, "lineWidth": 80 },
+  "biome": { "indentStyle": "space", "lineWidth": 80 },
+  "markup": { "useTabs": false, "printWidth": 80 },
+  "includes": ["./**/*"]
 }

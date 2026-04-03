@@ -11,7 +11,7 @@ middleware, and interactive resolver.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:399`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L399)
+- Source link: [`src/core/schema/command.ts:421`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L421)
 
 ## Signatures
 

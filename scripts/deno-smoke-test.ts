@@ -144,7 +144,10 @@ assert(typeof adapter.configDir === 'string', 'configDir is a string');
 // readFile should return contents for existing file
 const pkg = await adapter.readFile('./package.json');
 assert(pkg !== null, 'readFile returns content for existing file');
-assert(typeof pkg === 'string' && pkg.includes('dreamcli'), 'readFile content contains "dreamcli"');
+assert(
+	typeof pkg === 'string' && pkg.includes('@kjanat/dreamcli'),
+	'readFile content contains "@kjanat/dreamcli"',
+);
 
 // readFile should return null for nonexistent file
 const missing = await adapter.readFile('./nonexistent-file-12345.json');

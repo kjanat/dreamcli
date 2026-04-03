@@ -18,7 +18,8 @@ export const generatedExamples = [
     ],
     sourcePath: 'examples/basic.ts',
     routePath: '/examples/basic',
-    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/basic.ts',
+    sourceUrl:
+      'https://github.com/kjanat/dreamcli/blob/master/examples/basic.ts',
     relatedGuides: [
       {
         label: 'Commands guide',
@@ -73,7 +74,8 @@ export const generatedExamples = [
     ],
     sourcePath: 'examples/interactive.ts',
     routePath: '/examples/interactive',
-    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/interactive.ts',
+    sourceUrl:
+      'https://github.com/kjanat/dreamcli/blob/master/examples/interactive.ts',
     relatedGuides: [
       {
         label: 'Interactive Prompts',
@@ -117,8 +119,10 @@ export const generatedExamples = [
   },
   {
     slug: 'json-mode',
-    title: 'Mixed machine-readable JSON and human-readable side-channel output.',
-    summary: 'Mixed machine-readable JSON and human-readable side-channel output.',
+    title:
+      'Mixed machine-readable JSON and human-readable side-channel output.',
+    summary:
+      'Mixed machine-readable JSON and human-readable side-channel output.',
     demonstrates: 'always-on `out.json()` machine output to stdout,',
     usage: [
       'npx tsx examples/json-mode.ts list                  # JSON stdout + plain stderr side channel',
@@ -130,7 +134,8 @@ export const generatedExamples = [
     ],
     sourcePath: 'examples/json-mode.ts',
     routePath: '/examples/json-mode',
-    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/json-mode.ts',
+    sourceUrl:
+      'https://github.com/kjanat/dreamcli/blob/master/examples/json-mode.ts',
     relatedGuides: [
       {
         label: 'Output',
@@ -187,7 +192,8 @@ export const generatedExamples = [
     ],
     sourcePath: 'examples/middleware.ts',
     routePath: '/examples/middleware',
-    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/middleware.ts',
+    sourceUrl:
+      'https://github.com/kjanat/dreamcli/blob/master/examples/middleware.ts',
     relatedGuides: [
       {
         label: 'Middleware',
@@ -250,7 +256,8 @@ export const generatedExamples = [
     ],
     sourcePath: 'examples/multi-command.ts',
     routePath: '/examples/multi-command',
-    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/multi-command.ts',
+    sourceUrl:
+      'https://github.com/kjanat/dreamcli/blob/master/examples/multi-command.ts',
     relatedGuides: [
       {
         label: 'Commands guide',
@@ -308,7 +315,8 @@ export const generatedExamples = [
     ],
     sourcePath: 'examples/spinner-progress.ts',
     routePath: '/examples/spinner-progress',
-    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/spinner-progress.ts',
+    sourceUrl:
+      'https://github.com/kjanat/dreamcli/blob/master/examples/spinner-progress.ts',
     relatedGuides: [
       {
         label: 'Output',
@@ -350,7 +358,8 @@ export const generatedExamples = [
     usage: ['bun test examples/testing.ts'],
     sourcePath: 'examples/testing.ts',
     routePath: '/examples/testing',
-    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/testing.ts',
+    sourceUrl:
+      'https://github.com/kjanat/dreamcli/blob/master/examples/testing.ts',
     relatedGuides: [
       {
         label: 'Testing',
@@ -429,7 +438,12 @@ export const generatedReferenceSurfaces = [
     id: 'generated-api-index',
     title: 'Generated API Index',
     artifactPath: 'docs/.generated/api/index.md',
-    sourceInputs: ['package.json', 'src/index.ts', 'src/runtime.ts', 'src/testkit.ts'],
+    sourceInputs: [
+      'package.json',
+      'src/index.ts',
+      'src/runtime.ts',
+      'src/testkit.ts',
+    ],
     status: 'prepared',
     notes:
       'The generated markdown index is backed by `docs/.generated/api/public-exports.json`; full signature work now flows through the raw `typedoc.json` artifact and the normalized `typedoc-normalized.json` model beside it.',
@@ -455,7 +469,8 @@ export const generatedReferenceSurfaces = [
     artifactPath: 'docs/reference/symbols/**/*.md',
     sourceInputs: ['docs/.generated/api/typedoc-normalized.json'],
     status: 'prepared',
-    notes: 'Public symbol reference pages rendered from the normalized model. Current count: 158.',
+    notes:
+      'Public symbol reference pages rendered from the normalized model. Current count: 158.',
   },
 ];
 
@@ -1682,7 +1697,8 @@ export const generatedSymbolPages = [
     name: 'ConfirmPromptConfig',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ConfirmPromptConfig',
-    summary: 'Yes/no confirmation prompt — maps to `boolean` flags. Part of PromptConfig.',
+    summary:
+      'Yes/no confirmation prompt — maps to `boolean` flags. Part of PromptConfig.',
   },
   {
     id: '@kjanat/dreamcli:createArgSchema',
@@ -1725,7 +1741,8 @@ export const generatedSymbolPages = [
     name: 'DeprecationWarning',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/DeprecationWarning',
-    summary: 'Structured deprecation notice emitted for explicitly sourced values.',
+    summary:
+      'Structured deprecation notice emitted for explicitly sourced values.',
   },
   {
     id: '@kjanat/dreamcli:DeriveHandler',
@@ -1939,7 +1956,8 @@ export const generatedSymbolPages = [
     name: 'InputPromptConfig',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/InputPromptConfig',
-    summary: 'Free-text input prompt — maps to `string` and `number` flags. Part of PromptConfig.',
+    summary:
+      'Free-text input prompt — maps to `string` and `number` flags. Part of PromptConfig.',
   },
   {
     id: '@kjanat/dreamcli:InteractiveParams',
@@ -2100,7 +2118,8 @@ export const generatedSymbolPages = [
     name: 'ParseErrorOptions',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ParseErrorOptions',
-    summary: 'Options for `ParseError`. Code is narrowed to parse-specific codes.',
+    summary:
+      'Options for `ParseError`. Code is narrowed to parse-specific codes.',
   },
   {
     id: '@kjanat/dreamcli:ParseResult',
@@ -2275,7 +2294,8 @@ export const generatedSymbolPages = [
     name: 'SelectChoice',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/SelectChoice',
-    summary: 'A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts.',
+    summary:
+      'A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts.',
   },
   {
     id: '@kjanat/dreamcli:SelectPromptConfig',
@@ -2379,7 +2399,8 @@ export const generatedSymbolPages = [
     name: 'ValidationErrorOptions',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ValidationErrorOptions',
-    summary: 'Options for `ValidationError`. Code is narrowed to validation-specific codes.',
+    summary:
+      'Options for `ValidationError`. Code is narrowed to validation-specific codes.',
   },
   {
     id: '@kjanat/dreamcli:Verbosity',

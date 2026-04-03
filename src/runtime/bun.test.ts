@@ -157,6 +157,6 @@ describe('createBunAdapter — stdin', () => {
 
 	it('throws for unsupported Bun versions', () => {
 		const proc = mockProcess({ versions: { node: '22.22.2', bun: '1.2.9' } });
-		expect(() => createBunAdapter(proc)).toThrow('dreamcli requires Bun >= 1.3.11');
+		expect(() => createBunAdapter(proc)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
 	});
 });

@@ -1,21 +1,25 @@
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { normalize } from 'node:path';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { defineConfig } from 'vitepress';
 import { MermaidMarkdown, MermaidPlugin } from 'vitepress-plugin-mermaid';
-import { generatedExamples, generatedReferenceSurfaces } from '../.generated/site-data.ts';
+import {
+  generatedExamples,
+  generatedReferenceSurfaces,
+} from '../.generated/site-data.ts';
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const projectRoot = normalize(`${import.meta.dirname}/../..`);
 
 const examplesSidebarTitle =
-  generatedExamples.length === 0 ? 'Examples' : `Examples (${generatedExamples.length})`;
+  generatedExamples.length === 0
+    ? 'Examples'
+    : `Examples (${generatedExamples.length})`;
 const generatedReferenceTitle =
   generatedReferenceSurfaces.length === 0
     ? 'Generated Surfaces'
     : `Generated Surfaces (${generatedReferenceSurfaces.length})`;
 
 export default defineConfig({
-  title: 'dreamcli',
+  title: '@kjanat/dreamcli',
   description: 'Schema-first, fully typed TypeScript CLI framework',
   cleanUrls: true,
   base: '/',
@@ -39,14 +43,29 @@ export default defineConfig({
         media: '(prefers-color-scheme: dark)',
       },
     ],
-    ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
-    ['link', { rel: 'manifest', href: '/site.webmanifest' }],
+    [
+      'link',
+      {
+        rel: 'apple-touch-icon',
+        href: '/apple-touch-icon.png',
+        sizes: '180x180',
+      },
+    ],
+    [
+      'link',
+      {
+        rel: 'manifest',
+        type: 'application/manifest+json',
+        href: '/manifest.json',
+      },
+    ],
     ['meta', { name: 'theme-color', content: '#f8f3e7' }],
   ],
   themeConfig: {
     logo: {
       light: '/logo-light.svg',
       dark: '/logo-dark.svg',
+      alt: 'DreamCLI logo',
     },
     nav: [
       { text: 'Concepts', link: '/concepts/anatomy' },
@@ -57,7 +76,10 @@ export default defineConfig({
         text: 'Links',
         items: [
           { text: 'GitHub', link: 'https://github.com/kjanat/dreamcli' },
-          { text: 'npm', link: 'https://www.npmjs.com/package/@kjanat/dreamcli' },
+          {
+            text: 'npm',
+            link: 'https://www.npmjs.com/package/@kjanat/dreamcli',
+          },
           { text: 'JSR', link: 'https://jsr.io/@kjanat/dreamcli' },
         ],
       },
@@ -133,14 +155,23 @@ export default defineConfig({
           text: 'API Reference',
           items: [
             { text: 'Overview', link: '/reference/api' },
-            { text: generatedReferenceTitle, link: '/reference/generated-surfaces' },
+            {
+              text: generatedReferenceTitle,
+              link: '/reference/generated-surfaces',
+            },
             { text: 'Changelog', link: '/reference/changelog' },
             { text: 'Docs Health', link: '/reference/docs-health' },
-            { text: 'Semantic Delta Log', link: '/reference/semantic-delta-log' },
+            {
+              text: 'Semantic Delta Log',
+              link: '/reference/semantic-delta-log',
+            },
             { text: 'Planner Contract', link: '/reference/planner-contract' },
             { text: 'Resolver Contract', link: '/reference/resolver-contract' },
             { text: 'Output Contract', link: '/reference/output-contract' },
-            { text: 'Example Hover', link: '/reference/example-hover-prototype' },
+            {
+              text: 'Example Hover',
+              link: '/reference/example-hover-prototype',
+            },
             { text: 'Support Matrix', link: '/reference/support-matrix' },
             { text: '@kjanat/dreamcli', link: '/reference/main' },
             { text: '@kjanat/dreamcli/testkit', link: '/reference/testkit' },
@@ -149,7 +180,9 @@ export default defineConfig({
         },
       ],
     },
-    socialLinks: [{ icon: 'github', link: 'https://github.com/kjanat/dreamcli' }],
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/kjanat/dreamcli' },
+    ],
     search: { provider: 'local' },
     footer: {
       message: 'Released under the MIT License.',

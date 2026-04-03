@@ -162,7 +162,7 @@ describe('createAdapter — adapter functionality', () => {
 			process: { versions: { node: '21.9.0' } },
 		};
 
-		expect(() => createAdapter(globals)).toThrow('dreamcli requires Node.js >= 22.22.2');
+		expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Node.js >= 22.22.2');
 	});
 
 	it('throws for unsupported Bun versions', () => {
@@ -171,7 +171,7 @@ describe('createAdapter — adapter functionality', () => {
 			process: { versions: { node: '22.22.2' } },
 		};
 
-		expect(() => createAdapter(globals)).toThrow('dreamcli requires Bun >= 1.3.11');
+		expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
 	});
 
 	it('throws for unsupported Deno versions', () => {
@@ -179,6 +179,6 @@ describe('createAdapter — adapter functionality', () => {
 			Deno: { version: { deno: '2.5.4' } },
 		};
 
-		expect(() => createAdapter(globals)).toThrow('dreamcli requires Deno >= 2.6.0');
+		expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Deno >= 2.6.0');
 	});
 });

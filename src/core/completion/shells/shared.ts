@@ -25,7 +25,7 @@ import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
  * @internal
  */
 function versionTag(): string {
-	if (DREAMCLI_VERSION === 'dev') return 'dreamcli';
+	if (DREAMCLI_VERSION === 'dev') return '@kjanat/dreamcli';
 	const rev = DREAMCLI_REVISION !== 'dev' ? ` (${DREAMCLI_REVISION})` : '';
 	return `dreamcli v${DREAMCLI_VERSION}${rev}`;
 }

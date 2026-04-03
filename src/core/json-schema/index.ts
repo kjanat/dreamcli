@@ -815,7 +815,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 	{
 		$schema: JSON_SCHEMA_DRAFT,
 		$id: DEFINITION_SCHEMA_URL,
-		title: 'dreamcli definition schema',
+		title: '@kjanat/dreamcli definition schema',
 		description:
 			'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
 		...def(`{

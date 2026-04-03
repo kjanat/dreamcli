@@ -68,7 +68,7 @@ export async function collectPublicApiIndex(
 ): Promise<readonly PublicApiEntrypoint[]> {
 	const rootDir = dirname(packageJsonFilePath);
 	const packageJson = await readJsonFile(packageJsonFilePath);
-	const packageName = typeof packageJson.name === 'string' ? packageJson.name : 'dreamcli';
+	const packageName = typeof packageJson.name === 'string' ? packageJson.name : '@kjanat/dreamcli';
 	const exportsField = packageJson.exports;
 	if (!isRecord(exportsField)) {
 		return [];

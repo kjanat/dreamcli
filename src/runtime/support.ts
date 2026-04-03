@@ -25,7 +25,7 @@ const SUPPORTED_RUNTIMES: readonly RuntimeSupportEntry[] = [
 		displayName: 'Node.js',
 		minimum: '22.22.2',
 		engineRange: '>=22.22.2',
-		packageName: 'dreamcli',
+		packageName: '@kjanat/dreamcli',
 		adapterName: 'NodeAdapter',
 	},
 	{
@@ -33,7 +33,7 @@ const SUPPORTED_RUNTIMES: readonly RuntimeSupportEntry[] = [
 		displayName: 'Bun',
 		minimum: '1.3.11',
 		engineRange: '>=1.3.11',
-		packageName: 'dreamcli',
+		packageName: '@kjanat/dreamcli',
 		adapterName: 'BunAdapter',
 	},
 	{

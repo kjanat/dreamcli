@@ -15,7 +15,7 @@ access a type error until derive or middleware extends it.
 - Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:750`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L750)
+- Source link: [`src/core/schema/command.ts:788`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L788)
 
 ## Signatures
 
@@ -86,11 +86,10 @@ _subcommands: readonly AnyCommandBuilder[];
 
 #### `handler`
 
-The action handler, if registered.
+The action handler, if registered (type-erased for covariance).
 
 ```ts
-handler: ActionHandler<CommandBuilder.F, CommandBuilder.A, CommandBuilder.C> |
-  undefined;
+handler: ErasedActionHandler | undefined;
 ```
 
 #### `schema`

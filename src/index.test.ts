@@ -114,7 +114,7 @@ function collectPublicExportsWithoutJsDoc(): readonly string[] {
 	return [...missing].sort();
 }
 
-describe('dreamcli', () => {
+describe('@kjanat/dreamcli', () => {
 	it('module loads without error', async () => {
 		const mod = await import('./index.ts');
 		expect(mod).toBeDefined();
@@ -125,9 +125,9 @@ describe('dreamcli', () => {
 	});
 });
 
-describe('dreamcli/runtime — export surface', () => {
+describe('@kjanat/dreamcli/runtime — export surface', () => {
 	it('keeps runtime export surface curated', async () => {
-		const mod = await import('./runtime.ts');
+		const mod = await import('@kjanat/dreamcli/runtime');
 		expect(Object.keys(mod).sort()).toEqual(
 			[
 				'ExitError',
@@ -144,18 +144,18 @@ describe('dreamcli/runtime — export surface', () => {
 
 // === Subpath exports
 
-describe('dreamcli/testkit — module loads', () => {
+describe('@kjanat/dreamcli/testkit — module loads', () => {
 	it('module loads without error', async () => {
-		const mod = await import('./testkit.ts');
+		const mod = await import('@kjanat/dreamcli/testkit');
 		expect(mod).toBeDefined();
 	});
 });
 
 // ---
 
-describe('dreamcli/runtime — module loads', () => {
+describe('@kjanat/dreamcli/runtime — module loads', () => {
 	it('module loads without error', async () => {
-		const mod = await import('./runtime.ts');
+		const mod = await import('@kjanat/dreamcli/runtime');
 		expect(mod).toBeDefined();
 	});
 });

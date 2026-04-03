@@ -7,7 +7,7 @@ A single usage example shown in help text.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:385`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L385)
+- Source link: [`src/core/schema/command.ts:407`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L407)
 
 ## Signatures
 

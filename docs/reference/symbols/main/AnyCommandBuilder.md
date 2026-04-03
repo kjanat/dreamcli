@@ -14,7 +14,7 @@ the execution tree.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:701`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L701)
+- Source link: [`src/core/schema/command.ts:739`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L739)
 
 ## Signatures
 

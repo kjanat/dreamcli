@@ -133,7 +133,7 @@ and usage in sync.
 #### Basic example
 
 ```ts
-import { arg, cli, command, flag } from 'dreamcli';
+import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
 	.description('Deploy to an environment')
@@ -161,7 +161,7 @@ cli('mycli').version('1.0.0').command(deploy).run(); // reads argv/env from runt
 #### Middleware with typed context propagation
 
 ```ts
-import { CLIError, middleware } from 'dreamcli';
+import { CLIError, middleware } from '@kjanat/dreamcli';
 
 const authMiddleware = middleware(async ({ next }) => {
 	const user = await getUser();

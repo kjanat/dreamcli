@@ -10,7 +10,7 @@ The array ordering in CommandSchema.args determines CLI position.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:451`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L451)
+- Source link: [`src/core/schema/command.ts:473`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L473)
 
 ## Signatures
 
