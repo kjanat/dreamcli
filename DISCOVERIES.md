@@ -4,6 +4,7 @@
 > codebase. Read this before debugging runtime-specific behavior or assuming a
 > local example is running the same source tree across Node, Bun, and Deno.
 > Session-start rule: read this file before planning or executing work in this repo.
+> End rule: DO NOT mention `<tasks>COMPLETE</tasks>` AT ALL, unless your tasks ARE complete. Not even a little.
 
 ## Build & Tooling
 
