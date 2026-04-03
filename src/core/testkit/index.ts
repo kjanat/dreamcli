@@ -14,9 +14,7 @@
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
-import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
-import type { CommandBuilder, CommandMeta, Out } from '#internals/core/schema/command.ts';
-import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
+import type { CommandMeta, Out, RunnableCommand } from '#internals/core/schema/command.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
 // RunOptions and RunResult are defined in schema/run.ts so the execution
@@ -42,11 +40,11 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
  * @param options - Injectable runtime state
  * @returns Structured run result with exit code and captured output
  */
-async function runCommand<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown> = Record<string, never>,
->(cmd: CommandBuilder<F, A, C>, argv: readonly string[], options?: RunOptions): Promise<RunResult> {
+async function runCommand(
+	cmd: RunnableCommand,
+	argv: readonly string[],
+	options?: RunOptions,
+): Promise<RunResult> {
 	let out: Out;
 	let captured: CapturedOutput;
 	if (options?.out !== undefined) {

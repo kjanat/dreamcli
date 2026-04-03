@@ -318,6 +318,28 @@ type ActionHandler<
 > = (params: ActionParams<F, A, C>) => void | Promise<void>;
 
 /**
+ * Type-erased action handler stored on `CommandBuilder`.
+ *
+ * The typed `ActionHandler<F, A, C>` from `.action()` is cast to this
+ * erased form at the type-erasure boundary, keeping `CommandBuilder`
+ * covariant in its generic parameters. This enables structural
+ * compatibility across TypeScript declaration-file boundaries where
+ * generic inference may fall back to constraint types.
+ *
+ * Follows the same erasure pattern as {@link ErasedDeriveHandler} and
+ * {@link ErasedMiddlewareHandler}.
+ *
+ * @internal
+ */
+type ErasedActionHandler = (params: {
+	readonly args: Readonly<Record<string, unknown>>;
+	readonly flags: Readonly<Record<string, unknown>>;
+	readonly ctx: Readonly<Record<string, unknown>>;
+	readonly out: Out;
+	readonly meta: CommandMeta;
+}) => void | Promise<void>;
+
+/**
  * The bag of values received by a derive handler.
  *
  * Identical to {@link ActionParams}: derives run after full resolution and
@@ -684,6 +706,22 @@ interface ErasedCommand {
 	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
 }
 
+/**
+ * Structural subset of `CommandBuilder` consumed by the execution pipeline.
+ *
+ * Avoids generic type parameters so any `CommandBuilder<F, A, C>` satisfies
+ * this interface structurally — no variance constraints, no inference needed.
+ * Used by `runCommand()` and the shared executor to accept commands without
+ * requiring TypeScript to resolve `CommandBuilder`'s full generic signature.
+ *
+ * @internal
+ */
+interface RunnableCommand {
+	readonly schema: CommandSchema;
+	readonly handler: ErasedActionHandler | undefined;
+	readonly _executionSteps: readonly ExecutionStep[];
+}
+
 // --- Type-erased builder alias (for heterogeneous subcommand storage)
 
 /**
@@ -757,8 +795,8 @@ class CommandBuilder<
 	/** @internal Runtime schema descriptor. */
 	readonly schema: CommandSchema;
 
-	/** @internal The action handler, if registered. */
-	readonly handler: ActionHandler<F, A, C> | undefined;
+	/** @internal The action handler, if registered (type-erased for covariance). */
+	readonly handler: ErasedActionHandler | undefined;
 
 	/**
 	 * @internal Nested sub-command builders (type-erased for heterogeneous storage).
@@ -794,7 +832,7 @@ class CommandBuilder<
 	 */
 	constructor(
 		schema: CommandSchema,
-		handler?: ActionHandler<F, A, C>,
+		handler?: ErasedActionHandler,
 		subcommands?: readonly AnyCommandBuilder[],
 		executionSteps?: readonly ExecutionStep[],
 	) {
@@ -1333,7 +1371,7 @@ class CommandBuilder<
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, hasAction: true },
-			handler,
+			handler as unknown as ErasedActionHandler,
 			this._subcommands,
 			this._executionSteps,
 		);
@@ -1415,7 +1453,9 @@ export type {
 	CommandSchema,
 	DeriveHandler,
 	DeriveParams,
+	ErasedActionHandler,
 	ErasedCommand,
+	RunnableCommand,
 	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
 	InteractiveParams,

@@ -20,36 +20,17 @@ import { parse } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
-import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import type {
-	CommandBuilder,
 	CommandMeta,
 	CommandSchema,
 	Out,
+	RunnableCommand,
 } from '#internals/core/schema/command.ts';
-import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
-/**
- * The runtime shape of action handler params after type erasure.
- *
- * @internal
- */
-interface HandlerParams {
-	readonly flags: Readonly<Record<string, unknown>>;
-	readonly args: Readonly<Record<string, unknown>>;
-	readonly ctx: Readonly<Record<string, unknown>>;
-	readonly out: Out;
-	readonly meta: CommandMeta;
-}
-
 /** Explicit executor input for a single command invocation. */
-interface CommandExecutionRequest<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown> = Record<string, never>,
-> {
-	readonly command: CommandBuilder<F, A, C>;
+interface CommandExecutionRequest {
+	readonly command: RunnableCommand;
 	readonly argv: readonly string[];
 	readonly out: Out;
 	readonly schema: CommandSchema;
@@ -63,11 +44,7 @@ interface CommandExecutionResult {
 	readonly error: CLIError | undefined;
 }
 
-async function executeCommand<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown> = Record<string, never>,
->(request: CommandExecutionRequest<F, A, C>): Promise<CommandExecutionResult> {
+async function executeCommand(request: CommandExecutionRequest): Promise<CommandExecutionResult> {
 	const { argv, command, meta, options, out, schema } = request;
 
 	try {
@@ -179,12 +156,8 @@ async function runResolvedHooks(
 	}
 }
 
-async function executeWithExecutionSteps<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown>,
->(
-	command: CommandBuilder<F, A, C>,
+async function executeWithExecutionSteps(
+	command: RunnableCommand,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
 	out: Out,
@@ -202,8 +175,7 @@ async function executeWithExecutionSteps<
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 
 	let chain: ChainFn = async (ctx) => {
-		const params: HandlerParams = { flags, args, ctx, out, meta };
-		await (handler as (params: HandlerParams) => void | Promise<void>)(params);
+		await handler({ flags, args, ctx, out, meta });
 	};
 
 	for (let i = steps.length - 1; i >= 0; i--) {

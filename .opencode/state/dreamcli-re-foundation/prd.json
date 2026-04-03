@@ -16,9 +16,7 @@
 			"phase": 1,
 			"title": "Define planner contracts",
 			"description": "Specify the internal planner/dispatch outcomes and command execution plan shape. Done when: planner outcomes are modeled explicitly, responsibilities are bounded, and the contract is ready to anchor tests and extraction work.",
-			"depends": [
-				"support-truth-matrix"
-			],
+			"depends": ["support-truth-matrix"],
 			"priority": "architecture",
 			"passes": true
 		},
@@ -27,9 +25,7 @@
 			"phase": 1,
 			"title": "Define resolver contracts",
 			"description": "Specify resolved input, precedence guarantees, error aggregation behavior, and source-aware diagnostic expectations. Done when: resolver input/output is explicit, redesign boundaries are noted, and tests can target stable behavior.",
-			"depends": [
-				"support-truth-matrix"
-			],
+			"depends": ["support-truth-matrix"],
 			"priority": "architecture",
 			"passes": true
 		},
@@ -38,9 +34,7 @@
 			"phase": 1,
 			"title": "Define output policy contracts",
 			"description": "Specify output policy concepts for jsonMode, isTTY, verbosity, and activity cleanup. Done when: output policy is separable from rendering, supported shell/output claims are aligned, and later refactors have a stable boundary.",
-			"depends": [
-				"support-truth-matrix"
-			],
+			"depends": ["support-truth-matrix"],
 			"priority": "architecture",
 			"passes": true
 		},
@@ -49,9 +43,7 @@
 			"phase": 2,
 			"title": "Add planner contract tests",
 			"description": "Add black-box tests for root help/version, default command, dispatch outcomes, propagated flag masking, and extraction ordering. Done when: planner behavior can be validated without running handlers and intended behavior is explicitly locked down.",
-			"depends": [
-				"planner-contracts"
-			],
+			"depends": ["planner-contracts"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -60,9 +52,7 @@
 			"phase": 2,
 			"title": "Add resolver matrix tests",
 			"description": "Add precedence and error-behavior matrix tests for flags and args across CLI, env, config, prompt, stdin, and defaults. Done when: source order, prompt gating, and aggregation semantics are protected by focused contract suites.",
-			"depends": [
-				"resolver-contracts"
-			],
+			"depends": ["resolver-contracts"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -71,11 +61,7 @@
 			"phase": 2,
 			"title": "Add executor contract tests",
 			"description": "Add tests for hook order, derive/middleware/action execution, cleanup guarantees, and result assembly. Done when: the future shared executor is guarded by boundary tests rather than implementation shape.",
-			"depends": [
-				"planner-contract-tests",
-				"resolver-matrix-tests",
-				"output-contracts"
-			],
+			"depends": ["planner-contract-tests", "resolver-matrix-tests", "output-contracts"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -84,9 +70,7 @@
 			"phase": 2,
 			"title": "Add completion contract tests",
 			"description": "Expand completion tests to cover supported shells, nested commands, propagated flags, and root/default behavior. Done when: shell support can be broadened safely and docs claims can point to concrete evidence.",
-			"depends": [
-				"support-truth-matrix"
-			],
+			"depends": ["support-truth-matrix"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -95,9 +79,7 @@
 			"phase": 3,
 			"title": "Scaffold shared execution module",
 			"description": "Create the new internal execution seam and move common execution flow behind it. Done when: there is a concrete shared execution module with explicit inputs/outputs and a narrow responsibility boundary.",
-			"depends": [
-				"executor-contract-tests"
-			],
+			"depends": ["executor-contract-tests"],
 			"priority": "architecture",
 			"passes": true
 		},
@@ -106,9 +88,7 @@
 			"phase": 3,
 			"title": "Route testkit through executor",
 			"description": "Make testkit consume the shared executor instead of owning the canonical pipeline. Done when: testkit becomes a thin wrapper over the shared execution path and its behavior stays green under existing and new tests.",
-			"depends": [
-				"scaffold-core-execution"
-			],
+			"depends": ["scaffold-core-execution"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -117,10 +97,7 @@
 			"phase": 3,
 			"title": "Route CLI through executor",
 			"description": "Make CLI command invocation consume the same shared executor. Done when: CLI and testkit no longer have separate execution ownership paths and command execution behavior is centralized.",
-			"depends": [
-				"scaffold-core-execution",
-				"route-testkit-executor"
-			],
+			"depends": ["scaffold-core-execution", "route-testkit-executor"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -129,9 +106,7 @@
 			"phase": 3,
 			"title": "Extract runtime preflight",
 			"description": "Separate adapter/config/package/stdin/prompt sourcing from planner and executor logic. Done when: runtime preflight is explicit, locally testable, and no longer entangled with dispatch branching.",
-			"depends": [
-				"route-cli-executor"
-			],
+			"depends": ["route-cli-executor"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -140,10 +115,7 @@
 			"phase": 3,
 			"title": "Extract invocation planner",
 			"description": "Pull root help/version/default-command/dispatch/propagation logic into an explicit planner layer. Done when: planner outcomes are represented as a DU and can be reasoned about separately from execution.",
-			"depends": [
-				"route-cli-executor",
-				"extract-runtime-preflight"
-			],
+			"depends": ["route-cli-executor", "extract-runtime-preflight"],
 			"priority": "architecture",
 			"passes": true
 		},
@@ -152,10 +124,7 @@
 			"phase": 4,
 			"title": "Split resolver into focused modules",
 			"description": "Decompose resolver code by concern: orchestration, coercion, lookup, and error helpers. Done when: resolver no longer centralizes unrelated logic in one file and behavior remains protected by contract tests.",
-			"depends": [
-				"resolver-matrix-tests",
-				"scaffold-core-execution"
-			],
+			"depends": ["resolver-matrix-tests", "scaffold-core-execution"],
 			"priority": "architecture",
 			"passes": true
 		},
@@ -164,9 +133,7 @@
 			"phase": 4,
 			"title": "Redesign resolver error aggregation",
 			"description": "Improve aggregated diagnostics and clarify source-aware errors across flags and args. Done when: redesigned error behavior is intentional, documented, and verified by dedicated tests.",
-			"depends": [
-				"split-resolver-modules"
-			],
+			"depends": ["split-resolver-modules"],
 			"priority": "standard",
 			"passes": true
 		},
@@ -175,9 +142,7 @@
 			"phase": 4,
 			"title": "Evaluate shared property model",
 			"description": "Reduce duplicated flag/arg resolution mechanics where a shared property abstraction actually lowers maintenance cost. Done when: either a shared model is introduced safely or an explicit decision records why not.",
-			"depends": [
-				"split-resolver-modules"
-			],
+			"depends": ["split-resolver-modules"],
 			"priority": "spike",
 			"passes": true
 		},
@@ -186,9 +151,7 @@
 			"phase": 4,
 			"title": "Document semantic deltas",
 			"description": "Maintain an explicit log of preserved versus redesigned execution semantics during the re-foundation. Done when: major semantic changes are listed clearly enough to drive changelog, docs, and review.",
-			"depends": [
-				"redesign-error-agg"
-			],
+			"depends": ["redesign-error-agg"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -197,10 +160,7 @@
 			"phase": 5,
 			"title": "Decouple output policy from rendering",
 			"description": "Refactor output internals so policy choice is distinct from concrete rendering and activity handling. Done when: output mode selection is explicit and output behavior is easier to extend and test.",
-			"depends": [
-				"output-contracts",
-				"route-cli-executor"
-			],
+			"depends": ["output-contracts", "route-cli-executor"],
 			"priority": "architecture",
 			"passes": true
 		},
@@ -209,10 +169,7 @@
 			"phase": 5,
 			"title": "Implement fish completions",
 			"description": "Ship real fish shell completion generation. Done when: fish completion generation is implemented, exercised by tests, and reflected truthfully in docs/support surfaces.",
-			"depends": [
-				"completion-contract-tests",
-				"extract-invocation-planner"
-			],
+			"depends": ["completion-contract-tests", "extract-invocation-planner"],
 			"priority": "standard",
 			"passes": true
 		},
@@ -221,10 +178,7 @@
 			"phase": 5,
 			"title": "Implement PowerShell completions",
 			"description": "Ship real PowerShell completion generation. Done when: PowerShell completion generation is implemented, tested, and reflected truthfully in docs/support surfaces.",
-			"depends": [
-				"completion-contract-tests",
-				"extract-invocation-planner"
-			],
+			"depends": ["completion-contract-tests", "extract-invocation-planner"],
 			"priority": "standard",
 			"passes": true
 		},
@@ -233,10 +187,7 @@
 			"phase": 5,
 			"title": "Align completion support truth",
 			"description": "Update support matrix, docs, and type-level shell surfaces to match shipped shell support. Done when: completion claims and implementation fully match across code, tests, and docs.",
-			"depends": [
-				"implement-fish-comp",
-				"implement-pwsh-comp"
-			],
+			"depends": ["implement-fish-comp", "implement-pwsh-comp"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -245,10 +196,7 @@
 			"phase": 6,
 			"title": "Build docs preparation pipeline",
 			"description": "Add scripts/docs foundation, docs:prepare, generated output directories, and docs wiring. Done when: docs build/dev can regenerate generated artifacts predictably from source inputs.",
-			"depends": [
-				"support-truth-matrix",
-				"scaffold-core-execution"
-			],
+			"depends": ["support-truth-matrix", "scaffold-core-execution"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -257,9 +205,7 @@
 			"phase": 7,
 			"title": "Generate example pages",
 			"description": "Extract metadata from examples and generate an examples index plus detail pages. Done when: each example becomes a searchable docs page with summary, usage, source, and related links.",
-			"depends": [
-				"build-docs-prepare"
-			],
+			"depends": ["build-docs-prepare"],
 			"priority": "standard",
 			"passes": true
 		},
@@ -268,9 +214,7 @@
 			"phase": 7,
 			"title": "Prototype example hover path",
 			"description": "Validate Twoslash-backed hover on generated example pages against local DreamCLI source. Done when: a boring, stable, examples-only hover path is proven feasible and constraints are documented.",
-			"depends": [
-				"generate-example-pages"
-			],
+			"depends": ["generate-example-pages"],
 			"priority": "spike",
 			"passes": true
 		},
@@ -279,9 +223,7 @@
 			"phase": 7,
 			"title": "Enable hover on example pages",
 			"description": "Integrate hover on example pages using the validated path. Done when: generated example pages offer calm IDE-like hover without becoming necessary for comprehension.",
-			"depends": [
-				"prototype-hover-path"
-			],
+			"depends": ["prototype-hover-path"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -290,9 +232,7 @@
 			"phase": 7,
 			"title": "Surface changelog and docs health",
 			"description": "Generate docs-visible changelog and docs-health pages from source-of-truth inputs. Done when: release history and factual docs-health metrics are both browsable inside the docs site.",
-			"depends": [
-				"build-docs-prepare"
-			],
+			"depends": ["build-docs-prepare"],
 			"priority": "standard",
 			"passes": true
 		},
@@ -301,9 +241,7 @@
 			"phase": 8,
 			"title": "Generate API index",
 			"description": "Build a public export inventory grouped by subpath and kind. Done when: every public export appears in a generated API index and the index clearly beats the current manual overview.",
-			"depends": [
-				"build-docs-prepare"
-			],
+			"depends": ["build-docs-prepare"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -312,9 +250,7 @@
 			"phase": 8,
 			"title": "Normalize TypeDoc data",
 			"description": "Generate TypeDoc JSON and normalize it into a DreamCLI-owned docs model. Done when: reference rendering no longer depends directly on raw TypeDoc output shape.",
-			"depends": [
-				"generate-api-index"
-			],
+			"depends": ["generate-api-index"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -323,9 +259,7 @@
 			"phase": 8,
 			"title": "Enrich meta-schema with TSDoc descriptions",
 			"description": "Extract TSDoc comments from schema types (CLISchema, FlagSchema, ArgSchema, etc.) via the normalized TypeDoc data and inject them as description annotations into the definition meta-schema. Done when: the generated meta-schema carries property descriptions derived from source TSDoc, not hand-written strings.",
-			"depends": [
-				"normalize-typedoc-data"
-			],
+			"depends": ["normalize-typedoc-data"],
 			"priority": "standard",
 			"passes": true
 		},
@@ -334,9 +268,7 @@
 			"phase": 8,
 			"title": "Render symbol pages",
 			"description": "Generate per-symbol API reference pages from normalized data. Done when: symbol pages are stable, searchable, deep-linkable, and support links from examples and the API index.",
-			"depends": [
-				"normalize-typedoc-data"
-			],
+			"depends": ["normalize-typedoc-data"],
 			"priority": "integration",
 			"passes": true
 		},
@@ -359,10 +291,7 @@
 			"phase": 9,
 			"title": "Write rationale and limitations docs",
 			"description": "Author the explanation pages for trade-offs, decisions, limitations, and workarounds once semantics stabilize. Done when: DreamCLI explains major design choices and known limitations clearly and honestly.",
-			"depends": [
-				"semantic-delta-log",
-				"crosslink-doc-surfaces"
-			],
+			"depends": ["semantic-delta-log", "crosslink-doc-surfaces"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -371,10 +300,7 @@
 			"phase": 9,
 			"title": "Write migration and troubleshooting docs",
 			"description": "Author migration/adoption and troubleshooting guidance after the architecture and truth model settle. Done when: serious adopters have clear guidance for evaluation, switching, and common failure modes.",
-			"depends": [
-				"semantic-delta-log",
-				"crosslink-doc-surfaces"
-			],
+			"depends": ["semantic-delta-log", "crosslink-doc-surfaces"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -383,11 +309,7 @@
 			"phase": 9,
 			"title": "Harden CI and coverage",
 			"description": "Add coverage thresholds, docs generation verification, and align CI descriptions with real behavior. Done when: architecture and docs regressions are harder to introduce silently and CI reflects truth.",
-			"depends": [
-				"write-rationale-docs",
-				"write-migration-guides",
-				"align-completion-truth"
-			],
+			"depends": ["write-rationale-docs", "write-migration-guides", "align-completion-truth"],
 			"priority": "polish",
 			"passes": true
 		},
@@ -396,9 +318,7 @@
 			"phase": 10,
 			"title": "Rename package to @kjanat/dreamcli",
 			"description": "Rename npm package from 'dreamcli' to '@kjanat/dreamcli'. npm blocks unscoped 'dreamcli' due to typosquat similarity with abandoned 'dream-cli' (v0.2.1, 2014, 6 downloads/week). Update package.json name, all import references in docs/examples, JSR config, publish workflows, and README/docs site references. Done when: npm publish succeeds under the scoped name and all surfaces reference @kjanat/dreamcli consistently.",
-			"depends": [
-				"harden-ci-coverage"
-			],
+			"depends": ["harden-ci-coverage"],
 			"priority": "standard",
 			"passes": true
 		}
