@@ -17,6 +17,34 @@ export const generatedExamples = [
       'npx tsx examples/basic.ts --help',
     ],
     sourcePath: 'examples/basic.ts',
+    routePath: '/examples/basic',
+    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/basic.ts',
+    relatedLinks: [
+      {
+        label: 'Examples overview',
+        href: '/examples/',
+      },
+      {
+        label: 'API overview',
+        href: '/reference/api',
+      },
+      {
+        label: '`arg`',
+        href: '/reference/symbols/main/arg',
+      },
+      {
+        label: '`cli`',
+        href: '/reference/symbols/main/cli',
+      },
+      {
+        label: '`command`',
+        href: '/reference/symbols/main/command',
+      },
+      {
+        label: '`flag`',
+        href: '/reference/symbols/main/flag',
+      },
+    ],
   },
   {
     slug: 'interactive',
@@ -30,6 +58,34 @@ export const generatedExamples = [
       "echo '{}' | npx tsx examples/interactive.ts        # non-interactive: uses defaults / errors",
     ],
     sourcePath: 'examples/interactive.ts',
+    routePath: '/examples/interactive',
+    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/interactive.ts',
+    relatedLinks: [
+      {
+        label: 'Examples overview',
+        href: '/examples/',
+      },
+      {
+        label: 'API overview',
+        href: '/reference/api',
+      },
+      {
+        label: '`arg`',
+        href: '/reference/symbols/main/arg',
+      },
+      {
+        label: '`cli`',
+        href: '/reference/symbols/main/cli',
+      },
+      {
+        label: '`command`',
+        href: '/reference/symbols/main/command',
+      },
+      {
+        label: '`flag`',
+        href: '/reference/symbols/main/flag',
+      },
+    ],
   },
   {
     slug: 'json-mode',
@@ -45,6 +101,38 @@ export const generatedExamples = [
       'npx tsx examples/json-mode.ts show nonexistent --json  # JSON error',
     ],
     sourcePath: 'examples/json-mode.ts',
+    routePath: '/examples/json-mode',
+    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/json-mode.ts',
+    relatedLinks: [
+      {
+        label: 'Examples overview',
+        href: '/examples/',
+      },
+      {
+        label: 'API overview',
+        href: '/reference/api',
+      },
+      {
+        label: '`arg`',
+        href: '/reference/symbols/main/arg',
+      },
+      {
+        label: '`cli`',
+        href: '/reference/symbols/main/cli',
+      },
+      {
+        label: '`CLIError`',
+        href: '/reference/symbols/main/CLIError',
+      },
+      {
+        label: '`command`',
+        href: '/reference/symbols/main/command',
+      },
+      {
+        label: '`flag`',
+        href: '/reference/symbols/main/flag',
+      },
+    ],
   },
   {
     slug: 'middleware',
@@ -56,6 +144,42 @@ export const generatedExamples = [
       'npx tsx examples/middleware.ts deploy production --verbose',
     ],
     sourcePath: 'examples/middleware.ts',
+    routePath: '/examples/middleware',
+    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/middleware.ts',
+    relatedLinks: [
+      {
+        label: 'Examples overview',
+        href: '/examples/',
+      },
+      {
+        label: 'API overview',
+        href: '/reference/api',
+      },
+      {
+        label: '`arg`',
+        href: '/reference/symbols/main/arg',
+      },
+      {
+        label: '`cli`',
+        href: '/reference/symbols/main/cli',
+      },
+      {
+        label: '`CLIError`',
+        href: '/reference/symbols/main/CLIError',
+      },
+      {
+        label: '`command`',
+        href: '/reference/symbols/main/command',
+      },
+      {
+        label: '`flag`',
+        href: '/reference/symbols/main/flag',
+      },
+      {
+        label: '`middleware`',
+        href: '/reference/symbols/main/middleware',
+      },
+    ],
   },
   {
     slug: 'multi-command',
@@ -73,6 +197,38 @@ export const generatedExamples = [
       'npx tsx examples/multi-command.ts --version',
     ],
     sourcePath: 'examples/multi-command.ts',
+    routePath: '/examples/multi-command',
+    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/multi-command.ts',
+    relatedLinks: [
+      {
+        label: 'Examples overview',
+        href: '/examples/',
+      },
+      {
+        label: 'API overview',
+        href: '/reference/api',
+      },
+      {
+        label: '`arg`',
+        href: '/reference/symbols/main/arg',
+      },
+      {
+        label: '`cli`',
+        href: '/reference/symbols/main/cli',
+      },
+      {
+        label: '`command`',
+        href: '/reference/symbols/main/command',
+      },
+      {
+        label: '`flag`',
+        href: '/reference/symbols/main/flag',
+      },
+      {
+        label: '`group`',
+        href: '/reference/symbols/main/group',
+      },
+    ],
   },
   {
     slug: 'spinner-progress',
@@ -85,6 +241,30 @@ export const generatedExamples = [
       'echo | npx tsx examples/spinner-progress.ts     # non-TTY: spinners silent',
     ],
     sourcePath: 'examples/spinner-progress.ts',
+    routePath: '/examples/spinner-progress',
+    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/spinner-progress.ts',
+    relatedLinks: [
+      {
+        label: 'Examples overview',
+        href: '/examples/',
+      },
+      {
+        label: 'API overview',
+        href: '/reference/api',
+      },
+      {
+        label: '`cli`',
+        href: '/reference/symbols/main/cli',
+      },
+      {
+        label: '`command`',
+        href: '/reference/symbols/main/command',
+      },
+      {
+        label: '`flag`',
+        href: '/reference/symbols/main/flag',
+      },
+    ],
   },
   {
     slug: 'testing',
@@ -93,6 +273,46 @@ export const generatedExamples = [
     demonstrates: 'runCommand(), prompt answers, env/config injection,',
     usage: ['bun test examples/testing.ts'],
     sourcePath: 'examples/testing.ts',
+    routePath: '/examples/testing',
+    sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/testing.ts',
+    relatedLinks: [
+      {
+        label: 'Examples overview',
+        href: '/examples/',
+      },
+      {
+        label: 'API overview',
+        href: '/reference/api',
+      },
+      {
+        label: '`arg`',
+        href: '/reference/symbols/main/arg',
+      },
+      {
+        label: '`command`',
+        href: '/reference/symbols/main/command',
+      },
+      {
+        label: '`createTestPrompter`',
+        href: '/reference/symbols/testkit/createTestPrompter',
+      },
+      {
+        label: '`flag`',
+        href: '/reference/symbols/main/flag',
+      },
+      {
+        label: '`middleware`',
+        href: '/reference/symbols/main/middleware',
+      },
+      {
+        label: '`PROMPT_CANCEL`',
+        href: '/reference/symbols/testkit/PROMPT_CANCEL',
+      },
+      {
+        label: '`runCommand`',
+        href: '/reference/symbols/testkit/runCommand',
+      },
+    ],
   },
 ];
 
@@ -2262,7 +2482,7 @@ export const generatedSymbolPages = [
 
 export const docsHealthSnapshot = {
   authoredPageCount: 33,
-  generatedArtifactCount: 165,
+  generatedArtifactCount: 172,
   exampleCount: 7,
   publicEntrypointCount: 4,
   publicSymbolCount: 159,

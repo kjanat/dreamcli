@@ -4,18 +4,19 @@ import { generatedExamples } from '../.generated/site-data.ts';
 
 # Examples
 
-DreamCLI's generated examples foundation is prepared by `bun run docs:prepare`.
+DreamCLI's examples pages are rebuilt by `bun run docs:prepare` from the repo's real source examples.
 
 - Source of truth: `examples/*.ts`
 - Generated inventory: `docs/.generated/examples/index.md`
+- Generated detail routes: `docs/examples/<slug>.md`
 
-The full per-example page pipeline is still tracked separately. This page keeps the IA stable now so later example generation can plug into an existing docs surface instead of introducing another structural change.
+Each example now gets its own searchable page with usage snippets, source, and related API links.
 
-## Prepared Inventory
+## Source-Backed Examples
 
 <ul>
 	<li v-for="example in generatedExamples" :key="example.slug">
-		<strong>{{ example.title }}</strong>
+		<strong><a :href="example.routePath">{{ example.title }}</a></strong>
 		<span> - {{ example.summary }}</span>
 		<span> (`{{ example.sourcePath }}`)</span>
 	</li>

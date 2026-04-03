@@ -110,7 +110,13 @@ export default defineConfig({
       '/examples/': [
         {
           text: examplesSidebarTitle,
-          items: [{ text: 'Overview', link: '/examples/' }],
+          items: [
+            { text: 'Overview', link: '/examples/' },
+            ...generatedExamples.map((example) => ({
+              text: example.title,
+              link: example.routePath,
+            })),
+          ],
         },
       ],
       '/reference/': [

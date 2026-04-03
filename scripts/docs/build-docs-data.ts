@@ -7,7 +7,7 @@
  */
 
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join, relative } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 
 import {
 	collectPublicApiIndex,
@@ -16,8 +16,15 @@ import {
 	renderPublicApiIndex,
 } from './shared/api-index.ts';
 import {
+	collectExamples,
+	type ExampleEntry,
+	renderExamplePage,
+	renderExamplesIndex,
+} from './shared/examples.ts';
+import {
 	changelogPath,
 	docsRoot,
+	exampleDocsRoot,
 	examplesRoot,
 	generatedApiDir,
 	generatedApiIndexPath,
@@ -32,19 +39,11 @@ import {
 	generatedSiteDataPath,
 	generatedTypeDocJsonPath,
 	packageJsonPath,
+	rootDirPath,
 	symbolPagesRoot,
 } from './shared/paths.ts';
 import { collectSymbolPages } from './shared/symbol-pages.ts';
 import { collectTypeDocModel } from './shared/typedoc.ts';
-
-interface ExampleEntry {
-	slug: string;
-	title: string;
-	summary: string;
-	demonstrates: string | null;
-	usage: readonly string[];
-	sourcePath: string;
-}
 
 interface GeneratedReferenceSurface {
 	id: string;
@@ -76,9 +75,10 @@ async function rebuildDocsArtifacts(): Promise<void> {
 	await mkdir(generatedReferenceDir, { recursive: true });
 	await mkdir(generatedApiDir, { recursive: true });
 	await mkdir(symbolPagesRoot, { recursive: true });
+	await clearGeneratedExamplePages();
 
 	const [examples, publicApi, changelog] = await Promise.all([
-		collectExamples(),
+		collectExamples(examplesRoot, rootDirPath),
 		collectPublicApiIndex(packageJsonPath),
 		readFile(changelogPath, 'utf8'),
 	]);
@@ -94,6 +94,9 @@ async function rebuildDocsArtifacts(): Promise<void> {
 			renderSiteData(examples, publicApi, generatedReferenceSurfaces, docsHealth, symbolPages),
 		),
 		writeFile(generatedExamplesIndexPath, renderExamplesIndex(examples)),
+		...examples.map((example) =>
+			writeFile(join(exampleDocsRoot, `${example.slug}.md`), renderExamplePage(example)),
+		),
 		writeFile(generatedChangelogPath, renderChangelog(changelog)),
 		writeFile(generatedDocsHealthPath, renderDocsHealth(docsHealth)),
 		writeFile(generatedApiIndexPath, `${JSON.stringify(publicApi, null, '\t')}\n`),
@@ -110,113 +113,6 @@ async function rebuildDocsArtifacts(): Promise<void> {
 	]);
 }
 
-async function collectExamples(): Promise<readonly ExampleEntry[]> {
-	const entries = await readdir(examplesRoot, { withFileTypes: true });
-	const exampleFiles = entries
-		.filter(
-			(entry) =>
-				entry.isFile() && extname(entry.name) === '.ts' && !entry.name.endsWith('.test.ts'),
-		)
-		.map((entry) => entry.name)
-		.sort();
-
-	const examples = await Promise.all(
-		exampleFiles.map(async (fileName) => parseExample(join(examplesRoot, fileName))),
-	);
-
-	return examples;
-}
-
-async function parseExample(filePath: string): Promise<ExampleEntry> {
-	const source = await readFile(filePath, 'utf8');
-	const sourcePath = toRepoPath(filePath);
-	const slug = basename(filePath, '.ts');
-	const docLines = extractDocLines(source);
-	const summary = firstNonEmpty(docLines) ?? titleFromSlug(slug);
-	const demonstrates = extractLabeledValue(docLines, 'Demonstrates');
-	const usage = extractUsage(docLines);
-
-	return {
-		slug,
-		title: summary,
-		summary,
-		demonstrates,
-		usage,
-		sourcePath,
-	};
-}
-
-function extractDocLines(source: string): readonly string[] {
-	const match = /^#!.*\n\/\*\*([\s\S]*?)\*\//.exec(source) ?? /^\/\*\*([\s\S]*?)\*\//.exec(source);
-	if (match === null) {
-		return [];
-	}
-	const docBlock = match[1];
-	if (docBlock === undefined) {
-		return [];
-	}
-
-	return docBlock.split('\n').map((line) => line.replace(/^\s*\* ?/, '').trimEnd());
-}
-
-function extractUsage(lines: readonly string[]): readonly string[] {
-	const usageIndex = lines.indexOf('Usage:');
-	if (usageIndex === -1) {
-		return [];
-	}
-
-	const usage: string[] = [];
-	for (const line of lines.slice(usageIndex + 1)) {
-		if (line.trim() === '') {
-			if (usage.length > 0) {
-				break;
-			}
-			continue;
-		}
-
-		usage.push(line.trim());
-	}
-
-	return usage;
-}
-
-function extractLabeledValue(lines: readonly string[], label: string): string | null {
-	const prefix = `${label}:`;
-	for (const line of lines) {
-		if (line.startsWith(prefix)) {
-			const value = line.slice(prefix.length).trim();
-			return value === '' ? null : value;
-		}
-	}
-
-	return null;
-}
-
-function firstNonEmpty(lines: readonly string[]): string | null {
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (trimmed !== '') {
-			return trimmed;
-		}
-	}
-
-	return null;
-}
-
-function titleFromSlug(slug: string): string {
-	return slug
-		.split('-')
-		.map((part) => {
-			const [firstChar, ...rest] = part;
-			if (firstChar === undefined) {
-				return part;
-			}
-
-			return `${firstChar.toUpperCase()}${rest.join('')}`;
-		})
-		.join(' ');
-}
-
 async function collectDocsHealth(
 	exampleCount: number,
 	publicApi: readonly PublicApiEntrypoint[],
@@ -227,7 +123,7 @@ async function collectDocsHealth(
 		(relativePath) =>
 			!relativePath.startsWith('.generated/') && !relativePath.startsWith('.vitepress/'),
 	);
-	const generatedArtifactCount = 7 + symbolPageCount;
+	const generatedArtifactCount = 7 + symbolPageCount + exampleCount;
 
 	return {
 		authoredPageCount,
@@ -237,6 +133,24 @@ async function collectDocsHealth(
 		publicSymbolCount: countPublicApiSymbols(publicApi),
 		symbolPageCount,
 	};
+}
+
+async function clearGeneratedExamplePages(): Promise<void> {
+	const entries = await readdir(exampleDocsRoot, { withFileTypes: true });
+
+	await Promise.all(
+		entries.map(async (entry) => {
+			if (!entry.isFile() || extname(entry.name) !== '.md' || entry.name === 'index.md') {
+				return;
+			}
+
+			const filePath = join(exampleDocsRoot, entry.name);
+			const content = await readFile(filePath, 'utf8');
+			if (content.startsWith(GENERATED_HEADER)) {
+				await rm(filePath, { force: true });
+			}
+		}),
+	);
 }
 
 async function countMarkdownFiles(
@@ -346,6 +260,17 @@ function renderSiteData(
 		routePath: page.routePath,
 		summary: page.summary,
 	}));
+	const exampleIndex = examples.map((example) => ({
+		slug: example.slug,
+		title: example.title,
+		summary: example.summary,
+		demonstrates: example.demonstrates,
+		usage: example.usage,
+		sourcePath: example.sourcePath,
+		routePath: example.routePath,
+		sourceUrl: example.sourceUrl,
+		relatedLinks: example.relatedLinks,
+	}));
 
 	return [
 		'/**',
@@ -354,7 +279,7 @@ function renderSiteData(
 		' * @module',
 		' */',
 		'',
-		`export const generatedExamples = ${JSON.stringify(examples, null, '\t')};`,
+		`export const generatedExamples = ${JSON.stringify(exampleIndex, null, '\t')};`,
 		'',
 		`export const generatedReferenceSurfaces = ${JSON.stringify(referenceSurfaces, null, '\t')};`,
 		'',
@@ -363,26 +288,6 @@ function renderSiteData(
 		`export const generatedSymbolPages = ${JSON.stringify(symbolPageIndex, null, '\t')};`,
 		'',
 		`export const docsHealthSnapshot = ${JSON.stringify(docsHealth, null, '\t')};`,
-		'',
-	].join('\n');
-}
-
-function renderExamplesIndex(examples: readonly ExampleEntry[]): string {
-	const rows = examples.map((example) => {
-		const demonstrates = example.demonstrates ?? 'n/a';
-		return `| \`${example.slug}\` | ${escapeTable(example.summary)} | ${escapeTable(demonstrates)} | \`${example.sourcePath}\` |`;
-	});
-
-	return [
-		GENERATED_HEADER,
-		'',
-		'# Generated Examples Inventory',
-		'',
-		'This inventory is rebuilt by `bun run docs:prepare` from `examples/*.ts`.',
-		'',
-		'| Example | Summary | Demonstrates | Source |',
-		'| --- | --- | --- | --- |',
-		...rows,
 		'',
 	].join('\n');
 }
@@ -418,10 +323,6 @@ function renderDocsHealth(docsHealth: DocsHealthSnapshot): string {
 		`| Symbol reference pages | ${docsHealth.symbolPageCount} |`,
 		'',
 	].join('\n');
-}
-
-function escapeTable(value: string): string {
-	return value.replaceAll('|', '\\|');
 }
 
 function toRepoPath(filePath: string): string {

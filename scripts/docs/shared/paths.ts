@@ -13,11 +13,13 @@ const docsScriptsDir = dirname(scriptsDir);
 const rootDir = dirname(docsScriptsDir);
 
 export const docsRoot = join(rootDir, 'docs');
+export const rootDirPath = rootDir;
 export const generatedRoot = join(docsRoot, '.generated');
 export const generatedExamplesDir = join(generatedRoot, 'examples');
 export const generatedReferenceDir = join(generatedRoot, 'reference');
 export const generatedApiDir = join(generatedRoot, 'api');
 export const examplesRoot = join(rootDir, 'examples');
+export const exampleDocsRoot = join(docsRoot, 'examples');
 export const changelogPath = join(rootDir, 'CHANGELOG.md');
 export const packageJsonPath = join(rootDir, 'package.json');
 export const tsconfigPath = join(rootDir, 'tsconfig.json');

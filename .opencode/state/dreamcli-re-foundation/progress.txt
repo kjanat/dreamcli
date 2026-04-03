@@ -32,6 +32,7 @@ Started: 2026-04-02
 - For TypeDoc-backed reference work, keep the public export inventory as coverage truth, generate raw `typedoc.json` beside a smaller DreamCLI-owned normalized model keyed by `entrypoint:symbol`, and force stable source links so generated artifacts do not churn on every commit.
 - When flags and args partially overlap, share only the coercion-compatible property shape in a dedicated resolver helper and keep precedence, fallback, and required-value rules separate; broad shared property loops hide real semantic differences.
 - For generated reference work, keep the heavy source-of-truth model under `docs/.generated/`, but emit lightweight searchable public routes from that model and keep VitePress metadata limited to route/index facts instead of full page payloads.
+- For generated example docs, render full source-backed detail pages to `docs/examples/*.md`, but keep `docs/.generated/site-data.ts` limited to nav/index metadata; pushing full source blobs into VitePress config metadata creates avoidable churn.
 - For resolver diagnostic redesign, keep nested `ValidationError` JSON stable and add a parallel per-issue summary at the aggregate wrapper; it clarifies mixed flag/arg failures without weakening existing leaf-error assertions.
 
 ## Project Tracking
@@ -192,3 +193,10 @@ Started: 2026-04-02
 - Added a dedicated aggregate-diagnostics suite at `src/core/resolve/resolve-aggregation.test.ts`, updated resolver contract facts, and documented the aggregate-summary requirement in `docs/reference/resolver-contract.md`.
 - Files changed: `src/core/resolve/errors.ts`, `src/core/resolve/resolve-aggregation.test.ts`, `src/core/resolve/contracts.ts`, `src/core/resolve/contracts.test.ts`, `docs/reference/resolver-contract.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the least disruptive aggregation redesign is additive: keep nested error JSON untouched for existing consumers, and hang clearer per-issue summaries off the aggregate wrapper instead of reshaping leaf diagnostics.
+
+## Task - [generate-example-pages]
+
+- Added `scripts/docs/shared/examples.ts` plus `scripts/docs/shared/examples.test.ts` so `bun run docs:prepare` now collects source-backed example metadata, renders a linked inventory, and emits one generated page per top-level example under `docs/examples/`.
+- Wired the examples sidebar and examples overview page to the generated routes, and made each example page include summary, usage snippets, GitHub source links, related API links, and the full source listing.
+- Files changed: `scripts/docs/shared/examples.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `docs/.vitepress/config.ts`, `docs/examples/index.md`, `docs/.generated/examples/index.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `docs/examples/*.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: example pages fit the existing docs pipeline best when generation owns the detail routes outright and derives related links from imported public symbols; the authored overview page can stay thin while generated pages carry the searchable content.

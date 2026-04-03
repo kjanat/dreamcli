@@ -207,7 +207,7 @@
 			"description": "Extract metadata from examples and generate an examples index plus detail pages. Done when: each example becomes a searchable docs page with summary, usage, source, and related links.",
 			"depends": ["build-docs-prepare"],
 			"priority": "standard",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "prototype-hover-path",

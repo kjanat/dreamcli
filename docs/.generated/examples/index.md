@@ -4,12 +4,12 @@
 
 This inventory is rebuilt by `bun run docs:prepare` from `examples/*.ts`.
 
-| Example            | Summary                                                             | Demonstrates                                           | Source                         |
-| ------------------ | ------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------ |
-| `basic`            | Basic single-command CLI.                                           | positional args, typed flags, default values, aliases. | `examples/basic.ts`            |
-| `interactive`      | Interactive prompts with config file fallback.                      | per-flag .prompt(), command-level .interactive(),      | `examples/interactive.ts`      |
-| `json-mode`        | Mixed machine-readable JSON and human-readable side-channel output. | always-on `out.json()` machine output to stdout,       | `examples/json-mode.ts`        |
-| `middleware`       | Middleware patterns: auth guard, request timing, error handling.    | middleware() with typed context, context accumulation, | `examples/middleware.ts`       |
-| `multi-command`    | Multi-command CLI with nested command groups (git-like).            | cli(), command(), group(), subcommand nesting,         | `examples/multi-command.ts`    |
-| `spinner-progress` | Spinner and progress bar usage.                                     | out.spinner(), out.progress(), auto-disable in         | `examples/spinner-progress.ts` |
-| `testing`          | Testing examples using dreamcli/testkit.                            | runCommand(), prompt answers, env/config injection,    | `examples/testing.ts`          |
+| Example                                          | Summary                                                             | Demonstrates                                           | Source                         |
+| ------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------ |
+| [`basic`](/examples/basic)                       | Basic single-command CLI.                                           | positional args, typed flags, default values, aliases. | `examples/basic.ts`            |
+| [`interactive`](/examples/interactive)           | Interactive prompts with config file fallback.                      | per-flag .prompt(), command-level .interactive(),      | `examples/interactive.ts`      |
+| [`json-mode`](/examples/json-mode)               | Mixed machine-readable JSON and human-readable side-channel output. | always-on `out.json()` machine output to stdout,       | `examples/json-mode.ts`        |
+| [`middleware`](/examples/middleware)             | Middleware patterns: auth guard, request timing, error handling.    | middleware() with typed context, context accumulation, | `examples/middleware.ts`       |
+| [`multi-command`](/examples/multi-command)       | Multi-command CLI with nested command groups (git-like).            | cli(), command(), group(), subcommand nesting,         | `examples/multi-command.ts`    |
+| [`spinner-progress`](/examples/spinner-progress) | Spinner and progress bar usage.                                     | out.spinner(), out.progress(), auto-disable in         | `examples/spinner-progress.ts` |
+| [`testing`](/examples/testing)                   | Testing examples using dreamcli/testkit.                            | runCommand(), prompt answers, env/config injection,    | `examples/testing.ts`          |
