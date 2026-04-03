@@ -4,8 +4,8 @@
 
 Supported shell targets for completion script generation.
 
-`bash` and `zsh` are implemented first; `fish` and `powershell` are
-declared for forward compatibility but currently throw on generation.
+`bash`, `zsh`, and `fish` are implemented today. `powershell` remains
+planned and currently throws on generation.
 
 - Import: `dreamcli`
 - Export kind: type

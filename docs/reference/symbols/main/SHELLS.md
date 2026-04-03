@@ -17,7 +17,7 @@ omitted here so user-facing CLIs do not advertise unsupported targets.
 ## Signatures
 
 ```ts
-const SHELLS: Readonly<readonly ["bash", "zsh"]>;
+const SHELLS: Readonly<readonly ["bash", "zsh", "fish"]>;
 ```
 
 ## See Also

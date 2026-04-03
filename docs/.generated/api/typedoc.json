@@ -31098,7 +31098,7 @@
               },
               {
                 "kind": "text",
-                "text": " and "
+                "text": ", "
               },
               {
                 "kind": "code",
@@ -31106,7 +31106,7 @@
               },
               {
                 "kind": "text",
-                "text": " are implemented first; "
+                "text": ", and "
               },
               {
                 "kind": "code",
@@ -31114,7 +31114,7 @@
               },
               {
                 "kind": "text",
-                "text": " and "
+                "text": " are implemented today. "
               },
               {
                 "kind": "code",
@@ -31122,7 +31122,7 @@
               },
               {
                 "kind": "text",
-                "text": " are\ndeclared for forward compatibility but currently throw on generation."
+                "text": " remains\nplanned and currently throws on generation."
               }
             ]
           },
@@ -32540,6 +32540,10 @@
                     {
                       "type": "literal",
                       "value": "zsh"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "fish"
                     }
                   ]
                 }
@@ -34670,9 +34674,9 @@
           "sources": [
             {
               "fileName": "src/core/completion/index.ts",
-              "line": 66,
+              "line": 67,
               "character": 9,
-              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+              "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L67"
             }
           ],
           "signatures": [
@@ -34722,9 +34726,9 @@
               "sources": [
                 {
                   "fileName": "src/core/completion/index.ts",
-                  "line": 66,
+                  "line": 67,
                   "character": 9,
-                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+                  "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L67"
                 }
               ],
               "parameters": [

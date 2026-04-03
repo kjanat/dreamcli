@@ -21,8 +21,8 @@ import { generateZshCompletion } from './shells/zsh.ts';
 /**
  * Supported shell targets for completion script generation.
  *
- * `bash` and `zsh` are implemented first; `fish` and `powershell` are
- * declared for forward compatibility but currently throw on generation.
+ * `bash`, `zsh`, and `fish` are implemented today. `powershell` remains
+ * planned and currently throws on generation.
  */
 type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 
@@ -36,10 +36,11 @@ type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
  *
  * @see {@link Shell} for the union type matching these entries.
  */
-const SHELLS: Readonly<readonly ['bash', 'zsh']> = Object.freeze([
+const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish']> = Object.freeze([
 	'bash',
 	'zsh',
-] as const satisfies readonly ['bash', 'zsh']);
+	'fish',
+] as const satisfies readonly ['bash', 'zsh', 'fish']);
 
 // --- Shell-agnostic dispatch
 
@@ -79,4 +80,10 @@ function generateCompletion(schema: CLISchema, shell: Shell, options?: Completio
 // --- Exports
 
 export type { CompletionOptions, Shell };
-export { generateBashCompletion, generateCompletion, generateZshCompletion, SHELLS };
+export {
+	generateBashCompletion,
+	generateCompletion,
+	generateFishCompletion,
+	generateZshCompletion,
+	SHELLS,
+};

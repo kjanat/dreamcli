@@ -596,14 +596,13 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 // === E2E — Cross-cutting: completions + runtime + error handling
 
 describe('E2E — completions error paths via CLI dispatch', () => {
-	it('unsupported planned shell is rejected by the user-facing shell arg', async () => {
+	it('remaining unsupported planned shell is rejected by the user-facing shell arg', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
-		// The public completions command only exposes implemented shells.
-		const result = await app.execute(['completions', 'fish']);
+		const result = await app.execute(['completions', 'powershell']);
 		expect(result.exitCode).not.toBe(0);
 		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain("Unknown shell 'fish'");
+		expect(result.error?.message).toContain("Unknown shell 'powershell'");
 	});
 
 	it('missing shell arg via run() path outputs error', async () => {
@@ -637,6 +636,36 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 		if (jsonOutput === undefined) return; // unreachable — satisfies TS narrowing
 		const parsed: Record<string, unknown> = JSON.parse(jsonOutput);
 		expect(parsed.error).toBeDefined();
+	});
+});
+
+// === E2E — Fish completion via CLI dispatch
+
+describe('E2E — fish completion via .completions()', () => {
+	it('generates valid fish script through full CLI dispatch', async () => {
+		const app = cli('myapp')
+			.version('2.0.0')
+			.command(deployCommand())
+			.command(loginCommand())
+			.command(configCommand())
+			.completions();
+
+		const result = await app.execute(['completions', 'fish']);
+		expect(result.exitCode).toBe(0);
+		expect(result.error).toBeUndefined();
+
+		const script = result.stdout.join('');
+
+		expect(script).toContain('# Fish completion for myapp');
+		expect(script).toContain('function __myapp_completions_path');
+		expect(script).toContain('complete -c myapp -f');
+		expect(script).toContain('deploy');
+		expect(script).toContain('login');
+		expect(script).toContain('config');
+		expect(script).toContain('-l force');
+		expect(script).toContain('-l region');
+		expect(script).toContain('us eu ap');
+		expect(script).not.toContain('debug');
 	});
 });
 

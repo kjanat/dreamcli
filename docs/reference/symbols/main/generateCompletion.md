@@ -7,7 +7,7 @@ Generated reference page for the `generateCompletion` function export.
 - Import: `dreamcli`
 - Export kind: function
 - Declared in: `src/core/completion/index.ts`
-- Source link: [`src/core/completion/index.ts:66`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66)
+- Source link: [`src/core/completion/index.ts:67`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L67)
 
 ## Signatures
 

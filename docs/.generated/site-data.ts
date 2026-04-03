@@ -2201,7 +2201,7 @@ export const generatedSymbolPages = [
     entrypoint: 'dreamcli',
     routePath: '/reference/symbols/main/Shell',
     summary:
-      'Supported shell targets for completion script generation.\n\n`bash` and `zsh` are implemented first; `fish` and `powershell` are\ndeclared for forward compatibility but currently throw on generation.',
+      'Supported shell targets for completion script generation.\n\n`bash`, `zsh`, and `fish` are implemented today. `powershell` remains\nplanned and currently throws on generation.',
   },
   {
     id: 'dreamcli:SHELLS',

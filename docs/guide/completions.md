@@ -10,6 +10,7 @@ import { generateCompletion } from 'dreamcli';
 
 generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
+generateCompletion(myCli.schema, 'fish');
 generateCompletion(myCli.schema, 'bash', { rootMode: 'surface' });
 ```
 
@@ -19,10 +20,11 @@ generateCompletion(myCli.schema, 'bash', { rootMode: 'surface' });
 | ----- | --------- |
 | bash  | Supported |
 | zsh   | Supported |
+| fish  | Supported |
 
-`generateCompletion()` currently supports `bash` and `zsh` only.
-Passing `fish` or `powershell` currently throws a structured not-supported `CLIError` rather than
-returning a script.
+`generateCompletion()` currently supports `bash`, `zsh`, and `fish`.
+Passing `powershell` currently throws a structured not-supported `CLIError` rather than returning a
+script.
 
 See the [Support Matrix](/reference/support-matrix) for the current audited shell surface and the
 tracked follow-up work.
@@ -39,9 +41,9 @@ const completions = command('completions')
   .arg(
     'shell',
     arg
-      .custom((raw): 'bash' | 'zsh' => {
-        if (raw !== 'bash' && raw !== 'zsh') {
-          throw new Error('Expected bash or zsh');
+      .custom((raw): 'bash' | 'zsh' | 'fish' => {
+        if (raw !== 'bash' && raw !== 'zsh' && raw !== 'fish') {
+          throw new Error('Expected bash, zsh, or fish');
         }
         return raw;
       })
@@ -70,6 +72,9 @@ mycli completions bash >> ~/.bashrc
 
 # zsh
 mycli completions zsh >> ~/.zshrc
+
+# fish
+mycli completions fish > ~/.config/fish/completions/mycli.fish
 ```
 
 ## What Completes

@@ -2244,9 +2244,9 @@
         "sources": [
           {
             "path": "src/core/completion/index.ts",
-            "line": 66,
+            "line": 67,
             "character": 9,
-            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+            "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L67"
           }
         ],
         "defaultValue": null,
@@ -2282,9 +2282,9 @@
             "sources": [
               {
                 "path": "src/core/completion/index.ts",
-                "line": 66,
+                "line": 67,
                 "character": 9,
-                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L66"
+                "url": "https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L67"
               }
             ],
             "defaultValue": null,
@@ -16040,6 +16040,10 @@
                   {
                     "kind": "literal",
                     "value": "zsh"
+                  },
+                  {
+                    "kind": "literal",
+                    "value": "fish"
                   }
                 ]
               }
@@ -38914,7 +38918,7 @@
         "kind": "typeAlias",
         "flags": [],
         "comment": {
-          "summary": "Supported shell targets for completion script generation.\n\n`bash` and `zsh` are implemented first; `fish` and `powershell` are\ndeclared for forward compatibility but currently throw on generation.",
+          "summary": "Supported shell targets for completion script generation.\n\n`bash`, `zsh`, and `fish` are implemented today. `powershell` remains\nplanned and currently throws on generation.",
           "blockTags": [],
           "modifierTags": []
         },

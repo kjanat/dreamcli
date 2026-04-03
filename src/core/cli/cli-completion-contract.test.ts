@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	extractBashRootWords,
+	extractFishCompletionLines,
 	extractZshRootFunction,
 } from '#internals/core/completion/completion-test-helpers.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -86,17 +87,14 @@ describe('Completion contract — supported shell surface', () => {
 		expect(result.exitCode).toBe(0);
 		expect(output).toContain('bash');
 		expect(output).toContain('zsh');
-		expect(output).not.toContain('fish');
+		expect(output).toContain('fish');
 		expect(output).not.toContain('powershell');
 	});
 
-	it('rejects unsupported planned shells at the command boundary', async () => {
+	it('rejects only unsupported planned shells at the command boundary', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
-		const fishResult = await app.execute(['completions', 'fish']);
 		const powershellResult = await app.execute(['completions', 'powershell']);
 
-		expect(fishResult.exitCode).not.toBe(0);
-		expect(fishResult.error?.message).toContain("Unknown shell 'fish'");
 		expect(powershellResult.exitCode).not.toBe(0);
 		expect(powershellResult.error?.message).toContain("Unknown shell 'powershell'");
 	});
@@ -133,6 +131,21 @@ describe('Completion contract — nested command propagation', () => {
 		expect(migrateBlock).toContain('--verbose');
 		expect(migrateBlock).toContain('-v');
 		expect(migrateBlock).toContain('--dry-run');
+	});
+
+	it('includes nested fish leaf completions with propagated ancestor flags', async () => {
+		const app = cli('mycli').command(dbCommand()).completions();
+		const result = await app.execute(['completions', 'fish']);
+		const lines = extractFishCompletionLines(
+			result.stdout.join(''),
+			'__mycli_completions_path_is',
+			'db migrate',
+		).join('\n');
+
+		expect(result.exitCode).toBe(0);
+		expect(lines).toContain('-l verbose');
+		expect(lines).toContain('-s v');
+		expect(lines).toContain('-l dry-run');
 	});
 });
 
@@ -188,5 +201,40 @@ describe('Completion contract — root and default-command policy', () => {
 		expect(surfaceModeRoot).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 		expect(surfaceModeRoot).toContain("'--verbose[Verbose logging]'");
 		expect(surfaceModeRoot).not.toContain("'--childOnly[Child-only flag]'");
+	});
+
+	it('keeps hybrid fish roots command-centric by default and surfaces default flags on request', async () => {
+		const commandModeApp = cli('mycli')
+			.default(serveDefaultCommand())
+			.command(statusCommand())
+			.completions();
+		const commandModeResult = await commandModeApp.execute(['completions', 'fish']);
+		const commandModeRoot = extractFishCompletionLines(
+			commandModeResult.stdout.join(''),
+			'__mycli_completions_path_is',
+			'',
+		).join('\n');
+
+		expect(commandModeResult.exitCode).toBe(0);
+		expect(commandModeRoot).toContain('-a serve');
+		expect(commandModeRoot).toContain('-a status');
+		expect(commandModeRoot).not.toContain('-l port');
+
+		const surfaceModeApp = cli('mycli')
+			.default(serveDefaultCommand())
+			.command(statusCommand())
+			.completions({ rootMode: 'surface' });
+		const surfaceModeResult = await surfaceModeApp.execute(['completions', 'fish']);
+		const surfaceModeRoot = extractFishCompletionLines(
+			surfaceModeResult.stdout.join(''),
+			'__mycli_completions_path_is',
+			'',
+		).join('\n');
+
+		expect(surfaceModeResult.exitCode).toBe(0);
+		expect(surfaceModeRoot).toContain('-l port');
+		expect(surfaceModeRoot).toContain('-s p');
+		expect(surfaceModeRoot).toContain('-l verbose');
+		expect(surfaceModeRoot).not.toContain('-l childOnly');
 	});
 });

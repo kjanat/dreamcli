@@ -16,6 +16,7 @@ import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,
 	generateCompletion,
+	generateFishCompletion,
 	generateZshCompletion,
 	SHELLS,
 } from './index.ts';
@@ -95,13 +96,17 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	};
 }
 
-import { extractBashRootWords, extractZshRootFunction } from './completion-test-helpers.ts';
+import {
+	extractBashRootWords,
+	extractFishCompletionLines,
+	extractZshRootFunction,
+} from './completion-test-helpers.ts';
 
 // === Shell type — SHELLS constant
 
 describe('Shell type — SHELLS constant', () => {
 	it('contains only implemented shell targets', () => {
-		expect(SHELLS).toEqual(['bash', 'zsh']);
+		expect(SHELLS).toEqual(['bash', 'zsh', 'fish']);
 	});
 
 	it('is a frozen readonly tuple', () => {
@@ -1596,22 +1601,12 @@ describe('generateCompletion — dispatcher', () => {
 		expect(rootWords).toContain('-p');
 	});
 
-	it('throws CLIError for fish (unsupported)', () => {
+	it('delegates fish to generateFishCompletion', () => {
 		const schema = minimalSchema();
+		const script = generateCompletion(schema, 'fish');
 
-		let caught: unknown;
-		try {
-			generateCompletion(schema, 'fish');
-		} catch (e: unknown) {
-			caught = e;
-		}
-		expect(caught).toBeDefined();
-		expect(isCLIError(caught)).toBe(true);
-		if (isCLIError(caught)) {
-			expect(caught.code).toBe('UNSUPPORTED_OPERATION');
-			expect(caught.message).toContain('fish');
-			expect(caught.message).toContain('not yet supported');
-		}
+		expect(script).toContain('# Fish completion for testcli');
+		expect(script).toContain('function __testcli_completions_path');
 	});
 
 	it('throws CLIError for powershell (unsupported)', () => {
@@ -2209,5 +2204,76 @@ describe('generateZshCompletion — nested aliases', () => {
 		const dbFunc = lines.slice(dbFuncIdx, dbFuncIdx + 40).join('\n');
 		// seed has alias 's'
 		expect(dbFunc).toContain('seed|s)');
+	});
+});
+// === generateFishCompletion — script structure
+
+describe('generateFishCompletion — script structure', () => {
+	it('generates header, helper functions, and install instructions', () => {
+		const script = generateFishCompletion(minimalSchema());
+
+		expect(script).toContain('# Fish completion for testcli');
+		expect(script).toContain('source (testcli completions fish | psub)');
+		expect(script).toContain('~/.config/fish/completions/testcli.fish');
+		expect(script).toContain('function __testcli_completions_path');
+		expect(script).toContain('complete -c testcli -f');
+	});
+
+	it('includes root commands and root flags', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(commandSchema({ name: 'deploy', description: 'Deploy app' })),
+				erased(commandSchema({ name: 'build', description: 'Build app' })),
+			],
+		});
+		const script = generateFishCompletion(schema);
+		const rootLines = extractFishCompletionLines(script, '__testcli_completions_path_is', '').join(
+			'\n',
+		);
+
+		expect(rootLines).toContain("-a deploy -d 'Deploy app'");
+		expect(rootLines).toContain("-a build -d 'Build app'");
+		expect(rootLines).toContain("-l help -d 'Show help text'");
+		expect(rootLines).toContain("-l version -d 'Show version'");
+	});
+
+	it('includes nested propagated flags and child commands', () => {
+		const script = generateFishCompletion(nestedSchema());
+		const dbLines = extractFishCompletionLines(script, '__testcli_completions_path_is', 'db');
+		const migrateLines = extractFishCompletionLines(
+			script,
+			'__testcli_completions_path_is',
+			'db migrate',
+		);
+
+		expect(dbLines.join('\n')).toContain("-a migrate -d 'Run migrations'");
+		expect(dbLines.join('\n')).toContain("-a s -d 'Seed database'");
+		expect(dbLines.join('\n')).toContain('-l verbose');
+		expect(migrateLines.join('\n')).toContain('-l verbose');
+		expect(migrateLines.join('\n')).toContain('-s v');
+		expect(migrateLines.join('\n')).toContain('-l dry-run');
+	});
+
+	it('surfaces default-command flags at the root in surface mode', () => {
+		const serve = erased(
+			commandSchema({
+				name: 'serve',
+				description: 'Start server',
+				flags: {
+					port: flagSchema({ kind: 'number', aliases: ['p'], description: 'Port' }),
+					verbose: flagSchema({ kind: 'boolean', description: 'Verbose logging' }),
+				},
+			}),
+		);
+		const status = erased(commandSchema({ name: 'status', description: 'Show status' }));
+		const script = generateFishCompletion(
+			minimalSchema({ commands: [serve, status], defaultCommand: serve }),
+			{ rootMode: 'surface' },
+		);
+		const rootLines = extractFishCompletionLines(script, '__testcli_completions_path_is', '');
+
+		expect(rootLines.join('\n')).toContain('-l port');
+		expect(rootLines.join('\n')).toContain('-s p');
+		expect(rootLines.join('\n')).toContain('-l verbose');
 	});
 });

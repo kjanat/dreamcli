@@ -171,7 +171,7 @@
 			"description": "Ship real fish shell completion generation. Done when: fish completion generation is implemented, exercised by tests, and reflected truthfully in docs/support surfaces.",
 			"depends": ["completion-contract-tests", "extract-invocation-planner"],
 			"priority": "standard",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "implement-pwsh-comp",

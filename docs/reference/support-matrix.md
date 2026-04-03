@@ -9,7 +9,7 @@ Use it for questions like:
 - where the supporting code and tests live;
 - which product claims are already true versus planned next.
 
-Last audited: `2026-04-02`
+Last audited: `2026-04-03`
 
 ## Status Meanings
 
@@ -23,8 +23,8 @@ Last audited: `2026-04-02`
 
 The TypeScript surface can be broader than the supported surface.
 
-Example: the completion `Shell` union includes `fish` and `powershell`, but those generators currently
-throw `CLIError` instead of returning a script. Treat this matrix, not the union type alone, as the
+Example: the completion `Shell` union still includes `powershell`, but that generator currently
+throws `CLIError` instead of returning a script. Treat this matrix, not the union type alone, as the
 current truth source.
 
 ## Execution and Semantics
@@ -62,7 +62,7 @@ current truth source.
 | ------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Bash completion generation                  | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/bash.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/bash.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts) | Included in the supported shell set today.                                                                                        |
 | Zsh completion generation                   | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/zsh.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/zsh.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)   | Included in the supported shell set today.                                                                                        |
-| Fish completion generation                  | Deferred  | [`src/core/completion/shells/fish.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/fish.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)                                          | The shell is present in the wider type surface but currently throws a not-supported `CLIError`. Tracked by `implement-fish-comp`. |
+| Fish completion generation                  | Supported | [Shell Completions](/guide/completions), [`src/core/completion/shells/fish.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/fish.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts) | Included in the supported shell set today.                                                                                        |
 | PowerShell completion generation            | Deferred  | [`src/core/completion/shells/powershell.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/powershell.ts), [`src/core/completion/completion.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/completion.test.ts)                              | The shell is present in the wider type surface but currently throws a not-supported `CLIError`. Tracked by `implement-pwsh-comp`. |
 | Built-in `.completions()` helper on `cli()` | Supported | [Shell Completions](/guide/completions), [`src/core/completion/index.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts), [`src/core/cli/cli-completions.test.ts`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/cli-completions.test.ts)                 | Today it surfaces the supported shells backed by `SHELLS`, not the wider union type.                                              |
 
@@ -97,7 +97,7 @@ current truth source.
 
 | Deferred surface                                   | PRD task IDs                                                          |
 | -------------------------------------------------- | --------------------------------------------------------------------- |
-| Fish completions                                   | `implement-fish-comp`                                                 |
+| Fish completions                                   | None                                                                  |
 | PowerShell completions                             | `implement-pwsh-comp`                                                 |
 | Generated example pages                            | None                                                                  |
 | Example hover                                      | None                                                                  |

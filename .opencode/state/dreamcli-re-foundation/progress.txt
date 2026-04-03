@@ -12,7 +12,7 @@ Started: 2026-04-02
 - When execution ownership is implicit, add a dedicated black-box contract suite at the current owner boundary before extraction; it lets later shared seams move without coupling tests to module shape.
 - Docs work must split into low-risk generated foundations versus semantics-sensitive authored docs.
 - `ROADMAP-DOCS-SICK.md` is the main north star for the generated docs platform: examples first, hover on examples only, changelog and docs health, then API inventory, then TypeDoc-based symbol pages.
-- Completion breadth must be backed by real implementation and tests; fish and PowerShell are intentional backlog items, not aspirational claims.
+- Completion support should only expand when the generator, command-boundary validation, contract tests, and docs truth all land together; widening `Shell` or `SHELLS` alone is not enough.
 - The GitHub project should mirror `prd.json` at mixed depth, with draft items rather than real repo issues.
 - When a public type surface is broader than the real support surface, add an audited support-matrix page and make docs state the runtime behavior explicitly instead of staying silent.
 - Before comitting, always run `dprint fmt`
@@ -242,3 +242,11 @@ Started: 2026-04-02
 - Locked down that only `bash` and `zsh` are advertised, that unsupported planned shells still fail at the command boundary, and that nested leaf completions inherit propagated ancestor flags in both bash and zsh.
 - Files changed: `src/core/cli/cli-completion-contract.test.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the narrowest honest completion seam is the built-in `.completions()` command, because that is where docs-visible shell support and root-mode behavior actually surface.
+
+## Task - [implement-fish-comp]
+
+- Implemented real fish completion generation in `src/core/completion/shells/fish.ts` with a canonical path helper, per-path `complete` entries for nested commands, propagated flags, enum values, and root default-command surface handling.
+- Expanded completion coverage across the generator, `.completions()` contract/integration suites, and end-to-end CLI tests so fish is now part of the shipped shell surface while PowerShell remains the only deferred shell.
+- Regenerated the public docs artifacts and updated authored completion/support docs so `SHELLS`, `generateCompletion()`, and the audited support matrix all describe the same shipped behavior.
+- Files changed: `src/core/completion/shells/fish.ts`, `src/core/completion/index.ts`, `src/core/completion/completion-test-helpers.ts`, `src/core/completion/completion.test.ts`, `src/core/cli/cli-completion-contract.test.ts`, `src/core/cli/cli-completion-e2e.test.ts`, `src/core/cli/cli-completions.test.ts`, `docs/guide/completions.md`, `docs/reference/support-matrix.md`, `docs/.generated/site-data.ts`, `docs/reference/symbols/main/SHELLS.md`, `docs/reference/symbols/main/Shell.md`, `docs/reference/symbols/main/generateCompletion.md`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: fish support fits best as the same schema-driven command-path model used by other shells; a tiny generated path helper plus per-path `complete` lines keeps nested command truth and propagated-flag behavior aligned without inventing a separate completion planner.

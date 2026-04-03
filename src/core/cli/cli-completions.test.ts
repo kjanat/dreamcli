@@ -60,6 +60,7 @@ function statusCommand() {
 
 import {
 	extractBashRootWords,
+	extractFishCompletionLines,
 	extractZshRootFunction,
 } from '#internals/core/completion/completion-test-helpers.ts';
 
@@ -284,12 +285,11 @@ describe('.completions() — error handling', () => {
 		expect(output).toContain('#!/usr/bin/env bash');
 	});
 
-	it('errors when fish is requested through the user-facing shell arg', async () => {
+	it('accepts fish through the user-facing shell arg', async () => {
 		const app = cli('mycli').command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'fish']);
-		expect(result.exitCode).not.toBe(0);
-		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain("Unknown shell 'fish'");
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('# Fish completion for mycli');
 	});
 
 	it('errors when powershell is requested through the user-facing shell arg', async () => {
@@ -349,6 +349,12 @@ describe('.completions() — schema snapshot', () => {
 		const zshOutput = zshResult.stdout.join('');
 		expect(zshOutput).toContain('#compdef mycli');
 		expect(zshOutput).toContain('_mycli() {');
+
+		const fishResult = await app.execute(['completions', 'fish']);
+		expect(fishResult.exitCode).toBe(0);
+		const fishOutput = fishResult.stdout.join('');
+		expect(fishOutput).toContain('# Fish completion for mycli');
+		expect(fishOutput).toContain('complete -c mycli -f');
 	});
 });
 
@@ -376,6 +382,15 @@ describe('.completions() — --json mode', () => {
 		const parsed = JSON.parse(result.stdout[0] ?? '');
 		expect(parsed.script).toContain('#compdef mycli');
 		expect(parsed.script).toContain('_mycli');
+	});
+
+	it('outputs JSON with fish script in --json mode', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', 'fish', '--json']);
+		expect(result.exitCode).toBe(0);
+		const parsed = JSON.parse(result.stdout[0] ?? '');
+		expect(parsed.script).toContain('# Fish completion for mycli');
+		expect(parsed.script).toContain('complete -c mycli -f');
 	});
 
 	it('outputs raw script to stdout in normal mode (no --json)', async () => {
@@ -429,6 +444,14 @@ describe('.completions() — install instruction headers', () => {
 		expect(output).toContain('source <(mycli completions zsh)');
 		expect(output).toContain('fpath');
 	});
+
+	it('fish script includes install instructions in header', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', 'fish']);
+		const output = result.stdout.join('');
+		expect(output).toContain('source (mycli completions fish | psub)');
+		expect(output).toContain('~/.config/fish/completions/mycli.fish');
+	});
 });
 
 // === Root help integration
@@ -440,5 +463,33 @@ describe('.completions() — root help', () => {
 		const output = result.stdout.join('');
 		expect(output).toContain('completions');
 		expect(output).toContain('Generate shell completion script');
+	});
+});
+// === Fish completion generation via completions subcommand
+
+describe('.completions() — fish output', () => {
+	it('generates fish completion script', async () => {
+		const app = cli('mycli').command(deployCommand()).completions();
+		const result = await app.execute(['completions', 'fish']);
+		expect(result.exitCode).toBe(0);
+		const output = result.stdout.join('');
+		expect(output).toContain('# Fish completion for mycli');
+		expect(output).toContain('source (mycli completions fish | psub)');
+		expect(output).toContain('complete -c mycli -f');
+	});
+
+	it('includes nested propagated flags in fish script', async () => {
+		const app = cli('mycli').default(serveDefaultCommand()).completions({ rootMode: 'surface' });
+		const result = await app.execute(['completions', 'fish']);
+		const rootLines = extractFishCompletionLines(
+			result.stdout.join(''),
+			'__mycli_completions_path_is',
+			'',
+		).join('\n');
+
+		expect(rootLines).toContain('-l port');
+		expect(rootLines).toContain('-s p');
+		expect(rootLines).toContain('-l verbose');
+		expect(rootLines).not.toContain('-l childOnly');
 	});
 });
