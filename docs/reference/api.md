@@ -1,8 +1,16 @@
+<script setup lang="ts">
+import { docsHealthSnapshot, generatedPublicApi } from '../.generated/site-data.ts';
+</script>
+
 # API Reference
 
-dreamcli exposes three subpath exports, each with a focused API surface.
-Use this page to choose the right import, then jump into the detailed reference page for that
-subpath.
+This page is rebuilt by `bun run docs:prepare` from the public entrypoints declared in `package.json`.
+Use it to see the complete public surface grouped by subpath and export kind, then jump into the
+subpath-specific detail pages.
+
+- Public entrypoints: `{{ docsHealthSnapshot.publicEntrypointCount }}`
+- Public symbols indexed: `{{ docsHealthSnapshot.publicSymbolCount }}`
+- Generated artifacts: `docs/.generated/api/index.md`, `docs/.generated/api/public-exports.json`
 
 ## Choose an Import
 
@@ -11,38 +19,40 @@ subpath.
 | `dreamcli`         | schema builders, CLI assembly, parsing, resolution, errors, completions, schema export | [`dreamcli`](/reference/main)            |
 | `dreamcli/testkit` | command tests, output capture, scripted prompts, test adapters                         | [`dreamcli/testkit`](/reference/testkit) |
 | `dreamcli/runtime` | runtime detection, explicit adapters, runtime-only helpers                             | [`dreamcli/runtime`](/reference/runtime) |
+| `dreamcli/schema`  | generated CLI definition meta-schema JSON                                              | schema asset only                        |
 
-## Main Package Highlights
+## Generated Index
 
-Most applications start from `dreamcli`.
-
-| API                                          | Purpose                                                    |
-| -------------------------------------------- | ---------------------------------------------------------- |
-| `cli()`                                      | build a multi-command CLI                                  |
-| `command()` / `group()`                      | define commands and nested groups                          |
-| `flag` / `arg`                               | declare typed inputs                                       |
-| `middleware()` / `plugin()`                  | extend execution with typed middleware and lifecycle hooks |
-| `generateSchema()` / `generateInputSchema()` | export CLI structure and JSON Schema                       |
-| `generateCompletion()`                       | generate bash or zsh completion scripts                    |
-| `parse()` / `resolve()` / `formatHelp()`     | lower-level parser and help utilities                      |
-
-## Testkit Highlights
-
-| API                     | Purpose                                          |
-| ----------------------- | ------------------------------------------------ |
-| `runCommand()`          | execute commands in-process and capture results  |
-| `createCaptureOutput()` | capture stdout, stderr, and activity events      |
-| `createTestPrompter()`  | script prompt answers for tests                  |
-| `createTestAdapter()`   | inject argv, env, stdin, and filesystem behavior |
-
-## Runtime Highlights
-
-| API                                                                  | Purpose                                 |
-| -------------------------------------------------------------------- | --------------------------------------- |
-| `createAdapter()`                                                    | auto-detect the active runtime          |
-| `createNodeAdapter()` / `createBunAdapter()` / `createDenoAdapter()` | opt into a specific runtime             |
-| `detectRuntime()`                                                    | inspect runtime selection directly      |
-| `RuntimeAdapter`                                                     | type for process abstraction boundaries |
+<div v-for="entrypoint in generatedPublicApi" :key="entrypoint.entrypoint">
+	<h3><code>{{ entrypoint.entrypoint }}</code></h3>
+	<p><strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code></p>
+	<p v-if="entrypoint.entrypoint === 'dreamcli'">
+		<a href="/reference/main">dreamcli detailed page</a>
+	</p>
+	<p v-else-if="entrypoint.entrypoint === 'dreamcli/testkit'">
+		<a href="/reference/testkit">dreamcli/testkit detailed page</a>
+	</p>
+	<p v-else-if="entrypoint.entrypoint === 'dreamcli/runtime'">
+		<a href="/reference/runtime">dreamcli/runtime detailed page</a>
+	</p>
+	<div v-for="group in entrypoint.kindGroups" :key="`${entrypoint.entrypoint}-${group.kind}`">
+		<h4>{{ group.title }} ({{ group.symbols.length }})</h4>
+		<table>
+			<thead>
+				<tr>
+					<th>Symbol</th>
+					<th>Source</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr v-for="symbol in group.symbols" :key="`${entrypoint.entrypoint}-${symbol.name}`">
+					<td><code>{{ symbol.name }}</code></td>
+					<td><code>{{ symbol.sourcePath }}</code></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+</div>
 
 ## Related Guides
 

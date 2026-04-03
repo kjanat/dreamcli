@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
 	docsHealthSnapshot,
-	generatedPublicExports,
+	generatedPublicApi,
 	generatedReferenceSurfaces,
 } from '../.generated/site-data.ts';
 </script>
@@ -11,7 +11,8 @@ import {
 This page is the stable hand-authored entrypoint for source-backed reference artifacts prepared by `bun run docs:prepare`.
 
 - Generated root: `docs/.generated/`
-- Public export entrypoints discovered: `{{ generatedPublicExports.length }}`
+- Public API entrypoints discovered: `{{ generatedPublicApi.length }}`
+- Public API symbols indexed: `{{ docsHealthSnapshot.publicSymbolCount }}`
 
 ## Prepared Artifacts
 
@@ -28,4 +29,5 @@ This page is the stable hand-authored entrypoint for source-backed reference art
 - Authored markdown pages: `{{ docsHealthSnapshot.authoredPageCount }}`
 - Generated artifacts: `{{ docsHealthSnapshot.generatedArtifactCount }}`
 - Source-backed examples: `{{ docsHealthSnapshot.exampleCount }}`
-- Public export entrypoints: `{{ docsHealthSnapshot.publicExportCount }}`
+- Public API entrypoints: `{{ docsHealthSnapshot.publicEntrypointCount }}`
+- Public API symbols: `{{ docsHealthSnapshot.publicSymbolCount }}`

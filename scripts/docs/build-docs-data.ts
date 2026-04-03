@@ -10,11 +10,18 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
 
 import {
+	collectPublicApiIndex,
+	countPublicApiSymbols,
+	type PublicApiEntrypoint,
+	renderPublicApiIndex,
+} from './shared/api-index.ts';
+import {
 	changelogPath,
 	docsRoot,
 	examplesRoot,
 	generatedApiDir,
 	generatedApiIndexPath,
+	generatedApiPagePath,
 	generatedChangelogPath,
 	generatedDocsHealthPath,
 	generatedExamplesDir,
@@ -34,11 +41,6 @@ interface ExampleEntry {
 	sourcePath: string;
 }
 
-interface PublicExportEntry {
-	subpath: string;
-	entrypoint: string;
-}
-
 interface GeneratedReferenceSurface {
 	id: string;
 	title: string;
@@ -52,7 +54,8 @@ interface DocsHealthSnapshot {
 	authoredPageCount: number;
 	generatedArtifactCount: number;
 	exampleCount: number;
-	publicExportCount: number;
+	publicEntrypointCount: number;
+	publicSymbolCount: number;
 }
 
 const GENERATED_HEADER =
@@ -66,24 +69,25 @@ async function rebuildDocsArtifacts(): Promise<void> {
 	await mkdir(generatedReferenceDir, { recursive: true });
 	await mkdir(generatedApiDir, { recursive: true });
 
-	const [examples, publicExports, changelog] = await Promise.all([
+	const [examples, publicApi, changelog] = await Promise.all([
 		collectExamples(),
-		collectPublicExports(),
+		collectPublicApiIndex(packageJsonPath),
 		readFile(changelogPath, 'utf8'),
 	]);
 
-	const docsHealth = await collectDocsHealth(examples.length, publicExports.length);
+	const docsHealth = await collectDocsHealth(examples.length, publicApi);
 	const generatedReferenceSurfaces = buildReferenceSurfaces();
 
 	await Promise.all([
 		writeFile(
 			generatedSiteDataPath,
-			renderSiteData(examples, publicExports, generatedReferenceSurfaces, docsHealth),
+			renderSiteData(examples, publicApi, generatedReferenceSurfaces, docsHealth),
 		),
 		writeFile(generatedExamplesIndexPath, renderExamplesIndex(examples)),
 		writeFile(generatedChangelogPath, renderChangelog(changelog)),
 		writeFile(generatedDocsHealthPath, renderDocsHealth(docsHealth)),
-		writeFile(generatedApiIndexPath, `${JSON.stringify(publicExports, null, '\t')}\n`),
+		writeFile(generatedApiIndexPath, `${JSON.stringify(publicApi, null, '\t')}\n`),
+		writeFile(generatedApiPagePath, renderPublicApiIndex(publicApi)),
 	]);
 }
 
@@ -194,38 +198,23 @@ function titleFromSlug(slug: string): string {
 		.join(' ');
 }
 
-async function collectPublicExports(): Promise<readonly PublicExportEntry[]> {
-	const packageJson = await readJsonFile(packageJsonPath);
-	const exportsField = packageJson.exports;
-	if (!isRecord(exportsField)) {
-		return [];
-	}
-
-	return Object.keys(exportsField)
-		.filter((subpath) => subpath !== './package.json')
-		.map((subpath) => ({
-			subpath,
-			entrypoint: subpath === '.' ? 'dreamcli' : `dreamcli/${subpath.slice(2)}`,
-		}))
-		.sort((left, right) => left.entrypoint.localeCompare(right.entrypoint));
-}
-
 async function collectDocsHealth(
 	exampleCount: number,
-	publicExportCount: number,
+	publicApi: readonly PublicApiEntrypoint[],
 ): Promise<DocsHealthSnapshot> {
 	const authoredPageCount = await countMarkdownFiles(
 		docsRoot,
 		(relativePath) =>
 			!relativePath.startsWith('.generated/') && !relativePath.startsWith('.vitepress/'),
 	);
-	const generatedArtifactCount = 4;
+	const generatedArtifactCount = 5;
 
 	return {
 		authoredPageCount,
 		generatedArtifactCount,
 		exampleCount,
-		publicExportCount,
+		publicEntrypointCount: publicApi.length,
+		publicSymbolCount: countPublicApiSymbols(publicApi),
 	};
 }
 
@@ -282,19 +271,19 @@ function buildReferenceSurfaces(): readonly GeneratedReferenceSurface[] {
 		},
 		{
 			id: 'generated-api-index',
-			title: 'Generated Public Export Inventory',
-			artifactPath: 'docs/.generated/api/public-exports.json',
-			sourceInputs: ['package.json'],
+			title: 'Generated API Index',
+			artifactPath: 'docs/.generated/api/index.md',
+			sourceInputs: ['package.json', 'src/index.ts', 'src/runtime.ts', 'src/testkit.ts'],
 			status: 'prepared',
 			notes:
-				'The foundation emits a stable export manifest before later API-index and TypeDoc normalization tasks add richer rendering.',
+				'The generated markdown index is backed by a structured JSON inventory at `docs/.generated/api/public-exports.json` so later TypeDoc normalization can reuse the same public-entrypoint model.',
 		},
 	];
 }
 
 function renderSiteData(
 	examples: readonly ExampleEntry[],
-	publicExports: readonly PublicExportEntry[],
+	publicApi: readonly PublicApiEntrypoint[],
 	referenceSurfaces: readonly GeneratedReferenceSurface[],
 	docsHealth: DocsHealthSnapshot,
 ): string {
@@ -309,7 +298,7 @@ function renderSiteData(
 		'',
 		`export const generatedReferenceSurfaces = ${JSON.stringify(referenceSurfaces, null, '\t')};`,
 		'',
-		`export const generatedPublicExports = ${JSON.stringify(publicExports, null, '\t')};`,
+		`export const generatedPublicApi = ${JSON.stringify(publicApi, null, '\t')};`,
 		'',
 		`export const docsHealthSnapshot = ${JSON.stringify(docsHealth, null, '\t')};`,
 		'',
@@ -362,26 +351,14 @@ function renderDocsHealth(docsHealth: DocsHealthSnapshot): string {
 		`| Authored markdown pages | ${docsHealth.authoredPageCount} |`,
 		`| Generated artifacts | ${docsHealth.generatedArtifactCount} |`,
 		`| Source-backed examples | ${docsHealth.exampleCount} |`,
-		`| Public export entrypoints | ${docsHealth.publicExportCount} |`,
+		`| Public API entrypoints | ${docsHealth.publicEntrypointCount} |`,
+		`| Public API symbols | ${docsHealth.publicSymbolCount} |`,
 		'',
 	].join('\n');
 }
 
 function escapeTable(value: string): string {
 	return value.replaceAll('|', '\\|');
-}
-
-async function readJsonFile(filePath: string): Promise<Record<string, unknown>> {
-	const raw = JSON.parse(await readFile(filePath, 'utf8'));
-	if (!isRecord(raw)) {
-		throw new Error(`Expected object JSON at ${toRepoPath(filePath)}`);
-	}
-
-	return raw;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
 }
 
 function toRepoPath(filePath: string): string {

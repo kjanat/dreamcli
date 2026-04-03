@@ -25,3 +25,4 @@ export const generatedExamplesIndexPath = join(generatedExamplesDir, 'index.md')
 export const generatedChangelogPath = join(generatedReferenceDir, 'changelog.md');
 export const generatedDocsHealthPath = join(generatedReferenceDir, 'docs-health.md');
 export const generatedApiIndexPath = join(generatedApiDir, 'public-exports.json');
+export const generatedApiPagePath = join(generatedApiDir, 'index.md');

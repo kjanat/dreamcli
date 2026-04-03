@@ -4,9 +4,10 @@
 
 This file is rebuilt by `bun run docs:prepare` and keeps the first factual metrics under a stable generated path.
 
-| Metric                    | Value |
-| ------------------------- | ----- |
-| Authored markdown pages   | 33    |
-| Generated artifacts       | 4     |
-| Source-backed examples    | 7     |
-| Public export entrypoints | 4     |
+| Metric                  | Value |
+| ----------------------- | ----- |
+| Authored markdown pages | 33    |
+| Generated artifacts     | 5     |
+| Source-backed examples  | 7     |
+| Public API entrypoints  | 4     |
+| Public API symbols      | 159   |

@@ -28,6 +28,7 @@ Started: 2026-04-02
 - For CLI run-path refactors, extract adapter-driven config/package/stdin/prompt sourcing into a `runtime-preflight` helper that consumes planner outcomes; it removes duplicate dispatch branching while keeping `run()` as a thin runtime shell.
 - Once a planner seam exists, pass raw argv into it and let the planner own global invocation normalization like root `--json`; keep `execute()` focused on output setup, rendering, and executor handoff.
 - For generated-docs groundwork, keep source-backed build outputs under `docs/.generated/` and let authored wrapper pages plus VitePress config import one generated manifest; that preserves clean source boundaries while future docs generators can expand without reshaping IA again.
+- For generated reference work, build one source-backed inventory model first and emit both JSON and markdown artifacts from it; authored wrapper pages can stay on stable routes while later normalization work reuses the same data seam.
 
 ## Project Tracking
 
@@ -149,3 +150,11 @@ Started: 2026-04-02
 - Seeded stable generated artifacts for examples inventory, changelog mirroring, docs-health counts, and public export inventory under `docs/.generated/`.
 - Files changed: `scripts/docs/build-docs-data.ts`, `scripts/docs/shared/paths.ts`, `package.json`, `docs/.vitepress/config.ts`, `docs/examples/index.md`, `docs/reference/generated-surfaces.md`, `docs/.generated/site-data.ts`, `docs/.generated/examples/index.md`, `docs/.generated/reference/changelog.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/api/public-exports.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: one generated `site-data.ts` manifest is the cleanest early seam for VitePress; config and wrapper pages can depend on prepared data now, while later example/reference generators can keep emitting into `.generated/` without another nav rewrite.
+
+## Task - [generate-api-index]
+
+- Replaced the placeholder public-export manifest with a real source-backed API inventory that resolves every public symbol from the package entrypoints, groups them by subpath and kind, and emits both structured JSON and a generated markdown index.
+- Turned `docs/reference/api.md` into a generated-data wrapper page so the stable `/reference/api` route now shows the full grouped inventory instead of a hand-maintained highlights list, and updated generated-surface/docs-health snapshots to expose entrypoint and symbol counts.
+- Added `scripts/docs/shared/api-index.test.ts` to lock down key symbol classification and rendered index output against the live public entrypoints.
+- Files changed: `scripts/docs/shared/api-index.ts`, `scripts/docs/shared/api-index.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `docs/reference/api.md`, `docs/reference/generated-surfaces.md`, `docs/.generated/site-data.ts`, `docs/.generated/api/index.md`, `docs/.generated/api/public-exports.json`, `docs/.generated/reference/docs-health.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: using the TypeScript checker against the public entrypoint barrels is the smallest reliable way to inventory real exports across re-export chains; syntax-only parsing misses local export lists like `export { CLIBuilder, cli, plugin }`.

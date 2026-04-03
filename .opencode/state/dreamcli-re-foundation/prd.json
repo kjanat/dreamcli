@@ -243,7 +243,7 @@
 			"description": "Build a public export inventory grouped by subpath and kind. Done when: every public export appears in a generated API index and the index clearly beats the current manual overview.",
 			"depends": ["build-docs-prepare"],
 			"priority": "integration",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "normalize-typedoc-data",
