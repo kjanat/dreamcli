@@ -6,5 +6,6 @@
 	"no-duplicate-heading": false,
 	"fenced-code-language": false,
 	"no-inline-html": false,
-	"commands-show-output": false
+	"commands-show-output": false,
+	"first-line-heading": false
 }
