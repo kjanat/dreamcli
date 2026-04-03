@@ -81,7 +81,7 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		readFile(changelogPath, 'utf8'),
 	]);
 	const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
-	const symbolPages = collectSymbolPages(typeDoc.normalized, symbolPagesRoot);
+	const symbolPages = collectSymbolPages(typeDoc.normalized, symbolPagesRoot, examples);
 	const metaSchemaDescriptions = buildDefinitionMetaSchemaDescriptions(typeDoc.normalized);
 
 	const docsHealth = await collectDocsHealth(examples.length, publicApi, symbolPages.length);
@@ -224,6 +224,7 @@ function renderSiteData(
 		sourcePath: example.sourcePath,
 		routePath: example.routePath,
 		sourceUrl: example.sourceUrl,
+		relatedGuides: example.relatedGuides,
 		relatedLinks: example.relatedLinks,
 	}));
 

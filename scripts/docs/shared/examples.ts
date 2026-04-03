@@ -7,10 +7,12 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
 
+import { collectRelatedGuides, type DocsLink } from './crosslinks.ts';
 import { toSymbolPageRoute } from './symbol-pages.ts';
 
-export interface ExampleRelatedLink {
-	label: string;
+export interface ExampleRelatedSymbol {
+	entrypoint: string;
+	name: string;
 	href: string;
 }
 
@@ -24,7 +26,9 @@ export interface ExampleEntry {
 	routePath: string;
 	sourceUrl: string;
 	sourceCode: string;
-	relatedLinks: readonly ExampleRelatedLink[];
+	relatedGuides: readonly DocsLink[];
+	relatedSymbols: readonly ExampleRelatedSymbol[];
+	relatedLinks: readonly DocsLink[];
 }
 
 const GENERATED_HEADER =
@@ -75,6 +79,7 @@ export function renderExamplePage(example: ExampleEntry): string {
 		example.usage.length === 0
 			? ['No usage snippets declared in the example docblock.', '']
 			: ['```bash', ...example.usage, '```', ''];
+	const relatedGuides = example.relatedGuides.map((link) => `- [${link.label}](${link.href})`);
 	const relatedLinks =
 		example.relatedLinks.length === 0
 			? ['- [Examples overview](/examples/)', '- [API overview](/reference/api)']
@@ -93,6 +98,7 @@ export function renderExamplePage(example: ExampleEntry): string {
 		'## Usage',
 		'',
 		...usageSection,
+		...(relatedGuides.length === 0 ? [] : ['## Related Guides', '', ...relatedGuides, '']),
 		'## Related Links',
 		'',
 		...relatedLinks,
@@ -125,12 +131,16 @@ async function parseExample(filePath: string, repoRoot: string): Promise<Example
 		routePath: `/examples/${slug}`,
 		sourceUrl: `${REPO_BLOB_BASE_URL}/${sourcePath}`,
 		sourceCode: source,
-		relatedLinks: collectRelatedLinks(source),
+		relatedGuides: collectRelatedGuides(slug),
+		...collectRelatedLinks(source),
 	};
 }
 
-function collectRelatedLinks(source: string): readonly ExampleRelatedLink[] {
-	const symbolLinks = new Map<string, ExampleRelatedLink>();
+function collectRelatedLinks(source: string): {
+	relatedSymbols: readonly ExampleRelatedSymbol[];
+	relatedLinks: readonly DocsLink[];
+} {
+	const symbolLinks = new Map<string, ExampleRelatedSymbol>();
 	for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*'([^']+)'/g)) {
 		const importList = match[1];
 		const moduleName = match[2];
@@ -148,19 +158,28 @@ function collectRelatedLinks(source: string): readonly ExampleRelatedLink[] {
 				continue;
 			}
 			symbolLinks.set(`${moduleName}:${importedName}`, {
-				label: `\`${importedName}\``,
+				entrypoint: moduleName,
+				name: importedName,
 				href: toSymbolPageRoute(moduleName, importedName),
 			});
 		}
 	}
 
-	return [
-		{ label: 'Examples overview', href: '/examples/' },
-		{ label: 'API overview', href: '/reference/api' },
-		...Array.from(symbolLinks.values()).sort((left, right) =>
-			left.label.localeCompare(right.label),
-		),
-	];
+	const relatedSymbols = Array.from(symbolLinks.values()).sort((left, right) =>
+		left.name.localeCompare(right.name),
+	);
+
+	return {
+		relatedSymbols,
+		relatedLinks: [
+			{ label: 'Examples overview', href: '/examples/' },
+			{ label: 'API overview', href: '/reference/api' },
+			...relatedSymbols.map((symbol) => ({
+				label: `\`${symbol.name}\``,
+				href: symbol.href,
+			})),
+		],
+	};
 }
 
 function normalizeImportedName(entry: string): string | null {

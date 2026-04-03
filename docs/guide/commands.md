@@ -131,6 +131,7 @@ Actions can be `async`:
 
 ## What's Next?
 
+- Related examples: [Basic CLI](/examples/basic), [Multi-command CLI](/examples/multi-command)
 - [Flags](/guide/flags) — all flag types and modifiers
 - [Arguments](/guide/arguments) — positional argument types
 - [Middleware](/guide/middleware) — typed context propagation

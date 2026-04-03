@@ -26,3 +26,9 @@ Examples were the right first target because they are already source-backed and 
 ## Origin
 
 This page started as the prototype note for `prototype-hover-path`. The follow-up task `enable-example-hover` moved the same Twoslash path onto the real generated example routes.
+
+## Related Pages
+
+- [Examples](/examples/)
+- [API Reference](/reference/api)
+- [Support Matrix](/reference/support-matrix)

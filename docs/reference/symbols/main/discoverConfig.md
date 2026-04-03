@@ -32,5 +32,8 @@ const result = await discoverConfig('mycli', adapter, {
 
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli](/reference/main)

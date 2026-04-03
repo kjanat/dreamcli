@@ -33,5 +33,8 @@ writeFileSync('cli-schema.json', JSON.stringify(definition, null, 2));
 
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli](/reference/main)

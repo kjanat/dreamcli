@@ -15,6 +15,11 @@ npx tsx examples/spinner-progress.ts --json     # spinners suppressed, JSON outp
 echo | npx tsx examples/spinner-progress.ts     # non-TTY: spinners silent
 ```
 
+## Related Guides
+
+- [Output](/guide/output)
+- [Testing](/guide/testing)
+
 ## Related Links
 
 - [Examples overview](/examples/)

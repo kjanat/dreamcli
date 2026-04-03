@@ -6,7 +6,7 @@ This page is rebuilt by `bun run docs:prepare` from the repository `CHANGELOG.md
 
 - Source of truth: `CHANGELOG.md`
 - Generated mirror artifact: `docs/.generated/reference/changelog.md`
-- Related pages: [Docs Health](/reference/docs-health), [Generated Surfaces](/reference/generated-surfaces)
+- Related pages: [Docs Health](/reference/docs-health), [Generated Surfaces](/reference/generated-surfaces), [Semantic Delta Log](/reference/semantic-delta-log), [Examples](/examples/)
 
 All notable changes to this project will be documented in this file.
 

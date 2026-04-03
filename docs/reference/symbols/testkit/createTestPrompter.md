@@ -34,7 +34,20 @@ const prompter = createTestPrompter(['eu', true, PROMPT_CANCEL]);
 // Third promptOne → { answered: false }
 ```
 
+## Related Examples
+
+- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+
+## Related Guides
+
+- [Interactive Prompts](/guide/prompts)
+- [Output](/guide/output)
+- [Testing](/guide/testing)
+
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli/testkit](/reference/testkit)

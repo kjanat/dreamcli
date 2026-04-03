@@ -42,7 +42,33 @@ command('deploy')
 // $ DEPLOY_TARGET=staging mycli deploy → target='staging', port=3000
 ```
 
+## Related Examples
+
+- [Basic single-command CLI.](/examples/basic) - `examples/basic.ts`
+- [Interactive prompts with config file fallback.](/examples/interactive) - `examples/interactive.ts`
+- [Mixed machine-readable JSON and human-readable side-channel output.](/examples/json-mode) - `examples/json-mode.ts`
+- [Middleware patterns: auth guard, request timing, error handling.](/examples/middleware) - `examples/middleware.ts`
+- [Multi-command CLI with nested command groups (git-like).](/examples/multi-command) - `examples/multi-command.ts`
+- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+
+## Related Guides
+
+- [Arguments guide](/guide/arguments)
+- [CLI Semantics](/guide/semantics)
+- [Commands guide](/guide/commands)
+- [Config Files](/guide/config)
+- [Errors](/guide/errors)
+- [Flags guide](/guide/flags)
+- [Interactive Prompts](/guide/prompts)
+- [Middleware](/guide/middleware)
+- [Output](/guide/output)
+- [Shell Completions](/guide/completions)
+- [Testing](/guide/testing)
+
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli](/reference/main)

@@ -66,11 +66,14 @@ subpath-specific detail pages.
 ## Related Guides
 
 - [CLI Semantics](/guide/semantics) — exact parser, resolver, and root-surface behavior
+- [Examples](/examples/) — source-backed examples with Twoslash hover and related symbol links
 - [Planner Contract](/reference/planner-contract) — internal dispatch outcomes and matched-command handoff
 - [Resolver Contract](/reference/resolver-contract) — internal precedence, diagnostics, and resolved-value handoff
 - [Output Contract](/reference/output-contract) — internal routing, activity mode, and cleanup policy facts
 - [Testing Commands](/guide/testing) — higher-level testkit usage patterns
 - [Runtime Support](/guide/runtime) — runtime packages and adapter expectations
+- [Docs Health](/reference/docs-health) — current source-backed docs coverage counts
+- [Changelog](/reference/changelog) — release history mirrored inside the docs site
 - [Support Matrix](/reference/support-matrix) — audited support status, evidence, and deferred work
 
 ## Detailed Reference

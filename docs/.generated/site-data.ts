@@ -19,6 +19,20 @@ export const generatedExamples = [
     sourcePath: 'examples/basic.ts',
     routePath: '/examples/basic',
     sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/basic.ts',
+    relatedGuides: [
+      {
+        label: 'Commands guide',
+        href: '/guide/commands',
+      },
+      {
+        label: 'Flags guide',
+        href: '/guide/flags',
+      },
+      {
+        label: 'Arguments guide',
+        href: '/guide/arguments',
+      },
+    ],
     relatedLinks: [
       {
         label: 'Examples overview',
@@ -60,6 +74,20 @@ export const generatedExamples = [
     sourcePath: 'examples/interactive.ts',
     routePath: '/examples/interactive',
     sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/interactive.ts',
+    relatedGuides: [
+      {
+        label: 'Interactive Prompts',
+        href: '/guide/prompts',
+      },
+      {
+        label: 'Config Files',
+        href: '/guide/config',
+      },
+      {
+        label: 'CLI Semantics',
+        href: '/guide/semantics',
+      },
+    ],
     relatedLinks: [
       {
         label: 'Examples overview',
@@ -103,6 +131,20 @@ export const generatedExamples = [
     sourcePath: 'examples/json-mode.ts',
     routePath: '/examples/json-mode',
     sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/json-mode.ts',
+    relatedGuides: [
+      {
+        label: 'Output',
+        href: '/guide/output',
+      },
+      {
+        label: 'Errors',
+        href: '/guide/errors',
+      },
+      {
+        label: 'CLI Semantics',
+        href: '/guide/semantics',
+      },
+    ],
     relatedLinks: [
       {
         label: 'Examples overview',
@@ -146,6 +188,16 @@ export const generatedExamples = [
     sourcePath: 'examples/middleware.ts',
     routePath: '/examples/middleware',
     sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/middleware.ts',
+    relatedGuides: [
+      {
+        label: 'Middleware',
+        href: '/guide/middleware',
+      },
+      {
+        label: 'Testing',
+        href: '/guide/testing',
+      },
+    ],
     relatedLinks: [
       {
         label: 'Examples overview',
@@ -199,6 +251,20 @@ export const generatedExamples = [
     sourcePath: 'examples/multi-command.ts',
     routePath: '/examples/multi-command',
     sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/multi-command.ts',
+    relatedGuides: [
+      {
+        label: 'Commands guide',
+        href: '/guide/commands',
+      },
+      {
+        label: 'Shell Completions',
+        href: '/guide/completions',
+      },
+      {
+        label: 'CLI Semantics',
+        href: '/guide/semantics',
+      },
+    ],
     relatedLinks: [
       {
         label: 'Examples overview',
@@ -243,6 +309,16 @@ export const generatedExamples = [
     sourcePath: 'examples/spinner-progress.ts',
     routePath: '/examples/spinner-progress',
     sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/spinner-progress.ts',
+    relatedGuides: [
+      {
+        label: 'Output',
+        href: '/guide/output',
+      },
+      {
+        label: 'Testing',
+        href: '/guide/testing',
+      },
+    ],
     relatedLinks: [
       {
         label: 'Examples overview',
@@ -275,6 +351,20 @@ export const generatedExamples = [
     sourcePath: 'examples/testing.ts',
     routePath: '/examples/testing',
     sourceUrl: 'https://github.com/kjanat/dreamcli/blob/master/examples/testing.ts',
+    relatedGuides: [
+      {
+        label: 'Testing',
+        href: '/guide/testing',
+      },
+      {
+        label: 'Interactive Prompts',
+        href: '/guide/prompts',
+      },
+      {
+        label: 'Output',
+        href: '/guide/output',
+      },
+    ],
     relatedLinks: [
       {
         label: 'Examples overview',

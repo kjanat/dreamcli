@@ -20,6 +20,12 @@ npx tsx examples/multi-command.ts --help
 npx tsx examples/multi-command.ts --version
 ```
 
+## Related Guides
+
+- [Commands guide](/guide/commands)
+- [Shell Completions](/guide/completions)
+- [CLI Semantics](/guide/semantics)
+
 ## Related Links
 
 - [Examples overview](/examples/)

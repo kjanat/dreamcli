@@ -6,7 +6,7 @@ This page is rebuilt by `bun run docs:prepare` from the docs tree and generated 
 
 - Source inputs: `docs/**/*.md`, `docs/.generated/**/*`, `examples/*.ts`, public entrypoints in `package.json`
 - Generated snapshot artifact: `docs/.generated/reference/docs-health.md`
-- Related pages: [Changelog](/reference/changelog), [Generated Surfaces](/reference/generated-surfaces), [Support Matrix](/reference/support-matrix)
+- Related pages: [Changelog](/reference/changelog), [Generated Surfaces](/reference/generated-surfaces), [Support Matrix](/reference/support-matrix), [API Reference](/reference/api), [Examples](/examples/)
 
 ## Current Snapshot
 

@@ -48,7 +48,22 @@ command('deploy')
   });
 ```
 
+## Related Examples
+
+- [Middleware patterns: auth guard, request timing, error handling.](/examples/middleware) - `examples/middleware.ts`
+- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+
+## Related Guides
+
+- [Interactive Prompts](/guide/prompts)
+- [Middleware](/guide/middleware)
+- [Output](/guide/output)
+- [Testing](/guide/testing)
+
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli](/reference/main)

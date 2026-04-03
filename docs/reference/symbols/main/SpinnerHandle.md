@@ -54,5 +54,8 @@ wrap<T>(promise: Promise<T>, options?: { fail?: string; succeed?: string; }): Pr
 
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli](/reference/main)

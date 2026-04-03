@@ -284,7 +284,7 @@
 				"enable-example-hover"
 			],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "write-rationale-docs",

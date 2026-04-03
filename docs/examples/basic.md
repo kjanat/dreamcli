@@ -16,6 +16,12 @@ npx tsx examples/basic.ts Alice -l -t 3
 npx tsx examples/basic.ts --help
 ```
 
+## Related Guides
+
+- [Commands guide](/guide/commands)
+- [Flags guide](/guide/flags)
+- [Arguments guide](/guide/arguments)
+
 ## Related Links
 
 - [Examples overview](/examples/)

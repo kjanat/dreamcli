@@ -48,6 +48,7 @@ describe('reference-surfaces', () => {
 		const page = renderChangelogPage(changelog);
 		expect(page).toContain('# Changelog');
 		expect(page).toContain('Source of truth: `CHANGELOG.md`');
+		expect(page).toContain('[Examples](/examples/)');
 		expect(page).toContain('## [Unreleased]');
 		expect(page).not.toContain('# Changelog\n\n# Changelog');
 	});
@@ -62,6 +63,7 @@ describe('reference-surfaces', () => {
 		expect(page).toContain(
 			'Generated snapshot artifact: `docs/.generated/reference/docs-health.md`',
 		);
+		expect(page).toContain('[API Reference](/reference/api)');
 		expect(page).toContain('## Current Snapshot');
 		expect(page).toContain('| Symbol reference pages | 158 |');
 	});

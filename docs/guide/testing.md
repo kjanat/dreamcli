@@ -114,5 +114,6 @@ result.activity; // ActivityEvent[]
 
 ## What's Next?
 
+- Related example: [Testing](/examples/testing)
 - [Commands](/guide/commands) — building commands to test
 - [Output](/guide/output) — output channel behavior

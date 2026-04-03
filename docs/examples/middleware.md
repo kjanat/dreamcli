@@ -14,6 +14,11 @@ npx tsx examples/middleware.ts deploy production
 npx tsx examples/middleware.ts deploy production --verbose
 ```
 
+## Related Guides
+
+- [Middleware](/guide/middleware)
+- [Testing](/guide/testing)
+
 ## Related Links
 
 - [Examples overview](/examples/)

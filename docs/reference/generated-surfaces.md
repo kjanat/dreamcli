@@ -34,3 +34,11 @@ This page is the stable hand-authored entrypoint for source-backed reference art
 - Public API entrypoints: `{{ docsHealthSnapshot.publicEntrypointCount }}`
 - Public API symbols: `{{ docsHealthSnapshot.publicSymbolCount }}`
 - Symbol reference pages: `{{ docsHealthSnapshot.symbolPageCount }}`
+
+## Cross-Linked Routes
+
+- [Examples](/examples/) -> generated example detail pages -> symbol pages
+- [API Reference](/reference/api) -> subpath pages and symbol pages
+- [Example Hover](/reference/example-hover-prototype) -> generated example source blocks
+- [Changelog](/reference/changelog) <-> [Docs Health](/reference/docs-health)
+- [Semantic Delta Log](/reference/semantic-delta-log) -> support and rationale follow-up pages

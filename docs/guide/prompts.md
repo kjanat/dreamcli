@@ -78,6 +78,7 @@ const cancelled = await runCommand(cmd, [], {
 
 ## What's Next?
 
+- Related example: [Interactive prompts](/examples/interactive)
 - [Testing](/guide/testing) — full test harness documentation
 - [Flags](/guide/flags) — flag resolution chain
 - [CLI Semantics](/guide/semantics) — prompt precedence and non-interactive behavior

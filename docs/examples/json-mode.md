@@ -18,6 +18,12 @@ npx tsx examples/json-mode.ts show nonexistent     # structured error
 npx tsx examples/json-mode.ts show nonexistent --json  # JSON error
 ```
 
+## Related Guides
+
+- [Output](/guide/output)
+- [Errors](/guide/errors)
+- [CLI Semantics](/guide/semantics)
+
 ## Related Links
 
 - [Examples overview](/examples/)

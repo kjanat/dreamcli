@@ -35,6 +35,10 @@ describe('example docs generation', () => {
 			label: '`flag`',
 			href: '/reference/symbols/main/flag',
 		});
+		expect(basic?.relatedGuides).toContainEqual({
+			label: 'Commands guide',
+			href: '/guide/commands',
+		});
 	});
 
 	it('renders linked inventory and detail pages', async () => {
@@ -53,6 +57,8 @@ describe('example docs generation', () => {
 		);
 		expect(page).toContain('## Usage');
 		expect(page).toContain('npx tsx examples/basic.ts Alice --loud --times 3');
+		expect(page).toContain('## Related Guides');
+		expect(page).toContain('- [Commands guide](/guide/commands)');
 		expect(page).toContain('## Related Links');
 		expect(page).toContain('- [`command`](/reference/symbols/main/command)');
 		expect(page).toContain('## Source');

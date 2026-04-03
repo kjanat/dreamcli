@@ -6,6 +6,7 @@
 
 import { join } from 'node:path';
 
+import type { ExampleEntry } from './examples.ts';
 import type {
 	NormalizedApiComment,
 	NormalizedApiCommentTag,
@@ -32,8 +33,10 @@ const GENERATED_HEADER =
 export function collectSymbolPages(
 	model: NormalizedApiModel,
 	symbolPagesRoot: string,
+	examples: readonly ExampleEntry[],
 ): readonly GeneratedSymbolPage[] {
 	const caseInsensitiveCollisions = collectCaseInsensitiveCollisions(model.exports);
+	const exampleLinksBySymbol = collectExampleLinksBySymbol(examples);
 
 	return model.exports
 		.map((entry) => {
@@ -54,7 +57,7 @@ export function collectSymbolPages(
 					publicKind: entry.publicKind,
 					hasCaseInsensitiveCollision,
 				}),
-				content: renderSymbolPage(entry),
+				content: renderSymbolPage(entry, exampleLinksBySymbol.get(entry.id) ?? []),
 				summary: summarizeComment(entry.reflection.comment),
 			} satisfies GeneratedSymbolPage;
 		})
@@ -131,15 +134,21 @@ function toSymbolPageSection(entrypoint: string): string {
 	return section ?? 'main';
 }
 
-function renderSymbolPage(entry: NormalizedApiExport): string {
+function renderSymbolPage(
+	entry: NormalizedApiExport,
+	relatedExamples: readonly ExampleEntry[],
+): string {
 	const summary = summarizeComment(entry.reflection.comment);
 	const source = entry.reflection.sources[0] ?? null;
 	const deprecatedNote = renderDeprecatedNote(entry.reflection.comment);
 	const exampleTags = collectExampleTags(entry.reflection);
+	const relatedGuides = collectRelatedGuidesFromExamples(relatedExamples);
 	const sections = [
 		renderSignatureSection(entry),
 		renderMembersSection(entry.reflection),
 		renderExamplesSection(exampleTags),
+		renderRelatedExamplesSection(relatedExamples),
+		renderRelatedGuidesSection(relatedGuides),
 		renderSeeAlsoSection(entry),
 	].flatMap((section) => (section === null ? [] : [section]));
 
@@ -515,13 +524,76 @@ function renderExamplesSection(tags: readonly NormalizedApiCommentTag[]): string
 	].join('\n');
 }
 
+function renderRelatedExamplesSection(examples: readonly ExampleEntry[]): string | null {
+	if (examples.length === 0) {
+		return null;
+	}
+
+	return [
+		'## Related Examples',
+		'',
+		...examples.map(
+			(example) => `- [${example.title}](${example.routePath}) - \`${example.sourcePath}\``,
+		),
+	].join('\n');
+}
+
+function renderRelatedGuidesSection(
+	guides: readonly { label: string; href: string }[],
+): string | null {
+	if (guides.length === 0) {
+		return null;
+	}
+
+	return [
+		'## Related Guides',
+		'',
+		...guides.map((guide) => `- [${guide.label}](${guide.href})`),
+	].join('\n');
+}
+
 function renderSeeAlsoSection(entry: NormalizedApiExport): string {
 	return [
 		'## See Also',
 		'',
+		'- [Examples overview](/examples/)',
+		'- [Example Hover](/reference/example-hover-prototype)',
 		'- [API overview](/reference/api)',
+		'- [Docs Health](/reference/docs-health)',
 		`- [${entry.entrypoint}](${toEntrypointReference(entry.entrypoint)})`,
 	].join('\n');
+}
+
+function collectExampleLinksBySymbol(
+	examples: readonly ExampleEntry[],
+): ReadonlyMap<string, readonly ExampleEntry[]> {
+	const links = new Map<string, ExampleEntry[]>();
+	for (const example of examples) {
+		for (const symbol of example.relatedSymbols) {
+			const existing = links.get(`${symbol.entrypoint}:${symbol.name}`);
+			if (existing === undefined) {
+				links.set(`${symbol.entrypoint}:${symbol.name}`, [example]);
+				continue;
+			}
+
+			existing.push(example);
+		}
+	}
+
+	return links;
+}
+
+function collectRelatedGuidesFromExamples(
+	examples: readonly ExampleEntry[],
+): readonly { label: string; href: string }[] {
+	const guides = new Map<string, { label: string; href: string }>();
+	for (const example of examples) {
+		for (const guide of example.relatedGuides) {
+			guides.set(guide.href, guide);
+		}
+	}
+
+	return Array.from(guides.values()).sort((left, right) => left.label.localeCompare(right.label));
 }
 
 function toEntrypointReference(entrypoint: string): string {

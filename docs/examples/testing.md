@@ -13,6 +13,12 @@ Testing examples using dreamcli/testkit.
 bun test examples/testing.ts
 ```
 
+## Related Guides
+
+- [Testing](/guide/testing)
+- [Interactive Prompts](/guide/prompts)
+- [Output](/guide/output)
+
 ## Related Links
 
 - [Examples overview](/examples/)

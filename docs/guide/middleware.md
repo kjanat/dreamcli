@@ -73,5 +73,6 @@ const errorBoundary = middleware(async ({ next, out }) => {
 
 ## What's Next?
 
+- Related example: [Middleware patterns](/examples/middleware)
 - [Config Files](/guide/config) — configuration file discovery
 - [Testing](/guide/testing) — testing middleware behavior

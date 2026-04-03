@@ -130,7 +130,23 @@ isError(value: unknown): value is Error;
 prepareStackTrace(err: Error, stackTraces: NodeJS.CallSite[]): any;
 ```
 
+## Related Examples
+
+- [Mixed machine-readable JSON and human-readable side-channel output.](/examples/json-mode) - `examples/json-mode.ts`
+- [Middleware patterns: auth guard, request timing, error handling.](/examples/middleware) - `examples/middleware.ts`
+
+## Related Guides
+
+- [CLI Semantics](/guide/semantics)
+- [Errors](/guide/errors)
+- [Middleware](/guide/middleware)
+- [Output](/guide/output)
+- [Testing](/guide/testing)
+
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli](/reference/main)

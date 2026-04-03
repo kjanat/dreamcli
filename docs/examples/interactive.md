@@ -16,6 +16,12 @@ DEPLOY_REGION=ap npx tsx examples/interactive.ts   # env resolves region
 echo '{}' | npx tsx examples/interactive.ts        # non-interactive: uses defaults / errors
 ```
 
+## Related Guides
+
+- [Interactive Prompts](/guide/prompts)
+- [Config Files](/guide/config)
+- [CLI Semantics](/guide/semantics)
+
 ## Related Links
 
 - [Examples overview](/examples/)

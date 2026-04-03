@@ -75,5 +75,6 @@ One code path, correct output everywhere.
 
 ## What's Next?
 
+- Related examples: [JSON mode](/examples/json-mode), [Spinner and progress](/examples/spinner-progress)
 - [Errors](/guide/errors) — structured error handling
 - [Testing](/guide/testing) — capturing output in tests

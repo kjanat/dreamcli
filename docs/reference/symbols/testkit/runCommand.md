@@ -29,7 +29,20 @@ function runCommand<
 | `argv`    | `argv: readonly string[]`      | Raw argv strings (NOT including the command name itself) |
 | `options` | `options?: RunOptions`         | Injectable runtime state                                 |
 
+## Related Examples
+
+- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+
+## Related Guides
+
+- [Interactive Prompts](/guide/prompts)
+- [Output](/guide/output)
+- [Testing](/guide/testing)
+
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli/testkit](/reference/testkit)

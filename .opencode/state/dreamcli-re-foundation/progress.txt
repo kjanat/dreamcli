@@ -42,6 +42,7 @@ Started: 2026-04-02
 - For source-backed schema metadata, derive one generated TS description map from the normalized TypeDoc model and let runtime exports consume that generated module; it keeps the shipped schema asset and in-process constant aligned without hand-written doc strings.
 - For new shell generators, emit one generated per-path metadata table plus a thin shell-native resolver instead of re-encoding planner logic ad hoc in the script; nested-command and propagated-flag behavior stay aligned with the shared walker.
 - For re-foundation semantic tracking, keep one maintained reference page that splits preserved guarantees from intentional redesigns and links each row to tests, docs, and implementation files; that gives changelog and narrative docs a stable source instead of re-deriving deltas from commits.
+- For docs-surface cross-linking, keep example metadata as the source of truth for guide and symbol relations, then derive symbol-page backlinks from that shared example model instead of hand-linking reference pages.
 
 ## Project Tracking
 
@@ -276,3 +277,10 @@ Started: 2026-04-02
 - Regenerated the TypeDoc-backed docs artifacts so generated symbol/reference pages reflect the new completion support wording.
 - Files changed: `src/core/completion/index.ts`, `docs/guide/completions.md`, `docs/reference/support-matrix.md`, `docs/reference/symbols/main/SHELLS.md`, `docs/reference/symbols/main/generateCompletion.md`, `docs/.generated/site-data.ts`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: once a shipped support surface catches up with earlier deferred claims, the cleanup work is mostly source-comment and truth-doc convergence; the generated API docs then fall back into line automatically via `bun run docs:prepare`.
+
+## Task - [crosslink-doc-surfaces]
+
+- Added a shared docs cross-link layer under `scripts/docs/shared/crosslinks.ts`, wired generated example pages to related guide links, and made generated symbol pages derive related examples and guide backlinks from the example metadata.
+- Tightened the reference surface itself so API/changelog/docs-health/generated-surfaces/example-hover pages now point across the shipped docs system instead of acting like isolated endpoints, and added direct guide-to-example links on the matching authored guide pages.
+- Files changed: `scripts/docs/shared/crosslinks.ts`, `scripts/docs/shared/examples.ts`, `scripts/docs/shared/symbol-pages.ts`, `scripts/docs/shared/reference-surfaces.ts`, `scripts/docs/build-docs-data.ts`, `scripts/docs/shared/examples.test.ts`, `scripts/docs/shared/symbol-pages.test.ts`, `scripts/docs/shared/reference-surfaces.test.ts`, `docs/guide/commands.md`, `docs/guide/output.md`, `docs/guide/prompts.md`, `docs/guide/middleware.md`, `docs/guide/testing.md`, `docs/reference/api.md`, `docs/reference/generated-surfaces.md`, `docs/reference/example-hover-prototype.md`, `docs/reference/changelog.md`, `docs/reference/docs-health.md`, `docs/.generated/site-data.ts`, `docs/examples/*.md`, `docs/reference/symbols/**/*.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: docs cross-links stay maintainable when authored guide links stay selective and the heavier example/reference backlink graph is generated from one shared metadata seam instead of being duplicated across markdown pages.

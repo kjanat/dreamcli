@@ -28,7 +28,20 @@ const db = group('db')
   .command(seedCmd);
 ```
 
+## Related Examples
+
+- [Multi-command CLI with nested command groups (git-like).](/examples/multi-command) - `examples/multi-command.ts`
+
+## Related Guides
+
+- [CLI Semantics](/guide/semantics)
+- [Commands guide](/guide/commands)
+- [Shell Completions](/guide/completions)
+
 ## See Also
 
+- [Examples overview](/examples/)
+- [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
+- [Docs Health](/reference/docs-health)
 - [dreamcli](/reference/main)
