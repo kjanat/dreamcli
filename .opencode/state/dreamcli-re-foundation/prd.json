@@ -72,7 +72,7 @@
 			"description": "Expand completion tests to cover supported shells, nested commands, propagated flags, and root/default behavior. Done when: shell support can be broadened safely and docs claims can point to concrete evidence.",
 			"depends": ["support-truth-matrix"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "scaffold-core-execution",

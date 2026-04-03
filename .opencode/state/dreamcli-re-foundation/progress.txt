@@ -5,6 +5,7 @@ Started: 2026-04-02
 
 ## Codebase Patterns
 
+- For broad legacy coverage areas, add a small public-boundary contract suite for the exact shipped guarantees instead of piling more cases into the largest existing test file.
 - The real architectural pressure points are `src/core/cli/`, `src/core/testkit/`, `src/core/resolve/`, `src/core/output/`, and `src/core/completion/`.
 - Current execution ownership is effectively centered in `runCommand()` even though the architecture does not present it that way.
 - The safest refactor path is contract-first: truth matrix -> characterization tests -> shared executor -> planner split -> resolver redesign.
@@ -234,3 +235,10 @@ Started: 2026-04-02
 - Added focused coverage for the extraction/rendering helper and for the final annotated schema surface.
 - Files changed: `scripts/docs/shared/meta-schema-descriptions.ts`, `scripts/docs/shared/meta-schema-descriptions.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `src/core/json-schema/index.ts`, `src/core/json-schema/json-schema.test.ts`, `src/core/json-schema/meta-descriptions.generated.ts`, `dreamcli.schema.json`, `docs/.generated/api/typedoc.json`, `docs/.generated/api/typedoc-normalized.json`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: the cleanest way to keep source docs and shipped schema metadata aligned is to generate a checked-in TS description module from the normalized TypeDoc model, then reuse that module from the runtime schema constant instead of only patching the emitted JSON asset.
+
+## Task - [completion-contract-tests]
+
+- Added a focused public-boundary completion contract suite at `src/core/cli/cli-completion-contract.test.ts` covering the shipped shell surface, nested command propagation, and root/default-command behavior through `.completions()`.
+- Locked down that only `bash` and `zsh` are advertised, that unsupported planned shells still fail at the command boundary, and that nested leaf completions inherit propagated ancestor flags in both bash and zsh.
+- Files changed: `src/core/cli/cli-completion-contract.test.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the narrowest honest completion seam is the built-in `.completions()` command, because that is where docs-visible shell support and root-mode behavior actually surface.
