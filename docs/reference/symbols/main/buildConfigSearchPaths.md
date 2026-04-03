@@ -4,7 +4,7 @@
 
 Generated reference page for the `buildConfigSearchPaths` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/index.ts`
 - Source link: [`src/core/config/index.ts:168`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L168)
@@ -39,4 +39,4 @@ const paths = buildConfigSearchPaths('mycli', '/repo', '/home/me/.config');
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

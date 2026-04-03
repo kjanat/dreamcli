@@ -11,7 +11,7 @@ type system for inference, not at runtime.
 Created via the `middleware()` factory. Attached to commands via
 `CommandBuilder.middleware()`.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/middleware.ts`
 - Source link: [`src/core/schema/middleware.ts:108`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/middleware.ts#L108)
@@ -45,4 +45,4 @@ const auth = middleware<{ user: User }>(async ({ next }) => {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -1,4 +1,4 @@
-# dreamcli/testkit
+# @kjanat/dreamcli/testkit
 
 Test utilities for running commands in-process.
 
@@ -9,7 +9,7 @@ import {
   createTestPrompter,
   createTestAdapter,
   PROMPT_CANCEL,
-} from 'dreamcli/testkit';
+} from '@kjanat/dreamcli/testkit';
 ```
 
 ## `runCommand(command, argv, options?)`

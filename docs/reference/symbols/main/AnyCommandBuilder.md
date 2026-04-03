@@ -11,7 +11,7 @@ Uses widest possible generic bounds so any `CommandBuilder<F, A, C>` is
 assignable. The CLI layer's `eraseCommand()` traverses these to build
 the execution tree.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:701`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L701)
@@ -32,4 +32,4 @@ type AnyCommandBuilder = CommandBuilder<
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

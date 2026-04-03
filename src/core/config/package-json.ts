@@ -94,7 +94,7 @@ function joinPath(base: string, segment: string): string {
  *
  * @example
  * ```ts
- * import { discoverPackageJson } from 'dreamcli';
+ * import { discoverPackageJson } from '@kjanat/dreamcli';
  *
  * const pkg = await discoverPackageJson(adapter);
  * if (pkg !== null) {
@@ -188,7 +188,7 @@ function parseBinField(value: unknown): string | Readonly<Record<string, string>
  *
  * @example
  * ```ts
- * import { inferCliName } from 'dreamcli';
+ * import { inferCliName } from '@kjanat/dreamcli';
  *
  * inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
  * inferCliName({ name: '@scope/mycli' });             // 'mycli'

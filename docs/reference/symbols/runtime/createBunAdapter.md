@@ -4,7 +4,7 @@
 
 Generated reference page for the `createBunAdapter` function export.
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/bun.ts`
 - Source link: [`src/runtime/bun.ts:48`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/bun.ts#L48)
@@ -22,8 +22,8 @@ function createBunAdapter(proc?: NodeProcess): RuntimeAdapter;
 ## Examples
 
 ```ts
-import { cli } from 'dreamcli';
-import { createBunAdapter } from 'dreamcli/runtime/bun';
+import { cli } from '@kjanat/dreamcli';
+import { createBunAdapter } from '@kjanat/dreamcli/runtime/bun';
 
 cli('mycli').command(deploy).run({ adapter: createBunAdapter() });
 ```
@@ -34,4 +34,4 @@ cli('mycli').command(deploy).run({ adapter: createBunAdapter() });
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

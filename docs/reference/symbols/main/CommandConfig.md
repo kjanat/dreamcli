@@ -7,7 +7,7 @@ Compile-time state carried through the command builder chain.
 `F` accumulates named flag builders; `A` accumulates named arg builders.
 Both start empty (`{}`) and grow as `.flag()` / `.arg()` are called.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:60`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L60)
@@ -40,4 +40,4 @@ flags: Record<string, FlagBuilder<FlagConfig>>;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

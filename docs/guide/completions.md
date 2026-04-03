@@ -6,7 +6,7 @@ always in sync with your CLI definition.
 ## Generating Scripts
 
 ```ts
-import { generateCompletion } from 'dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli';
 
 generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
@@ -36,7 +36,7 @@ tracked follow-up work.
 A common pattern is to add a `completions` subcommand:
 
 ```ts
-import { arg, command, generateCompletion } from 'dreamcli';
+import { arg, command, generateCompletion } from '@kjanat/dreamcli';
 
 const completions = command('completions')
   .description('Generate shell completion script')

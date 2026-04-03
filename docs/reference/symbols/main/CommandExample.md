@@ -4,7 +4,7 @@
 
 A single usage example shown in help text.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:385`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L385)
@@ -41,4 +41,4 @@ description?: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

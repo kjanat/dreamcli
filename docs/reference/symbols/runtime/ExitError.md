@@ -15,7 +15,7 @@ try {
 }
 ```
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: class
 - Declared in: `src/runtime/adapter.ts`
 - Source link: [`src/runtime/adapter.ts:224`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/adapter.ts#L224)
@@ -114,4 +114,4 @@ prepareStackTrace(err: Error, stackTraces: NodeJS.CallSite[]): any;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

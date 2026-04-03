@@ -4,7 +4,7 @@
 
 Generated reference page for the `createTerminalPrompter` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:253`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L253)
@@ -41,4 +41,4 @@ const prompter = createTerminalPrompter(read, write);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

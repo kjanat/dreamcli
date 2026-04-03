@@ -8,7 +8,7 @@ Provides structured methods for stdout/stderr, JSON output,
 spinners, progress bars, and tables. The real implementation lives in
 `src/core/output/`; this interface defines the shape that handlers consume.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:140`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L140)
@@ -112,4 +112,4 @@ warn(message: string): void;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

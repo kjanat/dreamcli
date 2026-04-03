@@ -10,7 +10,7 @@
  * - {@link createTestPrompter} to script interactive answers
  * - {@link createTestAdapter} when you need adapter-level control
  *
- * @module dreamcli/testkit
+ * @module @kjanat/dreamcli/testkit
  */
 
 export type { CapturedOutput } from './core/output/index.ts';

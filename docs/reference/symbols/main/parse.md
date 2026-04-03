@@ -4,7 +4,7 @@
 
 Generated reference page for the `parse` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/parse/index.ts`
 - Source link: [`src/core/parse/index.ts:332`](https://github.com/kjanat/dreamcli/blob/master/src/core/parse/index.ts#L332)
@@ -33,4 +33,4 @@ const parsed = parse(deploy.schema, ['production', '--force']);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

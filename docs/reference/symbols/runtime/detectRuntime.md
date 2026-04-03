@@ -4,7 +4,7 @@
 
 Generated reference page for the `detectRuntime` function export.
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/detect.ts`
 - Source link: [`src/runtime/detect.ts:84`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/detect.ts#L84)
@@ -33,4 +33,4 @@ const rt = detectRuntime();
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

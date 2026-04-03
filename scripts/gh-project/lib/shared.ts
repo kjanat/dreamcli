@@ -4,7 +4,7 @@
  * @module
  */
 
-import { CLIError, flag } from 'dreamcli';
+import { CLIError, flag } from '@kjanat/dreamcli';
 import type {
 	ListRow,
 	PrdState,

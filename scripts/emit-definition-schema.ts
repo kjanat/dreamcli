@@ -12,7 +12,7 @@ import { definitionMetaSchema } from '../src/index.ts';
 const isDeno = typeof globalThis.Deno !== 'undefined';
 const schemaId = isDeno
 	? 'https://jsr.io/@kjanat/dreamcli/schema'
-	: 'https://cdn.jsdelivr.net/npm/dreamcli/schema';
+	: 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/schema';
 
 const schema = { ...definitionMetaSchema, $id: schemaId };
 writeFileSync('dreamcli.schema.json', JSON.stringify(schema, null, '\t'));

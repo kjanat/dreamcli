@@ -12,7 +12,7 @@ Derive handlers may:
 
 They cannot wrap downstream execution; use `middleware()` for that.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:343`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L343)
@@ -34,4 +34,4 @@ type DeriveHandler<
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

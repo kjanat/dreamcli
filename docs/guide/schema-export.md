@@ -11,7 +11,7 @@ documentation generation, IDE integration, or config file validation.
 commands, flags, args, types, constraints, env bindings, prompts, and more.
 
 ```ts
-import { generateSchema } from 'dreamcli';
+import { generateSchema } from '@kjanat/dreamcli';
 
 const definition = generateSchema(myCli.schema);
 writeFileSync('cli-schema.json', JSON.stringify(definition, null, 2));
@@ -24,13 +24,13 @@ schema. For offline or CI-friendly setups, use the local copy instead:
 { "$schema": "./node_modules/dreamcli/dreamcli.schema.json" }
 ```
 
-The schema is also importable as `dreamcli/schema.json`.
+The schema is also importable as `@kjanat/dreamcli/schema`.
 
 Full example output:
 
 ```json
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/dreamcli/schema",
+  "$schema": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/schema",
   "name": "mycli",
   "version": "1.0.0",
   "commands": [
@@ -59,7 +59,7 @@ Full example output:
 validates CLI input as a JSON object — useful for config file validation.
 
 ```ts
-import { generateInputSchema } from 'dreamcli';
+import { generateInputSchema } from '@kjanat/dreamcli';
 
 const inputSchema = generateInputSchema(myCli.schema);
 writeFileSync('input-schema.json', JSON.stringify(inputSchema, null, 2));
@@ -93,7 +93,12 @@ Nested subcommands use dot-delimited paths (`"deploy.rollback"`).
 ## Adding a Schema Command
 
 ```ts
-import { command, flag, generateSchema, generateInputSchema } from 'dreamcli';
+import {
+  command,
+  flag,
+  generateSchema,
+  generateInputSchema,
+} from '@kjanat/dreamcli';
 
 const schema = command('schema')
   .description('Export CLI schema as JSON')

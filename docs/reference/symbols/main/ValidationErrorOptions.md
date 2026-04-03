@@ -4,7 +4,7 @@
 
 Options for `ValidationError`. Code is narrowed to validation-specific codes.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/errors/index.ts`
 - Source link: [`src/core/errors/index.ts:140`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L140)
@@ -62,4 +62,4 @@ suggest?: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

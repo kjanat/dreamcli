@@ -7,7 +7,7 @@ A select prompt config with choices guaranteed non-empty.
 The resolution chain populates choices from `FlagSchema.enumValues`
 when the user's `PromptConfig` omits them.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:38`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L38)
@@ -46,4 +46,4 @@ message: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

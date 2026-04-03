@@ -8,7 +8,7 @@ All fields are optional — sensible defaults are applied for testing
 scenarios (empty argv, empty env, noop stdout/stderr, non-TTY, exit
 throws instead of killing the process).
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: interface
 - Declared in: `src/runtime/adapter.ts`
 - Source link: [`src/runtime/adapter.ts:134`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/adapter.ts#L134)
@@ -153,4 +153,4 @@ stdout?: WriteFn;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

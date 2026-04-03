@@ -13,7 +13,7 @@ The bag of values received by an action handler.
 The `C` parameter defaults to `Record<string, never>`, making `ctx`
 property access a type error until derive or middleware extends it.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:295`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L295)
@@ -68,4 +68,4 @@ out: Out;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

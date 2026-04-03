@@ -5,7 +5,7 @@ Positional arguments are declared with `arg` and appear after the command name.
 ## Argument Types
 
 ```ts
-import { arg } from 'dreamcli';
+import { arg } from '@kjanat/dreamcli';
 
 arg.string(); // string
 arg.number(); // number

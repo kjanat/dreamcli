@@ -4,7 +4,7 @@
 
 Extract the resolved value type from an `ArgBuilder`.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:78`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L78)
@@ -22,4 +22,4 @@ type InferArg<B> =
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

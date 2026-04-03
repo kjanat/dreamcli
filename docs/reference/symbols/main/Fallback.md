@@ -9,7 +9,7 @@ Non-TTY fallback strategy for spinners and progress bars.
 - `'static'` — emit plain text via `out.log()` / `out.error()` at
   lifecycle boundaries (start, succeed, fail). No animation.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/activity.ts`
 - Source link: [`src/core/schema/activity.ts:20`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/activity.ts#L20)
@@ -26,4 +26,4 @@ type Fallback = 'silent' | 'static';
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

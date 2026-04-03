@@ -126,12 +126,14 @@ function toSymbolPageSlug(
 }
 
 function toSymbolPageSection(entrypoint: string): string {
-	if (entrypoint === 'dreamcli') {
+	if (entrypoint === '@kjanat/dreamcli') {
 		return 'main';
 	}
 
-	const [, section] = entrypoint.split('/');
-	return section ?? 'main';
+	const segments = entrypoint.startsWith('@')
+		? entrypoint.split('/').slice(2)
+		: entrypoint.split('/').slice(1);
+	return segments[0] ?? 'main';
 }
 
 function renderSymbolPage(
@@ -598,11 +600,11 @@ function collectRelatedGuidesFromExamples(
 
 function toEntrypointReference(entrypoint: string): string {
 	switch (entrypoint) {
-		case 'dreamcli':
+		case '@kjanat/dreamcli':
 			return '/reference/main';
-		case 'dreamcli/runtime':
+		case '@kjanat/dreamcli/runtime':
 			return '/reference/runtime';
-		case 'dreamcli/testkit':
+		case '@kjanat/dreamcli/testkit':
 			return '/reference/testkit';
 		default:
 			return '/reference/api';

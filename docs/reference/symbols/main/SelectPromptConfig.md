@@ -4,7 +4,7 @@
 
 Single-selection prompt — maps to `enum` flags or any flag with choices. Part of PromptConfig.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
 - Source link: [`src/core/schema/prompt.ts:53`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L53)
@@ -48,4 +48,4 @@ message: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

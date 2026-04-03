@@ -5,7 +5,7 @@
 Flag schema factory. Call `flag.<kind>()` to create an immutable
 FlagBuilder with full type inference and safe modifier chaining.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: constant
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:656`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L656)
@@ -24,7 +24,7 @@ const flag: FlagFactory;
 - [Middleware patterns: auth guard, request timing, error handling.](/examples/middleware) - `examples/middleware.ts`
 - [Multi-command CLI with nested command groups (git-like).](/examples/multi-command) - `examples/multi-command.ts`
 - [Spinner and progress bar usage.](/examples/spinner-progress) - `examples/spinner-progress.ts`
-- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+- [Testing examples using @kjanat/dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
 
 ## Related Guides
 
@@ -46,4 +46,4 @@ const flag: FlagFactory;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

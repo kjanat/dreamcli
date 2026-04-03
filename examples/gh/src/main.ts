@@ -16,7 +16,7 @@
  * @module
  */
 
-import { type CLIBuilder, cli } from 'dreamcli';
+import { type CLIBuilder, cli } from '@kjanat/dreamcli';
 
 import { auth } from '$gh/commands/auth.ts';
 import { issue } from '$gh/commands/issue.ts';

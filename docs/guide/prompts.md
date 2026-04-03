@@ -63,7 +63,7 @@ import {
   runCommand,
   createTestPrompter,
   PROMPT_CANCEL,
-} from 'dreamcli/testkit';
+} from '@kjanat/dreamcli/testkit';
 
 // Provide answers in order
 const result = await runCommand(cmd, [], {

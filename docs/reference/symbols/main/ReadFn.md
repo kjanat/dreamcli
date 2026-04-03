@@ -11,7 +11,7 @@ The terminal prompter uses this as its sole input seam. The
 resolution chain (prompt-adapter-1) will wire this to the
 runtime adapter's stdin.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:118`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L118)
@@ -28,4 +28,4 @@ type ReadFn = { (): Promise<string | 'null'> };
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

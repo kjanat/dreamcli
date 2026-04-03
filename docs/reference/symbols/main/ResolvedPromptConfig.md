@@ -8,7 +8,7 @@ so it never needs to merge enum values from `FlagSchema`.
 
 confirm and input configs pass through unchanged.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:65`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L65)
@@ -29,4 +29,4 @@ type ResolvedPromptConfig =
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

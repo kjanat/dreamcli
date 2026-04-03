@@ -14,7 +14,7 @@ The contract is intentionally tiny:
 - callers decide whether to append a trailing newline
 - there is no backpressure or flush signal
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/output/writer.ts`
 - Source link: [`src/core/output/writer.ts:33`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/writer.ts#L33)
@@ -40,4 +40,4 @@ const write: WriteFn = (data) => {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

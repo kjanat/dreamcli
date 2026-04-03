@@ -6,7 +6,7 @@ Subset of package.json fields relevant to CLI metadata.
 
 All fields are optional — a valid package.json may omit any of them.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/config/package-json.ts`
 - Source link: [`src/core/config/package-json.ts:27`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L27)
@@ -51,4 +51,4 @@ version?: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -9,7 +9,7 @@ Passed to individual shell generators alongside the CLI schema.
 These options affect the generated script text, not runtime completion
 behavior after installation.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/completion/shells/shared.ts`
 - Source link: [`src/core/completion/shells/shared.ts:43`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/shared.ts#L43)
@@ -57,4 +57,4 @@ rootMode?: "surface" | "subcommands";
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

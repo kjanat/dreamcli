@@ -6,7 +6,7 @@ The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
 help generator, resolution chain) read this to understand the flag's shape
 without touching generics.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:119`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L119)
@@ -142,4 +142,4 @@ propagate: boolean;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

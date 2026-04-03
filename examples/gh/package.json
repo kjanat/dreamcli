@@ -20,12 +20,12 @@
 	],
 	"scripts": {
 		"bd": "bun run build",
-		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external dreamcli",
+		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external @kjanat/dreamcli",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"dreamcli": "link:dreamcli"
+		"@kjanat/dreamcli": "file:../.."
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",

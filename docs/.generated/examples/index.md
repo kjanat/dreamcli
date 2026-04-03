@@ -12,4 +12,4 @@ This inventory is rebuilt by `bun run docs:prepare` from `examples/*.ts`.
 | [`middleware`](/examples/middleware)             | Middleware patterns: auth guard, request timing, error handling.    | middleware() with typed context, context accumulation, | `examples/middleware.ts`       |
 | [`multi-command`](/examples/multi-command)       | Multi-command CLI with nested command groups (git-like).            | cli(), command(), group(), subcommand nesting,         | `examples/multi-command.ts`    |
 | [`spinner-progress`](/examples/spinner-progress) | Spinner and progress bar usage.                                     | out.spinner(), out.progress(), auto-disable in         | `examples/spinner-progress.ts` |
-| [`testing`](/examples/testing)                   | Testing examples using dreamcli/testkit.                            | runCommand(), prompt answers, env/config injection,    | `examples/testing.ts`          |
+| [`testing`](/examples/testing)                   | Testing examples using @kjanat/dreamcli/testkit.                    | runCommand(), prompt answers, env/config injection,    | `examples/testing.ts`          |

@@ -646,7 +646,7 @@ interface ArgFactory {
  *
  * @example
  * ```ts
- * import { command, arg } from 'dreamcli';
+ * import { command, arg } from '@kjanat/dreamcli';
  *
  * command('deploy')
  *   .arg('target', arg.string().env('DEPLOY_TARGET').describe('Where to deploy'))

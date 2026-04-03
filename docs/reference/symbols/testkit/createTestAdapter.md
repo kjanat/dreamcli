@@ -4,7 +4,7 @@
 
 Generated reference page for the `createTestAdapter` function export.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/runtime/adapter.ts`
 - Source link: [`src/runtime/adapter.ts:266`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/adapter.ts#L266)
@@ -36,4 +36,4 @@ const result = await cli('mycli').run({ adapter });
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

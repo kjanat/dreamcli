@@ -4,7 +4,7 @@
 
 Generated reference page for the `plugin` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/cli/plugin.ts`
 - Source link: [`src/core/cli/plugin.ts:99`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/plugin.ts#L99)
@@ -44,4 +44,4 @@ cli('mycli').plugin(trace).command(deploy);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

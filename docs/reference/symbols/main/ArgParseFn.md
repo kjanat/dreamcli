@@ -4,7 +4,7 @@
 
 Custom parse function for `arg.custom()`.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:94`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L94)
@@ -21,4 +21,4 @@ type ArgParseFn<T> = { (raw: string): T };
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

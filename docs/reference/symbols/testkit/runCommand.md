@@ -4,7 +4,7 @@
 
 Generated reference page for the `runCommand` function export.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/core/testkit/index.ts`
 - Source link: [`src/core/testkit/index.ts:45`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L45)
@@ -31,7 +31,7 @@ function runCommand<
 
 ## Related Examples
 
-- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+- [Testing examples using @kjanat/dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
 
 ## Related Guides
 
@@ -45,4 +45,4 @@ function runCommand<
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

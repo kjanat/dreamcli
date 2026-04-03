@@ -4,7 +4,7 @@
 
 Options for customising help output.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/help/index.ts`
 - Source link: [`src/core/help/index.ts:24`](https://github.com/kjanat/dreamcli/blob/master/src/core/help/index.ts#L24)
@@ -49,4 +49,4 @@ width?: number;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

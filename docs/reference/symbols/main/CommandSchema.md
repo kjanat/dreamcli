@@ -8,7 +8,7 @@ Consumers (parser, help generator, CLI dispatcher) read this to
 understand the command's shape — flags, args, aliases, subcommands,
 middleware, and interactive resolver.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:399`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L399)
@@ -130,4 +130,4 @@ name: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

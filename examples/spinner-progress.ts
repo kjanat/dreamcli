@@ -11,7 +11,7 @@
  *   echo | npx tsx examples/spinner-progress.ts     # non-TTY: spinners silent
  */
 
-import { cli, command, flag } from 'dreamcli';
+import { cli, command, flag } from '@kjanat/dreamcli';
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));

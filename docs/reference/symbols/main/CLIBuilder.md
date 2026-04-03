@@ -12,7 +12,7 @@ Two execution paths:
 - `.execute(argv, options?)` — testable, returns `RunResult`
 - `.run(options?)` — production entry, reads `process.argv`, exits process
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/cli/index.ts`
 - Source link: [`src/core/cli/index.ts:359`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L359)
@@ -114,7 +114,7 @@ version(v: string): CLIBuilder;
 ## Examples
 
 ```ts
-import { cli, command, flag, arg } from 'dreamcli';
+import { cli, command, flag, arg } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
   .arg('target', arg.string())
@@ -132,4 +132,4 @@ cli('mycli').version('1.0.0').command(deploy).run();
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

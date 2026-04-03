@@ -8,7 +8,7 @@ prompter's answer queue.
 Uses `Symbol.for()` for cross-bundle safety — the same symbol is
 returned regardless of which copy of the module is loaded.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: constant
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:137`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L137)
@@ -30,7 +30,7 @@ const prompter = createTestPrompter([
 
 ## Related Examples
 
-- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+- [Testing examples using @kjanat/dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
 
 ## Related Guides
 
@@ -44,4 +44,4 @@ const prompter = createTestPrompter([
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

@@ -4,7 +4,7 @@
 
 Generated reference page for the `createCaptureOutput` function export.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/core/output/index.ts`
 - Source link: [`src/core/output/index.ts:639`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/index.ts#L639)
@@ -38,4 +38,4 @@ expect(captured.stderr).toEqual(['danger\n']);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

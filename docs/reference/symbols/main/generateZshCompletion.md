@@ -4,7 +4,7 @@
 
 Generated reference page for the `generateZshCompletion` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/completion/shells/zsh.ts`
 - Source link: [`src/core/completion/shells/zsh.ts:48`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/zsh.ts#L48)
@@ -36,4 +36,4 @@ const script = generateZshCompletion(app.schema);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

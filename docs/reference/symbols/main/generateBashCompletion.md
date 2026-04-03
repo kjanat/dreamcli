@@ -4,7 +4,7 @@
 
 Generated reference page for the `generateBashCompletion` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/completion/shells/bash.ts`
 - Source link: [`src/core/completion/shells/bash.ts:49`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/shells/bash.ts#L49)
@@ -36,4 +36,4 @@ const script = generateBashCompletion(app.schema);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

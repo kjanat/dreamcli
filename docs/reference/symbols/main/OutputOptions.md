@@ -6,7 +6,7 @@ Configuration for creating an output channel.
 
 Every field is optional — sensible defaults are applied when omitted.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/output/index.ts`
 - Source link: [`src/core/output/index.ts:60`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/index.ts#L60)
@@ -80,4 +80,4 @@ verbosity?: "normal" | "quiet";
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

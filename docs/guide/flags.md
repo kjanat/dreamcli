@@ -6,7 +6,7 @@ Each flag declaration configures parsing, type inference, resolution, help text,
 ## Flag Types
 
 ```ts
-import { flag } from 'dreamcli';
+import { flag } from '@kjanat/dreamcli';
 
 flag.string(); // string | undefined
 flag.number(); // number | undefined

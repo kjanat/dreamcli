@@ -19,10 +19,10 @@ describe('symbol page generation', () => {
 		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
 		const pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
 
-		const cliPage = pages.find((page) => page.id === 'dreamcli:cli');
-		const middlewareInterfacePage = pages.find((page) => page.id === 'dreamcli:Middleware');
+		const cliPage = pages.find((page) => page.id === '@kjanat/dreamcli:cli');
+		const middlewareInterfacePage = pages.find((page) => page.id === '@kjanat/dreamcli:Middleware');
 		expect(cliPage).toMatchObject({
-			entrypoint: 'dreamcli',
+			entrypoint: '@kjanat/dreamcli',
 			name: 'cli',
 			routePath: '/reference/symbols/main/cli',
 			filePath: expect.stringContaining('/docs/reference/symbols/main/cli.md'),
@@ -44,17 +44,17 @@ describe('symbol page generation', () => {
 	});
 
 	it('keeps API index links aligned with rendered symbol routes', () => {
-		expect(toSymbolPageRoute('dreamcli', 'cli')).toBe('/reference/symbols/main/cli');
+		expect(toSymbolPageRoute('@kjanat/dreamcli', 'cli')).toBe('/reference/symbols/main/cli');
 		expect(
-			toSymbolPageRoute('dreamcli', 'Middleware', {
+			toSymbolPageRoute('@kjanat/dreamcli', 'Middleware', {
 				publicKind: 'type',
 				hasCaseInsensitiveCollision: true,
 			}),
 		).toBe('/reference/symbols/main/middleware-type');
-		expect(toSymbolPageRoute('dreamcli/runtime', 'RuntimeAdapter')).toBe(
+		expect(toSymbolPageRoute('@kjanat/dreamcli/runtime', 'RuntimeAdapter')).toBe(
 			'/reference/symbols/runtime/RuntimeAdapter',
 		);
-		expect(toSymbolPageRoute('dreamcli/testkit', 'runCommand')).toBe(
+		expect(toSymbolPageRoute('@kjanat/dreamcli/testkit', 'runCommand')).toBe(
 			'/reference/symbols/testkit/runCommand',
 		);
 	});

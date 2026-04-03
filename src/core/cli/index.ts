@@ -341,7 +341,7 @@ function buildCommandRunOptions(
  *
  * @example
  * ```ts
- * import { cli, command, flag, arg } from 'dreamcli';
+ * import { cli, command, flag, arg } from '@kjanat/dreamcli';
  *
  * const deploy = command('deploy')
  *   .arg('target', arg.string())
@@ -433,7 +433,7 @@ class CLIBuilder {
 	 *
 	 * @example Bun built-in parsers
 	 * ```ts
-	 * import { configFormat } from 'dreamcli';
+	 * import { configFormat } from '@kjanat/dreamcli';
 	 *
 	 * cli('myapp')
 	 *   .config('myapp')
@@ -444,7 +444,7 @@ class CLIBuilder {
 	 *
 	 * @example npm package parsers
 	 * ```ts
-	 * import { configFormat } from 'dreamcli';
+	 * import { configFormat } from '@kjanat/dreamcli';
 	 * import { parse as parseYaml } from 'yaml';
 	 * import { parse as parseTOML } from '@iarna/toml';
 	 *

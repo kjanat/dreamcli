@@ -4,7 +4,7 @@
 
 Generated reference page for the `resolve` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/resolve/index.ts`
 - Source link: [`src/core/resolve/index.ts:60`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/index.ts#L60)
@@ -40,4 +40,4 @@ const resolved = await resolve(deploy.schema, parsed, {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -9,7 +9,7 @@
  * through the immutable `RuntimeAdapter` interface. I/O writers wrap
  * `process.stdout.write` and `process.stderr.write`.
  *
- * @module dreamcli/runtime/node
+ * @module @kjanat/dreamcli/runtime/node
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
@@ -158,8 +158,8 @@ function assertProcessRuntimeSupported(proc: NodeProcess): void {
  *
  * @example
  * ```ts
- * import { cli } from 'dreamcli';
- * import { createNodeAdapter } from 'dreamcli/runtime/node';
+ * import { cli } from '@kjanat/dreamcli';
+ * import { createNodeAdapter } from '@kjanat/dreamcli/runtime/node';
  *
  * cli('mycli')
  *   .command(deploy)

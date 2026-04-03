@@ -4,7 +4,7 @@
  * @module
  */
 
-import { command, group } from 'dreamcli';
+import { command, group } from '@kjanat/dreamcli';
 
 import { redactToken, requireAuth, tokenFlag } from '$gh/lib/auth.ts';
 

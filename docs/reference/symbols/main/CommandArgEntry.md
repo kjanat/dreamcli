@@ -7,7 +7,7 @@ A named positional argument entry in the command schema.
 Pairs a user-facing arg name with its ArgSchema descriptor.
 The array ordering in CommandSchema.args determines CLI position.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:451`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L451)
@@ -40,4 +40,4 @@ schema: ArgSchema;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

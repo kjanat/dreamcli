@@ -4,7 +4,7 @@
 
 Discriminator for the kind of value a flag accepts.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:96`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L96)
@@ -21,4 +21,4 @@ type FlagKind = (typeof FLAG_KINDS)[number];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

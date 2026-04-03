@@ -45,7 +45,7 @@ Let's build it piece by piece.
 Start with the simplest useful thing — listing pull requests:
 
 ```ts
-import { cli, command } from 'dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
 
 const prList = command('list')
   .description('List pull requests')
@@ -65,7 +65,7 @@ Real CLIs filter things.
 Let's add mock data and flags to filter by state:
 
 ```ts
-import { cli, command, flag } from 'dreamcli';
+import { cli, command, flag } from '@kjanat/dreamcli';
 
 type PR = {
   readonly number: number;
@@ -184,7 +184,7 @@ A flat list of commands doesn't scale.
 `gh` organizes commands into groups — `pr list`, `issue triage`, `auth login`. dreamcli has `group()` for this:
 
 ```ts
-import { cli, command, group, flag } from 'dreamcli';
+import { cli, command, group, flag } from '@kjanat/dreamcli';
 
 // Auth commands
 const authLogin = command('login')
@@ -253,7 +253,7 @@ You can nest them as deep as you want.
 `gh pr view 142` takes a PR number as a positional argument — not a flag, not a named value, just the first thing after `view`:
 
 ```ts
-import { arg, CLIError } from 'dreamcli';
+import { arg, CLIError } from '@kjanat/dreamcli';
 
 const prView = command('view')
   .description('View a pull request')
@@ -292,7 +292,7 @@ You *could* check for a token in every single action handler, but that's repetit
 `derive()` solves this cleanly:
 
 ```ts
-import { CLIError } from 'dreamcli';
+import { CLIError } from '@kjanat/dreamcli';
 
 function requireAuth(token: string | undefined): { token: string } {
   const normalizedToken = token?.trim();
@@ -329,7 +329,7 @@ const prList = command('list')
 ```
 
 ```ts [middleware()]
-import { CLIError, middleware } from 'dreamcli';
+import { CLIError, middleware } from '@kjanat/dreamcli';
 
 const requireAuth = middleware<{ token: string }>(({ flags, next }) => {
   if (typeof flags.token !== 'string') {
@@ -536,7 +536,7 @@ This is where it gets interesting.
 You don't want to spawn subprocesses to test a CLI. dreamcli's testkit lets you run commands in-process with full control:
 
 ```ts
-import { runCommand } from 'dreamcli/testkit';
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 // Test that pr list returns open PRs by default
 const result = await runCommand(prList, ['--state', 'open']);
@@ -575,7 +575,7 @@ Each test is isolated — inject what you need, assert what you expect.
 Here's the final assembly — all the commands wired into groups:
 
 ```ts
-import { cli, command, group, flag, arg, CLIError } from 'dreamcli';
+import { cli, command, group, flag, arg, CLIError } from '@kjanat/dreamcli';
 
 // ...commands defined above...
 

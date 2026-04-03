@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Testing examples using dreamcli/testkit.
+ * Testing examples using @kjanat/dreamcli/testkit.
  *
  * Demonstrates: runCommand(), prompt answers, env/config injection,
  * activity event assertions. This file is structured as a vitest
@@ -10,8 +10,8 @@
  *   bun test examples/testing.ts
  */
 
-import { arg, command, flag, middleware } from 'dreamcli';
-import { createTestPrompter, PROMPT_CANCEL, runCommand } from 'dreamcli/testkit';
+import { arg, command, flag, middleware } from '@kjanat/dreamcli';
+import { createTestPrompter, PROMPT_CANCEL, runCommand } from '@kjanat/dreamcli/testkit';
 import { describe, expect, it } from 'vitest';
 
 // --- Command under test ---

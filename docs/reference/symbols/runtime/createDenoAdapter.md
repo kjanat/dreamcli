@@ -4,7 +4,7 @@
 
 Generated reference page for the `createDenoAdapter` function export.
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/deno.ts`
 - Source link: [`src/runtime/deno.ts:165`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/deno.ts#L165)
@@ -22,8 +22,8 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter;
 ## Examples
 
 ```ts
-import { cli } from 'dreamcli';
-import { createDenoAdapter } from 'dreamcli/runtime';
+import { cli } from '@kjanat/dreamcli';
+import { createDenoAdapter } from '@kjanat/dreamcli/runtime';
 
 cli('mycli').command(deploy).run({ adapter: createDenoAdapter() });
 ```
@@ -34,4 +34,4 @@ cli('mycli').command(deploy).run({ adapter: createDenoAdapter() });
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

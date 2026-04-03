@@ -6,7 +6,7 @@ Error thrown when resolved values fail validation constraints.
 
 Exit code defaults to `2` (standard for CLI usage errors).
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/errors/index.ts`
 - Source link: [`src/core/errors/index.ts:153`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L153)
@@ -135,4 +135,4 @@ prepareStackTrace(err: Error, stackTraces: NodeJS.CallSite[]): any;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

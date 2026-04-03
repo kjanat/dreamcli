@@ -19,6 +19,9 @@ import {
 } from './shared.ts';
 import type {
 	AppliedWorkflowUpdate,
+	FieldOption,
+	PhaseField,
+	PriorityField,
 	ProjectContext,
 	ProjectItem,
 	ProjectView,
@@ -68,6 +71,31 @@ async function ghProjectItemEdit(
 		await $`gh project item-edit --id ${itemId} --project-id ${projectId} --field-id ${fieldId} --single-select-option-id ${optionId}`;
 	} catch (error) {
 		return fail(`Failed to update project item ${itemId}: ${formatError(error)}`);
+	}
+}
+
+async function ghProjectItemCreate(
+	projectNumber: number,
+	owner: string,
+	title: string,
+): Promise<string> {
+	const result = await ghJson('project item-create', () =>
+		$`gh project item-create ${projectNumber} --owner ${owner} --title ${title} --format json`.text(),
+	);
+	const record = expectRecord(result, 'item-create result');
+	return readString(record, 'id', 'item-create result');
+}
+
+async function ghProjectItemEditText(
+	itemId: string,
+	projectId: string,
+	fieldId: string,
+	value: string,
+): Promise<void> {
+	try {
+		await $`gh project item-edit --id ${itemId} --project-id ${projectId} --field-id ${fieldId} --text ${value}`;
+	} catch (error) {
+		return fail(`Failed to set text field on item ${itemId}: ${formatError(error)}`);
 	}
 }
 
@@ -139,6 +167,65 @@ function parseWorkflowField(payload: unknown): WorkflowField {
 	return fail('Could not find Workflow field on project 4');
 }
 
+function parseTaskIdFieldId(payload: unknown): string {
+	const record = expectRecord(payload, 'field list');
+	const fields = readArray(record, 'fields', 'field list');
+
+	for (const fieldValue of fields) {
+		const field = expectRecord(fieldValue, 'field list field');
+		if (readOptionalString(field, 'name', 'field list field') === 'PRD Task ID') {
+			return readString(field, 'id', 'PRD Task ID field');
+		}
+	}
+
+	return fail('Could not find PRD Task ID field on project');
+}
+
+function parsePhaseField(payload: unknown): PhaseField {
+	const field = parseSelectField(payload, 'Phase');
+	return {
+		id: field.id,
+		options: field.options,
+	};
+}
+
+function parsePriorityField(payload: unknown): PriorityField {
+	const field = parseSelectField(payload, 'Task Priority');
+	return {
+		id: field.id,
+		options: field.options,
+	};
+}
+
+function parseSelectField(
+	payload: unknown,
+	fieldName: string,
+): { readonly id: string; readonly options: readonly FieldOption[] } {
+	const record = expectRecord(payload, 'field list');
+	const fields = readArray(record, 'fields', 'field list');
+
+	for (const fieldValue of fields) {
+		const field = expectRecord(fieldValue, 'field list field');
+		if (readOptionalString(field, 'name', 'field list field') !== fieldName) {
+			continue;
+		}
+
+		const optionsRaw = readArray(field, 'options', `${fieldName} field`);
+		const options: FieldOption[] = [];
+		for (const optionValue of optionsRaw) {
+			const option = expectRecord(optionValue, `${fieldName} field option`);
+			options.push({
+				id: readString(option, 'id', `${fieldName} field option`),
+				name: readString(option, 'name', `${fieldName} field option`),
+			});
+		}
+
+		return { id: readString(field, 'id', `${fieldName} field`), options };
+	}
+
+	return fail(`Could not find ${fieldName} field on project`);
+}
+
 function parseProjectItems(payload: unknown): readonly ProjectItem[] {
 	const record = expectRecord(payload, 'item list');
 	const itemsRaw = readArray(record, 'items', 'item list');
@@ -189,6 +276,9 @@ async function loadProjectContext(projectNumber: number, owner: string): Promise
 		project: parseProjectView(viewPayload),
 		statusField: parseStatusField(fieldPayload),
 		workflowField: parseWorkflowField(fieldPayload),
+		taskIdFieldId: parseTaskIdFieldId(fieldPayload),
+		phaseField: parsePhaseField(fieldPayload),
+		priorityField: parsePriorityField(fieldPayload),
 		items,
 		itemsByTaskId: new Map(items.map((item) => [item.taskId, item])),
 	};
@@ -251,4 +341,46 @@ async function applyWorkflowUpdates(
 	return applied;
 }
 
-export { applyWorkflowUpdates, loadProjectContext };
+async function createProjectItem(
+	project: ProjectContext,
+	taskId: string,
+	title: string,
+	phase: number | undefined,
+	priority: string,
+): Promise<ProjectItem> {
+	const itemId = await ghProjectItemCreate(project.projectNumber, project.owner, title);
+
+	await ghProjectItemEditText(itemId, project.project.id, project.taskIdFieldId, taskId);
+
+	if (phase !== undefined) {
+		const phaseOption = project.phaseField.options.find((o) => {
+			const leading = /^(\d+)/.exec(o.name)?.[1];
+			return leading !== undefined && Number.parseInt(leading, 10) === phase;
+		});
+		if (phaseOption !== undefined) {
+			await ghProjectItemEdit(itemId, project.project.id, project.phaseField.id, phaseOption.id);
+		}
+	}
+
+	const priorityOption = project.priorityField.options.find((o) => o.name === priority);
+	if (priorityOption !== undefined) {
+		await ghProjectItemEdit(
+			itemId,
+			project.project.id,
+			project.priorityField.id,
+			priorityOption.id,
+		);
+	}
+
+	return {
+		id: itemId,
+		taskId,
+		title,
+		status: undefined,
+		workflow: undefined,
+		phase: phase !== undefined ? String(phase) : undefined,
+		priority,
+	};
+}
+
+export { applyWorkflowUpdates, createProjectItem, loadProjectContext };

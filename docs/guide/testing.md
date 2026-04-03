@@ -6,7 +6,7 @@ No subprocesses, no `process.argv` mutation, no mocking.
 ## Basic Usage
 
 ```ts
-import { runCommand } from 'dreamcli/testkit';
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(greet, ['Alice', '--loud']);
 
@@ -58,7 +58,7 @@ import {
   runCommand,
   createTestPrompter,
   PROMPT_CANCEL,
-} from 'dreamcli/testkit';
+} from '@kjanat/dreamcli/testkit';
 
 // Sequential answers
 const result = await runCommand(cmd, [], {

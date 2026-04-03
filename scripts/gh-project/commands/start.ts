@@ -4,7 +4,7 @@
  * @module
  */
 
-import { arg, command } from 'dreamcli';
+import { arg, command } from '@kjanat/dreamcli';
 
 import { applyWorkflowUpdates, loadProjectContext } from '../lib/project.ts';
 import { ownerFlag, projectFlag } from '../lib/shared.ts';

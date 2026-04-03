@@ -4,7 +4,7 @@
  * @module
  */
 
-import { arg, CLIError, flag, group } from 'dreamcli';
+import { arg, CLIError, flag, group } from '@kjanat/dreamcli';
 
 import issues from '$gh/data/issues.yaml' with { type: 'yaml' };
 import { authedCommand } from '$gh/lib/auth.ts';

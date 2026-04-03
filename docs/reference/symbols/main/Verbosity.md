@@ -4,7 +4,7 @@
 
 Stable text verbosity labels.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/output/contracts.ts`
 - Source link: [`src/core/output/contracts.ts:26`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/contracts.ts#L26)
@@ -21,4 +21,4 @@ type Verbosity = (typeof OUTPUT_VERBOSITY_LEVELS)[number];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

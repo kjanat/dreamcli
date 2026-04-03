@@ -12,7 +12,7 @@ fully typed `ActionParams<F, A, C>`.
 `C` defaults to `Record<string, never>`, making `ctx` property
 access a type error until derive or middleware extends it.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:750`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L750)
@@ -191,4 +191,4 @@ const deploy = command('deploy')
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

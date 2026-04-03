@@ -5,7 +5,7 @@
 Advanced type helper used by `ArgBuilder.variadic()`.
 Most consumers rely on inference and never reference this directly.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:54`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L54)
@@ -44,4 +44,4 @@ variadic: 'true';
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -201,7 +201,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ReadableStream` (needed because `lib: ["ES2022"]` excludes web platform APIs).
 - **`createAdapter()` auto-detection** now handles Deno runtime via `globalThis.Deno` feature
   probing.
-- Re-exported `createDenoAdapter` and `DenoNamespace` from `dreamcli/runtime` subpath.
+- Re-exported `createDenoAdapter` and `DenoNamespace` from `@kjanat/dreamcli/runtime` subpath.
 
 #### Cross-Runtime CI
 
@@ -235,10 +235,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Subpath exports** — single `"."` entry split into `"."`, `"./testkit"`, `"./runtime"`. Test
   utilities (`runCommand`, `createCaptureOutput`, `createTestPrompter`, `createTestAdapter`,
-  `PROMPT_CANCEL`) moved to `dreamcli/testkit`. Runtime adapters (`createAdapter`,
+  `PROMPT_CANCEL`) moved to `@kjanat/dreamcli/testkit`. Runtime adapters (`createAdapter`,
   `createNodeAdapter`, `createBunAdapter`, `detectRuntime`, `ExitError`, `RUNTIMES`,
-  `RuntimeAdapter`) moved to `dreamcli/runtime`. `createTestAdapter`/`TestAdapterOptions` exported
-  only from `dreamcli/testkit`.
+  `RuntimeAdapter`) moved to `@kjanat/dreamcli/runtime`. `createTestAdapter`/`TestAdapterOptions` exported
+  only from `@kjanat/dreamcli/testkit`.
 
 ### Added
 

@@ -57,7 +57,7 @@ npx tsx examples/multi-command.ts --version
  *   npx tsx examples/multi-command.ts --version
  */
 
-import { arg, cli, command, flag, group } from 'dreamcli';
+import { arg, cli, command, flag, group } from '@kjanat/dreamcli';
 
 // --- Top-level commands ---
 

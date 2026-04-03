@@ -4,7 +4,7 @@
 
 Generated reference page for the `isValidationError` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/errors/index.ts`
 - Source link: [`src/core/errors/index.ts:176`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L176)
@@ -21,4 +21,4 @@ function isValidationError(value: unknown): value is ValidationError;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

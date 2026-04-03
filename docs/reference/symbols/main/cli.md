@@ -4,7 +4,7 @@
 
 Generated reference page for the `cli` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/cli/index.ts`
 - Source link: [`src/core/cli/index.ts:986`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L986)
@@ -76,4 +76,4 @@ cli({ inherit: true }).command(deploy).run();
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

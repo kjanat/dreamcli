@@ -9,7 +9,7 @@ The kind of interactive prompt to present.
 - `'select'` — single selection from a list
 - `'multiselect'` — multiple selections from a list
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/prompt.ts`
 - Source link: [`src/core/schema/prompt.ts:25`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L25)
@@ -26,4 +26,4 @@ type PromptKind = (typeof PROMPT_KINDS)[number];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

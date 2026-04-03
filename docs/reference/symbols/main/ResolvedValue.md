@@ -12,7 +12,7 @@ inference. Most apps do not need to mention it explicitly.
 - `'required'` → `T`
 - `'defaulted'` → `T`
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:76`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L76)
@@ -33,4 +33,4 @@ type ResolvedValue<C extends FlagConfig> = C['presence'] extends 'optional'
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

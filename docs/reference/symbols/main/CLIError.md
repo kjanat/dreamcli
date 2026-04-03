@@ -7,7 +7,7 @@ Base structured error for DreamCLI.
 Every error surfaced by the framework extends this class, ensuring a
 consistent shape for rendering (TTY pretty-print, `--json`, test assertions).
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/errors/index.ts`
 - Source link: [`src/core/errors/index.ts:61`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L61)
@@ -149,4 +149,4 @@ prepareStackTrace(err: Error, stackTraces: NodeJS.CallSite[]): any;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

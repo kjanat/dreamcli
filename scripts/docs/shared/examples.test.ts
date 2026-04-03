@@ -63,6 +63,6 @@ describe('example docs generation', () => {
 		expect(page).toContain('- [`command`](/reference/symbols/main/command)');
 		expect(page).toContain('## Source');
 		expect(page).toContain('```ts twoslash');
-		expect(page).toContain("import { arg, cli, command, flag } from 'dreamcli';");
+		expect(page).toContain("import { arg, cli, command, flag } from '@kjanat/dreamcli';");
 	});
 });

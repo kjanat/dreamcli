@@ -145,7 +145,7 @@ expect(result.exitCode).toBe(0);
 Ctrl+C during a prompt exits gracefully:
 
 ```ts
-import { PROMPT_CANCEL, runCommand } from 'dreamcli/testkit';
+import { PROMPT_CANCEL, runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(cmd, [], {
   answers: [PROMPT_CANCEL],

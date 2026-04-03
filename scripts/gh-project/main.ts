@@ -4,7 +4,7 @@
  * @module
  */
 
-import { cli } from 'dreamcli';
+import { cli } from '@kjanat/dreamcli';
 
 import { finish } from './commands/finish.ts';
 import { list } from './commands/list.ts';

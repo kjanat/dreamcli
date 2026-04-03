@@ -4,7 +4,7 @@
 
 Fully resolved command input handed to the executor layer.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/resolve/contracts.ts`
 - Source link: [`src/core/resolve/contracts.ts:64`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/contracts.ts#L64)
@@ -43,4 +43,4 @@ flags: Readonly<Record<string, unknown>>;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -4,7 +4,7 @@
 
 Yes/no confirmation prompt — maps to `boolean` flags. Part of PromptConfig.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
 - Source link: [`src/core/schema/prompt.ts:36`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L36)
@@ -39,4 +39,4 @@ message: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

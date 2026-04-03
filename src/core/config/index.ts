@@ -366,7 +366,7 @@ async function discoverConfig(
  *
  * @example
  * ```ts
- * import { configFormat } from 'dreamcli';
+ * import { configFormat } from '@kjanat/dreamcli';
  * import { parse as parseYaml } from 'yaml';
  * import { parse as parseTOML } from '@iarna/toml';
  *

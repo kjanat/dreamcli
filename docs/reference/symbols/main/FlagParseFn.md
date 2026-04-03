@@ -7,7 +7,7 @@ Custom parse function for `flag.custom()`.
 Receives `string` from CLI argv and env vars, or any JSON-representable
 value from config files. Narrow inside the function as needed.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:104`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L104)
@@ -24,4 +24,4 @@ type FlagParseFn<T> = { (raw: unknown): T };
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

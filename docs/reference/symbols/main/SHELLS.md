@@ -8,7 +8,7 @@ Use this tuple for user-facing validation and shell selection UIs.
 It intentionally matches the shipped Shell union exactly so docs,
 help output, and completion generation advertise the same support surface.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: constant
 - Declared in: `src/core/completion/index.ts`
 - Source link: [`src/core/completion/index.ts:37`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L37)
@@ -25,4 +25,4 @@ const SHELLS: Readonly<readonly ["bash", "zsh", "fish", "powershell"]>;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

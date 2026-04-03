@@ -45,7 +45,14 @@ npx tsx examples/middleware.ts deploy production --verbose
  *   npx tsx examples/middleware.ts deploy production --verbose
  */
 
-import { arg, CLIError, cli, command, flag, middleware } from 'dreamcli';
+import {
+  arg,
+  CLIError,
+  cli,
+  command,
+  flag,
+  middleware,
+} from '@kjanat/dreamcli';
 
 // --- Auth middleware — adds `user` to context ---
 

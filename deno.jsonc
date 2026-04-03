@@ -33,9 +33,9 @@
 	"compilerOptions": {
 		"module": "preserve",
 		"paths": {
-			"dreamcli": ["./src/index.ts"],
-			"dreamcli/runtime": ["./src/runtime.ts"],
-			"dreamcli/testkit": ["./src/testkit.ts"]
+			"@kjanat/dreamcli": ["./src/index.ts"],
+			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
+			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"]
 		}
 	},
 	"publish": {

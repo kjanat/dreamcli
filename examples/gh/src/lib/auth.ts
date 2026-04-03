@@ -4,7 +4,7 @@
  * @module
  */
 
-import { CLIError, command, flag } from 'dreamcli';
+import { CLIError, command, flag } from '@kjanat/dreamcli';
 
 export function tokenFlag(description = 'GitHub token') {
 	return flag.string().env('GH_TOKEN').describe(description);

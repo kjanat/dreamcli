@@ -4,7 +4,7 @@
 
 Generated reference page for the `tokenize` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/parse/index.ts`
 - Source link: [`src/core/parse/index.ts:62`](https://github.com/kjanat/dreamcli/blob/master/src/core/parse/index.ts#L62)
@@ -31,4 +31,4 @@ tokenize(['deploy', '--force', '--region=eu', '-v']);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

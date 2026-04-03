@@ -7,7 +7,7 @@ Options for the `cli({...})` factory form.
 This form is useful when the displayed CLI name should be inferred from the
 current runtime invocation instead of always being hard-coded.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/index.ts`
 - Source link: [`src/core/cli/index.ts:943`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L943)
@@ -52,4 +52,4 @@ name?: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

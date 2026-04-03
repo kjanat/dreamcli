@@ -23,26 +23,26 @@ subpath-specific detail pages.
 
 ## Choose an Import
 
-| Import             | Use it for                                                                             | Start here                               |
-| ------------------ | -------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `dreamcli`         | schema builders, CLI assembly, parsing, resolution, errors, completions, schema export | [`dreamcli`](/reference/main)            |
-| `dreamcli/testkit` | command tests, output capture, scripted prompts, test adapters                         | [`dreamcli/testkit`](/reference/testkit) |
-| `dreamcli/runtime` | runtime detection, explicit adapters, runtime-only helpers                             | [`dreamcli/runtime`](/reference/runtime) |
-| `dreamcli/schema`  | generated CLI definition meta-schema JSON                                              | schema asset only                        |
+| Import                     | Use it for                                                                             | Start here                                       |
+| -------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `@kjanat/dreamcli`         | schema builders, CLI assembly, parsing, resolution, errors, completions, schema export | [`@kjanat/dreamcli`](/reference/main)            |
+| `@kjanat/dreamcli/testkit` | command tests, output capture, scripted prompts, test adapters                         | [`@kjanat/dreamcli/testkit`](/reference/testkit) |
+| `@kjanat/dreamcli/runtime` | runtime detection, explicit adapters, runtime-only helpers                             | [`@kjanat/dreamcli/runtime`](/reference/runtime) |
+| `@kjanat/dreamcli/schema`  | generated CLI definition meta-schema JSON                                              | schema asset only                                |
 
 ## Generated Index
 
 <div v-for="entrypoint in generatedPublicApi" :key="entrypoint.entrypoint">
 	<h3><code>{{ entrypoint.entrypoint }}</code></h3>
 	<p><strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code></p>
-	<p v-if="entrypoint.entrypoint === 'dreamcli'">
-		<a href="/reference/main">dreamcli detailed page</a>
+	<p v-if="entrypoint.entrypoint === '@kjanat/dreamcli'">
+		<a href="/reference/main">@kjanat/dreamcli detailed page</a>
 	</p>
-	<p v-else-if="entrypoint.entrypoint === 'dreamcli/testkit'">
-		<a href="/reference/testkit">dreamcli/testkit detailed page</a>
+	<p v-else-if="entrypoint.entrypoint === '@kjanat/dreamcli/testkit'">
+		<a href="/reference/testkit">@kjanat/dreamcli/testkit detailed page</a>
 	</p>
-	<p v-else-if="entrypoint.entrypoint === 'dreamcli/runtime'">
-		<a href="/reference/runtime">dreamcli/runtime detailed page</a>
+	<p v-else-if="entrypoint.entrypoint === '@kjanat/dreamcli/runtime'">
+		<a href="/reference/runtime">@kjanat/dreamcli/runtime detailed page</a>
 	</p>
 	<div v-for="group in entrypoint.kindGroups" :key="`${entrypoint.entrypoint}-${group.kind}`">
 		<h4>{{ group.title }} ({{ group.symbols.length }})</h4>
@@ -78,6 +78,6 @@ subpath-specific detail pages.
 
 ## Detailed Reference
 
-- [`dreamcli`](/reference/main) — main package API
-- [`dreamcli/testkit`](/reference/testkit) — testing utilities
-- [`dreamcli/runtime`](/reference/runtime) — runtime adapters
+- [`@kjanat/dreamcli`](/reference/main) — main package API
+- [`@kjanat/dreamcli/testkit`](/reference/testkit) — testing utilities
+- [`@kjanat/dreamcli/runtime`](/reference/runtime) — runtime adapters

@@ -4,7 +4,7 @@
 
 Generated reference page for the `inferCliName` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/package-json.ts`
 - Source link: [`src/core/config/package-json.ts:199`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L199)
@@ -18,7 +18,7 @@ function inferCliName(pkg: PackageJsonData): string | undefined;
 ## Examples
 
 ```ts
-import { inferCliName } from 'dreamcli';
+import { inferCliName } from '@kjanat/dreamcli';
 
 inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
 inferCliName({ name: '@scope/mycli' }); // 'mycli'
@@ -32,4 +32,4 @@ inferCliName({}); // undefined
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -4,7 +4,7 @@
 
 Generated reference page for the `command` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:1363`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1363)
@@ -39,7 +39,7 @@ const greet = command('greet')
 - [Middleware patterns: auth guard, request timing, error handling.](/examples/middleware) - `examples/middleware.ts`
 - [Multi-command CLI with nested command groups (git-like).](/examples/multi-command) - `examples/multi-command.ts`
 - [Spinner and progress bar usage.](/examples/spinner-progress) - `examples/spinner-progress.ts`
-- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+- [Testing examples using @kjanat/dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
 
 ## Related Guides
 
@@ -61,4 +61,4 @@ const greet = command('greet')
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

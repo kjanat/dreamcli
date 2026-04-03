@@ -4,7 +4,7 @@
 
 Generated reference page for the `createNodeAdapter` function export.
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/node.ts`
 - Source link: [`src/runtime/node.ts:169`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/node.ts#L169)
@@ -22,8 +22,8 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter;
 ## Examples
 
 ```ts
-import { cli } from 'dreamcli';
-import { createNodeAdapter } from 'dreamcli/runtime/node';
+import { cli } from '@kjanat/dreamcli';
+import { createNodeAdapter } from '@kjanat/dreamcli/runtime/node';
 
 cli('mycli').command(deploy).run({ adapter: createNodeAdapter() });
 ```
@@ -34,4 +34,4 @@ cli('mycli').command(deploy).run({ adapter: createNodeAdapter() });
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

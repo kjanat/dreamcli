@@ -8,7 +8,7 @@ Middleware receives erased args/flags (since it's defined independently
 of commands) plus the accumulated context from prior middleware and a
 `next` function to continue the chain.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/middleware.ts`
 - Source link: [`src/core/schema/middleware.ts:28`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/middleware.ts#L28)
@@ -81,4 +81,4 @@ out: Out;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

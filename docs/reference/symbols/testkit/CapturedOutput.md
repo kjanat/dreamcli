@@ -4,7 +4,7 @@
 
 Captured output from a `createCaptureOutput` instance.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: interface
 - Declared in: `src/core/output/index.ts`
 - Source link: [`src/core/output/index.ts:593`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/index.ts#L593)
@@ -59,4 +59,4 @@ stdout: string[];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

@@ -12,7 +12,7 @@ The resolution chain calls `promptOne` for each flag that needs
 interactive input. Engines do not need schema knowledge — all
 relevant context (message, choices, validation) is in the config.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:95`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L95)
@@ -51,4 +51,4 @@ const engine: PromptEngine = {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

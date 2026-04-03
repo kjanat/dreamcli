@@ -37,6 +37,21 @@ interface WorkflowField {
 	readonly options: readonly WorkflowOption[];
 }
 
+interface FieldOption {
+	readonly id: string;
+	readonly name: string;
+}
+
+interface PhaseField {
+	readonly id: string;
+	readonly options: readonly FieldOption[];
+}
+
+interface PriorityField {
+	readonly id: string;
+	readonly options: readonly FieldOption[];
+}
+
 interface ProjectItem {
 	readonly id: string;
 	readonly taskId: string;
@@ -53,6 +68,9 @@ interface ProjectContext {
 	readonly project: ProjectView;
 	readonly statusField: StatusField;
 	readonly workflowField: WorkflowField;
+	readonly taskIdFieldId: string;
+	readonly phaseField: PhaseField;
+	readonly priorityField: PriorityField;
 	readonly items: readonly ProjectItem[];
 	readonly itemsByTaskId: ReadonlyMap<string, ProjectItem>;
 }
@@ -107,10 +125,13 @@ type ListRow = {
 
 export type {
 	AppliedWorkflowUpdate,
+	FieldOption,
 	ListRow,
+	PhaseField,
 	PrdFile,
 	PrdState,
 	PrdTask,
+	PriorityField,
 	ProjectContext,
 	ProjectItem,
 	ProjectStatus,

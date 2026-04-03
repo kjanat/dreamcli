@@ -5,7 +5,7 @@
  * package engines, and docs can stay aligned.
  *
  * @internal
- * @module dreamcli/runtime/support
+ * @module @kjanat/dreamcli/runtime/support
  */
 
 type SupportedRuntime = 'node' | 'bun' | 'deno';

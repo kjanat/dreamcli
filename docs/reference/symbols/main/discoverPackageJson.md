@@ -4,7 +4,7 @@
 
 Generated reference page for the `discoverPackageJson` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/package-json.ts`
 - Source link: [`src/core/config/package-json.ts:105`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L105)
@@ -20,7 +20,7 @@ function discoverPackageJson(
 ## Examples
 
 ```ts
-import { discoverPackageJson } from 'dreamcli';
+import { discoverPackageJson } from '@kjanat/dreamcli';
 
 const pkg = await discoverPackageJson(adapter);
 if (pkg !== null) {
@@ -34,4 +34,4 @@ if (pkg !== null) {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

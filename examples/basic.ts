@@ -11,7 +11,7 @@
  *   npx tsx examples/basic.ts --help
  */
 
-import { arg, cli, command, flag } from 'dreamcli';
+import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const greet = command('greet')
 	.description('Greet someone')

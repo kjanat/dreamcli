@@ -7,7 +7,7 @@ Options for JSON Schema generation.
 Both generateSchema and generateInputSchema accept these
 options to control which parts of the CLI schema are included in the output.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/json-schema/index.ts`
 - Source link: [`src/core/json-schema/index.ts:39`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L39)
@@ -55,4 +55,4 @@ includePrompts?: boolean;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

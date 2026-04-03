@@ -4,7 +4,7 @@
 
 Payload for hooks that observe resolved inputs.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/plugin.ts`
 - Source link: [`src/core/cli/plugin.ts:30`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/plugin.ts#L30)
@@ -73,4 +73,4 @@ out: Out;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

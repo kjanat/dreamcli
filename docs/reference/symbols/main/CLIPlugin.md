@@ -7,7 +7,7 @@ Immutable plugin definition registered via `CLIBuilder.plugin()`.
 Use plugin to construct values of this shape instead of manually
 assembling the object.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/plugin.ts`
 - Source link: [`src/core/cli/plugin.ts:67`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/plugin.ts#L67)
@@ -44,4 +44,4 @@ name: string | undefined;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

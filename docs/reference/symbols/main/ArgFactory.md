@@ -11,7 +11,7 @@ and initial type-level config. Chain modifiers (`.optional()`, `.env()`,
 All args are **required** by default. Resolution order when extra
 sources are configured: **CLI → stdin → env → default**.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:519`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L519)
@@ -89,4 +89,4 @@ command('process')
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

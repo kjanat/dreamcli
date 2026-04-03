@@ -144,11 +144,7 @@ function collectRelatedLinks(source: string): {
 	for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*'([^']+)'/g)) {
 		const importList = match[1];
 		const moduleName = match[2];
-		if (
-			importList === undefined ||
-			moduleName === undefined ||
-			!moduleName.startsWith('dreamcli')
-		) {
+		if (importList === undefined || moduleName === undefined || !isDreamcliImport(moduleName)) {
 			continue;
 		}
 
@@ -190,6 +186,10 @@ function normalizeImportedName(entry: string): string | null {
 	const withoutType = trimmed.startsWith('type ') ? trimmed.slice(5).trim() : trimmed;
 	const importedName = withoutType.split(' as ')[0]?.trim();
 	return importedName === undefined || importedName === '' ? null : importedName;
+}
+
+function isDreamcliImport(moduleName: string): boolean {
+	return moduleName === '@kjanat/dreamcli' || moduleName.startsWith('@kjanat/dreamcli/');
 }
 
 function extractDocLines(source: string): readonly string[] {

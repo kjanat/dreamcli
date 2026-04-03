@@ -7,7 +7,7 @@ Config discovery settings for automatic config file loading.
 Stored in CLISchema and consumed by `CLIBuilder.run()` to
 call discoverConfig before dispatching to a command.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/index.ts`
 - Source link: [`src/core/cli/index.ts:139`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L139)
@@ -49,4 +49,4 @@ loaders: readonly FormatLoader[] | undefined;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

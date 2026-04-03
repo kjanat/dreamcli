@@ -4,9 +4,9 @@
  * @module
  */
 
-import { command, flag } from 'dreamcli';
+import { command, flag } from '@kjanat/dreamcli';
 import { computeReadyTaskIds, readPrdState } from '../lib/prd.ts';
-import { applyWorkflowUpdates, loadProjectContext } from '../lib/project.ts';
+import { applyWorkflowUpdates, createProjectItem, loadProjectContext } from '../lib/project.ts';
 import { ownerFlag, prdFlag, projectFlag } from '../lib/shared.ts';
 import type { WorkflowUpdate } from '../lib/types.ts';
 
@@ -29,10 +29,29 @@ const sync = command('sync')
 		]);
 
 		const ready = new Set(computeReadyTaskIds(prd.file));
-		const updates: WorkflowUpdate[] = [];
 
+		// Create missing items
+		const itemsByTaskId = new Map(project.itemsByTaskId);
+		const created: string[] = [];
 		for (const task of prd.file.tasks) {
-			const item = project.itemsByTaskId.get(task.id);
+			if (!itemsByTaskId.has(task.id)) {
+				const item = await createProjectItem(
+					project,
+					task.id,
+					task.title,
+					task.phase,
+					task.priority,
+				);
+				itemsByTaskId.set(task.id, item);
+				created.push(task.id);
+			}
+		}
+
+		const augmented = { ...project, itemsByTaskId };
+
+		const updates: WorkflowUpdate[] = [];
+		for (const task of prd.file.tasks) {
+			const item = augmented.itemsByTaskId.get(task.id);
 			if (item === undefined) {
 				continue;
 			}
@@ -55,14 +74,18 @@ const sync = command('sync')
 			});
 		}
 
-		const applied = await applyWorkflowUpdates(project, updates);
+		const applied = await applyWorkflowUpdates(augmented, updates);
 
 		if (out.jsonMode) {
-			out.json({ project: project.project.url, prd: prd.filePath, updates: applied });
+			out.json({ project: project.project.url, prd: prd.filePath, created, updates: applied });
 			return;
 		}
 
-		if (applied.length === 0) {
+		for (const taskId of created) {
+			out.log(`Created: ${taskId}`);
+		}
+
+		if (applied.length === 0 && created.length === 0) {
 			out.info('Project already in sync with prd.json');
 			return;
 		}

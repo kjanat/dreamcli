@@ -8,7 +8,7 @@ The type parameter `C` is a phantom that tracks the value type and presence
 through the fluent chain. Each modifier returns a **new** builder — the
 original is never mutated.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:294`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L294)
@@ -120,4 +120,4 @@ type Region = InferFlag<typeof region>; // 'us' | 'eu' | 'ap' | undefined
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

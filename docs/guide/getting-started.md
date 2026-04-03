@@ -5,11 +5,11 @@
 ::: code-group
 
 ```bash [npm]
-npm install dreamcli
+npm install @kjanat/dreamcli
 ```
 
 ```bash [bun]
-bun add dreamcli
+bun add @kjanat/dreamcli
 ```
 
 ```bash [deno]
@@ -26,7 +26,7 @@ Deno >= 2.6.0.
 ## Your First Command
 
 ```ts
-import { cli, command, flag, arg } from 'dreamcli';
+import { cli, command, flag, arg } from '@kjanat/dreamcli';
 
 const greet = command('greet')
   .description('Greet someone')
@@ -56,7 +56,7 @@ no `undefined` to check.
 ## Multi-Command CLI
 
 ```ts
-import { cli, command, group, flag, arg } from 'dreamcli';
+import { cli, command, group, flag, arg } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
   .description('Deploy to an environment')

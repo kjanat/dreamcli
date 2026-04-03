@@ -7,7 +7,7 @@ Raw parsed values before resolution (defaults, env, config, etc.).
 Flag values are `unknown` because type coercion happens here but the
 generic type info lives in the schema builders, not at runtime.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/parse/index.ts`
 - Source link: [`src/core/parse/index.ts:112`](https://github.com/kjanat/dreamcli/blob/master/src/core/parse/index.ts#L112)
@@ -44,4 +44,4 @@ flags: Readonly<Record<string, unknown>>;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

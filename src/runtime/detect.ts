@@ -13,7 +13,7 @@
  * Detection order matters: Bun provides a Node-compatible `process`
  * global, so it must be checked *before* Node to avoid misidentification.
  *
- * @module dreamcli/runtime/detect
+ * @module @kjanat/dreamcli/runtime/detect
  */
 
 // --- Runtime type

@@ -18,23 +18,23 @@ describe('typedoc normalization', () => {
 		expect(rawProject.schemaVersion).toBe(normalized.typedocSchemaVersion);
 		expect(normalized.entrypoints).toEqual([
 			{
-				entrypoint: 'dreamcli',
+				entrypoint: '@kjanat/dreamcli',
 				subpath: '.',
 				sourcePath: 'src/index.ts',
 				hasTypeDoc: true,
-				exportIds: expect.arrayContaining(['dreamcli:CLIBuilder', 'dreamcli:cli']),
+				exportIds: expect.arrayContaining(['@kjanat/dreamcli:CLIBuilder', '@kjanat/dreamcli:cli']),
 				missingExports: [],
 			},
 			{
-				entrypoint: 'dreamcli/runtime',
+				entrypoint: '@kjanat/dreamcli/runtime',
 				subpath: './runtime',
 				sourcePath: 'src/runtime.ts',
 				hasTypeDoc: true,
-				exportIds: expect.arrayContaining(['dreamcli/runtime:RuntimeAdapter']),
+				exportIds: expect.arrayContaining(['@kjanat/dreamcli/runtime:RuntimeAdapter']),
 				missingExports: [],
 			},
 			{
-				entrypoint: 'dreamcli/schema',
+				entrypoint: '@kjanat/dreamcli/schema',
 				subpath: './schema',
 				sourcePath: 'dreamcli.schema.json',
 				hasTypeDoc: false,
@@ -42,11 +42,11 @@ describe('typedoc normalization', () => {
 				missingExports: [],
 			},
 			{
-				entrypoint: 'dreamcli/testkit',
+				entrypoint: '@kjanat/dreamcli/testkit',
 				subpath: './testkit',
 				sourcePath: 'src/testkit.ts',
 				hasTypeDoc: true,
-				exportIds: expect.arrayContaining(['dreamcli/testkit:runCommand']),
+				exportIds: expect.arrayContaining(['@kjanat/dreamcli/testkit:runCommand']),
 				missingExports: [],
 			},
 		]);
@@ -58,7 +58,7 @@ describe('typedoc normalization', () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
 
-		const cliExport = normalized.exports.find((entry) => entry.id === 'dreamcli:cli');
+		const cliExport = normalized.exports.find((entry) => entry.id === '@kjanat/dreamcli:cli');
 		expect(cliExport?.reflection.kind).toBe('function');
 		expect(cliExport?.reflection.signatures).toHaveLength(2);
 		expect(cliExport?.reflection.signatures[0]?.comment?.blockTags).toContainEqual({
@@ -71,14 +71,16 @@ describe('typedoc normalization', () => {
 			kind: 'reference',
 			name: 'CLIBuilder',
 			target: expect.any(String),
-			packageName: 'dreamcli',
+			packageName: '@kjanat/dreamcli',
 			qualifiedName: null,
 			externalUrl: null,
 			refersToTypeParameter: false,
 			typeArguments: [],
 		});
 
-		const schemaExport = normalized.exports.find((entry) => entry.id === 'dreamcli:CLISchema');
+		const schemaExport = normalized.exports.find(
+			(entry) => entry.id === '@kjanat/dreamcli:CLISchema',
+		);
 		expect(schemaExport?.reflection.kind).toBe('interface');
 		expect(schemaExport?.reflection.comment?.summary).toContain(
 			'Runtime descriptor for the CLI program.',
@@ -99,7 +101,7 @@ describe('typedoc normalization', () => {
 					kind: 'reference',
 					name: 'ConfigSettings',
 					target: expect.any(String),
-					packageName: 'dreamcli',
+					packageName: '@kjanat/dreamcli',
 					qualifiedName: null,
 					externalUrl: null,
 					refersToTypeParameter: false,

@@ -1,10 +1,10 @@
-# dreamcli/runtime
+# @kjanat/dreamcli/runtime
 
 Runtime adapter factory and platform detection.
 
 ```ts
-import { createAdapter, detectRuntime } from 'dreamcli/runtime';
-import type { RuntimeAdapter } from 'dreamcli/runtime';
+import { createAdapter, detectRuntime } from '@kjanat/dreamcli/runtime';
+import type { RuntimeAdapter } from '@kjanat/dreamcli/runtime';
 ```
 
 ## `createAdapter()`
@@ -17,7 +17,7 @@ import {
   createNodeAdapter,
   createBunAdapter,
   createDenoAdapter,
-} from 'dreamcli/runtime';
+} from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect
 const nodeAdapter = createNodeAdapter(); // explicit Node.js

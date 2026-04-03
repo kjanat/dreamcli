@@ -4,7 +4,7 @@
 
 Codes emitted during argv parsing.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/errors/index.ts`
 - Source link: [`src/core/errors/index.ts:14`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L14)
@@ -27,4 +27,4 @@ type ParseErrorCode =
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

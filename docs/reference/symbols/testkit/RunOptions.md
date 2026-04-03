@@ -8,7 +8,7 @@ Every field is optional — sensible defaults are applied. This is the
 primary process-free execution seam: inject env, config, prompt I/O, and
 dispatch-layer metadata without touching process state.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: interface
 - Declared in: `src/core/schema/run.ts`
 - Source link: [`src/core/schema/run.ts:26`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/run.ts#L26)
@@ -193,4 +193,4 @@ verbosity?: "normal" | "quiet";
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

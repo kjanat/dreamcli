@@ -4,7 +4,7 @@
 
 Generated reference page for the `createArgSchema` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:167`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L167)
@@ -38,4 +38,4 @@ const schema = createArgSchema('custom', {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

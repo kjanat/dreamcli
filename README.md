@@ -5,7 +5,7 @@ Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
 One flag declaration configures the entire resolution pipeline:
 
 ```ts
-import { cli, command, flag, arg, middleware, CLIError } from 'dreamcli';
+import { cli, command, flag, arg, middleware, CLIError } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
 	.description('Deploy to an environment')
@@ -34,11 +34,11 @@ default**. Every step is opt-in. Every step preserves types.
 ## Install
 
 ```bash
-npm install dreamcli
+npm install @kjanat/dreamcli
 ```
 
 ```bash
-bun add dreamcli
+bun add @kjanat/dreamcli
 ```
 
 ```bash
@@ -51,7 +51,7 @@ deno add jsr:@kjanat/dreamcli
 ### Single command
 
 ```ts
-import { command, flag, arg } from 'dreamcli';
+import { command, flag, arg } from '@kjanat/dreamcli';
 
 const greet = command('greet')
 	.description('Greet someone')
@@ -71,7 +71,7 @@ greet.run();
 ### Multi-command CLI
 
 ```ts
-import { cli, command, group, flag, arg } from 'dreamcli';
+import { cli, command, group, flag, arg } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
 	.description('Deploy to an environment')
@@ -195,7 +195,7 @@ command('deploy')
 ### Derive typed context from resolved input
 
 ```ts
-import { CLIError } from 'dreamcli';
+import { CLIError } from '@kjanat/dreamcli';
 
 command('deploy')
 	.flag('token', flag.string().env('AUTH_TOKEN'))
@@ -218,7 +218,7 @@ the action handler runs.
 ### Middleware with typed context
 
 ```ts
-import { middleware } from 'dreamcli';
+import { middleware } from '@kjanat/dreamcli';
 
 const timing = middleware<{ startTime: number }>(async ({ next }) => {
 	const startTime = Date.now();
@@ -269,7 +269,7 @@ Handlers receive `out` instead of `console`. Adapts to context automatically:
 Generated from the command schema — always in sync:
 
 ```ts
-import { generateCompletion } from 'dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli';
 
 generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
@@ -284,7 +284,7 @@ command('deploy').flag('region', flag.enum(['us', 'eu']).config('deploy.region')
 Searches XDG-standard paths automatically. JSON built-in, plugin hook for YAML/TOML:
 
 ```ts
-import { configFormat } from 'dreamcli';
+import { configFormat } from '@kjanat/dreamcli';
 import { parse as parseYAML } from 'yaml';
 
 cli('mycli')
@@ -312,7 +312,7 @@ dreamcli's test harness runs commands in-process with full control over inputs a
 subprocesses, no `process.argv` mutation, no mocking.
 
 ```ts
-import { runCommand, createTestPrompter, PROMPT_CANCEL } from 'dreamcli/testkit';
+import { runCommand, createTestPrompter, PROMPT_CANCEL } from '@kjanat/dreamcli/testkit';
 
 // Basic execution
 const result = await runCommand(greet, ['Alice', '--loud']);
@@ -345,11 +345,11 @@ expect(result.activity).toContainEqual(expect.objectContaining({ type: 'spinner:
 
 Three subpath exports, each with a focused API surface:
 
-| Import             | Purpose                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| `dreamcli`         | Schema builders, CLI runner, output, parsing, resolution, errors                       |
-| `dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
-| `dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
+| Import                     | Purpose                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `@kjanat/dreamcli`         | Schema builders, CLI runner, output, parsing, resolution, errors                       |
+| `@kjanat/dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
+| `@kjanat/dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
 
 Dual ESM/CJS. Source included in package (`src/`).
 

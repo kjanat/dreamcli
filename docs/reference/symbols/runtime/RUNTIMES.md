@@ -6,7 +6,7 @@ All known runtime values as a readonly tuple.
 
 Useful for validation, iteration, and exhaustiveness checks.
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: constant
 - Declared in: `src/runtime/detect.ts`
 - Source link: [`src/runtime/detect.ts:43`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/detect.ts#L43)
@@ -31,4 +31,4 @@ if (RUNTIMES.includes(value)) {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

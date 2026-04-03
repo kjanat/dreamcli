@@ -10,7 +10,7 @@ Populated by the CLI dispatch layer from CLISchema and
 CommandSchema. For standalone `runCommand()` calls without
 a CLI wrapper, a minimal meta is constructed from the command's own schema.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:272`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L272)
@@ -63,4 +63,4 @@ version: string | undefined;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

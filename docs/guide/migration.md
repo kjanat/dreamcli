@@ -78,7 +78,7 @@ the application layer.
 Once one migrated command exists, move its tests to the in-process harness.
 
 ```ts
-import { runCommand } from 'dreamcli/testkit';
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(deploy, ['production'], {
   env: { DEPLOY_REGION: 'eu' },

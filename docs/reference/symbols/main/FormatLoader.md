@@ -11,7 +11,7 @@ the result is a plain object before feeding it into the resolution chain.
 Implementations should throw on syntax or shape errors; the caller wraps
 those failures as CLIError with code `CONFIG_PARSE_ERROR`.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/config/index.ts`
 - Source link: [`src/core/config/index.ts:38`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L38)
@@ -52,4 +52,4 @@ parse: { (content: string): unknown; };
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

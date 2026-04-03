@@ -1,4 +1,4 @@
-# dreamcli
+# @kjanat/dreamcli
 
 The main export. Import schema builders, CLI runner, output, parsing, and errors.
 
@@ -30,7 +30,7 @@ import {
   parse,
   tokenize,
   resolve,
-} from 'dreamcli';
+} from '@kjanat/dreamcli';
 import type {
   ActivityEvent,
   BeforeParseParams,
@@ -44,7 +44,7 @@ import type {
   PluginCommandContext,
   ResolvedCommandParams,
   RunResult,
-} from 'dreamcli';
+} from '@kjanat/dreamcli';
 ```
 
 ## Schema Builders

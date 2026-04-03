@@ -7,7 +7,7 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 - Public entrypoints: 4
 - Public symbols: 159
 
-## `dreamcli`
+## `@kjanat/dreamcli`
 
 - Subpath: `.`
 - Source entrypoint: `src/index.ts`
@@ -176,7 +176,7 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 | [`WithVariadic`](/reference/symbols/main/WithVariadic)                   | `src/core/schema/arg.ts`          |
 | [`WriteFn`](/reference/symbols/main/WriteFn)                             | `src/core/output/writer.ts`       |
 
-## `dreamcli/runtime`
+## `@kjanat/dreamcli/runtime`
 
 - Subpath: `./runtime`
 - Source entrypoint: `src/runtime.ts`
@@ -216,7 +216,7 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 | ----------------------------------------------- | ----------------------- |
 | [`Runtime`](/reference/symbols/runtime/Runtime) | `src/runtime/detect.ts` |
 
-## `dreamcli/schema`
+## `@kjanat/dreamcli/schema`
 
 - Subpath: `./schema`
 - Source entrypoint: `dreamcli.schema.json`
@@ -228,7 +228,7 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 | -------- | ---------------------- |
 | `schema` | `dreamcli.schema.json` |
 
-## `dreamcli/testkit`
+## `@kjanat/dreamcli/testkit`
 
 - Subpath: `./testkit`
 - Source entrypoint: `src/testkit.ts`

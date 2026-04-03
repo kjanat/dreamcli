@@ -4,7 +4,7 @@
 
 Compile-time state carried through the builder chain.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:29`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L29)
@@ -49,4 +49,4 @@ variadic: boolean;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

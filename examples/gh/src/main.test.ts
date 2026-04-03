@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'bun:test';
 
-import { runCommand } from 'dreamcli/testkit';
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 import { authLogin, authStatus } from '$gh/commands/auth.ts';
 import { issueList, issueTriage } from '$gh/commands/issue.ts';

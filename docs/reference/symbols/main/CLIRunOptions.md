@@ -7,7 +7,7 @@ Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.
 Mirrors `RunOptions` from testkit but adds CLI-level concerns
 (version display, root help formatting, runtime adapter).
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/index.ts`
 - Source link: [`src/core/cli/index.ts:181`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L181)
@@ -174,4 +174,4 @@ verbosity?: "normal" | "quiet";
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -7,7 +7,7 @@ A multiselect prompt config with choices guaranteed non-empty.
 Same guarantee as `ResolvedSelectPromptConfig` — choices are always
 present and non-empty.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:50`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L50)
@@ -58,4 +58,4 @@ min?: number;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -12,7 +12,7 @@ stage. Throwing from any hook aborts the command just like throwing from
 middleware or the action handler. `afterAction` runs only after the
 middleware chain and action complete successfully.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/plugin.ts`
 - Source link: [`src/core/cli/plugin.ts:50`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/plugin.ts#L50)
@@ -65,4 +65,4 @@ beforeParse?: { (params: BeforeParseParams): void | Promise<void>; };
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

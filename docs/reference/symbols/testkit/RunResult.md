@@ -4,7 +4,7 @@
 
 Generated reference page for the `RunResult` interface export.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: interface
 - Declared in: `src/core/schema/run.ts`
 - Source link: [`src/testkit.ts:20`](https://github.com/kjanat/dreamcli/blob/master/src/testkit.ts#L20)
@@ -15,4 +15,4 @@ Generated reference page for the `RunResult` interface export.
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

@@ -923,7 +923,7 @@ class CommandBuilder<
 	 *
 	 * @example
 	 * ```ts
-	 * import { CLIError, command, middleware } from 'dreamcli';
+	 * import { CLIError, command, middleware } from '@kjanat/dreamcli';
 	 *
 	 * interface User {
 	 *   id: string;

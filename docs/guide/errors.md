@@ -5,7 +5,7 @@ dreamcli provides structured errors with codes, suggestions, and JSON serializat
 ## CLIError
 
 ```ts
-import { CLIError } from 'dreamcli';
+import { CLIError } from '@kjanat/dreamcli';
 
 throw new CLIError('Deployment failed', {
   code: 'DEPLOY_FAILED',
@@ -29,7 +29,7 @@ throw new CLIError('Deployment failed', {
 ## Error Types
 
 ```ts
-import { CLIError, ParseError, ValidationError } from 'dreamcli';
+import { CLIError, ParseError, ValidationError } from '@kjanat/dreamcli';
 ```
 
 - **`CLIError`** — base error for application-level failures
@@ -41,7 +41,7 @@ Parse and validation errors include "did you mean?" suggestions automatically.
 ## Type Guards
 
 ```ts
-import { isCLIError, isParseError, isValidationError } from 'dreamcli';
+import { isCLIError, isParseError, isValidationError } from '@kjanat/dreamcli';
 
 try {
   await cli.run();

@@ -10,7 +10,7 @@ The raw result returned by a prompt engine for a single prompt.
 Coercion to the flag's kind is the resolver's responsibility, not the
 prompt engine's.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/prompt.ts`
 - Source link: [`src/core/schema/prompt.ts:127`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L127)
@@ -29,4 +29,4 @@ type PromptResult =
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

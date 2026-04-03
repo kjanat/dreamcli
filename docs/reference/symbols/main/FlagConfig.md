@@ -7,7 +7,7 @@ Compile-time state carried through the builder chain.
 Adding new tracked properties only requires extending this interface — no
 builder signature changes.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:44`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L44)
@@ -52,4 +52,4 @@ valueType: unknown;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

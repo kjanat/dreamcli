@@ -9,7 +9,7 @@ Receives partially resolved values and returns a prompt schema for
 flags that should be prompted. Commands without `.interactive()` use
 per-flag prompt configs directly.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:111`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L111)
@@ -42,4 +42,4 @@ const deploy = command('deploy')
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

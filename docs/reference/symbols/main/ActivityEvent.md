@@ -7,7 +7,7 @@ Discriminated union of spinner and progress lifecycle events.
 Captured by testkit in RunResult.activity for assertion
 without polluting stdout/stderr arrays.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/activity.ts`
 - Source link: [`src/core/schema/activity.ts:105`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/activity.ts#L105)
@@ -34,4 +34,4 @@ type ActivityEvent =
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

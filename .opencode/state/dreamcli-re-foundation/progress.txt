@@ -45,6 +45,7 @@ Started: 2026-04-02
 - For docs-surface cross-linking, keep example metadata as the source of truth for guide and symbol relations, then derive symbol-page backlinks from that shared example model instead of hand-linking reference pages.
 - For late-stage narrative docs, ship the authored guide pages together with support-matrix and semantic-delta updates so truth surfaces do not keep bundling newly shipped docs with still-deferred follow-ups.
 - For CI coverage in this repo, run `vitest --coverage` under Node and give the TypeDoc-heavy docs tests explicit timeouts; Bun lacks the needed inspector coverage APIs and the default 5s limit is too tight once coverage is on.
+- For package-surface renames, make docs generators derive import IDs and entrypoint names from `package.json` and parse scoped subpaths explicitly; hardcoded `dreamcli/*` strings break symbol links, TypeDoc matching, and schema-description extraction.
 
 ## Project Tracking
 
@@ -310,3 +311,11 @@ Started: 2026-04-02
 - Clarified workflow comments and job names so Bun/Node execution tests, Node-only coverage, Deno smoke proof, and docs verification each describe the real runtime/platform guarantees they cover.
 - Files changed: `.github/workflows/ci.yml`, `package.json`, `vitest.config.ts`, `src/index.test.ts`, `scripts/docs/shared/typedoc.test.ts`, `scripts/docs/shared/symbol-pages.test.ts`, `scripts/docs/shared/meta-schema-descriptions.test.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: coverage hardening is only trustworthy here when it matches the runtime reality; Node is the right coverage runner, and TypeDoc-backed docs tests need explicit timeout budget once coverage instrumentation is enabled.
+
+## Task - [rename-to-scoped-package]
+
+- Renamed the npm package to `@kjanat/dreamcli`, updated public install/import guidance across README, authored docs, examples, JSDoc examples, Deno path mappings, the gh-project scripts, and the example workspace package metadata.
+- Fixed docs-generation seams so public entrypoint names, symbol links, TypeDoc normalization, related example links, and definition-schema description extraction all derive from the scoped package name instead of hardcoded `dreamcli` IDs.
+- Regenerated source-backed outputs so `dreamcli.schema.json`, docs generated artifacts, TypeDoc snapshots, symbol pages, and lockfile/package build artifacts now reflect the scoped package surface.
+- Files changed: `package.json`, `deno.jsonc`, `README.md`, `.github/workflows/publish-npm.yml`, `docs/.vitepress/config.ts`, `docs/guide/*.md`, `docs/reference/*.md`, `docs/concepts/testing.md`, `examples/**/*.ts`, `examples/gh/package.json`, `examples/gh/src/**/*.ts`, `examples/tsconfig.json`, `scripts/gh-project/**/*.ts`, `scripts/docs/shared/{api-index,examples,meta-schema-descriptions,symbol-pages}.ts`, `scripts/docs/shared/*.test.ts`, `scripts/emit-definition-schema.ts`, `src/**/*.ts`, `dreamcli.schema.json`, `docs/.generated/**/*`, `docs/examples/*.md`, `docs/reference/symbols/**/*.md`, `bun.lock`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: scoped package renames are not just string swaps; any generator that keys docs or schema metadata off public import IDs has to derive those IDs from the package manifest and handle scoped subpath parsing directly.

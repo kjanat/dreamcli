@@ -7,7 +7,7 @@ The subset of RuntimeAdapter needed for config discovery.
 Exported so custom hosts and tests can type the minimal adapter required by
 discoverConfig without depending on the full runtime adapter shape.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/config/index.ts`
 - Source link: [`src/core/config/index.ts:261`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L261)
@@ -24,4 +24,4 @@ type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -10,7 +10,7 @@ action handler runs:
 - `'required'` — must be supplied; error if missing
 - `'defaulted'` — always present (falls back to default value)
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:28`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L28)
@@ -27,4 +27,4 @@ type FlagPresence = (typeof FLAG_PRESENCES)[number];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

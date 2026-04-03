@@ -4,7 +4,7 @@
 
 Generated reference page for the `createOutput` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/output/index.ts`
 - Source link: [`src/core/output/index.ts:586`](https://github.com/kjanat/dreamcli/blob/master/src/core/output/index.ts#L586)
@@ -45,4 +45,4 @@ const out = createOutput({
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

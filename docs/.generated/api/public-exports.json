@@ -1,7 +1,7 @@
 [
   {
     "subpath": ".",
-    "entrypoint": "dreamcli",
+    "entrypoint": "@kjanat/dreamcli",
     "sourcePath": "src/index.ts",
     "symbolCount": 138,
     "kindGroups": [
@@ -729,7 +729,7 @@
   },
   {
     "subpath": "./runtime",
-    "entrypoint": "dreamcli/runtime",
+    "entrypoint": "@kjanat/dreamcli/runtime",
     "sourcePath": "src/runtime.ts",
     "symbolCount": 9,
     "kindGroups": [
@@ -812,7 +812,7 @@
   },
   {
     "subpath": "./schema",
-    "entrypoint": "dreamcli/schema",
+    "entrypoint": "@kjanat/dreamcli/schema",
     "sourcePath": "dreamcli.schema.json",
     "symbolCount": 1,
     "kindGroups": [
@@ -831,7 +831,7 @@
   },
   {
     "subpath": "./testkit",
-    "entrypoint": "dreamcli/testkit",
+    "entrypoint": "@kjanat/dreamcli/testkit",
     "sourcePath": "src/testkit.ts",
     "symbolCount": 11,
     "kindGroups": [

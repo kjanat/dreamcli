@@ -12,13 +12,13 @@ describe('api-index', () => {
 		const entrypoints = await collectPublicApiIndex(packageJsonPath);
 
 		expect(entrypoints.map((entrypoint) => entrypoint.entrypoint)).toEqual([
-			'dreamcli',
-			'dreamcli/runtime',
-			'dreamcli/schema',
-			'dreamcli/testkit',
+			'@kjanat/dreamcli',
+			'@kjanat/dreamcli/runtime',
+			'@kjanat/dreamcli/schema',
+			'@kjanat/dreamcli/testkit',
 		]);
 
-		const root = entrypoints.find((entrypoint) => entrypoint.entrypoint === 'dreamcli');
+		const root = entrypoints.find((entrypoint) => entrypoint.entrypoint === '@kjanat/dreamcli');
 		expect(root?.sourcePath).toBe('src/index.ts');
 		expect(root?.kindGroups.find((group) => group.kind === 'class')?.symbols).toContainEqual({
 			name: 'CLIBuilder',
@@ -36,7 +36,9 @@ describe('api-index', () => {
 			sourcePath: 'src/core/cli/index.ts',
 		});
 
-		const runtime = entrypoints.find((entrypoint) => entrypoint.entrypoint === 'dreamcli/runtime');
+		const runtime = entrypoints.find(
+			(entrypoint) => entrypoint.entrypoint === '@kjanat/dreamcli/runtime',
+		);
 		expect(runtime?.sourcePath).toBe('src/runtime.ts');
 		expect(runtime?.kindGroups.find((group) => group.kind === 'interface')?.symbols).toContainEqual(
 			{
@@ -46,7 +48,9 @@ describe('api-index', () => {
 			},
 		);
 
-		const schema = entrypoints.find((entrypoint) => entrypoint.entrypoint === 'dreamcli/schema');
+		const schema = entrypoints.find(
+			(entrypoint) => entrypoint.entrypoint === '@kjanat/dreamcli/schema',
+		);
 		expect(schema?.kindGroups).toEqual([
 			{
 				kind: 'asset',
@@ -55,7 +59,9 @@ describe('api-index', () => {
 			},
 		]);
 
-		const testkit = entrypoints.find((entrypoint) => entrypoint.entrypoint === 'dreamcli/testkit');
+		const testkit = entrypoints.find(
+			(entrypoint) => entrypoint.entrypoint === '@kjanat/dreamcli/testkit',
+		);
 		expect(testkit?.sourcePath).toBe('src/testkit.ts');
 		expect(testkit?.kindGroups.find((group) => group.kind === 'function')?.symbols).toContainEqual({
 			name: 'runCommand',
@@ -69,7 +75,7 @@ describe('api-index', () => {
 		const markdown = renderPublicApiIndex(entrypoints);
 
 		expect(markdown).toContain('# Generated API Index');
-		expect(markdown).toContain('## `dreamcli`');
+		expect(markdown).toContain('## `@kjanat/dreamcli`');
 		expect(markdown).toContain('### Functions');
 		expect(markdown).toContain(
 			'| [`cli`](/reference/symbols/main/cli) | `src/core/cli/index.ts` |',

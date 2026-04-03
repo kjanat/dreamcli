@@ -5,7 +5,7 @@
 Advanced type helper used by `FlagBuilder` modifiers to replace presence.
 Most consumers rely on inference and never reference this directly.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:59`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L59)
@@ -44,4 +44,4 @@ valueType: C['valueType'];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

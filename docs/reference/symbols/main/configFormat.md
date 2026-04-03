@@ -4,7 +4,7 @@
 
 Generated reference page for the `configFormat` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/index.ts`
 - Source link: [`src/core/config/index.ts:385`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L385)
@@ -26,7 +26,7 @@ function configFormat(
 ## Examples
 
 ```ts
-import { configFormat } from 'dreamcli';
+import { configFormat } from '@kjanat/dreamcli';
 import { parse as parseYaml } from 'yaml';
 import { parse as parseTOML } from '@iarna/toml';
 
@@ -48,4 +48,4 @@ cli('myapp')
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

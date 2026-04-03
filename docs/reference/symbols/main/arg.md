@@ -15,7 +15,7 @@ Four kinds are available:
 - `arg.enum(values)` — constrained to listed literals
 - `arg.custom(fn)` — arbitrary parse function, infers return type
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: constant
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:662`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L662)
@@ -29,7 +29,7 @@ const arg: ArgFactory;
 ## Examples
 
 ```ts
-import { command, arg } from 'dreamcli';
+import { command, arg } from '@kjanat/dreamcli';
 
 command('deploy')
   .arg('target', arg.string().env('DEPLOY_TARGET').describe('Where to deploy'))
@@ -49,7 +49,7 @@ command('deploy')
 - [Mixed machine-readable JSON and human-readable side-channel output.](/examples/json-mode) - `examples/json-mode.ts`
 - [Middleware patterns: auth guard, request timing, error handling.](/examples/middleware) - `examples/middleware.ts`
 - [Multi-command CLI with nested command groups (git-like).](/examples/multi-command) - `examples/multi-command.ts`
-- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+- [Testing examples using @kjanat/dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
 
 ## Related Guides
 
@@ -71,4 +71,4 @@ command('deploy')
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

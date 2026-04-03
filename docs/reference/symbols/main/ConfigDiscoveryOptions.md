@@ -4,7 +4,7 @@
 
 Options for discoverConfig.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/config/index.ts`
 - Source link: [`src/core/config/index.ts:55`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L55)
@@ -53,4 +53,4 @@ searchPaths?: readonly string[];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

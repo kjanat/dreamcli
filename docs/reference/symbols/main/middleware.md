@@ -4,7 +4,7 @@
 
 Generated reference page for the `middleware` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/schema/middleware.ts`
 - Source link: [`src/core/schema/middleware.ts:150`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/middleware.ts#L150)
@@ -51,7 +51,7 @@ command('deploy')
 ## Related Examples
 
 - [Middleware patterns: auth guard, request timing, error handling.](/examples/middleware) - `examples/middleware.ts`
-- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+- [Testing examples using @kjanat/dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
 
 ## Related Guides
 
@@ -66,4 +66,4 @@ command('deploy')
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

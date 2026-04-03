@@ -12,10 +12,10 @@
  * not the typical starting point for application code.
  *
  * Test utilities (runCommand, createCaptureOutput, createTestPrompter, etc.)
- * are available from `dreamcli/testkit`. Runtime adapters (createAdapter,
- * RuntimeAdapter, etc.) are available from `dreamcli/runtime`.
+ * are available from `@kjanat/dreamcli/testkit`. Runtime adapters (createAdapter,
+ * RuntimeAdapter, etc.) are available from `@kjanat/dreamcli/runtime`.
  *
- * @module dreamcli
+ * @module @kjanat/dreamcli
  */
 
 export type {

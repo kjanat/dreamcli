@@ -10,7 +10,7 @@ A record mapping flag names to prompt configs or falsy values.
 Only flag names that need prompting should have truthy values.
 Flags not mentioned are handled by their per-flag `.prompt()` config.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:88`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L88)
@@ -29,4 +29,4 @@ type InteractiveResult = Readonly<
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

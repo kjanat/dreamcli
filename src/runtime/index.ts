@@ -6,7 +6,7 @@
  * adapters wrap platform-specific APIs (Node `process`, Deno namespace, etc.)
  * behind this uniform interface.
  *
- * @module dreamcli/runtime
+ * @module @kjanat/dreamcli/runtime
  */
 
 export type { RuntimeAdapter, TestAdapterOptions } from './adapter.ts';

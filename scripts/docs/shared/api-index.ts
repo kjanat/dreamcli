@@ -68,6 +68,7 @@ export async function collectPublicApiIndex(
 ): Promise<readonly PublicApiEntrypoint[]> {
 	const rootDir = dirname(packageJsonFilePath);
 	const packageJson = await readJsonFile(packageJsonFilePath);
+	const packageName = typeof packageJson.name === 'string' ? packageJson.name : 'dreamcli';
 	const exportsField = packageJson.exports;
 	if (!isRecord(exportsField)) {
 		return [];
@@ -96,7 +97,7 @@ export async function collectPublicApiIndex(
 
 	return resolvedEntrypoints
 		.map(({ subpath, targetPath }) => {
-			const entrypoint = toEntrypointName(subpath);
+			const entrypoint = toEntrypointName(packageName, subpath);
 			const sourcePath = toRepoPath(rootDir, targetPath);
 			const symbols =
 				extname(targetPath) === '.json'
@@ -342,8 +343,8 @@ function classifyExportKind(
 	return 'unknown';
 }
 
-function toEntrypointName(subpath: string): string {
-	return subpath === '.' ? 'dreamcli' : `dreamcli/${subpath.slice(2)}`;
+function toEntrypointName(packageName: string, subpath: string): string {
+	return subpath === '.' ? packageName : `${packageName}/${subpath.slice(2)}`;
 }
 
 function escapeTable(value: string): string {

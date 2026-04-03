@@ -8,7 +8,7 @@ Identical to ActionParams: derives run after full resolution and
 before the action handler, with typed args/flags/current context plus `out`
 and `meta`.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:327`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L327)
@@ -29,4 +29,4 @@ type DeriveParams<
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -4,7 +4,7 @@
 
 A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
 - Source link: [`src/core/schema/prompt.ts:88`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L88)
@@ -49,4 +49,4 @@ value: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

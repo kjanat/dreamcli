@@ -7,7 +7,7 @@ Handle returned by Out.spinner for lifecycle control.
 Terminal methods (`succeed`, `fail`, `stop`) are idempotent — calling any
 of them after the handle is already stopped is a no-op, not an error.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/activity.ts`
 - Source link: [`src/core/schema/activity.ts:39`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/activity.ts#L39)
@@ -58,4 +58,4 @@ wrap<T>(promise: Promise<T>, options?: { fail?: string; succeed?: string; }): Pr
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

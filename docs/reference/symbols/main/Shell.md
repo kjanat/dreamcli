@@ -6,7 +6,7 @@ Supported shell targets for completion script generation.
 
 `bash`, `zsh`, `fish`, and `powershell` are implemented today.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/completion/index.ts`
 - Source link: [`src/core/completion/index.ts:26`](https://github.com/kjanat/dreamcli/blob/master/src/core/completion/index.ts#L26)
@@ -23,4 +23,4 @@ type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

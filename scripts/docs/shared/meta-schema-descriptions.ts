@@ -158,6 +158,22 @@ function buildNode(
 	};
 }
 
+function qualifyTarget(packageName: string, target: NodeTarget): NodeTarget {
+	return {
+		exportId: target.exportId.replace(/^dreamcli:/, `${packageName}:`),
+		...(target.property !== undefined ? { property: target.property } : {}),
+	};
+}
+
+function qualifyTargets(
+	packageName: string,
+	targets: Readonly<Record<string, NodeTarget>>,
+): Record<string, NodeTarget> {
+	return Object.fromEntries(
+		Object.entries(targets).map(([name, target]) => [name, qualifyTarget(packageName, target)]),
+	);
+}
+
 function renderDescriptionNode(node: MetaSchemaDescriptionNode, indent: number): string {
 	const pad = '\t'.repeat(indent);
 	const lines: string[] = ['{'];
@@ -181,12 +197,22 @@ function renderDescriptionNode(node: MetaSchemaDescriptionNode, indent: number):
 export function buildDefinitionMetaSchemaDescriptions(
 	normalized: NormalizedApiModel,
 ): MetaSchemaDescriptionResult {
+	const rootTarget = qualifyTarget(normalized.packageName, ROOT_TARGET);
+	const rootPropertyTargets = qualifyTargets(normalized.packageName, ROOT_PROPERTY_TARGETS);
+	const defTargets = qualifyTargets(normalized.packageName, DEF_TARGETS);
+	const defPropertyTargets: Record<string, Record<string, NodeTarget>> = Object.fromEntries(
+		Object.entries(DEF_PROPERTY_TARGETS).map(([name, targets]) => [
+			name,
+			qualifyTargets(normalized.packageName, targets),
+		]),
+	);
+
 	return {
-		root: buildNode(normalized, ROOT_TARGET, ROOT_PROPERTY_TARGETS),
+		root: buildNode(normalized, rootTarget, rootPropertyTargets),
 		defs: Object.fromEntries(
-			Object.entries(DEF_TARGETS).map(([name, target]) => [
+			Object.entries(defTargets).map(([name, target]) => [
 				name,
-				buildNode(normalized, target, DEF_PROPERTY_TARGETS[name] ?? {}),
+				buildNode(normalized, target, defPropertyTargets[name] ?? {}),
 			]),
 		),
 	};

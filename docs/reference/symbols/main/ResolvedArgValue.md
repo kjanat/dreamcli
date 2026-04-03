@@ -13,7 +13,7 @@ Variadic args always produce an array. Non-variadic:
 - `'required'` → `T`
 - `'defaulted'` → `T`
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:71`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L71)
@@ -34,4 +34,4 @@ type ResolvedArgValue<C extends ArgConfig> = C['variadic'] extends 'true'
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

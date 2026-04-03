@@ -5,7 +5,7 @@
 Multi-selection prompt — maps to `array` flags.
 Returns an array of selected SelectChoice values. Part of PromptConfig.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
 - Source link: [`src/core/schema/prompt.ts:66`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L66)
@@ -65,4 +65,4 @@ min?: number;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

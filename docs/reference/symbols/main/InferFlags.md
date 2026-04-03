@@ -4,7 +4,7 @@
 
 Extract resolved value types from a record of builders.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:86`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L86)
@@ -23,4 +23,4 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -17,7 +17,7 @@ would yield:
 Because the type is intentionally `unknown`, tests may also inject malformed
 answers to exercise downstream validation and error reporting.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: type
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:155`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L155)
@@ -34,4 +34,4 @@ type TestAnswer = unknown;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)

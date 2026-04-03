@@ -9,7 +9,7 @@ Known JavaScript runtime environments.
 - `'deno'` — Deno
 - `'unknown'` — Unrecognized environment
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: type
 - Declared in: `src/runtime/detect.ts`
 - Source link: [`src/runtime/detect.ts:29`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/detect.ts#L29)
@@ -26,4 +26,4 @@ type Runtime = 'node' | 'bun' | 'deno' | 'unknown';
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

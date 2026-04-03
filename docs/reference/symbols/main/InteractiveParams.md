@@ -8,7 +8,7 @@ Parameters received by the interactive resolver function.
 via CLI, env, or config, `undefined` for unresolved flags. The resolver
 uses this to decide which prompts to show based on current state.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
 - Source link: [`src/core/schema/command.ts:74`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L74)
@@ -39,4 +39,4 @@ flags: Readonly<Partial<InferFlags<InteractiveParams.F>>>;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

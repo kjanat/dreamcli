@@ -4,7 +4,7 @@
 
 Extract the resolved value type from a `FlagBuilder`.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:83`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L83)
@@ -22,4 +22,4 @@ type InferFlag<B> =
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -4,7 +4,7 @@
 
 Generated reference page for the `createSchema` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:253`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L253)
@@ -38,4 +38,4 @@ const schema = createSchema('enum', {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

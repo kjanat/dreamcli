@@ -4,7 +4,7 @@
 
 Discriminated result of config discovery.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/config/index.ts`
 - Source link: [`src/core/config/index.ts:93`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L93)
@@ -21,4 +21,4 @@ type ConfigDiscoveryResult = ConfigFound | ConfigNotFound;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

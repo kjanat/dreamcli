@@ -13,7 +13,7 @@
  * into a custom host, testing runtime behavior directly, or building their own
  * process/bootstrap layer.
  *
- * @module dreamcli/runtime
+ * @module @kjanat/dreamcli/runtime
  */
 
 export type {

@@ -7,7 +7,7 @@ Runtime descriptor for the CLI program.
 Stores the program name, version, description, and registered commands.
 Built incrementally by `CLIBuilder`.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/index.ts`
 - Source link: [`src/core/cli/index.ts:90`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L90)
@@ -114,4 +114,4 @@ version: string | undefined;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

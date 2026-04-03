@@ -13,7 +13,7 @@ Hosted at DEFINITION_SCHEMA_URL for `$schema` resolution. Also
 exported so tooling can validate definition documents without a network
 round-trip.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: constant
 - Declared in: `src/core/json-schema/index.ts`
 - Source link: [`src/core/json-schema/index.ts:814`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L814)
@@ -28,7 +28,7 @@ const definitionMetaSchema: Record<string, unknown>;
 
 ```ts
 import Ajv from 'ajv/dist/2020';
-import { definitionMetaSchema, generateSchema } from 'dreamcli';
+import { definitionMetaSchema, generateSchema } from '@kjanat/dreamcli';
 
 const ajv = new Ajv();
 const validate = ajv.compile(definitionMetaSchema);
@@ -41,4 +41,4 @@ const valid = validate(generateSchema(myCli.schema));
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

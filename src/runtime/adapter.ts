@@ -6,7 +6,7 @@
  * argv/env access, I/O streams, TTY detection, working directory, and
  * process exit. Concrete implementations exist for Node, Bun, and Deno.
  *
- * @module dreamcli/runtime/adapter
+ * @module @kjanat/dreamcli/runtime/adapter
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
@@ -246,7 +246,7 @@ const noopReadFile: (path: string) => Promise<string | null> = () => Promise.res
 /**
  * Create a test runtime adapter with injectable process state.
  *
- * Use this in `dreamcli/testkit` tests when you need to simulate argv,
+ * Use this in `@kjanat/dreamcli/testkit` tests when you need to simulate argv,
  * environment variables, TTY state, stdin, or config-file reads without
  * touching the host process.
  *

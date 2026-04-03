@@ -4,7 +4,7 @@
 
 Generated reference page for the `isCLIError` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/errors/index.ts`
 - Source link: [`src/core/errors/index.ts:166`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L166)
@@ -21,4 +21,4 @@ function isCLIError(value: unknown): value is CLIError;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

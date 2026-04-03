@@ -7,7 +7,7 @@ The subset of RuntimeAdapter needed for package.json discovery.
 Using a narrow pick keeps the function easy to test and makes the
 dependency explicit.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/config/package-json.ts`
 - Source link: [`src/core/config/package-json.ts:40`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L40)
@@ -24,4 +24,4 @@ type PackageJsonAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd'>;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

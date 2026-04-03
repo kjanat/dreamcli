@@ -5,7 +5,7 @@
 Factory that creates FlagBuilder instances seeded with the correct
 FlagKind and initial type-level config.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/flag.ts`
 - Source link: [`src/core/schema/flag.ts:538`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L538)
@@ -62,4 +62,4 @@ string(): FlagBuilder<{ optionalFallback: "undefined"; presence: "optional"; val
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

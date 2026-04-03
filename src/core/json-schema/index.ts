@@ -87,11 +87,11 @@ function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions
 /**
  * `$schema` URL for definition documents.
  *
- * Resolves via the `dreamcli/schema.json` package export on the CDN.
+ * Resolves via the `@kjanat/dreamcli/schema` package export on the CDN.
  * For offline or local-first workflows, use
- * `./node_modules/dreamcli/dreamcli.schema.json`.
+ * `./node_modules/@kjanat/dreamcli/dreamcli.schema.json`.
  */
-const DEFINITION_SCHEMA_URL = 'https://cdn.jsdelivr.net/npm/dreamcli/schema';
+const DEFINITION_SCHEMA_URL = 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/schema';
 
 /** Meta-schema URL for JSON Schema draft 2020-12 (input validation). */
 const JSON_SCHEMA_DRAFT = 'https://json-schema.org/draft/2020-12/schema';
@@ -804,7 +804,7 @@ function withDefinitionMetaSchemaDescriptions(
  * @example
  * ```ts
  * import Ajv from 'ajv/dist/2020';
- * import { definitionMetaSchema, generateSchema } from 'dreamcli';
+ * import { definitionMetaSchema, generateSchema } from '@kjanat/dreamcli';
  *
  * const ajv = new Ajv();
  * const validate = ajv.compile(definitionMetaSchema);

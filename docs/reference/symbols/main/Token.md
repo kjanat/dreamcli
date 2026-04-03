@@ -7,7 +7,7 @@ Token discriminated union.
 The tokenizer produces these from raw argv strings. The parser then
 interprets them against a command schema.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/parse/index.ts`
 - Source link: [`src/core/parse/index.ts:33`](https://github.com/kjanat/dreamcli/blob/master/src/core/parse/index.ts#L33)
@@ -28,4 +28,4 @@ type Token =
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

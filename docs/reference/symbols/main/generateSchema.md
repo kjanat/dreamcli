@@ -4,7 +4,7 @@
 
 Generated reference page for the `generateSchema` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/json-schema/index.ts`
 - Source link: [`src/core/json-schema/index.ts:124`](https://github.com/kjanat/dreamcli/blob/master/src/core/json-schema/index.ts#L124)
@@ -37,4 +37,4 @@ writeFileSync('cli-schema.json', JSON.stringify(definition, null, 2));
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

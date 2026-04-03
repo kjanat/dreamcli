@@ -7,7 +7,7 @@ Handle returned by Out.progress for lifecycle control.
 Terminal methods (`done`, `fail`) are idempotent — calling any
 of them after the handle is already stopped is a no-op.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/activity.ts`
 - Source link: [`src/core/schema/activity.ts:86`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/activity.ts#L86)
@@ -52,4 +52,4 @@ update(value: number): void;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

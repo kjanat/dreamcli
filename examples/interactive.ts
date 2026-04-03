@@ -19,7 +19,7 @@
  *   echo '{}' | npx tsx examples/interactive.ts        # non-interactive: uses defaults / errors
  */
 
-import { arg, cli, command, flag } from 'dreamcli';
+import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
 	.description('Deploy to an environment')

@@ -4,7 +4,7 @@
 
 Generated reference page for the `formatHelp` function export.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/help/index.ts`
 - Source link: [`src/core/help/index.ts:379`](https://github.com/kjanat/dreamcli/blob/master/src/core/help/index.ts#L379)
@@ -32,4 +32,4 @@ const text = formatHelp(deploy.schema, { binName: 'mycli' });
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -16,7 +16,7 @@
  * No permissions are needed for `Deno.args`, `Deno.stdout`, `Deno.stderr`,
  * `Deno.stdin`, `Deno.exit()`, or TTY detection.
  *
- * @module dreamcli/runtime/deno
+ * @module @kjanat/dreamcli/runtime/deno
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
@@ -154,8 +154,8 @@ function safeCwd(deno: DenoNamespace): string {
  *
  * @example
  * ```ts
- * import { cli } from 'dreamcli';
- * import { createDenoAdapter } from 'dreamcli/runtime';
+ * import { cli } from '@kjanat/dreamcli';
+ * import { createDenoAdapter } from '@kjanat/dreamcli/runtime';
  *
  * cli('mycli')
  *   .command(deploy)

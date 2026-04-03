@@ -4,7 +4,7 @@
 
 Structured deprecation notice emitted for explicitly sourced values.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/resolve/contracts.ts`
 - Source link: [`src/core/resolve/contracts.ts:57`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/contracts.ts#L57)
@@ -43,4 +43,4 @@ name: string;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

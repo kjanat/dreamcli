@@ -7,7 +7,7 @@ Middleware handler function with typed `next()` parameter.
 The `Output` generic constrains what properties must be passed to
 `next()`, ensuring type-safe context additions at the call site.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/middleware.ts`
 - Source link: [`src/core/schema/middleware.ts:67`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/middleware.ts#L67)
@@ -33,4 +33,4 @@ type MiddlewareHandler<Output extends Record<string, unknown>> = {
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -4,7 +4,7 @@
 
 Output stream override for text table rendering.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/activity.ts`
 - Source link: [`src/core/schema/activity.ts:188`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/activity.ts#L188)
@@ -21,4 +21,4 @@ type TableStream = 'stdout' | 'stderr';
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

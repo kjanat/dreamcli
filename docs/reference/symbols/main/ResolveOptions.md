@@ -7,7 +7,7 @@ External state the resolver may consult after parsing.
 The resolver never reaches into `process`, files, or terminal APIs directly;
 callers inject those facts through this contract.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/resolve/contracts.ts`
 - Source link: [`src/core/resolve/contracts.ts:49`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/contracts.ts#L49)
@@ -52,4 +52,4 @@ stdinData?: string | "null";
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

@@ -16,7 +16,7 @@
  *   npx tsx examples/json-mode.ts show nonexistent --json  # JSON error
  */
 
-import { arg, CLIError, cli, command, flag } from 'dreamcli';
+import { arg, CLIError, cli, command, flag } from '@kjanat/dreamcli';
 
 // --- Sample data ---
 

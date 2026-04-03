@@ -8,7 +8,7 @@ The type parameter `C` is a phantom that tracks the value type, presence,
 and variadic state through the fluent chain. Each modifier returns a **new**
 builder — the original is never mutated.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:225`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L225)
@@ -132,4 +132,4 @@ type F = InferArg<typeof files>; // string[]
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

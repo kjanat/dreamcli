@@ -2,7 +2,7 @@
  * Shared test helpers for runtime adapter tests.
  *
  * @internal — test-only, not exported from any public barrel.
- * @module dreamcli/runtime/test-helpers
+ * @module @kjanat/dreamcli/runtime/test-helpers
  */
 
 import { vi } from 'vitest';

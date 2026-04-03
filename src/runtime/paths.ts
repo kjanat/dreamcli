@@ -5,7 +5,7 @@
  * These helpers keep the fallback chain identical across runtimes while
  * letting each adapter supply its own platform detection.
  *
- * @module dreamcli/runtime/paths
+ * @module @kjanat/dreamcli/runtime/paths
  */
 
 /**

@@ -9,7 +9,7 @@ action handler runs:
 - `'optional'` — may be `undefined` if not supplied
 - `'defaulted'` — always present (falls back to default value)
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:24`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L24)
@@ -26,4 +26,4 @@ type ArgPresence = (typeof ARG_PRESENCES)[number];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

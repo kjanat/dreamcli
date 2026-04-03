@@ -6,7 +6,7 @@ The runtime descriptor stored inside every `ArgBuilder`. Consumers (parser,
 help generator) read this to understand the arg's shape without touching
 generics.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/arg.ts`
 - Source link: [`src/core/schema/arg.ts:101`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L101)
@@ -117,4 +117,4 @@ variadic: boolean;
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

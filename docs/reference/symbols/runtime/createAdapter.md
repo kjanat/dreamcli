@@ -4,7 +4,7 @@
 
 Generated reference page for the `createAdapter` function export.
 
-- Import: `dreamcli/runtime`
+- Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/auto.ts`
 - Source link: [`src/runtime/auto.ts:86`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/auto.ts#L86)
@@ -23,7 +23,7 @@ function createAdapter(globals?: GlobalForDetect): RuntimeAdapter;
 ## Examples
 
 ```ts
-import { cli } from 'dreamcli';
+import { cli } from '@kjanat/dreamcli';
 
 // Auto-detects Node/Bun/Deno and creates the right adapter
 cli('mycli').run(); // uses createAdapter() internally
@@ -35,4 +35,4 @@ cli('mycli').run(); // uses createAdapter() internally
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/runtime](/reference/runtime)
+- [@kjanat/dreamcli/runtime](/reference/runtime)

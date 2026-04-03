@@ -4,7 +4,7 @@
  * @module
  */
 
-import { command, flag } from 'dreamcli';
+import { command, flag } from '@kjanat/dreamcli';
 import { readPrdState } from '../lib/prd.ts';
 import { loadProjectContext } from '../lib/project.ts';
 import { buildListRows, ownerFlag, parseWorkflow, prdFlag, projectFlag } from '../lib/shared.ts';

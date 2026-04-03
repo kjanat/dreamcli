@@ -7,7 +7,7 @@ Structured result from running a command.
 Contains the exit code, captured stdout/stderr output, and an `error`
 field that is `undefined` on success and populated on failure.
 
-- Import: `dreamcli`
+- Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/run.ts`
 - Source link: [`src/core/schema/run.ts:161`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/run.ts#L161)
@@ -73,4 +73,4 @@ stdout: readonly string[];
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli](/reference/main)
+- [@kjanat/dreamcli](/reference/main)

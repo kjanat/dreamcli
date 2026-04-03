@@ -34,7 +34,7 @@ Runtime detection is automatic — dreamcli picks the right adapter at startup.
 ## Explicit Adapter
 
 ```ts
-import { createAdapter, createNodeAdapter } from 'dreamcli/runtime';
+import { createAdapter, createNodeAdapter } from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect
 const nodeAdapter = createNodeAdapter(); // explicit
@@ -54,7 +54,7 @@ deno run --allow-read --allow-env mycli.ts deploy
 The test harness uses a built-in test adapter that doesn't touch real process state:
 
 ```ts
-import { runCommand } from 'dreamcli/testkit';
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(cmd, ['--flag', 'value'], {
   env: { MY_VAR: 'test' },

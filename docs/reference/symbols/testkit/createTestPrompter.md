@@ -4,7 +4,7 @@
 
 Generated reference page for the `createTestPrompter` function export.
 
-- Import: `dreamcli/testkit`
+- Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/core/prompt/index.ts`
 - Source link: [`src/core/prompt/index.ts:195`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L195)
@@ -36,7 +36,7 @@ const prompter = createTestPrompter(['eu', true, PROMPT_CANCEL]);
 
 ## Related Examples
 
-- [Testing examples using dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
+- [Testing examples using @kjanat/dreamcli/testkit.](/examples/testing) - `examples/testing.ts`
 
 ## Related Guides
 
@@ -50,4 +50,4 @@ const prompter = createTestPrompter(['eu', true, PROMPT_CANCEL]);
 - [Example Hover](/reference/example-hover-prototype)
 - [API overview](/reference/api)
 - [Docs Health](/reference/docs-health)
-- [dreamcli/testkit](/reference/testkit)
+- [@kjanat/dreamcli/testkit](/reference/testkit)
