@@ -9,7 +9,9 @@ import { packageJsonPath } from './paths.ts';
 import { collectTypeDocModel } from './typedoc.ts';
 
 describe('typedoc normalization', () => {
-	it('normalizes public entrypoints into a DreamCLI-owned docs model', async () => {
+	it('normalizes public entrypoints into a DreamCLI-owned docs model', {
+		timeout: 20_000,
+	}, async () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const { normalized, rawProject } = await collectTypeDocModel(packageJsonPath, publicApi);
 
@@ -50,7 +52,9 @@ describe('typedoc normalization', () => {
 		]);
 	});
 
-	it('preserves symbol docs, overloads, and nested property types without leaking raw TypeDoc shape', async () => {
+	it('preserves symbol docs, overloads, and nested property types without leaking raw TypeDoc shape', {
+		timeout: 20_000,
+	}, async () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
 

@@ -311,7 +311,7 @@
 			"description": "Add coverage thresholds, docs generation verification, and align CI descriptions with real behavior. Done when: architecture and docs regressions are harder to introduce silently and CI reflects truth.",
 			"depends": ["write-rationale-docs", "write-migration-guides", "align-completion-truth"],
 			"priority": "polish",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "rename-to-scoped-package",

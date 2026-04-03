@@ -44,6 +44,7 @@ Started: 2026-04-02
 - For re-foundation semantic tracking, keep one maintained reference page that splits preserved guarantees from intentional redesigns and links each row to tests, docs, and implementation files; that gives changelog and narrative docs a stable source instead of re-deriving deltas from commits.
 - For docs-surface cross-linking, keep example metadata as the source of truth for guide and symbol relations, then derive symbol-page backlinks from that shared example model instead of hand-linking reference pages.
 - For late-stage narrative docs, ship the authored guide pages together with support-matrix and semantic-delta updates so truth surfaces do not keep bundling newly shipped docs with still-deferred follow-ups.
+- For CI coverage in this repo, run `vitest --coverage` under Node and give the TypeDoc-heavy docs tests explicit timeouts; Bun lacks the needed inspector coverage APIs and the default 5s limit is too tight once coverage is on.
 
 ## Project Tracking
 
@@ -301,3 +302,11 @@ Started: 2026-04-02
 - Regenerated docs-health artifacts so authored-page counts and generated site metadata stay factual after adding the new narrative docs.
 - Files changed: `docs/guide/migration.md`, `docs/guide/troubleshooting.md`, `docs/.vitepress/config.ts`, `docs/guide/limitations.md`, `docs/guide/why.md`, `docs/reference/support-matrix.md`, `docs/reference/semantic-delta-log.md`, `docs/reference/docs-health.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: evaluator-facing migration docs land cleanly when they stay authored, but the same change must also update sidebar wiring and truth surfaces; otherwise support pages keep advertising the guides as deferred after they ship.
+
+## Task - [harden-ci-coverage]
+
+- Added an explicit `coverage` command plus coverage thresholds in `vitest.config.ts`, narrowed the gated surface to core source plus docs-generator code, and raised a few TypeDoc-heavy test timeouts so coverage stays intentional instead of flaky.
+- Hardened CI and the local `ci` workflow so docs generation is verified two ways: `docs:prepare:check` asserts generated artifacts are committed on a clean checkout, and the new `Docs` job still builds the VitePress site end-to-end.
+- Clarified workflow comments and job names so Bun/Node execution tests, Node-only coverage, Deno smoke proof, and docs verification each describe the real runtime/platform guarantees they cover.
+- Files changed: `.github/workflows/ci.yml`, `package.json`, `vitest.config.ts`, `src/index.test.ts`, `scripts/docs/shared/typedoc.test.ts`, `scripts/docs/shared/symbol-pages.test.ts`, `scripts/docs/shared/meta-schema-descriptions.test.ts`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: coverage hardening is only trustworthy here when it matches the runtime reality; Node is the right coverage runner, and TypeDoc-backed docs tests need explicit timeout budget once coverage instrumentation is enabled.

@@ -13,7 +13,9 @@ import { packageJsonPath } from './paths.ts';
 import { collectTypeDocModel } from './typedoc.ts';
 
 describe('definition meta-schema descriptions', () => {
-	it('extracts root and nested property descriptions from the normalized TypeDoc model', async () => {
+	it('extracts root and nested property descriptions from the normalized TypeDoc model', {
+		timeout: 20_000,
+	}, async () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
 		const descriptions = buildDefinitionMetaSchemaDescriptions(normalized);
@@ -33,7 +35,9 @@ describe('definition meta-schema descriptions', () => {
 		});
 	});
 
-	it('renders the generated source module shape consumed by json-schema', async () => {
+	it('renders the generated source module shape consumed by json-schema', {
+		timeout: 20_000,
+	}, async () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
 		const rendered = renderDefinitionMetaSchemaDescriptions(

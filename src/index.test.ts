@@ -120,7 +120,7 @@ describe('dreamcli', () => {
 		expect(mod).toBeDefined();
 	});
 
-	it('keeps public export JSDoc coverage complete', () => {
+	it('keeps public export JSDoc coverage complete', { timeout: 15_000 }, () => {
 		expect(collectPublicExportsWithoutJsDoc()).toEqual([]);
 	});
 });

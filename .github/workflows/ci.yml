@@ -13,10 +13,10 @@ concurrency:
 
 jobs:
   # ─────────────────────────────────────────────────────────────────
-  # Lint + type check + format — runs once on Bun (fastest)
+  # Static checks — Bun-only fast path for type/lint/format/version sync
   # ─────────────────────────────────────────────────────────────────
   lint:
-    name: Lint & Type Check
+    name: Static Checks
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -30,11 +30,11 @@ jobs:
       - run: bun run format:check
 
   # ─────────────────────────────────────────────────────────────────
-  # Tests — matrix across Node LTS and Bun stable
+  # Execution tests — runtime matrix across Bun stable and Node 22/current
   #
   # vitest runs natively on both Node and Bun. The test suite
-  # exercises all three adapters (Node, Bun, Deno) via mock
-  # injection — no actual Deno runtime needed for these tests.
+  # exercises shared CLI/testkit/runtime behavior on those runtimes.
+  # Real Deno verification lives in the dedicated Deno job below.
   # ─────────────────────────────────────────────────────────────────
   test:
     name: Test (${{ matrix.runtime }})
@@ -72,11 +72,30 @@ jobs:
         run: npx vitest run
 
   # ─────────────────────────────────────────────────────────────────
-  # Deno smoke test — verifies the adapter works on real Deno
+  # Coverage — single Node floor run with explicit thresholds
   #
-  # vitest doesn't run under Deno, so we build the package first
-  # then run a Deno-native smoke test that imports the built output
-  # and exercises createDenoAdapter() on a real Deno runtime.
+  # Coverage is intentionally measured on Node because Vitest's v8
+  # provider depends on Node inspector APIs.
+  # ─────────────────────────────────────────────────────────────────
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v6
+        with: { node-version: "22.22.2" }
+      - run: bun install --frozen-lockfile
+      - run: bun run coverage
+
+  # ─────────────────────────────────────────────────────────────────
+  # Deno smoke — real runtime proof for the built Deno adapter path
+  #
+  # Build first, then run the smoke script against the built package.
+  # The final command also proves the Vitest CLI can execute from Deno's
+  # npm bridge in this environment.
   # ─────────────────────────────────────────────────────────────────
   test-deno:
     name: Test (deno)
@@ -94,6 +113,21 @@ jobs:
       - run: deno run -A npm:vitest run
 
   # ─────────────────────────────────────────────────────────────────
+  # Docs — regenerate checked-in artifacts, assert clean tree, then build
+  # ─────────────────────────────────────────────────────────────────
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run docs:prepare:check
+      - run: bun run docs:build
+
+  # ─────────────────────────────────────────────────────────────────
   # Build — verifies the package builds, types are correct, and
   # package.json exports are valid (publint + attw)
   # ─────────────────────────────────────────────────────────────────
@@ -101,7 +135,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [lint, test, test-deno]
+    needs: [lint, test, coverage, test-deno, docs]
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2

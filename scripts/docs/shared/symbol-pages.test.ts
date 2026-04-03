@@ -11,7 +11,9 @@ import { collectSymbolPages, toSymbolPageRoute } from './symbol-pages.ts';
 import { collectTypeDocModel } from './typedoc.ts';
 
 describe('symbol page generation', () => {
-	it('renders stable per-symbol routes from the normalized TypeDoc model', async () => {
+	it('renders stable per-symbol routes from the normalized TypeDoc model', {
+		timeout: 20_000,
+	}, async () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const examples = await collectExamples(examplesRoot, rootDirPath);
 		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);

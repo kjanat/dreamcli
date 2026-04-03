@@ -85,10 +85,12 @@
 	"scripts": {
 		"bd": "bun run build",
 		"build": "bunx --bun tsdown",
-		"ci": "bun typecheck && bun lint && bun run test && bun bd",
+		"ci": "bun typecheck && bun lint && bun run format:check && bun run test && bun run docs:prepare:check && bun run docs:build && bun bd",
+		"coverage": "npx vitest run --coverage",
 		"docs:build": "bun run docs:prepare && vitepress build docs",
 		"docs:dev": "bun run docs:prepare && vitepress dev docs",
 		"docs:prepare": "bun scripts/docs/build-docs-data.ts && bun fmt",
+		"docs:prepare:check": "bun run docs:prepare && git diff --exit-code -- .",
 		"docs:preview": "vitepress preview docs",
 		"fmt": "dprint fmt",
 		"format": "dprint fmt",
