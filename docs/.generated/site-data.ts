@@ -136,6 +136,10 @@ export const generatedPublicExports = [
     entrypoint: 'dreamcli/runtime',
   },
   {
+    subpath: './schema.json',
+    entrypoint: 'dreamcli/schema.json',
+  },
+  {
     subpath: './testkit',
     entrypoint: 'dreamcli/testkit',
   },
@@ -145,5 +149,5 @@ export const docsHealthSnapshot = {
   authoredPageCount: 33,
   generatedArtifactCount: 4,
   exampleCount: 7,
-  publicExportCount: 3,
+  publicExportCount: 4,
 };

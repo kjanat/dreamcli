@@ -8,6 +8,10 @@
     "entrypoint": "dreamcli/runtime"
   },
   {
+    "subpath": "./schema.json",
+    "entrypoint": "dreamcli/schema.json"
+  },
+  {
     "subpath": "./testkit",
     "entrypoint": "dreamcli/testkit"
   }

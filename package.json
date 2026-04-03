@@ -24,7 +24,8 @@
 		"#dreamcli": "./src/index.ts",
 		"#dreamcli/runtime": "./src/runtime.ts",
 		"#dreamcli/testkit": "./src/testkit.ts",
-		"#internals/*": "./src/*"
+		"#internals/*": "./src/*",
+		"#package.json": "./package.json"
 	},
 	"exports": {
 		".": {
@@ -63,12 +64,14 @@
 			"require": "./dist/testkit.cjs",
 			"default": "./dist/testkit.cjs"
 		},
+		"./schema": "./dreamcli.schema.json",
 		"./package.json": "./package.json"
 	},
 	"files": [
 		"README.md",
 		"LICENSE",
 		"CHANGELOG.md",
+		"dreamcli.schema.json",
 		"package.json",
 		"dist",
 		"examples",

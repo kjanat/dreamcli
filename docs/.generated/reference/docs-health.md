@@ -9,4 +9,4 @@ This file is rebuilt by `bun run docs:prepare` and keeps the first factual metri
 | Authored markdown pages   | 33    |
 | Generated artifacts       | 4     |
 | Source-backed examples    | 7     |
-| Public export entrypoints | 3     |
+| Public export entrypoints | 4     |

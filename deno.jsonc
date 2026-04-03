@@ -27,7 +27,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./runtime": "./src/runtime.ts",
-		"./testkit": "./src/testkit.ts"
+		"./testkit": "./src/testkit.ts",
+		"./schema": "./dreamcli.schema.json"
 	},
 	"compilerOptions": {
 		"module": "preserve",
@@ -38,7 +39,7 @@
 		}
 	},
 	"publish": {
-		"include": ["src", "LICENSE", "README.md"],
+		"include": ["src", "dreamcli.schema.json", "LICENSE", "README.md"],
 		"exclude": ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"lib": ["deno.ns", "deno.shared_globals"],

@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { defineConfig } from 'tsdown';
-import pkg from './package.json' with { type: 'json' };
+import pkg from '#package.json' with { type: 'json' };
 
 const version = pkg.version;
 const revision = (() => {
@@ -25,5 +25,5 @@ export default defineConfig({
 	minify: true,
 	publint: true,
 	attw: { profile: 'node16', level: 'error', ignoreRules: [] },
-	onSuccess: 'bunx sort-package-json --quiet', // ensures proper sorting of the exports
+	onSuccess: 'bunx sort-package-json --quiet && bun scripts/emit-definition-schema.ts',
 });

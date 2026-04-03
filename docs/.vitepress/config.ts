@@ -1,8 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { defineConfig } from 'vitepress';
 import { MermaidMarkdown, MermaidPlugin } from 'vitepress-plugin-mermaid';
-import { DEFINITION_SCHEMA_FILENAME, definitionMetaSchema } from '#dreamcli';
 import { generatedExamples, generatedReferenceSurfaces } from '../.generated/site-data.ts';
 
 const examplesSidebarTitle =
@@ -147,13 +144,5 @@ export default defineConfig({
   },
   vite: {
     plugins: [MermaidPlugin()],
-  },
-  buildEnd({ outDir }) {
-    const dir = join(outDir, 'schemas', 'cli');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      join(dir, DEFINITION_SCHEMA_FILENAME),
-      JSON.stringify(definitionMetaSchema, null, '\t'),
-    );
   },
 });

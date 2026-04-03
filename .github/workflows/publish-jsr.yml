@@ -40,7 +40,7 @@ jobs:
         with: { bun-version: latest }
       - run: bun install --frozen-lockfile
       - run: bun run scripts/check-version-sync.ts
-      - run: bun run build
+      - run: deno run -A scripts/emit-definition-schema.ts
       - name: Deno adapter smoke test
         run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
       - name: Publish to JSR

@@ -84,22 +84,13 @@ function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions
 // --- Constants
 
 /**
- * Definition schema version.
+ * `$schema` URL for definition documents.
  *
- * Bump when the meta-schema contract changes (new required properties,
- * removed properties, changed types). Drives the `$id` URL, the docs
- * output path, and the `$schema` reference in generated definitions.
+ * Resolves via the `dreamcli/schema.json` package export on the CDN.
+ * For offline or local-first workflows, use
+ * `./node_modules/dreamcli/dreamcli.schema.json`.
  */
-const DEFINITION_SCHEMA_VERSION = 1;
-
-/** Base URL for hosted definition schemas. */
-const DEFINITION_SCHEMA_BASE = 'https://dreamcli.kjanat.com/schemas/cli';
-
-/** Full `$id` / `$schema` URL for the current definition schema version. */
-const DEFINITION_SCHEMA_URL = `${DEFINITION_SCHEMA_BASE}/v${String(DEFINITION_SCHEMA_VERSION)}.json`;
-
-/** Filename component for the docs build output (e.g. `v1.json`). */
-const DEFINITION_SCHEMA_FILENAME = `v${String(DEFINITION_SCHEMA_VERSION)}.json`;
+const DEFINITION_SCHEMA_URL = 'https://cdn.jsdelivr.net/npm/dreamcli/schema';
 
 /** Meta-schema URL for JSON Schema draft 2020-12 (input validation). */
 const JSON_SCHEMA_DRAFT = 'https://json-schema.org/draft/2020-12/schema';
@@ -821,10 +812,4 @@ const definitionMetaSchema: Record<string, unknown> = {
 // === Exports
 
 export type { JsonSchemaOptions };
-export {
-	DEFINITION_SCHEMA_FILENAME,
-	DEFINITION_SCHEMA_VERSION,
-	definitionMetaSchema,
-	generateInputSchema,
-	generateSchema,
-};
+export { definitionMetaSchema, generateInputSchema, generateSchema };

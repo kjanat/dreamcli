@@ -17,11 +17,20 @@ const definition = generateSchema(myCli.schema);
 writeFileSync('cli-schema.json', JSON.stringify(definition, null, 2));
 ```
 
-Output includes a `$schema` URL for future validation support:
+Output includes a `$schema` URL pointing at the CDN-hosted definition
+schema. For offline or CI-friendly setups, use the local copy instead:
+
+```json
+{ "$schema": "./node_modules/dreamcli/dreamcli.schema.json" }
+```
+
+The schema is also importable as `dreamcli/schema.json`.
+
+Full example output:
 
 ```json
 {
-  "$schema": "https://dreamcli.kjanat.com/schemas/cli/v1.json",
+  "$schema": "https://cdn.jsdelivr.net/npm/dreamcli/schema",
   "name": "mycli",
   "version": "1.0.0",
   "commands": [
