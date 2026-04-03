@@ -32,6 +32,7 @@ Started: 2026-04-02
 - For TypeDoc-backed reference work, keep the public export inventory as coverage truth, generate raw `typedoc.json` beside a smaller DreamCLI-owned normalized model keyed by `entrypoint:symbol`, and force stable source links so generated artifacts do not churn on every commit.
 - When flags and args partially overlap, share only the coercion-compatible property shape in a dedicated resolver helper and keep precedence, fallback, and required-value rules separate; broad shared property loops hide real semantic differences.
 - For generated reference work, keep the heavy source-of-truth model under `docs/.generated/`, but emit lightweight searchable public routes from that model and keep VitePress metadata limited to route/index facts instead of full page payloads.
+- For resolver diagnostic redesign, keep nested `ValidationError` JSON stable and add a parallel per-issue summary at the aggregate wrapper; it clarifies mixed flag/arg failures without weakening existing leaf-error assertions.
 
 ## Project Tracking
 
@@ -184,3 +185,10 @@ Started: 2026-04-02
 - Linked the generated API inventory to the new symbol routes, surfaced symbol-page counts in the reference wrappers, and updated docs truth so the support matrix now treats generated API index plus symbol pages as shipped instead of deferred.
 - Files changed: `scripts/docs/shared/symbol-pages.ts`, `scripts/docs/shared/symbol-pages.test.ts`, `scripts/docs/shared/api-index.ts`, `scripts/docs/shared/api-index.test.ts`, `scripts/docs/shared/paths.ts`, `scripts/docs/build-docs-data.ts`, `docs/reference/api.md`, `docs/reference/generated-surfaces.md`, `docs/reference/support-matrix.md`, `docs/.generated/api/index.md`, `docs/.generated/reference/docs-health.md`, `docs/.generated/site-data.ts`, `docs/reference/symbols/**/*.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
 - Learnings: VitePress-facing metadata should stay small; exporting full generated page bodies through `site-data.ts` creates lint noise and couples wrapper pages to content they do not need.
+
+## Task - [redesign-error-agg]
+
+- Redesigned resolver aggregate errors so mixed failures now render per-issue summaries with normalized `flag --name` and `argument <name>` labels plus source labels like `env PORT` and `stdin` when the failing source is known.
+- Added a dedicated aggregate-diagnostics suite at `src/core/resolve/resolve-aggregation.test.ts`, updated resolver contract facts, and documented the aggregate-summary requirement in `docs/reference/resolver-contract.md`.
+- Files changed: `src/core/resolve/errors.ts`, `src/core/resolve/resolve-aggregation.test.ts`, `src/core/resolve/contracts.ts`, `src/core/resolve/contracts.test.ts`, `docs/reference/resolver-contract.md`, `.opencode/state/dreamcli-re-foundation/prd.json`, `.opencode/state/dreamcli-re-foundation/progress.txt`.
+- Learnings: the least disruptive aggregation redesign is additive: keep nested error JSON untouched for existing consumers, and hang clearer per-issue summaries off the aggregate wrapper instead of reshaping leaf diagnostics.

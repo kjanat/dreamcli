@@ -73,6 +73,7 @@ Those orders are the behavior future contract tests should target.
 - env, config, prompt, and stdin failures carry source-aware detail payloads
 - hard coercion errors stop later fallback for that same field
 - multiple validation failures are thrown as one aggregate error with per-error details
+- aggregate validation failures also include per-issue summaries with normalized input labels and source labels when the failing source is known
 - missing-value errors remain actionable via source-ordered suggestions
 
 ## Redesign Boundaries
@@ -81,6 +82,7 @@ This contract intentionally freezes behavior before deeper resolver work:
 
 - module splitting can move orchestration, coercion, lookup, and error helpers apart
 - aggregated diagnostics can improve, but source-aware details and explicit precedence must remain testable
+- aggregate wrappers may change presentation, but they must keep nested per-error payloads plus explicit per-issue summaries for flags and args
 - any shared flag/arg property model must preserve the current stage ordering unless a later contract explicitly changes it
 
 ## Shared Property Model Decision

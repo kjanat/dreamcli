@@ -58,6 +58,7 @@ describe('resolver contracts — explicit facts', () => {
 			argPrecedence: ['cli', 'stdin', 'env', 'default'],
 			promptRunsAfterFlagConfig: true,
 			aggregatesValidationErrors: true,
+			aggregateDiagnosticsIncludePerIssueSummary: true,
 			hardCoercionErrorsStopFallback: true,
 			collectsDeprecationsFromExplicitSources: true,
 		});

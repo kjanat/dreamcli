@@ -85,6 +85,7 @@ interface ResolverContract {
 	readonly argPrecedence: readonly ArgResolutionStage[];
 	readonly promptRunsAfterFlagConfig: true;
 	readonly aggregatesValidationErrors: true;
+	readonly aggregateDiagnosticsIncludePerIssueSummary: true;
 	readonly hardCoercionErrorsStopFallback: true;
 	readonly collectsDeprecationsFromExplicitSources: true;
 }
@@ -94,6 +95,7 @@ const resolverContract = {
 	argPrecedence: ARG_RESOLUTION_ORDER,
 	promptRunsAfterFlagConfig: true,
 	aggregatesValidationErrors: true,
+	aggregateDiagnosticsIncludePerIssueSummary: true,
 	hardCoercionErrorsStopFallback: true,
 	collectsDeprecationsFromExplicitSources: true,
 } satisfies ResolverContract;

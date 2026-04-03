@@ -135,7 +135,7 @@
 			"description": "Improve aggregated diagnostics and clarify source-aware errors across flags and args. Done when: redesigned error behavior is intentional, documented, and verified by dedicated tests.",
 			"depends": ["split-resolver-modules"],
 			"priority": "standard",
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "shared-property-model",
