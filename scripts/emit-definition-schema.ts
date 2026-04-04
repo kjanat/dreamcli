@@ -26,7 +26,7 @@ const schemaStr = JSON.stringify(schema, null, '  ');
 try {
 	await writeFile(outFile, schemaStr, 'utf-8');
 	console.error(`Definition schema emitted to ${outFile}`);
-	console.info(schemaStr);
+	!process.env.CI && console.info(schemaStr);
 	process.exit(0);
 } catch (error) {
 	console.error('Failed to emit definition schema', error);
