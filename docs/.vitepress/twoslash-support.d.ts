@@ -1,5 +1,6 @@
-// Shared ambient symbols for docs Twoslash snippets.
-// Keep this permissive: reference pages contain isolated signatures, not runnable programs.
+// Ambient value declarations for docs twoslash snippets.
+// Types resolve automatically via compilerOptions.paths — no re-declarations needed.
+// This file only declares VALUES that incomplete snippets reference without importing.
 
 type DocsMain = typeof import('@kjanat/dreamcli');
 type DocsRuntime = typeof import('@kjanat/dreamcli/runtime');
@@ -11,131 +12,45 @@ type DocsMiddleware = import('@kjanat/dreamcli').Middleware<
   Record<string, unknown>
 >;
 
-interface DocsUser {
-  id: string;
-  name: string;
+// @internal types surfaced in contract pages (not part of public API)
+type ErasedCommand = Record<string, unknown>;
+type OutputPolicy = Record<string, unknown>;
+type DispatchResult = Record<string, unknown>;
+type BeforeParseParams = import('@kjanat/dreamcli').BeforeParseParams;
+type ResolvedCommandParams = import('@kjanat/dreamcli').ResolvedCommandParams;
+type PluginCommandContext = import('@kjanat/dreamcli').PluginCommandContext;
+interface CommandExecutionPlan {
+  readonly command: ErasedCommand;
+  readonly mergedSchema: CommandSchema;
+  readonly argv: readonly string[];
+  readonly meta: import('@kjanat/dreamcli').CommandMeta;
+  readonly plugins: readonly import('@kjanat/dreamcli').CLIPlugin[];
+  readonly output: OutputPolicy;
+  readonly help: import('@kjanat/dreamcli').HelpOptions | undefined;
 }
 
-type ActionHandler = any;
-type ActionParams = any;
-type ActivityEvent = any;
-type AnyCommandBuilder = any;
-type ArgBuilder = any;
-type ArgConfig = any;
-type ArgFactory = any;
-type ArgKind = any;
-type ArgParseFn = any;
-type ArgPresence = any;
-type ArgSchema = any;
-type BeforeParseParams = any;
-type CapturedOutput = any;
-type CLIBuilder = any;
-type CLIError = any;
-type CLIErrorJSON = any;
-type CLIErrorOptions = any;
-type CLIOptions = any;
-type CLIPlugin = any;
-type CLIPluginHooks = any;
-type CLIRunOptions = any;
-type CLISchema = any;
-type CommandArgEntry = any;
-type CommandBuilder = any;
-type CommandConfig = any;
-type CommandExample = any;
-type CommandMeta = any;
-type CommandSchema = any;
-type CompletionOptions = any;
-type ConfigAdapter = any;
-type ConfigDiscoveryOptions = any;
-type ConfigDiscoveryResult = any;
-type ConfigFound = any;
-type ConfigNotFound = any;
-type ConfigSettings = any;
-type ConfirmPromptConfig = any;
-type DeprecationWarning = any;
-type DeriveHandler = any;
-type DeriveParams = any;
-type ErrorCode = any;
-type ExitError = any;
-type Fallback = any;
-type FlagBuilder = any;
-type FlagConfig = any;
-type FlagFactory = any;
-type FlagKind = any;
-type FlagParseFn = any;
-type FlagPresence = any;
-type FlagSchema = any;
-type FormatLoader = any;
-type HelpOptions = any;
-type InferArg = any;
-type InferArgs = any;
-type InferFlag = any;
-type InferFlags = any;
-type InputPromptConfig = any;
-type InteractiveParams = any;
-type InteractiveResolver = any;
-type InteractiveResult = any;
-type JsonSchemaOptions = any;
-type Middleware = any;
-type MiddlewareHandler = any;
-type MiddlewareImpl = any;
-type MiddlewareParams = any;
-type MultiselectPromptConfig = any;
-type Out = any;
-type OutputOptions = any;
-type PackageJsonAdapter = any;
-type PackageJsonData = any;
-type PackageJsonSettings = any;
-type ParseError = any;
-type ParseErrorCode = any;
-type ParseErrorOptions = any;
-type ParseResult = any;
-type PluginCommandContext = any;
-type ProgressHandle = any;
-type ProgressOptions = any;
-type PromptConfig = any;
-type PromptConfigBase = any;
-type PromptEngine = any;
-type PromptKind = any;
-type PromptResult = any;
-type ReadFn = any;
-type ResolveOptions = any;
-type ResolveResult = any;
-type ResolvedArgValue = any;
-type ResolvedCommandParams = any;
-type ResolvedMultiselectPromptConfig = any;
-type ResolvedPromptConfig = any;
-type ResolvedSelectPromptConfig = any;
-type ResolvedValue = any;
-type RunOptions = any;
-type RunResult = any;
-type Runtime = any;
-type RuntimeAdapter = any;
-type SelectChoice = any;
-type SelectPromptConfig = any;
-type Shell = any;
-type SpinnerHandle = any;
-type SpinnerOptions = any;
-type TableColumn = any;
-type TableFormat = any;
-type TableOptions = any;
-type TableStream = any;
-type TestAdapterOptions = any;
-type TestAnswer = any;
-type TestPrompterOptions = any;
-type Token = any;
-type ValidationError = any;
-type ValidationErrorCode = any;
-type ValidationErrorOptions = any;
-type Verbosity = any;
-type WithArgPresence = any;
-type WithPresence = any;
-type WithVariadic = any;
-type WriteFn = any;
+// Ambient types referenced by contract/reference page snippets without imports
+type ActivityEvent = import('@kjanat/dreamcli').ActivityEvent;
+type CommandSchema = import('@kjanat/dreamcli').CommandSchema;
+type ParseResult = import('@kjanat/dreamcli').ParseResult;
+type PromptEngine = import('@kjanat/dreamcli').PromptEngine;
+type DeprecationWarning = import('@kjanat/dreamcli').DeprecationWarning;
+type ResolveOptions = import('@kjanat/dreamcli').ResolveOptions;
+type ResolveResult = import('@kjanat/dreamcli').ResolveResult;
+type HelpOptions = import('@kjanat/dreamcli').HelpOptions;
+type CLIPlugin = import('@kjanat/dreamcli').CLIPlugin;
+type CommandMeta = import('@kjanat/dreamcli').CommandMeta;
+type Out = import('@kjanat/dreamcli').Out;
+type OutputOptions = import('@kjanat/dreamcli').OutputOptions;
+type Verbosity = import('@kjanat/dreamcli').Verbosity;
+type RuntimeAdapter = import('@kjanat/dreamcli/runtime').RuntimeAdapter;
+
+// --- Library values (for snippets without `import` statements) ---
 
 declare const ArgBuilder: DocsMain['ArgBuilder'];
 declare const CLIBuilder: DocsMain['CLIBuilder'];
 declare const CLIError: DocsMain['CLIError'];
+type CLIError = InstanceType<DocsMain['CLIError']>;
 declare const CommandBuilder: DocsMain['CommandBuilder'];
 declare const FlagBuilder: DocsMain['FlagBuilder'];
 declare const ParseError: DocsMain['ParseError'];
@@ -184,6 +99,14 @@ declare const createTestPrompter: DocsTestkit['createTestPrompter'];
 declare const PROMPT_CANCEL: DocsTestkit['PROMPT_CANCEL'];
 declare const runCommand: DocsTestkit['runCommand'];
 
+// --- Walkthrough / example ambient variables ---
+
+interface DocsUser {
+  id: string;
+  name: string;
+}
+
+declare const adapter: import('@kjanat/dreamcli/runtime').RuntimeAdapter;
 declare const auth: DocsCommand;
 declare const authLogin: DocsCommand;
 declare const authStatus: DocsCommand;
@@ -203,7 +126,10 @@ declare const mainCmd: DocsCommand;
 declare const mainCommand: DocsCommand;
 declare const migrate: DocsCommand;
 declare const migrateCmd: DocsCommand;
-declare const myCli: DocsCli & { run(): Promise<void> };
+declare const myCli: DocsCli & {
+  run(): Promise<void>;
+  schema: import('@kjanat/dreamcli').CLISchema;
+};
 declare const noAuth: DocsCommand;
 declare const other: DocsCommand;
 declare const out: import('@kjanat/dreamcli').Out;
@@ -213,7 +139,7 @@ declare const prList: DocsCommand;
 declare const prView: DocsCommand;
 declare const region: string;
 declare const requireAuth: (token: string | undefined) => { token: string };
-declare const result: { error: { code: string } };
+declare const result: import('@kjanat/dreamcli/testkit').RunResult;
 declare const rows: readonly { name: string; status: string; uptime: number }[];
 declare const seed: DocsCommand;
 declare const seedCmd: DocsCommand;
@@ -230,13 +156,8 @@ declare const tracePlugin: import('@kjanat/dreamcli').CLIPlugin;
 declare const withAuth: DocsCommand;
 declare const writeFileSync: (path: string, data: string) => void;
 
-// Internal types surfaced in reference/contract pages
-type CommandExecutionPlan = any;
-type ErasedCommand = any;
-type OutputPolicy = any;
-type DispatchResult = any;
+// --- Test assertion ambient ---
 
-// Test assertion ambient — vitest's expect() for docs snippets
 declare function expect(value: unknown): {
   toBe(expected: unknown): void;
   toEqual(expected: unknown): void;

@@ -149,7 +149,7 @@ programmatic handling:
 
 ```ts twoslash
 // Scripts can match on the code
-if (result.error.code === 'AUTH_REQUIRED') {
+if (result.error?.code === 'AUTH_REQUIRED') {
   // refresh token and retry
 }
 ```

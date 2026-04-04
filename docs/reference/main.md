@@ -2,7 +2,7 @@
 
 The main export. Import schema builders, CLI runner, output, parsing, and errors.
 
-```ts
+```ts twoslash
 import {
   cli,
   command,
@@ -53,19 +53,19 @@ import type {
 
 Create a command builder.
 
-```ts
+```ts twoslash
 const cmd = command('deploy')
   .description('Deploy the app')
   .arg('target', arg.string())
   .flag('force', flag.boolean())
-  .action(({ args, flags, out }) => { ... });
+  .action(({ args, flags, out }) => {});
 ```
 
 ### `group(name)`
 
 Create a command group (container for subcommands).
 
-```ts
+```ts twoslash
 const db = group('db')
   .description('Database operations')
   .command(migrate)
@@ -76,7 +76,7 @@ const db = group('db')
 
 Create a multi-command CLI builder.
 
-```ts
+```ts twoslash
 cli('mycli')
   .version('1.0.0')
   .description('My tool')
@@ -94,7 +94,7 @@ the current working directory, reads the nearest `package.json`, and uses its `v
 `description` fields as fallback CLI metadata. Pass `{ inferName: true }` to also infer the CLI
 name from the package `bin` entry or package name. This has no effect in `.execute()`.
 
-```ts
+```ts twoslash
 cli('mycli').packageJson({ inferName: true }).command(deploy).run();
 ```
 
@@ -103,7 +103,7 @@ cli('mycli').packageJson({ inferName: true }).command(deploy).run();
 Register a CLI plugin created with `plugin(...)`. Plugins run in registration order and can observe
 execution before parse, after resolve, before action, and after action.
 
-```ts
+```ts twoslash
 cli('mycli').plugin(tracePlugin).command(deploy);
 ```
 
@@ -141,11 +141,12 @@ Register a command-scoped typed pre-action handler. Derive runs after resolution
 `{ args, flags, ctx, out, meta }`, and may either return `void` for validation-only behavior or
 return an object to merge additional properties into `ctx`.
 
-```ts
+```ts twoslash
 command('deploy')
   .flag('token', flag.string().env('AUTH_TOKEN'))
   .derive(({ flags }) => {
-    if (!flags.token) throw new CLIError('Not authenticated');
+    if (!flags.token)
+      throw new CLIError('Not authenticated', { code: 'AUTH_REQUIRED' });
     return { token: flags.token };
   })
   .action(({ ctx }) => {
@@ -159,7 +160,7 @@ Create a reusable CLI plugin definition from lifecycle hooks. The returned value
 with `cli(...).plugin(...)` and receives stable hook payloads typed by `BeforeParseParams`,
 `ResolvedCommandParams`, and `PluginCommandContext`.
 
-```ts
+```ts twoslash
 const trace = plugin(
   {
     beforeParse: ({ argv, out }) => out.info(argv.join(' ')),
@@ -175,7 +176,7 @@ const trace = plugin(
 
 Lifecycle hook bag for `plugin(...)`. Each hook may be sync or async:
 
-```ts
+```ts twoslash
 type CLIPluginHooks = {
   beforeParse?: (params: BeforeParseParams) => void | Promise<void>;
   afterResolve?: (params: ResolvedCommandParams) => void | Promise<void>;
@@ -194,7 +195,7 @@ Base payload shared by all plugin hooks. It contains the current `command` schem
 (`CommandMeta`), and `out` channel, so hooks can inspect execution context without reaching into
 internal CLI state.
 
-```ts
+```ts twoslash
 type PluginCommandContext = {
   command: CommandSchema;
   meta: CommandMeta;
@@ -207,7 +208,7 @@ type PluginCommandContext = {
 Payload for `beforeParse`. Adds the leaf-command `argv` array to `PluginCommandContext` so plugins
 can log, validate, or instrument the exact argument list before parsing starts.
 
-```ts
+```ts twoslash
 type BeforeParseParams = PluginCommandContext & {
   argv: readonly string[];
 };
@@ -218,7 +219,7 @@ type BeforeParseParams = PluginCommandContext & {
 Payload for `afterResolve`, `beforeAction`, and `afterAction`. Adds fully resolved `flags`, `args`,
 and collected `deprecations` so hooks can inspect the final command inputs.
 
-```ts
+```ts twoslash
 type ResolvedCommandParams = PluginCommandContext & {
   flags: Readonly<Record<string, unknown>>;
   args: Readonly<Record<string, unknown>>;
@@ -234,7 +235,7 @@ Metadata about the running CLI, passed to action handlers and middleware as `met
 CLI `name`, display `bin`, `version`, and current leaf `command`, making it useful for logging,
 telemetry, and custom output headers.
 
-```ts
+```ts twoslash
 type CommandMeta = {
   name: string;
   bin: string;
@@ -249,7 +250,7 @@ Structured result returned by `runCommand(...)` and `cli.execute(...)`. It inclu
 `exitCode`, captured `stdout`/`stderr`, activity lifecycle events, and an `error` field that is
 `undefined` on success and a `CLIError` on failure.
 
-```ts
+```ts twoslash
 type RunResult = {
   exitCode: number;
   stdout: readonly string[];
@@ -290,7 +291,7 @@ Generate a definition metadata document describing the CLI's structure.
 - `options.includeHidden?`: include hidden commands (default: `true`)
 - `options.includePrompts?`: include prompt config on flags (default: `true`)
 
-```ts
+```ts twoslash
 const definition = generateSchema(myCli.schema);
 ```
 
@@ -304,7 +305,7 @@ Generate a JSON Schema (draft 2020-12) for validating CLI input as JSON.
 Accepts a full `CLISchema` (discriminated union across commands) or a
 single `CommandSchema` (flat object schema).
 
-```ts
+```ts twoslash
 const inputSchema = generateInputSchema(myCli.schema);
 ```
 
@@ -325,7 +326,7 @@ Generate a shell completion script from a command schema.
 Build the default search-path list dreamcli uses for config discovery. This is mainly useful for
 debugging, custom bootstrapping, or help text that wants to show the exact probed paths.
 
-```ts
+```ts twoslash
 const paths = buildConfigSearchPaths(
   'mycli',
   process.cwd(),
@@ -339,13 +340,10 @@ Create a config format loader from a list of file extensions and a parse functio
 to `.configLoader(...)` or `discoverConfig(...)` to add YAML, TOML, or other formats on top of the
 built-in JSON loader.
 
-```ts
-configFormat(['yaml', 'yml'], Bun.YAML.parse);
-configFormat(['toml'], Bun.TOML.parse);
-
-import { parse as parseYaml } from 'yaml';
-import { parse as parseTOML } from '@iarna/toml';
-
+```ts twoslash
+declare const parseYaml: (s: string) => unknown;
+declare const parseTOML: (s: string) => unknown;
+// ---cut---
 configFormat(['yaml', 'yml'], parseYaml);
 configFormat(['toml'], parseTOML);
 ```
@@ -356,11 +354,12 @@ Low-level config discovery helper behind `cli(...).config(...)`. It searches sta
 the first matching file via the provided adapter, and returns either `{ found: true, ... }` with
 parsed config data or `{ found: false }` when no config file exists.
 
-```ts
+```ts twoslash
+declare const parseYaml: (s: string) => unknown;
+declare const parseTOML: (s: string) => unknown;
+// ---cut---
 const result = await discoverConfig('mycli', adapter, {
   loaders: [
-    configFormat(['yaml', 'yml'], Bun.YAML.parse),
-    configFormat(['toml'], Bun.TOML.parse),
     configFormat(['yaml', 'yml'], parseYaml),
     configFormat(['toml'], parseTOML),
   ],
@@ -372,7 +371,7 @@ const result = await discoverConfig('mycli', adapter, {
 Walk up from `adapter.cwd` and return the nearest parsed `package.json` metadata, or `null` when no
 package file is found. This is the helper used by `.packageJson()` during `.run()`.
 
-```ts
+```ts twoslash
 const pkg = await discoverPackageJson(adapter);
 if (pkg !== null) {
   console.log(pkg.version);
@@ -384,7 +383,7 @@ if (pkg !== null) {
 Infer a CLI display name from package metadata. It prefers the first key from a `bin` object and
 otherwise falls back to the package `name` with any npm scope removed.
 
-```ts
+```ts twoslash
 inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
 inferCliName({ name: '@scope/mycli' }); // 'mycli'
 ```

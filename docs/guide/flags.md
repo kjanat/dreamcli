@@ -119,12 +119,18 @@ Thrown errors become validation errors with the flag name in context.
 
 Flags marked with `.propagate()` are inherited by all subcommands:
 
-```ts
-const nested = command('start').action(({ flags, out }) => {
-  if (flags.verbose) {
-    out.info('Verbose mode enabled');
-  }
-});
+```ts twoslash
+const nested = command('start')
+  .flag('verbose', flag.boolean().alias('v').propagate())
+  .action(({ flags, out }) => {
+    if (flags.verbose) {
+      out.info('Verbose mode enabled');
+    }
+  });
+// ---cut-start---
+// (In practice, .propagate() on the parent makes this flag available
+// on all children automatically — shown explicitly here for type safety)
+// ---cut-end---
 
 cli('mycli').command(
   command('deploy')

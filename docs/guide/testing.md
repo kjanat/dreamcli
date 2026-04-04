@@ -5,7 +5,7 @@ No subprocesses, no `process.argv` mutation, no mocking.
 
 ## Basic Usage
 
-```ts
+```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(greet, ['Alice', '--loud']);
@@ -20,7 +20,7 @@ expect(result.error).toBeUndefined();
 
 Control every dimension of CLI behavior from tests:
 
-```ts
+```ts twoslash
 const result = await runCommand(deploy, ['production'], {
   // environment variables
   env: { DEPLOY_REGION: 'eu' },
@@ -53,7 +53,7 @@ const result = await runCommand(deploy, ['production'], {
 
 ## Testing Prompts
 
-```ts
+```ts twoslash
 import {
   runCommand,
   createTestPrompter,
@@ -75,7 +75,7 @@ const cancelResult = await runCommand(cmd, [], {
 
 Spinners and progress bars emit testable events:
 
-```ts
+```ts twoslash
 const result = await runCommand(cmd, ['deploy']);
 
 expect(result.activity).toContainEqual(
@@ -88,7 +88,7 @@ expect(result.activity).toContainEqual(
 
 ## Captured Output
 
-```ts
+```ts twoslash
 // stdout lines (each includes trailing \n)
 result.stdout; // string[]
 
