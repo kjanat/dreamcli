@@ -48,7 +48,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 	const { argv, command, meta, options, out, schema } = request;
 
 	try {
-		if (argv.includes('--help') || argv.includes('-h')) {
+		if (includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h')) {
 			const helpText = formatHelp(schema, options?.help);
 			out.log(helpText);
 			return { exitCode: 0, error: undefined };
@@ -236,6 +236,14 @@ function formatDeprecation(deprecation: DeprecationWarning): string {
 	return typeof deprecation.message === 'string'
 		? `Warning: ${entity} is deprecated: ${deprecation.message}`
 		: `Warning: ${entity} is deprecated`;
+}
+
+function includesBeforeSeparator(argv: readonly string[], token: string): boolean {
+	for (const arg of argv) {
+		if (arg === '--') return false;
+		if (arg === token) return true;
+	}
+	return false;
 }
 
 export type { CommandExecutionRequest, CommandExecutionResult };

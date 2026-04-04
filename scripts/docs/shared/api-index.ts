@@ -183,17 +183,22 @@ function collectEntrypointSymbols(
 
 	return checker
 		.getExportsOfModule(moduleSymbol)
-		.map((symbol) => {
+		.flatMap((symbol) => {
 			const resolvedSymbol = resolveExportSymbol(symbol, checker);
 			const declaration = pickDeclaration(resolvedSymbol);
-			return {
-				name: symbol.name,
-				kind: classifyExportKind(resolvedSymbol, declaration),
-				sourcePath:
-					declaration === undefined
-						? toRepoPath(rootDir, filePath)
-						: toRepoPath(rootDir, declaration.getSourceFile().fileName),
-			};
+			if (declaration !== undefined && hasInternalTag(declaration)) {
+				return [];
+			}
+			return [
+				{
+					name: symbol.name,
+					kind: classifyExportKind(resolvedSymbol, declaration),
+					sourcePath:
+						declaration === undefined
+							? toRepoPath(rootDir, filePath)
+							: toRepoPath(rootDir, declaration.getSourceFile().fileName),
+				},
+			];
 		})
 		.sort(comparePublicApiSymbols);
 }
@@ -276,6 +281,10 @@ function pickDeclaration(symbol: ts.Symbol): ts.Declaration | undefined {
 	}
 
 	return declarations[0];
+}
+
+function hasInternalTag(declaration: ts.Declaration): boolean {
+	return ts.getJSDocTags(declaration).some((tag) => tag.tagName.text === 'internal');
 }
 
 function classifyExportKind(

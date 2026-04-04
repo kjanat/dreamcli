@@ -265,7 +265,7 @@ function renderParameterDetails(signature: NormalizedApiNode): readonly string[]
 		return summary === null
 			? []
 			: [
-					`| \`${parameter.name}\` | \`${escapeTable(renderParameter(parameter))}\` | ${escapeTable(summary)} |`,
+					`| \`${parameter.name}\` | \`${escapeTable(renderParameterType(parameter))}\` | ${escapeTable(summary)} |`,
 				];
 	});
 	if (rows.length === 0) {
@@ -409,6 +409,17 @@ function renderParameter(parameter: NormalizedApiNode): string {
 	return `${parameter.name}${optional ? '?' : ''}: ${type}${defaultValue}`;
 }
 
+function renderParameterType(parameter: NormalizedApiNode): string {
+	const optional = isOptionalNode(parameter);
+	const type = parameter.type === null ? 'unknown' : renderType(parameter.type);
+	const defaultValue = parameter.defaultValue === null ? '' : ` = ${parameter.defaultValue}`;
+	if (parameter.type?.kind === 'rest') {
+		return `...${renderType(parameter.type.elementType)}[]`;
+	}
+
+	return `${type}${optional && !defaultValue ? ' \\| undefined' : ''}${defaultValue}`;
+}
+
 function renderNodeType(node: NormalizedApiNode): string {
 	return node.type === null ? 'unknown' : renderType(node.type);
 }
@@ -430,7 +441,7 @@ function renderType(type: NormalizedApiType): string {
 		case 'intrinsic':
 			return type.name;
 		case 'literal':
-			return JSON.stringify(type.value);
+			return type.value === null ? 'null' : JSON.stringify(type.value);
 		case 'mapped':
 			return renderMappedType(type);
 		case 'namedTupleMember':

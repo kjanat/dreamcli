@@ -9,7 +9,7 @@
 			"command": "deno check src/index.ts src/testkit.ts src/runtime.ts"
 		},
 		"smoke": {
-			"description": "Run Deno adapter smoke test (requires prior build)",
+			"description": "Run Deno adapter smoke test against source via import map",
 			"command": "deno run --allow-read --allow-env scripts/deno-smoke-test.ts"
 		},
 		"publish:dry": {

@@ -531,6 +531,9 @@ function validateNode(node: SchemaNode, input: unknown): boolean {
 			return Array.isArray(input) && input.every((el) => validateNode(node.element, el));
 		case 'object': {
 			if (!isRecord(input)) return false;
+			for (const key of Object.keys(input)) {
+				if (!(key in node.properties)) return false;
+			}
 			for (const [key, prop] of Object.entries(node.properties)) {
 				if (!(key in input)) {
 					if (!prop.optional) return false;

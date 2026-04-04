@@ -609,7 +609,7 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 		result.default = schema.defaultValue;
 	}
 	if (schema.deprecated !== undefined) {
-		result.deprecated = true;
+		result.deprecated = schema.deprecated;
 	}
 
 	return result;
@@ -630,7 +630,7 @@ function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 		result.default = schema.defaultValue;
 	}
 	if (schema.deprecated !== undefined) {
-		result.deprecated = true;
+		result.deprecated = schema.deprecated;
 	}
 
 	return result;

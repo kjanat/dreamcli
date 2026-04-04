@@ -2,9 +2,9 @@
 /**
  * Deno adapter smoke test.
  *
- * Runs under Deno to verify the built package works on a real Deno runtime.
- * This complements the vitest-based unit tests (which run under Node/Bun
- * with mock injection) by exercising the adapter against actual Deno APIs.
+ * Runs under Deno to verify the source package works on a real Deno runtime.
+ * Imports via the deno.jsonc import map (same resolution JSR consumers get).
+ * Complements vitest-based unit tests by exercising the adapter against actual Deno APIs.
  *
  * Usage: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
  *
@@ -15,13 +15,12 @@
 
 import type { RuntimeAdapter } from '#dreamcli/runtime';
 
-// Import from built output (not source) to verify the published shape.
-// Use a file URL expression so repository typecheck does not require a prebuilt dist/.
-const runtimeModuleUrl = import.meta.resolve('../dist/runtime.mjs');
-const runtimeModule = await import(runtimeModuleUrl);
+// Import via deno.jsonc import map — resolves to src/runtime.ts,
+// same source tree that `deno publish` ships to JSR.
+const runtimeModule = await import('#dreamcli/runtime');
 
 function failBoundary(message: string): never {
-	throw new Error(`${message} (module: ${runtimeModuleUrl})`);
+	throw new Error(message);
 }
 
 function assertRuntimeAdapter(value: unknown): RuntimeAdapter {

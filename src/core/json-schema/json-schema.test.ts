@@ -720,13 +720,13 @@ describe('generateInputSchema — input validation', () => {
 		expect(result).toHaveProperty(['properties', 'region', 'default'], 'us');
 	});
 
-	it('marks deprecated flags with deprecated: true', () => {
+	it('preserves deprecated string message', () => {
 		const cmd = commandDef({
 			name: 'test',
 			flags: { old: flagDef({ deprecated: 'use --new' }) },
 		});
 		const result = generateInputSchema(cmd);
-		expect(result).toHaveProperty(['properties', 'old', 'deprecated'], true);
+		expect(result).toHaveProperty(['properties', 'old', 'deprecated'], 'use --new');
 	});
 
 	// -------------------------------------------------------------------

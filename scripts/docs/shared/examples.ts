@@ -228,14 +228,24 @@ function extractUsage(lines: readonly string[]): readonly string[] {
 
 function extractLabeledValue(lines: readonly string[], label: string): string | null {
 	const prefix = `${label}:`;
-	for (const line of lines) {
-		if (line.startsWith(prefix)) {
-			const value = line.slice(prefix.length).trim();
-			return value === '' ? null : value;
-		}
+	const startIndex = lines.findIndex((line) => line.startsWith(prefix));
+	if (startIndex === -1) return null;
+
+	const startLine = lines[startIndex];
+	if (startLine === undefined) return null;
+	const firstValue = startLine.slice(prefix.length).trim();
+	if (firstValue === '') return null;
+
+	const parts = [firstValue];
+	for (let i = startIndex + 1; i < lines.length; i++) {
+		const line = lines[i];
+		if (line === undefined) break;
+		const trimmed = line.trim();
+		if (trimmed === '' || /^[A-Z]\w*:/.test(trimmed)) break;
+		parts.push(trimmed);
 	}
 
-	return null;
+	return parts.join(' ');
 }
 
 function firstNonEmpty(lines: readonly string[]): string | null {
