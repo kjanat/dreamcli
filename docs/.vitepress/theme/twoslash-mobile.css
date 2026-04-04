@@ -1,0 +1,87 @@
+/* --- Twoslash mobile/touch optimizations --- */
+
+@media (hover: none) {
+  /*
+   * 1. Cap popup widths to viewport.
+   *    Upstream: max-width 600px (code) / 700px (docs) — overflows all phones.
+   *    24px = 12px overflow-padding on each side (matches FloatingVue config).
+   */
+  .twoslash-floating .twoslash-popup-code {
+    max-width: calc(100vw - 24px);
+  }
+
+  .twoslash-floating .twoslash-popup-docs,
+  .twoslash-floating .twoslash-popup-error {
+    max-width: calc(100vw - 24px);
+    max-height: 40vh;
+  }
+
+  /*
+   * 2. Compact padding + font size for small screens.
+   *    Upstream code block: padding 6px 12px. Docs: padding 12px, font 0.9em.
+   */
+  .twoslash-floating .twoslash-popup-code {
+    padding: 4px 8px;
+    font-size: 0.85em;
+  }
+
+  .twoslash-floating .twoslash-popup-docs,
+  .twoslash-floating .twoslash-popup-error {
+    padding: 8px !important;
+    font-size: 0.8em;
+  }
+
+  /*
+   * 3. Always show dotted underline on touch devices.
+   *    Upstream: underline only visible via `.twoslash:hover .twoslash-hover`
+   *    which never fires on touch. Making it permanent tells users "tap me".
+   */
+  .twoslash .twoslash-hover {
+    border-color: var(--twoslash-underline-color);
+  }
+}
+
+/* --- First-visit hint toast --- */
+
+.twoslash-mobile-hint {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  border: 1px solid var(--vp-c-border);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85em;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  animation: twoslash-hint-in 0.3s ease;
+}
+
+.twoslash-mobile-hint-out {
+  animation: twoslash-hint-out 0.3s ease forwards;
+}
+
+@keyframes twoslash-hint-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes twoslash-hint-out {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+}
