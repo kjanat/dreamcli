@@ -119,7 +119,7 @@ describe('.completions()', () => {
 	// --- bash output
 
 	describe('bash output', () => {
-		it('generates bash completion script', async () => {
+		it('generates the script', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash']);
 			expect(result.exitCode).toBe(0);
@@ -130,7 +130,7 @@ describe('.completions()', () => {
 			expect(output).toContain('mycli');
 		});
 
-		it('includes registered command names in bash script', async () => {
+		it('includes registered commands', async () => {
 			const app = cli('mycli').command(deployCommand()).command(loginCommand()).completions();
 			const result = await app.execute(['completions', 'bash']);
 			const output = result.stdout.join('');
@@ -138,7 +138,7 @@ describe('.completions()', () => {
 			expect(output).toContain('login');
 		});
 
-		it('includes flag names from registered commands', async () => {
+		it('includes flag names', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash']);
 			const output = result.stdout.join('');
@@ -146,7 +146,7 @@ describe('.completions()', () => {
 			expect(output).toContain('--region');
 		});
 
-		it('excludes the completions command itself from bash script', async () => {
+		it('excludes the completions command itself', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash']);
 			const output = result.stdout.join('');
@@ -205,7 +205,7 @@ describe('.completions()', () => {
 	// --- zsh output
 
 	describe('zsh output', () => {
-		it('generates zsh completion script', async () => {
+		it('generates the script', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'zsh']);
 			expect(result.exitCode).toBe(0);
@@ -214,7 +214,7 @@ describe('.completions()', () => {
 			expect(output).toContain('_mycli');
 		});
 
-		it('includes registered command names in zsh script', async () => {
+		it('includes registered commands', async () => {
 			const app = cli('mycli').command(deployCommand()).command(loginCommand()).completions();
 			const result = await app.execute(['completions', 'zsh']);
 			const output = result.stdout.join('');
@@ -222,7 +222,7 @@ describe('.completions()', () => {
 			expect(output).toContain('login');
 		});
 
-		it('includes flag specs from registered commands', async () => {
+		it('includes flag specs', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'zsh']);
 			const output = result.stdout.join('');
@@ -308,14 +308,14 @@ describe('.completions()', () => {
 			expect(result.stdout.join('')).toContain('# PowerShell completion for mycli');
 		});
 
-		it('accepts fish through the user-facing shell arg', async () => {
+		it('accepts fish', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'fish']);
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout.join('')).toContain('# Fish completion for mycli');
 		});
 
-		it('accepts powershell through the user-facing shell arg', async () => {
+		it('accepts powershell', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'powershell']);
 			expect(result.exitCode).toBe(0);
@@ -389,7 +389,7 @@ describe('.completions()', () => {
 	// --- --json mode
 
 	describe('--json mode', () => {
-		it('outputs JSON with shell + script fields to stdout in --json mode', async () => {
+		it('wraps bash scripts in JSON', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash', '--json']);
 			expect(result.exitCode).toBe(0);
@@ -403,7 +403,7 @@ describe('.completions()', () => {
 			expect(result.stderr).toEqual([]);
 		});
 
-		it('outputs JSON with zsh script in --json mode', async () => {
+		it('wraps zsh scripts in JSON', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'zsh', '--json']);
 			expect(result.exitCode).toBe(0);
@@ -412,7 +412,7 @@ describe('.completions()', () => {
 			expect(parsed.script).toContain('_mycli');
 		});
 
-		it('outputs JSON with fish script in --json mode', async () => {
+		it('wraps fish scripts in JSON', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'fish', '--json']);
 			expect(result.exitCode).toBe(0);
@@ -421,7 +421,7 @@ describe('.completions()', () => {
 			expect(parsed.script).toContain('complete -c mycli -f');
 		});
 
-		it('outputs raw script to stdout in normal mode (no --json)', async () => {
+		it('writes raw scripts in normal mode', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash']);
 			expect(result.exitCode).toBe(0);
@@ -432,7 +432,7 @@ describe('.completions()', () => {
 			expect(() => JSON.parse(output)).toThrow();
 		});
 
-		it('jsonMode via options also wraps script in JSON', async () => {
+		it('also respects jsonMode via options', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash'], { jsonMode: true });
 			expect(result.exitCode).toBe(0);
@@ -457,28 +457,34 @@ describe('.completions()', () => {
 	// --- install instruction headers
 
 	describe('install instruction headers', () => {
-		it('bash script includes install instructions in header', async () => {
-			const app = cli('mycli').command(deployCommand()).completions();
-			const result = await app.execute(['completions', 'bash']);
-			const output = result.stdout.join('');
-			expect(output).toContain('source <(mycli completions bash)');
-			expect(output).toContain('/etc/bash_completion.d/mycli');
+		describe('bash', () => {
+			it('includes install instructions', async () => {
+				const app = cli('mycli').command(deployCommand()).completions();
+				const result = await app.execute(['completions', 'bash']);
+				const output = result.stdout.join('');
+				expect(output).toContain('source <(mycli completions bash)');
+				expect(output).toContain('/etc/bash_completion.d/mycli');
+			});
 		});
 
-		it('zsh script includes install instructions in header', async () => {
-			const app = cli('mycli').command(deployCommand()).completions();
-			const result = await app.execute(['completions', 'zsh']);
-			const output = result.stdout.join('');
-			expect(output).toContain('source <(mycli completions zsh)');
-			expect(output).toContain('fpath');
+		describe('zsh', () => {
+			it('includes install instructions', async () => {
+				const app = cli('mycli').command(deployCommand()).completions();
+				const result = await app.execute(['completions', 'zsh']);
+				const output = result.stdout.join('');
+				expect(output).toContain('source <(mycli completions zsh)');
+				expect(output).toContain('fpath');
+			});
 		});
 
-		it('fish script includes install instructions in header', async () => {
-			const app = cli('mycli').command(deployCommand()).completions();
-			const result = await app.execute(['completions', 'fish']);
-			const output = result.stdout.join('');
-			expect(output).toContain('source (mycli completions fish | psub)');
-			expect(output).toContain('~/.config/fish/completions/mycli.fish');
+		describe('fish', () => {
+			it('includes install instructions', async () => {
+				const app = cli('mycli').command(deployCommand()).completions();
+				const result = await app.execute(['completions', 'fish']);
+				const output = result.stdout.join('');
+				expect(output).toContain('source (mycli completions fish | psub)');
+				expect(output).toContain('~/.config/fish/completions/mycli.fish');
+			});
 		});
 	});
 
@@ -497,7 +503,7 @@ describe('.completions()', () => {
 	// --- fish output
 
 	describe('fish output', () => {
-		it('generates fish completion script', async () => {
+		it('generates the script', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'fish']);
 			expect(result.exitCode).toBe(0);
@@ -507,7 +513,7 @@ describe('.completions()', () => {
 			expect(output).toContain('complete -c mycli -f');
 		});
 
-		it('includes nested propagated flags in fish script', async () => {
+		it('includes nested propagated flags', async () => {
 			const app = cli('mycli').default(serveDefaultCommand()).completions({ rootMode: 'surface' });
 			const result = await app.execute(['completions', 'fish']);
 			const rootLines = extractFishCompletionLines(

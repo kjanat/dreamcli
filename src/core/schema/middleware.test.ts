@@ -161,7 +161,7 @@ describe('CommandBuilder.middleware()', () => {
 			});
 		});
 
-		it('middleware + flags + args compose correctly', () => {
+		it('composes with flags and args', () => {
 			const auth = middleware<{ user: string }>(async ({ next }) => next({ user: 'alice' }));
 
 			command('test')
@@ -182,213 +182,219 @@ describe('CommandBuilder.middleware()', () => {
 
 // --- Middleware execution via runCommand
 
-describe('middleware execution via runCommand', () => {
-	it('middleware adds context to action handler', async () => {
-		const auth = middleware(async ({ next }) => next({ user: 'alice' }));
-		let receivedCtx: unknown;
+describe('execution via runCommand', () => {
+	describe('context flow', () => {
+		it('adds context to the action handler', async () => {
+			const auth = middleware(async ({ next }) => next({ user: 'alice' }));
+			let receivedCtx: unknown;
 
-		const cmd = command('test')
-			.middleware(auth)
-			.action(({ ctx }) => {
-				receivedCtx = ctx;
-			});
+			const cmd = command('test')
+				.middleware(auth)
+				.action(({ ctx }) => {
+					receivedCtx = ctx;
+				});
 
-		const result = await runCommand(cmd, []);
-		expect(result.exitCode).toBe(0);
-		expect(receivedCtx).toEqual({ user: 'alice' });
-	});
-
-	it('middleware executes in registration order', async () => {
-		const order: string[] = [];
-
-		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
-		const first = middleware<{}>(async ({ next }) => {
-			order.push('first-before');
-			await next({});
-			order.push('first-after');
+			const result = await runCommand(cmd, []);
+			expect(result.exitCode).toBe(0);
+			expect(receivedCtx).toEqual({ user: 'alice' });
 		});
 
-		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
-		const second = middleware<{}>(async ({ next }) => {
-			order.push('second-before');
-			await next({});
-			order.push('second-after');
+		it('accumulates context across middleware', async () => {
+			const auth = middleware(async ({ next }) => next({ user: 'alice' }));
+			const trace = middleware(async ({ next }) => next({ traceId: '123' }));
+			let receivedCtx: unknown;
+
+			const cmd = command('test')
+				.middleware(auth)
+				.middleware(trace)
+				.action(({ ctx }) => {
+					receivedCtx = ctx;
+				});
+
+			await runCommand(cmd, []);
+			expect(receivedCtx).toEqual({ user: 'alice', traceId: '123' });
 		});
 
-		const cmd = command('test')
-			.middleware(first)
-			.middleware(second)
-			.action(() => {
-				order.push('action');
-			});
+		it('receives resolved flags and args', async () => {
+			let receivedFlags: unknown;
+			let receivedArgs: unknown;
 
-		await runCommand(cmd, []);
-		expect(order).toEqual([
-			'first-before',
-			'second-before',
-			'action',
-			'second-after',
-			'first-after',
-		]);
-	});
-
-	it('multiple middleware accumulate context', async () => {
-		const auth = middleware(async ({ next }) => next({ user: 'alice' }));
-		const trace = middleware(async ({ next }) => next({ traceId: '123' }));
-		let receivedCtx: unknown;
-
-		const cmd = command('test')
-			.middleware(auth)
-			.middleware(trace)
-			.action(({ ctx }) => {
-				receivedCtx = ctx;
-			});
-
-		await runCommand(cmd, []);
-		expect(receivedCtx).toEqual({ user: 'alice', traceId: '123' });
-	});
-
-	it('middleware receives resolved flags and args', async () => {
-		let receivedFlags: unknown;
-		let receivedArgs: unknown;
-
-		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
-		const spy = middleware<{}>(async ({ args, flags, next }) => {
-			receivedFlags = flags;
-			receivedArgs = args;
-			await next({});
-		});
-
-		const cmd = command('test')
-			.flag('force', flag.boolean())
-			.arg('target', arg.string())
-			.middleware(spy)
-			.action(() => {});
-
-		await runCommand(cmd, ['production', '--force']);
-		expect(receivedFlags).toEqual({ force: true });
-		expect(receivedArgs).toEqual({ target: 'production' });
-	});
-
-	it('middleware can use output channel', async () => {
-		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
-		const logger = middleware<{}>(async ({ out, next }) => {
-			out.info('middleware running');
-			await next({});
-		});
-
-		const cmd = command('test')
-			.middleware(logger)
-			.action(({ out }) => {
-				out.log('action done');
-			});
-
-		const result = await runCommand(cmd, []);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout.join('')).toContain('middleware running');
-		expect(result.stdout.join('')).toContain('action done');
-	});
-
-	it('middleware can short-circuit by throwing CLIError', async () => {
-		const guard = middleware(async (_params) => {
-			throw new CLIError('Forbidden', { code: 'FORBIDDEN', exitCode: 3 });
-		});
-
-		const handler = vi.fn();
-		const cmd = command('test').middleware(guard).action(handler);
-
-		const result = await runCommand(cmd, []);
-		expect(result.exitCode).toBe(3);
-		expect(result.error?.code).toBe('FORBIDDEN');
-		expect(handler).not.toHaveBeenCalled();
-	});
-
-	it('middleware can short-circuit by not calling next', async () => {
-		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
-		const gate = middleware<{}>(async ({ out }) => {
-			out.log('stopped');
-			// intentionally not calling next()
-		});
-
-		const handler = vi.fn();
-		const cmd = command('test').middleware(gate).action(handler);
-
-		const result = await runCommand(cmd, []);
-		expect(result.exitCode).toBe(0);
-		expect(handler).not.toHaveBeenCalled();
-		expect(result.stdout.join('')).toContain('stopped');
-	});
-
-	it('middleware wrapping pattern (timing)', async () => {
-		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
-		const wrapper = middleware<{}>(async ({ out, next }) => {
-			out.info('before');
-			await next({});
-			out.info('after');
-		});
-
-		const cmd = command('test')
-			.middleware(wrapper)
-			.action(({ out }) => {
-				out.log('during');
-			});
-
-		const result = await runCommand(cmd, []);
-		const output = result.stdout.join('');
-		const beforeIdx = output.indexOf('before');
-		const duringIdx = output.indexOf('during');
-		const afterIdx = output.indexOf('after');
-		expect(beforeIdx).toBeLessThan(duringIdx);
-		expect(duringIdx).toBeLessThan(afterIdx);
-	});
-
-	it('downstream middleware receives upstream context', async () => {
-		const auth = middleware(async ({ next }) => next({ user: 'alice' }));
-		let downstreamCtx: unknown;
-
-		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
-		const logger = middleware<{}>(async ({ ctx, next }) => {
-			downstreamCtx = ctx;
-			await next({});
-		});
-
-		const cmd = command('test')
-			.middleware(auth)
-			.middleware(logger)
-			.action(() => {});
-
-		await runCommand(cmd, []);
-		expect(downstreamCtx).toEqual({ user: 'alice' });
-	});
-
-	it('works with no middleware (backward compatible)', async () => {
-		let receivedCtx: unknown;
-
-		const cmd = command('test').action(({ ctx }) => {
-			receivedCtx = ctx;
-		});
-
-		const result = await runCommand(cmd, []);
-		expect(result.exitCode).toBe(0);
-		expect(receivedCtx).toEqual({});
-	});
-
-	it('works with env/config resolution and middleware', async () => {
-		const auth = middleware(async ({ next }) => next({ user: 'alice' }));
-		let receivedFlags: unknown;
-		let receivedCtx: unknown;
-
-		const cmd = command('test')
-			.flag('region', flag.string().env('DEPLOY_REGION'))
-			.middleware(auth)
-			.action(({ flags, ctx }) => {
+			// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+			const spy = middleware<{}>(async ({ args, flags, next }) => {
 				receivedFlags = flags;
+				receivedArgs = args;
+				await next({});
+			});
+
+			const cmd = command('test')
+				.flag('force', flag.boolean())
+				.arg('target', arg.string())
+				.middleware(spy)
+				.action(() => {});
+
+			await runCommand(cmd, ['production', '--force']);
+			expect(receivedFlags).toEqual({ force: true });
+			expect(receivedArgs).toEqual({ target: 'production' });
+		});
+
+		it('passes upstream context downstream', async () => {
+			const auth = middleware(async ({ next }) => next({ user: 'alice' }));
+			let downstreamCtx: unknown;
+
+			// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+			const logger = middleware<{}>(async ({ ctx, next }) => {
+				downstreamCtx = ctx;
+				await next({});
+			});
+
+			const cmd = command('test')
+				.middleware(auth)
+				.middleware(logger)
+				.action(() => {});
+
+			await runCommand(cmd, []);
+			expect(downstreamCtx).toEqual({ user: 'alice' });
+		});
+
+		it('starts with empty ctx without middleware', async () => {
+			let receivedCtx: unknown;
+
+			const cmd = command('test').action(({ ctx }) => {
 				receivedCtx = ctx;
 			});
 
-		const result = await runCommand(cmd, [], { env: { DEPLOY_REGION: 'eu' } });
-		expect(result.exitCode).toBe(0);
-		expect(receivedFlags).toEqual({ region: 'eu' });
-		expect(receivedCtx).toEqual({ user: 'alice' });
+			const result = await runCommand(cmd, []);
+			expect(result.exitCode).toBe(0);
+			expect(receivedCtx).toEqual({});
+		});
+
+		it('works with env/config resolution', async () => {
+			const auth = middleware(async ({ next }) => next({ user: 'alice' }));
+			let receivedFlags: unknown;
+			let receivedCtx: unknown;
+
+			const cmd = command('test')
+				.flag('region', flag.string().env('DEPLOY_REGION'))
+				.middleware(auth)
+				.action(({ flags, ctx }) => {
+					receivedFlags = flags;
+					receivedCtx = ctx;
+				});
+
+			const result = await runCommand(cmd, [], { env: { DEPLOY_REGION: 'eu' } });
+			expect(result.exitCode).toBe(0);
+			expect(receivedFlags).toEqual({ region: 'eu' });
+			expect(receivedCtx).toEqual({ user: 'alice' });
+		});
+	});
+
+	describe('control flow', () => {
+		it('executes in registration order', async () => {
+			const order: string[] = [];
+
+			// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+			const first = middleware<{}>(async ({ next }) => {
+				order.push('first-before');
+				await next({});
+				order.push('first-after');
+			});
+
+			// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+			const second = middleware<{}>(async ({ next }) => {
+				order.push('second-before');
+				await next({});
+				order.push('second-after');
+			});
+
+			const cmd = command('test')
+				.middleware(first)
+				.middleware(second)
+				.action(() => {
+					order.push('action');
+				});
+
+			await runCommand(cmd, []);
+			expect(order).toEqual([
+				'first-before',
+				'second-before',
+				'action',
+				'second-after',
+				'first-after',
+			]);
+		});
+
+		it('short-circuits by throwing CLIError', async () => {
+			const guard = middleware(async (_params) => {
+				throw new CLIError('Forbidden', { code: 'FORBIDDEN', exitCode: 3 });
+			});
+
+			const handler = vi.fn();
+			const cmd = command('test').middleware(guard).action(handler);
+
+			const result = await runCommand(cmd, []);
+			expect(result.exitCode).toBe(3);
+			expect(result.error?.code).toBe('FORBIDDEN');
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('short-circuits without next()', async () => {
+			// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+			const gate = middleware<{}>(async ({ out }) => {
+				out.log('stopped');
+				// intentionally not calling next()
+			});
+
+			const handler = vi.fn();
+			const cmd = command('test').middleware(gate).action(handler);
+
+			const result = await runCommand(cmd, []);
+			expect(result.exitCode).toBe(0);
+			expect(handler).not.toHaveBeenCalled();
+			expect(result.stdout.join('')).toContain('stopped');
+		});
+
+		it('wraps the action', async () => {
+			// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+			const wrapper = middleware<{}>(async ({ out, next }) => {
+				out.info('before');
+				await next({});
+				out.info('after');
+			});
+
+			const cmd = command('test')
+				.middleware(wrapper)
+				.action(({ out }) => {
+					out.log('during');
+				});
+
+			const result = await runCommand(cmd, []);
+			const output = result.stdout.join('');
+			const beforeIdx = output.indexOf('before');
+			const duringIdx = output.indexOf('during');
+			const afterIdx = output.indexOf('after');
+			expect(beforeIdx).toBeLessThan(duringIdx);
+			expect(duringIdx).toBeLessThan(afterIdx);
+		});
+	});
+
+	describe('output', () => {
+		it('uses the output channel', async () => {
+			// biome-ignore lint/complexity/noBannedTypes: testing empty additions
+			const logger = middleware<{}>(async ({ out, next }) => {
+				out.info('middleware running');
+				await next({});
+			});
+
+			const cmd = command('test')
+				.middleware(logger)
+				.action(({ out }) => {
+					out.log('action done');
+				});
+
+			const result = await runCommand(cmd, []);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toContain('middleware running');
+			expect(result.stdout.join('')).toContain('action done');
+		});
 	});
 });

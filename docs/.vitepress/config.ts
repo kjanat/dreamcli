@@ -28,7 +28,7 @@ export default withMermaid(
     title: pkg.name,
     description: pkg.description,
     cleanUrls: true,
-    base: `${ifCI('', '.')}/`,
+    base: '/',
     sitemap: {
       hostname: ifCI(pkg.homepage, 'localhost'),
     },
