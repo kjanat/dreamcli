@@ -7,47 +7,55 @@ import {
 	toSharedFlagPropertySchema,
 } from './property.ts';
 
-describe('resolver shared property model — contract', () => {
-	it('keeps the shared seam coercion-only', () => {
-		expect(sharedPropertyModelContract).toEqual({
-			scope: 'coercion',
-			sharedKinds: ['string', 'number', 'enum', 'custom'],
-			keepsFlagAndArgPrecedenceSeparate: true,
-			keepsFallbackRulesSeparate: true,
-			keepsRequiredValueRulesSeparate: true,
+// === resolver shared property model
+
+describe('resolver shared property model', () => {
+	// --- contract
+
+	describe('contract', () => {
+		it('keeps the shared seam coercion-only', () => {
+			expect(sharedPropertyModelContract).toEqual({
+				scope: 'coercion',
+				sharedKinds: ['string', 'number', 'enum', 'custom'],
+				keepsFlagAndArgPrecedenceSeparate: true,
+				keepsFallbackRulesSeparate: true,
+				keepsRequiredValueRulesSeparate: true,
+			});
 		});
 	});
-});
 
-describe('resolver shared property model — schema adapters', () => {
-	it('keeps flag-only kinds outside the shared model', () => {
-		expect(toSharedFlagPropertySchema(createSchema('boolean'))).toBeUndefined();
-		expect(toSharedFlagPropertySchema(createSchema('array'))).toBeUndefined();
-	});
+	// --- schema adapters
 
-	it('preserves shared enum metadata for flag coercion', () => {
-		expect(
-			toSharedFlagPropertySchema(
-				createSchema('enum', {
-					enumValues: ['dev', 'prod'],
+	describe('schema adapters', () => {
+		it('keeps flag-only kinds outside the shared model', () => {
+			expect(toSharedFlagPropertySchema(createSchema('boolean'))).toBeUndefined();
+			expect(toSharedFlagPropertySchema(createSchema('array'))).toBeUndefined();
+		});
+
+		it('preserves shared enum metadata for flag coercion', () => {
+			expect(
+				toSharedFlagPropertySchema(
+					createSchema('enum', {
+						enumValues: ['dev', 'prod'],
+					}),
+				),
+			).toEqual({
+				kind: 'enum',
+				enumValues: ['dev', 'prod'],
+			});
+		});
+
+		it('wraps arg custom parsers for unknown-friendly shared coercion', () => {
+			const shared = toSharedArgPropertySchema(
+				createArgSchema('custom', {
+					parseFn: (raw) => `[${raw}]`,
 				}),
-			),
-		).toEqual({
-			kind: 'enum',
-			enumValues: ['dev', 'prod'],
+			);
+
+			expect(shared.kind).toBe('custom');
+			if (shared.kind === 'custom') {
+				expect(shared.parseFn?.(42)).toBe('[42]');
+			}
 		});
-	});
-
-	it('wraps arg custom parsers for unknown-friendly shared coercion', () => {
-		const shared = toSharedArgPropertySchema(
-			createArgSchema('custom', {
-				parseFn: (raw) => `[${raw}]`,
-			}),
-		);
-
-		expect(shared.kind).toBe('custom');
-		if (shared.kind === 'custom') {
-			expect(shared.parseFn?.(42)).toBe('[42]');
-		}
 	});
 });

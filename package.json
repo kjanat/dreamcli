@@ -18,7 +18,11 @@
 		"url": "git+https://github.com/kjanat/dreamcli.git"
 	},
 	"license": "MIT",
-	"author": "Kaj Kowalski <info@kajkowalski.nl> (https://github.com/kjanat)",
+	"author": {
+		"name": "Kaj Kowalski",
+		"email": "info@kajkowalski.nl",
+		"url": "https://github.com/kjanat"
+	},
 	"type": "module",
 	"imports": {
 		"#dreamcli": "./src/index.ts",

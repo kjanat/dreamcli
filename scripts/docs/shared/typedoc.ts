@@ -286,6 +286,7 @@ async function collectRawTypeDocProject(
 ): Promise<JSONOutput.ProjectReflection> {
 	const entryPoints = publicApi
 		.filter((entrypoint) => extname(entrypoint.sourcePath) === '.ts')
+		.filter((entrypoint) => !entrypoint.sourcePath.endsWith('.test.ts'))
 		.map((entrypoint) => resolve(rootDir, entrypoint.sourcePath));
 	const app = await Application.bootstrap({
 		entryPoints,

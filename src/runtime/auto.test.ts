@@ -33,152 +33,156 @@ function assertAdapterShape(adapter: RuntimeAdapter): void {
 	expect(typeof adapter.exit).toBe('function');
 }
 
-// === createAdapter — runtime dispatch
+// === createAdapter
 
-describe('createAdapter — runtime dispatch', () => {
-	// -------------------------------------------------------------------
-	// Node.js
-	// -------------------------------------------------------------------
+describe('createAdapter', () => {
+	// --- runtime dispatch
 
-	it('creates adapter for Node.js runtime', () => {
-		const globals: GlobalForDetect = {
-			process: { versions: { node: '22.22.2' } },
-		};
-		const adapter = createAdapter(globals);
-		assertAdapterShape(adapter);
-	});
+	describe('runtime dispatch', () => {
+		// -------------------------------------------------------------------
+		// Node.js
+		// -------------------------------------------------------------------
 
-	// -------------------------------------------------------------------
-	// Bun
-	// -------------------------------------------------------------------
-
-	it('creates adapter for Bun runtime', () => {
-		const globals: GlobalForDetect = {
-			Bun: { version: '1.3.11' },
-			process: { versions: { node: '22.22.2' } },
-		};
-		const adapter = createAdapter(globals);
-		assertAdapterShape(adapter);
-	});
-
-	// -------------------------------------------------------------------
-	// Deno
-	// -------------------------------------------------------------------
-
-	it('creates adapter for Deno runtime', () => {
-		const globals: GlobalForDetect = {
-			Deno: createMockDenoNamespace(),
-		};
-		const adapter = createAdapter(globals);
-		assertAdapterShape(adapter);
-	});
-
-	// -------------------------------------------------------------------
-	// Unknown (falls back to Node)
-	// -------------------------------------------------------------------
-
-	it('creates adapter for unknown runtime (Node fallback)', () => {
-		const globals: GlobalForDetect = {};
-		const adapter = createAdapter(globals);
-		assertAdapterShape(adapter);
-	});
-
-	it('creates adapter when process exists but versions.node is missing', () => {
-		const globals: GlobalForDetect = {
-			process: { versions: {} },
-		};
-		const adapter = createAdapter(globals);
-		assertAdapterShape(adapter);
-	});
-});
-
-// === createAdapter — exhaustiveness
-
-describe('createAdapter — exhaustiveness', () => {
-	it('handles every Runtime variant without returning undefined', () => {
-		// Exhaustiveness is enforced at compile-time via `default: never`.
-		// This test verifies runtime behavior: every known Runtime value
-		// produces a valid RuntimeAdapter.
-		const globalsForRuntime: Record<string, GlobalForDetect> = {
-			node: { process: { versions: { node: '22.22.2' } } },
-			bun: { Bun: { version: '1.3.11' }, process: { versions: { node: '22.22.2' } } },
-			deno: { Deno: createMockDenoNamespace() },
-			unknown: {},
-		};
-
-		for (const runtime of RUNTIMES) {
-			const adapter = createAdapter(globalsForRuntime[runtime]);
-			expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
+		it('creates adapter for Node.js runtime', () => {
+			const globals: GlobalForDetect = {
+				process: { versions: { node: '22.22.2' } },
+			};
+			const adapter = createAdapter(globals);
 			assertAdapterShape(adapter);
-		}
-	});
-});
+		});
 
-// === createAdapter — default (no globals override)
+		// -------------------------------------------------------------------
+		// Bun
+		// -------------------------------------------------------------------
 
-describe('createAdapter — default globalThis', () => {
-	it('creates adapter without explicit globals', () => {
-		// Running in Node.js via vitest — should create Node adapter
-		const adapter = createAdapter();
-		assertAdapterShape(adapter);
-	});
+		it('creates adapter for Bun runtime', () => {
+			const globals: GlobalForDetect = {
+				Bun: { version: '1.3.11' },
+				process: { versions: { node: '22.22.2' } },
+			};
+			const adapter = createAdapter(globals);
+			assertAdapterShape(adapter);
+		});
 
-	it('returns adapter with real process argv', () => {
-		const adapter = createAdapter();
-		// vitest runs on Node — argv should have at least 2 entries
-		expect(adapter.argv.length).toBeGreaterThanOrEqual(2);
-	});
+		// -------------------------------------------------------------------
+		// Deno
+		// -------------------------------------------------------------------
 
-	it('returns adapter with real process cwd', () => {
-		const adapter = createAdapter();
-		// cwd should be a non-empty absolute path
-		expect(adapter.cwd.length).toBeGreaterThan(0);
-	});
-});
+		it('creates adapter for Deno runtime', () => {
+			const globals: GlobalForDetect = {
+				Deno: createMockDenoNamespace(),
+			};
+			const adapter = createAdapter(globals);
+			assertAdapterShape(adapter);
+		});
 
-// === createAdapter — adapter is functional
+		// -------------------------------------------------------------------
+		// Unknown (falls back to Node)
+		// -------------------------------------------------------------------
 
-describe('createAdapter — adapter functionality', () => {
-	it('stdout writer is callable', () => {
-		const adapter = createAdapter();
-		// Should not throw when called
-		expect(() => adapter.stdout('')).not.toThrow();
-	});
+		it('creates adapter for unknown runtime (Node fallback)', () => {
+			const globals: GlobalForDetect = {};
+			const adapter = createAdapter(globals);
+			assertAdapterShape(adapter);
+		});
 
-	it('stderr writer is callable', () => {
-		const adapter = createAdapter();
-		expect(() => adapter.stderr('')).not.toThrow();
-	});
-
-	it('env contains expected Node.js variables', () => {
-		const adapter = createAdapter();
-		// PATH is always present but may be cased as "Path" on Windows
-		const hasPath = adapter.env.PATH !== undefined || adapter.env.Path !== undefined;
-		expect(hasPath).toBe(true);
-	});
-
-	it('throws for unsupported Node.js versions', () => {
-		const globals: GlobalForDetect = {
-			process: { versions: { node: '21.9.0' } },
-		};
-
-		expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Node.js >= 22.22.2');
+		it('creates adapter when process exists but versions.node is missing', () => {
+			const globals: GlobalForDetect = {
+				process: { versions: {} },
+			};
+			const adapter = createAdapter(globals);
+			assertAdapterShape(adapter);
+		});
 	});
 
-	it('throws for unsupported Bun versions', () => {
-		const globals: GlobalForDetect = {
-			Bun: { version: '1.2.9' },
-			process: { versions: { node: '22.22.2' } },
-		};
+	// --- exhaustiveness
 
-		expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
+	describe('exhaustiveness', () => {
+		it('handles every Runtime variant without returning undefined', () => {
+			// Exhaustiveness is enforced at compile-time via `default: never`.
+			// This test verifies runtime behavior: every known Runtime value
+			// produces a valid RuntimeAdapter.
+			const globalsForRuntime: Record<string, GlobalForDetect> = {
+				node: { process: { versions: { node: '22.22.2' } } },
+				bun: { Bun: { version: '1.3.11' }, process: { versions: { node: '22.22.2' } } },
+				deno: { Deno: createMockDenoNamespace() },
+				unknown: {},
+			};
+
+			for (const runtime of RUNTIMES) {
+				const adapter = createAdapter(globalsForRuntime[runtime]);
+				expect(adapter, `createAdapter returned undefined for runtime '${runtime}'`).toBeDefined();
+				assertAdapterShape(adapter);
+			}
+		});
 	});
 
-	it('throws for unsupported Deno versions', () => {
-		const globals: GlobalForDetect = {
-			Deno: { version: { deno: '2.5.4' } },
-		};
+	// --- default globalThis
 
-		expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Deno >= 2.6.0');
+	describe('default globalThis', () => {
+		it('creates adapter without explicit globals', () => {
+			// Running in Node.js via vitest — should create Node adapter
+			const adapter = createAdapter();
+			assertAdapterShape(adapter);
+		});
+
+		it('returns adapter with real process argv', () => {
+			const adapter = createAdapter();
+			// vitest runs on Node — argv should have at least 2 entries
+			expect(adapter.argv.length).toBeGreaterThanOrEqual(2);
+		});
+
+		it('returns adapter with real process cwd', () => {
+			const adapter = createAdapter();
+			// cwd should be a non-empty absolute path
+			expect(adapter.cwd.length).toBeGreaterThan(0);
+		});
+	});
+
+	// --- adapter functionality
+
+	describe('adapter functionality', () => {
+		it('stdout writer is callable', () => {
+			const adapter = createAdapter();
+			// Should not throw when called
+			expect(() => adapter.stdout('')).not.toThrow();
+		});
+
+		it('stderr writer is callable', () => {
+			const adapter = createAdapter();
+			expect(() => adapter.stderr('')).not.toThrow();
+		});
+
+		it('env contains expected Node.js variables', () => {
+			const adapter = createAdapter();
+			// PATH is always present but may be cased as "Path" on Windows
+			const hasPath = adapter.env.PATH !== undefined || adapter.env.Path !== undefined;
+			expect(hasPath).toBe(true);
+		});
+
+		it('throws for unsupported Node.js versions', () => {
+			const globals: GlobalForDetect = {
+				process: { versions: { node: '21.9.0' } },
+			};
+
+			expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Node.js >= 22.22.2');
+		});
+
+		it('throws for unsupported Bun versions', () => {
+			const globals: GlobalForDetect = {
+				Bun: { version: '1.2.9' },
+				process: { versions: { node: '22.22.2' } },
+			};
+
+			expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
+		});
+
+		it('throws for unsupported Deno versions', () => {
+			const globals: GlobalForDetect = {
+				Deno: { version: { deno: '2.5.4' } },
+			};
+
+			expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Deno >= 2.6.0');
+		});
 	});
 });

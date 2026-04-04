@@ -5,7 +5,7 @@ Each flag declaration configures parsing, type inference, resolution, help text,
 
 ## Flag Types
 
-```ts
+```ts twoslash
 import { flag } from '@kjanat/dreamcli';
 
 flag.string(); // string | undefined

@@ -1,29 +1,36 @@
 import { normalize } from 'node:path';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
+import { ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
 import { MermaidMarkdown, MermaidPlugin } from 'vitepress-plugin-mermaid';
+import pkg from '../../package.json' with { type: 'json' };
+import tsconfig from '../../tsconfig.json' with { type: 'json' };
 import {
   generatedExamples,
   generatedReferenceSurfaces,
 } from '../.generated/site-data.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
+const ifCI = (ifCiThen: string, ifNotCiThen: string) =>
+  process.env.CI ? ifCiThen : ifNotCiThen;
 
-const examplesSidebarTitle =
-  generatedExamples.length === 0
-    ? 'Examples'
-    : `Examples (${generatedExamples.length})`;
-const generatedReferenceTitle =
-  generatedReferenceSurfaces.length === 0
-    ? 'Generated Surfaces'
-    : `Generated Surfaces (${generatedReferenceSurfaces.length})`;
+const examplesSidebarTitle = `Examples${generatedExamples.length === 0 ? '' : ` (${generatedExamples.length})`}`;
+const generatedReferenceTitle = `Generated Surfaces${generatedReferenceSurfaces.length === 0 ? '' : ` (${generatedReferenceSurfaces.length})`}`;
+
+const links = {
+  github: 'https://github.com/kjanat/dreamcli',
+  npm: 'https://www.npmjs.com/package/@kjanat/dreamcli',
+  jsr: 'https://jsr.io/@kjanat/dreamcli',
+} as const;
 
 export default defineConfig({
   title: '@kjanat/dreamcli',
   description: 'Schema-first, fully typed TypeScript CLI framework',
   cleanUrls: true,
-  base: '/',
-  sitemap: { hostname: 'https://dreamcli.kjanat.com' },
+  base: `${ifCI('', '.')}/`,
+  sitemap: {
+    hostname: ifCI('https://dreamcli.kjanat.com', 'localhost'),
+  },
   head: [
     [
       'link',
@@ -75,12 +82,9 @@ export default defineConfig({
       {
         text: 'Links',
         items: [
-          { text: 'GitHub', link: 'https://github.com/kjanat/dreamcli' },
-          {
-            text: 'npm',
-            link: 'https://www.npmjs.com/package/@kjanat/dreamcli',
-          },
-          { text: 'JSR', link: 'https://jsr.io/@kjanat/dreamcli' },
+          { text: 'GitHub', link: links.github },
+          { text: 'npm', link: links.npm },
+          { text: 'JSR', link: links.jsr },
         ],
       },
     ],
@@ -180,31 +184,26 @@ export default defineConfig({
         },
       ],
     },
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/kjanat/dreamcli' },
-    ],
+    socialLinks: [{ icon: 'github', link: links.github }],
     search: { provider: 'local' },
     footer: {
-      message: 'Released under the MIT License.',
-      copyright: `Copyright © 2026-present Kaj Kowalski`,
+      message: `Released under the ${pkg.license} License.`,
+      copyright: `Copyright © 2026-present ${pkg.author.name}`,
     },
   },
   markdown: {
     codeTransformers: [
       transformerTwoslash({
-        explicitTrigger: false,
+        explicitTrigger: true,
         twoslashOptions: {
           vfsRoot: projectRoot,
           compilerOptions: {
             baseUrl: projectRoot,
-            paths: {
-              '@kjanat/dreamcli': ['./src/index.ts'],
-              '@kjanat/dreamcli/runtime': ['./src/runtime.ts'],
-              '@kjanat/dreamcli/testkit': ['./src/testkit.ts'],
-            },
-            module: 99 /* ModuleKind.ESNext */,
-            moduleResolution: 100 /* ModuleResolutionKind.Bundler */,
-            allowImportingTsExtensions: true,
+            paths: tsconfig.compilerOptions?.paths ?? {},
+            module: ModuleKind.ESNext,
+            moduleResolution: ModuleResolutionKind.Bundler,
+            allowImportingTsExtensions:
+              tsconfig.compilerOptions?.allowImportingTsExtensions ?? false,
             noEmit: true,
           },
         },
@@ -217,8 +216,6 @@ export default defineConfig({
   },
   vite: {
     plugins: [MermaidPlugin()],
-    ssr: {
-      noExternal: ['vue'],
-    },
+    ssr: { noExternal: ['vue'] },
   },
 });

@@ -64,99 +64,103 @@ describe('createBunAdapter', () => {
 	});
 });
 
-// === createBunAdapter — delegates to process fields
+// === createBunAdapter (nested)
 
-describe('createBunAdapter — process delegation', () => {
-	it('reads argv from process', () => {
-		const proc = mockProcess({ argv: ['bun', 'run', 'cli.ts', 'deploy', '--force'] });
-		const adapter = createBunAdapter(proc);
-		expect(adapter.argv).toEqual(['bun', 'run', 'cli.ts', 'deploy', '--force']);
+describe('createBunAdapter', () => {
+	// --- process delegation
+
+	describe('process delegation', () => {
+		it('reads argv from process', () => {
+			const proc = mockProcess({ argv: ['bun', 'run', 'cli.ts', 'deploy', '--force'] });
+			const adapter = createBunAdapter(proc);
+			expect(adapter.argv).toEqual(['bun', 'run', 'cli.ts', 'deploy', '--force']);
+		});
+
+		it('reads env from process', () => {
+			const proc = mockProcess({ env: { BUN_ENV: 'production', API_KEY: 'secret' } });
+			const adapter = createBunAdapter(proc);
+			expect(adapter.env).toEqual({ BUN_ENV: 'production', API_KEY: 'secret' });
+		});
+
+		it('reads cwd from process.cwd()', () => {
+			const proc = mockProcess({ cwd: () => '/home/user/bun-project' });
+			const adapter = createBunAdapter(proc);
+			expect(adapter.cwd).toBe('/home/user/bun-project');
+		});
+
+		it('routes stdout writes to process.stdout.write', () => {
+			const writeFn = vi.fn();
+			const proc = mockProcess({ stdout: { isTTY: false, write: writeFn } });
+			const adapter = createBunAdapter(proc);
+
+			adapter.stdout('hello from bun');
+			expect(writeFn).toHaveBeenCalledWith('hello from bun');
+		});
+
+		it('routes stderr writes to process.stderr.write', () => {
+			const writeFn = vi.fn();
+			const proc = mockProcess({ stderr: { write: writeFn } });
+			const adapter = createBunAdapter(proc);
+
+			adapter.stderr('bun error');
+			expect(writeFn).toHaveBeenCalledWith('bun error');
+		});
+
+		it('delegates exit to process.exit', () => {
+			const exitFn = vi.fn() as unknown as (code: number) => never;
+			const proc = mockProcess({ exit: exitFn });
+			const adapter = createBunAdapter(proc);
+
+			adapter.exit(1);
+			expect(exitFn).toHaveBeenCalledWith(1);
+		});
 	});
 
-	it('reads env from process', () => {
-		const proc = mockProcess({ env: { BUN_ENV: 'production', API_KEY: 'secret' } });
-		const adapter = createBunAdapter(proc);
-		expect(adapter.env).toEqual({ BUN_ENV: 'production', API_KEY: 'secret' });
+	// --- TTY detection
+
+	describe('TTY detection', () => {
+		it('isTTY is true when stdout.isTTY is true', () => {
+			const proc = mockProcess({ stdout: { isTTY: true, write: vi.fn() } });
+			const adapter = createBunAdapter(proc);
+			expect(adapter.isTTY).toBe(true);
+		});
+
+		it('isTTY is false when stdout.isTTY is undefined', () => {
+			const proc = mockProcess({ stdout: { write: vi.fn() } });
+			const adapter = createBunAdapter(proc);
+			expect(adapter.isTTY).toBe(false);
+		});
+
+		it('stdinIsTTY is true when stdin.isTTY is true', () => {
+			const proc = mockProcess({ stdin: mockStdin({ isTTY: true }) });
+			const adapter = createBunAdapter(proc);
+			expect(adapter.stdinIsTTY).toBe(true);
+		});
+
+		it('stdinIsTTY is false when stdin.isTTY is undefined', () => {
+			const proc = mockProcess({ stdin: mockStdin() });
+			const adapter = createBunAdapter(proc);
+			expect(adapter.stdinIsTTY).toBe(false);
+		});
 	});
 
-	it('reads cwd from process.cwd()', () => {
-		const proc = mockProcess({ cwd: () => '/home/user/bun-project' });
-		const adapter = createBunAdapter(proc);
-		expect(adapter.cwd).toBe('/home/user/bun-project');
-	});
+	// --- stdin
 
-	it('routes stdout writes to process.stdout.write', () => {
-		const writeFn = vi.fn();
-		const proc = mockProcess({ stdout: { isTTY: false, write: writeFn } });
-		const adapter = createBunAdapter(proc);
+	describe('stdin', () => {
+		it('stdin is a ReadFn (function)', () => {
+			const proc = mockProcess();
+			const adapter = createBunAdapter(proc);
+			expect(typeof adapter.stdin).toBe('function');
+		});
 
-		adapter.stdout('hello from bun');
-		expect(writeFn).toHaveBeenCalledWith('hello from bun');
-	});
+		it('accepts Bun when Node compatibility version is below the Node minimum', () => {
+			const proc = mockProcess({ versions: { node: '20.20.1', bun: '1.3.11' } });
+			expect(() => createBunAdapter(proc)).not.toThrow();
+		});
 
-	it('routes stderr writes to process.stderr.write', () => {
-		const writeFn = vi.fn();
-		const proc = mockProcess({ stderr: { write: writeFn } });
-		const adapter = createBunAdapter(proc);
-
-		adapter.stderr('bun error');
-		expect(writeFn).toHaveBeenCalledWith('bun error');
-	});
-
-	it('delegates exit to process.exit', () => {
-		const exitFn = vi.fn() as unknown as (code: number) => never;
-		const proc = mockProcess({ exit: exitFn });
-		const adapter = createBunAdapter(proc);
-
-		adapter.exit(1);
-		expect(exitFn).toHaveBeenCalledWith(1);
-	});
-});
-
-// === createBunAdapter — TTY detection
-
-describe('createBunAdapter — TTY detection', () => {
-	it('isTTY is true when stdout.isTTY is true', () => {
-		const proc = mockProcess({ stdout: { isTTY: true, write: vi.fn() } });
-		const adapter = createBunAdapter(proc);
-		expect(adapter.isTTY).toBe(true);
-	});
-
-	it('isTTY is false when stdout.isTTY is undefined', () => {
-		const proc = mockProcess({ stdout: { write: vi.fn() } });
-		const adapter = createBunAdapter(proc);
-		expect(adapter.isTTY).toBe(false);
-	});
-
-	it('stdinIsTTY is true when stdin.isTTY is true', () => {
-		const proc = mockProcess({ stdin: mockStdin({ isTTY: true }) });
-		const adapter = createBunAdapter(proc);
-		expect(adapter.stdinIsTTY).toBe(true);
-	});
-
-	it('stdinIsTTY is false when stdin.isTTY is undefined', () => {
-		const proc = mockProcess({ stdin: mockStdin() });
-		const adapter = createBunAdapter(proc);
-		expect(adapter.stdinIsTTY).toBe(false);
-	});
-});
-
-// === createBunAdapter — stdin
-
-describe('createBunAdapter — stdin', () => {
-	it('stdin is a ReadFn (function)', () => {
-		const proc = mockProcess();
-		const adapter = createBunAdapter(proc);
-		expect(typeof adapter.stdin).toBe('function');
-	});
-
-	it('accepts Bun when Node compatibility version is below the Node minimum', () => {
-		const proc = mockProcess({ versions: { node: '20.20.1', bun: '1.3.11' } });
-		expect(() => createBunAdapter(proc)).not.toThrow();
-	});
-
-	it('throws for unsupported Bun versions', () => {
-		const proc = mockProcess({ versions: { node: '22.22.2', bun: '1.2.9' } });
-		expect(() => createBunAdapter(proc)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
+		it('throws for unsupported Bun versions', () => {
+			const proc = mockProcess({ versions: { node: '22.22.2', bun: '1.2.9' } });
+			expect(() => createBunAdapter(proc)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
+		});
 	});
 });

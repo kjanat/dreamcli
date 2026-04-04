@@ -25,7 +25,7 @@ Deno >= 2.6.0.
 
 ## Your First Command
 
-```ts
+```ts twoslash
 import { cli, command, flag, arg } from '@kjanat/dreamcli';
 
 const greet = command('greet')
@@ -55,7 +55,7 @@ no `undefined` to check.
 
 ## Multi-Command CLI
 
-```ts
+```ts twoslash
 import { cli, command, group, flag, arg } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')

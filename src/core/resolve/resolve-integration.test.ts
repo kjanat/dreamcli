@@ -71,188 +71,192 @@ function stdinCommand() {
 		});
 }
 
-// --- runCommand() — env threading
+// === runCommand
 
-describe('runCommand — env resolution', () => {
-	it('resolves flag from env when no CLI value provided', async () => {
-		const cmd = envCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			env: { DEPLOY_REGION: 'eu' },
+describe('runCommand', () => {
+	// --- env resolution
+
+	describe('env resolution', () => {
+		it('resolves flag from env when no CLI value provided', async () => {
+			const cmd = envCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				env: { DEPLOY_REGION: 'eu' },
+			});
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('region=eu');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('region=eu');
-	});
+		it('CLI value takes precedence over env', async () => {
+			const cmd = envCommand();
+			const result = await runCommand(cmd, ['prod', '--region', 'us'], {
+				env: { DEPLOY_REGION: 'eu' },
+			});
 
-	it('CLI value takes precedence over env', async () => {
-		const cmd = envCommand();
-		const result = await runCommand(cmd, ['prod', '--region', 'us'], {
-			env: { DEPLOY_REGION: 'eu' },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('region=us');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('region=us');
-	});
+		it('resolves boolean flag from env', async () => {
+			const cmd = envCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				env: { VERBOSE: 'true' },
+			});
 
-	it('resolves boolean flag from env', async () => {
-		const cmd = envCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			env: { VERBOSE: 'true' },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('verbose=true');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('verbose=true');
-	});
+		it('resolves number flag from env', async () => {
+			const cmd = envCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				env: { RETRIES: '5' },
+			});
 
-	it('resolves number flag from env', async () => {
-		const cmd = envCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			env: { RETRIES: '5' },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('retries=5');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('retries=5');
-	});
+		it('falls back to default when env not set', async () => {
+			const cmd = envCommand();
+			const result = await runCommand(cmd, ['prod'], { env: {} });
 
-	it('falls back to default when env not set', async () => {
-		const cmd = envCommand();
-		const result = await runCommand(cmd, ['prod'], { env: {} });
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('retries=3');
-	});
-
-	it('returns error for invalid env value', async () => {
-		const cmd = envCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			env: { DEPLOY_REGION: 'invalid' },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('retries=3');
 		});
 
-		expect(result.exitCode).toBe(2);
-		expect(result.error).toBeDefined();
-		expect(result.error?.code).toBe('INVALID_ENUM');
+		it('returns error for invalid env value', async () => {
+			const cmd = envCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				env: { DEPLOY_REGION: 'invalid' },
+			});
+
+			expect(result.exitCode).toBe(2);
+			expect(result.error).toBeDefined();
+			expect(result.error?.code).toBe('INVALID_ENUM');
+		});
 	});
-});
 
-// --- runCommand() — config threading
+	// --- config resolution
 
-describe('runCommand — config resolution', () => {
-	it('resolves flag from config when no CLI value provided', async () => {
-		const cmd = configCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			config: { deploy: { region: 'ap' } },
+	describe('config resolution', () => {
+		it('resolves flag from config when no CLI value provided', async () => {
+			const cmd = configCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				config: { deploy: { region: 'ap' } },
+			});
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('region=ap');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('region=ap');
-	});
+		it('CLI value takes precedence over config', async () => {
+			const cmd = configCommand();
+			const result = await runCommand(cmd, ['prod', '--region', 'us'], {
+				config: { deploy: { region: 'ap' } },
+			});
 
-	it('CLI value takes precedence over config', async () => {
-		const cmd = configCommand();
-		const result = await runCommand(cmd, ['prod', '--region', 'us'], {
-			config: { deploy: { region: 'ap' } },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('region=us');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('region=us');
-	});
+		it('resolves number flag from config', async () => {
+			const cmd = configCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				config: { deploy: { timeout: 60 } },
+			});
 
-	it('resolves number flag from config', async () => {
-		const cmd = configCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			config: { deploy: { timeout: 60 } },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('timeout=60');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('timeout=60');
+		it('falls back to default when config path missing', async () => {
+			const cmd = configCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				config: { deploy: {} },
+			});
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('timeout=30');
+		});
 	});
 
-	it('falls back to default when config path missing', async () => {
-		const cmd = configCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			config: { deploy: {} },
+	// --- full resolution chain
+
+	describe('full resolution chain', () => {
+		it('stdin fills stdin-mode arg before env', async () => {
+			const cmd = stdinCommand();
+			const result = await runCommand(cmd, [], {
+				stdinData: 'stdin-target',
+				env: { DEPLOY_TARGET: 'env-target' },
+			});
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['deploy stdin-target\n']);
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('timeout=30');
-	});
-});
+		it("explicit '-' resolves stdin-mode arg from stdin", async () => {
+			const cmd = stdinCommand();
+			const result = await runCommand(cmd, ['-'], {
+				stdinData: 'dash-target',
+				env: { DEPLOY_TARGET: 'env-target' },
+			});
 
-// --- runCommand() — full chain: CLI > env > config > default
-
-describe('runCommand — full resolution chain', () => {
-	it('stdin fills stdin-mode arg before env', async () => {
-		const cmd = stdinCommand();
-		const result = await runCommand(cmd, [], {
-			stdinData: 'stdin-target',
-			env: { DEPLOY_TARGET: 'env-target' },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['deploy dash-target\n']);
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['deploy stdin-target\n']);
-	});
+		it('env takes precedence over config', async () => {
+			const cmd = multiSourceCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				env: { DEPLOY_REGION: 'eu' },
+				config: { deploy: { region: 'ap' } },
+			});
 
-	it("explicit '-' resolves stdin-mode arg from stdin", async () => {
-		const cmd = stdinCommand();
-		const result = await runCommand(cmd, ['-'], {
-			stdinData: 'dash-target',
-			env: { DEPLOY_TARGET: 'env-target' },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('region=eu');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['deploy dash-target\n']);
-	});
+		it('config used when env absent', async () => {
+			const cmd = multiSourceCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				config: { deploy: { region: 'ap' } },
+			});
 
-	it('env takes precedence over config', async () => {
-		const cmd = multiSourceCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			env: { DEPLOY_REGION: 'eu' },
-			config: { deploy: { region: 'ap' } },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('region=ap');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('region=eu');
-	});
+		it('CLI > env > config precedence', async () => {
+			const cmd = multiSourceCommand();
+			const result = await runCommand(cmd, ['prod', '--region', 'us'], {
+				env: { DEPLOY_REGION: 'eu' },
+				config: { deploy: { region: 'ap' } },
+			});
 
-	it('config used when env absent', async () => {
-		const cmd = multiSourceCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			config: { deploy: { region: 'ap' } },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('region=us');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('region=ap');
-	});
+		it('required flag errors when no source provides value', async () => {
+			const cmd = multiSourceCommand();
+			const result = await runCommand(cmd, ['prod']);
 
-	it('CLI > env > config precedence', async () => {
-		const cmd = multiSourceCommand();
-		const result = await runCommand(cmd, ['prod', '--region', 'us'], {
-			env: { DEPLOY_REGION: 'eu' },
-			config: { deploy: { region: 'ap' } },
+			expect(result.exitCode).toBe(2);
+			expect(result.error).toBeDefined();
+			expect(result.error?.code).toBe('REQUIRED_FLAG');
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('region=us');
-	});
+		it('env number overrides config number', async () => {
+			const cmd = multiSourceCommand();
+			const result = await runCommand(cmd, ['prod'], {
+				env: { DEPLOY_REGION: 'us', TIMEOUT: '10' },
+				config: { deploy: { region: 'ap', timeout: 60 } },
+			});
 
-	it('required flag errors when no source provides value', async () => {
-		const cmd = multiSourceCommand();
-		const result = await runCommand(cmd, ['prod']);
-
-		expect(result.exitCode).toBe(2);
-		expect(result.error).toBeDefined();
-		expect(result.error?.code).toBe('REQUIRED_FLAG');
-	});
-
-	it('env number overrides config number', async () => {
-		const cmd = multiSourceCommand();
-		const result = await runCommand(cmd, ['prod'], {
-			env: { DEPLOY_REGION: 'us', TIMEOUT: '10' },
-			config: { deploy: { region: 'ap', timeout: 60 } },
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout[0]).toContain('timeout=10');
 		});
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout[0]).toContain('timeout=10');
 	});
 });
 

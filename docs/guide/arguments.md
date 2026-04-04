@@ -4,7 +4,7 @@ Positional arguments are declared with `arg` and appear after the command name.
 
 ## Argument Types
 
-```ts
+```ts twoslash
 import { arg } from '@kjanat/dreamcli';
 
 arg.string(); // string

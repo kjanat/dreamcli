@@ -12,7 +12,7 @@ silent = true
 [test]
 root           = "./src"
 coverage       = true
-reporter.dots  = true
+reporter.dots  = false
 reporter.junit = ".bucket/test-results.xml"
 coverageDir    = ".bucket/coverage"
 randomize      = true

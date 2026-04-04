@@ -65,114 +65,118 @@ describe('middleware type inference', () => {
 	});
 });
 
-// --- CommandBuilder.middleware() — runtime
+// === CommandBuilder.middleware()
 
 describe('CommandBuilder.middleware()', () => {
-	it('adds middleware handler to schema', () => {
-		const m = middleware(async ({ next }) => next({}));
-		const cmd = command('test').middleware(m);
-		expect(cmd.schema.middleware).toHaveLength(1);
-	});
+	// --- runtime
 
-	it('accumulates multiple middleware in order', () => {
-		const first = middleware(async ({ next }) => next({ a: 1 }));
-		const second = middleware(async ({ next }) => next({ b: 2 }));
-		const cmd = command('test').middleware(first).middleware(second);
-		expect(cmd.schema.middleware).toHaveLength(2);
-		expect(cmd.schema.middleware[0]).toBe(first._handler);
-		expect(cmd.schema.middleware[1]).toBe(second._handler);
-	});
+	describe('runtime', () => {
+		it('adds middleware handler to schema', () => {
+			const m = middleware(async ({ next }) => next({}));
+			const cmd = command('test').middleware(m);
+			expect(cmd.schema.middleware).toHaveLength(1);
+		});
 
-	it('returns a new builder (immutability)', () => {
-		const m = middleware(async ({ next }) => next({}));
-		const a = command('test');
-		const b = a.middleware(m);
-		expect(a).not.toBe(b);
-		expect(a.schema.middleware).toEqual([]);
-	});
+		it('accumulates multiple middleware in order', () => {
+			const first = middleware(async ({ next }) => next({ a: 1 }));
+			const second = middleware(async ({ next }) => next({ b: 2 }));
+			const cmd = command('test').middleware(first).middleware(second);
+			expect(cmd.schema.middleware).toHaveLength(2);
+			expect(cmd.schema.middleware[0]).toBe(first._handler);
+			expect(cmd.schema.middleware[1]).toBe(second._handler);
+		});
 
-	it('drops handler when middleware added (type safety)', () => {
-		const m = middleware(async ({ next }) => next({}));
-		const handler = vi.fn();
-		const a = command('test').action(handler);
-		expect(a.handler).toBe(handler);
-		expect(a.schema.hasAction).toBe(true);
+		it('returns a new builder (immutability)', () => {
+			const m = middleware(async ({ next }) => next({}));
+			const a = command('test');
+			const b = a.middleware(m);
+			expect(a).not.toBe(b);
+			expect(a.schema.middleware).toEqual([]);
+		});
 
-		const b = a.middleware(m);
-		expect(b.handler).toBeUndefined();
-		expect(b.schema.hasAction).toBe(false);
-	});
+		it('drops handler when middleware added (type safety)', () => {
+			const m = middleware(async ({ next }) => next({}));
+			const handler = vi.fn();
+			const a = command('test').action(handler);
+			expect(a.handler).toBe(handler);
+			expect(a.schema.hasAction).toBe(true);
 
-	it('preserves existing metadata when adding middleware', () => {
-		const m = middleware(async ({ next }) => next({}));
-		const cmd = command('deploy')
-			.description('Deploy')
-			.alias('d')
-			.flag('force', flag.boolean())
-			.middleware(m);
+			const b = a.middleware(m);
+			expect(b.handler).toBeUndefined();
+			expect(b.schema.hasAction).toBe(false);
+		});
 
-		expect(cmd.schema.description).toBe('Deploy');
-		expect(cmd.schema.aliases).toEqual(['d']);
-		expect(cmd.schema.flags.force).toBeDefined();
-	});
+		it('preserves existing metadata when adding middleware', () => {
+			const m = middleware(async ({ next }) => next({}));
+			const cmd = command('deploy')
+				.description('Deploy')
+				.alias('d')
+				.flag('force', flag.boolean())
+				.middleware(m);
 
-	it('empty middleware array by default', () => {
-		const cmd = command('test');
-		expect(cmd.schema.middleware).toEqual([]);
-	});
-});
+			expect(cmd.schema.description).toBe('Deploy');
+			expect(cmd.schema.aliases).toEqual(['d']);
+			expect(cmd.schema.flags.force).toBeDefined();
+		});
 
-// --- CommandBuilder.middleware() — type inference
-
-describe('CommandBuilder.middleware() — type inference', () => {
-	it('widens C via single middleware', () => {
-		const auth = middleware<{ user: string }>(async ({ next }) => next({ user: 'alice' }));
-
-		command('test')
-			.middleware(auth)
-			.action(({ ctx }) => {
-				// After middleware, ctx.user should be string (not never)
-				const u: string = ctx.user;
-				expect(u).toBe(u); // prevent unused
-			});
-	});
-
-	it('widens C via multiple middleware (intersection)', () => {
-		const auth = middleware<{ user: string }>(async ({ next }) => next({ user: 'alice' }));
-		const trace = middleware<{ traceId: string }>(async ({ next }) => next({ traceId: '123' }));
-
-		command('test')
-			.middleware(auth)
-			.middleware(trace)
-			.action(({ ctx }) => {
-				const u: string = ctx.user;
-				const t: string = ctx.traceId;
-				expect(u).toBe(u);
-				expect(t).toBe(t);
-			});
-	});
-
-	it('ctx without middleware is Record<string, never>', () => {
-		command('test').action(({ ctx }) => {
-			expectTypeOf(ctx).toEqualTypeOf<Readonly<Record<string, never>>>();
+		it('empty middleware array by default', () => {
+			const cmd = command('test');
+			expect(cmd.schema.middleware).toEqual([]);
 		});
 	});
 
-	it('middleware + flags + args compose correctly', () => {
-		const auth = middleware<{ user: string }>(async ({ next }) => next({ user: 'alice' }));
+	// --- type inference
 
-		command('test')
-			.flag('force', flag.boolean())
-			.arg('target', arg.string())
-			.middleware(auth)
-			.action(({ args, flags, ctx }) => {
-				const target: string = args.target;
-				const force: boolean = flags.force;
-				const user: string = ctx.user;
-				expect(target).toBe(target);
-				expect(force).toBe(force);
-				expect(user).toBe(user);
+	describe('type inference', () => {
+		it('widens C via single middleware', () => {
+			const auth = middleware<{ user: string }>(async ({ next }) => next({ user: 'alice' }));
+
+			command('test')
+				.middleware(auth)
+				.action(({ ctx }) => {
+					// After middleware, ctx.user should be string (not never)
+					const u: string = ctx.user;
+					expect(u).toBe(u); // prevent unused
+				});
+		});
+
+		it('widens C via multiple middleware (intersection)', () => {
+			const auth = middleware<{ user: string }>(async ({ next }) => next({ user: 'alice' }));
+			const trace = middleware<{ traceId: string }>(async ({ next }) => next({ traceId: '123' }));
+
+			command('test')
+				.middleware(auth)
+				.middleware(trace)
+				.action(({ ctx }) => {
+					const u: string = ctx.user;
+					const t: string = ctx.traceId;
+					expect(u).toBe(u);
+					expect(t).toBe(t);
+				});
+		});
+
+		it('ctx without middleware is Record<string, never>', () => {
+			command('test').action(({ ctx }) => {
+				expectTypeOf(ctx).toEqualTypeOf<Readonly<Record<string, never>>>();
 			});
+		});
+
+		it('middleware + flags + args compose correctly', () => {
+			const auth = middleware<{ user: string }>(async ({ next }) => next({ user: 'alice' }));
+
+			command('test')
+				.flag('force', flag.boolean())
+				.arg('target', arg.string())
+				.middleware(auth)
+				.action(({ args, flags, ctx }) => {
+					const target: string = args.target;
+					const force: boolean = flags.force;
+					const user: string = ctx.user;
+					expect(target).toBe(target);
+					expect(force).toBe(force);
+					expect(user).toBe(user);
+				});
+		});
 	});
 });
 

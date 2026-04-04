@@ -59,244 +59,248 @@ function hiddenDebugCommand() {
 		});
 }
 
-// === E2E — Bash completion via CLI dispatch
+// === E2E
 
-describe('E2E — bash completion via .completions()', () => {
-	it('generates valid bash script through full CLI dispatch', async () => {
-		const app = cli('myapp')
-			.version('2.0.0')
-			.command(deployCommand())
-			.command(loginCommand())
-			.command(configCommand())
-			.completions();
+describe('E2E', () => {
+	// --- bash completion via .completions()
 
-		const result = await app.execute(['completions', 'bash']);
-		expect(result.exitCode).toBe(0);
-		expect(result.error).toBeUndefined();
+	describe('bash completion via .completions()', () => {
+		it('generates valid bash script through full CLI dispatch', async () => {
+			const app = cli('myapp')
+				.version('2.0.0')
+				.command(deployCommand())
+				.command(loginCommand())
+				.command(configCommand())
+				.completions();
 
-		const script = result.stdout.join('');
+			const result = await app.execute(['completions', 'bash']);
+			expect(result.exitCode).toBe(0);
+			expect(result.error).toBeUndefined();
 
-		// Valid bash script structure
-		expect(script).toContain('#!/usr/bin/env bash');
-		expect(script).toContain('_myapp_completions()');
-		expect(script).toContain('complete -F _myapp_completions myapp');
-		expect(script).toContain('_init_completion');
+			const script = result.stdout.join('');
 
-		// All visible commands present
-		expect(script).toContain('deploy');
-		expect(script).toContain('login');
-		expect(script).toContain('config');
+			// Valid bash script structure
+			expect(script).toContain('#!/usr/bin/env bash');
+			expect(script).toContain('_myapp_completions()');
+			expect(script).toContain('complete -F _myapp_completions myapp');
+			expect(script).toContain('_init_completion');
 
-		// Hidden command excluded
-		// The debug command was NOT registered — but assert no hidden cmds leak
-		expect(script).not.toMatch(/compgen -W '[^']*debug/);
-	});
+			// All visible commands present
+			expect(script).toContain('deploy');
+			expect(script).toContain('login');
+			expect(script).toContain('config');
 
-	it('bash script includes all flags from all commands', async () => {
-		const app = cli('myapp')
-			.command(deployCommand())
-			.command(loginCommand())
-			.command(configCommand())
-			.completions();
-
-		const result = await app.execute(['completions', 'bash']);
-		const script = result.stdout.join('');
-
-		// deploy flags
-		expect(script).toContain('--force');
-		expect(script).toContain('-f');
-		expect(script).toContain('--region');
-
-		// login flags
-		expect(script).toContain('--token');
-		expect(script).toContain('--sso');
-		expect(script).toContain('-s');
-
-		// config flags
-		expect(script).toContain('--global');
-		expect(script).toContain('-g');
-		expect(script).toContain('--format');
-	});
-
-	it('bash script includes enum value completions', async () => {
-		const app = cli('myapp').command(deployCommand()).command(configCommand()).completions();
-
-		const result = await app.execute(['completions', 'bash']);
-		const script = result.stdout.join('');
-
-		// Enum values for --region (us eu ap)
-		expect(script).toContain('us eu ap');
-
-		// Enum values for --format (json yaml toml)
-		expect(script).toContain('json yaml toml');
-	});
-
-	it('bash script includes command aliases in case patterns', async () => {
-		const app = cli('myapp').command(configCommand()).completions();
-
-		const result = await app.execute(['completions', 'bash']);
-		const script = result.stdout.join('');
-
-		// The 'cfg' alias should appear in the case pattern alongside 'config'
-		expect(script).toMatch(/config\|cfg\)/);
-	});
-
-	it('bash script excludes hidden commands', async () => {
-		const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
-
-		const result = await app.execute(['completions', 'bash']);
-		const script = result.stdout.join('');
-
-		expect(script).toContain('deploy');
-		// 'debug' should not appear in subcommand lists or case patterns
-		expect(script).not.toMatch(/compgen -W '[^']*debug/);
-	});
-
-	it('bash script includes --help and --version when version set', async () => {
-		const app = cli('myapp').version('1.0.0').command(deployCommand()).completions();
-
-		const result = await app.execute(['completions', 'bash']);
-		const script = result.stdout.join('');
-
-		expect(script).toContain('--help');
-		expect(script).toContain('--version');
-	});
-
-	it('bash script omits --version when no version set', async () => {
-		const app = cli('myapp').command(deployCommand()).completions();
-
-		const result = await app.execute(['completions', 'bash']);
-		const script = result.stdout.join('');
-
-		expect(script).toContain('--help');
-		expect(script).not.toContain('--version');
-	});
-
-	it('uses the inherited runtime name in generated scripts', async () => {
-		const stdoutLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', '/usr/bin/xxxhotbabe.ts', 'completions', 'bash'],
-			stdout: (line) => stdoutLines.push(line),
+			// Hidden command excluded
+			// The debug command was NOT registered — but assert no hidden cmds leak
+			expect(script).not.toMatch(/compgen -W '[^']*debug/);
 		});
-		const app = cli({ inherit: true }).command(deployCommand()).completions();
 
-		try {
-			await app.run({ adapter });
-		} catch (err: unknown) {
-			if (!(err instanceof ExitError)) throw err;
-			expect(err.code).toBe(0);
-		}
+		it('bash script includes all flags from all commands', async () => {
+			const app = cli('myapp')
+				.command(deployCommand())
+				.command(loginCommand())
+				.command(configCommand())
+				.completions();
 
-		const script = stdoutLines.join('');
-		expect(script).toContain('# Bash completion for xxxhotbabe.ts');
-		expect(script).toContain('source <(xxxhotbabe.ts completions bash)');
-	});
-});
+			const result = await app.execute(['completions', 'bash']);
+			const script = result.stdout.join('');
 
-// === E2E — Zsh completion via CLI dispatch
+			// deploy flags
+			expect(script).toContain('--force');
+			expect(script).toContain('-f');
+			expect(script).toContain('--region');
 
-describe('E2E — zsh completion via .completions()', () => {
-	it('generates valid zsh script through full CLI dispatch', async () => {
-		const app = cli('myapp')
-			.version('2.0.0')
-			.command(deployCommand())
-			.command(loginCommand())
-			.command(configCommand())
-			.completions();
+			// login flags
+			expect(script).toContain('--token');
+			expect(script).toContain('--sso');
+			expect(script).toContain('-s');
 
-		const result = await app.execute(['completions', 'zsh']);
-		expect(result.exitCode).toBe(0);
-		expect(result.error).toBeUndefined();
+			// config flags
+			expect(script).toContain('--global');
+			expect(script).toContain('-g');
+			expect(script).toContain('--format');
+		});
 
-		const script = result.stdout.join('');
+		it('bash script includes enum value completions', async () => {
+			const app = cli('myapp').command(deployCommand()).command(configCommand()).completions();
 
-		// Valid zsh script structure
-		expect(script).toContain('#compdef myapp');
-		expect(script).toContain('_myapp()');
-		expect(script).toContain("_describe 'command' subcmds");
-		expect(script).toContain('_arguments -C');
-		expect(script).toContain('compdef _myapp myapp');
+			const result = await app.execute(['completions', 'bash']);
+			const script = result.stdout.join('');
 
-		// All visible commands present in _describe list
-		expect(script).toContain("'deploy:");
-		expect(script).toContain("'login:");
-		expect(script).toContain("'config:");
-	});
+			// Enum values for --region (us eu ap)
+			expect(script).toContain('us eu ap');
 
-	it('zsh script includes all flag specs from all commands', async () => {
-		const app = cli('myapp').command(deployCommand()).command(loginCommand()).completions();
+			// Enum values for --format (json yaml toml)
+			expect(script).toContain('json yaml toml');
+		});
 
-		const result = await app.execute(['completions', 'zsh']);
-		const script = result.stdout.join('');
+		it('bash script includes command aliases in case patterns', async () => {
+			const app = cli('myapp').command(configCommand()).completions();
 
-		// deploy flags with descriptions
-		expect(script).toContain('--force');
-		expect(script).toContain('Force deployment');
-		expect(script).toContain('--region');
-		expect(script).toContain('Target region');
+			const result = await app.execute(['completions', 'bash']);
+			const script = result.stdout.join('');
 
-		// login flags
-		expect(script).toContain('--token');
-		expect(script).toContain('Auth token');
-		expect(script).toContain('--sso');
-	});
+			// The 'cfg' alias should appear in the case pattern alongside 'config'
+			expect(script).toMatch(/config\|cfg\)/);
+		});
 
-	it('zsh script includes enum values in flag specs', async () => {
-		const app = cli('myapp').command(deployCommand()).completions();
+		it('bash script excludes hidden commands', async () => {
+			const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
 
-		const result = await app.execute(['completions', 'zsh']);
-		const script = result.stdout.join('');
+			const result = await app.execute(['completions', 'bash']);
+			const script = result.stdout.join('');
 
-		// Enum flag should include values in (v1 v2 v3) format
-		expect(script).toMatch(/\(us eu ap\)/);
-	});
+			expect(script).toContain('deploy');
+			// 'debug' should not appear in subcommand lists or case patterns
+			expect(script).not.toMatch(/compgen -W '[^']*debug/);
+		});
 
-	it('zsh script uses mutual exclusion groups for aliased flags', async () => {
-		const app = cli('myapp').command(deployCommand()).completions();
+		it('bash script includes --help and --version when version set', async () => {
+			const app = cli('myapp').version('1.0.0').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', 'zsh']);
-		const script = result.stdout.join('');
+			const result = await app.execute(['completions', 'bash']);
+			const script = result.stdout.join('');
 
-		// Short alias -f and --force should be in a mutual exclusion group
-		expect(script).toContain('(-f --force)');
-	});
+			expect(script).toContain('--help');
+			expect(script).toContain('--version');
+		});
 
-	it('zsh script includes command aliases in case patterns', async () => {
-		const app = cli('myapp').command(configCommand()).completions();
+		it('bash script omits --version when no version set', async () => {
+			const app = cli('myapp').command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', 'zsh']);
-		const script = result.stdout.join('');
+			const result = await app.execute(['completions', 'bash']);
+			const script = result.stdout.join('');
 
-		// cfg alias should appear alongside config in case pattern
-		expect(script).toMatch(/config\|cfg\)/);
-	});
+			expect(script).toContain('--help');
+			expect(script).not.toContain('--version');
+		});
 
-	it('zsh script excludes hidden commands', async () => {
-		const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
+		it('uses the inherited runtime name in generated scripts', async () => {
+			const stdoutLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', '/usr/bin/xxxhotbabe.ts', 'completions', 'bash'],
+				stdout: (line) => stdoutLines.push(line),
+			});
+			const app = cli({ inherit: true }).command(deployCommand()).completions();
 
-		const result = await app.execute(['completions', 'zsh']);
-		const script = result.stdout.join('');
+			try {
+				await app.run({ adapter });
+			} catch (err: unknown) {
+				if (!(err instanceof ExitError)) throw err;
+				expect(err.code).toBe(0);
+			}
 
-		expect(script).toContain("'deploy:");
-		expect(script).not.toContain("'debug:");
-	});
-
-	it('zsh script includes --version when version is set', async () => {
-		const app = cli('myapp').version('3.0.0').command(deployCommand()).completions();
-
-		const result = await app.execute(['completions', 'zsh']);
-		const script = result.stdout.join('');
-
-		expect(script).toContain('--version[Show version]');
+			const script = stdoutLines.join('');
+			expect(script).toContain('# Bash completion for xxxhotbabe.ts');
+			expect(script).toContain('source <(xxxhotbabe.ts completions bash)');
+		});
 	});
 
-	it('zsh script omits --version when no version set', async () => {
-		const app = cli('myapp').command(deployCommand()).completions();
+	// --- zsh completion via .completions()
 
-		const result = await app.execute(['completions', 'zsh']);
-		const script = result.stdout.join('');
+	describe('zsh completion via .completions()', () => {
+		it('generates valid zsh script through full CLI dispatch', async () => {
+			const app = cli('myapp')
+				.version('2.0.0')
+				.command(deployCommand())
+				.command(loginCommand())
+				.command(configCommand())
+				.completions();
 
-		expect(script).not.toContain('--version');
+			const result = await app.execute(['completions', 'zsh']);
+			expect(result.exitCode).toBe(0);
+			expect(result.error).toBeUndefined();
+
+			const script = result.stdout.join('');
+
+			// Valid zsh script structure
+			expect(script).toContain('#compdef myapp');
+			expect(script).toContain('_myapp()');
+			expect(script).toContain("_describe 'command' subcmds");
+			expect(script).toContain('_arguments -C');
+			expect(script).toContain('compdef _myapp myapp');
+
+			// All visible commands present in _describe list
+			expect(script).toContain("'deploy:");
+			expect(script).toContain("'login:");
+			expect(script).toContain("'config:");
+		});
+
+		it('zsh script includes all flag specs from all commands', async () => {
+			const app = cli('myapp').command(deployCommand()).command(loginCommand()).completions();
+
+			const result = await app.execute(['completions', 'zsh']);
+			const script = result.stdout.join('');
+
+			// deploy flags with descriptions
+			expect(script).toContain('--force');
+			expect(script).toContain('Force deployment');
+			expect(script).toContain('--region');
+			expect(script).toContain('Target region');
+
+			// login flags
+			expect(script).toContain('--token');
+			expect(script).toContain('Auth token');
+			expect(script).toContain('--sso');
+		});
+
+		it('zsh script includes enum values in flag specs', async () => {
+			const app = cli('myapp').command(deployCommand()).completions();
+
+			const result = await app.execute(['completions', 'zsh']);
+			const script = result.stdout.join('');
+
+			// Enum flag should include values in (v1 v2 v3) format
+			expect(script).toMatch(/\(us eu ap\)/);
+		});
+
+		it('zsh script uses mutual exclusion groups for aliased flags', async () => {
+			const app = cli('myapp').command(deployCommand()).completions();
+
+			const result = await app.execute(['completions', 'zsh']);
+			const script = result.stdout.join('');
+
+			// Short alias -f and --force should be in a mutual exclusion group
+			expect(script).toContain('(-f --force)');
+		});
+
+		it('zsh script includes command aliases in case patterns', async () => {
+			const app = cli('myapp').command(configCommand()).completions();
+
+			const result = await app.execute(['completions', 'zsh']);
+			const script = result.stdout.join('');
+
+			// cfg alias should appear alongside config in case pattern
+			expect(script).toMatch(/config\|cfg\)/);
+		});
+
+		it('zsh script excludes hidden commands', async () => {
+			const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
+
+			const result = await app.execute(['completions', 'zsh']);
+			const script = result.stdout.join('');
+
+			expect(script).toContain("'deploy:");
+			expect(script).not.toContain("'debug:");
+		});
+
+		it('zsh script includes --version when version is set', async () => {
+			const app = cli('myapp').version('3.0.0').command(deployCommand()).completions();
+
+			const result = await app.execute(['completions', 'zsh']);
+			const script = result.stdout.join('');
+
+			expect(script).toContain('--version[Show version]');
+		});
+
+		it('zsh script omits --version when no version set', async () => {
+			const app = cli('myapp').command(deployCommand()).completions();
+
+			const result = await app.execute(['completions', 'zsh']);
+			const script = result.stdout.join('');
+
+			expect(script).not.toContain('--version');
+		});
 	});
 });
 

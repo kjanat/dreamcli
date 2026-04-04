@@ -7,7 +7,7 @@ Every CLI has at least one.
 
 The simplest CLI is a single command wrapped in `cli()`:
 
-```ts
+```ts twoslash
 import { cli, command, flag, arg } from '@kjanat/dreamcli';
 
 const greet = command('greet')
@@ -26,7 +26,7 @@ cli('greet').default(greet).run();
 
 Use `cli()` to compose multiple commands:
 
-```ts
+```ts twoslash
 import { cli, command, flag } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
@@ -49,7 +49,7 @@ cli('mycli')
 
 Nest commands under a group for `cli group subcommand` patterns:
 
-```ts
+```ts twoslash
 import { command, group } from '@kjanat/dreamcli';
 
 const migrate = command('migrate')

@@ -44,7 +44,7 @@ Let's build it piece by piece.
 
 Start with the simplest useful thing — listing pull requests:
 
-```ts
+```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
 
 const prList = command('list')
@@ -64,7 +64,7 @@ That's a working CLI. But it's hardcoded and flat. Let's fix both.
 Real CLIs filter things.
 Let's add mock data and flags to filter by state:
 
-```ts
+```ts twoslash
 import { cli, command, flag } from '@kjanat/dreamcli';
 
 type PR = {
@@ -183,7 +183,7 @@ For single-object responses (like `pr view`), branch on `out.jsonMode`: emit `ou
 A flat list of commands doesn't scale.
 `gh` organizes commands into groups — `pr list`, `issue triage`, `auth login`. dreamcli has `group()` for this:
 
-```ts
+```ts twoslash
 import { cli, command, group, flag } from '@kjanat/dreamcli';
 
 // Auth commands
@@ -252,8 +252,24 @@ You can nest them as deep as you want.
 
 `gh pr view 142` takes a PR number as a positional argument — not a flag, not a named value, just the first thing after `view`:
 
-```ts
-import { arg, CLIError } from '@kjanat/dreamcli';
+```ts twoslash
+import { arg, command, CLIError } from '@kjanat/dreamcli';
+
+type PullRequest = {
+  readonly number: number;
+  readonly title: string;
+  readonly state: 'open' | 'closed' | 'merged';
+  readonly author: string;
+};
+
+const pullRequests: readonly PullRequest[] = [
+  {
+    number: 142,
+    title: 'Add dark mode toggle',
+    state: 'open',
+    author: 'alice',
+  },
+];
 
 const prView = command('view')
   .description('View a pull request')

@@ -6,7 +6,7 @@ you need `next()` around the rest of the pipeline.
 
 ## Defining Middleware
 
-```ts
+```ts twoslash
 import { middleware } from '@kjanat/dreamcli';
 
 const timing = middleware<{ startTime: number }>(async ({ next }) => {

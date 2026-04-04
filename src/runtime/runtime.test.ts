@@ -496,378 +496,382 @@ describe('createNodeAdapter stdin', () => {
 	});
 });
 
-// --- RuntimeAdapter interface — stdin contract
+// === RuntimeAdapter interface (nested)
 
-describe('RuntimeAdapter interface — stdin', () => {
-	it('test adapter satisfies RuntimeAdapter stdin fields', () => {
-		const adapter: RuntimeAdapter = createTestAdapter();
-		expect(typeof adapter.stdin).toBe('function');
-		expect(typeof adapter.stdinIsTTY).toBe('boolean');
+describe('RuntimeAdapter interface', () => {
+	// --- stdin contract
+
+	describe('stdin', () => {
+		it('test adapter satisfies RuntimeAdapter stdin fields', () => {
+			const adapter: RuntimeAdapter = createTestAdapter();
+			expect(typeof adapter.stdin).toBe('function');
+			expect(typeof adapter.stdinIsTTY).toBe('boolean');
+		});
+
+		it('node adapter satisfies RuntimeAdapter stdin fields', () => {
+			const adapter: RuntimeAdapter = createNodeAdapter();
+			expect(typeof adapter.stdin).toBe('function');
+			expect(typeof adapter.stdinIsTTY).toBe('boolean');
+		});
 	});
 
-	it('node adapter satisfies RuntimeAdapter stdin fields', () => {
-		const adapter: RuntimeAdapter = createNodeAdapter();
-		expect(typeof adapter.stdin).toBe('function');
-		expect(typeof adapter.stdinIsTTY).toBe('boolean');
-	});
-});
+	// --- CLIBuilder.run() — auto-prompter from adapter stdin
 
-// --- CLIBuilder.run() — auto-prompter from adapter stdin
+	describe('CLIBuilder.run() prompt gating', () => {
+		it('does not auto-create prompter when stdinIsTTY is false', async () => {
+			// Command with a prompt-configured required flag but no default.
+			// Without a prompter and no CLI value, this should fail with a validation error.
+			const cmd = command('greet')
+				.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+				.action(({ flags, out }) => {
+					out.log(`Hello ${flags.name}`);
+				});
 
-describe('CLIBuilder.run() prompt gating', () => {
-	it('does not auto-create prompter when stdinIsTTY is false', async () => {
-		// Command with a prompt-configured required flag but no default.
-		// Without a prompter and no CLI value, this should fail with a validation error.
-		const cmd = command('greet')
-			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
-			.action(({ flags, out }) => {
-				out.log(`Hello ${flags.name}`);
+			const stderrLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'cli.js', 'greet'],
+				stdinIsTTY: false, // non-interactive → no auto-prompter
+				stderr: (s) => stderrLines.push(s),
 			});
 
-		const stderrLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', 'cli.js', 'greet'],
-			stdinIsTTY: false, // non-interactive → no auto-prompter
-			stderr: (s) => stderrLines.push(s),
+			const app = cli('mycli').command(cmd);
+
+			try {
+				await app.run({ adapter });
+			} catch (e) {
+				expect(e).toBeInstanceOf(ExitError);
+				expect((e as ExitError).code).toBe(2);
+			}
+
+			// Should fail because no prompter was created (non-TTY stdin)
+			expect(stderrLines.join('')).toContain('required');
 		});
 
-		const app = cli('mycli').command(cmd);
+		it('auto-creates prompter when stdinIsTTY is true', async () => {
+			// Command with a prompt-configured flag.
+			// With stdinIsTTY=true, the auto-prompter reads from adapter.stdin.
+			const cmd = command('greet')
+				.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+				.action(({ flags, out }) => {
+					out.log(`Hello ${flags.name}`);
+				});
 
-		try {
-			await app.run({ adapter });
-		} catch (e) {
-			expect(e).toBeInstanceOf(ExitError);
-			expect((e as ExitError).code).toBe(2);
-		}
-
-		// Should fail because no prompter was created (non-TTY stdin)
-		expect(stderrLines.join('')).toContain('required');
-	});
-
-	it('auto-creates prompter when stdinIsTTY is true', async () => {
-		// Command with a prompt-configured flag.
-		// With stdinIsTTY=true, the auto-prompter reads from adapter.stdin.
-		const cmd = command('greet')
-			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
-			.action(({ flags, out }) => {
-				out.log(`Hello ${flags.name}`);
+			const stdoutLines: string[] = [];
+			const stderrLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'cli.js', 'greet'],
+				stdinIsTTY: true,
+				stdin: () => Promise.resolve('Alice'), // simulate user typing "Alice"
+				stdout: (s) => stdoutLines.push(s),
+				stderr: (s) => stderrLines.push(s),
 			});
 
-		const stdoutLines: string[] = [];
-		const stderrLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', 'cli.js', 'greet'],
-			stdinIsTTY: true,
-			stdin: () => Promise.resolve('Alice'), // simulate user typing "Alice"
-			stdout: (s) => stdoutLines.push(s),
-			stderr: (s) => stderrLines.push(s),
+			const app = cli('mycli').command(cmd);
+
+			try {
+				await app.run({ adapter });
+			} catch (e) {
+				expect(e).toBeInstanceOf(ExitError);
+				expect((e as ExitError).code).toBe(0);
+			}
+
+			expect(stdoutLines.join('')).toContain('Hello Alice');
 		});
 
-		const app = cli('mycli').command(cmd);
+		it('explicit prompter takes precedence over auto-prompter', async () => {
+			const cmd = command('greet')
+				.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+				.action(({ flags, out }) => {
+					out.log(`Hello ${flags.name}`);
+				});
 
-		try {
-			await app.run({ adapter });
-		} catch (e) {
-			expect(e).toBeInstanceOf(ExitError);
-			expect((e as ExitError).code).toBe(0);
-		}
-
-		expect(stdoutLines.join('')).toContain('Hello Alice');
-	});
-
-	it('explicit prompter takes precedence over auto-prompter', async () => {
-		const cmd = command('greet')
-			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
-			.action(({ flags, out }) => {
-				out.log(`Hello ${flags.name}`);
+			const stdoutLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'cli.js', 'greet'],
+				stdinIsTTY: true,
+				stdin: () => Promise.resolve('FromStdin'), // should NOT be used
+				stdout: (s) => stdoutLines.push(s),
 			});
 
-		const stdoutLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', 'cli.js', 'greet'],
-			stdinIsTTY: true,
-			stdin: () => Promise.resolve('FromStdin'), // should NOT be used
-			stdout: (s) => stdoutLines.push(s),
+			// Provide explicit prompter — should take precedence
+			const { createTestPrompter } = await import('#internals/core/prompt/index.ts');
+			const explicitPrompter = createTestPrompter(['ExplicitAnswer']);
+
+			const app = cli('mycli').command(cmd);
+
+			try {
+				await app.run({ adapter, prompter: explicitPrompter });
+			} catch (e) {
+				expect(e).toBeInstanceOf(ExitError);
+				expect((e as ExitError).code).toBe(0);
+			}
+
+			expect(stdoutLines.join('')).toContain('Hello ExplicitAnswer');
 		});
 
-		// Provide explicit prompter — should take precedence
-		const { createTestPrompter } = await import('#internals/core/prompt/index.ts');
-		const explicitPrompter = createTestPrompter(['ExplicitAnswer']);
+		it('CLI value takes precedence over prompt even when stdinIsTTY is true', async () => {
+			const cmd = command('greet')
+				.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+				.action(({ flags, out }) => {
+					out.log(`Hello ${flags.name}`);
+				});
 
-		const app = cli('mycli').command(cmd);
-
-		try {
-			await app.run({ adapter, prompter: explicitPrompter });
-		} catch (e) {
-			expect(e).toBeInstanceOf(ExitError);
-			expect((e as ExitError).code).toBe(0);
-		}
-
-		expect(stdoutLines.join('')).toContain('Hello ExplicitAnswer');
-	});
-
-	it('CLI value takes precedence over prompt even when stdinIsTTY is true', async () => {
-		const cmd = command('greet')
-			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
-			.action(({ flags, out }) => {
-				out.log(`Hello ${flags.name}`);
+			const stdoutLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'cli.js', 'greet', '--name', 'CLIValue'],
+				stdinIsTTY: true,
+				stdin: () => Promise.resolve('FromStdin'),
+				stdout: (s) => stdoutLines.push(s),
 			});
 
-		const stdoutLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', 'cli.js', 'greet', '--name', 'CLIValue'],
-			stdinIsTTY: true,
-			stdin: () => Promise.resolve('FromStdin'),
-			stdout: (s) => stdoutLines.push(s),
+			const app = cli('mycli').command(cmd);
+
+			try {
+				await app.run({ adapter });
+			} catch (e) {
+				expect(e).toBeInstanceOf(ExitError);
+				expect((e as ExitError).code).toBe(0);
+			}
+
+			// CLI value wins — prompt never fires
+			expect(stdoutLines.join('')).toContain('Hello CLIValue');
 		});
 
-		const app = cli('mycli').command(cmd);
+		it('env auto-sourced from adapter still works with auto-prompter', async () => {
+			const cmd = command('greet')
+				.flag('name', flag.string().required().env('USER_NAME'))
+				.action(({ flags, out }) => {
+					out.log(`Hello ${flags.name}`);
+				});
 
-		try {
-			await app.run({ adapter });
-		} catch (e) {
-			expect(e).toBeInstanceOf(ExitError);
-			expect((e as ExitError).code).toBe(0);
-		}
-
-		// CLI value wins — prompt never fires
-		expect(stdoutLines.join('')).toContain('Hello CLIValue');
-	});
-
-	it('env auto-sourced from adapter still works with auto-prompter', async () => {
-		const cmd = command('greet')
-			.flag('name', flag.string().required().env('USER_NAME'))
-			.action(({ flags, out }) => {
-				out.log(`Hello ${flags.name}`);
+			const stdoutLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'cli.js', 'greet'],
+				env: { USER_NAME: 'EnvUser' },
+				stdinIsTTY: true,
+				stdout: (s) => stdoutLines.push(s),
 			});
 
-		const stdoutLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', 'cli.js', 'greet'],
-			env: { USER_NAME: 'EnvUser' },
-			stdinIsTTY: true,
-			stdout: (s) => stdoutLines.push(s),
+			const app = cli('mycli').command(cmd);
+
+			try {
+				await app.run({ adapter });
+			} catch (e) {
+				expect(e).toBeInstanceOf(ExitError);
+				expect((e as ExitError).code).toBe(0);
+			}
+
+			// Env value resolves before prompt step
+			expect(stdoutLines.join('')).toContain('Hello EnvUser');
 		});
 
-		const app = cli('mycli').command(cmd);
+		it('auto-prompter uses adapter.stderr for prompt output', async () => {
+			const cmd = command('greet')
+				.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
+				.action(({ flags, out }) => {
+					out.log(`Hello ${flags.name}`);
+				});
 
-		try {
-			await app.run({ adapter });
-		} catch (e) {
-			expect(e).toBeInstanceOf(ExitError);
-			expect((e as ExitError).code).toBe(0);
-		}
-
-		// Env value resolves before prompt step
-		expect(stdoutLines.join('')).toContain('Hello EnvUser');
-	});
-
-	it('auto-prompter uses adapter.stderr for prompt output', async () => {
-		const cmd = command('greet')
-			.flag('name', flag.string().required().prompt({ kind: 'input', message: 'Your name?' }))
-			.action(({ flags, out }) => {
-				out.log(`Hello ${flags.name}`);
+			const stderrLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'cli.js', 'greet'],
+				stdinIsTTY: true,
+				stdin: () => Promise.resolve('Bob'),
+				stderr: (s) => stderrLines.push(s),
 			});
 
-		const stderrLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', 'cli.js', 'greet'],
-			stdinIsTTY: true,
-			stdin: () => Promise.resolve('Bob'),
-			stderr: (s) => stderrLines.push(s),
+			const app = cli('mycli').command(cmd);
+
+			try {
+				await app.run({ adapter });
+			} catch {
+				// exit expected
+			}
+
+			// The prompt message should be written to stderr (prompt output uses stderr
+			// so it doesn't interfere with command stdout which may be piped)
+			expect(stderrLines.join('')).toContain('Your name?');
+		});
+	});
+
+	// --- createTestAdapter — filesystem fields
+
+	describe('createTestAdapter — filesystem', () => {
+		it('default readFile returns null (file not found)', async () => {
+			const adapter = createTestAdapter();
+			const result = await adapter.readFile('/any/path');
+			expect(result).toBeNull();
 		});
 
-		const app = cli('mycli').command(cmd);
-
-		try {
-			await app.run({ adapter });
-		} catch {
-			// exit expected
-		}
-
-		// The prompt message should be written to stderr (prompt output uses stderr
-		// so it doesn't interfere with command stdout which may be piped)
-		expect(stderrLines.join('')).toContain('Your name?');
-	});
-});
-
-// --- createTestAdapter — filesystem fields
-
-describe('createTestAdapter — filesystem', () => {
-	it('default readFile returns null (file not found)', async () => {
-		const adapter = createTestAdapter();
-		const result = await adapter.readFile('/any/path');
-		expect(result).toBeNull();
-	});
-
-	it('default homedir is /home/test', () => {
-		const adapter = createTestAdapter();
-		expect(adapter.homedir).toBe('/home/test');
-	});
-
-	it('default configDir is /home/test/.config', () => {
-		const adapter = createTestAdapter();
-		expect(adapter.configDir).toBe('/home/test/.config');
-	});
-
-	it('accepts custom readFile', async () => {
-		const files = new Map([['/etc/myapp/config.json', '{"region":"eu"}']]);
-		const adapter = createTestAdapter({
-			readFile: (path) => Promise.resolve(files.get(path) ?? null),
+		it('default homedir is /home/test', () => {
+			const adapter = createTestAdapter();
+			expect(adapter.homedir).toBe('/home/test');
 		});
 
-		expect(await adapter.readFile('/etc/myapp/config.json')).toBe('{"region":"eu"}');
-		expect(await adapter.readFile('/nonexistent')).toBeNull();
+		it('default configDir is /home/test/.config', () => {
+			const adapter = createTestAdapter();
+			expect(adapter.configDir).toBe('/home/test/.config');
+		});
+
+		it('accepts custom readFile', async () => {
+			const files = new Map([['/etc/myapp/config.json', '{"region":"eu"}']]);
+			const adapter = createTestAdapter({
+				readFile: (path) => Promise.resolve(files.get(path) ?? null),
+			});
+
+			expect(await adapter.readFile('/etc/myapp/config.json')).toBe('{"region":"eu"}');
+			expect(await adapter.readFile('/nonexistent')).toBeNull();
+		});
+
+		it('accepts custom homedir', () => {
+			const adapter = createTestAdapter({ homedir: '/Users/alice' });
+			expect(adapter.homedir).toBe('/Users/alice');
+		});
+
+		it('accepts custom configDir', () => {
+			const adapter = createTestAdapter({ configDir: '/Users/alice/.config' });
+			expect(adapter.configDir).toBe('/Users/alice/.config');
+		});
 	});
 
-	it('accepts custom homedir', () => {
-		const adapter = createTestAdapter({ homedir: '/Users/alice' });
-		expect(adapter.homedir).toBe('/Users/alice');
+	// --- createNodeAdapter — filesystem fields
+
+	describe('createNodeAdapter — filesystem', () => {
+		it('readFile is a function', () => {
+			const adapter = createNodeAdapter(mockNodeProcess());
+			expect(typeof adapter.readFile).toBe('function');
+		});
+
+		it('homedir uses HOME env on linux', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					env: { HOME: '/home/alice' },
+				}),
+			);
+			expect(adapter.homedir).toBe('/home/alice');
+		});
+
+		it('homedir uses USERPROFILE on win32', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					platform: 'win32',
+					env: { USERPROFILE: 'C:\\Users\\alice' },
+					cwd: () => 'C:\\',
+				}),
+			);
+			expect(adapter.homedir).toBe('C:\\Users\\alice');
+		});
+
+		it('homedir falls back to / on linux when HOME unset', () => {
+			const adapter = createNodeAdapter(mockNodeProcess());
+			expect(adapter.homedir).toBe('/');
+		});
+
+		it('configDir uses XDG_CONFIG_HOME on linux', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					env: { HOME: '/home/alice', XDG_CONFIG_HOME: '/custom/config' },
+				}),
+			);
+			expect(adapter.configDir).toBe('/custom/config');
+		});
+
+		it('configDir defaults to ~/.config on linux', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					env: { HOME: '/home/alice' },
+				}),
+			);
+			expect(adapter.configDir).toBe('/home/alice/.config');
+		});
+
+		it('configDir uses APPDATA on win32', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					platform: 'win32',
+					env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: 'C:\\Users\\alice\\AppData\\Roaming' },
+					cwd: () => 'C:\\',
+				}),
+			);
+			expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+		});
+
+		it('configDir defaults to AppData\\Roaming on win32', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					platform: 'win32',
+					env: { USERPROFILE: 'C:\\Users\\alice' },
+					cwd: () => 'C:\\',
+				}),
+			);
+			expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+		});
+
+		it('configDir normalizes trailing separator in homedir on win32', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					platform: 'win32',
+					env: { USERPROFILE: 'C:\\' },
+					cwd: () => 'C:\\',
+				}),
+			);
+			// Must not produce doubled backslash: C:\\\\AppData\\Roaming
+			expect(adapter.configDir).toBe('C:\\AppData\\Roaming');
+		});
+
+		it('configDir normalizes trailing slash in homedir on win32', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					platform: 'win32',
+					env: { USERPROFILE: 'C:\\Users\\alice\\' },
+					cwd: () => 'C:\\',
+				}),
+			);
+			expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+		});
+
+		it('configDir treats empty APPDATA as unset on win32', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					platform: 'win32',
+					env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: '' },
+					cwd: () => 'C:\\',
+				}),
+			);
+			expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
+		});
+
+		it('readFile returns file contents for existing files', async () => {
+			const adapter = createNodeAdapter();
+			// Use the adapter's own cwd to find a file we know exists
+			const content = await adapter.readFile(`${adapter.cwd}/package.json`);
+			expect(content).not.toBeNull();
+			expect(content).toContain('@kjanat/dreamcli');
+		});
+
+		it('readFile returns null for nonexistent files', async () => {
+			const adapter = createNodeAdapter();
+			const result = await adapter.readFile('/tmp/dreamcli-test-nonexistent-file-12345');
+			expect(result).toBeNull();
+		});
 	});
 
-	it('accepts custom configDir', () => {
-		const adapter = createTestAdapter({ configDir: '/Users/alice/.config' });
-		expect(adapter.configDir).toBe('/Users/alice/.config');
-	});
-});
+	// --- filesystem contract
 
-// --- createNodeAdapter — filesystem fields
+	describe('filesystem', () => {
+		it('test adapter satisfies RuntimeAdapter filesystem fields', () => {
+			const adapter: RuntimeAdapter = createTestAdapter();
+			expect(typeof adapter.readFile).toBe('function');
+			expect(typeof adapter.homedir).toBe('string');
+			expect(typeof adapter.configDir).toBe('string');
+		});
 
-describe('createNodeAdapter — filesystem', () => {
-	it('readFile is a function', () => {
-		const adapter = createNodeAdapter(mockNodeProcess());
-		expect(typeof adapter.readFile).toBe('function');
-	});
-
-	it('homedir uses HOME env on linux', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				env: { HOME: '/home/alice' },
-			}),
-		);
-		expect(adapter.homedir).toBe('/home/alice');
-	});
-
-	it('homedir uses USERPROFILE on win32', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				platform: 'win32',
-				env: { USERPROFILE: 'C:\\Users\\alice' },
-				cwd: () => 'C:\\',
-			}),
-		);
-		expect(adapter.homedir).toBe('C:\\Users\\alice');
-	});
-
-	it('homedir falls back to / on linux when HOME unset', () => {
-		const adapter = createNodeAdapter(mockNodeProcess());
-		expect(adapter.homedir).toBe('/');
-	});
-
-	it('configDir uses XDG_CONFIG_HOME on linux', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				env: { HOME: '/home/alice', XDG_CONFIG_HOME: '/custom/config' },
-			}),
-		);
-		expect(adapter.configDir).toBe('/custom/config');
-	});
-
-	it('configDir defaults to ~/.config on linux', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				env: { HOME: '/home/alice' },
-			}),
-		);
-		expect(adapter.configDir).toBe('/home/alice/.config');
-	});
-
-	it('configDir uses APPDATA on win32', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				platform: 'win32',
-				env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: 'C:\\Users\\alice\\AppData\\Roaming' },
-				cwd: () => 'C:\\',
-			}),
-		);
-		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
-	});
-
-	it('configDir defaults to AppData\\Roaming on win32', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				platform: 'win32',
-				env: { USERPROFILE: 'C:\\Users\\alice' },
-				cwd: () => 'C:\\',
-			}),
-		);
-		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
-	});
-
-	it('configDir normalizes trailing separator in homedir on win32', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				platform: 'win32',
-				env: { USERPROFILE: 'C:\\' },
-				cwd: () => 'C:\\',
-			}),
-		);
-		// Must not produce doubled backslash: C:\\\\AppData\\Roaming
-		expect(adapter.configDir).toBe('C:\\AppData\\Roaming');
-	});
-
-	it('configDir normalizes trailing slash in homedir on win32', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				platform: 'win32',
-				env: { USERPROFILE: 'C:\\Users\\alice\\' },
-				cwd: () => 'C:\\',
-			}),
-		);
-		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
-	});
-
-	it('configDir treats empty APPDATA as unset on win32', () => {
-		const adapter = createNodeAdapter(
-			mockNodeProcess({
-				platform: 'win32',
-				env: { USERPROFILE: 'C:\\Users\\alice', APPDATA: '' },
-				cwd: () => 'C:\\',
-			}),
-		);
-		expect(adapter.configDir).toBe('C:\\Users\\alice\\AppData\\Roaming');
-	});
-
-	it('readFile returns file contents for existing files', async () => {
-		const adapter = createNodeAdapter();
-		// Use the adapter's own cwd to find a file we know exists
-		const content = await adapter.readFile(`${adapter.cwd}/package.json`);
-		expect(content).not.toBeNull();
-		expect(content).toContain('@kjanat/dreamcli');
-	});
-
-	it('readFile returns null for nonexistent files', async () => {
-		const adapter = createNodeAdapter();
-		const result = await adapter.readFile('/tmp/dreamcli-test-nonexistent-file-12345');
-		expect(result).toBeNull();
-	});
-});
-
-// --- RuntimeAdapter interface — filesystem contract
-
-describe('RuntimeAdapter interface — filesystem', () => {
-	it('test adapter satisfies RuntimeAdapter filesystem fields', () => {
-		const adapter: RuntimeAdapter = createTestAdapter();
-		expect(typeof adapter.readFile).toBe('function');
-		expect(typeof adapter.homedir).toBe('string');
-		expect(typeof adapter.configDir).toBe('string');
-	});
-
-	it('node adapter satisfies RuntimeAdapter filesystem fields', () => {
-		const adapter: RuntimeAdapter = createNodeAdapter();
-		expect(typeof adapter.readFile).toBe('function');
-		expect(typeof adapter.homedir).toBe('string');
-		expect(typeof adapter.configDir).toBe('string');
+		it('node adapter satisfies RuntimeAdapter filesystem fields', () => {
+			const adapter: RuntimeAdapter = createNodeAdapter();
+			expect(typeof adapter.readFile).toBe('function');
+			expect(typeof adapter.homedir).toBe('string');
+			expect(typeof adapter.configDir).toBe('string');
+		});
 	});
 });
 

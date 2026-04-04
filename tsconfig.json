@@ -1,6 +1,5 @@
 {
 	"compilerOptions": {
-		// Environment
 		"target": "ESNext",
 		"lib": ["ESNext"],
 		"module": "Preserve",
@@ -10,7 +9,6 @@
 		"resolveJsonModule": true,
 		"types": ["node", "bun", "deno", "vitest"],
 
-		// Strictness
 		"strict": true,
 		"noUnusedLocals": true,
 		"noEmit": true,

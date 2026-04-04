@@ -58,175 +58,179 @@ function commandMap(...commands: readonly ErasedCommand[]): ReadonlyMap<string, 
 	return map;
 }
 
-// === dispatch() — base cases
+// === dispatch()
 
-describe('dispatch() — base cases', () => {
-	it('returns unknown with empty input on empty argv', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const result = dispatch([], commandMap(deploy));
-		expect(result.kind).toBe('unknown');
-		if (result.kind === 'unknown') {
-			expect(result.input).toBe('');
-		}
+describe('dispatch()', () => {
+	// --- base cases
+
+	describe('base cases', () => {
+		it('returns unknown with empty input on empty argv', () => {
+			const deploy = erased(commandSchema({ name: 'deploy' }));
+			const result = dispatch([], commandMap(deploy));
+			expect(result.kind).toBe('unknown');
+			if (result.kind === 'unknown') {
+				expect(result.input).toBe('');
+			}
+		});
+
+		it('returns unknown with input when command not found', () => {
+			const deploy = erased(commandSchema({ name: 'deploy' }));
+			const result = dispatch(['nope'], commandMap(deploy));
+			expect(result.kind).toBe('unknown');
+			if (result.kind === 'unknown') {
+				expect(result.input).toBe('nope');
+				expect(result.candidates).toHaveLength(1);
+			}
+		});
+
+		it('matches leaf command by name', () => {
+			const deploy = erased(commandSchema({ name: 'deploy' }));
+			const result = dispatch(['deploy'], commandMap(deploy));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(deploy);
+				expect(result.commandPath).toEqual([deploy.schema]);
+				expect(result.remainingArgv).toEqual([]);
+			}
+		});
+
+		it('matches leaf command by alias', () => {
+			const deploy = erased(commandSchema({ name: 'deploy', aliases: ['d'] }));
+			const result = dispatch(['d'], commandMap(deploy));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(deploy);
+			}
+		});
+
+		it('preserves remaining argv after command name', () => {
+			const deploy = erased(commandSchema({ name: 'deploy' }));
+			const result = dispatch(['deploy', '--force', 'prod'], commandMap(deploy));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.remainingArgv).toEqual(['--force', 'prod']);
+			}
+		});
+
+		it('skips leading flags when finding command name', () => {
+			const deploy = erased(commandSchema({ name: 'deploy' }));
+			const result = dispatch(['--verbose', 'deploy', 'prod'], commandMap(deploy));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(deploy);
+				expect(result.remainingArgv).toEqual(['--verbose', 'prod']);
+			}
+		});
+
+		it('returns unknown when only flags given (no command name)', () => {
+			const deploy = erased(commandSchema({ name: 'deploy' }));
+			const result = dispatch(['--verbose', '--force'], commandMap(deploy));
+			expect(result.kind).toBe('unknown');
+			if (result.kind === 'unknown') {
+				expect(result.input).toBe('');
+			}
+		});
 	});
 
-	it('returns unknown with input when command not found', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const result = dispatch(['nope'], commandMap(deploy));
-		expect(result.kind).toBe('unknown');
-		if (result.kind === 'unknown') {
-			expect(result.input).toBe('nope');
-			expect(result.candidates).toHaveLength(1);
-		}
+	// --- nested commands
+
+	describe('nested commands', () => {
+		it('dispatches to nested subcommand', () => {
+			const migrate = erased(commandSchema({ name: 'migrate' }));
+			const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
+			const result = dispatch(['db', 'migrate'], commandMap(db));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(migrate);
+				expect(result.commandPath).toEqual([db.schema, migrate.schema]);
+				expect(result.remainingArgv).toEqual([]);
+			}
+		});
+
+		it('dispatches 3 levels deep', () => {
+			const up = erased(commandSchema({ name: 'up' }));
+			const migrate = erased(commandSchema({ name: 'migrate', hasAction: false }), commandMap(up));
+			const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
+			const result = dispatch(['db', 'migrate', 'up'], commandMap(db));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(up);
+				expect(result.commandPath).toEqual([db.schema, migrate.schema, up.schema]);
+			}
+		});
+
+		it('preserves remaining argv through nesting', () => {
+			const migrate = erased(commandSchema({ name: 'migrate' }));
+			const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
+			const result = dispatch(['db', 'migrate', '--steps', '3'], commandMap(db));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.remainingArgv).toEqual(['--steps', '3']);
+			}
+		});
 	});
 
-	it('matches leaf command by name', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const result = dispatch(['deploy'], commandMap(deploy));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(deploy);
-			expect(result.commandPath).toEqual([deploy.schema]);
-			expect(result.remainingArgv).toEqual([]);
-		}
+	// --- groups without handlers
+
+	describe('groups without handlers', () => {
+		it('returns needs-subcommand when group has no handler and no subcommand given', () => {
+			const migrate = erased(commandSchema({ name: 'migrate' }));
+			const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
+			const result = dispatch(['db'], commandMap(db));
+			expect(result.kind).toBe('needs-subcommand');
+			if (result.kind === 'needs-subcommand') {
+				expect(result.command).toBe(db);
+				expect(result.commandPath).toEqual([db.schema]);
+			}
+		});
+
+		it('returns unknown when group has no handler and unknown subcommand given', () => {
+			const migrate = erased(commandSchema({ name: 'migrate' }));
+			const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
+			const result = dispatch(['db', 'nope'], commandMap(db));
+			expect(result.kind).toBe('unknown');
+			if (result.kind === 'unknown') {
+				expect(result.input).toBe('nope');
+			}
+		});
 	});
 
-	it('matches leaf command by alias', () => {
-		const deploy = erased(commandSchema({ name: 'deploy', aliases: ['d'] }));
-		const result = dispatch(['d'], commandMap(deploy));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(deploy);
-		}
-	});
+	// --- groups with handlers (hybrid commands)
 
-	it('preserves remaining argv after command name', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const result = dispatch(['deploy', '--force', 'prod'], commandMap(deploy));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.remainingArgv).toEqual(['--force', 'prod']);
-		}
-	});
+	describe('groups with handlers (hybrid commands)', () => {
+		it('dispatches to group handler when no subcommand given', () => {
+			const add = erased(commandSchema({ name: 'add' }));
+			const remote = erased(commandSchema({ name: 'remote', hasAction: true }), commandMap(add));
+			const result = dispatch(['remote'], commandMap(remote));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(remote);
+				expect(result.remainingArgv).toEqual([]);
+			}
+		});
 
-	it('skips leading flags when finding command name', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const result = dispatch(['--verbose', 'deploy', 'prod'], commandMap(deploy));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(deploy);
-			expect(result.remainingArgv).toEqual(['--verbose', 'prod']);
-		}
-	});
+		it('dispatches to subcommand when subcommand matches', () => {
+			const add = erased(commandSchema({ name: 'add' }));
+			const remote = erased(commandSchema({ name: 'remote', hasAction: true }), commandMap(add));
+			const result = dispatch(['remote', 'add', 'origin'], commandMap(remote));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(add);
+				expect(result.remainingArgv).toEqual(['origin']);
+			}
+		});
 
-	it('returns unknown when only flags given (no command name)', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const result = dispatch(['--verbose', '--force'], commandMap(deploy));
-		expect(result.kind).toBe('unknown');
-		if (result.kind === 'unknown') {
-			expect(result.input).toBe('');
-		}
-	});
-});
-
-// === dispatch() — nested commands
-
-describe('dispatch() — nested commands', () => {
-	it('dispatches to nested subcommand', () => {
-		const migrate = erased(commandSchema({ name: 'migrate' }));
-		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
-		const result = dispatch(['db', 'migrate'], commandMap(db));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(migrate);
-			expect(result.commandPath).toEqual([db.schema, migrate.schema]);
-			expect(result.remainingArgv).toEqual([]);
-		}
-	});
-
-	it('dispatches 3 levels deep', () => {
-		const up = erased(commandSchema({ name: 'up' }));
-		const migrate = erased(commandSchema({ name: 'migrate', hasAction: false }), commandMap(up));
-		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
-		const result = dispatch(['db', 'migrate', 'up'], commandMap(db));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(up);
-			expect(result.commandPath).toEqual([db.schema, migrate.schema, up.schema]);
-		}
-	});
-
-	it('preserves remaining argv through nesting', () => {
-		const migrate = erased(commandSchema({ name: 'migrate' }));
-		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
-		const result = dispatch(['db', 'migrate', '--steps', '3'], commandMap(db));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.remainingArgv).toEqual(['--steps', '3']);
-		}
-	});
-});
-
-// === dispatch() — groups without handlers
-
-describe('dispatch() — groups without handlers', () => {
-	it('returns needs-subcommand when group has no handler and no subcommand given', () => {
-		const migrate = erased(commandSchema({ name: 'migrate' }));
-		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
-		const result = dispatch(['db'], commandMap(db));
-		expect(result.kind).toBe('needs-subcommand');
-		if (result.kind === 'needs-subcommand') {
-			expect(result.command).toBe(db);
-			expect(result.commandPath).toEqual([db.schema]);
-		}
-	});
-
-	it('returns unknown when group has no handler and unknown subcommand given', () => {
-		const migrate = erased(commandSchema({ name: 'migrate' }));
-		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
-		const result = dispatch(['db', 'nope'], commandMap(db));
-		expect(result.kind).toBe('unknown');
-		if (result.kind === 'unknown') {
-			expect(result.input).toBe('nope');
-		}
-	});
-});
-
-// === dispatch() — groups with handlers (hybrid commands)
-
-describe('dispatch() — groups with handlers (hybrid commands)', () => {
-	it('dispatches to group handler when no subcommand given', () => {
-		const add = erased(commandSchema({ name: 'add' }));
-		const remote = erased(commandSchema({ name: 'remote', hasAction: true }), commandMap(add));
-		const result = dispatch(['remote'], commandMap(remote));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(remote);
-			expect(result.remainingArgv).toEqual([]);
-		}
-	});
-
-	it('dispatches to subcommand when subcommand matches', () => {
-		const add = erased(commandSchema({ name: 'add' }));
-		const remote = erased(commandSchema({ name: 'remote', hasAction: true }), commandMap(add));
-		const result = dispatch(['remote', 'add', 'origin'], commandMap(remote));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(add);
-			expect(result.remainingArgv).toEqual(['origin']);
-		}
-	});
-
-	it('dispatches to group handler when unknown token follows (positional arg)', () => {
-		const add = erased(commandSchema({ name: 'add' }));
-		const remote = erased(commandSchema({ name: 'remote', hasAction: true }), commandMap(add));
-		const result = dispatch(['remote', 'origin'], commandMap(remote));
-		expect(result.kind).toBe('match');
-		if (result.kind === 'match') {
-			expect(result.command).toBe(remote);
-			// 'origin' stays in argv as a positional arg for the group handler
-			expect(result.remainingArgv).toEqual(['origin']);
-		}
+		it('dispatches to group handler when unknown token follows (positional arg)', () => {
+			const add = erased(commandSchema({ name: 'add' }));
+			const remote = erased(commandSchema({ name: 'remote', hasAction: true }), commandMap(add));
+			const result = dispatch(['remote', 'origin'], commandMap(remote));
+			expect(result.kind).toBe('match');
+			if (result.kind === 'match') {
+				expect(result.command).toBe(remote);
+				// 'origin' stays in argv as a positional arg for the group handler
+				expect(result.remainingArgv).toEqual(['origin']);
+			}
+		});
 	});
 });
 

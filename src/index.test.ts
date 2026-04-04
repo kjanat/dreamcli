@@ -125,20 +125,35 @@ describe('@kjanat/dreamcli', () => {
 	});
 });
 
-describe('@kjanat/dreamcli/runtime — export surface', () => {
-	it('keeps runtime export surface curated', async () => {
-		const mod = await import('@kjanat/dreamcli/runtime');
-		expect(Object.keys(mod).sort()).toEqual(
-			[
-				'ExitError',
-				'RUNTIMES',
-				'createAdapter',
-				'createBunAdapter',
-				'createDenoAdapter',
-				'createNodeAdapter',
-				'detectRuntime',
-			].sort(),
-		);
+// === @kjanat/dreamcli/runtime
+
+describe('@kjanat/dreamcli/runtime', () => {
+	// --- export surface
+
+	describe('export surface', () => {
+		it('keeps runtime export surface curated', async () => {
+			const mod = await import('@kjanat/dreamcli/runtime');
+			expect(Object.keys(mod).sort()).toEqual(
+				[
+					'ExitError',
+					'RUNTIMES',
+					'createAdapter',
+					'createBunAdapter',
+					'createDenoAdapter',
+					'createNodeAdapter',
+					'detectRuntime',
+				].sort(),
+			);
+		});
+	});
+
+	// --- module loads
+
+	describe('module loads', () => {
+		it('module loads without error', async () => {
+			const mod = await import('@kjanat/dreamcli/runtime');
+			expect(mod).toBeDefined();
+		});
 	});
 });
 
@@ -147,15 +162,6 @@ describe('@kjanat/dreamcli/runtime — export surface', () => {
 describe('@kjanat/dreamcli/testkit — module loads', () => {
 	it('module loads without error', async () => {
 		const mod = await import('@kjanat/dreamcli/testkit');
-		expect(mod).toBeDefined();
-	});
-});
-
-// ---
-
-describe('@kjanat/dreamcli/runtime — module loads', () => {
-	it('module loads without error', async () => {
-		const mod = await import('@kjanat/dreamcli/runtime');
 		expect(mod).toBeDefined();
 	});
 });
