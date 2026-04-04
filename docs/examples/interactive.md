@@ -5,7 +5,7 @@
 Interactive prompts with config file fallback.
 
 - Source: [`examples/interactive.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/interactive.ts)
-- Demonstrates: per-flag .prompt(), command-level .interactive(),
+- Demonstrates: per-flag .prompt(), command-level .interactive(), .env(), .config(), resolution chain (CLI → env → config → prompt → default).
 
 ## Usage
 

@@ -18,10 +18,10 @@ function createSchema(
 ): FlagSchema;
 ```
 
-| Parameter   | Type                                                                       | Description                                         |
-| ----------- | -------------------------------------------------------------------------- | --------------------------------------------------- |
-| `kind`      | `kind: "string" \| "number" \| "boolean" \| "enum" \| "array" \| "custom"` | Discriminator for the value type this flag accepts. |
-| `overrides` | `overrides?: FlagSchemaOverrides`                                          | Partial FlagSchema fields merged onto defaults.     |
+| Parameter   | Type                                                                 | Description                                         |
+| ----------- | -------------------------------------------------------------------- | --------------------------------------------------- |
+| `kind`      | `"string" \| "number" \| "boolean" \| "enum" \| "array" \| "custom"` | Discriminator for the value type this flag accepts. |
+| `overrides` | `FlagSchemaOverrides \\| undefined`                                  | Partial FlagSchema fields merged onto defaults.     |
 
 ## Examples
 

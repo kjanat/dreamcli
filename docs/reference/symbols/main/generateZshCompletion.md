@@ -18,10 +18,10 @@ function generateZshCompletion(
 ): string;
 ```
 
-| Parameter | Type                          | Description                       |
-| --------- | ----------------------------- | --------------------------------- |
-| `schema`  | `schema: CLISchema`           | The CLI schema.                   |
-| `options` | `options?: CompletionOptions` | Optional generator configuration. |
+| Parameter | Type                              | Description                       |
+| --------- | --------------------------------- | --------------------------------- |
+| `schema`  | `CLISchema`                       | The CLI schema.                   |
+| `options` | `CompletionOptions \\| undefined` | Optional generator configuration. |
 
 ## Examples
 

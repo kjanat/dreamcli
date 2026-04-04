@@ -13,11 +13,11 @@ This page is rebuilt by `bun run docs:prepare` from the docs tree and generated 
 | Metric                  | Value |
 | ----------------------- | ----- |
 | Authored markdown pages | 39    |
-| Generated artifacts     | 175   |
+| Generated artifacts     | 174   |
 | Source-backed examples  | 7     |
 | Public API entrypoints  | 4     |
-| Public API symbols      | 159   |
-| Symbol reference pages  | 158   |
+| Public API symbols      | 158   |
+| Symbol reference pages  | 157   |
 
 ## Reading This Page
 

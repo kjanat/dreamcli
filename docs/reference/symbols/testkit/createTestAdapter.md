@@ -15,9 +15,9 @@ Generated reference page for the `createTestAdapter` function export.
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter;
 ```
 
-| Parameter | Type                           | Description                               |
-| --------- | ------------------------------ | ----------------------------------------- |
-| `options` | `options?: TestAdapterOptions` | Optional overrides for any adapter field. |
+| Parameter | Type                               | Description                               |
+| --------- | ---------------------------------- | ----------------------------------------- |
+| `options` | `TestAdapterOptions \\| undefined` | Optional overrides for any adapter field. |
 
 ## Examples
 

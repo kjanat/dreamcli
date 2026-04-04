@@ -5,7 +5,7 @@
 Mixed machine-readable JSON and human-readable side-channel output.
 
 - Source: [`examples/json-mode.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/json-mode.ts)
-- Demonstrates: always-on `out.json()` machine output to stdout,
+- Demonstrates: always-on `out.json()` machine output to stdout, human-readable stderr side channels via `out.table(..., { format: 'text', stream: 'stderr' })` / `out.error()`, plus `--json` for CLI-managed JSON behavior such as structured errors.
 
 ## Usage
 

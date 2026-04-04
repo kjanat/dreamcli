@@ -17,10 +17,10 @@ function createCaptureOutput(
 ): [out: Out, captured: CapturedOutput];
 ```
 
-| Parameter                                              | Type                                                  | Description                                      |
-| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------ |
-| `options`                                              | `options?: Omit<OutputOptions, "stdout" \| "stderr">` | Optional OutputOptions (minus `stdout`/`stderr`, |
-| which are wired to the capture buffers automatically). |                                                       |                                                  |
+| Parameter                                              | Type                                                      | Description                                      |
+| ------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------ |
+| `options`                                              | `Omit<OutputOptions, "stdout" \| "stderr"> \\| undefined` | Optional OutputOptions (minus `stdout`/`stderr`, |
+| which are wired to the capture buffers automatically). |                                                           |                                                  |
 
 ## Examples
 

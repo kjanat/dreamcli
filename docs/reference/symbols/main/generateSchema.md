@@ -18,10 +18,10 @@ function generateSchema(
 ): Record<string, unknown>;
 ```
 
-| Parameter | Type                          | Description                              |
-| --------- | ----------------------------- | ---------------------------------------- |
-| `schema`  | `schema: CLISchema`           | The CLI schema from `CLIBuilder.schema`. |
-| `options` | `options?: JsonSchemaOptions` | Generation options.                      |
+| Parameter | Type                              | Description                              |
+| --------- | --------------------------------- | ---------------------------------------- |
+| `schema`  | `CLISchema`                       | The CLI schema from `CLIBuilder.schema`. |
+| `options` | `JsonSchemaOptions \\| undefined` | Generation options.                      |
 
 ## Examples
 

@@ -15,9 +15,9 @@ Generated reference page for the `tokenize` function export.
 function tokenize(argv: readonly string[]): readonly Token[];
 ```
 
-| Parameter | Type                      | Description                      |
-| --------- | ------------------------- | -------------------------------- |
-| `argv`    | `argv: readonly string[]` | Raw argument strings to tokenize |
+| Parameter | Type                | Description                      |
+| --------- | ------------------- | -------------------------------- |
+| `argv`    | `readonly string[]` | Raw argument strings to tokenize |
 
 ## Examples
 

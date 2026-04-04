@@ -15,9 +15,9 @@ Generated reference page for the `createBunAdapter` function export.
 function createBunAdapter(proc?: NodeProcess): RuntimeAdapter;
 ```
 
-| Parameter | Type                 | Description                                                          |
-| --------- | -------------------- | -------------------------------------------------------------------- |
-| `proc`    | `proc?: NodeProcess` | Override the process object (useful for testing the adapter itself). |
+| Parameter | Type                        | Description                                                          |
+| --------- | --------------------------- | -------------------------------------------------------------------- |
+| `proc`    | `NodeProcess \\| undefined` | Override the process object (useful for testing the adapter itself). |
 
 ## Examples
 

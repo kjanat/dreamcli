@@ -65,7 +65,8 @@ export const generatedExamples = [
     slug: 'interactive',
     title: 'Interactive prompts with config file fallback.',
     summary: 'Interactive prompts with config file fallback.',
-    demonstrates: 'per-flag .prompt(), command-level .interactive(),',
+    demonstrates:
+      'per-flag .prompt(), command-level .interactive(), .env(), .config(), resolution chain (CLI → env → config → prompt → default).',
     usage: [
       'npx tsx examples/interactive.ts                    # prompts for everything',
       'npx tsx examples/interactive.ts --region eu        # skips region prompt',
@@ -123,7 +124,8 @@ export const generatedExamples = [
       'Mixed machine-readable JSON and human-readable side-channel output.',
     summary:
       'Mixed machine-readable JSON and human-readable side-channel output.',
-    demonstrates: 'always-on `out.json()` machine output to stdout,',
+    demonstrates:
+      "always-on `out.json()` machine output to stdout, human-readable stderr side channels via `out.table(..., { format: 'text', stream: 'stderr' })` / `out.error()`, plus `--json` for CLI-managed JSON behavior such as structured errors.",
     usage: [
       'npx tsx examples/json-mode.ts list                  # JSON stdout + plain stderr side channel',
       'npx tsx examples/json-mode.ts list --format table   # JSON stdout + table stderr side channel',
@@ -185,7 +187,8 @@ export const generatedExamples = [
     slug: 'middleware',
     title: 'Middleware patterns: auth guard, request timing, error handling.',
     summary: 'Middleware patterns: auth guard, request timing, error handling.',
-    demonstrates: 'middleware() with typed context, context accumulation,',
+    demonstrates:
+      'middleware() with typed context, context accumulation, short-circuit on error, wrap-around timing.',
     usage: [
       'npx tsx examples/middleware.ts deploy production',
       'npx tsx examples/middleware.ts deploy production --verbose',
@@ -243,7 +246,8 @@ export const generatedExamples = [
     slug: 'multi-command',
     title: 'Multi-command CLI with nested command groups (git-like).',
     summary: 'Multi-command CLI with nested command groups (git-like).',
-    demonstrates: 'cli(), command(), group(), subcommand nesting,',
+    demonstrates:
+      'cli(), command(), group(), subcommand nesting, version, env binding, flag propagation.',
     usage: [
       'npx tsx examples/multi-command.ts deploy production --force',
       'npx tsx examples/multi-command.ts deploy production --region eu',
@@ -307,7 +311,8 @@ export const generatedExamples = [
     slug: 'spinner-progress',
     title: 'Spinner and progress bar usage.',
     summary: 'Spinner and progress bar usage.',
-    demonstrates: 'out.spinner(), out.progress(), auto-disable in',
+    demonstrates:
+      'out.spinner(), out.progress(), auto-disable in non-TTY / --json mode, spinner.wrap() convenience.',
     usage: [
       'npx tsx examples/spinner-progress.ts',
       'npx tsx examples/spinner-progress.ts --json  # spinners suppressed, JSON output',
@@ -354,7 +359,8 @@ export const generatedExamples = [
     slug: 'testing',
     title: 'Testing examples using @kjanat/dreamcli/testkit.',
     summary: 'Testing examples using @kjanat/dreamcli/testkit.',
-    demonstrates: 'runCommand(), prompt answers, env/config injection,',
+    demonstrates:
+      '`runCommand()`, prompt answers, env/config injection, activity event assertions. This file is structured as a vitest test suite — run with `bun test examples/testing.ts`.',
     usage: ['bun test examples/testing.ts'],
     sourcePath: 'examples/testing.ts',
     routePath: '/examples/testing',
@@ -470,7 +476,7 @@ export const generatedReferenceSurfaces = [
     sourceInputs: ['docs/.generated/api/typedoc-normalized.json'],
     status: 'prepared',
     notes:
-      'Public symbol reference pages rendered from the normalized model. Current count: 158.',
+      'Public symbol reference pages rendered from the normalized model. Current count: 157.',
   },
 ];
 
@@ -479,7 +485,7 @@ export const generatedPublicApi = [
     subpath: '.',
     entrypoint: '@kjanat/dreamcli',
     sourcePath: 'src/index.ts',
-    symbolCount: 138,
+    symbolCount: 137,
     kindGroups: [
       {
         kind: 'function',
@@ -995,11 +1001,6 @@ export const generatedPublicApi = [
             sourcePath: 'src/core/schema/activity.ts',
           },
           {
-            name: 'AnyCommandBuilder',
-            kind: 'type',
-            sourcePath: 'src/core/schema/command.ts',
-          },
-          {
             name: 'ArgKind',
             kind: 'type',
             sourcePath: 'src/core/schema/arg.ts',
@@ -1418,14 +1419,6 @@ export const generatedSymbolPages = [
     routePath: '/reference/symbols/main/ActivityEvent',
     summary:
       'Discriminated union of spinner and progress lifecycle events.\n\nCaptured by testkit in RunResult.activity for assertion\nwithout polluting stdout/stderr arrays.',
-  },
-  {
-    id: '@kjanat/dreamcli:AnyCommandBuilder',
-    name: 'AnyCommandBuilder',
-    entrypoint: '@kjanat/dreamcli',
-    routePath: '/reference/symbols/main/AnyCommandBuilder',
-    summary:
-      "Type-erased CommandBuilder for heterogeneous subcommand storage.\n\nAdvanced helper alias: useful only when working on DreamCLI internals or\ncustom tooling that mirrors the framework's type-erasure boundary.\n\nUses widest possible generic bounds so any `CommandBuilder<F, A, C>` is\nassignable. The CLI layer's `eraseCommand()` traverses these to build\nthe execution tree.",
   },
   {
     id: '@kjanat/dreamcli:arg',
@@ -2593,9 +2586,9 @@ export const generatedSymbolPages = [
 
 export const docsHealthSnapshot = {
   authoredPageCount: 39,
-  generatedArtifactCount: 175,
+  generatedArtifactCount: 174,
   exampleCount: 7,
   publicEntrypointCount: 4,
-  publicSymbolCount: 159,
-  symbolPageCount: 158,
+  publicSymbolCount: 158,
+  symbolPageCount: 157,
 };

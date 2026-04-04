@@ -15,10 +15,10 @@ Generated reference page for the `createTerminalPrompter` function export.
 function createTerminalPrompter(read: ReadFn, write: WriteFn): PromptEngine;
 ```
 
-| Parameter | Type             | Description                                  |
-| --------- | ---------------- | -------------------------------------------- |
-| `read`    | `read: ReadFn`   | Line reader function (returns `null` on EOF) |
-| `write`   | `write: WriteFn` | Output writer function                       |
+| Parameter | Type      | Description                                  |
+| --------- | --------- | -------------------------------------------- |
+| `read`    | `ReadFn`  | Line reader function (returns `null` on EOF) |
+| `write`   | `WriteFn` | Output writer function                       |
 
 ## Examples
 

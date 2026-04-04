@@ -15,9 +15,9 @@ Generated reference page for the `createDenoAdapter` function export.
 function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter;
 ```
 
-| Parameter | Type                 | Description                                                          |
-| --------- | -------------------- | -------------------------------------------------------------------- |
-| `ns`      | `ns?: DenoNamespace` | Override the Deno namespace (useful for testing the adapter itself). |
+| Parameter | Type                          | Description                                                          |
+| --------- | ----------------------------- | -------------------------------------------------------------------- |
+| `ns`      | `DenoNamespace \\| undefined` | Override the Deno namespace (useful for testing the adapter itself). |
 
 ## Examples
 

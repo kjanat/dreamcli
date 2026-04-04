@@ -15,9 +15,9 @@ Generated reference page for the `group` function export.
 function group(name: string): CommandBuilder;
 ```
 
-| Parameter | Type           | Description                                     |
-| --------- | -------------- | ----------------------------------------------- |
-| `name`    | `name: string` | The group name used for dispatch (e.g. `'db'`). |
+| Parameter | Type     | Description                                     |
+| --------- | -------- | ----------------------------------------------- |
+| `name`    | `string` | The group name used for dispatch (e.g. `'db'`). |
 
 ## Examples
 

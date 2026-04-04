@@ -5,13 +5,13 @@
 This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints declared in `package.json`.
 
 - Public entrypoints: 4
-- Public symbols: 159
+- Public symbols: 158
 
 ## `@kjanat/dreamcli`
 
 - Subpath: `.`
 - Source entrypoint: `src/index.ts`
-- Public symbols: 138
+- Public symbols: 137
 
 ### Functions (27)
 
@@ -128,13 +128,12 @@ This inventory is rebuilt by `bun run docs:prepare` from the public entrypoints 
 | [`TableColumn`](/reference/symbols/main/TableColumn)                                         | `src/core/schema/activity.ts`          |
 | [`ValidationErrorOptions`](/reference/symbols/main/ValidationErrorOptions)                   | `src/core/errors/index.ts`             |
 
-### Types (43)
+### Types (42)
 
 | Symbol                                                                   | Source                            |
 | ------------------------------------------------------------------------ | --------------------------------- |
 | [`ActionHandler`](/reference/symbols/main/ActionHandler)                 | `src/core/schema/command.ts`      |
 | [`ActivityEvent`](/reference/symbols/main/ActivityEvent)                 | `src/core/schema/activity.ts`     |
-| [`AnyCommandBuilder`](/reference/symbols/main/AnyCommandBuilder)         | `src/core/schema/command.ts`      |
 | [`ArgKind`](/reference/symbols/main/ArgKind)                             | `src/core/schema/arg.ts`          |
 | [`ArgParseFn`](/reference/symbols/main/ArgParseFn)                       | `src/core/schema/arg.ts`          |
 | [`ArgPresence`](/reference/symbols/main/ArgPresence)                     | `src/core/schema/arg.ts`          |

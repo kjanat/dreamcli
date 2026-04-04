@@ -15,10 +15,10 @@ Generated reference page for the `parse` function export.
 function parse(schema: CommandSchema, argv: readonly string[]): ParseResult;
 ```
 
-| Parameter | Type                      | Description                                              |
-| --------- | ------------------------- | -------------------------------------------------------- |
-| `schema`  | `schema: CommandSchema`   | The command schema to parse against                      |
-| `argv`    | `argv: readonly string[]` | Raw argv strings (NOT including the command name itself) |
+| Parameter | Type                | Description                                              |
+| --------- | ------------------- | -------------------------------------------------------- |
+| `schema`  | `CommandSchema`     | The command schema to parse against                      |
+| `argv`    | `readonly string[]` | Raw argv strings (NOT including the command name itself) |
 
 ## Examples
 

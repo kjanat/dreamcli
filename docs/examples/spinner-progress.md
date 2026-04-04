@@ -5,7 +5,7 @@
 Spinner and progress bar usage.
 
 - Source: [`examples/spinner-progress.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/spinner-progress.ts)
-- Demonstrates: out.spinner(), out.progress(), auto-disable in
+- Demonstrates: out.spinner(), out.progress(), auto-disable in non-TTY / --json mode, spinner.wrap() convenience.
 
 ## Usage
 

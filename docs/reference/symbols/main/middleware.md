@@ -17,11 +17,11 @@ function middleware<Output extends Record<string, unknown>>(
 ): Middleware<Output>;
 ```
 
-| Parameter                                                          | Type                                 | Description                                           |
-| ------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------- |
-| `handler`                                                          | `handler: MiddlewareHandler<Output>` | Function receiving `{ args, flags, ctx, out, next }`. |
-| Call `next(additions)` to continue the chain with added context.   |                                      |                                                       |
-| Omitting the `next()` call short-circuits (e.g., for auth guards). |                                      |                                                       |
+| Parameter                                                          | Type                        | Description                                           |
+| ------------------------------------------------------------------ | --------------------------- | ----------------------------------------------------- |
+| `handler`                                                          | `MiddlewareHandler<Output>` | Function receiving `{ args, flags, ctx, out, next }`. |
+| Call `next(additions)` to continue the chain with added context.   |                             |                                                       |
+| Omitting the `next()` call short-circuits (e.g., for auth guards). |                             |                                                       |
 
 ## Examples
 

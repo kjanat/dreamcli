@@ -20,12 +20,12 @@ function buildConfigSearchPaths(
 ): readonly string[];
 ```
 
-| Parameter   | Type                                | Description                                                           |
-| ----------- | ----------------------------------- | --------------------------------------------------------------------- |
-| `appName`   | `appName: string`                   | CLI application name used to derive config filenames.                 |
-| `cwd`       | `cwd: string`                       | Current working directory (project-root search location).             |
-| `configDir` | `configDir: string`                 | Platform config directory (XDG / AppData).                            |
-| `loaders`   | `loaders?: readonly FormatLoader[]` | Optional custom FormatLoaders whose extensions expand the search set. |
+| Parameter   | Type                                    | Description                                                           |
+| ----------- | --------------------------------------- | --------------------------------------------------------------------- |
+| `appName`   | `string`                                | CLI application name used to derive config filenames.                 |
+| `cwd`       | `string`                                | Current working directory (project-root search location).             |
+| `configDir` | `string`                                | Platform config directory (XDG / AppData).                            |
+| `loaders`   | `readonly FormatLoader[] \\| undefined` | Optional custom FormatLoaders whose extensions expand the search set. |
 
 ## Examples
 

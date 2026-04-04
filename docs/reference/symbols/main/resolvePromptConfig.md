@@ -18,10 +18,10 @@ function resolvePromptConfig(
 ): ResolvedPromptConfig;
 ```
 
-| Parameter    | Type                                         | Description                                       |
-| ------------ | -------------------------------------------- | ------------------------------------------------- |
-| `config`     | `config: PromptConfig`                       | Raw prompt config from `FlagSchema.prompt`        |
-| `enumValues` | `enumValues: readonly string[] \| undefined` | Optional enum values from `FlagSchema.enumValues` |
+| Parameter    | Type                             | Description                                       |
+| ------------ | -------------------------------- | ------------------------------------------------- |
+| `config`     | `PromptConfig`                   | Raw prompt config from `FlagSchema.prompt`        |
+| `enumValues` | `readonly string[] \| undefined` | Optional enum values from `FlagSchema.enumValues` |
 
 ## See Also
 

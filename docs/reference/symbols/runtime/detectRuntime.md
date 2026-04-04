@@ -15,10 +15,10 @@ Generated reference page for the `detectRuntime` function export.
 function detectRuntime(globals?: GlobalForDetect): Runtime;
 ```
 
-| Parameter                   | Type                        | Description                                           |
-| --------------------------- | --------------------------- | ----------------------------------------------------- |
-| `globals`                   | `globals?: GlobalForDetect` | Override `globalThis` for testing. Production callers |
-| should omit this parameter. |                             |                                                       |
+| Parameter                   | Type                            | Description                                           |
+| --------------------------- | ------------------------------- | ----------------------------------------------------- |
+| `globals`                   | `GlobalForDetect \\| undefined` | Override `globalThis` for testing. Production callers |
+| should omit this parameter. |                                 |                                                       |
 
 ## Examples
 

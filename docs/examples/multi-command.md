@@ -5,7 +5,7 @@
 Multi-command CLI with nested command groups (git-like).
 
 - Source: [`examples/multi-command.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/multi-command.ts)
-- Demonstrates: cli(), command(), group(), subcommand nesting,
+- Demonstrates: cli(), command(), group(), subcommand nesting, version, env binding, flag propagation.
 
 ## Usage
 

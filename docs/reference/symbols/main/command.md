@@ -15,9 +15,9 @@ Generated reference page for the `command` function export.
 function command(name: string): CommandBuilder;
 ```
 
-| Parameter | Type           | Description                                           |
-| --------- | -------------- | ----------------------------------------------------- |
-| `name`    | `name: string` | The command name used for dispatch (e.g. `'deploy'`). |
+| Parameter | Type     | Description                                           |
+| --------- | -------- | ----------------------------------------------------- |
+| `name`    | `string` | The command name used for dispatch (e.g. `'deploy'`). |
 
 ## Examples
 

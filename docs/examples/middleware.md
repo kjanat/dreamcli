@@ -5,7 +5,7 @@
 Middleware patterns: auth guard, request timing, error handling.
 
 - Source: [`examples/middleware.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/middleware.ts)
-- Demonstrates: middleware() with typed context, context accumulation,
+- Demonstrates: middleware() with typed context, context accumulation, short-circuit on error, wrap-around timing.
 
 ## Usage
 

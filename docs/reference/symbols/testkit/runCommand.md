@@ -19,11 +19,11 @@ function runCommand(
 ): Promise<RunResult>;
 ```
 
-| Parameter | Type                      | Description                                              |
-| --------- | ------------------------- | -------------------------------------------------------- |
-| `cmd`     | `cmd: RunnableCommand`    | The command builder (must have an action handler)        |
-| `argv`    | `argv: readonly string[]` | Raw argv strings (NOT including the command name itself) |
-| `options` | `options?: RunOptions`    | Injectable runtime state                                 |
+| Parameter | Type                       | Description                                              |
+| --------- | -------------------------- | -------------------------------------------------------- |
+| `cmd`     | `RunnableCommand`          | The command builder (must have an action handler)        |
+| `argv`    | `readonly string[]`        | Raw argv strings (NOT including the command name itself) |
+| `options` | `RunOptions \\| undefined` | Injectable runtime state                                 |
 
 ## Related Examples
 

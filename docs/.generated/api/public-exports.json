@@ -3,7 +3,7 @@
     "subpath": ".",
     "entrypoint": "@kjanat/dreamcli",
     "sourcePath": "src/index.ts",
-    "symbolCount": 138,
+    "symbolCount": 137,
     "kindGroups": [
       {
         "kind": "function",
@@ -517,11 +517,6 @@
             "name": "ActivityEvent",
             "kind": "type",
             "sourcePath": "src/core/schema/activity.ts"
-          },
-          {
-            "name": "AnyCommandBuilder",
-            "kind": "type",
-            "sourcePath": "src/core/schema/command.ts"
           },
           {
             "name": "ArgKind",

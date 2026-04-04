@@ -18,10 +18,10 @@ function configFormat(
 ): FormatLoader;
 ```
 
-| Parameter    | Type                                     | Description                                                                  |
-| ------------ | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| `extensions` | `extensions: readonly string[]`          | File extensions this loader handles (without dot, e.g. `'yaml'`).            |
-| `parse`      | `parse: { (content: string): unknown; }` | Parse function: takes file content string and returns a parsed config value. |
+| Parameter    | Type                              | Description                                                                  |
+| ------------ | --------------------------------- | ---------------------------------------------------------------------------- |
+| `extensions` | `readonly string[]`               | File extensions this loader handles (without dot, e.g. `'yaml'`).            |
+| `parse`      | `{ (content: string): unknown; }` | Parse function: takes file content string and returns a parsed config value. |
 
 ## Examples
 

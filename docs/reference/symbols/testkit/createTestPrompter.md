@@ -18,11 +18,11 @@ function createTestPrompter(
 ): PromptEngine;
 ```
 
-| Parameter     | Type                            | Description                                       |
-| ------------- | ------------------------------- | ------------------------------------------------- |
-| `answers`     | `answers: readonly unknown[]`   | Ordered queue of answers. Use `PROMPT_CANCEL` for |
-| cancellation. |                                 |                                                   |
-| `options`     | `options?: TestPrompterOptions` | Controls behavior when the queue is exhausted.    |
+| Parameter     | Type                                | Description                                       |
+| ------------- | ----------------------------------- | ------------------------------------------------- |
+| `answers`     | `readonly unknown[]`                | Ordered queue of answers. Use `PROMPT_CANCEL` for |
+| cancellation. |                                     |                                                   |
+| `options`     | `TestPrompterOptions \\| undefined` | Controls behavior when the queue is exhausted.    |
 
 ## Examples
 

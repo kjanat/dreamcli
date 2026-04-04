@@ -192,7 +192,7 @@ export default defineConfig({
   markdown: {
     codeTransformers: [
       transformerTwoslash({
-        explicitTrigger: true,
+        explicitTrigger: false,
         twoslashOptions: {
           vfsRoot: projectRoot,
           compilerOptions: {
