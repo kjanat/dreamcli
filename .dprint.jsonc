@@ -25,8 +25,8 @@
 	"exec": {
 		"cwd": "${configDir}",
 		"commands": [
-			{ "command": "bunx sort-package-json --stdin", "fileNames": ["package.json"] },
-			{ "command": "bunx tombi format - --stdin-filename {{file_path}}", "exts": ["toml"] }
+			{ "command": "bun x sort-package-json --stdin", "fileNames": ["package.json"] },
+			{ "command": "bun x tombi format - --stdin-filename {{file_path}}", "exts": ["toml"] }
 		]
 	},
 	"excludes": ["**/node_modules", "**/*-lock.json", "**/*-lock.*", "**/bun.lock*", "**/snapshots"],
