@@ -42,7 +42,7 @@ answers?: readonly unknown[];
 Capture buffers override paired with `out`.
 
 — when omitted, `runCommand()` creates empty buffers for the
-returned `RunResult` while writing directly to the provided `out`.
+returned RunResult while writing directly to the provided `out`.
 
 ```ts
 captured?: CapturedOutput;
@@ -84,7 +84,7 @@ help?: HelpOptions;
 
 Whether stdout is connected to a TTY.
 
-Handlers can check `out.isTTY` to decide whether to emit decorative
+Handlers can check out.isTTY to decide whether to emit decorative
 output (spinners, progress bars, ANSI codes). Defaults to `false`
 (safe default for tests — non-TTY until proven otherwise).
 
@@ -97,7 +97,7 @@ isTTY?: boolean;
 Enable JSON output mode.
 
 When `true`, `log` and `info` messages are redirected to stderr
-so that stdout is reserved exclusively for structured `json()` output.
+so that stdout is reserved exclusively for structured json() output.
 Errors are also rendered as JSON to stderr.
 
 ```ts
@@ -136,7 +136,7 @@ meta?: CommandMeta;
 
 Output channel override used by live CLI execution.
 
-— `run()` passes a real output channel so activity renders to
+— `CLIBuilder.run()` passes a real output channel so activity renders to
 the terminal instead of being captured.
 
 ```ts

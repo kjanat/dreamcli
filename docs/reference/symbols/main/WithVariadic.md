@@ -2,7 +2,7 @@
 
 # `WithVariadic`
 
-Advanced type helper used by `ArgBuilder.variadic()`.
+Advanced type helper used by ArgBuilder.variadic().
 Most consumers rely on inference and never reference this directly.
 
 - Import: `@kjanat/dreamcli`

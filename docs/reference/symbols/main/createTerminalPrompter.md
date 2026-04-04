@@ -7,7 +7,7 @@ Generated reference page for the `createTerminalPrompter` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:253`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L253)
+- Source link: [`src/core/prompt/index.ts:261`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L261)
 
 ## Signatures
 

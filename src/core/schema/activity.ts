@@ -233,5 +233,8 @@ export type {
 	TableColumn,
 	TableFormat,
 	TableOptions,
+	TableOptionsAuto,
+	TableOptionsJson,
+	TableOptionsText,
 	TableStream,
 };

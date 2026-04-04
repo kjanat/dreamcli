@@ -7,7 +7,7 @@ No config file found at any candidate path (not an error).
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/config/index.ts`
-- Source link: [`src/core/config/index.ts:88`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L88)
+- Source link: [`src/core/config/index.ts:89`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L89)
 
 ## Signatures
 
@@ -20,6 +20,8 @@ interface ConfigNotFound {}
 ### Properties
 
 #### `found`
+
+Discriminant — `false` indicates no config file exists at any candidate path.
 
 ```ts
 found: 'false';

@@ -1,7 +1,7 @@
 /**
  * Deno runtime adapter implementation.
  *
- * Bridges the platform-agnostic `RuntimeAdapter` interface to Deno's
+ * Bridges the platform-agnostic {@linkcode RuntimeAdapter} interface to Deno's
  * namespace APIs (`Deno.args`, `Deno.env`, `Deno.cwd()`, etc.).
  *
  * Deno requires explicit permissions for some operations. The adapter
@@ -38,6 +38,7 @@ import { assertRuntimeVersionSupported } from './support.ts';
  * an empty env object.
  */
 interface DenoNamespace {
+	/** Build target metadata (OS detection). */
 	readonly build: {
 		readonly os:
 			| 'darwin'
@@ -50,6 +51,7 @@ interface DenoNamespace {
 			| 'solaris'
 			| 'illumos';
 	};
+	/** Deno version info — used for minimum-version guard. */
 	readonly version?: {
 		readonly deno?: string;
 	};
@@ -67,6 +69,7 @@ interface DenoNamespace {
 	/** Current working directory (may throw if `--allow-read` is denied for cwd). */
 	cwd(): string;
 
+	/** Standard output — synchronous byte writer with TTY detection. */
 	readonly stdout: {
 		/** Write raw bytes to stdout synchronously. */
 		writeSync(p: Uint8Array): number;
@@ -74,11 +77,13 @@ interface DenoNamespace {
 		isTerminal(): boolean;
 	};
 
+	/** Standard error — synchronous byte writer. */
 	readonly stderr: {
 		/** Write raw bytes to stderr synchronously. */
 		writeSync(p: Uint8Array): number;
 	};
 
+	/** Standard input — TTY detection and readable byte stream. */
 	readonly stdin: {
 		/** Whether stdin is connected to a TTY. */
 		isTerminal(): boolean;
@@ -143,14 +148,14 @@ function safeCwd(deno: DenoNamespace): string {
  * Create a runtime adapter backed by the Deno namespace.
  *
  * Reads `Deno.args`, `Deno.env`, `Deno.cwd()`, and wraps Deno's stream-based
- * I/O into the `WriteFn`/`ReadFn` functions expected by the framework.
+ * I/O into the {@linkcode WriteFn}/{@linkcode ReadFn} functions expected by the framework.
  *
  * Unlike Node/Bun, Deno strips the binary and script path from `Deno.args`.
  * The adapter prepends synthetic entries (`['deno', 'run']`) so the argv
- * shape matches the `RuntimeAdapter` contract (binary + script + user args).
+ * shape matches the {@linkcode RuntimeAdapter} contract (binary + script + user args).
  *
  * @param ns - Override the Deno namespace (useful for testing the adapter itself).
- * @returns A `RuntimeAdapter` backed by Deno's namespace APIs.
+ * @returns A {@linkcode RuntimeAdapter} backed by Deno's namespace APIs.
  *
  * @example
  * ```ts

@@ -7,7 +7,7 @@ Generated reference page for the `createTestAdapter` function export.
 - Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/runtime/adapter.ts`
-- Source link: [`src/runtime/adapter.ts:266`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/adapter.ts#L266)
+- Source link: [`src/runtime/adapter.ts:267`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/adapter.ts#L267)
 
 ## Signatures
 
@@ -15,9 +15,9 @@ Generated reference page for the `createTestAdapter` function export.
 function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter;
 ```
 
-| Parameter | Type                               | Description                               |
-| --------- | ---------------------------------- | ----------------------------------------- |
-| `options` | `TestAdapterOptions \\| undefined` | Optional overrides for any adapter field. |
+| Parameter | Type                              | Description                               |
+| --------- | --------------------------------- | ----------------------------------------- |
+| `options` | `TestAdapterOptions \| undefined` | Optional overrides for any adapter field. |
 
 ## Examples
 

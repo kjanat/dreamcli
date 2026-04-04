@@ -5,7 +5,7 @@
 Positional argument schema factory.
 
 Entry point for defining args on a command. Use `arg.<kind>()` to create
-an `ArgBuilder`, then chain modifiers and pass the result to
+an ArgBuilder, then chain modifiers and pass the result to
 `command().arg(name, builder)`.
 
 Four kinds are available:
@@ -18,7 +18,7 @@ Four kinds are available:
 - Import: `@kjanat/dreamcli`
 - Export kind: constant
 - Declared in: `src/core/schema/arg.ts`
-- Source link: [`src/core/schema/arg.ts:662`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L662)
+- Source link: [`src/core/schema/arg.ts:664`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L664)
 
 ## Signatures
 

@@ -25,7 +25,7 @@ import type { ReadFn } from '#internals/core/prompt/index.ts';
  * Adapters are designed to be:
  * - **Immutable in shape:** all properties are readonly
  * - **Minimal:** only the operations the framework actually needs
- * - **Testable:** easily stubbed in tests via `createTestAdapter()`
+ * - **Testable:** easily stubbed in tests via {@linkcode createTestAdapter | createTestAdapter()}
  *
  * @example
  * ```ts
@@ -150,7 +150,7 @@ interface TestAdapterOptions {
 	/**
 	 * Stdin line reader (defaults to returning `null` — immediate EOF).
 	 *
-	 * Use a custom `ReadFn` to simulate user input in tests.
+	 * Use a custom {@linkcode ReadFn} to simulate user input in tests.
 	 */
 	readonly stdin?: ReadFn;
 
@@ -177,7 +177,7 @@ interface TestAdapterOptions {
 	readonly stdinIsTTY?: boolean;
 
 	/**
-	 * Exit function (defaults to throwing `ExitError`).
+	 * Exit function (defaults to throwing {@linkcode ExitError}).
 	 * The default throw-based exit allows tests to catch the exit code.
 	 */
 	readonly exit?: (code: number) => never;
@@ -222,12 +222,13 @@ interface TestAdapterOptions {
  * ```
  */
 class ExitError extends Error {
-	/** @override */
+	/** Error name — always `'ExitError'` for `instanceof` checks. */
 	override readonly name = 'ExitError';
 
 	/** The exit code passed to `exit()`. */
 	readonly code: number;
 
+	/** Create an ExitError for the given process exit code. */
 	constructor(code: number) {
 		super(`Process exited with code ${code}`);
 		this.code = code;
@@ -251,7 +252,7 @@ const noopReadFile: (path: string) => Promise<string | null> = () => Promise.res
  * touching the host process.
  *
  * @param options - Optional overrides for any adapter field.
- * @returns A `RuntimeAdapter` suitable for test scenarios.
+ * @returns A {@linkcode RuntimeAdapter} suitable for test scenarios.
  *
  * @example
  * ```ts

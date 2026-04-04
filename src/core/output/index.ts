@@ -5,7 +5,7 @@
  * raw `console.log`. The channel respects TTY vs piped contexts and
  * supports verbosity levels (quiet mode suppresses `info`).
  *
- * The `Out` interface (the contract handlers depend on) lives in
+ * The {@linkcode Out} interface (the contract handlers depend on) lives in
  * `src/core/schema/command.ts`. This module provides the implementation.
  *
  * @module dreamcli/core/output
@@ -129,13 +129,13 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 // --- OutputChannel — the concrete Out implementation
 
 /**
- * Concrete implementation of the `Out` interface.
+ * Concrete implementation of the {@linkcode Out} interface.
  *
  * Routes messages to the appropriate writer (stdout vs stderr) and
  * respects the configured verbosity level.
  *
- * Handlers interact with this via the `Out` interface — they never see
- * `OutputChannel` directly, which keeps the coupling minimal.
+ * Handlers interact with this via the {@linkcode Out} interface — they never see
+ * {@linkcode OutputChannel} directly, which keeps the coupling minimal.
  * Prefer {@link createOutput} unless you are extending the output layer.
  *
  * @internal
@@ -344,8 +344,8 @@ class OutputChannel implements Out {
 /**
  * Output channel variant that returns capture handles for spinner/progress.
  *
- * Extends `OutputChannel` to override `spinner()` and `progress()`, routing
- * activity events into a shared `ActivityEvent[]` for testkit assertion.
+ * Extends {@linkcode OutputChannel} to override `spinner()` and `progress()`, routing
+ * activity events into a shared {@linkcode ActivityEvent | ActivityEvent[]} for testkit assertion.
  * Text output (log/info/warn/error) is handled by the parent class.
  *
  * @internal

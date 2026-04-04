@@ -19,11 +19,11 @@ function resolve(
 ): Promise<ResolveResult>;
 ```
 
-| Parameter | Type                           | Description                                |
-| --------- | ------------------------------ | ------------------------------------------ |
-| `schema`  | `CommandSchema`                | The command schema defining flags and args |
-| `parsed`  | `ParseResult`                  | Raw parsed values from the parser          |
-| `options` | `ResolveOptions \\| undefined` | External state for the resolution chain    |
+| Parameter | Type                          | Description                                |
+| --------- | ----------------------------- | ------------------------------------------ |
+| `schema`  | `CommandSchema`               | The command schema defining flags and args |
+| `parsed`  | `ParseResult`                 | Raw parsed values from the parser          |
+| `options` | `ResolveOptions \| undefined` | External state for the resolution chain    |
 
 ## Examples
 

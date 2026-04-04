@@ -7,7 +7,7 @@ Generated reference page for the `resolvePromptConfig` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:521`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L521)
+- Source link: [`src/core/prompt/index.ts:529`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L529)
 
 ## Signatures
 

@@ -140,6 +140,7 @@ function formatAggregateLine(issue: AggregateIssueSummary): string {
 	return `${issue.label}${source}: ${issue.message}`;
 }
 
+/** Type-narrowing guard that asserts a readonly array has at least one element. */
 function isNonEmpty<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
 	return arr.length > 0;
 }
@@ -182,6 +183,7 @@ function isValidationErrorJson(value: unknown): value is {
 	return true;
 }
 
+/** Flatten an aggregate validation error's nested `details.errors` into individual errors, or return the original as a singleton. */
 function collectValidationErrors(error: ValidationError): readonly ValidationError[] {
 	const nestedErrors = error.details?.errors;
 	if (!Array.isArray(nestedErrors)) {
@@ -207,6 +209,7 @@ function collectValidationErrors(error: ValidationError): readonly ValidationErr
 	return flattened;
 }
 
+/** Throw a single error if one, or an aggregate with per-issue summaries if many. */
 function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationError[]]): never {
 	if (errors.length === 1) {
 		throw errors[0];

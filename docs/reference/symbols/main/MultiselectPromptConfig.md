@@ -8,7 +8,7 @@ Returns an array of selected SelectChoice values. Part of PromptConfig.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
-- Source link: [`src/core/schema/prompt.ts:66`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L66)
+- Source link: [`src/core/schema/prompt.ts:69`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L69)
 
 ## Signatures
 
@@ -30,6 +30,8 @@ choices?: readonly SelectChoice[];
 ```
 
 #### `kind`
+
+Discriminator identifying this as a multi-selection prompt.
 
 ```ts
 kind: 'multiselect';

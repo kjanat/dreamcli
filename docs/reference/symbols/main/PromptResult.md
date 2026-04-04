@@ -13,7 +13,7 @@ prompt engine's.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/prompt.ts`
-- Source link: [`src/core/schema/prompt.ts:127`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L127)
+- Source link: [`src/core/schema/prompt.ts:131`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L131)
 
 ## Signatures
 

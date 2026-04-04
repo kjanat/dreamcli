@@ -15,10 +15,10 @@ Generated reference page for the `createAdapter` function export.
 function createAdapter(globals?: GlobalForDetect): RuntimeAdapter;
 ```
 
-| Parameter                   | Type                            | Description                                           |
-| --------------------------- | ------------------------------- | ----------------------------------------------------- |
-| `globals`                   | `GlobalForDetect \\| undefined` | Override `globalThis` for testing. Production callers |
-| should omit this parameter. |                                 |                                                       |
+| Parameter                   | Type                           | Description                                           |
+| --------------------------- | ------------------------------ | ----------------------------------------------------- |
+| `globals`                   | `GlobalForDetect \| undefined` | Override `globalThis` for testing. Production callers |
+| should omit this parameter. |                                |                                                       |
 
 ## Examples
 

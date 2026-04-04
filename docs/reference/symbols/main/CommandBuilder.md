@@ -15,7 +15,7 @@ access a type error until derive or middleware extends it.
 - Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:788`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L788)
+- Source link: [`src/core/schema/command.ts:797`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L797)
 
 ## Signatures
 
@@ -41,11 +41,15 @@ constructor();
 
 #### `_args`
 
+Phantom brand for accumulated arg builder types. No runtime value.
+
 ```ts
 _args: CommandBuilder.A;
 ```
 
 #### `_ctx`
+
+Phantom brand for accumulated context type. No runtime value.
 
 ```ts
 _ctx: CommandBuilder.C;
@@ -65,8 +69,7 @@ _executionSteps: readonly ExecutionStep[];
 
 #### `_flags`
 
-Type brands — exist only in the type system (`declare`
-produces no runtime property). Used for type inference.
+Phantom brand for accumulated flag builder types. No runtime value.
 
 ```ts
 _flags: CommandBuilder.F;

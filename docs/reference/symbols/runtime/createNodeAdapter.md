@@ -7,7 +7,7 @@ Generated reference page for the `createNodeAdapter` function export.
 - Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/node.ts`
-- Source link: [`src/runtime/node.ts:169`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/node.ts#L169)
+- Source link: [`src/runtime/node.ts:177`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/node.ts#L177)
 
 ## Signatures
 
@@ -15,9 +15,9 @@ Generated reference page for the `createNodeAdapter` function export.
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter;
 ```
 
-| Parameter | Type                        | Description                                                          |
-| --------- | --------------------------- | -------------------------------------------------------------------- |
-| `proc`    | `NodeProcess \\| undefined` | Override the process object (useful for testing the adapter itself). |
+| Parameter | Type                       | Description                                                          |
+| --------- | -------------------------- | -------------------------------------------------------------------- |
+| `proc`    | `NodeProcess \| undefined` | Override the process object (useful for testing the adapter itself). |
 
 ## Examples
 

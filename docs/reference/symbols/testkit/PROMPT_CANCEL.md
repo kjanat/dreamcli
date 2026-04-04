@@ -11,7 +11,7 @@ returned regardless of which copy of the module is loaded.
 - Import: `@kjanat/dreamcli/testkit`
 - Export kind: constant
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:137`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L137)
+- Source link: [`src/core/prompt/index.ts:145`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L145)
 
 ## Signatures
 

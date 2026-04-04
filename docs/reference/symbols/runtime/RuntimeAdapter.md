@@ -13,7 +13,7 @@ Adapters are designed to be:
 
 - **Immutable in shape:** all properties are readonly
 - **Minimal:** only the operations the framework actually needs
-- **Testable:** easily stubbed in tests via `createTestAdapter()`
+- **Testable:** easily stubbed in tests via createTestAdapter()
 
 - Import: `@kjanat/dreamcli/runtime`
 - Export kind: interface

@@ -2,7 +2,7 @@
  * Flag schema builder with full type inference.
  *
  * Each factory (`flag.string()`, `flag.boolean()`, etc.) returns an immutable
- * `FlagBuilder` whose generic parameter tracks the value type and presence
+ * {@linkcode FlagBuilder} whose generic parameter tracks the value type and presence
  * state. Chained modifiers (`.default()`, `.required()`, `.alias()`, …) return
  * new builders with updated type-level and runtime state.
  *
@@ -53,7 +53,7 @@ interface FlagConfig {
 // --- Type-level helpers
 
 /**
- * Advanced type helper used by `FlagBuilder` modifiers to replace presence.
+ * Advanced type helper used by {@linkcode FlagBuilder} modifiers to replace presence.
  * Most consumers rely on inference and never reference this directly.
  */
 type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
@@ -79,7 +79,7 @@ type ResolvedValue<C extends FlagConfig> = C['presence'] extends 'optional'
 		: C['valueType'] | undefined
 	: C['valueType'];
 
-/** Extract the resolved value type from a `FlagBuilder`. */
+/** Extract the resolved value type from a {@linkcode FlagBuilder}. */
 type InferFlag<B> = B extends FlagBuilder<infer C extends FlagConfig> ? ResolvedValue<C> : never;
 
 /** Extract resolved value types from a record of builders. */
@@ -112,7 +112,7 @@ interface FlagAlias {
 }
 
 /**
- * The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
+ * The runtime descriptor stored inside every {@linkcode FlagBuilder}. Consumers (parser,
  * help generator, resolution chain) read this to understand the flag's shape
  * without touching generics.
  */
@@ -297,11 +297,13 @@ class FlagBuilder<C extends FlagConfig> {
 
 	/**
 	 * @internal Type brand — exists only in the type system (`declare`
-	 * produces no runtime property). Used by `InferFlag` / `InferFlags`.
+	 * produces no runtime property). Used by {@linkcode InferFlag} / {@linkcode InferFlags}.
 	 */
 	declare readonly _config: C;
 
 	/**
+	 * Create a flag builder from a pre-built schema descriptor.
+	 *
 	 * @param schema - Runtime descriptor seeding this builder's state.
 	 */
 	constructor(schema: FlagSchema) {
@@ -732,6 +734,7 @@ export type {
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	OptionalFallback,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,

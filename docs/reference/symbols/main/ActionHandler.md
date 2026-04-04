@@ -11,7 +11,7 @@ context type (defaults to empty).
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:314`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L314)
+- Source link: [`src/core/schema/command.ts:321`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L321)
 
 ## Signatures
 

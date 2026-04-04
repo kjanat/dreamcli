@@ -11,6 +11,7 @@ import { coerceArgStringValue } from './coerce.ts';
 import type { DeprecationWarning } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 
+/** Walk every declared arg through the resolution chain (cli -> stdin -> env -> default), collecting deprecations and throwing aggregated errors. */
 function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,

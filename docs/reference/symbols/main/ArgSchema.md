@@ -2,7 +2,7 @@
 
 # `ArgSchema`
 
-The runtime descriptor stored inside every `ArgBuilder`. Consumers (parser,
+The runtime descriptor stored inside every ArgBuilder. Consumers (parser,
 help generator) read this to understand the arg's shape without touching
 generics.
 

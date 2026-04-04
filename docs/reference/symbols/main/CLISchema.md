@@ -4,13 +4,13 @@
 
 Runtime descriptor for the CLI program.
 
-Stores the program name, version, description, and registered commands.
-Built incrementally by `CLIBuilder`.
+Stores the program name, version, description, and registered commands.\
+Built incrementally by CLIBuilder.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/cli/index.ts`
-- Source link: [`src/core/cli/index.ts:90`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L90)
+- Source link: [`src/core/cli/index.ts:89`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L89)
 
 ## Signatures
 
@@ -32,10 +32,11 @@ commands: readonly ErasedCommand[];
 
 #### `configSettings`
 
-Config discovery settings. When defined, `.run()` auto-discovers and
-loads a config file before command dispatch.
+Config discovery settings.
 
-Set via the `.config()` builder method.
+When defined, .run() auto-discovers and loads a config file before command dispatch.
+
+Set via the .config() builder method.
 
 ```ts
 configSettings: ConfigSettings | undefined;
@@ -49,7 +50,7 @@ When set, the CLI root behaves like a hybrid command group: subcommands
 dispatch by name as usual, but empty argv or flags-only argv falls
 through to this command instead of showing root help.
 
-Set via the `.default()` builder method.
+Set via the .default() builder method.
 
 ```ts
 defaultCommand: ErasedCommand | undefined;
@@ -86,7 +87,7 @@ name: string;
 Package.json auto-discovery settings. When defined, `.run()` discovers
 the nearest `package.json` and merges metadata before dispatch.
 
-Set via the `.packageJson()` builder method.
+Set via the .packageJson() builder method.
 
 ```ts
 packageJsonSettings: PackageJsonSettings | undefined;

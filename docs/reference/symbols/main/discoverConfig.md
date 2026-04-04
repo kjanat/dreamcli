@@ -7,7 +7,7 @@ Generated reference page for the `discoverConfig` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/index.ts`
-- Source link: [`src/core/config/index.ts:288`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L288)
+- Source link: [`src/core/config/index.ts:290`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L290)
 
 ## Signatures
 

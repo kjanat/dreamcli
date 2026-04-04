@@ -8,7 +8,7 @@ The `Output` parameter tracks what this middleware adds to context at
 compile time. The `_output` brand is phantom — it exists only in the
 type system for inference, not at runtime.
 
-Created via the `middleware()` factory. Attached to commands via
+Created via the middleware factory. Attached to commands via
 `CommandBuilder.middleware()`.
 
 - Import: `@kjanat/dreamcli`

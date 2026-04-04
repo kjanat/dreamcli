@@ -24,25 +24,48 @@ import {
 import type { ActivityPolicy, OutputStream } from './contracts.ts';
 import type { WriteFn } from './writer.ts';
 
+/**
+ * Paired write functions for the two standard output streams.
+ *
+ * @internal
+ */
 interface OutputWriters {
+	/** Write function targeting standard output. */
 	readonly stdout: WriteFn;
+	/** Write function targeting standard error. */
 	readonly stderr: WriteFn;
 }
 
+/**
+ * Spinner handle paired with its optional teardown function.
+ *
+ * @internal
+ */
 interface SpinnerRenderResult {
+	/** The spinner handle exposed to command handlers. */
 	readonly handle: SpinnerHandle;
+	/** Defined only when the mode requires cleanup (TTY or static); `undefined` for noop. */
 	readonly cleanup: (() => void) | undefined;
 }
 
+/**
+ * Progress handle paired with its optional teardown function.
+ *
+ * @internal
+ */
 interface ProgressRenderResult {
+	/** The progress handle exposed to command handlers. */
 	readonly handle: ProgressHandle;
+	/** Defined only when the mode requires cleanup (TTY or static); `undefined` for noop. */
 	readonly cleanup: (() => void) | undefined;
 }
 
+/** Select the concrete {@linkcode WriteFn} for a given stream label. @internal */
 function resolveWriterForStream(writers: OutputWriters, stream: OutputStream): WriteFn {
 	return stream === 'stderr' ? writers.stderr : writers.stdout;
 }
 
+/** Create a spinner handle matching the resolved {@linkcode ActivityPolicy} mode. @internal */
 function createSpinnerHandleFromPolicy(
 	policy: ActivityPolicy,
 	text: string,
@@ -70,6 +93,7 @@ function createSpinnerHandleFromPolicy(
 	};
 }
 
+/** Create a progress handle matching the resolved {@linkcode ActivityPolicy} mode. @internal */
 function createProgressHandleFromPolicy(
 	policy: ActivityPolicy,
 	options: ProgressOptions,

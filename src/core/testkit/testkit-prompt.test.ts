@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { CLIRunOptions } from '#internals/core/cli/index.ts';
 import { cli } from '#internals/core/cli/index.ts';
 import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -570,5 +571,34 @@ describe('public surface exports', () => {
 		const result = await runCommand(cmd, [], { answers: ['a', 1, true, PROMPT_CANCEL] });
 		// The answers won't be consumed (no prompted flags), but the type accepts them
 		expect(result.exitCode).toBe(0);
+	});
+
+	it('CLIRunOptions type accepts shared RunOptions fields', async () => {
+		// This is a compile-time check — if it compiles, the derived CLI type is correct
+		const options = { answers: ['a', 1, true, PROMPT_CANCEL] } satisfies CLIRunOptions;
+		const cmd = command('check').action(({ out }) => {
+			out.log('ok');
+		});
+		const app = cli('test').command(cmd);
+
+		const result = await app.execute(['check'], options);
+
+		expect(result.exitCode).toBe(0);
+	});
+
+	it('CLIRunOptions excludes internal execution fields', () => {
+		const invalidMeta = {
+			// @ts-expect-error — `meta` is internal to command execution, not CLI input
+			meta: { name: 'test', bin: 'test', version: undefined, command: 'check' },
+		} satisfies CLIRunOptions;
+		const invalidMergedSchema = {
+			// @ts-expect-error — `mergedSchema` is internal to CLI dispatch
+			mergedSchema: command('check').schema,
+		} satisfies CLIRunOptions;
+
+		void invalidMeta;
+		void invalidMergedSchema;
+
+		expect(true).toBe(true);
 	});
 });

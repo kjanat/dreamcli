@@ -417,7 +417,7 @@ function renderParameterType(parameter: NormalizedApiNode): string {
 		return `...${renderType(parameter.type.elementType)}[]`;
 	}
 
-	return `${type}${optional && !defaultValue ? ' \\| undefined' : ''}${defaultValue}`;
+	return `${type}${optional && !defaultValue ? ' | undefined' : ''}${defaultValue}`;
 }
 
 function renderNodeType(node: NormalizedApiNode): string {

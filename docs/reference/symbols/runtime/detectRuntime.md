@@ -7,7 +7,7 @@ Generated reference page for the `detectRuntime` function export.
 - Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/detect.ts`
-- Source link: [`src/runtime/detect.ts:84`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/detect.ts#L84)
+- Source link: [`src/runtime/detect.ts:87`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/detect.ts#L87)
 
 ## Signatures
 
@@ -15,10 +15,10 @@ Generated reference page for the `detectRuntime` function export.
 function detectRuntime(globals?: GlobalForDetect): Runtime;
 ```
 
-| Parameter                   | Type                            | Description                                           |
-| --------------------------- | ------------------------------- | ----------------------------------------------------- |
-| `globals`                   | `GlobalForDetect \\| undefined` | Override `globalThis` for testing. Production callers |
-| should omit this parameter. |                                 |                                                       |
+| Parameter                   | Type                           | Description                                           |
+| --------------------------- | ------------------------------ | ----------------------------------------------------- |
+| `globals`                   | `GlobalForDetect \| undefined` | Override `globalThis` for testing. Production callers |
+| should omit this parameter. |                                |                                                       |
 
 ## Examples
 

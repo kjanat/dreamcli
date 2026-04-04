@@ -15,10 +15,10 @@ Generated reference page for the `formatHelp` function export.
 function formatHelp(schema: CommandSchema, options?: HelpOptions): string;
 ```
 
-| Parameter | Type                        | Description                              |
-| --------- | --------------------------- | ---------------------------------------- |
-| `schema`  | `CommandSchema`             | The command schema to render help for.   |
-| `options` | `HelpOptions \\| undefined` | Formatting options (width, binary name). |
+| Parameter | Type                       | Description                              |
+| --------- | -------------------------- | ---------------------------------------- |
+| `schema`  | `CommandSchema`            | The command schema to render help for.   |
+| `options` | `HelpOptions \| undefined` | Formatting options (width, binary name). |
 
 ## Examples
 

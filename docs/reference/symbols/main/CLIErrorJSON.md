@@ -2,12 +2,12 @@
 
 # `CLIErrorJSON`
 
-Shape returned by `CLIError.toJSON()`.
+Shape returned by CLIError.toJSON().
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/errors/index.ts`
-- Source link: [`src/core/errors/index.ts:102`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L102)
+- Source link: [`src/core/errors/index.ts:103`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L103)
 
 ## Signatures
 
@@ -21,11 +21,15 @@ interface CLIErrorJSON {}
 
 #### `code`
 
+Stable machine-readable identifier for programmatic matching.
+
 ```ts
 code: ErrorCode;
 ```
 
 #### `details`
+
+Structured payload for machine consumers, when available.
 
 ```ts
 details?: Readonly<Record<string, unknown>>;
@@ -33,11 +37,15 @@ details?: Readonly<Record<string, unknown>>;
 
 #### `exitCode`
 
+Process exit code associated with this error.
+
 ```ts
 exitCode: number;
 ```
 
 #### `message`
+
+Human-readable description of what went wrong.
 
 ```ts
 message: string;
@@ -45,11 +53,15 @@ message: string;
 
 #### `name`
 
+Error class name (e.g. `'CLIError'`, `'ParseError'`).
+
 ```ts
 name: string;
 ```
 
 #### `suggest`
+
+Actionable hint shown to the user, when available.
 
 ```ts
 suggest?: string;

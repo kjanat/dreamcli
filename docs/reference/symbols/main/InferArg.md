@@ -2,7 +2,7 @@
 
 # `InferArg`
 
-Extract the resolved value type from an `ArgBuilder`.
+Extract the resolved value type from an ArgBuilder.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: type

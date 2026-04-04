@@ -18,35 +18,55 @@ import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 
+/**
+ * Structural subset of CLISchema used by the planner.
+ *
+ * Decouples invocation planning from the full CLIBuilder surface so the
+ * planner can be tested and reasoned about without constructing a real CLI.
+ * @internal
+ */
 interface PlannerSchemaLike {
+	/** CLI program name used in help text and error messages. */
 	readonly name: string;
+	/** Declared version string; `undefined` disables `--version` interception. */
 	readonly version: string | undefined;
+	/** Registered top-level commands available for dispatch. */
 	readonly commands: readonly ErasedCommand[];
+	/** Fallback command when no subcommand token matches. */
 	readonly defaultCommand: ErasedCommand | undefined;
+	/** Plugins forwarded into every matched execution plan. */
 	readonly plugins: readonly CLIPlugin[];
 }
 
 /** Root-level help interception outcome. */
 interface RootHelpOutcome {
+	/** Discriminant — argv matched `--help` / `-h` before any command. */
 	readonly kind: 'root-help';
+	/** Help options to render root-level usage. */
 	readonly help: HelpOptions;
 }
 
 /** Root-level version interception outcome. */
 interface RootVersionOutcome {
+	/** Discriminant — argv matched `--version` / `-V` and schema declares a version. */
 	readonly kind: 'root-version';
+	/** Resolved version string to render. */
 	readonly version: string;
 }
 
 /** CLI-level dispatch failure before command execution starts. */
 interface DispatchErrorOutcome {
+	/** Discriminant — dispatch could not resolve a command from argv. */
 	readonly kind: 'dispatch-error';
+	/** Structured error with suggestion text for the caller to render. */
 	readonly error: CLIError;
 }
 
 /** Successful planner handoff to the shared command execution path. */
 interface PlannerMatchOutcome {
+	/** Discriminant — dispatch found a matching command for argv. */
 	readonly kind: 'match';
+	/** Fully resolved execution plan ready for the executor pipeline. */
 	readonly plan: CommandExecutionPlan;
 }
 
@@ -69,12 +89,19 @@ type DispatchOutcome =
  * propagated ancestor flags are collected and child definitions shadow them.
  */
 interface CommandExecutionPlan {
+	/** Type-erased command instance that owns the handler. */
 	readonly command: ErasedCommand;
+	/** Command schema with propagated ancestor flags merged in. */
 	readonly mergedSchema: CommandSchema;
+	/** Remaining argv tokens after command dispatch consumed the command path. */
 	readonly argv: readonly string[];
+	/** CLI-level metadata (program name, bin, version) for the handler context. */
 	readonly meta: CommandMeta;
+	/** Plugins to run through the execution lifecycle. */
 	readonly plugins: readonly CLIPlugin[];
+	/** Output policy (json mode, TTY, verbosity) governing handler rendering. */
 	readonly output: OutputPolicy;
+	/** Help options for rendering per-command help; `undefined` when unavailable. */
 	readonly help: HelpOptions | undefined;
 }
 
@@ -88,19 +115,35 @@ interface BuildCommandExecutionPlanOptions {
 	readonly help: HelpOptions | undefined;
 }
 
+/**
+ * Dispatch resolved a group command that requires a subcommand selection.
+ *
+ * The caller should render subcommand-level help for the matched group.
+ * @internal
+ */
 interface NeedsSubcommandOutcome {
+	/** Discriminant — group command matched but no leaf subcommand was selected. */
 	readonly kind: 'needs-subcommand';
+	/** The group command that was matched. */
 	readonly command: ErasedCommand;
+	/** Full ancestor path from root to this group, used for propagated flag collection. */
 	readonly commandPath: readonly CommandSchema[];
+	/** Help options scoped to the group command's bin path. */
 	readonly help: HelpOptions;
 }
 
+/** Full planner result including the `needs-subcommand` variant used by CLIBuilder. @internal */
 type InvocationPlan = DispatchOutcome | NeedsSubcommandOutcome;
 
+/** Options bag for {@linkcode planInvocation}. @internal */
 interface PlanInvocationOptions {
+	/** CLI schema subset driving dispatch decisions. */
 	readonly schema: PlannerSchemaLike;
+	/** Raw argv tokens (typically `adapter.argv.slice(2)`). */
 	readonly argv: readonly string[];
+	/** Root-level help configuration for rendering. */
 	readonly help: HelpOptions;
+	/** Output policy propagated into matched execution plans. */
 	readonly output: OutputPolicy;
 }
 
@@ -117,6 +160,7 @@ function buildMeta(
 	};
 }
 
+/** Build a name+alias lookup map for top-level commands. @internal */
 function buildRootCommandMap(
 	commands: readonly ErasedCommand[],
 ): ReadonlyMap<string, ErasedCommand> {
@@ -188,6 +232,14 @@ function buildPlannerMatchOutcome(
 	};
 }
 
+/**
+ * Decide what to do with an argv invocation before any command executes.
+ *
+ * Handles root interception (`--help`, `--version`, bare `help` token),
+ * dispatches into the command tree, falls back to the default command, and
+ * produces structured errors for unknown commands/flags.
+ * @internal
+ */
 function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	const filteredArgv = options.argv.includes('--json')
 		? options.argv.filter((arg) => arg !== '--json')

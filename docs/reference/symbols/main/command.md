@@ -7,7 +7,7 @@ Generated reference page for the `command` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:1401`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1401)
+- Source link: [`src/core/schema/command.ts:1411`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L1411)
 
 ## Signatures
 

@@ -2,7 +2,7 @@
 
 # `WithArgPresence`
 
-Advanced type helper used by `ArgBuilder` modifiers to replace presence.
+Advanced type helper used by ArgBuilder modifiers to replace presence.
 Most consumers rely on inference and never reference this directly.
 
 - Import: `@kjanat/dreamcli`

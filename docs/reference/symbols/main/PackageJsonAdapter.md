@@ -10,7 +10,7 @@ dependency explicit.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/config/package-json.ts`
-- Source link: [`src/core/config/package-json.ts:40`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L40)
+- Source link: [`src/core/config/package-json.ts:44`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L44)
 
 ## Signatures
 

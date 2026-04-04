@@ -20,7 +20,7 @@ answers to exercise downstream validation and error reporting.
 - Import: `@kjanat/dreamcli/testkit`
 - Export kind: type
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:155`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L155)
+- Source link: [`src/core/prompt/index.ts:163`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L163)
 
 ## Signatures
 

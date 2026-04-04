@@ -46,93 +46,117 @@ type SchemaNode =
 
 /** String primitive. */
 interface StringNode {
+	/** Identifies this node as a string type. */
 	readonly kind: 'string';
 }
 
 /** Number primitive. */
 interface NumberNode {
+	/** Identifies this node as a number type. */
 	readonly kind: 'number';
 }
 
 /** Integer primitive (maps to `number` in TS, `integer` in JSON Schema). */
 interface IntegerNode {
+	/** Identifies this node as an integer type. */
 	readonly kind: 'integer';
 }
 
 /** Boolean primitive. */
 interface BooleanNode {
+	/** Identifies this node as a boolean type. */
 	readonly kind: 'boolean';
 }
 
 /** Literal `true`. */
 interface LiteralTrueNode {
+	/** Identifies this node as the literal `true` value. */
 	readonly kind: 'true';
 }
 
 /** Literal `false`. */
 interface LiteralFalseNode {
+	/** Identifies this node as the literal `false` value. */
 	readonly kind: 'false';
 }
 
 /** Literal `null`. */
 interface LiteralNullNode {
+	/** Identifies this node as the literal `null` value. */
 	readonly kind: 'null';
 }
 
 /** String literal value (e.g. `'confirm'`). */
 interface LiteralStringNode {
+	/** Identifies this node as a string literal. */
 	readonly kind: 'literal';
+	/** The exact string value this literal represents. */
 	readonly value: string;
 }
 
 /** Literal `undefined`. */
 interface LiteralUndefinedNode {
+	/** Identifies this node as the literal `undefined` value. */
 	readonly kind: 'undefined';
 }
 
 /** The `unknown` top type. */
 interface UnknownNode {
+	/** Identifies this node as the `unknown` top type. */
 	readonly kind: 'unknown';
 }
 
 /** The `never` bottom type. */
 interface NeverNode {
+	/** Identifies this node as the `never` bottom type. */
 	readonly kind: 'never';
 }
 
 /** Array of element type. */
 interface ArrayNode {
+	/** Identifies this node as an array type. */
 	readonly kind: 'array';
+	/** The type of each array element. */
 	readonly element: SchemaNode;
 }
 
 /** Object with named properties. */
 interface ObjectNode {
+	/** Identifies this node as an object type. */
 	readonly kind: 'object';
+	/** Named properties keyed by field name. */
 	readonly properties: Readonly<Record<string, PropertyNode>>;
 }
 
 /** Union of two or more member types. */
 interface UnionNode {
+	/** Identifies this node as a union type. */
 	readonly kind: 'union';
+	/** The constituent types of this union. */
 	readonly members: readonly SchemaNode[];
 }
 
 /** Reference to a named definition (e.g. `@flag` → `$ref: '#/$defs/flag'`). */
 interface RefNode {
+	/** Identifies this node as a `$ref` reference. */
 	readonly kind: 'ref';
+	/** Name of the referenced definition (without the `@` prefix). */
 	readonly target: string;
 }
 
 /** Record/dictionary type (e.g. `Record<string, @flag>`). */
 interface RecordNode {
+	/** Identifies this node as a record/dictionary type. */
 	readonly kind: 'record';
+	/** The type of each record value (keys are always strings). */
 	readonly value: SchemaNode;
 }
 
 /** A named property with optionality flag. */
 interface PropertyNode {
+	/** Whether the property is optional (`?` suffix in the schema DSL). */
 	readonly optional: boolean;
+	/** The property's value type. */
 	readonly schema: SchemaNode;
 }
 

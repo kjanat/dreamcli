@@ -54,7 +54,7 @@ export function buildReferenceSurfaces(
 			sourceInputs: ['package.json', 'src/index.ts', 'src/runtime.ts', 'src/testkit.ts'],
 			status: 'prepared',
 			notes:
-				'The generated markdown index is backed by `docs/.generated/api/public-exports.json`; full signature work now flows through the raw `typedoc.json` artifact and the normalized `typedoc-normalized.json` model beside it.',
+				'The generated markdown index is backed by `docs/.generated/api/public-exports.json`; full signature work now flows through the raw `typedoc-output.json` artifact and the normalized `typedoc-normalized.json` model beside it.',
 		},
 		{
 			id: 'generated-typedoc-model',
@@ -83,16 +83,14 @@ export function buildReferenceSurfaces(
 }
 
 export function renderChangelogArtifact(changelog: string): string {
-	return [
-		GENERATED_HEADER,
-		'',
-		'# Generated Changelog Mirror',
-		'',
-		'This file mirrors the repository changelog so later docs work can surface it without reading project-root files directly at render time.',
-		'',
-		changelog.trimEnd(),
-		'',
-	].join('\n');
+	return `${GENERATED_HEADER}
+
+# Generated Changelog Mirror
+
+This file mirrors the repository changelog so later docs work can surface it without reading project-root files directly at render time.
+
+${changelog.trimEnd()}
+`;
 }
 
 export function renderChangelogPage(changelog: string): string {
@@ -101,69 +99,61 @@ export function renderChangelogPage(changelog: string): string {
 		? trimmed.slice('# Changelog\n'.length).trimStart()
 		: trimmed;
 
-	return [
-		GENERATED_HEADER,
-		'',
-		'# Changelog',
-		'',
-		'This page is rebuilt by `bun run docs:prepare` from the repository `CHANGELOG.md` so the docs site exposes the canonical release history directly.',
-		'',
-		'- Source of truth: `CHANGELOG.md`',
-		'- Generated mirror artifact: `docs/.generated/reference/changelog.md`',
-		'- Related pages: [Docs Health](/reference/docs-health), [Generated Surfaces](/reference/generated-surfaces), [Semantic Delta Log](/reference/semantic-delta-log), [Examples](/examples/)',
-		'',
-		body,
-		'',
-	].join('\n');
+	return `${GENERATED_HEADER}
+
+# Changelog
+
+This page is rebuilt by \`bun run docs:prepare\` from the repository \`CHANGELOG.md\` so the docs site exposes the canonical release history directly.
+
+- Source of truth: \`CHANGELOG.md\`
+- Generated mirror artifact: \`docs/.generated/reference/changelog.md\`
+- Related pages: [Docs Health](/reference/docs-health), [Generated Surfaces](/reference/generated-surfaces), [Semantic Delta Log](/reference/semantic-delta-log), [Examples](/examples/)
+
+${body}
+`;
 }
 
 export function renderDocsHealthArtifact(docsHealth: DocsHealthSnapshot): string {
-	return [
-		GENERATED_HEADER,
-		'',
-		'# Generated Docs Health Snapshot',
-		'',
-		'This file is rebuilt by `bun run docs:prepare` and keeps the first factual metrics under a stable generated path.',
-		'',
-		renderDocsHealthTable(docsHealth),
-		'',
-	].join('\n');
+	return `${GENERATED_HEADER}
+
+# Generated Docs Health Snapshot
+
+This file is rebuilt by \`bun run docs:prepare\` and keeps the first factual metrics under a stable generated path.
+
+${renderDocsHealthTable(docsHealth)}
+`;
 }
 
 export function renderDocsHealthPage(docsHealth: DocsHealthSnapshot): string {
-	return [
-		GENERATED_HEADER,
-		'',
-		'# Docs Health',
-		'',
-		'This page is rebuilt by `bun run docs:prepare` from the docs tree and generated reference artifacts. It stays factual on purpose: counts and surface coverage, not vanity scoring.',
-		'',
-		'- Source inputs: `docs/**/*.md`, `docs/.generated/**/*`, `examples/*.ts`, public entrypoints in `package.json`',
-		'- Generated snapshot artifact: `docs/.generated/reference/docs-health.md`',
-		'- Related pages: [Changelog](/reference/changelog), [Generated Surfaces](/reference/generated-surfaces), [Support Matrix](/reference/support-matrix), [API Reference](/reference/api), [Examples](/examples/)',
-		'',
-		'## Current Snapshot',
-		'',
-		renderDocsHealthTable(docsHealth),
-		'',
-		'## Reading This Page',
-		'',
-		'- Authored markdown pages tracks the human-written docs footprint.',
-		'- Generated artifacts tracks source-backed docs outputs emitted by the docs pipeline.',
-		'- Source-backed examples, public API symbols, and symbol reference pages show how much of the docs surface is derived directly from repo truth.',
-		'',
-	].join('\n');
+	return `${GENERATED_HEADER}
+
+# Docs Health
+
+This page is rebuilt by \`bun run docs:prepare\` from the docs tree and generated reference artifacts. It stays factual on purpose: counts and surface coverage, not vanity scoring.
+
+- Source inputs: \`docs/**/*.md\`, \`docs/.generated/**/*\`, \`examples/*.ts\`, public entrypoints in \`package.json\`
+- Generated snapshot artifact: \`docs/.generated/reference/docs-health.md\`
+- Related pages: [Changelog](/reference/changelog), [Generated Surfaces](/reference/generated-surfaces), [Support Matrix](/reference/support-matrix), [API Reference](/reference/api), [Examples](/examples/)
+
+## Current Snapshot
+
+${renderDocsHealthTable(docsHealth)}
+
+## Reading This Page
+
+- Authored markdown pages tracks the human-written docs footprint.
+- Generated artifacts tracks source-backed docs outputs emitted by the docs pipeline.
+- Source-backed examples, public API symbols, and symbol reference pages show how much of the docs surface is derived directly from repo truth.
+`;
 }
 
 function renderDocsHealthTable(docsHealth: DocsHealthSnapshot): string {
-	return [
-		'| Metric | Value |',
-		'| --- | --- |',
-		`| Authored markdown pages | ${docsHealth.authoredPageCount} |`,
-		`| Generated artifacts | ${docsHealth.generatedArtifactCount} |`,
-		`| Source-backed examples | ${docsHealth.exampleCount} |`,
-		`| Public API entrypoints | ${docsHealth.publicEntrypointCount} |`,
-		`| Public API symbols | ${docsHealth.publicSymbolCount} |`,
-		`| Symbol reference pages | ${docsHealth.symbolPageCount} |`,
-	].join('\n');
+	return `| Metric | Value |
+| --- | --- |
+| Authored markdown pages | ${docsHealth.authoredPageCount} |
+| Generated artifacts | ${docsHealth.generatedArtifactCount} |
+| Source-backed examples | ${docsHealth.exampleCount} |
+| Public API entrypoints | ${docsHealth.publicEntrypointCount} |
+| Public API symbols | ${docsHealth.publicSymbolCount} |
+| Symbol reference pages | ${docsHealth.symbolPageCount} |`;
 }

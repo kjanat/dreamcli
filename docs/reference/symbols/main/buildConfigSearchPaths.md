@@ -7,7 +7,7 @@ Generated reference page for the `buildConfigSearchPaths` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/index.ts`
-- Source link: [`src/core/config/index.ts:168`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L168)
+- Source link: [`src/core/config/index.ts:170`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L170)
 
 ## Signatures
 
@@ -20,12 +20,12 @@ function buildConfigSearchPaths(
 ): readonly string[];
 ```
 
-| Parameter   | Type                                    | Description                                                           |
-| ----------- | --------------------------------------- | --------------------------------------------------------------------- |
-| `appName`   | `string`                                | CLI application name used to derive config filenames.                 |
-| `cwd`       | `string`                                | Current working directory (project-root search location).             |
-| `configDir` | `string`                                | Platform config directory (XDG / AppData).                            |
-| `loaders`   | `readonly FormatLoader[] \\| undefined` | Optional custom FormatLoaders whose extensions expand the search set. |
+| Parameter   | Type                                   | Description                                                           |
+| ----------- | -------------------------------------- | --------------------------------------------------------------------- |
+| `appName`   | `string`                               | CLI application name used to derive config filenames.                 |
+| `cwd`       | `string`                               | Current working directory (project-root search location).             |
+| `configDir` | `string`                               | Platform config directory (XDG / AppData).                            |
+| `loaders`   | `readonly FormatLoader[] \| undefined` | Optional custom FormatLoaders whose extensions expand the search set. |
 
 ## Examples
 

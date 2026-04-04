@@ -7,7 +7,7 @@
 const definitionMetaSchemaDescriptions = {
 	root: {
 		description:
-			'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\nBuilt incrementally by `CLIBuilder`.',
+			'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\\\nBuilt incrementally by CLIBuilder.',
 		properties: {
 			name: {
 				description: 'Program name (used in help text, usage lines, and completion scripts).',
@@ -20,7 +20,7 @@ const definitionMetaSchemaDescriptions = {
 			},
 			defaultCommand: {
 				description:
-					'Default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the `.default()` builder method.',
+					'Default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method.',
 			},
 			commands: {
 				description: 'Registered commands (type-erased for heterogeneous storage).',
@@ -61,7 +61,7 @@ const definitionMetaSchemaDescriptions = {
 		},
 		flag: {
 			description:
-				"The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
+				"The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
 			properties: {
 				kind: {
 					description: 'What kind of value this flag accepts.',
@@ -106,7 +106,7 @@ const definitionMetaSchemaDescriptions = {
 		},
 		arg: {
 			description:
-				"The runtime descriptor stored inside every `ArgBuilder`. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics.",
+				"The runtime descriptor stored inside every ArgBuilder. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics.",
 			properties: {
 				name: {
 					description:

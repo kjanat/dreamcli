@@ -57,8 +57,11 @@ const RUNTIMES: readonly ['node', 'bun', 'deno', 'unknown'] = [
  * typed just enough to distinguish runtimes safely.
  */
 interface GlobalForDetect {
+	/** Present when running on Bun. */
 	readonly Bun?: { readonly version?: string };
+	/** Present when running on Deno. */
 	readonly Deno?: { readonly version?: { readonly deno?: string } };
+	/** Present on Node.js (and Bun, which mimics it). */
 	readonly process?: { readonly versions?: { readonly node?: string; readonly bun?: string } };
 }
 

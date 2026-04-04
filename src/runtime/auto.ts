@@ -73,7 +73,7 @@ function getInjectedDenoNamespace(globals: GlobalForDetect): DenoNamespace | und
  *
  * @param globals - Override `globalThis` for testing. Production callers
  *   should omit this parameter.
- * @returns A `RuntimeAdapter` for the detected runtime.
+ * @returns A {@linkcode RuntimeAdapter} for the detected runtime.
  *
  * @example
  * ```ts

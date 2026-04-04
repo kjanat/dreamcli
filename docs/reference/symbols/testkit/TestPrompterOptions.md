@@ -7,7 +7,7 @@ Options for `createTestPrompter`.
 - Import: `@kjanat/dreamcli/testkit`
 - Export kind: interface
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:162`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L162)
+- Source link: [`src/core/prompt/index.ts:170`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L170)
 
 ## Signatures
 

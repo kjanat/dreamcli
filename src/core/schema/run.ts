@@ -82,7 +82,7 @@ interface RunOptions {
 	 * Enable JSON output mode.
 	 *
 	 * When `true`, `log` and `info` messages are redirected to stderr
-	 * so that stdout is reserved exclusively for structured `json()` output.
+	 * so that stdout is reserved exclusively for structured {@linkcode Out.json | json()} output.
 	 * Errors are also rendered as JSON to stderr.
 	 *
 	 * @defaultValue `false`
@@ -92,7 +92,7 @@ interface RunOptions {
 	/**
 	 * Whether stdout is connected to a TTY.
 	 *
-	 * Handlers can check `out.isTTY` to decide whether to emit decorative
+	 * Handlers can check {@linkcode Out.isTTY | out.isTTY} to decide whether to emit decorative
 	 * output (spinners, progress bars, ANSI codes). Defaults to `false`
 	 * (safe default for tests — non-TTY until proven otherwise).
 	 *
@@ -103,7 +103,7 @@ interface RunOptions {
 	/**
 	 * Output channel override used by live CLI execution.
 	 *
-	 * @internal — `run()` passes a real output channel so activity renders to
+	 * @internal — `CLIBuilder.run()` passes a real output channel so activity renders to
 	 * the terminal instead of being captured.
 	 */
 	readonly out?: Out;
@@ -112,7 +112,7 @@ interface RunOptions {
 	 * Capture buffers override paired with `out`.
 	 *
 	 * @internal — when omitted, `runCommand()` creates empty buffers for the
-	 * returned `RunResult` while writing directly to the provided `out`.
+	 * returned {@linkcode RunResult} while writing directly to the provided `out`.
 	 */
 	readonly captured?: CapturedOutput;
 
@@ -172,14 +172,14 @@ interface RunResult {
 	 * Captured spinner and progress lifecycle events.
 	 *
 	 * Recorded separately from stdout/stderr — handlers that call
-	 * `out.spinner()` or `out.progress()` produce events here, enabling
+	 * {@linkcode Out.spinner | out.spinner()} or {@linkcode Out.progress | out.progress()} produce events here, enabling
 	 * targeted assertions on activity lifecycle without parsing text.
 	 */
 	readonly activity: readonly ActivityEvent[];
 
 	/**
 	 * The error that caused a non-zero exit, or `undefined` on success.
-	 * `CLIError` instances are preserved; unknown errors are wrapped.
+	 * {@linkcode CLIError} instances are preserved; unknown errors are wrapped.
 	 */
 	readonly error: CLIError | undefined;
 }

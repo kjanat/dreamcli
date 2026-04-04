@@ -9,13 +9,13 @@ dispatches to the matched command based on argv.
 
 Two execution paths:
 
-- `.execute(argv, options?)` — testable, returns `RunResult`
+- `.execute(argv, options?)` — testable, returns RunResult
 - `.run(options?)` — production entry, reads `process.argv`, exits process
 
 - Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/cli/index.ts`
-- Source link: [`src/core/cli/index.ts:359`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L359)
+- Source link: [`src/core/cli/index.ts:255`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L255)
 
 ## Signatures
 

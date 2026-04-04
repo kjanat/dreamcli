@@ -36,34 +36,51 @@ type ActivityCleanupKind = (typeof ACTIVITY_CLEANUP_KINDS)[number];
 
 /** Semantic output facts chosen before concrete rendering begins. */
 interface OutputPolicy {
+	/** Whether `--json` was requested, routing structured data to stdout. */
 	readonly jsonMode: boolean;
+	/** Whether the output stream is connected to an interactive terminal. */
 	readonly isTTY: boolean;
+	/** Active verbosity level controlling which message categories emit. */
 	readonly verbosity: Verbosity;
 }
 
+/** Inputs for building an {@linkcode OutputPolicy} snapshot. */
 interface ResolveOutputPolicyOptions {
+	/** Whether `--json` was requested on the command line. */
 	readonly jsonMode: boolean;
+	/** Whether the output stream is connected to an interactive terminal. */
 	readonly isTTY: boolean;
+	/** Verbosity level to apply for this channel instance. */
 	readonly verbosity: Verbosity;
 }
 
 /** Concrete activity policy chosen for spinner/progress creation. */
 interface ActivityPolicy {
+	/** Render strategy for the activity indicator (never `'capture'` here). */
 	readonly mode: Exclude<ActivityRenderMode, 'capture'>;
+	/** Activity output always targets stderr to avoid polluting structured stdout. */
 	readonly stream: 'stderr';
+	/** Cleanup action the output layer must run when the handle is discarded. */
 	readonly cleanup: ActivityCleanupKind;
 }
 
 /** Stable output-policy facts the re-foundation workstream is freezing. */
 interface OutputContract {
+	/** In JSON mode, stdout carries only machine-readable structured output. */
 	readonly jsonReservesStdoutForStructuredData: true;
+	/** Quiet verbosity suppresses `info()` messages entirely. */
 	readonly quietSuppressesInfo: true;
+	/** Spinner/progress writes go to stderr so stdout stays parseable. */
 	readonly activityUsesStderrOutsideCapture: true;
+	/** Animated TTY spinners require both a real terminal and non-JSON mode. */
 	readonly ttyActivityRequiresTTYAndNonJson: true;
+	/** Spinner handles clean up via `stop()` to clear the animation line. */
 	readonly spinnerCleanupUsesStop: true;
+	/** Progress handles clean up via `done()` to render the final state. */
 	readonly progressCleanupUsesDone: true;
 }
 
+/** Runtime-accessible copy of the frozen output-policy invariants. */
 const outputContract = {
 	jsonReservesStdoutForStructuredData: true,
 	quietSuppressesInfo: true,

@@ -21,7 +21,7 @@ function createArgSchema(
 | Parameter   | Type                                         | Description                                         |
 | ----------- | -------------------------------------------- | --------------------------------------------------- |
 | `kind`      | `"string" \| "number" \| "enum" \| "custom"` | Discriminator for the value type this arg accepts.  |
-| `overrides` | `Partial<ArgSchema> \\| undefined`           | Partial schema fields shallow-merged onto defaults. |
+| `overrides` | `Partial<ArgSchema> \| undefined`            | Partial schema fields shallow-merged onto defaults. |
 
 ## Examples
 

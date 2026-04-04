@@ -23,11 +23,15 @@ interface PackageJsonData {}
 
 #### `bin`
 
+Binary entry point(s) — string for single-bin, object for multi-bin.
+
 ```ts
 bin?: string | Readonly<Record<string, string>>;
 ```
 
 #### `description`
+
+One-line package description.
 
 ```ts
 description?: string;
@@ -35,11 +39,15 @@ description?: string;
 
 #### `name`
 
+Package name (e.g. `@scope/mycli`).
+
 ```ts
 name?: string;
 ```
 
 #### `version`
+
+Semver version string from `package.json`.
 
 ```ts
 version?: string;

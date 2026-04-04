@@ -2,7 +2,7 @@
  * Positional argument schema builder with full type inference.
  *
  * Each factory (`arg.string()`, `arg.number()`, `arg.enum()`, `arg.custom()`) returns an
- * immutable `ArgBuilder` whose generic parameter tracks the value type,
+ * immutable {@linkcode ArgBuilder} whose generic parameter tracks the value type,
  * presence state, and variadic flag through the fluent chain.
  *
  * @module dreamcli/core/schema/arg
@@ -38,7 +38,7 @@ interface ArgConfig {
 // --- Type-level helpers
 
 /**
- * Advanced type helper used by `ArgBuilder` modifiers to replace presence.
+ * Advanced type helper used by {@linkcode ArgBuilder} modifiers to replace presence.
  * Most consumers rely on inference and never reference this directly.
  */
 type WithArgPresence<C extends ArgConfig, P extends ArgPresence> = {
@@ -48,7 +48,7 @@ type WithArgPresence<C extends ArgConfig, P extends ArgPresence> = {
 };
 
 /**
- * Advanced type helper used by `ArgBuilder.variadic()`.
+ * Advanced type helper used by {@linkcode ArgBuilder.variadic | ArgBuilder.variadic()}.
  * Most consumers rely on inference and never reference this directly.
  */
 type WithVariadic<C extends ArgConfig> = {
@@ -74,7 +74,7 @@ type ResolvedArgValue<C extends ArgConfig> = C['variadic'] extends true
 		? C['valueType'] | undefined
 		: C['valueType'];
 
-/** Extract the resolved value type from an `ArgBuilder`. */
+/** Extract the resolved value type from an {@linkcode ArgBuilder}. */
 type InferArg<B> = B extends ArgBuilder<infer C extends ArgConfig> ? ResolvedArgValue<C> : never;
 
 /** Extract resolved value types from a record of builders. */
@@ -94,7 +94,7 @@ type ArgKind = (typeof ARG_KINDS)[number];
 type ArgParseFn<T> = (raw: string) => T;
 
 /**
- * The runtime descriptor stored inside every `ArgBuilder`. Consumers (parser,
+ * The runtime descriptor stored inside every {@linkcode ArgBuilder}. Consumers (parser,
  * help generator) read this to understand the arg's shape without touching
  * generics.
  */
@@ -228,11 +228,13 @@ class ArgBuilder<C extends ArgConfig> {
 
 	/**
 	 * @internal Type brand — exists only in the type system (`declare`
-	 * produces no runtime property). Used by `InferArg` / `InferArgs`.
+	 * produces no runtime property). Used by {@linkcode InferArg} / {@linkcode InferArgs}.
 	 */
 	declare readonly _config: C;
 
 	/**
+	 * Create an arg builder from a pre-built schema descriptor.
+	 *
 	 * @param schema - Runtime descriptor for this positional argument.
 	 */
 	constructor(schema: ArgSchema) {
@@ -479,7 +481,7 @@ class ArgBuilder<C extends ArgConfig> {
 /**
  * Arg factory functions — the public API for creating positional arguments.
  *
- * Each method returns an `ArgBuilder` seeded with the correct `ArgKind`
+ * Each method returns an {@linkcode ArgBuilder} seeded with the correct {@linkcode ArgKind}
  * and initial type-level config. Chain modifiers (`.optional()`, `.env()`,
  * `.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.
  *
@@ -635,7 +637,7 @@ interface ArgFactory {
  * Positional argument schema factory.
  *
  * Entry point for defining args on a command. Use `arg.<kind>()` to create
- * an `ArgBuilder`, then chain modifiers and pass the result to
+ * an {@linkcode ArgBuilder}, then chain modifiers and pass the result to
  * `command().arg(name, builder)`.
  *
  * Four kinds are available:

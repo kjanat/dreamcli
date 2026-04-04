@@ -37,6 +37,8 @@ format: string;
 
 #### `found`
 
+Discriminant — `true` indicates a config file was found and parsed successfully.
+
 ```ts
 found: 'true';
 ```

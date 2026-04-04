@@ -3,7 +3,7 @@
 # `ResolvedPromptConfig`
 
 Prompt config variant where select/multiselect choices are guaranteed
-present. The prompt engine receives this (not raw `PromptConfig`),
+present. The prompt engine receives this (not raw PromptConfig),
 so it never needs to merge enum values from `FlagSchema`.
 
 confirm and input configs pass through unchanged.
@@ -11,7 +11,7 @@ confirm and input configs pass through unchanged.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:65`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L65)
+- Source link: [`src/core/prompt/index.ts:73`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L73)
 
 ## Signatures
 

@@ -15,7 +15,7 @@ relevant context (message, choices, validation) is in the config.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:95`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L95)
+- Source link: [`src/core/prompt/index.ts:103`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L103)
 
 ## Signatures
 

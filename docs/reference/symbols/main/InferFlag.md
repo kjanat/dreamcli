@@ -2,7 +2,7 @@
 
 # `InferFlag`
 
-Extract the resolved value type from a `FlagBuilder`.
+Extract the resolved value type from a FlagBuilder.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: type

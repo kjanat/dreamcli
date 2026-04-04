@@ -5,7 +5,7 @@
 Middleware handler function with typed `next()` parameter.
 
 The `Output` generic constrains what properties must be passed to
-`next()`, ensuring type-safe context additions at the call site.
+next(), ensuring type-safe context additions at the call site.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: type

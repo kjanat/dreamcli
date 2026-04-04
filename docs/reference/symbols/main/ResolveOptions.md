@@ -24,11 +24,15 @@ interface ResolveOptions {}
 
 #### `config`
 
+Parsed config file contents keyed by dotted path segments.
+
 ```ts
 config?: Readonly<Record<string, unknown>>;
 ```
 
 #### `env`
+
+Environment variable snapshot injected by the caller.
 
 ```ts
 env?: Readonly<Record<string, string | undefined>>;
@@ -36,11 +40,15 @@ env?: Readonly<Record<string, string | undefined>>;
 
 #### `prompter`
 
+Interactive prompt engine; absent in non-TTY / CI contexts.
+
 ```ts
 prompter?: PromptEngine;
 ```
 
 #### `stdinData`
+
+Pre-read stdin content, or `null` when stdin was not piped.
 
 ```ts
 stdinData?: string | "null";

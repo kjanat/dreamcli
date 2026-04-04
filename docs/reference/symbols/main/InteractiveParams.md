@@ -11,7 +11,7 @@ uses this to decide which prompts to show based on current state.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:74`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L74)
+- Source link: [`src/core/schema/command.ts:76`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L76)
 
 ## Signatures
 

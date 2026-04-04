@@ -1,7 +1,7 @@
 /**
  * CLI entry point builder with command registration and dispatch.
  *
- * The `cli()` factory returns an immutable `CLIBuilder` that registers
+ * The {@linkcode cli | cli()} factory returns an immutable {@linkcode CLIBuilder} that registers
  * commands, handles `--help`/`--version` at root level, dispatches to
  * the matched command, and provides both a testable `.execute()` path
  * and a production `.run()` path.
@@ -16,9 +16,8 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
-import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
+import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { createCaptureOutput, createOutput } from '#internals/core/output/index.ts';
-import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type {
@@ -44,11 +43,11 @@ import { prepareRuntimePreflight } from './runtime-preflight.ts';
 // --- Type-erased command — erasure function (interface now in schema/command.ts)
 
 /**
- * Erase a typed CommandBuilder into an ErasedCommand, recursively
+ * Erase a typed  {@linkcode CommandBuilder} into an {@linkcode ErasedCommand}, recursively
  * building the subcommand tree.
  *
- * The closure captures the fully-typed builder, so `runCommand()` receives
- * the original `CommandBuilder<F, A>` — no type assertions needed.
+ * The closure captures the fully-typed builder, so  {@linkcode runCommand()} receives
+ * the original `CommandBuilder<F, A>` — no type assertions needed.\
  * Subcommands are recursively erased and indexed by name and alias for
  * O(1) lookup during dispatch.
  *
@@ -84,8 +83,8 @@ function eraseCommand<
 /**
  * Runtime descriptor for the CLI program.
  *
- * Stores the program name, version, description, and registered commands.
- * Built incrementally by `CLIBuilder`.
+ * Stores the program name, version, description, and registered commands.\
+ * Built incrementally by {@linkcode CLIBuilder}.
  */
 interface CLISchema {
 	/** Program name (used in help text, usage lines, and completion scripts). */
@@ -109,21 +108,22 @@ interface CLISchema {
 	 * dispatch by name as usual, but empty argv or flags-only argv falls
 	 * through to this command instead of showing root help.
 	 *
-	 * Set via the `.default()` builder method.
+	 * Set via the {@linkcode CLIBuilder.default | .default()} builder method.
 	 */
 	readonly defaultCommand: ErasedCommand | undefined;
 	/**
-	 * Config discovery settings. When defined, `.run()` auto-discovers and
-	 * loads a config file before command dispatch.
+	 * Config discovery settings.
 	 *
-	 * Set via the `.config()` builder method.
+	 * When defined, {@linkcode CLIBuilder.run | .run()} auto-discovers and loads a config file before command dispatch.
+	 *
+	 * Set via the {@linkcode CLIBuilder.config | .config()} builder method.
 	 */
 	readonly configSettings: ConfigSettings | undefined;
 	/**
 	 * Package.json auto-discovery settings. When defined, `.run()` discovers
 	 * the nearest `package.json` and merges metadata before dispatch.
 	 *
-	 * Set via the `.packageJson()` builder method.
+	 * Set via the {@linkcode CLIBuilder.packageJson | .packageJson()} builder method.
 	 */
 	readonly packageJsonSettings: PackageJsonSettings | undefined;
 	/** Registered CLI plugins. */
@@ -133,8 +133,8 @@ interface CLISchema {
 /**
  * Config discovery settings for automatic config file loading.
  *
- * Stored in {@link CLISchema} and consumed by `CLIBuilder.run()` to
- * call {@link discoverConfig} before dispatching to a command.
+ * Stored in {@link CLISchema} and consumed by {@linkcode CLIBuilder.run()} to call
+ * {@link discoverConfig} before dispatching to a command.
  */
 interface ConfigSettings {
 	/**
@@ -173,19 +173,12 @@ interface PackageJsonSettings {
 // --- Options for execute/run
 
 /**
- * Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.
+ * Options for {@linkcode CLIBuilder.execute | .execute()} and {@linkcode CLIBuilder.run | .run()}.
  *
- * Mirrors `RunOptions` from testkit but adds CLI-level concerns
- * (version display, root help formatting, runtime adapter).
+ * Derives from {@linkcode RunOptions} while excluding command-execution internals
+ * (`meta`, `mergedSchema`) and adding the CLI-level runtime adapter.
  */
-interface CLIRunOptions {
-	/**
-	 * CLI plugins to apply for this execution.
-	 *
-	 * @internal — populated from `CLIBuilder.schema.plugins` during dispatch.
-	 */
-	readonly plugins?: readonly CLIPlugin[];
-
+interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {
 	/**
 	 * Runtime adapter providing platform-specific I/O, argv, env, etc.
 	 *
@@ -193,115 +186,18 @@ interface CLIRunOptions {
 	 * Ignored by `.execute()` (which is process-free by design).
 	 */
 	readonly adapter?: RuntimeAdapter;
-
-	/**
-	 * Environment variables for flag resolution.
-	 *
-	 * Flags with `.env('VAR')` configured resolve from this record
-	 * when no CLI value is provided (CLI → env → config → default).
-	 */
-	readonly env?: Readonly<Record<string, string | undefined>>;
-
-	/**
-	 * Configuration object for flag resolution.
-	 *
-	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
-	 * Config is plain JSON — file loading is the caller's responsibility.
-	 */
-	readonly config?: Readonly<Record<string, unknown>>;
-
-	/**
-	 * Full stdin contents for args configured with `.stdin()`.
-	 *
-	 * `run()` populates this from `adapter.readStdin()` only when the selected
-	 * invocation needs stdin. `execute()` accepts it directly so tests can
-	 * simulate piped input without a runtime adapter.
-	 */
-	readonly stdinData?: string | null;
-
-	/**
-	 * Prompt engine for interactive flag resolution.
-	 *
-	 * When provided, flags with `.prompt()` configured that have no value
-	 * after CLI/env/config resolution will be prompted interactively.
-	 * When absent (and `answers` is also absent), prompting is skipped.
-	 *
-	 * Takes precedence over `answers` when both are provided.
-	 */
-	readonly prompter?: PromptEngine;
-
-	/**
-	 * Pre-configured prompt answers for testing convenience.
-	 *
-	 * When provided, a test prompter is created from these answers via
-	 * `createTestPrompter(answers)`. Each entry is consumed in order —
-	 * use `PROMPT_CANCEL` to simulate cancellation.
-	 *
-	 * Ignored when an explicit `prompter` is provided.
-	 */
-	readonly answers?: readonly TestAnswer[];
-
-	/**
-	 * Verbosity level for the output channel.
-	 * @defaultValue `'normal'`
-	 */
-	readonly verbosity?: Verbosity;
-
-	/**
-	 * Enable JSON output mode.
-	 *
-	 * When `true`, `log` and `info` messages are redirected to stderr
-	 * so that stdout is reserved exclusively for structured `json()` output.
-	 * Errors are also rendered as JSON to stderr.
-	 *
-	 * @defaultValue `false`
-	 */
-	readonly jsonMode?: boolean;
-
-	/**
-	 * Whether stdout is connected to a TTY.
-	 *
-	 * When provided, propagated to the output channel's `isTTY` field.
-	 * In `.run()`, automatically sourced from `adapter.isTTY` when not
-	 * explicitly set.
-	 *
-	 * @defaultValue `false`
-	 */
-	readonly isTTY?: boolean;
-
-	/**
-	 * Output channel override used by `run()` for live terminal rendering.
-	 *
-	 * @internal — `execute()` remains capture-first by default.
-	 */
-	readonly out?: Out;
-
-	/**
-	 * Capture buffers paired with `out`.
-	 *
-	 * @internal — `run()` omits this and accepts empty buffers in the returned
-	 * `RunResult` because output is already written to the real adapter streams.
-	 */
-	readonly captured?: CapturedOutput;
-
-	/**
-	 * Help formatting options (width, binName).
-	 * `binName` defaults to the CLI program name.
-	 */
-	readonly help?: HelpOptions;
 }
 
 // --- Command run options builder
 
 /**
- * Build `RunOptions` from `CLIRunOptions`, conditionally spreading each
+ * Build {@linkcode RunOptions} from {@linkcode CLIRunOptions}, conditionally spreading each
  * field to satisfy `exactOptionalPropertyTypes`.
  *
  * @param options - CLI-level run options (may be `undefined` for defaults).
  * @param helpOptions - Help formatting options forwarded to commands.
  * @param meta - Optional command metadata (omitted for root-level dispatch).
- * @returns Options record ready for `ErasedCommand._execute()`.
+ * @returns Options record ready for {@linkcode ErasedCommand._execute | ErasedCommand._execute()}.
  *
  * @internal
  */
@@ -336,7 +232,7 @@ function buildCommandRunOptions(
  * dispatches to the matched command based on argv.
  *
  * Two execution paths:
- * - `.execute(argv, options?)` — testable, returns `RunResult`
+ * - `.execute(argv, options?)` — testable, returns {@linkcode RunResult}
  * - `.run(options?)` — production entry, reads `process.argv`, exits process
  *
  * @example
@@ -360,6 +256,7 @@ class CLIBuilder {
 	/** @internal Runtime schema descriptor. */
 	readonly schema: CLISchema;
 
+	/** Build a CLIBuilder from a pre-constructed schema descriptor. */
 	constructor(schema: CLISchema) {
 		this.schema = schema;
 	}
@@ -522,7 +419,7 @@ class CLIBuilder {
 	 *
 	 * The command's type parameters are erased for heterogeneous storage.
 	 * Type safety is preserved inside the closure that delegates to
-	 * `runCommand()`.
+	 * {@linkcode runCommand | runCommand()}.
 	 *
 	 * @param cmd - {@link CommandBuilder} to register.
 	 * @returns The builder (for chaining).
@@ -618,7 +515,7 @@ class CLIBuilder {
 	 *
 	 * The generated command accepts a `--shell` flag (required, enum of
 	 * all {@link Shell} values) and writes the completion script to stdout
-	 * via `out.log()`. Unsupported shells throw a descriptive `CLIError`
+	 * via `out.log()`. Unsupported shells throw a descriptive {@linkcode CLIError}
 	 * instead of a generic parse error.
 	 *
 	 * Call this **after** registering all other commands so the completion
@@ -696,7 +593,7 @@ class CLIBuilder {
 	 * Execute the CLI program against explicit argv.
 	 *
 	 * This is the testable execution path — no process state is touched.
-	 * Returns a structured `RunResult` with exit code and captured output.
+	 * Returns a structured {@linkcode RunResult} with exit code and captured output.
 	 *
 	 * @param argv - Raw argv tokens (NOT including the binary/script path,
 	 *   i.e. equivalent to `process.argv.slice(2)`).
@@ -812,7 +709,7 @@ class CLIBuilder {
 	 * adapter). For testing, use `.execute()` instead — or provide a
 	 * test adapter via `options.adapter`.
 	 *
-	 * Defaults to `createAdapter()` when no adapter is provided,
+	 * Defaults to {@linkcode createAdapter | createAdapter()} when no adapter is provided,
 	 * which auto-detects the runtime (Node.js, Bun) and creates
 	 * the appropriate adapter.
 	 *
@@ -984,6 +881,7 @@ interface CLIOptions {
  */
 
 function cli(name: string): CLIBuilder;
+/** Create a new CLI program builder from an options object. */
 function cli(options: CLIOptions): CLIBuilder;
 function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 	const name = typeof nameOrOptions === 'string' ? nameOrOptions : (nameOrOptions.name ?? 'cli');

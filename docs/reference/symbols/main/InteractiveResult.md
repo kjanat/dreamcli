@@ -13,7 +13,7 @@ Flags not mentioned are handled by their per-flag `.prompt()` config.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:88`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L88)
+- Source link: [`src/core/schema/command.ts:90`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L90)
 
 ## Signatures
 

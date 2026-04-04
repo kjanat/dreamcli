@@ -7,7 +7,7 @@ Generated reference page for the `discoverPackageJson` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/package-json.ts`
-- Source link: [`src/core/config/package-json.ts:105`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L105)
+- Source link: [`src/core/config/package-json.ts:109`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L109)
 
 ## Signatures
 

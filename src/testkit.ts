@@ -1,7 +1,7 @@
 /**
  * Test utilities for DreamCLI commands.
  *
- * Provides `runCommand()` — the in-process test harness — plus test doubles
+ * Provides {@linkcode runCommand | runCommand()} — the in-process test harness — plus test doubles
  * for output capture, prompt simulation, and runtime adaptation.
  *
  * Start here for most tests:

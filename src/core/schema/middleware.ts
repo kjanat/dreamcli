@@ -6,7 +6,7 @@
  * - Short-circuit by throwing `CLIError` (or not calling `next`)
  * - Wrap downstream execution (timing, logging) by awaiting `next()`
  *
- * The `Middleware<Output>` type uses a phantom generic to track what
+ * The {@linkcode Middleware} type uses a phantom generic to track what
  * context properties this middleware adds. At runtime, middleware is
  * type-erased — the phantom type is only used for compile-time inference
  * when `.middleware()` is chained on `CommandBuilder`.
@@ -52,7 +52,7 @@ interface MiddlewareParams {
  * Type-erased middleware handler stored on `CommandSchema`.
  *
  * At runtime, all middleware handlers have this signature. The phantom
- * `Output` type on `Middleware<O>` is erased.
+ * `Output` type on {@linkcode Middleware} is erased.
  *
  * @internal
  */
@@ -62,7 +62,7 @@ type ErasedMiddlewareHandler = (params: MiddlewareParams) => void | Promise<void
  * Middleware handler function with typed `next()` parameter.
  *
  * The `Output` generic constrains what properties must be passed to
- * `next()`, ensuring type-safe context additions at the call site.
+ * {@linkcode MiddlewareParams.next | next()}, ensuring type-safe context additions at the call site.
  */
 type MiddlewareHandler<Output extends Record<string, unknown>> = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
@@ -91,7 +91,7 @@ interface MiddlewareImpl {
  * compile time. The `_output` brand is phantom — it exists only in the
  * type system for inference, not at runtime.
  *
- * Created via the `middleware()` factory. Attached to commands via
+ * Created via the {@linkcode middleware} factory. Attached to commands via
  * `CommandBuilder.middleware()`.
  *
  * @example
@@ -121,7 +121,7 @@ type Middleware<Output extends Record<string, unknown>> = MiddlewareImpl & {
  * @param handler - Function receiving `{ args, flags, ctx, out, next }`.
  *   Call `next(additions)` to continue the chain with added context.
  *   Omitting the `next()` call short-circuits (e.g., for auth guards).
- * @returns Middleware to attach via `CommandBuilder.middleware()`.
+ * @returns {@linkcode Middleware} to attach via `CommandBuilder.middleware()`.
  *
  * @example
  * ```ts

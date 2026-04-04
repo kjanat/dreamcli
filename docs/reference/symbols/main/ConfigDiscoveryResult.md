@@ -7,7 +7,7 @@ Discriminated result of config discovery.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/config/index.ts`
-- Source link: [`src/core/config/index.ts:93`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L93)
+- Source link: [`src/core/config/index.ts:95`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L95)
 
 ## Signatures
 

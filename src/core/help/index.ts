@@ -2,7 +2,7 @@
  * Auto-generated help text from command schemas.
  *
  * Renders usage line, description, positional args, flags table, and
- * examples from a `CommandSchema`. Designed for TTY output with
+ * examples from a {@linkcode CommandSchema}. Designed for TTY output with
  * configurable width.
  *
  * @module dreamcli/core/help

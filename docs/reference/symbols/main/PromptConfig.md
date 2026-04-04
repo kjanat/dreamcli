@@ -15,7 +15,7 @@ if (config.kind === 'select') {
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/prompt.ts`
-- Source link: [`src/core/schema/prompt.ts:110`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L110)
+- Source link: [`src/core/schema/prompt.ts:114`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L114)
 
 ## Signatures
 

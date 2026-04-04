@@ -12,7 +12,7 @@ per-flag prompt configs directly.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:111`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L111)
+- Source link: [`src/core/schema/command.ts:113`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L113)
 
 ## Signatures
 

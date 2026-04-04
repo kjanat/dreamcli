@@ -2,7 +2,7 @@
 
 # `WithPresence`
 
-Advanced type helper used by `FlagBuilder` modifiers to replace presence.
+Advanced type helper used by FlagBuilder modifiers to replace presence.
 Most consumers rely on inference and never reference this directly.
 
 - Import: `@kjanat/dreamcli`

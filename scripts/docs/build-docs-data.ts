@@ -42,8 +42,8 @@ import {
 	generatedNormalizedTypeDocPath,
 	generatedReferenceDir,
 	generatedRoot,
+	generatedRawTypeDocPath,
 	generatedSiteDataPath,
-	generatedTypeDocJsonPath,
 	packageJsonPath,
 	referenceChangelogPagePath,
 	referenceDocsHealthPagePath,
@@ -103,7 +103,7 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		writeFile(referenceDocsHealthPagePath, renderDocsHealthPage(docsHealth)),
 		writeFile(generatedApiIndexPath, `${JSON.stringify(publicApi, null, '  ')}\n`),
 		writeFile(generatedApiPagePath, renderPublicApiIndex(publicApi)),
-		writeFile(generatedTypeDocJsonPath, `${JSON.stringify(typeDoc.rawProject, null, '  ')}\n`),
+		writeFile(generatedRawTypeDocPath, `${JSON.stringify(typeDoc.rawProject, null, '  ')}\n`),
 		writeFile(
 			generatedNormalizedTypeDocPath,
 			`${JSON.stringify(typeDoc.normalized, null, '  ')}\n`,

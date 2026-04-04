@@ -7,7 +7,7 @@ A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
-- Source link: [`src/core/schema/prompt.ts:88`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L88)
+- Source link: [`src/core/schema/prompt.ts:92`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L92)
 
 ## Signatures
 

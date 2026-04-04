@@ -2,12 +2,12 @@
 
 # `ValidationErrorOptions`
 
-Options for `ValidationError`. Code is narrowed to validation-specific codes.
+Options for ValidationError. Code is narrowed to validation-specific codes.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/errors/index.ts`
-- Source link: [`src/core/errors/index.ts:140`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L140)
+- Source link: [`src/core/errors/index.ts:151`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L151)
 
 ## Signatures
 
@@ -30,6 +30,8 @@ cause?: unknown;
 
 #### `code`
 
+Validation-category error code (e.g. `'REQUIRED_FLAG'`, `'INVALID_ENUM'`).
+
 ```ts
 code: ValidationErrorCode;
 ```
@@ -43,6 +45,8 @@ details?: Readonly<Record<string, unknown>>;
 ```
 
 #### `exitCode`
+
+Process exit code for validation failures.
 
 ```ts
 exitCode?: number;

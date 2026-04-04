@@ -1,8 +1,8 @@
 /**
  * Structured error types for DreamCLI.
  *
- * Base `CLIError` carries stable code, exit code, suggestion, and structured
- * details. `ParseError` and `ValidationError` derive from it with
+ * Base {@linkcode CLIError} carries stable code, exit code, suggestion, and structured
+ * details. {@linkcode ParseError} and {@linkcode ValidationError} derive from it with
  * category-appropriate defaults.
  *
  * @module dreamcli/core/errors
@@ -59,7 +59,7 @@ export interface CLIErrorOptions {
  * consistent shape for rendering (TTY pretty-print, `--json`, test assertions).
  */
 export class CLIError extends Error {
-	/** @override */
+	/** Error class name, always `'CLIError'` for the base class. @override */
 	override readonly name: string = 'CLIError';
 
 	/** Stable machine-readable identifier. */
@@ -74,6 +74,7 @@ export class CLIError extends Error {
 	/** Structured payload for machine output. */
 	readonly details: Readonly<Record<string, unknown>> | undefined;
 
+	/** Create a structured CLI error from a human message and machine-readable options. */
 	constructor(message: string, options: CLIErrorOptions) {
 		super(message, options.cause !== undefined ? { cause: options.cause } : undefined);
 		this.code = options.code;
@@ -98,22 +99,30 @@ export class CLIError extends Error {
 	}
 }
 
-/** Shape returned by `CLIError.toJSON()`. */
+/** Shape returned by {@linkcode CLIError}.toJSON(). */
 export interface CLIErrorJSON {
+	/** Error class name (e.g. `'CLIError'`, `'ParseError'`). */
 	readonly name: string;
+	/** Stable machine-readable identifier for programmatic matching. */
 	readonly code: ErrorCode;
+	/** Human-readable description of what went wrong. */
 	readonly message: string;
+	/** Process exit code associated with this error. */
 	readonly exitCode: number;
+	/** Actionable hint shown to the user, when available. */
 	readonly suggest?: string;
+	/** Structured payload for machine consumers, when available. */
 	readonly details?: Readonly<Record<string, unknown>>;
 }
 
 // --- ParseError — argv parsing failures
 
-/** Options for `ParseError`. Code is narrowed to parse-specific codes. */
+/** Options for {@linkcode ParseError}. Code is narrowed to parse-specific codes. */
 export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
+	/** Parse-category error code (e.g. `'UNKNOWN_FLAG'`, `'MISSING_VALUE'`). */
 	readonly code: ParseErrorCode;
 	/**
+	 * Process exit code for parse failures.
 	 * @defaultValue `2`
 	 */
 	readonly exitCode?: number;
@@ -125,10 +134,12 @@ export interface ParseErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitC
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ParseError extends CLIError {
-	/** @override */
+	/** Always `'ParseError'`. @override */
 	override readonly name = 'ParseError' as const;
+	/** Narrowed to parse-category codes. */
 	declare readonly code: ParseErrorCode;
 
+	/** Create a parse error with exit code defaulting to `2`. */
 	constructor(message: string, options: ParseErrorOptions) {
 		super(message, { ...options, exitCode: options.exitCode ?? 2 });
 	}
@@ -136,10 +147,12 @@ export class ParseError extends CLIError {
 
 // --- ValidationError — post-parse validation / resolution failures
 
-/** Options for `ValidationError`. Code is narrowed to validation-specific codes. */
+/** Options for {@linkcode ValidationError}. Code is narrowed to validation-specific codes. */
 export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | 'exitCode'> {
+	/** Validation-category error code (e.g. `'REQUIRED_FLAG'`, `'INVALID_ENUM'`). */
 	readonly code: ValidationErrorCode;
 	/**
+	 * Process exit code for validation failures.
 	 * @defaultValue `2`
 	 */
 	readonly exitCode?: number;
@@ -151,10 +164,12 @@ export interface ValidationErrorOptions extends Omit<CLIErrorOptions, 'code' | '
  * Exit code defaults to `2` (standard for CLI usage errors).
  */
 export class ValidationError extends CLIError {
-	/** @override */
+	/** Always `'ValidationError'`. @override */
 	override readonly name = 'ValidationError' as const;
+	/** Narrowed to validation-category codes. */
 	declare readonly code: ValidationErrorCode;
 
+	/** Create a validation error with exit code defaulting to `2`. */
 	constructor(message: string, options: ValidationErrorOptions) {
 		super(message, { ...options, exitCode: options.exitCode ?? 2 });
 	}

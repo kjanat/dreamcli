@@ -4,7 +4,7 @@
 
 Arg factory functions — the public API for creating positional arguments.
 
-Each method returns an `ArgBuilder` seeded with the correct `ArgKind`
+Each method returns an ArgBuilder seeded with the correct ArgKind
 and initial type-level config. Chain modifiers (`.optional()`, `.env()`,
 `.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.
 
@@ -14,7 +14,7 @@ sources are configured: **CLI → stdin → env → default**.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/arg.ts`
-- Source link: [`src/core/schema/arg.ts:519`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L519)
+- Source link: [`src/core/schema/arg.ts:521`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/arg.ts#L521)
 
 ## Signatures
 

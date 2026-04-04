@@ -47,30 +47,43 @@ type ArgDiagnosticSource =
  * callers inject those facts through this contract.
  */
 interface ResolveOptions {
+	/** Pre-read stdin content, or `null` when stdin was not piped. */
 	readonly stdinData?: string | null;
+	/** Environment variable snapshot injected by the caller. */
 	readonly env?: Readonly<Record<string, string | undefined>>;
+	/** Parsed config file contents keyed by dotted path segments. */
 	readonly config?: Readonly<Record<string, unknown>>;
+	/** Interactive prompt engine; absent in non-TTY / CI contexts. */
 	readonly prompter?: PromptEngine;
 }
 
 /** Structured deprecation notice emitted for explicitly sourced values. */
 interface DeprecationWarning {
+	/** Whether this deprecation targets a flag or a positional arg. */
 	readonly kind: 'flag' | 'arg';
+	/** Name of the deprecated flag or arg. */
 	readonly name: string;
+	/** Custom deprecation message, or `true` for the generic warning. */
 	readonly message: string | true;
 }
 
 /** Fully resolved command input handed to the executor layer. */
 interface ResolveResult {
+	/** Fully resolved flag values keyed by flag name. */
 	readonly flags: Readonly<Record<string, unknown>>;
+	/** Fully resolved positional arg values keyed by arg name. */
 	readonly args: Readonly<Record<string, unknown>>;
+	/** Deprecation notices collected during resolution (may be empty). */
 	readonly deprecations: readonly DeprecationWarning[];
 }
 
 /** Explicit invocation boundary between parser output and resolved values. */
 interface ResolverInvocation {
+	/** Command schema that declares flags, args, and resolution metadata. */
 	readonly schema: CommandSchema;
+	/** Raw parse result from the tokenizer/parser layer. */
 	readonly parsed: ParseResult;
+	/** Optional external state (env, config, stdin, prompter). */
 	readonly options?: ResolveOptions;
 }
 
@@ -81,15 +94,23 @@ interface ResolverInvocation {
  * extraction and diagnostic redesign work lands.
  */
 interface ResolverContract {
+	/** Ordered stages for flag resolution: cli -> env -> config -> prompt -> default. */
 	readonly flagPrecedence: readonly FlagResolutionStage[];
+	/** Ordered stages for arg resolution: cli -> stdin -> env -> default. */
 	readonly argPrecedence: readonly ArgResolutionStage[];
+	/** Prompt stage runs only after env and config have been attempted. */
 	readonly promptRunsAfterFlagConfig: true;
+	/** All validation errors are collected before throwing a single aggregate. */
 	readonly aggregatesValidationErrors: true;
+	/** Aggregate error details include per-issue structured summaries. */
 	readonly aggregateDiagnosticsIncludePerIssueSummary: true;
+	/** A coercion failure at env/config stops fallback to later stages for that flag. */
 	readonly hardCoercionErrorsStopFallback: true;
+	/** Deprecation warnings are emitted only when a value was actually sourced. */
 	readonly collectsDeprecationsFromExplicitSources: true;
 }
 
+/** Runtime-accessible resolution contract — documents the resolver's invariants for tests and diagnostics. */
 const resolverContract = {
 	flagPrecedence: FLAG_RESOLUTION_ORDER,
 	argPrecedence: ARG_RESOLUTION_ORDER,

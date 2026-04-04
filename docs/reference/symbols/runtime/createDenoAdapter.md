@@ -7,7 +7,7 @@ Generated reference page for the `createDenoAdapter` function export.
 - Import: `@kjanat/dreamcli/runtime`
 - Export kind: function
 - Declared in: `src/runtime/deno.ts`
-- Source link: [`src/runtime/deno.ts:165`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/deno.ts#L165)
+- Source link: [`src/runtime/deno.ts:170`](https://github.com/kjanat/dreamcli/blob/master/src/runtime/deno.ts#L170)
 
 ## Signatures
 
@@ -15,9 +15,9 @@ Generated reference page for the `createDenoAdapter` function export.
 function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter;
 ```
 
-| Parameter | Type                          | Description                                                          |
-| --------- | ----------------------------- | -------------------------------------------------------------------- |
-| `ns`      | `DenoNamespace \\| undefined` | Override the Deno namespace (useful for testing the adapter itself). |
+| Parameter | Type                         | Description                                                          |
+| --------- | ---------------------------- | -------------------------------------------------------------------- |
+| `ns`      | `DenoNamespace \| undefined` | Override the Deno namespace (useful for testing the adapter itself). |
 
 ## Examples
 

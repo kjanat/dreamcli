@@ -34,7 +34,7 @@ constructor();
 #### `_config`
 
 Type brand — exists only in the type system (`declare`
-produces no runtime property). Used by `InferFlag` / `InferFlags`.
+produces no runtime property). Used by InferFlag / InferFlags.
 
 ```ts
 _config: FlagBuilder.C;

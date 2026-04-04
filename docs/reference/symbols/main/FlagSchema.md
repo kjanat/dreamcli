@@ -2,7 +2,7 @@
 
 # `FlagSchema`
 
-The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
+The runtime descriptor stored inside every FlagBuilder. Consumers (parser,
 help generator, resolution chain) read this to understand the flag's shape
 without touching generics.
 

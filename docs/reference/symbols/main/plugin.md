@@ -15,10 +15,10 @@ Generated reference page for the `plugin` function export.
 function plugin(hooks: CLIPluginHooks, name?: string): CLIPlugin;
 ```
 
-| Parameter | Type                   | Description                           |
-| --------- | ---------------------- | ------------------------------------- |
-| `hooks`   | `CLIPluginHooks`       | Lifecycle hooks to register.          |
-| `name`    | `string \\| undefined` | Optional plugin name for diagnostics. |
+| Parameter | Type                  | Description                           |
+| --------- | --------------------- | ------------------------------------- |
+| `hooks`   | `CLIPluginHooks`      | Lifecycle hooks to register.          |
+| `name`    | `string \| undefined` | Optional plugin name for diagnostics. |
 
 ## Examples
 

@@ -34,6 +34,10 @@ describe('reference-surfaces', () => {
 			artifactPath: 'docs/.generated/reference/docs-health.md',
 			notes: expect.stringContaining('/reference/docs-health'),
 		});
+		expect(surfaces.find((surface) => surface.id === 'generated-api-index')).toMatchObject({
+			artifactPath: 'docs/.generated/api/index.md',
+			notes: expect.stringContaining('typedoc-output.json'),
+		});
 	});
 
 	it('renders artifact and public changelog pages from the canonical changelog body', () => {

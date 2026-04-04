@@ -43,6 +43,21 @@ describe('symbol page generation', () => {
 		});
 	});
 
+	it('renders parameter tables with escaped markdown pipes but plain type unions', {
+		timeout: 20_000,
+	}, async () => {
+		const publicApi = await collectPublicApiIndex(packageJsonPath);
+		const examples = await collectExamples(examplesRoot, rootDirPath);
+		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
+		const pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
+
+		const runCommandPage = pages.find((page) => page.id === '@kjanat/dreamcli/testkit:runCommand');
+
+		expect(runCommandPage?.content).toContain('| Parameter | Type | Description |');
+		expect(runCommandPage?.content).toContain('| `options` | `RunOptions \\| undefined` |');
+		expect(runCommandPage?.content).not.toContain('| `options` | `RunOptions \\\\| undefined` |');
+	});
+
 	it('keeps API index links aligned with rendered symbol routes', () => {
 		expect(toSymbolPageRoute('@kjanat/dreamcli', 'cli')).toBe('/reference/symbols/main/cli');
 		expect(

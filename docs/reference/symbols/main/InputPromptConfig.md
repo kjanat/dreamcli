@@ -7,7 +7,7 @@ Free-text input prompt — maps to `string` and `number` flags. Part of PromptCo
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
-- Source link: [`src/core/schema/prompt.ts:41`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L41)
+- Source link: [`src/core/schema/prompt.ts:42`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L42)
 
 ## Signatures
 
@@ -20,6 +20,8 @@ interface InputPromptConfig extends PromptConfigBase {}
 ### Properties
 
 #### `kind`
+
+Discriminator identifying this as a free-text input prompt.
 
 ```ts
 kind: 'input';

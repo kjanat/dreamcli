@@ -5,7 +5,7 @@
 A select prompt config with choices guaranteed non-empty.
 
 The resolution chain populates choices from `FlagSchema.enumValues`
-when the user's `PromptConfig` omits them.
+when the user's PromptConfig omits them.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
@@ -24,17 +24,23 @@ interface ResolvedSelectPromptConfig {}
 
 #### `choices`
 
+Non-empty list of selectable options (populated from flag enum values when omitted).
+
 ```ts
 choices: readonly[(SelectChoice, SelectChoice)];
 ```
 
 #### `kind`
 
+Discriminant — single-choice selection prompt.
+
 ```ts
 kind: 'select';
 ```
 
 #### `message`
+
+User-facing question text.
 
 ```ts
 message: string;

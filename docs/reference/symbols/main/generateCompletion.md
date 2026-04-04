@@ -19,12 +19,12 @@ function generateCompletion(
 ): string;
 ```
 
-| Parameter                                     | Type                              | Description                                              |
-| --------------------------------------------- | --------------------------------- | -------------------------------------------------------- |
-| `schema`                                      | `CLISchema`                       | The CLI schema describing commands, flags, and args.     |
-| `shell`                                       | `Shell`                           | Target shell.                                            |
-| `options`                                     | `CompletionOptions \\| undefined` | Optional generator configuration such as function naming |
-| and root default-command completion behavior. |                                   |                                                          |
+| Parameter                                     | Type                             | Description                                              |
+| --------------------------------------------- | -------------------------------- | -------------------------------------------------------- |
+| `schema`                                      | `CLISchema`                      | The CLI schema describing commands, flags, and args.     |
+| `shell`                                       | `Shell`                          | Target shell.                                            |
+| `options`                                     | `CompletionOptions \| undefined` | Optional generator configuration such as function naming |
+| and root default-command completion behavior. |                                  |                                                          |
 
 ## Examples
 

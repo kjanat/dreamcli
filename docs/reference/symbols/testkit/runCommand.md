@@ -7,7 +7,7 @@ Generated reference page for the `runCommand` function export.
 - Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/core/testkit/index.ts`
-- Source link: [`src/core/testkit/index.ts:43`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L43)
+- Source link: [`src/core/testkit/index.ts:46`](https://github.com/kjanat/dreamcli/blob/master/src/core/testkit/index.ts#L46)
 
 ## Signatures
 
@@ -19,11 +19,11 @@ function runCommand(
 ): Promise<RunResult>;
 ```
 
-| Parameter | Type                       | Description                                              |
-| --------- | -------------------------- | -------------------------------------------------------- |
-| `cmd`     | `RunnableCommand`          | The command builder (must have an action handler)        |
-| `argv`    | `readonly string[]`        | Raw argv strings (NOT including the command name itself) |
-| `options` | `RunOptions \\| undefined` | Injectable runtime state                                 |
+| Parameter | Type                      | Description                                              |
+| --------- | ------------------------- | -------------------------------------------------------- |
+| `cmd`     | `RunnableCommand`         | The command builder (must have an action handler)        |
+| `argv`    | `readonly string[]`       | Raw argv strings (NOT including the command name itself) |
+| `options` | `RunOptions \| undefined` | Injectable runtime state                                 |
 
 ## Related Examples
 

@@ -2,12 +2,12 @@
 
 # `ParseErrorOptions`
 
-Options for `ParseError`. Code is narrowed to parse-specific codes.
+Options for ParseError. Code is narrowed to parse-specific codes.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/errors/index.ts`
-- Source link: [`src/core/errors/index.ts:114`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L114)
+- Source link: [`src/core/errors/index.ts:121`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L121)
 
 ## Signatures
 
@@ -30,6 +30,8 @@ cause?: unknown;
 
 #### `code`
 
+Parse-category error code (e.g. `'UNKNOWN_FLAG'`, `'MISSING_VALUE'`).
+
 ```ts
 code: ParseErrorCode;
 ```
@@ -43,6 +45,8 @@ details?: Readonly<Record<string, unknown>>;
 ```
 
 #### `exitCode`
+
+Process exit code for parse failures.
 
 ```ts
 exitCode?: number;

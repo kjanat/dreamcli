@@ -21,6 +21,8 @@ interface ConfirmPromptConfig extends PromptConfigBase {}
 
 #### `kind`
 
+Discriminator identifying this as a yes/no confirmation prompt.
+
 ```ts
 kind: 'confirm';
 ```

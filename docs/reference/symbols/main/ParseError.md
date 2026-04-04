@@ -9,7 +9,7 @@ Exit code defaults to `2` (standard for CLI usage errors).
 - Import: `@kjanat/dreamcli`
 - Export kind: class
 - Declared in: `src/core/errors/index.ts`
-- Source link: [`src/core/errors/index.ts:127`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L127)
+- Source link: [`src/core/errors/index.ts:136`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L136)
 
 ## Signatures
 
@@ -39,7 +39,7 @@ cause?: unknown;
 
 #### `code`
 
-Stable machine-readable identifier.
+Narrowed to parse-category codes.
 
 ```ts
 code: ParseErrorCode;
@@ -68,6 +68,8 @@ message: string;
 ```
 
 #### `name`
+
+Always `'ParseError'`.
 
 ```ts
 name: 'ParseError';

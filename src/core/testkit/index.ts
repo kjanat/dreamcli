@@ -1,13 +1,16 @@
 /**
  * Test harness: command.run() with injected state, output capture.
  *
- * Provides `runCommand()` — the in-process test harness wrapper over DreamCLI's
- * shared executor. It wires capture output and standalone command metadata,
- * then returns a structured `RunResult` with exitCode and captured output.
+ * Provides {@linkcode runCommand()} — the in-process test harness wrapper over DreamCLI's
+ * shared executor.\
+ * It wires capture output and standalone command metadata,
+ * then returns a structured {@linkcode RunResult} with exitCode and captured output.
  *
- * This keeps command tests process-free without testkit owning the canonical
- * parse -> resolve -> execute pipeline.
+ * This keeps command tests process-free without testkit owning the canonical pipeline:
  *
+ * ```text
+ * parse -> resolve -> execute
+ * ```
  * @module dreamcli/core/testkit
  */
 
@@ -32,7 +35,7 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
  * 3. Delegate parse -> resolve -> execute to the shared executor
  * 4. Return the structured result with captured buffers
  *
- * Errors are normalized by the shared executor into structured `RunResult`s
+ * Errors are normalized by the shared executor into structured {@linkcode RunResult}s
  * with appropriate exit codes. The function never throws.
  *
  * @param cmd - The command builder (must have an action handler)

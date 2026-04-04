@@ -7,7 +7,7 @@ Single-selection prompt — maps to `enum` flags or any flag with choices. Part 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/prompt.ts`
-- Source link: [`src/core/schema/prompt.ts:53`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L53)
+- Source link: [`src/core/schema/prompt.ts:55`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/prompt.ts#L55)
 
 ## Signatures
 
@@ -29,6 +29,8 @@ choices?: readonly SelectChoice[];
 ```
 
 #### `kind`
+
+Discriminator identifying this as a single-selection prompt.
 
 ```ts
 kind: 'select';

@@ -33,7 +33,7 @@ function resolveBunVersion(proc?: NodeProcess): string | undefined {
  * here without changing the public API.
  *
  * @param proc - Override the process object (useful for testing the adapter itself).
- * @returns A `RuntimeAdapter` backed by Bun's process state.
+ * @returns A {@linkcode RuntimeAdapter} backed by Bun's process state.
  *
  * @example
  * ```ts

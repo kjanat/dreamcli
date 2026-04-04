@@ -34,7 +34,7 @@ constructor();
 #### `_config`
 
 Type brand — exists only in the type system (`declare`
-produces no runtime property). Used by `InferArg` / `InferArgs`.
+produces no runtime property). Used by InferArg / InferArgs.
 
 ```ts
 _config: ArgBuilder.C;

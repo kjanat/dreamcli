@@ -70,6 +70,8 @@ message: string;
 
 #### `name`
 
+Error class name, always `'CLIError'` for the base class.
+
 ```ts
 name: string;
 ```

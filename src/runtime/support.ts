@@ -10,15 +10,27 @@
 
 type SupportedRuntime = 'node' | 'bun' | 'deno';
 
+/**
+ * Support entry for a single runtime: version bounds, display names, and adapter mapping.
+ *
+ * @internal
+ */
 interface RuntimeSupportEntry {
+	/** Runtime identifier key. */
 	readonly runtime: SupportedRuntime;
+	/** Human-readable name (e.g. `'Node.js'`, `'Bun'`). */
 	readonly displayName: string;
+	/** Minimum supported version (semver, e.g. `'22.22.2'`). */
 	readonly minimum: string;
+	/** `engines` range string for package.json (e.g. `'>=22.22.2'`). */
 	readonly engineRange: string;
+	/** npm/JSR package name that ships this adapter. */
 	readonly packageName: string;
+	/** Adapter factory function name (e.g. `'NodeAdapter'`). */
 	readonly adapterName: string;
 }
 
+/** All supported runtimes with their version bounds and adapter metadata. @internal */
 const SUPPORTED_RUNTIMES: readonly RuntimeSupportEntry[] = [
 	{
 		runtime: 'node',
@@ -54,6 +66,7 @@ interface ParsedVersion {
 
 const VERSION_PATTERN = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?/;
 
+/** Look up the support entry for a given runtime. Throws on unknown runtime. @internal */
 function getRuntimeSupport(runtime: SupportedRuntime): RuntimeSupportEntry {
 	for (const entry of SUPPORTED_RUNTIMES) {
 		if (entry.runtime === runtime) return entry;
@@ -85,11 +98,13 @@ function compareVersions(left: ParsedVersion, right: ParsedVersion): number {
 	return left.patch - right.patch;
 }
 
+/** Format a human-readable version requirement string (e.g. `'Node.js >= 22.22.2'`). @internal */
 function formatRuntimeRequirement(runtime: SupportedRuntime): string {
 	const support = getRuntimeSupport(runtime);
 	return `${support.displayName} >= ${support.minimum}`;
 }
 
+/** Check whether a version string meets the minimum for the given runtime. @internal */
 function isRuntimeVersionSupported(runtime: SupportedRuntime, version: string): boolean {
 	const parsedVersion = parseVersion(version);
 	const minimumVersion = parseVersion(getRuntimeSupport(runtime).minimum);
@@ -97,6 +112,7 @@ function isRuntimeVersionSupported(runtime: SupportedRuntime, version: string): 
 	return compareVersions(parsedVersion, minimumVersion) >= 0;
 }
 
+/** Throw if the detected version is below the minimum. No-op when version is undefined. @internal */
 function assertRuntimeVersionSupported(
 	runtime: SupportedRuntime,
 	version: string | undefined,

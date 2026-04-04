@@ -4,13 +4,13 @@
 
 A multiselect prompt config with choices guaranteed non-empty.
 
-Same guarantee as `ResolvedSelectPromptConfig` — choices are always
+Same guarantee as ResolvedSelectPromptConfig — choices are always
 present and non-empty.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:50`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L50)
+- Source link: [`src/core/prompt/index.ts:53`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L53)
 
 ## Signatures
 
@@ -24,11 +24,15 @@ interface ResolvedMultiselectPromptConfig {}
 
 #### `choices`
 
+Non-empty list of selectable options (populated from flag enum values when omitted).
+
 ```ts
 choices: readonly[(SelectChoice, SelectChoice)];
 ```
 
 #### `kind`
+
+Discriminant — multiple-choice selection prompt.
 
 ```ts
 kind: 'multiselect';
@@ -36,17 +40,23 @@ kind: 'multiselect';
 
 #### `max`
 
+Maximum number of selections allowed (validated after input).
+
 ```ts
 max?: number;
 ```
 
 #### `message`
 
+User-facing question text.
+
 ```ts
 message: string;
 ```
 
 #### `min`
+
+Minimum number of selections required (validated after input).
 
 ```ts
 min?: number;

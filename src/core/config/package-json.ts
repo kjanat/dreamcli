@@ -25,9 +25,13 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * All fields are optional — a valid package.json may omit any of them.
  */
 interface PackageJsonData {
+	/** Package name (e.g. `@scope/mycli`). */
 	readonly name?: string;
+	/** Semver version string from `package.json`. */
 	readonly version?: string;
+	/** One-line package description. */
 	readonly description?: string;
+	/** Binary entry point(s) — string for single-bin, object for multi-bin. */
 	readonly bin?: string | Readonly<Record<string, string>>;
 }
 

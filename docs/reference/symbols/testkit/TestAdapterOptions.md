@@ -57,7 +57,7 @@ env?: Readonly<Record<string, string | undefined>>;
 
 #### `exit`
 
-Exit function (defaults to throwing `ExitError`).
+Exit function (defaults to throwing ExitError).
 The default throw-based exit allows tests to catch the exit code.
 
 ```ts
@@ -113,7 +113,7 @@ stderr?: WriteFn;
 
 Stdin line reader (defaults to returning `null` — immediate EOF).
 
-Use a custom `ReadFn` to simulate user input in tests.
+Use a custom ReadFn to simulate user input in tests.
 
 ```ts
 stdin?: ReadFn;

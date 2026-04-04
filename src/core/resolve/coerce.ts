@@ -14,6 +14,7 @@ import { toSharedArgPropertySchema, toSharedFlagPropertySchema } from './propert
 
 type CoerceSource = FlagDiagnosticSource;
 
+/** Discriminated result of a value coercion attempt — success with the coerced value, or failure with a structured validation error. */
 type CoerceResult =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError };
@@ -60,6 +61,7 @@ function coercionError(
 	};
 }
 
+/** Coerce a raw value from env/config/prompt into the type declared by a flag schema. */
 function coerceValue(
 	flagName: string,
 	source: CoerceSource,
@@ -387,6 +389,7 @@ function redactArgCoercionSuggest(
 	return undefined;
 }
 
+/** Coerce a string value from stdin/env into the type declared by an arg schema, redacting raw values in error diagnostics. */
 function coerceArgStringValue(
 	argName: string,
 	source: ArgStringSource,

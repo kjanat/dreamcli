@@ -28,22 +28,43 @@ import type {
 } from '#internals/core/schema/command.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
-/** Explicit executor input for a single command invocation. */
+/**
+ * Explicit executor input for a single command invocation.
+ * @internal
+ */
 interface CommandExecutionRequest {
+	/** The command instance whose handler will be invoked. */
 	readonly command: RunnableCommand;
+	/** Raw argument tokens to parse (excluding the program name). */
 	readonly argv: readonly string[];
+	/** Output channel for handler and error rendering. */
 	readonly out: Out;
+	/** Frozen schema definition (flags, args, metadata) for parsing and resolution. */
 	readonly schema: CommandSchema;
+	/** Runtime metadata (binary name, version) propagated to the handler. */
 	readonly meta: CommandMeta;
+	/** Optional overrides for env, config, prompter, plugins, and JSON mode. */
 	readonly options?: RunOptions;
 }
 
-/** Minimal executor result before output buffers are assembled into `RunResult`. */
+/**
+ * Minimal executor result before output buffers are assembled into `RunResult`.
+ * @internal
+ */
 interface CommandExecutionResult {
+	/** Process exit code (`0` on success, error-specific otherwise). */
 	readonly exitCode: number;
+	/** The structured error if the command failed, `undefined` on success. */
 	readonly error: CLIError | undefined;
 }
 
+/**
+ * Run the full parse -> resolve -> plugin -> handler pipeline for one command.
+ *
+ * Handles `--help` short-circuit, plugin lifecycle hooks, deprecation warnings,
+ * and error wrapping. Both CLI dispatch and testkit `runCommand` converge here.
+ * @internal
+ */
 async function executeCommand(request: CommandExecutionRequest): Promise<CommandExecutionResult> {
 	const { argv, command, meta, options, out, schema } = request;
 
@@ -220,6 +241,10 @@ async function executeWithExecutionSteps(
 	await chain({});
 }
 
+/**
+ * Assemble a {@linkcode CommandExecutionResult} and captured output buffers into a public `RunResult`.
+ * @internal
+ */
 function buildRunResult(result: CommandExecutionResult, captured: CapturedOutput): RunResult {
 	return {
 		exitCode: result.exitCode,

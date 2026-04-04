@@ -21,7 +21,7 @@ function createSchema(
 | Parameter   | Type                                                                 | Description                                         |
 | ----------- | -------------------------------------------------------------------- | --------------------------------------------------- |
 | `kind`      | `"string" \| "number" \| "boolean" \| "enum" \| "array" \| "custom"` | Discriminator for the value type this flag accepts. |
-| `overrides` | `FlagSchemaOverrides \\| undefined`                                  | Partial FlagSchema fields merged onto defaults.     |
+| `overrides` | `FlagSchemaOverrides \| undefined`                                   | Partial FlagSchema fields merged onto defaults.     |
 
 ## Examples
 

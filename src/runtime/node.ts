@@ -1,12 +1,12 @@
 /**
  * Node.js runtime adapter implementation.
  *
- * Bridges the platform-agnostic `RuntimeAdapter` interface to Node.js's
+ * Bridges the platform-agnostic {@linkcode RuntimeAdapter} interface to Node.js's
  * `globalThis.process` object. This adapter is also compatible with Bun,
  * which provides a Node-compatible `process` global.
  *
  * The adapter reads process state once at creation time and exposes it
- * through the immutable `RuntimeAdapter` interface. I/O writers wrap
+ * through the immutable {@linkcode RuntimeAdapter} interface. I/O writers wrap
  * `process.stdout.write` and `process.stderr.write`.
  *
  * @module @kjanat/dreamcli/runtime/node
@@ -42,27 +42,35 @@ interface NodeSystemError {
  * actually reads from the global.
  */
 interface NodeProcess {
+	/** Raw process arguments (`[binary, script, ...userArgs]`). */
 	readonly argv: readonly string[];
+	/** Environment variables (values are `undefined` for unset keys). */
 	readonly env: Readonly<Record<string, string | undefined>>;
+	/** Runtime version strings — used for version-guard checks. */
 	readonly versions?: {
 		readonly node?: string;
 		readonly bun?: string;
 	};
+	/** Return the current working directory. */
 	cwd(): string;
 	/** Platform identifier (e.g. `'linux'`, `'darwin'`, `'win32'`). */
 	readonly platform: string;
+	/** Standard input stream with TTY detection and async iteration. */
 	readonly stdin: {
 		readonly isTTY?: boolean;
 		/** Async iterable for reading all of stdin (used by readStdin). */
 		[Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 	};
+	/** Standard output stream with TTY detection and write. */
 	readonly stdout: {
 		readonly isTTY?: boolean;
 		write(data: string): unknown;
 	};
+	/** Standard error stream with write. */
 	readonly stderr: {
 		write(data: string): unknown;
 	};
+	/** Terminate the process with the given exit code. */
 	exit(code: number): never;
 }
 
@@ -149,12 +157,12 @@ function assertProcessRuntimeSupported(proc: NodeProcess): void {
  * Create a runtime adapter backed by Node.js `process` globals.
  *
  * Reads `process.argv`, `process.env`, `process.cwd()`, and wraps
- * `process.stdout.write`/`process.stderr.write` as `WriteFn` functions.
+ * `process.stdout.write`/`process.stderr.write` as {@linkcode WriteFn} functions.
  *
  * Also works on Bun, which provides a Node-compatible `process` global.
  *
  * @param proc - Override the process object (useful for testing the adapter itself).
- * @returns A `RuntimeAdapter` backed by Node.js process state.
+ * @returns A {@linkcode RuntimeAdapter} backed by Node.js process state.
  *
  * @example
  * ```ts

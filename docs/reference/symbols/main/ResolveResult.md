@@ -7,7 +7,7 @@ Fully resolved command input handed to the executor layer.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/resolve/contracts.ts`
-- Source link: [`src/core/resolve/contracts.ts:64`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/contracts.ts#L64)
+- Source link: [`src/core/resolve/contracts.ts:71`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/contracts.ts#L71)
 
 ## Signatures
 
@@ -21,17 +21,23 @@ interface ResolveResult {}
 
 #### `args`
 
+Fully resolved positional arg values keyed by arg name.
+
 ```ts
 args: Readonly<Record<string, unknown>>;
 ```
 
 #### `deprecations`
 
+Deprecation notices collected during resolution (may be empty).
+
 ```ts
 deprecations: readonly DeprecationWarning[];
 ```
 
 #### `flags`
+
+Fully resolved flag values keyed by flag name.
 
 ```ts
 flags: Readonly<Record<string, unknown>>;

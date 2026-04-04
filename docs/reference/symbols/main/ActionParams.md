@@ -16,7 +16,7 @@ property access a type error until derive or middleware extends it.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:295`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L295)
+- Source link: [`src/core/schema/command.ts:297`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L297)
 
 ## Signatures
 
@@ -34,11 +34,15 @@ interface ActionParams<
 
 #### `args`
 
+Fully resolved positional argument values, typed from `.arg()` definitions.
+
 ```ts
 args: Readonly<InferArgs<ActionParams.A>>;
 ```
 
 #### `ctx`
+
+Middleware/derive-provided context, typed from `.middleware()` and `.derive()` chains.
 
 ```ts
 ctx: Readonly<ActionParams.C>;
@@ -46,17 +50,23 @@ ctx: Readonly<ActionParams.C>;
 
 #### `flags`
 
+Fully resolved flag values, typed from `.flag()` definitions.
+
 ```ts
 flags: Readonly<InferFlags<ActionParams.F>>;
 ```
 
 #### `meta`
 
+Runtime metadata about the CLI program and current command.
+
 ```ts
 meta: CommandMeta;
 ```
 
 #### `out`
+
+Structured output channel for stdout, stderr, JSON, tables, and spinners.
 
 ```ts
 out: Out;

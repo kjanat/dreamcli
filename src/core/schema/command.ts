@@ -1,10 +1,10 @@
 /**
  * Command schema builder with flag/arg composition and type accumulation.
  *
- * The `command()` factory returns an immutable `CommandBuilder` whose generic
- * parameters track accumulated flag and arg builder types. Chaining `.flag()`
- * and `.arg()` calls produces progressively narrower types. The `.action()`
- * handler receives fully typed `{ args, flags, ctx, out }`.
+ * The {@linkcode command} factory returns an immutable {@linkcode CommandBuilder}
+ * whose generic parameters track accumulated flag and arg builder types. Chaining
+ * `.flag()` and `.arg()` calls produces progressively narrower types. The
+ * `.action()` handler receives fully typed `{ args, flags, ctx, out }`.
  *
  * @module dreamcli/core/schema/command
  */
@@ -58,7 +58,9 @@ type WidenDerivedContext<C extends Record<string, unknown>, Output> =
  * Both start empty (`{}`) and grow as `.flag()` / `.arg()` are called.
  */
 interface CommandConfig {
+	/** Accumulated flag builders keyed by flag name. */
 	readonly flags: Record<string, FlagBuilder<FlagConfig>>;
+	/** Accumulated arg builders keyed by arg name. */
 	readonly args: Record<string, ArgBuilder<ArgConfig>>;
 }
 
@@ -113,10 +115,10 @@ type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
 ) => InteractiveResult;
 
 /**
- * Type-erased interactive resolver stored on `CommandSchema`.
+ * Type-erased interactive resolver stored on {@linkcode CommandSchema}.
  *
  * Advanced bridge type: most consumers should use {@link InteractiveResolver}
- * via `command().interactive(...)` and never reference this alias directly.
+ * via {@linkcode command | command().interactive()} and never reference this alias directly.
  *
  * At runtime, the resolver receives `{ flags: Record<string, unknown> }`
  * and returns `Record<string, PromptConfig | falsy>`. The phantom types
@@ -244,7 +246,7 @@ interface Out {
 	 * handle is active, or when the handle was already stopped.
 	 *
 	 * The framework calls this automatically in `runCommand()` and
-	 * `cli.run()`. Direct users of `createOutput()` should call it
+	 * `cli().run()`. Direct users of `createOutput()` should call it
 	 * themselves after the handler returns or throws.
 	 *
 	 * @example
@@ -297,10 +299,15 @@ interface ActionParams<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
 > {
+	/** Fully resolved positional argument values, typed from `.arg()` definitions. */
 	readonly args: Readonly<InferArgs<A>>;
+	/** Fully resolved flag values, typed from `.flag()` definitions. */
 	readonly flags: Readonly<InferFlags<F>>;
+	/** Middleware/derive-provided context, typed from `.middleware()` and `.derive()` chains. */
 	readonly ctx: Readonly<C>;
+	/** Structured output channel for stdout, stderr, JSON, tables, and spinners. */
 	readonly out: Out;
+	/** Runtime metadata about the CLI program and current command. */
 	readonly meta: CommandMeta;
 }
 
@@ -318,10 +325,10 @@ type ActionHandler<
 > = (params: ActionParams<F, A, C>) => void | Promise<void>;
 
 /**
- * Type-erased action handler stored on `CommandBuilder`.
+ * Type-erased action handler stored on {@linkcode CommandBuilder}.
  *
- * The typed `ActionHandler<F, A, C>` from `.action()` is cast to this
- * erased form at the type-erasure boundary, keeping `CommandBuilder`
+ * The typed {@linkcode ActionHandler} from `.action()` is cast to this
+ * erased form at the type-erasure boundary, keeping {@linkcode CommandBuilder}
  * covariant in its generic parameters. This enables structural
  * compatibility across TypeScript declaration-file boundaries where
  * generic inference may fall back to constraint types.
@@ -356,11 +363,11 @@ type DeriveParams<
  * Command-scoped typed pre-action handler.
  *
  * Derive handlers may:
- * - validate resolved input and throw `CLIError`
+ * - validate resolved input and throw {@linkcode CLIError}
  * - return `undefined` to continue without changing context
  * - return an object whose properties merge into `ctx` downstream
  *
- * They cannot wrap downstream execution; use `middleware()` for that.
+ * They cannot wrap downstream execution; use {@linkcode middleware} for that.
  */
 type DeriveHandler<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -387,7 +394,7 @@ type ErasedDeriveHandler = (params: {
 
 /**
  * Internal execution step union preserving registration order across
- * `derive()` and `middleware()`.
+ * {@linkcode CommandBuilder.derive | derive()} and {@linkcode CommandBuilder.middleware | middleware()}.
  *
  * @internal
  */
@@ -471,7 +478,9 @@ interface CommandSchema {
  * The array ordering in {@link CommandSchema.args} determines CLI position.
  */
 interface CommandArgEntry {
+	/** User-facing argument name (shown in help as `<name>`). */
 	readonly name: string;
+	/** Runtime descriptor controlling parsing, presence, and coercion. */
 	readonly schema: ArgSchema;
 }
 
@@ -678,11 +687,11 @@ function validateCommandFlagTree(
  * schema (for name/alias matching and help) and the ability to delegate to
  * `runCommand()`. This interface captures exactly that contract.
  *
- * The `_execute` function closes over the original typed `CommandBuilder`,
+ * The `_execute` function closes over the original typed {@linkcode CommandBuilder},
  * preserving full type safety inside the closure while presenting a
  * uniform interface to the dispatcher.
  *
- * Defined here (rather than in the CLI layer) so both `CommandBuilder` and
+ * Defined here (rather than in the CLI layer) so both {@linkcode CommandBuilder} and
  * `CLIBuilder` can reference it without circular imports.
  *
  * @internal
@@ -707,12 +716,12 @@ interface ErasedCommand {
 }
 
 /**
- * Structural subset of `CommandBuilder` consumed by the execution pipeline.
+ * Structural subset of {@linkcode CommandBuilder} consumed by the execution pipeline.
  *
  * Avoids generic type parameters so any `CommandBuilder<F, A, C>` satisfies
  * this interface structurally — no variance constraints, no inference needed.
  * Used by `runCommand()` and the shared executor to accept commands without
- * requiring TypeScript to resolve `CommandBuilder`'s full generic signature.
+ * requiring TypeScript to resolve {@linkcode CommandBuilder}'s full generic signature.
  *
  * @internal
  */
@@ -816,15 +825,16 @@ class CommandBuilder<
 	 */
 	readonly _executionSteps: readonly ExecutionStep[];
 
-	/**
-	 * @internal Type brands — exist only in the type system (`declare`
-	 * produces no runtime property). Used for type inference.
-	 */
+	/** @internal Phantom brand for accumulated flag builder types. No runtime value. */
 	declare readonly _flags: F;
+	/** @internal Phantom brand for accumulated arg builder types. No runtime value. */
 	declare readonly _args: A;
+	/** @internal Phantom brand for accumulated context type. No runtime value. */
 	declare readonly _ctx: C;
 
 	/**
+	 * Create a command builder from a pre-built schema descriptor.
+	 *
 	 * @param schema         - Runtime command descriptor.
 	 * @param handler        - Action handler, if registered.
 	 * @param subcommands    - Nested sub-command builders (type-erased).
@@ -851,7 +861,7 @@ class CommandBuilder<
 	 * resolved flag values. It returns a prompt schema for flags that need
 	 * interactive input based on the current state.
 	 *
-	 * For flags the resolver returns a `PromptConfig`, that config is used
+	 * For flags the resolver returns a {@linkcode PromptConfig}, that config is used
 	 * instead of any per-flag `.prompt()` config. For flags returned as falsy
 	 * (or not mentioned), per-flag `.prompt()` configs are used as fallback.
 	 *
@@ -900,7 +910,7 @@ class CommandBuilder<
 	 * - return an object to merge additional properties into `ctx`
 	 *
 	 * Unlike middleware, derive cannot wrap downstream execution and does not
-	 * use `next()`. Use `middleware()` for timing, logging, retries, cleanup,
+	 * use `next()`. Use {@linkcode middleware} for timing, logging, retries, cleanup,
 	 * or error-boundary patterns.
 	 *
 	 * Adding derive drops the current handler (like `.flag()`, `.arg()`, and
@@ -1000,7 +1010,7 @@ class CommandBuilder<
 	 *   });
 	 * ```
 	 *
-	 * @param m - {@link Middleware} instance created via `middleware()`.
+	 * @param m - {@link Middleware} instance created via {@linkcode middleware | middleware()}.
 	 * @returns The builder (for chaining).
 	 */
 	middleware<Output extends Record<string, unknown>>(
@@ -1169,8 +1179,8 @@ class CommandBuilder<
 	 * bindings, and description. See {@link FlagBuilder} for available modifiers.
 	 *
 	 * @param name - Flag name (used as `--name` on CLI and `flags.*` in handler).
-	 * @param builder - Configured `FlagBuilder` from `flag.string()`, `flag.boolean()`,
-	 *   `flag.number()`, `flag.enum()`, `flag.array()`, or `flag.custom()`.
+	 * @param builder - Configured {@linkcode FlagBuilder} from {@linkcode flag | flag.string()},
+	 *   `flag.boolean()`, `flag.number()`, `flag.enum()`, `flag.array()`, or `flag.custom()`.
 	 *
 	 * @example
 	 * ```ts
@@ -1238,7 +1248,7 @@ class CommandBuilder<
 	 * description. See {@link ArgBuilder} for available modifiers.
 	 *
 	 * @param name - Positional arg name (used in help text and `args.*`).
-	 * @param builder - Configured `ArgBuilder` from `arg.string()`, `arg.number()`,
+	 * @param builder - Configured {@linkcode ArgBuilder} from `arg.string()`, `arg.number()`,
 	 *   or `arg.custom()`.
 	 *
 	 * @example
@@ -1417,7 +1427,7 @@ function command(name: string): CommandBuilder {
 /**
  * Create a command builder intended for use as a command group.
  *
- * Semantically identical to `command()` — a group is simply a command that
+ * Semantically identical to {@linkcode command | command()} — a group is simply a command that
  * has subcommands registered via `.command()`. The separate factory
  * communicates intent: groups organise subcommands, leaf commands have actions.
  *
@@ -1462,5 +1472,7 @@ export type {
 	InteractiveResult,
 	Out,
 	RunnableCommand,
+	WidenContext,
+	WidenDerivedContext,
 };
 export { CommandBuilder, command, group };

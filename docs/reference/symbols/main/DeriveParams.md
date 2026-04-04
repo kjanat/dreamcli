@@ -11,7 +11,7 @@ and `meta`.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:349`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L349)
+- Source link: [`src/core/schema/command.ts:356`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L356)
 
 ## Signatures
 

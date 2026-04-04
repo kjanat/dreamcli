@@ -7,7 +7,7 @@ Structured deprecation notice emitted for explicitly sourced values.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/resolve/contracts.ts`
-- Source link: [`src/core/resolve/contracts.ts:57`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/contracts.ts#L57)
+- Source link: [`src/core/resolve/contracts.ts:61`](https://github.com/kjanat/dreamcli/blob/master/src/core/resolve/contracts.ts#L61)
 
 ## Signatures
 
@@ -21,17 +21,23 @@ interface DeprecationWarning {}
 
 #### `kind`
 
+Whether this deprecation targets a flag or a positional arg.
+
 ```ts
 kind: 'flag' | 'arg';
 ```
 
 #### `message`
 
+Custom deprecation message, or `true` for the generic warning.
+
 ```ts
 message: string | 'true';
 ```
 
 #### `name`
+
+Name of the deprecated flag or arg.
 
 ```ts
 name: string;

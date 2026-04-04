@@ -238,4 +238,25 @@ type Parse<T extends string, V extends string = Trim<T>> = V extends `{${infer C
 	? Prettify<ParseObject<Content>>
 	: ParseValue<V>;
 
-export type { Parse, ParseObject, ParsePrimitive, ParseProperty, ParseValue, Prettify, Trim };
+export type {
+	Balanced,
+	HasTopLevelPipe,
+	TrackDepth,
+	NonEmpty,
+	Parse,
+	ParseEach,
+	ParseObject,
+	ParsePrimitive,
+	ParseProperties,
+	ParseProperty,
+	ParseUnion,
+	ParseValue,
+	Prettify,
+	RawSplit,
+	Rejoin,
+	Trim,
+	TrimLeft,
+	TrimRight,
+	TupleToUnion,
+	WS,
+};

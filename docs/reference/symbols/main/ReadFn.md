@@ -14,7 +14,7 @@ runtime adapter's stdin.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:118`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L118)
+- Source link: [`src/core/prompt/index.ts:126`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L126)
 
 ## Signatures
 

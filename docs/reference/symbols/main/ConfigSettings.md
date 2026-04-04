@@ -4,8 +4,8 @@
 
 Config discovery settings for automatic config file loading.
 
-Stored in CLISchema and consumed by `CLIBuilder.run()` to
-call discoverConfig before dispatching to a command.
+Stored in CLISchema and consumed by () to call
+discoverConfig before dispatching to a command.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface

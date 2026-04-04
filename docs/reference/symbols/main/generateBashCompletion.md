@@ -18,10 +18,10 @@ function generateBashCompletion(
 ): string;
 ```
 
-| Parameter | Type                              | Description                       |
-| --------- | --------------------------------- | --------------------------------- |
-| `schema`  | `CLISchema`                       | The CLI schema.                   |
-| `options` | `CompletionOptions \\| undefined` | Optional generator configuration. |
+| Parameter | Type                             | Description                       |
+| --------- | -------------------------------- | --------------------------------- |
+| `schema`  | `CLISchema`                      | The CLI schema.                   |
+| `options` | `CompletionOptions \| undefined` | Optional generator configuration. |
 
 ## Examples
 

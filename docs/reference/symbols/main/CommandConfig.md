@@ -24,11 +24,15 @@ interface CommandConfig {}
 
 #### `args`
 
+Accumulated arg builders keyed by arg name.
+
 ```ts
 args: Record<string, ArgBuilder<ArgConfig>>;
 ```
 
 #### `flags`
+
+Accumulated flag builders keyed by flag name.
 
 ```ts
 flags: Record<string, FlagBuilder<FlagConfig>>;

@@ -7,7 +7,7 @@ Generated reference page for the `cli` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/cli/index.ts`
-- Source link: [`src/core/cli/index.ts:986`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L986)
+- Source link: [`src/core/cli/index.ts:883`](https://github.com/kjanat/dreamcli/blob/master/src/core/cli/index.ts#L883)
 
 ## Signatures
 
@@ -24,17 +24,6 @@ function cli(options: CLIOptions): CLIBuilder;
 ```
 
 ## Examples
-
-```ts
-cli('mycli')
-  .version('1.0.0')
-  .description('My awesome tool')
-  .command(deploy)
-  .command(login)
-  .run();
-
-cli({ inherit: true }).command(deploy).run();
-```
 
 ```ts
 cli('mycli')

@@ -36,7 +36,7 @@ export const referenceDocsHealthPagePath = `${docsRoot}/reference/docs-health.md
 
 export const generatedApiIndexPath = `${generatedApiDir}/public-exports.json`;
 export const generatedApiPagePath = `${generatedApiDir}/index.md`;
-export const generatedTypeDocJsonPath = `${generatedApiDir}/typedoc.json`;
+export const generatedRawTypeDocPath = `${generatedApiDir}/typedoc-output.json`;
 export const generatedNormalizedTypeDocPath = `${generatedApiDir}/typedoc-normalized.json`;
 
 export const generatedMetaSchemaDescriptionsPath = `${rootDir}/src/core/json-schema/meta-descriptions.generated.ts`;

@@ -15,11 +15,11 @@ Generated reference page for the `createOutput` function export.
 function createOutput(options?: OutputOptions): Out;
 ```
 
-| Parameter                                                       | Type                          | Description                                     |
-| --------------------------------------------------------------- | ----------------------------- | ----------------------------------------------- |
-| `options`                                                       | `OutputOptions \\| undefined` | Optional configuration. When omitted, output is |
-| discarded (useful for silent test runs). Pass `stdout`/`stderr` |                               |                                                 |
-| writers to direct output somewhere useful.                      |                               |                                                 |
+| Parameter                                                       | Type                         | Description                                     |
+| --------------------------------------------------------------- | ---------------------------- | ----------------------------------------------- |
+| `options`                                                       | `OutputOptions \| undefined` | Optional configuration. When omitted, output is |
+| discarded (useful for silent test runs). Pass `stdout`/`stderr` |                              |                                                 |
+| writers to direct output somewhere useful.                      |                              |                                                 |
 
 ## Examples
 

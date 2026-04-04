@@ -18,10 +18,10 @@ function generateInputSchema(
 ): Record<string, unknown>;
 ```
 
-| Parameter | Type                              | Description                              |
-| --------- | --------------------------------- | ---------------------------------------- |
-| `schema`  | `CommandSchema \| CLISchema`      | A CLI schema or a single command schema. |
-| `options` | `JsonSchemaOptions \\| undefined` | Generation options.                      |
+| Parameter | Type                             | Description                              |
+| --------- | -------------------------------- | ---------------------------------------- |
+| `schema`  | `CommandSchema \| CLISchema`     | A CLI schema or a single command schema. |
+| `options` | `JsonSchemaOptions \| undefined` | Generation options.                      |
 
 ## Examples
 

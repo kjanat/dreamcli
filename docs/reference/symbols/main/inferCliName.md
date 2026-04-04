@@ -7,7 +7,7 @@ Generated reference page for the `inferCliName` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/package-json.ts`
-- Source link: [`src/core/config/package-json.ts:199`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L199)
+- Source link: [`src/core/config/package-json.ts:203`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/package-json.ts#L203)
 
 ## Signatures
 

@@ -8,7 +8,7 @@ FlagKind and initial type-level config.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/flag.ts`
-- Source link: [`src/core/schema/flag.ts:538`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L538)
+- Source link: [`src/core/schema/flag.ts:540`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L540)
 
 ## Signatures
 

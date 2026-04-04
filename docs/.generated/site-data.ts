@@ -452,7 +452,7 @@ export const generatedReferenceSurfaces = [
     ],
     status: 'prepared',
     notes:
-      'The generated markdown index is backed by `docs/.generated/api/public-exports.json`; full signature work now flows through the raw `typedoc.json` artifact and the normalized `typedoc-normalized.json` model beside it.',
+      'The generated markdown index is backed by `docs/.generated/api/public-exports.json`; full signature work now flows through the raw `typedoc-output.json` artifact and the normalized `typedoc-normalized.json` model beside it.',
   },
   {
     id: 'generated-typedoc-model',
@@ -1426,7 +1426,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/arg',
     summary:
-      'Positional argument schema factory.\n\nEntry point for defining args on a command. Use `arg.<kind>()` to create\nan `ArgBuilder`, then chain modifiers and pass the result to\n`command().arg(name, builder)`.\n\nFour kinds are available:\n- `arg.string()` — raw string (most common)\n- `arg.number()` — parsed to number, errors on NaN\n- `arg.enum(values)` — constrained to listed literals\n- `arg.custom(fn)` — arbitrary parse function, infers return type',
+      'Positional argument schema factory.\n\nEntry point for defining args on a command. Use `arg.<kind>()` to create\nan ArgBuilder, then chain modifiers and pass the result to\n`command().arg(name, builder)`.\n\nFour kinds are available:\n- `arg.string()` — raw string (most common)\n- `arg.number()` — parsed to number, errors on NaN\n- `arg.enum(values)` — constrained to listed literals\n- `arg.custom(fn)` — arbitrary parse function, infers return type',
   },
   {
     id: '@kjanat/dreamcli:ArgBuilder',
@@ -1449,7 +1449,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ArgFactory',
     summary:
-      'Arg factory functions — the public API for creating positional arguments.\n\nEach method returns an `ArgBuilder` seeded with the correct `ArgKind`\nand initial type-level config. Chain modifiers (`.optional()`, `.env()`,\n`.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.\n\nAll args are **required** by default. Resolution order when extra\nsources are configured: **CLI → stdin → env → default**.',
+      'Arg factory functions — the public API for creating positional arguments.\n\nEach method returns an ArgBuilder seeded with the correct ArgKind\nand initial type-level config. Chain modifiers (`.optional()`, `.env()`,\n`.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.\n\nAll args are **required** by default. Resolution order when extra\nsources are configured: **CLI → stdin → env → default**.',
   },
   {
     id: '@kjanat/dreamcli:ArgKind',
@@ -1479,7 +1479,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ArgSchema',
     summary:
-      "The runtime descriptor stored inside every `ArgBuilder`. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics.",
+      "The runtime descriptor stored inside every ArgBuilder. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics.",
   },
   {
     id: '@kjanat/dreamcli:BeforeParseParams',
@@ -1508,7 +1508,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/CLIBuilder',
     summary:
-      'Immutable CLI program builder.\n\nRegisters commands, handles root-level `--help`/`--version`, and\ndispatches to the matched command based on argv.\n\nTwo execution paths:\n- `.execute(argv, options?)` — testable, returns `RunResult`\n- `.run(options?)` — production entry, reads `process.argv`, exits process',
+      'Immutable CLI program builder.\n\nRegisters commands, handles root-level `--help`/`--version`, and\ndispatches to the matched command based on argv.\n\nTwo execution paths:\n- `.execute(argv, options?)` — testable, returns RunResult\n- `.run(options?)` — production entry, reads `process.argv`, exits process',
   },
   {
     id: '@kjanat/dreamcli:CLIError',
@@ -1523,7 +1523,7 @@ export const generatedSymbolPages = [
     name: 'CLIErrorJSON',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/CLIErrorJSON',
-    summary: 'Shape returned by `CLIError.toJSON()`.',
+    summary: 'Shape returned by CLIError.toJSON().',
   },
   {
     id: '@kjanat/dreamcli:CLIErrorOptions',
@@ -1562,7 +1562,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/CLIRunOptions',
     summary:
-      'Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.\n\nMirrors `RunOptions` from testkit but adds CLI-level concerns\n(version display, root help formatting, runtime adapter).',
+      'Options for .execute() and .run().\n\nDerives from RunOptions while excluding command-execution internals\n(`meta`, `mergedSchema`) and adding the CLI-level runtime adapter.',
   },
   {
     id: '@kjanat/dreamcli:CLISchema',
@@ -1570,7 +1570,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/CLISchema',
     summary:
-      'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\nBuilt incrementally by `CLIBuilder`.',
+      'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\\\nBuilt incrementally by CLIBuilder.',
   },
   {
     id: '@kjanat/dreamcli:command',
@@ -1683,7 +1683,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ConfigSettings',
     summary:
-      'Config discovery settings for automatic config file loading.\n\nStored in CLISchema and consumed by `CLIBuilder.run()` to\ncall discoverConfig before dispatching to a command.',
+      'Config discovery settings for automatic config file loading.\n\nStored in CLISchema and consumed by () to call\ndiscoverConfig before dispatching to a command.',
   },
   {
     id: '@kjanat/dreamcli:ConfirmPromptConfig',
@@ -1743,7 +1743,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/DeriveHandler',
     summary:
-      'Command-scoped typed pre-action handler.\n\nDerive handlers may:\n- validate resolved input and throw `CLIError`\n- return `undefined` to continue without changing context\n- return an object whose properties merge into `ctx` downstream\n\nThey cannot wrap downstream execution; use `middleware()` for that.',
+      'Command-scoped typed pre-action handler.\n\nDerive handlers may:\n- validate resolved input and throw CLIError\n- return `undefined` to continue without changing context\n- return an object whose properties merge into `ctx` downstream\n\nThey cannot wrap downstream execution; use middleware for that.',
   },
   {
     id: '@kjanat/dreamcli:DeriveParams',
@@ -1843,7 +1843,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/FlagSchema',
     summary:
-      "The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
+      "The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
   },
   {
     id: '@kjanat/dreamcli:formatHelp',
@@ -1914,7 +1914,7 @@ export const generatedSymbolPages = [
     name: 'InferArg',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/InferArg',
-    summary: 'Extract the resolved value type from an `ArgBuilder`.',
+    summary: 'Extract the resolved value type from an ArgBuilder.',
   },
   {
     id: '@kjanat/dreamcli:InferArgs',
@@ -1935,7 +1935,7 @@ export const generatedSymbolPages = [
     name: 'InferFlag',
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/InferFlag',
-    summary: 'Extract the resolved value type from a `FlagBuilder`.',
+    summary: 'Extract the resolved value type from a FlagBuilder.',
   },
   {
     id: '@kjanat/dreamcli:InferFlags',
@@ -2018,7 +2018,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/middleware-type',
     summary:
-      'Middleware with phantom output type.\n\nThe `Output` parameter tracks what this middleware adds to context at\ncompile time. The `_output` brand is phantom — it exists only in the\ntype system for inference, not at runtime.\n\nCreated via the `middleware()` factory. Attached to commands via\n`CommandBuilder.middleware()`.',
+      'Middleware with phantom output type.\n\nThe `Output` parameter tracks what this middleware adds to context at\ncompile time. The `_output` brand is phantom — it exists only in the\ntype system for inference, not at runtime.\n\nCreated via the middleware factory. Attached to commands via\n`CommandBuilder.middleware()`.',
   },
   {
     id: '@kjanat/dreamcli:MiddlewareHandler',
@@ -2026,7 +2026,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/MiddlewareHandler',
     summary:
-      'Middleware handler function with typed `next()` parameter.\n\nThe `Output` generic constrains what properties must be passed to\n`next()`, ensuring type-safe context additions at the call site.',
+      'Middleware handler function with typed `next()` parameter.\n\nThe `Output` generic constrains what properties must be passed to\nnext(), ensuring type-safe context additions at the call site.',
   },
   {
     id: '@kjanat/dreamcli:MiddlewareParams',
@@ -2112,7 +2112,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ParseErrorOptions',
     summary:
-      'Options for `ParseError`. Code is narrowed to parse-specific codes.',
+      'Options for ParseError. Code is narrowed to parse-specific codes.',
   },
   {
     id: '@kjanat/dreamcli:ParseResult',
@@ -2226,7 +2226,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ResolvedMultiselectPromptConfig',
     summary:
-      'A multiselect prompt config with choices guaranteed non-empty.\n\nSame guarantee as `ResolvedSelectPromptConfig` — choices are always\npresent and non-empty.',
+      'A multiselect prompt config with choices guaranteed non-empty.\n\nSame guarantee as ResolvedSelectPromptConfig — choices are always\npresent and non-empty.',
   },
   {
     id: '@kjanat/dreamcli:ResolvedPromptConfig',
@@ -2234,7 +2234,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ResolvedPromptConfig',
     summary:
-      'Prompt config variant where select/multiselect choices are guaranteed\npresent. The prompt engine receives this (not raw `PromptConfig`),\nso it never needs to merge enum values from `FlagSchema`.\n\nconfirm and input configs pass through unchanged.',
+      'Prompt config variant where select/multiselect choices are guaranteed\npresent. The prompt engine receives this (not raw PromptConfig),\nso it never needs to merge enum values from `FlagSchema`.\n\nconfirm and input configs pass through unchanged.',
   },
   {
     id: '@kjanat/dreamcli:ResolvedSelectPromptConfig',
@@ -2242,7 +2242,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ResolvedSelectPromptConfig',
     summary:
-      "A select prompt config with choices guaranteed non-empty.\n\nThe resolution chain populates choices from `FlagSchema.enumValues`\nwhen the user's `PromptConfig` omits them.",
+      "A select prompt config with choices guaranteed non-empty.\n\nThe resolution chain populates choices from `FlagSchema.enumValues`\nwhen the user's PromptConfig omits them.",
   },
   {
     id: '@kjanat/dreamcli:ResolvedValue',
@@ -2393,7 +2393,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/ValidationErrorOptions',
     summary:
-      'Options for `ValidationError`. Code is narrowed to validation-specific codes.',
+      'Options for ValidationError. Code is narrowed to validation-specific codes.',
   },
   {
     id: '@kjanat/dreamcli:Verbosity',
@@ -2408,7 +2408,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/WithArgPresence',
     summary:
-      'Advanced type helper used by `ArgBuilder` modifiers to replace presence.\nMost consumers rely on inference and never reference this directly.',
+      'Advanced type helper used by ArgBuilder modifiers to replace presence.\nMost consumers rely on inference and never reference this directly.',
   },
   {
     id: '@kjanat/dreamcli:WithPresence',
@@ -2416,7 +2416,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/WithPresence',
     summary:
-      'Advanced type helper used by `FlagBuilder` modifiers to replace presence.\nMost consumers rely on inference and never reference this directly.',
+      'Advanced type helper used by FlagBuilder modifiers to replace presence.\nMost consumers rely on inference and never reference this directly.',
   },
   {
     id: '@kjanat/dreamcli:WithVariadic',
@@ -2424,7 +2424,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli',
     routePath: '/reference/symbols/main/WithVariadic',
     summary:
-      'Advanced type helper used by `ArgBuilder.variadic()`.\nMost consumers rely on inference and never reference this directly.',
+      'Advanced type helper used by ArgBuilder.variadic().\nMost consumers rely on inference and never reference this directly.',
   },
   {
     id: '@kjanat/dreamcli:WriteFn',
@@ -2491,7 +2491,7 @@ export const generatedSymbolPages = [
     entrypoint: '@kjanat/dreamcli/runtime',
     routePath: '/reference/symbols/runtime/RuntimeAdapter',
     summary:
-      'Runtime adapter interface.\n\nDefines the minimal contract between the platform-agnostic core and\nthe host runtime (Node.js, Bun, Deno). Every platform-dependent\noperation flows through this interface — the core never calls\n`process.*`, `Deno.*`, or `Bun.*` directly.\n\nAdapters are designed to be:\n- **Immutable in shape:** all properties are readonly\n- **Minimal:** only the operations the framework actually needs\n- **Testable:** easily stubbed in tests via `createTestAdapter()`',
+      'Runtime adapter interface.\n\nDefines the minimal contract between the platform-agnostic core and\nthe host runtime (Node.js, Bun, Deno). Every platform-dependent\noperation flows through this interface — the core never calls\n`process.*`, `Deno.*`, or `Bun.*` directly.\n\nAdapters are designed to be:\n- **Immutable in shape:** all properties are readonly\n- **Minimal:** only the operations the framework actually needs\n- **Testable:** easily stubbed in tests via createTestAdapter()',
   },
   {
     id: '@kjanat/dreamcli/runtime:RUNTIMES',

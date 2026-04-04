@@ -62,6 +62,8 @@ message: string;
 
 #### `name`
 
+Error name — always `'ExitError'` for `instanceof` checks.
+
 ```ts
 name: 'ExitError';
 ```

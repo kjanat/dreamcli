@@ -6,8 +6,8 @@
  * 1. **Tokenize** — split raw argv into structured tokens (long flags, short
  *    flags, positionals, separator). Schema-agnostic.
  *
- * 2. **Parse** — walk tokens against a `CommandSchema` to produce typed raw
- *    values. Emits `ParseError` for unknown flags, type mismatches, missing
+ * 2. **Parse** — walk tokens against a {@linkcode CommandSchema} to produce typed raw
+ *    values. Emits {@linkcode ParseError} for unknown flags, type mismatches, missing
  *    values.
  *
  * @module dreamcli/core/parse

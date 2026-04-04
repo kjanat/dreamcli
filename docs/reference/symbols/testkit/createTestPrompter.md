@@ -7,7 +7,7 @@ Generated reference page for the `createTestPrompter` function export.
 - Import: `@kjanat/dreamcli/testkit`
 - Export kind: function
 - Declared in: `src/core/prompt/index.ts`
-- Source link: [`src/core/prompt/index.ts:195`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L195)
+- Source link: [`src/core/prompt/index.ts:203`](https://github.com/kjanat/dreamcli/blob/master/src/core/prompt/index.ts#L203)
 
 ## Signatures
 
@@ -18,11 +18,11 @@ function createTestPrompter(
 ): PromptEngine;
 ```
 
-| Parameter     | Type                                | Description                                       |
-| ------------- | ----------------------------------- | ------------------------------------------------- |
-| `answers`     | `readonly unknown[]`                | Ordered queue of answers. Use `PROMPT_CANCEL` for |
-| cancellation. |                                     |                                                   |
-| `options`     | `TestPrompterOptions \\| undefined` | Controls behavior when the queue is exhausted.    |
+| Parameter     | Type                               | Description                                       |
+| ------------- | ---------------------------------- | ------------------------------------------------- |
+| `answers`     | `readonly unknown[]`               | Ordered queue of answers. Use `PROMPT_CANCEL` for |
+| cancellation. |                                    |                                                   |
+| `options`     | `TestPrompterOptions \| undefined` | Controls behavior when the queue is exhausted.    |
 
 ## Examples
 

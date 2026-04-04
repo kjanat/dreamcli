@@ -10,7 +10,7 @@ discoverConfig without depending on the full runtime adapter shape.
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/config/index.ts`
-- Source link: [`src/core/config/index.ts:261`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L261)
+- Source link: [`src/core/config/index.ts:263`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L263)
 
 ## Signatures
 

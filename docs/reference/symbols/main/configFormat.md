@@ -7,7 +7,7 @@ Generated reference page for the `configFormat` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/config/index.ts`
-- Source link: [`src/core/config/index.ts:385`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L385)
+- Source link: [`src/core/config/index.ts:387`](https://github.com/kjanat/dreamcli/blob/master/src/core/config/index.ts#L387)
 
 ## Signatures
 

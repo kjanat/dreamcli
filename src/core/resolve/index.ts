@@ -6,11 +6,11 @@
  *   between CLI and default.
  * v0.3 adds: **prompt resolution** between config and default.
  *
- * The resolver takes raw `ParseResult` (from the parser) and a
- * `CommandSchema`, applies the resolution chain, and validates
+ * The resolver takes raw {@linkcode ParseResult} (from the parser) and a
+ * {@linkcode CommandSchema}, applies the resolution chain, and validates
  * that all required flags/args are present. On success it returns a
- * `ResolveResult` with fully resolved values; on failure it throws
- * `ValidationError`.
+ * {@linkcode ResolveResult} with fully resolved values; on failure it throws
+ * {@linkcode ValidationError}.
  *
  * @module dreamcli/core/resolve
  */
@@ -27,15 +27,15 @@ import { resolveFlags } from './flags.ts';
  * Resolve parsed values against a command schema.
  *
  * Low-level API: most applications should rely on `cli().run()`, `.execute()`,
- * or `runCommand()`, which already call `resolve()` at the right time. Reach
- * for this function when testing precedence rules directly or building custom
- * execution flows around `CommandSchema`.
+ * or `runCommand()`, which already call {@linkcode resolve} at the right time.
+ * Reach for this function when testing precedence rules directly or building
+ * custom execution flows around {@linkcode CommandSchema}.
  *
  * Resolution order:
- * 1. CLI parsed value (from `ParseResult`)
- * 2. Env variable (from `ResolveOptions.env`, if flag declares `envVar`)
- * 3. Config value (from `ResolveOptions.config`, if flag declares `configPath`)
- * 4. Prompt (from `ResolveOptions.prompter`, if flag declares `prompt`)
+ * 1. CLI parsed value (from {@linkcode ParseResult})
+ * 2. Env variable (from {@linkcode ResolveOptions.env}, if flag declares `envVar`)
+ * 3. Config value (from {@linkcode ResolveOptions.config}, if flag declares `configPath`)
+ * 4. Prompt (from {@linkcode ResolveOptions.prompter}, if flag declares `prompt`)
  * 5. Default value (from schema)
  *
  * After resolution, validates that all required flags and args have
@@ -46,7 +46,7 @@ import { resolveFlags } from './flags.ts';
  * @param parsed - Raw parsed values from the parser
  * @param options - External state for the resolution chain
  * @returns Fully resolved flag and arg values
- * @throws ValidationError if any required flag or arg is missing,
+ * @throws {@linkcode ValidationError} if any required flag or arg is missing,
  *   or if an env/config value fails coercion
  *
  * @example

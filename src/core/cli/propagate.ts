@@ -16,7 +16,7 @@ import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts'
 /**
  * Collect propagated flags from a command path.
  *
- * The command path is an ordered array of `CommandSchema` from the root
+ * The command path is an ordered array of {@linkcode CommandSchema} from the root
  * ancestor to the target command that will actually execute. Each ancestor's
  * flags marked `propagate: true` are accumulated. If a descendant (including
  * the target) defines a flag with the same name — regardless of whether the

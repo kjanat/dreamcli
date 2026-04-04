@@ -2,10 +2,10 @@
 
 # `CLIRunOptions`
 
-Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.
+Options for .execute() and .run().
 
-Mirrors `RunOptions` from testkit but adds CLI-level concerns
-(version display, root help formatting, runtime adapter).
+Derives from RunOptions while excluding command-execution internals
+(`meta`, `mergedSchema`) and adding the CLI-level runtime adapter.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
@@ -15,7 +15,7 @@ Mirrors `RunOptions` from testkit but adds CLI-level concerns
 ## Signatures
 
 ```ts
-interface CLIRunOptions {}
+interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {}
 ```
 
 ## Members
@@ -49,10 +49,10 @@ answers?: readonly unknown[];
 
 #### `captured`
 
-Capture buffers paired with `out`.
+Capture buffers override paired with `out`.
 
-— `run()` omits this and accepts empty buffers in the returned
-`RunResult` because output is already written to the real adapter streams.
+— when omitted, `runCommand()` creates empty buffers for the
+returned RunResult while writing directly to the provided `out`.
 
 ```ts
 captured?: CapturedOutput;
@@ -75,7 +75,7 @@ config?: Readonly<Record<string, unknown>>;
 Environment variables for flag resolution.
 
 Flags with `.env('VAR')` configured resolve from this record
-when no CLI value is provided (CLI → env → config → default).
+when no CLI value is provided (CLI → env → config → prompt → default).
 
 ```ts
 env?: Readonly<Record<string, string | undefined>>;
@@ -84,7 +84,7 @@ env?: Readonly<Record<string, string | undefined>>;
 #### `help`
 
 Help formatting options (width, binName).
-`binName` defaults to the CLI program name.
+Used when `--help` is detected.
 
 ```ts
 help?: HelpOptions;
@@ -94,9 +94,9 @@ help?: HelpOptions;
 
 Whether stdout is connected to a TTY.
 
-When provided, propagated to the output channel's `isTTY` field.
-In `.run()`, automatically sourced from `adapter.isTTY` when not
-explicitly set.
+Handlers can check out.isTTY to decide whether to emit decorative
+output (spinners, progress bars, ANSI codes). Defaults to `false`
+(safe default for tests — non-TTY until proven otherwise).
 
 ```ts
 isTTY?: boolean;
@@ -107,7 +107,7 @@ isTTY?: boolean;
 Enable JSON output mode.
 
 When `true`, `log` and `info` messages are redirected to stderr
-so that stdout is reserved exclusively for structured `json()` output.
+so that stdout is reserved exclusively for structured json() output.
 Errors are also rendered as JSON to stderr.
 
 ```ts
@@ -116,9 +116,10 @@ jsonMode?: boolean;
 
 #### `out`
 
-Output channel override used by `run()` for live terminal rendering.
+Output channel override used by live CLI execution.
 
-— `execute()` remains capture-first by default.
+— `CLIBuilder.run()` passes a real output channel so activity renders to
+the terminal instead of being captured.
 
 ```ts
 out?: Out;
@@ -126,9 +127,9 @@ out?: Out;
 
 #### `plugins`
 
-CLI plugins to apply for this execution.
+CLI plugins registered on the parent `CLIBuilder`.
 
-— populated from `CLIBuilder.schema.plugins` during dispatch.
+— threaded through from CLI dispatch.
 
 ```ts
 plugins?: readonly CLIPlugin[];
@@ -140,7 +141,9 @@ Prompt engine for interactive flag resolution.
 
 When provided, flags with `.prompt()` configured that have no value
 after CLI/env/config resolution will be prompted interactively.
-When absent (and `answers` is also absent), prompting is skipped.
+
+When absent (and `answers` is also absent), prompting is skipped
+and resolution falls through to default/required.
 
 Takes precedence over `answers` when both are provided.
 
@@ -152,9 +155,7 @@ prompter?: PromptEngine;
 
 Full stdin contents for args configured with `.stdin()`.
 
-`run()` populates this from `adapter.readStdin()` only when the selected
-invocation needs stdin. `execute()` accepts it directly so tests can
-simulate piped input without a runtime adapter.
+Lets tests inject piped input without a runtime adapter.
 
 ```ts
 stdinData?: string | "null";

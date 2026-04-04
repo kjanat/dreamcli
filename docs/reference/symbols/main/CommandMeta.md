@@ -13,7 +13,7 @@ a CLI wrapper, a minimal meta is constructed from the command's own schema.
 - Import: `@kjanat/dreamcli`
 - Export kind: interface
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:272`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L272)
+- Source link: [`src/core/schema/command.ts:274`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L274)
 
 ## Signatures
 

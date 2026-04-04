@@ -7,7 +7,7 @@ Generated reference page for the `isValidationError` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/errors/index.ts`
-- Source link: [`src/core/errors/index.ts:176`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L176)
+- Source link: [`src/core/errors/index.ts:191`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L191)
 
 ## Signatures
 

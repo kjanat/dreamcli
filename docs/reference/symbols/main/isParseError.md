@@ -7,7 +7,7 @@ Generated reference page for the `isParseError` function export.
 - Import: `@kjanat/dreamcli`
 - Export kind: function
 - Declared in: `src/core/errors/index.ts`
-- Source link: [`src/core/errors/index.ts:171`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L171)
+- Source link: [`src/core/errors/index.ts:186`](https://github.com/kjanat/dreamcli/blob/master/src/core/errors/index.ts#L186)
 
 ## Signatures
 

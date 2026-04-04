@@ -19,6 +19,7 @@ type PromptResolveResult =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError | undefined };
 
+/** Walk every declared flag through the resolution chain (cli -> env -> config -> prompt -> default), collecting deprecations and throwing aggregated errors. */
 async function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
 	parsedFlags: Readonly<Record<string, unknown>>,

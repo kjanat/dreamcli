@@ -75,6 +75,7 @@ interface ConfigDiscoveryOptions {
 
 /** Successful config discovery — file found and parsed. */
 interface ConfigFound {
+	/** Discriminant — `true` indicates a config file was found and parsed successfully. */
 	readonly found: true;
 	/** Absolute path to the config file that was loaded. */
 	readonly path: string;
@@ -86,6 +87,7 @@ interface ConfigFound {
 
 /** No config file found at any candidate path (not an error). */
 interface ConfigNotFound {
+	/** Discriminant — `false` indicates no config file exists at any candidate path. */
 	readonly found: false;
 }
 
@@ -265,7 +267,7 @@ type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
  *
  * Low-level discovery helper behind `CLIBuilder.config()`. Most apps should
  * let the CLI runtime call this automatically; call it directly when testing
- * config behavior or building custom bootstrapping around `RuntimeAdapter`.
+ * config behavior or building custom bootstrapping around {@linkcode RuntimeAdapter}.
  *
  * Pure function — all filesystem I/O flows through `adapter.readFile`.
  * Returns a discriminated union: `{ found: true, ... }` when a config

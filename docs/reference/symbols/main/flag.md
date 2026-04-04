@@ -8,7 +8,7 @@ FlagBuilder with full type inference and safe modifier chaining.
 - Import: `@kjanat/dreamcli`
 - Export kind: constant
 - Declared in: `src/core/schema/flag.ts`
-- Source link: [`src/core/schema/flag.ts:656`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L656)
+- Source link: [`src/core/schema/flag.ts:658`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/flag.ts#L658)
 
 ## Signatures
 

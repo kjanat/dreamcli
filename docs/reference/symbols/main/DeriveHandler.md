@@ -6,16 +6,16 @@ Command-scoped typed pre-action handler.
 
 Derive handlers may:
 
-- validate resolved input and throw `CLIError`
+- validate resolved input and throw CLIError
 - return `undefined` to continue without changing context
 - return an object whose properties merge into `ctx` downstream
 
-They cannot wrap downstream execution; use `middleware()` for that.
+They cannot wrap downstream execution; use middleware for that.
 
 - Import: `@kjanat/dreamcli`
 - Export kind: type
 - Declared in: `src/core/schema/command.ts`
-- Source link: [`src/core/schema/command.ts:365`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L365)
+- Source link: [`src/core/schema/command.ts:372`](https://github.com/kjanat/dreamcli/blob/master/src/core/schema/command.ts#L372)
 
 ## Signatures
 

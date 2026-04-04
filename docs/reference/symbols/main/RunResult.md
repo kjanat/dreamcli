@@ -27,7 +27,7 @@ interface RunResult {}
 Captured spinner and progress lifecycle events.
 
 Recorded separately from stdout/stderr — handlers that call
-`out.spinner()` or `out.progress()` produce events here, enabling
+out.spinner() or out.progress() produce events here, enabling
 targeted assertions on activity lifecycle without parsing text.
 
 ```ts
@@ -37,7 +37,7 @@ activity: readonly ActivityEvent[];
 #### `error`
 
 The error that caused a non-zero exit, or `undefined` on success.
-`CLIError` instances are preserved; unknown errors are wrapped.
+CLIError instances are preserved; unknown errors are wrapped.
 
 ```ts
 error: CLIError | undefined;

@@ -33,6 +33,22 @@
 				"ignore_system_version": false,
 				"arguments": ["lsp"]
 			}
+		},
+		"json-language-server": {
+			"settings": {
+				"json": {
+					"schemas": [
+						{
+							"fileMatch": [".attw.json"],
+							"url": "https://gist.githubusercontent.com/kjanat/46efa8c04bf3ed10c406d1965c546177/raw/3e85defc22383f8689a130785321d7da37f3677d/attw.schema.json"
+						},
+						{
+							"fileMatch": ["typedoc.json"],
+							"url": "https://typedoc.org/schema.json"
+						}
+					]
+				}
+			}
 		}
 	}
 }
