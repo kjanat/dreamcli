@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-11 **Commit:** b08fc87 **Branch:** v0.9-deno-adapter
+**Generated:** 2026-04-04 **Commit:** 227385a **Branch:** dreamcli-re-foundation
 
 ## OVERVIEW
 
@@ -21,18 +21,20 @@ Agent memory for non-obvious repo gotchas lives there.
 src/
 ├── index.ts                # Public API barrel (explicit named re-exports, no wildcards)
 ├── core/
-│   ├── cli/                # CLIBuilder — multi-command dispatch, --json, middleware wiring
-│   │   └── root-help.ts    # Root help formatter for multi-command CLIs
-│   ├── completion/         # Shell completion generation (bash/zsh, nested commands)
+│   ├── cli/                # CLIBuilder — multi-command dispatch, plugins, runtime preflight
+│   ├── completion/         # Shell completion generation (bash/zsh + fish/powershell stubs)
+│   │   └── shells/         # Per-shell generators + shared tree walker
 │   ├── config/             # Config file discovery + loading (XDG paths, JSON, plugin hook)
 │   ├── errors/             # CLIError/ParseError/ValidationError hierarchy + type guards
+│   ├── execution/          # Shared parse → resolve → plugin → handler pipeline (@internal)
 │   ├── help/               # formatHelp() — text formatter for command help
+│   ├── json-schema/        # Schema → JSON Schema generation + definition metadata
 │   ├── output/             # OutputChannel — stdout/stderr, json/table/TTY, spinner/progress
 │   ├── parse/              # Tokenizer + parser (argv → Token[] → ParseResult)
 │   ├── prompt/             # PromptEngine — terminal/test prompters, interactive resolution
 │   ├── resolve/            # Flag/arg resolution chain: CLI → env → config → prompt → default
 │   ├── schema/             # CommandBuilder/FlagBuilder/ArgBuilder + middleware + prompt schemas
-│   │   └── activity.ts     # ActivityConfig/ActivityEvent types for spinner/progress
+│   ├── schema-dsl/         # String-literal schema definitions with compile-time type inference
 │   └── testkit/            # runCommand() — in-process test harness (public API)
 └── runtime/
     ├── adapter.ts          # RuntimeAdapter interface (process abstraction)
@@ -40,53 +42,58 @@ src/
     ├── node.ts             # Node.js adapter implementation
     ├── bun.ts              # Bun adapter (delegates to Node adapter)
     ├── deno.ts             # Deno adapter (permission-safe Deno namespace)
-    └── detect.ts           # Runtime auto-detection (Bun/Deno/Node feature detection)
+    ├── detect.ts           # Runtime auto-detection (Bun/Deno/Node feature detection)
+    ├── paths.ts            # @internal — XDG/platform path resolution
+    └── support.ts          # @internal — runtime feature support detection
 ```
 
 ## WHERE TO LOOK
 
-| Task                           | Location                        | Notes                                         |
-| ------------------------------ | ------------------------------- | --------------------------------------------- |
-| Add a new command feature      | `src/core/schema/`              | CommandBuilder, then wire through cli/testkit |
-| Add a new flag type            | `src/core/schema/flag.ts`       | FlagBuilder + FlagKind union                  |
-| Fix argument parsing           | `src/core/parse/`               | Tokenizer + parser, single `index.ts`         |
-| Fix value resolution           | `src/core/resolve/`             | Resolution chain (~1.1k lines)                |
-| Add output format              | `src/core/output/`              | OutputChannel, Out interface in schema        |
-| Add spinner/progress behavior  | `src/core/output/`              | Activity handles (TTY/static/capture/noop)    |
-| Test a command                 | `src/core/testkit/`             | `runCommand()` with `RunOptions`              |
-| Add middleware                 | `src/core/schema/middleware.ts` | `middleware()` factory                        |
-| Multi-command CLI behavior     | `src/core/cli/`                 | CLIBuilder dispatch + error rendering         |
-| Shell completions              | `src/core/completion/`          | Bash/zsh script generation from command tree  |
-| Config file discovery          | `src/core/config/`              | XDG search paths, format loaders              |
-| Runtime adapter (new platform) | `src/runtime/`                  | Implement RuntimeAdapter interface            |
-| Interactive prompts            | `src/core/prompt/`              | PromptEngine + resolver integration           |
+| Task                           | Location                        | Notes                                           |
+| ------------------------------ | ------------------------------- | ----------------------------------------------- |
+| Add a new command feature      | `src/core/schema/`              | CommandBuilder, then wire through cli/testkit   |
+| Add a new flag type            | `src/core/schema/flag.ts`       | FlagBuilder + FlagKind union                    |
+| Fix argument parsing           | `src/core/parse/`               | Tokenizer + parser, single `index.ts`           |
+| Fix value resolution           | `src/core/resolve/`             | Split into args/flags/coerce/config/errors      |
+| Add output format              | `src/core/output/`              | OutputChannel, Out interface in schema          |
+| Add spinner/progress behavior  | `src/core/output/`              | Activity handles (TTY/static/capture/noop)      |
+| Test a command                 | `src/core/testkit/`             | `runCommand()` with `RunOptions`                |
+| Add middleware                 | `src/core/schema/middleware.ts` | `middleware()` factory                          |
+| Multi-command CLI behavior     | `src/core/cli/`                 | CLIBuilder dispatch + plugins + error rendering |
+| Shell completions              | `src/core/completion/`          | Bash/zsh generators from command tree           |
+| Config file discovery          | `src/core/config/`              | XDG search paths, format loaders                |
+| Runtime adapter (new platform) | `src/runtime/`                  | Implement RuntimeAdapter interface              |
+| Interactive prompts            | `src/core/prompt/`              | PromptEngine + resolver integration             |
+| Generate JSON Schema           | `src/core/json-schema/`         | Schema → JSON Schema + meta-descriptions        |
+| String-literal schema DSL      | `src/core/schema-dsl/`          | Compile-time parsing + runtime builder          |
+| Shared execution pipeline      | `src/core/execution/`           | @internal parse → resolve → handler flow        |
+| CLI plugins                    | `src/core/cli/plugin.ts`        | Plugin system + lifecycle hooks                 |
 
 ## DEPENDENCY GRAPH
 
 ```text
-errors, schema          ← LEAF (zero internal deps)
-  ↑
-parse, help, output     ← depend on schema/errors
-  ↑
-prompt, config          ← depend on output/schema
-  ↑
-resolve                 ← depends on parse/prompt/schema/errors
-  ↑
-completion, testkit     ← depend on many lower modules
-  ↑
-cli                     ← TOP — depends on nearly everything
+errors, schema          <- LEAF (zero internal deps)
+  ^
+parse, help, output     <- depend on schema/errors
+  ^
+prompt, config          <- depend on output/schema
+  ^
+resolve                 <- depends on parse/prompt/schema/errors
+  ^
+execution               <- depends on resolve/output/schema/errors (@internal shared pipeline)
+  ^
+completion, testkit     <- depend on many lower modules
+  ^
+cli                     <- TOP — depends on nearly everything (incl. execution, plugins)
 ```
 
 Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts` directly
 (bypassing barrel). `completion/` imports `cli/propagate.ts` directly. `output/` imports
-`schema/command.ts` directly. `output/` imports `schema/activity.ts` directly (not through barrel).
-`runtime/adapter.ts` imports `WriteFn` from `core/output/` and `ReadFn` from `core/prompt/` —
-runtime depends on core types (not truly independent layer).
+`schema/command.ts` and `schema/activity.ts` directly. `runtime/adapter.ts` imports `WriteFn` from
+`core/output/` and `ReadFn` from `core/prompt/` — runtime depends on core types.
 
 `RunResult` lives in `schema/run.ts` (not testkit) — schema is its natural home since
 `ErasedCommand._execute` returns it. `testkit/index.ts` re-exports `RunResult` from schema.
-`ErasedCommand._execute` options parameter is `Readonly<Record<string, unknown>>` — maximally loose
-at the schema boundary (only cli dispatch calls it, always with full `RunOptions`).
 
 ## CONVENTIONS
 
@@ -96,14 +103,12 @@ at the schema boundary (only cli dispatch calls it, always with full `RunOptions
 - **Maximum TS strictness** — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
 - **No `any`** (biome warns), **no `!` non-null assertion** (biome info)
 - **Barrel-per-module** — each module has `index.ts` re-exporting public symbols
-- **`@internal` JSDoc** marks symbols excluded from public API (86 usages across 14 files)
+- **`@internal` JSDoc** marks symbols excluded from public API
 - **Tests co-located** — `*.test.ts` next to source, aspect-split: `cli-json.test.ts`
 - **Em-dash in describes** — `describe('thing — behavior', ...)`
 - **Section separators** — `// ===` major, `// ---` minor, in all test files
 - **Zero lifecycle hooks** in tests — isolation via testkit architecture
 - **Zero snapshots** — all assertions explicit
-- **`biome-ignore noBannedTypes`** — 42 occurrences, all justified (40 test, 2 production for `{}`
-  generic accumulator)
 - Formatter: **dprint** (delegates JS/TS to biome plugin). Linter: **biome**
 - Type checker: **tsgo** (native preview) primary, `tsc` fallback
 - Bundler: **tsdown** with built-in `publint` + `attw --strict`
@@ -116,7 +121,7 @@ at the schema boundary (only cli dispatch calls it, always with full `RunOptions
 - **`exactOptionalPropertyTypes`** forces conditional spread: `...(x !== undefined ? { x } : {})`
 - **Output assertions include trailing `\n`** — `['Hello\n']` not `['Hello']`
 - `as` casts exist only at type-erasure boundaries (phantom brands, heterogeneous storage) and
-  runtime detection boundaries — all guarded (9 in production, all documented)
+  runtime detection boundaries — all guarded
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
@@ -142,26 +147,32 @@ bun run format:check # dprint check
 bun run test         # vitest run
 bun run test:watch   # vitest (watch mode)
 bun run bd           # tsdown (bundle + dts + publint + attw)
-bun run ci           # check → lint → test → build (sequential)
+bun run ci           # check -> lint -> test -> build (sequential)
 ```
 
 ## NOTES
 
 - **CI**: GitHub Actions — lint+typecheck (Bun), test matrix (Node LTS + Bun), Deno smoke test,
-  build
-- **JSR publishing** — `deno.json` (`@kjanat/dreamcli`), GitHub Actions publish workflow with OIDC
+  build, coverage (Node only, v8 provider)
+- **JSR publishing** — `deno.jsonc` (`@kjanat/dreamcli`), GitHub Actions publish workflow with OIDC
 - **npm publishing** — manual `bun publish`, quality gates in build step
-- **~32 source files, 47 test files, ~10.1k source lines** — 1695 tests
-- **5 files >500 lines** — `resolve/index.ts` (940), `cli/index.ts` (793), `schema/command.ts`
-  (784), `completion/index.ts` (786), `output/activity.ts` (581)
-- `cli/index.ts` partially split: `dispatch.ts` + `propagate.ts` extracted as `@internal`
+- **~62 source files, 66 test files, ~17.5k source lines** — ~2200 tests
+- **13 files >500 lines** — `schema/command.ts` (1466), `cli/index.ts` (1015), `json-schema/index.ts` (891),
+  `schema/flag.ts` (753), `schema/arg.ts` (713), `output/index.ts` (669), `parse/index.ts` (661),
+  `schema-dsl/runtime.ts` (574), `output/activity.ts` (568), `prompt/index.ts` (566),
+  `help/index.ts` (557), `resolve/coerce.ts` (429), `deno.ts` (355)
+- `cli/index.ts` split: `dispatch.ts` + `propagate.ts` + `planner.ts` + `plugin.ts` +
+  `root-help.ts` + `root-surface.ts` + `runtime-preflight.ts` extracted as `@internal`
+- `resolve/` split: `coerce.ts` + `flags.ts` + `args.ts` + `config.ts` + `errors.ts` +
+  `property.ts` + `contracts.ts` extracted from monolithic index
 - Prompt types defined in `schema/prompt.ts` but consumed by `core/prompt/` directly (bypasses
   barrel to avoid circular dep)
 - `stdinIsTTY` gates interactive prompt auto-creation in `cli/index.ts` — prompts only activate when
   stdin is a TTY
-- Three subpath exports: `"."`, `"./testkit"`, `"./runtime"`
+- Three subpath exports: `"."`, `"./testkit"`, `"./runtime"` + `"./schema"` (JSON Schema)
 - `src/` included in `files` (published source)
 - `node-builtins.d.ts` — handwritten ambient module declarations for `node:readline` and
   `node:fs/promises` to avoid `@types/node` dependency
 - Fake timers in tests: inline `vi.useFakeTimers()` with `try/finally`, never lifecycle hooks
-- No `README.md` — pre-publish
+- Version sync enforced: `scripts/check-version-sync.ts` validates package.json == deno.jsonc
+- Engine requirements: Node >=22.22.2, Bun >=1.3.11, Deno >=2.6.0

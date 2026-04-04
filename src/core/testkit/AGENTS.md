@@ -1,16 +1,13 @@
 # testkit — In-process test harness (public API)
 
-Not just test utilities — first-class module exported from the package. Testkit symbols are
-re-exported from the `dreamcli/testkit` subpath (curating barrel at `src/testkit.ts`). This internal
-`core/testkit/` module is unchanged.
+First-class module exported from `dreamcli/testkit` subpath (curating barrel at `src/testkit.ts`).
 
 ## CORE API
 
 **`runCommand(cmd, argv, options?): Promise<RunResult>`**
 
-Thin in-process wrapper over the shared executor: create capture output, forward injected execution
-options, and return captured output. Shared executor code owns parse → resolve → middleware → action
-semantics and calls `out.stopActive()` for cleanup.
+Thin in-process wrapper over the shared executor (`execution/`): create capture output, forward
+injected execution options, and return captured output.
 
 **`RunResult`** (defined in `schema/run.ts`, re-exported here):
 `{ exitCode, stdout: string[], stderr: string[], activity: ActivityEvent[], error? }`
@@ -28,7 +25,7 @@ semantics and calls `out.stopActive()` for cleanup.
 | `isTTY`     | boolean — simulate TTY                            |
 | `help`      | `HelpOptions` — help formatting (width, binName)  |
 
-## TEST FILES (7)
+## TEST FILES (9)
 
 | File                             | Tests                                         |
 | -------------------------------- | --------------------------------------------- |
@@ -37,8 +34,10 @@ semantics and calls `out.stopActive()` for cleanup.
 | `testkit-tty.test.ts`            | TTY detection + behavior                      |
 | `testkit-prompt.test.ts`         | Prompt resolution via answers                 |
 | `testkit-nesting.test.ts`        | Nested command dispatch via testkit           |
+| `testkit-stdin.test.ts`          | Stdin-based input testing                     |
 | `output-e2e.test.ts`             | Full pipeline: output modes x verbosity x CLI |
 | `middleware-context-e2e.test.ts` | Middleware composition + context typing       |
+| `executor-contract.test.ts`      | Executor contract verification                |
 
 ## ASSERTIONS
 
@@ -52,5 +51,5 @@ semantics and calls `out.stopActive()` for cleanup.
 
 - `mergedSchema` field on `RunOptions` is `@internal` — used by CLI dispatch layer only
 - `CaptureOutputChannel` (from output/) wired here for output + activity capture
-- `formatRootHelp()` (in `cli/root-help.ts`) re-exported as `@internal` for CLI-level help rendering
+- Execution pipeline shared with CLI via `execution/index.ts` (@internal)
 - Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)
