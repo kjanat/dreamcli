@@ -147,7 +147,7 @@ clean.
 A string error code (`CONFIG_NOT_FOUND`, `AUTH_REQUIRED`) is more useful than a number for
 programmatic handling:
 
-```ts
+```ts twoslash
 // Scripts can match on the code
 if (result.error.code === 'AUTH_REQUIRED') {
   // refresh token and retry

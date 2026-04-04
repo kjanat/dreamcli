@@ -74,7 +74,7 @@ Groups can be nested arbitrarily deep.
 
 ### Description and Examples
 
-```ts
+```ts twoslash
 command('deploy')
   .description('Deploy to an environment')
   .example('deploy production', 'Deploy to prod')
@@ -85,7 +85,7 @@ command('deploy')
 
 Set a default command that runs when no subcommand is specified:
 
-```ts
+```ts twoslash
 cli('mycli').default(mainCommand).command(other).run();
 ```
 
@@ -99,7 +99,7 @@ For the exact root, help, and completion rules, see [CLI Semantics](/guide/seman
 
 ### Version
 
-```ts
+```ts twoslash
 cli('mycli').version('1.0.0').run();
 ```
 
@@ -109,24 +109,26 @@ Adds `--version` / `-V` automatically.
 
 The `.action()` callback receives a single object with typed fields:
 
-```ts
-.action(({ args, flags, ctx, meta, out }) => {
+```ts twoslash
+command('deploy').action(({ args, flags, ctx, meta, out }) => {
   // args  — typed positional arguments
   // flags — typed flag values (fully resolved)
   // ctx   — typed middleware context
   // meta  — CLI metadata: name (program name), bin (invoked binary name),
   //         version (program version), command (leaf command name)
   // out   — output channel
-})
+});
 ```
 
 Actions can be `async`:
 
-```ts
-.action(async ({ args, flags, out }) => {
-  const result = await deploy(args.target, flags);
-  out.json(result);
-})
+```ts twoslash
+command('deploy')
+  .arg('target', arg.string())
+  .action(async ({ args, flags, out }) => {
+    const result = await deploy(args.target, flags);
+    out.json(result);
+  });
 ```
 
 ## What's Next?

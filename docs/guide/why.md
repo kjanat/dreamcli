@@ -30,7 +30,7 @@ The insight was wiring them so types flow end-to-end.
 
 One flag declaration:
 
-```ts
+```ts twoslash
 flag
   .enum(['us', 'eu', 'ap'])
   .alias('r')

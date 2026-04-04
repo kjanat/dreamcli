@@ -64,7 +64,7 @@ That's a working CLI. But it's hardcoded and flat. Let's fix both.
 Real CLIs filter things.
 Let's add mock data and flags to filter by state:
 
-```ts twoslash
+```ts twoslash include walkthrough-pr-setup
 import { cli, command, flag } from '@kjanat/dreamcli';
 
 type PR = {
@@ -147,17 +147,27 @@ Printing lines is fine, but tabular data deserves a table. And scripts need JSON
 
 Replace the `for` loop with `out.table()`:
 
-```ts
-.action(({ flags, out }) => {
+```ts twoslash
+// Reuses the Step 2 PR setup.
+// ---cut-start---
+// @include: walkthrough-pr-setup
+// ---cut-end---
+
+prList.action(({ flags, out }) => {
   let results = [...pullRequests];
   if (flags.state !== 'all') {
-    results = results.filter(p => p.state === flags.state);
+    results = results.filter((p) => p.state === flags.state);
   }
   results = results.slice(0, flags.limit);
 
   // out.table() renders a formatted table in TTY, JSON array in --json mode
   out.table(
-    results.map(p => ({ '#': p.number, title: p.title, state: p.state, author: p.author })),
+    results.map((p) => ({
+      '#': p.number,
+      title: p.title,
+      state: p.state,
+      author: p.author,
+    })),
   );
 });
 ```
@@ -253,23 +263,12 @@ You can nest them as deep as you want.
 `gh pr view 142` takes a PR number as a positional argument — not a flag, not a named value, just the first thing after `view`:
 
 ```ts twoslash
-import { arg, command, CLIError } from '@kjanat/dreamcli';
+import { arg, CLIError } from '@kjanat/dreamcli';
 
-type PullRequest = {
-  readonly number: number;
-  readonly title: string;
-  readonly state: 'open' | 'closed' | 'merged';
-  readonly author: string;
-};
-
-const pullRequests: readonly PullRequest[] = [
-  {
-    number: 142,
-    title: 'Add dark mode toggle',
-    state: 'open',
-    author: 'alice',
-  },
-];
+// Reuses the Step 2 command imports, PR type, and pullRequests mock data.
+// ---cut-start---
+// @include: walkthrough-pr-setup
+// ---cut-end---
 
 const prView = command('view')
   .description('View a pull request')
@@ -307,7 +306,7 @@ You *could* check for a token in every single action handler, but that's repetit
 
 `derive()` solves this cleanly:
 
-```ts
+```ts twoslash include walkthrough-require-auth
 import { CLIError } from '@kjanat/dreamcli';
 
 function requireAuth(token: string | undefined): { token: string } {
@@ -331,20 +330,23 @@ Now wire it up:
 
 ::: code-group
 
-```ts [derive()]
+```ts twoslash [derive()]
+// ---cut-start---
+// @include: walkthrough-require-auth
+// ---cut-end---
+
 const prList = command('list')
   .description('List pull requests')
   .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
   .derive(({ flags }) => requireAuth(flags.token))
-  .flag('state', ...)
-  .action(({ flags, ctx, out }) => {
+  .flag('state', flag.enum(['open', 'closed', 'merged', 'all']).default('open'))
+  .action(({ ctx, out }) => {
     // ctx.token is typed as `string` — guaranteed by derive
     out.info(`Authenticated with ${ctx.token.slice(0, 8)}...`);
-    // ...list PRs...
   });
 ```
 
-```ts [middleware()]
+```ts twoslash [middleware()]
 import { CLIError, middleware } from '@kjanat/dreamcli';
 
 const requireAuth = middleware<{ token: string }>(({ flags, next }) => {
@@ -363,10 +365,9 @@ const prList = command('list')
   .description('List pull requests')
   .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
   .middleware(requireAuth)
-  .flag('state', ...)
-  .action(({ flags, ctx, out }) => {
+  .flag('state', flag.enum(['open', 'closed', 'merged', 'all']).default('open'))
+  .action(({ ctx, out }) => {
     out.info(`Authenticated with ${ctx.token.slice(0, 8)}...`);
-    // ...list PRs...
   });
 ```
 
@@ -387,17 +388,29 @@ The real `gh auth login` lets you paste a token interactively or set `GH_TOKEN` 
 
 dreamcli's resolution chain handles this naturally:
 
-```ts
+```ts twoslash include walkthrough-auth-helpers
+import { command, flag } from '@kjanat/dreamcli';
+
+// ---cut-start---
+// @include: walkthrough-require-auth
+// ---cut-end---
+
+const tokenFlag = (description = 'GitHub token') =>
+  flag
+    .string()
+    .env('GH_TOKEN')
+    .describe(description)
+    .prompt({ kind: 'input', message: 'Paste your GitHub token:' })
+    .required();
+
+const authedCommand = (name: string) =>
+  command(name)
+    .flag('token', tokenFlag())
+    .derive(({ flags }) => requireAuth(flags.token));
+
 const authLogin = command('login')
   .description('Authenticate with GitHub')
-  .flag(
-    'token',
-    flag
-      .string()
-      .env('GH_TOKEN')
-      .describe('Authentication token')
-      .prompt({ kind: 'input', message: 'Paste your GitHub token:' }),
-  )
+  .flag('token', tokenFlag('Authentication token'))
   .action(({ flags, out }) => {
     const display = `${flags.token.slice(0, 8)}...${flags.token.slice(-4)}`;
     out.log(`Logged in with token ${display}`);
@@ -433,7 +446,13 @@ Per-flag prompts are great when every command always asks the same question.
 
 That's what `.interactive()` is for:
 
-```ts
+```ts twoslash
+import { arg } from '@kjanat/dreamcli';
+
+// ---cut-start---
+// @include: walkthrough-auth-helpers
+// ---cut-end---
+
 const issueTriage = authedCommand('triage')
   .description('Triage an issue with guided prompts')
   .arg('number', arg.number().describe('Issue number'))
@@ -493,18 +512,21 @@ That's also why `issue` stays smaller than `pr`: `pr` teaches the core API-shape
 
 Creating a PR involves an API call. In a real terminal, you'd show a spinner:
 
-```ts
-const prCreate = command('create')
+```ts twoslash
+// ---cut-start---
+// @include: walkthrough-auth-helpers
+// ---cut-end---
+
+const prCreate = authedCommand('create')
   .description('Create a pull request')
-  .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
-  .derive(({ flags }) => requireAuth(flags.token))
   .flag(
     'title',
     flag
       .string()
       .alias('t')
       .describe('PR title')
-      .prompt({ kind: 'input', message: 'Title:' }),
+      .prompt({ kind: 'input', message: 'Title:' })
+      .required(),
   )
   .flag(
     'body',
@@ -512,7 +534,8 @@ const prCreate = command('create')
       .string()
       .alias('b')
       .describe('PR body')
-      .prompt({ kind: 'input', message: 'Body:' }),
+      .prompt({ kind: 'input', message: 'Body:' })
+      .required(),
   )
   .flag(
     'draft',
@@ -551,7 +574,7 @@ When piped or in `--json` mode, spinners are suppressed automatically — no gar
 This is where it gets interesting.
 You don't want to spawn subprocesses to test a CLI. dreamcli's testkit lets you run commands in-process with full control:
 
-```ts
+```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
 
 // Test that pr list returns open PRs by default
@@ -562,7 +585,7 @@ expect(result.stdout.join('')).toContain('dark mode');
 
 You can inject env vars, config, and prompt answers:
 
-```ts
+```ts twoslash
 // Test that derive blocks unauthenticated access
 const noAuth = await runCommand(prList, []);
 expect(noAuth.exitCode).toBe(1);
@@ -590,7 +613,7 @@ Each test is isolated — inject what you need, assert what you expect.
 
 Here's the final assembly — all the commands wired into groups:
 
-```ts
+```ts twoslash
 import { cli, command, group, flag, arg, CLIError } from '@kjanat/dreamcli';
 
 // ...commands defined above...

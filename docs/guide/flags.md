@@ -27,7 +27,7 @@ separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics
 
 Every flag type supports the same modifier chain:
 
-```ts
+```ts twoslash
 flag
   .string()
   // short alias: -r
@@ -67,7 +67,7 @@ Required flags that don't resolve produce a structured error before the action h
 
 ### Example
 
-```ts
+```ts twoslash
 flag
   .enum(['us', 'eu', 'ap'])
   .env('DEPLOY_REGION')
@@ -86,7 +86,7 @@ Resolution order:
 
 ## Required vs Optional
 
-```ts
+```ts twoslash
 // Optional — handler sees string | undefined
 flag.string();
 
@@ -102,7 +102,7 @@ flag.boolean();
 
 ## Custom Parsing
 
-```ts
+```ts twoslash
 flag.custom((value) => {
   const url = new URL(String(value));
   if (url.protocol !== 'https:') {

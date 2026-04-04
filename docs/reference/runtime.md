@@ -2,7 +2,7 @@
 
 Runtime adapter factory and platform detection.
 
-```ts
+```ts twoslash
 import { createAdapter, detectRuntime } from '@kjanat/dreamcli/runtime';
 import type { RuntimeAdapter } from '@kjanat/dreamcli/runtime';
 ```
@@ -11,7 +11,7 @@ import type { RuntimeAdapter } from '@kjanat/dreamcli/runtime';
 
 Create a runtime adapter via auto-detection.
 
-```ts
+```ts twoslash
 import {
   createAdapter,
   createNodeAdapter,
@@ -47,7 +47,7 @@ const denoAdapter = createDenoAdapter(); // explicit Deno
 
 Detect the current runtime environment.
 
-```ts
+```ts twoslash
 const runtime = detectRuntime();
 // 'node' | 'bun' | 'deno'
 ```

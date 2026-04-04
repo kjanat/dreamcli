@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { normalize } from 'node:path';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
-import { ModuleKind, ModuleResolutionKind } from 'typescript';
+import {
+  ModuleDetectionKind,
+  ModuleKind,
+  ModuleResolutionKind,
+} from 'typescript';
 import { defineConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import pkg from '../../package.json' with { type: 'json' };
@@ -11,6 +16,10 @@ import {
 } from '../.generated/site-data.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
+const twoslashSupport = readFileSync(
+  normalize(`${import.meta.dirname}/twoslash-support.d.ts`),
+  'utf8',
+);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) =>
   process.env.CI ? ifCiThen : ifNotCiThen;
 
@@ -30,7 +39,7 @@ export default withMermaid(
     cleanUrls: true,
     base: '/',
     sitemap: {
-      hostname: ifCI(pkg.homepage, 'localhost'),
+      hostname: ifCI(pkg.homepage, 'http://localhost'),
     },
     head: [
       [
@@ -199,16 +208,28 @@ export default withMermaid(
         message: `Released under the ${pkg.license} License.`,
         copyright: `Copyright © 2026-present ${pkg.author.name}`,
       },
+      lastUpdated: {
+        text: 'Last updated',
+        formatOptions: { dateStyle: 'short', timeStyle: 'short' },
+      },
     },
     markdown: {
       codeTransformers: [
         transformerTwoslash({
           explicitTrigger: true,
           twoslashOptions: {
+            extraFiles: {
+              'node_modules/@types/dreamcli-docs/index.d.ts': twoslashSupport,
+            },
             vfsRoot: projectRoot,
             compilerOptions: {
               baseUrl: projectRoot,
+              customConditions:
+                tsconfig.compilerOptions?.customConditions ?? [],
+              lib: tsconfig.compilerOptions?.lib ?? ['ESNext'],
               paths: tsconfig.compilerOptions?.paths ?? {},
+              types: tsconfig.compilerOptions?.types ?? [],
+              moduleDetection: ModuleDetectionKind.Force,
               module: ModuleKind.ESNext,
               moduleResolution: ModuleResolutionKind.Bundler,
               allowImportingTsExtensions:

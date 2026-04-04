@@ -33,7 +33,7 @@ Runtime detection is automatic — dreamcli picks the right adapter at startup.
 
 ## Explicit Adapter
 
-```ts
+```ts twoslash
 import { createAdapter, createNodeAdapter } from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect
@@ -53,7 +53,7 @@ deno run --allow-read --allow-env mycli.ts deploy
 
 The test harness uses a built-in test adapter that doesn't touch real process state:
 
-```ts
+```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(cmd, ['--flag', 'value'], {

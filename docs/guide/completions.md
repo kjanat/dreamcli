@@ -5,7 +5,7 @@ always in sync with your CLI definition.
 
 ## Generating Scripts
 
-```ts
+```ts twoslash
 import { generateCompletion } from '@kjanat/dreamcli';
 
 generateCompletion(myCli.schema, 'bash');
@@ -35,7 +35,7 @@ tracked follow-up work.
 
 A common pattern is to add a `completions` subcommand:
 
-```ts
+```ts twoslash
 import { arg, command, generateCompletion } from '@kjanat/dreamcli';
 
 const completions = command('completions')
@@ -64,7 +64,7 @@ const completions = command('completions')
 
 dreamcli also includes a built-in `.completions()` helper on `cli()`:
 
-```ts
+```ts twoslash
 cli('mycli')
   .default(serve)
   .command(status)

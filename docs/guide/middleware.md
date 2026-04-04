@@ -24,7 +24,7 @@ The `next()` call passes context downstream and continues the chain.
 
 ## Stacking Middleware
 
-```ts
+```ts twoslash
 command('deploy')
   .middleware(timing)
   .middleware(trace)
@@ -41,7 +41,7 @@ Each middleware only needs to know about its own context shape.
 
 The middleware handler receives:
 
-```ts
+```ts twoslash
 middleware(async ({ flags, args, out, meta, next }) => {
   // flags — resolved flag values (type-erased)
   // args  — resolved argument values (type-erased)
@@ -58,7 +58,7 @@ If you need typed command-scoped access to resolved inputs, prefer `command(...)
 
 Middleware can catch and transform errors:
 
-```ts
+```ts twoslash
 const errorBoundary = middleware(async ({ next, out }) => {
   try {
     return await next({});

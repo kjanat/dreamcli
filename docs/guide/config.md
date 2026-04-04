@@ -5,7 +5,7 @@ Config values participate in the flag resolution chain.
 
 ## Linking Flags to Config
 
-```ts
+```ts twoslash
 flag.enum(['us', 'eu', 'ap']).config('deploy.region');
 ```
 
@@ -18,7 +18,7 @@ chain. For the full precedence rules and examples, see
 
 ## Enabling Config Discovery
 
-```ts
+```ts twoslash
 cli('mycli')
   .config('mycli') // app name for file discovery
   .command(deploy)
@@ -45,7 +45,7 @@ Add YAML, TOML, or any other format via `configFormat()`:
 
 ::: code-group
 
-```ts [Bun built-ins]
+```ts twoslash [Bun built-ins]
 import { configFormat } from '@kjanat/dreamcli';
 
 cli('mycli')
@@ -55,7 +55,7 @@ cli('mycli')
   .run();
 ```
 
-```ts [npm packages]
+```ts twoslash [npm packages]
 import { configFormat } from '@kjanat/dreamcli';
 import { parse as parseYaml } from 'yaml';
 import { parse as parseTOML } from '@iarna/toml';

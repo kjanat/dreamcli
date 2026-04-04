@@ -24,7 +24,7 @@ It is a stability target for tests and refactors, not a public API guarantee.
 
 The resolver contract is modeled in `src/core/resolve/contracts.ts` as:
 
-```ts
+```ts twoslash
 interface ResolverInvocation {
   readonly schema: CommandSchema;
   readonly parsed: ParseResult;
@@ -55,7 +55,7 @@ The intent is simple:
 
 `contracts.ts` also names the stable precedence orders:
 
-```ts
+```ts twoslash
 const FLAG_RESOLUTION_ORDER = [
   'cli',
   'env',

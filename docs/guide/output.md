@@ -5,17 +5,17 @@ The output channel adapts to context automatically.
 
 ## Basic Output
 
-```ts
-.action(({ out }) => {
+```ts twoslash
+command('deploy').action(({ out }) => {
   out.log('Informational message');
   out.warn('Warning message');
   out.error('Error message');
-})
+});
 ```
 
 ## JSON Output
 
-```ts
+```ts twoslash
 out.json({ status: 'ok', count: 42 });
 ```
 
@@ -23,7 +23,7 @@ When the CLI is invoked with `--json`, all output routes through structured JSON
 
 ## Tables
 
-```ts
+```ts twoslash
 type Row = { name: string; status: string; uptime: number };
 
 out.table<Row>(rows, [
@@ -39,7 +39,7 @@ TypeScript's structural typing requires `Record<string, unknown>` compatibility.
 
 ## Spinners
 
-```ts
+```ts twoslash
 const spinner = out.spinner('Deploying...');
 await deploy();
 spinner.succeed('Done');
@@ -50,7 +50,7 @@ In `--json` mode, spinners are suppressed entirely.
 
 ## Progress Bars
 
-```ts
+```ts twoslash
 const progress = out.progress({ label: 'Uploading', total: 100 });
 
 for (let i = 0; i <= 100; i++) {

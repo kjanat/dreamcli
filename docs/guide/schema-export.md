@@ -10,7 +10,7 @@ documentation generation, IDE integration, or config file validation.
 `generateSchema()` produces a JSON document describing the full CLI tree:
 commands, flags, args, types, constraints, env bindings, prompts, and more.
 
-```ts
+```ts twoslash
 import { generateSchema } from '@kjanat/dreamcli';
 
 const definition = generateSchema(myCli.schema);
@@ -58,7 +58,7 @@ Full example output:
 `generateInputSchema()` produces a JSON Schema (draft 2020-12) that
 validates CLI input as a JSON object — useful for config file validation.
 
-```ts
+```ts twoslash
 import { generateInputSchema } from '@kjanat/dreamcli';
 
 const inputSchema = generateInputSchema(myCli.schema);
@@ -92,7 +92,7 @@ Nested subcommands use dot-delimited paths (`"deploy.rollback"`).
 
 ## Adding a Schema Command
 
-```ts
+```ts twoslash
 import {
   command,
   flag,
@@ -123,7 +123,7 @@ Both functions accept `JsonSchemaOptions`:
 | `includeHidden`  | `true`  | Include commands marked as hidden                |
 | `includePrompts` | `true`  | Include prompt config on flags (definition only) |
 
-```ts
+```ts twoslash
 generateSchema(myCli.schema, { includeHidden: false });
 ```
 

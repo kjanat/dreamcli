@@ -14,7 +14,7 @@ arg.custom((v) => new URL(v)); // URL
 
 ## Declaration
 
-```ts
+```ts twoslash
 command('deploy')
   .arg('target', arg.string().describe('Deploy target'))
   .arg('version', arg.string().describe('Version tag').optional())
@@ -37,7 +37,7 @@ $ mycli deploy production v1.2.3
 Arguments are required by default.
 Use `.optional()` to make them optional:
 
-```ts
+```ts twoslash
 // Required — must be provided
 arg.string();
 
@@ -49,7 +49,7 @@ arg.string().optional();
 
 The last argument can be variadic, collecting all remaining positional values:
 
-```ts
+```ts twoslash
 command('copy')
   .arg('files', arg.string().variadic().describe('Files to copy'))
   .action(({ args }) => {
@@ -66,7 +66,7 @@ $ mycli copy a.txt b.txt c.txt
 
 Arguments can fall back to environment variables when the positional value is missing:
 
-```ts
+```ts twoslash
 command('auth')
   .arg('token', arg.string().env('API_TOKEN').describe('Token from env'))
   .action(({ args }) => {
@@ -80,7 +80,7 @@ If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
 Arguments can also read from piped stdin with `.stdin()`:
 
-```ts
+```ts twoslash
 command('format')
   .arg('data', arg.string().stdin().describe('Read from STDIN'))
   .action(({ args }) => {

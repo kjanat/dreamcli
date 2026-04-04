@@ -39,7 +39,7 @@ After `--`, both `--region` and `eu` are treated as positional values.
 - Scalar flags overwrite earlier values. The last occurrence wins.
 - Array flags accumulate in order.
 
-```ts
+```ts twoslash
 flag.string(); // repeated -> last value wins
 flag.number(); // repeated -> last value wins
 flag.boolean(); // repeated -> true stays true unless an explicit false value is parsed
@@ -100,7 +100,7 @@ The first source that provides a value wins.
 
 Example:
 
-```ts
+```ts twoslash
 flag
   .enum(['us', 'eu', 'ap'])
   .env('DEPLOY_REGION')
@@ -139,7 +139,7 @@ Only args that opt into `.stdin()` or `.env()` participate in those extra steps.
 
 Example:
 
-```ts
+```ts twoslash
 arg.string().stdin().env('DEPLOY_TARGET').default('local');
 ```
 

@@ -2,7 +2,7 @@
 
 Test utilities for running commands in-process.
 
-```ts
+```ts twoslash
 import {
   runCommand,
   createCaptureOutput,
@@ -16,7 +16,7 @@ import {
 
 Run a command in-process and return a `RunResult`.
 
-```ts
+```ts twoslash
 const result = await runCommand(greet, ['Alice', '--loud']);
 ```
 
@@ -60,7 +60,7 @@ Create an output channel that captures all writes for assertions.
 
 Create a prompt engine that returns pre-defined answers.
 
-```ts
+```ts twoslash
 const prompter = createTestPrompter(['eu', true, 'my-name']);
 ```
 
@@ -72,7 +72,7 @@ Returns a runtime adapter for testing (no real process access).
 
 Sentinel value to simulate prompt cancellation.
 
-```ts
+```ts twoslash
 const result = await runCommand(cmd, [], {
   prompter: createTestPrompter([PROMPT_CANCEL]),
 });

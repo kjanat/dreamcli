@@ -21,7 +21,7 @@ It is a stability target for tests and refactors, not a public API guarantee.
 
 The output contract is modeled in `src/core/output/contracts.ts` as:
 
-```ts
+```ts twoslash
 interface OutputPolicy {
   readonly jsonMode: boolean;
   readonly isTTY: boolean;
@@ -37,7 +37,7 @@ The intent is simple:
 
 ## Activity Policy
 
-```ts
+```ts twoslash
 interface ActivityPolicy {
   readonly mode: 'noop' | 'static' | 'tty';
   readonly stream: 'stderr';

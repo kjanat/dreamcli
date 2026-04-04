@@ -23,7 +23,7 @@ It is a stability target for tests and refactors, not a public API guarantee.
 
 The planner contract is modeled in `src/core/cli/planner.ts` as:
 
-```ts
+```ts twoslash
 type DispatchOutcome =
   | { readonly kind: 'root-help'; readonly help: HelpOptions }
   | { readonly kind: 'root-version'; readonly version: string }
@@ -39,7 +39,7 @@ The intent is simple:
 
 ## Command Execution Plan
 
-```ts
+```ts twoslash
 interface CommandExecutionPlan {
   readonly command: ErasedCommand;
   readonly mergedSchema: CommandSchema;

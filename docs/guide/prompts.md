@@ -5,7 +5,7 @@ Prompts activate only when needed and only in interactive contexts.
 
 ## Per-Flag Prompts
 
-```ts
+```ts twoslash
 flag.string().prompt({ kind: 'input', message: 'Name?' });
 flag.boolean().prompt({ kind: 'confirm', message: 'Sure?' });
 flag.enum(['a', 'b']).prompt({ kind: 'select', message: 'Pick one' });
@@ -35,7 +35,7 @@ precedence chain, see [CLI Semantics](/guide/semantics).
 
 For conditional prompts that depend on other resolved values:
 
-```ts
+```ts twoslash
 command('deploy')
   .flag('region', flag.enum(['us', 'eu', 'ap']))
   .flag('confirm', flag.boolean())
@@ -58,7 +58,7 @@ Required flags that would have prompted instead produce a structured error with 
 
 ## Testing Prompts
 
-```ts
+```ts twoslash
 import {
   runCommand,
   createTestPrompter,

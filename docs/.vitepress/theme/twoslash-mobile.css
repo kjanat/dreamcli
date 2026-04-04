@@ -1,4 +1,5 @@
 /* --- Twoslash mobile/touch optimizations --- */
+/** biome-ignore-all lint/complexity/noImportantStyles: This whole file is one big override */
 
 @media (hover: none) {
   /*
