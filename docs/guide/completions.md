@@ -6,7 +6,10 @@ always in sync with your CLI definition.
 ## Generating Scripts
 
 ```ts twoslash
-import { generateCompletion } from '@kjanat/dreamcli';
+import { cli, command, generateCompletion } from '@kjanat/dreamcli';
+
+const serve = command('serve');
+const myCli = cli('mycli').default(serve);
 
 generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
@@ -36,7 +39,9 @@ tracked follow-up work.
 A common pattern is to add a `completions` subcommand:
 
 ```ts twoslash
-import { arg, command, generateCompletion } from '@kjanat/dreamcli';
+import { arg, cli, command, generateCompletion } from '@kjanat/dreamcli';
+
+const myCli = cli('mycli');
 
 const completions = command('completions')
   .description('Generate shell completion script')
@@ -65,6 +70,11 @@ const completions = command('completions')
 dreamcli also includes a built-in `.completions()` helper on `cli()`:
 
 ```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const serve = command('serve');
+const status = command('status');
+
 cli('mycli')
   .default(serve)
   .command(status)

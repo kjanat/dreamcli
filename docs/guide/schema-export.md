@@ -11,7 +11,10 @@ documentation generation, IDE integration, or config file validation.
 commands, flags, args, types, constraints, env bindings, prompts, and more.
 
 ```ts twoslash
-import { generateSchema } from '@kjanat/dreamcli';
+import { writeFileSync } from 'node:fs';
+import { cli, command, generateSchema } from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
 
 const definition = generateSchema(myCli.schema);
 writeFileSync('cli-schema.json', JSON.stringify(definition, null, 2));
@@ -59,7 +62,10 @@ Full example output:
 validates CLI input as a JSON object — useful for config file validation.
 
 ```ts twoslash
-import { generateInputSchema } from '@kjanat/dreamcli';
+import { writeFileSync } from 'node:fs';
+import { cli, command, generateInputSchema } from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
 
 const inputSchema = generateInputSchema(myCli.schema);
 writeFileSync('input-schema.json', JSON.stringify(inputSchema, null, 2));
@@ -93,12 +99,15 @@ Nested subcommands use dot-delimited paths (`"deploy.rollback"`).
 ## Adding a Schema Command
 
 ```ts twoslash
+import { cli } from '@kjanat/dreamcli';
 import {
   command,
   flag,
   generateSchema,
   generateInputSchema,
 } from '@kjanat/dreamcli';
+
+const myCli = cli('mycli');
 
 const schema = command('schema')
   .description('Export CLI schema as JSON')
@@ -124,6 +133,10 @@ Both functions accept `JsonSchemaOptions`:
 | `includePrompts` | `true`  | Include prompt config on flags (definition only) |
 
 ```ts twoslash
+import { cli, command, generateSchema } from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
+
 generateSchema(myCli.schema, { includeHidden: false });
 ```
 

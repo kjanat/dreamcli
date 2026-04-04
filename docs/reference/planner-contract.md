@@ -24,6 +24,10 @@ It is a stability target for tests and refactors, not a public API guarantee.
 The planner contract is modeled in `src/core/cli/planner.ts` as:
 
 ```ts twoslash
+import type { CLIError, HelpOptions } from '@kjanat/dreamcli';
+
+type CommandExecutionPlan = Record<string, unknown>;
+
 type DispatchOutcome =
   | { readonly kind: 'root-help'; readonly help: HelpOptions }
   | { readonly kind: 'root-version'; readonly version: string }
@@ -40,6 +44,16 @@ The intent is simple:
 ## Command Execution Plan
 
 ```ts twoslash
+import type {
+  CLIPlugin,
+  CommandMeta,
+  CommandSchema,
+  HelpOptions,
+} from '@kjanat/dreamcli';
+
+type ErasedCommand = Record<string, unknown>;
+type OutputPolicy = Record<string, unknown>;
+
 interface CommandExecutionPlan {
   readonly command: ErasedCommand;
   readonly mergedSchema: CommandSchema;

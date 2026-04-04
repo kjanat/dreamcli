@@ -31,6 +31,8 @@ The insight was wiring them so types flow end-to-end.
 One flag declaration:
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag
   .enum(['us', 'eu', 'ap'])
   .alias('r')

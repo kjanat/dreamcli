@@ -25,6 +25,13 @@ It is a stability target for tests and refactors, not a public API guarantee.
 The resolver contract is modeled in `src/core/resolve/contracts.ts` as:
 
 ```ts twoslash
+import type {
+  CommandSchema,
+  DeprecationWarning,
+  ParseResult,
+  PromptEngine,
+} from '@kjanat/dreamcli';
+
 interface ResolverInvocation {
   readonly schema: CommandSchema;
   readonly parsed: ParseResult;

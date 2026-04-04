@@ -148,6 +148,12 @@ A string error code (`CONFIG_NOT_FOUND`, `AUTH_REQUIRED`) is more useful than a 
 programmatic handling:
 
 ```ts twoslash
+declare const result: {
+  error?: {
+    code?: string;
+  };
+};
+
 // Scripts can match on the code
 if (result.error?.code === 'AUTH_REQUIRED') {
   // refresh token and retry

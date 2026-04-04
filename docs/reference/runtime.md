@@ -48,6 +48,8 @@ const denoAdapter = createDenoAdapter(); // explicit Deno
 Detect the current runtime environment.
 
 ```ts twoslash
+import { detectRuntime } from '@kjanat/dreamcli/runtime';
+
 const runtime = detectRuntime();
 // 'node' | 'bun' | 'deno'
 ```

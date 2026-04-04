@@ -62,6 +62,8 @@ If your current CLI has logic like this in handlers or helpers:
 Move that into flag and arg declarations directly.
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag
   .enum(['us', 'eu', 'ap'])
   .env('DEPLOY_REGION')
@@ -78,7 +80,15 @@ the application layer.
 Once one migrated command exists, move its tests to the in-process harness.
 
 ```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
 import { runCommand } from '@kjanat/dreamcli/testkit';
+
+const deploy = command('deploy')
+  .flag(
+    'region',
+    flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION').config('deploy.region'),
+  )
+  .action(() => {});
 
 const result = await runCommand(deploy, ['production'], {
   env: { DEPLOY_REGION: 'eu' },

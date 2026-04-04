@@ -331,6 +331,8 @@ Now wire it up:
 ::: code-group
 
 ```ts twoslash [derive()]
+import { command, flag } from '@kjanat/dreamcli';
+
 // ---cut-start---
 // @include: walkthrough-require-auth
 // ---cut-end---
@@ -347,7 +349,7 @@ const prList = command('list')
 ```
 
 ```ts twoslash [middleware()]
-import { CLIError, middleware } from '@kjanat/dreamcli';
+import { CLIError, command, flag, middleware } from '@kjanat/dreamcli';
 
 const requireAuth = middleware<{ token: string }>(({ flags, next }) => {
   if (typeof flags.token !== 'string') {
@@ -452,6 +454,12 @@ import { arg } from '@kjanat/dreamcli';
 // ---cut-start---
 // @include: walkthrough-auth-helpers
 // ---cut-end---
+
+const issueLabelChoices = [
+  { value: 'bug' },
+  { value: 'ui' },
+  { value: 'needs-info' },
+] as const;
 
 const issueTriage = authedCommand('triage')
   .description('Triage an issue with guided prompts')
@@ -576,6 +584,9 @@ You don't want to spawn subprocesses to test a CLI. dreamcli's testkit lets you 
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
+// ---cut-start---
+import { prList } from './docs/.vitepress/twoslash/walkthrough-fixtures.ts';
+// ---cut-end---
 
 // Test that pr list returns open PRs by default
 const result = await runCommand(prList, ['--state', 'open']);
@@ -586,6 +597,14 @@ expect(result.stdout.join('')).toContain('dark mode');
 You can inject env vars, config, and prompt answers:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+// ---cut-start---
+import {
+  issueTriage,
+  prList,
+} from './docs/.vitepress/twoslash/walkthrough-fixtures.ts';
+// ---cut-end---
+
 // Test that derive blocks unauthenticated access
 const noAuth = await runCommand(prList, []);
 expect(noAuth.exitCode).toBe(1);
@@ -615,6 +634,17 @@ Here's the final assembly — all the commands wired into groups:
 
 ```ts twoslash
 import { cli, command, group, flag, arg, CLIError } from '@kjanat/dreamcli';
+// ---cut-start---
+import {
+  authLogin,
+  authStatus,
+  issueList,
+  issueTriage,
+  prCreate,
+  prList,
+  prView,
+} from './docs/.vitepress/twoslash/walkthrough-fixtures.ts';
+// ---cut-end---
 
 // ...commands defined above...
 

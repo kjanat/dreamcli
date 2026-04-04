@@ -7,6 +7,9 @@ dreamcli provides structured errors with codes, suggestions, and JSON serializat
 ```ts twoslash
 import { CLIError } from '@kjanat/dreamcli';
 
+const target = 'production';
+const region = 'us';
+
 throw new CLIError('Deployment failed', {
   code: 'DEPLOY_FAILED',
   exitCode: 1,
@@ -41,7 +44,14 @@ Parse and validation errors include "did you mean?" suggestions automatically.
 ## Type Guards
 
 ```ts twoslash
-import { isCLIError, isParseError, isValidationError } from '@kjanat/dreamcli';
+import {
+  cli,
+  isCLIError,
+  isParseError,
+  isValidationError,
+} from '@kjanat/dreamcli';
+
+const myCli = cli('mycli');
 
 try {
   await myCli.run();

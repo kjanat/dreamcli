@@ -75,6 +75,8 @@ Groups can be nested arbitrarily deep.
 ### Description and Examples
 
 ```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
 command('deploy')
   .description('Deploy to an environment')
   .example('deploy production', 'Deploy to prod')
@@ -86,6 +88,11 @@ command('deploy')
 Set a default command that runs when no subcommand is specified:
 
 ```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const mainCommand = command('main');
+const other = command('other');
+
 cli('mycli').default(mainCommand).command(other).run();
 ```
 
@@ -100,6 +107,8 @@ For the exact root, help, and completion rules, see [CLI Semantics](/guide/seman
 ### Version
 
 ```ts twoslash
+import { cli } from '@kjanat/dreamcli';
+
 cli('mycli').version('1.0.0').run();
 ```
 
@@ -110,6 +119,8 @@ Adds `--version` / `-V` automatically.
 The `.action()` callback receives a single object with typed fields:
 
 ```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
 command('deploy').action(({ args, flags, ctx, meta, out }) => {
   // args  — typed positional arguments
   // flags — typed flag values (fully resolved)
@@ -123,6 +134,13 @@ command('deploy').action(({ args, flags, ctx, meta, out }) => {
 Actions can be `async`:
 
 ```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
+declare const deploy: (
+  target: string,
+  flags: Readonly<Record<string, unknown>>,
+) => Promise<unknown>;
+
 command('deploy')
   .arg('target', arg.string())
   .action(async ({ args, flags, out }) => {

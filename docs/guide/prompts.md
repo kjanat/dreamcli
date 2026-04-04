@@ -6,6 +6,8 @@ Prompts activate only when needed and only in interactive contexts.
 ## Per-Flag Prompts
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag.string().prompt({ kind: 'input', message: 'Name?' });
 flag.boolean().prompt({ kind: 'confirm', message: 'Sure?' });
 flag.enum(['a', 'b']).prompt({ kind: 'select', message: 'Pick one' });
@@ -36,6 +38,8 @@ precedence chain, see [CLI Semantics](/guide/semantics).
 For conditional prompts that depend on other resolved values:
 
 ```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
 command('deploy')
   .flag('region', flag.enum(['us', 'eu', 'ap']))
   .flag('confirm', flag.boolean())
@@ -64,6 +68,7 @@ import {
   createTestPrompter,
   PROMPT_CANCEL,
 } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 // Provide answers in order
 const result = await runCommand(cmd, [], {

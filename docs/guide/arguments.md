@@ -15,6 +15,8 @@ arg.custom((v) => new URL(v)); // URL
 ## Declaration
 
 ```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('deploy')
   .arg('target', arg.string().describe('Deploy target'))
   .arg('version', arg.string().describe('Version tag').optional())
@@ -38,6 +40,8 @@ Arguments are required by default.
 Use `.optional()` to make them optional:
 
 ```ts twoslash
+import { arg } from '@kjanat/dreamcli';
+
 // Required — must be provided
 arg.string();
 
@@ -50,6 +54,8 @@ arg.string().optional();
 The last argument can be variadic, collecting all remaining positional values:
 
 ```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('copy')
   .arg('files', arg.string().variadic().describe('Files to copy'))
   .action(({ args }) => {
@@ -67,6 +73,8 @@ $ mycli copy a.txt b.txt c.txt
 Arguments can fall back to environment variables when the positional value is missing:
 
 ```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('auth')
   .arg('token', arg.string().env('API_TOKEN').describe('Token from env'))
   .action(({ args }) => {
@@ -81,6 +89,8 @@ If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 Arguments can also read from piped stdin with `.stdin()`:
 
 ```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('format')
   .arg('data', arg.string().stdin().describe('Read from STDIN'))
   .action(({ args }) => {

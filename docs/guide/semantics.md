@@ -40,6 +40,8 @@ After `--`, both `--region` and `eu` are treated as positional values.
 - Array flags accumulate in order.
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag.string(); // repeated -> last value wins
 flag.number(); // repeated -> last value wins
 flag.boolean(); // repeated -> true stays true unless an explicit false value is parsed
@@ -101,6 +103,8 @@ The first source that provides a value wins.
 Example:
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag
   .enum(['us', 'eu', 'ap'])
   .env('DEPLOY_REGION')
@@ -140,6 +144,8 @@ Only args that opt into `.stdin()` or `.env()` participate in those extra steps.
 Example:
 
 ```ts twoslash
+import { arg } from '@kjanat/dreamcli';
+
 arg.string().stdin().env('DEPLOY_TARGET').default('local');
 ```
 

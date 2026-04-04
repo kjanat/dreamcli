@@ -55,6 +55,7 @@ The test harness uses a built-in test adapter that doesn't touch real process st
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(cmd, ['--flag', 'value'], {
   env: { MY_VAR: 'test' },

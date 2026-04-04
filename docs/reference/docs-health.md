@@ -12,7 +12,7 @@ This page is rebuilt by `bun run docs:prepare` from the docs tree and generated 
 
 | Metric                  | Value |
 | ----------------------- | ----- |
-| Authored markdown pages | 39    |
+| Authored markdown pages | 40    |
 | Generated artifacts     | 174   |
 | Source-backed examples  | 7     |
 | Public API entrypoints  | 4     |

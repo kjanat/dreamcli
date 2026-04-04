@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { normalize } from 'node:path';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import {
@@ -9,22 +8,32 @@ import {
 import { defineConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import pkg from '../../package.json' with { type: 'json' };
-import tsconfig from '../../tsconfig.json' with { type: 'json' };
+import tsc from '../../tsconfig.json' with { type: 'json' };
 import {
   generatedExamples,
   generatedReferenceSurfaces,
 } from '../.generated/site-data.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
-const twoslashSupport = readFileSync(
-  normalize(`${import.meta.dirname}/twoslash-support.d.ts`),
-  'utf8',
-);
+const lenGt0 = (arr: unknown[] | undefined): boolean =>
+  Boolean(arr && arr.length > 0);
+const isCI = Boolean(process.env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) =>
-  process.env.CI ? ifCiThen : ifNotCiThen;
+  isCI ? ifCiThen : ifNotCiThen;
 
-const examplesSidebarTitle = `Examples${generatedExamples.length === 0 ? '' : ` (${generatedExamples.length})`}`;
-const generatedReferenceTitle = `Generated Surfaces${generatedReferenceSurfaces.length === 0 ? '' : ` (${generatedReferenceSurfaces.length})`}`;
+const compilerOptions = {
+  baseUrl: projectRoot,
+  customConditions: tsc.compilerOptions?.customConditions ?? [],
+  lib: tsc.compilerOptions?.lib ?? ['ESNext'],
+  paths: tsc.compilerOptions?.paths ?? {},
+  moduleDetection: ModuleDetectionKind.Force,
+  module: ModuleKind.ESNext,
+  moduleResolution: ModuleResolutionKind.Bundler,
+  allowImportingTsExtensions: tsc.compilerOptions?.allowImportingTsExtensions,
+  noEmit: true,
+  resolveJsonModule: tsc.compilerOptions?.resolveJsonModule,
+  types: [...(tsc.compilerOptions?.types ?? []), 'vitest/globals'],
+};
 
 const links = {
   github: pkg.repository.url.replace(/^git[+]/, ''),
@@ -157,7 +166,7 @@ export default withMermaid(
         ],
         '/examples/': [
           {
-            text: examplesSidebarTitle,
+            text: `Examples${!lenGt0(generatedExamples) && ` (${generatedExamples.length})`}`,
             items: [
               { text: 'Overview', link: '/examples/' },
               ...generatedExamples.map((example) => ({
@@ -173,7 +182,7 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/reference/api' },
               {
-                text: generatedReferenceTitle,
+                text: `Generated Surfaces${!lenGt0(generatedReferenceSurfaces) && ` (${generatedReferenceSurfaces.length})`}`,
                 link: '/reference/generated-surfaces',
               },
               { text: 'Changelog', link: '/reference/changelog' },
@@ -192,6 +201,7 @@ export default withMermaid(
                 text: 'Example Hover',
                 link: '/reference/example-hover-prototype',
               },
+              { text: 'Schema', link: '/reference/schema' },
               { text: 'Support Matrix', link: '/reference/support-matrix' },
               { text: '@kjanat/dreamcli', link: '/reference/main' },
               { text: '@kjanat/dreamcli/testkit', link: '/reference/testkit' },
@@ -218,24 +228,8 @@ export default withMermaid(
         transformerTwoslash({
           explicitTrigger: true,
           twoslashOptions: {
-            extraFiles: {
-              'node_modules/@types/dreamcli-docs/index.d.ts': twoslashSupport,
-            },
             vfsRoot: projectRoot,
-            compilerOptions: {
-              baseUrl: projectRoot,
-              customConditions:
-                tsconfig.compilerOptions?.customConditions ?? [],
-              lib: tsconfig.compilerOptions?.lib ?? ['ESNext'],
-              paths: tsconfig.compilerOptions?.paths ?? {},
-              types: tsconfig.compilerOptions?.types ?? [],
-              moduleDetection: ModuleDetectionKind.Force,
-              module: ModuleKind.ESNext,
-              moduleResolution: ModuleResolutionKind.Bundler,
-              allowImportingTsExtensions:
-                tsconfig.compilerOptions?.allowImportingTsExtensions ?? false,
-              noEmit: true,
-            },
+            compilerOptions,
           },
         }),
       ],
@@ -243,6 +237,24 @@ export default withMermaid(
     },
     vite: {
       ssr: { noExternal: ['vue'] },
+      build: {
+        chunkSizeWarningLimit: 600,
+        rollupOptions: {
+          maxParallelFileOps: isCI ? 2 : undefined,
+          output: {
+            manualChunks(id) {
+              // Mermaid core — heavy and only needed on pages with diagrams
+              if (id.includes('mermaid')) {
+                return 'mermaid';
+              }
+              // Shiki/twoslash syntax highlighting — large WASM + grammars
+              if (id.includes('shiki')) {
+                return 'shiki';
+              }
+            },
+          },
+        },
+      },
     },
   }),
 );

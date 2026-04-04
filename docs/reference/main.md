@@ -54,6 +54,8 @@ import type {
 Create a command builder.
 
 ```ts twoslash
+import { arg, command, flag } from '@kjanat/dreamcli';
+
 const cmd = command('deploy')
   .description('Deploy the app')
   .arg('target', arg.string())
@@ -66,6 +68,11 @@ const cmd = command('deploy')
 Create a command group (container for subcommands).
 
 ```ts twoslash
+import { command, group } from '@kjanat/dreamcli';
+
+const migrate = command('migrate');
+const seed = command('seed');
+
 const db = group('db')
   .description('Database operations')
   .command(migrate)
@@ -77,6 +84,11 @@ const db = group('db')
 Create a multi-command CLI builder.
 
 ```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+const mainCmd = command('main');
+
 cli('mycli')
   .version('1.0.0')
   .description('My tool')
@@ -95,6 +107,10 @@ the current working directory, reads the nearest `package.json`, and uses its `v
 name from the package `bin` entry or package name. This has no effect in `.execute()`.
 
 ```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
 cli('mycli').packageJson({ inferName: true }).command(deploy).run();
 ```
 
@@ -104,6 +120,11 @@ Register a CLI plugin created with `plugin(...)`. Plugins run in registration or
 execution before parse, after resolve, before action, and after action.
 
 ```ts twoslash
+import { cli, command, plugin } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+const tracePlugin = plugin({}, 'trace');
+
 cli('mycli').plugin(tracePlugin).command(deploy);
 ```
 
@@ -142,6 +163,8 @@ Register a command-scoped typed pre-action handler. Derive runs after resolution
 return an object to merge additional properties into `ctx`.
 
 ```ts twoslash
+import { CLIError, command, flag } from '@kjanat/dreamcli';
+
 command('deploy')
   .flag('token', flag.string().env('AUTH_TOKEN'))
   .derive(({ flags }) => {
@@ -161,6 +184,10 @@ with `cli(...).plugin(...)` and receives stable hook payloads typed by `BeforePa
 `ResolvedCommandParams`, and `PluginCommandContext`.
 
 ```ts twoslash
+import { cli, command, plugin } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
 const trace = plugin(
   {
     beforeParse: ({ argv, out }) => out.info(argv.join(' ')),
@@ -168,6 +195,8 @@ const trace = plugin(
   },
   'trace',
 );
+
+cli('mycli').plugin(trace).command(deploy);
 ```
 
 ## Plugin Types
@@ -177,6 +206,11 @@ const trace = plugin(
 Lifecycle hook bag for `plugin(...)`. Each hook may be sync or async:
 
 ```ts twoslash
+import type {
+  BeforeParseParams,
+  ResolvedCommandParams,
+} from '@kjanat/dreamcli';
+
 type CLIPluginHooks = {
   beforeParse?: (params: BeforeParseParams) => void | Promise<void>;
   afterResolve?: (params: ResolvedCommandParams) => void | Promise<void>;
@@ -196,6 +230,8 @@ Base payload shared by all plugin hooks. It contains the current `command` schem
 internal CLI state.
 
 ```ts twoslash
+import type { CommandMeta, CommandSchema, Out } from '@kjanat/dreamcli';
+
 type PluginCommandContext = {
   command: CommandSchema;
   meta: CommandMeta;
@@ -209,6 +245,8 @@ Payload for `beforeParse`. Adds the leaf-command `argv` array to `PluginCommandC
 can log, validate, or instrument the exact argument list before parsing starts.
 
 ```ts twoslash
+import type { PluginCommandContext } from '@kjanat/dreamcli';
+
 type BeforeParseParams = PluginCommandContext & {
   argv: readonly string[];
 };
@@ -220,6 +258,11 @@ Payload for `afterResolve`, `beforeAction`, and `afterAction`. Adds fully resolv
 and collected `deprecations` so hooks can inspect the final command inputs.
 
 ```ts twoslash
+import type {
+  DeprecationWarning,
+  PluginCommandContext,
+} from '@kjanat/dreamcli';
+
 type ResolvedCommandParams = PluginCommandContext & {
   flags: Readonly<Record<string, unknown>>;
   args: Readonly<Record<string, unknown>>;
@@ -251,6 +294,8 @@ Structured result returned by `runCommand(...)` and `cli.execute(...)`. It inclu
 `undefined` on success and a `CLIError` on failure.
 
 ```ts twoslash
+import type { ActivityEvent, CLIError } from '@kjanat/dreamcli';
+
 type RunResult = {
   exitCode: number;
   stdout: readonly string[];
@@ -292,6 +337,10 @@ Generate a definition metadata document describing the CLI's structure.
 - `options.includePrompts?`: include prompt config on flags (default: `true`)
 
 ```ts twoslash
+import { cli, command, generateSchema } from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
+
 const definition = generateSchema(myCli.schema);
 ```
 
@@ -306,6 +355,10 @@ Accepts a full `CLISchema` (discriminated union across commands) or a
 single `CommandSchema` (flat object schema).
 
 ```ts twoslash
+import { cli, command, generateInputSchema } from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
+
 const inputSchema = generateInputSchema(myCli.schema);
 ```
 
@@ -327,6 +380,8 @@ Build the default search-path list dreamcli uses for config discovery. This is m
 debugging, custom bootstrapping, or help text that wants to show the exact probed paths.
 
 ```ts twoslash
+import { buildConfigSearchPaths } from '@kjanat/dreamcli';
+
 const paths = buildConfigSearchPaths(
   'mycli',
   process.cwd(),
@@ -341,6 +396,8 @@ to `.configLoader(...)` or `discoverConfig(...)` to add YAML, TOML, or other for
 built-in JSON loader.
 
 ```ts twoslash
+import { configFormat } from '@kjanat/dreamcli';
+
 declare const parseYaml: (s: string) => unknown;
 declare const parseTOML: (s: string) => unknown;
 // ---cut---
@@ -355,8 +412,12 @@ the first matching file via the provided adapter, and returns either `{ found: t
 parsed config data or `{ found: false }` when no config file exists.
 
 ```ts twoslash
+import { configFormat, discoverConfig } from '@kjanat/dreamcli';
+import { createTestAdapter } from '@kjanat/dreamcli/testkit';
+
 declare const parseYaml: (s: string) => unknown;
 declare const parseTOML: (s: string) => unknown;
+const adapter = createTestAdapter();
 // ---cut---
 const result = await discoverConfig('mycli', adapter, {
   loaders: [
@@ -372,6 +433,11 @@ Walk up from `adapter.cwd` and return the nearest parsed `package.json` metadata
 package file is found. This is the helper used by `.packageJson()` during `.run()`.
 
 ```ts twoslash
+import { discoverPackageJson } from '@kjanat/dreamcli';
+import { createTestAdapter } from '@kjanat/dreamcli/testkit';
+
+const adapter = createTestAdapter();
+
 const pkg = await discoverPackageJson(adapter);
 if (pkg !== null) {
   console.log(pkg.version);
@@ -384,6 +450,8 @@ Infer a CLI display name from package metadata. It prefers the first key from a 
 otherwise falls back to the package `name` with any npm scope removed.
 
 ```ts twoslash
+import { inferCliName } from '@kjanat/dreamcli';
+
 inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
 inferCliName({ name: '@scope/mycli' }); // 'mycli'
 ```

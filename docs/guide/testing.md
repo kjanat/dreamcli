@@ -7,6 +7,7 @@ No subprocesses, no `process.argv` mutation, no mocking.
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
+import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(greet, ['Alice', '--loud']);
 
@@ -21,6 +22,9 @@ expect(result.error).toBeUndefined();
 Control every dimension of CLI behavior from tests:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { deploy } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(deploy, ['production'], {
   // environment variables
   env: { DEPLOY_REGION: 'eu' },
@@ -59,6 +63,7 @@ import {
   createTestPrompter,
   PROMPT_CANCEL,
 } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 // Sequential answers
 const result = await runCommand(cmd, [], {
@@ -76,6 +81,9 @@ const cancelResult = await runCommand(cmd, [], {
 Spinners and progress bars emit testable events:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(cmd, ['deploy']);
 
 expect(result.activity).toContainEqual(
@@ -89,6 +97,10 @@ expect(result.activity).toContainEqual(
 ## Captured Output
 
 ```ts twoslash
+import type { RunResult } from '@kjanat/dreamcli/testkit';
+
+declare const result: RunResult;
+
 // stdout lines (each includes trailing \n)
 result.stdout; // string[]
 

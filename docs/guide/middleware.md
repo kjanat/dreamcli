@@ -25,6 +25,15 @@ The `next()` call passes context downstream and continues the chain.
 ## Stacking Middleware
 
 ```ts twoslash
+import { command, middleware } from '@kjanat/dreamcli';
+
+const timing = middleware<{ startTime: number }>(async ({ next }) =>
+  next({ startTime: Date.now() }),
+);
+const trace = middleware<{ traceId: string }>(async ({ next }) =>
+  next({ traceId: crypto.randomUUID() }),
+);
+
 command('deploy')
   .middleware(timing)
   .middleware(trace)
@@ -42,6 +51,8 @@ Each middleware only needs to know about its own context shape.
 The middleware handler receives:
 
 ```ts twoslash
+import { middleware } from '@kjanat/dreamcli';
+
 middleware(async ({ flags, args, out, meta, next }) => {
   // flags — resolved flag values (type-erased)
   // args  — resolved argument values (type-erased)
@@ -59,6 +70,8 @@ If you need typed command-scoped access to resolved inputs, prefer `command(...)
 Middleware can catch and transform errors:
 
 ```ts twoslash
+import { CLIError, middleware } from '@kjanat/dreamcli';
+
 const errorBoundary = middleware(async ({ next, out }) => {
   try {
     return await next({});

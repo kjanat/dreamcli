@@ -22,6 +22,8 @@ It is a stability target for tests and refactors, not a public API guarantee.
 The output contract is modeled in `src/core/output/contracts.ts` as:
 
 ```ts twoslash
+import type { Verbosity } from '@kjanat/dreamcli';
+
 interface OutputPolicy {
   readonly jsonMode: boolean;
   readonly isTTY: boolean;

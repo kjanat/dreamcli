@@ -28,6 +28,8 @@ separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics
 Every flag type supports the same modifier chain:
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag
   .string()
   // short alias: -r
@@ -68,6 +70,8 @@ Required flags that don't resolve produce a structured error before the action h
 ### Example
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag
   .enum(['us', 'eu', 'ap'])
   .env('DEPLOY_REGION')
@@ -87,6 +91,8 @@ Resolution order:
 ## Required vs Optional
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 // Optional — handler sees string | undefined
 flag.string();
 
@@ -103,6 +109,8 @@ flag.boolean();
 ## Custom Parsing
 
 ```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag.custom((value) => {
   const url = new URL(String(value));
   if (url.protocol !== 'https:') {
@@ -120,6 +128,8 @@ Thrown errors become validation errors with the flag name in context.
 Flags marked with `.propagate()` are inherited by all subcommands:
 
 ```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
 const nested = command('start')
   .flag('verbose', flag.boolean().alias('v').propagate())
   .action(({ flags, out }) => {

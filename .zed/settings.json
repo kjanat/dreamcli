@@ -8,14 +8,7 @@
 	"wrap_guides": [100],
 	"file_types": { "Markdown": ["LICENSE"] },
 	"prettier": { "allowed": false },
-	"formatter": [
-		{
-			"external": {
-				"command": "bun",
-				"arguments": ["fmt", "--stdin", "{buffer_path}"]
-			}
-		}
-	],
+	"formatter": { "language_server": { "name": "dprint" } },
 	"languages": {
 		"JavaScript": {
 			"code_actions_on_format": { "fixAll.biome": true, "organizeImports.biome": true },
@@ -32,6 +25,13 @@
 			"initialization_options": {
 				// https://github.com/yioneko/vtsls/blob/04c4d90fb4f18dff34d9282cdb7f508aab12cd95/packages/service/configuration.schema.json#L380
 				"typescript": { "preferences": { "importModuleSpecifier": "non-relative" } }
+			}
+		},
+		"dprint": {
+			"binary": {
+				"path": "node_modules/.bin/dprint",
+				"ignore_system_version": false,
+				"arguments": ["lsp"]
 			}
 		}
 	}

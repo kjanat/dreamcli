@@ -61,6 +61,9 @@ Can't test prompts easily. Platform-dependent.
 Run the command handler as a function, injecting all inputs:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(greet, ['Alice', '--loud']);
 expect(result.stdout).toEqual(['HELLO, ALICE!\n']);
 expect(result.exitCode).toBe(0);
@@ -82,6 +85,9 @@ The examples below use dreamcli's test harness, but the patterns apply to any fr
 The command works with valid input:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(greet, ['Alice']);
 expect(result.stdout).toEqual(['Hello, Alice!\n']);
 expect(result.exitCode).toBe(0);
@@ -92,6 +98,9 @@ expect(result.exitCode).toBe(0);
 Flags resolve from the right source:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 // env var provides the value
 const result = await runCommand(cmd, [], {
   env: { MY_REGION: 'eu' },
@@ -104,6 +113,9 @@ expect(result.stdout).toContain('eu');
 Bad input produces helpful errors:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(cmd, ['--unknown']);
 expect(result.exitCode).toBe(2);
 expect(result.stderr.join('')).toContain('Unknown flag');
@@ -114,6 +126,9 @@ expect(result.stderr.join('')).toContain('Unknown flag');
 Required flags that aren't provided, fail clearly:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(cmd, []);
 expect(result.exitCode).not.toBe(0);
 expect(result.stderr.join('')).toContain('Missing required');
@@ -124,6 +139,9 @@ expect(result.stderr.join('')).toContain('Missing required');
 Structured output is valid JSON:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(cmd, ['list'], { jsonMode: true });
 const data = JSON.parse(result.stdout.join(''));
 expect(data).toBeInstanceOf(Array);
@@ -134,6 +152,9 @@ expect(data).toBeInstanceOf(Array);
 Prompt answers resolve correctly:
 
 ```ts twoslash
+import { runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+
 const result = await runCommand(cmd, [], {
   answers: ['eu', true],
 });
@@ -146,6 +167,7 @@ Ctrl+C during a prompt exits gracefully:
 
 ```ts twoslash
 import { PROMPT_CANCEL, runCommand } from '@kjanat/dreamcli/testkit';
+import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(cmd, [], {
   answers: [PROMPT_CANCEL],

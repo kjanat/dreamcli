@@ -6,6 +6,8 @@ The output channel adapts to context automatically.
 ## Basic Output
 
 ```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
 command('deploy').action(({ out }) => {
   out.log('Informational message');
   out.warn('Warning message');
@@ -16,6 +18,9 @@ command('deploy').action(({ out }) => {
 ## JSON Output
 
 ```ts twoslash
+import { createOutput } from '@kjanat/dreamcli';
+
+const out = createOutput();
 out.json({ status: 'ok', count: 42 });
 ```
 
@@ -24,8 +29,12 @@ When the CLI is invoked with `--json`, all output routes through structured JSON
 ## Tables
 
 ```ts twoslash
+import { createOutput } from '@kjanat/dreamcli';
+import { rows } from './docs/.vitepress/twoslash/output-fixtures.ts';
+
 type Row = { name: string; status: string; uptime: number };
 
+const out = createOutput();
 out.table<Row>(rows, [
   { key: 'name', header: 'Name' },
   { key: 'status', header: 'Status' },
@@ -40,6 +49,10 @@ TypeScript's structural typing requires `Record<string, unknown>` compatibility.
 ## Spinners
 
 ```ts twoslash
+import { createOutput } from '@kjanat/dreamcli';
+import { deploy } from './docs/.vitepress/twoslash/output-fixtures.ts';
+
+const out = createOutput();
 const spinner = out.spinner('Deploying...');
 await deploy();
 spinner.succeed('Done');
@@ -51,6 +64,10 @@ In `--json` mode, spinners are suppressed entirely.
 ## Progress Bars
 
 ```ts twoslash
+import { createOutput } from '@kjanat/dreamcli';
+import { tick } from './docs/.vitepress/twoslash/output-fixtures.ts';
+
+const out = createOutput();
 const progress = out.progress({ label: 'Uploading', total: 100 });
 
 for (let i = 0; i <= 100; i++) {
