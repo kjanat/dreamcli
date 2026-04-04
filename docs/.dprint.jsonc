@@ -5,6 +5,17 @@
   "svg": { "useTabs": false },
   "json": { "useTabs": false, "lineWidth": 80 },
   "biome": { "indentStyle": "space", "lineWidth": 80 },
-  "markup": { "useTabs": false, "printWidth": 80 },
+  "markup": {
+    "useTabs": false,
+    "indentWidth": 2,
+    "printWidth": 80,
+    "html.void.selfClosing": false,
+    "formatComments": true,
+    "scriptIndent": true,
+    "styleIndent": true,
+    "vue.scriptIndent": true,
+    "vue.styleIndent": true,
+    "scriptFormatter": "biome"
+  },
   "includes": ["./**/*"]
 }

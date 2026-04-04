@@ -95,6 +95,7 @@
 		"@types/node": ">=22.0.0, <23.0.0",
 		"@typescript/native-preview": "^7.0.0-dev.20260403.1",
 		"@vitest/coverage-v8": "^4.1.2",
+		"debug": "^4.4.3",
 		"dprint": "^0.53.2",
 		"mermaid": "^11.14.0",
 		"publint": "^0.3.18",

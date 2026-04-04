@@ -20,7 +20,15 @@
 		"indentWidth": 2
 	},
 	"dockerfile": { "associations": ["Dockerfile", "Dockerfile.*"] },
-	"markup": { "html.void.selfClosing": false, "formatComments": true },
+	"markup": {
+		"html.void.selfClosing": false,
+		"formatComments": true,
+		"scriptIndent": true,
+		"styleIndent": true,
+		"vue.scriptIndent": true,
+		"vue.styleIndent": true,
+		"scriptFormatter": "biome"
+	},
 	"yaml": { "printWidth": 160 },
 	"exec": {
 		"cwd": "${configDir}",

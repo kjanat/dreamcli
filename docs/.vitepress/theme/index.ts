@@ -1,13 +1,18 @@
 /// <reference types="vite/client" />
 
 import TwoslashFloatingVue from '@shikijs/vitepress-twoslash/client';
+import { options as floatingOptions } from 'floating-vue';
 import type { EnhanceAppContext } from 'vitepress';
 import { onContentUpdated } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';
-import { onMounted, onUnmounted } from 'vue';
+import { h, onMounted, onUnmounted, watch } from 'vue';
 import '@shikijs/vitepress-twoslash/style.css';
 import 'virtual:shiki-class.css';
 import './twoslash-mobile.css';
+import './settings.css';
+import SettingsGear from './components/SettingsGear.vue';
+import type { Runtime } from './composables/use-doc-settings.ts';
+import { useDocSettings } from './composables/use-doc-settings.ts';
 
 const HINT_KEY = 'twoslash-hint-seen';
 
@@ -15,7 +20,7 @@ function isTouchDevice(): boolean {
   return !window.matchMedia('(hover: hover)').matches;
 }
 
-// --- First-visit hint toast ---
+// === First-visit hint toast ===
 
 function showTwoslashHint(): void {
   if (!isTouchDevice()) return;
@@ -46,7 +51,7 @@ function showTwoslashHint(): void {
   timeoutId = setTimeout(dismiss, 5000);
 }
 
-// --- Bottom sheet behavior for mobile popups ---
+// === Bottom sheet behavior for mobile popups ===
 
 function setupMobileBottomSheet(): (() => void) | undefined {
   if (!isTouchDevice()) return undefined;
@@ -152,6 +157,43 @@ function setupMobileBottomSheet(): (() => void) | undefined {
   };
 }
 
+// === Runtime replacement in bash code blocks ===
+
+const ORIG_HTML = 'data-orig-html';
+
+// Matches `npx tsx` in innerHTML, handling an optional span boundary between tokens:
+//   same span:  "npx tsx"
+//   cross span: "npx</span><span class="__shiki_x"> tsx"
+const NPX_TSX_RE = /\bnpx\s*(?:<\/span>\s*<span[^>]*>\s*)?tsx\b/;
+
+/**
+ * Replace `npx tsx` with the selected runtime in bash/sh code blocks.
+ * Always replaces from the stored original innerHTML so syntax highlighting
+ * is preserved and switching between runtimes works repeatedly.
+ */
+function applyRuntime(runtime: Runtime): void {
+  const selector =
+    'div.language-bash pre code .line, div.language-sh pre code .line';
+  for (const line of document.querySelectorAll(selector)) {
+    const el = line as HTMLElement;
+
+    // First encounter: snapshot original and skip lines without npx tsx
+    if (!el.hasAttribute(ORIG_HTML)) {
+      if (!el.textContent?.includes('npx tsx')) continue;
+      el.setAttribute(ORIG_HTML, el.innerHTML);
+    }
+
+    const original = el.getAttribute(ORIG_HTML) ?? '';
+    if (runtime === 'npx tsx') {
+      el.innerHTML = original;
+    } else {
+      el.innerHTML = original.replace(NPX_TSX_RE, runtime);
+    }
+  }
+}
+
+// === Theme export ===
+
 export default {
   extends: DefaultTheme,
   enhanceApp({ app }: EnhanceAppContext) {
@@ -171,17 +213,44 @@ export default {
       });
     }
   },
+  Layout() {
+    return h(DefaultTheme.Layout, null, {
+      'nav-bar-content-after': () => h(SettingsGear),
+    });
+  },
   setup() {
+    const settings = useDocSettings();
     let cleanup: (() => void) | undefined;
+
+    // --- Twoslash toggle via floating-vue theme disabled flag ---
+    watch(
+      () => settings.value.twoslash,
+      (enabled) => {
+        const theme = floatingOptions.themes['twoslash'];
+        if (theme) {
+          theme.disabled = !enabled;
+        }
+        document.documentElement.classList.toggle('twoslash-off', !enabled);
+      },
+      { immediate: true },
+    );
+
+    // --- Runtime replacement ---
+    watch(
+      () => settings.value.runtime,
+      (runtime) => applyRuntime(runtime),
+    );
 
     onMounted(() => {
       if (typeof window === 'undefined') return;
       showTwoslashHint();
       cleanup = setupMobileBottomSheet();
+      applyRuntime(settings.value.runtime);
     });
 
     onContentUpdated(() => {
       showTwoslashHint();
+      applyRuntime(settings.value.runtime);
     });
 
     onUnmounted(() => {
