@@ -7,8 +7,8 @@
  *
  * Usage:
  *   npx tsx examples/spinner-progress.ts
- *   npx tsx examples/spinner-progress.ts --json     # spinners suppressed, JSON output
- *   echo | npx tsx examples/spinner-progress.ts     # non-TTY: spinners silent
+ *   npx tsx examples/spinner-progress.ts --json  # spinners suppressed, JSON output
+ *   echo | npx tsx examples/spinner-progress.ts  # non-TTY: spinners silent
  */
 
 import { cli, command, flag } from '@kjanat/dreamcli';

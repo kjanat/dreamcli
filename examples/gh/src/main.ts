@@ -16,11 +16,13 @@
  * @module
  */
 
-import { type CLIBuilder, cli } from '@kjanat/dreamcli';
+// oxlint-disable-next-line no-unused-vars -- for CLIBuilder type in JSDoc
+import type { CLIBuilder } from '@kjanat/dreamcli';
+import { cli } from '@kjanat/dreamcli';
 
-import { auth } from '$gh/commands/auth.ts';
-import { issue } from '$gh/commands/issue.ts';
-import { pr } from '$gh/commands/pr.ts';
+import { auth } from './commands/auth.ts';
+import { issue } from './commands/issue.ts';
+import { pr } from './commands/pr.ts';
 
 /**
  * Create the example CLI and register commands.
@@ -30,9 +32,9 @@ import { pr } from '$gh/commands/pr.ts';
  *
  * Command registration order determines the order shown in `--help`.
  */
-const gh = cli('gh').packageJson();
+export const gh = cli('gh').packageJson().command(auth).command(pr).command(issue).completions();
 
 // Run the CLI if this file is executed directly (e.g. `bun src/main.ts ...`).
 if (import.meta.main) {
-	void gh.command(auth).command(pr).command(issue).completions().run();
+	gh.run();
 }

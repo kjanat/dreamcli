@@ -9,7 +9,12 @@
 	"file_types": { "Markdown": ["LICENSE"] },
 	"prettier": { "allowed": false },
 	"formatter": [
-		{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
+		{
+			"external": {
+				"command": "bun",
+				"arguments": ["fmt", "--stdin", "{buffer_path}"]
+			}
+		}
 	],
 	"languages": {
 		"JavaScript": {
@@ -21,5 +26,13 @@
 			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
 		}
 	},
-	"lsp": { "deno": { "settings": { "deno": { "enable": true } } } }
+	"lsp": {
+		"deno": { "settings": { "deno": { "enable": true } } },
+		"vtsls": {
+			"initialization_options": {
+				// https://github.com/yioneko/vtsls/blob/04c4d90fb4f18dff34d9282cdb7f508aab12cd95/packages/service/configuration.schema.json#L380
+				"typescript": { "preferences": { "importModuleSpecifier": "non-relative" } }
+			}
+		}
+	}
 }

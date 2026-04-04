@@ -7,5 +7,6 @@
 	"fenced-code-language": false,
 	"no-inline-html": false,
 	"commands-show-output": false,
-	"first-line-heading": false
+	"first-line-heading": false,
+	"no-trailing-punctuation": false
 }

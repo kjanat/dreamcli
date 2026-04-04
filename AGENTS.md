@@ -17,7 +17,7 @@ Agent memory for non-obvious repo gotchas lives there.
 
 ## STRUCTURE
 
-```tree
+```text
 src/
 ├── index.ts                # Public API barrel (explicit named re-exports, no wildcards)
 ├── core/
@@ -63,7 +63,7 @@ src/
 
 ## DEPENDENCY GRAPH
 
-```
+```text
 errors, schema          ← LEAF (zero internal deps)
   ↑
 parse, help, output     ← depend on schema/errors

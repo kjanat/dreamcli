@@ -6,9 +6,9 @@
 
 import { arg, CLIError, flag, group } from '@kjanat/dreamcli';
 
-import issues from '$gh/data/issues.yaml' with { type: 'yaml' };
-import { authedCommand } from '$gh/lib/auth.ts';
-import { normalizeLimit } from '$gh/lib/utils.ts';
+import issues from '../data/issues.yaml' with { type: 'yaml' };
+import { authedCommand } from '../lib/auth.ts';
+import { normalizeLimit } from '../lib/utils.ts';
 
 const issueLabelChoices = Array.from(new Set(issues.flatMap((issue) => issue.labels)))
 	.sort()

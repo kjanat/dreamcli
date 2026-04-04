@@ -33,23 +33,23 @@ A command is the verb — the thing you're asking the program to do.
 Some programs only do one thing:
 
 ```bash
-cat readme.txt          # just reads a file
-ping google.com         # just pings a host
+cat readme.txt   # just reads a file
+ping google.com  # just pings a host
 ```
 
 Others have many commands:
 
 ```bash
-git status              # check what changed
-git add .               # stage changes
-git commit -m "done"    # save changes
+git status            # check what changed
+git add .             # stage changes
+git commit -m "done"  # save changes
 ```
 
 And some go deeper with **subcommands** — commands inside commands:
 
 ```bash
-docker container ls     # list containers
-docker image build .    # build an image
+docker container ls   # list containers
+docker image build .  # build an image
 ```
 
 Think of it like a menu. `docker` is the restaurant. `container` is the section. `ls` is what you're
@@ -69,9 +69,9 @@ because of the order you typed them. First thing = source. Second thing = destin
 Arguments are usually the main *thing* the command works on:
 
 ```bash
-cat readme.txt       # "read THIS file"
-mkdir my-project     # "create THIS folder"
-rm old-stuff.log     # "delete THIS file"
+cat readme.txt    # "read THIS file"
+mkdir my-project  # "create THIS folder"
+rm old-stuff.log  # "delete THIS file"
 ```
 
 ## What's a Flag?

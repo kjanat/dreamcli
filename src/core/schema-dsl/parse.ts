@@ -193,7 +193,8 @@ type ParseProperty<T extends string> =
 		? Trim<K> extends `${infer Key}?`
 			? { [P in Trim<Key>]?: ParseValue<V> }
 			: { [P in Trim<K>]: ParseValue<V> }
-		: {};
+		: // biome-ignore lint/complexity/noBannedTypes: identity element for type-level intersection
+			{};
 
 /** Recursively parse a tuple of property strings and intersect results. */
 type ParseProperties<T extends string[]> = T extends [
@@ -201,7 +202,8 @@ type ParseProperties<T extends string[]> = T extends [
 	...infer R extends string[],
 ]
 	? ParseProperty<H> & ParseProperties<R>
-	: {};
+	: // biome-ignore lint/complexity/noBannedTypes: identity element for type-level intersection
+		{};
 
 // === Object parsing ===
 

@@ -7,7 +7,8 @@
  */
 
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, relative } from 'node:path';
+import { dirname, extname, join, relative, resolve } from 'node:path';
+import { normalize } from 'node:path/posix';
 
 import {
 	collectPublicApiIndex,
@@ -100,12 +101,12 @@ async function rebuildDocsArtifacts(): Promise<void> {
 		writeFile(referenceChangelogPagePath, renderChangelogPage(changelog)),
 		writeFile(generatedDocsHealthPath, renderDocsHealthArtifact(docsHealth)),
 		writeFile(referenceDocsHealthPagePath, renderDocsHealthPage(docsHealth)),
-		writeFile(generatedApiIndexPath, `${JSON.stringify(publicApi, null, '\t')}\n`),
+		writeFile(generatedApiIndexPath, `${JSON.stringify(publicApi, null, '  ')}\n`),
 		writeFile(generatedApiPagePath, renderPublicApiIndex(publicApi)),
-		writeFile(generatedTypeDocJsonPath, `${JSON.stringify(typeDoc.rawProject, null, '\t')}\n`),
+		writeFile(generatedTypeDocJsonPath, `${JSON.stringify(typeDoc.rawProject, null, '  ')}\n`),
 		writeFile(
 			generatedNormalizedTypeDocPath,
-			`${JSON.stringify(typeDoc.normalized, null, '\t')}\n`,
+			`${JSON.stringify(typeDoc.normalized, null, '  ')}\n`,
 		),
 		writeFile(
 			generatedMetaSchemaDescriptionsPath,
@@ -228,25 +229,25 @@ function renderSiteData(
 		relatedLinks: example.relatedLinks,
 	}));
 
-	return [
-		'/**',
-		' * Generated docs metadata consumed by VitePress config and wrapper pages.',
-		' *',
-		' * @module',
-		' */',
-		'',
-		`export const generatedExamples = ${JSON.stringify(exampleIndex, null, '\t')};`,
-		'',
-		`export const generatedReferenceSurfaces = ${JSON.stringify(referenceSurfaces, null, '\t')};`,
-		'',
-		`export const generatedPublicApi = ${JSON.stringify(publicApi, null, '\t')};`,
-		'',
-		`export const generatedSymbolPages = ${JSON.stringify(symbolPageIndex, null, '\t')};`,
-		'',
-		`export const docsHealthSnapshot = ${JSON.stringify(docsHealth, null, '\t')};`,
-		'',
-	].join('\n');
+	return `\
+/**
+ * Generated docs metadata consumed by VitePress config and wrapper pages.
+ *
+ * @module
+ */
+
+export const generatedExamples = ${JSON.stringify(exampleIndex, null, '  ')};
+
+export const generatedReferenceSurfaces = ${JSON.stringify(referenceSurfaces, null, '  ')};
+
+export const generatedPublicApi = ${JSON.stringify(publicApi, null, '  ')};
+
+export const generatedSymbolPages = ${JSON.stringify(symbolPageIndex, null, '  ')};
+
+export const docsHealthSnapshot = ${JSON.stringify(docsHealth, null, '  ')};
+`;
 }
+
 function toRepoPath(filePath: string): string {
-	return relative(join(docsRoot, '..'), filePath).replaceAll('\\', '/');
+	return normalize(relative(resolve(docsRoot, '..'), filePath).replace(/\\/g, '/'));
 }

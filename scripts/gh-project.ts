@@ -6,8 +6,8 @@
  * @module
  */
 
-import { run } from './gh-project/main.ts';
+import { ghProject } from './gh-project/main.ts';
 
 if (import.meta.main) {
-	void run();
+	void ghProject.run();
 }

@@ -1,5 +1,4 @@
 {
-	// https://docs.deno.com/runtime/fundamentals/configuration/
 	"$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
 	"name": "@kjanat/dreamcli",
 	"version": "1.0.0",
@@ -31,6 +30,7 @@
 		"./schema": "./dreamcli.schema.json"
 	},
 	"compilerOptions": {
+		"strict": true,
 		"module": "preserve",
 		"paths": {
 			"@kjanat/dreamcli": ["./src/index.ts"],
@@ -39,24 +39,23 @@
 		}
 	},
 	"publish": {
-		"include": ["src", "dreamcli.schema.json", "LICENSE", "README.md"],
-		"exclude": ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/**/AGENTS.md"]
+		"include": ["CHANGELOG.md", "LICENSE", "README.md", "dreamcli.schema.json", "examples", "src"],
+		"exclude": ["src/**/*.test.ts", "src/**/*test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"lib": ["deno.ns", "deno.shared_globals"],
-	"lint": {
-		"rules": {
-			"exclude": ["require-await"]
-		}
-	},
+	"fmt": { "exclude": ["**"] },
+	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
 	"nodeModulesDir": "manual",
 	"exclude": [
 		"**/*.test.ts",
-		"**/test-helpers.ts",
-		"cache/",
-		"dist/",
-		"coverage/",
-		"scripts/",
+		"*.ts",
+		".bucket/",
 		".opencode/",
-		"examples/gh/"
+		"*cache/",
+		"coverage/",
+		"dist/",
+		"docs/",
+		"examples/gh/",
+		"scripts/"
 	]
 }

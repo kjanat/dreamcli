@@ -3,8 +3,17 @@
 telemetry = false
 
 [install]
-auto = "auto"
+auto          = "auto"
 lockfile.save = true
 
 [run]
 silent = true
+
+[test]
+root           = "./src"
+coverage       = true
+reporter.dots  = true
+reporter.junit = ".bucket/test-results.xml"
+coverageDir    = ".bucket/coverage"
+randomize      = true
+rerunEach      = 3

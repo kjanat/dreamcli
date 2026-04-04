@@ -229,3 +229,4 @@ docs/.vitepress/cache/
 /*example*.ts
 .codex
 /dreamcli.schema.json
+/.bucket

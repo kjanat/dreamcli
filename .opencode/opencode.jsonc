@@ -2,7 +2,7 @@
 	"$schema": "https://opencode.ai/config.json",
 	"formatter": {
 		"dprint": {
-			"command": ["./node_modules/.bin/dprint", "fmt", "--config=.dprint.jsonc", "$FILE"],
+			"command": ["bunx", "dprint", "fmt", "$FILE"],
 			"extensions": [
 				".js",
 				".ts",
@@ -16,12 +16,8 @@
 				".jsonc",
 				".md",
 				".yml",
-				".yaml",
-				".toml",
-				"Dockerfile",
-				"Dockerfile.*"
-			],
-			"environment": { "DPRINT_CONFIG_DISCOVERY": "false" }
+				".yaml"
+			]
 		}
 	}
 }

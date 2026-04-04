@@ -88,7 +88,7 @@ async function readPrdState(prdName: string): Promise<PrdState> {
 }
 
 async function writePrdState(state: PrdState, file: PrdFile): Promise<PrdState> {
-	const text = `${JSON.stringify(file, null, '\t')}\n`;
+	const text = `${JSON.stringify(file, null, '  ')}\n`;
 	try {
 		await Bun.write(state.filePath, text);
 	} catch (error) {

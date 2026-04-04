@@ -28,81 +28,51 @@
 		"#package.json": "./package.json"
 	},
 	"exports": {
-		".": {
-			"bun": "./src/index.ts",
-			"deno": "./src/index.ts",
-			"types": {
-				"import": "./dist/index.d.mts",
-				"require": "./dist/index.d.cts",
-				"default": "./dist/index.d.cts"
-			},
-			"import": "./dist/index.mjs",
-			"require": "./dist/index.cjs",
-			"default": "./dist/index.cjs"
-		},
-		"./runtime": {
-			"bun": "./src/runtime.ts",
-			"deno": "./src/runtime.ts",
-			"types": {
-				"import": "./dist/runtime.d.mts",
-				"require": "./dist/runtime.d.cts",
-				"default": "./dist/runtime.d.cts"
-			},
-			"import": "./dist/runtime.mjs",
-			"require": "./dist/runtime.cjs",
-			"default": "./dist/runtime.cjs"
-		},
-		"./testkit": {
-			"bun": "./src/testkit.ts",
-			"deno": "./src/testkit.ts",
-			"types": {
-				"import": "./dist/testkit.d.mts",
-				"require": "./dist/testkit.d.cts",
-				"default": "./dist/testkit.d.cts"
-			},
-			"import": "./dist/testkit.mjs",
-			"require": "./dist/testkit.cjs",
-			"default": "./dist/testkit.cjs"
-		},
+		".": "./src/index.ts",
+		"./runtime": "./src/runtime.ts",
+		"./testkit": "./src/testkit.ts",
 		"./schema": "./dreamcli.schema.json",
 		"./package.json": "./package.json"
 	},
 	"files": [
-		"README.md",
-		"LICENSE",
 		"CHANGELOG.md",
-		"dreamcli.schema.json",
-		"package.json",
+		"LICENSE",
+		"README.md",
 		"dist",
+		"dreamcli.schema.json",
 		"examples",
+		"package.json",
 		"src",
-		"!src/**/*.test.ts"
+		"!src/**/*.test.ts",
+		"!src/**/*test-helpers.ts"
 	],
 	"workspaces": [
-		"examples/gh"
+		"./examples/*"
 	],
 	"scripts": {
-		"bd": "bun run build",
+		"bd": "bunx --bun tsdown",
 		"build": "bunx --bun tsdown",
+		"build:watch": "bunx --bun tsdown --watch",
 		"ci": "bun typecheck && bun lint && bun run format:check && bun run test && bun run docs:prepare:check && bun run docs:build && bun bd",
-		"coverage": "npx vitest run --coverage",
-		"docs:build": "bun run docs:prepare && vitepress build docs",
-		"docs:dev": "bun run docs:prepare && vitepress dev docs",
-		"docs:prepare": "bun scripts/docs/build-docs-data.ts && bun fmt",
-		"docs:prepare:check": "bun run docs:prepare && git diff --exit-code -- .",
-		"docs:preview": "vitepress preview docs",
+		"coverage": "vitest run --coverage",
+		"docs:build": "bun --bun docs:prepare && bunx --bun vitepress build docs",
+		"docs:dev": "bun --bun docs:prepare && bunx --bun vitepress dev docs",
+		"docs:prepare": "bun --bun scripts/docs/build-docs-data.ts && bun fmt",
+		"docs:prepare:check": "bun --bun docs:prepare && git diff --exit-code -- .",
+		"docs:preview": "bunx --bun vitepress preview docs",
 		"fmt": "dprint fmt",
 		"format": "dprint fmt",
 		"format:check": "dprint check",
 		"gh-project": "bun scripts/gh-project.ts",
-		"gh-project:finish": "bun scripts/gh-project.ts finish",
-		"gh-project:list": "bun scripts/gh-project.ts list",
-		"gh-project:set": "bun scripts/gh-project.ts set",
-		"gh-project:start": "bun scripts/gh-project.ts start",
-		"gh-project:sync": "bun scripts/gh-project.ts sync",
+		"gh-project:finish": "bun gh-project finish",
+		"gh-project:list": "bun gh-project list",
+		"gh-project:set": "bun gh-project set",
+		"gh-project:start": "bun gh-project start",
+		"gh-project:sync": "bun gh-project sync",
 		"lint": "biome lint",
 		"lint:fix": "biome lint --fix",
-		"prepack": "bunx tsdown --logLevel silent",
+		"prepack": "bunx --bun tsdown --logLevel silent",
+		"prepare": "./note-to-self.ts",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"typecheck": "tsgo --noEmit",
@@ -118,9 +88,9 @@
 		"@types/bun": "catalog:",
 		"@types/deno": "^2.5.0",
 		"@types/node": ">=22.0.0, <23.0.0",
-		"@typescript/native-preview": "^7.0.0-dev.20260401.1",
+		"@typescript/native-preview": "^7.0.0-dev.20260403.1",
 		"@vitest/coverage-v8": "^4.1.2",
-		"dprint": "^0.53.1",
+		"dprint": "^0.53.2",
 		"mermaid": "^11.14.0",
 		"publint": "^0.3.18",
 		"tsdown": "^0.21.7",
@@ -137,9 +107,64 @@
 		"deno": ">=2.6.0",
 		"node": ">=22.22.2"
 	},
+	"devEngines": {
+		"packageManager": {
+			"name": "bun",
+			"onFail": "warn"
+		},
+		"runtime": {
+			"name": "bun",
+			"onFail": "ignore"
+		}
+	},
 	"volta": {
 		"node": "25.8.2",
 		"npm": "11.12.1"
+	},
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			".": {
+				"bun": "./src/index.ts",
+				"deno": "./src/index.ts",
+				"import": {
+					"types": "./dist/index.d.mts",
+					"default": "./dist/index.mjs"
+				},
+				"require": {
+					"types": "./dist/index.d.cts",
+					"default": "./dist/index.cjs"
+				}
+			},
+			"./runtime": {
+				"bun": "./src/runtime.ts",
+				"deno": "./src/runtime.ts",
+				"import": {
+					"types": "./dist/runtime.d.mts",
+					"default": "./dist/runtime.mjs"
+				},
+				"require": {
+					"types": "./dist/runtime.d.cts",
+					"default": "./dist/runtime.cjs"
+				}
+			},
+			"./testkit": {
+				"bun": "./src/testkit.ts",
+				"deno": "./src/testkit.ts",
+				"import": {
+					"types": "./dist/testkit.d.mts",
+					"default": "./dist/testkit.mjs"
+				},
+				"require": {
+					"types": "./dist/testkit.d.cts",
+					"default": "./dist/testkit.cjs"
+				}
+			},
+			"./schema": "./dreamcli.schema.json",
+			"./package.json": "./package.json"
+		},
+		"provenance": true,
+		"tag": "beta"
 	},
 	"catalog": {
 		"@types/bun": "^1.3.0",

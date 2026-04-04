@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import TwoslashFloatingVue from '@shikijs/vitepress-twoslash/client';
 import type { EnhanceAppContext } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';

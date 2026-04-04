@@ -17,7 +17,7 @@ import type { RuntimeAdapter } from '#dreamcli/runtime';
 
 // Import from built output (not source) to verify the published shape.
 // Use a file URL expression so repository typecheck does not require a prebuilt dist/.
-const runtimeModuleUrl = new URL('../dist/runtime.mjs', import.meta.url).href;
+const runtimeModuleUrl = import.meta.resolve('../dist/runtime.mjs');
 const runtimeModule = await import(runtimeModuleUrl);
 
 function failBoundary(message: string): never {

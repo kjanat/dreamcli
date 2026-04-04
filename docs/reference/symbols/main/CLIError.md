@@ -121,7 +121,7 @@ captureStackTrace(targetObject: object, constructorOpt?: Function): void;
 #### `isError`
 
 ```ts
-isError(value: unknown): value is Error;
+isError(error: unknown): error is Error;
 ```
 
 #### `prepareStackTrace`

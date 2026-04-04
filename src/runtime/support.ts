@@ -105,7 +105,7 @@ function assertRuntimeVersionSupported(
 	if (isRuntimeVersionSupported(runtime, version)) return;
 
 	throw new Error(
-		`dreamcli requires ${formatRuntimeRequirement(runtime)}. Detected ${getRuntimeSupport(runtime).displayName} ${version}.`,
+		`@kjanat/dreamcli requires ${formatRuntimeRequirement(runtime)}. Detected ${getRuntimeSupport(runtime).displayName} ${version}.`,
 	);
 }
 

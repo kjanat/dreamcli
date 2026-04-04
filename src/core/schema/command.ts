@@ -1455,12 +1455,12 @@ export type {
 	DeriveParams,
 	ErasedActionHandler,
 	ErasedCommand,
-	RunnableCommand,
 	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
+	RunnableCommand,
 };
 export { CommandBuilder, command, group };

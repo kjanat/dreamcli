@@ -12,6 +12,7 @@
 			"!**/biome.jsonc"
 		]
 	},
+
 	"markdown": { "textWrap": "maintain", "emphasisKind": "asterisks" },
 	"toml": {
 		"comment.forceLeadingSpace": false,
@@ -23,7 +24,10 @@
 	"yaml": { "printWidth": 160 },
 	"exec": {
 		"cwd": "${configDir}",
-		"commands": [{ "command": "bunx sort-package-json --stdin", "fileNames": ["package.json"] }]
+		"commands": [
+			{ "command": "bunx sort-package-json --stdin", "fileNames": ["package.json"] },
+			{ "command": "bunx tombi format - --stdin-filename {{file_path}}", "exts": ["toml"] }
+		]
 	},
 	"excludes": ["**/node_modules", "**/*-lock.json", "**/*-lock.*", "**/bun.lock*", "**/snapshots"],
 	"plugins": [

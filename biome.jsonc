@@ -8,7 +8,8 @@
 	},
 	"files": {
 		"includes": ["**"],
-		"ignoreUnknown": true
+		"ignoreUnknown": false,
+		"maxSize": 5000000
 	},
 	"formatter": { "enabled": false },
 	"linter": {

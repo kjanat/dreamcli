@@ -1,4 +1,4 @@
-# dreamcli
+# `@kjanat/dreamcli`
 
 Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
 
@@ -42,8 +42,7 @@ bun add @kjanat/dreamcli
 ```
 
 ```bash
-# Deno (JSR)
-deno add jsr:@kjanat/dreamcli
+deno add jsr:@kjanat/dreamcli  # or npm:@kjanat/dreamcli
 ```
 
 ## Quick start
@@ -164,7 +163,7 @@ Every flag supports: `.default()`, `.required()`, `.alias()`, `.env()`, `.config
 
 Each flag resolves through an ordered pipeline. Every step is opt-in:
 
-```
+```text
 CLI argv  →  environment variable  →  config file  →  interactive prompt  →  default value
 ```
 
@@ -367,4 +366,6 @@ exit behavior).
 
 ## License
 
-[MIT](LICENSE)
+[MIT][LICENSE]
+
+[LICENSE]: https://github.com/kjanat/dreamcli/blob/master/LICENSE

@@ -14,7 +14,7 @@ npx tsx examples/json-mode.ts list                  # JSON stdout + plain stderr
 npx tsx examples/json-mode.ts list --format table   # JSON stdout + table stderr side channel
 npx tsx examples/json-mode.ts list --json           # same success output; CLI-managed errors stay JSON-safe
 npx tsx examples/json-mode.ts show web-api
-npx tsx examples/json-mode.ts show nonexistent     # structured error
+npx tsx examples/json-mode.ts show nonexistent      # structured error
 npx tsx examples/json-mode.ts show nonexistent --json  # JSON error
 ```
 
@@ -51,7 +51,7 @@ npx tsx examples/json-mode.ts show nonexistent --json  # JSON error
  *   npx tsx examples/json-mode.ts list --format table   # JSON stdout + table stderr side channel
  *   npx tsx examples/json-mode.ts list --json           # same success output; CLI-managed errors stay JSON-safe
  *   npx tsx examples/json-mode.ts show web-api
- *   npx tsx examples/json-mode.ts show nonexistent     # structured error
+ *   npx tsx examples/json-mode.ts show nonexistent      # structured error
  *   npx tsx examples/json-mode.ts show nonexistent --json  # JSON error
  */
 

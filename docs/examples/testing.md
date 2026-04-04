@@ -5,7 +5,7 @@
 Testing examples using @kjanat/dreamcli/testkit.
 
 - Source: [`examples/testing.ts`](https://github.com/kjanat/dreamcli/blob/master/examples/testing.ts)
-- Demonstrates: runCommand(), prompt answers, env/config injection,
+- Demonstrates: `runCommand()`, prompt answers, env/config injection,
 
 ## Usage
 
@@ -38,7 +38,7 @@ bun test examples/testing.ts
 /**
  * Testing examples using @kjanat/dreamcli/testkit.
  *
- * Demonstrates: runCommand(), prompt answers, env/config injection,
+ * Demonstrates: `runCommand()`, prompt answers, env/config injection,
  * activity event assertions. This file is structured as a vitest
  * test suite — run with `bun test examples/testing.ts`.
  *
