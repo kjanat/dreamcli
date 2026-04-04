@@ -170,7 +170,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(piped.inputs.prompter).toBeUndefined();
 	});
 
-	it('returns config-error outcomes without throwing for CLI config failures', async () => {
+	it('returns config-error outcomes for CLI config failures', async () => {
 		const app = cli('myapp')
 			.config('myapp')
 			.command(command('deploy').action(() => {}));

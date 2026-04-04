@@ -112,7 +112,7 @@ describe('planInvocation() — root interception', () => {
 		expect(result).toEqual({ kind: 'root-help', help });
 	});
 
-	it('keeps subcommand help in the match plan instead of intercepting as root help', () => {
+	it('keeps subcommand help in the match plan', () => {
 		const deploy = erased(commandSchema({ name: 'deploy' }));
 
 		const result = planFor([deploy], ['--json', 'deploy', '--help']);
@@ -140,7 +140,7 @@ describe('planInvocation() — root interception', () => {
 // === Default-command behavior
 
 describe('planInvocation() — default command behavior', () => {
-	it('delegates root-level unknown argv to the default command when there is no suggestion', () => {
+	it('delegates unknown root argv without suggestions', () => {
 		const deploy = erased(commandSchema({ name: 'deploy' }));
 		const status = erased(commandSchema({ name: 'status' }));
 
@@ -154,7 +154,7 @@ describe('planInvocation() — default command behavior', () => {
 		}
 	});
 
-	it('keeps typo suggestions as dispatch errors instead of swallowing them with the default command', () => {
+	it('keeps typo suggestions as dispatch errors', () => {
 		const deploy = erased(commandSchema({ name: 'deploy' }));
 		const status = erased(commandSchema({ name: 'status' }));
 

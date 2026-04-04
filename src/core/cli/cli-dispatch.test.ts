@@ -173,7 +173,7 @@ describe('dispatch()', () => {
 	// --- groups without handlers
 
 	describe('groups without handlers', () => {
-		it('returns needs-subcommand when group has no handler and no subcommand given', () => {
+		it('returns needs-subcommand for bare groups', () => {
 			const migrate = erased(commandSchema({ name: 'migrate' }));
 			const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
 			const result = dispatch(['db'], commandMap(db));
@@ -184,7 +184,7 @@ describe('dispatch()', () => {
 			}
 		});
 
-		it('returns unknown when group has no handler and unknown subcommand given', () => {
+		it('returns unknown for unknown subcommands', () => {
 			const migrate = erased(commandSchema({ name: 'migrate' }));
 			const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
 			const result = dispatch(['db', 'nope'], commandMap(db));
@@ -220,7 +220,7 @@ describe('dispatch()', () => {
 			}
 		});
 
-		it('dispatches to group handler when unknown token follows (positional arg)', () => {
+		it('dispatches to the group handler for positional args', () => {
 			const add = erased(commandSchema({ name: 'add' }));
 			const remote = erased(commandSchema({ name: 'remote', hasAction: true }), commandMap(add));
 			const result = dispatch(['remote', 'origin'], commandMap(remote));

@@ -106,139 +106,157 @@ describe('Completion contract', () => {
 	// --- nested command propagation
 
 	describe('nested command propagation', () => {
-		it('includes nested bash leaf completions with propagated ancestor flags', async () => {
-			const app = cli('mycli').command(dbCommand()).completions();
-			const result = await app.execute(['completions', 'bash']);
-			const lines = result.stdout.join('').split('\n');
-			const migrateIdx = lines.findIndex((line) => line.includes('"db migrate"'));
+		describe('bash', () => {
+			it('includes propagated ancestor flags in leaf completions', async () => {
+				const app = cli('mycli').command(dbCommand()).completions();
+				const result = await app.execute(['completions', 'bash']);
+				const lines = result.stdout.join('').split('\n');
+				const migrateIdx = lines.findIndex((line) => line.includes('"db migrate"'));
 
-			expect(result.exitCode).toBe(0);
-			expect(migrateIdx).toBeGreaterThan(-1);
+				expect(result.exitCode).toBe(0);
+				expect(migrateIdx).toBeGreaterThan(-1);
 
-			const migrateBlock = lines.slice(migrateIdx, migrateIdx + 15).join('\n');
-			expect(migrateBlock).toContain('--verbose');
-			expect(migrateBlock).toContain('-v');
-			expect(migrateBlock).toContain('--dry-run');
+				const migrateBlock = lines.slice(migrateIdx, migrateIdx + 15).join('\n');
+				expect(migrateBlock).toContain('--verbose');
+				expect(migrateBlock).toContain('-v');
+				expect(migrateBlock).toContain('--dry-run');
+			});
 		});
 
-		it('includes nested zsh leaf completions with propagated ancestor flags', async () => {
-			const app = cli('mycli').command(dbCommand()).completions();
-			const result = await app.execute(['completions', 'zsh']);
-			const lines = result.stdout.join('').split('\n');
-			const migrateIdx = lines.findIndex((line) => line.includes('_mycli_db_migrate() {'));
+		describe('zsh', () => {
+			it('includes propagated ancestor flags in leaf completions', async () => {
+				const app = cli('mycli').command(dbCommand()).completions();
+				const result = await app.execute(['completions', 'zsh']);
+				const lines = result.stdout.join('').split('\n');
+				const migrateIdx = lines.findIndex((line) => line.includes('_mycli_db_migrate() {'));
 
-			expect(result.exitCode).toBe(0);
-			expect(migrateIdx).toBeGreaterThan(-1);
+				expect(result.exitCode).toBe(0);
+				expect(migrateIdx).toBeGreaterThan(-1);
 
-			const migrateBlock = lines.slice(migrateIdx, migrateIdx + 10).join('\n');
-			expect(migrateBlock).toContain('--verbose');
-			expect(migrateBlock).toContain('-v');
-			expect(migrateBlock).toContain('--dry-run');
+				const migrateBlock = lines.slice(migrateIdx, migrateIdx + 10).join('\n');
+				expect(migrateBlock).toContain('--verbose');
+				expect(migrateBlock).toContain('-v');
+				expect(migrateBlock).toContain('--dry-run');
+			});
 		});
 
-		it('includes nested fish leaf completions with propagated ancestor flags', async () => {
-			const app = cli('mycli').command(dbCommand()).completions();
-			const result = await app.execute(['completions', 'fish']);
-			const lines = extractFishCompletionLines(
-				result.stdout.join(''),
-				'__mycli_completions_path_is',
-				'db migrate',
-			).join('\n');
+		describe('fish', () => {
+			it('includes propagated ancestor flags in leaf completions', async () => {
+				const app = cli('mycli').command(dbCommand()).completions();
+				const result = await app.execute(['completions', 'fish']);
+				const lines = extractFishCompletionLines(
+					result.stdout.join(''),
+					'__mycli_completions_path_is',
+					'db migrate',
+				).join('\n');
 
-			expect(result.exitCode).toBe(0);
-			expect(lines).toContain('-l verbose');
-			expect(lines).toContain('-s v');
-			expect(lines).toContain('-l dry-run');
+				expect(result.exitCode).toBe(0);
+				expect(lines).toContain('-l verbose');
+				expect(lines).toContain('-s v');
+				expect(lines).toContain('-l dry-run');
+			});
 		});
 	});
 
 	// --- root and default-command policy
 
 	describe('root and default-command policy', () => {
-		it('keeps hybrid bash roots command-centric by default and surfaces default flags on request', async () => {
-			const commandModeApp = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions();
-			const commandModeResult = await commandModeApp.execute(['completions', 'bash']);
-			const commandModeWords = extractBashRootWords(commandModeResult.stdout.join(''));
+		describe('bash', () => {
+			it('keeps hybrid roots command-centric by default', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions();
+				const result = await app.execute(['completions', 'bash']);
+				const rootWords = extractBashRootWords(result.stdout.join(''));
 
-			expect(commandModeResult.exitCode).toBe(0);
-			expect(commandModeWords).toEqual(['serve', 'status', '--help']);
+				expect(result.exitCode).toBe(0);
+				expect(rootWords).toEqual(['serve', 'status', '--help']);
+			});
 
-			const surfaceModeApp = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions({ rootMode: 'surface' });
-			const surfaceModeResult = await surfaceModeApp.execute(['completions', 'bash']);
-			const surfaceModeWords = extractBashRootWords(surfaceModeResult.stdout.join(''));
+			it('surfaces default flags in surface mode', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions({ rootMode: 'surface' });
+				const result = await app.execute(['completions', 'bash']);
+				const rootWords = extractBashRootWords(result.stdout.join(''));
 
-			expect(surfaceModeResult.exitCode).toBe(0);
-			expect(surfaceModeWords).toContain('--port');
-			expect(surfaceModeWords).toContain('-p');
-			expect(surfaceModeWords).toContain('--verbose');
-			expect(surfaceModeWords).not.toContain('--childOnly');
+				expect(result.exitCode).toBe(0);
+				expect(rootWords).toContain('--port');
+				expect(rootWords).toContain('-p');
+				expect(rootWords).toContain('--verbose');
+				expect(rootWords).not.toContain('--childOnly');
+			});
 		});
 
-		it('keeps hybrid zsh roots command-centric by default and surfaces default flags on request', async () => {
-			const commandModeApp = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions();
-			const commandModeResult = await commandModeApp.execute(['completions', 'zsh']);
-			const commandModeRoot = extractZshRootFunction(commandModeResult.stdout.join(''), '_mycli');
+		describe('zsh', () => {
+			it('keeps hybrid roots command-centric by default', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions();
+				const result = await app.execute(['completions', 'zsh']);
+				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
-			expect(commandModeResult.exitCode).toBe(0);
-			expect(commandModeRoot).toContain("'serve:Start the server'");
-			expect(commandModeRoot).toContain("'status:Show current status'");
-			expect(commandModeRoot).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+				expect(result.exitCode).toBe(0);
+				expect(rootFunction).toContain("'serve:Start the server'");
+				expect(rootFunction).toContain("'status:Show current status'");
+				expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+			});
 
-			const surfaceModeApp = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions({ rootMode: 'surface' });
-			const surfaceModeResult = await surfaceModeApp.execute(['completions', 'zsh']);
-			const surfaceModeRoot = extractZshRootFunction(surfaceModeResult.stdout.join(''), '_mycli');
+			it('surfaces default flags in surface mode', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions({ rootMode: 'surface' });
+				const result = await app.execute(['completions', 'zsh']);
+				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
-			expect(surfaceModeResult.exitCode).toBe(0);
-			expect(surfaceModeRoot).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
-			expect(surfaceModeRoot).toContain("'--verbose[Verbose logging]'");
-			expect(surfaceModeRoot).not.toContain("'--childOnly[Child-only flag]'");
+				expect(result.exitCode).toBe(0);
+				expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+				expect(rootFunction).toContain("'--verbose[Verbose logging]'");
+				expect(rootFunction).not.toContain("'--childOnly[Child-only flag]'");
+			});
 		});
 
-		it('keeps hybrid fish roots command-centric by default and surfaces default flags on request', async () => {
-			const commandModeApp = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions();
-			const commandModeResult = await commandModeApp.execute(['completions', 'fish']);
-			const commandModeRoot = extractFishCompletionLines(
-				commandModeResult.stdout.join(''),
-				'__mycli_completions_path_is',
-				'',
-			).join('\n');
+		describe('fish', () => {
+			it('keeps hybrid roots command-centric by default', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions();
+				const result = await app.execute(['completions', 'fish']);
+				const rootLines = extractFishCompletionLines(
+					result.stdout.join(''),
+					'__mycli_completions_path_is',
+					'',
+				).join('\n');
 
-			expect(commandModeResult.exitCode).toBe(0);
-			expect(commandModeRoot).toContain('-a serve');
-			expect(commandModeRoot).toContain('-a status');
-			expect(commandModeRoot).not.toContain('-l port');
+				expect(result.exitCode).toBe(0);
+				expect(rootLines).toContain('-a serve');
+				expect(rootLines).toContain('-a status');
+				expect(rootLines).not.toContain('-l port');
+			});
 
-			const surfaceModeApp = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions({ rootMode: 'surface' });
-			const surfaceModeResult = await surfaceModeApp.execute(['completions', 'fish']);
-			const surfaceModeRoot = extractFishCompletionLines(
-				surfaceModeResult.stdout.join(''),
-				'__mycli_completions_path_is',
-				'',
-			).join('\n');
+			it('surfaces default flags in surface mode', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions({ rootMode: 'surface' });
+				const result = await app.execute(['completions', 'fish']);
+				const rootLines = extractFishCompletionLines(
+					result.stdout.join(''),
+					'__mycli_completions_path_is',
+					'',
+				).join('\n');
 
-			expect(surfaceModeResult.exitCode).toBe(0);
-			expect(surfaceModeRoot).toContain('-l port');
-			expect(surfaceModeRoot).toContain('-s p');
-			expect(surfaceModeRoot).toContain('-l verbose');
-			expect(surfaceModeRoot).not.toContain('-l childOnly');
+				expect(result.exitCode).toBe(0);
+				expect(rootLines).toContain('-l port');
+				expect(rootLines).toContain('-s p');
+				expect(rootLines).toContain('-l verbose');
+				expect(rootLines).not.toContain('-l childOnly');
+			});
 		});
 	});
 });

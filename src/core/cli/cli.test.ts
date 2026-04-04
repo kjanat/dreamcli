@@ -272,7 +272,7 @@ describe('CLIBuilder.run — runtime name inheritance', () => {
 		expect(output).not.toContain('Usage: cli <command> [options]');
 	});
 
-	it('falls back to the configured name when no invocation name can be inferred', async () => {
+	it('falls back to the configured name when invocation name is unavailable', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
 			argv: ['deno', 'run', '--help'],
@@ -455,7 +455,7 @@ describe('help virtual subcommand — behavior', () => {
 		expect(output).toContain('deploy');
 	});
 
-	it('bare `help` shows merged root and default command help for single-command default CLIs', async () => {
+	it('bare `help` merges root and default help for single-command CLIs', async () => {
 		const defaultCmd = command('run')
 			.description('Default runner')
 			.arg('target', arg.string().describe('Run target'))

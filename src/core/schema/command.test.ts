@@ -781,7 +781,7 @@ describe('.command()', () => {
 		).toThrow(CLIError);
 	});
 
-	it('rejects propagated alias collisions when the propagated flag is added later', () => {
+	it('rejects propagated alias collisions added later', () => {
 		expect(() =>
 			command('db')
 				.command(command('migrate').flag('version', flag.boolean().alias('v')))

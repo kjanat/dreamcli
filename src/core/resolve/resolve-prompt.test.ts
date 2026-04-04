@@ -288,7 +288,7 @@ describe('resolve', () => {
 			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
 		});
 
-		it('optional flag resolves to undefined when prompt cancelled and no default', async () => {
+		it('resolves optional flags to undefined when prompts are cancelled', async () => {
 			const schema = makeSchema({
 				flags: {
 					name: createSchema('string', {
@@ -479,7 +479,7 @@ describe('resolve', () => {
 	// --- deprecation warnings via prompt
 
 	describe('deprecation warnings via prompt', () => {
-		it('collects structured deprecation when deprecated flag is resolved from prompt', async () => {
+		it('collects deprecations from prompt-resolved flags', async () => {
 			const schema = makeSchema({
 				flags: {
 					old: createSchema('string', {

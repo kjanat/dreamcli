@@ -819,7 +819,7 @@ describe('generateInputSchema — input validation', () => {
 		expect(result).toHaveProperty(['oneOf', 1, 'required'], ['command']);
 	});
 
-	it('omits the command discriminator for a visible default command with siblings', () => {
+	it('omits the discriminator for a visible default with siblings', () => {
 		const deploy = commandDef({ name: 'deploy' });
 		const status = commandDef({ name: 'status' });
 		const cli = minimalCLI({

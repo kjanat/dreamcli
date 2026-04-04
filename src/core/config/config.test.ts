@@ -558,7 +558,7 @@ describe('configFormat — convenience factory', () => {
 		}
 	});
 
-	it('works with parseYaml from the yaml package for object-shaped config files', async () => {
+	it('supports object-shaped YAML via parseYaml', async () => {
 		const adapter = stubAdapter({
 			'/project/.myapp.yaml': 'deploy:\n  region: eu\nverbose: true\n',
 		});

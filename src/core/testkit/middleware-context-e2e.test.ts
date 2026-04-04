@@ -47,7 +47,7 @@ const tenantMiddleware = middleware<{ tenantId: string }>(async ({ flags, next }
 
 // --- Multi-middleware context composition — runCommand path
 
-describe('e2e: multi-middleware context composition (runCommand)', () => {
+describe('context composition — runCommand', () => {
 	it('three middleware compose a rich context object', async () => {
 		let receivedCtx: unknown;
 
@@ -77,7 +77,7 @@ describe('e2e: multi-middleware context composition (runCommand)', () => {
 		expect(captured.flags.tenant).toBe('corp');
 	});
 
-	it('middleware context carries through to action even with env/config resolution', async () => {
+	it('carries context through env/config resolution', async () => {
 		let receivedCtx: unknown;
 		let receivedFlags: unknown;
 
@@ -140,7 +140,7 @@ describe('e2e: multi-middleware context composition (runCommand)', () => {
 
 // --- Typed context in action handlers — compile-time assertions
 
-describe('e2e: typed ctx in action handlers', () => {
+describe('typed ctx in action handlers', () => {
 	it('ctx type narrows through middleware chain', () => {
 		// This test is primarily a compile-time assertion — if it compiles, the
 		// type system correctly narrows ctx through the middleware chain.
@@ -189,7 +189,7 @@ describe('e2e: typed ctx in action handlers', () => {
 
 // --- Error middleware patterns
 
-describe('e2e: error middleware patterns', () => {
+describe('error middleware patterns', () => {
 	it('middleware CLIError propagates with exit code and structured error', async () => {
 		const guard = middleware<{ user: User }>(async (_params) => {
 			throw new CLIError('Unauthorized', {
@@ -315,7 +315,7 @@ describe('e2e: error middleware patterns', () => {
 
 // --- Middleware ordering and wrap-around patterns
 
-describe('e2e: middleware ordering and wrap-around', () => {
+describe('middleware ordering and wrap-around', () => {
 	it('onion model: three middleware wrap action in correct order', async () => {
 		const events: string[] = [];
 
@@ -413,7 +413,7 @@ describe('e2e: middleware ordering and wrap-around', () => {
 
 // --- Full CLI dispatch path — e2e through cli().execute()
 
-describe('e2e: middleware through CLI dispatch', () => {
+describe('middleware through CLI dispatch', () => {
 	it('realistic auth + tracing pipeline via cli.execute()', async () => {
 		let receivedCtx: unknown;
 
@@ -540,7 +540,7 @@ describe('e2e: middleware through CLI dispatch', () => {
 
 // --- Middleware + output modes (JSON, TTY) e2e
 
-describe('e2e: middleware + output modes', () => {
+describe('middleware output modes', () => {
 	it('middleware output in JSON mode: log→stderr, json→stdout', async () => {
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
 		const logger = middleware<{}>(async ({ out, next }) => {
@@ -644,7 +644,7 @@ describe('e2e: middleware + output modes', () => {
 
 // --- Middleware + resolution chain interplay
 
-describe('e2e: middleware + resolution chain', () => {
+describe('middleware and resolution chain', () => {
 	it('middleware sees values after full env + config + default resolution', async () => {
 		let middlewareFlags: unknown;
 
@@ -731,7 +731,7 @@ describe('e2e: middleware + resolution chain', () => {
 
 // --- Edge cases
 
-describe('e2e: middleware edge cases', () => {
+describe('middleware edge cases', () => {
 	it('middleware with async work still preserves context', async () => {
 		const asyncAuth = middleware<{ user: string }>(async ({ next }) => {
 			// Simulate async work (e.g. token validation, DB lookup)

@@ -228,7 +228,7 @@ describe('resolver contracts', () => {
 	// --- hard errors and aggregation
 
 	describe('hard errors and aggregation', () => {
-		it('keeps env coercion errors authoritative for flags instead of falling through', async () => {
+		it('prefers env flag errors over later sources', async () => {
 			const schema = makeSchema({
 				flags: {
 					port: createSchema('number', {
@@ -256,7 +256,7 @@ describe('resolver contracts', () => {
 			});
 		});
 
-		it('keeps stdin coercion errors authoritative for args instead of falling through', async () => {
+		it('prefers stdin arg errors over later sources', async () => {
 			const schema = makeSchema({
 				args: [
 					{
@@ -288,7 +288,7 @@ describe('resolver contracts', () => {
 			expect(error.suggest).toBe('Pipe a valid number to stdin for <count>');
 		});
 
-		it('aggregates independent flag and arg validation failures into one error', async () => {
+		it('aggregates independent flag and arg failures', async () => {
 			const schema = makeSchema({
 				flags: {
 					token: createSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),

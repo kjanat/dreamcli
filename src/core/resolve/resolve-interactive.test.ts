@@ -295,7 +295,7 @@ describe('resolve with interactive resolver', () => {
 		expect(interactiveFn).toHaveBeenCalled();
 	});
 
-	it('multiple flags: some from interactive, some from per-flag, some from CLI', async () => {
+	it('mixes interactive, per-flag, and CLI sources', async () => {
 		const schema = makeSchema({
 			flags: {
 				region: createSchema('enum', { enumValues: ['us', 'eu'] }),

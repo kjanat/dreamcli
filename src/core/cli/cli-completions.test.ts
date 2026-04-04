@@ -161,42 +161,44 @@ describe('.completions()', () => {
 			expect(output).not.toMatch(/compgen -W '[^']*completions/);
 		});
 
-		it('keeps hybrid default-command root completion command-centric by default', async () => {
-			const app = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions();
-			const result = await app.execute(['completions', 'bash']);
-			const rootWords = extractBashRootWords(result.stdout.join(''));
+		describe('root completion policy', () => {
+			it('keeps hybrid roots command-centric by default', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions();
+				const result = await app.execute(['completions', 'bash']);
+				const rootWords = extractBashRootWords(result.stdout.join(''));
 
-			expect(rootWords).toEqual(['serve', 'status', '--help']);
-		});
+				expect(rootWords).toEqual(['serve', 'status', '--help']);
+			});
 
-		it('passes rootMode through to bash completion generation', async () => {
-			const app = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions({ rootMode: 'surface' });
-			const result = await app.execute(['completions', 'bash']);
-			const rootWords = extractBashRootWords(result.stdout.join(''));
+			it('surfaces default flags in surface mode', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions({ rootMode: 'surface' });
+				const result = await app.execute(['completions', 'bash']);
+				const rootWords = extractBashRootWords(result.stdout.join(''));
 
-			expect(rootWords).toContain('--port');
-			expect(rootWords).toContain('-p');
-			expect(rootWords).toContain('--verbose');
-			expect(rootWords).not.toContain('--childOnly');
-		});
+				expect(rootWords).toContain('--port');
+				expect(rootWords).toContain('-p');
+				expect(rootWords).toContain('--verbose');
+				expect(rootWords).not.toContain('--childOnly');
+			});
 
-		it('exposes default-command flags for a single visible default in default mode', async () => {
-			const app = cli('mycli').default(serveDefaultCommand()).completions();
-			const result = await app.execute(['completions', 'bash']);
-			const rootWords = extractBashRootWords(result.stdout.join(''));
+			it('surfaces default flags for a lone visible default', async () => {
+				const app = cli('mycli').default(serveDefaultCommand()).completions();
+				const result = await app.execute(['completions', 'bash']);
+				const rootWords = extractBashRootWords(result.stdout.join(''));
 
-			expect(rootWords).toContain('serve');
-			expect(rootWords).toContain('--help');
-			expect(rootWords).toContain('--port');
-			expect(rootWords).toContain('-p');
-			expect(rootWords).toContain('--verbose');
-			expect(rootWords).not.toContain('--childOnly');
+				expect(rootWords).toContain('serve');
+				expect(rootWords).toContain('--help');
+				expect(rootWords).toContain('--port');
+				expect(rootWords).toContain('-p');
+				expect(rootWords).toContain('--verbose');
+				expect(rootWords).not.toContain('--childOnly');
+			});
 		});
 	});
 
@@ -228,41 +230,43 @@ describe('.completions()', () => {
 			expect(output).toContain('--region');
 		});
 
-		it('keeps hybrid default-command root completion command-centric by default', async () => {
-			const app = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions();
-			const result = await app.execute(['completions', 'zsh']);
-			const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
+		describe('root completion policy', () => {
+			it('keeps hybrid roots command-centric by default', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions();
+				const result = await app.execute(['completions', 'zsh']);
+				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
-			expect(rootFunction).toContain("'--help[Show help text]'");
-			expect(rootFunction).toContain("'serve:Start the server'");
-			expect(rootFunction).toContain("'status:Show current status'");
-			expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
-		});
+				expect(rootFunction).toContain("'--help[Show help text]'");
+				expect(rootFunction).toContain("'serve:Start the server'");
+				expect(rootFunction).toContain("'status:Show current status'");
+				expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+			});
 
-		it('passes rootMode through to zsh completion generation', async () => {
-			const app = cli('mycli')
-				.default(serveDefaultCommand())
-				.command(statusCommand())
-				.completions({ rootMode: 'surface' });
-			const result = await app.execute(['completions', 'zsh']);
-			const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
+			it('surfaces default flags in surface mode', async () => {
+				const app = cli('mycli')
+					.default(serveDefaultCommand())
+					.command(statusCommand())
+					.completions({ rootMode: 'surface' });
+				const result = await app.execute(['completions', 'zsh']);
+				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
-			expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
-			expect(rootFunction).toContain("'--verbose[Verbose logging]'");
-			expect(rootFunction).not.toContain("'--childOnly[Child-only flag]'");
-		});
+				expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+				expect(rootFunction).toContain("'--verbose[Verbose logging]'");
+				expect(rootFunction).not.toContain("'--childOnly[Child-only flag]'");
+			});
 
-		it('exposes default-command flags for a single visible default in default mode', async () => {
-			const app = cli('mycli').default(serveDefaultCommand()).completions();
-			const result = await app.execute(['completions', 'zsh']);
-			const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
+			it('surfaces default flags for a lone visible default', async () => {
+				const app = cli('mycli').default(serveDefaultCommand()).completions();
+				const result = await app.execute(['completions', 'zsh']);
+				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
-			expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
-			expect(rootFunction).toContain("'--verbose[Verbose logging]'");
-			expect(rootFunction).not.toContain("'--childOnly[Child-only flag]'");
+				expect(rootFunction).toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
+				expect(rootFunction).toContain("'--verbose[Verbose logging]'");
+				expect(rootFunction).not.toContain("'--childOnly[Child-only flag]'");
+			});
 		});
 	});
 

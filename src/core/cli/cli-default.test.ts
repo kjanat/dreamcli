@@ -178,7 +178,7 @@ describe('.default()', () => {
 			expect(result.stderr.join('')).toContain("Did you mean 'status'?");
 		});
 
-		it('shows unknown command error for unrecognized tokens — not silently delegating', async () => {
+		it('reports unknown commands instead of delegating', async () => {
 			const app = cli('mycli').default(deployCommand()).command(statusCommand());
 			const result = await app.execute(['deplooy']);
 
@@ -254,7 +254,7 @@ describe('.default()', () => {
 	// --- help and version
 
 	describe('help and version', () => {
-		it('--help shows merged root and default command help when it is the only visible command', async () => {
+		it('--help merges root and default help for a lone visible command', async () => {
 			const app = cli('mycli').version('1.0.0').default(deployCommand());
 			const result = await app.execute(['--help']);
 
@@ -281,7 +281,7 @@ describe('.default()', () => {
 			expect(output).toContain('status');
 		});
 
-		it('-h shows merged root and default command help when it is the only visible command', async () => {
+		it('-h merges root and default help for a lone visible command', async () => {
 			const app = cli('mycli').default(deployCommand());
 			const result = await app.execute(['-h']);
 

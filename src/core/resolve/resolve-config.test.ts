@@ -648,7 +648,7 @@ describe('resolve', () => {
 			expect(result.flags).toEqual({ token: 'secret123' });
 		});
 
-		it('still throws when required flag has configPath but config value absent', async () => {
+		it('throws when the required configPath value is absent', async () => {
 			const schema = makeSchema({
 				flags: {
 					token: createSchema('string', { presence: 'required', configPath: 'auth.token' }),
@@ -847,7 +847,7 @@ describe('resolve', () => {
 	// --- mixed config scenarios
 
 	describe('mixed config scenarios', () => {
-		it('resolves complex multi-flag command with mixed sources including config', async () => {
+		it('resolves mixed-source commands with config', async () => {
 			const schema = makeSchema({
 				flags: {
 					host: createSchema('string', {

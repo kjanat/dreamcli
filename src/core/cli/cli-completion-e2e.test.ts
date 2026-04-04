@@ -59,13 +59,13 @@ function hiddenDebugCommand() {
 		});
 }
 
-// === E2E
+// === .completions() — E2E
 
-describe('E2E', () => {
-	// --- bash completion via .completions()
+describe('.completions() — E2E', () => {
+	// --- bash
 
-	describe('bash completion via .completions()', () => {
-		it('generates valid bash script through full CLI dispatch', async () => {
+	describe('bash', () => {
+		it('generates the script', async () => {
 			const app = cli('myapp')
 				.version('2.0.0')
 				.command(deployCommand())
@@ -95,7 +95,7 @@ describe('E2E', () => {
 			expect(script).not.toMatch(/compgen -W '[^']*debug/);
 		});
 
-		it('bash script includes all flags from all commands', async () => {
+		it('includes flags from registered commands', async () => {
 			const app = cli('myapp')
 				.command(deployCommand())
 				.command(loginCommand())
@@ -121,7 +121,7 @@ describe('E2E', () => {
 			expect(script).toContain('--format');
 		});
 
-		it('bash script includes enum value completions', async () => {
+		it('includes enum values', async () => {
 			const app = cli('myapp').command(deployCommand()).command(configCommand()).completions();
 
 			const result = await app.execute(['completions', 'bash']);
@@ -134,7 +134,7 @@ describe('E2E', () => {
 			expect(script).toContain('json yaml toml');
 		});
 
-		it('bash script includes command aliases in case patterns', async () => {
+		it('includes command aliases', async () => {
 			const app = cli('myapp').command(configCommand()).completions();
 
 			const result = await app.execute(['completions', 'bash']);
@@ -144,7 +144,7 @@ describe('E2E', () => {
 			expect(script).toMatch(/config\|cfg\)/);
 		});
 
-		it('bash script excludes hidden commands', async () => {
+		it('excludes hidden commands', async () => {
 			const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
 
 			const result = await app.execute(['completions', 'bash']);
@@ -155,7 +155,7 @@ describe('E2E', () => {
 			expect(script).not.toMatch(/compgen -W '[^']*debug/);
 		});
 
-		it('bash script includes --help and --version when version set', async () => {
+		it('includes --help and --version when version is set', async () => {
 			const app = cli('myapp').version('1.0.0').command(deployCommand()).completions();
 
 			const result = await app.execute(['completions', 'bash']);
@@ -165,7 +165,7 @@ describe('E2E', () => {
 			expect(script).toContain('--version');
 		});
 
-		it('bash script omits --version when no version set', async () => {
+		it('omits --version when version is unset', async () => {
 			const app = cli('myapp').command(deployCommand()).completions();
 
 			const result = await app.execute(['completions', 'bash']);
@@ -196,10 +196,10 @@ describe('E2E', () => {
 		});
 	});
 
-	// --- zsh completion via .completions()
+	// --- zsh
 
-	describe('zsh completion via .completions()', () => {
-		it('generates valid zsh script through full CLI dispatch', async () => {
+	describe('zsh', () => {
+		it('generates the script', async () => {
 			const app = cli('myapp')
 				.version('2.0.0')
 				.command(deployCommand())
@@ -226,7 +226,7 @@ describe('E2E', () => {
 			expect(script).toContain("'config:");
 		});
 
-		it('zsh script includes all flag specs from all commands', async () => {
+		it('includes flag specs from registered commands', async () => {
 			const app = cli('myapp').command(deployCommand()).command(loginCommand()).completions();
 
 			const result = await app.execute(['completions', 'zsh']);
@@ -244,7 +244,7 @@ describe('E2E', () => {
 			expect(script).toContain('--sso');
 		});
 
-		it('zsh script includes enum values in flag specs', async () => {
+		it('includes enum values', async () => {
 			const app = cli('myapp').command(deployCommand()).completions();
 
 			const result = await app.execute(['completions', 'zsh']);
@@ -254,7 +254,7 @@ describe('E2E', () => {
 			expect(script).toMatch(/\(us eu ap\)/);
 		});
 
-		it('zsh script uses mutual exclusion groups for aliased flags', async () => {
+		it('uses mutual exclusion groups for aliases', async () => {
 			const app = cli('myapp').command(deployCommand()).completions();
 
 			const result = await app.execute(['completions', 'zsh']);
@@ -264,7 +264,7 @@ describe('E2E', () => {
 			expect(script).toContain('(-f --force)');
 		});
 
-		it('zsh script includes command aliases in case patterns', async () => {
+		it('includes command aliases', async () => {
 			const app = cli('myapp').command(configCommand()).completions();
 
 			const result = await app.execute(['completions', 'zsh']);
@@ -274,7 +274,7 @@ describe('E2E', () => {
 			expect(script).toMatch(/config\|cfg\)/);
 		});
 
-		it('zsh script excludes hidden commands', async () => {
+		it('excludes hidden commands', async () => {
 			const app = cli('myapp').command(deployCommand()).command(hiddenDebugCommand()).completions();
 
 			const result = await app.execute(['completions', 'zsh']);
@@ -284,7 +284,7 @@ describe('E2E', () => {
 			expect(script).not.toContain("'debug:");
 		});
 
-		it('zsh script includes --version when version is set', async () => {
+		it('includes --version when version is set', async () => {
 			const app = cli('myapp').version('3.0.0').command(deployCommand()).completions();
 
 			const result = await app.execute(['completions', 'zsh']);
@@ -293,7 +293,7 @@ describe('E2E', () => {
 			expect(script).toContain('--version[Show version]');
 		});
 
-		it('zsh script omits --version when no version set', async () => {
+		it('omits --version when version is unset', async () => {
 			const app = cli('myapp').command(deployCommand()).completions();
 
 			const result = await app.execute(['completions', 'zsh']);
@@ -306,8 +306,8 @@ describe('E2E', () => {
 
 // === E2E — Completion script completeness
 
-describe('E2E — completion scripts include all registered commands and flags', () => {
-	it('bash: complex CLI with many commands reflects full schema', async () => {
+describe('completion scripts — schema coverage', () => {
+	it('bash reflects the full schema', async () => {
 		const serve = command('serve')
 			.description('Start dev server')
 			.flag('port', flag.number().alias('p').describe('Port number'))
@@ -367,7 +367,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 		expect(script).toContain('verbose dot json');
 	});
 
-	it('zsh: complex CLI with many commands reflects full schema', async () => {
+	it('zsh reflects the full schema', async () => {
 		const serve = command('serve')
 			.description('Start dev server')
 			.flag('port', flag.number().alias('p').describe('Port number'))
@@ -403,7 +403,7 @@ describe('E2E — completion scripts include all registered commands and flags',
 		expect(script).toContain('(-m --minify)');
 	});
 
-	it('completions command with middleware-enhanced commands', async () => {
+	it('includes middleware-enhanced commands', async () => {
 		const auth = middleware<{ user: string }>(async ({ next }) => {
 			await next({ user: 'test-user' });
 		});
@@ -430,8 +430,8 @@ describe('E2E — completion scripts include all registered commands and flags',
 
 // === E2E — Auto-adapter wiring via CLIBuilder.run()
 
-describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
-	it('run() uses adapter argv for command dispatch', async () => {
+describe('CLIBuilder.run() — auto-adapter wiring', () => {
+	it('uses adapter argv for command dispatch', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
 		const stdoutLines: string[] = [];
@@ -453,7 +453,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 		expect(output).toContain('complete -F');
 	});
 
-	it('run() dispatches to correct command via adapter argv', async () => {
+	it('dispatches the correct command from adapter argv', async () => {
 		const app = cli('myapp')
 			.command(
 				command('greet')
@@ -479,7 +479,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 		expect(stdoutLines.join('')).toContain('Hello, World!');
 	});
 
-	it('run() sources env from adapter for flag resolution', async () => {
+	it('sources env from the adapter for flag resolution', async () => {
 		const app = cli('myapp').command(
 			command('info')
 				.description('Show info')
@@ -504,7 +504,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 		expect(stdoutLines.join('')).toContain('level=debug');
 	});
 
-	it('run() propagates isTTY from adapter', async () => {
+	it('propagates isTTY from the adapter', async () => {
 		const app = cli('myapp').command(
 			command('check')
 				.description('Check TTY')
@@ -528,7 +528,7 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 		expect(stdoutLines.join('')).toContain('tty=true');
 	});
 
-	it('run() exits with non-zero for unknown commands', async () => {
+	it('exits non-zero for unknown commands', async () => {
 		const app = cli('myapp').command(deployCommand());
 
 		const stderrLines: string[] = [];
@@ -550,8 +550,8 @@ describe('E2E — auto-adapter wiring in CLIBuilder.run()', () => {
 
 // === E2E — detectRuntime integration via auto-adapter
 
-describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
-	it('run() without explicit adapter uses auto-detection (Node in vitest)', async () => {
+describe('CLIBuilder.run() — detectRuntime path', () => {
+	it('uses auto-detection without an explicit adapter', async () => {
 		// In vitest (Node.js), createAdapter() detects 'node' and uses Node adapter.
 		// We can't easily test Bun detection without Bun, but we can verify
 		// the auto-adapter path doesn't crash and produces correct output.
@@ -599,7 +599,7 @@ describe('E2E — detectRuntime in CLIBuilder.run() path', () => {
 
 // === E2E — Cross-cutting: completions + runtime + error handling
 
-describe('E2E — completions error paths via CLI dispatch', () => {
+describe('completions — CLI error paths', () => {
 	it('powershell is accepted by the user-facing shell arg', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
@@ -609,7 +609,7 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 		expect(result.stdout.join('')).toContain('# PowerShell completion for myapp');
 	});
 
-	it('missing shell arg via run() path outputs error', async () => {
+	it('errors when the shell arg is missing via run()', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
 		const result = await app.execute(['completions']);
@@ -617,7 +617,7 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 		expect(result.error).toBeDefined();
 	});
 
-	it('completions --help shows usage via CLI dispatch', async () => {
+	it('shows usage for completions --help', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
 		const result = await app.execute(['completions', '--help']);
@@ -627,7 +627,7 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 		expect(output).toContain('shell');
 	});
 
-	it('completions command with --json flag renders error as JSON', async () => {
+	it('renders errors as JSON with --json', async () => {
 		const app = cli('myapp').command(deployCommand()).completions();
 
 		// No shell arg provided → error, and --json makes it JSON
@@ -645,8 +645,8 @@ describe('E2E — completions error paths via CLI dispatch', () => {
 
 // === E2E — Fish completion via CLI dispatch
 
-describe('E2E — fish completion via .completions()', () => {
-	it('generates valid fish script through full CLI dispatch', async () => {
+describe('.completions() — fish', () => {
+	it('generates the script', async () => {
 		const app = cli('myapp')
 			.version('2.0.0')
 			.command(deployCommand())
@@ -675,8 +675,8 @@ describe('E2E — fish completion via .completions()', () => {
 
 // === E2E — Completions with version and description
 
-describe('E2E — completions integrate with CLI metadata', () => {
-	it('bash completion script uses CLI name from builder', async () => {
+describe('completions — CLI metadata', () => {
+	it('bash uses the CLI name from the builder', async () => {
 		const app = cli('custom-tool')
 			.version('5.0.0')
 			.description('A custom development tool')
@@ -690,7 +690,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		expect(script).toMatch(/complete -F _custom_tool_[0-9a-f]{8}_completions custom-tool/);
 	});
 
-	it('zsh completion script uses CLI name in compdef directive', async () => {
+	it('zsh uses the CLI name in the compdef directive', async () => {
 		const app = cli('custom-tool').version('5.0.0').command(deployCommand()).completions();
 
 		const result = await app.execute(['completions', 'zsh']);
@@ -701,7 +701,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		expect(script).toMatch(/compdef _custom_tool_[0-9a-f]{8} custom-tool/);
 	});
 
-	it('bash completion for CLI with no commands has only global flags', async () => {
+	it('bash keeps only global flags for command-free CLIs', async () => {
 		const app = cli('minimal').version('1.0.0').completions();
 
 		const result = await app.execute(['completions', 'bash']);
@@ -714,7 +714,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		expect(script).not.toContain('subcmd=""');
 	});
 
-	it('bash completion for CLI with no commands omits --version when unset', async () => {
+	it('bash omits --version for command-free CLIs when unset', async () => {
 		const app = cli('minimal').completions();
 
 		const result = await app.execute(['completions', 'bash']);
@@ -725,7 +725,7 @@ describe('E2E — completions integrate with CLI metadata', () => {
 		expect(script).not.toContain('--version');
 	});
 
-	it('zsh completion for CLI with no commands has only global flags', async () => {
+	it('zsh keeps only global flags for command-free CLIs', async () => {
 		const app = cli('minimal').completions();
 
 		const result = await app.execute(['completions', 'zsh']);
@@ -767,8 +767,8 @@ function dbCommand() {
 		});
 }
 
-describe('E2E — nested bash completion via .completions()', () => {
-	it('includes nested subcommand names in bash script', async () => {
+describe('nested .completions() — bash', () => {
+	it('includes nested subcommand names', async () => {
 		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'bash']);
 		expect(result.exitCode).toBe(0);
@@ -782,7 +782,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 		expect(script).toContain('seed');
 	});
 
-	it('includes propagated flags for nested commands in bash', async () => {
+	it('includes propagated flags for nested commands', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
 		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
@@ -796,7 +796,7 @@ describe('E2E — nested bash completion via .completions()', () => {
 		expect(migrateBlock).toContain('--dry-run');
 	});
 
-	it('db group completes both subcommands and own flags in bash', async () => {
+	it('lets the db group complete subcommands and own flags', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
 		const result = await app.execute(['completions', 'bash']);
 		const script = result.stdout.join('');
@@ -816,8 +816,8 @@ describe('E2E — nested bash completion via .completions()', () => {
 	});
 });
 
-describe('E2E — nested zsh completion via .completions()', () => {
-	it('generates helper functions for nested commands in zsh', async () => {
+describe('nested .completions() — zsh', () => {
+	it('generates helper functions for nested commands', async () => {
 		const app = cli('myapp').command(dbCommand()).command(deployCommand()).completions();
 		const result = await app.execute(['completions', 'zsh']);
 		expect(result.exitCode).toBe(0);
@@ -829,7 +829,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 		expect(script).toContain('_myapp_db_seed() {');
 	});
 
-	it('includes propagated flags for nested commands in zsh', async () => {
+	it('includes propagated flags for nested commands', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
 		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
@@ -843,7 +843,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 		expect(migrateFunc).toContain('--dry-run');
 	});
 
-	it('db group function lists subcommands via _describe in zsh', async () => {
+	it('lists db subcommands via _describe', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
 		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');
@@ -856,7 +856,7 @@ describe('E2E — nested zsh completion via .completions()', () => {
 		expect(dbFunc).toContain("_describe 'command' subcmds");
 	});
 
-	it('root function dispatches to db helper in zsh', async () => {
+	it('dispatches the root function to the db helper', async () => {
 		const app = cli('myapp').command(dbCommand()).completions();
 		const result = await app.execute(['completions', 'zsh']);
 		const script = result.stdout.join('');

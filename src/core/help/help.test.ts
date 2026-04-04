@@ -736,7 +736,7 @@ describe('formatHelp', () => {
 	// -----------------------------------------------------------------------
 
 	describe('section ordering', () => {
-		it('renders sections in correct order: Usage, Description, Arguments, Flags, Examples', () => {
+		it('keeps core sections in order', () => {
 			const cmd = command('deploy')
 				.description('Deploy')
 				.arg('target', arg.string())
