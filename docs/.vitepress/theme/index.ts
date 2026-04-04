@@ -6,6 +6,7 @@ import { onContentUpdated } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';
 import { onMounted, onUnmounted } from 'vue';
 import '@shikijs/vitepress-twoslash/style.css';
+import 'virtual:shiki-class.css';
 import './twoslash-mobile.css';
 
 const HINT_KEY = 'twoslash-hint-seen';
