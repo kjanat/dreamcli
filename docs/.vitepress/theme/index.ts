@@ -25,7 +25,10 @@ function isTouchDevice(): boolean {
 function showTwoslashHint(): void {
   if (!isTouchDevice()) return;
   if (localStorage.getItem(HINT_KEY)) return;
+  if (document.querySelector('.twoslash-mobile-hint')) return;
   if (!document.querySelector('.twoslash')) return;
+
+  localStorage.setItem(HINT_KEY, '1');
 
   const hint = document.createElement('div');
   hint.className = 'twoslash-mobile-hint';
@@ -44,7 +47,6 @@ function showTwoslashHint(): void {
     if (timeoutId !== undefined) clearTimeout(timeoutId);
     hint.classList.add('twoslash-mobile-hint-out');
     hint.addEventListener('animationend', () => hint.remove(), { once: true });
-    localStorage.setItem(HINT_KEY, '1');
   };
 
   document.addEventListener('click', onClick);
@@ -74,7 +76,8 @@ function setupMobileBottomSheet(): (() => void) | undefined {
     popperInner.style.position = 'relative';
     popperInner.appendChild(closeBtn);
 
-    // Add backdrop
+    // Add backdrop (remove any orphaned previous one first)
+    activeBackdrop?.remove();
     activeBackdrop = document.createElement('div');
     activeBackdrop.className = 'twoslash-backdrop';
     document.body.appendChild(activeBackdrop);

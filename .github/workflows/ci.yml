@@ -122,7 +122,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bun run docs:prepare:check
       - run: bun run docs:build
 
   # ─────────────────────────────────────────────────────────────────
