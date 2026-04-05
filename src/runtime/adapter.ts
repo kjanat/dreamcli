@@ -208,10 +208,12 @@ interface TestAdapterOptions {
 }
 
 /**
- * Error thrown by the default test adapter exit function.
+ * Error thrown by adapter implementations that model process exit as an
+ * exception instead of terminating immediately.
  *
- * In tests, `process.exit` would kill the test runner. Instead, the test
- * adapter throws this error, allowing tests to assert on exit codes:
+ * Runtime and CLI dispatch layers can catch this to perform real process
+ * termination, while tests can assert on exit codes without killing the
+ * runner:
  *
  * ```ts
  * try {

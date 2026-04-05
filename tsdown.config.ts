@@ -1,8 +1,8 @@
 import { $, env } from 'bun';
 import { defineConfig } from 'tsdown';
-import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 import attw from './.attw.json' with { type: 'json' };
 import pkg from './package.json' with { type: 'json' };
+import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 
 const version = JSON.stringify(pkg.version);
 const revision = JSON.stringify((await $`git rev-parse --short HEAD`.text()).trim());

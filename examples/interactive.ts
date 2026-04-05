@@ -2,8 +2,8 @@
 /**
  * Interactive prompts with config file fallback.
  *
- * Demonstrates: per-flag .prompt(), command-level .interactive(),
- * .env(), .config(), resolution chain (CLI → env → config → prompt → default).
+ * Demonstrates: per-flag `.prompt()`, `.env()`, `.config()`, and the full
+ * resolution chain (CLI → env → config → prompt → default).
  *
  * The resolution chain means:
  *   1. Explicit CLI flag wins:      --region eu

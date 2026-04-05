@@ -368,14 +368,15 @@ async function discoverConfig(
  *
  * @example
  * ```ts
- * import { configFormat } from '@kjanat/dreamcli';
+ * import { cli, configFormat } from '@kjanat/dreamcli';
  * import { parse as parseYaml } from 'yaml';
  * import { parse as parseTOML } from '@iarna/toml';
  *
- * const yamlLoader = configFormat(['yaml', 'yml'], Bun.YAML.parse);
  * const yamlPackageLoader = configFormat(['yaml', 'yml'], parseYaml);
- * const tomlLoader = configFormat(['toml'], Bun.TOML.parse);
  * const tomlPackageLoader = configFormat(['toml'], parseTOML);
+ * // Or with Bun's built-in parsers:
+ * // const yamlLoader = configFormat(['yaml', 'yml'], Bun.YAML.parse);
+ * // const tomlLoader = configFormat(['toml'], Bun.TOML.parse);
  *
  * cli('myapp')
  *   .config('myapp')

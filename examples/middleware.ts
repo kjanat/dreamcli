@@ -2,8 +2,8 @@
 /**
  * Middleware patterns: auth guard, request timing, error handling.
  *
- * Demonstrates: middleware() with typed context, context accumulation,
- * short-circuit on error, wrap-around timing.
+ * Demonstrates: typed middleware context, auth guards, short-circuiting, and
+ * wrap-around timing.
  *
  * Usage:
  *   npx tsx examples/middleware.ts deploy production

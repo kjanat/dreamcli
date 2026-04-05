@@ -155,7 +155,7 @@ const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typ
  * - `string` for `input` and `select`
  * - `boolean` for `confirm`
  * - `string[]` for `multiselect`
- * - {@link PROMPT_CANCEL} to simulate user cancellation
+ * - `PROMPT_CANCEL` to simulate user cancellation
  *
  * Because the type is intentionally `unknown`, tests may also inject malformed
  * answers to exercise downstream validation and error reporting.

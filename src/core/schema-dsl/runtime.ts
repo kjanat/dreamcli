@@ -550,7 +550,7 @@ function validateNode(node: SchemaNode, input: unknown): boolean {
 		case 'never':
 			return false;
 		case 'ref':
-			return true; // refs can't be validated without resolution context
+			return false; // fail closed until refs can be resolved against a definition map
 		case 'array':
 			return Array.isArray(input) && input.every((el) => validateNode(node.element, el));
 		case 'object': {

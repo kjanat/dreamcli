@@ -2,10 +2,8 @@
 /**
  * Mixed machine-readable JSON and human-readable side-channel output.
  *
- * Demonstrates: always-on `out.json()` machine output to stdout,
- * human-readable stderr side channels via `out.table(..., { format: 'text',
- * stream: 'stderr' })` / `out.error()`, plus `--json` for CLI-managed JSON
- * behavior such as structured errors.
+ * Demonstrates: machine-readable `out.json()` stdout, human-readable stderr
+ * side channels, and `--json` for CLI-managed structured errors.
  *
  * Usage:
  *   npx tsx examples/json-mode.ts list                  # JSON stdout + plain stderr side channel

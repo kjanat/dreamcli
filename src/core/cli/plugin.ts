@@ -79,6 +79,12 @@ interface CLIPlugin {
  *
  * @example
  * ```ts
+ * import { cli, command, plugin } from '@kjanat/dreamcli';
+ *
+ * const deploy = command('deploy').action(({ out }) => {
+ *   out.log('deploying');
+ * });
+ *
  * const trace = plugin(
  *   {
  *     beforeParse: ({ argv, out }) => {
@@ -91,7 +97,7 @@ interface CLIPlugin {
  *   'trace',
  * );
  *
- * cli('mycli').plugin(trace).command(deploy);
+ * cli('mycli').plugin(trace).command(deploy).run();
  * ```
  *
  * @returns A frozen {@link CLIPlugin} definition.

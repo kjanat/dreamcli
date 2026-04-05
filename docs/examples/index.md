@@ -19,7 +19,7 @@ Hover stays scoped to the generated example source blocks; guide pages and shell
 <ul>
 	<li v-for="example in examples" :key="example.slug">
 		<strong><a :href="example.routePath">{{ example.title }}</a></strong>
-		<span> - {{ example.summary }}</span>
+		<span> - {{ example.demonstrates ?? example.summary }}</span>
 		<span> (<code>{{ example.sourcePath }}</code>)</span>
 	</li>
 </ul>

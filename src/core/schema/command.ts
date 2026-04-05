@@ -99,6 +99,8 @@ type InteractiveResult = Readonly<Record<string, PromptConfig | false | undefine
  *
  * @example
  * ```ts
+ * import { command, flag } from '@kjanat/dreamcli';
+ *
  * const deploy = command('deploy')
  *   .flag('region', flag.enum(['us', 'eu', 'ap']))
  *   .interactive(({ flags }) => ({
@@ -107,7 +109,9 @@ type InteractiveResult = Readonly<Record<string, PromptConfig | false | undefine
  *       message: 'Select region',
  *     },
  *   }))
- *   .action(({ flags }) => { ... });
+ *   .action(({ flags, out }) => {
+ *     out.log(`Deploying to ${flags.region}`);
+ *   });
  * ```
  */
 type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
@@ -1401,6 +1405,8 @@ class CommandBuilder<
  *
  * @example
  * ```ts
+ * import { arg, command, flag } from '@kjanat/dreamcli';
+ *
  * const greet = command('greet')
  *   .arg('name', arg.string())
  *   .flag('loud', flag.boolean())

@@ -2,8 +2,8 @@
 /**
  * Spinner and progress bar usage.
  *
- * Demonstrates: out.spinner(), out.progress(), auto-disable in
- * non-TTY / --json mode, spinner.wrap() convenience.
+ * Demonstrates: `out.spinner()`, `out.progress()`, `spinner.wrap()`, and
+ * automatic suppression in non-TTY or `--json` mode.
  *
  * Usage:
  *   npx tsx examples/spinner-progress.ts

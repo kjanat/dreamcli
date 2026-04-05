@@ -38,7 +38,7 @@ function resolveBunVersion(proc?: NodeProcess): string | undefined {
  * @example
  * ```ts
  * import { cli } from '@kjanat/dreamcli';
- * import { createBunAdapter } from '@kjanat/dreamcli/runtime/bun';
+ * import { createBunAdapter } from '@kjanat/dreamcli/runtime';
  *
  * cli('mycli')
  *   .command(deploy)

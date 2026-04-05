@@ -21,6 +21,7 @@ import type { SchemaNode } from './runtime.ts';
  * - `true`      → `{ const: true }`
  * - `false`     → `{ const: false }`
  * - `null`      → `{ type: 'null' }`
+ * - `undefined` → throws (JSON Schema has no `undefined` type)
  * - `unknown`   → `{}` (accepts any value)
  * - `never`     → `{ not: {} }` (rejects all values)
  * - `'literal'` → `{ const: 'literal' }`
@@ -52,7 +53,9 @@ function nodeToJsonSchema(node: SchemaNode): Record<string, unknown> {
 		case 'literal':
 			return { const: node.value };
 		case 'undefined':
-			return {};
+			throw new Error(
+				"Cannot convert 'undefined' type to JSON Schema; model optionality at the parent level",
+			);
 		case 'unknown':
 			return {};
 		case 'never':

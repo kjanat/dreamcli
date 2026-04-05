@@ -19,7 +19,7 @@ const mdCodeFence = (code: string, language = '', file?: string, filetext?: stri
 /** Registers the current package as a “linkable” package
  * @see https://bun.com/docs/pm/cli/link */
 const link = await $`bun link`.quiet();
-if (link.stderr.byteLength !== 0) {
+if (link.exitCode !== 0) {
 	console.error('bun link failed:', new TextDecoder().decode(link.stderr));
 }
 
@@ -32,5 +32,5 @@ WTF IS THIS SHIT!!! Why??? This is why:
 
 ${mdCodeFence(JSON.stringify(dependencies, null, '  '), 'json', 'examples/gh/package.json', "gh example's package.json dependencies")}`;
 
-console.error(why);
+console.warn(why);
 process.exit(link.exitCode);

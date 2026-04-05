@@ -2,7 +2,7 @@
 /**
  * Basic single-command CLI.
  *
- * Demonstrates: positional args, typed flags, default values, aliases.
+ * Demonstrates: typed positional args, typed flags, aliases, and default values.
  *
  * Usage:
  *   npx tsx examples/basic.ts Alice

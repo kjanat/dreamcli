@@ -95,13 +95,10 @@ For completions specifically, `Shell` and `SHELLS` now match the shipped shell s
 
 ## Deferred Items Already Tracked in the PRD
 
-| Deferred surface              | PRD task IDs                                                          |
-| ----------------------------- | --------------------------------------------------------------------- |
-| Generated example pages       | None                                                                  |
-| Example hover                 | None                                                                  |
-| API index and symbol pages    | `generate-api-index`, `normalize-typedoc-data`, `render-symbol-pages` |
-| Rationale and limitations     | None                                                                  |
-| Migration and troubleshooting | None                                                                  |
+| Deferred surface              | PRD task IDs |
+| ----------------------------- | ------------ |
+| Rationale and limitations     | None         |
+| Migration and troubleshooting | None         |
 
 ## Related Pages
 

@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { schema } from './index.ts';
+import { nodeToJsonSchema, schema } from './index.ts';
 import type { Parse } from './parse.ts';
 import type { SchemaNode } from './runtime.ts';
 import { parseSchema, validateNode } from './runtime.ts';
@@ -327,6 +327,22 @@ describe('validateNode — runtime validation', () => {
 		expect(validateNode(node, false)).toBe(false);
 		expect(validateNode(node, 42)).toBe(false);
 	});
+
+	it('fails unresolved refs closed', () => {
+		const node: SchemaNode = { kind: 'ref', target: 'flag' };
+		expect(validateNode(node, 42)).toBe(false);
+		expect(validateNode(node, { anything: 'goes' })).toBe(false);
+	});
+});
+
+// ── JSON Schema conversion ──────────────────────────────────────────
+
+describe('nodeToJsonSchema — JSON Schema conversion', () => {
+	it('throws on undefined nodes', () => {
+		expect(() => nodeToJsonSchema({ kind: 'undefined' })).toThrow(
+			"Cannot convert 'undefined' type to JSON Schema; model optionality at the parent level",
+		);
+	});
 });
 
 // ── Integration — schema() ties both layers together ────────────────
@@ -369,5 +385,11 @@ describe('schema() — integrated compile-time + runtime', () => {
 			expectTypeOf(input).toEqualTypeOf<{ value: number }>();
 			expect(input.value).toBe(5);
 		}
+	});
+
+	it('rejects unresolved refs at runtime', () => {
+		const s = schema('@flag');
+		expect(s.guard(42)).toBe(false);
+		expect(() => s.parse(42)).toThrow(TypeError);
 	});
 });

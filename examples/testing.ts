@@ -2,9 +2,11 @@
 /**
  * Testing examples using @kjanat/dreamcli/testkit.
  *
- * Demonstrates: `runCommand()`, prompt answers, env/config injection,
- * activity event assertions. This file is structured as a vitest
- * test suite — run with `bun test examples/testing.ts`.
+ * Demonstrates: `runCommand()`, prompt answers, env/config injection, output
+ * assertions, middleware context, and activity assertions.
+ *
+ * This file is structured as a Vitest test suite — run with
+ * `bun test examples/testing.ts`.
  *
  * Usage:
  *   bun test examples/testing.ts
