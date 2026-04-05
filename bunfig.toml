@@ -1,7 +1,7 @@
 #:schema https://www.schemastore.org/bunfig.json
 
 telemetry = false
-smol      = true
+smol      = false
 
 [install]
 auto          = "auto"
