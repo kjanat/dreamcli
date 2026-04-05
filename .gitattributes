@@ -1,6 +1,3 @@
 /.opencode/state/**/progress.txt linguist-generated -diff
 /.opencode/state/**/prd.json linguist-generated -diff
-#/specs/** linguist-generated -diff
 /bun.lock linguist-generated
-/docs/.generated/** linguist-generated -diff
-/docs/reference/symbols/** linguist-generated -diff

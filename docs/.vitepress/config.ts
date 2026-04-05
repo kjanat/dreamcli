@@ -9,19 +9,12 @@ import { defineConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import pkg from '../../package.json' with { type: 'json' };
 import tsc from '../../tsconfig.json' with { type: 'json' };
-import {
-  generatedExamples,
-  generatedReferenceSurfaces,
-} from '../.generated/site-data.ts';
-import {
-  shikiClassCssPlugin,
-  shikiClasses,
-  shikiDedupePopupStylesPlugin,
-} from './vite-plugins';
+import { collectExampleMeta } from './data/examples.ts';
+import { examplesRoot } from './data/paths.ts';
+import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
-const lenGt0 = (arr: unknown[] | undefined): boolean =>
-  Boolean(arr && arr.length > 0);
+const exampleMeta = await collectExampleMeta(examplesRoot);
 const isCI = Boolean(process.env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) =>
   isCI ? ifCiThen : ifNotCiThen;
@@ -171,10 +164,10 @@ export default withMermaid(
         ],
         '/examples/': [
           {
-            text: `Examples${!lenGt0(generatedExamples) && ` (${generatedExamples.length})`}`,
+            text: `Examples (${exampleMeta.length})`,
             items: [
               { text: 'Overview', link: '/examples/' },
-              ...generatedExamples.map((example) => ({
+              ...exampleMeta.map((example) => ({
                 text: example.title,
                 link: example.routePath,
               })),
@@ -187,7 +180,7 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/reference/api' },
               {
-                text: `Generated Surfaces${!lenGt0(generatedReferenceSurfaces) && ` (${generatedReferenceSurfaces.length})`}`,
+                text: 'Generated Surfaces',
                 link: '/reference/generated-surfaces',
               },
               { text: 'Changelog', link: '/reference/changelog' },
@@ -242,7 +235,7 @@ export default withMermaid(
       languages: ['js', 'jsx', 'ts', 'tsx'],
     },
     vite: {
-      plugins: [shikiClassCssPlugin(), shikiDedupePopupStylesPlugin()],
+      plugins: dreamcliDocsPlugin(),
       ssr: { noExternal: ['vue'] },
       build: {
         chunkSizeWarningLimit: 600,

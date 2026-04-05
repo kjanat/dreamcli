@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { docsHealthSnapshot, generatedPublicApi, generatedSymbolPages } from '../.generated/site-data.ts';
+import { data } from './api.data.ts';
 
 const symbolRouteById = new Map(
-	generatedSymbolPages.map((page) => [`${page.entrypoint}:${page.name}`, page.routePath]),
+	data.symbolPages.map((page) => [`${page.entrypoint}:${page.name}`, page.routePath]),
 );
 
 function symbolHref(entrypoint: string, name: string): string {
@@ -12,14 +12,13 @@ function symbolHref(entrypoint: string, name: string): string {
 
 # API Reference
 
-This page is rebuilt by `bun run docs:prepare` from the public entrypoints declared in `package.json`.
+This page is rebuilt at build time from the public entrypoints declared in `package.json`.
 Use it to see the complete public surface grouped by subpath and export kind, then jump into the
 subpath-specific detail pages.
 
-- Public entrypoints: `{{ docsHealthSnapshot.publicEntrypointCount }}`
-- Public symbols indexed: `{{ docsHealthSnapshot.publicSymbolCount }}`
-- Symbol pages rendered: `{{ docsHealthSnapshot.symbolPageCount }}`
-- Generated artifacts: `docs/.generated/api/index.md`, `docs/.generated/api/public-exports.json`, `docs/.generated/api/typedoc-output.json`, `docs/.generated/api/typedoc-normalized.json`
+- Public entrypoints: `{{ data.publicEntrypointCount }}`
+- Public symbols indexed: `{{ data.publicSymbolCount }}`
+- Symbol pages rendered: `{{ data.symbolPageCount }}`
 
 ## Choose an Import
 
@@ -32,7 +31,7 @@ subpath-specific detail pages.
 
 ## Generated Index
 
-<div v-for="entrypoint in generatedPublicApi" :key="entrypoint.entrypoint">
+<div v-for="entrypoint in data.publicApi" :key="entrypoint.entrypoint">
 	<h3><code>{{ entrypoint.entrypoint }}</code></h3>
 	<p><strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code></p>
 	<p v-if="entrypoint.entrypoint === '@kjanat/dreamcli'">
