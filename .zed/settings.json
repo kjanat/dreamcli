@@ -16,7 +16,7 @@
 		},
 		"TypeScript": {
 			"code_actions_on_format": { "fixAll.biome": true, "organizeImports.biome": true },
-			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
+			"language_servers": ["typescript-language-server", "tsgo", "biome", "deno"]
 		}
 	},
 	"lsp": {
