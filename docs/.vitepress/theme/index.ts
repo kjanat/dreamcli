@@ -234,7 +234,9 @@ export default {
         if (theme) {
           theme.disabled = !enabled;
         }
-        document.documentElement.classList.toggle('twoslash-off', !enabled);
+        if (typeof document !== 'undefined') {
+          document.documentElement.classList.toggle('twoslash-off', !enabled);
+        }
       },
       { immediate: true },
     );
