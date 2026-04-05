@@ -205,19 +205,23 @@ export default {
   extends: DefaultTheme,
   enhanceApp({ app }: EnhanceAppContext) {
     if (typeof window !== 'undefined') {
-      const hasHover = !isTouchDevice();
-
-      app.use(TwoslashFloatingVue, {
-        themes: {
-          twoslash: {
-            triggers: hasHover ? ['hover', 'touch'] : ['click'],
-            popperTriggers: hasHover ? ['hover', 'touch'] : ['click'],
-            autoHide: hasHover,
-            flip: true,
-            overflowPadding: 12,
-          },
-        },
-      });
+      app.use(TwoslashFloatingVue);
+    } else {
+      // SSR: register stub components that render slot content without floating-vue popover
+      // machinery (which crashes during SSR with popperId destructure error).
+      // This preserves identifier text in the static HTML for hydration.
+      // Render slot content only — floating-vue Popper crashes during SSR (popperId destructure).
+      // Duplicate @vue/runtime-core copies (hoisted vs .bun/) make Component types incompatible.
+      const SlotPassthrough = (
+        _: unknown,
+        { slots }: { slots: Record<string, Function> },
+      ) => slots['default']?.() ?? null;
+      // @ts-expect-error — dual @vue/runtime-core copies produce incompatible Component types
+      app.component('VMenu', SlotPassthrough);
+      // @ts-expect-error — same as above
+      app.component('VDropdown', SlotPassthrough);
+      // @ts-expect-error — same as above
+      app.component('VTooltip', SlotPassthrough);
     }
   },
   Layout() {
@@ -251,7 +255,6 @@ export default {
     );
 
     onMounted(() => {
-      if (typeof window === 'undefined') return;
       showTwoslashHint();
       cleanup = setupMobileBottomSheet();
       applyRuntime(settings.value.runtime);
