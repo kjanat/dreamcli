@@ -8,44 +8,32 @@ jobs:
   meta:
     name: Resolve Release Metadata
     runs-on: ubuntu-latest
-    outputs:
-      package: ${{ steps.version.outputs.package }}
-      version: ${{ steps.version.outputs.version }}
-      url: ${{ steps.version.outputs.url }}
+    outputs: { meta: "${{ steps.version.outputs.meta }}" }
     steps:
       - uses: actions/checkout@v6
-      - name: Resolve npm package version
+      - name: Resolve metadata and validate release tag
         id: version
-        run: |
-          package=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          {
-            echo "package=$package"
-            echo "version=$version"
-            echo "url=https://www.npmjs.com/package/$package/v/$version"
-          } >> "$GITHUB_OUTPUT"
+        env: { RELEASE_TAG: "${{ github.event.release.tag_name }}" }
+        run: bash scripts/release-meta.sh npm
 
   publish:
     name: Publish
     needs: [meta]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: { name: npm, url: "${{ needs.meta.outputs.url }}" }
+    timeout-minutes: 30
+    environment: { name: npm, url: "${{ fromJSON(needs.meta.outputs.meta).url }}" }
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v6
-
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
-
       - uses: actions/setup-node@v6
-        with: { node-version: latest, registry-url: https://registry.npmjs.org }
+        with: { node-version: 22.22.2, registry-url: https://registry.npmjs.org }
 
       - run: bun install --frozen-lockfile
       - run: bun run scripts/check-version-sync.ts
-      - run: bun run build
+      - run: bun run ci
 
       - name: Publish to npm
         run: npm publish --provenance --access public

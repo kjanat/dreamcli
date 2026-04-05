@@ -24,7 +24,7 @@ Output includes a `$schema` URL pointing at the CDN-hosted definition
 schema. For offline or CI-friendly setups, use the local copy instead:
 
 ```json
-{ "$schema": "./node_modules/dreamcli/dreamcli.schema.json" }
+{ "$schema": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json" }
 ```
 
 The schema is also importable as `@kjanat/dreamcli/schema`.

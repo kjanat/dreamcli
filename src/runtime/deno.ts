@@ -190,7 +190,7 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	};
 
 	// --- Stdin line reading ---
-	const stdinRead: ReadFn = () => readDenoStdinLine(d);
+	const stdinRead = createDenoReadLine(d);
 
 	// --- Filesystem ---
 	const readFile = async (path: string): Promise<string | null> => {
@@ -293,32 +293,41 @@ async function readDenoStdinAll(deno: DenoNamespace, stdinIsTTY: boolean): Promi
  *
  * @internal
  */
-async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
-	const reader = deno.stdin.readable.getReader();
+function createDenoReadLine(deno: DenoNamespace): ReadFn {
 	const decoder = new TextDecoder();
 	let buffer = '';
+	let done = false;
 
-	try {
-		for (;;) {
-			const { value, done } = await reader.read();
-			if (done) {
-				// Flush any trailing bytes held by the streaming decoder
-				// (partial multibyte UTF-8 sequences buffered internally).
-				buffer += decoder.decode();
-				return buffer.length > 0 ? buffer : null;
+	return async (): Promise<string | null> => {
+		const reader = deno.stdin.readable.getReader();
+		try {
+			for (;;) {
+				const newlineIndex = buffer.indexOf('\n');
+				if (newlineIndex !== -1) {
+					const line = buffer.slice(0, newlineIndex).replace(/\r$/, '');
+					buffer = buffer.slice(newlineIndex + 1);
+					return line;
+				}
+
+				if (done) {
+					if (buffer.length === 0) return null;
+					const line = buffer;
+					buffer = '';
+					return line;
+				}
+
+				const { value, done: readDone } = await reader.read();
+				if (readDone) {
+					buffer += decoder.decode();
+					done = true;
+					continue;
+				}
+				buffer += decoder.decode(value, { stream: true });
 			}
-			buffer += decoder.decode(value, { stream: true });
-			const newlineIndex = buffer.indexOf('\n');
-			if (newlineIndex !== -1) {
-				// Return the line without the newline character.
-				// Remaining data after the newline is lost — this is acceptable
-				// because each prompt reads one line at a time.
-				return buffer.slice(0, newlineIndex).replace(/\r$/, '');
-			}
+		} finally {
+			reader.releaseLock();
 		}
-	} finally {
-		reader.releaseLock();
-	}
+	};
 }
 
 // --- Home / config directory resolution

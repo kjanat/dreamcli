@@ -26,7 +26,7 @@ Real-world CLIs have tests like:
 - "If `--region` is missing but `DEPLOY_REGION` is set, use the env var"
 - "If both flag and config file provide a value, the flag wins"
 - "If the prompt is cancelled, exit with code 1"
-- "In JSON mode, errors should be structured JSON on stderr"
+- "In JSON mode, framework errors should be structured JSON on stdout"
 
 Good luck doing that with shell scripts.
 

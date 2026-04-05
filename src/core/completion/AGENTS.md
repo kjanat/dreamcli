@@ -11,19 +11,21 @@ dispatches via `generateCompletion()`.
 | `shells/shared.ts`     |   160 | `CommandNode`, `walkCommandTree`, escaping, `versionTag` |
 | `shells/bash.ts`       |   275 | `generateBashCompletion()` + all bash helpers            |
 | `shells/zsh.ts`        |   280 | `generateZshCompletion()` + all zsh helpers              |
-| `shells/fish.ts`       |    25 | Stub — throws `UNSUPPORTED_OPERATION`                    |
-| `shells/powershell.ts` |    25 | Stub — throws `UNSUPPORTED_OPERATION`                    |
+| `shells/fish.ts`       |   256 | `generateFishCompletion()` + fish path scanner helpers   |
+| `shells/powershell.ts` |   438 | `generatePowerShellCompletion()` + metadata helpers      |
 
 ## PUBLIC API
 
-| Symbol                     | Exported from | Role                                             |
-| -------------------------- | ------------- | ------------------------------------------------ |
-| `generateCompletion()`     | `index.ts`    | Shell-agnostic dispatch -> per-shell generators  |
-| `generateBashCompletion()` | `index.ts`    | Bash completion script from command tree         |
-| `generateZshCompletion()`  | `index.ts`    | Zsh completion script from command tree          |
-| `SHELLS`                   | `index.ts`    | `readonly ['bash', 'zsh', 'fish', 'powershell']` |
-| `CompletionOptions`        | `index.ts`    | Options type (re-exported from `shared.ts`)      |
-| `Shell`                    | `index.ts`    | Union type of supported shells                   |
+| Symbol                           | Exported from | Role                                             |
+| -------------------------------- | ------------- | ------------------------------------------------ |
+| `generateCompletion()`           | `index.ts`    | Shell-agnostic dispatch -> per-shell generators  |
+| `generateBashCompletion()`       | `index.ts`    | Bash completion script from command tree         |
+| `generateZshCompletion()`        | `index.ts`    | Zsh completion script from command tree          |
+| `generateFishCompletion()`       | `index.ts`    | Fish completion script from command tree         |
+| `generatePowerShellCompletion()` | `index.ts`    | PowerShell completion script from command tree   |
+| `SHELLS`                         | `index.ts`    | `readonly ['bash', 'zsh', 'fish', 'powershell']` |
+| `CompletionOptions`              | `index.ts`    | Options type (re-exported from `shared.ts`)      |
+| `Shell`                          | `index.ts`    | Union type of supported shells                   |
 
 ## ARCHITECTURE
 
@@ -39,13 +41,13 @@ Handles nested command groups: `mycli db migrate` generates completions for each
 - `shells/shared.ts` imports `cli/propagate.ts` directly (`@internal` file, not through cli barrel)
   — needs `collectPropagatedFlags()` for flag inheritance in nested commands
 - `biome-ignore noTemplateCurlyInString` in `shells/bash.ts` — emitting bash `${words[i]}` syntax
-- Fish and PowerShell stubs throw `CLIError` with code `UNSUPPORTED_OPERATION`
+- Fish and PowerShell generators are fully implemented and tested
 - `CompletionOptions` lives in `shells/shared.ts`, re-exported through `index.ts`
 
 ## TEST FILES (2)
 
-| File                             | Tests                                                       |
-| -------------------------------- | ----------------------------------------------------------- |
-| `completion.test.ts`             | ~2355 lines — largest test file; bash + zsh output matching |
-| `completion-test-helpers.ts`     | Helper utilities for completion script extraction           |
-| (cli/cli-completion-e2e.test.ts) | Lives in `cli/` — end-to-end completion via CLI builder     |
+| File                             | Tests                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `completion.test.ts`             | ~2400 lines — largest test file; bash/zsh/fish/powershell output matching |
+| `completion-test-helpers.ts`     | Helper utilities for completion script extraction                         |
+| (cli/cli-completion-e2e.test.ts) | Lives in `cli/` — end-to-end completion via CLI builder                   |

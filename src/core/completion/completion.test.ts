@@ -72,6 +72,7 @@ interface MinimalSchemaOverrides {
 	readonly defaultCommand?: CLISchema['defaultCommand'];
 	readonly configSettings?: CLISchema['configSettings'];
 	readonly packageJsonSettings?: CLISchema['packageJsonSettings'];
+	readonly hasBuiltInCompletions?: CLISchema['hasBuiltInCompletions'];
 	readonly plugins?: CLISchema['plugins'];
 }
 
@@ -92,6 +93,7 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 		...(overrides.packageJsonSettings !== undefined
 			? { packageJsonSettings: overrides.packageJsonSettings }
 			: { packageJsonSettings: undefined }),
+		hasBuiltInCompletions: overrides.hasBuiltInCompletions ?? false,
 		plugins: overrides.plugins ?? [],
 	};
 }
@@ -2328,6 +2330,30 @@ describe('generateFishCompletion — script structure', () => {
 		expect(rootLines.join('\n')).toContain('-l port');
 		expect(rootLines.join('\n')).toContain('-s p');
 		expect(rootLines.join('\n')).toContain('-l verbose');
+	});
+
+	it('escapes enum values for fish completions', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								description: 'Region',
+								enumValues: ['us-east', 'eu west', "qa's"],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateFishCompletion(schema);
+
+		expect(script).toContain('-a us-east');
+		expect(script).toContain("-a 'eu west'");
+		expect(script).toContain("-a 'qa'\\''s'");
 	});
 });
 

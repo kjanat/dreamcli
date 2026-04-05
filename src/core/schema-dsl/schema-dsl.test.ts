@@ -272,6 +272,10 @@ describe('parseSchema — runtime parser', () => {
 	it('throws on unexpected character', () => {
 		expect(() => parseSchema('string!')).toThrow(SyntaxError);
 	});
+
+	it('throws on duplicate object property names', () => {
+		expect(() => parseSchema('{ name: string; name: number }')).toThrow(SyntaxError);
+	});
 });
 
 // ── Validation ──────────────────────────────────────────────────────
@@ -315,6 +319,18 @@ describe('validateNode — runtime validation', () => {
 		expect(validateNode(node, { name: 'Alice', bio: 'dev' })).toBe(true);
 		expect(validateNode(node, {})).toBe(false);
 		expect(validateNode(node, { name: 42 })).toBe(false);
+	});
+
+	it('does not accept prototype-inherited required properties', () => {
+		const node: SchemaNode = {
+			kind: 'object',
+			properties: {
+				name: { optional: false, schema: { kind: 'string' } },
+			},
+		};
+		const inherited: Record<string, unknown> = {};
+		Object.setPrototypeOf(inherited, { name: 'Alice' });
+		expect(validateNode(node, inherited)).toBe(false);
 	});
 
 	it('validates union', () => {

@@ -187,7 +187,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 
 	// Stdin line reading via readline — created lazily on first call.
 	// This avoids importing readline unless prompting actually occurs.
-	const stdinRead: ReadFn = () => createNodeReadLine(p);
+	const stdinRead = createNodeReadLine(p);
 
 	// --- Filesystem primitives for config discovery ---
 
@@ -260,24 +260,38 @@ async function readNodeStdinAll(proc: NodeProcess, stdinIsTTY: boolean): Promise
  *
  * @internal
  */
-async function createNodeReadLine(proc: NodeProcess): Promise<string | null> {
+function createNodeReadLine(proc: NodeProcess): ReadFn {
 	const iter = proc.stdin[Symbol.asyncIterator]();
 	const decoder = new TextDecoder();
 	let buffer = '';
-	let result = await iter.next();
+	let done = false;
 
-	while (!result.done) {
-		buffer += decoder.decode(result.value, { stream: true });
-		const nlIndex = buffer.indexOf('\n');
-		if (nlIndex !== -1) {
-			return buffer.slice(0, nlIndex).replace(/\r$/, '');
+	return async (): Promise<string | null> => {
+		for (;;) {
+			const nlIndex = buffer.indexOf('\n');
+			if (nlIndex !== -1) {
+				const line = buffer.slice(0, nlIndex).replace(/\r$/, '');
+				buffer = buffer.slice(nlIndex + 1);
+				return line;
+			}
+
+			if (done) {
+				if (buffer.length === 0) return null;
+				const line = buffer;
+				buffer = '';
+				return line;
+			}
+
+			const result = await iter.next();
+			if (result.done) {
+				buffer += decoder.decode();
+				done = true;
+				continue;
+			}
+
+			buffer += decoder.decode(result.value, { stream: true });
 		}
-		result = await iter.next();
-	}
-
-	// Flush remaining bytes after stream end
-	buffer += decoder.decode();
-	return buffer.length > 0 ? buffer : null;
+	};
 }
 
 // --- Exports

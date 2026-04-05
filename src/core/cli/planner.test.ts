@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
@@ -171,6 +172,22 @@ describe('planInvocation() — default command behavior', () => {
 // === Dispatch outcomes
 
 describe('planInvocation() — dispatch outcomes', () => {
+	it('throws when root command routes collide', () => {
+		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const status = erased(commandSchema({ name: 'status', aliases: ['deploy'] }));
+
+		try {
+			planFor([deploy, status], ['deploy']);
+			expect.unreachable('should have thrown');
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (!(error instanceof CLIError)) {
+				expect.unreachable('expected CLIError');
+			}
+			expect(error.code).toBe('DUPLICATE_COMMAND');
+		}
+	});
+
 	it('returns scoped help context when a group needs a subcommand', () => {
 		const migrate = erased(commandSchema({ name: 'migrate' }));
 		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));

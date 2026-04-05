@@ -34,9 +34,10 @@ async function resolveFlags(
 	const hardErrorFlags = new Set<string>();
 
 	for (const [name, schema] of Object.entries(flagSchemas)) {
+		const hasParsedValue = Object.hasOwn(parsedFlags, name);
 		const parsedValue = parsedFlags[name];
 
-		if (parsedValue !== undefined) {
+		if (hasParsedValue && parsedValue !== undefined) {
 			if (schema.deprecated !== undefined) {
 				deprecations.push({ kind: 'flag', name, message: schema.deprecated });
 			}
@@ -87,7 +88,7 @@ async function resolveFlags(
 		interactive !== undefined ? interactive({ flags: resolved }) : undefined;
 
 	for (const [name, schema] of Object.entries(flagSchemas)) {
-		if (name in resolved || hardErrorFlags.has(name)) {
+		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
 			continue;
 		}
 

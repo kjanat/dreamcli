@@ -39,6 +39,30 @@ function mockReadableStream(chunks: string[]): ReadableStream<Uint8Array> {
 	} as ReadableStream<Uint8Array>;
 }
 
+/** Minimal readable stream that yields byte chunks then signals done. */
+function mockReadableByteStream(chunks: readonly Uint8Array[]): ReadableStream<Uint8Array> {
+	let index = 0;
+
+	return {
+		getReader() {
+			return {
+				read() {
+					const value = chunks[index];
+					if (value !== undefined) {
+						index += 1;
+						return Promise.resolve({ done: false as const, value });
+					}
+					return Promise.resolve({
+						done: true as const,
+						value: new Uint8Array(0),
+					});
+				},
+				releaseLock() {},
+			};
+		},
+	} as ReadableStream<Uint8Array>;
+}
+
 /** Create a minimal mock DenoNamespace with optional overrides. */
 function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 	return {
@@ -351,6 +375,35 @@ describe('createDenoAdapter', () => {
 			const line = await adapter.stdin();
 			expect(line).toBe('hello');
 		});
+
+		it('preserves buffered remainder across sequential stdin() reads', async () => {
+			const ns = mockDeno({
+				stdin: {
+					isTerminal: () => false,
+					readable: mockReadableStream(['first\nsecond\n']),
+				},
+			});
+			const adapter = createDenoAdapter(ns);
+
+			expect(await adapter.stdin()).toBe('first');
+			expect(await adapter.stdin()).toBe('second');
+			expect(await adapter.stdin()).toBeNull();
+		});
+
+		it('handles UTF-8 characters split across chunks', async () => {
+			const bytes = new TextEncoder().encode('🙂\nok\n');
+			const ns = mockDeno({
+				stdin: {
+					isTerminal: () => false,
+					readable: mockReadableByteStream([bytes.slice(0, 2), bytes.slice(2)]),
+				},
+			});
+			const adapter = createDenoAdapter(ns);
+
+			expect(await adapter.stdin()).toBe('🙂');
+			expect(await adapter.stdin()).toBe('ok');
+			expect(await adapter.stdin()).toBeNull();
+		});
 	});
 
 	// --- readFile
@@ -466,6 +519,18 @@ describe('createDenoAdapter', () => {
 			});
 			const adapter = createDenoAdapter(ns);
 			expect(adapter.configDir).toBe('/home/alice/.config');
+		});
+
+		it('defaults to /.config when Unix homedir is root', () => {
+			const env: Record<string, string> = { HOME: '/' };
+			const ns = mockDeno({
+				env: {
+					get: (k: string) => env[k],
+					toObject: () => env,
+				},
+			});
+			const adapter = createDenoAdapter(ns);
+			expect(adapter.configDir).toBe('/.config');
 		});
 
 		it('uses APPDATA on Windows', () => {

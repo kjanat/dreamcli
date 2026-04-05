@@ -1,32 +1,27 @@
 name: Publish to JSR
 
 on:
-  release:
-    types: [published]
+  release: { types: [published] }
   workflow_dispatch:
 
 jobs:
   meta:
     name: Resolve Release Metadata
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      url: ${{ steps.version.outputs.url }}
+    outputs: { meta: "${{ steps.version.outputs.meta }}" }
     steps:
       - uses: actions/checkout@v6
-      - name: Resolve JSR package version
+      - name: Resolve metadata and validate release tag
         id: version
-        run: |
-          version=$(awk -F'"' '/^[[:space:]]*"version"[[:space:]]*:/ { print $4; exit }' deno.jsonc)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "url=https://jsr.io/@kjanat/dreamcli@$version" >> "$GITHUB_OUTPUT"
+        env: { RELEASE_TAG: "${{ github.event.release.tag_name }}" }
+        run: bash scripts/release-meta.sh jsr
 
   publish:
     name: Publish
     needs: [meta]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: { name: jsr, url: "${{ needs.meta.outputs.url }}" }
+    timeout-minutes: 30
+    environment: { name: jsr, url: "${{ fromJSON(needs.meta.outputs.meta).url }}" }
     permissions:
       contents: read
       id-token: write # OIDC provenance for JSR
@@ -34,16 +29,15 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: denoland/setup-deno@v2
-        with: { deno-version: v2.x }
 
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
 
       - run: bun install --frozen-lockfile
       - run: bun run scripts/check-version-sync.ts
+      - run: bun --bun run ci
       - run: deno run -A scripts/emit-definition-schema.ts
       - name: Deno adapter smoke test
         run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
 
       - name: Publish to JSR
-        run: deno publish --no-check
+        run: deno publish

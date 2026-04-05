@@ -12,7 +12,7 @@ The full source lives in [`examples/gh/src/main.ts`][gh-main] with supporting
 modules under [`examples/gh/src/`][gh-src].
 
 Inside this repo, run it with `bun --cwd=examples/gh src/main.ts ...`.
-In a standalone project, you'd install `dreamcli` normally — the Bun workspace wiring here is just repo-local convenience.
+In a standalone project, you'd install `@kjanat/dreamcli` normally — the Bun workspace wiring here is just repo-local convenience.
 
 ## What we're building
 

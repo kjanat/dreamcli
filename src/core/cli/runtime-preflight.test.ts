@@ -20,6 +20,27 @@ describe('runtime-preflight — extractConfigFlag', () => {
 			filteredArgv: ['deploy', '--json'],
 		});
 	});
+
+	it('does not consume another flag as spaced config value', () => {
+		expect(extractConfigFlag(['deploy', '--config', '--json'])).toEqual({
+			configPath: undefined,
+			filteredArgv: ['deploy', '--config', '--json'],
+		});
+	});
+
+	it('stops parsing config flags after option terminator', () => {
+		expect(extractConfigFlag(['deploy', '--', '--config=/tmp/app.json'])).toEqual({
+			configPath: undefined,
+			filteredArgv: ['deploy', '--', '--config=/tmp/app.json'],
+		});
+	});
+
+	it('strips spaced-form config only when value is a positional token', () => {
+		expect(extractConfigFlag(['deploy', '--config', '/tmp/app.json', '--json'])).toEqual({
+			configPath: '/tmp/app.json',
+			filteredArgv: ['deploy', '--json'],
+		});
+	});
 });
 
 describe('runtime-preflight — prepareRuntimePreflight', () => {
@@ -190,5 +211,70 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		if (preflight.kind !== 'config-error') return;
 		expect(preflight.jsonMode).toBe(true);
 		expect(preflight.error.code).toBe('CONFIG_PARSE_ERROR');
+	});
+
+	it('does not strip --config when CLI config discovery is disabled', async () => {
+		const app = cli('myapp').command(
+			command('deploy')
+				.flag('config', flag.string())
+				.action(() => {}),
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy', '--config', 'local.json'],
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.filteredArgv).toEqual(['deploy', '--config', 'local.json']);
+	});
+
+	it('keeps malformed --config token and still enables --json mode', async () => {
+		const app = cli('myapp')
+			.config('myapp')
+			.command(command('deploy').action(() => {}));
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy', '--config', '--json'],
+			readFile: async () => null,
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.filteredArgv).toEqual(['deploy', '--config', '--json']);
+		expect(preflight.inputs.jsonMode).toBe(true);
+	});
+
+	it('does not treat a user-defined completions command as built-in completions', async () => {
+		const app = cli('myapp')
+			.config('myapp')
+			.command(command('completions').action(() => {}));
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'completions'],
+			readFile: async (path) => (path === '/test/.myapp.json' ? '{"region":"eu"}' : null),
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.config).toEqual({ region: 'eu' });
 	});
 });

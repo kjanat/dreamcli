@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { CLIError } from '#internals/core/errors/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command, group } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
@@ -47,6 +48,22 @@ describe('CLIBuilder', () => {
 	// --- nested dispatch
 
 	describe('nested dispatch', () => {
+		it('throws when sibling aliases collide inside a nested group', () => {
+			const broken = group('db')
+				.command(
+					command('migrate')
+						.alias('m')
+						.action(() => {}),
+				)
+				.command(
+					command('seed')
+						.alias('m')
+						.action(() => {}),
+				);
+
+			expect(() => cli('myapp').command(broken)).toThrow(CLIError);
+		});
+
 		it('dispatches to nested subcommand', async () => {
 			const app = cli('myapp').command(dbGroup());
 			const result = await app.execute(['db', 'migrate']);

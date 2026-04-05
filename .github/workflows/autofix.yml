@@ -20,7 +20,6 @@ jobs:
       - uses: kjanat/install-dprint@v1
       # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
       - run: bun install # update lockfile if needed
 
       # Update plugin versions only on merge to master

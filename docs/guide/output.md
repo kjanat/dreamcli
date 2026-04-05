@@ -24,7 +24,8 @@ const out = createOutput();
 out.json({ status: 'ok', count: 42 });
 ```
 
-When the CLI is invoked with `--json`, all output routes through structured JSON.
+When the CLI is invoked with `--json`, structured payloads stay on stdout while
+plain text (`log`, `info`, `warn`, `error`) routes to stderr.
 
 ## Tables
 

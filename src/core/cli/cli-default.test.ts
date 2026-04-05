@@ -85,6 +85,34 @@ describe('.default()', () => {
 				expect((err as CLIError).code).toBe('DUPLICATE_COMMAND');
 			}
 		});
+
+		it('throws DUPLICATE_COMMAND when incoming alias matches existing command name', () => {
+			const withAliasConflict = command('deploy')
+				.alias('status')
+				.action(() => {});
+			try {
+				cli('mycli').command(statusCommand()).command(withAliasConflict);
+				expect.unreachable('should have thrown');
+			} catch (err) {
+				expect(err).toBeInstanceOf(CLIError);
+				expect((err as CLIError).code).toBe('DUPLICATE_COMMAND');
+			}
+		});
+
+		it('throws DUPLICATE_COMMAND when incoming name matches existing alias', () => {
+			const existing = command('deploy')
+				.alias('d')
+				.action(() => {});
+			const incoming = command('d').action(() => {});
+
+			try {
+				cli('mycli').command(existing).command(incoming);
+				expect.unreachable('should have thrown');
+			} catch (err) {
+				expect(err).toBeInstanceOf(CLIError);
+				expect((err as CLIError).code).toBe('DUPLICATE_COMMAND');
+			}
+		});
 	});
 
 	// --- single-command dispatch

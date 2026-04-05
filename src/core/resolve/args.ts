@@ -24,8 +24,10 @@ function resolveArgs(
 
 	for (const entry of argEntries) {
 		const { name, schema } = entry;
+		const hasParsedValue = Object.hasOwn(parsedArgs, name);
 		const parsedValue = parsedArgs[name];
 		const usesCliValue =
+			hasParsedValue &&
 			parsedValue !== undefined &&
 			(!schema.stdinMode || parsedValue !== '-') &&
 			!(schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0);
@@ -38,7 +40,7 @@ function resolveArgs(
 			continue;
 		}
 
-		if (schema.stdinMode && (parsedValue === undefined || parsedValue === '-')) {
+		if (schema.stdinMode && (!hasParsedValue || parsedValue === undefined || parsedValue === '-')) {
 			if (stdinData !== undefined && stdinData !== null) {
 				const coerced = coerceArgStringValue(name, { kind: 'stdin' }, stdinData, schema);
 				if (coerced.ok) {

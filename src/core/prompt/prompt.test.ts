@@ -166,7 +166,7 @@ describe('createTerminalPrompter', () => {
 			const result = await prompter.promptOne({ kind: 'confirm', message: 'Continue?' });
 			expect(result).toEqual({ answered: true, value: true });
 			expect(lines[0]).toContain('Continue?');
-			expect(lines[0]).toContain('(y/n)');
+			expect(lines[0]).toContain('(Y/n)');
 		});
 
 		it('accepts yes as true (case-insensitive)', async () => {
@@ -211,6 +211,16 @@ describe('createTerminalPrompter', () => {
 			const prompter = createTerminalPrompter(mockRead(['  Y  ']), captureWrite().write);
 			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
 			expect(result).toEqual({ answered: true, value: true });
+		});
+
+		it('cancels after MAX_RETRIES invalid attempts', async () => {
+			const invalidAnswers = Array.from({ length: 11 }, () => 'maybe');
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(invalidAnswers), write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'Continue?' });
+
+			expect(result).toEqual({ answered: false });
+			expect(lines.some((line) => line.includes('Too many invalid attempts'))).toBe(true);
 		});
 	});
 

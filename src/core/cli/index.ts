@@ -24,6 +24,7 @@ import type {
 	AnyCommandBuilder,
 	CommandBuilder,
 	CommandMeta,
+	CommandSchema,
 	ErasedCommand,
 	Out,
 } from '#internals/core/schema/command.ts';
@@ -41,6 +42,58 @@ import { formatRootHelp } from './root-help.ts';
 import { prepareRuntimePreflight } from './runtime-preflight.ts';
 
 // --- Type-erased command — erasure function (interface now in schema/command.ts)
+
+function commandRoutes(schema: CommandSchema): readonly string[] {
+	return [schema.name, ...schema.aliases];
+}
+
+function assertNoSiblingRouteConflict(
+	parentCommandName: string,
+	routeOwners: Map<string, string>,
+	route: string,
+	commandName: string,
+): void {
+	const owner = routeOwners.get(route);
+	if (owner !== undefined) {
+		throw new CLIError(
+			`Duplicate command route '${route}' under '${parentCommandName}' (${owner} and ${commandName})`,
+			{
+				code: 'DUPLICATE_COMMAND',
+				suggest: 'Ensure sibling command names and aliases are unique',
+			},
+		);
+	}
+
+	routeOwners.set(route, commandName);
+}
+
+function assertNoTopLevelRouteConflict(
+	commands: readonly ErasedCommand[],
+	incoming: CommandSchema,
+): void {
+	const routeOwners = new Map<string, string>();
+
+	for (const command of commands) {
+		for (const route of commandRoutes(command.schema)) {
+			assertNoSiblingRouteConflict('root', routeOwners, route, command.schema.name);
+		}
+	}
+
+	for (const route of commandRoutes(incoming)) {
+		const owner = routeOwners.get(route);
+		if (owner !== undefined) {
+			throw new CLIError(`Command route '${route}' is already registered by '${owner}'`, {
+				code: 'DUPLICATE_COMMAND',
+				suggest:
+					owner === incoming.name
+						? `Ensure command '${incoming.name}' does not reuse route '${route}'`
+						: `Rename '${incoming.name}' or remove route '${route}' from '${owner}'`,
+			});
+		}
+
+		routeOwners.set(route, incoming.name);
+	}
+}
 
 /**
  * Erase a typed  {@linkcode CommandBuilder} into an {@linkcode ErasedCommand}, recursively
@@ -60,11 +113,16 @@ function eraseCommand<
 >(cmd: CommandBuilder<F, A, C>): ErasedCommand {
 	// Recursively erase subcommands, keyed by name and alias.
 	const subcommands = new Map<string, ErasedCommand>();
+	const routeOwners = new Map<string, string>();
 	for (const sub of cmd._subcommands) {
+		const routes = commandRoutes(sub.schema);
+		for (const route of routes) {
+			assertNoSiblingRouteConflict(cmd.schema.name, routeOwners, route, sub.schema.name);
+		}
+
 		const erased = eraseCommand(sub);
-		subcommands.set(sub.schema.name, erased);
-		for (const alias of sub.schema.aliases) {
-			subcommands.set(alias, erased);
+		for (const route of routes) {
+			subcommands.set(route, erased);
 		}
 	}
 
@@ -126,6 +184,8 @@ interface CLISchema {
 	 * Set via the {@linkcode CLIBuilder.packageJson | .packageJson()} builder method.
 	 */
 	readonly packageJsonSettings: PackageJsonSettings | undefined;
+	/** Whether built-in `.completions()` command registration is active. */
+	readonly hasBuiltInCompletions: boolean;
 	/** Registered CLI plugins. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -429,6 +489,8 @@ class CLIBuilder {
 		A extends Record<string, ArgBuilder<ArgConfig>>,
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
+		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+
 		return new CLIBuilder({
 			...this.schema,
 			commands: [...this.schema.commands, eraseCommand(cmd)],
@@ -476,12 +538,9 @@ class CLIBuilder {
 				suggest: 'Call .default() only once when building the CLI',
 			});
 		}
-		if (this.schema.commands.some((c) => c.schema.name === cmd.schema.name)) {
-			throw new CLIError(`Command '${cmd.schema.name}' is already registered`, {
-				code: 'DUPLICATE_COMMAND',
-				suggest: 'Use .default() instead of .command() to register the default command',
-			});
-		}
+
+		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+
 		const erased = eraseCommand(cmd);
 		return new CLIBuilder({
 			...this.schema,
@@ -535,7 +594,7 @@ class CLIBuilder {
 	 * ```
 	 */
 	completions(options?: CompletionOptions): CLIBuilder {
-		if (this.schema.commands.some((c) => c.schema.name === 'completions')) {
+		if (this.schema.hasBuiltInCompletions) {
 			throw new CLIError('.completions() has already been called', {
 				code: 'DUPLICATE_COMMAND',
 				suggest: 'Call .completions() only once when building the CLI',
@@ -584,7 +643,12 @@ class CLIBuilder {
 					out.log(script);
 				}
 			});
-		return this.command(cmd);
+
+		const withCompletions = this.command(cmd);
+		return new CLIBuilder({
+			...withCompletions.schema,
+			hasBuiltInCompletions: true,
+		});
 	}
 
 	// -- Execution -----------------------------------------------------------
@@ -896,6 +960,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 		defaultCommand: undefined,
 		configSettings: undefined,
 		packageJsonSettings: undefined,
+		hasBuiltInCompletions: false,
 		plugins: [],
 	});
 }

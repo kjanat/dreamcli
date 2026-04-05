@@ -201,7 +201,10 @@ function appendFishFlagCompletions(
 			parts.push('-r', '-f');
 		}
 		if (schema.kind === 'enum' && schema.enumValues !== undefined) {
-			parts.push(`-a "${schema.enumValues.join(' ')}"`);
+			for (const enumValue of schema.enumValues) {
+				lines.push([...parts, `-a ${quoteShellArg(enumValue)}`].join(' '));
+			}
+			continue;
 		}
 
 		lines.push(parts.join(' '));
@@ -222,7 +225,7 @@ function collectFishValueFlagPatterns(
 	const prefix = new Set<string>();
 	const flagSets: ReadonlyArray<Readonly<Record<string, FlagSchema>>> = [
 		rootSurface.rootFlags,
-		rootSurface.defaultFlags,
+		...(rootSurface.includeDefaultFlags ? [rootSurface.defaultFlags] : []),
 		...nodes.map((node) => node.mergedFlags),
 	];
 

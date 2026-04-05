@@ -24,6 +24,7 @@ jobs:
       - name: Version sync (package.json ↔ deno.jsonc)
         run: bun run scripts/check-version-sync.ts
       - run: bun run typecheck
+      - run: bun run typecheck:tsc
       - run: bun run lint
       - run: bun run format:check
 
@@ -49,7 +50,6 @@ jobs:
 
       # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
 
       - uses: actions/setup-node@v6
         if: matrix.runtime == 'node'
@@ -111,7 +111,7 @@ jobs:
       - run: deno run -A npm:vitest run
 
   # ─────────────────────────────────────────────────────────────────
-  # Docs — regenerate checked-in artifacts, assert clean tree, then build
+  # Docs — build docs and assert no source drift
   # ─────────────────────────────────────────────────────────────────
   docs:
     name: Docs
@@ -123,6 +123,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run docs:build
+      - name: Assert clean tree after docs build
+        run: |
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=all)"
 
   # ─────────────────────────────────────────────────────────────────
   # Build — verifies the package builds, types are correct, and

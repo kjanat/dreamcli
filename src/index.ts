@@ -35,6 +35,8 @@ export type { CompletionOptions, Shell } from './core/completion/index.ts';
 export {
 	generateBashCompletion,
 	generateCompletion,
+	generateFishCompletion,
+	generatePowerShellCompletion,
 	generateZshCompletion,
 	SHELLS,
 } from './core/completion/index.ts';

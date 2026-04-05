@@ -90,6 +90,44 @@ describe('resolve', () => {
 			expect(result.flags).toEqual({ tags: ['v1', 'v2'] });
 		});
 
+		it('treats own undefined parsed flag as missing and applies default', async () => {
+			const schema = makeSchema({
+				flags: {
+					region: createSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
+				},
+			});
+			const parsed = makeParsed({ flags: { region: undefined } });
+
+			const result = await resolve(schema, parsed);
+			expect(result.flags).toEqual({ region: 'us' });
+		});
+
+		it('treats own undefined parsed required flag as missing', async () => {
+			const schema = makeSchema({
+				flags: {
+					token: createSchema('string', { presence: 'required' }),
+				},
+			});
+			const parsed = makeParsed({ flags: { token: undefined } });
+
+			await expect(resolve(schema, parsed)).rejects.toThrow(ValidationError);
+		});
+
+		it('ignores prototype-inherited parsed flag values', async () => {
+			const schema = makeSchema({
+				flags: {
+					token: createSchema('string', { presence: 'required' }),
+				},
+			});
+			const protoFlags: Record<string, unknown> = {};
+			Object.setPrototypeOf(protoFlags, { token: 'from-prototype' });
+			const parsed = makeParsed({
+				flags: protoFlags,
+			});
+
+			await expect(resolve(schema, parsed)).rejects.toThrow(ValidationError);
+		});
+
 		// -- Default values -----------------------------------------------------
 
 		it('applies schema default when flag not provided', async () => {
@@ -419,6 +457,46 @@ describe('resolve', () => {
 
 			const result = await resolve(schema, parsed);
 			expect(result.args).toEqual({ target: 'production' });
+		});
+
+		it('treats own undefined parsed arg as missing and applies default', async () => {
+			const schema = makeSchema({
+				args: [
+					{
+						name: 'target',
+						schema: createArgSchema('string', {
+							presence: 'defaulted',
+							defaultValue: 'staging',
+						}),
+					},
+				],
+			});
+			const parsed = makeParsed({ args: { target: undefined } });
+
+			const result = await resolve(schema, parsed);
+			expect(result.args).toEqual({ target: 'staging' });
+		});
+
+		it('treats own undefined parsed required arg as missing', async () => {
+			const schema = makeSchema({
+				args: [{ name: 'target', schema: createArgSchema('string', { presence: 'required' }) }],
+			});
+			const parsed = makeParsed({ args: { target: undefined } });
+
+			await expect(resolve(schema, parsed)).rejects.toThrow(ValidationError);
+		});
+
+		it('ignores prototype-inherited parsed arg values', async () => {
+			const schema = makeSchema({
+				args: [{ name: 'target', schema: createArgSchema('string', { presence: 'required' }) }],
+			});
+			const protoArgs: Record<string, unknown> = {};
+			Object.setPrototypeOf(protoArgs, { target: 'from-prototype' });
+			const parsed = makeParsed({
+				args: protoArgs,
+			});
+
+			await expect(resolve(schema, parsed)).rejects.toThrow(ValidationError);
 		});
 
 		it('passes through number arg value', async () => {

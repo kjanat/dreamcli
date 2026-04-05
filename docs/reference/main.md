@@ -332,7 +332,7 @@ const inputSchema = generateInputSchema(myCli.schema);
 
 Generate a shell completion script from a command schema.
 
-- `shell`: `'bash'` | `'zsh'`
+- `shell`: `'bash'` | `'zsh'` | `'fish'` | `'powershell'`
 - `options.functionPrefix?`: override the generated helper function prefix
 - `options.rootMode?`: `'subcommands'` | `'surface'`
 

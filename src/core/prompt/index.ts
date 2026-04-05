@@ -283,7 +283,7 @@ const MAX_RETRIES = 10;
 /**
  * Confirm prompt: yes/no question.
  *
- * Displays `(Y/n)` or `(y/N)` depending on the default (if any).
+ * Displays `(Y/n)` because empty input defaults to yes.
  * Accepts: y, yes, n, no, empty (uses default). Case-insensitive.
  *
  * @param config - {@link ConfirmPromptConfig} with the question message
@@ -296,24 +296,33 @@ async function promptConfirm(
 	read: ReadFn,
 	write: WriteFn,
 ): Promise<PromptResult> {
-	const hint = '(y/n)';
-	write(`${config.message} ${hint} `);
+	const defaultValue = true;
+	let retries = 0;
 
-	const line = await read();
-	if (line === null) return { answered: false };
+	while (retries < MAX_RETRIES) {
+		const hint = defaultValue ? '(Y/n)' : '(y/N)';
+		write(`${config.message} ${hint} `);
 
-	const lower = line.trim().toLowerCase();
-	if (lower === '' || lower === 'y' || lower === 'yes') {
-		return { answered: true, value: true };
+		const line = await read();
+		if (line === null) return { answered: false };
+
+		const lower = line.trim().toLowerCase();
+		if (lower === '') {
+			return { answered: true, value: defaultValue };
+		}
+		if (lower === 'y' || lower === 'yes') {
+			return { answered: true, value: true };
+		}
+		if (lower === 'n' || lower === 'no') {
+			return { answered: true, value: false };
+		}
+
+		write('Please answer y or n.\n');
+		retries += 1;
 	}
-	if (lower === 'n' || lower === 'no') {
-		return { answered: true, value: false };
-	}
 
-	// Invalid input — treat as true for leniency (matches common CLI convention)
-	// Note: the resolver will handle type coercion if needed
-	write('Please answer y or n.\n');
-	return promptConfirm(config, read, write);
+	write('Too many invalid attempts.\n');
+	return { answered: false };
 }
 
 /**

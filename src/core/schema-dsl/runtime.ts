@@ -439,6 +439,9 @@ class SchemaParser {
 
 		while (!this.check('rbrace')) {
 			const name = this.expectIdent();
+			if (Object.hasOwn(properties, name)) {
+				throw new SyntaxError(`Duplicate property '${name}' at position ${String(this.pos - 1)}`);
+			}
 			const optional = this.match('question');
 			this.expect('colon');
 			const schema = this.parseValue();
@@ -556,10 +559,10 @@ function validateNode(node: SchemaNode, input: unknown): boolean {
 		case 'object': {
 			if (!isRecord(input)) return false;
 			for (const key of Object.keys(input)) {
-				if (!(key in node.properties)) return false;
+				if (!Object.hasOwn(node.properties, key)) return false;
 			}
 			for (const [key, prop] of Object.entries(node.properties)) {
-				if (!(key in input)) {
+				if (!Object.hasOwn(input, key)) {
 					if (!prop.optional) return false;
 					continue;
 				}

@@ -494,6 +494,41 @@ describe('createNodeAdapter stdin', () => {
 		const adapter = createNodeAdapter(mockNodeProcess({ stdin: mockStdin({ isTTY: false }) }));
 		expect(await adapter.readStdin()).toBe('');
 	});
+
+	it('preserves buffered remainder across sequential stdin() reads', async () => {
+		const encoder = new TextEncoder();
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdin: mockStdin({
+					[Symbol.asyncIterator]: async function* (): AsyncGenerator<Uint8Array> {
+						yield encoder.encode('first\nsecond\n');
+					},
+				}),
+			}),
+		);
+
+		expect(await adapter.stdin()).toBe('first');
+		expect(await adapter.stdin()).toBe('second');
+		expect(await adapter.stdin()).toBeNull();
+	});
+
+	it('handles UTF-8 characters split across chunks', async () => {
+		const bytes = new TextEncoder().encode('🙂\nok\n');
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdin: mockStdin({
+					[Symbol.asyncIterator]: async function* (): AsyncGenerator<Uint8Array> {
+						yield bytes.slice(0, 2);
+						yield bytes.slice(2);
+					},
+				}),
+			}),
+		);
+
+		expect(await adapter.stdin()).toBe('🙂');
+		expect(await adapter.stdin()).toBe('ok');
+		expect(await adapter.stdin()).toBeNull();
+	});
 });
 
 // === RuntimeAdapter interface (nested)
@@ -783,6 +818,15 @@ describe('RuntimeAdapter interface', () => {
 				}),
 			);
 			expect(adapter.configDir).toBe('/home/alice/.config');
+		});
+
+		it('configDir defaults to /.config when linux homedir is root', () => {
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					env: { HOME: '/' },
+				}),
+			);
+			expect(adapter.configDir).toBe('/.config');
 		});
 
 		it('configDir uses APPDATA on win32', () => {

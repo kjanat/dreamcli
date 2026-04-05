@@ -165,10 +165,26 @@ function buildRootCommandMap(
 	commands: readonly ErasedCommand[],
 ): ReadonlyMap<string, ErasedCommand> {
 	const rootCommands = new Map<string, ErasedCommand>();
+
+	const addRoute = (route: string, command: ErasedCommand): void => {
+		const existing = rootCommands.get(route);
+		if (existing !== undefined) {
+			throw new CLIError(
+				`Duplicate root command route '${route}' (${existing.schema.name} and ${command.schema.name})`,
+				{
+					code: 'DUPLICATE_COMMAND',
+					suggest: 'Ensure root command names and aliases are unique',
+				},
+			);
+		}
+
+		rootCommands.set(route, command);
+	};
+
 	for (const cmd of commands) {
-		rootCommands.set(cmd.schema.name, cmd);
+		addRoute(cmd.schema.name, cmd);
 		for (const alias of cmd.schema.aliases) {
-			rootCommands.set(alias, cmd);
+			addRoute(alias, cmd);
 		}
 	}
 	return rootCommands;

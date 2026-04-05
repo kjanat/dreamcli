@@ -83,7 +83,7 @@ interface RunOptions {
 	 *
 	 * When `true`, `log` and `info` messages are redirected to stderr
 	 * so that stdout is reserved exclusively for structured {@linkcode Out.json | json()} output.
-	 * Errors are also rendered as JSON to stderr.
+	 * Framework-rendered errors are emitted as structured JSON to stdout.
 	 *
 	 * @defaultValue `false`
 	 */

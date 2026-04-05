@@ -60,6 +60,8 @@ interface RuntimePreflightSchemaLike {
 	readonly configSettings: RuntimeConfigSettings | undefined;
 	/** Package.json discovery settings; `undefined` disables package.json inference. */
 	readonly packageJsonSettings: RuntimePackageJsonSettings | undefined;
+	/** Whether `.completions()` registered the built-in completions command. */
+	readonly hasBuiltInCompletions: boolean;
 	/** Plugins forwarded into the execution pipeline. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -118,7 +120,7 @@ interface ReadyRuntimePreflight {
 	readonly kind: 'ready';
 	/** Schema after package.json discovery and name inheritance applied. */
 	readonly schema: RuntimePreflightSchemaLike;
-	/** Argv with `--config` / `--config=` tokens stripped out. */
+	/** Argv with valid runtime `--config` tokens stripped out. */
 	readonly filteredArgv: readonly string[];
 	/** Fully resolved runtime inputs for the execution pipeline. */
 	readonly inputs: RuntimeExecutionInputs;
@@ -155,31 +157,49 @@ const PRECHECK_OUTPUT = {
 	verbosity: 'normal' as const,
 };
 
-/** Extract and strip `--config`/`--config=` from argv, returning the path and filtered tokens. @internal */
+/** Extract and strip valid runtime `--config` forms from argv, returning path + filtered tokens. @internal */
 function extractConfigFlag(argv: readonly string[]): {
 	readonly configPath: string | undefined;
 	readonly filteredArgv: readonly string[];
 } {
-	const eqIdx = argv.findIndex((arg) => arg.startsWith('--config='));
-	if (eqIdx !== -1) {
-		const value = (argv[eqIdx] as string).slice('--config='.length);
-		const filteredArgv = [...argv.slice(0, eqIdx), ...argv.slice(eqIdx + 1)];
-		return {
-			configPath: value.length > 0 ? value : undefined,
-			filteredArgv,
-		};
+	const filteredArgv: string[] = [];
+	let configPath: string | undefined;
+
+	for (let i = 0; i < argv.length; i += 1) {
+		const arg = argv[i] as string;
+
+		if (arg === '--') {
+			filteredArgv.push(...argv.slice(i));
+			break;
+		}
+
+		if (configPath === undefined && arg.startsWith('--config=')) {
+			const value = arg.slice('--config='.length);
+			if (value.length > 0) {
+				configPath = value;
+				continue;
+			}
+
+			filteredArgv.push(arg);
+			continue;
+		}
+
+		if (configPath === undefined && arg === '--config') {
+			const nextArg = argv[i + 1];
+			if (nextArg !== undefined && !nextArg.startsWith('-') && nextArg !== '--') {
+				configPath = nextArg;
+				i += 1;
+				continue;
+			}
+
+			filteredArgv.push(arg);
+			continue;
+		}
+
+		filteredArgv.push(arg);
 	}
 
-	const idx = argv.indexOf('--config');
-	const nextArg = idx >= 0 ? argv[idx + 1] : undefined;
-	if (idx === -1 || nextArg === undefined) {
-		return { configPath: undefined, filteredArgv: argv };
-	}
-
-	return {
-		configPath: nextArg,
-		filteredArgv: [...argv.slice(0, idx), ...argv.slice(idx + 2)],
-	};
+	return { configPath, filteredArgv };
 }
 
 /** Check whether a single command's args declare stdin-mode and argv leaves them unresolved. @internal */
@@ -229,6 +249,10 @@ function isCompletionsInvocation(
 	schema: RuntimePreflightSchemaLike,
 	argv: readonly string[],
 ): boolean {
+	if (!schema.hasBuiltInCompletions) {
+		return false;
+	}
+
 	const plan = planInvocation({
 		schema,
 		argv,
@@ -308,7 +332,10 @@ async function prepareRuntimePreflight(
 	options: PrepareRuntimePreflightOptions,
 ): Promise<RuntimePreflightResult> {
 	const rawArgv = options.adapter.argv.slice(2);
-	const { configPath, filteredArgv } = extractConfigFlag(rawArgv);
+	const { configPath, filteredArgv } =
+		options.schema.configSettings !== undefined
+			? extractConfigFlag(rawArgv)
+			: { configPath: undefined, filteredArgv: rawArgv };
 	const hasJsonFlag = filteredArgv.includes('--json');
 	const jsonMode = hasJsonFlag || options.options?.jsonMode === true;
 	const isCompletions = isCompletionsInvocation(options.schema, filteredArgv);

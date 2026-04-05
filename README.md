@@ -337,8 +337,8 @@ const result = await runCommand(cmd, [], {
 expect(result.activity).toContainEqual(expect.objectContaining({ type: 'spinner:start' }));
 ```
 
-`RunOptions` accepts: `env`, `config`, `answers`, `prompter`, `help`, `json`, `verbosity`,
-`adapter`, and more. Every dimension of CLI behavior is controllable from tests.
+`RunOptions` accepts: `env`, `config`, `answers`, `prompter`, `help`, `jsonMode`, `verbosity`,
+`isTTY`, and more. Every dimension of CLI behavior is controllable from tests.
 
 ## Package structure
 

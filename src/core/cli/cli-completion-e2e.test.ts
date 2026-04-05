@@ -335,7 +335,9 @@ describe('.completions()', () => {
 				expect(script).toContain('config');
 				expect(script).toContain('-l force');
 				expect(script).toContain('-l region');
-				expect(script).toContain('us eu ap');
+				expect(script).toContain('-a us');
+				expect(script).toContain('-a eu');
+				expect(script).toContain('-a ap');
 				expect(script).not.toContain('debug');
 			});
 		});

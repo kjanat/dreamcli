@@ -235,13 +235,14 @@ describe('CLIBuilder.run()', () => {
 			expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'stripped' });
 		});
 
-		it('--config= with empty value is treated as absent', async () => {
+		it('--config= with empty value remains in argv and triggers parse error', async () => {
 			const app = cli('myapp').config('myapp').command(regionCommand());
 
-			const { stdout } = await runWithAdapter(app, ['--config=', 'deploy']);
+			const { stdout, stderr, exitCode } = await runWithAdapter(app, ['--config=', 'deploy']);
 
-			expect(stdout.length).toBe(1);
-			expect(JSON.parse(stdout[0] ?? '')).toEqual({ region: 'us' });
+			expect(exitCode).toBe(2);
+			expect(stdout).toEqual([]);
+			expect(stderr.join('')).toContain('Unknown flag --config');
 		});
 
 		it('--config=path after command name still works', async () => {
@@ -391,6 +392,42 @@ describe('CLIBuilder.run()', () => {
 			expect(readFileCalled).toBe(false);
 			// Should have output a bash completion script
 			expect(stdoutLines.join('')).toContain('_myapp_completions');
+		});
+
+		it('user-defined completions command still loads config', async () => {
+			let readFileCalled = false;
+			const stdoutLines: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'test', 'completions'],
+				stdout: (s) => stdoutLines.push(s),
+				readFile: async (path) => {
+					readFileCalled = true;
+					if (path === '/test/.myapp.json') {
+						return '{"deploy":{"region":"eu"}}';
+					}
+					return null;
+				},
+			});
+
+			const app = cli('myapp')
+				.config('myapp')
+				.command(
+					command('completions')
+						.flag('region', flag.string().config('deploy.region').default('us'))
+						.action(({ flags, out }) => {
+							out.json({ region: flags.region });
+						}),
+				);
+
+			try {
+				await app.run({ adapter });
+			} catch (e: unknown) {
+				if (!(e instanceof ExitError)) throw e;
+			}
+
+			expect(readFileCalled).toBe(true);
+			expect(stdoutLines.length).toBe(1);
+			expect(JSON.parse(stdoutLines[0] ?? '')).toEqual({ region: 'eu' });
 		});
 	});
 });
