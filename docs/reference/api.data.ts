@@ -7,12 +7,12 @@
  * @module
  */
 
+import type { PublicApiEntrypoint } from '../.vitepress/data/api-index.ts';
 import {
   collectPublicApiIndex,
   countPublicApiSymbols,
 } from '../.vitepress/data/api-index.ts';
 import { collectExamples } from '../.vitepress/data/examples.ts';
-import type { PublicApiEntrypoint } from '../.vitepress/data/api-index.ts';
 import {
   examplesRoot,
   packageJsonPath,
@@ -38,6 +38,7 @@ export interface Data {
 }
 
 declare const data: Data;
+
 export { data };
 
 export default {

@@ -32,6 +32,7 @@ export interface Data {
 }
 
 declare const data: Data;
+
 export { data };
 
 export default {

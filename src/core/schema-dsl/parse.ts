@@ -241,7 +241,6 @@ type Parse<T extends string, V extends string = Trim<T>> = V extends `{${infer C
 export type {
 	Balanced,
 	HasTopLevelPipe,
-	TrackDepth,
 	NonEmpty,
 	Parse,
 	ParseEach,
@@ -254,6 +253,7 @@ export type {
 	Prettify,
 	RawSplit,
 	Rejoin,
+	TrackDepth,
 	Trim,
 	TrimLeft,
 	TrimRight,

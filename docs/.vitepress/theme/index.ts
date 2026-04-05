@@ -167,13 +167,17 @@ const ORIG_HTML = 'data-orig-html';
 const NPX_TSX_RE = /\bnpx\s*(?:<\/span>\s*<span[^>]*>\s*)?tsx\b/;
 
 /**
- * Replace `npx tsx` with the selected runtime in bash/sh code blocks.
+ * Replace `npx tsx` with the selected runtime in code blocks.
  * Always replaces from the stored original innerHTML so syntax highlighting
  * is preserved and switching between runtimes works repeatedly.
  */
 function applyRuntime(runtime: Runtime): void {
-  const selector =
-    'div.language-bash pre code .line, div.language-sh pre code .line';
+  const selector = [
+    'div.language-bash pre code .line',
+    'div.language-sh pre code .line',
+    'div.language-ts pre code .line',
+    'div.language-typescript pre code .line',
+  ].join(', ');
   for (const line of document.querySelectorAll(selector)) {
     const el = line as HTMLElement;
 

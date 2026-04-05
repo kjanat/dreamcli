@@ -2,6 +2,8 @@
 
 The main export. Import schema builders, CLI runner, output, parsing, and errors.
 
+Key types: [`ActivityEvent`](/reference/symbols/main/ActivityEvent), [`BeforeParseParams`](/reference/symbols/main/BeforeParseParams), [`CLIPluginHooks`](/reference/symbols/main/CLIPluginHooks), [`CommandMeta`](/reference/symbols/main/CommandMeta), [`CommandSchema`](/reference/symbols/main/CommandSchema), [`DeprecationWarning`](/reference/symbols/main/DeprecationWarning), [`DeriveHandler`](/reference/symbols/main/DeriveHandler), [`DeriveParams`](/reference/symbols/main/DeriveParams), [`Out`](/reference/symbols/main/Out), [`PluginCommandContext`](/reference/symbols/main/PluginCommandContext), [`ResolvedCommandParams`](/reference/symbols/main/ResolvedCommandParams), [`RunResult`](/reference/symbols/main/RunResult)
+
 ```ts twoslash
 import {
   cli,
@@ -30,20 +32,6 @@ import {
   parse,
   tokenize,
   resolve,
-} from '@kjanat/dreamcli';
-import type {
-  ActivityEvent,
-  BeforeParseParams,
-  CLIPluginHooks,
-  CommandSchema,
-  CommandMeta,
-  DeprecationWarning,
-  DeriveHandler,
-  DeriveParams,
-  Out,
-  PluginCommandContext,
-  ResolvedCommandParams,
-  RunResult,
 } from '@kjanat/dreamcli';
 ```
 
@@ -206,17 +194,10 @@ cli('mycli').plugin(trace).command(deploy);
 Lifecycle hook bag for `plugin(...)`. Each hook may be sync or async:
 
 ```ts twoslash
-import type {
-  BeforeParseParams,
-  ResolvedCommandParams,
-} from '@kjanat/dreamcli';
+import type { CLIPluginHooks } from '@kjanat/dreamcli';
 
-type CLIPluginHooks = {
-  beforeParse?: (params: BeforeParseParams) => void | Promise<void>;
-  afterResolve?: (params: ResolvedCommandParams) => void | Promise<void>;
-  beforeAction?: (params: ResolvedCommandParams) => void | Promise<void>;
-  afterAction?: (params: ResolvedCommandParams) => void | Promise<void>;
-};
+type _Show = CLIPluginHooks;
+//   ^?
 ```
 
 Use `beforeParse` to inspect raw argv, `afterResolve` to observe resolved args/flags,
@@ -230,13 +211,10 @@ Base payload shared by all plugin hooks. It contains the current `command` schem
 internal CLI state.
 
 ```ts twoslash
-import type { CommandMeta, CommandSchema, Out } from '@kjanat/dreamcli';
+import type { PluginCommandContext } from '@kjanat/dreamcli';
 
-type PluginCommandContext = {
-  command: CommandSchema;
-  meta: CommandMeta;
-  out: Out;
-};
+type _Show = PluginCommandContext;
+//   ^?
 ```
 
 ### `BeforeParseParams`
@@ -245,11 +223,10 @@ Payload for `beforeParse`. Adds the leaf-command `argv` array to `PluginCommandC
 can log, validate, or instrument the exact argument list before parsing starts.
 
 ```ts twoslash
-import type { PluginCommandContext } from '@kjanat/dreamcli';
+import type { BeforeParseParams } from '@kjanat/dreamcli';
 
-type BeforeParseParams = PluginCommandContext & {
-  argv: readonly string[];
-};
+type _Show = BeforeParseParams;
+//   ^?
 ```
 
 ### `ResolvedCommandParams`
@@ -258,16 +235,10 @@ Payload for `afterResolve`, `beforeAction`, and `afterAction`. Adds fully resolv
 and collected `deprecations` so hooks can inspect the final command inputs.
 
 ```ts twoslash
-import type {
-  DeprecationWarning,
-  PluginCommandContext,
-} from '@kjanat/dreamcli';
+import type { ResolvedCommandParams } from '@kjanat/dreamcli';
 
-type ResolvedCommandParams = PluginCommandContext & {
-  flags: Readonly<Record<string, unknown>>;
-  args: Readonly<Record<string, unknown>>;
-  deprecations: readonly DeprecationWarning[];
-};
+type _Show = ResolvedCommandParams;
+//   ^?
 ```
 
 ## Execution Types
@@ -279,12 +250,10 @@ CLI `name`, display `bin`, `version`, and current leaf `command`, making it usef
 telemetry, and custom output headers.
 
 ```ts twoslash
-type CommandMeta = {
-  name: string;
-  bin: string;
-  version: string | undefined;
-  command: string;
-};
+import type { CommandMeta } from '@kjanat/dreamcli';
+
+type _Show = CommandMeta;
+//   ^?
 ```
 
 ### `RunResult`
@@ -294,15 +263,10 @@ Structured result returned by `runCommand(...)` and `cli.execute(...)`. It inclu
 `undefined` on success and a `CLIError` on failure.
 
 ```ts twoslash
-import type { ActivityEvent, CLIError } from '@kjanat/dreamcli';
+import type { RunResult } from '@kjanat/dreamcli';
 
-type RunResult = {
-  exitCode: number;
-  stdout: readonly string[];
-  stderr: readonly string[];
-  activity: readonly ActivityEvent[];
-  error: CLIError | undefined;
-};
+type _Show = RunResult;
+//   ^?
 ```
 
 ## Output

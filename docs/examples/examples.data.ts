@@ -23,6 +23,7 @@ export interface ExampleIndexEntry {
 export type Data = readonly ExampleIndexEntry[];
 
 declare const data: Data;
+
 export { data };
 
 export default {

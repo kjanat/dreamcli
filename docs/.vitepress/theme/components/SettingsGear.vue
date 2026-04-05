@@ -47,32 +47,27 @@
 
     <Transition name="settings-dropdown">
       <div v-show="open" class="settings-dropdown">
-        <div class="settings-section">
-          <label class="settings-toggle">
-            <input v-model="settings.twoslash" type="checkbox">
-            <span>Type hovers</span>
-          </label>
-        </div>
+        <label class="settings-toggle">
+          <span>Type hovers</span>
+          <input v-model="settings.twoslash" type="checkbox">
+          <span class="toggle-track" />
+        </label>
 
-        <div class="settings-divider" />
-
-        <div class="settings-section">
-          <div class="settings-label">Run examples with</div>
-          <div class="runtime-options">
-            <label
-              v-for="rt in runtimes"
-              :key="rt.value"
-              class="runtime-option"
+        <div class="runtime-options">
+          <label
+            v-for="rt in runtimes"
+            :key="rt.value"
+            class="runtime-option"
+            :class="{ active: settings.runtime === rt.value }"
+          >
+            <input
+              v-model="settings.runtime"
+              type="radio"
+              name="runtime"
+              :value="rt.value"
             >
-              <input
-                v-model="settings.runtime"
-                type="radio"
-                name="runtime"
-                :value="rt.value"
-              >
-              <span>{{ rt.label }}</span>
-            </label>
-          </div>
+            <span>{{ rt.label }}</span>
+          </label>
         </div>
       </div>
     </Transition>
@@ -129,70 +124,115 @@
     top: calc(100% + var(--s-gap));
     right: 0;
     z-index: 100;
-    min-width: 200px;
-    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 170px;
+    padding: 8px;
     border: 1px solid var(--vp-c-border);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--vp-c-bg-elv);
     box-shadow: var(--vp-shadow-3);
   }
 
-  .settings-section {
-    padding: 4px 0;
-  }
-
-  .settings-divider {
-    margin: var(--s-gap) 0;
-    border-top: 1px solid var(--vp-c-divider);
-  }
-
-  .settings-label {
-    margin-bottom: var(--s-radius-sm);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--vp-c-text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
+  /* --- Toggle switch --- */
 
   .settings-toggle {
     display: flex;
-    gap: var(--s-gap);
     align-items: center;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--vp-c-text-1);
-  }
-
-  .settings-toggle input {
-    accent-color: var(--s-accent);
-  }
-
-  .runtime-options {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .runtime-option {
-    display: flex;
-    gap: var(--s-gap);
-    align-items: center;
-    padding: 4px var(--s-gap);
+    justify-content: space-between;
+    padding: 4px 6px;
     border-radius: var(--s-radius-sm);
     cursor: pointer;
     font-size: 13px;
     color: var(--vp-c-text-1);
-    font-family: var(--vp-font-family-mono);
     transition: background-color var(--s-duration) var(--s-ease);
   }
 
-  .runtime-option:hover {
+  .settings-toggle:hover {
     background: var(--vp-c-default-soft);
   }
 
+  .settings-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .toggle-track {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    border-radius: 9px;
+    background: var(--vp-c-default-soft);
+    transition: background-color var(--s-duration) var(--s-ease);
+    flex-shrink: 0;
+  }
+
+  .toggle-track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--vp-c-text-3);
+    transition:
+      transform var(--s-duration) var(--s-ease),
+      background-color var(--s-duration) var(--s-ease);
+  }
+
+  .settings-toggle input:checked ~ .toggle-track {
+    background: var(--s-accent);
+  }
+
+  .settings-toggle input:checked ~ .toggle-track::after {
+    transform: translateX(14px);
+    background: white;
+  }
+
+  /* --- Segmented control --- */
+
+  .runtime-options {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--s-radius);
+    background: var(--vp-c-default-soft);
+  }
+
+  .runtime-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 8px;
+    border-radius: var(--s-radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--vp-c-text-2);
+    font-family: var(--vp-font-family-mono);
+    transition:
+      background-color var(--s-duration) var(--s-ease),
+      color var(--s-duration) var(--s-ease),
+      box-shadow var(--s-duration) var(--s-ease);
+  }
+
+  .runtime-option:hover {
+    color: var(--vp-c-text-1);
+  }
+
+  .runtime-option.active {
+    background: var(--vp-c-bg-elv);
+    color: var(--vp-c-text-1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
   .runtime-option input {
-    accent-color: var(--s-accent);
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* --- Transition --- */

@@ -168,7 +168,7 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/examples/' },
               ...exampleMeta.map((example) => ({
-                text: example.title,
+                text: example.navTitle,
                 link: example.routePath,
               })),
             ],

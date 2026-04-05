@@ -1350,14 +1350,17 @@ class CommandBuilder<
 	 * @param handler - Function receiving `ActionParams<F, A, C>`.
 	 *
 	 * @example
+	 * ```ts
 	 * // Minimal
 	 * command('greet')
 	 *   .arg('name', arg.string())
 	 *   .action(({ args, out }) => {
 	 *     out.log(`Hello, ${args.name}!`);
 	 *   });
+	 * ```
 	 *
 	 * @example
+	 * ```ts
 	 * // Full params — flags, args, context, output
 	 * command('deploy')
 	 *   .arg('target', arg.string().env('DEPLOY_TARGET'))
@@ -1375,6 +1378,7 @@ class CommandBuilder<
 	 *     spinner.stop();
 	 *     out.log('Done');
 	 *   });
+	 * ```
 	 *
 	 * @returns The builder (for chaining).
 	 */
