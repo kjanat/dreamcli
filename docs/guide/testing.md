@@ -97,7 +97,7 @@ expect(result.activity).toContainEqual(
 ## Captured Output
 
 ```ts twoslash
-import type { RunResult } from '@kjanat/dreamcli/testkit';
+import type { RunResult } from '@kjanat/dreamcli';
 
 declare const result: RunResult;
 

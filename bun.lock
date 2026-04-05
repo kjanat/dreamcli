@@ -18,6 +18,7 @@
         "@vitest/coverage-v8": "^4.1.2",
         "debug": "^4.4.3",
         "dprint": "^0.53.2",
+        "floating-vue": "^5.2.2",
         "mermaid": "^11.14.0",
         "publint": "^0.3.18",
         "tsdown": "^0.21.7",
