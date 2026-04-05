@@ -1,5 +1,6 @@
 import { $, env } from 'bun';
 import { defineConfig } from 'tsdown';
+import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 import attw from './.attw.json' with { type: 'json' };
 import pkg from './package.json' with { type: 'json' };
 
@@ -34,5 +35,11 @@ export default defineConfig({
 	publint: { enabled: true, level: 'suggestion', strict: true },
 	attw: { profile, ignoreRules, level: 'warn' },
 	report: { enabled: !env.CI },
-	onSuccess: 'bun fmt package.json && bun scripts/emit-definition-schema.ts',
+	hooks: {
+		'build:prepare': (ctx) => {
+			if (ctx.options.format !== 'es') return;
+			return emitDefinitionSchema();
+		},
+	},
+	onSuccess: 'bun fmt package.json',
 });
