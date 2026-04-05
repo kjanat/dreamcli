@@ -53,7 +53,7 @@ features:
       dark: /icons/zero-deps-dark.svg
       height: 48
     title: Zero Dependencies
-    details: Lean core with no runtime dependencies. Dual ESM/CJS. Runs on Node, Bun, and Deno.
+    details: Lean core with no runtime dependencies. ESM-only. Runs on Node, Bun, and Deno.
   - icon:
       light: /icons/structured-output-light.svg
       dark: /icons/structured-output-dark.svg

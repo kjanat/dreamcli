@@ -18,11 +18,10 @@ export default defineConfig({
 		__DREAMCLI_REVISION__: revision,
 	},
 	entry: ['src/index.ts', { testkit: 'src/testkit.ts', runtime: 'src/runtime.ts' }],
-	format: ['esm', 'cjs'],
+	format: 'es',
 	dts: {
 		enabled: true,
 		tsgo: true,
-		cjsReexport: true,
 		entry: ['**', '!src/**/*{.test,test-helpers}.ts'],
 		newContext: true,
 		resolver: 'oxc',
@@ -36,8 +35,7 @@ export default defineConfig({
 	attw: { profile, ignoreRules, level: 'warn' },
 	report: { enabled: !env.CI },
 	hooks: {
-		'build:prepare': (ctx) => {
-			if (ctx.options.format !== 'es') return;
+		'build:prepare': () => {
 			return emitDefinitionSchema();
 		},
 	},

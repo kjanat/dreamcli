@@ -6,7 +6,7 @@
 
 Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Three subpath exports (`"."`,
 `"./testkit"`, `"./runtime"`) curated by `src/index.ts`, `src/testkit.ts`, and `src/runtime.ts`.
-Dual ESM/CJS via tsdown.
+ESM-only via tsdown.
 
 ### Goals
 

@@ -130,40 +130,22 @@
 		"access": "public",
 		"exports": {
 			".": {
+				"types": "./dist/index.d.mts",
 				"bun": "./src/index.ts",
 				"deno": "./src/index.ts",
-				"import": {
-					"types": "./dist/index.d.mts",
-					"default": "./dist/index.mjs"
-				},
-				"require": {
-					"types": "./dist/index.d.cts",
-					"default": "./dist/index.cjs"
-				}
+				"default": "./dist/index.mjs"
 			},
 			"./runtime": {
+				"types": "./dist/runtime.d.mts",
 				"bun": "./src/runtime.ts",
 				"deno": "./src/runtime.ts",
-				"import": {
-					"types": "./dist/runtime.d.mts",
-					"default": "./dist/runtime.mjs"
-				},
-				"require": {
-					"types": "./dist/runtime.d.cts",
-					"default": "./dist/runtime.cjs"
-				}
+				"default": "./dist/runtime.mjs"
 			},
 			"./testkit": {
+				"types": "./dist/testkit.d.mts",
 				"bun": "./src/testkit.ts",
 				"deno": "./src/testkit.ts",
-				"import": {
-					"types": "./dist/testkit.d.mts",
-					"default": "./dist/testkit.mjs"
-				},
-				"require": {
-					"types": "./dist/testkit.d.cts",
-					"default": "./dist/testkit.cjs"
-				}
+				"default": "./dist/testkit.mjs"
 			},
 			"./schema": "./dreamcli.schema.json",
 			"./package.json": "./package.json"

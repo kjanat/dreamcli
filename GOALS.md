@@ -351,7 +351,7 @@ Adapters:
 
 - **TypeScript ergonomics:** avoid type explosions that make TS slow or unreadable in editor hovers.
 - **Small dependency footprint:** prefer zero-dep core; optional extras behind adapters/plugins.
-- **Tree-shakeable ESM:** modern packaging with good defaults; CJS compatibility where needed.
+- **Tree-shakeable ESM:** modern packaging with ESM-only exports and clear defaults.
 - **Deterministic tests:** no reliance on wall-clock time, real filesystem, or actual TTY unless
   explicitly integrated.
 
@@ -400,7 +400,7 @@ dreamcli/
 
 - Publish to **npm** (Node/Bun) with:
 
-  - ESM build + CJS build
+  - ESM build
   - `exports` map with `types`
 - Publish to **JSR** (Deno-first, also consumable elsewhere) for first-class TS consumption.
 - Keep runtime adapters internal but tree-shakeable.
@@ -454,8 +454,7 @@ locked.
 - **Deno permissions & filesystem constraints:** Make config/completions opt-in when permissions
   missing; fail with precise guidance.
 
-- **ESM/CJS ecosystem pain:** Provide clean ESM-first exports, plus a CJS build; document
-  recommended entry patterns.
+- **ESM-only ecosystem friction:** Provide clean ESM exports and document migration/interop patterns.
 
 - **Completions installation differences across shells/OS:** Treat install as “best effort”, with a
   `generate` command always available and clear manual instructions.

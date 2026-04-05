@@ -350,7 +350,7 @@ Three subpath exports, each with a focused API surface:
 | `@kjanat/dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
 | `@kjanat/dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
 
-Dual ESM/CJS. Source included in package (`src/`).
+ESM-only. Source included in package (`src/`).
 
 ## Runtime support
 
