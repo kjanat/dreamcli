@@ -23,7 +23,7 @@ if (link.stderr.byteLength !== 0) {
 	console.error('bun link failed:', new TextDecoder().decode(link.stderr));
 }
 
-console.log(`remember to check if bun supports basic monorepo shit like referencing workspace's root package...
+console.error(`remember to check if bun supports basic monorepo shit like referencing workspace's root package...
 link: ${osc8Link('https://bun.com/docs/pm/workspaces', 'bun workspaces')}`);
 
 /** WHY DO I NEED TO FUCKING DO THIS??? @see {@linkcode link | Linking the root package for use in workspaces} */
@@ -32,5 +32,5 @@ WTF IS THIS SHIT!!! Why??? This is why:
 
 ${mdCodeFence(JSON.stringify(dependencies, null, '  '), 'json', 'examples/gh/package.json', "gh example's package.json dependencies")}`;
 
-console.info(why);
+console.error(why);
 process.exit(link.exitCode);

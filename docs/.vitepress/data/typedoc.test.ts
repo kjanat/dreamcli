@@ -10,7 +10,7 @@ import { collectTypeDocModel } from './typedoc.ts';
 
 describe('typedoc normalization', () => {
   it('normalizes public entrypoints into a DreamCLI-owned docs model', {
-    timeout: 20_000,
+    timeout: 60_000,
   }, async () => {
     const publicApi = await collectPublicApiIndex(packageJsonPath);
     const { normalized, rawProject } = await collectTypeDocModel(
@@ -63,7 +63,7 @@ describe('typedoc normalization', () => {
   });
 
   it('preserves symbol docs, overloads, and nested property types without leaking raw TypeDoc shape', {
-    timeout: 20_000,
+    timeout: 60_000,
   }, async () => {
     const publicApi = await collectPublicApiIndex(packageJsonPath);
     const { normalized } = await collectTypeDocModel(

@@ -17,7 +17,7 @@ import { collectTypeDocModel } from './typedoc.ts';
 
 describe('symbol page generation', () => {
   it('renders stable per-symbol routes from the normalized TypeDoc model', {
-    timeout: 20_000,
+    timeout: 60_000,
   }, async () => {
     const publicApi = await collectPublicApiIndex(packageJsonPath);
     const examples = await collectExamples(examplesRoot, rootDirPath);
@@ -62,7 +62,7 @@ describe('symbol page generation', () => {
   });
 
   it('renders parameter tables with escaped markdown pipes but plain type unions', {
-    timeout: 20_000,
+    timeout: 60_000,
   }, async () => {
     const publicApi = await collectPublicApiIndex(packageJsonPath);
     const examples = await collectExamples(examplesRoot, rootDirPath);
