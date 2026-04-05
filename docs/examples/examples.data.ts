@@ -7,18 +7,22 @@
  * @module
  */
 
-import { collectExamples } from '../.vitepress/data/examples.ts';
+import {
+  collectExamples,
+  type ExampleEntry,
+} from '../.vitepress/data/examples.ts';
 import { examplesRoot, rootDirPath } from '../.vitepress/data/paths.ts';
 
-export interface ExampleIndexEntry {
-  slug: string;
-  title: string;
-  summary: string;
-  demonstrates: string | null;
-  sourcePath: string;
-  routePath: string;
-  sourceUrl: string;
-}
+export type ExampleIndexEntry = Pick<
+  ExampleEntry,
+  | 'slug'
+  | 'title'
+  | 'summary'
+  | 'demonstrates'
+  | 'sourcePath'
+  | 'routePath'
+  | 'sourceUrl'
+>;
 
 export type Data = readonly ExampleIndexEntry[];
 
