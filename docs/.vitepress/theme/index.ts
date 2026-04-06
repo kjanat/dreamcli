@@ -171,7 +171,9 @@ function loadMermaid(): Promise<typeof import('mermaid')> {
 }
 
 async function renderMermaidBlocks(): Promise<void> {
-	const blocks = document.querySelectorAll<HTMLElement>('pre > code.language-mermaid');
+	const blocks = document.querySelectorAll<HTMLElement>(
+		'pre > code.language-mermaid, div.language-mermaid pre > code',
+	);
 	if (blocks.length === 0) return;
 
 	const mermaid = await loadMermaid();
