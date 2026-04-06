@@ -238,8 +238,12 @@ export async function collectTypeDocModel(
 		const exportIds: string[] = [];
 		const missingExports: string[] = [];
 
+		const seen = new Set<string>();
 		for (const symbol of flattenEntrypointSymbols(entrypoint)) {
-			const reflection = moduleChildren.find((child) => child.name === symbol.name);
+			if (seen.has(symbol.name)) continue;
+			seen.add(symbol.name);
+
+			const reflection = pickBestReflection(moduleChildren, symbol.name);
 			if (reflection === undefined) {
 				missingExports.push(symbol.name);
 				continue;
@@ -268,6 +272,8 @@ export async function collectTypeDocModel(
 		} satisfies NormalizedApiEntrypoint;
 	});
 
+	fillMissingCommentsFromSiblings(normalizedExports);
+
 	return {
 		rawProject,
 		normalized: {
@@ -278,6 +284,29 @@ export async function collectTypeDocModel(
 			exports: normalizedExports,
 		},
 	};
+}
+
+/**
+ * When the same symbol is exported from multiple entrypoints, TypeDoc may
+ * only attach the comment to one reflection (typically the original
+ * declaration's module). Fill in missing comments from sibling exports.
+ */
+function fillMissingCommentsFromSiblings(exports: NormalizedApiExport[]): void {
+	const commentByName = new Map<string, NormalizedApiComment>();
+	for (const entry of exports) {
+		if (entry.reflection.comment !== null && !commentByName.has(entry.name)) {
+			commentByName.set(entry.name, entry.reflection.comment);
+		}
+	}
+
+	for (const entry of exports) {
+		if (entry.reflection.comment === null) {
+			const sibling = commentByName.get(entry.name);
+			if (sibling !== undefined) {
+				entry.reflection.comment = sibling;
+			}
+		}
+	}
 }
 
 async function collectRawTypeDocProject(
@@ -458,6 +487,27 @@ function displayPartsToText(parts: readonly JSONOutput.CommentDisplayPart[]): st
 
 function getSources(reflection: TypeDocNode): readonly JSONOutput.SourceReference[] {
 	return 'sources' in reflection ? (reflection.sources ?? []) : [];
+}
+
+/**
+ * When TypeDoc produces multiple reflections for the same name (e.g. an
+ * Interface and a re-export TypeAlias), pick the one with the richest
+ * content: prefer reflections with a comment, then with children.
+ */
+function pickBestReflection(
+	children: readonly JSONOutput.DeclarationReflection[],
+	name: string,
+): JSONOutput.DeclarationReflection | undefined {
+	const matches = children.filter((child) => child.name === name);
+	if (matches.length <= 1) return matches[0];
+
+	return matches.reduce((best, current) => {
+		const bestScore =
+			(best.comment !== undefined ? 2 : 0) + ((best.children?.length ?? 0) > 0 ? 1 : 0);
+		const currentScore =
+			(current.comment !== undefined ? 2 : 0) + ((current.children?.length ?? 0) > 0 ? 1 : 0);
+		return currentScore > bestScore ? current : best;
+	});
 }
 
 function normalizeSource(source: JSONOutput.SourceReference): NormalizedApiSource {

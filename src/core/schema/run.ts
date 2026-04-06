@@ -23,7 +23,7 @@ import type { CommandMeta, CommandSchema, Out } from './command.ts';
  * primary process-free execution seam: inject env, config, prompt I/O, and
  * dispatch-layer metadata without touching process state.
  */
-interface RunOptions {
+export interface RunOptions {
 	/**
 	 * Environment variables for flag resolution.
 	 *
@@ -153,12 +153,22 @@ interface RunOptions {
 }
 
 /**
- * Structured result from running a command.
+ * Structured result from {@linkcode runCommand}.
  *
- * Contains the exit code, captured stdout/stderr output, and an `error`
- * field that is `undefined` on success and populated on failure.
+ * Contains the exit code, captured stdout/stderr output, recorded
+ * {@linkcode ActivityEvent | activity events}, and an `error` field
+ * that is `undefined` on success and a {@linkcode CLIError} on failure.
+ *
+ * @example
+ * ```ts
+ * const result = await runCommand(greetCmd, ['World']);
+ *
+ * expect(result.exitCode).toBe(0);
+ * expect(result.stdout).toContain('Hello, World!');
+ * expect(result.error).toBeUndefined();
+ * ```
  */
-interface RunResult {
+export interface RunResult {
 	/** Process exit code. 0 = success. */
 	readonly exitCode: number;
 
@@ -183,5 +193,3 @@ interface RunResult {
 	 */
 	readonly error: CLIError | undefined;
 }
-
-export type { RunOptions, RunResult };

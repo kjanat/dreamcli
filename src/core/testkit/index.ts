@@ -88,5 +88,36 @@ async function runCommand(
 
 // --- Exports
 
+/**
+ * Options for {@linkcode runCommand} — process-free command execution.
+ *
+ * Every field is optional. Inject env, config, prompt answers, and
+ * output capture without touching process state.
+ *
+ * @example
+ * ```ts
+ * const result = await runCommand(cmd, ['--verbose'], {
+ *   env: { LOG_LEVEL: 'debug' },
+ *   config: { theme: 'dark' },
+ * });
+ * ```
+ */
+/**
+ * Structured result from {@linkcode runCommand}.
+ *
+ * Contains the exit code, captured stdout/stderr output, recorded
+ * {@linkcode ActivityEvent | activity events}, and an `error` field
+ * that is `undefined` on success and a {@linkcode CLIError} on failure.
+ *
+ * @example
+ * ```ts
+ * const result = await runCommand(greetCmd, ['World']);
+ *
+ * expect(result.exitCode).toBe(0);
+ * expect(result.stdout).toContain('Hello, World!');
+ * expect(result.error).toBeUndefined();
+ * ```
+ */
 export type { RunOptions, RunResult };
+
 export { runCommand };

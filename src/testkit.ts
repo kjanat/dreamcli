@@ -20,5 +20,6 @@ export {
 	type TestAnswer,
 	type TestPrompterOptions,
 } from './core/prompt/index.ts';
-export { type RunOptions, type RunResult, runCommand } from './core/testkit/index.ts';
+export type { RunOptions, RunResult } from './core/testkit/index.ts';
+export { runCommand } from './core/testkit/index.ts';
 export { createTestAdapter, type TestAdapterOptions } from './runtime/index.ts';
