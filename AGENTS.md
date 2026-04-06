@@ -1,178 +1,117 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-04 **Commit:** 227385a **Branch:** dreamcli-re-foundation
+**Generated:** 2026-04-06 **Commit:** 1de5d51 **Branch:** dreamcli-re-foundation
 
 ## OVERVIEW
 
-Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Three subpath exports (`"."`,
-`"./testkit"`, `"./runtime"`) curated by `src/index.ts`, `src/testkit.ts`, and `src/runtime.ts`.
-ESM-only via tsdown.
+Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. In-repo exports point at
+`src/*.ts`; published Node defaults point at `dist/*.mjs`, while Bun and Deno keep source exports.
 
-### Goals
-
-Our goals are described in @GOALS.md
-
-Read @DISCOVERIES.md at the start of every session before planning, editing, or running task workflows.
-Agent memory for non-obvious repo gotchas lives there.
+Read `@DISCOVERIES.md` before planning, editing, or running task workflows.
 
 ## STRUCTURE
 
 ```text
 src/
-├── index.ts                # Public API barrel (explicit named re-exports, no wildcards)
+├── index.ts                # public package surface
+├── runtime.ts              # `./runtime` subpath barrel
+├── testkit.ts              # `./testkit` subpath barrel
 ├── core/
-│   ├── cli/                # CLIBuilder — multi-command dispatch, plugins, runtime preflight
-│   ├── completion/         # Shell completion generation (bash/zsh + fish/powershell stubs)
-│   │   └── shells/         # Per-shell generators + shared tree walker
-│   ├── config/             # Config file discovery + loading (XDG paths, JSON, plugin hook)
-│   ├── errors/             # CLIError/ParseError/ValidationError hierarchy + type guards
-│   ├── execution/          # Shared parse → resolve → plugin → handler pipeline (@internal)
-│   ├── help/               # formatHelp() — text formatter for command help
-│   ├── json-schema/        # Schema → JSON Schema generation + definition metadata
-│   ├── output/             # OutputChannel — stdout/stderr, json/table/TTY, spinner/progress
-│   ├── parse/              # Tokenizer + parser (argv → Token[] → ParseResult)
-│   ├── prompt/             # PromptEngine — terminal/test prompters, interactive resolution
-│   ├── resolve/            # Flag/arg resolution chain: CLI → env → config → prompt → default
-│   ├── schema/             # CommandBuilder/FlagBuilder/ArgBuilder + middleware + prompt schemas
-│   ├── schema-dsl/         # String-literal schema definitions with compile-time type inference
-│   └── testkit/            # runCommand() — in-process test harness (public API)
-└── runtime/
-    ├── adapter.ts          # RuntimeAdapter interface (process abstraction)
-    ├── auto.ts             # Auto-detecting adapter factory
-    ├── node.ts             # Node.js adapter implementation
-    ├── bun.ts              # Bun adapter (delegates to Node adapter)
-    ├── deno.ts             # Deno adapter (permission-safe Deno namespace)
-    ├── detect.ts           # Runtime auto-detection (Bun/Deno/Node feature detection)
-    ├── paths.ts            # @internal — XDG/platform path resolution
-    └── support.ts          # @internal — runtime feature support detection
+│   ├── cli/                # top-level CLI orchestration, plugins, root surface
+│   ├── schema/             # builder DSL, type inference, middleware surface
+│   ├── resolve/            # argv/env/config/prompt/default precedence
+│   ├── output/             # stdout/stderr/json/table/activity dispatch
+│   ├── completion/         # shell completion generators
+│   ├── json-schema/        # definition schema + input schema generation
+│   ├── parse/              # tokenizer + schema-aware raw parse
+│   ├── prompt/             # terminal/test prompt engines
+│   ├── config/             # config discovery + package.json walk-up
+│   ├── help/               # schema-driven help formatter
+│   └── testkit/            # in-process test harness
+└── runtime/                # Node/Bun/Deno adapters + detection
+
+docs/
+├── .vitepress/             # config, data loaders, theme, custom Vite plugins
+├── concepts/               # hand-written docs
+├── guide/                  # hand-written docs
+├── examples/               # generated routes backed by `../examples/*.ts`
+└── reference/              # overview pages + dynamic symbol routes
+
+scripts/                    # build, release, and project automation
+examples/                   # runnable examples + `examples/gh` workspace canary
+specs/                      # planning/design docs
 ```
 
 ## WHERE TO LOOK
 
-| Task                           | Location                        | Notes                                           |
-| ------------------------------ | ------------------------------- | ----------------------------------------------- |
-| Add a new command feature      | `src/core/schema/`              | CommandBuilder, then wire through cli/testkit   |
-| Add a new flag type            | `src/core/schema/flag.ts`       | FlagBuilder + FlagKind union                    |
-| Fix argument parsing           | `src/core/parse/`               | Tokenizer + parser, single `index.ts`           |
-| Fix value resolution           | `src/core/resolve/`             | Split into args/flags/coerce/config/errors      |
-| Add output format              | `src/core/output/`              | OutputChannel, Out interface in schema          |
-| Add spinner/progress behavior  | `src/core/output/`              | Activity handles (TTY/static/capture/noop)      |
-| Test a command                 | `src/core/testkit/`             | `runCommand()` with `RunOptions`                |
-| Add middleware                 | `src/core/schema/middleware.ts` | `middleware()` factory                          |
-| Multi-command CLI behavior     | `src/core/cli/`                 | CLIBuilder dispatch + plugins + error rendering |
-| Shell completions              | `src/core/completion/`          | Bash/zsh generators from command tree           |
-| Config file discovery          | `src/core/config/`              | XDG search paths, format loaders                |
-| Runtime adapter (new platform) | `src/runtime/`                  | Implement RuntimeAdapter interface              |
-| Interactive prompts            | `src/core/prompt/`              | PromptEngine + resolver integration             |
-| Generate JSON Schema           | `src/core/json-schema/`         | Schema → JSON Schema + meta-descriptions        |
-| String-literal schema DSL      | `src/core/schema-dsl/`          | Compile-time parsing + runtime builder          |
-| Shared execution pipeline      | `src/core/execution/`           | @internal parse → resolve → handler flow        |
-| CLI plugins                    | `src/core/cli/plugin.ts`        | Plugin system + lifecycle hooks                 |
-
-## DEPENDENCY GRAPH
-
-```text
-errors, schema          <- LEAF (zero internal deps)
-  ^
-parse, help, output     <- depend on schema/errors
-  ^
-prompt, config          <- depend on output/schema
-  ^
-resolve                 <- depends on parse/prompt/schema/errors
-  ^
-execution               <- depends on resolve/output/schema/errors (@internal shared pipeline)
-  ^
-completion, testkit     <- depend on many lower modules
-  ^
-cli                     <- TOP — depends on nearly everything (incl. execution, plugins)
-```
-
-Circular dependency avoidance: `prompt/` and `resolve/` import `schema/prompt.ts` directly
-(bypassing barrel). `completion/` imports `cli/propagate.ts` directly. `output/` imports
-`schema/command.ts` and `schema/activity.ts` directly. `runtime/adapter.ts` imports `WriteFn` from
-`core/output/` and `ReadFn` from `core/prompt/` — runtime depends on core types.
-
-`RunResult` lives in `schema/run.ts` (not testkit) — schema is its natural home since
-`ErasedCommand._execute` returns it. `testkit/index.ts` re-exports `RunResult` from schema.
+| Task                                          | Location                        | Notes                                      |
+| --------------------------------------------- | ------------------------------- | ------------------------------------------ |
+| Add command, flag, arg, or middleware API     | `src/core/schema/`              | most public API work starts here           |
+| Fix argv parsing                              | `src/core/parse/`               | tokenizer + parser live in one file        |
+| Fix resolution precedence                     | `src/core/resolve/`             | argv -> env -> config -> prompt -> default |
+| Change help text formatting                   | `src/core/help/`                | width-aware text formatter                 |
+| Change config discovery or `packageJson()`    | `src/core/config/`              | config loaders + package metadata walk-up  |
+| Change prompt UX or test prompts              | `src/core/prompt/`              | prompt engines and sentinels               |
+| Change JSON Schema output                     | `src/core/json-schema/`         | definition schema + input schema           |
+| Change output, spinner, or progress           | `src/core/output/`              | stdout/stderr and activity handles         |
+| Change shell completions                      | `src/core/completion/`          | per-shell generators                       |
+| Change CLI dispatch or plugins                | `src/core/cli/`                 | root help, dispatch, runtime preflight     |
+| Change runtime adapters                       | `src/runtime/`                  | Node, Bun, Deno, detect, support           |
+| Change docs data, routes, or site build       | `docs/.vitepress/`              | docs app internals                         |
+| Edit guide/concept prose                      | `docs/guide/`, `docs/concepts/` | hand-authored Markdown                     |
+| Change build, release, or project automation  | `scripts/`                      | operational scripts                        |
+| Change example-backed docs or consumer canary | `examples/`                     | docs source + `examples/gh` workspace      |
 
 ## CONVENTIONS
 
-- **Tabs**, width 2, line width 100, single quotes, semicolons always, LF
-- **`verbatimModuleSyntax`** — use `import type` for type-only imports
-- **`.ts` extensions** in all relative imports (`allowImportingTsExtensions` + `noEmit`)
-- **Maximum TS strictness** — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
-- **No `any`** (biome warns), **no `!` non-null assertion** (biome info)
-- **Barrel-per-module** — each module has `index.ts` re-exporting public symbols
-- **`@internal` JSDoc** marks symbols excluded from public API
-- **Tests co-located** — `*.test.ts` next to source, aspect-split: `cli-json.test.ts`
-- **Em-dash in describes** — `describe('thing — behavior', ...)`
-- **Section separators** — `// ===` major, `// ---` minor, in all test files
-- **Zero lifecycle hooks** in tests — isolation via testkit architecture
-- **Zero snapshots** — all assertions explicit
-- Formatter: **dprint** (delegates JS/TS to biome plugin). Linter: **biome**
-- Type checker: **tsgo** (native preview) primary, `tsc` fallback
-- Bundler: **tsdown** with built-in `publint` + `attw --strict`
-- VCS: `git`
-- `@module` JSDoc at top of every source file
-- **Factory functions as public API** — `cli()`, `command()`, `flag.string()`, `middleware()`,
-  `createOutput()`, `createAdapter()` etc. Classes exported but not for direct construction
-- **Discriminated unions everywhere** — `Token.kind`, `DispatchResult.kind`, `PromptConfig.kind`,
-  `FlagSchema.kind`, `ActivityEvent.type`, `CoerceResult.ok`, etc.
-- **`exactOptionalPropertyTypes`** forces conditional spread: `...(x !== undefined ? { x } : {})`
-- **Output assertions include trailing `\n`** — `['Hello\n']` not `['Hello']`
-- `as` casts exist only at type-erasure boundaries (phantom brands, heterogeneous storage) and
-  runtime detection boundaries — all guarded
+- Tabs, single quotes, semicolons, LF
+- `import type` for type-only imports
+- `.ts` extensions in all relative imports
+- Strict TS everywhere; `exactOptionalPropertyTypes` means conditional spreads
+- Explicit named re-exports only; no `export *`
+- `@module` JSDoc at top of source files; `@internal` marks non-public API
+- Public API stays factory-first: `cli()`, `command()`, `flag.*()`, `createOutput()`, `createAdapter()`
+- Tests are co-located `*.test.ts`; use `describe()` + `it()`, em dash in suite titles,
+  `// ===` and `// ---` section markers
+- No lifecycle hooks, no snapshots, no module mocks
+- Output assertions include trailing `\n`
+- Core stays runtime-agnostic; host I/O goes through `RuntimeAdapter`, `WriteFn`, or `ReadFn`
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
-- Do NOT use `export *` — all re-exports are explicit named
-- Do NOT add runtime dependencies — library is zero-dep by design
-- Do NOT use `beforeEach`/`afterEach` — tests get isolation from testkit's capture output
-- Do NOT mock modules/dependencies — use `RunOptions` injection seam instead
-- Do NOT use `process.*` or runtime-specific APIs in core — use RuntimeAdapter
-- Do NOT put types in `@ts-ignore` — only `@ts-expect-error` for negative type tests
-- Do NOT use `vi.mock()` / `vi.spyOn()` on modules — `vi.fn()` only for handler spies
-- Do NOT import through barrel when it would create circular deps — import the specific file
-- Do NOT use `test()` — always `describe()` + `it()` from vitest (never bare `test()`)
+- Do not add runtime deps
+- Do not use `process.*` or runtime-specific APIs in `src/core/`
+- Do not import through barrels when it would create cycles; direct-file imports are intentional in
+  `cli/`, `completion/`, `output/`, `prompt/`, `resolve/`, and `runtime/`
+- Do not hand-edit `dreamcli.schema.json` or `src/core/json-schema/meta-descriptions.generated.ts`
+- Do not edit `docs/.vitepress/dist/` or `docs/.vitepress/cache/`
+- Do not treat `docs/.vitepress/data/` as docs-only; scripts import it for generated source and docs
+  artifacts
+- Do not replace `bun run gh-project:*` with ad hoc GitHub project mutations while the
+  re-foundation PRD is active
 
 ## COMMANDS
 
 ```bash
-bun run typecheck     # tsgo --noEmit (native TS type check)
-bun run typecheck:tsc # tsc --noEmit (standard fallback)
-bun run lint         # biome check .
-bun run lint:fix     # biome check --fix .
-bun run format       # dprint fmt
-bun run format:check # dprint check
-bun run test         # vitest run
-bun run test:watch   # vitest (watch mode)
-bun run bd           # tsdown (bundle + dts + publint + attw)
-bun run ci           # check -> lint -> test -> build (sequential)
+bun run typecheck             # tsgo --noEmit
+bun run typecheck:tsc         # tsc fallback
+bun run lint                  # biome lint
+bun run format:check          # dprint check
+bun run test                  # vitest run
+bun run meta-descriptions     # regenerate JSON Schema meta descriptions
+bun run meta-descriptions:check
+bun run docs:build            # VitePress build
+bun run bd                    # tsdown + publint + attw + schema emit
+bun run ci                    # typecheck + lint + format + meta + test + docs + build
+bun run gh-project:list       # workflow/project helper
 ```
 
 ## NOTES
 
-- **CI**: GitHub Actions — lint+typecheck (Bun), test matrix (Node LTS + Bun), Deno smoke test,
-  build, coverage (Node only, v8 provider)
-- **JSR publishing** — `deno.json` (`@kjanat/dreamcli`), GitHub Actions publish workflow with OIDC
-- **npm publishing** — manual `bun publish`, quality gates in build step
-- **~62 source files, 66 test files, ~17.5k source lines** — ~2200 tests
-- **13 files >500 lines** — `schema/command.ts` (1466), `cli/index.ts` (1015), `json-schema/index.ts` (891),
-  `schema/flag.ts` (753), `schema/arg.ts` (713), `output/index.ts` (669), `parse/index.ts` (661),
-  `schema-dsl/runtime.ts` (574), `output/activity.ts` (568), `prompt/index.ts` (566),
-  `help/index.ts` (557), `resolve/coerce.ts` (429), `deno.ts` (355)
-- `cli/index.ts` split: `dispatch.ts` + `propagate.ts` + `planner.ts` + `plugin.ts` +
-  `root-help.ts` + `root-surface.ts` + `runtime-preflight.ts` extracted as `@internal`
-- `resolve/` split: `coerce.ts` + `flags.ts` + `args.ts` + `config.ts` + `errors.ts` +
-  `property.ts` + `contracts.ts` extracted from monolithic index
-- Prompt types defined in `schema/prompt.ts` but consumed by `core/prompt/` directly (bypasses
-  barrel to avoid circular dep)
-- `stdinIsTTY` gates interactive prompt auto-creation in `cli/index.ts` — prompts only activate when
-  stdin is a TTY
-- Three subpath exports: `"."`, `"./testkit"`, `"./runtime"` + `"./schema"` (JSON Schema)
-- `src/` included in `files` (published source)
-- `node-builtins.d.ts` — handwritten ambient module declarations for `node:readline` and
-  `node:fs/promises` to avoid `@types/node` dependency
-- Fake timers in tests: inline `vi.useFakeTimers()` with `try/finally`, never lifecycle hooks
-- Version sync enforced: `scripts/check-version-sync.ts` validates package.json == deno.json
-- Engine requirements: Node >=22.22.2, Bun >=1.3.11, Deno >=2.6.0
+- Public subpath exports: `"."`, `"./runtime"`, `"./testkit"`, `"./schema"`
+- Node inside this repo resolves bare package imports to `dist`; Bun and Deno resolve to `src`
+- `tsdown.config.ts` emits `dreamcli.schema.json` before build and formats `package.json` on success
+- Docs build copies root artifacts into site output via
+  `docs/.vitepress/vite-plugins/source-artifacts.ts`
+- `examples/gh` is a real workspace package, typechecked and tested separately in CI
+- CI base branch is `master`, not `main`
