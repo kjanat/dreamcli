@@ -21,6 +21,7 @@
 		"#dreamcli": "./src/index.ts",
 		"#dreamcli/runtime": "./src/runtime.ts",
 		"#dreamcli/testkit": "./src/testkit.ts",
+		"#schema": "./dreamcli.schema.json",
 		"#internals/*": "./src/*"
 	},
 	"exports": {

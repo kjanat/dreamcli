@@ -12,10 +12,11 @@ lockfile.save = true
 silent = true
 
 [test]
-root           = "./src"
-coverage       = true
-reporter.dots  = false
-reporter.junit = ".bucket/test-results.xml"
-coverageDir    = ".bucket/coverage"
-randomize      = true
-rerunEach      = 3
+root             = "./src"
+coverage         = true
+coverageReporter = ["text", "lcov"]
+reporter.dots    = false
+reporter.junit   = ".bucket/test-results.xml"
+coverageDir      = ".bucket/coverage"
+randomize        = true
+rerunEach        = 3
