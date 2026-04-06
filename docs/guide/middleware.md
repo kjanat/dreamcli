@@ -42,8 +42,11 @@ command('deploy')
   .middleware(timing)
   .middleware(trace)
   .action(({ ctx }) => {
-    ctx.startTime; // number — typed
-    ctx.traceId; // string — typed
+    ctx.startTime;
+    //     ^?
+
+    ctx.traceId;
+    //     ^?
   });
 ```
 

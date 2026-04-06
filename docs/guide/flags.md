@@ -8,12 +8,23 @@ Each flag declaration configures parsing, type inference, resolution, help text,
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
 
-flag.string(); // string | undefined
-flag.number(); // number | undefined
-flag.boolean(); // boolean (defaults to false)
-flag.enum(['us', 'eu', 'ap']); // "us" | "eu" | "ap" | undefined
-flag.array(flag.string()); // string[] (falls back to [])
-flag.custom((v) => new URL(String(v))); // URL | undefined
+flag.string();
+//     ^?
+
+flag.number();
+//     ^?
+
+flag.boolean();
+//     ^?
+
+flag.enum(['us', 'eu', 'ap']);
+//     ^?
+
+flag.array(flag.string());
+//     ^?
+
+flag.custom((v) => new URL(String(v)));
+//     ^?
 ```
 
 Array flags are the one optional flag kind that still resolve to a value when

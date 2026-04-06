@@ -7,9 +7,14 @@ Positional arguments are declared with `arg` and appear after the command name.
 ```ts twoslash
 import { arg } from '@kjanat/dreamcli';
 
-arg.string(); // string
-arg.number(); // number
-arg.custom((v) => new URL(v)); // URL
+arg.string();
+//     ^?
+
+arg.number();
+//     ^?
+
+arg.custom((v) => new URL(v));
+//     ^?
 ```
 
 ## Declaration
