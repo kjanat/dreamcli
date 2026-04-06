@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kjanat/github-labelmanager/master/.github/labels.schema.json
+---
+labels:
+  - name: "kind: bug"
+    color: "#d73a4a"
+    description: Broken behavior or regression
+    aliases: [bug]
+
+  - name: "kind: feature"
+    color: "#0e8a16"
+    description: New capability or product enhancement
+    aliases: [enhancement]
+
+  - name: "kind: docs"
+    color: "#0075ca"
+    description: Docs, guides, examples, or reference content
+    aliases: [documentation]
+
+  - name: "kind: question"
+    color: "#d876e3"
+    description: Clarification, investigation, or design question
+    aliases: [question]
+
+  - name: "kind: breaking"
+    color: "#b60205"
+    description: Breaking API, runtime, or packaging change
+
+  - name: "area: cli"
+    color: "#1d76db"
+    description: CLI dispatch, planning, root UX, or plugins
+
+  - name: "area: completion"
+    color: "#5319e7"
+    description: Shell completion generation and parsing
+
+  - name: "area: config"
+    color: "#0052cc"
+    description: Config discovery, package metadata, and loaders
+
+  - name: "area: docs"
+    color: "#0366d6"
+    description: VitePress app, guides, reference pages, and docs UX
+
+  - name: "area: examples"
+    color: "#006b75"
+    description: Runnable examples and walkthrough package
+
+  - name: "area: output"
+    color: "#fbca04"
+    description: Output channels, tables, spinners, and JSON mode
+
+  - name: "area: resolve"
+    color: "#c5def5"
+    description: Argv, env, config, prompt, and default resolution
+
+  - name: "area: runtime"
+    color: "#0b7285"
+    description: Node, Bun, Deno adapters and runtime detection
+
+  - name: "area: schema"
+    color: "#bfdadc"
+    description: Schema builders, schema DSL, and JSON Schema export
+
+  - name: "area: testkit"
+    color: "#f9d0c4"
+    description: In-process test harness and test utilities
+
+  - name: "area: build"
+    color: "#7057ff"
+    description: Build, CI, release automation, scripts, and packaging
+
+  - name: release
+    color: "#5319e7"
+    description: Release planning, versioning, changelog, or publish flow
+
+  - name: good first issue
+    color: "#7057ff"
+    description: Good for newcomers
+
+  - name: help wanted
+    color: "#008672"
+    description: Extra attention is needed
+
+  - name: "resolution: duplicate"
+    color: "#cfd3d7"
+    description: Already tracked elsewhere
+    aliases: [duplicate]
+
+  - name: "resolution: invalid"
+    color: "#e4e669"
+    description: Not actionable as filed
+    aliases: [invalid]
+
+  - name: "resolution: wontfix"
+    color: "#ffffff"
+    description: Intentionally not planned
+    aliases: [wontfix]
