@@ -4,22 +4,18 @@ labels:
   - name: "kind: bug"
     color: "#d73a4a"
     description: Broken behavior or regression
-    aliases: [bug]
 
   - name: "kind: feature"
     color: "#0e8a16"
     description: New capability or product enhancement
-    aliases: [enhancement]
 
   - name: "kind: docs"
     color: "#0075ca"
     description: Docs, guides, examples, or reference content
-    aliases: [documentation]
 
   - name: "kind: question"
     color: "#d876e3"
     description: Clarification, investigation, or design question
-    aliases: [question]
 
   - name: "kind: breaking"
     color: "#b60205"
@@ -84,14 +80,11 @@ labels:
   - name: "resolution: duplicate"
     color: "#cfd3d7"
     description: Already tracked elsewhere
-    aliases: [duplicate]
 
   - name: "resolution: invalid"
     color: "#e4e669"
     description: Not actionable as filed
-    aliases: [invalid]
 
   - name: "resolution: wontfix"
     color: "#ffffff"
     description: Intentionally not planned
-    aliases: [wontfix]
