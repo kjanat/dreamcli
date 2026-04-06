@@ -190,7 +190,9 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
  * builder — the original is never mutated.
  *
  * @example Full command with multiple args and modifiers
- * ```ts
+ * ```ts twoslash
+ * import { command, arg } from '@kjanat/dreamcli';
+ *
  * command('deploy')
  *   .arg('target', arg.string()
  *     .env('DEPLOY_TARGET')

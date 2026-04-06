@@ -4,13 +4,24 @@ import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescrip
 import { defineConfig } from 'vitepress';
 import pkg from '../../package.json' with { type: 'json' };
 import tsc from '../../tsconfig.json' with { type: 'json' };
+import { collectPublicApiIndex } from './data/api-index.ts';
 import { collectExampleMeta } from './data/examples.ts';
-import { examplesRoot } from './data/paths.ts';
+import { examplesRoot, packageJsonPath } from './data/paths.ts';
+import { toSymbolPageRoute } from './data/symbol-pages.ts';
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins';
-import { transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
+import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
 const exampleMeta = await collectExampleMeta(examplesRoot);
+const apiIndex = await collectPublicApiIndex(packageJsonPath);
+const symbolRoutes = new Map<string, string>();
+for (const ep of apiIndex) {
+	for (const group of ep.kindGroups) {
+		for (const sym of group.symbols) {
+			symbolRoutes.set(sym.name, toSymbolPageRoute(ep.entrypoint, sym.name));
+		}
+	}
+}
 const isCI = Boolean(process.env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNotCiThen);
 
@@ -215,8 +226,11 @@ export default defineConfig({
 					vfsRoot: projectRoot,
 					compilerOptions,
 				},
+				processHoverDocs(docs) {
+					return fixTsProcessedLinkcode(docs, symbolRoutes);
+				},
 			}),
-			transformerJSDocTags(),
+			transformerJSDocTags({ symbolRoutes }),
 			shikiClasses,
 		],
 		languages: ['js', 'jsx', 'ts', 'tsx'],
