@@ -9,6 +9,12 @@
 ## Build & Tooling
 
 - Bare `import '@kjanat/dreamcli'` resolves to different targets depending on the runtime when run inside this repo. `node` follows `package.json` exports to `dist/index.mjs`; `bun` follows the repo `tsconfig.json` paths to `src/index.ts`; `deno` follows `deno.json` imports to `src/index.ts`. If a fix appears in Bun or Deno examples but not Node examples, rebuild `dist` with `bun bd` before assuming the source patch failed.
+- Docs deployments that upload only `docs/.vitepress/dist` will not include repo-root artifacts. `scripts/emit-definition-schema.ts` writes `dreamcli.schema.json` at root, so the docs site must emit/copy that file into dist if it should be served as `/dreamcli.schema.json`.
+- Cloudflare Workers `wrangler versions upload` creates a version preview only. Production traffic does not move until `wrangler versions deploy`.
+
+## Docs
+
+- Post-processing minified Vite/VitePress chunks with regex/string rewrites is fragile. A prior `shiki-dedupe-popup-styles` transform injected `const __s*` inside template literals (after "first newline"), leaking constants into rendered code blocks and breaking twoslash hovers. Keep chunk transforms AST-aware or disable them.
 
 ## Runtime
 

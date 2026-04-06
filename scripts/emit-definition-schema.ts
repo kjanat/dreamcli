@@ -16,8 +16,8 @@ const outFile = normalize(`${import.meta.dirname}/../dreamcli.schema.json`);
 
 const schemaId =
 	typeof globalThis.Deno !== 'undefined'
-		? `https://jsr.io/@${jsrName}/schema`
-		: `https://cdn.jsdelivr.net/npm/@${npmName}/schema`;
+		? `https://jsr.io/${jsrName}/schema`
+		: `https://cdn.jsdelivr.net/npm/${npmName}/schema`;
 
 export async function emitDefinitionSchema(): Promise<void> {
 	const schema = { ...definitionMetaSchema, $id: schemaId };

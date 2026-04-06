@@ -5,6 +5,10 @@
  * - `dreamcli.schema.json` (definition meta-schema for the package export)
  * - `src/core/json-schema/meta-descriptions.generated.ts` (JSDoc descriptions)
  *
+ * During docs builds, emits `dreamcli.schema.json` into the docs dist root
+ * so `/dreamcli.schema.json` is available on docs hosting targets that upload
+ * only `docs/.vitepress/dist`.
+ *
  * These are runtime/package artifacts that the docs site depends on
  * (twoslash imports the schema, data loaders use the TypeDoc model).
  */
@@ -14,6 +18,7 @@ import { normalize } from 'node:path';
 import type { Plugin } from 'vitepress';
 
 const rootDir = normalize(`${import.meta.dirname}/../../..`);
+const definitionSchemaPath = `${rootDir}/dreamcli.schema.json`;
 
 export function sourceArtifactsPlugin(): Plugin {
 	let building = false;
@@ -58,6 +63,16 @@ export function sourceArtifactsPlugin(): Plugin {
 
 		async buildStart() {
 			await rebuild();
+		},
+
+		async generateBundle() {
+			const { readFile } = await import('node:fs/promises');
+			const schema = await readFile(definitionSchemaPath, 'utf-8');
+			this.emitFile({
+				type: 'asset',
+				fileName: 'dreamcli.schema.json',
+				source: schema,
+			});
 		},
 
 		configureServer(server) {
