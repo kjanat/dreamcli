@@ -653,5 +653,5 @@ function renderExampleBlock(content: string): string {
 }
 
 function escapeTable(value: string): string {
-	return value.replaceAll('|', '\\|');
+	return value.replace(/\r\n|\r|\n/g, '<br>').replaceAll('|', '\\|');
 }

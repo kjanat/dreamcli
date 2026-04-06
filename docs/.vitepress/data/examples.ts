@@ -308,9 +308,8 @@ function extractLabeledValue(lines: readonly string[], label: string): string | 
 	const startLine = lines[startIndex];
 	if (startLine === undefined) return null;
 	const firstValue = startLine.slice(prefix.length).trim();
-	if (firstValue === '') return null;
 
-	const parts = [firstValue];
+	const parts = firstValue === '' ? [] : [firstValue];
 	for (let i = startIndex + 1; i < lines.length; i++) {
 		const line = lines[i];
 		if (line === undefined) break;
@@ -319,7 +318,7 @@ function extractLabeledValue(lines: readonly string[], label: string): string | 
 		parts.push(trimmed);
 	}
 
-	return parts.join(' ');
+	return parts.length === 0 ? null : parts.join(' ');
 }
 
 function firstNonEmpty(lines: readonly string[]): string | null {

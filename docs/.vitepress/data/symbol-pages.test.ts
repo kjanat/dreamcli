@@ -8,7 +8,57 @@ import { collectPublicApiIndex } from './api-index.ts';
 import { collectExamples } from './examples.ts';
 import { examplesRoot, packageJsonPath, rootDirPath, symbolPagesRoot } from './paths.ts';
 import { collectSymbolPages, toSymbolPageRoute } from './symbol-pages.ts';
+import type {
+	NormalizedApiComment,
+	NormalizedApiModel,
+	NormalizedApiNode,
+	NormalizedApiType,
+} from './typedoc.ts';
 import { collectTypeDocModel } from './typedoc.ts';
+
+function createComment(summary: string): NormalizedApiComment {
+	return {
+		summary,
+		blockTags: [],
+		modifierTags: [],
+	};
+}
+
+function createIntrinsicType(name: string): NormalizedApiType {
+	return { kind: 'intrinsic', name };
+}
+
+function createNode(input: {
+	name: string;
+	kind: NormalizedApiNode['kind'];
+	comment?: NormalizedApiComment | null;
+	type?: NormalizedApiType | null;
+	signatures?: readonly NormalizedApiNode[];
+	parameters?: readonly NormalizedApiNode[];
+	flags?: readonly string[];
+}): NormalizedApiNode {
+	return {
+		reflectionId: 0,
+		name: input.name,
+		kind: input.kind,
+		flags: input.flags ?? [],
+		comment: input.comment ?? null,
+		sourcePath: null,
+		sources: [],
+		defaultValue: null,
+		type: input.type ?? null,
+		signatures: input.signatures ?? [],
+		parameters: input.parameters ?? [],
+		typeParameters: [],
+		children: [],
+		indexSignatures: [],
+		getSignature: null,
+		setSignature: null,
+		extendedTypes: [],
+		implementedTypes: [],
+		groups: [],
+	};
+}
 
 describe('symbol page generation', () => {
 	let pages: ReturnType<typeof collectSymbolPages> = [];
@@ -63,6 +113,53 @@ describe('symbol page generation', () => {
 		expect(cliRunOptionsPage?.content).not.toContain('"null"');
 		expect(runtimeAdapterPage?.content).not.toContain('"null"');
 		expect(middlewareFactoryPage?.content).toContain('{ args, flags, ctx, out, meta, next }');
+	});
+
+	it('normalizes multiline table cells without double escaping', () => {
+		const parameter = createNode({
+			name: 'options',
+			kind: 'parameter',
+			comment: createComment('first | summary\r\nsecond line'),
+			type: {
+				kind: 'union',
+				types: [createIntrinsicType('string'), createIntrinsicType('number')],
+			},
+		});
+		const signature = createNode({
+			name: 'multilineTable',
+			kind: 'callSignature',
+			parameters: [parameter],
+			type: createIntrinsicType('void'),
+		});
+		const model: NormalizedApiModel = {
+			schemaVersion: '1',
+			typedocSchemaVersion: 'test',
+			packageName: '@kjanat/dreamcli',
+			entrypoints: [],
+			exports: [
+				{
+					id: '@kjanat/dreamcli:multilineTable',
+					name: 'multilineTable',
+					entrypoint: '@kjanat/dreamcli',
+					subpath: '.',
+					publicKind: 'function',
+					sourcePath: 'src/index.ts',
+					reflection: createNode({
+						name: 'multilineTable',
+						kind: 'function',
+						signatures: [signature],
+					}),
+				},
+			],
+		};
+
+		const [page] = collectSymbolPages(model, symbolPagesRoot, []);
+
+		expect(page?.content).toContain(
+			'| `options` | `string \\| number` | first \\| summary<br>second line |',
+		);
+		expect(page?.content).not.toContain('first \\\\| summary');
+		expect(page?.content).not.toContain('summary<br><br>second line');
 	});
 
 	it('keeps API index links aligned with rendered symbol routes', () => {

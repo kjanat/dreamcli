@@ -58,7 +58,7 @@ For command behavior tests, `runCommand()` is process-free and injects runtime s
 
 ```ts
 import { runCommand } from '@kjanat/dreamcli/testkit';
-import { regionCmd } from './commands/region.ts';
+import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(regionCmd, [], {
   env: { MY_REGION: 'test' },

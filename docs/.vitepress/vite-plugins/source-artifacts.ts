@@ -60,6 +60,8 @@ export function sourceArtifactsPlugin(): Plugin {
 		},
 
 		configureServer(server) {
+			let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
 			server.watcher.on('change', (file) => {
 				if (
 					file.startsWith(`${rootDir}/src/`) &&
@@ -67,11 +69,16 @@ export function sourceArtifactsPlugin(): Plugin {
 					!file.endsWith('.test.ts') &&
 					!file.endsWith('.generated.ts')
 				) {
-					ensureSchema().catch((error: unknown) => {
-						const message =
-							error instanceof Error ? error.message : '[dreamcli-source-artifacts] Unknown error';
-						server.config.logger.error(message);
-					});
+					clearTimeout(debounceTimer);
+					debounceTimer = setTimeout(() => {
+						ensureSchema().catch((error: unknown) => {
+							const message =
+								error instanceof Error
+									? error.message
+									: '[dreamcli-source-artifacts] Unknown error';
+							server.config.logger.error(message);
+						});
+					}, 200);
 				}
 			});
 		},

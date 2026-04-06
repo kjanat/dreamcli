@@ -2,6 +2,10 @@
  * @module
  */
 
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { collectExamples, renderExamplePage } from './examples.ts';
@@ -11,6 +15,8 @@ describe('example docs generation', () => {
 	it('collects source-backed example metadata with related links', async () => {
 		const examples = await collectExamples(examplesRoot, rootDirPath);
 
+		// Deliberate inventory check: update this list when a new repo-root example
+		// should appear in the generated docs surface.
 		expect(examples.map((example) => example.slug)).toEqual([
 			'basic',
 			'interactive',
@@ -59,5 +65,32 @@ describe('example docs generation', () => {
 		expect(page).toContain('## Source');
 		expect(page).toContain('```ts twoslash');
 		expect(page).toContain("import { arg, cli, command, flag } from '@kjanat/dreamcli';");
+	});
+
+	it('parses continuation-only labeled values', async () => {
+		const tempDir = await mkdtemp(join(tmpdir(), 'dreamcli-example-docs-'));
+		try {
+			await writeFile(
+				join(tempDir, 'continuation.ts'),
+				`/**
+ * Continuation example.
+ *
+ * Demonstrates:
+ *   multi-line continuation value
+ *   without inline label content
+ */
+
+export {}
+`,
+				'utf8',
+			);
+
+			const [example] = await collectExamples(tempDir, tempDir);
+			expect(example?.demonstrates).toBe(
+				'multi-line continuation value without inline label content',
+			);
+		} finally {
+			await rm(tempDir, { recursive: true, force: true });
+		}
 	});
 });
