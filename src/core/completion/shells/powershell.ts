@@ -152,14 +152,24 @@ function appendPowerShellPathEntry(
 	lines.push('\t\t)');
 	lines.push('\t\tFlags = @(');
 	for (const [name, schema] of Object.entries(flags)) {
-		const forms = [
+		const forms = dedupeValues([
 			`--${name}`,
 			...getFlagAliasNames(schema, { kind: 'short' }).map((alias) => `-${alias}`),
 			...getFlagAliasNames(schema, { kind: 'long' }).map((alias) => `--${alias}`),
-		];
+		]);
+		const parseForms = dedupeValues([
+			`--${name}`,
+			...getFlagAliasNames(schema, { kind: 'short', includeHidden: true }).map(
+				(alias) => `-${alias}`,
+			),
+			...getFlagAliasNames(schema, { kind: 'long', includeHidden: true }).map(
+				(alias) => `--${alias}`,
+			),
+		]);
 		lines.push('\t\t\t@{');
 		lines.push(`\t\t\t\tCanonicalName = ${quotePowerShellString(name)}`);
 		lines.push(`\t\t\t\tForms = ${formatPowerShellArray(forms)}`);
+		lines.push(`\t\t\t\tParseForms = ${formatPowerShellArray(parseForms)}`);
 		lines.push(`\t\t\t\tRequiresValue = ${schema.kind === 'boolean' ? '$false' : '$true'}`);
 		lines.push(`\t\t\t\tDescription = ${quotePowerShellString(schema.description ?? name)}`);
 		lines.push(`\t\t\t\tEnumValues = ${formatPowerShellArray(schema.enumValues ?? [])}`);
@@ -199,7 +209,7 @@ function emitPowerShellHelpers(lines: string[], helperPrefix: string, dataVarNam
 	lines.push(`function ${helperPrefix}_ResolveFlagToken {`);
 	lines.push('\tparam($PathData, [string]$Token)');
 	lines.push('\tforeach ($flag in $PathData.Flags) {');
-	lines.push('\t\tforeach ($form in $flag.Forms) {');
+	lines.push('\t\tforeach ($form in $flag.ParseForms) {');
 	lines.push('\t\t\tif ($Token -eq $form) {');
 	lines.push('\t\t\t\treturn @{ Flag = $flag; InlinePrefix = $null }');
 	lines.push('\t\t\t}');
@@ -386,6 +396,10 @@ function formatPowerShellArray(values: readonly string[]): string {
 	}
 
 	return `@(${values.map(quotePowerShellString).join(', ')})`;
+}
+
+function dedupeValues(values: readonly string[]): readonly string[] {
+	return [...new Set(values)];
 }
 
 export { generatePowerShellCompletion };

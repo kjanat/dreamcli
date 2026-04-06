@@ -10,11 +10,14 @@
  */
 
 import { normalize } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import type { Plugin } from 'vitepress';
 
 const rootDir = normalize(`${import.meta.dirname}/../../..`);
 const definitionSchemaPath = `${rootDir}/dreamcli.schema.json`;
+const emitDefinitionSchemaPath = `${rootDir}/scripts/emit-definition-schema.ts`;
+const emitDefinitionSchemaUrl = pathToFileURL(emitDefinitionSchemaPath).href;
 
 export function sourceArtifactsPlugin(): Plugin {
 	let buildingPromise: Promise<void> | null = null;
@@ -25,7 +28,7 @@ export function sourceArtifactsPlugin(): Plugin {
 		}
 
 		const pending = (async () => {
-			const { emitDefinitionSchema } = await import(`${rootDir}/scripts/emit-definition-schema.ts`);
+			const { emitDefinitionSchema } = await import(emitDefinitionSchemaUrl);
 			await emitDefinitionSchema();
 		})();
 		buildingPromise = pending;

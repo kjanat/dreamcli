@@ -235,11 +235,11 @@ function collectFishValueFlagPatterns(
 
 			exact.add(`--${name}`);
 			prefix.add(`--${name}=*`);
-			for (const alias of getFlagAliasNames(schema, { kind: 'short' })) {
+			for (const alias of getFlagAliasNames(schema, { kind: 'short', includeHidden: true })) {
 				exact.add(`-${alias}`);
 				prefix.add(`-${alias}*`);
 			}
-			for (const alias of getFlagAliasNames(schema, { kind: 'long' })) {
+			for (const alias of getFlagAliasNames(schema, { kind: 'long', includeHidden: true })) {
 				exact.add(`--${alias}`);
 				prefix.add(`--${alias}=*`);
 			}

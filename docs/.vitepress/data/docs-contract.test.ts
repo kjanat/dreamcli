@@ -3,9 +3,8 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { describe, expect, it } from 'vitest';
-
 import { createTestPrompter, PROMPT_CANCEL, runCommand } from '@kjanat/dreamcli/testkit';
+import { describe, expect, it } from 'vitest';
 
 import {
 	activityCmd,

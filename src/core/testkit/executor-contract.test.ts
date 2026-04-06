@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { plugin } from '#internals/core/cli/plugin.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { runCommand } from './index.ts';
@@ -150,6 +151,34 @@ describe('runCommand() executor contract', () => {
 
 		expect(result.exitCode).toBe(0);
 		expect(stopActive).toHaveBeenCalledTimes(1);
+	});
+
+	it('treats --help after -- as positional input', async () => {
+		const cmd = command('echo')
+			.arg('value', arg.string())
+			.action(({ args, out }) => {
+				out.log(args.value);
+			});
+
+		const result = await runCommand(cmd, ['--', '--help']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['--help\n']);
+		expect(result.error).toBeUndefined();
+	});
+
+	it('treats -h after -- as positional input', async () => {
+		const cmd = command('echo')
+			.arg('value', arg.string())
+			.action(({ args, out }) => {
+				out.log(args.value);
+			});
+
+		const result = await runCommand(cmd, ['--', '-h']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['-h\n']);
+		expect(result.error).toBeUndefined();
 	});
 
 	it('always cleans up injected output handles when action is missing', async () => {

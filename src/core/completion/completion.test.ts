@@ -11,6 +11,11 @@ import type {
 	FlagSchema,
 	FlagSchemaOverrides,
 } from '#internals/core/schema/index.ts';
+import {
+	extractBashRootWords,
+	extractFishCompletionLines,
+	extractZshRootFunction,
+} from './completion-test-helpers.ts';
 import type { CompletionOptions } from './index.ts';
 import {
 	generateBashCompletion,
@@ -20,11 +25,6 @@ import {
 	generateZshCompletion,
 	SHELLS,
 } from './index.ts';
-import {
-	extractBashRootWords,
-	extractFishCompletionLines,
-	extractZshRootFunction,
-} from './completion-test-helpers.ts';
 
 // === Test helpers
 
@@ -2354,6 +2354,31 @@ describe('generateFishCompletion — script structure', () => {
 		expect(script).toContain("-a 'eu west'");
 		expect(script).toContain("-a 'qa'\\''s'");
 	});
+
+	it('keeps hidden aliases in value-flag path parsing but not suggestions', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'run',
+						flags: {
+							'config-path': flagSchema({
+								kind: 'string',
+								aliases: [{ name: 'configPath', hidden: true }],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateFishCompletion(schema);
+		const runLines = extractFishCompletionLines(script, '__testcli_completions_path_is', 'run');
+
+		expect(script).toContain('case --config-path --configPath');
+		expect(script).toContain("'--configPath=*'");
+		expect(runLines.join('\n')).toContain('-l config-path');
+		expect(runLines.join('\n')).not.toContain('-l configPath');
+	});
 });
 
 // === generatePowerShellCompletion — script structure
@@ -2439,5 +2464,28 @@ describe('generatePowerShellCompletion — script structure', () => {
 
 		expect(script).toContain("EnumValues = @('dev', 'prod')");
 		expect(script).toContain('_AddInlineEnumResults');
+	});
+
+	it('keeps hidden aliases in parser forms but not completion forms', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'run',
+						flags: {
+							'config-path': flagSchema({
+								kind: 'string',
+								aliases: [{ name: 'configPath', hidden: true }],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generatePowerShellCompletion(schema);
+
+		expect(script).toContain("Forms = @('--config-path')");
+		expect(script).toContain("ParseForms = @('--config-path', '--configPath')");
+		expect(script).not.toMatch(/^\s*Forms = @\('--config-path', '--configPath'\)$/m);
 	});
 });
