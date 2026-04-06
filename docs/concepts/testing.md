@@ -64,8 +64,9 @@ Can't test prompts easily. Platform-dependent.
 Run the command handler as a function, injecting all inputs:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(greet, ['Alice', '--loud']);
 expect(result.stdout).toEqual(['HELLO, ALICE!\n']);
@@ -88,8 +89,9 @@ The examples below use dreamcli's test harness, but the patterns apply to any fr
 The command works with valid input:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(greet, ['Alice']);
 expect(result.stdout).toEqual(['Hello, Alice!\n']);
@@ -101,8 +103,9 @@ expect(result.exitCode).toBe(0);
 Flags resolve from the right source:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 // env var provides the value
 const result = await runCommand(regionCmd, [], {
@@ -116,8 +119,9 @@ expect(result.stdout).toContain('eu');
 Bad input produces helpful errors:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(regionCmd, ['--unknown']);
 expect(result.exitCode).toBe(2);
@@ -129,8 +133,9 @@ expect(result.stderr.join('')).toContain('Unknown flag');
 Required flags that aren't provided, fail clearly:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(promptCmd, []);
 expect(result.exitCode).not.toBe(0);
@@ -144,8 +149,9 @@ expect(result.stderr.join('')).toContain(
 Structured output is valid JSON:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { jsonListCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(jsonListCmd, [], {
   jsonMode: true,
@@ -159,8 +165,9 @@ expect(data).toBeInstanceOf(Array);
 Prompt answers resolve correctly:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(promptCmd, [], {
   answers: ['eu'],
@@ -173,11 +180,12 @@ expect(result.exitCode).toBe(0);
 Ctrl+C during a prompt exits gracefully:
 
 ```ts twoslash
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
 import {
   PROMPT_CANCEL,
   runCommand,
 } from '@kjanat/dreamcli/testkit';
-import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(promptCmd, [], {
   answers: [PROMPT_CANCEL],

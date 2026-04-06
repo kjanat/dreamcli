@@ -57,8 +57,9 @@ deno run --allow-read --allow-env mycli.ts deploy
 For command behavior tests, `runCommand()` is process-free and injects runtime state directly:
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(regionCmd, [], {
   env: { MY_REGION: 'test' },

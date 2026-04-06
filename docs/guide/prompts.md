@@ -70,12 +70,13 @@ Required flags that would have prompted instead produce a structured error with 
 ## Testing Prompts
 
 ```ts twoslash
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
 import {
   runCommand,
   createTestPrompter,
   PROMPT_CANCEL,
 } from '@kjanat/dreamcli/testkit';
-import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 // Provide answers in order
 const result = await runCommand(promptCmd, [], {

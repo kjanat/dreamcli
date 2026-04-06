@@ -17,8 +17,9 @@ import {
 Run a command in-process and return a `RunResult`.
 
 ```ts twoslash
-import { runCommand } from '@kjanat/dreamcli/testkit';
 import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const result = await runCommand(greet, ['Alice', '--loud']);
 ```
@@ -82,12 +83,13 @@ Returns a runtime adapter for testing (no real process access).
 Sentinel value to simulate prompt cancellation.
 
 ```ts twoslash
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
 import {
   createTestPrompter,
   PROMPT_CANCEL,
   runCommand,
 } from '@kjanat/dreamcli/testkit';
-import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(promptCmd, [], {
   prompter: createTestPrompter([PROMPT_CANCEL]),
