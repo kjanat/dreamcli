@@ -75,15 +75,15 @@ import {
   createTestPrompter,
   PROMPT_CANCEL,
 } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 // Provide answers in order
-const result = await runCommand(cmd, [], {
-  answers: ['eu', true],
+const result = await runCommand(promptCmd, [], {
+  answers: ['eu'],
 });
 
 // Simulate cancellation
-const cancelled = await runCommand(cmd, [], {
+const cancelled = await runCommand(promptCmd, [], {
   prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```

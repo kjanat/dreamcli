@@ -10,7 +10,8 @@
  * @module
  */
 
-import { writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import { collectPublicApiIndex } from '../docs/.vitepress/data/api-index.ts';
 import {
@@ -26,7 +27,36 @@ import { collectTypeDocModel } from '../docs/.vitepress/data/typedoc.ts';
 const publicApi = await collectPublicApiIndex(packageJsonPath);
 const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
 const metaSchemaDescriptions = buildDefinitionMetaSchemaDescriptions(typeDoc.normalized);
-await writeFile(
-	generatedMetaSchemaDescriptionsPath,
+const rendered = await formatGeneratedSource(
 	renderDefinitionMetaSchemaDescriptions(metaSchemaDescriptions),
 );
+const checkMode = Bun.argv.includes('--check');
+
+if (checkMode) {
+	const existing = await readFile(generatedMetaSchemaDescriptionsPath, 'utf8');
+	if (existing !== rendered) {
+		console.error(
+			'✗ src/core/json-schema/meta-descriptions.generated.ts is out of date. Run `bun run meta-descriptions`.',
+		);
+		process.exit(1);
+	}
+	console.log('✓ src/core/json-schema/meta-descriptions.generated.ts is up to date');
+	process.exit(0);
+}
+
+await writeFile(generatedMetaSchemaDescriptionsPath, rendered);
+
+async function formatGeneratedSource(source: string): Promise<string> {
+	const tempFilePath = join(
+		dirname(generatedMetaSchemaDescriptionsPath),
+		'.meta-descriptions.generated.tmp.ts',
+	);
+
+	try {
+		await writeFile(tempFilePath, source);
+		await Bun.$`bunx --bun dprint fmt ${tempFilePath}`.quiet();
+		return await readFile(tempFilePath, 'utf8');
+	} finally {
+		await rm(tempFilePath, { force: true });
+	}
+}

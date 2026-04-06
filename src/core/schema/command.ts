@@ -4,7 +4,7 @@
  * The {@linkcode command} factory returns an immutable {@linkcode CommandBuilder}
  * whose generic parameters track accumulated flag and arg builder types. Chaining
  * `.flag()` and `.arg()` calls produces progressively narrower types. The
- * `.action()` handler receives fully typed `{ args, flags, ctx, out }`.
+ * `.action()` handler receives fully typed `{ args, flags, ctx, out, meta }`.
  *
  * @module dreamcli/core/schema/command
  */
@@ -965,7 +965,7 @@ class CommandBuilder<
 	 * Register middleware to run before the action handler.
 	 *
 	 * Middleware executes in registration order. Each middleware receives
-	 * `{ args, flags, ctx, out, next }` and must call `next(additions)`
+	 * `{ args, flags, ctx, out, meta, next }` and must call `next(additions)`
 	 * to continue the chain. Context additions are merged and become
 	 * typed downstream.
 	 *
@@ -1015,6 +1015,7 @@ class CommandBuilder<
 	 * ```
 	 *
 	 * @param m - {@link Middleware} instance created via {@linkcode middleware | middleware()}.
+	 *   Middleware handlers receive `{ args, flags, ctx, out, meta, next }`.
 	 * @returns The builder (for chaining).
 	 */
 	middleware<Output extends Record<string, unknown>>(
@@ -1344,7 +1345,7 @@ class CommandBuilder<
 	/**
 	 * Register the action handler for this command.
 	 *
-	 * The handler receives fully typed `{ args, flags, ctx, out }` derived
+	 * The handler receives fully typed `{ args, flags, ctx, out, meta }` derived
 	 * from the accumulated `.flag()`, `.arg()`, `.derive()`, and `.middleware()`
 	 * definitions.
 	 *
@@ -1365,17 +1366,18 @@ class CommandBuilder<
 	 *
 	 * @example
 	 * ```ts
-	 * // Full params — flags, args, context, output
+	 * // Full params — flags, args, context, output, metadata
 	 * command('deploy')
 	 *   .arg('target', arg.string().env('DEPLOY_TARGET'))
 	 *   .flag('force', flag.boolean().alias('f'))
 	 *   .flag('region', flag.enum(['us', 'eu', 'ap']).env('REGION'))
 	 *   .middleware(auth)
-	 *   .action(async ({ args, flags, ctx, out }) => {
+	 *   .action(async ({ args, flags, ctx, out, meta }) => {
 	 *     args.target;  // string
 	 *     flags.force;  // boolean
 	 *     flags.region; // 'us' | 'eu' | 'ap' | undefined
 	 *     ctx.user;     // User (from auth middleware)
+	 *     meta.command; // string
 	 *
 	 *     const spinner = out.spinner('Deploying...');
 	 *     await deploy(args.target, { force: flags.force });

@@ -7,7 +7,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
 
-import { collectRelatedGuides, type DocsLink } from './crosslinks.ts';
 import { gitRef } from './paths.ts';
 import { toSymbolPageRoute } from './symbol-pages.ts';
 
@@ -30,7 +29,6 @@ export interface ExampleEntry {
 	routePath: string;
 	sourceUrl: string;
 	sourceCode: string;
-	relatedGuides: readonly DocsLink[];
 	relatedSymbols: readonly ExampleRelatedSymbol[];
 }
 
@@ -97,7 +95,6 @@ export function renderExamplePage(example: ExampleEntry): string {
 		example.usage.length === 0
 			? ['No usage snippets declared in the example docblock.', '']
 			: ['```bash', ...example.usage, '```', ''];
-	const relatedGuides = example.relatedGuides.map((link) => `- [${link.label}](${link.href})`);
 	const symbolLinks = example.relatedSymbols.map(
 		(symbol) => `- [\`${symbol.name}\`](${symbol.href})`,
 	);
@@ -126,7 +123,6 @@ ${codeFence}ts twoslash
 ${example.sourceCode.trimEnd()}
 ${codeFence}
 
-${(relatedGuides.length === 0 ? [] : ['## Related Guides\n', ...relatedGuides, '']).join('\n')}
 ## Related Links
 
 ${relatedLinks.join('\n')}
@@ -149,7 +145,6 @@ async function parseExample(filePath: string, repoRoot: string): Promise<Example
 		routePath: `/examples/${slug}`,
 		sourceUrl: `https://github.com/kjanat/dreamcli/blob/${gitRef}/${sourcePath}`,
 		sourceCode: source,
-		relatedGuides: collectRelatedGuides(slug),
 		relatedSymbols: collectRelatedSymbols(source),
 	};
 }

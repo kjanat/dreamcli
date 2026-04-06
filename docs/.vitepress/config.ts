@@ -171,12 +171,7 @@ export default defineConfig({
 					text: 'API Reference',
 					items: [
 						{ text: 'Overview', link: '/reference/api' },
-						{
-							text: 'Generated Surfaces',
-							link: '/reference/generated-surfaces',
-						},
 						{ text: 'Changelog', link: '/reference/changelog' },
-						{ text: 'Docs Health', link: '/reference/docs-health' },
 						{
 							text: 'Semantic Delta Log',
 							link: '/reference/semantic-delta-log',

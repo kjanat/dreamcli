@@ -33,10 +33,9 @@ describe('symbol page generation', () => {
 		expect(cliPage?.content).toContain('## Examples');
 		expect(cliPage?.content).toContain('## Related Examples');
 		expect(cliPage?.content).toContain('- [Basic single-command CLI.](/examples/basic)');
-		expect(cliPage?.content).toContain('## Related Guides');
-		expect(cliPage?.content).toContain('- [Commands guide](/guide/commands)');
 		expect(cliPage?.content).toContain('- [Example Hover](/reference/example-hover-prototype)');
 		expect(cliPage?.content).toContain('- [API overview](/reference/api)');
+		expect(cliPage?.content).not.toContain('/reference/docs-health');
 		expect(middlewareInterfacePage).toMatchObject({
 			routePath: '/reference/symbols/main/middleware-type',
 			filePath: expect.stringContaining('/docs/reference/symbols/main/middleware-type.md'),
@@ -52,10 +51,23 @@ describe('symbol page generation', () => {
 		const pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
 
 		const runCommandPage = pages.find((page) => page.id === '@kjanat/dreamcli/testkit:runCommand');
+		const runOptionsPage = pages.find((page) => page.id === '@kjanat/dreamcli/testkit:RunOptions');
+		const cliRunOptionsPage = pages.find((page) => page.id === '@kjanat/dreamcli:CLIRunOptions');
+		const runtimeAdapterPage = pages.find(
+			(page) => page.id === '@kjanat/dreamcli/runtime:RuntimeAdapter',
+		);
+		const middlewareFactoryPage = pages.find((page) => page.id === '@kjanat/dreamcli:middleware');
 
 		expect(runCommandPage?.content).toContain('| Parameter | Type | Description |');
 		expect(runCommandPage?.content).toContain('| `options` | `RunOptions \\| undefined` |');
 		expect(runCommandPage?.content).not.toContain('| `options` | `RunOptions \\\\| undefined` |');
+		expect(runOptionsPage?.content).toContain('stdinData?: string | null;');
+		expect(cliRunOptionsPage?.content).toContain('stdinData?: string | null;');
+		expect(runtimeAdapterPage?.content).toContain('Promise<string | null>');
+		expect(runOptionsPage?.content).not.toContain('"null"');
+		expect(cliRunOptionsPage?.content).not.toContain('"null"');
+		expect(runtimeAdapterPage?.content).not.toContain('"null"');
+		expect(middlewareFactoryPage?.content).toContain('{ args, flags, ctx, out, meta, next }');
 	});
 
 	it('keeps API index links aligned with rendered symbol routes', () => {

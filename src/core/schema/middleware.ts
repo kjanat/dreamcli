@@ -118,7 +118,7 @@ type Middleware<Output extends Record<string, unknown>> = MiddlewareImpl & {
  * Middleware runs before the action handler and can add typed context,
  * short-circuit execution, or wrap downstream processing.
  *
- * @param handler - Function receiving `{ args, flags, ctx, out, next }`.
+ * @param handler - Function receiving `{ args, flags, ctx, out, meta, next }`.
  *   Call `next(additions)` to continue the chain with added context.
  *   Omitting the `next()` call short-circuits (e.g., for auth guards).
  * @returns {@linkcode Middleware} to attach via `CommandBuilder.middleware()`.

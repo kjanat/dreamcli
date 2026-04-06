@@ -31,9 +31,12 @@ plain text (`log`, `info`, `warn`, `error`) routes to stderr.
 
 ```ts twoslash
 import { createOutput } from '@kjanat/dreamcli';
-import { rows } from './docs/.vitepress/twoslash/output-fixtures.ts';
 
 type Row = { name: string; status: string; uptime: number };
+const rows = [
+  { name: 'web-1', status: 'running', uptime: 72 },
+  { name: 'worker-1', status: 'degraded', uptime: 18 },
+];
 
 const out = createOutput();
 out.table<Row>(rows, [
@@ -51,7 +54,8 @@ TypeScript's structural typing requires `Record<string, unknown>` compatibility.
 
 ```ts twoslash
 import { createOutput } from '@kjanat/dreamcli';
-import { deploy } from './docs/.vitepress/twoslash/output-fixtures.ts';
+
+const deploy = async () => {};
 
 const out = createOutput();
 const spinner = out.spinner('Deploying...');
@@ -66,7 +70,8 @@ In `--json` mode, spinners are suppressed entirely.
 
 ```ts twoslash
 import { createOutput } from '@kjanat/dreamcli';
-import { tick } from './docs/.vitepress/twoslash/output-fixtures.ts';
+
+const tick = async () => {};
 
 const out = createOutput();
 const progress = out.progress({

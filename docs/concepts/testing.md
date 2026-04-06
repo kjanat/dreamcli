@@ -102,10 +102,10 @@ Flags resolve from the right source:
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 // env var provides the value
-const result = await runCommand(cmd, [], {
+const result = await runCommand(regionCmd, [], {
   env: { MY_REGION: 'eu' },
 });
 expect(result.stdout).toContain('eu');
@@ -117,9 +117,9 @@ Bad input produces helpful errors:
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, ['--unknown']);
+const result = await runCommand(regionCmd, ['--unknown']);
 expect(result.exitCode).toBe(2);
 expect(result.stderr.join('')).toContain('Unknown flag');
 ```
@@ -130,9 +130,9 @@ Required flags that aren't provided, fail clearly:
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, []);
+const result = await runCommand(promptCmd, []);
 expect(result.exitCode).not.toBe(0);
 expect(result.stderr.join('')).toContain(
   'Missing required',
@@ -145,9 +145,9 @@ Structured output is valid JSON:
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { jsonListCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, ['list'], {
+const result = await runCommand(jsonListCmd, [], {
   jsonMode: true,
 });
 const data = JSON.parse(result.stdout.join(''));
@@ -160,10 +160,10 @@ Prompt answers resolve correctly:
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, [], {
-  answers: ['eu', true],
+const result = await runCommand(promptCmd, [], {
+  answers: ['eu'],
 });
 expect(result.exitCode).toBe(0);
 ```
@@ -177,9 +177,9 @@ import {
   PROMPT_CANCEL,
   runCommand,
 } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, [], {
+const result = await runCommand(promptCmd, [], {
   answers: [PROMPT_CANCEL],
 });
 expect(result.exitCode).not.toBe(0);

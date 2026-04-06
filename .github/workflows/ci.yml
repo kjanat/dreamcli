@@ -25,6 +25,8 @@ jobs:
         run: bun run scripts/check-version-sync.ts
       - run: bun run typecheck
       - run: bun run typecheck:tsc
+      - run: bun --cwd examples/gh typecheck
+      - run: bun run meta-descriptions:check
       - run: bun run lint
       - run: bun run format:check
 
@@ -63,6 +65,10 @@ jobs:
       - name: Test (Bun)
         if: matrix.runtime == 'bun'
         run: bunx --bun vitest run
+
+      - name: Test walkthrough example (Bun)
+        if: matrix.runtime == 'bun'
+        run: bun --cwd examples/gh test
 
       # Node: run vitest via npx (uses Node, not Bun, as the runtime)
       - name: Test (Node ${{ matrix.node-version }})

@@ -656,7 +656,7 @@ You don't want to spawn subprocesses to test a CLI. dreamcli's testkit lets you 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
 // ---cut-start---
-import { prList } from './docs/.vitepress/twoslash/walkthrough-fixtures.ts';
+import { prList } from './examples/gh/src/docs.ts';
 // ---cut-end---
 
 // Test that pr list returns open PRs by default
@@ -676,7 +676,7 @@ import { runCommand } from '@kjanat/dreamcli/testkit';
 import {
   issueTriage,
   prList,
-} from './docs/.vitepress/twoslash/walkthrough-fixtures.ts';
+} from './examples/gh/src/docs.ts';
 // ---cut-end---
 
 // Test that derive blocks unauthenticated access
@@ -730,7 +730,7 @@ import {
   prCreate,
   prList,
   prView,
-} from './docs/.vitepress/twoslash/walkthrough-fixtures.ts';
+} from './examples/gh/src/docs.ts';
 // ---cut-end---
 
 // ...commands defined above...

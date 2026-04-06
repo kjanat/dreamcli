@@ -110,5 +110,52 @@ describe('typedoc normalization', () => {
 				{ kind: 'intrinsic', name: 'undefined' },
 			],
 		});
+
+		const runOptionsExport = normalized.exports.find(
+			(entry) => entry.id === '@kjanat/dreamcli/testkit:RunOptions',
+		);
+		expect(runOptionsExport?.reflection.kind).toBe('interface');
+		const stdinData =
+			runOptionsExport?.reflection.kind === 'interface'
+				? runOptionsExport.reflection.children.find((child) => child.name === 'stdinData')
+				: undefined;
+		expect(stdinData?.type).toEqual({
+			kind: 'union',
+			types: [
+				{ kind: 'intrinsic', name: 'string' },
+				{ kind: 'literal', value: null },
+			],
+		});
+
+		const runtimeAdapterExport = normalized.exports.find(
+			(entry) => entry.id === '@kjanat/dreamcli/runtime:RuntimeAdapter',
+		);
+		expect(runtimeAdapterExport?.reflection.kind).toBe('interface');
+		const readFile =
+			runtimeAdapterExport?.reflection.kind === 'interface'
+				? runtimeAdapterExport.reflection.children.find((child) => child.name === 'readFile')
+				: undefined;
+		const readFileCallSignature =
+			readFile?.type !== null && readFile?.type.kind === 'reflection'
+				? readFile.type.declaration.signatures[0]
+				: undefined;
+		expect(readFileCallSignature?.type).toEqual({
+			kind: 'reference',
+			name: 'Promise',
+			target: expect.any(String),
+			packageName: 'typescript',
+			qualifiedName: null,
+			externalUrl: null,
+			refersToTypeParameter: false,
+			typeArguments: [
+				{
+					kind: 'union',
+					types: [
+						{ kind: 'intrinsic', name: 'string' },
+						{ kind: 'literal', value: null },
+					],
+				},
+			],
+		});
 	});
 });

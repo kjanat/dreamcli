@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { collectPublicApiIndex, renderPublicApiIndex } from './api-index.ts';
+import { collectPublicApiIndex } from './api-index.ts';
 import { packageJsonPath } from './paths.ts';
 
 describe('api-index', () => {
@@ -68,24 +68,5 @@ describe('api-index', () => {
 			kind: 'function',
 			sourcePath: 'src/core/testkit/index.ts',
 		});
-	});
-
-	it('renders a markdown inventory page', async () => {
-		const entrypoints = await collectPublicApiIndex(packageJsonPath);
-		const markdown = renderPublicApiIndex(entrypoints);
-
-		expect(markdown).toContain('# Generated API Index');
-		expect(markdown).toContain('## `@kjanat/dreamcli`');
-		expect(markdown).toContain('### Functions');
-		expect(markdown).toContain(
-			'| [`cli`](/reference/symbols/main/cli) | `src/core/cli/index.ts` |',
-		);
-		expect(markdown).toContain(
-			'| [`Middleware`](/reference/symbols/main/middleware-type) | `src/core/schema/middleware.ts` |',
-		);
-		expect(markdown).toContain(
-			'| [`RuntimeAdapter`](/reference/symbols/runtime/RuntimeAdapter) | `src/runtime/adapter.ts` |',
-		);
-		expect(markdown).toContain('| `schema` | `dreamcli.schema.json` |');
 	});
 });

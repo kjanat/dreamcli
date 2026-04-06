@@ -47,7 +47,7 @@ command('deploy')
   });
 ```
 
-Context types intersect: `{ user: ... } & { traceId: string }`.
+Context types intersect: `{ startTime: number } & { traceId: string }`.
 Each middleware only needs to know about its own context shape.
 
 ## Middleware Parameters
@@ -57,14 +57,17 @@ The middleware handler receives:
 ```ts twoslash
 import { middleware } from '@kjanat/dreamcli';
 
-middleware(async ({ flags, args, out, meta, next }) => {
-  // flags — resolved flag values (type-erased)
-  // args  — resolved argument values (type-erased)
-  // out   — output channel
-  // meta  — CLI metadata { name, bin, version, command }
-  // next  — continue chain, passing context
-  return next({});
-});
+middleware(
+  async ({ flags, args, ctx, out, meta, next }) => {
+    // flags — resolved flag values (type-erased)
+    // args  — resolved argument values (type-erased)
+    // ctx   — accumulated middleware context (type-erased)
+    // out   — output channel
+    // meta  — CLI metadata { name, bin, version, command }
+    // next  — continue chain, passing context
+    return next({});
+  },
+);
 ```
 
 If you need typed command-scoped access to resolved inputs, prefer `command(...).derive(...)`.

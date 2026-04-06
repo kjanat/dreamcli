@@ -13,6 +13,7 @@ DreamCLI's examples pages are generated at build time from the repo's real sourc
 
 Each example gets its own searchable page with usage snippets, hover-enabled source, and related API links.
 Hover stays scoped to the generated example source blocks; guide pages and shell transcripts remain plain docs.
+This keeps examples and API docs aligned to the same source model without maintaining separate docs mirrors.
 
 ## Source-Backed Examples
 

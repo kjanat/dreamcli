@@ -141,13 +141,11 @@ function renderSymbolPage(
 	const source = entry.reflection.sources[0] ?? null;
 	const deprecatedNote = renderDeprecatedNote(entry.reflection.comment);
 	const exampleTags = collectExampleTags(entry.reflection);
-	const relatedGuides = collectRelatedGuidesFromExamples(relatedExamples);
 	const sections = [
 		renderSignatureSection(entry),
 		renderMembersSection(entry.reflection),
 		renderExamplesSection(exampleTags),
 		renderRelatedExamplesSection(relatedExamples),
-		renderRelatedGuidesSection(relatedGuides),
 		renderSeeAlsoSection(entry),
 	].flatMap((section) => (section === null ? [] : [section]));
 
@@ -546,20 +544,6 @@ function renderRelatedExamplesSection(examples: readonly ExampleEntry[]): string
 	].join('\n');
 }
 
-function renderRelatedGuidesSection(
-	guides: readonly { label: string; href: string }[],
-): string | null {
-	if (guides.length === 0) {
-		return null;
-	}
-
-	return [
-		'## Related Guides',
-		'',
-		...guides.map((guide) => `- [${guide.label}](${guide.href})`),
-	].join('\n');
-}
-
 function renderSeeAlsoSection(entry: NormalizedApiExport): string {
 	return [
 		'## See Also',
@@ -567,7 +551,6 @@ function renderSeeAlsoSection(entry: NormalizedApiExport): string {
 		'- [Examples overview](/examples/)',
 		'- [Example Hover](/reference/example-hover-prototype)',
 		'- [API overview](/reference/api)',
-		'- [Docs Health](/reference/docs-health)',
 		`- [${entry.entrypoint}](${toEntrypointReference(entry.entrypoint)})`,
 	].join('\n');
 }
@@ -589,19 +572,6 @@ function collectExampleLinksBySymbol(
 	}
 
 	return links;
-}
-
-function collectRelatedGuidesFromExamples(
-	examples: readonly ExampleEntry[],
-): readonly { label: string; href: string }[] {
-	const guides = new Map<string, { label: string; href: string }>();
-	for (const example of examples) {
-		for (const guide of example.relatedGuides) {
-			guides.set(guide.href, guide);
-		}
-	}
-
-	return Array.from(guides.values()).sort((left, right) => left.label.localeCompare(right.label));
 }
 
 function toEntrypointReference(entrypoint: string): string {

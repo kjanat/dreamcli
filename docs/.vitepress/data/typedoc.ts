@@ -67,7 +67,7 @@ export type NormalizedApiType =
 	  }
 	| {
 			kind: 'literal';
-			value: string;
+			value: string | number | boolean | null;
 	  }
 	| {
 			kind: 'mapped';
@@ -520,7 +520,7 @@ function normalizeType(type: JSONOutput.SomeType): NormalizedApiType {
 		case 'intrinsic':
 			return { kind: 'intrinsic', name: type.name };
 		case 'literal':
-			return { kind: 'literal', value: String(type.value) };
+			return { kind: 'literal', value: normalizeLiteralValue(type.value) };
 		case 'mapped':
 			return {
 				kind: 'mapped',
@@ -600,4 +600,17 @@ function normalizeReferenceTarget(target: number | JSONOutput.ReflectionSymbolId
 	}
 
 	return `${target.packageName}:${target.packagePath}:${target.qualifiedName}`;
+}
+
+function normalizeLiteralValue(value: unknown): string | number | boolean | null {
+	if (
+		value === null ||
+		typeof value === 'string' ||
+		typeof value === 'number' ||
+		typeof value === 'boolean'
+	) {
+		return value;
+	}
+
+	return String(value);
 }

@@ -93,7 +93,7 @@ const deploy = command('deploy')
   )
   .action(() => {});
 
-const result = await runCommand(deploy, ['production'], {
+const result = await runCommand(deploy, [], {
   env: { DEPLOY_REGION: 'eu' },
   config: { deploy: { region: 'us' } },
 });

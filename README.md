@@ -378,40 +378,96 @@ In `--json` mode, errors serialize to machine-readable JSON.
 subprocesses, no `process.argv` mutation, no mocking.
 
 ```ts
+import { arg, command, flag } from '@kjanat/dreamcli';
 import {
   runCommand,
   createTestPrompter,
   PROMPT_CANCEL,
 } from '@kjanat/dreamcli/testkit';
 
-// Basic execution
-const result = await runCommand(greet, ['Alice', '--loud']);
+const greet = command('greet')
+  .arg('name', arg.string())
+  .flag('loud', flag.boolean())
+  .action(({ args, flags, out }) => {
+    const message = `Hello, ${args.name}!`;
+    out.log(flags.loud ? message.toUpperCase() : message);
+  });
 
-expect(result.exitCode).toBe(0);
-expect(result.stdout).toEqual(['HELLO, ALICE!\n']);
-expect(result.stderr).toEqual([]);
-expect(result.error).toBeUndefined();
+const deploy = command('deploy')
+  .arg('target', arg.string())
+  .flag(
+    'region',
+    flag
+      .enum(['us', 'eu', 'ap'])
+      .env('DEPLOY_REGION')
+      .config('deploy.region')
+      .required()
+      .prompt({ kind: 'select', message: 'Which region?' }),
+  )
+  .action(({ args, flags, out }) => {
+    out.log(`Deploying ${args.target} to ${flags.region}`);
+  });
 
-// With environment, config, and prompt answers
-const result = await runCommand(deploy, ['production'], {
-  env: { DEPLOY_REGION: 'eu' },
-  config: { deploy: { region: 'us' } },
-  answers: ['ap'], // prompt answers consumed in order
+const build = command('build').action(({ out }) => {
+  const spinner = out.spinner('Building');
+  spinner.succeed('Done');
 });
+
+// Basic execution
+const basic = await runCommand(greet, ['Alice', '--loud']);
+
+expect(basic.exitCode).toBe(0);
+expect(basic.stdout).toEqual(['HELLO, ALICE!\n']);
+expect(basic.stderr).toEqual([]);
+expect(basic.error).toBeUndefined();
+
+// Resolve from environment
+const fromEnv = await runCommand(deploy, ['production'], {
+  env: { DEPLOY_REGION: 'eu' },
+});
+expect(fromEnv.stdout).toEqual([
+  'Deploying production to eu\n',
+]);
+
+// Resolve from config
+const fromConfig = await runCommand(
+  deploy,
+  ['production'],
+  {
+    config: { deploy: { region: 'us' } },
+  },
+);
+expect(fromConfig.stdout).toEqual([
+  'Deploying production to us\n',
+]);
+
+// Resolve from prompt answers
+const fromPrompt = await runCommand(
+  deploy,
+  ['production'],
+  {
+    answers: ['ap'],
+  },
+);
+expect(fromPrompt.stdout).toEqual([
+  'Deploying production to ap\n',
+]);
 
 // Simulate prompt cancellation
-const result = await runCommand(cmd, [], {
+const cancelled = await runCommand(deploy, ['production'], {
   prompter: createTestPrompter([PROMPT_CANCEL]),
 });
+expect(cancelled.exitCode).not.toBe(0);
 
 // Activity events (spinners, progress)
-expect(result.activity).toContainEqual(
+const activity = await runCommand(build, []);
+expect(activity.activity).toContainEqual(
   expect.objectContaining({ type: 'spinner:start' }),
 );
 ```
 
-`RunOptions` accepts: `env`, `config`, `answers`, `prompter`, `help`, `jsonMode`, `verbosity`,
-`isTTY`, and more. Every dimension of CLI behavior is controllable from tests.
+`RunOptions` accepts: `env`, `config`, `stdinData`, `answers`, `prompter`, `help`, `jsonMode`,
+`verbosity`, and `isTTY`. Every dimension of command behavior is controllable from tests.
 
 ## Package structure
 

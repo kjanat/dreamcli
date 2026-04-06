@@ -10,7 +10,7 @@ import {
 } from '../../../.vitepress/data/symbol-loader.ts';
 
 export default {
-	watch: ['../../../../src/**/*.ts'],
+	watch: ['../../../../src/**/*.ts', '../../../../examples/**/*.ts'],
 
 	async paths() {
 		return symbolPathsForEntrypoint(await loadSymbolPages(), 'runtime');

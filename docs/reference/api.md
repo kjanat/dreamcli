@@ -12,9 +12,12 @@ function symbolHref(entrypoint: string, name: string): string {
 
 # API Reference
 
-This page is rebuilt at build time from the public entrypoints declared in `package.json`.
+This page is rebuilt at docs build time from the public entrypoints declared in `package.json`.
 Use it to see the complete public surface grouped by subpath and export kind, then jump into the
 subpath-specific detail pages.
+
+The reference surface is source-backed: symbol routes and example links are derived from `src/**`
+and `examples/**` during docs build.
 
 - Public entrypoints: `{{ data.publicEntrypointCount }}`
 - Public symbols indexed: `{{ data.publicSymbolCount }}`
@@ -71,7 +74,6 @@ subpath-specific detail pages.
 - [Output Contract](/reference/output-contract) — internal routing, activity mode, and cleanup policy facts
 - [Testing Commands](/guide/testing) — higher-level testkit usage patterns
 - [Runtime Support](/guide/runtime) — runtime packages and adapter expectations
-- [Docs Health](/reference/docs-health) — current source-backed docs coverage counts
 - [Changelog](/reference/changelog) — release history mirrored inside the docs site
 - [Support Matrix](/reference/support-matrix) — audited support status, evidence, and deferred work
 

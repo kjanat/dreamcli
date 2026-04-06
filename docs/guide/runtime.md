@@ -52,19 +52,21 @@ If permissions are missing, features degrade gracefully with clear error message
 deno run --allow-read --allow-env mycli.ts deploy
 ```
 
-## Testing with Adapters
+## Testing Runtime Seams
 
-The test harness uses a built-in test adapter that doesn't touch real process state:
+For command behavior tests, `runCommand()` is process-free and injects runtime state directly:
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, ['--flag', 'value'], {
-  env: { MY_VAR: 'test' },
-  // Uses test adapter internally — no real process access
+const result = await runCommand(regionCmd, [], {
+  env: { MY_REGION: 'test' },
 });
 ```
+
+When you need adapter-level control (`argv`, filesystem reads, exit behavior), use
+`createTestAdapter()` with `cli().run({ adapter })`.
 
 ## What's Next?
 

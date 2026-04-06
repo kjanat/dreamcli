@@ -33,17 +33,17 @@ const result = await runCommand(greet, ['Alice', '--loud']);
 
 ### RunOptions
 
-| Option      | Type                      | Description                             |
-| ----------- | ------------------------- | --------------------------------------- |
-| `env`       | `Record<string, string>`  | Environment variables                   |
-| `config`    | `Record<string, unknown>` | Config file values                      |
-| `stdinData` | `string \| null`          | Data to pipe to process stdin for tests |
-| `answers`   | `unknown[]`               | Prompt answers in order                 |
-| `prompter`  | `PromptEngine`            | Custom prompt handler                   |
-| `jsonMode`  | `boolean`                 | Simulate `--json` mode                  |
-| `help`      | `HelpOptions`             | Help formatting options                 |
-| `verbosity` | `Verbosity`               | Output verbosity                        |
-| `isTTY`     | `boolean`                 | Simulate TTY connection                 |
+| Option      | Type                                  | Description                             |
+| ----------- | ------------------------------------- | --------------------------------------- |
+| `env`       | `Record<string, string \| undefined>` | Environment variables                   |
+| `config`    | `Record<string, unknown>`             | Config file values                      |
+| `stdinData` | `string \| null`                      | Data to pipe to process stdin for tests |
+| `answers`   | `unknown[]`                           | Prompt answers in order                 |
+| `prompter`  | `PromptEngine`                        | Custom prompt handler                   |
+| `jsonMode`  | `boolean`                             | Simulate `--json` mode                  |
+| `help`      | `HelpOptions`                         | Help formatting options                 |
+| `verbosity` | `Verbosity`                           | Output verbosity                        |
+| `isTTY`     | `boolean`                             | Simulate TTY connection                 |
 
 ### RunResult
 
@@ -87,9 +87,9 @@ import {
   PROMPT_CANCEL,
   runCommand,
 } from '@kjanat/dreamcli/testkit';
-import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, [], {
+const result = await runCommand(promptCmd, [], {
   prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```
