@@ -59,7 +59,10 @@ and `examples/**` during docs build.
 			</thead>
 			<tbody>
 				<tr v-for="symbol in group.symbols" :key="`${entrypoint.entrypoint}-${symbol.name}`">
-					<td><a :href="symbolHref(entrypoint.entrypoint, symbol.name)"><code>{{ symbol.name }}</code></a></td>
+					<td>
+						<a v-if="symbolHref(entrypoint.entrypoint, symbol.name) !== '#'" :href="symbolHref(entrypoint.entrypoint, symbol.name)"><code>{{ symbol.name }}</code></a>
+						<code v-else>{{ symbol.name }}</code>
+					</td>
 					<td><code>{{ symbol.sourcePath }}</code></td>
 				</tr>
 			</tbody>

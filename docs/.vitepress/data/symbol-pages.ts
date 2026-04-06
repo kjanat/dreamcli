@@ -11,6 +11,7 @@ import type {
 	NormalizedApiComment,
 	NormalizedApiCommentTag,
 	NormalizedApiExport,
+	NormalizedApiGroup,
 	NormalizedApiModel,
 	NormalizedApiNode,
 	NormalizedApiType,
@@ -276,8 +277,8 @@ function renderMembersSection(reflection: NormalizedApiNode): string | null {
 	const groups =
 		reflection.groups.length === 0 ? buildFallbackGroups(reflection) : reflection.groups;
 	const sections = groups.flatMap((group) => {
-		const children = group.childNames.flatMap((name) => {
-			const child = reflection.children.find((entry) => entry.name === name);
+		const children = group.children.flatMap((ref) => {
+			const child = reflection.children.find((entry) => entry.reflectionId === ref.reflectionId);
 			return child === undefined ? [] : [child];
 		});
 		if (children.length === 0) {
@@ -293,13 +294,14 @@ function renderMembersSection(reflection: NormalizedApiNode): string | null {
 	return ['## Members', '', ...sections].join('\n');
 }
 
-function buildFallbackGroups(
-	reflection: NormalizedApiNode,
-): readonly { title: string; childNames: readonly string[] }[] {
+function buildFallbackGroups(reflection: NormalizedApiNode): readonly NormalizedApiGroup[] {
 	return [
 		{
 			title: 'Members',
-			childNames: reflection.children.map((child) => child.name),
+			children: reflection.children.map((child) => ({
+				reflectionId: child.reflectionId,
+				name: child.name,
+			})),
 		},
 	];
 }
@@ -354,7 +356,8 @@ function renderAccessorDeclaration(member: NormalizedApiNode): string {
 	}
 
 	const valueParameter = setter.parameters[0];
-	const setterType = valueParameter === undefined ? 'unknown' : renderParameter(valueParameter);
+	const setterType =
+		valueParameter === undefined ? 'unknown' : renderParameter(valueParameter, false);
 	return [
 		`get ${member.name}(): ${renderNodeType(getter)};`,
 		`set ${member.name}(${setterType});`,
@@ -376,7 +379,7 @@ function renderCallableSignature(
 	kind: 'function' | 'method' | 'constructor' | 'call',
 ): string {
 	const typeParameters = renderTypeParameterList(signature.typeParameters);
-	const parameters = signature.parameters.map(renderParameter).join(', ');
+	const parameters = signature.parameters.map((p) => renderParameter(p, false)).join(', ');
 	const returnType = signature.type === null ? 'void' : renderType(signature.type);
 
 	if (kind === 'constructor') {
@@ -391,10 +394,11 @@ function renderCallableSignature(
 	return `${prefix}${name}${typeParameters}(${parameters}): ${returnType};`;
 }
 
-function renderParameter(parameter: NormalizedApiNode): string {
+function renderParameter(parameter: NormalizedApiNode, includeDefault = true): string {
 	const optional = isOptionalNode(parameter);
 	const type = parameter.type === null ? 'unknown' : renderType(parameter.type);
-	const defaultValue = parameter.defaultValue === null ? '' : ` = ${parameter.defaultValue}`;
+	const defaultValue =
+		includeDefault && parameter.defaultValue !== null ? ` = ${parameter.defaultValue}` : '';
 	if (parameter.type?.kind === 'rest') {
 		return `...${parameter.name}: ${renderType(parameter.type.elementType)}[]`;
 	}

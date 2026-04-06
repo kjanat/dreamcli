@@ -62,7 +62,7 @@ export function sourceArtifactsPlugin(): Plugin {
 		configureServer(server) {
 			let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-			server.watcher.on('change', (file) => {
+			const handleSrcChange = (file: string): void => {
 				if (
 					file.startsWith(`${rootDir}/src/`) &&
 					file.endsWith('.ts') &&
@@ -80,7 +80,10 @@ export function sourceArtifactsPlugin(): Plugin {
 						});
 					}, 200);
 				}
-			});
+			};
+			server.watcher.on('change', handleSrcChange);
+			server.watcher.on('add', handleSrcChange);
+			server.watcher.on('unlink', handleSrcChange);
 		},
 	};
 }
@@ -90,9 +93,10 @@ type ReadFile = (path: string, encoding: BufferEncoding) => Promise<string>;
 async function readExistingSchema(readFile: ReadFile, schemaPath: string): Promise<string> {
 	try {
 		return await readFile(schemaPath, 'utf-8');
-	} catch {
+	} catch (error) {
+		const cause = error instanceof Error ? error.message : String(error);
 		throw new Error(
-			`[dreamcli-source-artifacts] Missing ${schemaPath}. Run \`bun --bun scripts/emit-definition-schema.ts\` before docs build.`,
+			`[dreamcli-source-artifacts] Missing ${schemaPath}: ${cause}. Run \`bun --bun scripts/emit-definition-schema.ts\` before docs build.`,
 		);
 	}
 }

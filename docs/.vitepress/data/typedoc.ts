@@ -30,9 +30,14 @@ export interface NormalizedApiSource {
 	url: string | null;
 }
 
+export interface NormalizedApiGroupChild {
+	reflectionId: number;
+	name: string;
+}
+
 export interface NormalizedApiGroup {
 	title: string;
-	childNames: readonly string[];
+	children: readonly NormalizedApiGroupChild[];
 }
 
 export type NormalizedApiType =
@@ -534,9 +539,9 @@ function normalizeGroups(
 
 	return groups.map((group) => ({
 		title: group.title,
-		childNames: (group.children ?? []).flatMap((childId) => {
+		children: (group.children ?? []).flatMap((childId) => {
 			const child = children.find((entry) => entry.reflectionId === childId);
-			return child === undefined ? [] : [child.name];
+			return child === undefined ? [] : [{ reflectionId: childId, name: child.name }];
 		}),
 	}));
 }

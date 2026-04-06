@@ -87,7 +87,10 @@ describe('typedoc normalization', () => {
 		);
 		expect(schemaExport?.reflection.groups).toContainEqual({
 			title: 'Properties',
-			childNames: expect.arrayContaining(['name', 'version']),
+			children: expect.arrayContaining([
+				expect.objectContaining({ name: 'name' }),
+				expect.objectContaining({ name: 'version' }),
+			]),
 		});
 
 		const configSettings = schemaExport?.reflection.children.find(

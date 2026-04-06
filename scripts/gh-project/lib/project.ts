@@ -354,6 +354,7 @@ async function createProjectItem(
 
 	await ghProjectItemEditText(itemId, project.project.id, project.taskIdFieldId, taskId);
 
+	let phaseUpdated = false;
 	if (phase !== undefined) {
 		const phaseOption = project.phaseField.options.find((o) => {
 			const leading = /^(\d+)/.exec(o.name)?.[1];
@@ -361,6 +362,7 @@ async function createProjectItem(
 		});
 		if (phaseOption !== undefined) {
 			await ghProjectItemEdit(itemId, project.project.id, project.phaseField.id, phaseOption.id);
+			phaseUpdated = true;
 		}
 	}
 
@@ -380,8 +382,8 @@ async function createProjectItem(
 		title,
 		status: undefined,
 		workflow: undefined,
-		phase: phase !== undefined ? String(phase) : undefined,
-		priority,
+		phase: phaseUpdated ? String(phase) : undefined,
+		priority: priorityOption !== undefined ? priority : undefined,
 	};
 }
 

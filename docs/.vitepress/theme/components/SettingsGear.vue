@@ -37,6 +37,13 @@
 		);
 	}
 
+	const navigableKeys: Record<string, true> = {
+		ArrowDown: true,
+		ArrowUp: true,
+		Home: true,
+		End: true,
+	};
+
 	function onKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && open.value) {
 			open.value = false;
@@ -47,8 +54,7 @@
 			return;
 		}
 
-		const navigableKeys = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
-		if (!open.value || !navigableKeys.has(e.key)) {
+		if (!open.value || !(e.key in navigableKeys)) {
 			return;
 		}
 
