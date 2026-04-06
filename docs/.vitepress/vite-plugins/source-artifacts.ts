@@ -1,8 +1,10 @@
 /**
- * Vite plugin that emits existing source artifacts for docs hosting.
+ * Vite plugin that keeps docs schema artifact available.
  *
- * Docs build is a consumer of package/runtime artifacts.
- * It does not regenerate source-owned files.
+ * Twoslash examples import `@kjanat/dreamcli/schema`, which resolves
+ * through tsconfig paths to the root `dreamcli.schema.json` file. This
+ * plugin ensures that file exists during docs dev/build and emits it into
+ * docs dist for hosting.
  *
  * @module
  */
@@ -15,8 +17,28 @@ const rootDir = normalize(`${import.meta.dirname}/../../..`);
 const definitionSchemaPath = `${rootDir}/dreamcli.schema.json`;
 
 export function sourceArtifactsPlugin(): Plugin {
+	let building = false;
+
+	async function ensureSchema(): Promise<void> {
+		if (building) {
+			return;
+		}
+
+		building = true;
+		try {
+			const { emitDefinitionSchema } = await import(`${rootDir}/scripts/emit-definition-schema.ts`);
+			await emitDefinitionSchema();
+		} finally {
+			building = false;
+		}
+	}
+
 	return {
 		name: 'dreamcli-source-artifacts',
+
+		async buildStart() {
+			await ensureSchema();
+		},
 
 		async generateBundle() {
 			const { readFile } = await import('node:fs/promises');
@@ -25,6 +47,23 @@ export function sourceArtifactsPlugin(): Plugin {
 				type: 'asset',
 				fileName: 'dreamcli.schema.json',
 				source: schema,
+			});
+		},
+
+		configureServer(server) {
+			server.watcher.on('change', (file) => {
+				if (
+					file.startsWith(`${rootDir}/src/`) &&
+					file.endsWith('.ts') &&
+					!file.endsWith('.test.ts') &&
+					!file.endsWith('.generated.ts')
+				) {
+					ensureSchema().catch((error: unknown) => {
+						const message =
+							error instanceof Error ? error.message : '[dreamcli-source-artifacts] Unknown error';
+						server.config.logger.error(message);
+					});
+				}
 			});
 		},
 	};
