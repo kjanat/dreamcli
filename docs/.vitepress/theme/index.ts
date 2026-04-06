@@ -15,9 +15,30 @@ import type { Runtime } from './composables/use-doc-settings.ts';
 import { useDocSettings } from './composables/use-doc-settings.ts';
 
 const HINT_KEY = 'twoslash-hint-seen';
+const MOBILE_UA_RE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 
 function isTouchDevice(): boolean {
 	return !window.matchMedia('(hover: hover)').matches;
+}
+
+function isMobileUserAgent(): boolean {
+	return MOBILE_UA_RE.test(navigator.userAgent);
+}
+
+function twoslashFloatingOptions() {
+	if (!isTouchDevice() && !isMobileUserAgent()) {
+		return undefined;
+	}
+
+	return {
+		themes: {
+			twoslash: {
+				triggers: ['click'],
+				popperTriggers: [],
+				autoHide: true,
+			},
+		},
+	};
 }
 
 // === First-visit hint toast ===
@@ -238,7 +259,7 @@ export default {
 	extends: DefaultTheme,
 	enhanceApp({ app }: EnhanceAppContext) {
 		if (typeof window !== 'undefined') {
-			app.use(TwoslashFloatingVue);
+			app.use(TwoslashFloatingVue, twoslashFloatingOptions());
 		} else {
 			// SSR: register stub components that render slot content without floating-vue popover
 			// machinery (which crashes during SSR with popperId destructure error).
