@@ -99,7 +99,10 @@ import { cli, command } from '@kjanat/dreamcli';
 
 const deploy = command('deploy');
 
-cli('mycli').packageJson({ inferName: true }).command(deploy).run();
+cli('mycli')
+  .packageJson({ inferName: true })
+  .command(deploy)
+  .run();
 ```
 
 ### `.plugin(definition)`
@@ -157,7 +160,9 @@ command('deploy')
   .flag('token', flag.string().env('AUTH_TOKEN'))
   .derive(({ flags }) => {
     if (!flags.token)
-      throw new CLIError('Not authenticated', { code: 'AUTH_REQUIRED' });
+      throw new CLIError('Not authenticated', {
+        code: 'AUTH_REQUIRED',
+      });
     return { token: flags.token };
   })
   .action(({ ctx }) => {
@@ -178,8 +183,10 @@ const deploy = command('deploy');
 
 const trace = plugin(
   {
-    beforeParse: ({ argv, out }) => out.info(argv.join(' ')),
-    afterResolve: ({ flags, args }) => console.log({ flags, args }),
+    beforeParse: ({ argv, out }) =>
+      out.info(argv.join(' ')),
+    afterResolve: ({ flags, args }) =>
+      console.log({ flags, args }),
   },
   'trace',
 );
@@ -301,7 +308,11 @@ Generate a definition metadata document describing the CLI's structure.
 - `options.includePrompts?`: include prompt config on flags (default: `true`)
 
 ```ts twoslash
-import { cli, command, generateSchema } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  generateSchema,
+} from '@kjanat/dreamcli';
 
 const myCli = cli('mycli').command(command('deploy'));
 
@@ -319,7 +330,11 @@ Accepts a full `CLISchema` (discriminated union across commands) or a
 single `CommandSchema` (flat object schema).
 
 ```ts twoslash
-import { cli, command, generateInputSchema } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  generateInputSchema,
+} from '@kjanat/dreamcli';
 
 const myCli = cli('mycli').command(command('deploy'));
 
@@ -376,7 +391,10 @@ the first matching file via the provided adapter, and returns either `{ found: t
 parsed config data or `{ found: false }` when no config file exists.
 
 ```ts twoslash
-import { configFormat, discoverConfig } from '@kjanat/dreamcli';
+import {
+  configFormat,
+  discoverConfig,
+} from '@kjanat/dreamcli';
 import { createTestAdapter } from '@kjanat/dreamcli/testkit';
 
 declare const parseYaml: (s: string) => unknown;

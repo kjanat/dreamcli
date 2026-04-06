@@ -1,252 +1,252 @@
 <script setup lang="ts">
-  import { onMounted, onUnmounted, ref } from 'vue';
+	import { onMounted, onUnmounted, ref } from 'vue';
 
-  import { runtimes, useDocSettings } from '../composables/use-doc-settings.ts';
+	import { runtimes, useDocSettings } from '../composables/use-doc-settings.ts';
 
-  const settings = useDocSettings();
-  const open = ref(false);
-  const root = ref<HTMLElement | null>(null);
+	const settings = useDocSettings();
+	const open = ref(false);
+	const root = ref<HTMLElement | null>(null);
 
-  function toggle() {
-    open.value = !open.value;
-  }
+	function toggle() {
+		open.value = !open.value;
+	}
 
-  function onClickOutside(e: MouseEvent) {
-    if (root.value && !root.value.contains(e.target as Node)) {
-      open.value = false;
-    }
-  }
+	function onClickOutside(e: MouseEvent) {
+		if (root.value && !root.value.contains(e.target as Node)) {
+			open.value = false;
+		}
+	}
 
-  onMounted(() => document.addEventListener('click', onClickOutside));
-  onUnmounted(() => document.removeEventListener('click', onClickOutside));
+	onMounted(() => document.addEventListener('click', onClickOutside));
+	onUnmounted(() => document.removeEventListener('click', onClickOutside));
 </script>
 
 <template>
-  <div ref="root" class="settings-gear" :class="{ open }">
-    <button
-      class="settings-gear-btn"
-      :aria-expanded="open"
-      aria-label="Documentation settings"
-      @click="toggle"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    </button>
+	<div ref="root" class="settings-gear" :class="{ open }">
+		<button
+			class="settings-gear-btn"
+			:aria-expanded="open"
+			aria-label="Documentation settings"
+			@click="toggle"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="20"
+				height="20"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+				<circle cx="12" cy="12" r="3" />
+			</svg>
+		</button>
 
-    <Transition name="settings-dropdown">
-      <div v-show="open" class="settings-dropdown">
-        <label class="settings-toggle">
-          <span>Type hovers</span>
-          <input v-model="settings.twoslash" type="checkbox">
-          <span class="toggle-track" />
-        </label>
+		<Transition name="settings-dropdown">
+			<div v-show="open" class="settings-dropdown">
+				<label class="settings-toggle">
+					<span>Type hovers</span>
+					<input v-model="settings.twoslash" type="checkbox">
+					<span class="toggle-track" />
+				</label>
 
-        <div class="runtime-options">
-          <label
-            v-for="rt in runtimes"
-            :key="rt.value"
-            class="runtime-option"
-            :class="{ active: settings.runtime === rt.value }"
-          >
-            <input
-              v-model="settings.runtime"
-              type="radio"
-              name="runtime"
-              :value="rt.value"
-            >
-            <span>{{ rt.label }}</span>
-          </label>
-        </div>
-      </div>
-    </Transition>
-  </div>
+				<div class="runtime-options">
+					<label
+						v-for="rt in runtimes"
+						:key="rt.value"
+						class="runtime-option"
+						:class="{ active: settings.runtime === rt.value }"
+					>
+						<input
+							v-model="settings.runtime"
+							type="radio"
+							name="runtime"
+							:value="rt.value"
+						>
+						<span>{{ rt.label }}</span>
+					</label>
+				</div>
+			</div>
+		</Transition>
+	</div>
 </template>
 
 <style scoped>
-  .settings-gear {
-    --s-duration: 0.25s;
-    --s-ease: cubic-bezier(0.4, 0, 0.2, 1);
-    --s-gap: 8px;
-    --s-radius: 8px;
-    --s-radius-sm: 6px;
-    --s-accent: var(--vp-c-brand-1);
+	.settings-gear {
+		--s-duration: 0.25s;
+		--s-ease: cubic-bezier(0.4, 0, 0.2, 1);
+		--s-gap: 8px;
+		--s-radius: 8px;
+		--s-radius-sm: 6px;
+		--s-accent: var(--vp-c-brand-1);
 
-    position: relative;
-    display: flex;
-    align-items: center;
-    margin-left: 4px;
-  }
+		position: relative;
+		display: flex;
+		align-items: center;
+		margin-left: 4px;
+	}
 
-  .settings-gear-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: var(--s-radius);
-    background: transparent;
-    color: var(--vp-c-text-2);
-    cursor: pointer;
-    transition:
-      color var(--s-duration) var(--s-ease),
-      background-color var(--s-duration) var(--s-ease);
-  }
+	.settings-gear-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		border: none;
+		border-radius: var(--s-radius);
+		background: transparent;
+		color: var(--vp-c-text-2);
+		cursor: pointer;
+		transition:
+			color var(--s-duration) var(--s-ease),
+			background-color var(--s-duration) var(--s-ease);
+	}
 
-  .settings-gear-btn svg {
-    transition: transform var(--s-duration) var(--s-ease);
-  }
+	.settings-gear-btn svg {
+		transition: transform var(--s-duration) var(--s-ease);
+	}
 
-  .settings-gear.open .settings-gear-btn svg {
-    transform: rotate(60deg);
-  }
+	.settings-gear.open .settings-gear-btn svg {
+		transform: rotate(60deg);
+	}
 
-  .settings-gear-btn:hover,
-  .settings-gear.open .settings-gear-btn {
-    color: var(--vp-c-text-1);
-    background: var(--vp-c-default-soft);
-  }
+	.settings-gear-btn:hover,
+	.settings-gear.open .settings-gear-btn {
+		color: var(--vp-c-text-1);
+		background: var(--vp-c-default-soft);
+	}
 
-  .settings-dropdown {
-    position: absolute;
-    top: calc(100% + var(--s-gap));
-    right: 0;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 170px;
-    padding: 8px;
-    border: 1px solid var(--vp-c-border);
-    border-radius: 10px;
-    background: var(--vp-c-bg-elv);
-    box-shadow: var(--vp-shadow-3);
-  }
+	.settings-dropdown {
+		position: absolute;
+		top: calc(100% + var(--s-gap));
+		right: 0;
+		z-index: 100;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-width: 170px;
+		padding: 8px;
+		border: 1px solid var(--vp-c-border);
+		border-radius: 10px;
+		background: var(--vp-c-bg-elv);
+		box-shadow: var(--vp-shadow-3);
+	}
 
-  /* --- Toggle switch --- */
+	/* --- Toggle switch --- */
 
-  .settings-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 6px;
-    border-radius: var(--s-radius-sm);
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--vp-c-text-1);
-    transition: background-color var(--s-duration) var(--s-ease);
-  }
+	.settings-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 4px 6px;
+		border-radius: var(--s-radius-sm);
+		cursor: pointer;
+		font-size: 13px;
+		color: var(--vp-c-text-1);
+		transition: background-color var(--s-duration) var(--s-ease);
+	}
 
-  .settings-toggle:hover {
-    background: var(--vp-c-default-soft);
-  }
+	.settings-toggle:hover {
+		background: var(--vp-c-default-soft);
+	}
 
-  .settings-toggle input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
+	.settings-toggle input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
 
-  .toggle-track {
-    position: relative;
-    width: 32px;
-    height: 18px;
-    border-radius: 9px;
-    background: var(--vp-c-default-soft);
-    transition: background-color var(--s-duration) var(--s-ease);
-    flex-shrink: 0;
-  }
+	.toggle-track {
+		position: relative;
+		width: 32px;
+		height: 18px;
+		border-radius: 9px;
+		background: var(--vp-c-default-soft);
+		transition: background-color var(--s-duration) var(--s-ease);
+		flex-shrink: 0;
+	}
 
-  .toggle-track::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--vp-c-text-3);
-    transition:
-      transform var(--s-duration) var(--s-ease),
-      background-color var(--s-duration) var(--s-ease);
-  }
+	.toggle-track::after {
+		content: '';
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		background: var(--vp-c-text-3);
+		transition:
+			transform var(--s-duration) var(--s-ease),
+			background-color var(--s-duration) var(--s-ease);
+	}
 
-  .settings-toggle input:checked ~ .toggle-track {
-    background: var(--s-accent);
-  }
+	.settings-toggle input:checked ~ .toggle-track {
+		background: var(--s-accent);
+	}
 
-  .settings-toggle input:checked ~ .toggle-track::after {
-    transform: translateX(14px);
-    background: white;
-  }
+	.settings-toggle input:checked ~ .toggle-track::after {
+		transform: translateX(14px);
+		background: white;
+	}
 
-  /* --- Segmented control --- */
+	/* --- Segmented control --- */
 
-  .runtime-options {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 3px;
-    border-radius: var(--s-radius);
-    background: var(--vp-c-default-soft);
-  }
+	.runtime-options {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 3px;
+		border-radius: var(--s-radius);
+		background: var(--vp-c-default-soft);
+	}
 
-  .runtime-option {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 5px 8px;
-    border-radius: var(--s-radius-sm);
-    cursor: pointer;
-    font-size: 12px;
-    color: var(--vp-c-text-2);
-    font-family: var(--vp-font-family-mono);
-    transition:
-      background-color var(--s-duration) var(--s-ease),
-      color var(--s-duration) var(--s-ease),
-      box-shadow var(--s-duration) var(--s-ease);
-  }
+	.runtime-option {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 5px 8px;
+		border-radius: var(--s-radius-sm);
+		cursor: pointer;
+		font-size: 12px;
+		color: var(--vp-c-text-2);
+		font-family: var(--vp-font-family-mono);
+		transition:
+			background-color var(--s-duration) var(--s-ease),
+			color var(--s-duration) var(--s-ease),
+			box-shadow var(--s-duration) var(--s-ease);
+	}
 
-  .runtime-option:hover {
-    color: var(--vp-c-text-1);
-  }
+	.runtime-option:hover {
+		color: var(--vp-c-text-1);
+	}
 
-  .runtime-option.active {
-    background: var(--vp-c-bg-elv);
-    color: var(--vp-c-text-1);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
+	.runtime-option.active {
+		background: var(--vp-c-bg-elv);
+		color: var(--vp-c-text-1);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	}
 
-  .runtime-option input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
+	.runtime-option input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
 
-  /* --- Transition --- */
+	/* --- Transition --- */
 
-  .settings-dropdown-enter-active,
-  .settings-dropdown-leave-active {
-    transition:
-      opacity var(--s-duration) var(--s-ease),
-      transform var(--s-duration) var(--s-ease);
-  }
+	.settings-dropdown-enter-active,
+	.settings-dropdown-leave-active {
+		transition:
+			opacity var(--s-duration) var(--s-ease),
+			transform var(--s-duration) var(--s-ease);
+	}
 
-  .settings-dropdown-enter-from,
-  .settings-dropdown-leave-to {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
+	.settings-dropdown-enter-from,
+	.settings-dropdown-leave-to {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
 </style>

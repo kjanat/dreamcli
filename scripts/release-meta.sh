@@ -67,13 +67,13 @@ npm)
 	;;
 
 jsr)
-	deno_package="$(read_field deno.jsonc '.name // ""')"
+	deno_package="$(read_field deno.json '.name // ""')"
 	package_name="$(read_field package.json '.name // ""')"
-	deno_version="$(read_field deno.jsonc '.version // ""')"
+	deno_version="$(read_field deno.json '.version // ""')"
 	package_version="$(read_field package.json '.version // ""')"
 
 	if [[ -z "${deno_package}" ]]; then
-		echo 'deno.jsonc missing .name'
+		echo 'deno.json missing .name'
 		exit 1
 	fi
 
@@ -83,7 +83,7 @@ jsr)
 	fi
 
 	if [[ -z "${deno_version}" ]]; then
-		echo 'deno.jsonc missing .version'
+		echo 'deno.json missing .version'
 		exit 1
 	fi
 
@@ -93,12 +93,12 @@ jsr)
 	fi
 
 	if [[ "${deno_version}" != "${package_version}" ]]; then
-		printf "Version mismatch: deno.jsonc=%s package.json=%s\n" "${deno_version}" "${package_version}"
+		printf "Version mismatch: deno.json=%s package.json=%s\n" "${deno_version}" "${package_version}"
 		exit 1
 	fi
 
 	if [[ "${deno_package}" != "${package_name}" ]]; then
-		printf "Name mismatch: deno.jsonc=%s package.json=%s\n" "${deno_package}" "${package_name}"
+		printf "Name mismatch: deno.json=%s package.json=%s\n" "${deno_package}" "${package_name}"
 		exit 1
 	fi
 

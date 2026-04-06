@@ -3,7 +3,10 @@
 Runtime adapter factory and platform detection.
 
 ```ts twoslash
-import { createAdapter, detectRuntime } from '@kjanat/dreamcli/runtime';
+import {
+  createAdapter,
+  detectRuntime,
+} from '@kjanat/dreamcli/runtime';
 import type { RuntimeAdapter } from '@kjanat/dreamcli/runtime';
 ```
 

@@ -9,16 +9,15 @@
 import { writeFile } from 'node:fs/promises';
 import { normalize } from 'node:path';
 import { definitionMetaSchema } from '@kjanat/dreamcli';
+import { name as jsrName } from '../deno.json' with { type: 'json' };
+import { name as npmName } from '../package.json' with { type: 'json' };
 
 const outFile = normalize(`${import.meta.dirname}/../dreamcli.schema.json`);
 
-// biome-ignore lint/suspicious/noTsIgnore: Whatup bro!
-// @ts-ignore Nothing much, you?
-// ...
 const schemaId =
 	typeof globalThis.Deno !== 'undefined'
-		? 'https://jsr.io/@kjanat/dreamcli/schema'
-		: 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/schema';
+		? `https://jsr.io/@${jsrName}/schema`
+		: `https://cdn.jsdelivr.net/npm/@${npmName}/schema`;
 
 export async function emitDefinitionSchema(): Promise<void> {
 	const schema = { ...definitionMetaSchema, $id: schemaId };

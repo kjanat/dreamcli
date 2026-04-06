@@ -69,7 +69,10 @@ import { createOutput } from '@kjanat/dreamcli';
 import { tick } from './docs/.vitepress/twoslash/output-fixtures.ts';
 
 const out = createOutput();
-const progress = out.progress({ label: 'Uploading', total: 100 });
+const progress = out.progress({
+  label: 'Uploading',
+  total: 100,
+});
 
 for (let i = 0; i <= 100; i++) {
   progress.update(i);

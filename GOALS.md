@@ -3,11 +3,11 @@
 > ## Intro
 >
 > Today’s TypeScript CLI tooling mostly treats the type system like decoration: you define
-> flags/args in one place, then you *use* parsed values somewhere else as a loosely typed blob. On
+> flags/args in one place, then you _use_ parsed values somewhere else as a loosely typed blob. On
 > top of that, interactive prompting lives in a separate universe from parsing, config/env/CLI
 > merging gets re-invented per project, testing tends to be gross (`process.argv` hacks or shelling
 > out), completions are bolted on, and output/error handling is inconsistent and hard to make both
-> human-friendly *and* script-friendly.
+> human-friendly _and_ script-friendly.
 >
 > The proposed fix is “Zod, but for CLIs”: a schema-first builder where the schema is the single
 > source of truth and everything (types, parsing, help text, resolution from
@@ -16,7 +16,7 @@
 
 ### 1) Product vision
 
-Build the CLI framework that TypeScript developers *wish* existed: define commands/flags/args once,
+Build the CLI framework that TypeScript developers _wish_ existed: define commands/flags/args once,
 get perfect inference everywhere, and have the runtime do the boring-but-hard stuff (resolution
 chain, prompts, config, completions, testing, structured output, errors) reliably and portably
 across Node/Bun/Deno.
@@ -410,25 +410,25 @@ dreamcli/
 ### 11) Release plan (milestones)
 
 **MVP (v0.1):** Schema builder, parsing, inference into `.action()`, auto-help, basic errors,
-`command.run()` test harness. *(done)*
+`command.run()` test harness. _(done)_
 
 **v0.2:** Resolution chain (env/config/default), required handling, non-interactive behavior rules.
-*(done)*
+_(done)_
 
-**v0.3:** Interactive prompting integration (portable prompt engine + pluggable renderer). *(done)*
+**v0.3:** Interactive prompting integration (portable prompt engine + pluggable renderer). _(done)_
 
 **v0.4:** Middleware + typed context, structured output channel (`--json`, TTY detection, table).
-*(done)*
+_(done)_
 
-**v0.5:** Completions generation (bash/zsh), runtime detection, Bun adapter. *(done)*
+**v0.5:** Completions generation (bash/zsh), runtime detection, Bun adapter. _(done)_
 
 **v0.6:** Config file discovery + loading (XDG search paths, `--config` flag, JSON loader, plugin
 hook for YAML/TOML). Extend `RuntimeAdapter` with filesystem/path primitives (`readFile`, `homedir`,
 `configDir`). Add `flag.custom(parseFn)` and `.deprecated()` modifier with help/parse warnings.
-*(done)*
+_(done)_
 
 **v0.7:** Subcommand nesting (command trees: root > group > leaf, nested help, nested completion,
-nested dispatch in CLIBuilder). *(done)*
+nested dispatch in CLIBuilder). _(done)_
 
 **v0.8:** Spinner/progress on Out (`out.spinner()`, `out.progress()`, auto-disable on `!isTTY`,
 suppress in `--json` mode, testkit capture).

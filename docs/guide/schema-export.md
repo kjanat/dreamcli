@@ -12,19 +12,28 @@ commands, flags, args, types, constraints, env bindings, prompts, and more.
 
 ```ts twoslash
 import { writeFileSync } from 'node:fs';
-import { cli, command, generateSchema } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  generateSchema,
+} from '@kjanat/dreamcli';
 
 const myCli = cli('mycli').command(command('deploy'));
 
 const definition = generateSchema(myCli.schema);
-writeFileSync('cli-schema.json', JSON.stringify(definition, null, 2));
+writeFileSync(
+  'cli-schema.json',
+  JSON.stringify(definition, null, 2),
+);
 ```
 
 Output includes a `$schema` URL pointing at the CDN-hosted definition
 schema. For offline or CI-friendly setups, use the local copy instead:
 
 ```json
-{ "$schema": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json" }
+{
+  "$schema": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json"
+}
 ```
 
 The schema is also importable as `@kjanat/dreamcli/schema`.
@@ -49,7 +58,13 @@ Full example output:
           "envVar": "REGION"
         }
       },
-      "args": [{ "name": "target", "kind": "string", "presence": "required" }],
+      "args": [
+        {
+          "name": "target",
+          "kind": "string",
+          "presence": "required"
+        }
+      ],
       "commands": []
     }
   ]
@@ -63,12 +78,19 @@ validates CLI input as a JSON object — useful for config file validation.
 
 ```ts twoslash
 import { writeFileSync } from 'node:fs';
-import { cli, command, generateInputSchema } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  generateInputSchema,
+} from '@kjanat/dreamcli';
 
 const myCli = cli('mycli').command(command('deploy'));
 
 const inputSchema = generateInputSchema(myCli.schema);
-writeFileSync('input-schema.json', JSON.stringify(inputSchema, null, 2));
+writeFileSync(
+  'input-schema.json',
+  JSON.stringify(inputSchema, null, 2),
+);
 ```
 
 For multi-command CLIs, the output is a `oneOf` discriminated union with
@@ -82,7 +104,10 @@ a `command` property identifying each branch:
       "type": "object",
       "properties": {
         "command": { "const": "deploy" },
-        "region": { "type": "string", "enum": ["us", "eu", "ap"] },
+        "region": {
+          "type": "string",
+          "enum": ["us", "eu", "ap"]
+        },
         "target": { "type": "string" }
       },
       "required": ["command", "region", "target"]
@@ -113,7 +138,9 @@ const schema = command('schema')
   .description('Export CLI schema as JSON')
   .flag(
     'input',
-    flag.boolean().describe('Output JSON Schema for input validation'),
+    flag
+      .boolean()
+      .describe('Output JSON Schema for input validation'),
   )
   .action(({ flags, out }) => {
     const result = flags.input
@@ -133,7 +160,11 @@ Both functions accept `JsonSchemaOptions`:
 | `includePrompts` | `true`  | Include prompt config on flags (definition only) |
 
 ```ts twoslash
-import { cli, command, generateSchema } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  generateSchema,
+} from '@kjanat/dreamcli';
 
 const myCli = cli('mycli').command(command('deploy'));
 

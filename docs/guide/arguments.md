@@ -19,7 +19,10 @@ import { arg, command } from '@kjanat/dreamcli';
 
 command('deploy')
   .arg('target', arg.string().describe('Deploy target'))
-  .arg('version', arg.string().describe('Version tag').optional())
+  .arg(
+    'version',
+    arg.string().describe('Version tag').optional(),
+  )
   .action(({ args }) => {
     args.target; // string (required)
     args.version; // string | undefined (optional)
@@ -57,7 +60,10 @@ The last argument can be variadic, collecting all remaining positional values:
 import { arg, command } from '@kjanat/dreamcli';
 
 command('copy')
-  .arg('files', arg.string().variadic().describe('Files to copy'))
+  .arg(
+    'files',
+    arg.string().variadic().describe('Files to copy'),
+  )
   .action(({ args }) => {
     args.files; // string[]
   });
@@ -76,7 +82,13 @@ Arguments can fall back to environment variables when the positional value is mi
 import { arg, command } from '@kjanat/dreamcli';
 
 command('auth')
-  .arg('token', arg.string().env('API_TOKEN').describe('Token from env'))
+  .arg(
+    'token',
+    arg
+      .string()
+      .env('API_TOKEN')
+      .describe('Token from env'),
+  )
   .action(({ args }) => {
     args.token; // string
   });
@@ -92,7 +104,10 @@ Arguments can also read from piped stdin with `.stdin()`:
 import { arg, command } from '@kjanat/dreamcli';
 
 command('format')
-  .arg('data', arg.string().stdin().describe('Read from STDIN'))
+  .arg(
+    'data',
+    arg.string().stdin().describe('Read from STDIN'),
+  )
   .action(({ args }) => {
     args.data; // string
   });

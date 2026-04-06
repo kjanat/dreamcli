@@ -11,7 +11,9 @@ export const prList = command('list')
   .description('List pull requests')
   .flag(
     'state',
-    flag.enum(['open', 'closed', 'merged', 'all']).default('open'),
+    flag
+      .enum(['open', 'closed', 'merged', 'all'])
+      .default('open'),
   );
 
 export const prView = command('view')
@@ -22,9 +24,13 @@ export const prCreate = command('create')
   .description('Create a pull request')
   .flag('title', flag.string().required());
 
-export const issueList = command('list').description('List issues');
+export const issueList =
+  command('list').description('List issues');
 
 export const issueTriage = command('triage')
   .description('Triage an issue')
   .arg('number', arg.number())
-  .flag('decision', flag.enum(['backlog', 'close', 'assign']).required());
+  .flag(
+    'decision',
+    flag.enum(['backlog', 'close', 'assign']).required(),
+  );

@@ -43,7 +43,10 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 try {
-  const { stdout, stderr } = await execFileAsync('./mycli', ['greet', 'Alice']);
+  const { stdout, stderr } = await execFileAsync(
+    './mycli',
+    ['greet', 'Alice'],
+  );
   expect(stdout).toBe('Hello, Alice!\n');
   expect(stderr).toBe('');
 } catch (error) {
@@ -131,7 +134,9 @@ import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(cmd, []);
 expect(result.exitCode).not.toBe(0);
-expect(result.stderr.join('')).toContain('Missing required');
+expect(result.stderr.join('')).toContain(
+  'Missing required',
+);
 ```
 
 ### JSON Mode
@@ -142,7 +147,9 @@ Structured output is valid JSON:
 import { runCommand } from '@kjanat/dreamcli/testkit';
 import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
-const result = await runCommand(cmd, ['list'], { jsonMode: true });
+const result = await runCommand(cmd, ['list'], {
+  jsonMode: true,
+});
 const data = JSON.parse(result.stdout.join(''));
 expect(data).toBeInstanceOf(Array);
 ```
@@ -166,7 +173,10 @@ expect(result.exitCode).toBe(0);
 Ctrl+C during a prompt exits gracefully:
 
 ```ts twoslash
-import { PROMPT_CANCEL, runCommand } from '@kjanat/dreamcli/testkit';
+import {
+  PROMPT_CANCEL,
+  runCommand,
+} from '@kjanat/dreamcli/testkit';
 import { cmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 
 const result = await runCommand(cmd, [], {

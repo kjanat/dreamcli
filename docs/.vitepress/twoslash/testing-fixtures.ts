@@ -10,7 +10,10 @@ export const greet = command('greet')
 
 export const deploy = command('deploy')
   .arg('target', arg.string())
-  .flag('region', flag.string().env('DEPLOY_REGION').default('us'))
+  .flag(
+    'region',
+    flag.string().env('DEPLOY_REGION').default('us'),
+  )
   .flag('force', flag.boolean())
   .action(({ args, flags, out }) => {
     out.log(`Deploying ${args.target} to ${flags.region}`);

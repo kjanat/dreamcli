@@ -2,7 +2,7 @@
 
 A CLI gets its data from all over the place — flags you type, env vars, config files, piped input.
 Knowing where values come from (and which one wins) is how you build tools that work on someone's
-laptop *and* in a CI pipeline.
+laptop _and_ in a CI pipeline.
 
 ## argv — The Argument Vector
 

@@ -5,14 +5,14 @@
  */
 
 import {
-  loadSymbolPages,
-  symbolPathsForEntrypoint,
+	loadSymbolPages,
+	symbolPathsForEntrypoint,
 } from '../../../.vitepress/data/symbol-loader.ts';
 
 export default {
-  watch: ['../../../../src/**/*.ts'],
+	watch: ['../../../../src/**/*.ts'],
 
-  async paths() {
-    return symbolPathsForEntrypoint(await loadSymbolPages(), 'testkit');
-  },
+	async paths() {
+		return symbolPathsForEntrypoint(await loadSymbolPages(), 'testkit');
+	},
 };

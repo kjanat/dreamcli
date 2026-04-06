@@ -66,7 +66,11 @@ Create a prompt engine that returns pre-defined answers.
 ```ts twoslash
 import { createTestPrompter } from '@kjanat/dreamcli/testkit';
 
-const prompter = createTestPrompter(['eu', true, 'my-name']);
+const prompter = createTestPrompter([
+  'eu',
+  true,
+  'my-name',
+]);
 ```
 
 ## `createTestAdapter(options?)`

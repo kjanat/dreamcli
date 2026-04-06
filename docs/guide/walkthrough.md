@@ -93,7 +93,12 @@ const pullRequests: readonly PR[] = [
     state: 'merged',
     author: 'dependabot',
   },
-  { number: 139, title: 'Add rate limiting', state: 'closed', author: 'carol' },
+  {
+    number: 139,
+    title: 'Add rate limiting',
+    state: 'closed',
+    author: 'carol',
+  },
 ];
 
 const prList = command('list')
@@ -108,12 +113,18 @@ const prList = command('list')
   )
   .flag(
     'limit',
-    flag.number().default(10).alias('L').describe('Maximum number of results'),
+    flag
+      .number()
+      .default(10)
+      .alias('L')
+      .describe('Maximum number of results'),
   )
   .action(({ flags, out }) => {
     let results = [...pullRequests];
     if (flags.state !== 'all') {
-      results = results.filter((p) => p.state === flags.state);
+      results = results.filter(
+        (p) => p.state === flags.state,
+      );
     }
     results = results.slice(0, flags.limit);
 
@@ -156,7 +167,9 @@ Replace the `for` loop with `out.table()`:
 prList.action(({ flags, out }) => {
   let results = [...pullRequests];
   if (flags.state !== 'all') {
-    results = results.filter((p) => p.state === flags.state);
+    results = results.filter(
+      (p) => p.state === flags.state,
+    );
   }
   results = results.slice(0, flags.limit);
 
@@ -194,7 +207,12 @@ A flat list of commands doesn't scale.
 `gh` organizes commands into groups — `pr list`, `issue triage`, `auth login`. dreamcli has `group()` for this:
 
 ```ts twoslash
-import { cli, command, group, flag } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  group,
+  flag,
+} from '@kjanat/dreamcli';
 
 // Auth commands
 const authLogin = command('login')
@@ -210,12 +228,17 @@ const authStatus = command('status')
   });
 
 // PR commands
-const prList = command('list').description('List pull requests');
+const prList = command('list').description(
+  'List pull requests',
+);
 // ...flags and action from above...
 
 // Issue commands
-const issueList = command('list').description('List issues');
-const issueTriage = command('triage').description('Triage an issue');
+const issueList =
+  command('list').description('List issues');
+const issueTriage = command('triage').description(
+  'Triage an issue',
+);
 
 // Groups
 const auth = group('auth')
@@ -223,7 +246,9 @@ const auth = group('auth')
   .command(authLogin)
   .command(authStatus);
 
-const pr = group('pr').description('Manage pull requests').command(prList);
+const pr = group('pr')
+  .description('Manage pull requests')
+  .command(prList);
 const issue = group('issue')
   .description('Manage issues')
   .command(issueList)
@@ -274,14 +299,19 @@ const prView = command('view')
   .description('View a pull request')
   .arg('number', arg.number().describe('PR number'))
   .action(({ args, out }) => {
-    const pr = pullRequests.find((p) => p.number === args.number);
+    const pr = pullRequests.find(
+      (p) => p.number === args.number,
+    );
 
     if (!pr) {
-      throw new CLIError(`Pull request #${args.number} not found`, {
-        code: 'NOT_FOUND',
-        exitCode: 1,
-        suggest: 'Try: gh pr list',
-      });
+      throw new CLIError(
+        `Pull request #${args.number} not found`,
+        {
+          code: 'NOT_FOUND',
+          exitCode: 1,
+          suggest: 'Try: gh pr list',
+        },
+      );
     }
 
     if (out.jsonMode) {
@@ -302,14 +332,16 @@ Single-object commands should pick one surface per run: human text by default, J
 ## Step 6: Derive Context
 
 Every `pr` and `issue` command needs authentication.
-You *could* check for a token in every single action handler, but that's repetitive and error-prone.
+You _could_ check for a token in every single action handler, but that's repetitive and error-prone.
 
 `derive()` solves this cleanly:
 
 ```ts twoslash include walkthrough-require-auth
 import { CLIError } from '@kjanat/dreamcli';
 
-function requireAuth(token: string | undefined): { token: string } {
+function requireAuth(token: string | undefined): {
+  token: string;
+} {
   const normalizedToken = token?.trim();
   if (!normalizedToken) {
     throw new CLIError('Authentication required', {
@@ -339,37 +371,64 @@ import { command, flag } from '@kjanat/dreamcli';
 
 const prList = command('list')
   .description('List pull requests')
-  .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
+  .flag(
+    'token',
+    flag.string().env('GH_TOKEN').describe('GitHub token'),
+  )
   .derive(({ flags }) => requireAuth(flags.token))
-  .flag('state', flag.enum(['open', 'closed', 'merged', 'all']).default('open'))
+  .flag(
+    'state',
+    flag
+      .enum(['open', 'closed', 'merged', 'all'])
+      .default('open'),
+  )
   .action(({ ctx, out }) => {
     // ctx.token is typed as `string` — guaranteed by derive
-    out.info(`Authenticated with ${ctx.token.slice(0, 8)}...`);
+    out.info(
+      `Authenticated with ${ctx.token.slice(0, 8)}...`,
+    );
   });
 ```
 
 ```ts twoslash [middleware()]
-import { CLIError, command, flag, middleware } from '@kjanat/dreamcli';
+import {
+  CLIError,
+  command,
+  flag,
+  middleware,
+} from '@kjanat/dreamcli';
 
-const requireAuth = middleware<{ token: string }>(({ flags, next }) => {
-  if (typeof flags.token !== 'string') {
-    throw new CLIError('Authentication required', {
-      code: 'AUTH_REQUIRED',
-      suggest: 'Run `gh auth login` or set GH_TOKEN',
-      exitCode: 1,
-    });
-  }
+const requireAuth = middleware<{ token: string }>(
+  ({ flags, next }) => {
+    if (typeof flags.token !== 'string') {
+      throw new CLIError('Authentication required', {
+        code: 'AUTH_REQUIRED',
+        suggest: 'Run `gh auth login` or set GH_TOKEN',
+        exitCode: 1,
+      });
+    }
 
-  return next({ token: flags.token });
-});
+    return next({ token: flags.token });
+  },
+);
 
 const prList = command('list')
   .description('List pull requests')
-  .flag('token', flag.string().env('GH_TOKEN').describe('GitHub token'))
+  .flag(
+    'token',
+    flag.string().env('GH_TOKEN').describe('GitHub token'),
+  )
   .middleware(requireAuth)
-  .flag('state', flag.enum(['open', 'closed', 'merged', 'all']).default('open'))
+  .flag(
+    'state',
+    flag
+      .enum(['open', 'closed', 'merged', 'all'])
+      .default('open'),
+  )
   .action(({ ctx, out }) => {
-    out.info(`Authenticated with ${ctx.token.slice(0, 8)}...`);
+    out.info(
+      `Authenticated with ${ctx.token.slice(0, 8)}...`,
+    );
   });
 ```
 
@@ -402,7 +461,10 @@ const tokenFlag = (description = 'GitHub token') =>
     .string()
     .env('GH_TOKEN')
     .describe(description)
-    .prompt({ kind: 'input', message: 'Paste your GitHub token:' })
+    .prompt({
+      kind: 'input',
+      message: 'Paste your GitHub token:',
+    })
     .required();
 
 const authedCommand = (name: string) =>
@@ -475,9 +537,14 @@ const issueTriage = authedCommand('triage')
     'label',
     flag
       .array(flag.string())
-      .describe('Labels to keep when leaving the issue open'),
+      .describe(
+        'Labels to keep when leaving the issue open',
+      ),
   )
-  .flag('comment', flag.boolean().describe('Post a follow-up comment'))
+  .flag(
+    'comment',
+    flag.boolean().describe('Post a follow-up comment'),
+  )
   .interactive(({ flags }) => {
     const labels = flags.label ?? [];
 
@@ -547,7 +614,11 @@ const prCreate = authedCommand('create')
   )
   .flag(
     'draft',
-    flag.boolean().alias('d').default(false).describe('Create as draft'),
+    flag
+      .boolean()
+      .alias('d')
+      .default(false)
+      .describe('Create as draft'),
   )
   .action(async ({ flags, out }) => {
     const spinner = out.spinner('Creating pull request...');
@@ -589,7 +660,10 @@ import { prList } from './docs/.vitepress/twoslash/walkthrough-fixtures.ts';
 // ---cut-end---
 
 // Test that pr list returns open PRs by default
-const result = await runCommand(prList, ['--state', 'open']);
+const result = await runCommand(prList, [
+  '--state',
+  'open',
+]);
 expect(result.exitCode).toBe(0);
 expect(result.stdout.join('')).toContain('dark mode');
 ```
@@ -608,7 +682,9 @@ import {
 // Test that derive blocks unauthenticated access
 const noAuth = await runCommand(prList, []);
 expect(noAuth.exitCode).toBe(1);
-expect(noAuth.stderr.join('')).toContain('Authentication required');
+expect(noAuth.stderr.join('')).toContain(
+  'Authentication required',
+);
 
 // Test with a token
 const withAuth = await runCommand(prList, [], {
@@ -617,10 +693,14 @@ const withAuth = await runCommand(prList, [], {
 expect(withAuth.exitCode).toBe(0);
 
 // Test guided prompts
-const triage = await runCommand(issueTriage, ['89', '--decision', 'backlog'], {
-  env: { GH_TOKEN: 'ghp_test_token' },
-  answers: [['bug', 'ui']],
-});
+const triage = await runCommand(
+  issueTriage,
+  ['89', '--decision', 'backlog'],
+  {
+    env: { GH_TOKEN: 'ghp_test_token' },
+    answers: [['bug', 'ui']],
+  },
+);
 expect(triage.exitCode).toBe(0);
 expect(triage.stdout.join('')).toContain('Labels: bug, ui');
 ```
@@ -633,7 +713,14 @@ Each test is isolated — inject what you need, assert what you expect.
 Here's the final assembly — all the commands wired into groups:
 
 ```ts twoslash
-import { cli, command, group, flag, arg, CLIError } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  group,
+  flag,
+  arg,
+  CLIError,
+} from '@kjanat/dreamcli';
 // ---cut-start---
 import {
   authLogin,

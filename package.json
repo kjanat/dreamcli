@@ -59,9 +59,10 @@
 		"build:watch": "bunx --bun tsdown --watch",
 		"ci": "bun typecheck && bun lint && bun run format:check && bun run test && bun run docs:build && bun bd",
 		"coverage": "vitest run --coverage",
-		"docs:build": "vitepress build docs",
-		"docs:dev": "vitepress dev docs",
-		"docs:preview": "vitepress preview docs",
+		"dev": "bunx --bun tsdown --logLevel silent --watch & bunx --bun vitepress@next dev docs --host --port ${PORT:-5173} & wait",
+		"docs:build": "bunx --bun vitepress@next build docs",
+		"docs:dev": "bunx --bun vitepress@next dev docs",
+		"docs:preview": "bunx --bun vitepress@next preview docs",
 		"fmt": "dprint fmt",
 		"format": "dprint fmt",
 		"format:check": "dprint check",
@@ -150,8 +151,7 @@
 			"./schema": "./dreamcli.schema.json",
 			"./package.json": "./package.json"
 		},
-		"provenance": true,
-		"tag": "beta"
+		"provenance": true
 	},
 	"catalog": {
 		"@types/bun": "^1.3.0",

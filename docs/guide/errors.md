@@ -32,7 +32,11 @@ throw new CLIError('Deployment failed', {
 ## Error Types
 
 ```ts twoslash
-import { CLIError, ParseError, ValidationError } from '@kjanat/dreamcli';
+import {
+  CLIError,
+  ParseError,
+  ValidationError,
+} from '@kjanat/dreamcli';
 ```
 
 - **`CLIError`** — base error for application-level failures

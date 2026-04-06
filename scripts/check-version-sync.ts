@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Verifies that `package.json` and `deno.jsonc` declare the same version.
+ * Verifies that `package.json` and `deno.json` declare the same version.
  *
  * Exit codes:
  *   0 — versions match
@@ -25,28 +25,28 @@ async function readPackageJson(): Promise<VersionFile> {
 	}
 }
 
-async function readDenoJsonc(): Promise<VersionFile> {
+async function readDenoJson(): Promise<VersionFile> {
 	try {
-		return Bun.JSON5.parse(await Bun.file('deno.jsonc').text()) as VersionFile;
+		return (await Bun.file('deno.json').json()) as VersionFile;
 	} catch (error) {
-		return failToLoad('deno.jsonc', error);
+		return failToLoad('deno.json', error);
 	}
 }
 
 const pkg = await readPackageJson();
-const deno = await readDenoJsonc();
+const deno = await readDenoJson();
 
 if (!pkg.version) {
 	console.error('✗ package.json missing "version"');
 	process.exit(1);
 }
 if (!deno.version) {
-	console.error('✗ deno.jsonc missing "version"');
+	console.error('✗ deno.json missing "version"');
 	process.exit(1);
 }
 
 if (pkg.version !== deno.version) {
-	console.error(`✗ version mismatch — package.json: ${pkg.version}, deno.jsonc: ${deno.version}`);
+	console.error(`✗ version mismatch — package.json: ${pkg.version}, deno.json: ${deno.version}`);
 	process.exit(1);
 }
 

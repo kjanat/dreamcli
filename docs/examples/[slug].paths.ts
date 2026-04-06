@@ -7,20 +7,17 @@
  * @module
  */
 
-import {
-  collectExamples,
-  renderExamplePage,
-} from '../.vitepress/data/examples.ts';
+import { collectExamples, renderExamplePage } from '../.vitepress/data/examples.ts';
 import { examplesRoot, rootDirPath } from '../.vitepress/data/paths.ts';
 
 export default {
-  watch: ['../../examples/**/*.ts'],
+	watch: ['../../examples/**/*.ts'],
 
-  async paths() {
-    const examples = await collectExamples(examplesRoot, rootDirPath);
-    return examples.map((example) => ({
-      params: { slug: example.slug },
-      content: renderExamplePage(example),
-    }));
-  },
+	async paths() {
+		const examples = await collectExamples(examplesRoot, rootDirPath);
+		return examples.map((example) => ({
+			params: { slug: example.slug },
+			content: renderExamplePage(example),
+		}));
+	},
 };

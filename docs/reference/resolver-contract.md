@@ -40,7 +40,9 @@ interface ResolverInvocation {
 
 interface ResolveOptions {
   readonly stdinData?: string | null;
-  readonly env?: Readonly<Record<string, string | undefined>>;
+  readonly env?: Readonly<
+    Record<string, string | undefined>
+  >;
   readonly config?: Readonly<Record<string, unknown>>;
   readonly prompter?: PromptEngine;
 }
@@ -70,7 +72,12 @@ const FLAG_RESOLUTION_ORDER = [
   'prompt',
   'default',
 ] as const;
-const ARG_RESOLUTION_ORDER = ['cli', 'stdin', 'env', 'default'] as const;
+const ARG_RESOLUTION_ORDER = [
+  'cli',
+  'stdin',
+  'env',
+  'default',
+] as const;
 ```
 
 Those orders are the behavior future contract tests should target.

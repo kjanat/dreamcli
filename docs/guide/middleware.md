@@ -9,13 +9,16 @@ you need `next()` around the rest of the pipeline.
 ```ts twoslash
 import { middleware } from '@kjanat/dreamcli';
 
-const timing = middleware<{ startTime: number }>(async ({ next }) => {
-  const startTime = Date.now();
-  await next({ startTime });
-});
+const timing = middleware<{ startTime: number }>(
+  async ({ next }) => {
+    const startTime = Date.now();
+    await next({ startTime });
+  },
+);
 
-const trace = middleware<{ traceId: string }>(async ({ next }) =>
-  next({ traceId: crypto.randomUUID() }),
+const trace = middleware<{ traceId: string }>(
+  async ({ next }) =>
+    next({ traceId: crypto.randomUUID() }),
 );
 ```
 
@@ -27,11 +30,12 @@ The `next()` call passes context downstream and continues the chain.
 ```ts twoslash
 import { command, middleware } from '@kjanat/dreamcli';
 
-const timing = middleware<{ startTime: number }>(async ({ next }) =>
-  next({ startTime: Date.now() }),
+const timing = middleware<{ startTime: number }>(
+  async ({ next }) => next({ startTime: Date.now() }),
 );
-const trace = middleware<{ traceId: string }>(async ({ next }) =>
-  next({ traceId: crypto.randomUUID() }),
+const trace = middleware<{ traceId: string }>(
+  async ({ next }) =>
+    next({ traceId: crypto.randomUUID() }),
 );
 
 command('deploy')

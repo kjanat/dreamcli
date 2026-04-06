@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { data as examples } from './examples.data.ts';
+  import { data as examples } from './examples.data.ts';
 </script>
 
 # Examples

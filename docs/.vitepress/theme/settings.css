@@ -4,9 +4,9 @@
  * this CSS removes the underline decoration so users don't try to hover.
  */
 html.twoslash-off .twoslash .twoslash-hover {
-  text-decoration: none;
-  border-bottom: none;
-  cursor: text;
+	text-decoration: none;
+	border-bottom: none;
+	cursor: text;
 }
 
 /*
@@ -18,17 +18,17 @@ html.twoslash-off .twoslash .twoslash-hover {
  * Visual order: ...menu → appearance → [gear] → social-links → extra → hamburger
  */
 .VPNavBar .content-body .appearance {
-  order: 1;
+	order: 1;
 }
 .VPNavBar .content-body .settings-gear {
-  order: 2;
+	order: 2;
 }
 .VPNavBar .content-body .social-links {
-  order: 3;
+	order: 3;
 }
 .VPNavBar .content-body .extra {
-  order: 4;
+	order: 4;
 }
 .VPNavBar .content-body .hamburger {
-  order: 5;
+	order: 5;
 }

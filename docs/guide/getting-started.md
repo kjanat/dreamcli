@@ -31,8 +31,17 @@ import { cli, command, flag, arg } from '@kjanat/dreamcli';
 const greet = command('greet')
   .description('Greet someone')
   .arg('name', arg.string().describe('Who to greet'))
-  .flag('loud', flag.boolean().alias('l').describe('Shout the greeting'))
-  .flag('times', flag.number().default(1).describe('Repeat count'))
+  .flag(
+    'loud',
+    flag
+      .boolean()
+      .alias('l')
+      .describe('Shout the greeting'),
+  )
+  .flag(
+    'times',
+    flag.number().default(1).describe('Repeat count'),
+  )
   .action(({ args, flags, out }) => {
     for (let i = 0; i < flags.times; i++) {
       const msg = `Hello, ${args.name}!`;
@@ -56,15 +65,26 @@ no `undefined` to check.
 ## Multi-Command CLI
 
 ```ts twoslash
-import { cli, command, group, flag, arg } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  group,
+  flag,
+  arg,
+} from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
   .description('Deploy to an environment')
   .arg('target', arg.string())
   .flag('force', flag.boolean().alias('f'))
-  .flag('region', flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION'))
+  .flag(
+    'region',
+    flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION'),
+  )
   .action(({ args, flags, out }) => {
-    out.log(`Deploying ${args.target} to ${flags.region ?? 'default'}`);
+    out.log(
+      `Deploying ${args.target} to ${flags.region ?? 'default'}`,
+    );
   });
 
 const login = command('login')
@@ -72,7 +92,9 @@ const login = command('login')
   .flag('token', flag.string())
   .action(({ flags, out }) => {
     out.log(
-      flags.token ? 'Authenticated via token' : 'Authenticated interactively',
+      flags.token
+        ? 'Authenticated via token'
+        : 'Authenticated interactively',
     );
   });
 

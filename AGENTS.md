@@ -154,7 +154,7 @@ bun run ci           # check -> lint -> test -> build (sequential)
 
 - **CI**: GitHub Actions — lint+typecheck (Bun), test matrix (Node LTS + Bun), Deno smoke test,
   build, coverage (Node only, v8 provider)
-- **JSR publishing** — `deno.jsonc` (`@kjanat/dreamcli`), GitHub Actions publish workflow with OIDC
+- **JSR publishing** — `deno.json` (`@kjanat/dreamcli`), GitHub Actions publish workflow with OIDC
 - **npm publishing** — manual `bun publish`, quality gates in build step
 - **~62 source files, 66 test files, ~17.5k source lines** — ~2200 tests
 - **13 files >500 lines** — `schema/command.ts` (1466), `cli/index.ts` (1015), `json-schema/index.ts` (891),
@@ -174,5 +174,5 @@ bun run ci           # check -> lint -> test -> build (sequential)
 - `node-builtins.d.ts` — handwritten ambient module declarations for `node:readline` and
   `node:fs/promises` to avoid `@types/node` dependency
 - Fake timers in tests: inline `vi.useFakeTimers()` with `try/finally`, never lifecycle hooks
-- Version sync enforced: `scripts/check-version-sync.ts` validates package.json == deno.jsonc
+- Version sync enforced: `scripts/check-version-sync.ts` validates package.json == deno.json
 - Engine requirements: Node >=22.22.2, Bun >=1.3.11, Deno >=2.6.0

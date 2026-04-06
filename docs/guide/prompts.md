@@ -9,8 +9,12 @@ Prompts activate only when needed and only in interactive contexts.
 import { flag } from '@kjanat/dreamcli';
 
 flag.string().prompt({ kind: 'input', message: 'Name?' });
-flag.boolean().prompt({ kind: 'confirm', message: 'Sure?' });
-flag.enum(['a', 'b']).prompt({ kind: 'select', message: 'Pick one' });
+flag
+  .boolean()
+  .prompt({ kind: 'confirm', message: 'Sure?' });
+flag
+  .enum(['a', 'b'])
+  .prompt({ kind: 'select', message: 'Pick one' });
 flag.array(flag.string()).prompt({
   kind: 'multiselect',
   message: 'Pick many',
@@ -44,7 +48,10 @@ command('deploy')
   .flag('region', flag.enum(['us', 'eu', 'ap']))
   .flag('confirm', flag.boolean())
   .interactive(({ flags }) => ({
-    region: !flags.region && { kind: 'select', message: 'Which region?' },
+    region: !flags.region && {
+      kind: 'select',
+      message: 'Which region?',
+    },
     confirm: flags.region === 'us' && {
       kind: 'confirm',
       message: 'Deploy to US prod?',

@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - name: Version sync (package.json ↔ deno.jsonc)
+      - name: Version sync (package.json ↔ deno.json)
         run: bun run scripts/check-version-sync.ts
       - run: bun run typecheck
       - run: bun run typecheck:tsc

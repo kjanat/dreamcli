@@ -23,8 +23,6 @@
 		"noImplicitOverride": true,
 		"forceConsistentCasingInFileNames": true,
 
-		"customConditions": ["bun"],
-		"rootDir": ".",
 		"paths": {
 			"@kjanat/dreamcli": ["./src/index.ts"],
 			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
@@ -33,13 +31,5 @@
 			"@kjanat/dreamcli/package.json": ["./package.json"]
 		}
 	},
-	"include": [
-		"./src/**/*.ts",
-		"./examples/*.ts",
-		"./package.json",
-		"./scripts/**/*.ts",
-		"./docs/**/*.ts",
-		"./*.ts"
-	],
-	"exclude": ["**/dist", "**/node_modules", "**/.cache"]
+	"exclude": ["**/dist", "**/node_modules"]
 }

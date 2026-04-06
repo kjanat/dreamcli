@@ -66,7 +66,7 @@ cp source.txt backup.txt
 The program knows `source.txt` is the thing to copy and `backup.txt` is where to put it, purely
 because of the order you typed them. First thing = source. Second thing = destination. That's it.
 
-Arguments are usually the main *thing* the command works on:
+Arguments are usually the main _thing_ the command works on:
 
 ```bash
 cat readme.txt    # "read THIS file"
@@ -76,7 +76,7 @@ rm old-stuff.log  # "delete THIS file"
 
 ## What's a Flag?
 
-A flag changes *how* the command works. Arguments are the what, flags are the how.
+A flag changes _how_ the command works. Arguments are the what, flags are the how.
 
 Flags come in two flavors:
 
@@ -129,8 +129,8 @@ grep "hello" file.txt --ignore-case --count
 #    arg 1   arg 2    flag          flag
 ```
 
-- **Arguments** = the *things* (what to search, where to search)
-- **Flags** = the *tweaks* (ignore case? just count matches?)
+- **Arguments** = the _things_ (what to search, where to search)
+- **Flags** = the _tweaks_ (ignore case? just count matches?)
 
 ## The Double Dash `--`
 

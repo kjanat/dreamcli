@@ -8,15 +8,21 @@
 	"wrap_guides": [100],
 	"file_types": { "Markdown": ["LICENSE"] },
 	"prettier": { "allowed": false },
-	"formatter": { "language_server": { "name": "dprint" } },
+	"formatter": [{ "language_server": { "name": "dprint" } }],
 	"languages": {
 		"JavaScript": {
-			"code_actions_on_format": { "fixAll.biome": true, "organizeImports.biome": true },
+			"code_actions_on_format": {
+				"fixAll.biome": true,
+				"organizeImports.biome": true
+			},
 			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
 		},
 		"TypeScript": {
-			"code_actions_on_format": { "fixAll.biome": true, "organizeImports.biome": true },
-			"language_servers": ["typescript-language-server", "tsgo", "biome", "deno"]
+			"code_actions_on_format": {
+				"fixAll.biome": true,
+				"organizeImports.biome": true
+			},
+			"language_servers": ["vtsls", "tsgo", "biome", "deno", "vue-language-server"]
 		}
 	},
 	"lsp": {
@@ -24,7 +30,9 @@
 		"vtsls": {
 			"initialization_options": {
 				// https://github.com/yioneko/vtsls/blob/04c4d90fb4f18dff34d9282cdb7f508aab12cd95/packages/service/configuration.schema.json#L380
-				"typescript": { "preferences": { "importModuleSpecifier": "non-relative" } }
+				"typescript": {
+					"preferences": { "importModuleSpecifier": "non-relative" }
+				}
 			}
 		},
 		"dprint": {

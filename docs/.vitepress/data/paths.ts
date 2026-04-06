@@ -19,5 +19,4 @@ export const generatedMetaSchemaDescriptionsPath = `${rootDir}/src/core/json-sch
 
 /** Git ref for source links. Env override: `DOCS_GIT_REF`. */
 export const gitRef: string =
-  process.env['DOCS_GIT_REF'] ??
-  execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+	process.env['DOCS_GIT_REF'] ?? execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();

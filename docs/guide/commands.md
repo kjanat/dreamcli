@@ -80,7 +80,10 @@ import { command } from '@kjanat/dreamcli';
 command('deploy')
   .description('Deploy to an environment')
   .example('deploy production', 'Deploy to prod')
-  .example('deploy staging --force', 'Force deploy to staging');
+  .example(
+    'deploy staging --force',
+    'Force deploy to staging',
+  );
 ```
 
 ### Default Command
@@ -121,14 +124,16 @@ The `.action()` callback receives a single object with typed fields:
 ```ts twoslash
 import { command } from '@kjanat/dreamcli';
 
-command('deploy').action(({ args, flags, ctx, meta, out }) => {
-  // args  — typed positional arguments
-  // flags — typed flag values (fully resolved)
-  // ctx   — typed middleware context
-  // meta  — CLI metadata: name (program name), bin (invoked binary name),
-  //         version (program version), command (leaf command name)
-  // out   — output channel
-});
+command('deploy').action(
+  ({ args, flags, ctx, meta, out }) => {
+    // args  — typed positional arguments
+    // flags — typed flag values (fully resolved)
+    // ctx   — typed middleware context
+    // meta  — CLI metadata: name (program name), bin (invoked binary name),
+    //         version (program version), command (leaf command name)
+    // out   — output channel
+  },
+);
 ```
 
 Actions can be `async`:

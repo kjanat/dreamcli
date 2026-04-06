@@ -24,15 +24,30 @@ It is a stability target for tests and refactors, not a public API guarantee.
 The planner contract is modeled in `src/core/cli/planner.ts` as:
 
 ```ts twoslash
-import type { CLIError, HelpOptions } from '@kjanat/dreamcli';
+import type {
+  CLIError,
+  HelpOptions,
+} from '@kjanat/dreamcli';
 
 type CommandExecutionPlan = Record<string, unknown>;
 
 type DispatchOutcome =
-  | { readonly kind: 'root-help'; readonly help: HelpOptions }
-  | { readonly kind: 'root-version'; readonly version: string }
-  | { readonly kind: 'dispatch-error'; readonly error: CLIError }
-  | { readonly kind: 'match'; readonly plan: CommandExecutionPlan };
+  | {
+      readonly kind: 'root-help';
+      readonly help: HelpOptions;
+    }
+  | {
+      readonly kind: 'root-version';
+      readonly version: string;
+    }
+  | {
+      readonly kind: 'dispatch-error';
+      readonly error: CLIError;
+    }
+  | {
+      readonly kind: 'match';
+      readonly plan: CommandExecutionPlan;
+    };
 ```
 
 The intent is simple:

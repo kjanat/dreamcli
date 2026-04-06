@@ -29,7 +29,11 @@ At runtime, your loader needs to support JSON imports for the target environment
 
 ```ts twoslash
 import schema from '@kjanat/dreamcli/schema';
-import { cli, command, generateSchema } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  generateSchema,
+} from '@kjanat/dreamcli';
 
 const app = cli('mycli').command(command('deploy'));
 const definition = generateSchema(app.schema);

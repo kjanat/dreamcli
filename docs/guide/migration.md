@@ -86,7 +86,10 @@ import { runCommand } from '@kjanat/dreamcli/testkit';
 const deploy = command('deploy')
   .flag(
     'region',
-    flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION').config('deploy.region'),
+    flag
+      .enum(['us', 'eu', 'ap'])
+      .env('DEPLOY_REGION')
+      .config('deploy.region'),
   )
   .action(() => {});
 

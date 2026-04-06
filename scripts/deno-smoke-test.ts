@@ -3,7 +3,7 @@
  * Deno adapter smoke test.
  *
  * Runs under Deno to verify the source package works on a real Deno runtime.
- * Imports via the deno.jsonc import map (same resolution JSR consumers get).
+ * Imports via the deno.json import map (same resolution JSR consumers get).
  * Complements vitest-based unit tests by exercising the adapter against actual Deno APIs.
  *
  * Usage: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
@@ -15,7 +15,7 @@
 
 import type { RuntimeAdapter } from '#dreamcli/runtime';
 
-// Import via deno.jsonc import map — resolves to src/runtime.ts,
+// Import via deno.json import map — resolves to src/runtime.ts,
 // same source tree that `deno publish` ships to JSR.
 const runtimeModule = await import('#dreamcli/runtime');
 

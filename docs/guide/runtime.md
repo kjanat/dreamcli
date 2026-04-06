@@ -34,7 +34,10 @@ Runtime detection is automatic — dreamcli picks the right adapter at startup.
 ## Explicit Adapter
 
 ```ts twoslash
-import { createAdapter, createNodeAdapter } from '@kjanat/dreamcli/runtime';
+import {
+  createAdapter,
+  createNodeAdapter,
+} from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect
 const nodeAdapter = createNodeAdapter(); // explicit

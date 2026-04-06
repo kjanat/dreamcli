@@ -1,7 +1,7 @@
 # Output and TTY
 
 CLIs communicate through text.
-But *where* that text goes and *how* it looks depends on context.
+But _where_ that text goes and _how_ it looks depends on context.
 
 ## stdout and stderr
 
@@ -36,7 +36,7 @@ mycli list | grep "important"
 **TTY** stands for "teletypewriter" — a physical terminal from the 1960s.\
 Today it means "is a human looking at this output in a real terminal?"
 
-Your program can check: *is my stdout connected to a terminal, or to a pipe/file?*
+Your program can check: _is my stdout connected to a terminal, or to a pipe/file?_
 
 ```bash
 mycli list              # stdout → terminal (TTY)
@@ -135,8 +135,16 @@ mycli list --json
 
 ```json
 [
-  { "name": "web-1", "status": "running", "uptime": "3d 2h" },
-  { "name": "web-2", "status": "running", "uptime": "1d 5h" }
+  {
+    "name": "web-1",
+    "status": "running",
+    "uptime": "3d 2h"
+  },
+  {
+    "name": "web-2",
+    "status": "running",
+    "uptime": "1d 5h"
+  }
 ]
 ```
 

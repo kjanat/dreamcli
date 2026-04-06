@@ -6,7 +6,11 @@ always in sync with your CLI definition.
 ## Generating Scripts
 
 ```ts twoslash
-import { cli, command, generateCompletion } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  generateCompletion,
+} from '@kjanat/dreamcli';
 
 const serve = command('serve');
 const myCli = cli('mycli').default(serve);
@@ -15,7 +19,9 @@ generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
 generateCompletion(myCli.schema, 'fish');
 generateCompletion(myCli.schema, 'powershell');
-generateCompletion(myCli.schema, 'bash', { rootMode: 'surface' });
+generateCompletion(myCli.schema, 'bash', {
+  rootMode: 'surface',
+});
 ```
 
 ## Supported Shells
@@ -39,7 +45,12 @@ tracked follow-up work.
 A common pattern is to add a `completions` subcommand:
 
 ```ts twoslash
-import { arg, cli, command, generateCompletion } from '@kjanat/dreamcli';
+import {
+  arg,
+  cli,
+  command,
+  generateCompletion,
+} from '@kjanat/dreamcli';
 
 const myCli = cli('mycli');
 
@@ -48,21 +59,28 @@ const completions = command('completions')
   .arg(
     'shell',
     arg
-      .custom((raw): 'bash' | 'zsh' | 'fish' | 'powershell' => {
-        if (
-          raw !== 'bash' &&
-          raw !== 'zsh' &&
-          raw !== 'fish' &&
-          raw !== 'powershell'
-        ) {
-          throw new Error('Expected bash, zsh, fish, or powershell');
-        }
-        return raw;
-      })
+      .custom(
+        (raw): 'bash' | 'zsh' | 'fish' | 'powershell' => {
+          if (
+            raw !== 'bash' &&
+            raw !== 'zsh' &&
+            raw !== 'fish' &&
+            raw !== 'powershell'
+          ) {
+            throw new Error(
+              'Expected bash, zsh, fish, or powershell',
+            );
+          }
+          return raw;
+        },
+      )
       .describe('Target shell'),
   )
   .action(({ args, out }) => {
-    const script = generateCompletion(myCli.schema, args.shell);
+    const script = generateCompletion(
+      myCli.schema,
+      args.shell,
+    );
     out.log(script);
   });
 ```

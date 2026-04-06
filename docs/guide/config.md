@@ -56,7 +56,9 @@ import { cli, configFormat } from '@kjanat/dreamcli';
 
 cli('mycli')
   .config('mycli')
-  .configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))
+  .configLoader(
+    configFormat(['yaml', 'yml'], Bun.YAML.parse),
+  )
   .configLoader(configFormat(['toml'], Bun.TOML.parse))
   .run();
 ```
