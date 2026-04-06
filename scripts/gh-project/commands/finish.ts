@@ -32,16 +32,11 @@ const finish = command('finish')
 
 		const readyFromPrd = computeReadyTaskIds(prd.file, [args.taskId]);
 		const updates: WorkflowUpdate[] = [{ taskId: args.taskId, workflow: 'Done' }];
+		const readyTaskIds = new Set<string>([...readyFromPrd, ...(flags.ready ?? [])]);
+		readyTaskIds.delete(args.taskId);
 
-		for (const taskId of readyFromPrd) {
-			if (taskId !== args.taskId) {
-				updates.push({ taskId, workflow: 'Ready' });
-			}
-		}
-		for (const taskId of flags.ready) {
-			if (taskId !== args.taskId) {
-				updates.push({ taskId, workflow: 'Ready' });
-			}
+		for (const taskId of readyTaskIds) {
+			updates.push({ taskId, workflow: 'Ready' });
 		}
 
 		const project = await loadProjectContext(flags.project, flags.owner);

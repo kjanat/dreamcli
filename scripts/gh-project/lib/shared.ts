@@ -28,7 +28,11 @@ function formatError(error: unknown): string {
 }
 
 function parseJson(text: string): unknown {
-	return JSON.parse(text);
+	try {
+		return JSON.parse(text);
+	} catch (error) {
+		return fail(`Failed to parse JSON: ${formatError(error)}`);
+	}
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -228,7 +232,6 @@ function priorityRank(priority: string | undefined): number {
 
 function buildListRows(project: ProjectContext, prd: PrdState): readonly ListRow[] {
 	return [...prd.file.tasks]
-		.sort(compareTasks)
 		.map((task) => {
 			const item = project.itemsByTaskId.get(task.id);
 			return {

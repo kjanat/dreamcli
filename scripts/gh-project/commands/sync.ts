@@ -30,7 +30,8 @@ const sync = command('sync')
 
 		const ready = new Set(computeReadyTaskIds(prd.file));
 
-		// Create missing items
+		// Create missing items sequentially to avoid GitHub API rate-limit bursts.
+		// If this is parallelized later, add explicit throttling/backoff around createProjectItem().
 		const itemsByTaskId = new Map(project.itemsByTaskId);
 		const created: string[] = [];
 		for (const task of prd.file.tasks) {

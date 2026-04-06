@@ -35,7 +35,7 @@ features:
       dark: /icons/resolution-chain-dark.svg
       height: 48
     title: Resolution Chain
-    details: 'CLI → env → config → prompt → default. Every step opt-in. Every step preserves types.'
+    details: CLI → env → config → prompt → default. Every step opt-in. Every step preserves types.
   - icon:
       light: /icons/test-harness-light.svg
       dark: /icons/test-harness-dark.svg

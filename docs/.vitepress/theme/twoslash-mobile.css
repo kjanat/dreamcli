@@ -27,7 +27,6 @@
 		max-height: 50vh;
 		border-radius: 12px 12px 0 0 !important;
 		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
 		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
 		z-index: 9999;
 	}

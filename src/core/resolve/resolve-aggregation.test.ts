@@ -40,13 +40,11 @@ async function catchValidationError(
 		await resolve(schema, parsed, options);
 		expect.unreachable('should have thrown');
 	} catch (error) {
-		expect(isValidationError(error)).toBe(true);
-		if (isValidationError(error)) {
-			return error;
+		if (!isValidationError(error)) {
+			expect.fail(`Expected ValidationError but got ${String(error)}`);
 		}
+		return error;
 	}
-
-	throw new Error('unreachable');
 }
 
 function readIssueSummaries(

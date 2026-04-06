@@ -114,13 +114,13 @@ interface AppliedWorkflowUpdate {
 }
 
 type ListRow = {
-	taskId: string;
-	passes: string;
-	status: string;
-	workflow: string;
-	phase: string;
-	priority: string;
-	title: string;
+	readonly taskId: string;
+	readonly passes: string;
+	readonly status: string;
+	readonly workflow: string;
+	readonly phase: string;
+	readonly priority: string;
+	readonly title: string;
 };
 
 export type {

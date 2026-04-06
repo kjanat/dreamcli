@@ -21,7 +21,8 @@ function shikiDedupePopupStylesPlugin(): Plugin {
 
 				// Match style objects like {"--shiki-light":"#D73A49","--shiki-dark":"#F97583"}
 				// These appear as `style:` values in Vue render functions
-				const stylePattern = /\{[^{}]*"--shiki-light":"[^"]*"[^{}]*"--shiki-dark":"[^"]*"[^{}]*\}/g;
+				const stylePattern =
+					/\{(?=[^{}]*"--shiki-light":"[^"]*")(?=[^{}]*"--shiki-dark":"[^"]*")[^{}]*\}/g;
 
 				// First pass: collect all unique styles and count occurrences
 				const occurrences = new Map<string, number>();
@@ -51,7 +52,8 @@ function shikiDedupePopupStylesPlugin(): Plugin {
 
 				// Inject declarations after the first line (usually the module header)
 				const firstNewline = code.indexOf('\n');
-				chunk.code = code.slice(0, firstNewline + 1) + declarations + code.slice(firstNewline + 1);
+				const insertionIndex = firstNewline === -1 ? 0 : firstNewline + 1;
+				chunk.code = code.slice(0, insertionIndex) + declarations + code.slice(insertionIndex);
 			}
 		},
 	};

@@ -45,6 +45,7 @@ if (checkMode) {
 }
 
 await writeFile(generatedMetaSchemaDescriptionsPath, rendered);
+console.log('✓ src/core/json-schema/meta-descriptions.generated.ts updated');
 
 async function formatGeneratedSource(source: string): Promise<string> {
 	const tempFilePath = join(

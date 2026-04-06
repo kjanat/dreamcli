@@ -1,4 +1,12 @@
 #!/usr/bin/env bun
+
+/**
+ * Developer helper for Bun workspace linking behavior.
+ *
+ * @module note-to-self
+ * @internal
+ */
+
 import { $ } from 'bun';
 import { dependencies } from './examples/gh/package.json' with { type: 'json' };
 
@@ -21,16 +29,17 @@ const mdCodeFence = (code: string, language = '', file?: string, filetext?: stri
 const link = await $`bun link`.quiet();
 if (link.exitCode !== 0) {
 	console.error('bun link failed:', new TextDecoder().decode(link.stderr));
+	process.exit(link.exitCode);
 }
 
-console.error(`remember to check if bun supports basic monorepo shit like referencing workspace's root package...
+console.error(`Reminder: verify Bun workspace behavior for root package references.
 link: ${osc8Link('https://bun.com/docs/pm/workspaces', 'bun workspaces')}`);
 
-/** WHY DO I NEED TO FUCKING DO THIS??? @see {@linkcode link | Linking the root package for use in workspaces} */
+/** Why this workaround exists. See Bun docs for linking root packages in workspaces. */
 const why = `
-WTF IS THIS SHIT!!! Why??? This is why:
+Why this step exists:
 
 ${mdCodeFence(JSON.stringify(dependencies, null, '  '), 'json', 'examples/gh/package.json', "gh example's package.json dependencies")}`;
 
 console.warn(why);
-process.exit(link.exitCode);
+process.exit(0);

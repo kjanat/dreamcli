@@ -17,19 +17,25 @@ const rootDir = normalize(`${import.meta.dirname}/../../..`);
 const definitionSchemaPath = `${rootDir}/dreamcli.schema.json`;
 
 export function sourceArtifactsPlugin(): Plugin {
-	let building = false;
+	let buildingPromise: Promise<void> | null = null;
 
 	async function ensureSchema(): Promise<void> {
-		if (building) {
-			return;
+		if (buildingPromise !== null) {
+			return buildingPromise;
 		}
 
-		building = true;
-		try {
+		const pending = (async () => {
 			const { emitDefinitionSchema } = await import(`${rootDir}/scripts/emit-definition-schema.ts`);
 			await emitDefinitionSchema();
+		})();
+		buildingPromise = pending;
+
+		try {
+			await pending;
 		} finally {
-			building = false;
+			if (buildingPromise === pending) {
+				buildingPromise = null;
+			}
 		}
 	}
 

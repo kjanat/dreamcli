@@ -126,4 +126,4 @@ Trying to force those flows through one broad property abstraction would hide re
 
 - resolver input and output boundaries are now named explicitly in code
 - precedence and diagnostic expectations now have one internal contract module
-- full resolver decomposition is still future work; production logic remains in `src/core/resolve/index.ts`
+- resolver orchestration remains in `src/core/resolve/index.ts`, with flag and arg paths delegated to `flags.ts` and `args.ts`

@@ -4,8 +4,10 @@
 	import { runtimes, useDocSettings } from '../composables/use-doc-settings.ts';
 
 	const settings = useDocSettings();
+	const settingsDropdownId = 'docs-settings-dropdown';
 	const open = ref(false);
 	const root = ref<HTMLElement | null>(null);
+	const triggerButton = ref<HTMLButtonElement | null>(null);
 
 	function toggle() {
 		open.value = !open.value;
@@ -17,15 +19,69 @@
 		}
 	}
 
-	onMounted(() => document.addEventListener('click', onClickOutside));
-	onUnmounted(() => document.removeEventListener('click', onClickOutside));
+	function getOptionInputs(): HTMLElement[] {
+		if (root.value === null) {
+			return [];
+		}
+		return Array.from(root.value.querySelectorAll<HTMLElement>('.settings-dropdown input'));
+	}
+
+	function onKeyDown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && open.value) {
+			open.value = false;
+			const trigger = triggerButton.value;
+			if (trigger !== null) {
+				trigger.focus();
+			}
+			return;
+		}
+
+		if (!open.value || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) {
+			return;
+		}
+
+		const activeElement = document.activeElement;
+		if (root.value !== null && (activeElement === null || !root.value.contains(activeElement))) {
+			return;
+		}
+
+		const options = getOptionInputs();
+		if (options.length === 0) {
+			return;
+		}
+
+		e.preventDefault();
+		const currentIndex = activeElement instanceof HTMLElement ? options.indexOf(activeElement) : -1;
+		const direction = e.key === 'ArrowDown' ? 1 : -1;
+		const nextIndex =
+			currentIndex === -1
+				? direction === 1
+					? 0
+					: options.length - 1
+				: (currentIndex + direction + options.length) % options.length;
+		const nextInput = options[nextIndex];
+		if (nextInput !== undefined) {
+			nextInput.focus();
+		}
+	}
+
+	onMounted(() => {
+		document.addEventListener('click', onClickOutside);
+		document.addEventListener('keydown', onKeyDown);
+	});
+	onUnmounted(() => {
+		document.removeEventListener('click', onClickOutside);
+		document.removeEventListener('keydown', onKeyDown);
+	});
 </script>
 
 <template>
 	<div ref="root" class="settings-gear" :class="{ open }">
 		<button
+			ref="triggerButton"
 			class="settings-gear-btn"
 			:aria-expanded="open"
+			:aria-controls="settingsDropdownId"
 			aria-label="Documentation settings"
 			@click="toggle"
 		>
@@ -46,8 +102,8 @@
 		</button>
 
 		<Transition name="settings-dropdown">
-			<div v-show="open" class="settings-dropdown">
-				<label class="settings-toggle">
+			<div v-show="open" :id="settingsDropdownId" class="settings-dropdown" role="menu">
+				<label class="settings-toggle" role="menuitemcheckbox" :aria-checked="settings.twoslash">
 					<span>Type hovers</span>
 					<input v-model="settings.twoslash" type="checkbox">
 					<span class="toggle-track" />
@@ -59,6 +115,8 @@
 						:key="rt.value"
 						class="runtime-option"
 						:class="{ active: settings.runtime === rt.value }"
+						role="menuitemradio"
+						:aria-checked="settings.runtime === rt.value"
 					>
 						<input
 							v-model="settings.runtime"

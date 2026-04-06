@@ -1,6 +1,6 @@
 # testkit — In-process test harness (public API)
 
-First-class module exported from `dreamcli/testkit` subpath (curating barrel at `src/testkit.ts`).
+First-class module exported from `@kjanat/dreamcli/testkit` subpath (curating barrel at `src/testkit.ts`).
 
 ## CORE API
 

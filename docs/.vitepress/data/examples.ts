@@ -151,18 +151,17 @@ async function parseExample(filePath: string, repoRoot: string): Promise<Example
 
 function collectRelatedSymbols(source: string): readonly ExampleRelatedSymbol[] {
 	const symbolLinks = new Map<string, ExampleRelatedSymbol>();
-	for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*'([^']+)'/g)) {
-		const importList = match[1];
-		const moduleName = match[2];
-		if (importList === undefined || moduleName === undefined || !isDreamcliImport(moduleName)) {
+	// Capture `import ... from 'module'` and `import ... from "module"` forms.
+	// Default-only imports are intentionally ignored; we only link named imports.
+	const importPattern = /import\s+(?:type\s+)?([^;]+?)\s+from\s*(['"])([^'"]+)\2/g;
+	for (const match of source.matchAll(importPattern)) {
+		const importClause = match[1];
+		const moduleName = match[3];
+		if (importClause === undefined || moduleName === undefined || !isDreamcliImport(moduleName)) {
 			continue;
 		}
 
-		for (const entry of importList.split(',')) {
-			const importedName = normalizeImportedName(entry);
-			if (importedName === null) {
-				continue;
-			}
+		for (const importedName of extractImportedNames(importClause)) {
 			symbolLinks.set(`${moduleName}:${importedName}`, {
 				entrypoint: moduleName,
 				name: importedName,
@@ -174,6 +173,23 @@ function collectRelatedSymbols(source: string): readonly ExampleRelatedSymbol[] 
 	return Array.from(symbolLinks.values()).sort((left, right) =>
 		left.name.localeCompare(right.name),
 	);
+}
+
+function extractImportedNames(importClause: string): readonly string[] {
+	const namedSection = /\{([^}]*)\}/.exec(importClause)?.[1];
+	if (namedSection === undefined) {
+		return [];
+	}
+
+	const importedNames: string[] = [];
+	for (const entry of namedSection.split(',')) {
+		const importedName = normalizeImportedName(entry);
+		if (importedName !== null) {
+			importedNames.push(importedName);
+		}
+	}
+
+	return importedNames;
 }
 
 function normalizeImportedName(entry: string): string | null {

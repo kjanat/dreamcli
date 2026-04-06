@@ -63,6 +63,7 @@ npm)
 	validate_release_tag "${version}"
 
 	url="https://www.npmjs.com/package/${package}/v/${version}"
+	# yq -n builds one-line JSON; strenv() pulls PACKAGE/VERSION/URL from this env assignment.
 	meta_json="$(PACKAGE="${package}" VERSION="${version}" URL="${url}" yq -n -o=json -I=0 '.package = strenv(PACKAGE) | .version = strenv(VERSION) | .url = strenv(URL)')"
 	;;
 
@@ -105,6 +106,7 @@ jsr)
 	validate_release_tag "${deno_version}"
 
 	url="https://jsr.io/${deno_package}@${deno_version}"
+	# yq -n builds one-line JSON; strenv() pulls PACKAGE/VERSION/URL from this env assignment.
 	meta_json="$(PACKAGE="${deno_package}" VERSION="${deno_version}" URL="${url}" yq -n -o=json -I=0 '.package = strenv(PACKAGE) | .version = strenv(VERSION) | .url = strenv(URL)')"
 	;;
 

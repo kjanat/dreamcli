@@ -170,8 +170,8 @@ References: [Testing Commands](/guide/testing), [Runtime Support](/guide/runtime
 Use this order:
 
 1. Check [CLI Semantics](/guide/semantics) for precedence or root-surface rules.
-2. Check [Support Matrix](/reference/support-matrix) to confirm the surface is actually shipped.
-3. Check [Limitations And Workarounds](/guide/limitations) for intentional constraints.
+2. Confirm in [Support Matrix](/reference/support-matrix) that the surface is actually shipped.
+3. Review [Limitations And Workarounds](/guide/limitations) for intentional constraints.
 4. Reduce the command to one failing flag or arg and reproduce it under `runCommand()`.
 
 ## Related Pages

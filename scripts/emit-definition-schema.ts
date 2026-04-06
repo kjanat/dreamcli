@@ -4,6 +4,8 @@
  * Detects the runtime to set the registry-specific `$id`:
  * - Deno     → JSR URL
  * - Bun/Node → npm CDN URL
+ *
+ * @module
  */
 
 import { writeFile } from 'node:fs/promises';
@@ -21,7 +23,7 @@ const schemaId =
 
 export async function emitDefinitionSchema(): Promise<void> {
 	const schema = { ...definitionMetaSchema, $id: schemaId };
-	const schemaStr = JSON.stringify(schema, null, '  ');
+	const schemaStr = `${JSON.stringify(schema, null, '  ')}\n`;
 	await writeFile(outFile, schemaStr, 'utf-8');
 	console.error(`Definition schema emitted to ${outFile}`);
 }

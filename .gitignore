@@ -223,11 +223,11 @@ $RECYCLE.BIN/
 .serena/
 .jj-shim/
 .envrc
-**/.vitepress/cache
+**/.vitepress/cache/
 /_*.md
 /_*.ts
 /*example*.ts
 .codex
 /dreamcli.schema.json
-/.bucket
+/.bucket/
 .playwright-mcp/

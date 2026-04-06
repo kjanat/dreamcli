@@ -20,6 +20,11 @@ import {
 	generateZshCompletion,
 	SHELLS,
 } from './index.ts';
+import {
+	extractBashRootWords,
+	extractFishCompletionLines,
+	extractZshRootFunction,
+} from './completion-test-helpers.ts';
 
 // === Test helpers
 
@@ -97,12 +102,6 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 		plugins: overrides.plugins ?? [],
 	};
 }
-
-import {
-	extractBashRootWords,
-	extractFishCompletionLines,
-	extractZshRootFunction,
-} from './completion-test-helpers.ts';
 
 // === Shell type — SHELLS constant
 

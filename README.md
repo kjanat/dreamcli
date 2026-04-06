@@ -178,7 +178,7 @@ Third-party plugins and custom glue can extend the other libraries.
 | Schema-driven prompts                      | Integrated                            | No                  | No                     | No              | No            | No            |
 | Middleware / hooks                         | Yes — typed middleware                | Lifecycle hooks     | Middleware             | Plugins / hooks | Events        | No            |
 | Built-in test harness with output capture  | `runCommand()` + capture              | No                  | No                     | No              | No            | No            |
-| Shell completions from command definitions | Built-in (bash/zsh)                   | No                  | Built-in (bash/zsh)    | No              | No            | No            |
+| Shell completions from command definitions | Built-in (bash/zsh/fish/powershell)   | No                  | Built-in (bash/zsh)    | No              | No            | No            |
 | Structured output primitives               | Built-in (`--json`, tables, spinners) | DIY                 | DIY                    | DIY             | DIY           | DIY           |
 | Config file support                        | Built-in (XDG discovery, JSON)        | DIY                 | Built-in (`.config()`) | No              | No            | No            |
 

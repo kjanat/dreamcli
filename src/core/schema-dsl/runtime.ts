@@ -418,7 +418,12 @@ class SchemaParser {
 		// Record<K, V>
 		if (name === 'Record') {
 			this.expect('langle');
-			this.parseValue(); // key type (consumed but only string keys make sense for JSON)
+			const keySchema = this.parseValue();
+			if (keySchema.kind !== 'string') {
+				throw new SyntaxError(
+					"Record key type must be 'string' because JSON object keys are always strings",
+				);
+			}
 			this.expect('comma');
 			const valueSchema = this.parseValue();
 			this.expect('rangle');

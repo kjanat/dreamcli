@@ -276,6 +276,19 @@ describe('parseSchema — runtime parser', () => {
 	it('throws on duplicate object property names', () => {
 		expect(() => parseSchema('{ name: string; name: number }')).toThrow(SyntaxError);
 	});
+
+	it('throws when Record key type is not string', () => {
+		expect(() => parseSchema('Record<number, string>')).toThrow(
+			"Record key type must be 'string' because JSON object keys are always strings",
+		);
+	});
+
+	it('parses Record<string, number>', () => {
+		expect(parseSchema('Record<string, number>')).toEqual({
+			kind: 'record',
+			value: { kind: 'number' },
+		});
+	});
 });
 
 // ── Validation ──────────────────────────────────────────────────────
@@ -317,6 +330,7 @@ describe('validateNode — runtime validation', () => {
 		};
 		expect(validateNode(node, { name: 'Alice' })).toBe(true);
 		expect(validateNode(node, { name: 'Alice', bio: 'dev' })).toBe(true);
+		expect(validateNode(node, { name: 'Alice', extra: 'unexpected' })).toBe(false);
 		expect(validateNode(node, {})).toBe(false);
 		expect(validateNode(node, { name: 42 })).toBe(false);
 	});

@@ -166,7 +166,10 @@ function extractConfigFlag(argv: readonly string[]): {
 	let configPath: string | undefined;
 
 	for (let i = 0; i < argv.length; i += 1) {
-		const arg = argv[i] as string;
+		const arg = argv[i];
+		if (arg === undefined) {
+			continue;
+		}
 
 		if (arg === '--') {
 			filteredArgv.push(...argv.slice(i));

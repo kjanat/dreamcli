@@ -64,9 +64,9 @@ describe('createBunAdapter', () => {
 	});
 });
 
-// === createBunAdapter (nested)
+// === createBunAdapter — delegation contract
 
-describe('createBunAdapter', () => {
+describe('createBunAdapter — delegation contract', () => {
 	// --- process delegation
 
 	describe('process delegation', () => {

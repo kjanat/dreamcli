@@ -1,3 +1,9 @@
+/**
+ * Composite Vite plugins for DreamCLI documentation.
+ *
+ * @module
+ */
+
 import type { Plugin } from 'vitepress';
 
 import { shikiClassCssPlugin, shikiClasses } from './shiki-class-css.ts';

@@ -531,9 +531,9 @@ describe('createNodeAdapter stdin', () => {
 	});
 });
 
-// === RuntimeAdapter interface (nested)
+// === RuntimeAdapter interface — contracts
 
-describe('RuntimeAdapter interface', () => {
+describe('RuntimeAdapter interface — contracts', () => {
 	// --- stdin contract
 
 	describe('stdin', () => {

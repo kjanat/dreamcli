@@ -22,8 +22,8 @@ const list = command('list')
 			readPrdState(flags.prd),
 		]);
 
-		const rows = buildListRows(project, prd).filter((row) =>
-			flags.workflow !== undefined ? row.workflow === flags.workflow : true,
+		const rows = buildListRows(project, prd).filter(
+			(row) => flags.workflow === undefined || row.workflow === flags.workflow,
 		);
 
 		if (out.jsonMode) {

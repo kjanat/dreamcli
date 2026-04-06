@@ -5,6 +5,7 @@ smol      = false
 
 [install]
 auto          = "auto"
+exact         = true
 lockfile.save = true
 
 [run]

@@ -75,7 +75,8 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			return { exitCode: 0, error: undefined };
 		}
 
-		if (!command.handler) {
+		const handler = command.handler;
+		if (handler === undefined) {
 			const error = new CLIError(`Command '${command.schema.name}' has no action handler`, {
 				code: 'NO_ACTION',
 				suggest: `Add an .action() handler to the '${command.schema.name}' command`,
@@ -119,7 +120,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		}
 
 		await runResolvedHooks(options?.plugins, 'beforeAction', resolvedParams);
-		await executeWithExecutionSteps(command, resolved.flags, resolved.args, out, meta);
+		await executeWithExecutionSteps(command, handler, resolved.flags, resolved.args, out, meta);
 		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return { exitCode: 0, error: undefined };
@@ -179,19 +180,13 @@ async function runResolvedHooks(
 
 async function executeWithExecutionSteps(
 	command: RunnableCommand,
+	handler: NonNullable<RunnableCommand['handler']>,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
 	out: Out,
 	meta: CommandMeta,
 ): Promise<void> {
 	const steps = command._executionSteps;
-	const handler = command.handler;
-	if (handler === undefined) {
-		throw new CLIError(`Command '${command.schema.name}' has no action handler`, {
-			code: 'NO_ACTION',
-			suggest: `Add an .action() handler to the '${command.schema.name}' command`,
-		});
-	}
 
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 

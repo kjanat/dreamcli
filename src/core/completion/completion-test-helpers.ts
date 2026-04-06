@@ -59,7 +59,12 @@ function extractFishCompletionLines(
 	pathIsFuncName: string,
 	path: string,
 ): readonly string[] {
-	const quotedPath = path === '' ? "''" : /^[a-zA-Z0-9_\-.]+$/.test(path) ? path : `'${path}'`;
+	const quotedPath =
+		path === ''
+			? "''"
+			: /^[a-zA-Z0-9_\-.]+$/.test(path)
+				? path
+				: `'${path.replace(/'/g, "'\\''")}'`;
 	const condition = `-n "${pathIsFuncName} ${quotedPath}"`;
 	return script
 		.split('\n')

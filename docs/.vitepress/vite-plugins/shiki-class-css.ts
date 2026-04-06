@@ -1,3 +1,9 @@
+/**
+ * Vite plugin that serves Shiki CSS classes as a virtual CSS module.
+ *
+ * @module
+ */
+
 import { transformerStyleToClass } from '@shikijs/transformers';
 import type { Plugin } from 'vitepress';
 

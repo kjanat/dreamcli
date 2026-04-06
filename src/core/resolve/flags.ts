@@ -95,6 +95,8 @@ async function resolveFlags(
 		const interactiveConfig = interactiveConfigs?.[name];
 
 		let effectivePromptConfig: PromptConfig | undefined;
+		// `interactiveConfig === false` explicitly disables prompts for this flag.
+		// Other falsy values mean "no override", so we fall back to `schema.prompt`.
 		if (
 			interactiveConfig !== undefined &&
 			interactiveConfig !== null &&

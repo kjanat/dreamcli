@@ -93,13 +93,6 @@ For completions specifically, `Shell` and `SHELLS` now match the shipped shell s
 | Consolidated rationale and limitations pages | Supported | [Architecture Rationale](/guide/rationale), [Limitations And Workarounds](/guide/limitations), [Semantic Delta Log](/reference/semantic-delta-log), [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md) | These pages explain the settled architecture trade-offs and current edges as the baseline for adoption guidance.                       |
 | Migration and troubleshooting guides         | Supported | [Migration And Adoption](/guide/migration), [Troubleshooting](/guide/troubleshooting), [Limitations And Workarounds](/guide/limitations), [`specs/dreamcli-re-foundation-prd.md`](https://github.com/kjanat/dreamcli/blob/master/specs/dreamcli-re-foundation-prd.md)           | The narrative docs set now covers evaluation, phased adoption, and likely real failure modes without overstating unsupported surfaces. |
 
-## Deferred Items Already Tracked in the PRD
-
-| Deferred surface              | PRD task IDs |
-| ----------------------------- | ------------ |
-| Rationale and limitations     | None         |
-| Migration and troubleshooting | None         |
-
 ## Related Pages
 
 - [API Reference](/reference/api)

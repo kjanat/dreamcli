@@ -16,6 +16,7 @@ function resolveConfigPath(config: Readonly<Record<string, unknown>>, path: stri
 		if (!Object.hasOwn(current, segment)) {
 			return undefined;
 		}
+		// Safe cast: guarded as a non-null object and verified to have `segment` above.
 		current = (current as Record<string, unknown>)[segment];
 	}
 

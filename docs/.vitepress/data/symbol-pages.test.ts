@@ -2,7 +2,7 @@
  * @module
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { collectPublicApiIndex } from './api-index.ts';
 import { collectExamples } from './examples.ts';
@@ -11,14 +11,16 @@ import { collectSymbolPages, toSymbolPageRoute } from './symbol-pages.ts';
 import { collectTypeDocModel } from './typedoc.ts';
 
 describe('symbol page generation', () => {
-	it('renders stable per-symbol routes from the normalized TypeDoc model', {
-		timeout: 60_000,
-	}, async () => {
+	let pages: ReturnType<typeof collectSymbolPages> = [];
+
+	beforeAll(async () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const examples = await collectExamples(examplesRoot, rootDirPath);
 		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
-		const pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
+		pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
+	}, 60_000);
 
+	it('renders stable per-symbol routes from the normalized TypeDoc model', () => {
 		const cliPage = pages.find((page) => page.id === '@kjanat/dreamcli:cli');
 		const middlewareInterfacePage = pages.find((page) => page.id === '@kjanat/dreamcli:Middleware');
 		expect(cliPage).toMatchObject({
@@ -42,14 +44,7 @@ describe('symbol page generation', () => {
 		});
 	});
 
-	it('renders parameter tables with escaped markdown pipes but plain type unions', {
-		timeout: 60_000,
-	}, async () => {
-		const publicApi = await collectPublicApiIndex(packageJsonPath);
-		const examples = await collectExamples(examplesRoot, rootDirPath);
-		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
-		const pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
-
+	it('renders parameter tables with escaped markdown pipes but plain type unions', () => {
 		const runCommandPage = pages.find((page) => page.id === '@kjanat/dreamcli/testkit:runCommand');
 		const runOptionsPage = pages.find((page) => page.id === '@kjanat/dreamcli/testkit:RunOptions');
 		const cliRunOptionsPage = pages.find((page) => page.id === '@kjanat/dreamcli:CLIRunOptions');
