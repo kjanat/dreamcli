@@ -24,8 +24,11 @@ command('deploy')
     arg.string().describe('Version tag').optional(),
   )
   .action(({ args }) => {
-    args.target; // string (required)
-    args.version; // string | undefined (optional)
+    args.target;
+    //     ^?
+
+    args.version;
+    //     ^?
   });
 ```
 
@@ -65,7 +68,8 @@ command('copy')
     arg.string().variadic().describe('Files to copy'),
   )
   .action(({ args }) => {
-    args.files; // string[]
+    args.files;
+    //     ^?
   });
 ```
 
@@ -90,7 +94,8 @@ command('auth')
       .describe('Token from env'),
   )
   .action(({ args }) => {
-    args.token; // string
+    args.token;
+    //     ^?
   });
 ```
 
@@ -109,7 +114,8 @@ command('format')
     arg.string().stdin().describe('Read from STDIN'),
   )
   .action(({ args }) => {
-    args.data; // string
+    args.data;
+    //     ^?
   });
 ```
 

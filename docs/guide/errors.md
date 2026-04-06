@@ -29,6 +29,18 @@ throw new CLIError('Deployment failed', {
 | `details`  | `unknown`            | Structured payload for JSON output         |
 | `cause`    | `Error \| undefined` | Underlying cause (optional)                |
 
+### Type Safety
+
+```ts twoslash
+import { CLIError } from '@kjanat/dreamcli';
+
+// @errors: 2322
+new CLIError('Deployment failed', {
+  code: 'DEPLOY_FAILED',
+  exitCode: '1',
+});
+```
+
 ## Error Types
 
 ```ts twoslash

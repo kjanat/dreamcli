@@ -14,9 +14,8 @@ flag.enum(['us', 'eu', 'ap']).config('deploy.region');
 This resolves `deploy.region` from the config file using dot-notation.
 If CLI argv and env var don't provide a value, the config file is checked next.
 
-Config never overrides a value that was explicitly provided earlier in the
-chain. For the full precedence rules and examples, see
-[CLI Semantics](/guide/semantics).
+Config never overrides a value that was explicitly provided earlier in the chain.\
+For the full precedence rules and examples, see [CLI Semantics](/guide/semantics).
 
 ## Enabling Config Discovery
 

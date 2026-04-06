@@ -114,22 +114,23 @@ expect(result.activity).toContainEqual(
 ```ts twoslash
 import type { RunResult } from '@kjanat/dreamcli/testkit';
 
+// ---cut---
 declare const result: RunResult;
 
-// stdout lines (each includes trailing \n)
-result.stdout; // string[]
+result.stdout;
+//     ^?
 
-// stderr lines
-result.stderr; // string[]
+result.stderr;
+//     ^?
 
-// Exit code
-result.exitCode; // number
+result.exitCode;
+//     ^?
 
-// Error (if command failed)
-result.error; // CLIError | undefined
+result.error;
+//     ^?
 
-// Activity events (spinner/progress)
-result.activity; // ActivityEvent[]
+result.activity;
+//     ^?
 ```
 
 ## Design Philosophy

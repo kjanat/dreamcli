@@ -166,7 +166,8 @@ command('deploy')
     return { token: flags.token };
   })
   .action(({ ctx }) => {
-    ctx.token; // string
+    ctx.token;
+    //     ^?
   });
 ```
 
