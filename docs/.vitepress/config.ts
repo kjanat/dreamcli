@@ -7,7 +7,11 @@ import tsc from '../../tsconfig.json' with { type: 'json' };
 import { collectPublicApiIndex } from './data/api-index.ts';
 import { collectExampleMeta } from './data/examples.ts';
 import { examplesRoot, packageJsonPath } from './data/paths.ts';
-import { toSymbolPageRoute } from './data/symbol-pages.ts';
+import {
+	collectCaseInsensitiveCollisions,
+	toCollisionKey,
+	toSymbolPageRoute,
+} from './data/symbol-pages.ts';
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
 
@@ -15,11 +19,23 @@ const projectRoot = normalize(`${import.meta.dirname}/../..`);
 const exampleMeta = await collectExampleMeta(examplesRoot);
 const apiIndex = await collectPublicApiIndex(packageJsonPath);
 const symbolRoutes = new Map<string, string>();
-for (const ep of apiIndex) {
-	for (const group of ep.kindGroups) {
-		for (const sym of group.symbols) {
-			symbolRoutes.set(sym.name, toSymbolPageRoute(ep.entrypoint, sym.name));
-		}
+{
+	const allSymbols = apiIndex.flatMap((ep) =>
+		ep.kindGroups.flatMap((group) =>
+			group.symbols.map((sym) => ({ entrypoint: ep.entrypoint, name: sym.name, kind: sym.kind })),
+		),
+	);
+	const collisions = collectCaseInsensitiveCollisions(allSymbols);
+
+	for (const sym of allSymbols) {
+		if (symbolRoutes.has(sym.name)) continue;
+		symbolRoutes.set(
+			sym.name,
+			toSymbolPageRoute(sym.entrypoint, sym.name, {
+				publicKind: sym.kind,
+				hasCaseInsensitiveCollision: collisions.has(toCollisionKey(sym.entrypoint, sym.name)),
+			}),
+		);
 	}
 }
 const isCI = Boolean(process.env.CI);

@@ -88,7 +88,7 @@ export function toSymbolPageFilePath(
 	);
 }
 
-function collectCaseInsensitiveCollisions(
+export function collectCaseInsensitiveCollisions(
 	entries: readonly { entrypoint: string; name: string }[],
 ): ReadonlySet<string> {
 	const counts = new Map<string, number>();
@@ -104,7 +104,7 @@ function collectCaseInsensitiveCollisions(
 	);
 }
 
-function toCollisionKey(entrypoint: string, symbolName: string): string {
+export function toCollisionKey(entrypoint: string, symbolName: string): string {
 	return `${entrypoint}:${symbolName.toLowerCase()}`;
 }
 
@@ -399,7 +399,7 @@ function renderParameter(parameter: NormalizedApiNode): string {
 		return `...${parameter.name}: ${renderType(parameter.type.elementType)}[]`;
 	}
 
-	return `${parameter.name}${optional ? '?' : ''}: ${type}${defaultValue}`;
+	return `${parameter.name}${optional && !defaultValue ? '?' : ''}: ${type}${defaultValue}`;
 }
 
 function renderParameterType(parameter: NormalizedApiNode): string {

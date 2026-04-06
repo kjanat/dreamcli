@@ -47,7 +47,8 @@
 			return;
 		}
 
-		if (!open.value || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) {
+		const navigableKeys = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
+		if (!open.value || !navigableKeys.has(e.key)) {
 			return;
 		}
 
@@ -63,13 +64,20 @@
 
 		e.preventDefault();
 		const currentIndex = activeElement instanceof HTMLElement ? options.indexOf(activeElement) : -1;
-		const direction = e.key === 'ArrowDown' ? 1 : -1;
-		const nextIndex =
-			currentIndex === -1
-				? direction === 1
-					? 0
-					: options.length - 1
-				: (currentIndex + direction + options.length) % options.length;
+		let nextIndex: number;
+		if (e.key === 'Home') {
+			nextIndex = 0;
+		} else if (e.key === 'End') {
+			nextIndex = options.length - 1;
+		} else {
+			const direction = e.key === 'ArrowDown' ? 1 : -1;
+			nextIndex =
+				currentIndex === -1
+					? direction === 1
+						? 0
+						: options.length - 1
+					: (currentIndex + direction + options.length) % options.length;
+		}
 		const nextOption = options[nextIndex];
 		if (nextOption !== undefined) {
 			nextOption.focus();
