@@ -107,7 +107,7 @@ function parseProjectView(payload: unknown): ProjectView {
 	};
 }
 
-function parseStatusField(payload: unknown): StatusField {
+function parseStatusField(payload: unknown, projectNumber: number): StatusField {
 	const record = expectRecord(payload, 'field list');
 	const fields = readArray(record, 'fields', 'field list');
 
@@ -134,10 +134,10 @@ function parseStatusField(payload: unknown): StatusField {
 		};
 	}
 
-	return fail('Could not find built-in Status field on project 4');
+	return fail(`Could not find built-in Status field on project ${projectNumber}`);
 }
 
-function parseWorkflowField(payload: unknown): WorkflowField {
+function parseWorkflowField(payload: unknown, projectNumber: number): WorkflowField {
 	const record = expectRecord(payload, 'field list');
 	const fields = readArray(record, 'fields', 'field list');
 
@@ -164,7 +164,7 @@ function parseWorkflowField(payload: unknown): WorkflowField {
 		};
 	}
 
-	return fail('Could not find Workflow field on project 4');
+	return fail(`Could not find Workflow field on project ${projectNumber}`);
 }
 
 function parseTaskIdFieldId(payload: unknown): string {
@@ -274,8 +274,8 @@ async function loadProjectContext(projectNumber: number, owner: string): Promise
 		owner,
 		projectNumber,
 		project: parseProjectView(viewPayload),
-		statusField: parseStatusField(fieldPayload),
-		workflowField: parseWorkflowField(fieldPayload),
+		statusField: parseStatusField(fieldPayload, projectNumber),
+		workflowField: parseWorkflowField(fieldPayload, projectNumber),
 		taskIdFieldId: parseTaskIdFieldId(fieldPayload),
 		phaseField: parsePhaseField(fieldPayload),
 		priorityField: parsePriorityField(fieldPayload),

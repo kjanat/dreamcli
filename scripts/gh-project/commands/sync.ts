@@ -23,10 +23,8 @@ const sync = command('sync')
 			.describe('Also overwrite In Progress and Blocked items'),
 	)
 	.action(async ({ flags, out }) => {
-		const [project, prd] = await Promise.all([
-			loadProjectContext(flags.project, flags.owner),
-			readPrdState(flags.prd),
-		]);
+		const prd = await readPrdState(flags.prd);
+		const project = await loadProjectContext(flags.project, flags.owner);
 
 		const ready = new Set(computeReadyTaskIds(prd.file));
 

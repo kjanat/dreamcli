@@ -5,6 +5,12 @@ const symbolRouteById = new Map(
 	data.symbolPages.map((page) => [`${page.entrypoint}:${page.name}`, page.routePath]),
 );
 
+const detailPageHrefByEntrypoint: Readonly<Record<string, string>> = {
+	'@kjanat/dreamcli': '/reference/main',
+	'@kjanat/dreamcli/testkit': '/reference/testkit',
+	'@kjanat/dreamcli/runtime': '/reference/runtime',
+};
+
 function symbolHref(entrypoint: string, name: string): string {
 	return symbolRouteById.get(`${entrypoint}:${name}`) ?? '/reference/api';
 }
@@ -37,14 +43,10 @@ and `examples/**` during docs build.
 <div v-for="entrypoint in data.publicApi" :key="entrypoint.entrypoint">
 	<h3><code>{{ entrypoint.entrypoint }}</code></h3>
 	<p><strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code></p>
-	<p v-if="entrypoint.entrypoint === '@kjanat/dreamcli'">
-		<a href="/reference/main">@kjanat/dreamcli detailed page</a>
-	</p>
-	<p v-else-if="entrypoint.entrypoint === '@kjanat/dreamcli/testkit'">
-		<a href="/reference/testkit">@kjanat/dreamcli/testkit detailed page</a>
-	</p>
-	<p v-else-if="entrypoint.entrypoint === '@kjanat/dreamcli/runtime'">
-		<a href="/reference/runtime">@kjanat/dreamcli/runtime detailed page</a>
+	<p v-if="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
+		<a :href="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
+			{{ entrypoint.entrypoint }} detailed page
+		</a>
 	</p>
 	<div v-for="group in entrypoint.kindGroups" :key="`${entrypoint.entrypoint}-${group.kind}`">
 		<h4>{{ group.title }} ({{ group.symbols.length }})</h4>

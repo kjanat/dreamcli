@@ -83,6 +83,8 @@ const completions = command('completions')
     );
     out.log(script);
   });
+
+myCli.command(completions);
 ```
 
 dreamcli also includes a built-in `.completions()` helper on `cli()`:

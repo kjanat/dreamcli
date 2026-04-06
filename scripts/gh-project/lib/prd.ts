@@ -5,7 +5,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 
 import {
 	compareTasks,
@@ -23,6 +23,19 @@ import {
 import type { PrdFile, PrdState, PrdTask } from './types.ts';
 
 function findStateDir(prdName: string): string {
+	if (
+		prdName.length === 0 ||
+		isAbsolute(prdName) ||
+		prdName === '.' ||
+		prdName === '..' ||
+		!/^[A-Za-z0-9._-]+$/.test(prdName)
+	) {
+		return fail(
+			`Invalid PRD name '${prdName}'`,
+			'Use letters, numbers, dot, underscore, or dash only',
+		);
+	}
+
 	let dir = process.cwd();
 	for (;;) {
 		const candidate = resolve(dir, '.opencode', 'state', prdName);
@@ -57,11 +70,18 @@ async function readPrdState(prdName: string): Promise<PrdState> {
 	const record = expectRecord(payload, 'PRD file');
 	const tasksRaw = readArray(record, 'tasks', 'PRD file');
 	const tasks: PrdTask[] = [];
+	const seenTaskIds = new Set<string>();
 
 	for (const taskValue of tasksRaw) {
 		const task = expectRecord(taskValue, 'PRD task');
+		const taskId = readString(task, 'id', 'PRD task');
+		if (seenTaskIds.has(taskId)) {
+			return fail(`Duplicate PRD task id '${taskId}' in ${filePath}`);
+		}
+		seenTaskIds.add(taskId);
+
 		tasks.push({
-			id: readString(task, 'id', 'PRD task'),
+			id: taskId,
 			phase: readOptionalNumber(task, 'phase', 'PRD task'),
 			title: readString(task, 'title', 'PRD task'),
 			description: readString(task, 'description', 'PRD task'),

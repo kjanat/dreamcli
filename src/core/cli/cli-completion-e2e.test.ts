@@ -507,10 +507,8 @@ describe('.completions()', () => {
 			const result = await app.execute(['--json', 'completions']);
 			expect(result.exitCode).not.toBe(0);
 
-			// The error should be in JSON format on stdout
-			const jsonOutput = result.stdout.find((l) => l.includes('"error"'));
-			expect(jsonOutput).toBeDefined();
-			if (jsonOutput === undefined) return; // unreachable — satisfies TS narrowing
+			// Parse the full payload so pretty-printed JSON stays covered.
+			const jsonOutput = result.stdout.join('\n').trim();
 			const parsed: Record<string, unknown> = JSON.parse(jsonOutput);
 			expect(parsed.error).toBeDefined();
 		});
@@ -855,15 +853,17 @@ describe('CLIBuilder.run()', () => {
 			expect(result.stdout.join('')).toContain('pong');
 		});
 
-		it('auto-adapter creates valid adapter for simulated Bun runtime', async () => {
+		it('auto-adapter prefers Bun when Bun and Node globals coexist', async () => {
 			// Verify the createAdapter path works with Bun globals.
 			// We test this via the adapter factory directly since run() would
 			// need a real Bun runtime for process.argv etc.
 			const { createAdapter } = await import('#internals/runtime/auto.ts');
+			const { detectRuntime } = await import('#internals/runtime/detect.ts');
 			const globals: GlobalForDetect = {
 				Bun: { version: '1.3.11' },
 				process: { versions: { node: '22.22.2' } },
 			};
+			expect(detectRuntime(globals)).toBe('bun');
 			const adapter = createAdapter(globals);
 			expect(adapter).toBeDefined();
 			expect(typeof adapter.stdout).toBe('function');

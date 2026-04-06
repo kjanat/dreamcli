@@ -42,4 +42,3 @@ Why this step exists:
 ${mdCodeFence(JSON.stringify(dependencies, null, '  '), 'json', 'examples/gh/package.json', "gh example's package.json dependencies")}`;
 
 console.warn(why);
-process.exit(0);

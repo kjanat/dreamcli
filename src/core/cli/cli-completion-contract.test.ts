@@ -78,20 +78,24 @@ function dbCommand() {
 
 // === Completion contract
 
-describe('Completion contract', () => {
+describe('completion contract — shipped surface', () => {
 	// --- supported shell surface
 
-	describe('supported shell surface', () => {
+	describe('supported shell surface — behavior', () => {
 		it('advertises only implemented shells in completions help', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', '--help']);
 			const output = result.stdout.join('');
+			const shellListMatch = output.match(/Target shell \(([^)]+)\)/);
 
 			expect(result.exitCode).toBe(0);
-			expect(output).toContain('bash');
-			expect(output).toContain('zsh');
-			expect(output).toContain('fish');
-			expect(output).toContain('powershell');
+			expect(shellListMatch).not.toBeNull();
+			if (shellListMatch === null) return;
+			const shellList = shellListMatch[1];
+			expect(shellList).toBeDefined();
+			if (shellList === undefined) return;
+			const shells = shellList.split(',').map((shell) => shell.trim());
+			expect(shells).toEqual(['bash', 'zsh', 'fish', 'powershell']);
 		});
 
 		it('accepts powershell at the command boundary', async () => {
@@ -105,8 +109,8 @@ describe('Completion contract', () => {
 
 	// --- nested command propagation
 
-	describe('nested command propagation', () => {
-		describe('bash', () => {
+	describe('nested command propagation — behavior', () => {
+		describe('bash — propagated ancestor flags', () => {
 			it('includes propagated ancestor flags in leaf completions', async () => {
 				const app = cli('mycli').command(dbCommand()).completions();
 				const result = await app.execute(['completions', 'bash']);
@@ -123,7 +127,7 @@ describe('Completion contract', () => {
 			});
 		});
 
-		describe('zsh', () => {
+		describe('zsh — propagated ancestor flags', () => {
 			it('includes propagated ancestor flags in leaf completions', async () => {
 				const app = cli('mycli').command(dbCommand()).completions();
 				const result = await app.execute(['completions', 'zsh']);
@@ -140,7 +144,7 @@ describe('Completion contract', () => {
 			});
 		});
 
-		describe('fish', () => {
+		describe('fish — propagated ancestor flags', () => {
 			it('includes propagated ancestor flags in leaf completions', async () => {
 				const app = cli('mycli').command(dbCommand()).completions();
 				const result = await app.execute(['completions', 'fish']);
@@ -160,8 +164,8 @@ describe('Completion contract', () => {
 
 	// --- root and default-command policy
 
-	describe('root and default-command policy', () => {
-		describe('bash', () => {
+	describe('root and default-command policy — behavior', () => {
+		describe('bash — hybrid root completions', () => {
 			it('keeps hybrid roots command-centric by default', async () => {
 				const app = cli('mycli')
 					.default(serveDefaultCommand())
@@ -190,7 +194,7 @@ describe('Completion contract', () => {
 			});
 		});
 
-		describe('zsh', () => {
+		describe('zsh — hybrid root completions', () => {
 			it('keeps hybrid roots command-centric by default', async () => {
 				const app = cli('mycli')
 					.default(serveDefaultCommand())
@@ -220,7 +224,7 @@ describe('Completion contract', () => {
 			});
 		});
 
-		describe('fish', () => {
+		describe('fish — hybrid root completions', () => {
 			it('keeps hybrid roots command-centric by default', async () => {
 				const app = cli('mycli')
 					.default(serveDefaultCommand())

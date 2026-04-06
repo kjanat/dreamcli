@@ -26,14 +26,16 @@ export default {
 
 	async load(): Promise<Data> {
 		const examples = await collectExamples(examplesRoot, rootDirPath);
-		return examples.map((example) => ({
-			slug: example.slug,
-			title: example.title,
-			summary: example.summary,
-			demonstrates: example.demonstrates,
-			sourcePath: example.sourcePath,
-			routePath: example.routePath,
-			sourceUrl: example.sourceUrl,
-		}));
+		return examples.map(
+			({ slug, title, summary, demonstrates, sourcePath, routePath, sourceUrl }) => ({
+				slug,
+				title,
+				summary,
+				demonstrates,
+				sourcePath,
+				routePath,
+				sourceUrl,
+			}),
+		);
 	},
 };

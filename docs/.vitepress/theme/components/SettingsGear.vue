@@ -8,9 +8,18 @@
 	const open = ref(false);
 	const root = ref<HTMLElement | null>(null);
 	const triggerButton = ref<HTMLButtonElement | null>(null);
+	type RuntimeChoice = (typeof runtimes)[number]['value'];
 
 	function toggle() {
 		open.value = !open.value;
+	}
+
+	function toggleTwoslash() {
+		settings.twoslash = !settings.twoslash;
+	}
+
+	function setRuntime(runtime: RuntimeChoice) {
+		settings.runtime = runtime;
 	}
 
 	function onClickOutside(e: MouseEvent) {
@@ -19,11 +28,13 @@
 		}
 	}
 
-	function getOptionInputs(): HTMLElement[] {
+	function getOptionElements(): HTMLElement[] {
 		if (root.value === null) {
 			return [];
 		}
-		return Array.from(root.value.querySelectorAll<HTMLElement>('.settings-dropdown input'));
+		return Array.from(
+			root.value.querySelectorAll<HTMLElement>('.settings-dropdown [data-settings-option]'),
+		);
 	}
 
 	function onKeyDown(e: KeyboardEvent) {
@@ -45,7 +56,7 @@
 			return;
 		}
 
-		const options = getOptionInputs();
+		const options = getOptionElements();
 		if (options.length === 0) {
 			return;
 		}
@@ -59,9 +70,9 @@
 					? 0
 					: options.length - 1
 				: (currentIndex + direction + options.length) % options.length;
-		const nextInput = options[nextIndex];
-		if (nextInput !== undefined) {
-			nextInput.focus();
+		const nextOption = options[nextIndex];
+		if (nextOption !== undefined) {
+			nextOption.focus();
 		}
 	}
 
@@ -103,29 +114,32 @@
 
 		<Transition name="settings-dropdown">
 			<div v-show="open" :id="settingsDropdownId" class="settings-dropdown" role="menu">
-				<label class="settings-toggle" role="menuitemcheckbox" :aria-checked="settings.twoslash">
+				<button
+					class="settings-toggle"
+					type="button"
+					role="menuitemcheckbox"
+					:aria-checked="settings.twoslash"
+					data-settings-option
+					@click="toggleTwoslash"
+				>
 					<span>Type hovers</span>
-					<input v-model="settings.twoslash" type="checkbox">
-					<span class="toggle-track" />
-				</label>
+					<span class="toggle-track" :class="{ active: settings.twoslash }" />
+				</button>
 
 				<div class="runtime-options">
-					<label
+					<button
 						v-for="rt in runtimes"
 						:key="rt.value"
 						class="runtime-option"
+						type="button"
 						:class="{ active: settings.runtime === rt.value }"
 						role="menuitemradio"
 						:aria-checked="settings.runtime === rt.value"
+						data-settings-option
+						@click="setRuntime(rt.value)"
 					>
-						<input
-							v-model="settings.runtime"
-							type="radio"
-							name="runtime"
-							:value="rt.value"
-						>
 						<span>{{ rt.label }}</span>
-					</label>
+					</button>
 				</div>
 			</div>
 		</Transition>
@@ -199,11 +213,16 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		width: 100%;
 		padding: 4px 6px;
+		border: none;
 		border-radius: var(--s-radius-sm);
+		background: transparent;
 		cursor: pointer;
+		font: inherit;
 		font-size: 13px;
 		color: var(--vp-c-text-1);
+		text-align: left;
 		transition: background-color var(--s-duration) var(--s-ease);
 	}
 
@@ -211,10 +230,10 @@
 		background: var(--vp-c-default-soft);
 	}
 
-	.settings-toggle input {
-		position: absolute;
-		opacity: 0;
-		pointer-events: none;
+	.settings-toggle:focus-visible,
+	.runtime-option:focus-visible {
+		outline: 2px solid var(--s-accent);
+		outline-offset: 2px;
 	}
 
 	.toggle-track {
@@ -241,11 +260,11 @@
 			background-color var(--s-duration) var(--s-ease);
 	}
 
-	.settings-toggle input:checked ~ .toggle-track {
+	.toggle-track.active {
 		background: var(--s-accent);
 	}
 
-	.settings-toggle input:checked ~ .toggle-track::after {
+	.toggle-track.active::after {
 		transform: translateX(14px);
 		background: white;
 	}
@@ -265,9 +284,13 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		width: 100%;
 		padding: 5px 8px;
+		border: none;
 		border-radius: var(--s-radius-sm);
+		background: transparent;
 		cursor: pointer;
+		font: inherit;
 		font-size: 12px;
 		color: var(--vp-c-text-2);
 		font-family: var(--vp-font-family-mono);
@@ -285,12 +308,6 @@
 		background: var(--vp-c-bg-elv);
 		color: var(--vp-c-text-1);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-	}
-
-	.runtime-option input {
-		position: absolute;
-		opacity: 0;
-		pointer-events: none;
 	}
 
 	/* --- Transition --- */
