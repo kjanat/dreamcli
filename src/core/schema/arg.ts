@@ -189,8 +189,9 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
  * and variadic state through the fluent chain. Each modifier returns a **new**
  * builder — the original is never mutated.
  *
- * @example Full command with multiple args and modifiers
- * ```ts twoslash
+ * @example
+ * ```ts
+ * // Full command with multiple args and modifiers
  * import { command, arg } from '@kjanat/dreamcli';
  *
  * command('deploy')
@@ -212,8 +213,9 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
  *   });
  * ```
  *
- * @example Type inference
+ * @example
  * ```ts
+ * // Type inference
  * const target = arg.string();
  * type T = InferArg<typeof target>; // string
  *

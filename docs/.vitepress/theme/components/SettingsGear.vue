@@ -15,11 +15,11 @@
 	}
 
 	function toggleTwoslash() {
-		settings.twoslash = !settings.twoslash;
+		settings.value.twoslash = !settings.value.twoslash;
 	}
 
 	function setRuntime(runtime: RuntimeChoice) {
-		settings.runtime = runtime;
+		settings.value.runtime = runtime;
 	}
 
 	function onClickOutside(e: MouseEvent) {

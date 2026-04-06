@@ -109,7 +109,7 @@ The current resolver now makes that decision explicit in `src/core/resolve/prope
 
 That split is intentional.
 
-Flags still own `cli -> env -> config -> prompt -> default`.
+Flags still own `cli -> env -> config -> prompt -> default`.\
 Args still own `cli -> stdin -> env -> default`.
 
 Trying to force those flows through one broad property abstraction would hide real semantic differences instead of reducing maintenance cost. The shared model is only used where the overlap is real: coercion shape and shared kind metadata.

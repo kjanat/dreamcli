@@ -94,7 +94,7 @@
 		"@types/bun": "catalog:",
 		"@types/deno": "^2.5.0",
 		"@types/node": "catalog:",
-		"@typescript/native-preview": "^7.0.0-dev.20260403.1",
+		"@typescript/native-preview": "^7.0.0-dev.20260406.1",
 		"@vitest/coverage-v8": "^4.1.2",
 		"dprint": "^0.53.2",
 		"floating-vue": "^5.2.2",
