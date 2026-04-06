@@ -7,6 +7,7 @@ import tsc from '../../tsconfig.json' with { type: 'json' };
 import { collectExampleMeta } from './data/examples.ts';
 import { examplesRoot } from './data/paths.ts';
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins';
+import { transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
 const exampleMeta = await collectExampleMeta(examplesRoot);
@@ -215,6 +216,7 @@ export default defineConfig({
 					compilerOptions,
 				},
 			}),
+			transformerJSDocTags(),
 			shikiClasses,
 		],
 		languages: ['js', 'jsx', 'ts', 'tsx'],

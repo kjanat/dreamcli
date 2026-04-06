@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/kjanat/github-labelmanager/master/.github/labels.schema.json
+# Run manually: bunx @kjanat/github-labelmanager kjanat/dreamcli --config .github/labels.yml
 ---
 labels:
   - name: "kind: bug"
@@ -86,5 +87,5 @@ labels:
     description: Not actionable as filed
 
   - name: "resolution: wontfix"
-    color: "#ffffff"
+    color: "#e6e6e6"
     description: Intentionally not planned

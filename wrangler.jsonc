@@ -17,8 +17,7 @@
 	"routes": [
 		{
 			"custom_domain": true,
-			"zone_name": "dreamcli.kjanat.com",
-			"pattern": "*.dreamcli.kjanat.com/*"
+			"pattern": "dreamcli.kjanat.com"
 		}
 	],
 	"vars": {
