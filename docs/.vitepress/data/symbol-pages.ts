@@ -396,7 +396,7 @@ function renderParameter(parameter: NormalizedApiNode): string {
 	const type = parameter.type === null ? 'unknown' : renderType(parameter.type);
 	const defaultValue = parameter.defaultValue === null ? '' : ` = ${parameter.defaultValue}`;
 	if (parameter.type?.kind === 'rest') {
-		return `...${parameter.name}: ${renderType(parameter.type.elementType)}`;
+		return `...${parameter.name}: ${renderType(parameter.type.elementType)}[]`;
 	}
 
 	return `${parameter.name}${optional ? '?' : ''}: ${type}${defaultValue}`;

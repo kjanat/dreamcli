@@ -328,7 +328,9 @@ async function applyWorkflowUpdates(
 		if (item.status !== status) {
 			await ghProjectItemEdit(item.id, project.project.id, project.statusField.id, statusOption.id);
 		}
-		await ghProjectItemEdit(item.id, project.project.id, project.workflowField.id, option.id);
+		if (item.workflow !== update.workflow) {
+			await ghProjectItemEdit(item.id, project.project.id, project.workflowField.id, option.id);
+		}
 		applied.push({
 			taskId: update.taskId,
 			status,

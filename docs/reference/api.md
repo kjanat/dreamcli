@@ -12,7 +12,7 @@ const detailPageHrefByEntrypoint: Readonly<Record<string, string>> = {
 };
 
 function symbolHref(entrypoint: string, name: string): string {
-	return symbolRouteById.get(`${entrypoint}:${name}`) ?? '/reference/api';
+	return symbolRouteById.get(`${entrypoint}:${name}`) ?? '#';
 }
 </script>
 

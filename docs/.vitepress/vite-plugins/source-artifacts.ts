@@ -28,7 +28,7 @@ export function sourceArtifactsPlugin(): Plugin {
 		}
 
 		const pending = (async () => {
-			const { emitDefinitionSchema } = await import(emitDefinitionSchemaUrl);
+			const { emitDefinitionSchema } = await import(`${emitDefinitionSchemaUrl}?t=${Date.now()}`);
 			await emitDefinitionSchema();
 		})();
 		buildingPromise = pending;
