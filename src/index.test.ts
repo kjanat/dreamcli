@@ -116,7 +116,7 @@ function collectPublicExportsWithoutJsDoc(): readonly string[] {
 
 describe('@kjanat/dreamcli', () => {
 	it('module loads without error', async () => {
-		const mod = await import('./index.ts');
+		const mod = await import('#dreamcli');
 		expect(mod).toBeDefined();
 	});
 
@@ -132,7 +132,7 @@ describe('@kjanat/dreamcli/runtime', () => {
 
 	describe('export surface', () => {
 		it('keeps runtime export surface curated', async () => {
-			const mod = await import('@kjanat/dreamcli/runtime');
+			const mod = await import('#dreamcli/runtime');
 			expect(Object.keys(mod).sort()).toEqual(
 				[
 					'ExitError',
@@ -151,7 +151,7 @@ describe('@kjanat/dreamcli/runtime', () => {
 
 	describe('module loads', () => {
 		it('module loads without error', async () => {
-			const mod = await import('@kjanat/dreamcli/runtime');
+			const mod = await import('#dreamcli/runtime');
 			expect(mod).toBeDefined();
 		});
 	});
@@ -161,7 +161,7 @@ describe('@kjanat/dreamcli/runtime', () => {
 
 describe('@kjanat/dreamcli/testkit — module loads', () => {
 	it('module loads without error', async () => {
-		const mod = await import('@kjanat/dreamcli/testkit');
+		const mod = await import('#dreamcli/testkit');
 		expect(mod).toBeDefined();
 	});
 });

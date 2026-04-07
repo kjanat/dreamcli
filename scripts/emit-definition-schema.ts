@@ -10,9 +10,8 @@
 
 import { writeFile } from 'node:fs/promises';
 import { normalize } from 'node:path';
-import { env, exit } from 'node:process';
+import { exit } from 'node:process';
 import { definitionMetaSchema } from '@kjanat/dreamcli';
-import denoJson from '../deno.json' with { type: 'json' };
 import packageJson from '../package.json' with { type: 'json' };
 
 const outFile = normalize(`${import.meta.dirname}/../dreamcli.schema.json`);
@@ -22,17 +21,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function resolveSchemaId(): string {
-	const registry = env.REGISTRY;
-
-	if (registry === undefined || registry === '' || registry === 'npm') {
-		return `https://cdn.jsdelivr.net/npm/${packageJson.name}/schema`;
-	}
-
-	if (registry === 'jsr') {
-		return `https://esm.sh/jsr/${denoJson.name}/schema`;
-	}
-
-	throw new Error(`Invalid REGISTRY value: ${registry}. Expected npm or jsr.`);
+	return `https://cdn.jsdelivr.net/npm/${packageJson.name}/schema`;
 }
 
 export async function emitDefinitionSchema(): Promise<void> {

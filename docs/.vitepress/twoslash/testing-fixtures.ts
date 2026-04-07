@@ -1,4 +1,4 @@
-import { arg, command, flag } from '@kjanat/dreamcli';
+import { arg, command, flag } from '#dreamcli';
 
 export const greet = command('greet')
   .arg('name', arg.string())

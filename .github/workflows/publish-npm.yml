@@ -22,25 +22,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: { name: npm, url: "${{ fromJSON(needs.meta.outputs.meta).url }}" }
-    env: { REGISTRY: "${{ vars.REGISTRY }}" }
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-      - uses: actions/setup-node@v6
         with:
-          node-version: latest
-          registry-url: https://registry.npmjs.org
+          registries: |
+            https://registry.npmjs.org/|$NPM_TOKEN
+            @kjanat:https://registry.npmjs.org/|$NPM_TOKEN
 
       - run: bun install --frozen-lockfile
+      - run: scripts/emit-definition-schema.ts
       - run: bun run scripts/check-version-sync.ts
       - run: bun run ci
 
-      - name: Publish to npm (npm)
-        run: bunx npm@latest publish
-
-      - name: Publish to npm (retry with bun)
-        if: ${{ !success() }}
+      - name: Publish to npm
         run: bun publish --tolerate-republish
+        env: { NPM_TOKEN: "${{ secrets.NPM_TOKEN }}" }

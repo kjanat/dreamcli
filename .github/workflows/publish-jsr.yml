@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: { name: jsr, url: "${{ fromJSON(needs.meta.outputs.meta).url }}" }
-    env: { REGISTRY: "${{ vars.REGISTRY }}" }
     permissions:
       contents: read
       id-token: write # OIDC provenance for JSR
