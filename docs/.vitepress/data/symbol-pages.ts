@@ -270,15 +270,23 @@ function renderParameterDetails(signature: NormalizedApiNode): readonly string[]
 }
 
 function renderMembersSection(reflection: NormalizedApiNode): string | null {
-	if (reflection.children.length === 0) {
+	const allMembers = [
+		...reflection.children,
+		...reflection.signatures,
+		...reflection.indexSignatures,
+	];
+	if (allMembers.length === 0) {
 		return null;
 	}
 
+	const memberById = new Map(allMembers.map((m) => [m.reflectionId, m]));
 	const groups =
-		reflection.groups.length === 0 ? buildFallbackGroups(reflection) : reflection.groups;
+		reflection.groups.length === 0
+			? buildFallbackGroups(allMembers)
+			: mergeUngroupedMembers(reflection.groups, allMembers);
 	const sections = groups.flatMap((group) => {
 		const children = group.children.flatMap((ref) => {
-			const child = reflection.children.find((entry) => entry.reflectionId === ref.reflectionId);
+			const child = memberById.get(ref.reflectionId);
 			return child === undefined ? [] : [child];
 		});
 		if (children.length === 0) {
@@ -294,13 +302,35 @@ function renderMembersSection(reflection: NormalizedApiNode): string | null {
 	return ['## Members', '', ...sections].join('\n');
 }
 
-function buildFallbackGroups(reflection: NormalizedApiNode): readonly NormalizedApiGroup[] {
+function buildFallbackGroups(members: readonly NormalizedApiNode[]): readonly NormalizedApiGroup[] {
 	return [
 		{
 			title: 'Members',
-			children: reflection.children.map((child) => ({
+			children: members.map((child) => ({
 				reflectionId: child.reflectionId,
 				name: child.name,
+			})),
+		},
+	];
+}
+
+function mergeUngroupedMembers(
+	groups: readonly NormalizedApiGroup[],
+	allMembers: readonly NormalizedApiNode[],
+): readonly NormalizedApiGroup[] {
+	const groupedIds = new Set(groups.flatMap((g) => g.children.map((c) => c.reflectionId)));
+	const ungrouped = allMembers.filter((m) => !groupedIds.has(m.reflectionId));
+	if (ungrouped.length === 0) {
+		return groups;
+	}
+
+	return [
+		...groups,
+		{
+			title: 'Signatures',
+			children: ungrouped.map((m) => ({
+				reflectionId: m.reflectionId,
+				name: m.name,
 			})),
 		},
 	];
@@ -489,12 +519,17 @@ function renderReflectionType(reflection: NormalizedApiNode): string {
 		return reflection.name;
 	}
 
-	if (reflection.children.length === 0 && reflection.signatures.length === 0) {
+	if (
+		reflection.children.length === 0 &&
+		reflection.signatures.length === 0 &&
+		reflection.indexSignatures.length === 0
+	) {
 		return '{}';
 	}
 
 	const members = [
 		...reflection.signatures.map((signature) => renderCallableSignature('', signature, 'call')),
+		...reflection.indexSignatures.map((sig) => renderIndexSignature(sig)),
 		...reflection.children.map((child) => renderMemberDeclaration(child)),
 	];
 

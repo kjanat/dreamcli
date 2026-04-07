@@ -21,9 +21,11 @@ const emitDefinitionSchemaUrl = pathToFileURL(emitDefinitionSchemaPath).href;
 
 export function sourceArtifactsPlugin(): Plugin {
 	let buildingPromise: Promise<void> | null = null;
+	let dirtySchema = false;
 
 	async function ensureSchema(): Promise<void> {
 		if (buildingPromise !== null) {
+			dirtySchema = true;
 			return buildingPromise;
 		}
 
@@ -38,6 +40,10 @@ export function sourceArtifactsPlugin(): Plugin {
 		} finally {
 			if (buildingPromise === pending) {
 				buildingPromise = null;
+			}
+			if (dirtySchema) {
+				dirtySchema = false;
+				await ensureSchema();
 			}
 		}
 	}

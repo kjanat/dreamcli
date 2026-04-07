@@ -46,7 +46,7 @@ await runCommand(deploy, ['production'], {
   // piped stdin for args configured with .stdin()
   stdinData: '<your input>',
   // simulate --json mode
-  jsonMode: false,
+  jsonMode: true,
   // verbosity level
   verbosity: 'quiet',
   // simulate TTY output

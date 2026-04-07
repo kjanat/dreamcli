@@ -5,6 +5,7 @@
 
 	const settings = useDocSettings();
 	const settingsDropdownId = 'docs-settings-dropdown';
+	const settingsTriggerId = 'docs-settings-trigger';
 	const open = ref(false);
 	const root = ref<HTMLElement | null>(null);
 	const triggerButton = ref<HTMLButtonElement | null>(null);
@@ -46,10 +47,12 @@
 
 	function onKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && open.value) {
-			open.value = false;
-			const trigger = triggerButton.value;
-			if (trigger !== null) {
-				trigger.focus();
+			const active = document.activeElement;
+			const withinComponent =
+				root.value !== null ? root.value.contains(active) : active === triggerButton.value;
+			if (withinComponent) {
+				open.value = false;
+				triggerButton.value?.focus();
 			}
 			return;
 		}
@@ -103,10 +106,12 @@
 <template>
 	<div ref="root" class="settings-gear" :class="{ open }">
 		<button
+			:id="settingsTriggerId"
 			ref="triggerButton"
 			class="settings-gear-btn"
 			:aria-expanded="open"
 			:aria-controls="settingsDropdownId"
+			aria-haspopup="menu"
 			aria-label="Documentation settings"
 			@click="toggle"
 		>
@@ -127,7 +132,13 @@
 		</button>
 
 		<Transition name="settings-dropdown">
-			<div v-show="open" :id="settingsDropdownId" class="settings-dropdown" role="menu">
+			<div
+				v-show="open"
+				:id="settingsDropdownId"
+				class="settings-dropdown"
+				role="menu"
+				:aria-labelledby="settingsTriggerId"
+			>
 				<button
 					class="settings-toggle"
 					type="button"

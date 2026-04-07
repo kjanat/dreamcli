@@ -297,16 +297,18 @@ export async function collectTypeDocModel(
  * declaration's module). Fill in missing comments from sibling exports.
  */
 function fillMissingCommentsFromSiblings(exports: NormalizedApiExport[]): void {
-	const commentByName = new Map<string, NormalizedApiComment>();
+	const commentByIdentity = new Map<string, NormalizedApiComment>();
 	for (const entry of exports) {
-		if (entry.reflection.comment !== null && !commentByName.has(entry.name)) {
-			commentByName.set(entry.name, entry.reflection.comment);
+		const key = `${entry.sourcePath}::${entry.name}`;
+		if (entry.reflection.comment !== null && !commentByIdentity.has(key)) {
+			commentByIdentity.set(key, entry.reflection.comment);
 		}
 	}
 
 	for (const entry of exports) {
 		if (entry.reflection.comment === null) {
-			const sibling = commentByName.get(entry.name);
+			const key = `${entry.sourcePath}::${entry.name}`;
+			const sibling = commentByIdentity.get(key);
 			if (sibling !== undefined) {
 				entry.reflection.comment = sibling;
 			}
