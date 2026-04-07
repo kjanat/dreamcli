@@ -7,6 +7,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-04-07
+
+### Fixed
+
+- **Schema URL resolution** — `$schema` in emitted definition documents now points at
+  `dreamcli.schema.json` instead of the `/schema` subpath export, which doesn't resolve on the
+  jsdelivr CDN.
+- **GitHub Pages deploy** — use `env` import from `node:process` for env access and set VitePress
+  `base` to `/dreamcli/` so assets and links resolve correctly on GitHub Pages.\
+  This allows for the old github pages deploy to work as an alternative to the cf workers.
+- **Publish pipeline** — split build and publish into separate jobs, run build before pack with
+  `--ignore-scripts` to prevent prepack output from breaking `GITHUB_OUTPUT` parsing, hardcode the
+  npm CDN schema URL instead of the unreliable jsr.io esm.sh path, replace `actions/setup-node`
+  with bun's native registry auth, and switch internal imports to `#dreamcli/*` subpath imports.
+- **Package exports map** — moved conditional exports from `publishConfig` into top-level `exports`
+  so local resolution matches what consumers see after install.
+
 ## [2.0.0] - 2026-04-07
 
 ### Added
@@ -690,7 +707,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/kjanat/dreamcli/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kjanat/dreamcli/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kjanat/dreamcli/compare/5b86f72...v1.0.0
 [0.9.2]: https://github.com/kjanat/dreamcli/compare/b26f2d8...5b86f72
