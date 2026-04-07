@@ -33,7 +33,7 @@ function twoslashFloatingOptions() {
 				// Mobile: tap to open, tap-away to close
 				...(mobile && { triggers: ['click'], popperTriggers: [], autoHide: true }),
 				// Desktop: close previous popup instantly when sliding to another target
-				...(!mobile && { instantMove: true, disposeTimeout: 0 }),
+				...(!mobile && { instantMove: true, disposeTimeout: 0, autoHide: true }),
 			},
 		},
 	};
