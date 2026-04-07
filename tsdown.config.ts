@@ -31,8 +31,8 @@ export default defineConfig({
 	exports: false,
 	minify: true,
 	unbundle: true,
-	publint: { enabled: true, level: 'suggestion', strict: true },
-	attw: { profile, ignoreRules, level: 'warn' },
+	publint: { enabled: 'local-only', level: 'suggestion', strict: true },
+	attw: { enabled: 'local-only', profile, ignoreRules, level: 'warn' },
 	report: { enabled: !env.CI },
 	hooks: {
 		'build:prepare': () => {

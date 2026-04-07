@@ -9,7 +9,10 @@
 ## Build & Tooling
 
 - Bare `import '@kjanat/dreamcli'` resolves to different targets depending on the runtime when run inside this repo. `node` follows `package.json` exports to `dist/index.mjs`; `bun` follows the repo `tsconfig.json` paths to `src/index.ts`; `deno` follows `deno.json` imports to `src/index.ts`. If a fix appears in Bun or Deno examples but not Node examples, rebuild `dist` with `bun bd` before assuming the source patch failed.
+- `dreamcli.schema.json` looks like a checked-in package artifact because `package.json`, `deno.json`, and docs all reference it, but git ignores it (`.gitignore` has `/dreamcli.schema.json`). If schema work or publish validation depends on that file, regenerate it explicitly; `git diff` will not tell you anything.
 - Docs deployments that upload only `docs/.vitepress/dist` will not include repo-root artifacts. `scripts/emit-definition-schema.ts` writes `dreamcli.schema.json` at root, so the docs site must emit/copy that file into dist if it should be served as `/dreamcli.schema.json`.
+- `tsdown` already supports `WithEnabled` values `'ci-only' | 'local-only'`. Use `enabled: 'local-only'` on `publint` / `attw` instead of hand-rolling `env.CI` gates when release CI should skip package-pack validation but local builds should keep it.
+- `jsr.io/@scope/pkg/...` is a package website/module namespace, not a raw file host. `.../schema` 404s. For a dereferenceable JSR-flavored schema URL, use `https://esm.sh/jsr/@scope/pkg/schema`. `scripts/emit-definition-schema.ts` now switches on `REGISTRY` and must rewrite both the top-level `$id` and the embedded `properties.$schema.const` so the emitted schema stays internally consistent.
 - Cloudflare Workers `wrangler versions upload` creates a version preview only. Production traffic does not move until `wrangler versions deploy`.
 
 ## Docs
