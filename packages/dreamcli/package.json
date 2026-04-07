@@ -79,21 +79,21 @@
 		"typecheck:tsc": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@arethetypeswrong/core": "^0.18.2",
-		"@iarna/toml": "^2.2.5",
+		"@arethetypeswrong/core": "catalog:",
+		"@iarna/toml": "catalog:",
 		"@types/bun": "catalog:",
-		"@types/deno": "^2.5.0",
+		"@types/deno": "catalog:",
 		"@types/node": "catalog:",
-		"@typescript/native-preview": "^7.0.0-dev.20260406.1",
-		"@vitest/coverage-v8": "^4.1.2",
-		"publint": "^0.3.18",
-		"tsdown": "^0.21.7",
+		"@typescript/native-preview": "catalog:",
+		"@vitest/coverage-v8": "catalog:",
+		"publint": "catalog:",
+		"tsdown": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:",
-		"yaml": "^2.8.3"
+		"yaml": "catalog:"
 	},
 	"optionalDependencies": {
-		"vite": "^8"
+		"vite": "catalog:"
 	},
 	"engines": {
 		"bun": ">=1.3.11",

@@ -21,15 +21,15 @@
 		"@kjanat/dreamcli": "workspace:*"
 	},
 	"devDependencies": {
-		"@shikijs/transformers": "^4.0.2",
-		"@shikijs/vitepress-twoslash": "^4.0.2",
+		"@shikijs/transformers": "catalog:",
+		"@shikijs/vitepress-twoslash": "catalog:",
 		"@types/bun": "catalog:",
-		"floating-vue": "^5.2.2",
-		"mermaid": "^11.14.0",
-		"typedoc": "^0.28.18",
+		"floating-vue": "catalog:",
+		"mermaid": "catalog:",
+		"typedoc": "catalog:",
 		"typescript": "catalog:",
-		"vite": "^8.0.7",
-		"vitepress": "^2.0.0-alpha.17",
+		"vite": "catalog:",
+		"vitepress": "catalog:",
 		"vitest": "catalog:"
 	}
 }
