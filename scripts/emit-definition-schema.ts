@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Emit the definition meta-schema as `dreamcli.schema.json` at the package root.
  *

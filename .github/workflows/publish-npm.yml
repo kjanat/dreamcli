@@ -34,7 +34,7 @@ jobs:
             @kjanat:https://registry.npmjs.org/|$NPM_TOKEN
 
       - run: bun install --frozen-lockfile
-      - run: scripts/emit-definition-schema.ts
+      - run: bun scripts/emit-definition-schema.ts
       - run: bun run scripts/check-version-sync.ts
       - run: bun run ci
 
