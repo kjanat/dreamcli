@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Docs deploy** — remove dead Workers runtime vars (`BUN_VERSION`, `NODE_OPTIONS`) that had no
+  effect on the static assets Worker, and add `html_handling: "drop-trailing-slash"` so clean URLs
+  resolve correctly instead of 404ing on trailing slashes.
+
 ## [2.0.1] - 2026-04-07
 
 ### Fixed
