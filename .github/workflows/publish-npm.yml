@@ -29,10 +29,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: latest
+          registry-url: https://registry.npmjs.org
 
       - run: bun install --frozen-lockfile
       - run: bun run scripts/check-version-sync.ts
       - run: bun run ci
 
-      - name: Publish to npm
-        run: bunx npm@latest publish --provenance --access public
+      - name: Publish to npm (npm)
+        run: bunx npm@latest publish
+
+      - name: Publish to npm (retry with bun)
+        if: ${{ !success() }}
+        run: bun publish --tolerate-republish

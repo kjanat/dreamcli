@@ -33,9 +33,24 @@
 		"#package.json": "./package.json"
 	},
 	"exports": {
-		".": "./src/index.ts",
-		"./runtime": "./src/runtime.ts",
-		"./testkit": "./src/testkit.ts",
+		".": {
+			"types": "./dist/index.d.mts",
+			"bun": "./src/index.ts",
+			"deno": "./src/index.ts",
+			"default": "./dist/index.mjs"
+		},
+		"./runtime": {
+			"types": "./dist/runtime.d.mts",
+			"bun": "./src/runtime.ts",
+			"deno": "./src/runtime.ts",
+			"default": "./dist/runtime.mjs"
+		},
+		"./testkit": {
+			"types": "./dist/testkit.d.mts",
+			"bun": "./src/testkit.ts",
+			"deno": "./src/testkit.ts",
+			"default": "./dist/testkit.mjs"
+		},
 		"./schema": "./dreamcli.schema.json",
 		"./package.json": "./package.json"
 	},
@@ -46,10 +61,12 @@
 		"dist",
 		"dreamcli.schema.json",
 		"examples",
+		"!examples/.cache",
 		"package.json",
 		"src",
 		"!src/**/*.test.ts",
-		"!src/**/*test-helpers.ts"
+		"!src/**/*test-helpers.ts",
+		"!**/AGENTS.md"
 	],
 	"workspaces": [
 		"./examples/*"
@@ -134,28 +151,6 @@
 	},
 	"publishConfig": {
 		"access": "public",
-		"exports": {
-			".": {
-				"types": "./dist/index.d.mts",
-				"bun": "./src/index.ts",
-				"deno": "./src/index.ts",
-				"default": "./dist/index.mjs"
-			},
-			"./runtime": {
-				"types": "./dist/runtime.d.mts",
-				"bun": "./src/runtime.ts",
-				"deno": "./src/runtime.ts",
-				"default": "./dist/runtime.mjs"
-			},
-			"./testkit": {
-				"types": "./dist/testkit.d.mts",
-				"bun": "./src/testkit.ts",
-				"deno": "./src/testkit.ts",
-				"default": "./dist/testkit.mjs"
-			},
-			"./schema": "./dreamcli.schema.json",
-			"./package.json": "./package.json"
-		},
 		"provenance": true
 	},
 	"catalog": {
