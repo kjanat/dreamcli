@@ -22,7 +22,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function resolveSchemaId(): string {
-	return `https://cdn.jsdelivr.net/npm/${packageJson.name}/schema`;
+	return `https://cdn.jsdelivr.net/npm/${packageJson.name}/dreamcli.schema.json`;
 }
 
 export async function emitDefinitionSchema(): Promise<void> {

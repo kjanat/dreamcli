@@ -41,5 +41,5 @@ output.
 
 ## NOTES
 
-- Definition schema URL points at `@kjanat/dreamcli/schema` on the CDN
+- Definition schema URL points at `@kjanat/dreamcli/dreamcli.schema.json` on the CDN
 - This module sits on the boundary between public API docs, config validation, and build artifacts

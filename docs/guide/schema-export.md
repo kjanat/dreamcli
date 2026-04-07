@@ -42,7 +42,7 @@ Full example output:
 
 ```json
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/schema",
+  "$schema": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json",
   "name": "mycli",
   "version": "1.0.0",
   "commands": [

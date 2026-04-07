@@ -114,7 +114,7 @@ describe('generateSchema — definition metadata', () => {
 	it('emits $schema, name, and empty commands for minimal CLI', () => {
 		const result = generateSchema(minimalCLI());
 		expect(result).toEqual({
-			$schema: 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/schema',
+			$schema: 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json',
 			name: 'test-cli',
 			commands: [],
 		});
