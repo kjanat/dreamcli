@@ -26,16 +26,14 @@ function isMobileUserAgent(): boolean {
 }
 
 function twoslashFloatingOptions() {
-	if (!isTouchDevice() && !isMobileUserAgent()) {
-		return undefined;
-	}
-
+	const mobile = isTouchDevice() || isMobileUserAgent();
 	return {
 		themes: {
 			twoslash: {
-				triggers: ['click'],
-				popperTriggers: [],
-				autoHide: true,
+				// Mobile: tap to open, tap-away to close
+				...(mobile && { triggers: ['click'], popperTriggers: [], autoHide: true }),
+				// Desktop: close previous popup instantly when sliding to another target
+				...(!mobile && { instantMove: true, disposeTimeout: 0 }),
 			},
 		},
 	};
