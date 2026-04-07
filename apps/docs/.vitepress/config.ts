@@ -1,9 +1,9 @@
 import { normalize } from 'node:path';
 import { env } from 'node:process';
+import pkg from '@kjanat/dreamcli/package.json' with { type: 'json' };
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
-import pkg from '@kjanat/dreamcli/package.json' with { type: 'json' };
 import pkgTsc from '../../../packages/dreamcli/tsconfig.json' with { type: 'json' };
 import baseTsc from '../../../tsconfig.json' with { type: 'json' };
 import { collectPublicApiIndex } from './data/api-index.ts';
