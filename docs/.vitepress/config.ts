@@ -1,4 +1,5 @@
 import { normalize } from 'node:path';
+import { env } from 'node:process';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
@@ -38,8 +39,9 @@ const symbolRoutes = new Map<string, string>();
 		);
 	}
 }
-const isCI = Boolean(process.env.CI);
+const isCI = Boolean(env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNotCiThen);
+const isGithubActions = Boolean(env.GITHUB_ACTIONS);
 
 const compilerOptions = {
 	baseUrl: projectRoot,
@@ -64,9 +66,11 @@ export default defineConfig({
 	title: pkg.name,
 	description: pkg.description,
 	cleanUrls: true,
-	base: '/',
+	base: isGithubActions ? '/dreamcli' : '/',
 	sitemap: {
-		hostname: ifCI(pkg.homepage, 'http://localhost'),
+		hostname: isGithubActions
+			? 'https://kjanat.github.io/dreamcli'
+			: ifCI(pkg.homepage, 'http://localhost'),
 	},
 	head: [
 		[
