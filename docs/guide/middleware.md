@@ -40,13 +40,16 @@ const trace = middleware<{ traceId: string }>(
 
 command('deploy')
   .middleware(timing)
+  //          ^^^^^^
   .middleware(trace)
+  //          ^^^^^
   .action(({ ctx }) => {
-    ctx.startTime;
-    //     ^?
-
-    ctx.traceId;
-    //     ^?
+    const { traceId, startTime } = ctx;
+    console.log(
+      `[${traceId}] deployed in ${Date.now() - startTime}ms`,
+      //   ^?
+      //                                          ^?
+    );
   });
 ```
 
@@ -62,6 +65,7 @@ import { middleware } from '@kjanat/dreamcli';
 
 middleware(
   async ({ flags, args, ctx, out, meta, next }) => {
+    //     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     // flags — resolved flag values (type-erased)
     // args  — resolved argument values (type-erased)
     // ctx   — accumulated middleware context (type-erased)

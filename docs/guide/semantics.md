@@ -48,7 +48,7 @@ flag.boolean(); // repeated -> true stays true unless an explicit false value is
 flag.array(flag.string()); // repeated -> accumulates
 ```
 
-```text
+```bash
 deploy --tag v1 --tag v2 --tag v3
 ```
 
@@ -80,10 +80,10 @@ If you want `--no-confirm`, register that exact spelling as the flag name or as 
 
 Examples:
 
-```text
--vo out.txt   -> -v, then -o out.txt
--ofile.txt    -> -o file.txt
--oVfile       -> -o Vfile
+```bash
+-vo out.txt  # -> -v, then -o out.txt
+-ofile.txt   # -> -o file.txt
+-oVfile      # -> -o Vfile
 ```
 
 Once a value-taking short flag consumes the remainder of the group, parsing of that group stops.
@@ -92,13 +92,12 @@ Once a value-taking short flag consumes the remainder of the group, parsing of t
 
 ### Flags
 
-Flags resolve in this order:
+Flags resolve in this order — the first source that provides a value wins:
 
-```text
-CLI -> env -> config -> prompt -> default
+```mermaid
+flowchart LR
+  CLI -->|miss| env -->|miss| config -->|miss| prompt -->|miss| default
 ```
-
-The first source that provides a value wins.
 
 Example:
 
@@ -131,15 +130,13 @@ Notes:
 
 ### Positional arguments
 
-Positional arguments are CLI-only unless they opt into extra sources.
+Positional arguments are CLI-only unless they opt into extra sources.\
+Only args that opt into `.stdin()` or `.env()` participate in those extra steps:
 
-The current arg precedence is:
-
-```text
-CLI token -> stdin -> env -> default
+```mermaid
+flowchart LR
+  CLI["CLI token"] -->|miss| stdin -->|miss| env -->|miss| default
 ```
-
-Only args that opt into `.stdin()` or `.env()` participate in those extra steps.
 
 Example:
 
@@ -189,8 +186,10 @@ Important masking rules:
 
 Example shape:
 
-```text
-root (--verbose [propagate]) -> db (--verbose local) -> migrate
+```mermaid
+flowchart TD
+  root["root<br/>--verbose (propagate)"] -->|inherits| db["db<br/>--verbose (local, masks)"]
+  db -->|blocked| migrate
 ```
 
 `migrate` does not inherit root's propagated `--verbose`, because the intermediate `db` command

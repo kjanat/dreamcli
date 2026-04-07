@@ -54,9 +54,16 @@ dreamcli intentionally ships a first-class resolution chain instead of treating 
 
 The current supported precedence is:
 
-```text
-Flags: CLI -> env -> config -> prompt -> default
-Args:  CLI -> stdin -> env -> default
+```mermaid
+flowchart LR
+  subgraph Flags
+    direction LR
+    f1[CLI] -->|miss| f2[env] -->|miss| f3[config] -->|miss| f4[prompt] -->|miss| f5[default]
+  end
+  subgraph Args
+    direction LR
+    a1[CLI token] -->|miss| a2[stdin] -->|miss| a3[env] -->|miss| a4[default]
+  end
 ```
 
 Why this is built in:

@@ -78,8 +78,10 @@ cli('mycli')
 
 `configFormat(exts, parser)` creates a loader config from the extension list and parse function,
 and `configLoader(loader)` registers that loader with the CLI.
+
 Each extension should only be registered once per chain — registering the same extension
 with different parsers causes duplicate loading.
+
 The parsed value still has to be a plain object, so YAML scalars,
 arrays, `null`, or multi-document YAML that parses to an array will fail as `CONFIG_PARSE_ERROR`.
 

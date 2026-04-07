@@ -203,9 +203,7 @@ Lifecycle hook bag for `plugin(...)`. Each hook may be sync or async:
 
 ```ts twoslash
 import type { CLIPluginHooks } from '@kjanat/dreamcli';
-
-type _Show = CLIPluginHooks;
-//   ^?
+//                   ^?
 ```
 
 Use `beforeParse` to inspect raw argv, `afterResolve` to observe resolved args/flags,
@@ -220,9 +218,7 @@ internal CLI state.
 
 ```ts twoslash
 import type { PluginCommandContext } from '@kjanat/dreamcli';
-
-type _Show = PluginCommandContext;
-//   ^?
+//                       ^?
 ```
 
 ### `BeforeParseParams`
@@ -232,9 +228,7 @@ can log, validate, or instrument the exact argument list before parsing starts.
 
 ```ts twoslash
 import type { BeforeParseParams } from '@kjanat/dreamcli';
-
-type _Show = BeforeParseParams;
-//   ^?
+//                  ^?
 ```
 
 ### `ResolvedCommandParams`
@@ -244,9 +238,7 @@ and collected `deprecations` so hooks can inspect the final command inputs.
 
 ```ts twoslash
 import type { ResolvedCommandParams } from '@kjanat/dreamcli';
-
-type _Show = ResolvedCommandParams;
-//   ^?
+//                       ^?
 ```
 
 ## Execution Types
@@ -259,9 +251,7 @@ telemetry, and custom output headers.
 
 ```ts twoslash
 import type { CommandMeta } from '@kjanat/dreamcli';
-
-type _Show = CommandMeta;
-//   ^?
+//                 ^?
 ```
 
 ### `RunResult`
@@ -272,9 +262,7 @@ Structured result returned by `runCommand(...)` and `cli.execute(...)`. It inclu
 
 ```ts twoslash
 import type { RunResult } from '@kjanat/dreamcli';
-
-type _Show = RunResult;
-//   ^?
+//               ^?
 ```
 
 ## Output

@@ -32,3 +32,9 @@ html.twoslash-off .twoslash .twoslash-hover {
 .VPNavBar .content-body .hamburger {
 	order: 5;
 }
+
+/* Hide the copy-code button on mermaid blocks (replaced by SVG on render) */
+div.language-mermaid button.copy,
+div.language-mermaid span.lang {
+	display: none;
+}

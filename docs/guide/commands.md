@@ -125,7 +125,11 @@ The `.action()` callback receives a single object with typed fields:
 import { command } from '@kjanat/dreamcli';
 
 command('deploy').action(
+  // ---cut-start---
+  // prettier-ignore
+  // ---cut-end---
   ({ args, flags, ctx, meta, out }) => {
+   //^^^^^^^^^^^^^^^^^^^^^^^^^^^
     // args  — typed positional arguments
     // flags — typed flag values (fully resolved)
     // ctx   — typed middleware context

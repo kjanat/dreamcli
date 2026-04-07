@@ -114,24 +114,16 @@ expect(result.activity).toContainEqual(
 ```ts twoslash
 import type { RunResult } from '@kjanat/dreamcli/testkit';
 
-// ---cut---
-declare const result: RunResult;
+type CapturedOutput = Pick<
+  RunResult,
+  'stdout' | 'stderr' | 'exitCode' | 'error'
+>;
 
-result.stdout;
-//     ^?
-
-result.stderr;
-//     ^?
-
-result.exitCode;
-//     ^?
-
-result.error;
-//     ^?
-
-result.activity;
-//     ^?
+declare const captured: CapturedOutput;
+//                          ^?
 ```
+
+`activity` is tracked separately from captured output and is covered in the section above.
 
 ## Design Philosophy
 

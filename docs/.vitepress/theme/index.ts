@@ -183,9 +183,65 @@ function setupMobileBottomSheet(): (() => void) | undefined {
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 let mermaidReady: Promise<typeof import('mermaid')> | undefined;
 
+/** Warm-cool harmony: gold / indigo / sage on white */
+const MERMAID_LIGHT = {
+	primaryColor: '#fef6e4',
+	primaryBorderColor: '#D6A24A',
+	primaryTextColor: '#3c3c43',
+	secondaryColor: '#eef0ff',
+	secondaryBorderColor: '#5c73e7',
+	secondaryTextColor: '#3c3c43',
+	tertiaryColor: '#eef5ee',
+	tertiaryBorderColor: '#5a9a6a',
+	tertiaryTextColor: '#3c3c43',
+	lineColor: '#67676c',
+	textColor: '#3c3c43',
+	mainBkg: '#fef6e4',
+	noteBkgColor: '#fef3c7',
+	noteBorderColor: '#D6A24A',
+	noteTextColor: '#3c3c43',
+	fontFamily: '"Inter", sans-serif',
+	fontSize: '14px',
+} as const;
+
+/** Warm-cool harmony: indigo / amber / teal on dark */
+const MERMAID_DARK = {
+	darkMode: true,
+	primaryColor: '#252540',
+	primaryBorderColor: '#a8b1ff',
+	primaryTextColor: '#dfdfd6',
+	secondaryColor: '#302820',
+	secondaryBorderColor: '#f9b44e',
+	secondaryTextColor: '#dfdfd6',
+	tertiaryColor: '#1e2e28',
+	tertiaryBorderColor: '#3dd68c',
+	tertiaryTextColor: '#dfdfd6',
+	lineColor: '#98989f',
+	textColor: '#dfdfd6',
+	mainBkg: '#252540',
+	noteBkgColor: '#302820',
+	noteBorderColor: '#f9b44e',
+	noteTextColor: '#dfdfd6',
+	background: '#1b1b1f',
+	fontFamily: '"Inter", sans-serif',
+	fontSize: '14px',
+} as const;
+
+function isMermaidDark(): boolean {
+	return document.documentElement.classList.contains('dark');
+}
+
+function mermaidConfig() {
+	return {
+		startOnLoad: false,
+		theme: 'base' as const,
+		themeVariables: isMermaidDark() ? MERMAID_DARK : MERMAID_LIGHT,
+	};
+}
+
 function loadMermaid(): Promise<typeof import('mermaid')> {
 	mermaidReady ??= import(/* @vite-ignore */ MERMAID_CDN).then((mod) => {
-		mod.default.initialize({ startOnLoad: false, theme: 'default' });
+		mod.default.initialize(mermaidConfig());
 		return mod;
 	});
 	return mermaidReady;
@@ -209,8 +265,24 @@ async function renderMermaidBlocks(): Promise<void> {
 
 		const container = document.createElement('div');
 		container.className = 'mermaid';
+		container.dataset['mermaidSource'] = source;
 		container.innerHTML = svg;
 		pre.replaceWith(container);
+	}
+}
+
+/** Re-initialize mermaid with current color scheme and re-render all blocks. */
+async function rerenderMermaidBlocks(): Promise<void> {
+	if (mermaidReady === undefined) return;
+	const mermaid = await mermaidReady;
+	mermaid.default.initialize(mermaidConfig());
+
+	const containers = document.querySelectorAll<HTMLElement>('div.mermaid[data-mermaid-source]');
+	for (const container of containers) {
+		const source = container.dataset['mermaidSource'] ?? '';
+		const id = `mermaid-${Math.random().toString(36).slice(2, 8)}`;
+		const { svg } = await mermaid.default.render(id, source);
+		container.innerHTML = svg;
 	}
 }
 
@@ -268,7 +340,7 @@ export default {
 			// Duplicate @vue/runtime-core copies (hoisted vs .bun/) make Component types incompatible.
 			const SlotPassthrough = (
 				_: unknown,
-				{ slots }: { slots: Record<string, (...args: never) => unknown> },
+				{ slots }: { slots: Record<string, (...args: unknown[]) => unknown> },
 			) => slots['default']?.() ?? null;
 			// @ts-expect-error — dual @vue/runtime-core copies produce incompatible Component types
 			app.component('VMenu', SlotPassthrough);
@@ -313,6 +385,22 @@ export default {
 			cleanup = setupMobileBottomSheet();
 			applyRuntime(settings.value.runtime);
 			renderMermaidBlocks();
+
+			// Re-render mermaid diagrams when VitePress toggles dark mode
+			const darkObserver = new MutationObserver((mutations) => {
+				for (const m of mutations) {
+					if (m.attributeName === 'class') rerenderMermaidBlocks();
+				}
+			});
+			darkObserver.observe(document.documentElement, {
+				attributes: true,
+				attributeFilter: ['class'],
+			});
+			const prevCleanup = cleanup;
+			cleanup = () => {
+				prevCleanup?.();
+				darkObserver.disconnect();
+			};
 		});
 
 		onContentUpdated(() => {

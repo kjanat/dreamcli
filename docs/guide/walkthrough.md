@@ -733,8 +733,6 @@ import {
 } from './examples/gh/src/docs.ts';
 // ---cut-end---
 
-// ...commands defined above...
-
 const auth = group('auth')
   .description('Manage authentication')
   .command(authLogin)

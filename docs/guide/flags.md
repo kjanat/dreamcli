@@ -5,26 +5,94 @@ Each flag declaration configures parsing, type inference, resolution, help text,
 
 ## Flag Types
 
+### String
+
 ```ts twoslash
-import { flag } from '@kjanat/dreamcli';
+import { flag, type InferFlag } from '@kjanat/dreamcli';
 
-flag.string();
-//     ^?
+const stringFlag = flag.string();
 
-flag.number();
-//     ^?
+declare const flagTypes: {
+  string: InferFlag<typeof stringFlag>;
+};
+// ---cut---
+flagTypes.string;
+//          ^?
+```
 
-flag.boolean();
-//     ^?
+### Number
 
-flag.enum(['us', 'eu', 'ap']);
-//     ^?
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
 
-flag.array(flag.string());
-//     ^?
+const numberFlag = flag.number();
 
-flag.custom((v) => new URL(String(v)));
-//     ^?
+declare const flagTypes: {
+  number: InferFlag<typeof numberFlag>;
+};
+// ---cut---
+flagTypes.number;
+//         ^?
+```
+
+### Boolean
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const booleanFlag = flag.boolean();
+
+declare const flagTypes: {
+  boolean: InferFlag<typeof booleanFlag>;
+};
+// ---cut---
+flagTypes.boolean;
+//         ^?
+```
+
+### Enum
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const enumFlag = flag.enum(['us', 'eu', 'ap']);
+
+declare const flagTypes: {
+  enum: InferFlag<typeof enumFlag>;
+};
+// ---cut---
+flagTypes.enum;
+//         ^?
+```
+
+### Array
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const arrayFlag = flag.array(flag.string());
+
+declare const flagTypes: {
+  array: InferFlag<typeof arrayFlag>;
+};
+// ---cut---
+flagTypes.array;
+//         ^?
+```
+
+### Custom
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const customFlag = flag.custom((v) => new URL(String(v)));
+
+declare const flagTypes: {
+  custom: InferFlag<typeof customFlag>;
+};
+// ---cut---
+flagTypes.custom;
+//         ^?
 ```
 
 Array flags are the one optional flag kind that still resolve to a value when
@@ -101,20 +169,64 @@ Resolution order:
 
 ## Required vs Optional
 
+### Optional
+
 ```ts twoslash
-import { flag } from '@kjanat/dreamcli';
+import { flag, type InferFlag } from '@kjanat/dreamcli';
 
-// Optional — handler sees string | undefined
-flag.string();
+const optionalFlag = flag.string();
 
-// Optional with default — handler sees string
-flag.string().default('hello');
+declare const requiredVsOptional: {
+  optional: InferFlag<typeof optionalFlag>;
+};
+// ---cut---
+requiredVsOptional.optional;
+//                    ^?
+```
 
-// Required — must resolve or error before handler
-flag.string().required();
+### Defaulted
 
-// Boolean — always has a value (defaults to false)
-flag.boolean();
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const defaultedFlag = flag.string().default('hello');
+
+declare const requiredVsOptional: {
+  defaulted: InferFlag<typeof defaultedFlag>;
+};
+// ---cut---
+requiredVsOptional.defaulted;
+//                    ^?
+```
+
+### Required
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const requiredFlag = flag.string().required();
+
+declare const requiredVsOptional: {
+  required: InferFlag<typeof requiredFlag>;
+};
+// ---cut---
+requiredVsOptional.required;
+//                    ^?
+```
+
+### Boolean
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const booleanFlag = flag.boolean();
+
+declare const requiredVsOptional: {
+  boolean: InferFlag<typeof booleanFlag>;
+};
+// ---cut---
+requiredVsOptional.boolean;
+//                  ^?
 ```
 
 ## Custom Parsing
@@ -149,8 +261,6 @@ const nested = command('start')
     }
   });
 // ---cut-start---
-// (In practice, .propagate() on the parent makes this flag available
-// on all children automatically — shown explicitly here for type safety)
 // ---cut-end---
 
 cli('mycli').command(

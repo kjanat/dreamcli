@@ -4,17 +4,46 @@ Positional arguments are declared with `arg` and appear after the command name.
 
 ## Argument Types
 
+### String
+
 ```ts twoslash
-import { arg } from '@kjanat/dreamcli';
+import { arg, type InferArg } from '@kjanat/dreamcli';
 
-arg.string();
-//     ^?
+const stringArg = arg.string();
 
-arg.number();
-//     ^?
+declare const argTypes: {
+  string: InferArg<typeof stringArg>;
+};
+argTypes.string;
+//         ^?
+```
 
-arg.custom((v) => new URL(v));
-//     ^?
+### Number
+
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const numberArg = arg.number();
+
+declare const argTypes: {
+  number: InferArg<typeof numberArg>;
+};
+argTypes.number;
+//         ^?
+```
+
+### Custom
+
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const customArg = arg.custom((v) => new URL(v));
+
+declare const argTypes: {
+  custom: InferArg<typeof customArg>;
+};
+argTypes.custom;
+//         ^?
 ```
 
 ## Declaration
@@ -29,11 +58,8 @@ command('deploy')
     arg.string().describe('Version tag').optional(),
   )
   .action(({ args }) => {
-    args.target;
-    //     ^?
-
-    args.version;
-    //     ^?
+    type Args = typeof args;
+    //    ^?
   });
 ```
 
@@ -50,14 +76,32 @@ $ mycli deploy production v1.2.3
 Arguments are required by default.
 Use `.optional()` to make them optional:
 
+### Required
+
 ```ts twoslash
-import { arg } from '@kjanat/dreamcli';
+import { arg, type InferArg } from '@kjanat/dreamcli';
 
-// Required — must be provided
-arg.string();
+const requiredArg = arg.string();
 
-// Optional — may be omitted
-arg.string().optional();
+declare const requiredVsOptional: {
+  required: InferArg<typeof requiredArg>;
+};
+requiredVsOptional.required;
+//                   ^?
+```
+
+### Optional
+
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const optionalArg = arg.string().optional();
+
+declare const requiredVsOptional: {
+  optional: InferArg<typeof optionalArg>;
+};
+requiredVsOptional.optional;
+//                   ^?
 ```
 
 ## Variadic Arguments
