@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-06 **Commit:** 1de5d51 **Branch:** dreamcli-re-foundation
+**Generated:** 2026-04-07 **Commit:** 1479d26 **Branch:** master
 
 ## OVERVIEW
 
@@ -87,8 +87,7 @@ specs/                      # planning/design docs
 - Do not edit `docs/.vitepress/dist/` or `docs/.vitepress/cache/`
 - Do not treat `docs/.vitepress/data/` as docs-only; scripts import it for generated source and docs
   artifacts
-- Do not replace `bun run gh-project:*` with ad hoc GitHub project mutations while the
-  re-foundation PRD is active
+- Do not replace `bun run gh-project:*` with ad hoc GitHub project mutations
 
 ## COMMANDS
 
@@ -115,3 +114,5 @@ bun run gh-project:list       # workflow/project helper
   `docs/.vitepress/vite-plugins/source-artifacts.ts`
 - `examples/gh` is a real workspace package, typechecked and tested separately in CI
 - CI base branch is `master`, not `main`
+- Docs deploy: Cloudflare Workers (static assets via wrangler) + GitHub Pages fallback
+- Cloudflare build env has tight memory limits; VitePress+twoslash OOMs are flaky — retry before investigating

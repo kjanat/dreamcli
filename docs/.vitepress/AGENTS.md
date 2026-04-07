@@ -48,3 +48,6 @@ cache/         # generated cache
 - `source-artifacts.ts` exists because docs deploy uploads `docs/.vitepress/dist`, not repo-root
   artifacts
 - Mermaid loads client-side from CDN; keep that assumption in mind when editing theme code
+- Docs deployed via `wrangler deploy` (static assets Worker) with `html_handling: drop-trailing-slash`
+  to match VitePress `cleanUrls: true`; also deployed to GitHub Pages as fallback
+- `wrangler.jsonc` `vars` are Worker runtime vars, not build env vars — don't put build flags there
