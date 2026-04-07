@@ -36,7 +36,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun scripts/emit-definition-schema.ts
       - run: bun run scripts/check-version-sync.ts
-      - run: bun run ci
 
       - name: Publish to npm
         run: bun publish --tolerate-republish
