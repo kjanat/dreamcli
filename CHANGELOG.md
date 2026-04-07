@@ -7,10 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-07
+
 ### Added
 
 - **String-literal schema DSL** — added a single-source schema surface that parses definitions at
   compile time and runtime, then reuses the same model for JSON Schema generation.
+- **Published definition schema export** — added `@kjanat/dreamcli/schema` so tooling and docs
+  consumers can import the generated definition schema locally instead of relying on the CDN URL.
 - **Fish and PowerShell shell completions** — expanded completion support beyond Bash and Zsh.
 - **Source-backed docs surfaces** — added generated API inventory pages, per-entrypoint symbol
   routes, source-backed example pages with related symbol links, and reference guides for planner,
@@ -20,9 +24,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Package and build pipeline** — the package is now ESM-only, build-time schema emission moved
-  into the tsdown prepare hook, published exports were tightened for runtime-specific consumers, and
-  npm/JSR/docs release checks were hardened.
+- **Package identity and build pipeline** — the package is now published as `@kjanat/dreamcli`,
+  ships ESM-only, emits the definition schema during the tsdown prepare hook, tightens published
+  exports for runtime-specific consumers, and hardens npm, JSR, and docs release checks.
 - **Docs app architecture** — VitePress now builds reference and example pages from data loaders
   instead of static generated files, adds runtime/twoslash settings UI, improves mobile twoslash
   UX, and copies root artifacts into deployed docs output.
@@ -34,6 +38,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Completion and alias handling** — hidden compatibility aliases now parse correctly, Bash and Zsh
   completion behavior is safer and more consistent, and shell completion edge cases were tightened.
+- **Aggregate validation diagnostics** — mixed flag and arg validation failures now surface clearer
+  per-issue labels plus value-source labels such as `env ...` and `stdin`.
 - **Schema and docs integration** — schema URLs, generated meta descriptions, twoslash rendering,
   and source-backed docs pages now build reliably across local, CI, and Cloudflare deploys.
 - **CLI and runtime edge cases** — unresolved schema references now fail closed, runtime/support
@@ -684,7 +690,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/kjanat/dreamcli/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kjanat/dreamcli/compare/5b86f72...v1.0.0
 [0.9.2]: https://github.com/kjanat/dreamcli/compare/b26f2d8...5b86f72
 [0.9.1]: https://github.com/kjanat/dreamcli/compare/v0.9.0...b26f2d8
