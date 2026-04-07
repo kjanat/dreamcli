@@ -2,6 +2,11 @@
 	"name": "@kjanat/dreamcli-examples",
 	"version": "0.0.0",
 	"private": true,
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/kjanat/dreamcli.git",
+		"directory": "examples/standalone"
+	},
 	"type": "module",
 	"dependencies": {
 		"@kjanat/dreamcli": "workspace:*"

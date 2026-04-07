@@ -2,7 +2,17 @@
 	"name": "@kjanat/gh-project",
 	"version": "0.0.0",
 	"private": true,
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/kjanat/dreamcli.git",
+		"directory": "tools/gh-project"
+	},
 	"type": "module",
+	"imports": {
+		"#gh-project": "./src/index.ts",
+		"#lib/*": "./src/lib/*",
+		"#commands/*": "./src/commands/*"
+	},
 	"module": "./src/index.ts",
 	"types": "./src/index.ts",
 	"bin": {
@@ -11,11 +21,6 @@
 	"files": [
 		"src"
 	],
-	"imports": {
-		"#gh-project": "./src/index.ts",
-		"#lib/*": "./src/lib/*",
-		"#commands/*": "./src/commands/*"
-	},
 	"scripts": {
 		"start": "bun src/main.ts",
 		"typecheck": "tsc --noEmit"
