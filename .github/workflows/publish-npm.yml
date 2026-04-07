@@ -16,28 +16,42 @@ jobs:
         env: { RELEASE_TAG: "${{ github.event.release.tag_name }}" }
         run: bash scripts/release-meta.sh npm
 
-  publish:
-    name: Publish
+  build:
+    name: Build
     needs: [meta]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+    outputs: { tarball: "${{ steps.pack.outputs.tarball }}" }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun scripts/emit-definition-schema.ts
+      - run: bun run scripts/check-version-sync.ts
+      - name: Pack tarball
+        id: pack
+        run: echo "tarball=$(bun pm pack --quiet)" >> "${GITHUB_OUTPUT}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tarball
+          path: ${{ steps.pack.outputs.tarball }}
+          retention-days: 1
+
+  publish:
+    name: Publish
+    needs: [meta, build]
+    env: { TARBALL: "${{ needs.build.outputs.tarball }}" }
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     environment: { name: npm, url: "${{ fromJSON(needs.meta.outputs.meta).url }}" }
     permissions:
       contents: read
       id-token: write
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
-        with:
-          registries: |
-            https://registry.npmjs.org/|$NPM_TOKEN
-            @kjanat:https://registry.npmjs.org/|$NPM_TOKEN
-
-      - run: bun install --frozen-lockfile
-      - run: bun scripts/emit-definition-schema.ts
-      - run: bun run scripts/check-version-sync.ts
-
+      - uses: actions/setup-node@v6
+        with: { node-version: lts/*, registry-url: https://registry.npmjs.org/ }
+      - uses: actions/download-artifact@v8
+        with: { name: tarball }
+      - run: npm i -g npm@latest
       - name: Publish to npm
-        run: bun publish --tolerate-republish
+        run: npm publish "${TARBALL}" --provenance --access public
