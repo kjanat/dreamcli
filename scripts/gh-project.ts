@@ -6,7 +6,7 @@
  * @module
  */
 
-import { ghProject } from './gh-project/main.ts';
+import { ghProject } from '@kjanat/gh-project';
 
 if (import.meta.main) {
 	void ghProject.run();

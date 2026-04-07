@@ -24,7 +24,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@kjanat/dreamcli": "link:@kjanat/dreamcli"
+		"@kjanat/dreamcli": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",

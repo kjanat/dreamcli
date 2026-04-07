@@ -47,8 +47,8 @@ validate_release_tag() {
 
 case "${target}" in
 npm)
-	package="$(read_field package.json '.name // ""')"
-	version="$(read_field package.json '.version // ""')"
+	package="$(read_field packages/dreamcli/package.json '.name // ""')"
+	version="$(read_field packages/dreamcli/package.json '.version // ""')"
 
 	if [[ -z "${package}" ]]; then
 		echo 'package.json missing .name'
@@ -68,10 +68,10 @@ npm)
 	;;
 
 jsr)
-	deno_package="$(read_field deno.json '.name // ""')"
-	package_name="$(read_field package.json '.name // ""')"
-	deno_version="$(read_field deno.json '.version // ""')"
-	package_version="$(read_field package.json '.version // ""')"
+	deno_package="$(read_field packages/dreamcli/deno.json '.name // ""')"
+	package_name="$(read_field packages/dreamcli/package.json '.name // ""')"
+	deno_version="$(read_field packages/dreamcli/deno.json '.version // ""')"
+	package_version="$(read_field packages/dreamcli/package.json '.version // ""')"
 
 	if [[ -z "${deno_package}" ]]; then
 		echo 'deno.json missing .name'

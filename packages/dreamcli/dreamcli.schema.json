@@ -1,0 +1,290 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json",
+	"title": "@kjanat/dreamcli definition schema",
+	"description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\\\nBuilt incrementally by CLIBuilder.",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"$schema": {
+			"const": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json"
+		},
+		"name": {
+			"type": "string",
+			"description": "Program name (used in help text, usage lines, and completion scripts)."
+		},
+		"version": {
+			"type": "string",
+			"description": "Program version (shown by `--version`)."
+		},
+		"description": {
+			"type": "string",
+			"description": "Program description (shown in root help)."
+		},
+		"defaultCommand": {
+			"type": "string",
+			"description": "Default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method."
+		},
+		"commands": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/command"
+			},
+			"description": "Registered commands (type-erased for heterogeneous storage)."
+		}
+	},
+	"required": ["$schema", "name", "commands"],
+	"$defs": {
+		"command": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "The command name (used for dispatch, e.g. `'deploy'`)."
+				},
+				"description": {
+					"type": "string",
+					"description": "Human-readable description for help text."
+				},
+				"aliases": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Alternative names for this command."
+				},
+				"hidden": {
+					"const": true,
+					"description": "Whether this command is hidden from help listings."
+				},
+				"examples": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/example"
+					},
+					"description": "Usage examples for help text."
+				},
+				"flags": {
+					"type": "object",
+					"additionalProperties": {
+						"$ref": "#/$defs/flag"
+					},
+					"description": "Named flag schemas, keyed by flag name."
+				},
+				"args": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/arg"
+					},
+					"description": "Ordered positional arg entries (name + schema)."
+				},
+				"commands": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/command"
+					},
+					"description": "Nested subcommand schemas (for help rendering and completion).\n\nPure data — no execution closures. Populated by `.command()` on\n`CommandBuilder`. Empty for leaf commands."
+				}
+			},
+			"required": ["name", "flags", "args", "commands"],
+			"description": "Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nmiddleware, and interactive resolver."
+		},
+		"flag": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"kind": {
+					"enum": ["string", "number", "boolean", "enum", "array", "custom"],
+					"description": "What kind of value this flag accepts."
+				},
+				"presence": {
+					"enum": ["optional", "required", "defaulted"],
+					"description": "Presence describes whether a flag value is guaranteed to exist when the\naction handler runs:\n\n- `'optional'`  — not required; unresolved value follows the kind-specific\n  optional fallback (`undefined` for most flags, `[]` for arrays)\n- `'required'`  — must be supplied; error if missing\n- `'defaulted'` — always present (falls back to default value)"
+				},
+				"defaultValue": {
+					"description": "Runtime default value (if any)."
+				},
+				"aliases": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`)."
+				},
+				"envVar": {
+					"type": "string",
+					"description": "Environment variable name for v0.2+ resolution."
+				},
+				"configPath": {
+					"type": "string",
+					"description": "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`)."
+				},
+				"description": {
+					"type": "string",
+					"description": "Human-readable description for help text."
+				},
+				"enumValues": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Allowed literal values when `kind === 'enum'`."
+				},
+				"elementSchema": {
+					"$ref": "#/$defs/flag",
+					"description": "Element schema when `kind === 'array'`."
+				},
+				"prompt": {
+					"$ref": "#/$defs/prompt",
+					"description": "Interactive prompt configuration for v0.3+ resolution."
+				},
+				"deprecated": {
+					"oneOf": [
+						{
+							"type": "string"
+						},
+						{
+							"const": true
+						}
+					],
+					"description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated flag is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`."
+				},
+				"propagate": {
+					"const": true,
+					"description": "Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag."
+				}
+			},
+			"required": ["kind", "presence"],
+			"description": "The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics."
+		},
+		"arg": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "A named positional argument entry in the command schema.\n\nPairs a user-facing arg name with its ArgSchema descriptor.\nThe array ordering in CommandSchema.args determines CLI position."
+				},
+				"kind": {
+					"enum": ["string", "number", "enum", "custom"],
+					"description": "What kind of value this arg accepts."
+				},
+				"presence": {
+					"enum": ["required", "optional", "defaulted"],
+					"description": "Presence describes whether a positional arg is guaranteed to exist when the\naction handler runs:\n\n- `'required'`  — must be supplied; error if missing (default)\n- `'optional'`  — may be `undefined` if not supplied\n- `'defaulted'` — always present (falls back to default value)"
+				},
+				"variadic": {
+					"const": true,
+					"description": "Whether this arg consumes all remaining positionals."
+				},
+				"stdinMode": {
+					"const": true,
+					"description": "Whether this arg may read from stdin during resolution."
+				},
+				"defaultValue": {
+					"description": "Runtime default value (if any)."
+				},
+				"description": {
+					"type": "string",
+					"description": "Human-readable description for help text."
+				},
+				"envVar": {
+					"type": "string",
+					"description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind."
+				},
+				"enumValues": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Allowed literal values when `kind === 'enum'`."
+				},
+				"deprecated": {
+					"oneOf": [
+						{
+							"type": "string"
+						},
+						{
+							"const": true
+						}
+					],
+					"description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated arg is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`."
+				}
+			},
+			"required": ["name", "kind", "presence"],
+			"description": "The runtime descriptor stored inside every ArgBuilder. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics."
+		},
+		"prompt": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"kind": {
+					"enum": ["confirm", "input", "select", "multiselect"],
+					"description": "The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list"
+				},
+				"message": {
+					"type": "string",
+					"description": "The question displayed to the user."
+				},
+				"placeholder": {
+					"type": "string",
+					"description": "Placeholder text shown before user types (informational only)."
+				},
+				"choices": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/choice"
+					},
+					"description": "Available choices. When omitted for `enum` flags, the enum values\nfrom the flag schema are used automatically."
+				},
+				"min": {
+					"type": "integer",
+					"description": "Minimum number of selections required."
+				},
+				"max": {
+					"type": "integer",
+					"description": "Maximum number of selections allowed."
+				}
+			},
+			"required": ["kind", "message"],
+			"description": "Discriminated union of all prompt configurations.\n\nUse the `kind` field to narrow:\n```ts\nif (config.kind === 'select') {\n  config.choices // readonly SelectChoice[] | undefined\n}\n```"
+		},
+		"choice": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"value": {
+					"type": "string",
+					"description": "The value returned when this choice is selected."
+				},
+				"label": {
+					"type": "string",
+					"description": "Display label shown to the user."
+				},
+				"description": {
+					"type": "string",
+					"description": "Optional description shown alongside the choice."
+				}
+			},
+			"required": ["value"],
+			"description": "A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts."
+		},
+		"example": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"command": {
+					"type": "string",
+					"description": "The command invocation (e.g. `'deploy production --force'`)."
+				},
+				"description": {
+					"type": "string",
+					"description": "Optional description of what this example does."
+				}
+			},
+			"required": ["command"],
+			"description": "A single usage example shown in help text."
+		}
+	}
+}

@@ -13,11 +13,11 @@
  *   1 — a check failed
  */
 
-import type { RuntimeAdapter } from '#dreamcli/runtime';
+import type { RuntimeAdapter } from '@kjanat/dreamcli/runtime';
 
 // Import via deno.json import map — resolves to src/runtime.ts,
 // same source tree that `deno publish` ships to JSR.
-const runtimeModule = await import('#dreamcli/runtime');
+const runtimeModule = await import('@kjanat/dreamcli/runtime');
 
 function failBoundary(message: string): never {
 	throw new Error(message);
@@ -141,7 +141,7 @@ assert(typeof adapter.homedir === 'string', 'homedir is a string');
 assert(typeof adapter.configDir === 'string', 'configDir is a string');
 
 // readFile should return contents for existing file
-const pkg = await adapter.readFile('./package.json');
+const pkg = await adapter.readFile('./packages/dreamcli/package.json');
 assert(pkg !== null, 'readFile returns content for existing file');
 assert(
 	typeof pkg === 'string' && pkg.includes('@kjanat/dreamcli'),

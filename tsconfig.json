@@ -7,7 +7,6 @@
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"resolveJsonModule": true,
-		"types": ["bun", "node", "deno", "vite", "vitest"],
 
 		"strict": true,
 		"noUnusedLocals": true,
@@ -24,11 +23,26 @@
 		"forceConsistentCasingInFileNames": true,
 
 		"paths": {
-			"@kjanat/dreamcli": ["./src/index.ts"],
-			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
-			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"],
-			"@kjanat/dreamcli/schema": ["./dreamcli.schema.json"],
-			"@kjanat/dreamcli/package.json": ["./package.json"]
+			"@kjanat/dreamcli": [
+				"./packages/dreamcli/src/index.ts",
+				"../../packages/dreamcli/src/index.ts"
+			],
+			"@kjanat/dreamcli/runtime": [
+				"./packages/dreamcli/src/runtime.ts",
+				"../../packages/dreamcli/src/runtime.ts"
+			],
+			"@kjanat/dreamcli/testkit": [
+				"./packages/dreamcli/src/testkit.ts",
+				"../../packages/dreamcli/src/testkit.ts"
+			],
+			"@kjanat/dreamcli/schema": [
+				"./packages/dreamcli/dreamcli.schema.json",
+				"../../packages/dreamcli/dreamcli.schema.json"
+			],
+			"@kjanat/dreamcli/package.json": [
+				"./packages/dreamcli/package.json",
+				"../../packages/dreamcli/package.json"
+			]
 		}
 	},
 	"exclude": ["**/dist", "**/node_modules"]

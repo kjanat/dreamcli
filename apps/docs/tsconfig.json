@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"types": ["bun", "vite", "vitest"],
+		"paths": {
+			"#dreamcli/testkit": ["../../packages/dreamcli/src/testkit.ts"],
+			"@kjanat/dreamcli": ["../../packages/dreamcli/src/index.ts"],
+			"@kjanat/dreamcli/runtime": ["../../packages/dreamcli/src/runtime.ts"],
+			"@kjanat/dreamcli/testkit": ["../../packages/dreamcli/src/testkit.ts"],
+			"@kjanat/dreamcli/schema": ["../../packages/dreamcli/dreamcli.schema.json"],
+			"@kjanat/dreamcli/package.json": ["../../packages/dreamcli/package.json"]
+		}
+	},
+	"include": [".vitepress/**/*.ts", "**/*.ts"],
+	"exclude": ["**/dist", "**/node_modules", "**/cache"]
+}

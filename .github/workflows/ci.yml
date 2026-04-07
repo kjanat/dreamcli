@@ -24,7 +24,7 @@ jobs:
       - name: Version sync (package.json ↔ deno.json)
         run: bun run scripts/check-version-sync.ts
       - run: bun run typecheck
-      - run: bun run typecheck:tsc
+      - run: bun run --filter @kjanat/dreamcli typecheck:tsc
       - run: bun --cwd examples/gh typecheck
       - run: bun run meta-descriptions:check
       - run: bun run lint
@@ -65,6 +65,7 @@ jobs:
       - name: Test (Bun)
         if: matrix.runtime == 'bun'
         run: bunx --bun vitest run
+        working-directory: packages/dreamcli
 
       - name: Test walkthrough example (Bun)
         if: matrix.runtime == 'bun'
@@ -74,6 +75,7 @@ jobs:
       - name: Test (Node ${{ matrix.node-version }})
         if: matrix.runtime == 'node'
         run: npx vitest run
+        working-directory: packages/dreamcli
 
   # ─────────────────────────────────────────────────────────────────
   # Coverage — single Node floor run with explicit thresholds
@@ -92,7 +94,7 @@ jobs:
       - uses: actions/setup-node@v6
         with: { node-version: "latest" }
       - run: bun install --frozen-lockfile
-      - run: bun run coverage
+      - run: bun run --filter @kjanat/dreamcli coverage
 
   # ─────────────────────────────────────────────────────────────────
   # Deno smoke — real runtime proof for the built Deno adapter path
@@ -113,8 +115,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build
       - name: Deno adapter smoke test
-        run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
+        run: deno run --config packages/dreamcli/deno.json --allow-read --allow-env scripts/deno-smoke-test.ts
       - run: deno run -A npm:vitest run
+        working-directory: packages/dreamcli
 
   # ─────────────────────────────────────────────────────────────────
   # Docs — build docs and assert no source drift

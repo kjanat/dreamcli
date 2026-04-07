@@ -228,6 +228,6 @@ $RECYCLE.BIN/
 /_*.ts
 /*example*.ts
 .codex
-/dreamcli.schema.json
+
 /.bucket/
 .playwright-mcp/

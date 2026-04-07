@@ -1,0 +1,53 @@
+{
+	"$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
+	"name": "@kjanat/dreamcli",
+	"version": "2.0.1",
+	"license": "MIT",
+	"tasks": {
+		"check": {
+			"description": "Type-check source with Deno's checker (may conflict with @types/node)",
+			"command": "deno check src/index.ts src/testkit.ts src/runtime.ts"
+		},
+		"smoke": {
+			"description": "Run Deno adapter smoke test against source via import map",
+			"command": "deno run --allow-read --allow-env ../../scripts/deno-smoke-test.ts"
+		},
+		"publish:dry": {
+			"description": "Dry-run JSR publish to verify package shape",
+			"command": "deno publish --dry-run --no-check"
+		}
+	},
+	"imports": {
+		"#dreamcli": "./src/index.ts",
+		"#dreamcli/runtime": "./src/runtime.ts",
+		"#dreamcli/testkit": "./src/testkit.ts",
+		"#schema": "./dreamcli.schema.json",
+		"#internals/*": "./src/*"
+	},
+	"exports": {
+		".": "./src/index.ts",
+		"./runtime": "./src/runtime.ts",
+		"./testkit": "./src/testkit.ts",
+		"./schema": "./dreamcli.schema.json"
+	},
+	"compilerOptions": {
+		"strict": true,
+		"module": "preserve",
+		"paths": {
+			"@kjanat/dreamcli": ["./src/index.ts"],
+			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
+			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"],
+			"@kjanat/dreamcli/schema": ["./dreamcli.schema.json"],
+			"@kjanat/dreamcli/package.json": ["./package.json"]
+		}
+	},
+	"publish": {
+		"include": ["CHANGELOG.md", "LICENSE", "README.md", "dreamcli.schema.json", "src"],
+		"exclude": ["src/**/*.test.ts", "src/**/*test-helpers.ts", "src/**/AGENTS.md"]
+	},
+	"lib": ["deno.ns", "deno.shared_globals"],
+	"fmt": { "exclude": ["**"] },
+	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
+	"nodeModulesDir": "manual",
+	"exclude": ["**/*.test.ts", "*.ts", "*cache/", "coverage/", "dist/", "scripts/"]
+}

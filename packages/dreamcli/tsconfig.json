@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"composite": true,
+		"types": ["bun", "node", "deno", "vitest"],
+		"paths": {
+			"@kjanat/dreamcli": ["./src/index.ts"],
+			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
+			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"],
+			"@kjanat/dreamcli/schema": ["./dreamcli.schema.json"],
+			"@kjanat/dreamcli/package.json": ["./package.json"]
+		}
+	},
+	"include": ["src"],
+	"exclude": ["**/dist", "**/node_modules"]
+}

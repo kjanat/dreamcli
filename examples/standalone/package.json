@@ -1,0 +1,14 @@
+{
+	"name": "@kjanat/dreamcli-examples",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@kjanat/dreamcli": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	}
+}

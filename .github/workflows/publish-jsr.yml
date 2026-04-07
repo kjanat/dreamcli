@@ -36,7 +36,8 @@ jobs:
       - run: bun run scripts/check-version-sync.ts
       - run: bun --bun run ci
       - name: Deno adapter smoke test
-        run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
+        run: deno run --config packages/dreamcli/deno.json --allow-read --allow-env scripts/deno-smoke-test.ts
 
       - name: Publish to JSR
         run: deno publish
+        working-directory: packages/dreamcli

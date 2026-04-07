@@ -1,0 +1,30 @@
+{
+	"name": "@kjanat/dreamcli-docs",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"imports": {
+		"#dreamcli/testkit": "@kjanat/dreamcli/testkit"
+	},
+	"scripts": {
+		"build": "bunx --bun vitepress@next build",
+		"dev": "bunx --bun vitepress@next dev",
+		"preview": "bunx --bun vitepress@next preview",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@kjanat/dreamcli": "workspace:*"
+	},
+	"devDependencies": {
+		"@shikijs/transformers": "^4.0.2",
+		"@shikijs/vitepress-twoslash": "^4.0.2",
+		"@types/bun": "catalog:",
+		"floating-vue": "^5.2.2",
+		"mermaid": "^11.14.0",
+		"typedoc": "^0.28.18",
+		"typescript": "catalog:",
+		"vite": "^8.0.7",
+		"vitepress": "^2.0.0-alpha.17",
+		"vitest": "catalog:"
+	}
+}

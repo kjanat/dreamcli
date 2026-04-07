@@ -28,4 +28,4 @@ jobs:
         run: bun run build
 
       - name: Publish preview
-        run: bunx pkg-pr-new publish --bun --comment=update --packageManager=bun,npm
+        run: bunx pkg-pr-new publish ./packages/dreamcli --bun --comment=update --packageManager=bun,npm

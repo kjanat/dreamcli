@@ -12,7 +12,6 @@ lockfile.save = true
 silent = true
 
 [test]
-root             = "./src"
 coverage         = true
 coverageReporter = ["text", "lcov"]
 reporter.dots    = false
