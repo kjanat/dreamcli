@@ -4,11 +4,11 @@
  * @module
  */
 
-import { arg, CLIError, flag, group } from 'dreamcli';
+import { arg, CLIError, flag, group } from '@kjanat/dreamcli';
 
-import pullRequests from '$gh/data/pull-requests.yaml' with { type: 'yaml' };
-import { authedCommand } from '$gh/lib/auth.ts';
-import { normalizeLimit, sleep } from '$gh/lib/utils.ts';
+import pullRequests from '../data/pull-requests.yaml' with { type: 'yaml' };
+import { authedCommand } from '../lib/auth.ts';
+import { normalizeLimit, sleep } from '../lib/utils.ts';
 
 const prList = authedCommand('list')
 	.description('List pull requests')

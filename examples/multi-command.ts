@@ -2,8 +2,8 @@
 /**
  * Multi-command CLI with nested command groups (git-like).
  *
- * Demonstrates: cli(), command(), group(), subcommand nesting,
- * version, env binding, flag propagation.
+ * Demonstrates: top-level commands, nested groups, version metadata, and
+ * env-backed flags.
  *
  * Usage:
  *   npx tsx examples/multi-command.ts deploy production --force
@@ -16,7 +16,7 @@
  *   npx tsx examples/multi-command.ts --version
  */
 
-import { arg, cli, command, flag, group } from 'dreamcli';
+import { arg, cli, command, flag, group } from '@kjanat/dreamcli';
 
 // --- Top-level commands ---
 

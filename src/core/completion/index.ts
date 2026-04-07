@@ -21,8 +21,7 @@ import { generateZshCompletion } from './shells/zsh.ts';
 /**
  * Supported shell targets for completion script generation.
  *
- * `bash` and `zsh` are implemented first; `fish` and `powershell` are
- * declared for forward compatibility but currently throw on generation.
+ * `bash`, `zsh`, `fish`, and `powershell` are implemented today.
  */
 type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
 
@@ -30,16 +29,17 @@ type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
  * Implemented shell values as a frozen readonly non-empty tuple.
  *
  * Use this tuple for user-facing validation and shell selection UIs.
- * Unimplemented planned shells remain part of the broader {@link Shell} union
- * for direct generator calls and future expansion, but they are intentionally
- * omitted here so user-facing CLIs do not advertise unsupported targets.
+ * It intentionally matches the shipped {@link Shell} union exactly so docs,
+ * help output, and completion generation advertise the same support surface.
  *
  * @see {@link Shell} for the union type matching these entries.
  */
-const SHELLS: Readonly<readonly ['bash', 'zsh']> = Object.freeze([
+const SHELLS: Readonly<readonly ['bash', 'zsh', 'fish', 'powershell']> = Object.freeze([
 	'bash',
 	'zsh',
-] as const satisfies readonly ['bash', 'zsh']);
+	'fish',
+	'powershell',
+] as const satisfies readonly ['bash', 'zsh', 'fish', 'powershell']);
 
 // --- Shell-agnostic dispatch
 
@@ -55,7 +55,6 @@ const SHELLS: Readonly<readonly ['bash', 'zsh']> = Object.freeze([
  * @param options - Optional generator configuration such as function naming
  *   and root default-command completion behavior.
  * @returns A complete shell completion script as a string.
- * @throws {CLIError} If the shell is not yet supported.
  *
  * @example
  * ```ts
@@ -79,4 +78,11 @@ function generateCompletion(schema: CLISchema, shell: Shell, options?: Completio
 // --- Exports
 
 export type { CompletionOptions, Shell };
-export { generateBashCompletion, generateCompletion, generateZshCompletion, SHELLS };
+export {
+	generateBashCompletion,
+	generateCompletion,
+	generateFishCompletion,
+	generatePowerShellCompletion,
+	generateZshCompletion,
+	SHELLS,
+};

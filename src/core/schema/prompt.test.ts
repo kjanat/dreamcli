@@ -242,7 +242,7 @@ describe('FlagBuilder.prompt()', () => {
 			.prompt({ kind: 'input', message: 'Enter name' });
 
 		expect(f.schema.kind).toBe('string');
-		expect(f.schema.aliases).toEqual(['n']);
+		expect(f.schema.aliases).toEqual([{ name: 'n', hidden: false }]);
 		expect(f.schema.envVar).toBe('NAME');
 		expect(f.schema.configPath).toBe('app.name');
 		expect(f.schema.description).toBe('Your name');
@@ -330,7 +330,7 @@ describe('prompt() chaining order', () => {
 			.required();
 
 		expect(f.schema.prompt).toEqual({ kind: 'input', message: 'Name' });
-		expect(f.schema.aliases).toEqual(['n']);
+		expect(f.schema.aliases).toEqual([{ name: 'n', hidden: false }]);
 		expect(f.schema.envVar).toBe('NAME');
 		expect(f.schema.presence).toBe('required');
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string>();
@@ -345,7 +345,7 @@ describe('prompt() chaining order', () => {
 			.prompt({ kind: 'input', message: 'Name' });
 
 		expect(f.schema.prompt).toEqual({ kind: 'input', message: 'Name' });
-		expect(f.schema.aliases).toEqual(['n']);
+		expect(f.schema.aliases).toEqual([{ name: 'n', hidden: false }]);
 		expect(f.schema.envVar).toBe('NAME');
 		expect(f.schema.presence).toBe('required');
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string>();

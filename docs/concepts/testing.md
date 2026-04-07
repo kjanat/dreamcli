@@ -26,7 +26,7 @@ Real-world CLIs have tests like:
 - "If `--region` is missing but `DEPLOY_REGION` is set, use the env var"
 - "If both flag and config file provide a value, the flag wins"
 - "If the prompt is cancelled, exit with code 1"
-- "In JSON mode, errors should be structured JSON on stderr"
+- "In JSON mode, framework errors should be structured JSON on stdout"
 
 Good luck doing that with shell scripts.
 
@@ -36,14 +36,17 @@ Good luck doing that with shell scripts.
 
 Run the actual compiled binary as a child process:
 
-```ts
+```ts twoslash
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
 try {
-  const { stdout, stderr } = await execFileAsync('./mycli', ['greet', 'Alice']);
+  const { stdout, stderr } = await execFileAsync(
+    './mycli',
+    ['greet', 'Alice'],
+  );
   expect(stdout).toBe('Hello, Alice!\n');
   expect(stderr).toBe('');
 } catch (error) {
@@ -60,7 +63,11 @@ Can't test prompts easily. Platform-dependent.
 
 Run the command handler as a function, injecting all inputs:
 
-```ts
+```ts twoslash
+import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
 const result = await runCommand(greet, ['Alice', '--loud']);
 expect(result.stdout).toEqual(['HELLO, ALICE!\n']);
 expect(result.exitCode).toBe(0);
@@ -81,7 +88,11 @@ The examples below use dreamcli's test harness, but the patterns apply to any fr
 
 The command works with valid input:
 
-```ts
+```ts twoslash
+import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
 const result = await runCommand(greet, ['Alice']);
 expect(result.stdout).toEqual(['Hello, Alice!\n']);
 expect(result.exitCode).toBe(0);
@@ -91,9 +102,13 @@ expect(result.exitCode).toBe(0);
 
 Flags resolve from the right source:
 
-```ts
+```ts twoslash
+import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
 // env var provides the value
-const result = await runCommand(cmd, [], {
+const result = await runCommand(regionCmd, [], {
   env: { MY_REGION: 'eu' },
 });
 expect(result.stdout).toContain('eu');
@@ -103,8 +118,12 @@ expect(result.stdout).toContain('eu');
 
 Bad input produces helpful errors:
 
-```ts
-const result = await runCommand(cmd, ['--unknown']);
+```ts twoslash
+import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
+const result = await runCommand(regionCmd, ['--unknown']);
 expect(result.exitCode).toBe(2);
 expect(result.stderr.join('')).toContain('Unknown flag');
 ```
@@ -113,18 +132,30 @@ expect(result.stderr.join('')).toContain('Unknown flag');
 
 Required flags that aren't provided, fail clearly:
 
-```ts
-const result = await runCommand(cmd, []);
+```ts twoslash
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
+const result = await runCommand(promptCmd, []);
 expect(result.exitCode).not.toBe(0);
-expect(result.stderr.join('')).toContain('Missing required');
+expect(result.stderr.join('')).toContain(
+  'Missing required',
+);
 ```
 
 ### JSON Mode
 
 Structured output is valid JSON:
 
-```ts
-const result = await runCommand(cmd, ['list'], { jsonMode: true });
+```ts twoslash
+import { jsonListCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
+const result = await runCommand(jsonListCmd, [], {
+  jsonMode: true,
+});
 const data = JSON.parse(result.stdout.join(''));
 expect(data).toBeInstanceOf(Array);
 ```
@@ -133,9 +164,13 @@ expect(data).toBeInstanceOf(Array);
 
 Prompt answers resolve correctly:
 
-```ts
-const result = await runCommand(cmd, [], {
-  answers: ['eu', true],
+```ts twoslash
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
+const result = await runCommand(promptCmd, [], {
+  answers: ['eu'],
 });
 expect(result.exitCode).toBe(0);
 ```
@@ -144,10 +179,15 @@ expect(result.exitCode).toBe(0);
 
 Ctrl+C during a prompt exits gracefully:
 
-```ts
-import { PROMPT_CANCEL, runCommand } from 'dreamcli/testkit';
+```ts twoslash
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import {
+  PROMPT_CANCEL,
+  runCommand,
+} from '@kjanat/dreamcli/testkit';
 
-const result = await runCommand(cmd, [], {
+const result = await runCommand(promptCmd, [], {
   answers: [PROMPT_CANCEL],
 });
 expect(result.exitCode).not.toBe(0);

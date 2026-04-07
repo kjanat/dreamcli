@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { CLIRunOptions } from '#internals/core/cli/index.ts';
 import { cli } from '#internals/core/cli/index.ts';
 import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -14,275 +15,282 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from './index.ts';
 
-// === runCommand — answers convenience field
+// === runCommand
 
-describe('runCommand — answers convenience', () => {
-	it('resolves a prompted flag from answers', async () => {
-		const cmd = command('deploy')
-			.flag('region', flag.enum(['us', 'eu']).prompt({ kind: 'select', message: 'Region?' }))
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
+describe('runCommand', () => {
+	// --- answers convenience
 
-		const result = await runCommand(cmd, [], { answers: ['us'] });
+	describe('answers convenience', () => {
+		it('resolves a prompted flag from answers', async () => {
+			const cmd = command('deploy')
+				.flag('region', flag.enum(['us', 'eu']).prompt({ kind: 'select', message: 'Region?' }))
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=us\n']);
-	});
+			const result = await runCommand(cmd, [], { answers: ['us'] });
 
-	it('resolves multiple prompted flags from answers in order', async () => {
-		const cmd = command('setup')
-			.flag('name', flag.string().prompt({ kind: 'input', message: 'Name?' }))
-			.flag('confirm', flag.boolean().prompt({ kind: 'confirm', message: 'Sure?' }))
-			.action(({ flags, out }) => {
-				out.log(`name=${flags.name} confirm=${String(flags.confirm)}`);
-			});
-
-		const result = await runCommand(cmd, [], { answers: ['Alice', true] });
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['name=Alice confirm=true\n']);
-	});
-
-	it('supports PROMPT_CANCEL in answers (falls to default)', async () => {
-		const cmd = command('deploy')
-			.flag(
-				'region',
-				flag.enum(['us', 'eu']).default('us').prompt({ kind: 'select', message: 'Region?' }),
-			)
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
-
-		const result = await runCommand(cmd, [], { answers: [PROMPT_CANCEL] });
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=us\n']);
-	});
-
-	it('PROMPT_CANCEL on required flag without default produces error', async () => {
-		const cmd = command('deploy')
-			.flag(
-				'region',
-				flag.enum(['us', 'eu']).required().prompt({ kind: 'select', message: 'Region?' }),
-			)
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
-
-		const result = await runCommand(cmd, [], { answers: [PROMPT_CANCEL] });
-
-		expect(result.exitCode).toBe(2);
-		expect(result.error?.code).toBe('REQUIRED_FLAG');
-	});
-
-	it('CLI value takes precedence over answers', async () => {
-		const cmd = command('deploy')
-			.flag('region', flag.enum(['us', 'eu']).prompt({ kind: 'select', message: 'Region?' }))
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
-
-		const result = await runCommand(cmd, ['--region', 'eu'], { answers: ['us'] });
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=eu\n']);
-	});
-
-	it('env value takes precedence over answers', async () => {
-		const cmd = command('deploy')
-			.flag(
-				'region',
-				flag.enum(['us', 'eu']).env('DEPLOY_REGION').prompt({ kind: 'select', message: 'Region?' }),
-			)
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
-
-		const result = await runCommand(cmd, [], {
-			env: { DEPLOY_REGION: 'eu' },
-			answers: ['us'],
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=us\n']);
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=eu\n']);
-	});
+		it('resolves multiple prompted flags from answers in order', async () => {
+			const cmd = command('setup')
+				.flag('name', flag.string().prompt({ kind: 'input', message: 'Name?' }))
+				.flag('confirm', flag.boolean().prompt({ kind: 'confirm', message: 'Sure?' }))
+				.action(({ flags, out }) => {
+					out.log(`name=${flags.name} confirm=${String(flags.confirm)}`);
+				});
 
-	it('config value takes precedence over answers', async () => {
-		const cmd = command('deploy')
-			.flag(
-				'region',
-				flag
-					.enum(['us', 'eu'])
-					.config('deploy.region')
-					.prompt({ kind: 'select', message: 'Region?' }),
-			)
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
+			const result = await runCommand(cmd, [], { answers: ['Alice', true] });
 
-		const result = await runCommand(cmd, [], {
-			config: { deploy: { region: 'eu' } },
-			answers: ['us'],
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['name=Alice confirm=true\n']);
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=eu\n']);
-	});
+		it('supports PROMPT_CANCEL in answers (falls to default)', async () => {
+			const cmd = command('deploy')
+				.flag(
+					'region',
+					flag.enum(['us', 'eu']).default('us').prompt({ kind: 'select', message: 'Region?' }),
+				)
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
 
-	it('explicit prompter takes precedence over answers', async () => {
-		const cmd = command('deploy')
-			.flag('region', flag.enum(['us', 'eu']).prompt({ kind: 'select', message: 'Region?' }))
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
+			const result = await runCommand(cmd, [], { answers: [PROMPT_CANCEL] });
 
-		const result = await runCommand(cmd, [], {
-			prompter: createTestPrompter(['eu']),
-			answers: ['us'], // should be ignored
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=us\n']);
 		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=eu\n']);
-	});
+		it('PROMPT_CANCEL on required flag without default produces error', async () => {
+			const cmd = command('deploy')
+				.flag(
+					'region',
+					flag.enum(['us', 'eu']).required().prompt({ kind: 'select', message: 'Region?' }),
+				)
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
 
-	it('no answers and no prompter skips prompting', async () => {
-		const cmd = command('deploy')
-			.flag(
-				'region',
-				flag.enum(['us', 'eu']).default('us').prompt({ kind: 'select', message: 'Region?' }),
-			)
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
+			const result = await runCommand(cmd, [], { answers: [PROMPT_CANCEL] });
+
+			expect(result.exitCode).toBe(2);
+			expect(result.error?.code).toBe('REQUIRED_FLAG');
+		});
+
+		it('CLI value takes precedence over answers', async () => {
+			const cmd = command('deploy')
+				.flag('region', flag.enum(['us', 'eu']).prompt({ kind: 'select', message: 'Region?' }))
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
+
+			const result = await runCommand(cmd, ['--region', 'eu'], { answers: ['us'] });
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=eu\n']);
+		});
+
+		it('env value takes precedence over answers', async () => {
+			const cmd = command('deploy')
+				.flag(
+					'region',
+					flag
+						.enum(['us', 'eu'])
+						.env('DEPLOY_REGION')
+						.prompt({ kind: 'select', message: 'Region?' }),
+				)
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
+
+			const result = await runCommand(cmd, [], {
+				env: { DEPLOY_REGION: 'eu' },
+				answers: ['us'],
 			});
 
-		const result = await runCommand(cmd, []);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=eu\n']);
+		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=us\n']);
-	});
+		it('config value takes precedence over answers', async () => {
+			const cmd = command('deploy')
+				.flag(
+					'region',
+					flag
+						.enum(['us', 'eu'])
+						.config('deploy.region')
+						.prompt({ kind: 'select', message: 'Region?' }),
+				)
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
 
-	it('answers work with confirm prompt kind', async () => {
-		const cmd = command('rm')
-			.flag('force', flag.boolean().prompt({ kind: 'confirm', message: 'Delete?' }))
-			.action(({ flags, out }) => {
-				out.log(`force=${String(flags.force)}`);
+			const result = await runCommand(cmd, [], {
+				config: { deploy: { region: 'eu' } },
+				answers: ['us'],
 			});
 
-		const result = await runCommand(cmd, [], { answers: [true] });
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=eu\n']);
+		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['force=true\n']);
-	});
+		it('explicit prompter takes precedence over answers', async () => {
+			const cmd = command('deploy')
+				.flag('region', flag.enum(['us', 'eu']).prompt({ kind: 'select', message: 'Region?' }))
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
 
-	it('answers work with input prompt kind', async () => {
-		const cmd = command('greet')
-			.flag('name', flag.string().prompt({ kind: 'input', message: 'Name?' }))
-			.action(({ flags, out }) => {
-				out.log(`name=${flags.name}`);
+			const result = await runCommand(cmd, [], {
+				prompter: createTestPrompter(['eu']),
+				answers: ['us'], // should be ignored
 			});
 
-		const result = await runCommand(cmd, [], { answers: ['Alice'] });
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=eu\n']);
+		});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['name=Alice\n']);
+		it('no answers and no prompter skips prompting', async () => {
+			const cmd = command('deploy')
+				.flag(
+					'region',
+					flag.enum(['us', 'eu']).default('us').prompt({ kind: 'select', message: 'Region?' }),
+				)
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
+
+			const result = await runCommand(cmd, []);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=us\n']);
+		});
+
+		it('answers work with confirm prompt kind', async () => {
+			const cmd = command('rm')
+				.flag('force', flag.boolean().prompt({ kind: 'confirm', message: 'Delete?' }))
+				.action(({ flags, out }) => {
+					out.log(`force=${String(flags.force)}`);
+				});
+
+			const result = await runCommand(cmd, [], { answers: [true] });
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['force=true\n']);
+		});
+
+		it('answers work with input prompt kind', async () => {
+			const cmd = command('greet')
+				.flag('name', flag.string().prompt({ kind: 'input', message: 'Name?' }))
+				.action(({ flags, out }) => {
+					out.log(`name=${flags.name}`);
+				});
+
+			const result = await runCommand(cmd, [], { answers: ['Alice'] });
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['name=Alice\n']);
+		});
+
+		it('answers work with multiselect prompt kind', async () => {
+			const cmd = command('deploy')
+				.flag(
+					'regions',
+					flag.array(flag.string()).prompt({
+						kind: 'multiselect',
+						message: 'Regions?',
+						choices: [{ value: 'us' }, { value: 'eu' }],
+					}),
+				)
+				.action(({ flags, out }) => {
+					const regions: string[] = flags.regions ?? [];
+					out.log(`regions=${regions.join(',')}`);
+				});
+
+			const result = await runCommand(cmd, [], { answers: [['us', 'eu']] });
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['regions=us,eu\n']);
+		});
+
+		it('answers work with number coercion', async () => {
+			const cmd = command('set')
+				.flag('port', flag.number().prompt({ kind: 'input', message: 'Port?' }))
+				.action(({ flags, out }) => {
+					out.log(`port=${String(flags.port)}`);
+				});
+
+			const result = await runCommand(cmd, [], { answers: ['8080'] });
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['port=8080\n']);
+		});
+
+		it('empty answers array means no prompts answered', async () => {
+			const cmd = command('deploy')
+				.flag(
+					'region',
+					flag.enum(['us', 'eu']).default('us').prompt({ kind: 'select', message: 'Region?' }),
+				)
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region}`);
+				});
+
+			// Empty answers → test prompter exhausted → onExhausted default is 'throw'
+			// But since CLI builder creates prompter from answers, exhausted throws error.
+			// However runCommand catches all errors. The prompter will throw when a prompt
+			// is attempted but queue is empty — this is caught as UNEXPECTED_ERROR.
+			// Actually with empty answers, the createTestPrompter will throw on first prompt,
+			// but since answers=[] and a prompt is configured, it will try to prompt and fail.
+			const result = await runCommand(cmd, [], { answers: [] });
+
+			// The test prompter throws when exhausted → wraps as UNEXPECTED_ERROR
+			expect(result.exitCode).toBe(1);
+			expect(result.error?.code).toBe('UNEXPECTED_ERROR');
+		});
 	});
 
-	it('answers work with multiselect prompt kind', async () => {
-		const cmd = command('deploy')
-			.flag(
-				'regions',
-				flag.array(flag.string()).prompt({
-					kind: 'multiselect',
-					message: 'Regions?',
-					choices: [{ value: 'us' }, { value: 'eu' }],
-				}),
-			)
-			.action(({ flags, out }) => {
-				const regions: string[] = flags.regions ?? [];
-				out.log(`regions=${regions.join(',')}`);
-			});
+	// --- answers with interactive resolver
 
-		const result = await runCommand(cmd, [], { answers: [['us', 'eu']] });
+	describe('answers with interactive resolver', () => {
+		it('interactive resolver can override per-flag prompt via answers', async () => {
+			const cmd = command('deploy')
+				.flag('region', flag.enum(['us', 'eu']))
+				.flag('force', flag.boolean())
+				.interactive(({ flags }) => ({
+					region: !flags.region && { kind: 'select' as const, message: 'Region?' },
+					force: !flags.force && { kind: 'confirm' as const, message: 'Force?' },
+				}))
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region} force=${String(flags.force)}`);
+				});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['regions=us,eu\n']);
-	});
+			const result = await runCommand(cmd, [], { answers: ['us', true] });
 
-	it('answers work with number coercion', async () => {
-		const cmd = command('set')
-			.flag('port', flag.number().prompt({ kind: 'input', message: 'Port?' }))
-			.action(({ flags, out }) => {
-				out.log(`port=${String(flags.port)}`);
-			});
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=us force=true\n']);
+		});
 
-		const result = await runCommand(cmd, [], { answers: ['8080'] });
+		it('interactive resolver suppression (false) skips prompt', async () => {
+			const cmd = command('deploy')
+				.flag('region', flag.enum(['us', 'eu']).default('us'))
+				.flag('force', flag.boolean().prompt({ kind: 'confirm', message: 'Force?' }))
+				.interactive(() => ({
+					force: false, // suppress prompting for force
+				}))
+				.action(({ flags, out }) => {
+					out.log(`region=${flags.region} force=${String(flags.force)}`);
+				});
 
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['port=8080\n']);
-	});
+			// force is suppressed → falls to default (false for boolean)
+			const result = await runCommand(cmd, [], { answers: [] });
 
-	it('empty answers array means no prompts answered', async () => {
-		const cmd = command('deploy')
-			.flag(
-				'region',
-				flag.enum(['us', 'eu']).default('us').prompt({ kind: 'select', message: 'Region?' }),
-			)
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region}`);
-			});
-
-		// Empty answers → test prompter exhausted → onExhausted default is 'throw'
-		// But since CLI builder creates prompter from answers, exhausted throws error.
-		// However runCommand catches all errors. The prompter will throw when a prompt
-		// is attempted but queue is empty — this is caught as UNEXPECTED_ERROR.
-		// Actually with empty answers, the createTestPrompter will throw on first prompt,
-		// but since answers=[] and a prompt is configured, it will try to prompt and fail.
-		const result = await runCommand(cmd, [], { answers: [] });
-
-		// The test prompter throws when exhausted → wraps as UNEXPECTED_ERROR
-		expect(result.exitCode).toBe(1);
-		expect(result.error?.code).toBe('UNEXPECTED_ERROR');
-	});
-});
-
-// === runCommand — answers + interactive resolver
-
-describe('runCommand — answers with interactive resolver', () => {
-	it('interactive resolver can override per-flag prompt via answers', async () => {
-		const cmd = command('deploy')
-			.flag('region', flag.enum(['us', 'eu']))
-			.flag('force', flag.boolean())
-			.interactive(({ flags }) => ({
-				region: !flags.region && { kind: 'select' as const, message: 'Region?' },
-				force: !flags.force && { kind: 'confirm' as const, message: 'Force?' },
-			}))
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region} force=${String(flags.force)}`);
-			});
-
-		const result = await runCommand(cmd, [], { answers: ['us', true] });
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=us force=true\n']);
-	});
-
-	it('interactive resolver suppression (false) skips prompt', async () => {
-		const cmd = command('deploy')
-			.flag('region', flag.enum(['us', 'eu']).default('us'))
-			.flag('force', flag.boolean().prompt({ kind: 'confirm', message: 'Force?' }))
-			.interactive(() => ({
-				force: false, // suppress prompting for force
-			}))
-			.action(({ flags, out }) => {
-				out.log(`region=${flags.region} force=${String(flags.force)}`);
-			});
-
-		// force is suppressed → falls to default (false for boolean)
-		const result = await runCommand(cmd, [], { answers: [] });
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['region=us force=false\n']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['region=us force=false\n']);
+		});
 	});
 });
 
@@ -563,5 +571,34 @@ describe('public surface exports', () => {
 		const result = await runCommand(cmd, [], { answers: ['a', 1, true, PROMPT_CANCEL] });
 		// The answers won't be consumed (no prompted flags), but the type accepts them
 		expect(result.exitCode).toBe(0);
+	});
+
+	it('CLIRunOptions type accepts shared RunOptions fields', async () => {
+		// This is a compile-time check — if it compiles, the derived CLI type is correct
+		const options = { answers: ['a', 1, true, PROMPT_CANCEL] } satisfies CLIRunOptions;
+		const cmd = command('check').action(({ out }) => {
+			out.log('ok');
+		});
+		const app = cli('test').command(cmd);
+
+		const result = await app.execute(['check'], options);
+
+		expect(result.exitCode).toBe(0);
+	});
+
+	it('CLIRunOptions excludes internal execution fields', () => {
+		const invalidMeta = {
+			// @ts-expect-error — `meta` is internal to command execution, not CLI input
+			meta: { name: 'test', bin: 'test', version: undefined, command: 'check' },
+		} satisfies CLIRunOptions;
+		const invalidMergedSchema = {
+			// @ts-expect-error — `mergedSchema` is internal to CLI dispatch
+			mergedSchema: command('check').schema,
+		} satisfies CLIRunOptions;
+
+		void invalidMeta;
+		void invalidMergedSchema;
+
+		expect(true).toBe(true);
 	});
 });

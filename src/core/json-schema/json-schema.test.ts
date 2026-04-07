@@ -4,34 +4,21 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
 import type {
 	ActivityEvent,
 	CommandArgEntry,
 	CommandSchema,
 	FlagSchema,
+	FlagSchemaOverrides,
 } from '#internals/core/schema/index.ts';
-import { generateInputSchema, generateSchema } from './index.ts';
+import { definitionMetaSchema, generateInputSchema, generateSchema } from './index.ts';
 
 // === Test helpers
 
 /** Minimal FlagSchema with all required fields. */
-function flagDef(overrides: Partial<FlagSchema> = {}): FlagSchema {
-	return {
-		kind: 'string',
-		presence: 'optional',
-		defaultValue: undefined,
-		aliases: [],
-		envVar: undefined,
-		configPath: undefined,
-		description: undefined,
-		enumValues: undefined,
-		elementSchema: undefined,
-		prompt: undefined,
-		parseFn: undefined,
-		deprecated: undefined,
-		propagate: false,
-		...overrides,
-	};
+function flagDef(overrides: FlagSchemaOverrides = {}): FlagSchema {
+	return createSchema(overrides.kind ?? 'string', overrides);
 }
 
 /** Minimal CommandSchema with all required fields. */
@@ -89,6 +76,7 @@ function minimalCLI(overrides: MinimalCLIOverrides = {}): CLISchema {
 		defaultCommand: overrides.defaultCommand ?? undefined,
 		configSettings: undefined,
 		packageJsonSettings: undefined,
+		hasBuiltInCompletions: false,
 		plugins: [],
 	};
 }
@@ -126,7 +114,7 @@ describe('generateSchema — definition metadata', () => {
 	it('emits $schema, name, and empty commands for minimal CLI', () => {
 		const result = generateSchema(minimalCLI());
 		expect(result).toEqual({
-			$schema: 'https://dreamcli.kjanat.com/schemas/cli/v1.json',
+			$schema: 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/schema',
 			name: 'test-cli',
 			commands: [],
 		});
@@ -326,6 +314,22 @@ describe('generateSchema — definition metadata', () => {
 			['commands', 0, 'flags', 'region', 'description'],
 			'Target region',
 		);
+	});
+
+	it('omits hidden flag aliases from generated schema', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: {
+				'skip-pass': flagDef({
+					aliases: [
+						{ name: 'skipPass', hidden: true },
+						{ name: 'x', hidden: false },
+					],
+				}),
+			},
+		});
+		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'skip-pass', 'aliases'], ['x']);
 	});
 
 	it('includes flag deprecation markers', () => {
@@ -612,6 +616,25 @@ describe('generateSchema — definition metadata', () => {
 		expect(output).not.toContain('_execute');
 		expect(output).not.toContain('hasAction');
 	});
+
+	it('annotates the definition meta-schema with source-backed descriptions', () => {
+		expect(definitionMetaSchema).toHaveProperty(
+			['properties', 'name', 'description'],
+			'Program name (used in help text, usage lines, and completion scripts).',
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'flag', 'properties', 'configPath', 'description'],
+			"Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'prompt', 'properties', 'message', 'description'],
+			'The question displayed to the user.',
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'example', 'properties', 'command', 'description'],
+			"The command invocation (e.g. `'deploy production --force'`).",
+		);
+	});
 });
 
 // === generateInputSchema — JSON Schema validation
@@ -698,13 +721,13 @@ describe('generateInputSchema — input validation', () => {
 		expect(result).toHaveProperty(['properties', 'region', 'default'], 'us');
 	});
 
-	it('marks deprecated flags with deprecated: true', () => {
+	it('preserves deprecated string message', () => {
 		const cmd = commandDef({
 			name: 'test',
 			flags: { old: flagDef({ deprecated: 'use --new' }) },
 		});
 		const result = generateInputSchema(cmd);
-		expect(result).toHaveProperty(['properties', 'old', 'deprecated'], true);
+		expect(result).toHaveProperty(['properties', 'old', 'deprecated'], 'use --new');
 	});
 
 	// -------------------------------------------------------------------
@@ -797,7 +820,7 @@ describe('generateInputSchema — input validation', () => {
 		expect(result).toHaveProperty(['oneOf', 1, 'required'], ['command']);
 	});
 
-	it('omits the command discriminator for a visible default command with siblings', () => {
+	it('omits the discriminator for a visible default with siblings', () => {
 		const deploy = commandDef({ name: 'deploy' });
 		const status = commandDef({ name: 'status' });
 		const cli = minimalCLI({

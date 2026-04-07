@@ -16,7 +16,7 @@ import { cli } from './index.ts';
 // === Middleware flows through CLI dispatch
 
 describe('middleware through CLI dispatch', () => {
-	it('middleware adds context to action handler via cli.execute()', async () => {
+	it('adds context to the action handler', async () => {
 		const auth = middleware(async ({ next }) => next({ user: 'alice' }));
 		let receivedCtx: unknown;
 
@@ -33,7 +33,7 @@ describe('middleware through CLI dispatch', () => {
 		expect(receivedCtx).toEqual({ user: 'alice' });
 	});
 
-	it('multiple middleware compose context via CLI dispatch', async () => {
+	it('composes context across multiple middleware', async () => {
 		const auth = middleware(async ({ next }) => next({ user: 'alice' }));
 		const trace = middleware(async ({ next }) => next({ traceId: 'abc-123' }));
 		let receivedCtx: unknown;
@@ -53,7 +53,7 @@ describe('middleware through CLI dispatch', () => {
 		expect(receivedCtx).toEqual({ user: 'alice', traceId: 'abc-123' });
 	});
 
-	it('middleware executes in registration order via CLI dispatch', async () => {
+	it('executes in registration order', async () => {
 		const order: string[] = [];
 
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
@@ -92,8 +92,8 @@ describe('middleware through CLI dispatch', () => {
 
 // === Middleware receives resolved values
 
-describe('middleware receives resolved flags/args via CLI dispatch', () => {
-	it('middleware receives parsed flags and args', async () => {
+describe('resolved values via CLI dispatch', () => {
+	it('receives parsed flags and args', async () => {
 		let receivedFlags: unknown;
 		let receivedArgs: unknown;
 
@@ -117,7 +117,7 @@ describe('middleware receives resolved flags/args via CLI dispatch', () => {
 		expect(receivedArgs).toEqual({ target: 'production' });
 	});
 
-	it('middleware receives env-resolved flags', async () => {
+	it('receives env-resolved flags', async () => {
 		let receivedFlags: unknown;
 
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
@@ -141,7 +141,7 @@ describe('middleware receives resolved flags/args via CLI dispatch', () => {
 // === Middleware error handling via CLI
 
 describe('middleware errors via CLI dispatch', () => {
-	it('CLIError in middleware propagates with correct exit code', async () => {
+	it('propagates CLIError with the correct exit code', async () => {
 		const guard = middleware(async (_params) => {
 			throw new CLIError('Forbidden', { code: 'FORBIDDEN', exitCode: 3 });
 		});
@@ -158,7 +158,7 @@ describe('middleware errors via CLI dispatch', () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
-	it('middleware short-circuit (no next call) via CLI dispatch', async () => {
+	it('short-circuits without next()', async () => {
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
 		const gate = middleware<{}>(async ({ out }) => {
 			out.log('access denied');
@@ -176,7 +176,7 @@ describe('middleware errors via CLI dispatch', () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
-	it('middleware error renders as JSON in --json mode', async () => {
+	it('renders JSON in --json mode', async () => {
 		const guard = middleware(async (_params) => {
 			throw new CLIError('Not authenticated', {
 				code: 'AUTH_REQUIRED',
@@ -202,8 +202,8 @@ describe('middleware errors via CLI dispatch', () => {
 
 // === Middleware + output channel integration
 
-describe('middleware + output channel via CLI dispatch', () => {
-	it('middleware can write to output channel', async () => {
+describe('output channel via CLI dispatch', () => {
+	it('writes to the output channel', async () => {
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
 		const logger = middleware<{}>(async ({ out, next }) => {
 			out.info('request started');
@@ -227,7 +227,7 @@ describe('middleware + output channel via CLI dispatch', () => {
 		expect(stdout).toContain('request complete');
 	});
 
-	it('middleware output respects verbosity', async () => {
+	it('respects verbosity', async () => {
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
 		const logger = middleware<{}>(async ({ out, next }) => {
 			out.info('verbose info');
@@ -246,7 +246,7 @@ describe('middleware + output channel via CLI dispatch', () => {
 		expect(quiet.stdout.join('')).not.toContain('verbose info');
 	});
 
-	it('middleware output respects isTTY', async () => {
+	it('respects isTTY', async () => {
 		let middlewareSawTTY: boolean | undefined;
 
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
@@ -270,8 +270,8 @@ describe('middleware + output channel via CLI dispatch', () => {
 
 // === Middleware on different commands (independent middleware chains)
 
-describe('independent middleware chains per command', () => {
-	it('each command runs its own middleware', async () => {
+describe('independent middleware chains', () => {
+	it('keeps each command isolated', async () => {
 		let deployCtx: unknown;
 		let loginCtx: unknown;
 
@@ -302,8 +302,8 @@ describe('independent middleware chains per command', () => {
 
 // === Middleware with --help bypass
 
-describe('middleware + --help interaction', () => {
-	it('--help bypasses middleware (help shown, middleware not run)', async () => {
+describe('--help interaction', () => {
+	it('bypasses middleware', async () => {
 		const handler = vi.fn();
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions
 		const mw = middleware<{}>(async ({ next }) => {
@@ -327,8 +327,8 @@ describe('middleware + --help interaction', () => {
 
 // === Backward compatibility: commands without middleware
 
-describe('backward compatibility: no middleware', () => {
-	it('commands without middleware still work through CLI dispatch', async () => {
+describe('commands without middleware', () => {
+	it('still work through CLI dispatch', async () => {
 		let receivedCtx: unknown;
 
 		const cmd = command('test').action(({ ctx }) => {

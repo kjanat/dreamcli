@@ -1,6 +1,6 @@
 {
-	"name": "dreamcli",
-	"version": "1.0.0",
+	"name": "@kjanat/dreamcli",
+	"version": "2.0.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"keywords": [
 		"cli",
@@ -18,80 +18,67 @@
 		"url": "git+https://github.com/kjanat/dreamcli.git"
 	},
 	"license": "MIT",
-	"author": "Kaj Kowalski <info@kajkowalski.nl> (https://github.com/kjanat)",
+	"author": {
+		"name": "Kaj Kowalski",
+		"email": "info@kajkowalski.nl",
+		"url": "https://github.com/kjanat"
+	},
 	"type": "module",
 	"imports": {
 		"#dreamcli": "./src/index.ts",
 		"#dreamcli/runtime": "./src/runtime.ts",
 		"#dreamcli/testkit": "./src/testkit.ts",
-		"#internals/*": "./src/*"
+		"#internals/*": "./src/*",
+		"#schema": "./dreamcli.schema.json",
+		"#package.json": "./package.json"
 	},
 	"exports": {
-		".": {
-			"bun": "./src/index.ts",
-			"deno": "./src/index.ts",
-			"types": {
-				"import": "./dist/index.d.mts",
-				"require": "./dist/index.d.cts",
-				"default": "./dist/index.d.cts"
-			},
-			"import": "./dist/index.mjs",
-			"require": "./dist/index.cjs",
-			"default": "./dist/index.cjs"
-		},
-		"./runtime": {
-			"bun": "./src/runtime.ts",
-			"deno": "./src/runtime.ts",
-			"types": {
-				"import": "./dist/runtime.d.mts",
-				"require": "./dist/runtime.d.cts",
-				"default": "./dist/runtime.d.cts"
-			},
-			"import": "./dist/runtime.mjs",
-			"require": "./dist/runtime.cjs",
-			"default": "./dist/runtime.cjs"
-		},
-		"./testkit": {
-			"bun": "./src/testkit.ts",
-			"deno": "./src/testkit.ts",
-			"types": {
-				"import": "./dist/testkit.d.mts",
-				"require": "./dist/testkit.d.cts",
-				"default": "./dist/testkit.d.cts"
-			},
-			"import": "./dist/testkit.mjs",
-			"require": "./dist/testkit.cjs",
-			"default": "./dist/testkit.cjs"
-		},
+		".": "./src/index.ts",
+		"./runtime": "./src/runtime.ts",
+		"./testkit": "./src/testkit.ts",
+		"./schema": "./dreamcli.schema.json",
 		"./package.json": "./package.json"
 	},
 	"files": [
-		"README.md",
-		"LICENSE",
 		"CHANGELOG.md",
-		"package.json",
+		"LICENSE",
+		"README.md",
 		"dist",
+		"dreamcli.schema.json",
 		"examples",
+		"package.json",
 		"src",
-		"!src/**/*.test.ts"
+		"!src/**/*.test.ts",
+		"!src/**/*test-helpers.ts"
 	],
 	"workspaces": [
-		".",
-		"examples/*"
+		"./examples/*"
 	],
 	"scripts": {
-		"bd": "bun run build",
+		"bd": "bunx --bun tsdown",
 		"build": "bunx --bun tsdown",
-		"ci": "bun typecheck && bun lint && bun run test && bun bd",
-		"docs:build": "vitepress build docs",
-		"docs:dev": "vitepress dev docs",
-		"docs:preview": "vitepress preview docs",
+		"build:watch": "bunx --bun tsdown --watch",
+		"ci": "bun typecheck && bun lint && bun run format:check && bun run meta-descriptions:check && bun run test && bun run docs:build && bun bd",
+		"coverage": "vitest run --coverage",
+		"dev": "bunx --bun tsdown --logLevel silent --watch & bunx --bun vitepress@next dev docs --host --port ${PORT:-5173} & wait",
+		"docs:build": "bunx --bun vitepress@next build docs",
+		"docs:dev": "bunx --bun vitepress@next dev docs",
+		"docs:preview": "bunx --bun vitepress@next preview docs",
 		"fmt": "dprint fmt",
 		"format": "dprint fmt",
 		"format:check": "dprint check",
+		"gh-project": "bun scripts/gh-project.ts",
+		"gh-project:finish": "bun gh-project finish",
+		"gh-project:list": "bun gh-project list",
+		"gh-project:set": "bun gh-project set",
+		"gh-project:start": "bun gh-project start",
+		"gh-project:sync": "bun gh-project sync",
+		"knip": "knip",
 		"lint": "biome lint",
 		"lint:fix": "biome lint --fix",
-		"prepack": "bun bd",
+		"meta-descriptions": "bun --bun scripts/build-meta-descriptions.ts",
+		"meta-descriptions:check": "bun --bun scripts/build-meta-descriptions.ts --check",
+		"prepack": "bunx --bun tsdown --logLevel silent",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"typecheck": "tsgo --noEmit",
@@ -99,24 +86,31 @@
 		"upgrade": "bun update --latest && bun add -D vitepress@next"
 	},
 	"devDependencies": {
-		"@arethetypeswrong/cli": "^0.18.2",
 		"@arethetypeswrong/core": "^0.18.2",
 		"@biomejs/biome": "^2.4.10",
 		"@iarna/toml": "^2.2.5",
+		"@shikijs/transformers": "^4.0.2",
+		"@shikijs/vitepress-twoslash": "^4.0.2",
 		"@types/bun": "catalog:",
 		"@types/deno": "^2.5.0",
-		"@types/node": ">=22.0.0, <23.0.0",
-		"@typescript/native-preview": "^7.0.0-dev.20260401.1",
+		"@types/node": "catalog:",
+		"@typescript/native-preview": "^7.0.0-dev.20260406.1",
 		"@vitest/coverage-v8": "^4.1.2",
-		"dprint": "^0.53.1",
+		"dprint": "^0.53.2",
+		"floating-vue": "^5.2.2",
+		"knip": "^6.3.0",
 		"mermaid": "^11.14.0",
 		"publint": "^0.3.18",
 		"tsdown": "^0.21.7",
+		"typedoc": "^0.28.18",
 		"typescript": "catalog:",
 		"vitepress": "^2.0.0-alpha.17",
-		"vitepress-plugin-mermaid": "^2.0.17",
 		"vitest": "^4.1.2",
+		"wrangler": "^4.80.0",
 		"yaml": "^2.8.3"
+	},
+	"optionalDependencies": {
+		"vite": "^8"
 	},
 	"packageManager": "bun@1.3.11",
 	"engines": {
@@ -124,12 +118,49 @@
 		"deno": ">=2.6.0",
 		"node": ">=22.22.2"
 	},
+	"devEngines": {
+		"packageManager": {
+			"name": "bun",
+			"onFail": "warn"
+		},
+		"runtime": {
+			"name": "bun",
+			"onFail": "ignore"
+		}
+	},
 	"volta": {
 		"node": "25.8.2",
 		"npm": "11.12.1"
 	},
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			".": {
+				"types": "./dist/index.d.mts",
+				"bun": "./src/index.ts",
+				"deno": "./src/index.ts",
+				"default": "./dist/index.mjs"
+			},
+			"./runtime": {
+				"types": "./dist/runtime.d.mts",
+				"bun": "./src/runtime.ts",
+				"deno": "./src/runtime.ts",
+				"default": "./dist/runtime.mjs"
+			},
+			"./testkit": {
+				"types": "./dist/testkit.d.mts",
+				"bun": "./src/testkit.ts",
+				"deno": "./src/testkit.ts",
+				"default": "./dist/testkit.mjs"
+			},
+			"./schema": "./dreamcli.schema.json",
+			"./package.json": "./package.json"
+		},
+		"provenance": true
+	},
 	"catalog": {
 		"@types/bun": "^1.3.0",
+		"@types/node": ">=22.0.0, <23.0.0",
 		"typescript": "^6.0.2"
 	}
 }

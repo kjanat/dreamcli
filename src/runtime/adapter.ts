@@ -6,7 +6,7 @@
  * argv/env access, I/O streams, TTY detection, working directory, and
  * process exit. Concrete implementations exist for Node, Bun, and Deno.
  *
- * @module dreamcli/runtime/adapter
+ * @module @kjanat/dreamcli/runtime/adapter
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
@@ -25,7 +25,7 @@ import type { ReadFn } from '#internals/core/prompt/index.ts';
  * Adapters are designed to be:
  * - **Immutable in shape:** all properties are readonly
  * - **Minimal:** only the operations the framework actually needs
- * - **Testable:** easily stubbed in tests via `createTestAdapter()`
+ * - **Testable:** easily stubbed in tests via {@linkcode createTestAdapter | createTestAdapter()}
  *
  * @example
  * ```ts
@@ -150,7 +150,7 @@ interface TestAdapterOptions {
 	/**
 	 * Stdin line reader (defaults to returning `null` — immediate EOF).
 	 *
-	 * Use a custom `ReadFn` to simulate user input in tests.
+	 * Use a custom {@linkcode ReadFn} to simulate user input in tests.
 	 */
 	readonly stdin?: ReadFn;
 
@@ -177,7 +177,7 @@ interface TestAdapterOptions {
 	readonly stdinIsTTY?: boolean;
 
 	/**
-	 * Exit function (defaults to throwing `ExitError`).
+	 * Exit function (defaults to throwing {@linkcode ExitError}).
 	 * The default throw-based exit allows tests to catch the exit code.
 	 */
 	readonly exit?: (code: number) => never;
@@ -208,10 +208,12 @@ interface TestAdapterOptions {
 }
 
 /**
- * Error thrown by the default test adapter exit function.
+ * Error thrown by adapter implementations that model process exit as an
+ * exception instead of terminating immediately.
  *
- * In tests, `process.exit` would kill the test runner. Instead, the test
- * adapter throws this error, allowing tests to assert on exit codes:
+ * Runtime and CLI dispatch layers can catch this to perform real process
+ * termination, while tests can assert on exit codes without killing the
+ * runner:
  *
  * ```ts
  * try {
@@ -222,12 +224,13 @@ interface TestAdapterOptions {
  * ```
  */
 class ExitError extends Error {
-	/** @override */
+	/** Error name — always `'ExitError'` for `instanceof` checks. */
 	override readonly name = 'ExitError';
 
 	/** The exit code passed to `exit()`. */
 	readonly code: number;
 
+	/** Create an ExitError for the given process exit code. */
 	constructor(code: number) {
 		super(`Process exited with code ${code}`);
 		this.code = code;
@@ -246,12 +249,12 @@ const noopReadFile: (path: string) => Promise<string | null> = () => Promise.res
 /**
  * Create a test runtime adapter with injectable process state.
  *
- * Use this in `dreamcli/testkit` tests when you need to simulate argv,
+ * Use this in `@kjanat/dreamcli/testkit` tests when you need to simulate argv,
  * environment variables, TTY state, stdin, or config-file reads without
  * touching the host process.
  *
  * @param options - Optional overrides for any adapter field.
- * @returns A `RuntimeAdapter` suitable for test scenarios.
+ * @returns A {@linkcode RuntimeAdapter} suitable for test scenarios.
  *
  * @example
  * ```ts

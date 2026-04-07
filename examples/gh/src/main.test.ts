@@ -3,15 +3,16 @@
  *
  * @module
  */
+/// <reference types="bun" />
 
 import { describe, expect, it } from 'bun:test';
 
-import { runCommand } from 'dreamcli/testkit';
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
-import { authLogin, authStatus } from '$gh/commands/auth.ts';
-import { issueList, issueTriage } from '$gh/commands/issue.ts';
-import { prCreate, prList, prView } from '$gh/commands/pr.ts';
-import { normalizeLimit, sleep } from '$gh/lib/utils.ts';
+import { authLogin, authStatus } from './commands/auth.ts';
+import { issueList, issueTriage } from './commands/issue.ts';
+import { prCreate, prList, prView } from './commands/pr.ts';
+import { normalizeLimit, sleep } from './lib/utils.ts';
 
 const token = 'ghp_test_token_1234';
 

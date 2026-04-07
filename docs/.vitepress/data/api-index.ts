@@ -1,0 +1,332 @@
+/**
+ * Public API inventory helpers for docs generation.
+ *
+ * @module
+ */
+
+import { readFile } from 'node:fs/promises';
+import { dirname, extname, relative, resolve } from 'node:path';
+
+import ts from 'typescript';
+
+export type PublicApiSymbolKind =
+	| 'asset'
+	| 'class'
+	| 'constant'
+	| 'enum'
+	| 'function'
+	| 'interface'
+	| 'type'
+	| 'unknown';
+
+export interface PublicApiSymbol {
+	name: string;
+	kind: PublicApiSymbolKind;
+	sourcePath: string;
+}
+
+export interface PublicApiKindGroup {
+	kind: PublicApiSymbolKind;
+	title: string;
+	symbols: readonly PublicApiSymbol[];
+}
+
+export interface PublicApiEntrypoint {
+	subpath: string;
+	entrypoint: string;
+	sourcePath: string;
+	symbolCount: number;
+	kindGroups: readonly PublicApiKindGroup[];
+}
+
+const KIND_ORDER: readonly PublicApiSymbolKind[] = [
+	'function',
+	'class',
+	'constant',
+	'interface',
+	'type',
+	'enum',
+	'asset',
+	'unknown',
+];
+
+const KIND_TITLES: Readonly<Record<PublicApiSymbolKind, string>> = {
+	asset: 'Assets',
+	class: 'Classes',
+	constant: 'Constants',
+	enum: 'Enums',
+	function: 'Functions',
+	interface: 'Interfaces',
+	type: 'Types',
+	unknown: 'Other Exports',
+};
+
+export async function collectPublicApiIndex(
+	packageJsonFilePath: string,
+): Promise<readonly PublicApiEntrypoint[]> {
+	const rootDir = dirname(packageJsonFilePath);
+	const packageJson = await readJsonFile(packageJsonFilePath);
+	const packageName = typeof packageJson.name === 'string' ? packageJson.name : '@kjanat/dreamcli';
+	const exportsField = packageJson.exports;
+	if (!isRecord(exportsField)) {
+		return [];
+	}
+
+	const resolvedEntrypoints = Object.entries(exportsField)
+		.filter(([subpath]) => subpath !== './package.json')
+		.map(([subpath, value]) => {
+			const targetPath = resolvePublicEntrypointTarget(rootDir, value);
+			if (targetPath === null) {
+				return null;
+			}
+
+			return {
+				subpath,
+				targetPath,
+			};
+		})
+		.filter((entrypoint) => entrypoint !== null);
+	const program = createApiProgram(
+		resolvedEntrypoints
+			.map((entrypoint) => entrypoint.targetPath)
+			.filter((entrypoint) => extname(entrypoint) === '.ts'),
+	);
+	const checker = program.getTypeChecker();
+
+	return resolvedEntrypoints
+		.map(({ subpath, targetPath }) => {
+			const entrypoint = toEntrypointName(packageName, subpath);
+			const sourcePath = toRepoPath(rootDir, targetPath);
+			const symbols =
+				extname(targetPath) === '.json'
+					? [
+							{
+								name: subpath === '.' ? entrypoint : subpath.slice(2),
+								kind: 'asset' as const,
+								sourcePath,
+							},
+						]
+					: collectEntrypointSymbols(targetPath, rootDir, checker, program);
+
+			return {
+				subpath,
+				entrypoint,
+				sourcePath,
+				symbolCount: symbols.length,
+				kindGroups: buildKindGroups(symbols),
+			} satisfies PublicApiEntrypoint;
+		})
+		.sort((left, right) => left.entrypoint.localeCompare(right.entrypoint));
+}
+
+export function countPublicApiSymbols(entrypoints: readonly PublicApiEntrypoint[]): number {
+	return entrypoints.reduce((count, entrypoint) => count + entrypoint.symbolCount, 0);
+}
+
+function collectEntrypointSymbols(
+	filePath: string,
+	rootDir: string,
+	checker: ts.TypeChecker,
+	program: ts.Program,
+): readonly PublicApiSymbol[] {
+	const sourceFile = program.getSourceFile(filePath);
+	if (sourceFile === undefined) {
+		throw new Error(`Missing source file for API inventory: ${filePath}`);
+	}
+
+	const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+	if (moduleSymbol === undefined) {
+		throw new Error(`Missing module symbol for API inventory: ${filePath}`);
+	}
+
+	return checker
+		.getExportsOfModule(moduleSymbol)
+		.flatMap((symbol) => {
+			const resolvedSymbol = resolveExportSymbol(symbol, checker);
+			const declaration = pickDeclaration(resolvedSymbol);
+			if (declaration !== undefined && hasInternalTag(declaration)) {
+				return [];
+			}
+			return [
+				{
+					name: symbol.name,
+					kind: classifyExportKind(resolvedSymbol, declaration),
+					sourcePath:
+						declaration === undefined
+							? toRepoPath(rootDir, filePath)
+							: toRepoPath(rootDir, declaration.getSourceFile().fileName),
+				},
+			];
+		})
+		.sort(comparePublicApiSymbols);
+}
+
+function buildKindGroups(symbols: readonly PublicApiSymbol[]): readonly PublicApiKindGroup[] {
+	return KIND_ORDER.flatMap((kind) => {
+		const entries = symbols.filter((symbol) => symbol.kind === kind);
+		if (entries.length === 0) {
+			return [];
+		}
+
+		return [
+			{
+				kind,
+				title: KIND_TITLES[kind],
+				symbols: entries,
+			} satisfies PublicApiKindGroup,
+		];
+	});
+}
+
+function comparePublicApiSymbols(left: PublicApiSymbol, right: PublicApiSymbol): number {
+	const kindDelta = KIND_ORDER.indexOf(left.kind) - KIND_ORDER.indexOf(right.kind);
+	if (kindDelta !== 0) {
+		return kindDelta;
+	}
+
+	return left.name.localeCompare(right.name);
+}
+
+function resolvePublicEntrypointTarget(rootDir: string, value: unknown): string | null {
+	if (typeof value === 'string') {
+		return resolve(rootDir, value);
+	}
+
+	if (!isRecord(value)) {
+		return null;
+	}
+
+	for (const key of ['bun', 'deno', 'default', 'import']) {
+		const candidate = value[key];
+		if (
+			typeof candidate === 'string' &&
+			(candidate.endsWith('.ts') || candidate.endsWith('.json'))
+		) {
+			return resolve(rootDir, candidate);
+		}
+	}
+
+	return null;
+}
+
+function createApiProgram(entrypoints: readonly string[]): ts.Program {
+	return ts.createProgram({
+		rootNames: entrypoints,
+		options: {
+			allowImportingTsExtensions: true,
+			esModuleInterop: true,
+			module: ts.ModuleKind.Preserve,
+			moduleResolution: ts.ModuleResolutionKind.Bundler,
+			target: ts.ScriptTarget.ESNext,
+		},
+	});
+}
+
+function resolveExportSymbol(symbol: ts.Symbol, checker: ts.TypeChecker): ts.Symbol {
+	return symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+}
+
+function pickDeclaration(symbol: ts.Symbol): ts.Declaration | undefined {
+	const declarations = symbol.getDeclarations();
+	if (declarations === undefined) {
+		return undefined;
+	}
+
+	for (const declaration of declarations) {
+		if (!ts.isImportSpecifier(declaration) && !ts.isExportSpecifier(declaration)) {
+			return declaration;
+		}
+	}
+
+	return declarations[0];
+}
+
+function hasInternalTag(declaration: ts.Declaration): boolean {
+	return ts.getJSDocTags(declaration).some((tag) => tag.tagName.text === 'internal');
+}
+
+function classifyExportKind(
+	symbol: ts.Symbol,
+	declaration: ts.Declaration | undefined,
+): PublicApiSymbolKind {
+	if (declaration !== undefined) {
+		if (ts.isFunctionDeclaration(declaration)) {
+			return 'function';
+		}
+
+		if (ts.isClassDeclaration(declaration)) {
+			return 'class';
+		}
+
+		if (ts.isInterfaceDeclaration(declaration)) {
+			return 'interface';
+		}
+
+		if (ts.isTypeAliasDeclaration(declaration)) {
+			return 'type';
+		}
+
+		if (ts.isEnumDeclaration(declaration)) {
+			return 'enum';
+		}
+
+		if (
+			ts.isVariableDeclaration(declaration) ||
+			ts.isVariableStatement(declaration) ||
+			ts.isPropertyDeclaration(declaration)
+		) {
+			return 'constant';
+		}
+	}
+
+	if (symbol.flags & ts.SymbolFlags.Function) {
+		return 'function';
+	}
+
+	if (symbol.flags & ts.SymbolFlags.Class) {
+		return 'class';
+	}
+
+	if (symbol.flags & ts.SymbolFlags.Interface) {
+		return 'interface';
+	}
+
+	if (symbol.flags & ts.SymbolFlags.TypeAlias) {
+		return 'type';
+	}
+
+	if (symbol.flags & ts.SymbolFlags.Enum) {
+		return 'enum';
+	}
+
+	if (
+		symbol.flags & ts.SymbolFlags.BlockScopedVariable ||
+		symbol.flags & ts.SymbolFlags.Variable ||
+		symbol.flags & ts.SymbolFlags.ConstEnum
+	) {
+		return 'constant';
+	}
+
+	return 'unknown';
+}
+
+function toEntrypointName(packageName: string, subpath: string): string {
+	return subpath === '.' ? packageName : `${packageName}/${subpath.slice(2)}`;
+}
+
+async function readJsonFile(filePath: string): Promise<Record<string, unknown>> {
+	const raw = JSON.parse(await readFile(filePath, 'utf8'));
+	if (!isRecord(raw)) {
+		throw new Error(`Expected object JSON at ${filePath}`);
+	}
+
+	return raw;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toRepoPath(rootDir: string, filePath: string): string {
+	return relative(rootDir, filePath).replaceAll('\\', '/');
+}

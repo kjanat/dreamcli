@@ -1,0 +1,399 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 520" font-family="Inter, sans-serif">
+	<title>Theme 3: Harmonious Warm-Cool Palette</title>
+
+	<!-- Background -->
+	<rect width="720" height="520" fill="#ffffff" rx="8" />
+
+	<!-- Title -->
+	<text
+		x="360"
+		y="32"
+		text-anchor="middle"
+		font-size="14"
+		font-weight="600"
+		fill="#3c3c43"
+	>Theme 3 — Warm-Cool Harmony</text>
+	<text
+		x="360"
+		y="50"
+		text-anchor="middle"
+		font-size="11"
+		fill="#67676c"
+	>Gold primary, indigo secondary, sage tertiary — full complementary palette</text>
+
+	<!-- ════ Flowchart area ════ -->
+	<text x="30" y="82" font-size="11" font-weight="600" fill="#3c3c43">Flowchart</text>
+
+	<!-- Node A: primary (warm gold) -->
+	<rect
+		x="40"
+		y="96"
+		width="120"
+		height="40"
+		rx="5"
+		fill="#fef6e4"
+		stroke="#D6A24A"
+		stroke-width="1.5"
+	/>
+	<text x="100" y="121" text-anchor="middle" font-size="12" fill="#3c3c43">CLI Parse</text>
+
+	<!-- Edge A->B -->
+	<line
+		x1="160"
+		y1="116"
+		x2="220"
+		y2="116"
+		stroke="#67676c"
+		stroke-width="1.2"
+		marker-end="url(#arrow3)"
+	/>
+	<text x="190" y="108" text-anchor="middle" font-size="9" fill="#67676c">args</text>
+
+	<!-- Node B: secondary (cool indigo) -->
+	<rect
+		x="220"
+		y="96"
+		width="120"
+		height="40"
+		rx="5"
+		fill="#eef0ff"
+		stroke="#5c73e7"
+		stroke-width="1.5"
+	/>
+	<text x="280" y="121" text-anchor="middle" font-size="12" fill="#3c3c43">Validate</text>
+
+	<!-- Edge B->C -->
+	<line
+		x1="340"
+		y1="116"
+		x2="400"
+		y2="116"
+		stroke="#67676c"
+		stroke-width="1.2"
+		marker-end="url(#arrow3)"
+	/>
+
+	<!-- Node C: tertiary (muted sage) -->
+	<rect
+		x="400"
+		y="96"
+		width="120"
+		height="40"
+		rx="5"
+		fill="#eef5ee"
+		stroke="#5a9a6a"
+		stroke-width="1.5"
+	/>
+	<text x="460" y="121" text-anchor="middle" font-size="12" fill="#3c3c43">Execute</text>
+
+	<!-- Diamond node (gold) -->
+	<polygon
+		points="600,96 640,116 600,136 560,116"
+		fill="#fef6e4"
+		stroke="#D6A24A"
+		stroke-width="1.5"
+	/>
+	<text x="600" y="120" text-anchor="middle" font-size="10" fill="#3c3c43">ok?</text>
+
+	<!-- Edge C->Diamond -->
+	<line
+		x1="520"
+		y1="116"
+		x2="560"
+		y2="116"
+		stroke="#67676c"
+		stroke-width="1.2"
+		marker-end="url(#arrow3)"
+	/>
+
+	<!-- Cluster/subgraph (indigo tint) -->
+	<rect
+		x="30"
+		y="160"
+		width="310"
+		height="100"
+		rx="6"
+		fill="#f5f6ff"
+		stroke="#5c73e7"
+		stroke-width="1"
+		stroke-dasharray="4 2"
+	/>
+	<text
+		x="40"
+		y="178"
+		font-size="10"
+		font-weight="600"
+		fill="#3451b2"
+	>subgraph: Config Resolution</text>
+
+	<rect
+		x="50"
+		y="192"
+		width="100"
+		height="36"
+		rx="5"
+		fill="#fef6e4"
+		stroke="#D6A24A"
+		stroke-width="1.2"
+	/>
+	<text x="100" y="214" text-anchor="middle" font-size="11" fill="#3c3c43">File</text>
+
+	<rect
+		x="180"
+		y="192"
+		width="100"
+		height="36"
+		rx="5"
+		fill="#eef0ff"
+		stroke="#5c73e7"
+		stroke-width="1.2"
+	/>
+	<text x="230" y="214" text-anchor="middle" font-size="11" fill="#3c3c43">Env</text>
+
+	<line
+		x1="150"
+		y1="210"
+		x2="180"
+		y2="210"
+		stroke="#67676c"
+		stroke-width="1"
+		marker-end="url(#arrow3)"
+	/>
+
+	<!-- Note (warm) -->
+	<rect
+		x="380"
+		y="168"
+		width="160"
+		height="48"
+		rx="3"
+		fill="#fef3c7"
+		stroke="#D6A24A"
+		stroke-width="1"
+	/>
+	<text
+		x="460"
+		y="188"
+		text-anchor="middle"
+		font-size="10"
+		fill="#3c3c43"
+	>Note: precedence is</text>
+	<text
+		x="460"
+		y="202"
+		text-anchor="middle"
+		font-size="10"
+		fill="#3c3c43"
+	>argv > env > config</text>
+
+	<!-- ════ Sequence area ════ -->
+	<text x="30" y="296" font-size="11" font-weight="600" fill="#3c3c43">Sequence</text>
+
+	<!-- Actor boxes (alternating warm/cool) -->
+	<rect
+		x="60"
+		y="310"
+		width="80"
+		height="32"
+		rx="4"
+		fill="#fef6e4"
+		stroke="#D6A24A"
+		stroke-width="1.2"
+	/>
+	<text x="100" y="330" text-anchor="middle" font-size="11" fill="#3c3c43">User</text>
+
+	<rect
+		x="240"
+		y="310"
+		width="80"
+		height="32"
+		rx="4"
+		fill="#eef0ff"
+		stroke="#5c73e7"
+		stroke-width="1.2"
+	/>
+	<text x="280" y="330" text-anchor="middle" font-size="11" fill="#3c3c43">CLI</text>
+
+	<rect
+		x="420"
+		y="310"
+		width="80"
+		height="32"
+		rx="4"
+		fill="#eef5ee"
+		stroke="#5a9a6a"
+		stroke-width="1.2"
+	/>
+	<text x="460" y="330" text-anchor="middle" font-size="11" fill="#3c3c43">Plugin</text>
+
+	<!-- Lifelines -->
+	<line
+		x1="100"
+		y1="342"
+		x2="100"
+		y2="460"
+		stroke="#D6A24A"
+		stroke-width="1"
+		stroke-dasharray="4 3"
+		opacity="0.5"
+	/>
+	<line
+		x1="280"
+		y1="342"
+		x2="280"
+		y2="460"
+		stroke="#5c73e7"
+		stroke-width="1"
+		stroke-dasharray="4 3"
+		opacity="0.5"
+	/>
+	<line
+		x1="460"
+		y1="342"
+		x2="460"
+		y2="460"
+		stroke="#5a9a6a"
+		stroke-width="1"
+		stroke-dasharray="4 3"
+		opacity="0.5"
+	/>
+
+	<!-- Message 1 -->
+	<line
+		x1="100"
+		y1="362"
+		x2="280"
+		y2="362"
+		stroke="#3c3c43"
+		stroke-width="1.2"
+		marker-end="url(#arrow3)"
+	/>
+	<text x="190" y="356" text-anchor="middle" font-size="10" fill="#3c3c43">run(cmd)</text>
+
+	<!-- Activation (indigo) -->
+	<rect x="274" y="362" width="12" height="50" fill="#e0e4ff" stroke="#5c73e7" stroke-width="1" />
+
+	<!-- Message 2 -->
+	<line
+		x1="280"
+		y1="382"
+		x2="460"
+		y2="382"
+		stroke="#3c3c43"
+		stroke-width="1.2"
+		marker-end="url(#arrow3)"
+	/>
+	<text x="370" y="376" text-anchor="middle" font-size="10" fill="#3c3c43">hook(pre)</text>
+
+	<!-- Return -->
+	<line
+		x1="460"
+		y1="400"
+		x2="280"
+		y2="400"
+		stroke="#67676c"
+		stroke-width="1.2"
+		stroke-dasharray="4 2"
+		marker-end="url(#arrow3)"
+	/>
+	<text x="370" y="394" text-anchor="middle" font-size="10" fill="#67676c">result</text>
+
+	<!-- Message 3 return -->
+	<line
+		x1="280"
+		y1="430"
+		x2="100"
+		y2="430"
+		stroke="#67676c"
+		stroke-width="1.2"
+		stroke-dasharray="4 2"
+		marker-end="url(#arrow3)"
+	/>
+	<text x="190" y="424" text-anchor="middle" font-size="10" fill="#67676c">output</text>
+
+	<!-- ════ Gantt snippet ════ -->
+	<text x="560" y="296" font-size="11" font-weight="600" fill="#3c3c43">Gantt</text>
+
+	<!-- Active (gold) -->
+	<rect
+		x="560"
+		y="310"
+		width="140"
+		height="20"
+		rx="3"
+		fill="#D6A24A"
+		stroke="#b0841e"
+		stroke-width="1"
+	/>
+	<text x="630" y="324" text-anchor="middle" font-size="9" fill="#fff">Parse args</text>
+
+	<!-- Secondary (indigo) -->
+	<rect
+		x="580"
+		y="336"
+		width="120"
+		height="20"
+		rx="3"
+		fill="#7b8ef0"
+		stroke="#5c73e7"
+		stroke-width="1"
+	/>
+	<text x="640" y="350" text-anchor="middle" font-size="9" fill="#fff">Validate</text>
+
+	<!-- Tertiary (sage) -->
+	<rect
+		x="600"
+		y="362"
+		width="80"
+		height="20"
+		rx="3"
+		fill="#7ebe8a"
+		stroke="#5a9a6a"
+		stroke-width="1"
+	/>
+	<text x="640" y="376" text-anchor="middle" font-size="9" fill="#fff">Execute</text>
+
+	<!-- Done (neutral) -->
+	<rect
+		x="560"
+		y="394"
+		width="140"
+		height="20"
+		rx="3"
+		fill="#e8e8ea"
+		stroke="#c2c2c4"
+		stroke-width="1"
+	/>
+	<text x="630" y="408" text-anchor="middle" font-size="9" fill="#67676c">Done</text>
+
+	<!-- ════ Color swatches ════ -->
+	<text x="560" y="440" font-size="9" font-weight="600" fill="#3c3c43">Palette</text>
+
+	<rect x="560" y="450" width="20" height="14" rx="2" fill="#D6A24A" />
+	<text x="586" y="461" font-size="8" fill="#67676c">gold</text>
+
+	<rect x="620" y="450" width="20" height="14" rx="2" fill="#5c73e7" />
+	<text x="646" y="461" font-size="8" fill="#67676c">indigo</text>
+
+	<rect x="560" y="470" width="20" height="14" rx="2" fill="#5a9a6a" />
+	<text x="586" y="481" font-size="8" fill="#67676c">sage</text>
+
+	<rect x="620" y="470" width="20" height="14" rx="2" fill="#929295" />
+	<text x="646" y="481" font-size="8" fill="#67676c">neutral</text>
+
+	<!-- Arrow marker -->
+	<defs>
+		<marker id="arrow3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+			<path d="M0,0 L8,3 L0,6 Z" fill="#3c3c43" />
+		</marker>
+	</defs>
+
+	<!-- Footer -->
+	<text
+		x="360"
+		y="506"
+		text-anchor="middle"
+		font-size="10"
+		fill="#929295"
+	>primaryColor=#fef6e4  secondaryColor=#eef0ff  tertiaryColor=#eef5ee  lineColor=#67676c</text>
+</svg>

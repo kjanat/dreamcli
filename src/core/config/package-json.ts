@@ -25,9 +25,13 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * All fields are optional — a valid package.json may omit any of them.
  */
 interface PackageJsonData {
+	/** Package name (e.g. `@scope/mycli`). */
 	readonly name?: string;
+	/** Semver version string from `package.json`. */
 	readonly version?: string;
+	/** One-line package description. */
 	readonly description?: string;
+	/** Binary entry point(s) — string for single-bin, object for multi-bin. */
 	readonly bin?: string | Readonly<Record<string, string>>;
 }
 
@@ -94,7 +98,7 @@ function joinPath(base: string, segment: string): string {
  *
  * @example
  * ```ts
- * import { discoverPackageJson } from 'dreamcli';
+ * import { discoverPackageJson } from '@kjanat/dreamcli';
  *
  * const pkg = await discoverPackageJson(adapter);
  * if (pkg !== null) {
@@ -188,7 +192,7 @@ function parseBinField(value: unknown): string | Readonly<Record<string, string>
  *
  * @example
  * ```ts
- * import { inferCliName } from 'dreamcli';
+ * import { inferCliName } from '@kjanat/dreamcli';
  *
  * inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
  * inferCliName({ name: '@scope/mycli' });             // 'mycli'

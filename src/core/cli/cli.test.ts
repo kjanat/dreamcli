@@ -4,6 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { ParseError } from '#internals/core/errors/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandMeta } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
@@ -271,7 +272,7 @@ describe('CLIBuilder.run — runtime name inheritance', () => {
 		expect(output).not.toContain('Usage: cli <command> [options]');
 	});
 
-	it('falls back to the configured name when no invocation name can be inferred', async () => {
+	it('falls back to the configured name when invocation name is unavailable', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
 			argv: ['deno', 'run', '--help'],
@@ -454,7 +455,7 @@ describe('help virtual subcommand — behavior', () => {
 		expect(output).toContain('deploy');
 	});
 
-	it('bare `help` shows merged root and default command help for single-command default CLIs', async () => {
+	it('bare `help` merges root and default help for single-command CLIs', async () => {
 		const defaultCmd = command('run')
 			.description('Default runner')
 			.arg('target', arg.string().describe('Run target'))
@@ -559,6 +560,24 @@ describe('async command handlers', () => {
 // --- Options passthrough
 
 describe('options passthrough', () => {
+	it('cleans up injected output handles for matched CLI commands', async () => {
+		const [out, captured] = createCaptureOutput();
+		const stopActive = vi.spyOn(out, 'stopActive');
+
+		const app = cli('mycli').command(
+			command('build').action(({ out }) => {
+				out.spinner('Working');
+				throw new Error('kaboom');
+			}),
+		);
+		const result = await app.execute(['build'], { out, captured });
+
+		expect(result.exitCode).toBe(1);
+		expect(result.error?.code).toBe('UNEXPECTED_ERROR');
+		expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Working' }]);
+		expect(stopActive).toHaveBeenCalledTimes(1);
+	});
+
 	it('passes verbosity through to commands', async () => {
 		const verboseCmd = command('talk').action(({ out }) => {
 			out.info('info message');

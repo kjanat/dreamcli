@@ -1,16 +1,14 @@
 {
 	"compilerOptions": {
-		// Environment
-		"target": "esnext",
-		"lib": ["es2023"],
+		"target": "ESNext",
+		"lib": ["ESNext"],
+		"module": "Preserve",
 		"moduleDetection": "force",
-		"module": "preserve",
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"resolveJsonModule": true,
-		"types": ["node", "bun", "deno", "vitest"],
+		"types": ["bun", "node", "deno", "vite", "vitest"],
 
-		// Strictness
 		"strict": true,
 		"noUnusedLocals": true,
 		"noEmit": true,
@@ -21,23 +19,17 @@
 		"noUncheckedIndexedAccess": true,
 		"exactOptionalPropertyTypes": true,
 		"noFallthroughCasesInSwitch": true,
+		"noUnusedParameters": true,
 		"noImplicitOverride": true,
 		"forceConsistentCasingInFileNames": true,
 
-		"rootDir": ".",
 		"paths": {
-			"dreamcli": ["./src/index.ts"],
-			"dreamcli/runtime": ["./src/runtime.ts"],
-			"dreamcli/testkit": ["./src/testkit.ts"]
+			"@kjanat/dreamcli": ["./src/index.ts"],
+			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
+			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"],
+			"@kjanat/dreamcli/schema": ["./dreamcli.schema.json"],
+			"@kjanat/dreamcli/package.json": ["./package.json"]
 		}
 	},
-	"include": [
-		"./src/**/*.ts",
-		"./examples/*.ts",
-		"./package.json",
-		"./scripts/**/*.ts",
-		"./docs/**/*.ts",
-		"./*.ts"
-	],
-	"exclude": ["**/dist", "**/node_modules", "**/.cache"]
+	"exclude": ["**/dist", "**/node_modules"]
 }

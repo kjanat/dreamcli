@@ -2,13 +2,14 @@
  * Auto-generated help text from command schemas.
  *
  * Renders usage line, description, positional args, flags table, and
- * examples from a `CommandSchema`. Designed for TTY output with
+ * examples from a {@linkcode CommandSchema}. Designed for TTY output with
  * configurable width.
  *
  * @module dreamcli/core/help
  */
 
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -137,23 +138,20 @@ interface FlagEntry {
  * @returns Formatted left-column string for the flags table.
  */
 function formatFlagLeft(name: string, schema: FlagSchema): string {
-	const parts: string[] = [];
-
-	// Short alias first (single-char)
-	const shortAlias = schema.aliases.find((a) => a.length === 1);
-	if (shortAlias !== undefined) {
-		parts.push(`-${shortAlias},`);
-	}
-
-	// Long flag name
-	parts.push(`--${name}`);
+	const visibleShortAliases = getFlagAliasNames(schema, { kind: 'short' });
+	const visibleLongAliases = getFlagAliasNames(schema, { kind: 'long' });
+	const forms = [
+		...visibleShortAliases.map((alias) => `-${alias}`),
+		`--${name}`,
+		...visibleLongAliases.map((alias) => `--${alias}`),
+	];
 
 	// Value placeholder (skip for boolean)
 	if (schema.kind !== 'boolean') {
-		parts.push(formatValueHint(schema));
+		return `${forms.join(', ')} ${formatValueHint(schema)}`;
 	}
 
-	return parts.join(' ');
+	return forms.join(', ');
 }
 
 /**
@@ -240,8 +238,8 @@ function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly
 		const aSchema = flags[a];
 		const bSchema = flags[b];
 		if (aSchema === undefined || bSchema === undefined) return 0;
-		const aHasShort = aSchema.aliases.some((al) => al.length === 1);
-		const bHasShort = bSchema.aliases.some((al) => al.length === 1);
+		const aHasShort = getFlagAliasNames(aSchema, { kind: 'short' }).length > 0;
+		const bHasShort = getFlagAliasNames(bSchema, { kind: 'short' }).length > 0;
 		if (aHasShort && !bHasShort) return -1;
 		if (!aHasShort && bHasShort) return 1;
 		return a.localeCompare(b);

@@ -52,8 +52,7 @@ describe('CLIBuilder --json flag', () => {
 
 	it('--json before command name still works', async () => {
 		const app = cli('test').command(dataCommand());
-		// --json before command name — currently treated as unknown root flag
-		// showing help, but after stripping --json the first real arg is 'data'
+		// Planner-owned argv normalization keeps global --json out of dispatch.
 		const result = await app.execute(['--json', 'data']);
 
 		expect(result.exitCode).toBe(0);

@@ -38,11 +38,37 @@ function extractZshRootFunction(script: string, funcName: string): string {
 	if (start === -1) {
 		throw new Error(`Could not find zsh root function '${funcName}'`);
 	}
-	const end = script.indexOf(`\n}\n\n${funcName} "$@"`, start);
+	const end = script.indexOf(`\n}\n\ncompdef ${funcName} `, start);
 	if (end === -1) {
 		throw new Error(`Could not find end of zsh root function '${funcName}'`);
 	}
 	return script.slice(start, end + 2);
 }
 
-export { extractBashRootWords, extractZshRootFunction };
+/**
+ * @internal
+ * Extract all fish `complete` lines gated by a specific path condition.
+ *
+ * @param script - The full generated fish completion script.
+ * @param pathIsFuncName - The helper used in `-n` conditions.
+ * @param path - The canonical command path to match.
+ * @returns Matching `complete` lines.
+ */
+function extractFishCompletionLines(
+	script: string,
+	pathIsFuncName: string,
+	path: string,
+): readonly string[] {
+	const quotedPath =
+		path === ''
+			? "''"
+			: /^[a-zA-Z0-9_\-.]+$/.test(path)
+				? path
+				: `'${path.replace(/'/g, "'\\''")}'`;
+	const condition = `-n "${pathIsFuncName} ${quotedPath}"`;
+	return script
+		.split('\n')
+		.filter((line) => line.startsWith('complete ') && line.includes(condition));
+}
+
+export { extractBashRootWords, extractFishCompletionLines, extractZshRootFunction };

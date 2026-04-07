@@ -1,7 +1,7 @@
 /**
  * Test utilities for DreamCLI commands.
  *
- * Provides `runCommand()` — the in-process test harness — plus test doubles
+ * Provides {@linkcode runCommand | runCommand()} — the in-process test harness — plus test doubles
  * for output capture, prompt simulation, and runtime adaptation.
  *
  * Start here for most tests:
@@ -10,14 +10,16 @@
  * - {@link createTestPrompter} to script interactive answers
  * - {@link createTestAdapter} when you need adapter-level control
  *
- * @module dreamcli/testkit
+ * @module @kjanat/dreamcli/testkit
  */
 
-export type { CapturedOutput } from './core/output/index.ts';
-export { createCaptureOutput } from './core/output/index.ts';
-export type { TestAnswer, TestPrompterOptions } from './core/prompt/index.ts';
-export { createTestPrompter, PROMPT_CANCEL } from './core/prompt/index.ts';
+export { type CapturedOutput, createCaptureOutput } from './core/output/index.ts';
+export {
+	createTestPrompter,
+	PROMPT_CANCEL,
+	type TestAnswer,
+	type TestPrompterOptions,
+} from './core/prompt/index.ts';
 export type { RunOptions, RunResult } from './core/testkit/index.ts';
 export { runCommand } from './core/testkit/index.ts';
-export type { TestAdapterOptions } from './runtime/index.ts';
-export { createTestAdapter } from './runtime/index.ts';
+export { createTestAdapter, type TestAdapterOptions } from './runtime/index.ts';

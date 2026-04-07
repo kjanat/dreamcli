@@ -1,12 +1,12 @@
 <svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="300"
-  height="40"
-  viewBox="0 0 300 40"
-  role="img"
-  aria-label="Animated progress bar"
+	xmlns="http://www.w3.org/2000/svg"
+	width="300"
+	height="40"
+	viewBox="0 0 300 40"
+	role="img"
+	aria-label="Animated progress bar"
 >
-  <style>svg {
+	<style>svg {
       background: transparent;
       color: #111827;
     }
@@ -104,33 +104,33 @@
       88.889%, 100% { opacity: 1; }
     }</style>
 
-  <!-- empty bar -->
-  <text class="base" x="12" y="20">[█████████]</text>
+	<!-- empty bar -->
+	<text class="base" x="12" y="20">[█████████]</text>
 
-  <!-- animated filled overlay -->
-  <clipPath id="clip">
-    <rect x="24" y="2" width="0" height="36">
-      <!-- svg-lint-disable-next-line InvalidChild -->
-      <animate
-        attributeName="width"
-        dur="2.7s"
-        repeatCount="indefinite"
-        calcMode="discrete"
-        values="0;14.5;29;43.5;58;72.5;87;101.5;116"
-      />
-    </rect>
-  </clipPath>
+	<!-- animated filled overlay -->
+	<clipPath id="clip">
+		<rect x="24" y="2" width="0" height="36">
+			<!-- svg-lint-disable-next-line InvalidChild -->
+			<animate
+				attributeName="width"
+				dur="2.7s"
+				repeatCount="indefinite"
+				calcMode="discrete"
+				values="0;14.5;29;43.5;58;72.5;87;101.5;116"
+			/>
+		</rect>
+	</clipPath>
 
-  <text class="fill" x="12" y="20" clip-path="url(#clip)">[█████████]</text>
+	<text class="fill" x="12" y="20" clip-path="url(#clip)">[█████████]</text>
 
-  <!-- percentage, fixed right edge -->
-  <text class="fill pct-frame p0" x="288" y="20" text-anchor="end">0%</text>
-  <text class="fill pct-frame p1" x="288" y="20" text-anchor="end">12.5%</text>
-  <text class="fill pct-frame p2" x="288" y="20" text-anchor="end">25%</text>
-  <text class="fill pct-frame p3" x="288" y="20" text-anchor="end">37.5%</text>
-  <text class="fill pct-frame p4" x="288" y="20" text-anchor="end">50%</text>
-  <text class="fill pct-frame p5" x="288" y="20" text-anchor="end">62.5%</text>
-  <text class="fill pct-frame p6" x="288" y="20" text-anchor="end">75%</text>
-  <text class="fill pct-frame p7" x="288" y="20" text-anchor="end">87.5%</text>
-  <text class="fill pct-frame p8" x="288" y="20" text-anchor="end">100%</text>
+	<!-- percentage, fixed right edge -->
+	<text class="fill pct-frame p0" x="288" y="20" text-anchor="end">0%</text>
+	<text class="fill pct-frame p1" x="288" y="20" text-anchor="end">12.5%</text>
+	<text class="fill pct-frame p2" x="288" y="20" text-anchor="end">25%</text>
+	<text class="fill pct-frame p3" x="288" y="20" text-anchor="end">37.5%</text>
+	<text class="fill pct-frame p4" x="288" y="20" text-anchor="end">50%</text>
+	<text class="fill pct-frame p5" x="288" y="20" text-anchor="end">62.5%</text>
+	<text class="fill pct-frame p6" x="288" y="20" text-anchor="end">75%</text>
+	<text class="fill pct-frame p7" x="288" y="20" text-anchor="end">87.5%</text>
+	<text class="fill pct-frame p8" x="288" y="20" text-anchor="end">100%</text>
 </svg>

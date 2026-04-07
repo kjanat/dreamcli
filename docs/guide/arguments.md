@@ -4,23 +4,62 @@ Positional arguments are declared with `arg` and appear after the command name.
 
 ## Argument Types
 
-```ts
-import { arg } from 'dreamcli';
+### String
 
-arg.string(); // string
-arg.number(); // number
-arg.custom((v) => new URL(v)); // URL
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const stringArg = arg.string();
+
+declare const argTypes: {
+  string: InferArg<typeof stringArg>;
+};
+argTypes.string;
+//         ^?
+```
+
+### Number
+
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const numberArg = arg.number();
+
+declare const argTypes: {
+  number: InferArg<typeof numberArg>;
+};
+argTypes.number;
+//         ^?
+```
+
+### Custom
+
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const customArg = arg.custom((v) => new URL(v));
+
+declare const argTypes: {
+  custom: InferArg<typeof customArg>;
+};
+argTypes.custom;
+//         ^?
 ```
 
 ## Declaration
 
-```ts
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('deploy')
   .arg('target', arg.string().describe('Deploy target'))
-  .arg('version', arg.string().describe('Version tag').optional())
+  .arg(
+    'version',
+    arg.string().describe('Version tag').optional(),
+  )
   .action(({ args }) => {
-    args.target; // string (required)
-    args.version; // string | undefined (optional)
+    type Args = typeof args;
+    //    ^?
   });
 ```
 
@@ -37,23 +76,49 @@ $ mycli deploy production v1.2.3
 Arguments are required by default.
 Use `.optional()` to make them optional:
 
-```ts
-// Required — must be provided
-arg.string();
+### Required
 
-// Optional — may be omitted
-arg.string().optional();
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const requiredArg = arg.string();
+
+declare const requiredVsOptional: {
+  required: InferArg<typeof requiredArg>;
+};
+requiredVsOptional.required;
+//                   ^?
+```
+
+### Optional
+
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const optionalArg = arg.string().optional();
+
+declare const requiredVsOptional: {
+  optional: InferArg<typeof optionalArg>;
+};
+requiredVsOptional.optional;
+//                   ^?
 ```
 
 ## Variadic Arguments
 
 The last argument can be variadic, collecting all remaining positional values:
 
-```ts
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('copy')
-  .arg('files', arg.string().variadic().describe('Files to copy'))
+  .arg(
+    'files',
+    arg.string().variadic().describe('Files to copy'),
+  )
   .action(({ args }) => {
-    args.files; // string[]
+    args.files;
+    //     ^?
   });
 ```
 
@@ -66,11 +131,20 @@ $ mycli copy a.txt b.txt c.txt
 
 Arguments can fall back to environment variables when the positional value is missing:
 
-```ts
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('auth')
-  .arg('token', arg.string().env('API_TOKEN').describe('Token from env'))
+  .arg(
+    'token',
+    arg
+      .string()
+      .env('API_TOKEN')
+      .describe('Token from env'),
+  )
   .action(({ args }) => {
-    args.token; // string
+    args.token;
+    //     ^?
   });
 ```
 
@@ -80,11 +154,17 @@ If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
 Arguments can also read from piped stdin with `.stdin()`:
 
-```ts
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
 command('format')
-  .arg('data', arg.string().stdin().describe('Read from STDIN'))
+  .arg(
+    'data',
+    arg.string().stdin().describe('Read from STDIN'),
+  )
   .action(({ args }) => {
-    args.data; // string
+    args.data;
+    //     ^?
   });
 ```
 

@@ -1,7 +1,7 @@
 /**
  * CLI entry point builder with command registration and dispatch.
  *
- * The `cli()` factory returns an immutable `CLIBuilder` that registers
+ * The {@linkcode cli | cli()} factory returns an immutable {@linkcode CLIBuilder} that registers
  * commands, handles `--help`/`--version` at root level, dispatches to
  * the matched command, and provides both a testable `.execute()` path
  * and a production `.run()` path.
@@ -12,19 +12,16 @@
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import { generateCompletion, SHELLS } from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
-import { discoverConfig } from '#internals/core/config/index.ts';
-import { discoverPackageJson, inferCliName } from '#internals/core/config/package-json.ts';
-import { CLIError, ParseError } from '#internals/core/errors/index.ts';
+import { CLIError } from '#internals/core/errors/index.ts';
+import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
-import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
+import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { createCaptureOutput, createOutput } from '#internals/core/output/index.ts';
-import { parse } from '#internals/core/parse/index.ts';
-import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
-import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type {
+	AnyCommandBuilder,
 	CommandBuilder,
 	CommandMeta,
 	CommandSchema,
@@ -37,20 +34,73 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
-import { dispatch, findClosestCommand } from './dispatch.ts';
+import type { OutputPolicy } from './planner.ts';
+import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
-import { collectPropagatedFlags } from './propagate.ts';
 import { formatRootHelp } from './root-help.ts';
+import { prepareRuntimePreflight } from './runtime-preflight.ts';
 
 // --- Type-erased command — erasure function (interface now in schema/command.ts)
 
+function commandRoutes(schema: CommandSchema): readonly string[] {
+	return [schema.name, ...schema.aliases];
+}
+
+function assertNoSiblingRouteConflict(
+	parentCommandName: string,
+	routeOwners: Map<string, string>,
+	route: string,
+	commandName: string,
+): void {
+	const owner = routeOwners.get(route);
+	if (owner !== undefined) {
+		throw new CLIError(
+			`Duplicate command route '${route}' under '${parentCommandName}' (${owner} and ${commandName})`,
+			{
+				code: 'DUPLICATE_COMMAND',
+				suggest: 'Ensure sibling command names and aliases are unique',
+			},
+		);
+	}
+
+	routeOwners.set(route, commandName);
+}
+
+function assertNoTopLevelRouteConflict(
+	commands: readonly ErasedCommand[],
+	incoming: CommandSchema,
+): void {
+	const routeOwners = new Map<string, string>();
+
+	for (const command of commands) {
+		for (const route of commandRoutes(command.schema)) {
+			assertNoSiblingRouteConflict('root', routeOwners, route, command.schema.name);
+		}
+	}
+
+	for (const route of commandRoutes(incoming)) {
+		const owner = routeOwners.get(route);
+		if (owner !== undefined) {
+			throw new CLIError(`Command route '${route}' is already registered by '${owner}'`, {
+				code: 'DUPLICATE_COMMAND',
+				suggest:
+					owner === incoming.name
+						? `Ensure command '${incoming.name}' does not reuse route '${route}'`
+						: `Rename '${incoming.name}' or remove route '${route}' from '${owner}'`,
+			});
+		}
+
+		routeOwners.set(route, incoming.name);
+	}
+}
+
 /**
- * Erase a typed CommandBuilder into an ErasedCommand, recursively
+ * Erase a typed  {@linkcode CommandBuilder} into an {@linkcode ErasedCommand}, recursively
  * building the subcommand tree.
  *
- * The closure captures the fully-typed builder, so `runCommand()` receives
- * the original `CommandBuilder<F, A>` — no type assertions needed.
+ * The closure captures the fully-typed builder, so  {@linkcode runCommand()} receives
+ * the original `CommandBuilder<F, A>` — no type assertions needed.\
  * Subcommands are recursively erased and indexed by name and alias for
  * O(1) lookup during dispatch.
  *
@@ -63,17 +113,23 @@ function eraseCommand<
 >(cmd: CommandBuilder<F, A, C>): ErasedCommand {
 	// Recursively erase subcommands, keyed by name and alias.
 	const subcommands = new Map<string, ErasedCommand>();
+	const routeOwners = new Map<string, string>();
 	for (const sub of cmd._subcommands) {
+		const routes = commandRoutes(sub.schema);
+		for (const route of routes) {
+			assertNoSiblingRouteConflict(cmd.schema.name, routeOwners, route, sub.schema.name);
+		}
+
 		const erased = eraseCommand(sub);
-		subcommands.set(sub.schema.name, erased);
-		for (const alias of sub.schema.aliases) {
-			subcommands.set(alias, erased);
+		for (const route of routes) {
+			subcommands.set(route, erased);
 		}
 	}
 
 	return {
 		schema: cmd.schema,
 		subcommands,
+		_command: cmd as unknown as AnyCommandBuilder,
 		_execute(argv, options) {
 			return runCommand(cmd, argv, options);
 		},
@@ -85,8 +141,8 @@ function eraseCommand<
 /**
  * Runtime descriptor for the CLI program.
  *
- * Stores the program name, version, description, and registered commands.
- * Built incrementally by `CLIBuilder`.
+ * Stores the program name, version, description, and registered commands.\
+ * Built incrementally by {@linkcode CLIBuilder}.
  */
 interface CLISchema {
 	/** Program name (used in help text, usage lines, and completion scripts). */
@@ -110,23 +166,26 @@ interface CLISchema {
 	 * dispatch by name as usual, but empty argv or flags-only argv falls
 	 * through to this command instead of showing root help.
 	 *
-	 * Set via the `.default()` builder method.
+	 * Set via the {@linkcode CLIBuilder.default | .default()} builder method.
 	 */
 	readonly defaultCommand: ErasedCommand | undefined;
 	/**
-	 * Config discovery settings. When defined, `.run()` auto-discovers and
-	 * loads a config file before command dispatch.
+	 * Config discovery settings.
 	 *
-	 * Set via the `.config()` builder method.
+	 * When defined, {@linkcode CLIBuilder.run | .run()} auto-discovers and loads a config file before command dispatch.
+	 *
+	 * Set via the {@linkcode CLIBuilder.config | .config()} builder method.
 	 */
 	readonly configSettings: ConfigSettings | undefined;
 	/**
 	 * Package.json auto-discovery settings. When defined, `.run()` discovers
 	 * the nearest `package.json` and merges metadata before dispatch.
 	 *
-	 * Set via the `.packageJson()` builder method.
+	 * Set via the {@linkcode CLIBuilder.packageJson | .packageJson()} builder method.
 	 */
 	readonly packageJsonSettings: PackageJsonSettings | undefined;
+	/** Whether built-in `.completions()` command registration is active. */
+	readonly hasBuiltInCompletions: boolean;
 	/** Registered CLI plugins. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -134,8 +193,8 @@ interface CLISchema {
 /**
  * Config discovery settings for automatic config file loading.
  *
- * Stored in {@link CLISchema} and consumed by `CLIBuilder.run()` to
- * call {@link discoverConfig} before dispatching to a command.
+ * Stored in {@link CLISchema} and consumed by {@linkcode CLIBuilder.run()} to call
+ * {@link discoverConfig} before dispatching to a command.
  */
 interface ConfigSettings {
 	/**
@@ -174,19 +233,12 @@ interface PackageJsonSettings {
 // --- Options for execute/run
 
 /**
- * Options for `CLIBuilder.execute()` and `CLIBuilder.run()`.
+ * Options for {@linkcode CLIBuilder.execute | .execute()} and {@linkcode CLIBuilder.run | .run()}.
  *
- * Mirrors `RunOptions` from testkit but adds CLI-level concerns
- * (version display, root help formatting, runtime adapter).
+ * Derives from {@linkcode RunOptions} while excluding command-execution internals
+ * (`meta`, `mergedSchema`) and adding the CLI-level runtime adapter.
  */
-interface CLIRunOptions {
-	/**
-	 * CLI plugins to apply for this execution.
-	 *
-	 * @internal — populated from `CLIBuilder.schema.plugins` during dispatch.
-	 */
-	readonly plugins?: readonly CLIPlugin[];
-
+interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {
 	/**
 	 * Runtime adapter providing platform-specific I/O, argv, env, etc.
 	 *
@@ -194,183 +246,18 @@ interface CLIRunOptions {
 	 * Ignored by `.execute()` (which is process-free by design).
 	 */
 	readonly adapter?: RuntimeAdapter;
-
-	/**
-	 * Environment variables for flag resolution.
-	 *
-	 * Flags with `.env('VAR')` configured resolve from this record
-	 * when no CLI value is provided (CLI → env → config → default).
-	 */
-	readonly env?: Readonly<Record<string, string | undefined>>;
-
-	/**
-	 * Configuration object for flag resolution.
-	 *
-	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
-	 * Config is plain JSON — file loading is the caller's responsibility.
-	 */
-	readonly config?: Readonly<Record<string, unknown>>;
-
-	/**
-	 * Full stdin contents for args configured with `.stdin()`.
-	 *
-	 * `run()` populates this from `adapter.readStdin()` only when the selected
-	 * invocation needs stdin. `execute()` accepts it directly so tests can
-	 * simulate piped input without a runtime adapter.
-	 */
-	readonly stdinData?: string | null;
-
-	/**
-	 * Prompt engine for interactive flag resolution.
-	 *
-	 * When provided, flags with `.prompt()` configured that have no value
-	 * after CLI/env/config resolution will be prompted interactively.
-	 * When absent (and `answers` is also absent), prompting is skipped.
-	 *
-	 * Takes precedence over `answers` when both are provided.
-	 */
-	readonly prompter?: PromptEngine;
-
-	/**
-	 * Pre-configured prompt answers for testing convenience.
-	 *
-	 * When provided, a test prompter is created from these answers via
-	 * `createTestPrompter(answers)`. Each entry is consumed in order —
-	 * use `PROMPT_CANCEL` to simulate cancellation.
-	 *
-	 * Ignored when an explicit `prompter` is provided.
-	 */
-	readonly answers?: readonly TestAnswer[];
-
-	/**
-	 * Verbosity level for the output channel.
-	 * @defaultValue `'normal'`
-	 */
-	readonly verbosity?: Verbosity;
-
-	/**
-	 * Enable JSON output mode.
-	 *
-	 * When `true`, `log` and `info` messages are redirected to stderr
-	 * so that stdout is reserved exclusively for structured `json()` output.
-	 * Errors are also rendered as JSON to stderr.
-	 *
-	 * @defaultValue `false`
-	 */
-	readonly jsonMode?: boolean;
-
-	/**
-	 * Whether stdout is connected to a TTY.
-	 *
-	 * When provided, propagated to the output channel's `isTTY` field.
-	 * In `.run()`, automatically sourced from `adapter.isTTY` when not
-	 * explicitly set.
-	 *
-	 * @defaultValue `false`
-	 */
-	readonly isTTY?: boolean;
-
-	/**
-	 * Output channel override used by `run()` for live terminal rendering.
-	 *
-	 * @internal — `execute()` remains capture-first by default.
-	 */
-	readonly out?: Out;
-
-	/**
-	 * Capture buffers paired with `out`.
-	 *
-	 * @internal — `run()` omits this and accepts empty buffers in the returned
-	 * `RunResult` because output is already written to the real adapter streams.
-	 */
-	readonly captured?: CapturedOutput;
-
-	/**
-	 * Help formatting options (width, binName).
-	 * `binName` defaults to the CLI program name.
-	 */
-	readonly help?: HelpOptions;
-}
-
-// --- --config flag extraction
-
-/**
- * Extract `--config <path>` or `--config=<path>` from argv.
- *
- * Returns the config path (if present) and the filtered argv with the
- * flag (and its value) removed. Bare `--config` at end of argv (no value)
- * and `--config=` (empty value) are silently ignored (treated as absent).
- *
- * The `--config=<path>` form is checked first so that a bare `--config`
- * token does not consume the next element when an equals-form is present.
- *
- * @param argv - Raw argument vector to scan for `--config`.
- * @returns The extracted config path and filtered argv with the flag removed.
- *
- * @internal
- */
-function extractConfigFlag(argv: readonly string[]): {
-	readonly configPath: string | undefined;
-	readonly filteredArgv: readonly string[];
-} {
-	// --- equals form: --config=<path> ---
-	const eqIdx = argv.findIndex((arg) => arg.startsWith('--config='));
-	if (eqIdx !== -1) {
-		const value = (argv[eqIdx] as string).slice('--config='.length);
-		// Always strip the element; empty value (--config=) treated as absent.
-		const filteredArgv = [...argv.slice(0, eqIdx), ...argv.slice(eqIdx + 1)];
-		return {
-			configPath: value.length > 0 ? value : undefined,
-			filteredArgv,
-		};
-	}
-
-	// --- space-separated form: --config <path> ---
-	const idx = argv.indexOf('--config');
-	const nextArg = idx >= 0 ? argv[idx + 1] : undefined;
-	if (idx === -1 || nextArg === undefined) {
-		return { configPath: undefined, filteredArgv: argv };
-	}
-	const filteredArgv = [...argv.slice(0, idx), ...argv.slice(idx + 2)];
-	return { configPath: nextArg, filteredArgv };
-}
-
-// --- CLI → CommandMeta builder
-
-/**
- * Build {@link CommandMeta} from CLI-level schema and the leaf command name.
- *
- * @param cliSchema - Root CLI schema providing program name and version.
- * @param helpOptions - Help formatting options; `binName` overrides the program name when set.
- * @param commandName - Name of the matched leaf command.
- * @returns Metadata record consumed by command actions and help formatters.
- *
- * @internal
- */
-function buildMeta(
-	cliSchema: CLISchema,
-	helpOptions: HelpOptions,
-	commandName: string,
-): CommandMeta {
-	return {
-		name: cliSchema.name,
-		bin: helpOptions.binName ?? cliSchema.name,
-		version: cliSchema.version,
-		command: commandName,
-	};
 }
 
 // --- Command run options builder
 
 /**
- * Build `RunOptions` from `CLIRunOptions`, conditionally spreading each
+ * Build {@linkcode RunOptions} from {@linkcode CLIRunOptions}, conditionally spreading each
  * field to satisfy `exactOptionalPropertyTypes`.
  *
  * @param options - CLI-level run options (may be `undefined` for defaults).
  * @param helpOptions - Help formatting options forwarded to commands.
  * @param meta - Optional command metadata (omitted for root-level dispatch).
- * @returns Options record ready for `ErasedCommand._execute()`.
+ * @returns Options record ready for {@linkcode ErasedCommand._execute | ErasedCommand._execute()}.
  *
  * @internal
  */
@@ -396,129 +283,6 @@ function buildCommandRunOptions(
 	};
 }
 
-/**
- * Index commands by name and alias for O(1) dispatch lookup.
- *
- * @param commands - Registered top-level commands.
- * @returns Map keyed by command name and every alias.
- *
- * @internal
- */
-function buildRootCommandMap(
-	commands: readonly ErasedCommand[],
-): ReadonlyMap<string, ErasedCommand> {
-	const rootCommands = new Map<string, ErasedCommand>();
-	for (const cmd of commands) {
-		rootCommands.set(cmd.schema.name, cmd);
-		for (const alias of cmd.schema.aliases) {
-			rootCommands.set(alias, cmd);
-		}
-	}
-	return rootCommands;
-}
-
-/**
- * Check whether a single command's args require stdin for the given argv.
- *
- * @param schema - Command schema whose args are inspected for `.stdin()` configuration.
- * @param argv - Remaining argv tokens after dispatch (excludes the command name).
- * @returns `true` when at least one arg has `stdinMode` and its parsed value is absent or `'-'`.
- *
- * @internal
- */
-function commandInvocationNeedsStdin(schema: CommandSchema, argv: readonly string[]): boolean {
-	if (argv.includes('--help') || argv.includes('-h')) {
-		return false;
-	}
-
-	try {
-		const parsed = parse(schema, argv);
-		return schema.args.some(({ name, schema: argSchema }) => {
-			const parsedValue = parsed.args[name];
-			return argSchema.stdinMode && (parsedValue === undefined || parsedValue === '-');
-		});
-	} catch (err: unknown) {
-		if (err instanceof ParseError) {
-			return false;
-		}
-		throw err;
-	}
-}
-
-/**
- * Determine whether the full CLI invocation will need stdin data.
- *
- * Dispatches argv through the command tree to find the target command,
- * then delegates to {@link commandInvocationNeedsStdin}. Short-circuits
- * to `false` for `--help`, `--version`, virtual `help`, and empty argv
- * without a default command.
- *
- * @param builder - CLI builder whose schema and command tree are inspected.
- * @param argv - Raw argv tokens (after `--json` stripping).
- * @returns `true` when the resolved command has args that require stdin.
- *
- * @internal
- */
-function invocationNeedsStdin(builder: CLIBuilder, argv: readonly string[]): boolean {
-	const filteredArgv = argv.includes('--json') ? argv.filter((arg) => arg !== '--json') : argv;
-
-	if (filteredArgv.includes('--version') || filteredArgv.includes('-V')) {
-		return false;
-	}
-	if (filteredArgv.includes('--help') || filteredArgv.includes('-h')) {
-		return false;
-	}
-
-	const firstArg = filteredArgv[0];
-	if (firstArg === 'help') {
-		const hasRealHelpCommand = builder.schema.commands.some(
-			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
-		);
-		if (!hasRealHelpCommand) {
-			return false;
-		}
-	}
-
-	if (firstArg === undefined && builder.schema.defaultCommand === undefined) {
-		return false;
-	}
-	if (builder.schema.commands.length === 0) {
-		return false;
-	}
-
-	const rootCommands = buildRootCommandMap(builder.schema.commands);
-	const result = dispatch(filteredArgv, rootCommands);
-	const defaultCommand = builder.schema.defaultCommand;
-
-	switch (result.kind) {
-		case 'unknown': {
-			if (defaultCommand !== undefined && result.parentPath.length === 0) {
-				const suggestion =
-					result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
-				if (suggestion === undefined) {
-					return commandInvocationNeedsStdin(defaultCommand.schema, filteredArgv);
-				}
-			}
-			return false;
-		}
-
-		case 'needs-subcommand':
-			return false;
-
-		case 'match': {
-			const propagated = collectPropagatedFlags(result.commandPath);
-			const mergedSchema =
-				Object.keys(propagated).length > 0
-					? {
-							...result.command.schema,
-							flags: { ...propagated, ...result.command.schema.flags },
-						}
-					: result.command.schema;
-			return commandInvocationNeedsStdin(mergedSchema, result.remainingArgv);
-		}
-	}
-}
-
 // --- CLIBuilder — immutable builder for the CLI program
 
 /**
@@ -528,12 +292,12 @@ function invocationNeedsStdin(builder: CLIBuilder, argv: readonly string[]): boo
  * dispatches to the matched command based on argv.
  *
  * Two execution paths:
- * - `.execute(argv, options?)` — testable, returns `RunResult`
+ * - `.execute(argv, options?)` — testable, returns {@linkcode RunResult}
  * - `.run(options?)` — production entry, reads `process.argv`, exits process
  *
  * @example
  * ```ts
- * import { cli, command, flag, arg } from 'dreamcli';
+ * import { cli, command, flag, arg } from '@kjanat/dreamcli';
  *
  * const deploy = command('deploy')
  *   .arg('target', arg.string())
@@ -552,6 +316,7 @@ class CLIBuilder {
 	/** @internal Runtime schema descriptor. */
 	readonly schema: CLISchema;
 
+	/** Build a CLIBuilder from a pre-constructed schema descriptor. */
 	constructor(schema: CLISchema) {
 		this.schema = schema;
 	}
@@ -625,7 +390,7 @@ class CLIBuilder {
 	 *
 	 * @example Bun built-in parsers
 	 * ```ts
-	 * import { configFormat } from 'dreamcli';
+	 * import { configFormat } from '@kjanat/dreamcli';
 	 *
 	 * cli('myapp')
 	 *   .config('myapp')
@@ -636,7 +401,7 @@ class CLIBuilder {
 	 *
 	 * @example npm package parsers
 	 * ```ts
-	 * import { configFormat } from 'dreamcli';
+	 * import { configFormat } from '@kjanat/dreamcli';
 	 * import { parse as parseYaml } from 'yaml';
 	 * import { parse as parseTOML } from '@iarna/toml';
 	 *
@@ -714,7 +479,7 @@ class CLIBuilder {
 	 *
 	 * The command's type parameters are erased for heterogeneous storage.
 	 * Type safety is preserved inside the closure that delegates to
-	 * `runCommand()`.
+	 * {@linkcode runCommand | runCommand()}.
 	 *
 	 * @param cmd - {@link CommandBuilder} to register.
 	 * @returns The builder (for chaining).
@@ -724,6 +489,8 @@ class CLIBuilder {
 		A extends Record<string, ArgBuilder<ArgConfig>>,
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
+		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+
 		return new CLIBuilder({
 			...this.schema,
 			commands: [...this.schema.commands, eraseCommand(cmd)],
@@ -771,12 +538,9 @@ class CLIBuilder {
 				suggest: 'Call .default() only once when building the CLI',
 			});
 		}
-		if (this.schema.commands.some((c) => c.schema.name === cmd.schema.name)) {
-			throw new CLIError(`Command '${cmd.schema.name}' is already registered`, {
-				code: 'DUPLICATE_COMMAND',
-				suggest: 'Use .default() instead of .command() to register the default command',
-			});
-		}
+
+		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+
 		const erased = eraseCommand(cmd);
 		return new CLIBuilder({
 			...this.schema,
@@ -810,7 +574,7 @@ class CLIBuilder {
 	 *
 	 * The generated command accepts a `--shell` flag (required, enum of
 	 * all {@link Shell} values) and writes the completion script to stdout
-	 * via `out.log()`. Unsupported shells throw a descriptive `CLIError`
+	 * via `out.log()`. Unsupported shells throw a descriptive {@linkcode CLIError}
 	 * instead of a generic parse error.
 	 *
 	 * Call this **after** registering all other commands so the completion
@@ -830,7 +594,7 @@ class CLIBuilder {
 	 * ```
 	 */
 	completions(options?: CompletionOptions): CLIBuilder {
-		if (this.schema.commands.some((c) => c.schema.name === 'completions')) {
+		if (this.schema.hasBuiltInCompletions) {
 			throw new CLIError('.completions() has already been called', {
 				code: 'DUPLICATE_COMMAND',
 				suggest: 'Call .completions() only once when building the CLI',
@@ -846,6 +610,7 @@ class CLIBuilder {
 		// Supported shells for validation. Keep in sync with completion/index.ts SHELLS.
 		const shellMap = new Map<string, Shell>();
 		for (const s of SHELLS) shellMap.set(s, s);
+		shellMap.set('pwsh', 'powershell');
 
 		const cmd = command('completions')
 			.alias('completion')
@@ -878,7 +643,12 @@ class CLIBuilder {
 					out.log(script);
 				}
 			});
-		return this.command(cmd);
+
+		const withCompletions = this.command(cmd);
+		return new CLIBuilder({
+			...withCompletions.schema,
+			hasBuiltInCompletions: true,
+		});
 	}
 
 	// -- Execution -----------------------------------------------------------
@@ -887,7 +657,7 @@ class CLIBuilder {
 	 * Execute the CLI program against explicit argv.
 	 *
 	 * This is the testable execution path — no process state is touched.
-	 * Returns a structured `RunResult` with exit code and captured output.
+	 * Returns a structured {@linkcode RunResult} with exit code and captured output.
 	 *
 	 * @param argv - Raw argv tokens (NOT including the binary/script path,
 	 *   i.e. equivalent to `process.argv.slice(2)`).
@@ -895,11 +665,9 @@ class CLIBuilder {
 	 * @returns Structured result with exit code and captured output.
 	 */
 	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
-		// -- Detect --json flag (global, extracted before command dispatch) ------
+		// -- Detect global --json mode before building output ---------------------
 		const hasJsonFlag = argv.includes('--json');
 		const jsonMode = hasJsonFlag || options?.jsonMode === true;
-		// Strip --json from argv so commands don't see it as an unknown flag
-		const filteredArgv = hasJsonFlag ? argv.filter((a) => a !== '--json') : argv;
 
 		const captureOptions = {
 			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
@@ -923,180 +691,74 @@ class CLIBuilder {
 			binName: options?.help?.binName ?? this.schema.name,
 		};
 
-		// -- Root --version -------------------------------------------------------
-		if (
-			this.schema.version !== undefined &&
-			(filteredArgv.includes('--version') || filteredArgv.includes('-V'))
-		) {
-			out.log(this.schema.version);
-			return buildResult(0, captured, undefined);
-		}
-
-		// -- Extract first arg for root-level checks --------------------------------
-		const firstArg = filteredArgv.length > 0 ? filteredArgv[0] : undefined;
-
-		// -- Root --help (explicit root-level help request) -----------------------
-		// Only intercept when --help/-h is the first token — subcommand-level
-		// help (e.g. `myapp deploy --help`) flows through dispatch.
-		if (firstArg === '--help' || firstArg === '-h') {
-			const helpText = formatRootHelp(this.schema, helpOptions);
-			out.log(helpText);
-			return buildResult(0, captured, undefined);
-		}
-
-		// -- `help [command...]` virtual subcommand ------------------------------
-		// Rewrite `help <cmd>` → `<cmd> --help` so it flows through normal
-		// dispatch and per-command help rendering. Bare `help` → root help.
-		// Only activates when the user hasn't registered a real `help` command.
-		if (firstArg === 'help') {
-			const hasRealHelpCommand = this.schema.commands.some(
-				(c) => c.schema.name === 'help' || c.schema.aliases.includes('help'),
-			);
-			if (!hasRealHelpCommand) {
-				const rest = filteredArgv.slice(1);
-				if (rest.length === 0) {
-					const helpText = formatRootHelp(this.schema, helpOptions);
-					out.log(helpText);
-					return buildResult(0, captured, undefined);
-				}
-				// Recurse with rewritten argv: `help deploy --force` → `deploy --force --help`
-				// Propagate jsonMode — `--json` was already stripped from filteredArgv above.
-				return this.execute([...rest, '--help'], jsonMode ? { ...options, jsonMode } : options);
-			}
-		}
-
-		// -- Empty argv without a default command → root help ---------------------
-		if (firstArg === undefined && this.schema.defaultCommand === undefined) {
-			const helpText = formatRootHelp(this.schema, helpOptions);
-			out.log(helpText);
-			return buildResult(0, captured, undefined);
-		}
-
-		// -- No commands registered -----------------------------------------------
-		if (this.schema.commands.length === 0) {
-			const err = new CLIError('No commands registered', {
-				code: 'NO_ACTION',
-				suggest: 'Add commands via .command() before calling .run()',
-			});
-			if (jsonMode) {
-				out.json({ error: err.toJSON() });
-			} else {
-				out.error(err.message);
-			}
-			return buildResult(1, captured, err);
-		}
-
-		// -- Build root command map for dispatch -----------------------------------
-		const rootCommands = buildRootCommandMap(this.schema.commands);
-
-		// -- Recursive dispatch ---------------------------------------------------
-		const result = dispatch(filteredArgv, rootCommands);
-
-		// -- Resolve default command (if configured) ------------------------------
-		const defaultCmd = this.schema.defaultCommand;
-
 		// -- Shared options for command execution ----------------------------------
 		const effectiveOptions: CLIRunOptions = {
 			...options,
 			plugins: this.schema.plugins,
 			...(jsonMode ? { jsonMode } : {}),
 		};
+		const output: OutputPolicy = {
+			jsonMode,
+			isTTY: out.isTTY,
+			verbosity: options?.verbosity ?? 'normal',
+		};
+		const planned = planInvocation({
+			schema: this.schema,
+			argv,
+			help: helpOptions,
+			output,
+		});
 
-		switch (result.kind) {
-			case 'unknown': {
-				if (defaultCmd !== undefined && result.parentPath.length === 0) {
-					// Only delegate to the default command for root-level unknowns.
-					// Nested unknowns (parentPath non-empty) should surface an error
-					// so typo suggestions work correctly within command groups.
-					const suggestion =
-						result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
-					if (suggestion === undefined) {
-						const meta = buildMeta(this.schema, helpOptions, defaultCmd.schema.name);
-						const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions, meta);
-						return defaultCmd._execute(filteredArgv, { ...commandRunOptions });
-					}
-				}
+		switch (planned.kind) {
+			case 'root-version':
+				out.log(planned.version);
+				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 
-				if (result.input === '') {
-					// Only flags, no command, no default.
-					// Extract the first flag token to report it as unknown.
-					const unknownFlag = filteredArgv.find((t) => t.startsWith('-'));
-					if (unknownFlag !== undefined) {
-						const err = new ParseError(`Unknown flag ${unknownFlag}`, {
-							code: 'UNKNOWN_FLAG',
-							suggest: `Run '${this.schema.name} --help' for available commands`,
-						});
-						if (jsonMode) {
-							out.json({ error: err.toJSON() });
-						} else {
-							out.error(err.message);
-							out.error(`Suggestion: ${err.suggest}`);
-						}
-						return buildResult(2, captured, err);
-					}
-					// Truly empty (shouldn't reach here — handled above) — show help.
-					const helpText = formatRootHelp(this.schema, helpOptions);
-					out.log(helpText);
-					return buildResult(0, captured, undefined);
-				}
-				const suggestion = findClosestCommand(result.input, result.candidates);
+			case 'root-help': {
+				const helpText = formatRootHelp(this.schema, planned.help);
+				out.log(helpText);
+				return buildRunResult({ exitCode: 0, error: undefined }, captured);
+			}
 
-				// Build scoped help path from ancestor context.
-				// e.g. for `myapp db migrat` → parentPath = [dbSchema] → "myapp db --help"
-				const scopePath =
-					result.parentPath.length > 0
-						? `${this.schema.name} ${result.parentPath.map((s) => s.name).join(' ')}`
-						: this.schema.name;
-
-				const err = new ParseError(`Unknown command: ${result.input}`, {
-					code: 'UNKNOWN_COMMAND',
-					suggest:
-						suggestion !== undefined
-							? `Did you mean '${suggestion}'?`
-							: `Run '${scopePath} --help' for available commands`,
-				});
+			case 'dispatch-error': {
 				if (jsonMode) {
-					out.json({ error: err.toJSON() });
+					out.json({ error: planned.error.toJSON() });
 				} else {
-					out.error(err.message);
-					if (err.suggest !== undefined) {
-						out.error(`Suggestion: ${err.suggest}`);
+					out.error(planned.error.message);
+					if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
+						out.error(`Suggestion: ${planned.error.suggest}`);
 					}
 				}
-				return buildResult(2, captured, err);
+				return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
 			}
 
 			case 'needs-subcommand': {
-				// Group command with no handler — show its help via formatHelp().
-				// Build binName from full command path so usage reads "myapp db" not just "db".
-				const ancestorNames = result.commandPath.slice(0, -1).map((s) => s.name);
-				const groupBinName = [this.schema.name, ...ancestorNames].join(' ');
-				const groupHelpOptions: HelpOptions = {
-					...helpOptions,
-					binName: groupBinName,
-				};
-				const helpText = formatHelp(result.command.schema, groupHelpOptions);
+				const helpText = formatHelp(planned.command.schema, planned.help);
 				out.log(helpText);
-				return buildResult(0, captured, undefined);
+				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 			}
 
 			case 'match': {
-				// Merge propagated flags from ancestor path into target's schema.
-				const propagated = collectPropagatedFlags(result.commandPath);
-				const hasPropagated = Object.keys(propagated).length > 0;
-				const mergedSchema: CommandSchema | undefined = hasPropagated
-					? {
-							...result.command.schema,
-							flags: { ...propagated, ...result.command.schema.flags },
-						}
-					: undefined;
-
-				const meta = buildMeta(this.schema, helpOptions, result.command.schema.name);
-				const commandRunOptions = buildCommandRunOptions(effectiveOptions, helpOptions, meta);
-				return result.command._execute(result.remainingArgv, {
-					...commandRunOptions,
-					...(mergedSchema !== undefined ? { mergedSchema } : {}),
+				const commandRunOptions = buildCommandRunOptions(
+					effectiveOptions,
+					planned.plan.help ?? helpOptions,
+					planned.plan.meta,
+				);
+				if (planned.plan.command._command === undefined) {
+					return planned.plan.command._execute(planned.plan.argv, {
+						...commandRunOptions,
+						mergedSchema: planned.plan.mergedSchema,
+					});
+				}
+				const result = await executeCommand({
+					command: planned.plan.command._command,
+					argv: planned.plan.argv,
+					out,
+					schema: planned.plan.mergedSchema,
+					meta: planned.plan.meta,
+					options: commandRunOptions,
 				});
+				return buildRunResult(result, captured);
 			}
 		}
 	}
@@ -1111,7 +773,7 @@ class CLIBuilder {
 	 * adapter). For testing, use `.execute()` instead — or provide a
 	 * test adapter via `options.adapter`.
 	 *
-	 * Defaults to `createAdapter()` when no adapter is provided,
+	 * Defaults to {@linkcode createAdapter | createAdapter()} when no adapter is provided,
 	 * which auto-detects the runtime (Node.js, Bun) and creates
 	 * the appropriate adapter.
 	 *
@@ -1121,123 +783,41 @@ class CLIBuilder {
 		const adapter = options?.adapter ?? createAdapter();
 		const inheritedName = this.schema.inheritName ? inferInvocationName(adapter.argv) : undefined;
 
-		const rawArgv = adapter.argv.slice(2);
+		const preflight = await prepareRuntimePreflight({
+			schema: this.schema,
+			adapter,
+			options,
+			inheritedName,
+		});
 
-		// Extract --config <path> / --config=<path> before command dispatch (requires I/O via adapter)
-		const { configPath, filteredArgv } = extractConfigFlag(rawArgv);
-
-		// Detect --json early for error rendering during config loading
-		const hasJsonFlag = filteredArgv.includes('--json');
-		const jsonMode = hasJsonFlag || options?.jsonMode === true;
-
-		// Config discovery (only when .config() was called on the builder)
-		// Skip for completions subcommand — shell completions don't need config.
-		// Resolve the first argv token against registered commands (by name + aliases)
-		// so aliases or shadowed names are handled correctly.
-		// When no subcommand token is present and a default command exists, check
-		// whether the default command is 'completions' (unlikely but correct).
-		const firstToken = filteredArgv[0];
-		const matchedCommand =
-			firstToken !== undefined
-				? this.schema.commands.find(
-						(c) => c.schema.name === firstToken || c.schema.aliases.includes(firstToken),
-					)
-				: undefined;
-		const effectiveCommandName =
-			matchedCommand?.schema.name ?? this.schema.defaultCommand?.schema.name;
-		const isCompletions = effectiveCommandName === 'completions';
-		let loadedConfig: Readonly<Record<string, unknown>> | undefined;
-
-		if (
-			this.schema.configSettings !== undefined &&
-			!isCompletions &&
-			options?.config === undefined
-		) {
-			try {
-				const result = await discoverConfig(this.schema.configSettings.appName, adapter, {
-					...(configPath !== undefined ? { configPath } : {}),
-					...(this.schema.configSettings.loaders !== undefined
-						? { loaders: this.schema.configSettings.loaders }
-						: {}),
-				});
-				if (result.found) {
-					loadedConfig = result.data;
+		if (preflight.kind === 'config-error') {
+			if (preflight.jsonMode) {
+				adapter.stdout(`${JSON.stringify({ error: preflight.error.toJSON() })}\n`);
+			} else {
+				adapter.stderr(`Error: ${preflight.error.message}\n`);
+				if (preflight.error.suggest !== undefined) {
+					adapter.stderr(`Suggestion: ${preflight.error.suggest}\n`);
 				}
-			} catch (err: unknown) {
-				// Config errors are fatal — render and exit
-				if (err instanceof CLIError) {
-					if (jsonMode) {
-						adapter.stdout(`${JSON.stringify({ error: err.toJSON() })}\n`);
-					} else {
-						adapter.stderr(`Error: ${err.message}\n`);
-						if (err.suggest !== undefined) {
-							adapter.stderr(`Suggestion: ${err.suggest}\n`);
-						}
-					}
-					return adapter.exit(err.exitCode);
-				}
-				throw err;
 			}
+			return adapter.exit(preflight.error.exitCode);
 		}
 
-		// Package.json discovery (only when .packageJson() was called)
-		// Skip for completions subcommand — no metadata needed.
-		const packageJsonSettings = this.schema.packageJsonSettings;
-		const builderWithPackageJson =
-			packageJsonSettings !== undefined && !isCompletions
-				? await (async (): Promise<CLIBuilder> => {
-						const pkg = await discoverPackageJson(adapter);
-						if (pkg === null) return this;
-
-						const schema = this.schema;
-						const inferredName = packageJsonSettings.inferName ? inferCliName(pkg) : undefined;
-						return new CLIBuilder({
-							...schema,
-							// Explicit > discovered: only fill in undefined fields
-							...(schema.version === undefined && pkg.version !== undefined
-								? { version: pkg.version }
-								: {}),
-							...(schema.description === undefined && pkg.description !== undefined
-								? { description: pkg.description }
-								: {}),
-							...(inferredName !== undefined ? { name: inferredName } : {}),
-						});
-					})()
-				: this;
 		const effectiveBuilder =
-			inheritedName !== undefined
-				? new CLIBuilder({ ...builderWithPackageJson.schema, name: inheritedName })
-				: builderWithPackageJson;
-
-		// Auto-create terminal prompter when stdin is a TTY and no explicit prompter provided.
-		// This is the prompt gating seam: non-interactive environments (CI, piped stdin)
-		// get stdinIsTTY=false → no auto-prompter → prompts skipped → falls through to default/required.
-		const autoPrompter =
-			options?.prompter === undefined && adapter.stdinIsTTY
-				? createTerminalPrompter(adapter.stdin, adapter.stderr)
-				: undefined;
-		const adapterStdinData =
-			options?.stdinData === undefined && invocationNeedsStdin(effectiveBuilder, filteredArgv)
-				? await adapter.readStdin()
-				: undefined;
-
-		// Source env, isTTY, and config from adapter when not explicitly provided in options
+			preflight.schema === this.schema ? this : new CLIBuilder(preflight.schema);
 		const executeOptions: CLIRunOptions = {
 			...options,
-			...(options?.env === undefined ? { env: adapter.env } : {}),
-			...(options?.isTTY === undefined ? { isTTY: adapter.isTTY } : {}),
-			...(adapterStdinData !== undefined ? { stdinData: adapterStdinData } : {}),
-			...(autoPrompter !== undefined ? { prompter: autoPrompter } : {}),
-			...(loadedConfig !== undefined ? { config: loadedConfig } : {}),
+			...preflight.inputs,
 			out: createOutput({
 				stdout: adapter.stdout,
 				stderr: adapter.stderr,
-				jsonMode,
-				isTTY: options?.isTTY ?? adapter.isTTY,
-				...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+				jsonMode: preflight.inputs.jsonMode,
+				isTTY: preflight.inputs.isTTY,
+				...(preflight.inputs.verbosity !== 'normal'
+					? { verbosity: preflight.inputs.verbosity }
+					: {}),
 			}),
 		};
-		const result = await effectiveBuilder.execute(filteredArgv, executeOptions);
+		const result = await effectiveBuilder.execute(preflight.filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {
@@ -1250,33 +830,6 @@ class CLIBuilder {
 		return adapter.exit(result.exitCode);
 	}
 }
-
-// --- Helpers
-
-/**
- * Assemble a {@link RunResult} from its constituent parts.
- *
- * @param exitCode - Process exit code (0 = success).
- * @param captured - Captured stdout/stderr/activity buffers.
- * @param error - The originating error, if any.
- * @returns Structured run result.
- *
- * @internal
- */
-function buildResult(
-	exitCode: number,
-	captured: CapturedOutput,
-	error: CLIError | undefined,
-): RunResult {
-	return {
-		exitCode,
-		stdout: captured.stdout,
-		stderr: captured.stderr,
-		activity: captured.activity,
-		error,
-	};
-}
-
 const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);
 
 /**
@@ -1376,8 +929,6 @@ interface CLIOptions {
  *
  * The CLI name is used in help text, usage lines, and generated completion scripts.
  *
- * @param nameOrOptions - Either the explicit CLI name or factory options.
- *
  * @example
  * ```ts
  * cli('mycli')
@@ -1394,6 +945,7 @@ interface CLIOptions {
  */
 
 function cli(name: string): CLIBuilder;
+/** Create a new CLI program builder from an options object. */
 function cli(options: CLIOptions): CLIBuilder;
 function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 	const name = typeof nameOrOptions === 'string' ? nameOrOptions : (nameOrOptions.name ?? 'cli');
@@ -1408,6 +960,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 		defaultCommand: undefined,
 		configSettings: undefined,
 		packageJsonSettings: undefined,
+		hasBuiltInCompletions: false,
 		plugins: [],
 	});
 }

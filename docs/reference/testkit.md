@@ -1,22 +1,26 @@
-# dreamcli/testkit
+# @kjanat/dreamcli/testkit
 
 Test utilities for running commands in-process.
 
-```ts
+```ts twoslash
 import {
   runCommand,
   createCaptureOutput,
   createTestPrompter,
   createTestAdapter,
   PROMPT_CANCEL,
-} from 'dreamcli/testkit';
+} from '@kjanat/dreamcli/testkit';
 ```
 
 ## `runCommand(command, argv, options?)`
 
 Run a command in-process and return a `RunResult`.
 
-```ts
+```ts twoslash
+import { greet } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
 const result = await runCommand(greet, ['Alice', '--loud']);
 ```
 
@@ -30,17 +34,17 @@ const result = await runCommand(greet, ['Alice', '--loud']);
 
 ### RunOptions
 
-| Option      | Type                      | Description                             |
-| ----------- | ------------------------- | --------------------------------------- |
-| `env`       | `Record<string, string>`  | Environment variables                   |
-| `config`    | `Record<string, unknown>` | Config file values                      |
-| `stdinData` | `string \| null`          | Data to pipe to process stdin for tests |
-| `answers`   | `unknown[]`               | Prompt answers in order                 |
-| `prompter`  | `PromptEngine`            | Custom prompt handler                   |
-| `jsonMode`  | `boolean`                 | Simulate `--json` mode                  |
-| `help`      | `HelpOptions`             | Help formatting options                 |
-| `verbosity` | `Verbosity`               | Output verbosity                        |
-| `isTTY`     | `boolean`                 | Simulate TTY connection                 |
+| Option      | Type                                  | Description                             |
+| ----------- | ------------------------------------- | --------------------------------------- |
+| `env`       | `Record<string, string \| undefined>` | Environment variables                   |
+| `config`    | `Record<string, unknown>`             | Config file values                      |
+| `stdinData` | `string \| null`                      | Data to pipe to process stdin for tests |
+| `answers`   | `unknown[]`                           | Prompt answers in order                 |
+| `prompter`  | `PromptEngine`                        | Custom prompt handler                   |
+| `jsonMode`  | `boolean`                             | Simulate `--json` mode                  |
+| `help`      | `HelpOptions`                         | Help formatting options                 |
+| `verbosity` | `Verbosity`                           | Output verbosity                        |
+| `isTTY`     | `boolean`                             | Simulate TTY connection                 |
 
 ### RunResult
 
@@ -60,8 +64,14 @@ Create an output channel that captures all writes for assertions.
 
 Create a prompt engine that returns pre-defined answers.
 
-```ts
-const prompter = createTestPrompter(['eu', true, 'my-name']);
+```ts twoslash
+import { createTestPrompter } from '@kjanat/dreamcli/testkit';
+
+const prompter = createTestPrompter([
+  'eu',
+  true,
+  'my-name',
+]);
 ```
 
 ## `createTestAdapter(options?)`
@@ -72,8 +82,16 @@ Returns a runtime adapter for testing (no real process access).
 
 Sentinel value to simulate prompt cancellation.
 
-```ts
-const result = await runCommand(cmd, [], {
+```ts twoslash
+import { promptCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import {
+  createTestPrompter,
+  PROMPT_CANCEL,
+  runCommand,
+} from '@kjanat/dreamcli/testkit';
+
+const result = await runCommand(promptCmd, [], {
   prompter: createTestPrompter([PROMPT_CANCEL]),
 });
 ```

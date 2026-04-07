@@ -6,7 +6,7 @@
  * Node adapter for unknown runtimes (safest default — most runtimes
  * provide a Node-compatible `process` global).
  *
- * @module dreamcli/runtime/auto
+ * @module @kjanat/dreamcli/runtime/auto
  */
 
 import type { RuntimeAdapter } from './adapter.ts';
@@ -73,11 +73,11 @@ function getInjectedDenoNamespace(globals: GlobalForDetect): DenoNamespace | und
  *
  * @param globals - Override `globalThis` for testing. Production callers
  *   should omit this parameter.
- * @returns A `RuntimeAdapter` for the detected runtime.
+ * @returns A {@linkcode RuntimeAdapter} for the detected runtime.
  *
  * @example
  * ```ts
- * import { cli } from 'dreamcli';
+ * import { cli } from '@kjanat/dreamcli';
  *
  * // Auto-detects Node/Bun/Deno and creates the right adapter
  * cli('mycli').run(); // uses createAdapter() internally

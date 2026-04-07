@@ -2,7 +2,7 @@
  * Flag schema builder with full type inference.
  *
  * Each factory (`flag.string()`, `flag.boolean()`, etc.) returns an immutable
- * `FlagBuilder` whose generic parameter tracks the value type and presence
+ * {@linkcode FlagBuilder} whose generic parameter tracks the value type and presence
  * state. Chained modifiers (`.default()`, `.required()`, `.alias()`, …) return
  * new builders with updated type-level and runtime state.
  *
@@ -13,6 +13,9 @@ import type { PromptConfig } from './prompt.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
+/** All flag presence states as a runtime array. */
+const FLAG_PRESENCES = ['optional', 'required', 'defaulted'] as const;
+
 /**
  * Presence describes whether a flag value is guaranteed to exist when the
  * action handler runs:
@@ -22,7 +25,7 @@ import type { PromptConfig } from './prompt.ts';
  * - `'required'`  — must be supplied; error if missing
  * - `'defaulted'` — always present (falls back to default value)
  */
-type FlagPresence = 'optional' | 'required' | 'defaulted';
+type FlagPresence = (typeof FLAG_PRESENCES)[number];
 
 /**
  * Fallback behavior when an optional flag resolves no value from any source.
@@ -50,7 +53,7 @@ interface FlagConfig {
 // --- Type-level helpers
 
 /**
- * Advanced type helper used by `FlagBuilder` modifiers to replace presence.
+ * Advanced type helper used by {@linkcode FlagBuilder} modifiers to replace presence.
  * Most consumers rely on inference and never reference this directly.
  */
 type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
@@ -76,7 +79,7 @@ type ResolvedValue<C extends FlagConfig> = C['presence'] extends 'optional'
 		: C['valueType'] | undefined
 	: C['valueType'];
 
-/** Extract the resolved value type from a `FlagBuilder`. */
+/** Extract the resolved value type from a {@linkcode FlagBuilder}. */
 type InferFlag<B> = B extends FlagBuilder<infer C extends FlagConfig> ? ResolvedValue<C> : never;
 
 /** Extract resolved value types from a record of builders. */
@@ -86,8 +89,11 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 
 // --- Runtime schema data
 
+/** All flag kind discriminators as a runtime array. */
+const FLAG_KINDS = ['string', 'number', 'boolean', 'enum', 'array', 'custom'] as const;
+
 /** Discriminator for the kind of value a flag accepts. */
-type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
+type FlagKind = (typeof FLAG_KINDS)[number];
 
 /**
  * Custom parse function for `flag.custom()`.
@@ -97,8 +103,16 @@ type FlagKind = 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
  */
 type FlagParseFn<T> = (raw: unknown) => T;
 
+/** Runtime descriptor for a flag alias. */
+interface FlagAlias {
+	/** Alias name without `-` / `--` prefix. */
+	readonly name: string;
+	/** Whether the alias is parser-only and hidden from user-facing surfaces. */
+	readonly hidden: boolean;
+}
+
 /**
- * The runtime descriptor stored inside every `FlagBuilder`. Consumers (parser,
+ * The runtime descriptor stored inside every {@linkcode FlagBuilder}. Consumers (parser,
  * help generator, resolution chain) read this to understand the flag's shape
  * without touching generics.
  */
@@ -109,8 +123,8 @@ interface FlagSchema {
 	readonly presence: FlagPresence;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
-	/** Short/long aliases (e.g. `['f']` for `--force`). */
-	readonly aliases: readonly string[];
+	/** Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`). */
+	readonly aliases: readonly FlagAlias[];
 	/** Environment variable name for v0.2+ resolution. */
 	readonly envVar: string | undefined;
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
@@ -149,6 +163,70 @@ interface FlagSchema {
 }
 
 /**
+ * Low-level overrides accepted by {@link createSchema}.
+ *
+ * `aliases` accepts both legacy string input and structured {@link FlagAlias}
+ * objects so tests and internal fixtures can be migrated incrementally.
+ */
+type FlagSchemaOverrides = Omit<Partial<FlagSchema>, 'aliases'> & {
+	readonly aliases?: readonly (string | FlagAlias)[];
+};
+
+/**
+ * Normalise an alias input into a full {@link FlagAlias} object.
+ *
+ * @param alias - Raw alias name or structured alias object.
+ * @returns Normalised alias record.
+ */
+function normalizeFlagAlias(alias: string | FlagAlias): FlagAlias {
+	if (typeof alias === 'string') {
+		return { name: alias, hidden: false };
+	}
+
+	return {
+		name: alias.name,
+		hidden: alias.hidden,
+	};
+}
+
+/**
+ * Normalise alias input into immutable alias records.
+ *
+ * @param aliases - Alias input values.
+ * @returns Normalised alias objects.
+ */
+function normalizeFlagAliases(aliases: readonly (string | FlagAlias)[]): readonly FlagAlias[] {
+	return aliases.map(normalizeFlagAlias);
+}
+
+/**
+ * List alias names for a flag schema.
+ *
+ * @param schema - Flag schema whose aliases should be listed.
+ * @param options - Visibility and length filtering.
+ * @returns Alias names in registration order.
+ */
+function getFlagAliasNames(
+	schema: FlagSchema,
+	options?: {
+		readonly includeHidden?: boolean;
+		readonly kind?: 'all' | 'short' | 'long';
+	},
+): readonly string[] {
+	const includeHidden = options?.includeHidden ?? false;
+	const kind = options?.kind ?? 'all';
+
+	return schema.aliases
+		.filter((alias) => includeHidden || !alias.hidden)
+		.filter((alias) => {
+			if (kind === 'short') return alias.name.length === 1;
+			if (kind === 'long') return alias.name.length > 1;
+			return true;
+		})
+		.map((alias) => alias.name);
+}
+
+/**
  * Create a raw {@link FlagSchema} object with sensible defaults.
  *
  * Most consumers should prefer the higher-level {@link flag} factory,
@@ -172,12 +250,15 @@ interface FlagSchema {
  * });
  * ```
  */
-function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSchema {
+function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSchema {
+	const aliases =
+		overrides?.aliases !== undefined ? normalizeFlagAliases(overrides.aliases) : ([] as const);
+	const { aliases: _ignoredAliases, ...rest } = overrides ?? {};
+
 	return {
 		kind,
 		presence: 'optional',
 		defaultValue: undefined,
-		aliases: [],
 		envVar: undefined,
 		configPath: undefined,
 		description: undefined,
@@ -187,7 +268,8 @@ function createSchema(kind: FlagKind, overrides?: Partial<FlagSchema>): FlagSche
 		parseFn: undefined,
 		deprecated: undefined,
 		propagate: false,
-		...overrides,
+		...rest,
+		aliases,
 	};
 }
 
@@ -215,11 +297,13 @@ class FlagBuilder<C extends FlagConfig> {
 
 	/**
 	 * @internal Type brand — exists only in the type system (`declare`
-	 * produces no runtime property). Used by `InferFlag` / `InferFlags`.
+	 * produces no runtime property). Used by {@linkcode InferFlag} / {@linkcode InferFlags}.
 	 */
 	declare readonly _config: C;
 
 	/**
+	 * Create a flag builder from a pre-built schema descriptor.
+	 *
 	 * @param schema - Runtime descriptor seeding this builder's state.
 	 */
 	constructor(schema: FlagSchema) {
@@ -284,6 +368,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * alternative long name).
 	 *
 	 * @param name - Single-char short alias or alternative long name.
+	 * @param options - Optional alias metadata. Hidden aliases remain parseable
+	 *   but are omitted from help, completions, and suggestions.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
@@ -294,10 +380,16 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli build --verbose  → verbose = true
 	 * ```
 	 */
-	alias(name: string): FlagBuilder<C> {
+	alias(name: string, options?: { hidden?: boolean }): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
-			aliases: [...this.schema.aliases, name],
+			aliases: [
+				...this.schema.aliases,
+				{
+					name,
+					hidden: options?.hidden ?? false,
+				},
+			],
 		});
 	}
 
@@ -636,16 +728,29 @@ export type {
 	SelectChoice,
 	SelectPromptConfig,
 } from './prompt.ts';
+export { PROMPT_KINDS } from './prompt.ts';
 export type {
+	FlagAlias,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
+	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
+	OptionalFallback,
 	ResolvedValue,
 	WithPresence,
 };
-export { createSchema, FlagBuilder, flag };
+export {
+	createSchema,
+	FLAG_KINDS,
+	FLAG_PRESENCES,
+	FlagBuilder,
+	flag,
+	getFlagAliasNames,
+	normalizeFlagAlias,
+	normalizeFlagAliases,
+};

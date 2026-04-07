@@ -11,6 +11,9 @@
 
 // --- Prompt kind discriminator
 
+/** All prompt kind discriminators as a runtime array. */
+const PROMPT_KINDS = ['confirm', 'input', 'select', 'multiselect'] as const;
+
 /**
  * The kind of interactive prompt to present.
  *
@@ -19,7 +22,7 @@
  * - `'select'`      — single selection from a list
  * - `'multiselect'` — multiple selections from a list
  */
-type PromptKind = 'confirm' | 'input' | 'select' | 'multiselect';
+type PromptKind = (typeof PROMPT_KINDS)[number];
 
 // --- Per-kind prompt configuration (discriminated union)
 
@@ -31,11 +34,13 @@ interface PromptConfigBase {
 
 /** Yes/no confirmation prompt — maps to `boolean` flags. Part of {@link PromptConfig}. */
 interface ConfirmPromptConfig extends PromptConfigBase {
+	/** Discriminator identifying this as a yes/no confirmation prompt. */
 	readonly kind: 'confirm';
 }
 
 /** Free-text input prompt — maps to `string` and `number` flags. Part of {@link PromptConfig}. */
 interface InputPromptConfig extends PromptConfigBase {
+	/** Discriminator identifying this as a free-text input prompt. */
 	readonly kind: 'input';
 	/** Placeholder text shown before user types (informational only). */
 	readonly placeholder?: string;
@@ -48,6 +53,7 @@ interface InputPromptConfig extends PromptConfigBase {
 
 /** Single-selection prompt — maps to `enum` flags or any flag with {@link SelectChoice choices}. Part of {@link PromptConfig}. */
 interface SelectPromptConfig extends PromptConfigBase {
+	/** Discriminator identifying this as a single-selection prompt. */
 	readonly kind: 'select';
 	/**
 	 * Available choices. When omitted for `enum` flags, the enum values
@@ -61,6 +67,7 @@ interface SelectPromptConfig extends PromptConfigBase {
  * Returns an array of selected {@link SelectChoice} values. Part of {@link PromptConfig}.
  */
 interface MultiselectPromptConfig extends PromptConfigBase {
+	/** Discriminator identifying this as a multi-selection prompt. */
 	readonly kind: 'multiselect';
 	/**
 	 * Available choices. When omitted for `array` flags with enum elements,
@@ -146,3 +153,4 @@ export type {
 	SelectChoice,
 	SelectPromptConfig,
 };
+export { PROMPT_KINDS };

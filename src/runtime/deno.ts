@@ -1,7 +1,7 @@
 /**
  * Deno runtime adapter implementation.
  *
- * Bridges the platform-agnostic `RuntimeAdapter` interface to Deno's
+ * Bridges the platform-agnostic {@linkcode RuntimeAdapter} interface to Deno's
  * namespace APIs (`Deno.args`, `Deno.env`, `Deno.cwd()`, etc.).
  *
  * Deno requires explicit permissions for some operations. The adapter
@@ -16,7 +16,7 @@
  * No permissions are needed for `Deno.args`, `Deno.stdout`, `Deno.stderr`,
  * `Deno.stdin`, `Deno.exit()`, or TTY detection.
  *
- * @module dreamcli/runtime/deno
+ * @module @kjanat/dreamcli/runtime/deno
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
@@ -38,6 +38,7 @@ import { assertRuntimeVersionSupported } from './support.ts';
  * an empty env object.
  */
 interface DenoNamespace {
+	/** Build target metadata (OS detection). */
 	readonly build: {
 		readonly os:
 			| 'darwin'
@@ -50,6 +51,7 @@ interface DenoNamespace {
 			| 'solaris'
 			| 'illumos';
 	};
+	/** Deno version info — used for minimum-version guard. */
 	readonly version?: {
 		readonly deno?: string;
 	};
@@ -67,6 +69,7 @@ interface DenoNamespace {
 	/** Current working directory (may throw if `--allow-read` is denied for cwd). */
 	cwd(): string;
 
+	/** Standard output — synchronous byte writer with TTY detection. */
 	readonly stdout: {
 		/** Write raw bytes to stdout synchronously. */
 		writeSync(p: Uint8Array): number;
@@ -74,11 +77,13 @@ interface DenoNamespace {
 		isTerminal(): boolean;
 	};
 
+	/** Standard error — synchronous byte writer. */
 	readonly stderr: {
 		/** Write raw bytes to stderr synchronously. */
 		writeSync(p: Uint8Array): number;
 	};
 
+	/** Standard input — TTY detection and readable byte stream. */
 	readonly stdin: {
 		/** Whether stdin is connected to a TTY. */
 		isTerminal(): boolean;
@@ -143,19 +148,19 @@ function safeCwd(deno: DenoNamespace): string {
  * Create a runtime adapter backed by the Deno namespace.
  *
  * Reads `Deno.args`, `Deno.env`, `Deno.cwd()`, and wraps Deno's stream-based
- * I/O into the `WriteFn`/`ReadFn` functions expected by the framework.
+ * I/O into the {@linkcode WriteFn}/{@linkcode ReadFn} functions expected by the framework.
  *
  * Unlike Node/Bun, Deno strips the binary and script path from `Deno.args`.
  * The adapter prepends synthetic entries (`['deno', 'run']`) so the argv
- * shape matches the `RuntimeAdapter` contract (binary + script + user args).
+ * shape matches the {@linkcode RuntimeAdapter} contract (binary + script + user args).
  *
  * @param ns - Override the Deno namespace (useful for testing the adapter itself).
- * @returns A `RuntimeAdapter` backed by Deno's namespace APIs.
+ * @returns A {@linkcode RuntimeAdapter} backed by Deno's namespace APIs.
  *
  * @example
  * ```ts
- * import { cli } from 'dreamcli';
- * import { createDenoAdapter } from 'dreamcli/runtime';
+ * import { cli } from '@kjanat/dreamcli';
+ * import { createDenoAdapter } from '@kjanat/dreamcli/runtime';
  *
  * cli('mycli')
  *   .command(deploy)
@@ -185,7 +190,7 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	};
 
 	// --- Stdin line reading ---
-	const stdinRead: ReadFn = () => readDenoStdinLine(d);
+	const stdinRead = createDenoReadLine(d);
 
 	// --- Filesystem ---
 	const readFile = async (path: string): Promise<string | null> => {
@@ -288,32 +293,41 @@ async function readDenoStdinAll(deno: DenoNamespace, stdinIsTTY: boolean): Promi
  *
  * @internal
  */
-async function readDenoStdinLine(deno: DenoNamespace): Promise<string | null> {
-	const reader = deno.stdin.readable.getReader();
+function createDenoReadLine(deno: DenoNamespace): ReadFn {
 	const decoder = new TextDecoder();
 	let buffer = '';
+	let done = false;
 
-	try {
-		for (;;) {
-			const { value, done } = await reader.read();
-			if (done) {
-				// Flush any trailing bytes held by the streaming decoder
-				// (partial multibyte UTF-8 sequences buffered internally).
-				buffer += decoder.decode();
-				return buffer.length > 0 ? buffer : null;
+	return async (): Promise<string | null> => {
+		const reader = deno.stdin.readable.getReader();
+		try {
+			for (;;) {
+				const newlineIndex = buffer.indexOf('\n');
+				if (newlineIndex !== -1) {
+					const line = buffer.slice(0, newlineIndex).replace(/\r$/, '');
+					buffer = buffer.slice(newlineIndex + 1);
+					return line;
+				}
+
+				if (done) {
+					if (buffer.length === 0) return null;
+					const line = buffer;
+					buffer = '';
+					return line;
+				}
+
+				const { value, done: readDone } = await reader.read();
+				if (readDone) {
+					buffer += decoder.decode();
+					done = true;
+					continue;
+				}
+				buffer += decoder.decode(value, { stream: true });
 			}
-			buffer += decoder.decode(value, { stream: true });
-			const newlineIndex = buffer.indexOf('\n');
-			if (newlineIndex !== -1) {
-				// Return the line without the newline character.
-				// Remaining data after the newline is lost — this is acceptable
-				// because each prompt reads one line at a time.
-				return buffer.slice(0, newlineIndex).replace(/\r$/, '');
-			}
+		} finally {
+			reader.releaseLock();
 		}
-	} finally {
-		reader.releaseLock();
-	}
+	};
 }
 
 // --- Home / config directory resolution

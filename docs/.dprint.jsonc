@@ -1,8 +1,0 @@
-{
-  "extends": "../.dprint.jsonc",
-  "useTabs": false,
-  "lineWidth": 80,
-  "svg": {
-    "useTabs": false
-  }
-}

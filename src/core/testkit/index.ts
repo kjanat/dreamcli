@@ -1,52 +1,24 @@
 /**
  * Test harness: command.run() with injected state, output capture.
  *
- * Provides `runCommand()` — the core execution pipeline that parses argv,
- * resolves values (CLI → env → config → default), creates an output channel,
- * and invokes the action handler. Returns a structured `RunResult` with
- * exitCode and captured output.
+ * Provides {@linkcode runCommand()} — the in-process test harness wrapper over DreamCLI's
+ * shared executor.\
+ * It wires capture output and standalone command metadata,
+ * then returns a structured {@linkcode RunResult} with exitCode and captured output.
  *
- * `CommandBuilder.run()` delegates to `runCommand()`, making commands
- * testable without touching process state.
+ * This keeps command tests process-free without testkit owning the canonical pipeline:
  *
+ * ```text
+ * parse -> resolve -> execute
+ * ```
  * @module dreamcli/core/testkit
  */
 
-import type {
-	BeforeParseParams,
-	CLIPlugin,
-	ResolvedCommandParams,
-} from '#internals/core/cli/plugin.ts';
-import { CLIError } from '#internals/core/errors/index.ts';
-import { formatHelp } from '#internals/core/help/index.ts';
+import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
-import { parse } from '#internals/core/parse/index.ts';
-import { createTestPrompter } from '#internals/core/prompt/index.ts';
-import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
-import { resolve } from '#internals/core/resolve/index.ts';
-import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
-import type { CommandBuilder, CommandMeta, Out } from '#internals/core/schema/command.ts';
-import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
+import type { CommandMeta, Out, RunnableCommand } from '#internals/core/schema/command.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
-
-// --- Internal types
-
-/**
- * The runtime shape of action handler params — unbranded.
- *
- * This is what `ActionParams<F, A>` looks like after type erasure.
- * Used at the phantom-type boundary in `invokeHandler`.
- *
- * @internal
- */
-interface HandlerParams {
-	readonly flags: Readonly<Record<string, unknown>>;
-	readonly args: Readonly<Record<string, unknown>>;
-	readonly ctx: Readonly<Record<string, unknown>>;
-	readonly out: Out;
-	readonly meta: CommandMeta;
-}
 
 // RunOptions and RunResult are defined in schema/run.ts so the execution
 // contract is shared by schema, CLI dispatch, and testkit. Re-exported here
@@ -57,27 +29,25 @@ interface HandlerParams {
 /**
  * Run a command builder against the given argv with injected options.
  *
- * This is the core execution pipeline:
- * 1. Detect `--help` / `-h` → print help text, exit 0
- * 2. Parse argv against the command schema
- * 3. Resolve values (CLI → env → config → default)
- * 4. Create a capture output channel
- * 5. Run derive/middleware/action execution steps
- * 6. Return structured result
+ * This is the testkit wrapper around the shared executor:
+ * 1. Create or reuse capture output
+ * 2. Build standalone schema/meta defaults when CLI dispatch did not
+ * 3. Delegate parse -> resolve -> execute to the shared executor
+ * 4. Return the structured result with captured buffers
  *
- * All errors are caught and converted to structured `RunResult`s with
- * appropriate exit codes. The function never throws.
+ * Errors are normalized by the shared executor into structured {@linkcode RunResult}s
+ * with appropriate exit codes. The function never throws.
  *
  * @param cmd - The command builder (must have an action handler)
  * @param argv - Raw argv strings (NOT including the command name itself)
  * @param options - Injectable runtime state
  * @returns Structured run result with exit code and captured output
  */
-async function runCommand<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown> = Record<string, never>,
->(cmd: CommandBuilder<F, A, C>, argv: readonly string[], options?: RunOptions): Promise<RunResult> {
+async function runCommand(
+	cmd: RunnableCommand,
+	argv: readonly string[],
+	options?: RunOptions,
+): Promise<RunResult> {
 	let out: Out;
 	let captured: CapturedOutput;
 	if (options?.out !== undefined) {
@@ -104,262 +74,50 @@ async function runCommand<
 		command: schema.name,
 	};
 
-	// -- Help detection -------------------------------------------------------
-	if (argv.includes('--help') || argv.includes('-h')) {
-		const helpText = formatHelp(schema, options?.help);
-		out.log(helpText);
-		return buildResult(0, captured, undefined);
-	}
+	const result = await executeCommand({
+		command: cmd,
+		argv,
+		out,
+		schema,
+		meta,
+		...(options !== undefined ? { options } : {}),
+	});
 
-	// -- No action handler → error -------------------------------------------
-	if (!cmd.handler) {
-		const err = new CLIError(`Command '${cmd.schema.name}' has no action handler`, {
-			code: 'NO_ACTION',
-			suggest: `Add an .action() handler to the '${cmd.schema.name}' command`,
-		});
-		out.error(err.message);
-		return buildResult(1, captured, err);
-	}
-
-	try {
-		await runBeforeParseHooks(options?.plugins, {
-			argv,
-			command: schema,
-			meta,
-			out,
-		});
-
-		// -- Parse ---------------------------------------------------------------
-		const parsed = parse(schema, argv);
-
-		// -- Resolve -------------------------------------------------------------
-		// Determine the prompt engine: explicit prompter takes precedence,
-		// then answers convenience shortcut, then nothing (prompts skipped).
-		const effectivePrompter =
-			options?.prompter ??
-			(options?.answers !== undefined ? createTestPrompter(options.answers) : undefined);
-		const resolveOptions: ResolveOptions = {
-			...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
-			...(options?.env !== undefined ? { env: options.env } : {}),
-			...(options?.config !== undefined ? { config: options.config } : {}),
-			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
-		};
-		const resolved = await resolve(schema, parsed, resolveOptions);
-		const resolvedParams: ResolvedCommandParams = {
-			args: resolved.args,
-			flags: resolved.flags,
-			deprecations: resolved.deprecations,
-			command: schema,
-			meta,
-			out,
-		};
-
-		await runResolvedHooks(options?.plugins, 'afterResolve', resolvedParams);
-
-		// -- Deprecation warnings ------------------------------------------------
-		for (const d of resolved.deprecations) {
-			out.warn(formatDeprecation(d));
-		}
-
-		// -- Execute middleware chain + handler -----------------------------------
-		// The resolver guarantees that resolved.flags and resolved.args match
-		// the shape declared by the command's flag/arg builders. The phantom
-		// types on CommandBuilder<F, A> are erased at runtime — the handler
-		// is just a function accepting a plain object. `executeWithMiddleware`
-		// runs the middleware chain then invokes the handler at the end.
-		await runResolvedHooks(options?.plugins, 'beforeAction', resolvedParams);
-		await executeWithExecutionSteps(cmd, resolved.flags, resolved.args, out, meta);
-		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
-
-		return buildResult(0, captured, undefined);
-	} catch (err: unknown) {
-		if (err instanceof CLIError) {
-			if (options?.jsonMode === true) {
-				out.json({ error: err.toJSON() });
-			} else {
-				out.error(err.message);
-				if (err.suggest !== undefined) {
-					out.error(`Suggestion: ${err.suggest}`);
-				}
-			}
-			return buildResult(err.exitCode, captured, err);
-		}
-
-		// Unknown error — wrap and exit 1
-		const message = err instanceof Error ? err.message : String(err);
-		const wrapped = new CLIError(`Unexpected error: ${message}`, {
-			code: 'UNEXPECTED_ERROR',
-			cause: err,
-		});
-		if (options?.jsonMode === true) {
-			out.json({ error: wrapped.toJSON() });
-		} else {
-			out.error(wrapped.message);
-		}
-		return buildResult(1, captured, wrapped);
-	} finally {
-		// Clean up any active spinner/progress timer that the handler
-		// failed to stop (e.g. unhandled exception before terminal method).
-		out.stopActive();
-	}
-}
-
-type ResolvedHookName = Exclude<keyof CLIPlugin['hooks'], 'beforeParse'>;
-
-/**
- * @internal
- */
-async function runBeforeParseHooks(
-	plugins: readonly CLIPlugin[] | undefined,
-	params: BeforeParseParams,
-): Promise<void> {
-	if (plugins === undefined) return;
-	for (const current of plugins) {
-		const hook = current.hooks.beforeParse;
-		if (hook !== undefined) await hook(params);
-	}
-}
-
-/**
- * @internal
- */
-async function runResolvedHooks(
-	plugins: readonly CLIPlugin[] | undefined,
-	hookName: ResolvedHookName,
-	params: ResolvedCommandParams,
-): Promise<void> {
-	if (plugins === undefined) return;
-	for (const current of plugins) {
-		const hook = current.hooks[hookName];
-		if (hook !== undefined) await hook(params);
-	}
-}
-
-// --- Helpers
-
-/**
- * Execute the derive/middleware chain followed by the action handler.
- *
- * Builds a continuation chain from the registered execution steps, preserving
- * registration order across `derive()` and `middleware()`.
- *
- * - Derive steps run once, may validate/throw, and optionally return context
- *   additions merged into `ctx`.
- * - Middleware steps can wrap downstream execution via `next(additions)`.
- * - The terminal step invokes the action handler with the final accumulated ctx.
- *
- * This is the sole point where we bridge the phantom-type gap. The
- * parse→resolve pipeline guarantees the runtime values match the schema;
- * the phantom types guarantee the handler expects that schema.
- *
- * @internal
- */
-async function executeWithExecutionSteps<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown>,
->(
-	cmd: CommandBuilder<F, A, C>,
-	flags: Readonly<Record<string, unknown>>,
-	args: Readonly<Record<string, unknown>>,
-	out: Out,
-	meta: CommandMeta,
-): Promise<void> {
-	const steps = cmd._executionSteps;
-	const handler = cmd.handler;
-	if (handler === undefined) {
-		throw new CLIError(`Command '${cmd.schema.name}' has no action handler`, {
-			code: 'NO_ACTION',
-			suggest: `Add an .action() handler to the '${cmd.schema.name}' command`,
-		});
-	}
-
-	// Terminal action — receives the final accumulated context.
-	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
-
-	let chain: ChainFn = async (ctx) => {
-		const params: HandlerParams = { flags, args, ctx, out, meta };
-		// Phantom-type erasure: handler is (params: object) => void | Promise<void> at runtime.
-		await (handler as (p: HandlerParams) => void | Promise<void>)(params);
-	};
-
-	// Wrap from back to front so registration order is preserved.
-	for (let i = steps.length - 1; i >= 0; i--) {
-		const step = steps[i];
-		if (step === undefined) continue; // satisfy noUncheckedIndexedAccess
-		const downstream = chain; // capture for closure
-		switch (step.kind) {
-			case 'derive':
-				chain = async (ctx) => {
-					const additions = await step.handler({ args, flags, ctx, out, meta });
-					if (additions === undefined) {
-						await downstream(ctx);
-						return;
-					}
-					if (typeof additions !== 'object' || additions === null || Array.isArray(additions)) {
-						throw new CLIError('derive() must return an object or undefined', {
-							code: 'INVALID_BUILDER_STATE',
-							suggest:
-								'Return an object to add context, or return nothing for validation-only derive handlers',
-						});
-					}
-					await downstream({ ...ctx, ...additions });
-				};
-				break;
-			case 'middleware':
-				chain = async (ctx) => {
-					await step.handler({
-						args,
-						flags,
-						ctx,
-						out,
-						meta,
-						next: async (additions) => {
-							await downstream({ ...ctx, ...additions });
-						},
-					});
-				};
-				break;
-		}
-	}
-
-	// Start with empty context — middleware builds it up.
-	await chain({});
-}
-
-/** Build a `RunResult` from parts. */
-function buildResult(
-	exitCode: number,
-	captured: CapturedOutput,
-	error: CLIError | undefined,
-): RunResult {
-	return {
-		exitCode,
-		stdout: captured.stdout,
-		stderr: captured.stderr,
-		activity: captured.activity,
-		error,
-	};
-}
-
-// --- Deprecation formatting (presentation layer — not resolve's responsibility)
-
-/**
- * Format a structured deprecation warning for human-readable stderr output.
- *
- * This is a **consumer-side** formatting function — the resolve layer returns
- * structured `DeprecationWarning` data; consumers decide how to render it.
- *
- * @internal
- */
-function formatDeprecation(d: DeprecationWarning): string {
-	const entity = d.kind === 'flag' ? `flag --${d.name}` : `argument <${d.name}>`;
-	return typeof d.message === 'string'
-		? `Warning: ${entity} is deprecated: ${d.message}`
-		: `Warning: ${entity} is deprecated`;
+	return buildRunResult(result, captured);
 }
 
 // --- Exports
 
+/**
+ * Options for {@linkcode runCommand} — process-free command execution.
+ *
+ * Every field is optional. Inject env, config, prompt answers, and
+ * output capture without touching process state.
+ *
+ * @example
+ * ```ts
+ * const result = await runCommand(cmd, ['--verbose'], {
+ *   env: { LOG_LEVEL: 'debug' },
+ *   config: { theme: 'dark' },
+ * });
+ * ```
+ */
+/**
+ * Structured result from {@linkcode runCommand}.
+ *
+ * Contains the exit code, captured stdout/stderr output, recorded
+ * {@linkcode ActivityEvent | activity events}, and an `error` field
+ * that is `undefined` on success and a {@linkcode CLIError} on failure.
+ *
+ * @example
+ * ```ts
+ * const result = await runCommand(greetCmd, ['World']);
+ *
+ * expect(result.exitCode).toBe(0);
+ * expect(result.stdout).toContain('Hello, World!');
+ * expect(result.error).toBeUndefined();
+ * ```
+ */
 export type { RunOptions, RunResult };
+
 export { runCommand };

@@ -35,7 +35,7 @@ features:
       dark: /icons/resolution-chain-dark.svg
       height: 48
     title: Resolution Chain
-    details: "CLI → env → config → prompt → default. Every step opt-in. Every step preserves types."
+    details: CLI → env → config → prompt → default. Every step opt-in. Every step preserves types.
   - icon:
       light: /icons/test-harness-light.svg
       dark: /icons/test-harness-dark.svg
@@ -53,13 +53,13 @@ features:
       dark: /icons/zero-deps-dark.svg
       height: 48
     title: Zero Dependencies
-    details: Lean core with no runtime dependencies. Dual ESM/CJS. Runs on Node, Bun, and Deno.
+    details: Lean core with no runtime dependencies. ESM-only. Runs on Node, Bun, and Deno.
   - icon:
       light: /icons/structured-output-light.svg
       dark: /icons/structured-output-dark.svg
       height: 48
     title: Structured Output
-    details: "Spinners, progress bars, tables, JSON mode. Adapts automatically: TTY → pretty, piped → stable."
+    details: 'Spinners, progress bars, tables, JSON mode. Adapts automatically: TTY → pretty, piped → stable.'
 ---
 
 <style>

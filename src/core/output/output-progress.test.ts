@@ -127,214 +127,218 @@ describe('StaticProgressHandle — emits label on construction', () => {
 	});
 });
 
-// === TTY progress — determinate
+// === TTYProgressHandle
 
-describe('TTYProgressHandle — determinate', () => {
-	it('emits hide cursor + initial bar on construction', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10, label: 'Files' }, write);
-		expect(output[0]).toBe('\x1b[?25l');
-		// Initial render: 0%
-		const all = output.join('');
-		expect(all).toContain('0%');
-		expect(all).toContain('Files');
-		handle.done();
-	});
+describe('TTYProgressHandle', () => {
+	// --- determinate
 
-	it('increment() re-renders with updated percentage', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.increment(5);
-		const all = output.join('');
-		expect(all).toContain('50%');
-		handle.done();
-	});
-
-	it('update() sets absolute value', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 100 }, write);
-		handle.update(75);
-		const all = output.join('');
-		expect(all).toContain('75%');
-		handle.done();
-	});
-
-	it('increment defaults to 1', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 4 }, write);
-		handle.increment();
-		const all = output.join('');
-		expect(all).toContain('25%');
-		handle.done();
-	});
-
-	it('clamps at 100%', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.update(20); // exceeds total
-		const all = output.join('');
-		expect(all).toContain('100%');
-		handle.done();
-	});
-
-	it('total: 0 renders 0% without division-by-zero', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 0 }, write);
-		const all = output.join('');
-		expect(all).toContain('0%');
-		handle.increment(5);
-		// Still 0% — can't make progress toward zero total
-		const afterIncrement = output.join('');
-		expect(afterIncrement).toContain('0%');
-		expect(afterIncrement).not.toContain('NaN');
-		expect(afterIncrement).not.toContain('Infinity');
-		handle.done();
-	});
-
-	it('done() cleans up + emits check symbol', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.done('Complete!');
-		const all = output.join('');
-		expect(all).toContain('\x1b[?25h');
-		expect(all).toContain('✓');
-		expect(all).toContain('Complete!');
-	});
-
-	it('fail() cleans up + emits cross symbol', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.fail('Failed!');
-		const all = output.join('');
-		expect(all).toContain('\x1b[?25h');
-		expect(all).toContain('✗');
-		expect(all).toContain('Failed!');
-	});
-
-	it('fail() without text cleans up silently', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.fail();
-		const all = output.join('');
-		expect(all).toContain('\x1b[?25h');
-		expect(all).not.toContain('✗');
-	});
-
-	// --- Idempotency ---
-
-	it('double done is no-op', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.done('first');
-		const countAfterDone = output.length;
-		handle.done('second');
-		expect(output.length).toBe(countAfterDone);
-	});
-
-	it('increment after done is no-op', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.done();
-		const countAfterDone = output.length;
-		handle.increment();
-		expect(output.length).toBe(countAfterDone);
-	});
-
-	it('update after done is no-op', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.done();
-		const countAfterDone = output.length;
-		handle.update(5);
-		expect(output.length).toBe(countAfterDone);
-	});
-
-	it('renders empty bar at 0%', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		const all = output.join('');
-		expect(all).toContain('[░░░░░░░░░░░░░░░░░░░░] 0%');
-		handle.done();
-	});
-
-	it('renders correct bar fill at 50%', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.increment(5);
-		const all = output.join('');
-		expect(all).toContain('[██████████░░░░░░░░░░] 50%');
-		handle.done();
-	});
-
-	it('renders fully filled bar at 100%', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		handle.update(10);
-		const all = output.join('');
-		expect(all).toContain('[████████████████████] 100%');
-		handle.done();
-	});
-
-	it('no animation timer for determinate mode', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ total: 10 }, write);
-		// In determinate mode, no setInterval — renders only on increment()/update()
-		const initialCount = output.length;
-		// Wait briefly to confirm no timer-based renders
-		handle.done();
-		// Cleanup writes happen, but no extra frames from timer
-		const finalCount = output.length;
-		// Only cleanup writes (erase + show cursor) beyond initial
-		expect(finalCount - initialCount).toBeLessThanOrEqual(2);
-	});
-});
-
-// === TTY progress — indeterminate
-
-describe('TTYProgressHandle — indeterminate', () => {
-	it('starts with hide cursor and initial render', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({ label: 'Waiting' }, write);
-		expect(output[0]).toBe('\x1b[?25l');
-		const all = output.join('');
-		expect(all).toContain('Waiting');
-		// No percentage in indeterminate mode
-		expect(all).not.toContain('%');
-		handle.done();
-	});
-
-	it('done() stops timer and cleans up', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({}, write);
-		handle.done('finished');
-		const all = output.join('');
-		expect(all).toContain('\x1b[?25h');
-		expect(all).toContain('✓');
-		expect(all).toContain('finished');
-	});
-
-	it('fail() stops timer and cleans up', () => {
-		const { write, output } = makeWriter();
-		const handle = new TTYProgressHandle({}, write);
-		handle.fail('broken');
-		const all = output.join('');
-		expect(all).toContain('\x1b[?25h');
-		expect(all).toContain('✗');
-		expect(all).toContain('broken');
-	});
-
-	it('done() clears pulse timer — no callbacks after advance', () => {
-		vi.useFakeTimers();
-		try {
+	describe('determinate', () => {
+		it('emits hide cursor + initial bar on construction', () => {
 			const { write, output } = makeWriter();
-			const handle = new TTYProgressHandle({}, write);
+			const handle = new TTYProgressHandle({ total: 10, label: 'Files' }, write);
+			expect(output[0]).toBe('\x1b[?25l');
+			// Initial render: 0%
+			const all = output.join('');
+			expect(all).toContain('0%');
+			expect(all).toContain('Files');
+			handle.done();
+		});
+
+		it('increment() re-renders with updated percentage', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.increment(5);
+			const all = output.join('');
+			expect(all).toContain('50%');
+			handle.done();
+		});
+
+		it('update() sets absolute value', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 100 }, write);
+			handle.update(75);
+			const all = output.join('');
+			expect(all).toContain('75%');
+			handle.done();
+		});
+
+		it('increment defaults to 1', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 4 }, write);
+			handle.increment();
+			const all = output.join('');
+			expect(all).toContain('25%');
+			handle.done();
+		});
+
+		it('clamps at 100%', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.update(20); // exceeds total
+			const all = output.join('');
+			expect(all).toContain('100%');
+			handle.done();
+		});
+
+		it('total: 0 renders 0% without division-by-zero', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 0 }, write);
+			const all = output.join('');
+			expect(all).toContain('0%');
+			handle.increment(5);
+			// Still 0% — can't make progress toward zero total
+			const afterIncrement = output.join('');
+			expect(afterIncrement).toContain('0%');
+			expect(afterIncrement).not.toContain('NaN');
+			expect(afterIncrement).not.toContain('Infinity');
+			handle.done();
+		});
+
+		it('done() cleans up + emits check symbol', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.done('Complete!');
+			const all = output.join('');
+			expect(all).toContain('\x1b[?25h');
+			expect(all).toContain('✓');
+			expect(all).toContain('Complete!');
+		});
+
+		it('fail() cleans up + emits cross symbol', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.fail('Failed!');
+			const all = output.join('');
+			expect(all).toContain('\x1b[?25h');
+			expect(all).toContain('✗');
+			expect(all).toContain('Failed!');
+		});
+
+		it('fail() without text cleans up silently', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.fail();
+			const all = output.join('');
+			expect(all).toContain('\x1b[?25h');
+			expect(all).not.toContain('✗');
+		});
+
+		// --- Idempotency ---
+
+		it('double done is no-op', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.done('first');
+			const countAfterDone = output.length;
+			handle.done('second');
+			expect(output.length).toBe(countAfterDone);
+		});
+
+		it('increment after done is no-op', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
 			handle.done();
 			const countAfterDone = output.length;
-			vi.advanceTimersByTime(200);
+			handle.increment();
 			expect(output.length).toBe(countAfterDone);
-		} finally {
-			vi.useRealTimers();
-		}
+		});
+
+		it('update after done is no-op', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.done();
+			const countAfterDone = output.length;
+			handle.update(5);
+			expect(output.length).toBe(countAfterDone);
+		});
+
+		it('renders empty bar at 0%', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			const all = output.join('');
+			expect(all).toContain('[░░░░░░░░░░░░░░░░░░░░] 0%');
+			handle.done();
+		});
+
+		it('renders correct bar fill at 50%', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.increment(5);
+			const all = output.join('');
+			expect(all).toContain('[██████████░░░░░░░░░░] 50%');
+			handle.done();
+		});
+
+		it('renders fully filled bar at 100%', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			handle.update(10);
+			const all = output.join('');
+			expect(all).toContain('[████████████████████] 100%');
+			handle.done();
+		});
+
+		it('no animation timer for determinate mode', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ total: 10 }, write);
+			// In determinate mode, no setInterval — renders only on increment()/update()
+			const initialCount = output.length;
+			// Wait briefly to confirm no timer-based renders
+			handle.done();
+			// Cleanup writes happen, but no extra frames from timer
+			const finalCount = output.length;
+			// Only cleanup writes (erase + show cursor) beyond initial
+			expect(finalCount - initialCount).toBeLessThanOrEqual(2);
+		});
+	});
+
+	// --- indeterminate
+
+	describe('indeterminate', () => {
+		it('starts with hide cursor and initial render', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({ label: 'Waiting' }, write);
+			expect(output[0]).toBe('\x1b[?25l');
+			const all = output.join('');
+			expect(all).toContain('Waiting');
+			// No percentage in indeterminate mode
+			expect(all).not.toContain('%');
+			handle.done();
+		});
+
+		it('done() stops timer and cleans up', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({}, write);
+			handle.done('finished');
+			const all = output.join('');
+			expect(all).toContain('\x1b[?25h');
+			expect(all).toContain('✓');
+			expect(all).toContain('finished');
+		});
+
+		it('fail() stops timer and cleans up', () => {
+			const { write, output } = makeWriter();
+			const handle = new TTYProgressHandle({}, write);
+			handle.fail('broken');
+			const all = output.join('');
+			expect(all).toContain('\x1b[?25h');
+			expect(all).toContain('✗');
+			expect(all).toContain('broken');
+		});
+
+		it('done() clears pulse timer — no callbacks after advance', () => {
+			vi.useFakeTimers();
+			try {
+				const { write, output } = makeWriter();
+				const handle = new TTYProgressHandle({}, write);
+				handle.done();
+				const countAfterDone = output.length;
+				vi.advanceTimersByTime(200);
+				expect(output.length).toBe(countAfterDone);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
 	});
 });
 

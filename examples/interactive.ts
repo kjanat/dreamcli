@@ -2,8 +2,8 @@
 /**
  * Interactive prompts with config file fallback.
  *
- * Demonstrates: per-flag .prompt(), command-level .interactive(),
- * .env(), .config(), resolution chain (CLI → env → config → prompt → default).
+ * Demonstrates: per-flag `.prompt()`, `.env()`, `.config()`, and the full
+ * resolution chain (CLI → env → config → prompt → default).
  *
  * The resolution chain means:
  *   1. Explicit CLI flag wins:      --region eu
@@ -19,7 +19,7 @@
  *   echo '{}' | npx tsx examples/interactive.ts        # non-interactive: uses defaults / errors
  */
 
-import { arg, cli, command, flag } from 'dreamcli';
+import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
 	.description('Deploy to an environment')

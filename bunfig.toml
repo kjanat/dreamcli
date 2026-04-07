@@ -1,10 +1,22 @@
 #:schema https://www.schemastore.org/bunfig.json
 
 telemetry = false
+smol      = false
 
 [install]
-auto = "auto"
+auto          = "auto"
+exact         = true
 lockfile.save = true
 
 [run]
 silent = true
+
+[test]
+root             = "./src"
+coverage         = true
+coverageReporter = ["text", "lcov"]
+reporter.dots    = false
+reporter.junit   = ".bucket/test-results.xml"
+coverageDir      = ".bucket/coverage"
+randomize        = true
+rerunEach        = 3

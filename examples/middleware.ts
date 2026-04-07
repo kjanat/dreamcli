@@ -2,15 +2,15 @@
 /**
  * Middleware patterns: auth guard, request timing, error handling.
  *
- * Demonstrates: middleware() with typed context, context accumulation,
- * short-circuit on error, wrap-around timing.
+ * Demonstrates: typed middleware context, auth guards, short-circuiting, and
+ * wrap-around timing.
  *
  * Usage:
  *   npx tsx examples/middleware.ts deploy production
  *   npx tsx examples/middleware.ts deploy production --verbose
  */
 
-import { arg, CLIError, cli, command, flag, middleware } from 'dreamcli';
+import { arg, CLIError, cli, command, flag, middleware } from '@kjanat/dreamcli';
 
 // --- Auth middleware — adds `user` to context ---
 

@@ -154,376 +154,394 @@ describe('createTestPrompter', () => {
 	});
 });
 
-// === createTerminalPrompter — confirm
+// === createTerminalPrompter
 
-describe('createTerminalPrompter — confirm', () => {
-	it('accepts y as true', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['y']), write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'Continue?' });
-		expect(result).toEqual({ answered: true, value: true });
-		expect(lines[0]).toContain('Continue?');
-		expect(lines[0]).toContain('(y/n)');
-	});
+describe('createTerminalPrompter', () => {
+	// --- confirm
 
-	it('accepts yes as true (case-insensitive)', async () => {
-		const prompter = createTerminalPrompter(mockRead(['YES']), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
-		expect(result).toEqual({ answered: true, value: true });
-	});
-
-	it('accepts n as false', async () => {
-		const prompter = createTerminalPrompter(mockRead(['n']), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
-		expect(result).toEqual({ answered: true, value: false });
-	});
-
-	it('accepts no as false (case-insensitive)', async () => {
-		const prompter = createTerminalPrompter(mockRead(['No']), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
-		expect(result).toEqual({ answered: true, value: false });
-	});
-
-	it('accepts empty string as true (default)', async () => {
-		const prompter = createTerminalPrompter(mockRead(['']), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
-		expect(result).toEqual({ answered: true, value: true });
-	});
-
-	it('returns cancelled on EOF', async () => {
-		const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
-		expect(result).toEqual({ answered: false });
-	});
-
-	it('retries on invalid input then accepts valid', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['maybe', 'y']), write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
-		expect(result).toEqual({ answered: true, value: true });
-		expect(lines.some((l) => l.includes('Please answer y or n'))).toBe(true);
-	});
-
-	it('trims whitespace from input', async () => {
-		const prompter = createTerminalPrompter(mockRead(['  Y  ']), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
-		expect(result).toEqual({ answered: true, value: true });
-	});
-});
-
-// === createTerminalPrompter — input
-
-describe('createTerminalPrompter — input', () => {
-	it('reads user input', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['hello world']), write);
-		const result = await prompter.promptOne({ kind: 'input', message: 'Name' });
-		expect(result).toEqual({ answered: true, value: 'hello world' });
-		expect(lines[0]).toContain('Name:');
-	});
-
-	it('shows placeholder when set', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['test']), write);
-		await prompter.promptOne({ kind: 'input', message: 'Email', placeholder: 'user@example.com' });
-		expect(lines[0]).toContain('(user@example.com)');
-	});
-
-	it('omits placeholder when not set', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['test']), write);
-		await prompter.promptOne({ kind: 'input', message: 'Name' });
-		expect(lines[0]).toBe('Name: ');
-	});
-
-	it('returns cancelled on EOF', async () => {
-		const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'input', message: 'q' });
-		expect(result).toEqual({ answered: false });
-	});
-
-	it('trims input', async () => {
-		const prompter = createTerminalPrompter(mockRead(['  spaced  ']), captureWrite().write);
-		const result = await prompter.promptOne({ kind: 'input', message: 'q' });
-		expect(result).toEqual({ answered: true, value: 'spaced' });
-	});
-
-	it('validates input and retries on failure', async () => {
-		const { write, lines } = captureWrite();
-		const validate = (v: string) => (v.length >= 3 ? true : 'Must be at least 3 chars');
-		const prompter = createTerminalPrompter(mockRead(['ab', 'abc']), write);
-		const result = await prompter.promptOne({
-			kind: 'input',
-			message: 'Code',
-			validate,
+	describe('confirm', () => {
+		it('accepts y as true', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['y']), write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'Continue?' });
+			expect(result).toEqual({ answered: true, value: true });
+			expect(lines[0]).toContain('Continue?');
+			expect(lines[0]).toContain('(Y/n)');
 		});
-		expect(result).toEqual({ answered: true, value: 'abc' });
-		expect(lines.some((l) => l.includes('Must be at least 3 chars'))).toBe(true);
-	});
 
-	it('returns cancelled on EOF during validation retry', async () => {
-		const validate = (v: string) => (v.length >= 3 ? true : 'Too short');
-		const prompter = createTerminalPrompter(mockRead(['ab', null]), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'input',
-			message: 'q',
-			validate,
+		it('accepts yes as true (case-insensitive)', async () => {
+			const prompter = createTerminalPrompter(mockRead(['YES']), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: true, value: true });
 		});
-		expect(result).toEqual({ answered: false });
-	});
 
-	it('cancels after MAX_RETRIES invalid attempts', async () => {
-		const validate = () => 'Always invalid' as const;
-		// Create 11 responses — all will fail validation, 10th triggers max retry
-		const responses = Array.from({ length: 11 }, () => 'bad');
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(responses), write);
-		const result = await prompter.promptOne({
-			kind: 'input',
-			message: 'q',
-			validate,
+		it('accepts n as false', async () => {
+			const prompter = createTerminalPrompter(mockRead(['n']), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: true, value: false });
 		});
-		expect(result).toEqual({ answered: false });
-		expect(lines.some((l) => l.includes('Too many invalid attempts'))).toBe(true);
-	});
-});
 
-// === createTerminalPrompter — select
-
-describe('createTerminalPrompter — select', () => {
-	const choices: readonly [SelectChoice, ...SelectChoice[]] = [
-		{ value: 'us', label: 'US East' },
-		{ value: 'eu', label: 'EU West' },
-		{ value: 'ap', label: 'AP South' },
-	];
-
-	it('displays choices and accepts valid selection', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['2']), write);
-		const result = await prompter.promptOne({
-			kind: 'select',
-			message: 'Region',
-			choices,
+		it('accepts no as false (case-insensitive)', async () => {
+			const prompter = createTerminalPrompter(mockRead(['No']), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: true, value: false });
 		});
-		expect(result).toEqual({ answered: true, value: 'eu' });
-		expect(lines.some((l) => l.includes('1) US East'))).toBe(true);
-		expect(lines.some((l) => l.includes('2) EU West'))).toBe(true);
-		expect(lines.some((l) => l.includes('3) AP South'))).toBe(true);
-	});
 
-	it('uses value as label when label is omitted', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['1']), write);
-		await prompter.promptOne({
-			kind: 'select',
-			message: 'Pick',
-			choices: [{ value: 'raw-value' }],
+		it('accepts empty string as true (default)', async () => {
+			const prompter = createTerminalPrompter(mockRead(['']), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: true, value: true });
 		});
-		expect(lines.some((l) => l.includes('1) raw-value'))).toBe(true);
-	});
 
-	it('shows description when present', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['1']), write);
-		await prompter.promptOne({
-			kind: 'select',
-			message: 'Pick',
-			choices: [{ value: 'a', description: 'Alpha option' }],
+		it('returns cancelled on EOF', async () => {
+			const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: false });
 		});
-		expect(lines.some((l) => l.includes('Alpha option'))).toBe(true);
-	});
 
-	it('retries on out-of-range selection', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['0', '4', '2']), write);
-		const result = await prompter.promptOne({
-			kind: 'select',
-			message: 'Region',
-			choices,
+		it('retries on invalid input then accepts valid', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['maybe', 'y']), write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: true, value: true });
+			expect(lines.some((l) => l.includes('Please answer y or n'))).toBe(true);
 		});
-		expect(result).toEqual({ answered: true, value: 'eu' });
-		expect(lines.some((l) => l.includes('between 1 and 3'))).toBe(true);
-	});
 
-	it('retries on non-numeric input', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['abc', '1']), write);
-		const result = await prompter.promptOne({
-			kind: 'select',
-			message: 'Region',
-			choices,
+		it('trims whitespace from input', async () => {
+			const prompter = createTerminalPrompter(mockRead(['  Y  ']), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: true, value: true });
 		});
-		expect(result).toEqual({ answered: true, value: 'us' });
-		expect(lines.some((l) => l.includes('between 1 and 3'))).toBe(true);
-	});
 
-	it('returns cancelled on EOF', async () => {
-		const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'select',
-			message: 'Region',
-			choices,
+		it('cancels after MAX_RETRIES invalid attempts', async () => {
+			const invalidAnswers = Array.from({ length: 11 }, () => 'maybe');
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(invalidAnswers), write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'Continue?' });
+
+			expect(result).toEqual({ answered: false });
+			expect(lines.some((line) => line.includes('Too many invalid attempts'))).toBe(true);
 		});
-		expect(result).toEqual({ answered: false });
 	});
 
-	it('cancels after MAX_RETRIES', async () => {
-		const bad = Array.from({ length: 11 }, () => 'x');
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(bad), write);
-		const result = await prompter.promptOne({
-			kind: 'select',
-			message: 'Region',
-			choices,
+	// --- input
+
+	describe('input', () => {
+		it('reads user input', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['hello world']), write);
+			const result = await prompter.promptOne({ kind: 'input', message: 'Name' });
+			expect(result).toEqual({ answered: true, value: 'hello world' });
+			expect(lines[0]).toContain('Name:');
 		});
-		expect(result).toEqual({ answered: false });
-		expect(lines.some((l) => l.includes('Too many invalid attempts'))).toBe(true);
-	});
 
-	it('rejects fractional numbers', async () => {
-		const prompter = createTerminalPrompter(mockRead(['1.5', '1']), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'select',
-			message: 'q',
-			choices,
+		it('shows placeholder when set', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['test']), write);
+			await prompter.promptOne({
+				kind: 'input',
+				message: 'Email',
+				placeholder: 'user@example.com',
+			});
+			expect(lines[0]).toContain('(user@example.com)');
 		});
-		expect(result).toEqual({ answered: true, value: 'us' });
-	});
-});
 
-// === createTerminalPrompter — multiselect
-
-describe('createTerminalPrompter — multiselect', () => {
-	const choices: readonly [SelectChoice, ...SelectChoice[]] = [
-		{ value: 'ts' },
-		{ value: 'js' },
-		{ value: 'py' },
-	];
-
-	it('accepts comma-separated selections', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['1,3']), write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'Languages',
-			choices,
+		it('omits placeholder when not set', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['test']), write);
+			await prompter.promptOne({ kind: 'input', message: 'Name' });
+			expect(lines[0]).toBe('Name: ');
 		});
-		expect(result).toEqual({ answered: true, value: ['ts', 'py'] });
-		expect(lines.some((l) => l.includes('Enter numbers'))).toBe(true);
-	});
 
-	it('accepts single selection', async () => {
-		const prompter = createTerminalPrompter(mockRead(['2']), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
+		it('returns cancelled on EOF', async () => {
+			const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'input', message: 'q' });
+			expect(result).toEqual({ answered: false });
 		});
-		expect(result).toEqual({ answered: true, value: ['js'] });
-	});
 
-	it('deduplicates selections', async () => {
-		const prompter = createTerminalPrompter(mockRead(['1,1,2']), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
+		it('trims input', async () => {
+			const prompter = createTerminalPrompter(mockRead(['  spaced  ']), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'input', message: 'q' });
+			expect(result).toEqual({ answered: true, value: 'spaced' });
 		});
-		expect(result).toEqual({ answered: true, value: ['ts', 'js'] });
-	});
 
-	it('accepts empty for zero selections when no min', async () => {
-		const prompter = createTerminalPrompter(mockRead(['']), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
+		it('validates input and retries on failure', async () => {
+			const { write, lines } = captureWrite();
+			const validate = (v: string) => (v.length >= 3 ? true : 'Must be at least 3 chars');
+			const prompter = createTerminalPrompter(mockRead(['ab', 'abc']), write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'Code',
+				validate,
+			});
+			expect(result).toEqual({ answered: true, value: 'abc' });
+			expect(lines.some((l) => l.includes('Must be at least 3 chars'))).toBe(true);
 		});
-		expect(result).toEqual({ answered: true, value: [] });
-	});
 
-	it('rejects empty when min is set', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['', '1']), write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
-			min: 1,
+		it('returns cancelled on EOF during validation retry', async () => {
+			const validate = (v: string) => (v.length >= 3 ? true : 'Too short');
+			const prompter = createTerminalPrompter(mockRead(['ab', null]), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'q',
+				validate,
+			});
+			expect(result).toEqual({ answered: false });
 		});
-		expect(result).toEqual({ answered: true, value: ['ts'] });
-		expect(lines.some((l) => l.includes('at least 1'))).toBe(true);
-	});
 
-	it('enforces max constraint', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['1,2,3', '1,2']), write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
-			max: 2,
+		it('cancels after MAX_RETRIES invalid attempts', async () => {
+			const validate = () => 'Always invalid' as const;
+			// Create 11 responses — all will fail validation, 10th triggers max retry
+			const responses = Array.from({ length: 11 }, () => 'bad');
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(responses), write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'q',
+				validate,
+			});
+			expect(result).toEqual({ answered: false });
+			expect(lines.some((l) => l.includes('Too many invalid attempts'))).toBe(true);
 		});
-		expect(result).toEqual({ answered: true, value: ['ts', 'js'] });
-		expect(lines.some((l) => l.includes('at most 2'))).toBe(true);
 	});
 
-	it('shows min/max hints in prompt', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['1']), write);
-		await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
-			min: 1,
-			max: 2,
+	// --- select
+
+	describe('select', () => {
+		const choices: readonly [SelectChoice, ...SelectChoice[]] = [
+			{ value: 'us', label: 'US East' },
+			{ value: 'eu', label: 'EU West' },
+			{ value: 'ap', label: 'AP South' },
+		];
+
+		it('displays choices and accepts valid selection', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['2']), write);
+			const result = await prompter.promptOne({
+				kind: 'select',
+				message: 'Region',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: 'eu' });
+			expect(lines.some((l) => l.includes('1) US East'))).toBe(true);
+			expect(lines.some((l) => l.includes('2) EU West'))).toBe(true);
+			expect(lines.some((l) => l.includes('3) AP South'))).toBe(true);
 		});
-		expect(lines.some((l) => l.includes('min: 1'))).toBe(true);
-		expect(lines.some((l) => l.includes('max: 2'))).toBe(true);
-	});
 
-	it('retries on invalid selection', async () => {
-		const { write, lines } = captureWrite();
-		const prompter = createTerminalPrompter(mockRead(['1,x', '1']), write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
+		it('uses value as label when label is omitted', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['1']), write);
+			await prompter.promptOne({
+				kind: 'select',
+				message: 'Pick',
+				choices: [{ value: 'raw-value' }],
+			});
+			expect(lines.some((l) => l.includes('1) raw-value'))).toBe(true);
 		});
-		expect(result).toEqual({ answered: true, value: ['ts'] });
-		expect(lines.some((l) => l.includes("Invalid selection 'x'"))).toBe(true);
-	});
 
-	it('returns cancelled on EOF', async () => {
-		const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
+		it('shows description when present', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['1']), write);
+			await prompter.promptOne({
+				kind: 'select',
+				message: 'Pick',
+				choices: [{ value: 'a', description: 'Alpha option' }],
+			});
+			expect(lines.some((l) => l.includes('Alpha option'))).toBe(true);
 		});
-		expect(result).toEqual({ answered: false });
-	});
 
-	it('handles spaces in comma-separated input', async () => {
-		const prompter = createTerminalPrompter(mockRead([' 1 , 3 ']), captureWrite().write);
-		const result = await prompter.promptOne({
-			kind: 'multiselect',
-			message: 'q',
-			choices,
+		it('retries on out-of-range selection', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['0', '4', '2']), write);
+			const result = await prompter.promptOne({
+				kind: 'select',
+				message: 'Region',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: 'eu' });
+			expect(lines.some((l) => l.includes('between 1 and 3'))).toBe(true);
 		});
-		expect(result).toEqual({ answered: true, value: ['ts', 'py'] });
+
+		it('retries on non-numeric input', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['abc', '1']), write);
+			const result = await prompter.promptOne({
+				kind: 'select',
+				message: 'Region',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: 'us' });
+			expect(lines.some((l) => l.includes('between 1 and 3'))).toBe(true);
+		});
+
+		it('returns cancelled on EOF', async () => {
+			const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'select',
+				message: 'Region',
+				choices,
+			});
+			expect(result).toEqual({ answered: false });
+		});
+
+		it('cancels after MAX_RETRIES', async () => {
+			const bad = Array.from({ length: 11 }, () => 'x');
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(bad), write);
+			const result = await prompter.promptOne({
+				kind: 'select',
+				message: 'Region',
+				choices,
+			});
+			expect(result).toEqual({ answered: false });
+			expect(lines.some((l) => l.includes('Too many invalid attempts'))).toBe(true);
+		});
+
+		it('rejects fractional numbers', async () => {
+			const prompter = createTerminalPrompter(mockRead(['1.5', '1']), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'select',
+				message: 'q',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: 'us' });
+		});
 	});
-});
 
-// === createTerminalPrompter — satisfies PromptEngine
+	// --- multiselect
 
-describe('createTerminalPrompter — interface', () => {
-	it('satisfies PromptEngine interface', () => {
-		const prompter = createTerminalPrompter(
-			() => Promise.resolve(null),
-			() => {},
-		);
-		expectTypeOf(prompter).toMatchTypeOf<PromptEngine>();
+	describe('multiselect', () => {
+		const choices: readonly [SelectChoice, ...SelectChoice[]] = [
+			{ value: 'ts' },
+			{ value: 'js' },
+			{ value: 'py' },
+		];
+
+		it('accepts comma-separated selections', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['1,3']), write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'Languages',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: ['ts', 'py'] });
+			expect(lines.some((l) => l.includes('Enter numbers'))).toBe(true);
+		});
+
+		it('accepts single selection', async () => {
+			const prompter = createTerminalPrompter(mockRead(['2']), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: ['js'] });
+		});
+
+		it('deduplicates selections', async () => {
+			const prompter = createTerminalPrompter(mockRead(['1,1,2']), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: ['ts', 'js'] });
+		});
+
+		it('accepts empty for zero selections when no min', async () => {
+			const prompter = createTerminalPrompter(mockRead(['']), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: [] });
+		});
+
+		it('rejects empty when min is set', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['', '1']), write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+				min: 1,
+			});
+			expect(result).toEqual({ answered: true, value: ['ts'] });
+			expect(lines.some((l) => l.includes('at least 1'))).toBe(true);
+		});
+
+		it('enforces max constraint', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['1,2,3', '1,2']), write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+				max: 2,
+			});
+			expect(result).toEqual({ answered: true, value: ['ts', 'js'] });
+			expect(lines.some((l) => l.includes('at most 2'))).toBe(true);
+		});
+
+		it('shows min/max hints in prompt', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['1']), write);
+			await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+				min: 1,
+				max: 2,
+			});
+			expect(lines.some((l) => l.includes('min: 1'))).toBe(true);
+			expect(lines.some((l) => l.includes('max: 2'))).toBe(true);
+		});
+
+		it('retries on invalid selection', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['1,x', '1']), write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: ['ts'] });
+			expect(lines.some((l) => l.includes("Invalid selection 'x'"))).toBe(true);
+		});
+
+		it('returns cancelled on EOF', async () => {
+			const prompter = createTerminalPrompter(mockRead([null]), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+			});
+			expect(result).toEqual({ answered: false });
+		});
+
+		it('handles spaces in comma-separated input', async () => {
+			const prompter = createTerminalPrompter(mockRead([' 1 , 3 ']), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'multiselect',
+				message: 'q',
+				choices,
+			});
+			expect(result).toEqual({ answered: true, value: ['ts', 'py'] });
+		});
+	});
+
+	// --- interface
+
+	describe('interface', () => {
+		it('satisfies PromptEngine interface', () => {
+			const prompter = createTerminalPrompter(
+				() => Promise.resolve(null),
+				() => {},
+			);
+			expectTypeOf(prompter).toMatchTypeOf<PromptEngine>();
+		});
 	});
 });
 

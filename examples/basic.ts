@@ -2,7 +2,7 @@
 /**
  * Basic single-command CLI.
  *
- * Demonstrates: positional args, typed flags, default values, aliases.
+ * Demonstrates: typed positional args, typed flags, aliases, and default values.
  *
  * Usage:
  *   npx tsx examples/basic.ts Alice
@@ -11,7 +11,7 @@
  *   npx tsx examples/basic.ts --help
  */
 
-import { arg, cli, command, flag } from 'dreamcli';
+import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const greet = command('greet')
 	.description('Greet someone')

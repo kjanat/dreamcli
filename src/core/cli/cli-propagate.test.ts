@@ -241,7 +241,7 @@ describe('collectPropagatedFlags', () => {
 			expect(result).not.toHaveProperty('verbose');
 		});
 
-		it('intermediate propagated flag shadows root propagated flag for descendants', () => {
+		it('intermediate propagated flags shadow root ones', () => {
 			const rootVerbose = propagatedFlag('string');
 			const midVerbose = propagatedFlag('number');
 

@@ -16,6 +16,7 @@ import type { CommandSchema, ErasedCommand } from '#internals/core/schema/comman
 
 /** Successful dispatch — target command found with argv path. */
 interface DispatchMatch {
+	/** Discriminant — a command name in argv matched a registered command. */
 	readonly kind: 'match';
 	/** The matched (target) command. */
 	readonly command: ErasedCommand;
@@ -27,6 +28,7 @@ interface DispatchMatch {
 
 /** Target has subcommands but no handler and no subcommand was specified/matched. */
 interface DispatchNeedsSubcommand {
+	/** Discriminant — command group reached without a subcommand or handler. */
 	readonly kind: 'needs-subcommand';
 	/** The group command that needs a subcommand. */
 	readonly command: ErasedCommand;
@@ -36,6 +38,7 @@ interface DispatchNeedsSubcommand {
 
 /** Unknown command name at this dispatch level. */
 interface DispatchUnknown {
+	/** Discriminant — no registered command matched the input token. */
 	readonly kind: 'unknown';
 	/** The unrecognised input token. Empty string when no token present. */
 	readonly input: string;
@@ -45,6 +48,7 @@ interface DispatchUnknown {
 	readonly parentPath: readonly CommandSchema[];
 }
 
+/** Discriminated result of recursive command dispatch. */
 type DispatchResult = DispatchMatch | DispatchNeedsSubcommand | DispatchUnknown;
 
 // --- Recursive dispatch

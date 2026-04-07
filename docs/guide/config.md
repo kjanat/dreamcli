@@ -5,20 +5,25 @@ Config values participate in the flag resolution chain.
 
 ## Linking Flags to Config
 
-```ts
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
 flag.enum(['us', 'eu', 'ap']).config('deploy.region');
 ```
 
 This resolves `deploy.region` from the config file using dot-notation.
 If CLI argv and env var don't provide a value, the config file is checked next.
 
-Config never overrides a value that was explicitly provided earlier in the
-chain. For the full precedence rules and examples, see
-[CLI Semantics](/guide/semantics).
+Config never overrides a value that was explicitly provided earlier in the chain.\
+For the full precedence rules and examples, see [CLI Semantics](/guide/semantics).
 
 ## Enabling Config Discovery
 
-```ts
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
 cli('mycli')
   .config('mycli') // app name for file discovery
   .command(deploy)
@@ -45,18 +50,20 @@ Add YAML, TOML, or any other format via `configFormat()`:
 
 ::: code-group
 
-```ts [Bun built-ins]
-import { configFormat } from 'dreamcli';
+```ts twoslash [Bun built-ins]
+import { cli, configFormat } from '@kjanat/dreamcli';
 
 cli('mycli')
   .config('mycli')
-  .configLoader(configFormat(['yaml', 'yml'], Bun.YAML.parse))
+  .configLoader(
+    configFormat(['yaml', 'yml'], Bun.YAML.parse),
+  )
   .configLoader(configFormat(['toml'], Bun.TOML.parse))
   .run();
 ```
 
-```ts [npm packages]
-import { configFormat } from 'dreamcli';
+```ts twoslash [npm packages]
+import { cli, configFormat } from '@kjanat/dreamcli';
 import { parse as parseYaml } from 'yaml';
 import { parse as parseTOML } from '@iarna/toml';
 
@@ -71,8 +78,10 @@ cli('mycli')
 
 `configFormat(exts, parser)` creates a loader config from the extension list and parse function,
 and `configLoader(loader)` registers that loader with the CLI.
+
 Each extension should only be registered once per chain — registering the same extension
 with different parsers causes duplicate loading.
+
 The parsed value still has to be a plain object, so YAML scalars,
 arrays, `null`, or multi-document YAML that parses to an array will fail as `CONFIG_PARSE_ERROR`.
 

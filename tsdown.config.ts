@@ -1,29 +1,43 @@
-import { execSync } from 'node:child_process';
+import { $, env } from 'bun';
 import { defineConfig } from 'tsdown';
+import attw from './.attw.json' with { type: 'json' };
 import pkg from './package.json' with { type: 'json' };
+import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 
-const version = pkg.version;
-const revision = (() => {
-	try {
-		return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
-	} catch {
-		return 'unknown';
-	}
-})();
+const version = JSON.stringify(pkg.version);
+const revision = JSON.stringify((await $`git rev-parse --short HEAD`.text()).trim());
+
+const { profile, ignoreRules } = attw;
+if (profile !== 'strict' && profile !== 'node16' && profile !== 'esm-only') {
+	throw new Error(`Invalid attw profile in .attw.json: ${profile}`);
+}
 
 export default defineConfig({
+	define: {
+		__DREAMCLI_VERSION__: version,
+		__DREAMCLI_REVISION__: revision,
+	},
 	entry: ['src/index.ts', { testkit: 'src/testkit.ts', runtime: 'src/runtime.ts' }],
-	format: ['esm', 'cjs'],
-	dts: { enabled: true, tsgo: true },
+	format: 'es',
+	dts: {
+		enabled: true,
+		tsgo: true,
+		entry: ['**', '!src/**/*{.test,test-helpers}.ts'],
+		newContext: true,
+		resolver: 'oxc',
+	},
 	clean: true,
 	platform: 'node',
 	exports: false,
-	define: {
-		__DREAMCLI_VERSION__: JSON.stringify(version),
-		__DREAMCLI_REVISION__: JSON.stringify(revision),
-	},
 	minify: true,
-	publint: true,
-	attw: { profile: 'node16', level: 'error', ignoreRules: [] },
-	onSuccess: 'bunx sort-package-json', // ensures proper sorting of the exports
+	unbundle: true,
+	publint: { enabled: true, level: 'suggestion', strict: true },
+	attw: { profile, ignoreRules, level: 'warn' },
+	report: { enabled: !env.CI },
+	hooks: {
+		'build:prepare': () => {
+			return emitDefinitionSchema();
+		},
+	},
+	onSuccess: 'bun fmt package.json',
 });

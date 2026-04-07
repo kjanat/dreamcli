@@ -1,0 +1,9 @@
+{
+	"format": "table-flipped",
+	"profile": "esm-only",
+	"emoji": false,
+	"color": true,
+	"ignoreRules": ["no-resolution", "cjs-resolves-to-esm"],
+	"definitelyTyped": "latest",
+	"pack": "."
+}

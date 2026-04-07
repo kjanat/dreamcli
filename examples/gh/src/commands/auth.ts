@@ -4,9 +4,9 @@
  * @module
  */
 
-import { command, group } from 'dreamcli';
+import { command, group } from '@kjanat/dreamcli';
 
-import { redactToken, requireAuth, tokenFlag } from '$gh/lib/auth.ts';
+import { redactToken, requireAuth, tokenFlag } from '../lib/auth.ts';
 
 const authLogin = command('login')
 	.description('Authenticate with GitHub')

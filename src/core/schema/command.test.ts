@@ -149,6 +149,28 @@ describe('.flag()', () => {
 		expect(b.handler).toBeUndefined();
 		expect(b.schema.hasAction).toBe(false);
 	});
+
+	it('rejects duplicate aliases on the same flag', () => {
+		expect(() => command('deploy').flag('skip-pass', flag.boolean().alias('x').alias('x'))).toThrow(
+			CLIError,
+		);
+	});
+
+	it('rejects aliases that collide with another canonical flag name', () => {
+		expect(() =>
+			command('deploy')
+				.flag('skip-pass', flag.boolean().alias('force'))
+				.flag('force', flag.boolean()),
+		).toThrow(CLIError);
+	});
+
+	it('rejects hidden aliases that collide with another alias', () => {
+		expect(() =>
+			command('deploy')
+				.flag('skip-pass', flag.boolean().alias('skipPass', { hidden: true }))
+				.flag('force', flag.boolean().alias('skipPass')),
+		).toThrow(CLIError);
+	});
 });
 
 // --- Arg accumulation — runtime
@@ -749,6 +771,30 @@ describe('.command()', () => {
 			.interactive(() => ({}));
 		expect(parent.schema.commands).toHaveLength(1);
 		expect(parent._subcommands).toHaveLength(1);
+	});
+
+	it('rejects propagated alias collisions when nesting a child command', () => {
+		expect(() =>
+			command('db')
+				.flag('verbose', flag.boolean().alias('v').propagate())
+				.command(command('migrate').flag('version', flag.boolean().alias('v'))),
+		).toThrow(CLIError);
+	});
+
+	it('rejects propagated alias collisions added later', () => {
+		expect(() =>
+			command('db')
+				.command(command('migrate').flag('version', flag.boolean().alias('v')))
+				.flag('verbose', flag.boolean().alias('v').propagate()),
+		).toThrow(CLIError);
+	});
+
+	it('allows children to shadow propagated flags by canonical name', () => {
+		expect(() =>
+			command('db')
+				.flag('verbose', flag.boolean().alias('v').propagate())
+				.command(command('migrate').flag('verbose', flag.boolean().alias('v'))),
+		).not.toThrow();
 	});
 
 	// --- Deep nesting ------------------------------------------------------

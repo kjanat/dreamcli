@@ -7,11 +7,11 @@
  * - `createTerminalPrompter(read, write)` — line-based terminal I/O
  * - `createTestPrompter(answers)` — pre-configured answers for testing
  *
- * Custom engines implement the `PromptEngine` interface to swap in
+ * Custom engines implement the {@linkcode PromptEngine} interface to swap in
  * alternative UI (e.g. web-based, TUI library, etc.).
  *
- * The engine receives a `ResolvedPromptConfig` — a variant of
- * `PromptConfig` where select/multiselect choices are guaranteed
+ * The engine receives a {@linkcode ResolvedPromptConfig} — a variant of
+ * {@linkcode PromptConfig} where select/multiselect choices are guaranteed
  * non-empty. The resolution chain handles merging enum values from
  * `FlagSchema` into choices before calling the engine.
  *
@@ -33,31 +33,39 @@ import type {
  * A select prompt config with choices guaranteed non-empty.
  *
  * The resolution chain populates choices from `FlagSchema.enumValues`
- * when the user's `PromptConfig` omits them.
+ * when the user's {@linkcode PromptConfig} omits them.
  */
 interface ResolvedSelectPromptConfig {
+	/** Discriminant — single-choice selection prompt. */
 	readonly kind: 'select';
+	/** User-facing question text. */
 	readonly message: string;
+	/** Non-empty list of selectable options (populated from flag enum values when omitted). */
 	readonly choices: readonly [SelectChoice, ...SelectChoice[]];
 }
 
 /**
  * A multiselect prompt config with choices guaranteed non-empty.
  *
- * Same guarantee as `ResolvedSelectPromptConfig` — choices are always
+ * Same guarantee as {@linkcode ResolvedSelectPromptConfig} — choices are always
  * present and non-empty.
  */
 interface ResolvedMultiselectPromptConfig {
+	/** Discriminant — multiple-choice selection prompt. */
 	readonly kind: 'multiselect';
+	/** User-facing question text. */
 	readonly message: string;
+	/** Non-empty list of selectable options (populated from flag enum values when omitted). */
 	readonly choices: readonly [SelectChoice, ...SelectChoice[]];
+	/** Minimum number of selections required (validated after input). */
 	readonly min?: number;
+	/** Maximum number of selections allowed (validated after input). */
 	readonly max?: number;
 }
 
 /**
  * Prompt config variant where select/multiselect choices are guaranteed
- * present. The prompt engine receives this (not raw `PromptConfig`),
+ * present. The prompt engine receives this (not raw {@linkcode PromptConfig}),
  * so it never needs to merge enum values from `FlagSchema`.
  *
  * confirm and input configs pass through unchanged.
@@ -147,7 +155,7 @@ const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typ
  * - `string` for `input` and `select`
  * - `boolean` for `confirm`
  * - `string[]` for `multiselect`
- * - {@link PROMPT_CANCEL} to simulate user cancellation
+ * - `PROMPT_CANCEL` to simulate user cancellation
  *
  * Because the type is intentionally `unknown`, tests may also inject malformed
  * answers to exercise downstream validation and error reporting.
@@ -181,7 +189,7 @@ interface TestPrompterOptions {
  * @param answers - Ordered queue of answers. Use `PROMPT_CANCEL` for
  *   cancellation.
  * @param options - Controls behavior when the queue is exhausted.
- * @returns A `PromptEngine` suitable for testing.
+ * @returns A {@linkcode PromptEngine} suitable for testing.
  *
  * @example
  * ```ts
@@ -224,9 +232,9 @@ function createTestPrompter(
 /**
  * Create a prompt engine backed by line-based terminal I/O.
  *
- * Uses a `ReadFn` for input and a `WriteFn` for output. This is the
+ * Uses a {@linkcode ReadFn} for input and a {@linkcode WriteFn} for output. This is the
  * built-in renderer — sufficient for most CLI use cases. For richer
- * TUI experiences, users can implement `PromptEngine` with a library
+ * TUI experiences, users can implement {@linkcode PromptEngine} with a library
  * like `@clack/prompts` or `inquirer`.
  *
  * The prompter does **not** use raw mode — all input is line-based.
@@ -235,7 +243,7 @@ function createTestPrompter(
  *
  * @param read - Line reader function (returns `null` on EOF)
  * @param write - Output writer function
- * @returns A `PromptEngine` that prompts via terminal I/O
+ * @returns A {@linkcode PromptEngine} that prompts via terminal I/O
  *
  * @example
  * ```ts
@@ -275,7 +283,7 @@ const MAX_RETRIES = 10;
 /**
  * Confirm prompt: yes/no question.
  *
- * Displays `(Y/n)` or `(y/N)` depending on the default (if any).
+ * Displays `(Y/n)` because empty input defaults to yes.
  * Accepts: y, yes, n, no, empty (uses default). Case-insensitive.
  *
  * @param config - {@link ConfirmPromptConfig} with the question message
@@ -288,24 +296,33 @@ async function promptConfirm(
 	read: ReadFn,
 	write: WriteFn,
 ): Promise<PromptResult> {
-	const hint = '(y/n)';
-	write(`${config.message} ${hint} `);
+	const defaultValue = true;
+	let retries = 0;
 
-	const line = await read();
-	if (line === null) return { answered: false };
+	while (retries < MAX_RETRIES) {
+		const hint = defaultValue ? '(Y/n)' : '(y/N)';
+		write(`${config.message} ${hint} `);
 
-	const lower = line.trim().toLowerCase();
-	if (lower === '' || lower === 'y' || lower === 'yes') {
-		return { answered: true, value: true };
+		const line = await read();
+		if (line === null) return { answered: false };
+
+		const lower = line.trim().toLowerCase();
+		if (lower === '') {
+			return { answered: true, value: defaultValue };
+		}
+		if (lower === 'y' || lower === 'yes') {
+			return { answered: true, value: true };
+		}
+		if (lower === 'n' || lower === 'no') {
+			return { answered: true, value: false };
+		}
+
+		write('Please answer y or n.\n');
+		retries += 1;
 	}
-	if (lower === 'n' || lower === 'no') {
-		return { answered: true, value: false };
-	}
 
-	// Invalid input — treat as true for leniency (matches common CLI convention)
-	// Note: the resolver will handle type coercion if needed
-	write('Please answer y or n.\n');
-	return promptConfirm(config, read, write);
+	write('Too many invalid attempts.\n');
+	return { answered: false };
 }
 
 /**
@@ -503,7 +520,7 @@ async function promptMultiselect(
 // --- Utility: prepare resolved prompt config from raw config + flag schema
 
 /**
- * Prepare a `ResolvedPromptConfig` from a raw `PromptConfig` and optional
+ * Prepare a {@linkcode ResolvedPromptConfig} from a raw {@linkcode PromptConfig} and optional
  * enum values from the flag schema.
  *
  * For select/multiselect prompts without explicit choices, this merges

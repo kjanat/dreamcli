@@ -4,8 +4,11 @@ dreamcli provides structured errors with codes, suggestions, and JSON serializat
 
 ## CLIError
 
-```ts
-import { CLIError } from 'dreamcli';
+```ts twoslash
+import { CLIError } from '@kjanat/dreamcli';
+
+const target = 'production';
+const region = 'us';
 
 throw new CLIError('Deployment failed', {
   code: 'DEPLOY_FAILED',
@@ -26,10 +29,26 @@ throw new CLIError('Deployment failed', {
 | `details`  | `unknown`            | Structured payload for JSON output         |
 | `cause`    | `Error \| undefined` | Underlying cause (optional)                |
 
+### Type Safety
+
+```ts twoslash
+import { CLIError } from '@kjanat/dreamcli';
+
+// @errors: 2322
+new CLIError('Deployment failed', {
+  code: 'DEPLOY_FAILED',
+  exitCode: '1',
+});
+```
+
 ## Error Types
 
-```ts
-import { CLIError, ParseError, ValidationError } from 'dreamcli';
+```ts twoslash
+import {
+  CLIError,
+  ParseError,
+  ValidationError,
+} from '@kjanat/dreamcli';
 ```
 
 - **`CLIError`** — base error for application-level failures
@@ -40,11 +59,18 @@ Parse and validation errors include "did you mean?" suggestions automatically.
 
 ## Type Guards
 
-```ts
-import { isCLIError, isParseError, isValidationError } from 'dreamcli';
+```ts twoslash
+import {
+  cli,
+  isCLIError,
+  isParseError,
+  isValidationError,
+} from '@kjanat/dreamcli';
+
+const myCli = cli('mycli');
 
 try {
-  await cli.run();
+  await myCli.run();
 } catch (err) {
   if (isParseError(err)) {
     // handle parse error

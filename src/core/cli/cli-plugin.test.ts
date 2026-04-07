@@ -49,7 +49,7 @@ describe('CLIBuilder.plugin() — hook observation', () => {
 // === Hook ordering
 
 describe('CLIBuilder.plugin() — hook ordering', () => {
-	it('runs lifecycle hooks around middleware and action in registration order', async () => {
+	it('runs hooks in registration order around middleware and action', async () => {
 		const order: string[] = [];
 
 		// biome-ignore lint/complexity/noBannedTypes: testing empty additions

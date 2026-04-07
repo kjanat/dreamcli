@@ -1,10 +1,10 @@
 /**
  * Command schema builder with flag/arg composition and type accumulation.
  *
- * The `command()` factory returns an immutable `CommandBuilder` whose generic
- * parameters track accumulated flag and arg builder types. Chaining `.flag()`
- * and `.arg()` calls produces progressively narrower types. The `.action()`
- * handler receives fully typed `{ args, flags, ctx, out }`.
+ * The {@linkcode command} factory returns an immutable {@linkcode CommandBuilder}
+ * whose generic parameters track accumulated flag and arg builder types. Chaining
+ * `.flag()` and `.arg()` calls produces progressively narrower types. The
+ * `.action()` handler receives fully typed `{ args, flags, ctx, out, meta }`.
  *
  * @module dreamcli/core/schema/command
  */
@@ -58,7 +58,9 @@ type WidenDerivedContext<C extends Record<string, unknown>, Output> =
  * Both start empty (`{}`) and grow as `.flag()` / `.arg()` are called.
  */
 interface CommandConfig {
+	/** Accumulated flag builders keyed by flag name. */
 	readonly flags: Record<string, FlagBuilder<FlagConfig>>;
+	/** Accumulated arg builders keyed by arg name. */
 	readonly args: Record<string, ArgBuilder<ArgConfig>>;
 }
 
@@ -97,6 +99,8 @@ type InteractiveResult = Readonly<Record<string, PromptConfig | false | undefine
  *
  * @example
  * ```ts
+ * import { command, flag } from '@kjanat/dreamcli';
+ *
  * const deploy = command('deploy')
  *   .flag('region', flag.enum(['us', 'eu', 'ap']))
  *   .interactive(({ flags }) => ({
@@ -105,7 +109,9 @@ type InteractiveResult = Readonly<Record<string, PromptConfig | false | undefine
  *       message: 'Select region',
  *     },
  *   }))
- *   .action(({ flags }) => { ... });
+ *   .action(({ flags, out }) => {
+ *     out.log(`Deploying to ${flags.region}`);
+ *   });
  * ```
  */
 type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
@@ -113,10 +119,10 @@ type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
 ) => InteractiveResult;
 
 /**
- * Type-erased interactive resolver stored on `CommandSchema`.
+ * Type-erased interactive resolver stored on {@linkcode CommandSchema}.
  *
  * Advanced bridge type: most consumers should use {@link InteractiveResolver}
- * via `command().interactive(...)` and never reference this alias directly.
+ * via {@linkcode command | command().interactive()} and never reference this alias directly.
  *
  * At runtime, the resolver receives `{ flags: Record<string, unknown> }`
  * and returns `Record<string, PromptConfig | falsy>`. The phantom types
@@ -244,7 +250,7 @@ interface Out {
 	 * handle is active, or when the handle was already stopped.
 	 *
 	 * The framework calls this automatically in `runCommand()` and
-	 * `cli.run()`. Direct users of `createOutput()` should call it
+	 * `cli().run()`. Direct users of `createOutput()` should call it
 	 * themselves after the handler returns or throws.
 	 *
 	 * @example
@@ -297,10 +303,15 @@ interface ActionParams<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
 > {
+	/** Fully resolved positional argument values, typed from `.arg()` definitions. */
 	readonly args: Readonly<InferArgs<A>>;
+	/** Fully resolved flag values, typed from `.flag()` definitions. */
 	readonly flags: Readonly<InferFlags<F>>;
+	/** Middleware/derive-provided context, typed from `.middleware()` and `.derive()` chains. */
 	readonly ctx: Readonly<C>;
+	/** Structured output channel for stdout, stderr, JSON, tables, and spinners. */
 	readonly out: Out;
+	/** Runtime metadata about the CLI program and current command. */
 	readonly meta: CommandMeta;
 }
 
@@ -316,6 +327,28 @@ type ActionHandler<
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
 > = (params: ActionParams<F, A, C>) => void | Promise<void>;
+
+/**
+ * Type-erased action handler stored on {@linkcode CommandBuilder}.
+ *
+ * The typed {@linkcode ActionHandler} from `.action()` is cast to this
+ * erased form at the type-erasure boundary, keeping {@linkcode CommandBuilder}
+ * covariant in its generic parameters. This enables structural
+ * compatibility across TypeScript declaration-file boundaries where
+ * generic inference may fall back to constraint types.
+ *
+ * Follows the same erasure pattern as {@link ErasedDeriveHandler} and
+ * {@link ErasedMiddlewareHandler}.
+ *
+ * @internal
+ */
+type ErasedActionHandler = (params: {
+	readonly args: Readonly<Record<string, unknown>>;
+	readonly flags: Readonly<Record<string, unknown>>;
+	readonly ctx: Readonly<Record<string, unknown>>;
+	readonly out: Out;
+	readonly meta: CommandMeta;
+}) => void | Promise<void>;
 
 /**
  * The bag of values received by a derive handler.
@@ -334,11 +367,11 @@ type DeriveParams<
  * Command-scoped typed pre-action handler.
  *
  * Derive handlers may:
- * - validate resolved input and throw `CLIError`
+ * - validate resolved input and throw {@linkcode CLIError}
  * - return `undefined` to continue without changing context
  * - return an object whose properties merge into `ctx` downstream
  *
- * They cannot wrap downstream execution; use `middleware()` for that.
+ * They cannot wrap downstream execution; use {@linkcode middleware} for that.
  */
 type DeriveHandler<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -365,7 +398,7 @@ type ErasedDeriveHandler = (params: {
 
 /**
  * Internal execution step union preserving registration order across
- * `derive()` and `middleware()`.
+ * {@linkcode CommandBuilder.derive | derive()} and {@linkcode CommandBuilder.middleware | middleware()}.
  *
  * @internal
  */
@@ -449,7 +482,9 @@ interface CommandSchema {
  * The array ordering in {@link CommandSchema.args} determines CLI position.
  */
 interface CommandArgEntry {
+	/** User-facing argument name (shown in help as `<name>`). */
 	readonly name: string;
+	/** Runtime descriptor controlling parsing, presence, and coercion. */
 	readonly schema: ArgSchema;
 }
 
@@ -493,6 +528,156 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
 	);
 }
 
+// --- Flag collision validation
+
+type FlagFormKind = 'canonical' | 'alias';
+
+interface FlagForm {
+	readonly owner: string;
+	readonly name: string;
+	readonly kind: FlagFormKind;
+	readonly hidden: boolean;
+}
+
+function formatFlagToken(name: string, kind: FlagFormKind): string {
+	return kind === 'alias' && name.length === 1 ? `-${name}` : `--${name}`;
+}
+
+function describeFlagForm(form: FlagForm): string {
+	if (form.kind === 'canonical') {
+		return `canonical flag ${formatFlagToken(form.name, form.kind)}`;
+	}
+
+	const aliasType = form.name.length === 1 ? 'short alias' : 'long alias';
+	return `${form.hidden ? 'hidden ' : ''}${aliasType} ${formatFlagToken(form.name, form.kind)}`;
+}
+
+function listFlagForms(name: string, schema: FlagSchema): readonly FlagForm[] {
+	return [
+		{
+			owner: name,
+			name,
+			kind: 'canonical',
+			hidden: false,
+		},
+		...schema.aliases.map((alias) => ({
+			owner: name,
+			name: alias.name,
+			kind: 'alias' as const,
+			hidden: alias.hidden,
+		})),
+	];
+}
+
+function throwFlagCollisionError(
+	commandName: string,
+	form: FlagForm,
+	existing: FlagForm,
+	options?: { inherited?: boolean },
+): never {
+	const inherited = options?.inherited ?? false;
+	const existingOwner = `flag ${formatFlagToken(existing.owner, 'canonical')}`;
+	const subject = `Command '${commandName}' ${existingOwner}`;
+
+	throw new CLIError(
+		inherited
+			? `${subject} propagates ${describeFlagForm(existing)}, which collides with ${describeFlagForm(form)} on flag ${formatFlagToken(form.owner, 'canonical')}`
+			: `Command '${commandName}' flag ${formatFlagToken(form.owner, 'canonical')} ${describeFlagForm(form)} collides with ${describeFlagForm(existing)} on ${existingOwner}`,
+		{
+			code: inherited ? 'PROPAGATED_FLAG_COLLISION' : 'FLAG_NAME_COLLISION',
+			details: {
+				command: commandName,
+				flag: form.owner,
+				surface: form.name,
+				surfaceKind: form.kind,
+				hidden: form.hidden,
+				existingFlag: existing.owner,
+				existingSurface: existing.name,
+				existingSurfaceKind: existing.kind,
+				existingHidden: existing.hidden,
+				inherited,
+			},
+		},
+	);
+}
+
+function validateLocalFlagCollisions(
+	commandName: string,
+	flags: Readonly<Record<string, FlagSchema>>,
+): void {
+	const seen = new Map<string, FlagForm>();
+
+	for (const [name, schema] of Object.entries(flags)) {
+		for (const form of listFlagForms(name, schema)) {
+			const existing = seen.get(form.name);
+			if (existing !== undefined) {
+				throwFlagCollisionError(commandName, form, existing);
+			}
+			seen.set(form.name, form);
+		}
+	}
+}
+
+function validateInheritedFlagCollisions(
+	commandName: string,
+	inherited: Readonly<Record<string, FlagSchema>>,
+	local: Readonly<Record<string, FlagSchema>>,
+): void {
+	const inheritedForms = new Map<string, FlagForm>();
+
+	for (const [name, schema] of Object.entries(inherited)) {
+		for (const form of listFlagForms(name, schema)) {
+			inheritedForms.set(form.name, form);
+		}
+	}
+
+	for (const [name, schema] of Object.entries(local)) {
+		for (const form of listFlagForms(name, schema)) {
+			const existing = inheritedForms.get(form.name);
+			if (existing !== undefined) {
+				throwFlagCollisionError(commandName, form, existing, { inherited: true });
+			}
+		}
+	}
+}
+
+function buildInheritedFlagsForChildren(
+	inherited: Readonly<Record<string, FlagSchema>>,
+	local: Readonly<Record<string, FlagSchema>>,
+): Readonly<Record<string, FlagSchema>> {
+	const next: Record<string, FlagSchema> = { ...inherited };
+
+	for (const name of Object.keys(local)) {
+		delete next[name];
+	}
+
+	for (const [name, schema] of Object.entries(local)) {
+		if (schema.propagate) {
+			next[name] = schema;
+		}
+	}
+
+	return next;
+}
+
+function validateCommandFlagTree(
+	command: CommandSchema,
+	inheritedFlags: Readonly<Record<string, FlagSchema>> = {},
+): void {
+	validateLocalFlagCollisions(command.name, command.flags);
+
+	const visibleInherited: Record<string, FlagSchema> = { ...inheritedFlags };
+	for (const name of Object.keys(command.flags)) {
+		delete visibleInherited[name];
+	}
+	validateInheritedFlagCollisions(command.name, visibleInherited, command.flags);
+
+	const inheritedForChildren = buildInheritedFlagsForChildren(inheritedFlags, command.flags);
+	for (const child of command.commands) {
+		validateCommandFlagTree(child, inheritedForChildren);
+	}
+}
+
 // --- Type-erased command interface (shared between schema and CLI layers)
 
 /**
@@ -506,11 +691,11 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
  * schema (for name/alias matching and help) and the ability to delegate to
  * `runCommand()`. This interface captures exactly that contract.
  *
- * The `_execute` function closes over the original typed `CommandBuilder`,
+ * The `_execute` function closes over the original typed {@linkcode CommandBuilder},
  * preserving full type safety inside the closure while presenting a
  * uniform interface to the dispatcher.
  *
- * Defined here (rather than in the CLI layer) so both `CommandBuilder` and
+ * Defined here (rather than in the CLI layer) so both {@linkcode CommandBuilder} and
  * `CLIBuilder` can reference it without circular imports.
  *
  * @internal
@@ -528,8 +713,26 @@ interface ErasedCommand {
 	 * @internal
 	 */
 	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
+	/** Original command builder captured at the type-erasure boundary. */
+	readonly _command?: AnyCommandBuilder;
 	/** Execute this command against argv. Closes over the typed CommandBuilder. */
 	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
+}
+
+/**
+ * Structural subset of {@linkcode CommandBuilder} consumed by the execution pipeline.
+ *
+ * Avoids generic type parameters so any `CommandBuilder<F, A, C>` satisfies
+ * this interface structurally — no variance constraints, no inference needed.
+ * Used by `runCommand()` and the shared executor to accept commands without
+ * requiring TypeScript to resolve {@linkcode CommandBuilder}'s full generic signature.
+ *
+ * @internal
+ */
+interface RunnableCommand {
+	readonly schema: CommandSchema;
+	readonly handler: ErasedActionHandler | undefined;
+	readonly _executionSteps: readonly ExecutionStep[];
 }
 
 // --- Type-erased builder alias (for heterogeneous subcommand storage)
@@ -605,8 +808,8 @@ class CommandBuilder<
 	/** @internal Runtime schema descriptor. */
 	readonly schema: CommandSchema;
 
-	/** @internal The action handler, if registered. */
-	readonly handler: ActionHandler<F, A, C> | undefined;
+	/** @internal The action handler, if registered (type-erased for covariance). */
+	readonly handler: ErasedActionHandler | undefined;
 
 	/**
 	 * @internal Nested sub-command builders (type-erased for heterogeneous storage).
@@ -626,15 +829,16 @@ class CommandBuilder<
 	 */
 	readonly _executionSteps: readonly ExecutionStep[];
 
-	/**
-	 * @internal Type brands — exist only in the type system (`declare`
-	 * produces no runtime property). Used for type inference.
-	 */
+	/** @internal Phantom brand for accumulated flag builder types. No runtime value. */
 	declare readonly _flags: F;
+	/** @internal Phantom brand for accumulated arg builder types. No runtime value. */
 	declare readonly _args: A;
+	/** @internal Phantom brand for accumulated context type. No runtime value. */
 	declare readonly _ctx: C;
 
 	/**
+	 * Create a command builder from a pre-built schema descriptor.
+	 *
 	 * @param schema         - Runtime command descriptor.
 	 * @param handler        - Action handler, if registered.
 	 * @param subcommands    - Nested sub-command builders (type-erased).
@@ -642,7 +846,7 @@ class CommandBuilder<
 	 */
 	constructor(
 		schema: CommandSchema,
-		handler?: ActionHandler<F, A, C>,
+		handler?: ErasedActionHandler,
 		subcommands?: readonly AnyCommandBuilder[],
 		executionSteps?: readonly ExecutionStep[],
 	) {
@@ -661,7 +865,7 @@ class CommandBuilder<
 	 * resolved flag values. It returns a prompt schema for flags that need
 	 * interactive input based on the current state.
 	 *
-	 * For flags the resolver returns a `PromptConfig`, that config is used
+	 * For flags the resolver returns a {@linkcode PromptConfig}, that config is used
 	 * instead of any per-flag `.prompt()` config. For flags returned as falsy
 	 * (or not mentioned), per-flag `.prompt()` configs are used as fallback.
 	 *
@@ -710,7 +914,7 @@ class CommandBuilder<
 	 * - return an object to merge additional properties into `ctx`
 	 *
 	 * Unlike middleware, derive cannot wrap downstream execution and does not
-	 * use `next()`. Use `middleware()` for timing, logging, retries, cleanup,
+	 * use `next()`. Use {@linkcode middleware} for timing, logging, retries, cleanup,
 	 * or error-boundary patterns.
 	 *
 	 * Adding derive drops the current handler (like `.flag()`, `.arg()`, and
@@ -761,7 +965,7 @@ class CommandBuilder<
 	 * Register middleware to run before the action handler.
 	 *
 	 * Middleware executes in registration order. Each middleware receives
-	 * `{ args, flags, ctx, out, next }` and must call `next(additions)`
+	 * `{ args, flags, ctx, out, meta, next }` and must call `next(additions)`
 	 * to continue the chain. Context additions are merged and become
 	 * typed downstream.
 	 *
@@ -771,7 +975,7 @@ class CommandBuilder<
 	 *
 	 * @example
 	 * ```ts
-	 * import { CLIError, command, middleware } from 'dreamcli';
+	 * import { CLIError, command, middleware } from '@kjanat/dreamcli';
 	 *
 	 * interface User {
 	 *   id: string;
@@ -810,7 +1014,8 @@ class CommandBuilder<
 	 *   });
 	 * ```
 	 *
-	 * @param m - {@link Middleware} instance created via `middleware()`.
+	 * @param m - {@link Middleware} instance created via {@linkcode middleware | middleware()}.
+	 *   Middleware handlers receive `{ args, flags, ctx, out, meta, next }`.
 	 * @returns The builder (for chaining).
 	 */
 	middleware<Output extends Record<string, unknown>>(
@@ -979,8 +1184,8 @@ class CommandBuilder<
 	 * bindings, and description. See {@link FlagBuilder} for available modifiers.
 	 *
 	 * @param name - Flag name (used as `--name` on CLI and `flags.*` in handler).
-	 * @param builder - Configured `FlagBuilder` from `flag.string()`, `flag.boolean()`,
-	 *   `flag.number()`, `flag.enum()`, `flag.array()`, or `flag.custom()`.
+	 * @param builder - Configured {@linkcode FlagBuilder} from {@linkcode flag | flag.string()},
+	 *   `flag.boolean()`, `flag.number()`, `flag.enum()`, `flag.array()`, or `flag.custom()`.
 	 *
 	 * @example
 	 * ```ts
@@ -1014,9 +1219,18 @@ class CommandBuilder<
 		name: N & Exclude<N, keyof F>,
 		builder: B,
 	): CommandBuilder<F & Record<N, B>, A, C> {
+		if (name in this.schema.flags) {
+			throw new CLIError(`Command '${this.schema.name}' already defines flag --${name}`, {
+				code: 'FLAG_NAME_COLLISION',
+				details: { command: this.schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
+			});
+		}
+
 		const nextFlags = { ...this.schema.flags, [name]: builder.schema };
+		const nextSchema = { ...this.schema, flags: nextFlags, hasAction: false };
+		validateCommandFlagTree(nextSchema);
 		return new CommandBuilder(
-			{ ...this.schema, flags: nextFlags, hasAction: false },
+			nextSchema,
 			// handler is intentionally dropped — adding a flag invalidates
 			// the previous handler's type signature
 			undefined,
@@ -1039,7 +1253,7 @@ class CommandBuilder<
 	 * description. See {@link ArgBuilder} for available modifiers.
 	 *
 	 * @param name - Positional arg name (used in help text and `args.*`).
-	 * @param builder - Configured `ArgBuilder` from `arg.string()`, `arg.number()`,
+	 * @param builder - Configured {@linkcode ArgBuilder} from `arg.string()`, `arg.number()`,
 	 *   or `arg.custom()`.
 	 *
 	 * @example
@@ -1113,11 +1327,13 @@ class CommandBuilder<
 		A2 extends Record<string, ArgBuilder<ArgConfig>>,
 		C2 extends Record<string, unknown>,
 	>(sub: CommandBuilder<F2, A2, C2>): CommandBuilder<F, A, C> {
+		const nextSchema = {
+			...this.schema,
+			commands: [...this.schema.commands, sub.schema],
+		};
+		validateCommandFlagTree(nextSchema);
 		return new CommandBuilder(
-			{
-				...this.schema,
-				commands: [...this.schema.commands, sub.schema],
-			},
+			nextSchema,
 			this.handler,
 			[...this._subcommands, eraseBuilder(sub)],
 			this._executionSteps,
@@ -1129,7 +1345,7 @@ class CommandBuilder<
 	/**
 	 * Register the action handler for this command.
 	 *
-	 * The handler receives fully typed `{ args, flags, ctx, out }` derived
+	 * The handler receives fully typed `{ args, flags, ctx, out, meta }` derived
 	 * from the accumulated `.flag()`, `.arg()`, `.derive()`, and `.middleware()`
 	 * definitions.
 	 *
@@ -1139,38 +1355,43 @@ class CommandBuilder<
 	 * @param handler - Function receiving `ActionParams<F, A, C>`.
 	 *
 	 * @example
+	 * ```ts
 	 * // Minimal
 	 * command('greet')
 	 *   .arg('name', arg.string())
 	 *   .action(({ args, out }) => {
 	 *     out.log(`Hello, ${args.name}!`);
 	 *   });
+	 * ```
 	 *
 	 * @example
-	 * // Full params — flags, args, context, output
+	 * ```ts
+	 * // Full params — flags, args, context, output, metadata
 	 * command('deploy')
 	 *   .arg('target', arg.string().env('DEPLOY_TARGET'))
 	 *   .flag('force', flag.boolean().alias('f'))
 	 *   .flag('region', flag.enum(['us', 'eu', 'ap']).env('REGION'))
 	 *   .middleware(auth)
-	 *   .action(async ({ args, flags, ctx, out }) => {
+	 *   .action(async ({ args, flags, ctx, out, meta }) => {
 	 *     args.target;  // string
 	 *     flags.force;  // boolean
 	 *     flags.region; // 'us' | 'eu' | 'ap' | undefined
 	 *     ctx.user;     // User (from auth middleware)
+	 *     meta.command; // string
 	 *
 	 *     const spinner = out.spinner('Deploying...');
 	 *     await deploy(args.target, { force: flags.force });
 	 *     spinner.stop();
 	 *     out.log('Done');
 	 *   });
+	 * ```
 	 *
 	 * @returns The builder (for chaining).
 	 */
 	action(handler: ActionHandler<F, A, C>): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, hasAction: true },
-			handler,
+			handler as unknown as ErasedActionHandler,
 			this._subcommands,
 			this._executionSteps,
 		);
@@ -1186,6 +1407,8 @@ class CommandBuilder<
  *
  * @example
  * ```ts
+ * import { arg, command, flag } from '@kjanat/dreamcli';
+ *
  * const greet = command('greet')
  *   .arg('name', arg.string())
  *   .flag('loud', flag.boolean())
@@ -1216,7 +1439,7 @@ function command(name: string): CommandBuilder {
 /**
  * Create a command builder intended for use as a command group.
  *
- * Semantically identical to `command()` — a group is simply a command that
+ * Semantically identical to {@linkcode command | command()} — a group is simply a command that
  * has subcommands registered via `.command()`. The separate factory
  * communicates intent: groups organise subcommands, leaf commands have actions.
  *
@@ -1252,6 +1475,7 @@ export type {
 	CommandSchema,
 	DeriveHandler,
 	DeriveParams,
+	ErasedActionHandler,
 	ErasedCommand,
 	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
@@ -1259,5 +1483,8 @@ export type {
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
+	RunnableCommand,
+	WidenContext,
+	WidenDerivedContext,
 };
 export { CommandBuilder, command, group };

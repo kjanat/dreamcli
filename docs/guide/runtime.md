@@ -7,8 +7,8 @@ A thin `RuntimeAdapter` interface abstracts the platform-specific edges.
 
 | Runtime            | Status    | Package                  |
 | ------------------ | --------- | ------------------------ |
-| Node.js >= 22.22.2 | Supported | `dreamcli` (npm)         |
-| Bun >= 1.3.11      | Supported | `dreamcli` (npm)         |
+| Node.js >= 22.22.2 | Supported | `@kjanat/dreamcli` (npm) |
+| Bun >= 1.3.11      | Supported | `@kjanat/dreamcli` (npm) |
 | Deno >= 2.6.0      | Supported | `@kjanat/dreamcli` (JSR) |
 
 Adapters validate these minimum versions during creation.
@@ -33,8 +33,11 @@ Runtime detection is automatic — dreamcli picks the right adapter at startup.
 
 ## Explicit Adapter
 
-```ts
-import { createAdapter, createNodeAdapter } from 'dreamcli/runtime';
+```ts twoslash
+import {
+  createAdapter,
+  createNodeAdapter,
+} from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect
 const nodeAdapter = createNodeAdapter(); // explicit
@@ -49,18 +52,22 @@ If permissions are missing, features degrade gracefully with clear error message
 deno run --allow-read --allow-env mycli.ts deploy
 ```
 
-## Testing with Adapters
+## Testing Runtime Seams
 
-The test harness uses a built-in test adapter that doesn't touch real process state:
+For command behavior tests, `runCommand()` is process-free and injects runtime state directly:
 
-```ts
-import { runCommand } from 'dreamcli/testkit';
+```ts twoslash
+import { regionCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
 
-const result = await runCommand(cmd, ['--flag', 'value'], {
-  env: { MY_VAR: 'test' },
-  // Uses test adapter internally — no real process access
+const result = await runCommand(regionCmd, [], {
+  env: { MY_REGION: 'test' },
 });
 ```
+
+When you need adapter-level control (`argv`, filesystem reads, exit behavior), use
+`createTestAdapter()` with `cli().run({ adapter })`.
 
 ## What's Next?
 

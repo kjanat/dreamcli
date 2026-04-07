@@ -2,16 +2,16 @@
 /**
  * Spinner and progress bar usage.
  *
- * Demonstrates: out.spinner(), out.progress(), auto-disable in
- * non-TTY / --json mode, spinner.wrap() convenience.
+ * Demonstrates: `out.spinner()`, `out.progress()`, `spinner.wrap()`, and
+ * automatic suppression in non-TTY or `--json` mode.
  *
  * Usage:
  *   npx tsx examples/spinner-progress.ts
- *   npx tsx examples/spinner-progress.ts --json     # spinners suppressed, JSON output
- *   echo | npx tsx examples/spinner-progress.ts     # non-TTY: spinners silent
+ *   npx tsx examples/spinner-progress.ts --json  # spinners suppressed, JSON output
+ *   echo | npx tsx examples/spinner-progress.ts  # non-TTY: spinners silent
  */
 
-import { cli, command, flag } from 'dreamcli';
+import { cli, command, flag } from '@kjanat/dreamcli';
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));

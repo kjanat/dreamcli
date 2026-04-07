@@ -19,15 +19,15 @@ import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 /**
  * Format a version tag for generated completion script headers.
  *
- * Produces e.g. `"dreamcli v0.9.1 (f9b5f1a)"` when built, or
- * `"dreamcli"` when running unbundled in development.
+ * Produces e.g. `"@kjanat/dreamcli v0.9.1 (f9b5f1a)"` when built, or
+ * `"@kjanat/dreamcli"` when running unbundled in development.
  *
  * @internal
  */
 function versionTag(): string {
-	if (DREAMCLI_VERSION === 'dev') return 'dreamcli';
+	if (DREAMCLI_VERSION === 'dev') return '@kjanat/dreamcli';
 	const rev = DREAMCLI_REVISION !== 'dev' ? ` (${DREAMCLI_REVISION})` : '';
-	return `dreamcli v${DREAMCLI_VERSION}${rev}`;
+	return `@kjanat/dreamcli v${DREAMCLI_VERSION}${rev}`;
 }
 
 // --- CompletionOptions — generator configuration

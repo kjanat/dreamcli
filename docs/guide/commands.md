@@ -7,8 +7,8 @@ Every CLI has at least one.
 
 The simplest CLI is a single command wrapped in `cli()`:
 
-```ts
-import { cli, command, flag, arg } from 'dreamcli';
+```ts twoslash
+import { cli, command, flag, arg } from '@kjanat/dreamcli';
 
 const greet = command('greet')
   .description('Greet someone')
@@ -26,8 +26,8 @@ cli('greet').default(greet).run();
 
 Use `cli()` to compose multiple commands:
 
-```ts
-import { cli, command, flag } from 'dreamcli';
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
   .description('Deploy the app')
@@ -49,8 +49,8 @@ cli('mycli')
 
 Nest commands under a group for `cli group subcommand` patterns:
 
-```ts
-import { command, group } from 'dreamcli';
+```ts twoslash
+import { command, group } from '@kjanat/dreamcli';
 
 const migrate = command('migrate')
   .description('Run migrations')
@@ -74,18 +74,28 @@ Groups can be nested arbitrarily deep.
 
 ### Description and Examples
 
-```ts
+```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
 command('deploy')
   .description('Deploy to an environment')
   .example('deploy production', 'Deploy to prod')
-  .example('deploy staging --force', 'Force deploy to staging');
+  .example(
+    'deploy staging --force',
+    'Force deploy to staging',
+  );
 ```
 
 ### Default Command
 
 Set a default command that runs when no subcommand is specified:
 
-```ts
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const mainCommand = command('main');
+const other = command('other');
+
 cli('mycli').default(mainCommand).command(other).run();
 ```
 
@@ -99,7 +109,9 @@ For the exact root, help, and completion rules, see [CLI Semantics](/guide/seman
 
 ### Version
 
-```ts
+```ts twoslash
+import { cli } from '@kjanat/dreamcli';
+
 cli('mycli').version('1.0.0').run();
 ```
 
@@ -109,28 +121,46 @@ Adds `--version` / `-V` automatically.
 
 The `.action()` callback receives a single object with typed fields:
 
-```ts
-.action(({ args, flags, ctx, meta, out }) => {
-  // args  — typed positional arguments
-  // flags — typed flag values (fully resolved)
-  // ctx   — typed middleware context
-  // meta  — CLI metadata: name (program name), bin (invoked binary name),
-  //         version (program version), command (leaf command name)
-  // out   — output channel
-})
+```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
+command('deploy').action(
+  // ---cut-start---
+  // prettier-ignore
+  // ---cut-end---
+  ({ args, flags, ctx, meta, out }) => {
+   //^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    // args  — typed positional arguments
+    // flags — typed flag values (fully resolved)
+    // ctx   — typed middleware context
+    // meta  — CLI metadata: name (program name), bin (invoked binary name),
+    //         version (program version), command (leaf command name)
+    // out   — output channel
+  },
+);
 ```
 
 Actions can be `async`:
 
-```ts
-.action(async ({ args, flags, out }) => {
-  const result = await deploy(args.target, flags);
-  out.json(result);
-})
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
+declare const deploy: (
+  target: string,
+  flags: Readonly<Record<string, unknown>>,
+) => Promise<unknown>;
+
+command('deploy')
+  .arg('target', arg.string())
+  .action(async ({ args, flags, out }) => {
+    const result = await deploy(args.target, flags);
+    out.json(result);
+  });
 ```
 
 ## What's Next?
 
+- Related examples: [Basic CLI](/examples/basic), [Multi-command CLI](/examples/multi-command)
 - [Flags](/guide/flags) — all flag types and modifiers
 - [Arguments](/guide/arguments) — positional argument types
 - [Middleware](/guide/middleware) — typed context propagation

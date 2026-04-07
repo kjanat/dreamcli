@@ -1,8 +1,10 @@
-# dreamcli
+# @kjanat/dreamcli
 
 The main export. Import schema builders, CLI runner, output, parsing, and errors.
 
-```ts
+Key types: [`ActivityEvent`](/reference/symbols/main/ActivityEvent), [`BeforeParseParams`](/reference/symbols/main/BeforeParseParams), [`CLIPluginHooks`](/reference/symbols/main/CLIPluginHooks), [`CommandMeta`](/reference/symbols/main/CommandMeta), [`CommandSchema`](/reference/symbols/main/CommandSchema), [`DeprecationWarning`](/reference/symbols/main/DeprecationWarning), [`DeriveHandler`](/reference/symbols/main/DeriveHandler), [`DeriveParams`](/reference/symbols/main/DeriveParams), [`Out`](/reference/symbols/main/Out), [`PluginCommandContext`](/reference/symbols/main/PluginCommandContext), [`ResolvedCommandParams`](/reference/symbols/main/ResolvedCommandParams), [`RunResult`](/reference/symbols/main/RunResult)
+
+```ts twoslash
 import {
   cli,
   command,
@@ -30,21 +32,7 @@ import {
   parse,
   tokenize,
   resolve,
-} from 'dreamcli';
-import type {
-  ActivityEvent,
-  BeforeParseParams,
-  CLIPluginHooks,
-  CommandSchema,
-  CommandMeta,
-  DeprecationWarning,
-  DeriveHandler,
-  DeriveParams,
-  Out,
-  PluginCommandContext,
-  ResolvedCommandParams,
-  RunResult,
-} from 'dreamcli';
+} from '@kjanat/dreamcli';
 ```
 
 ## Schema Builders
@@ -53,19 +41,26 @@ import type {
 
 Create a command builder.
 
-```ts
+```ts twoslash
+import { arg, command, flag } from '@kjanat/dreamcli';
+
 const cmd = command('deploy')
   .description('Deploy the app')
   .arg('target', arg.string())
   .flag('force', flag.boolean())
-  .action(({ args, flags, out }) => { ... });
+  .action(({ args, flags, out }) => {});
 ```
 
 ### `group(name)`
 
 Create a command group (container for subcommands).
 
-```ts
+```ts twoslash
+import { command, group } from '@kjanat/dreamcli';
+
+const migrate = command('migrate');
+const seed = command('seed');
+
 const db = group('db')
   .description('Database operations')
   .command(migrate)
@@ -76,7 +71,12 @@ const db = group('db')
 
 Create a multi-command CLI builder.
 
-```ts
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+const mainCmd = command('main');
+
 cli('mycli')
   .version('1.0.0')
   .description('My tool')
@@ -94,8 +94,15 @@ the current working directory, reads the nearest `package.json`, and uses its `v
 `description` fields as fallback CLI metadata. Pass `{ inferName: true }` to also infer the CLI
 name from the package `bin` entry or package name. This has no effect in `.execute()`.
 
-```ts
-cli('mycli').packageJson({ inferName: true }).command(deploy).run();
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
+cli('mycli')
+  .packageJson({ inferName: true })
+  .command(deploy)
+  .run();
 ```
 
 ### `.plugin(definition)`
@@ -103,7 +110,12 @@ cli('mycli').packageJson({ inferName: true }).command(deploy).run();
 Register a CLI plugin created with `plugin(...)`. Plugins run in registration order and can observe
 execution before parse, after resolve, before action, and after action.
 
-```ts
+```ts twoslash
+import { cli, command, plugin } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+const tracePlugin = plugin({}, 'trace');
+
 cli('mycli').plugin(tracePlugin).command(deploy);
 ```
 
@@ -141,15 +153,21 @@ Register a command-scoped typed pre-action handler. Derive runs after resolution
 `{ args, flags, ctx, out, meta }`, and may either return `void` for validation-only behavior or
 return an object to merge additional properties into `ctx`.
 
-```ts
+```ts twoslash
+import { CLIError, command, flag } from '@kjanat/dreamcli';
+
 command('deploy')
   .flag('token', flag.string().env('AUTH_TOKEN'))
   .derive(({ flags }) => {
-    if (!flags.token) throw new CLIError('Not authenticated');
+    if (!flags.token)
+      throw new CLIError('Not authenticated', {
+        code: 'AUTH_REQUIRED',
+      });
     return { token: flags.token };
   })
   .action(({ ctx }) => {
-    ctx.token; // string
+    ctx.token;
+    //     ^?
   });
 ```
 
@@ -159,14 +177,22 @@ Create a reusable CLI plugin definition from lifecycle hooks. The returned value
 with `cli(...).plugin(...)` and receives stable hook payloads typed by `BeforeParseParams`,
 `ResolvedCommandParams`, and `PluginCommandContext`.
 
-```ts
+```ts twoslash
+import { cli, command, plugin } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
 const trace = plugin(
   {
-    beforeParse: ({ argv, out }) => out.info(argv.join(' ')),
-    afterResolve: ({ flags, args }) => console.log({ flags, args }),
+    beforeParse: ({ argv, out }) =>
+      out.info(argv.join(' ')),
+    afterResolve: ({ flags, args }) =>
+      console.log({ flags, args }),
   },
   'trace',
 );
+
+cli('mycli').plugin(trace).command(deploy);
 ```
 
 ## Plugin Types
@@ -175,13 +201,9 @@ const trace = plugin(
 
 Lifecycle hook bag for `plugin(...)`. Each hook may be sync or async:
 
-```ts
-type CLIPluginHooks = {
-  beforeParse?: (params: BeforeParseParams) => void | Promise<void>;
-  afterResolve?: (params: ResolvedCommandParams) => void | Promise<void>;
-  beforeAction?: (params: ResolvedCommandParams) => void | Promise<void>;
-  afterAction?: (params: ResolvedCommandParams) => void | Promise<void>;
-};
+```ts twoslash
+import type { CLIPluginHooks } from '@kjanat/dreamcli';
+//                   ^?
 ```
 
 Use `beforeParse` to inspect raw argv, `afterResolve` to observe resolved args/flags,
@@ -194,12 +216,9 @@ Base payload shared by all plugin hooks. It contains the current `command` schem
 (`CommandMeta`), and `out` channel, so hooks can inspect execution context without reaching into
 internal CLI state.
 
-```ts
-type PluginCommandContext = {
-  command: CommandSchema;
-  meta: CommandMeta;
-  out: Out;
-};
+```ts twoslash
+import type { PluginCommandContext } from '@kjanat/dreamcli';
+//                       ^?
 ```
 
 ### `BeforeParseParams`
@@ -207,10 +226,9 @@ type PluginCommandContext = {
 Payload for `beforeParse`. Adds the leaf-command `argv` array to `PluginCommandContext` so plugins
 can log, validate, or instrument the exact argument list before parsing starts.
 
-```ts
-type BeforeParseParams = PluginCommandContext & {
-  argv: readonly string[];
-};
+```ts twoslash
+import type { BeforeParseParams } from '@kjanat/dreamcli';
+//                  ^?
 ```
 
 ### `ResolvedCommandParams`
@@ -218,12 +236,9 @@ type BeforeParseParams = PluginCommandContext & {
 Payload for `afterResolve`, `beforeAction`, and `afterAction`. Adds fully resolved `flags`, `args`,
 and collected `deprecations` so hooks can inspect the final command inputs.
 
-```ts
-type ResolvedCommandParams = PluginCommandContext & {
-  flags: Readonly<Record<string, unknown>>;
-  args: Readonly<Record<string, unknown>>;
-  deprecations: readonly DeprecationWarning[];
-};
+```ts twoslash
+import type { ResolvedCommandParams } from '@kjanat/dreamcli';
+//                       ^?
 ```
 
 ## Execution Types
@@ -234,13 +249,9 @@ Metadata about the running CLI, passed to action handlers and middleware as `met
 CLI `name`, display `bin`, `version`, and current leaf `command`, making it useful for logging,
 telemetry, and custom output headers.
 
-```ts
-type CommandMeta = {
-  name: string;
-  bin: string;
-  version: string | undefined;
-  command: string;
-};
+```ts twoslash
+import type { CommandMeta } from '@kjanat/dreamcli';
+//                 ^?
 ```
 
 ### `RunResult`
@@ -249,14 +260,9 @@ Structured result returned by `runCommand(...)` and `cli.execute(...)`. It inclu
 `exitCode`, captured `stdout`/`stderr`, activity lifecycle events, and an `error` field that is
 `undefined` on success and a `CLIError` on failure.
 
-```ts
-type RunResult = {
-  exitCode: number;
-  stdout: readonly string[];
-  stderr: readonly string[];
-  activity: readonly ActivityEvent[];
-  error: CLIError | undefined;
-};
+```ts twoslash
+import type { RunResult } from '@kjanat/dreamcli';
+//               ^?
 ```
 
 ## Output
@@ -290,7 +296,15 @@ Generate a definition metadata document describing the CLI's structure.
 - `options.includeHidden?`: include hidden commands (default: `true`)
 - `options.includePrompts?`: include prompt config on flags (default: `true`)
 
-```ts
+```ts twoslash
+import {
+  cli,
+  command,
+  generateSchema,
+} from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
+
 const definition = generateSchema(myCli.schema);
 ```
 
@@ -304,7 +318,15 @@ Generate a JSON Schema (draft 2020-12) for validating CLI input as JSON.
 Accepts a full `CLISchema` (discriminated union across commands) or a
 single `CommandSchema` (flat object schema).
 
-```ts
+```ts twoslash
+import {
+  cli,
+  command,
+  generateInputSchema,
+} from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
+
 const inputSchema = generateInputSchema(myCli.schema);
 ```
 
@@ -314,7 +336,7 @@ const inputSchema = generateInputSchema(myCli.schema);
 
 Generate a shell completion script from a command schema.
 
-- `shell`: `'bash'` | `'zsh'`
+- `shell`: `'bash'` | `'zsh'` | `'fish'` | `'powershell'`
 - `options.functionPrefix?`: override the generated helper function prefix
 - `options.rootMode?`: `'subcommands'` | `'surface'`
 
@@ -325,7 +347,9 @@ Generate a shell completion script from a command schema.
 Build the default search-path list dreamcli uses for config discovery. This is mainly useful for
 debugging, custom bootstrapping, or help text that wants to show the exact probed paths.
 
-```ts
+```ts twoslash
+import { buildConfigSearchPaths } from '@kjanat/dreamcli';
+
 const paths = buildConfigSearchPaths(
   'mycli',
   process.cwd(),
@@ -339,13 +363,12 @@ Create a config format loader from a list of file extensions and a parse functio
 to `.configLoader(...)` or `discoverConfig(...)` to add YAML, TOML, or other formats on top of the
 built-in JSON loader.
 
-```ts
-configFormat(['yaml', 'yml'], Bun.YAML.parse);
-configFormat(['toml'], Bun.TOML.parse);
+```ts twoslash
+import { configFormat } from '@kjanat/dreamcli';
 
-import { parse as parseYaml } from 'yaml';
-import { parse as parseTOML } from '@iarna/toml';
-
+declare const parseYaml: (s: string) => unknown;
+declare const parseTOML: (s: string) => unknown;
+// ---cut---
 configFormat(['yaml', 'yml'], parseYaml);
 configFormat(['toml'], parseTOML);
 ```
@@ -356,11 +379,19 @@ Low-level config discovery helper behind `cli(...).config(...)`. It searches sta
 the first matching file via the provided adapter, and returns either `{ found: true, ... }` with
 parsed config data or `{ found: false }` when no config file exists.
 
-```ts
+```ts twoslash
+import {
+  configFormat,
+  discoverConfig,
+} from '@kjanat/dreamcli';
+import { createTestAdapter } from '@kjanat/dreamcli/testkit';
+
+declare const parseYaml: (s: string) => unknown;
+declare const parseTOML: (s: string) => unknown;
+const adapter = createTestAdapter();
+// ---cut---
 const result = await discoverConfig('mycli', adapter, {
   loaders: [
-    configFormat(['yaml', 'yml'], Bun.YAML.parse),
-    configFormat(['toml'], Bun.TOML.parse),
     configFormat(['yaml', 'yml'], parseYaml),
     configFormat(['toml'], parseTOML),
   ],
@@ -372,7 +403,12 @@ const result = await discoverConfig('mycli', adapter, {
 Walk up from `adapter.cwd` and return the nearest parsed `package.json` metadata, or `null` when no
 package file is found. This is the helper used by `.packageJson()` during `.run()`.
 
-```ts
+```ts twoslash
+import { discoverPackageJson } from '@kjanat/dreamcli';
+import { createTestAdapter } from '@kjanat/dreamcli/testkit';
+
+const adapter = createTestAdapter();
+
 const pkg = await discoverPackageJson(adapter);
 if (pkg !== null) {
   console.log(pkg.version);
@@ -384,7 +420,9 @@ if (pkg !== null) {
 Infer a CLI display name from package metadata. It prefers the first key from a `bin` object and
 otherwise falls back to the package `name` with any npm scope removed.
 
-```ts
+```ts twoslash
+import { inferCliName } from '@kjanat/dreamcli';
+
 inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
 inferCliName({ name: '@scope/mycli' }); // 'mycli'
 ```

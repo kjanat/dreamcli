@@ -3,11 +3,11 @@
 > ## Intro
 >
 > Today’s TypeScript CLI tooling mostly treats the type system like decoration: you define
-> flags/args in one place, then you *use* parsed values somewhere else as a loosely typed blob. On
+> flags/args in one place, then you _use_ parsed values somewhere else as a loosely typed blob. On
 > top of that, interactive prompting lives in a separate universe from parsing, config/env/CLI
 > merging gets re-invented per project, testing tends to be gross (`process.argv` hacks or shelling
 > out), completions are bolted on, and output/error handling is inconsistent and hard to make both
-> human-friendly *and* script-friendly.
+> human-friendly _and_ script-friendly.
 >
 > The proposed fix is “Zod, but for CLIs”: a schema-first builder where the schema is the single
 > source of truth and everything (types, parsing, help text, resolution from
@@ -16,7 +16,7 @@
 
 ### 1) Product vision
 
-Build the CLI framework that TypeScript developers *wish* existed: define commands/flags/args once,
+Build the CLI framework that TypeScript developers _wish_ existed: define commands/flags/args once,
 get perfect inference everywhere, and have the runtime do the boring-but-hard stuff (resolution
 chain, prompts, config, completions, testing, structured output, errors) reliably and portably
 across Node/Bun/Deno.
@@ -133,7 +133,7 @@ and usage in sync.
 #### Basic example
 
 ```ts
-import { arg, cli, command, flag } from 'dreamcli';
+import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
 	.description('Deploy to an environment')
@@ -161,7 +161,7 @@ cli('mycli').version('1.0.0').command(deploy).run(); // reads argv/env from runt
 #### Middleware with typed context propagation
 
 ```ts
-import { CLIError, middleware } from 'dreamcli';
+import { CLIError, middleware } from '@kjanat/dreamcli';
 
 const authMiddleware = middleware(async ({ next }) => {
 	const user = await getUser();
@@ -351,7 +351,7 @@ Adapters:
 
 - **TypeScript ergonomics:** avoid type explosions that make TS slow or unreadable in editor hovers.
 - **Small dependency footprint:** prefer zero-dep core; optional extras behind adapters/plugins.
-- **Tree-shakeable ESM:** modern packaging with good defaults; CJS compatibility where needed.
+- **Tree-shakeable ESM:** modern packaging with ESM-only exports and clear defaults.
 - **Deterministic tests:** no reliance on wall-clock time, real filesystem, or actual TTY unless
   explicitly integrated.
 
@@ -400,7 +400,7 @@ dreamcli/
 
 - Publish to **npm** (Node/Bun) with:
 
-  - ESM build + CJS build
+  - ESM build
   - `exports` map with `types`
 - Publish to **JSR** (Deno-first, also consumable elsewhere) for first-class TS consumption.
 - Keep runtime adapters internal but tree-shakeable.
@@ -410,25 +410,25 @@ dreamcli/
 ### 11) Release plan (milestones)
 
 **MVP (v0.1):** Schema builder, parsing, inference into `.action()`, auto-help, basic errors,
-`command.run()` test harness. *(done)*
+`command.run()` test harness. _(done)_
 
 **v0.2:** Resolution chain (env/config/default), required handling, non-interactive behavior rules.
-*(done)*
+_(done)_
 
-**v0.3:** Interactive prompting integration (portable prompt engine + pluggable renderer). *(done)*
+**v0.3:** Interactive prompting integration (portable prompt engine + pluggable renderer). _(done)_
 
 **v0.4:** Middleware + typed context, structured output channel (`--json`, TTY detection, table).
-*(done)*
+_(done)_
 
-**v0.5:** Completions generation (bash/zsh), runtime detection, Bun adapter. *(done)*
+**v0.5:** Completions generation (bash/zsh), runtime detection, Bun adapter. _(done)_
 
 **v0.6:** Config file discovery + loading (XDG search paths, `--config` flag, JSON loader, plugin
 hook for YAML/TOML). Extend `RuntimeAdapter` with filesystem/path primitives (`readFile`, `homedir`,
 `configDir`). Add `flag.custom(parseFn)` and `.deprecated()` modifier with help/parse warnings.
-*(done)*
+_(done)_
 
 **v0.7:** Subcommand nesting (command trees: root > group > leaf, nested help, nested completion,
-nested dispatch in CLIBuilder). *(done)*
+nested dispatch in CLIBuilder). _(done)_
 
 **v0.8:** Spinner/progress on Out (`out.spinner()`, `out.progress()`, auto-disable on `!isTTY`,
 suppress in `--json` mode, testkit capture).
@@ -454,8 +454,7 @@ locked.
 - **Deno permissions & filesystem constraints:** Make config/completions opt-in when permissions
   missing; fail with precise guidance.
 
-- **ESM/CJS ecosystem pain:** Provide clean ESM-first exports, plus a CJS build; document
-  recommended entry patterns.
+- **ESM-only ecosystem friction:** Provide clean ESM exports and document migration/interop patterns.
 
 - **Completions installation differences across shells/OS:** Treat install as “best effort”, with a
   `generate` command always available and clear manual instructions.

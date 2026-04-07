@@ -230,6 +230,31 @@ describe('formatHelp', () => {
 			expect(help).toContain('-f, --force');
 		});
 
+		it('renders visible long aliases after the canonical flag', () => {
+			const cmd = command('run').flag('skip-pass', flag.boolean().alias('x').alias('skipPass'));
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('-x, --skip-pass, --skipPass');
+		});
+
+		it('omits hidden aliases from help output', () => {
+			const cmd = command('run').flag(
+				'skip-pass',
+				flag.boolean().alias('skipPass', { hidden: true }),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('--skip-pass');
+			expect(help).not.toContain('--skipPass');
+		});
+
+		it('renders multiple visible short aliases before the canonical flag', () => {
+			const cmd = command('run').flag(
+				'skip-pass',
+				flag.boolean().alias('x').alias('y', { hidden: false }),
+			);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('-x, -y, --skip-pass');
+		});
+
 		it('renders string flag with <string> hint', () => {
 			const cmd = command('run').flag('name', flag.string());
 			const help = formatHelp(cmd.schema);
@@ -328,6 +353,16 @@ describe('formatHelp', () => {
 			// -f,--force should come before --all and --verbose
 			expect(forceIdx).toBeLessThan(allIdx);
 			expect(forceIdx).toBeLessThan(verboseIdx);
+		});
+
+		it('ignores hidden short aliases when sorting flags', () => {
+			const cmd = command('run')
+				.flag('hidden-short', flag.boolean().alias('h', { hidden: true }).describe('Hidden short'))
+				.flag('force', flag.boolean().alias('f').describe('Force'));
+			const help = formatHelp(cmd.schema);
+			const forceIdx = help.indexOf('-f, --force');
+			const hiddenIdx = help.indexOf('--hidden-short');
+			expect(forceIdx).toBeLessThan(hiddenIdx);
 		});
 	});
 
@@ -701,7 +736,7 @@ describe('formatHelp', () => {
 	// -----------------------------------------------------------------------
 
 	describe('section ordering', () => {
-		it('renders sections in correct order: Usage, Description, Arguments, Flags, Examples', () => {
+		it('keeps core sections in order', () => {
 			const cmd = command('deploy')
 				.description('Deploy')
 				.arg('target', arg.string())

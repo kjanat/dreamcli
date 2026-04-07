@@ -1,29 +1,39 @@
 # dreamcli
 
+[![NPM](https://img.shields.io/npm/v/@kjanat/dreamcli?logo=npm&labelColor=CB3837&color=black)][npm]
+[![JSR](https://img.shields.io/jsr/v/@kjanat/dreamcli?logoColor=083344&logo=jsr&logoSize=auto&label=&labelColor=f7df1e&color=black)][jsr]
+
 Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
 
 One flag declaration configures the entire resolution pipeline:
 
 ```ts
-import { cli, command, flag, arg, middleware, CLIError } from 'dreamcli';
+import {
+  cli,
+  command,
+  flag,
+  arg,
+  middleware,
+  CLIError,
+} from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
-	.description('Deploy to an environment')
-	.arg('target', arg.string().describe('Deploy target'))
-	.flag(
-		'region',
-		flag
-			.enum(['us', 'eu', 'ap'])
-			.alias('r')
-			.env('DEPLOY_REGION')
-			.config('deploy.region')
-			.prompt({ kind: 'select', message: 'Which region?' })
-			.default('us')
-			.propagate(),
-	)
-	.action(({ args, flags, out }) => {
-		out.log(`Deploying ${args.target} to ${flags.region}`);
-	});
+  .description('Deploy to an environment')
+  .arg('target', arg.string().describe('Deploy target'))
+  .flag(
+    'region',
+    flag
+      .enum(['us', 'eu', 'ap'])
+      .alias('r')
+      .env('DEPLOY_REGION')
+      .config('deploy.region')
+      .prompt({ kind: 'select', message: 'Which region?' })
+      .default('us')
+      .propagate(),
+  )
+  .action(({ args, flags, out }) => {
+    out.log(`Deploying ${args.target} to ${flags.region}`);
+  });
 ```
 
 By the time `action` runs, `flags.region` is `"us" | "eu" | "ap"` — not `string | undefined`.
@@ -34,36 +44,48 @@ default**. Every step is opt-in. Every step preserves types.
 ## Install
 
 ```bash
-npm install dreamcli
+npm install @kjanat/dreamcli
+```
+
+<details><summary>bun/deno</summary>
+
+```bash
+bun add @kjanat/dreamcli
 ```
 
 ```bash
-bun add dreamcli
+deno add jsr:@kjanat/dreamcli  # or npm:@kjanat/dreamcli
 ```
 
-```bash
-# Deno (JSR)
-deno add jsr:@kjanat/dreamcli
-```
+</details>
 
 ## Quick start
 
 ### Single command
 
 ```ts
-import { command, flag, arg } from 'dreamcli';
+import { command, flag, arg } from '@kjanat/dreamcli';
 
 const greet = command('greet')
-	.description('Greet someone')
-	.arg('name', arg.string().describe('Who to greet'))
-	.flag('loud', flag.boolean().alias('l').describe('Shout the greeting'))
-	.flag('times', flag.number().default(1).describe('Repeat count'))
-	.action(({ args, flags, out }) => {
-		for (let i = 0; i < flags.times; i++) {
-			const msg = `Hello, ${args.name}!`;
-			out.log(flags.loud ? msg.toUpperCase() : msg);
-		}
-	});
+  .description('Greet someone')
+  .arg('name', arg.string().describe('Who to greet'))
+  .flag(
+    'loud',
+    flag
+      .boolean()
+      .alias('l')
+      .describe('Shout the greeting'),
+  )
+  .flag(
+    'times',
+    flag.number().default(1).describe('Repeat count'),
+  )
+  .action(({ args, flags, out }) => {
+    for (let i = 0; i < flags.times; i++) {
+      const msg = `Hello, ${args.name}!`;
+      out.log(flags.loud ? msg.toUpperCase() : msg);
+    }
+  });
 
 greet.run();
 ```
@@ -71,47 +93,65 @@ greet.run();
 ### Multi-command CLI
 
 ```ts
-import { cli, command, group, flag, arg } from 'dreamcli';
+import {
+  cli,
+  command,
+  group,
+  flag,
+  arg,
+} from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
-	.description('Deploy to an environment')
-	.arg('target', arg.string())
-	.flag('force', flag.boolean().alias('f'))
-	.flag('region', flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION'))
-	.action(({ args, flags, out }) => {
-		out.log(`Deploying ${args.target} to ${flags.region ?? 'default'}`);
-	});
+  .description('Deploy to an environment')
+  .arg('target', arg.string())
+  .flag('force', flag.boolean().alias('f'))
+  .flag(
+    'region',
+    flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION'),
+  )
+  .action(({ args, flags, out }) => {
+    out.log(
+      `Deploying ${args.target} to ${flags.region ?? 'default'}`,
+    );
+  });
 
 const login = command('login')
-	.description('Authenticate with the service')
-	.flag('token', flag.string().describe('Auth token'))
-	.action(({ flags, out }) => {
-		out.log(flags.token ? 'Authenticated via token' : 'Authenticated interactively');
-	});
+  .description('Authenticate with the service')
+  .flag('token', flag.string().describe('Auth token'))
+  .action(({ flags, out }) => {
+    out.log(
+      flags.token
+        ? 'Authenticated via token'
+        : 'Authenticated interactively',
+    );
+  });
 
 // Nested command groups
 const migrate = command('migrate')
-	.description('Run migrations')
-	.flag('steps', flag.number())
-	.action(({ flags, out }) => {
-		out.log(`migrating ${flags.steps ?? 'all'} steps`);
-	});
+  .description('Run migrations')
+  .flag('steps', flag.number())
+  .action(({ flags, out }) => {
+    out.log(`migrating ${flags.steps ?? 'all'} steps`);
+  });
 
 const seed = command('seed')
-	.description('Seed database')
-	.action(({ out }) => {
-		out.log('seeding');
-	});
+  .description('Seed database')
+  .action(({ out }) => {
+    out.log('seeding');
+  });
 
-const db = group('db').description('Database operations').command(migrate).command(seed);
+const db = group('db')
+  .description('Database operations')
+  .command(migrate)
+  .command(seed);
 
 cli('mycli')
-	.version('1.0.0')
-	.description('My awesome tool')
-	.command(deploy)
-	.command(login)
-	.command(db)
-	.run();
+  .version('1.0.0')
+  .description('My awesome tool')
+  .command(deploy)
+  .command(login)
+  .command(db)
+  .run();
 
 // mycli deploy production --force
 // mycli login --token abc123
@@ -121,28 +161,29 @@ cli('mycli')
 
 ## Why dreamcli
 
-Most TypeScript CLI frameworks treat the type system like decoration. You define flags in one place,
-then use parsed values somewhere else as a loosely typed blob. Env vars, config files, and
-interactive prompts live in separate universes. Testing means hacking `process.argv`.
+Most TypeScript CLI frameworks treat the type system like decoration.
+You define flags in one place, then use parsed values somewhere else as a loosely typed blob.
+Env vars, config files, and interactive prompts live in separate universes.
+Testing means hacking `process.argv`.
 
 dreamcli collapses all of that into a single typed schema:
 
 Approximate comparison of first-party, built-in support as documented by each project.
 Third-party plugins and custom glue can extend the other libraries.
 
-| Capability                                 | Commander           | Yargs                  | Citty           | CAC           | Cleye         | dreamcli                              |
-| ------------------------------------------ | ------------------- | ---------------------- | --------------- | ------------- | ------------- | ------------------------------------- |
-| Type inference from definition             | Manual `.opts<T>()` | Good                   | Good            | Basic         | Good          | Full — flags, args, context           |
-| Built-in value sources                     | CLI, defaults, env  | CLI, env, config       | CLI, defaults   | CLI, defaults | CLI, defaults | CLI, env, config, prompt, default     |
-| Schema-driven prompts                      | No                  | No                     | No              | No            | No            | Integrated                            |
-| Middleware / hooks                         | Lifecycle hooks     | Middleware             | Plugins / hooks | Events        | No            | Yes — typed middleware                |
-| Built-in test harness with output capture  | No                  | No                     | No              | No            | No            | `runCommand()` + capture              |
-| Shell completions from command definitions | No                  | Built-in (bash/zsh)    | No              | No            | No            | Built-in (bash/zsh)                   |
-| Structured output primitives               | DIY                 | DIY                    | DIY             | DIY           | DIY           | Built-in (`--json`, tables, spinners) |
-| Config file support                        | DIY                 | Built-in (`.config()`) | No              | No            | No            | Built-in (XDG discovery, JSON)        |
+| Capability                                 | dreamcli                              | Commander           | Yargs                  | Citty           | CAC           | Cleye         |
+| ------------------------------------------ | ------------------------------------- | ------------------- | ---------------------- | --------------- | ------------- | ------------- |
+| Type inference from definition             | Full — flags, args, context           | Manual `.opts<T>()` | Good                   | Good            | Basic         | Good          |
+| Built-in value sources                     | CLI, env, config, prompt, default     | CLI, defaults, env  | CLI, env, config       | CLI, defaults   | CLI, defaults | CLI, defaults |
+| Schema-driven prompts                      | Integrated                            | No                  | No                     | No              | No            | No            |
+| Middleware / hooks                         | Yes — typed middleware                | Lifecycle hooks     | Middleware             | Plugins / hooks | Events        | No            |
+| Built-in test harness with output capture  | `runCommand()` + capture              | No                  | No                     | No              | No            | No            |
+| Shell completions from command definitions | Built-in (bash/zsh/fish/powershell)   | No                  | Built-in (bash/zsh)    | No              | No            | No            |
+| Structured output primitives               | Built-in (`--json`, tables, spinners) | DIY                 | DIY                    | DIY             | DIY           | DIY           |
+| Config file support                        | Built-in (XDG discovery, JSON)        | DIY                 | Built-in (`.config()`) | No              | No            | No            |
 
-The closest analog is what tRPC did to API routes — individual pieces existed, the insight was
-wiring them so types flow end-to-end.
+The closest analog is what tRPC did to API routes — individual pieces existed,
+the insight was wiring them so types flow end-to-end.
 
 ## Features
 
@@ -164,7 +205,7 @@ Every flag supports: `.default()`, `.required()`, `.alias()`, `.env()`, `.config
 
 Each flag resolves through an ordered pipeline. Every step is opt-in:
 
-```
+```text
 CLI argv  →  environment variable  →  config file  →  interactive prompt  →  default value
 ```
 
@@ -178,38 +219,47 @@ Four prompt types, declared per-flag or per-command:
 ```ts
 // Per-flag
 flag.string().prompt({ kind: 'input', message: 'Name?' });
-flag.boolean().prompt({ kind: 'confirm', message: 'Sure?' });
-flag.enum(['a', 'b']).prompt({ kind: 'select', message: 'Pick one' });
 flag
-	.array(flag.string())
-	.prompt({ kind: 'multiselect', message: 'Pick many', choices: [{ value: 'a' }, { value: 'b' }] });
+  .boolean()
+  .prompt({ kind: 'confirm', message: 'Sure?' });
+flag
+  .enum(['a', 'b'])
+  .prompt({ kind: 'select', message: 'Pick one' });
+flag.array(flag.string()).prompt({
+  kind: 'multiselect',
+  message: 'Pick many',
+  choices: [{ value: 'a' }, { value: 'b' }],
+});
 
 // Per-command (conditional — receives partially resolved flags)
 command('deploy')
-	.flag('region', flag.enum(['us', 'eu', 'ap']))
-	.interactive(({ flags }) => ({
-		region: !flags.region && { kind: 'select', message: 'Which region?' },
-	}));
+  .flag('region', flag.enum(['us', 'eu', 'ap']))
+  .interactive(({ flags }) => ({
+    region: !flags.region && {
+      kind: 'select',
+      message: 'Which region?',
+    },
+  }));
 ```
 
 ### Derive typed context from resolved input
 
 ```ts
-import { CLIError } from 'dreamcli';
+import { CLIError } from '@kjanat/dreamcli';
 
 command('deploy')
-	.flag('token', flag.string().env('AUTH_TOKEN'))
-	.derive(({ flags }) => {
-		if (!flags.token)
-			throw new CLIError('Not authenticated', {
-				code: 'AUTH_REQUIRED',
-				suggest: 'Run `mycli login`',
-			});
-		return { token: flags.token };
-	})
-	.action(({ ctx }) => {
-		ctx.token; // string — typed
-	});
+  .flag('token', flag.string().env('AUTH_TOKEN'))
+  .derive(({ flags }) => {
+    if (!flags.token)
+      throw new CLIError('Not authenticated', {
+        code: 'AUTH_REQUIRED',
+        suggest: 'Run `mycli login`',
+      });
+    return { token: flags.token };
+  })
+  .action(({ ctx }) => {
+    ctx.token; // string — typed
+  });
 ```
 
 Use `derive()` when you need typed, command-scoped access to fully resolved flags and args before
@@ -218,27 +268,32 @@ the action handler runs.
 ### Middleware with typed context
 
 ```ts
-import { middleware } from 'dreamcli';
+import { middleware } from '@kjanat/dreamcli';
 
-const timing = middleware<{ startTime: number }>(async ({ next }) => {
-	const startTime = Date.now();
-	await next({ startTime });
-});
+const timing = middleware<{ startTime: number }>(
+  async ({ next }) => {
+    const startTime = Date.now();
+    await next({ startTime });
+  },
+);
 
-const trace = middleware<{ traceId: string }>(async ({ next }) =>
-	next({ traceId: crypto.randomUUID() }),
+const trace = middleware<{ traceId: string }>(
+  async ({ next }) =>
+    next({ traceId: crypto.randomUUID() }),
 );
 
 command('deploy')
-	.middleware(timing)
-	.middleware(trace)
-	.action(({ ctx }) => {
-		ctx.startTime; // number — typed
-		ctx.traceId; // string — typed
-	});
+  .middleware(timing)
+  .middleware(trace)
+  .action(({ ctx }) => {
+    ctx.startTime; // number — typed
+    ctx.traceId; // string — typed
+  });
 ```
 
-Context accumulates through the middleware chain via type intersection. No manual interface merging.
+Context accumulates through the middleware chain via type intersection.
+No manual interface merging.
+
 Use middleware when you need wrapper behavior with `next()`.
 
 ### Output channel
@@ -246,18 +301,26 @@ Use middleware when you need wrapper behavior with `next()`.
 Handlers receive `out` instead of `console`. Adapts to context automatically:
 
 ```ts
-.action(({ out }) => {
-  out.log('Human-readable message');
-  out.json({ status: 'ok', count: 42 });
-  out.table(rows, [{ key: 'name', header: 'Name' }, { key: 'status', header: 'Status' }]);
+cli('mycli')
+  // ... omitted for brevity
+  .action(({ out }) => {
+    out.log('Human-readable message');
+    out.json({ status: 'ok', count: 42 });
+    out.table(rows, [
+      { key: 'name', header: 'Name' },
+      { key: 'status', header: 'Status' },
+    ]);
 
-  const spinner = out.spinner('Deploying...');
-  spinner.succeed('Done');
+    const spinner = out.spinner('Deploying...');
+    spinner.succeed('Done');
 
-  const progress = out.progress({ label: 'Uploading', total: 100 });
-  progress.update(50);
-  progress.done('Upload complete');
-})
+    const progress = out.progress({
+      label: 'Uploading',
+      total: 100,
+    });
+    progress.update(50);
+    progress.done('Upload complete');
+  });
 ```
 
 - TTY → pretty formatting, spinners animate
@@ -269,7 +332,7 @@ Handlers receive `out` instead of `console`. Adapts to context automatically:
 Generated from the command schema — always in sync:
 
 ```ts
-import { generateCompletion } from 'dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli';
 
 generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
@@ -278,80 +341,145 @@ generateCompletion(myCli.schema, 'zsh');
 ### Config file discovery
 
 ```ts
-command('deploy').flag('region', flag.enum(['us', 'eu']).config('deploy.region'));
+command('deploy').flag(
+  'region',
+  flag.enum(['us', 'eu']).config('deploy.region'),
+);
 ```
 
 Searches XDG-standard paths automatically. JSON built-in, plugin hook for YAML/TOML:
 
 ```ts
-import { configFormat } from 'dreamcli';
+import { configFormat } from '@kjanat/dreamcli';
 import { parse as parseYAML } from 'yaml';
 
 cli('mycli')
-	.config('mycli')
-	.configLoader(configFormat(['yaml', 'yml'], parseYAML));
+  .config('mycli')
+  .configLoader(configFormat(['yaml', 'yml'], parseYAML));
 ```
 
 ### Structured errors
 
 ```ts
 throw new CLIError('Deployment failed', {
-	code: 'DEPLOY_FAILED',
-	exitCode: 1,
-	suggest: 'Check your credentials with `mycli login`',
-	details: { target, region },
+  code: 'DEPLOY_FAILED',
+  exitCode: 1,
+  suggest: 'Check your credentials with `mycli login`',
+  details: { target, region },
 });
 ```
 
-Parse and validation errors include "did you mean?" suggestions. In `--json` mode, errors serialize
-to machine-readable JSON.
+Parse and validation errors include "did you mean?" suggestions.\
+In `--json` mode, errors serialize to machine-readable JSON.
 
 ## Testing
 
-dreamcli's test harness runs commands in-process with full control over inputs and outputs. No
+`dreamcli`'s test harness runs commands in-process with full control over inputs and outputs. No
 subprocesses, no `process.argv` mutation, no mocking.
 
 ```ts
-import { runCommand, createTestPrompter, PROMPT_CANCEL } from 'dreamcli/testkit';
+import { arg, command, flag } from '@kjanat/dreamcli';
+import {
+  runCommand,
+  createTestPrompter,
+  PROMPT_CANCEL,
+} from '@kjanat/dreamcli/testkit';
+
+const greet = command('greet')
+  .arg('name', arg.string())
+  .flag('loud', flag.boolean())
+  .action(({ args, flags, out }) => {
+    const message = `Hello, ${args.name}!`;
+    out.log(flags.loud ? message.toUpperCase() : message);
+  });
+
+const deploy = command('deploy')
+  .arg('target', arg.string())
+  .flag(
+    'region',
+    flag
+      .enum(['us', 'eu', 'ap'])
+      .env('DEPLOY_REGION')
+      .config('deploy.region')
+      .required()
+      .prompt({ kind: 'select', message: 'Which region?' }),
+  )
+  .action(({ args, flags, out }) => {
+    out.log(`Deploying ${args.target} to ${flags.region}`);
+  });
+
+const build = command('build').action(({ out }) => {
+  const spinner = out.spinner('Building');
+  spinner.succeed('Done');
+});
 
 // Basic execution
-const result = await runCommand(greet, ['Alice', '--loud']);
+const basic = await runCommand(greet, ['Alice', '--loud']);
 
-expect(result.exitCode).toBe(0);
-expect(result.stdout).toEqual(['HELLO, ALICE!\n']);
-expect(result.stderr).toEqual([]);
-expect(result.error).toBeUndefined();
+expect(basic.exitCode).toBe(0);
+expect(basic.stdout).toEqual(['HELLO, ALICE!\n']);
+expect(basic.stderr).toEqual([]);
+expect(basic.error).toBeUndefined();
 
-// With environment, config, and prompt answers
-const result = await runCommand(deploy, ['production'], {
-	env: { DEPLOY_REGION: 'eu' },
-	config: { deploy: { region: 'us' } },
-	answers: ['ap'], // prompt answers consumed in order
+// Resolve from environment
+const fromEnv = await runCommand(deploy, ['production'], {
+  env: { DEPLOY_REGION: 'eu' },
 });
+expect(fromEnv.stdout).toEqual([
+  'Deploying production to eu\n',
+]);
+
+// Resolve from config
+const fromConfig = await runCommand(
+  deploy,
+  ['production'],
+  {
+    config: { deploy: { region: 'us' } },
+  },
+);
+expect(fromConfig.stdout).toEqual([
+  'Deploying production to us\n',
+]);
+
+// Resolve from prompt answers
+const fromPrompt = await runCommand(
+  deploy,
+  ['production'],
+  {
+    answers: ['ap'],
+  },
+);
+expect(fromPrompt.stdout).toEqual([
+  'Deploying production to ap\n',
+]);
 
 // Simulate prompt cancellation
-const result = await runCommand(cmd, [], {
-	prompter: createTestPrompter([PROMPT_CANCEL]),
+const cancelled = await runCommand(deploy, ['production'], {
+  prompter: createTestPrompter([PROMPT_CANCEL]),
 });
+expect(cancelled.exitCode).not.toBe(0);
 
 // Activity events (spinners, progress)
-expect(result.activity).toContainEqual(expect.objectContaining({ type: 'spinner:start' }));
+const activity = await runCommand(build, []);
+expect(activity.activity).toContainEqual(
+  expect.objectContaining({ type: 'spinner:start' }),
+);
 ```
 
-`RunOptions` accepts: `env`, `config`, `answers`, `prompter`, `help`, `json`, `verbosity`,
-`adapter`, and more. Every dimension of CLI behavior is controllable from tests.
+`RunOptions` accepts: `env`, `config`, `stdinData`, `answers`, `prompter`, `help`, `jsonMode`,
+`verbosity`, and `isTTY`. Every dimension of command behavior is controllable from tests.
 
 ## Package structure
 
 Three subpath exports, each with a focused API surface:
 
-| Import             | Purpose                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| `dreamcli`         | Schema builders, CLI runner, output, parsing, resolution, errors                       |
-| `dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
-| `dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
+| Import                     | Purpose                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `@kjanat/dreamcli`         | Schema builders, CLI runner, output, parsing, resolution, errors                       |
+| `@kjanat/dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
+| `@kjanat/dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
 
-Dual ESM/CJS. Source included in package (`src/`).
+ESM-only. Source included in package (`src/`).
 
 ## Runtime support
 
@@ -361,10 +489,14 @@ Dual ESM/CJS. Source included in package (`src/`).
 | Bun >= 1.3.11      | Supported                           |
 | Deno >= 2.6.0      | Supported (JSR: `@kjanat/dreamcli`) |
 
-Runtime detection is automatic. The core framework never imports platform-specific APIs directly — a
-thin `RuntimeAdapter` interface handles the divergent edges (argv, env, filesystem, TTY detection,
-exit behavior).
+Runtime detection is automatic.
+The core framework never imports platform-specific APIs directly — a thin `RuntimeAdapter` interface
+handles the divergent edges (argv, env, filesystem, TTY detection, exit behavior).
 
 ## License
 
-[MIT](LICENSE)
+[MIT][LICENSE] © 2026 Kaj Kowalski
+
+[LICENSE]: https://github.com/kjanat/dreamcli/blob/master/LICENSE
+[npm]: https://npm.im/@kjanat/dreamcli
+[jsr]: https://jsr.io/@kjanat/dreamcli

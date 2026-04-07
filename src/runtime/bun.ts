@@ -9,7 +9,7 @@
  * 2. Provide an extension point for Bun-specific overrides in the future
  *    (e.g. `Bun.write` for optimized I/O, `Bun.stdin` for streaming)
  *
- * @module dreamcli/runtime/bun
+ * @module @kjanat/dreamcli/runtime/bun
  */
 
 import type { RuntimeAdapter } from './adapter.ts';
@@ -33,12 +33,12 @@ function resolveBunVersion(proc?: NodeProcess): string | undefined {
  * here without changing the public API.
  *
  * @param proc - Override the process object (useful for testing the adapter itself).
- * @returns A `RuntimeAdapter` backed by Bun's process state.
+ * @returns A {@linkcode RuntimeAdapter} backed by Bun's process state.
  *
  * @example
  * ```ts
- * import { cli } from 'dreamcli';
- * import { createBunAdapter } from 'dreamcli/runtime/bun';
+ * import { cli } from '@kjanat/dreamcli';
+ * import { createBunAdapter } from '@kjanat/dreamcli/runtime';
  *
  * cli('mycli')
  *   .command(deploy)

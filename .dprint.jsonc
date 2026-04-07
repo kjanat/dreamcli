@@ -3,39 +3,61 @@
 	"indentWidth": 2,
 	"newLineKind": "lf",
 	"lineWidth": 100,
-	"biome": { "indentWidth": 2, "lineWidth": 100, "quoteStyle": "single" },
-	"json": {
-		"jsonTrailingCommaFiles": [
-			"**/.vscode/*.json",
-			"**/.zed/*.json",
-			"**/tsconfig*.json",
-			"!**/biome.jsonc"
-		]
+	"biome": {
+		"indentStyle": "tab",
+		"indentWidth": 2,
+		"lineWidth": 100,
+		"quoteStyle": "single",
+		"css.enabled": true,
+		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
 	},
-	"markdown": { "textWrap": "maintain", "emphasisKind": "asterisks" },
-	"toml": {
-		"comment.forceLeadingSpace": false,
-		"useTabs": false,
-		"indentWidth": 2
+	"markdown": {
+		"textWrap": "maintain",
+		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
 	},
-	"dockerfile": { "associations": ["Dockerfile", "Dockerfile.*"] },
-	"markup": { "html.void.selfClosing": false, "formatComments": true },
+	"markup": {
+		"html.void.selfClosing": false,
+		"formatComments": true,
+		"scriptIndent": true,
+		"styleIndent": true,
+		"vue.scriptIndent": true,
+		"vue.styleIndent": true,
+		"scriptFormatter": "biome",
+		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+	},
 	"yaml": { "printWidth": 160 },
+	"svg": { "useTabs": false },
 	"exec": {
 		"cwd": "${configDir}",
-		"commands": [{ "command": "bunx sort-package-json --stdin", "fileNames": ["package.json"] }]
+		"commands": [
+			{
+				"command": "bun x sort-package-json --stdin",
+				"fileNames": ["package.json"]
+			},
+			{
+				"command": "bun x tombi format - --stdin-filename {{file_path}}",
+				"exts": ["toml"]
+			}
+		]
 	},
-	"excludes": ["**/node_modules", "**/*-lock.json", "**/*-lock.*", "**/bun.lock*", "**/snapshots"],
+	"prettier": {
+		"singleQuote": true,
+		"plugin.jsDoc": true,
+		"printWidth": 60,
+		"tabWidth": 2,
+		"useTabs": false,
+		"endOfLine": "lf",
+		"associations": ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts"]
+	},
+	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots"],
 	"plugins": [
 		"https://plugins.dprint.dev/biome-0.12.6.wasm",
-		"https://plugins.dprint.dev/dockerfile-0.3.3.wasm",
-		"https://plugins.dprint.dev/exec-0.6.2.json@df98f54ffd3092b8a841aedd6d098a2651f16d0a796a40535774f1a8b4b9d463",
 		"https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",
 		"https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm",
 		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
-		"https://plugins.dprint.dev/json-0.21.3.wasm",
 		"https://plugins.dprint.dev/markdown-0.21.1.wasm",
-		"https://plugins.dprint.dev/toml-0.7.0.wasm",
-		"https://plugins.dprint.dev/kjanat/svg-v0.2.6.wasm"
+		"https://plugins.dprint.dev/kjanat/svg-v0.2.6.wasm",
+		"https://plugins.dprint.dev/exec-0.6.2.json@df98f54ffd3092b8a841aedd6d098a2651f16d0a796a40535774f1a8b4b9d463",
+		"https://plugins.dprint.dev/prettier-0.67.1.json@59ebff9da99fa283ba37ed5c131e73d5acc6b57bb90ba4cd1230b4fbadb19dd1"
 	]
 }

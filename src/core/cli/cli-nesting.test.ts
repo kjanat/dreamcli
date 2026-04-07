@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { CLIError } from '#internals/core/errors/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command, group } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
@@ -41,356 +42,376 @@ function hasPropagatedVerbose(flags: { readonly verbose?: boolean }): boolean {
 	return flags.verbose === true;
 }
 
-// === Nested dispatch — basic
+// === CLIBuilder
 
-describe('CLIBuilder — nested dispatch', () => {
-	it('dispatches to nested subcommand', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'migrate']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['migrating all steps\n']);
+describe('CLIBuilder', () => {
+	// --- nested dispatch
+
+	describe('nested dispatch', () => {
+		it('throws when sibling aliases collide inside a nested group', () => {
+			const broken = group('db')
+				.command(
+					command('migrate')
+						.alias('m')
+						.action(() => {}),
+				)
+				.command(
+					command('seed')
+						.alias('m')
+						.action(() => {}),
+				);
+
+			expect(() => cli('myapp').command(broken)).toThrow(CLIError);
+		});
+
+		it('dispatches to nested subcommand', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'migrate']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['migrating all steps\n']);
+		});
+
+		it('dispatches to nested subcommand with flags', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'migrate', '--steps', '3']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['migrating 3 steps\n']);
+		});
+
+		it('dispatches to different subcommand in same group', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'seed']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['seeding\n']);
+		});
+
+		it('shows help for group when no subcommand given', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db']);
+			expect(result.exitCode).toBe(0);
+			const output = result.stdout.join('');
+			expect(output).toContain('migrate');
+			expect(output).toContain('seed');
+		});
+
+		it('errors on unknown subcommand', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'nope']);
+			expect(result.exitCode).toBe(2);
+			expect(result.stderr.join('')).toContain('Unknown command: nope');
+		});
 	});
 
-	it('dispatches to nested subcommand with flags', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'migrate', '--steps', '3']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['migrating 3 steps\n']);
+	// --- 3-level nesting
+
+	describe('3-level nesting', () => {
+		it('dispatches through 3 levels', async () => {
+			const up = command('up')
+				.description('Run migrations up')
+				.action(({ out }) => {
+					out.log('migrating up');
+				});
+
+			const migrate = group('migrate').description('Migration commands').command(up);
+
+			const db = group('db').description('Database operations').command(migrate);
+
+			const app = cli('myapp').command(db);
+			const result = await app.execute(['db', 'migrate', 'up']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['migrating up\n']);
+		});
 	});
 
-	it('dispatches to different subcommand in same group', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'seed']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['seeding\n']);
+	// --- hybrid group with action + subcommands
+
+	describe('hybrid group with action + subcommands', () => {
+		it('runs group action when no subcommand given', async () => {
+			const add = command('add')
+				.arg('name', arg.string())
+				.action(({ args, out }) => {
+					out.log(`adding ${args.name}`);
+				});
+
+			const remote = command('remote')
+				.description('Manage remotes')
+				.command(add)
+				.action(({ out }) => {
+					out.log('listing remotes');
+				});
+
+			const app = cli('myapp').command(remote);
+			const result = await app.execute(['remote']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['listing remotes\n']);
+		});
+
+		it('dispatches to subcommand when given', async () => {
+			const add = command('add')
+				.arg('name', arg.string())
+				.action(({ args, out }) => {
+					out.log(`adding ${args.name}`);
+				});
+
+			const remote = command('remote')
+				.description('Manage remotes')
+				.command(add)
+				.action(({ out }) => {
+					out.log('listing remotes');
+				});
+
+			const app = cli('myapp').command(remote);
+			const result = await app.execute(['remote', 'add', 'origin']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['adding origin\n']);
+		});
 	});
 
-	it('shows help for group when no subcommand given', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db']);
-		expect(result.exitCode).toBe(0);
-		const output = result.stdout.join('');
-		expect(output).toContain('migrate');
-		expect(output).toContain('seed');
+	// --- propagated flags through nesting
+
+	describe('propagated flags through nesting', () => {
+		it('propagates parent flag to nested subcommand', async () => {
+			const migrate = command('migrate')
+				.description('Run migrations')
+				.action(({ flags, out }) => {
+					out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
+				});
+
+			const db = group('db')
+				.description('Database operations')
+				.flag('verbose', flag.boolean().propagate())
+				.command(migrate);
+
+			const app = cli('myapp').command(db);
+			const result = await app.execute(['db', 'migrate', '--verbose']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['verbose=true\n']);
+		});
+
+		it('propagates flag from root ancestor through intermediary', async () => {
+			const up = command('up')
+				.description('Run migrations up')
+				.action(({ flags, out }) => {
+					out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
+				});
+
+			const migrate = group('migrate').description('Migration commands').command(up);
+
+			const db = group('db')
+				.description('Database operations')
+				.flag('verbose', flag.boolean().propagate())
+				.command(migrate);
+
+			const app = cli('myapp').command(db);
+			const result = await app.execute(['db', 'migrate', 'up', '--verbose']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['verbose=true\n']);
+		});
+
+		it('child flag shadows propagated parent flag', async () => {
+			const migrate = command('migrate')
+				.description('Run migrations')
+				.flag('verbose', flag.boolean().describe('Migrate-specific verbose'))
+				.action(({ flags, out }) => {
+					out.log(`verbose=${String(flags.verbose)}`);
+				});
+
+			const db = group('db')
+				.description('Database operations')
+				.flag('verbose', flag.boolean().propagate())
+				.command(migrate);
+
+			const app = cli('myapp').command(db);
+			const result = await app.execute(['db', 'migrate', '--verbose']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['verbose=true\n']);
+		});
+
+		it('propagated flag not visible when ancestor not in path', async () => {
+			// 'db' has --verbose propagated, but 'deploy' is a sibling command.
+			// deploy should NOT see --verbose.
+			const deploy = command('deploy')
+				.description('Deploy')
+				.action(({ out }) => {
+					out.log('deployed');
+				});
+
+			const db = group('db')
+				.description('Database')
+				.flag('verbose', flag.boolean().propagate())
+				.command(
+					command('migrate').action(({ out }) => {
+						out.log('migrated');
+					}),
+				);
+
+			const app = cli('myapp').command(db).command(deploy);
+			// --verbose should be unknown to deploy (causes a parse error)
+			const result = await app.execute(['deploy', '--verbose']);
+			expect(result.exitCode).not.toBe(0);
+		});
 	});
 
-	it('errors on unknown subcommand', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'nope']);
-		expect(result.exitCode).toBe(2);
-		expect(result.stderr.join('')).toContain('Unknown command: nope');
-	});
-});
+	// --- nested help
 
-// === Nested dispatch — 3 levels deep
+	describe('nested help', () => {
+		it('shows command help with --help on nested subcommand', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'migrate', '--help']);
+			expect(result.exitCode).toBe(0);
+			const output = result.stdout.join('');
+			expect(output).toContain('migrate');
+			expect(output).toContain('--steps');
+		});
 
-describe('CLIBuilder — 3-level nesting', () => {
-	it('dispatches through 3 levels', async () => {
-		const up = command('up')
-			.description('Run migrations up')
-			.action(({ out }) => {
-				out.log('migrating up');
-			});
+		it('`help db migrate` shows same output as `db migrate --help`', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const viaHelp = await app.execute(['help', 'db', 'migrate']);
+			const viaFlag = await app.execute(['db', 'migrate', '--help']);
 
-		const migrate = group('migrate').description('Migration commands').command(up);
+			expect(viaHelp.exitCode).toBe(0);
+			expect(viaHelp.stdout).toEqual(viaFlag.stdout);
+		});
 
-		const db = group('db').description('Database operations').command(migrate);
+		it('`help db` shows group help', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const viaHelp = await app.execute(['help', 'db']);
+			const viaDirect = await app.execute(['db']);
 
-		const app = cli('myapp').command(db);
-		const result = await app.execute(['db', 'migrate', 'up']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['migrating up\n']);
-	});
-});
-
-// === Nested dispatch — hybrid groups (group with own action + subcommands)
-
-describe('CLIBuilder — hybrid group with action + subcommands', () => {
-	it('runs group action when no subcommand given', async () => {
-		const add = command('add')
-			.arg('name', arg.string())
-			.action(({ args, out }) => {
-				out.log(`adding ${args.name}`);
-			});
-
-		const remote = command('remote')
-			.description('Manage remotes')
-			.command(add)
-			.action(({ out }) => {
-				out.log('listing remotes');
-			});
-
-		const app = cli('myapp').command(remote);
-		const result = await app.execute(['remote']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['listing remotes\n']);
+			expect(viaHelp.exitCode).toBe(0);
+			expect(viaHelp.stdout).toEqual(viaDirect.stdout);
+		});
 	});
 
-	it('dispatches to subcommand when given', async () => {
-		const add = command('add')
-			.arg('name', arg.string())
-			.action(({ args, out }) => {
-				out.log(`adding ${args.name}`);
-			});
+	// --- nested dispatch with --json
 
-		const remote = command('remote')
-			.description('Manage remotes')
-			.command(add)
-			.action(({ out }) => {
-				out.log('listing remotes');
-			});
+	describe('nested dispatch with --json', () => {
+		it('propagates --json to nested subcommand', async () => {
+			const migrate = command('migrate')
+				.description('Run migrations')
+				.action(({ out }) => {
+					out.json({ status: 'done' });
+				});
 
-		const app = cli('myapp').command(remote);
-		const result = await app.execute(['remote', 'add', 'origin']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['adding origin\n']);
-	});
-});
+			const db = group('db').description('Database operations').command(migrate);
 
-// === Nested dispatch — propagated flags
+			const app = cli('myapp').command(db);
+			const result = await app.execute(['db', 'migrate', '--json']);
+			expect(result.exitCode).toBe(0);
+			const parsed = JSON.parse(result.stdout[0] ?? '');
+			expect(parsed).toEqual({ status: 'done' });
+		});
 
-describe('CLIBuilder — propagated flags through nesting', () => {
-	it('propagates parent flag to nested subcommand', async () => {
-		const migrate = command('migrate')
-			.description('Run migrations')
-			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
-			});
-
-		const db = group('db')
-			.description('Database operations')
-			.flag('verbose', flag.boolean().propagate())
-			.command(migrate);
-
-		const app = cli('myapp').command(db);
-		const result = await app.execute(['db', 'migrate', '--verbose']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['verbose=true\n']);
+		it('reports unknown nested command as JSON error', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'nope', '--json']);
+			expect(result.exitCode).toBe(2);
+			const parsed = JSON.parse(result.stdout[0] ?? '');
+			expect(parsed.error.code).toBe('UNKNOWN_COMMAND');
+		});
 	});
 
-	it('propagates flag from root ancestor through intermediary', async () => {
-		const up = command('up')
-			.description('Run migrations up')
-			.action(({ flags, out }) => {
-				out.log(`verbose=${String(hasPropagatedVerbose(flags))}`);
-			});
+	// --- nested dispatch with aliases
 
-		const migrate = group('migrate').description('Migration commands').command(up);
+	describe('nested dispatch with aliases', () => {
+		it('dispatches to nested subcommand via alias', async () => {
+			const migrate = command('migrate')
+				.alias('m')
+				.description('Run migrations')
+				.action(({ out }) => {
+					out.log('migrating');
+				});
 
-		const db = group('db')
-			.description('Database operations')
-			.flag('verbose', flag.boolean().propagate())
-			.command(migrate);
+			const db = group('db').description('Database operations').command(migrate);
 
-		const app = cli('myapp').command(db);
-		const result = await app.execute(['db', 'migrate', 'up', '--verbose']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['verbose=true\n']);
+			const app = cli('myapp').command(db);
+			const result = await app.execute(['db', 'm']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['migrating\n']);
+		});
 	});
 
-	it('child flag shadows propagated parent flag', async () => {
-		const migrate = command('migrate')
-			.description('Run migrations')
-			.flag('verbose', flag.boolean().describe('Migrate-specific verbose'))
-			.action(({ flags, out }) => {
-				out.log(`verbose=${String(flags.verbose)}`);
-			});
+	// --- scoped suggestions
 
-		const db = group('db')
-			.description('Database operations')
-			.flag('verbose', flag.boolean().propagate())
-			.command(migrate);
+	describe('scoped suggestions', () => {
+		it('suggests sibling subcommand for typo within group', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'migrat']); // typo for "migrate"
+			expect(result.exitCode).toBe(2);
+			expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
+		});
 
-		const app = cli('myapp').command(db);
-		const result = await app.execute(['db', 'migrate', '--verbose']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['verbose=true\n']);
-	});
+		it('does not suggest commands from other groups', async () => {
+			const deploy = command('deploy')
+				.description('Deploy')
+				.action(({ out }) => {
+					out.log('deployed');
+				});
 
-	it('propagated flag not visible when ancestor not in path', async () => {
-		// 'db' has --verbose propagated, but 'deploy' is a sibling command.
-		// deploy should NOT see --verbose.
-		const deploy = command('deploy')
-			.description('Deploy')
-			.action(({ out }) => {
-				out.log('deployed');
-			});
+			const app = cli('myapp').command(dbGroup()).command(deploy);
+			// 'deplpy' is close to 'deploy' but should NOT be suggested inside 'db' scope
+			const result = await app.execute(['db', 'deplpy']);
+			expect(result.exitCode).toBe(2);
+			const stderr = result.stderr.join('');
+			expect(stderr).not.toContain("Did you mean 'deploy'?");
+		});
 
-		const db = group('db')
-			.description('Database')
-			.flag('verbose', flag.boolean().propagate())
-			.command(
-				command('migrate').action(({ out }) => {
-					out.log('migrated');
-				}),
-			);
+		it('shows scoped help hint for unknown nested command with no close match', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'xxxxxxxxx']);
+			expect(result.exitCode).toBe(2);
+			// Should suggest "myapp db --help" not "myapp --help"
+			expect(result.stderr.join('')).toContain("Run 'myapp db --help'");
+		});
 
-		const app = cli('myapp').command(db).command(deploy);
-		// --verbose should be unknown to deploy (causes a parse error)
-		const result = await app.execute(['deploy', '--verbose']);
-		expect(result.exitCode).not.toBe(0);
-	});
-});
+		it('shows root help hint for unknown root command with no close match', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['xxxxxxxxx']);
+			expect(result.exitCode).toBe(2);
+			// Root level — should suggest "myapp --help"
+			expect(result.stderr.join('')).toContain("Run 'myapp --help'");
+		});
 
-// === Nested dispatch — --help
+		it('shows scoped help hint for 3-level nesting', async () => {
+			const up = command('up')
+				.description('Run migrations up')
+				.action(({ out }) => {
+					out.log('up');
+				});
 
-describe('CLIBuilder — nested help', () => {
-	it('shows command help with --help on nested subcommand', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'migrate', '--help']);
-		expect(result.exitCode).toBe(0);
-		const output = result.stdout.join('');
-		expect(output).toContain('migrate');
-		expect(output).toContain('--steps');
-	});
+			const migrate = group('migrate').description('Migration commands').command(up);
+			const db = group('db').description('Database operations').command(migrate);
 
-	it('`help db migrate` shows same output as `db migrate --help`', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const viaHelp = await app.execute(['help', 'db', 'migrate']);
-		const viaFlag = await app.execute(['db', 'migrate', '--help']);
+			const app = cli('myapp').command(db);
+			const result = await app.execute(['db', 'migrate', 'xxxxxxxxx']);
+			expect(result.exitCode).toBe(2);
+			// Should suggest "myapp db migrate --help"
+			expect(result.stderr.join('')).toContain("Run 'myapp db migrate --help'");
+		});
 
-		expect(viaHelp.exitCode).toBe(0);
-		expect(viaHelp.stdout).toEqual(viaFlag.stdout);
-	});
+		it('scoped suggestion works in JSON mode', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'xxxxxxxxx', '--json']);
+			expect(result.exitCode).toBe(2);
+			const parsed = JSON.parse(result.stdout[0] ?? '');
+			expect(parsed.error.suggest).toContain('myapp db --help');
+		});
 
-	it('`help db` shows group help', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const viaHelp = await app.execute(['help', 'db']);
-		const viaDirect = await app.execute(['db']);
+		it('suggests subcommand alias match within scope', async () => {
+			const migrate = command('migrate')
+				.alias('m')
+				.description('Run migrations')
+				.action(({ out }) => {
+					out.log('migrating');
+				});
 
-		expect(viaHelp.exitCode).toBe(0);
-		expect(viaHelp.stdout).toEqual(viaDirect.stdout);
-	});
-});
-
-// === Nested dispatch — --json mode
-
-describe('CLIBuilder — nested dispatch with --json', () => {
-	it('propagates --json to nested subcommand', async () => {
-		const migrate = command('migrate')
-			.description('Run migrations')
-			.action(({ out }) => {
-				out.json({ status: 'done' });
-			});
-
-		const db = group('db').description('Database operations').command(migrate);
-
-		const app = cli('myapp').command(db);
-		const result = await app.execute(['db', 'migrate', '--json']);
-		expect(result.exitCode).toBe(0);
-		const parsed = JSON.parse(result.stdout[0] ?? '');
-		expect(parsed).toEqual({ status: 'done' });
-	});
-
-	it('reports unknown nested command as JSON error', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'nope', '--json']);
-		expect(result.exitCode).toBe(2);
-		const parsed = JSON.parse(result.stdout[0] ?? '');
-		expect(parsed.error.code).toBe('UNKNOWN_COMMAND');
-	});
-});
-
-// === Nested dispatch — aliases
-
-describe('CLIBuilder — nested dispatch with aliases', () => {
-	it('dispatches to nested subcommand via alias', async () => {
-		const migrate = command('migrate')
-			.alias('m')
-			.description('Run migrations')
-			.action(({ out }) => {
-				out.log('migrating');
-			});
-
-		const db = group('db').description('Database operations').command(migrate);
-
-		const app = cli('myapp').command(db);
-		const result = await app.execute(['db', 'm']);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual(['migrating\n']);
-	});
-});
-
-// === Scoped "did you mean?" suggestions
-
-describe('CLIBuilder — scoped suggestions', () => {
-	it('suggests sibling subcommand for typo within group', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'migrat']); // typo for "migrate"
-		expect(result.exitCode).toBe(2);
-		expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
-	});
-
-	it('does not suggest commands from other groups', async () => {
-		const deploy = command('deploy')
-			.description('Deploy')
-			.action(({ out }) => {
-				out.log('deployed');
-			});
-
-		const app = cli('myapp').command(dbGroup()).command(deploy);
-		// 'deplpy' is close to 'deploy' but should NOT be suggested inside 'db' scope
-		const result = await app.execute(['db', 'deplpy']);
-		expect(result.exitCode).toBe(2);
-		const stderr = result.stderr.join('');
-		expect(stderr).not.toContain("Did you mean 'deploy'?");
-	});
-
-	it('shows scoped help hint for unknown nested command with no close match', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'xxxxxxxxx']);
-		expect(result.exitCode).toBe(2);
-		// Should suggest "myapp db --help" not "myapp --help"
-		expect(result.stderr.join('')).toContain("Run 'myapp db --help'");
-	});
-
-	it('shows root help hint for unknown root command with no close match', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['xxxxxxxxx']);
-		expect(result.exitCode).toBe(2);
-		// Root level — should suggest "myapp --help"
-		expect(result.stderr.join('')).toContain("Run 'myapp --help'");
-	});
-
-	it('shows scoped help hint for 3-level nesting', async () => {
-		const up = command('up')
-			.description('Run migrations up')
-			.action(({ out }) => {
-				out.log('up');
-			});
-
-		const migrate = group('migrate').description('Migration commands').command(up);
-		const db = group('db').description('Database operations').command(migrate);
-
-		const app = cli('myapp').command(db);
-		const result = await app.execute(['db', 'migrate', 'xxxxxxxxx']);
-		expect(result.exitCode).toBe(2);
-		// Should suggest "myapp db migrate --help"
-		expect(result.stderr.join('')).toContain("Run 'myapp db migrate --help'");
-	});
-
-	it('scoped suggestion works in JSON mode', async () => {
-		const app = cli('myapp').command(dbGroup());
-		const result = await app.execute(['db', 'xxxxxxxxx', '--json']);
-		expect(result.exitCode).toBe(2);
-		const parsed = JSON.parse(result.stdout[0] ?? '');
-		expect(parsed.error.suggest).toContain('myapp db --help');
-	});
-
-	it('suggests subcommand alias match within scope', async () => {
-		const migrate = command('migrate')
-			.alias('m')
-			.description('Run migrations')
-			.action(({ out }) => {
-				out.log('migrating');
-			});
-
-		const db = group('db').description('Database operations').command(migrate);
-		const app = cli('myapp').command(db);
-		// 'n' is close to alias 'm' (distance 1)
-		const result = await app.execute(['db', 'n']);
-		expect(result.exitCode).toBe(2);
-		// Should suggest canonical name 'migrate' (from alias 'm' proximity)
-		expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
+			const db = group('db').description('Database operations').command(migrate);
+			const app = cli('myapp').command(db);
+			// 'n' is close to alias 'm' (distance 1)
+			const result = await app.execute(['db', 'n']);
+			expect(result.exitCode).toBe(2);
+			// Should suggest canonical name 'migrate' (from alias 'm' proximity)
+			expect(result.stderr.join('')).toContain("Did you mean 'migrate'?");
+		});
 	});
 });

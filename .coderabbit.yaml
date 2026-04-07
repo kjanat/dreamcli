@@ -4,7 +4,74 @@ inheritance: true
 reviews:
   high_level_summary_placeholder: "@gen"
   auto_title_placeholder: "@gen"
-  labeling_instructions: []
+  auto_apply_labels: true
+  labeling_instructions:
+    - label: "kind: bug"
+      instructions: >-
+        Suggest when the PR primarily fixes broken behavior, a regression, incorrect output,
+        failing edge-case handling, or runtime/docs behavior that was wrong before. Do not use
+        for purely additive work.
+    - label: "kind: feature"
+      instructions: >-
+        Suggest when the PR adds a new capability, expands the public API, introduces a new
+        workflow, or materially broadens existing behavior.
+    - label: "kind: docs"
+      instructions: >-
+        Suggest when the PR is primarily documentation, examples, guides, reference pages, or
+        docs UX, even if a tiny support code change is needed to make docs work.
+    - label: "kind: breaking"
+      instructions: >-
+        Suggest in addition to another primary label when the PR changes public API semantics,
+        packaging, runtime support, module format, exports, or migration expectations in a way
+        that requires a major-version mindset.
+    - label: "area: cli"
+      instructions: >-
+        Suggest for changes under `src/core/cli/` or PRs that alter command dispatch, planner,
+        runtime preflight, root UX, default/help flows, or plugin execution.
+    - label: "area: completion"
+      instructions: >-
+        Suggest for changes under `src/core/completion/` or PRs that alter shell completion
+        generation, shell-specific behavior, alias parsing, or completion UX.
+    - label: "area: config"
+      instructions: >-
+        Suggest for changes under `src/core/config/` or PRs that alter config discovery,
+        format loaders, package.json inference, or version-sync metadata.
+    - label: "area: docs"
+      instructions: >-
+        Suggest for changes under `docs/` or PRs that alter the VitePress app, guides,
+        reference generation, twoslash, docs build behavior, or docs deployment.
+    - label: "area: examples"
+      instructions: >-
+        Suggest for changes under `examples/` or PRs that alter runnable examples,
+        walkthrough content, or the `examples/gh` workspace package.
+    - label: "area: output"
+      instructions: >-
+        Suggest for changes under `src/core/output/` or PRs that alter stdout/stderr routing,
+        tables, spinners, progress, JSON mode, or rendering policy.
+    - label: "area: resolve"
+      instructions: >-
+        Suggest for changes under `src/core/resolve/` or PRs that alter argv/env/config/prompt/
+        default precedence, coercion, or resolution errors.
+    - label: "area: runtime"
+      instructions: >-
+        Suggest for changes under `src/runtime/` or PRs that alter Node, Bun, Deno adapters,
+        runtime detection, support checks, or host-path behavior.
+    - label: "area: schema"
+      instructions: >-
+        Suggest for changes under `src/core/schema/`, `src/core/schema-dsl/`, or
+        `src/core/json-schema/`, including builder APIs, schema DSL, or JSON Schema export.
+    - label: "area: testkit"
+      instructions: >-
+        Suggest for changes under `src/core/testkit/` or PRs that alter the in-process harness,
+        test adapters, capture helpers, or contract testing support.
+    - label: "area: build"
+      instructions: >-
+        Suggest for changes in `.github/workflows/`, `scripts/`, `package.json`, `tsdown.config.ts`,
+        `vitest.config.ts`, or publish/release/build plumbing.
+    - label: release
+      instructions: >-
+        Suggest when the PR changes version numbers, changelog entries, release notes, publish
+        workflows, release metadata, or tag-driven packaging behavior.
   path_instructions: []
   pre_merge_checks:
     custom_checks:
@@ -24,4 +91,83 @@ reviews:
           or breaks functionality tied to a completed goal, GOALS.md MUST be updated to
           reflect the new status (e.g., unchecked or revised). If completed goals no longer
           match repository state and GOALS.md is not updated accordingly, fail.
-issue_enrichment: { labeling: { labeling_instructions: [] } }
+issue_enrichment:
+  labeling:
+    auto_apply_labels: true
+    labeling_instructions:
+      - label: "kind: bug"
+        instructions: >-
+          Suggest when the issue reports broken behavior, a regression, wrong output, or a case
+          where current behavior contradicts docs or user expectation.
+      - label: "kind: feature"
+        instructions: >-
+          Suggest when the issue asks for a new capability, API, command, workflow, or a meaningful
+          expansion of current behavior.
+      - label: "kind: docs"
+        instructions: >-
+          Suggest when the issue is about missing, incorrect, unclear, or incomplete docs,
+          examples, migration guidance, or reference coverage.
+      - label: "kind: question"
+        instructions: >-
+          Suggest when the issue is mainly seeking clarification, design guidance, trade-off
+          discussion, or usage help rather than requesting a concrete code change.
+      - label: "kind: breaking"
+        instructions: >-
+          Suggest when the issue proposes or tracks a breaking API, runtime, packaging, or migration
+          change that would justify a major-version release.
+      - label: "area: cli"
+        instructions: >-
+          Suggest when the issue is about command dispatch, planning, root UX, default/help flows,
+          or plugin execution.
+      - label: "area: completion"
+        instructions: >-
+          Suggest when the issue is about shell completions, alias parsing, completion installation,
+          or shell-specific completion behavior.
+      - label: "area: config"
+        instructions: >-
+          Suggest when the issue is about config discovery, loader formats, package.json inference,
+          or repo metadata sync.
+      - label: "area: docs"
+        instructions: >-
+          Suggest when the issue is about guides, reference pages, docs UX, twoslash, docs build,
+          or docs deployment.
+      - label: "area: examples"
+        instructions: >-
+          Suggest when the issue is about runnable examples, walkthroughs, or the `examples/gh`
+          workspace package.
+      - label: "area: output"
+        instructions: >-
+          Suggest when the issue is about stdout/stderr routing, tables, spinners, progress,
+          structured output, or rendering behavior.
+      - label: "area: resolve"
+        instructions: >-
+          Suggest when the issue is about argv/env/config/prompt/default precedence, coercion,
+          validation, or resolver error reporting.
+      - label: "area: runtime"
+        instructions: >-
+          Suggest when the issue is about Node, Bun, Deno adapters, runtime detection, support
+          matrices, or host-environment behavior.
+      - label: "area: schema"
+        instructions: >-
+          Suggest when the issue is about schema builders, schema DSL, type inference, or JSON
+          Schema generation.
+      - label: "area: testkit"
+        instructions: >-
+          Suggest when the issue is about the in-process harness, capture utilities, adapters,
+          or test support ergonomics.
+      - label: "area: build"
+        instructions: >-
+          Suggest when the issue is about CI, packaging, build tooling, scripts, publish workflows,
+          release automation, or version metadata.
+      - label: release
+        instructions: >-
+          Suggest when the issue tracks versioning, changelog work, release readiness, publishing,
+          or tag/release process changes.
+      - label: good first issue
+        instructions: >-
+          Suggest when the issue is small, well-scoped, low-risk, and can be completed without deep
+          project context or broad cross-cutting changes.
+      - label: help wanted
+        instructions: >-
+          Suggest when the issue is valid and actionable but would benefit from external
+          contributors or extra hands.

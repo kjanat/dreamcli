@@ -17,13 +17,13 @@ import type { ActivityEvent } from './activity.ts';
 import type { CommandMeta, CommandSchema, Out } from './command.ts';
 
 /**
- * Options accepted by `commandBuilder.run()` and `runCommand()`.
+ * Options accepted by `runCommand()` and internal command execution paths.
  *
  * Every field is optional — sensible defaults are applied. This is the
- * primary execution seam: inject env, config, prompt I/O, and dispatch-layer
- * metadata without touching process state.
+ * primary process-free execution seam: inject env, config, prompt I/O, and
+ * dispatch-layer metadata without touching process state.
  */
-interface RunOptions {
+export interface RunOptions {
 	/**
 	 * Environment variables for flag resolution.
 	 *
@@ -82,8 +82,8 @@ interface RunOptions {
 	 * Enable JSON output mode.
 	 *
 	 * When `true`, `log` and `info` messages are redirected to stderr
-	 * so that stdout is reserved exclusively for structured `json()` output.
-	 * Errors are also rendered as JSON to stderr.
+	 * so that stdout is reserved exclusively for structured {@linkcode Out.json | json()} output.
+	 * Framework-rendered errors are emitted as structured JSON to stdout.
 	 *
 	 * @defaultValue `false`
 	 */
@@ -92,7 +92,7 @@ interface RunOptions {
 	/**
 	 * Whether stdout is connected to a TTY.
 	 *
-	 * Handlers can check `out.isTTY` to decide whether to emit decorative
+	 * Handlers can check {@linkcode Out.isTTY | out.isTTY} to decide whether to emit decorative
 	 * output (spinners, progress bars, ANSI codes). Defaults to `false`
 	 * (safe default for tests — non-TTY until proven otherwise).
 	 *
@@ -103,7 +103,7 @@ interface RunOptions {
 	/**
 	 * Output channel override used by live CLI execution.
 	 *
-	 * @internal — `run()` passes a real output channel so activity renders to
+	 * @internal — `CLIBuilder.run()` passes a real output channel so activity renders to
 	 * the terminal instead of being captured.
 	 */
 	readonly out?: Out;
@@ -112,7 +112,7 @@ interface RunOptions {
 	 * Capture buffers override paired with `out`.
 	 *
 	 * @internal — when omitted, `runCommand()` creates empty buffers for the
-	 * returned `RunResult` while writing directly to the provided `out`.
+	 * returned {@linkcode RunResult} while writing directly to the provided `out`.
 	 */
 	readonly captured?: CapturedOutput;
 
@@ -153,12 +153,22 @@ interface RunOptions {
 }
 
 /**
- * Structured result from running a command.
+ * Structured result from {@linkcode runCommand}.
  *
- * Contains the exit code, captured stdout/stderr output, and an `error`
- * field that is `undefined` on success and populated on failure.
+ * Contains the exit code, captured stdout/stderr output, recorded
+ * {@linkcode ActivityEvent | activity events}, and an `error` field
+ * that is `undefined` on success and a {@linkcode CLIError} on failure.
+ *
+ * @example
+ * ```ts
+ * const result = await runCommand(greetCmd, ['World']);
+ *
+ * expect(result.exitCode).toBe(0);
+ * expect(result.stdout).toContain('Hello, World!');
+ * expect(result.error).toBeUndefined();
+ * ```
  */
-interface RunResult {
+export interface RunResult {
 	/** Process exit code. 0 = success. */
 	readonly exitCode: number;
 
@@ -172,16 +182,14 @@ interface RunResult {
 	 * Captured spinner and progress lifecycle events.
 	 *
 	 * Recorded separately from stdout/stderr — handlers that call
-	 * `out.spinner()` or `out.progress()` produce events here, enabling
+	 * {@linkcode Out.spinner | out.spinner()} or {@linkcode Out.progress | out.progress()} produce events here, enabling
 	 * targeted assertions on activity lifecycle without parsing text.
 	 */
 	readonly activity: readonly ActivityEvent[];
 
 	/**
 	 * The error that caused a non-zero exit, or `undefined` on success.
-	 * `CLIError` instances are preserved; unknown errors are wrapped.
+	 * {@linkcode CLIError} instances are preserved; unknown errors are wrapped.
 	 */
 	readonly error: CLIError | undefined;
 }
-
-export type { RunOptions, RunResult };

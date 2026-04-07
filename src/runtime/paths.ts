@@ -5,7 +5,7 @@
  * These helpers keep the fallback chain identical across runtimes while
  * letting each adapter supply its own platform detection.
  *
- * @module dreamcli/runtime/paths
+ * @module @kjanat/dreamcli/runtime/paths
  */
 
 /**
@@ -49,8 +49,14 @@ function resolveConfigDirectory(
 		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
 		return `${normalizedHome}\\AppData\\Roaming`;
 	}
-	const normalizedHome = homedir.replace(/\/+$/, '') || homedir;
-	return env.XDG_CONFIG_HOME || `${normalizedHome}/.config`;
+	const normalizedHome = homedir.replace(/\/+$/, '');
+	if (env.XDG_CONFIG_HOME !== undefined && env.XDG_CONFIG_HOME !== '') {
+		return env.XDG_CONFIG_HOME;
+	}
+	if (normalizedHome.length === 0) {
+		return '/.config';
+	}
+	return `${normalizedHome}/.config`;
 }
 
 export { resolveConfigDirectory, resolveHomeDirectory };

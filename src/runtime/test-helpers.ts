@@ -2,11 +2,10 @@
  * Shared test helpers for runtime adapter tests.
  *
  * @internal — test-only, not exported from any public barrel.
- * @module dreamcli/runtime/test-helpers
+ * @module @kjanat/dreamcli/runtime/test-helpers
  */
-
 import { vi } from 'vitest';
-
+import type { DenoNamespace } from './deno.ts';
 /**
  * Create a minimal mock Deno namespace for adapter tests.
  *
@@ -16,7 +15,7 @@ import { vi } from 'vitest';
  *
  * @returns A mock Deno namespace with stubbed I/O, env, and exit.
  */
-export function createMockDenoNamespace() {
+export function createMockDenoNamespace(): DenoNamespace {
 	return {
 		build: { os: 'linux' as const },
 		args: [],
@@ -28,10 +27,10 @@ export function createMockDenoNamespace() {
 			isTerminal: () => false,
 			readable: {
 				getReader: () => ({
-					read: () => Promise.resolve({ done: true, value: undefined }),
+					read: () => Promise.resolve({ done: true, value: new Uint8Array(0) }),
 					releaseLock: () => {},
 				}),
-			},
+			} as ReadableStream<Uint8Array>,
 		},
 		exit: vi.fn() as unknown as (code: number) => never,
 		readTextFile: () => Promise.reject(Object.assign(new Error('not found'), { name: 'NotFound' })),

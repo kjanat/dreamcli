@@ -1,15 +1,15 @@
 /**
  * Node.js runtime adapter implementation.
  *
- * Bridges the platform-agnostic `RuntimeAdapter` interface to Node.js's
+ * Bridges the platform-agnostic {@linkcode RuntimeAdapter} interface to Node.js's
  * `globalThis.process` object. This adapter is also compatible with Bun,
  * which provides a Node-compatible `process` global.
  *
  * The adapter reads process state once at creation time and exposes it
- * through the immutable `RuntimeAdapter` interface. I/O writers wrap
+ * through the immutable {@linkcode RuntimeAdapter} interface. I/O writers wrap
  * `process.stdout.write` and `process.stderr.write`.
  *
- * @module dreamcli/runtime/node
+ * @module @kjanat/dreamcli/runtime/node
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
@@ -42,27 +42,35 @@ interface NodeSystemError {
  * actually reads from the global.
  */
 interface NodeProcess {
+	/** Raw process arguments (`[binary, script, ...userArgs]`). */
 	readonly argv: readonly string[];
+	/** Environment variables (values are `undefined` for unset keys). */
 	readonly env: Readonly<Record<string, string | undefined>>;
+	/** Runtime version strings — used for version-guard checks. */
 	readonly versions?: {
 		readonly node?: string;
 		readonly bun?: string;
 	};
+	/** Return the current working directory. */
 	cwd(): string;
 	/** Platform identifier (e.g. `'linux'`, `'darwin'`, `'win32'`). */
 	readonly platform: string;
+	/** Standard input stream with TTY detection and async iteration. */
 	readonly stdin: {
 		readonly isTTY?: boolean;
 		/** Async iterable for reading all of stdin (used by readStdin). */
 		[Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 	};
+	/** Standard output stream with TTY detection and write. */
 	readonly stdout: {
 		readonly isTTY?: boolean;
 		write(data: string): unknown;
 	};
+	/** Standard error stream with write. */
 	readonly stderr: {
 		write(data: string): unknown;
 	};
+	/** Terminate the process with the given exit code. */
 	exit(code: number): never;
 }
 
@@ -149,17 +157,17 @@ function assertProcessRuntimeSupported(proc: NodeProcess): void {
  * Create a runtime adapter backed by Node.js `process` globals.
  *
  * Reads `process.argv`, `process.env`, `process.cwd()`, and wraps
- * `process.stdout.write`/`process.stderr.write` as `WriteFn` functions.
+ * `process.stdout.write`/`process.stderr.write` as {@linkcode WriteFn} functions.
  *
  * Also works on Bun, which provides a Node-compatible `process` global.
  *
  * @param proc - Override the process object (useful for testing the adapter itself).
- * @returns A `RuntimeAdapter` backed by Node.js process state.
+ * @returns A {@linkcode RuntimeAdapter} backed by Node.js process state.
  *
  * @example
  * ```ts
- * import { cli } from 'dreamcli';
- * import { createNodeAdapter } from 'dreamcli/runtime/node';
+ * import { cli } from '@kjanat/dreamcli';
+ * import { createNodeAdapter } from '@kjanat/dreamcli/runtime/node';
  *
  * cli('mycli')
  *   .command(deploy)
@@ -179,7 +187,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 
 	// Stdin line reading via readline — created lazily on first call.
 	// This avoids importing readline unless prompting actually occurs.
-	const stdinRead: ReadFn = () => createNodeReadLine(p);
+	const stdinRead = createNodeReadLine(p);
 
 	// --- Filesystem primitives for config discovery ---
 
@@ -252,24 +260,38 @@ async function readNodeStdinAll(proc: NodeProcess, stdinIsTTY: boolean): Promise
  *
  * @internal
  */
-async function createNodeReadLine(proc: NodeProcess): Promise<string | null> {
+function createNodeReadLine(proc: NodeProcess): ReadFn {
 	const iter = proc.stdin[Symbol.asyncIterator]();
 	const decoder = new TextDecoder();
 	let buffer = '';
-	let result = await iter.next();
+	let done = false;
 
-	while (!result.done) {
-		buffer += decoder.decode(result.value, { stream: true });
-		const nlIndex = buffer.indexOf('\n');
-		if (nlIndex !== -1) {
-			return buffer.slice(0, nlIndex).replace(/\r$/, '');
+	return async (): Promise<string | null> => {
+		for (;;) {
+			const nlIndex = buffer.indexOf('\n');
+			if (nlIndex !== -1) {
+				const line = buffer.slice(0, nlIndex).replace(/\r$/, '');
+				buffer = buffer.slice(nlIndex + 1);
+				return line;
+			}
+
+			if (done) {
+				if (buffer.length === 0) return null;
+				const line = buffer;
+				buffer = '';
+				return line;
+			}
+
+			const result = await iter.next();
+			if (result.done) {
+				buffer += decoder.decode();
+				done = true;
+				continue;
+			}
+
+			buffer += decoder.decode(result.value, { stream: true });
 		}
-		result = await iter.next();
-	}
-
-	// Flush remaining bytes after stream end
-	buffer += decoder.decode();
-	return buffer.length > 0 ? buffer : null;
+	};
 }
 
 // --- Exports

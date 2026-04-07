@@ -32,7 +32,7 @@ describe('runCommand — stdin', () => {
 });
 
 describe('CLIBuilder.run — stdin TTY behavior', () => {
-	it('falls through when stdin is a TTY even when test stdinData is provided', async () => {
+	it('ignores stdinData when stdin is a TTY', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
 			argv: ['node', 'test', 'deploy'],

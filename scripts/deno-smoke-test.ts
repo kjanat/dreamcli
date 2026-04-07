@@ -2,9 +2,9 @@
 /**
  * Deno adapter smoke test.
  *
- * Runs under Deno to verify the built package works on a real Deno runtime.
- * This complements the vitest-based unit tests (which run under Node/Bun
- * with mock injection) by exercising the adapter against actual Deno APIs.
+ * Runs under Deno to verify the source package works on a real Deno runtime.
+ * Imports via the deno.json import map (same resolution JSR consumers get).
+ * Complements vitest-based unit tests by exercising the adapter against actual Deno APIs.
  *
  * Usage: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
  *
@@ -15,13 +15,12 @@
 
 import type { RuntimeAdapter } from '#dreamcli/runtime';
 
-// Import from built output (not source) to verify the published shape.
-// Use a file URL expression so repository typecheck does not require a prebuilt dist/.
-const runtimeModuleUrl = new URL('../dist/runtime.mjs', import.meta.url).href;
-const runtimeModule = await import(runtimeModuleUrl);
+// Import via deno.json import map — resolves to src/runtime.ts,
+// same source tree that `deno publish` ships to JSR.
+const runtimeModule = await import('#dreamcli/runtime');
 
 function failBoundary(message: string): never {
-	throw new Error(`${message} (module: ${runtimeModuleUrl})`);
+	throw new Error(message);
 }
 
 function assertRuntimeAdapter(value: unknown): RuntimeAdapter {
@@ -144,7 +143,10 @@ assert(typeof adapter.configDir === 'string', 'configDir is a string');
 // readFile should return contents for existing file
 const pkg = await adapter.readFile('./package.json');
 assert(pkg !== null, 'readFile returns content for existing file');
-assert(typeof pkg === 'string' && pkg.includes('dreamcli'), 'readFile content contains "dreamcli"');
+assert(
+	typeof pkg === 'string' && pkg.includes('@kjanat/dreamcli'),
+	'readFile content contains "@kjanat/dreamcli"',
+);
 
 // readFile should return null for nonexistent file
 const missing = await adapter.readFile('./nonexistent-file-12345.json');

@@ -1,23 +1,26 @@
-# dreamcli/runtime
+# @kjanat/dreamcli/runtime
 
 Runtime adapter factory and platform detection.
 
-```ts
-import { createAdapter, detectRuntime } from 'dreamcli/runtime';
-import type { RuntimeAdapter } from 'dreamcli/runtime';
+```ts twoslash
+import {
+  createAdapter,
+  detectRuntime,
+} from '@kjanat/dreamcli/runtime';
+import type { RuntimeAdapter } from '@kjanat/dreamcli/runtime';
 ```
 
 ## `createAdapter()`
 
 Create a runtime adapter via auto-detection.
 
-```ts
+```ts twoslash
 import {
   createAdapter,
   createNodeAdapter,
   createBunAdapter,
   createDenoAdapter,
-} from 'dreamcli/runtime';
+} from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect
 const nodeAdapter = createNodeAdapter(); // explicit Node.js
@@ -47,9 +50,12 @@ const denoAdapter = createDenoAdapter(); // explicit Deno
 
 Detect the current runtime environment.
 
-```ts
-const runtime = detectRuntime();
-// 'node' | 'bun' | 'deno'
+```ts twoslash
+import { detectRuntime } from '@kjanat/dreamcli/runtime';
+import type { Runtime } from '@kjanat/dreamcli/runtime';
+
+const runtime: Runtime = detectRuntime();
+//               ^?
 ```
 
 ## Supported Runtimes

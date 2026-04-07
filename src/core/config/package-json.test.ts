@@ -22,253 +22,257 @@ function createAdapter(
 	};
 }
 
-// === discoverPackageJson — walk-up resolution
+// === discoverPackageJson
 
-describe('discoverPackageJson — walk-up resolution', () => {
-	it('finds package.json in cwd', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': '{"name":"myapp","version":"1.0.0"}',
+describe('discoverPackageJson', () => {
+	// --- walk-up resolution
+
+	describe('walk-up resolution', () => {
+		it('finds package.json in cwd', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '{"name":"myapp","version":"1.0.0"}',
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result).toEqual({
+				name: 'myapp',
+				version: '1.0.0',
+			});
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result).toEqual({
-			name: 'myapp',
-			version: '1.0.0',
+		it('walks up to parent directory', async () => {
+			const adapter = createAdapter(
+				{
+					'/projects/package.json': '{"name":"root","version":"2.0.0"}',
+				},
+				'/projects/myapp/src',
+			);
+
+			const result = await discoverPackageJson(adapter);
+			expect(result).toEqual({
+				name: 'root',
+				version: '2.0.0',
+			});
+		});
+
+		it('finds first package.json when multiple exist in ancestor chain', async () => {
+			const adapter = createAdapter(
+				{
+					'/projects/myapp/package.json': '{"name":"inner","version":"1.0.0"}',
+					'/projects/package.json': '{"name":"outer","version":"2.0.0"}',
+				},
+				'/projects/myapp/src',
+			);
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.name).toBe('inner');
+		});
+
+		it('returns null when no package.json found', async () => {
+			const adapter = createAdapter({});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
+		});
+
+		it('walks up to root directory', async () => {
+			const adapter = createAdapter(
+				{
+					'/package.json': '{"name":"root-pkg","version":"0.1.0"}',
+				},
+				'/a/b/c/d',
+			);
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.name).toBe('root-pkg');
 		});
 	});
 
-	it('walks up to parent directory', async () => {
-		const adapter = createAdapter(
-			{
-				'/projects/package.json': '{"name":"root","version":"2.0.0"}',
-			},
-			'/projects/myapp/src',
-		);
+	// --- field extraction
 
-		const result = await discoverPackageJson(adapter);
-		expect(result).toEqual({
-			name: 'root',
-			version: '2.0.0',
-		});
-	});
+	describe('field extraction', () => {
+		it('extracts all fields', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					name: '@scope/myapp',
+					version: '3.2.1',
+					description: 'My awesome app',
+					bin: { mycli: './dist/cli.js' },
+				}),
+			});
 
-	it('finds first package.json when multiple exist in ancestor chain', async () => {
-		const adapter = createAdapter(
-			{
-				'/projects/myapp/package.json': '{"name":"inner","version":"1.0.0"}',
-				'/projects/package.json': '{"name":"outer","version":"2.0.0"}',
-			},
-			'/projects/myapp/src',
-		);
-
-		const result = await discoverPackageJson(adapter);
-		expect(result?.name).toBe('inner');
-	});
-
-	it('returns null when no package.json found', async () => {
-		const adapter = createAdapter({});
-
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
-	});
-
-	it('walks up to root directory', async () => {
-		const adapter = createAdapter(
-			{
-				'/package.json': '{"name":"root-pkg","version":"0.1.0"}',
-			},
-			'/a/b/c/d',
-		);
-
-		const result = await discoverPackageJson(adapter);
-		expect(result?.name).toBe('root-pkg');
-	});
-});
-
-// === discoverPackageJson — field extraction
-
-describe('discoverPackageJson — field extraction', () => {
-	it('extracts all fields', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': JSON.stringify({
+			const result = await discoverPackageJson(adapter);
+			expect(result).toEqual({
 				name: '@scope/myapp',
 				version: '3.2.1',
 				description: 'My awesome app',
 				bin: { mycli: './dist/cli.js' },
-			}),
+			});
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result).toEqual({
-			name: '@scope/myapp',
-			version: '3.2.1',
-			description: 'My awesome app',
-			bin: { mycli: './dist/cli.js' },
+		it('handles string bin field', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					name: 'myapp',
+					bin: './dist/cli.js',
+				}),
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.bin).toBe('./dist/cli.js');
+		});
+
+		it('returns undefined for missing fields', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '{}',
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result).toEqual({});
+		});
+
+		it('ignores non-string name/version/description', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					name: 123,
+					version: true,
+					description: ['array'],
+				}),
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.name).toBeUndefined();
+			expect(result?.version).toBeUndefined();
+			expect(result?.description).toBeUndefined();
+		});
+
+		it('ignores bin with non-string values', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					name: 'myapp',
+					bin: { mycli: 123 },
+				}),
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.bin).toBeUndefined();
+		});
+
+		it('ignores array bin field', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					name: 'myapp',
+					bin: ['./dist/cli.js'],
+				}),
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.bin).toBeUndefined();
 		});
 	});
 
-	it('handles string bin field', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': JSON.stringify({
-				name: 'myapp',
-				bin: './dist/cli.js',
-			}),
+	// --- error resilience
+
+	describe('error resilience', () => {
+		it('returns null for malformed JSON', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '{bad json',
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result?.bin).toBe('./dist/cli.js');
-	});
+		it('returns null for array root', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '[1,2,3]',
+			});
 
-	it('returns undefined for missing fields', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': '{}',
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result).toEqual({});
-	});
+		it('returns null for string root', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '"just a string"',
+			});
 
-	it('ignores non-string name/version/description', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': JSON.stringify({
-				name: 123,
-				version: true,
-				description: ['array'],
-			}),
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result?.name).toBeUndefined();
-		expect(result?.version).toBeUndefined();
-		expect(result?.description).toBeUndefined();
-	});
+		it('returns null for null root', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': 'null',
+			});
 
-	it('ignores bin with non-string values', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': JSON.stringify({
-				name: 'myapp',
-				bin: { mycli: 123 },
-			}),
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result?.bin).toBeUndefined();
-	});
+		it('returns null for number root', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '42',
+			});
 
-	it('ignores array bin field', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': JSON.stringify({
-				name: 'myapp',
-				bin: ['./dist/cli.js'],
-			}),
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result?.bin).toBeUndefined();
-	});
-});
+		it('returns null when readFile throws (e.g. permission error)', async () => {
+			const adapter: PackageJsonAdapter = {
+				cwd: '/projects/myapp',
+				readFile: () => Promise.reject(new Error('EACCES: permission denied')),
+			};
 
-// === discoverPackageJson — error resilience
-
-describe('discoverPackageJson — error resilience', () => {
-	it('returns null for malformed JSON', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': '{bad json',
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
+		it('skips throwing directory and finds package.json in ancestor', async () => {
+			let calls = 0;
+			const adapter: PackageJsonAdapter = {
+				cwd: '/projects/myapp/src',
+				readFile: async (path: string) => {
+					calls++;
+					if (path === '/projects/myapp/src/package.json') {
+						throw new Error('EACCES: permission denied');
+					}
+					if (path === '/projects/myapp/package.json') {
+						return '{"name":"myapp","version":"2.0.0"}';
+					}
+					return null;
+				},
+			};
+
+			const result = await discoverPackageJson(adapter);
+			expect(result).not.toBeNull();
+			expect(result?.name).toBe('myapp');
+			expect(calls).toBeGreaterThanOrEqual(2);
+		});
 	});
 
-	it('returns null for array root', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': '[1,2,3]',
+	// --- Windows paths
+
+	describe('Windows paths', () => {
+		it('walks up Windows paths', async () => {
+			const adapter = createAdapter(
+				{
+					'C:\\Users\\dev\\package.json': '{"name":"win-app","version":"1.0.0"}',
+				},
+				'C:\\Users\\dev\\projects\\myapp',
+			);
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.name).toBe('win-app');
 		});
 
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
-	});
+		it('terminates at Windows drive root', async () => {
+			const adapter = createAdapter({}, 'C:\\Users\\dev');
 
-	it('returns null for string root', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': '"just a string"',
+			const result = await discoverPackageJson(adapter);
+			expect(result).toBeNull();
 		});
-
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
-	});
-
-	it('returns null for null root', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': 'null',
-		});
-
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
-	});
-
-	it('returns null for number root', async () => {
-		const adapter = createAdapter({
-			'/projects/myapp/package.json': '42',
-		});
-
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
-	});
-
-	it('returns null when readFile throws (e.g. permission error)', async () => {
-		const adapter: PackageJsonAdapter = {
-			cwd: '/projects/myapp',
-			readFile: () => Promise.reject(new Error('EACCES: permission denied')),
-		};
-
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
-	});
-
-	it('skips throwing directory and finds package.json in ancestor', async () => {
-		let calls = 0;
-		const adapter: PackageJsonAdapter = {
-			cwd: '/projects/myapp/src',
-			readFile: async (path: string) => {
-				calls++;
-				if (path === '/projects/myapp/src/package.json') {
-					throw new Error('EACCES: permission denied');
-				}
-				if (path === '/projects/myapp/package.json') {
-					return '{"name":"myapp","version":"2.0.0"}';
-				}
-				return null;
-			},
-		};
-
-		const result = await discoverPackageJson(adapter);
-		expect(result).not.toBeNull();
-		expect(result?.name).toBe('myapp');
-		expect(calls).toBeGreaterThanOrEqual(2);
-	});
-});
-
-// === discoverPackageJson — Windows paths
-
-describe('discoverPackageJson — Windows paths', () => {
-	it('walks up Windows paths', async () => {
-		const adapter = createAdapter(
-			{
-				'C:\\Users\\dev\\package.json': '{"name":"win-app","version":"1.0.0"}',
-			},
-			'C:\\Users\\dev\\projects\\myapp',
-		);
-
-		const result = await discoverPackageJson(adapter);
-		expect(result?.name).toBe('win-app');
-	});
-
-	it('terminates at Windows drive root', async () => {
-		const adapter = createAdapter({}, 'C:\\Users\\dev');
-
-		const result = await discoverPackageJson(adapter);
-		expect(result).toBeNull();
 	});
 });
 

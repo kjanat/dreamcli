@@ -1,39 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <!-- dreamcli install icon — optimized for home screen / app launcher use -->
-  <rect width="512" height="512" fill="#1F1C19" />
-  <rect x="24" y="24" width="464" height="464" rx="96" fill="#23201C" />
-  <rect
-    x="24"
-    y="24"
-    width="464"
-    height="464"
-    rx="96"
-    stroke="#D6A24A"
-    stroke-opacity="0.12"
-    stroke-width="2"
-  />
+	<!-- dreamcli install icon — optimized for home screen / app launcher use -->
+	<rect width="512" height="512" fill="#1F1C19" />
+	<rect x="24" y="24" width="464" height="464" rx="96" fill="#23201C" />
+	<rect
+		x="24"
+		y="24"
+		width="464"
+		height="464"
+		rx="96"
+		stroke="#D6A24A"
+		stroke-opacity="0.12"
+		stroke-width="2"
+	/>
 
-  <path
-    d="M232 80C130 140 130 372 232 432C198 370 198 142 232 80Z"
-    fill="#F4EEE2"
-    opacity="0.88"
-  />
-  <path
-    d="M280 80C382 140 382 372 280 432C314 370 314 142 280 80Z"
-    fill="#F4EEE2"
-    opacity="0.88"
-  />
-  <path
-    d="M220 56C100 122 100 390 220 456C178 382 178 130 220 56Z"
-    fill="#F4EEE2"
-    opacity="0.18"
-  />
-  <path
-    d="M292 56C412 122 412 390 292 456C334 382 334 130 292 56Z"
-    fill="#F4EEE2"
-    opacity="0.18"
-  />
+	<path
+		d="M232 80C130 140 130 372 232 432C198 370 198 142 232 80Z"
+		fill="#F4EEE2"
+		opacity="0.88"
+	/>
+	<path
+		d="M280 80C382 140 382 372 280 432C314 370 314 142 280 80Z"
+		fill="#F4EEE2"
+		opacity="0.88"
+	/>
+	<path
+		d="M220 56C100 122 100 390 220 456C178 382 178 130 220 56Z"
+		fill="#F4EEE2"
+		opacity="0.18"
+	/>
+	<path
+		d="M292 56C412 122 412 390 292 456C334 382 334 130 292 56Z"
+		fill="#F4EEE2"
+		opacity="0.18"
+	/>
 
-  <ellipse cx="256" cy="256" rx="30" ry="72" fill="#D6A24A" />
-  <ellipse cx="256" cy="256" rx="52" ry="102" fill="#D6A24A" opacity="0.08" />
+	<ellipse cx="256" cy="256" rx="30" ry="72" fill="#D6A24A" />
+	<ellipse cx="256" cy="256" rx="52" ry="102" fill="#D6A24A" opacity="0.08" />
 </svg>

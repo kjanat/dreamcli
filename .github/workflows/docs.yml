@@ -3,7 +3,14 @@ name: Docs
 on:
   push:
     branches: [master]
-    paths: [docs/**, .github/workflows/docs.yml]
+    paths:
+      - docs/**
+      - src/**
+      - examples/**
+      - scripts/**
+      - package.json
+      - tsconfig.json
+      - .github/workflows/docs.yml
   workflow_dispatch:
 
 permissions:
@@ -22,9 +29,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
+
       - run: bun install --frozen-lockfile
+
       - run: bun run docs:build
       - uses: actions/upload-pages-artifact@v4
         with: { path: docs/.vitepress/dist }
@@ -34,9 +43,5 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v5
+    environment: { name: github-pages, url: "${{ steps.deploy.outputs.page_url }}" }
+    steps: [{ id: deploy, uses: actions/deploy-pages@v5 }]

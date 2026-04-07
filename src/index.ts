@@ -12,10 +12,10 @@
  * not the typical starting point for application code.
  *
  * Test utilities (runCommand, createCaptureOutput, createTestPrompter, etc.)
- * are available from `dreamcli/testkit`. Runtime adapters (createAdapter,
- * RuntimeAdapter, etc.) are available from `dreamcli/runtime`.
+ * are available from `@kjanat/dreamcli/testkit`. Runtime adapters (createAdapter,
+ * RuntimeAdapter, etc.) are available from `@kjanat/dreamcli/runtime`.
  *
- * @module dreamcli
+ * @module @kjanat/dreamcli
  */
 
 export type {
@@ -35,6 +35,8 @@ export type { CompletionOptions, Shell } from './core/completion/index.ts';
 export {
 	generateBashCompletion,
 	generateCompletion,
+	generateFishCompletion,
+	generatePowerShellCompletion,
 	generateZshCompletion,
 	SHELLS,
 } from './core/completion/index.ts';
@@ -75,7 +77,11 @@ export {
 export type { HelpOptions } from './core/help/index.ts';
 export { formatHelp } from './core/help/index.ts';
 export type { JsonSchemaOptions } from './core/json-schema/index.ts';
-export { generateInputSchema, generateSchema } from './core/json-schema/index.ts';
+export {
+	definitionMetaSchema,
+	generateInputSchema,
+	generateSchema,
+} from './core/json-schema/index.ts';
 export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.ts';
 export { createOutput } from './core/output/index.ts';
 export type { ParseResult, Token } from './core/parse/index.ts';
