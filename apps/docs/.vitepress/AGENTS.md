@@ -19,14 +19,14 @@ cache/         # generated cache
 
 ## WHERE TO LOOK
 
-| Task                               | Location                                                                       | Notes                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- |
-| Sidebar, nav, examples sidebar     | `config.ts`, `data/examples.ts`                                                | `config.ts` calls `collectExampleMeta()`           |
-| API/reference pages                | `data/api-index.ts`, `typedoc.ts`, `symbol-pages.ts`                           | package exports -> TypeDoc -> symbol routes        |
-| Shared repo paths and source links | `data/paths.ts`                                                                | `DOCS_GIT_REF` override, else `git rev-parse HEAD` |
-| Schema/meta description pipeline   | `data/meta-schema-descriptions.ts`, `../../scripts/build-meta-descriptions.ts` | docs data feeds source generation                  |
-| Artifact copying                   | `vite-plugins/source-artifacts.ts`                                             | moves root schema into docs dist                   |
-| Theme interactivity                | `theme/`                                                                       | client-only toggles, mobile twoslash UX, Mermaid   |
+| Task                               | Location                                                                          | Notes                                              |
+| ---------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Sidebar, nav, examples sidebar     | `config.ts`, `data/examples.ts`                                                   | `config.ts` calls `collectExampleMeta()`           |
+| API/reference pages                | `data/api-index.ts`, `typedoc.ts`, `symbol-pages.ts`                              | package exports -> TypeDoc -> symbol routes        |
+| Shared repo paths and source links | `data/paths.ts`                                                                   | `DOCS_GIT_REF` override, else `git rev-parse HEAD` |
+| Schema/meta description pipeline   | `data/meta-schema-descriptions.ts`, `../../../scripts/build-meta-descriptions.ts` | docs data feeds source generation                  |
+| Artifact copying                   | `vite-plugins/source-artifacts.ts`                                                | moves root schema into docs dist                   |
+| Theme interactivity                | `theme/`                                                                          | client-only toggles, mobile twoslash UX, Mermaid   |
 
 ## CONVENTIONS
 

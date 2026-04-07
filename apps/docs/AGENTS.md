@@ -47,4 +47,4 @@ public/        # static assets
 ## NOTES
 
 - Root `dreamcli.schema.json` is required for docs and gets copied into site output during build
-- See `docs/.vitepress/AGENTS.md` for plugin, theme, and data-pipeline gotchas
+- See `.vitepress/AGENTS.md` for plugin, theme, and data-pipeline gotchas

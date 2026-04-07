@@ -7,5 +7,5 @@
 import { ghProject } from '#gh-project';
 
 if (import.meta.main) {
-	ghProject.run();
+	void ghProject.run();
 }

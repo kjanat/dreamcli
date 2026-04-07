@@ -13,7 +13,7 @@ interface VersionFile {
 
 function failToLoad(path: string, error: unknown): never {
 	const details = error instanceof Error ? error.message : String(error);
-	console.error(`\u2717 failed to load ${path}: ${details}`);
+	console.error(`✗ failed to load ${path}: ${details}`);
 	process.exit(1);
 }
 
@@ -37,19 +37,17 @@ const pkg = await readPackageJson();
 const deno = await readDenoJson();
 
 if (!pkg.version) {
-	console.error('\u2717 package.json missing "version"');
+	console.error('✗ package.json missing "version"');
 	process.exit(1);
 }
 if (!deno.version) {
-	console.error('\u2717 deno.json missing "version"');
+	console.error('✗ deno.json missing "version"');
 	process.exit(1);
 }
 
 if (pkg.version !== deno.version) {
-	console.error(
-		`\u2717 version mismatch \u2014 package.json: ${pkg.version}, deno.json: ${deno.version}`,
-	);
+	console.error(`✗ version mismatch — package.json: ${pkg.version}, deno.json: ${deno.version}`);
 	process.exit(1);
 }
 
-console.log(`\u2713 versions in sync: ${pkg.version}`);
+console.log(`✓ versions in sync: ${pkg.version}`);
