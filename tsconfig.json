@@ -36,8 +36,8 @@
 				"../../packages/dreamcli/src/testkit.ts"
 			],
 			"@kjanat/dreamcli/schema": [
-				"./packages/dreamcli/dreamcli.schema.json",
-				"../../packages/dreamcli/dreamcli.schema.json"
+				"./packages/dreamcli/src/schema.ts",
+				"../../packages/dreamcli/src/schema.ts"
 			],
 			"@kjanat/dreamcli/package.json": [
 				"./packages/dreamcli/package.json",

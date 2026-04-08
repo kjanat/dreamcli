@@ -7,7 +7,7 @@
 			"@kjanat/dreamcli": ["../../packages/dreamcli/src/index.ts"],
 			"@kjanat/dreamcli/runtime": ["../../packages/dreamcli/src/runtime.ts"],
 			"@kjanat/dreamcli/testkit": ["../../packages/dreamcli/src/testkit.ts"],
-			"@kjanat/dreamcli/schema": ["../../packages/dreamcli/dreamcli.schema.json"],
+			"@kjanat/dreamcli/schema": ["../../packages/dreamcli/src/schema.ts"],
 			"@kjanat/dreamcli/package.json": ["../../packages/dreamcli/package.json"]
 		}
 	},
