@@ -31,5 +31,5 @@
 			"@kjanat/dreamcli/package.json": ["./package.json"]
 		}
 	},
-	"exclude": ["**/dist", "**/node_modules"]
+	"exclude": ["**/dist", "**/node_modules", "**/*.tpl"]
 }

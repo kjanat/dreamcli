@@ -6,7 +6,7 @@
 	"hard_tabs": true,
 	"tab_size": 2,
 	"wrap_guides": [100],
-	"file_types": { "Markdown": ["LICENSE"] },
+	"file_types": { "Markdown": ["LICENSE"], "TypeScript": ["*.ts.tpl"] },
 	"prettier": { "allowed": false },
 	"formatter": [{ "language_server": { "name": "dprint" } }],
 	"languages": {

@@ -231,3 +231,5 @@ $RECYCLE.BIN/
 /dreamcli.schema.json
 /.bucket/
 .playwright-mcp/
+__pycache__
+.*_cache
