@@ -121,7 +121,6 @@ ${usageSection.join('\n')}
 ## Source
 
 ${codeFence}ts twoslash
-// @errors: 2307 2868
 ${example.sourceCode.replace(/^#!.*\n/, '').trimEnd()}
 ${codeFence}
 

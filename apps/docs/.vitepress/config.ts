@@ -5,6 +5,7 @@ import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
 import jsr from '../../../packages/dreamcli/deno.json' with { type: 'json' };
+import tsc from '../../../tsconfig.json' with { type: 'json' };
 import { collectPublicApiIndex } from './data/api-index.ts';
 import { collectExampleMeta } from './data/examples.ts';
 import { examplesRoot, packageJsonPath } from './data/paths.ts';
@@ -45,14 +46,15 @@ const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNot
 const isGithubActions = Boolean(env.GITHUB_ACTIONS);
 
 const compilerOptions = {
-	baseUrl: packageRoot,
+	baseUrl: projectRoot,
+	paths: tsc.compilerOptions?.paths ?? {},
 	moduleDetection: ModuleDetectionKind.Force,
 	module: ModuleKind.ESNext,
 	moduleResolution: ModuleResolutionKind.Bundler,
 	allowImportingTsExtensions: true,
 	noEmit: true,
 	resolveJsonModule: true,
-	types: ['bun', 'node', 'vue', 'vite/client', 'vitest/globals'],
+	typeRoots: [`${packageRoot}/node_modules/@types`, `${packageRoot}/node_modules`],
 };
 
 const links = {
