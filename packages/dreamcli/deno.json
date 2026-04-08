@@ -57,5 +57,5 @@
 	"fmt": { "exclude": ["**"] },
 	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
 	"nodeModulesDir": "manual",
-	"exclude": ["**/*.test.ts", "*.ts", "*cache/", "coverage/", "dist/", "scripts/"]
+	"exclude": ["**/*.test.ts", "*.ts", "*cache/", "coverage/", "dist/", "scripts/", "**/*.tpl"]
 }

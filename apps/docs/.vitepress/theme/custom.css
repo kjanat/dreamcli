@@ -31,6 +31,6 @@
 	color: var(--jsr-color);
 }
 
-.VPSocialLink [class^='vpi-social-'] {
+.VPSocialLink [class^="vpi-social-"] {
 	transition: color 0.25s;
 }

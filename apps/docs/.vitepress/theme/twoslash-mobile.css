@@ -3,19 +3,19 @@
 
 @media (hover: none) {
 	/*
-   * 1. Always show dotted underline on touch devices.
-   *    Upstream: underline only visible via `.twoslash:hover .twoslash-hover`
-   *    which never fires on touch. Making it permanent tells users "tap me".
-   */
+	 * 1. Always show dotted underline on touch devices.
+	 *    Upstream: underline only visible via `.twoslash:hover .twoslash-hover`
+	 *    which never fires on touch. Making it permanent tells users "tap me".
+	 */
 	.twoslash .twoslash-hover {
 		border-color: var(--twoslash-underline-color);
 	}
 
 	/*
-   * 2. Convert popup to a bottom sheet.
-   *    Upstream: absolute-positioned tooltip that clips and auto-hides on scroll.
-   *    Bottom sheet anchors to viewport, survives scroll, and is draggable.
-   */
+	 * 2. Convert popup to a bottom sheet.
+	 *    Upstream: absolute-positioned tooltip that clips and auto-hides on scroll.
+	 *    Bottom sheet anchors to viewport, survives scroll, and is draggable.
+	 */
 	.v-popper--theme-twoslash .v-popper__inner {
 		position: fixed !important;
 		bottom: 0 !important;
@@ -73,7 +73,7 @@
 }
 
 .twoslash-drag-handle::before {
-	content: '';
+	content: "";
 	width: 36px;
 	height: 4px;
 	border-radius: 2px;

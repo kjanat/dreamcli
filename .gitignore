@@ -231,3 +231,5 @@ $RECYCLE.BIN/
 
 /.bucket/
 .playwright-mcp/
+__pycache__
+.*_cache

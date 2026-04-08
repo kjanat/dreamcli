@@ -1,0 +1,4 @@
+interface:
+  display_name: "CLI Creation"
+  short_description: "Build typed DreamCLI consumer CLIs quickly"
+  default_prompt: "Use $cli-creation to scaffold a Bun-first DreamCLI CLI with tests."

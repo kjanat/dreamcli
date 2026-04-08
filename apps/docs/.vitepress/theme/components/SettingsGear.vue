@@ -269,9 +269,7 @@
 		border-radius: 999px;
 		background: var(--vp-c-bg-elv);
 		backdrop-filter: blur(12px);
-		box-shadow:
-			0 4px 24px rgba(0, 0, 0, 0.4),
-			0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
 		white-space: nowrap;
 	}
 
@@ -321,7 +319,7 @@
 	}
 
 	.toggle-track::after {
-		content: '';
+		content: "";
 		position: absolute;
 		top: 2px;
 		left: 2px;
@@ -329,9 +327,7 @@
 		height: 12px;
 		border-radius: 50%;
 		background: var(--vp-c-text-3);
-		transition:
-			transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-			background-color 0.3s var(--s-ease);
+		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s var(--s-ease);
 	}
 
 	.toggle-track.active {
@@ -393,9 +389,7 @@
 	}
 
 	.settings-dropdown-leave-active {
-		transition:
-			opacity 0.15s var(--s-ease),
-			transform 0.15s var(--s-ease);
+		transition: opacity 0.15s var(--s-ease), transform 0.15s var(--s-ease);
 	}
 
 	.settings-dropdown-enter-from {
