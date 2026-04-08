@@ -11,7 +11,14 @@ documentation generation, IDE integration, or config file validation.
 commands, flags, args, types, constraints, env bindings, prompts, and more.
 
 ```ts twoslash
-// @errors: 2591
+// @noErrors
+declare module 'node:fs' {
+  export function writeFileSync(
+    path: string,
+    data: string,
+  ): void;
+}
+// ---cut---
 import { writeFileSync } from 'node:fs';
 import {
   cli,
@@ -78,7 +85,14 @@ Full example output:
 validates CLI input as a JSON object — useful for config file validation.
 
 ```ts twoslash
-// @errors: 2591
+// @noErrors
+declare module 'node:fs' {
+  export function writeFileSync(
+    path: string,
+    data: string,
+  ): void;
+}
+// ---cut---
 import { writeFileSync } from 'node:fs';
 import {
   cli,

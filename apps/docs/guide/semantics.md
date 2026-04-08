@@ -187,7 +187,7 @@ Important masking rules:
 Example shape:
 
 ```mermaid
-flowchart TD
+flowchart LR
   root["root<br/>--verbose (propagate)"] -->|inherits| db["db<br/>--verbose (local, masks)"]
   db -->|blocked| migrate
 ```

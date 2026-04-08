@@ -204,6 +204,15 @@ export default defineConfig({
 					text: 'API Reference',
 					items: [
 						{ text: 'Overview', link: '/reference/api' },
+						{ text: '@kjanat/dreamcli', link: '/reference/main' },
+						{ text: '@kjanat/dreamcli/testkit', link: '/reference/testkit' },
+						{ text: '@kjanat/dreamcli/runtime', link: '/reference/runtime' },
+						{ text: '@kjanat/dreamcli/schema', link: '/reference/schema' },
+					],
+				},
+				{
+					text: 'Contracts And Audits',
+					items: [
 						{ text: 'Changelog', link: '/reference/changelog' },
 						{
 							text: 'Semantic Delta Log',
@@ -219,11 +228,7 @@ export default defineConfig({
 							text: 'Example Hover',
 							link: '/reference/example-hover-prototype',
 						},
-						{ text: 'Schema', link: '/reference/schema' },
 						{ text: 'Support Matrix', link: '/reference/support-matrix' },
-						{ text: '@kjanat/dreamcli', link: '/reference/main' },
-						{ text: '@kjanat/dreamcli/testkit', link: '/reference/testkit' },
-						{ text: '@kjanat/dreamcli/runtime', link: '/reference/runtime' },
 					],
 				},
 			],

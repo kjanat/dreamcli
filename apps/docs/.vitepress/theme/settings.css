@@ -38,3 +38,9 @@ div.language-mermaid button.copy,
 div.language-mermaid span.lang {
 	display: none;
 }
+
+/* Mermaid HTML labels should not inherit prose paragraph spacing/line-height. */
+div.mermaid .nodeLabel p {
+	margin: 0;
+	line-height: 1.3;
+}
