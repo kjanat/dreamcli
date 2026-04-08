@@ -1,11 +1,12 @@
 # Schema
 
-`@kjanat/dreamcli/schema` is the package's published JSON Schema export.
-It resolves to `dreamcli.schema.json`, the same definition schema referenced by
-`generateSchema()` output.
+`@kjanat/dreamcli/schema` is the package's published definition-schema export.\
+It resolves to the same schema referenced by `generateSchema()` output, with a package-target specific mapping:
 
-Use it when you want local or offline validation of dreamcli definition metadata without depending
-on the CDN `$schema` URL.
+- npm/package export (`package.json`): `./schema` -> `dreamcli.schema.json`
+- Deno/JSR export (`deno.json`): `./schema` -> `src/schema.ts` (which re-exports the same schema)
+
+Use it when you want local or offline validation of dreamcli definition metadata without depending on the CDN `$schema` URL.
 
 ## Importing The Schema
 
@@ -16,8 +17,9 @@ schema.$schema;
 schema.$defs.command;
 ```
 
-In TypeScript, this works with `resolveJsonModule`.
-At runtime, your loader needs to support JSON imports for the target environment.
+In TypeScript, this works with `resolveJsonModule`.\
+Runtime loading behavior depends on the host runtime export target (see notes above).
+For Node on the npm/package target, import with `with { type: 'json' }`.
 
 ## Common Uses
 
@@ -42,8 +44,7 @@ definition.$schema;
 schema.$id;
 ```
 
-`definition.$schema` points at the public schema URL, while the package export gives you the same
-definition locally from the installed package.
+`definition.$schema` points at the public schema URL, while the package export gives you the same definition locally from the installed package.
 
 ## Related Pages
 

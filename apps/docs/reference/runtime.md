@@ -60,10 +60,10 @@ const runtime: Runtime = detectRuntime();
 
 ## Supported Runtimes
 
-| Runtime            | Adapter       | Notes                          |
-| ------------------ | ------------- | ------------------------------ |
-| Node.js >= 22.22.2 | `NodeAdapter` | Full support                   |
-| Bun >= 1.3.11      | `BunAdapter`  | Delegates to Node adapter      |
-| Deno >= 2.6.0      | `DenoAdapter` | Permission-safe Deno namespace |
+| Runtime                 | Adapter       | Notes                          |
+| ----------------------- | ------------- | ------------------------------ |
+| Node.js >=\u00a022.22.2 | `NodeAdapter` | Full support                   |
+| Bun >=\u00a01.3.11      | `BunAdapter`  | Delegates to Node adapter      |
+| Deno >=\u00a02.6.0      | `DenoAdapter` | Permission-safe Deno namespace |
 
 Adapter creation validates these minimum versions and throws immediately when the host runtime is too old.

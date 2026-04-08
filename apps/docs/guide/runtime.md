@@ -5,11 +5,11 @@ A thin `RuntimeAdapter` interface abstracts the platform-specific edges.
 
 ## Supported Runtimes
 
-| Runtime            | Status    | Package                  |
-| ------------------ | --------- | ------------------------ |
-| Node.js >= 22.22.2 | Supported | `@kjanat/dreamcli` (npm) |
-| Bun >= 1.3.11      | Supported | `@kjanat/dreamcli` (npm) |
-| Deno >= 2.6.0      | Supported | `@kjanat/dreamcli` (JSR) |
+| Runtime                 | Status    | Package                  |
+| ----------------------- | --------- | ------------------------ |
+| Node.js >=\u00a022.22.2 | Supported | `@kjanat/dreamcli` (npm) |
+| Bun >=\u00a01.3.11      | Supported | `@kjanat/dreamcli` (npm) |
+| Deno >=\u00a02.6.0      | Supported | `@kjanat/dreamcli` (JSR) |
 
 Adapters validate these minimum versions during creation.
 Unsupported runtimes fail fast with a descriptive error before command execution starts.

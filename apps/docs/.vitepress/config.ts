@@ -121,14 +121,6 @@ export default defineConfig({
 			{ text: 'Guide', link: '/guide/getting-started' },
 			{ text: 'Examples', link: '/examples/' },
 			{ text: 'Reference', link: '/reference/api' },
-			{
-				text: 'Links',
-				items: [
-					{ text: 'GitHub', link: links.github },
-					{ text: 'npm', link: links.npm },
-					{ text: 'JSR', link: links.jsr },
-				],
-			},
 		],
 		sidebar: {
 			'/concepts/': [
