@@ -51,6 +51,7 @@ Add YAML, TOML, or any other format via `configFormat()`:
 ::: code-group
 
 ```ts twoslash [Bun built-ins]
+// @errors: 2868
 import { cli, configFormat } from '@kjanat/dreamcli';
 
 cli('mycli')
@@ -63,6 +64,7 @@ cli('mycli')
 ```
 
 ```ts twoslash [npm packages]
+// @errors: 2307
 import { cli, configFormat } from '@kjanat/dreamcli';
 import { parse as parseYaml } from 'yaml';
 import { parse as parseTOML } from '@iarna/toml';

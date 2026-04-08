@@ -650,13 +650,14 @@ When piped or in `--json` mode, spinners are suppressed automatically — no gar
 
 ## Step 10: Testing
 
-This is where it gets interesting.
+This is where it gets interesting.\
 You don't want to spawn subprocesses to test a CLI. dreamcli's testkit lets you run commands in-process with full control:
 
 ```ts twoslash
 import { runCommand } from '@kjanat/dreamcli/testkit';
 // ---cut-start---
 import { prList } from './examples/gh/src/docs.ts';
+import './apps/docs/.vitepress/twoslash/testing-fixtures.ts';
 // ---cut-end---
 
 // Test that pr list returns open PRs by default
@@ -677,6 +678,7 @@ import {
   issueTriage,
   prList,
 } from './examples/gh/src/docs.ts';
+import './apps/docs/.vitepress/twoslash/testing-fixtures.ts';
 // ---cut-end---
 
 // Test that derive blocks unauthenticated access

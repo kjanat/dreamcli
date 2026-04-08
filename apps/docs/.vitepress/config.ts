@@ -46,7 +46,6 @@ const isGithubActions = Boolean(env.GITHUB_ACTIONS);
 
 const compilerOptions = {
 	baseUrl: packageRoot,
-	lib: ['ESNext'],
 	moduleDetection: ModuleDetectionKind.Force,
 	module: ModuleKind.ESNext,
 	moduleResolution: ModuleResolutionKind.Bundler,

@@ -348,6 +348,7 @@ Build the default search-path list dreamcli uses for config discovery. This is m
 debugging, custom bootstrapping, or help text that wants to show the exact probed paths.
 
 ```ts twoslash
+// @errors: 2591
 import { buildConfigSearchPaths } from '@kjanat/dreamcli';
 
 const paths = buildConfigSearchPaths(

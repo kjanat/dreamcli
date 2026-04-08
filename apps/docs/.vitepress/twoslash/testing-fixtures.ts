@@ -1,5 +1,28 @@
 import { arg, command, flag } from '@kjanat/dreamcli';
 
+/**
+ * Vitest globals shim — vitest/globals provides these at
+ * runtime but Twoslash can't resolve the package.
+ */
+declare global {
+  interface ExpectResult {
+    toBe(expected: unknown): void;
+    toEqual(expected: unknown): void;
+    toContain(expected: unknown): void;
+    toContainEqual(expected: unknown): void;
+    toBeInstanceOf(expected: unknown): void;
+    toBeUndefined(): void;
+    not: ExpectResult;
+  }
+  interface Expect {
+    (value: unknown): ExpectResult;
+    objectContaining(
+      sample: Record<string, unknown>,
+    ): unknown;
+  }
+  const expect: Expect;
+}
+
 export const greet = command('greet')
   .arg('name', arg.string())
   .flag('loud', flag.boolean())

@@ -37,6 +37,7 @@ Good luck doing that with shell scripts.
 Run the actual compiled binary as a child process:
 
 ```ts twoslash
+// @noErrors
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
