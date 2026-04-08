@@ -1,5 +1,5 @@
 {
-	"name": "@kjanat/dreamcli",
+	"name": "dreamcli",
 	"short_name": "dreamcli",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"start_url": "/",

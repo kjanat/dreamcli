@@ -1,11 +1,5 @@
 {
 	"extends": "../../tsconfig.json",
-	"compilerOptions": {
-		"paths": {
-			"@kjanat/dreamcli": ["../../packages/dreamcli/src/index.ts"],
-			"@kjanat/dreamcli/testkit": ["../../packages/dreamcli/src/testkit.ts"],
-			"@kjanat/dreamcli/runtime": ["../../packages/dreamcli/src/runtime.ts"]
-		}
-	},
+	"compilerOptions": {},
 	"include": ["src"]
 }

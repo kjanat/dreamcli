@@ -10,8 +10,9 @@ import { basename, extname, join, relative } from 'node:path';
 import { gitRef } from './paths.ts';
 import { toSymbolPageRoute } from './symbol-pages.ts';
 
-const codeFence = '```';
-const codeSnippet = (content: string): string => `\`${content}\``;
+const backTick = '`';
+const codeFence = `${backTick}${backTick}${backTick}`;
+const codeSnippet = (content: string): string => `${backTick}${content}${backTick}`;
 
 export interface ExampleRelatedSymbol {
 	entrypoint: string;
@@ -94,9 +95,9 @@ export function renderExamplePage(example: ExampleEntry): string {
 	const usageSection =
 		example.usage.length === 0
 			? ['No usage snippets declared in the example docblock.', '']
-			: ['```bash', ...example.usage, '```', ''];
+			: [`${codeFence}bash`, ...example.usage, codeFence, ''];
 	const symbolLinks = example.relatedSymbols.map(
-		(symbol) => `- [\`${symbol.name}\`](${symbol.href})`,
+		(symbol) => `- [${backTick}${symbol.name}${backTick}](${symbol.href})`,
 	);
 	const relatedLinks = [
 		'- [Examples overview](/examples/)',

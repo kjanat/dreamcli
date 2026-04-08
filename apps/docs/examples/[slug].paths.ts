@@ -7,8 +7,11 @@
  * @module
  */
 
-import { collectExamples, renderExamplePage } from '../.vitepress/data/examples.ts';
-import { examplesRoot, rootDirPath } from '../.vitepress/data/paths.ts';
+import {
+	collectExamples,
+	renderExamplePage,
+} from '@kjanat/dreamcli-docs/vitepress/data/examples.ts';
+import { examplesRoot, rootDirPath } from '@kjanat/dreamcli-docs/vitepress/data/paths.ts';
 
 export default {
 	watch: ['../../examples/**/*.ts'],

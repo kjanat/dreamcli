@@ -10,6 +10,7 @@ import '@shikijs/vitepress-twoslash/style.css';
 import 'virtual:shiki-class.css';
 import './twoslash-mobile.css';
 import './settings.css';
+import './custom.css';
 import SettingsGear from './components/SettingsGear.vue';
 import type { Runtime } from './composables/use-doc-settings.ts';
 import { useDocSettings } from './composables/use-doc-settings.ts';

@@ -23,13 +23,15 @@
 	],
 	"scripts": {
 		"start": "bun src/main.ts",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsgo --noEmit",
+		"typecheck:tsc": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@kjanat/dreamcli": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",
+		"@typescript/native-preview": "catalog:",
 		"typescript": "catalog:"
 	}
 }

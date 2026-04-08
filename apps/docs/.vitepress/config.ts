@@ -4,8 +4,7 @@ import pkg from '@kjanat/dreamcli/package.json' with { type: 'json' };
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
-import pkgTsc from '../../../packages/dreamcli/tsconfig.json' with { type: 'json' };
-import baseTsc from '../../../tsconfig.json' with { type: 'json' };
+import jsr from '../../../packages/dreamcli/deno.json' with { type: 'json' };
 import { collectPublicApiIndex } from './data/api-index.ts';
 import { collectExampleMeta } from './data/examples.ts';
 import { examplesRoot, packageJsonPath } from './data/paths.ts';
@@ -47,25 +46,24 @@ const isGithubActions = Boolean(env.GITHUB_ACTIONS);
 
 const compilerOptions = {
 	baseUrl: packageRoot,
-	lib: baseTsc.compilerOptions?.lib ?? ['ESNext'],
-	paths: pkgTsc.compilerOptions?.paths ?? {},
+	lib: ['ESNext'],
 	moduleDetection: ModuleDetectionKind.Force,
 	module: ModuleKind.ESNext,
 	moduleResolution: ModuleResolutionKind.Bundler,
-	allowImportingTsExtensions: baseTsc.compilerOptions?.allowImportingTsExtensions,
+	allowImportingTsExtensions: true,
 	noEmit: true,
-	resolveJsonModule: baseTsc.compilerOptions?.resolveJsonModule,
-	types: [...(pkgTsc.compilerOptions?.types ?? []), 'vitest/globals'],
+	resolveJsonModule: true,
+	types: ['bun', 'node', 'vue', 'vite/client', 'vitest/globals'],
 };
 
 const links = {
 	github: pkg.repository.url.replace(/^git[+]/, ''),
-	npm: 'https://www.npmjs.com/package/@kjanat/dreamcli',
-	jsr: 'https://jsr.io/@kjanat/dreamcli',
+	npm: `https://www.npmjs.com/package/${pkg.name}`,
+	jsr: `https://jsr.io/${pkg.name}`,
 } as const;
 
 export default defineConfig({
-	title: pkg.name,
+	title: 'dreamcli',
 	description: pkg.description,
 	cleanUrls: true,
 	base: isGithubActions ? '/dreamcli' : '/',
@@ -229,7 +227,11 @@ export default defineConfig({
 				},
 			],
 		},
-		socialLinks: [{ icon: 'github', link: links.github, ariaLabel: 'GitHub' }],
+		socialLinks: [
+			{ icon: 'github', link: links.github, ariaLabel: 'GitHub' },
+			{ icon: 'npm', link: `https://npm.im/${pkg.name}`, ariaLabel: 'NPM' },
+			{ icon: 'jsr', link: `https://jsr.io/${jsr.name}`, ariaLabel: 'JSR' },
+		],
 		search: { provider: 'local' },
 		footer: {
 			message: `Released under the ${pkg.license} License.`,

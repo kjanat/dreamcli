@@ -7,8 +7,11 @@
  * @module
  */
 
-import { collectExamples, type ExampleEntry } from '../.vitepress/data/examples.ts';
-import { examplesRoot, rootDirPath } from '../.vitepress/data/paths.ts';
+import {
+	collectExamples,
+	type ExampleEntry,
+} from '@kjanat/dreamcli-docs/vitepress/data/examples.ts';
+import { examplesRoot, rootDirPath } from '@kjanat/dreamcli-docs/vitepress/data/paths.ts';
 
 export type ExampleIndexEntry = Pick<
 	ExampleEntry,

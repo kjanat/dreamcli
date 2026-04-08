@@ -8,11 +8,19 @@
 		"directory": "examples/standalone"
 	},
 	"type": "module",
+	"files": [
+		"*.ts"
+	],
+	"scripts": {
+		"typecheck": "tsgo --noEmit",
+		"typecheck:tsc": "tsc --noEmit"
+	},
 	"dependencies": {
 		"@kjanat/dreamcli": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",
+		"@typescript/native-preview": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	}

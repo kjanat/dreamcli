@@ -147,25 +147,25 @@
 					data-settings-option
 					@click="toggleTwoslash"
 				>
-					<span>Type hovers</span>
 					<span class="toggle-track" :class="{ active: settings.twoslash }" />
+					<span class="toggle-label">Types</span>
 				</button>
 
-				<div class="runtime-options">
-					<button
-						v-for="rt in runtimes"
-						:key="rt.value"
-						class="runtime-option"
-						type="button"
-						:class="{ active: settings.runtime === rt.value }"
-						role="menuitemradio"
-						:aria-checked="settings.runtime === rt.value"
-						data-settings-option
-						@click="setRuntime(rt.value)"
-					>
-						<span>{{ rt.label }}</span>
-					</button>
-				</div>
+				<span class="divider" />
+
+				<button
+					v-for="rt in runtimes"
+					:key="rt.value"
+					class="runtime-option"
+					type="button"
+					:class="{ active: settings.runtime === rt.value }"
+					role="menuitemradio"
+					:aria-checked="settings.runtime === rt.value"
+					data-settings-option
+					@click="setRuntime(rt.value)"
+				>
+					<span>{{ rt.short }}</span>
+				</button>
 			</div>
 		</Transition>
 	</div>
@@ -179,6 +179,16 @@
 		--s-radius: 8px;
 		--s-radius-sm: 6px;
 		--s-accent: var(--vp-c-brand-1);
+
+		/* gear animation */
+		--s-hover-rotate: 30deg;
+		--s-hover-circle-scale: 1.2;
+		--s-open-rotate: 360deg;
+		--s-open-circle-scale: 0.8;
+		--s-open-duration: 0.5s;
+		--s-open-ease: cubic-bezier(0, 0.7, 0.3, 1);
+		--s-close-duration: 0.6s;
+		--s-close-ease: cubic-bezier(0.2, 0, 0, 1);
 
 		position: relative;
 		display: flex;
@@ -195,25 +205,55 @@
 		border: none;
 		border-radius: var(--s-radius);
 		background: transparent;
-		color: var(--vp-c-text-2);
+		color: var(--vp-c-text-1);
 		cursor: pointer;
-		transition:
-			color var(--s-duration) var(--s-ease),
-			background-color var(--s-duration) var(--s-ease);
+		transition: color var(--s-duration) var(--s-ease);
+	}
+
+	@media (min-width: 768px) {
+		.settings-gear-btn {
+			color: var(--vp-c-text-2);
+		}
 	}
 
 	.settings-gear-btn svg {
+		transition: transform var(--s-close-duration) var(--s-close-ease);
+	}
+
+	.settings-gear-btn svg path {
 		transition: transform var(--s-duration) var(--s-ease);
+		transform-origin: 12px 12px;
+	}
+
+	.settings-gear-btn svg circle {
+		transition: transform var(--s-duration) var(--s-ease);
+		transform-origin: 12px 12px;
+	}
+
+	.settings-gear-btn:hover svg path {
+		transform: rotate(var(--s-hover-rotate));
+	}
+
+	.settings-gear-btn:hover svg circle {
+		transform: scale(var(--s-hover-circle-scale));
 	}
 
 	.settings-gear.open .settings-gear-btn svg {
-		transform: rotate(60deg);
+		transform: rotate(var(--s-open-rotate));
+		transition: transform var(--s-open-duration) var(--s-open-ease);
+	}
+
+	.settings-gear.open .settings-gear-btn svg circle {
+		transform: scale(var(--s-open-circle-scale));
+	}
+
+	.settings-gear.open .settings-gear-btn:hover svg path {
+		transform: rotate(calc(var(--s-hover-rotate) * -1));
 	}
 
 	.settings-gear-btn:hover,
 	.settings-gear.open .settings-gear-btn {
 		color: var(--vp-c-text-1);
-		background: var(--vp-c-default-soft);
 	}
 
 	.settings-dropdown {
@@ -222,36 +262,41 @@
 		right: 0;
 		z-index: 100;
 		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		min-width: 170px;
-		padding: 8px;
+		align-items: center;
+		gap: 0;
+		padding: 4px;
 		border: 1px solid var(--vp-c-border);
-		border-radius: 10px;
+		border-radius: 999px;
 		background: var(--vp-c-bg-elv);
-		box-shadow: var(--vp-shadow-3);
+		backdrop-filter: blur(12px);
+		box-shadow:
+			0 4px 24px rgba(0, 0, 0, 0.4),
+			0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+		white-space: nowrap;
 	}
 
-	/* --- Toggle switch --- */
+	/* --- Toggle --- */
 
 	.settings-toggle {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		width: 100%;
-		padding: 4px 6px;
+		gap: 6px;
+		padding: 6px 10px;
 		border: none;
-		border-radius: var(--s-radius-sm);
+		border-radius: 999px;
 		background: transparent;
 		cursor: pointer;
 		font: inherit;
-		font-size: 13px;
-		color: var(--vp-c-text-1);
-		text-align: left;
-		transition: background-color var(--s-duration) var(--s-ease);
+		font-size: 11px;
+		font-weight: 500;
+		color: var(--vp-c-text-2);
+		transition:
+			color var(--s-duration) var(--s-ease),
+			background-color var(--s-duration) var(--s-ease);
 	}
 
 	.settings-toggle:hover {
+		color: var(--vp-c-text-1);
 		background: var(--vp-c-default-soft);
 	}
 
@@ -261,13 +306,17 @@
 		outline-offset: 2px;
 	}
 
+	.toggle-label {
+		user-select: none;
+	}
+
 	.toggle-track {
 		position: relative;
-		width: 32px;
-		height: 18px;
-		border-radius: 9px;
+		width: 28px;
+		height: 16px;
+		border-radius: 8px;
 		background: var(--vp-c-default-soft);
-		transition: background-color var(--s-duration) var(--s-ease);
+		transition: background-color 0.3s var(--s-ease);
 		flex-shrink: 0;
 	}
 
@@ -276,13 +325,13 @@
 		position: absolute;
 		top: 2px;
 		left: 2px;
-		width: 14px;
-		height: 14px;
+		width: 12px;
+		height: 12px;
 		border-radius: 50%;
 		background: var(--vp-c-text-3);
 		transition:
-			transform var(--s-duration) var(--s-ease),
-			background-color var(--s-duration) var(--s-ease);
+			transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+			background-color 0.3s var(--s-ease);
 	}
 
 	.toggle-track.active {
@@ -290,33 +339,33 @@
 	}
 
 	.toggle-track.active::after {
-		transform: translateX(14px);
+		transform: translateX(12px);
 		background: white;
 	}
 
-	/* --- Segmented control --- */
+	/* --- Divider --- */
 
-	.runtime-options {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		padding: 3px;
-		border-radius: var(--s-radius);
-		background: var(--vp-c-default-soft);
+	.divider {
+		width: 1px;
+		height: 16px;
+		margin: 0 2px;
+		background: var(--vp-c-divider);
+		flex-shrink: 0;
 	}
+
+	/* --- Runtime pills --- */
 
 	.runtime-option {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 100%;
-		padding: 5px 8px;
+		padding: 6px 10px;
 		border: none;
-		border-radius: var(--s-radius-sm);
+		border-radius: 999px;
 		background: transparent;
 		cursor: pointer;
 		font: inherit;
-		font-size: 12px;
+		font-size: 11px;
 		color: var(--vp-c-text-2);
 		font-family: var(--vp-font-family-mono);
 		transition:
@@ -327,26 +376,35 @@
 
 	.runtime-option:hover {
 		color: var(--vp-c-text-1);
+		background: var(--vp-c-default-soft);
 	}
 
 	.runtime-option.active {
-		background: var(--vp-c-bg-elv);
-		color: var(--vp-c-text-1);
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		background: var(--vp-c-brand-soft);
+		color: var(--s-accent);
 	}
 
 	/* --- Transition --- */
 
-	.settings-dropdown-enter-active,
-	.settings-dropdown-leave-active {
+	.settings-dropdown-enter-active {
 		transition:
-			opacity var(--s-duration) var(--s-ease),
-			transform var(--s-duration) var(--s-ease);
+			opacity 0.25s cubic-bezier(0, 0, 0.2, 1),
+			transform 0.25s cubic-bezier(0, 0, 0.2, 1);
 	}
 
-	.settings-dropdown-enter-from,
+	.settings-dropdown-leave-active {
+		transition:
+			opacity 0.15s var(--s-ease),
+			transform 0.15s var(--s-ease);
+	}
+
+	.settings-dropdown-enter-from {
+		opacity: 0;
+		transform: translateY(-6px) scale(0.95);
+	}
+
 	.settings-dropdown-leave-to {
 		opacity: 0;
-		transform: translateY(-4px);
+		transform: translateY(-3px);
 	}
 </style>

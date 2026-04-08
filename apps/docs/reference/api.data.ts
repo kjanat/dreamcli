@@ -7,9 +7,9 @@
  * @module
  */
 
-import type { PublicApiEntrypoint } from '../.vitepress/data/api-index.ts';
-import { countPublicApiSymbols } from '../.vitepress/data/api-index.ts';
-import { loadReferenceModel } from '../.vitepress/data/reference-model.ts';
+import type { PublicApiEntrypoint } from '@kjanat/dreamcli-docs/vitepress/data/api-index.ts';
+import { countPublicApiSymbols } from '@kjanat/dreamcli-docs/vitepress/data/api-index.ts';
+import { loadReferenceModel } from '@kjanat/dreamcli-docs/vitepress/data/reference-model.ts';
 
 export interface SymbolPageEntry {
 	id: string;

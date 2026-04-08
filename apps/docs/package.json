@@ -11,11 +11,18 @@
 	"imports": {
 		"#dreamcli/testkit": "@kjanat/dreamcli/testkit"
 	},
+	"exports": {
+		"./*": "./*",
+		"./dist/*": "./.vitepress/dist/*",
+		"./vitepress/*": "./.vitepress/*"
+	},
 	"scripts": {
 		"build": "bunx --bun vitepress@next build",
 		"dev": "bunx --bun vitepress@next dev",
 		"preview": "bunx --bun vitepress@next preview",
-		"test": "vitest run"
+		"test": "vitest run",
+		"typecheck": "tsgo --noEmit",
+		"typecheck:tsc": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@kjanat/dreamcli": "workspace:*"
@@ -24,12 +31,16 @@
 		"@shikijs/transformers": "catalog:",
 		"@shikijs/vitepress-twoslash": "catalog:",
 		"@types/bun": "catalog:",
+		"@types/node": "catalog:",
+		"@typescript/native-preview": "catalog:",
 		"floating-vue": "catalog:",
 		"mermaid": "catalog:",
+		"tsx": "catalog:",
 		"typedoc": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
 		"vitepress": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"vue": "catalog:"
 	}
 }

@@ -7,9 +7,9 @@
 import { ref, watch } from 'vue';
 
 export const runtimes = [
-	{ value: 'npx tsx', label: 'npx tsx (Node)' },
-	{ value: 'bun', label: 'bun' },
-	{ value: 'deno run -A', label: 'deno run -A' },
+	{ value: 'npx tsx', label: 'npx tsx (Node)', short: 'tsx' },
+	{ value: 'bun', label: 'bun', short: 'bun' },
+	{ value: 'deno run -A', label: 'deno run -A', short: 'deno' },
 ] as const;
 
 export type Runtime = (typeof runtimes)[number]['value'];

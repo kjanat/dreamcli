@@ -35,44 +35,46 @@ features:
       dark: /icons/resolution-chain-dark.svg
       height: 48
     title: Resolution Chain
-    details: CLI → env → config → prompt → default. Every step opt-in. Every step preserves types.
+    details: <code>CLI → env → config → prompt → default</code><br> Every step opt-in. Every step preserves types.
   - icon:
       light: /icons/test-harness-light.svg
       dark: /icons/test-harness-dark.svg
       height: 48
     title: Built-in Test Harness
-    details: Run commands in-process with full control. No subprocesses, no process.argv mutation.
+    details: Run commands in-process with full control.<br> No subprocesses, no <code>process.argv</code> mutation.
   - icon:
       light: /icons/middleware-light.svg
       dark: /icons/middleware-dark.svg
       height: 48
     title: Typed Middleware
-    details: Context accumulates through the middleware chain via type intersection. No manual interface merging.
+    details: Context accumulates through the middleware chain via type intersection.<br> No manual interface merging.
   - icon:
       light: /icons/zero-deps-light.svg
       dark: /icons/zero-deps-dark.svg
       height: 48
     title: Zero Dependencies
-    details: Lean core with no runtime dependencies. ESM-only. Runs on Node, Bun, and Deno.
+    details: Lean core with no runtime dependencies.<br> ESM-only. Runs on Node, Bun, and Deno.
   - icon:
       light: /icons/structured-output-light.svg
       dark: /icons/structured-output-dark.svg
       height: 48
     title: Structured Output
-    details: 'Spinners, progress bars, tables, JSON mode. Adapts automatically: TTY → pretty, piped → stable.'
+    details: 'Spinners, progress bars, tables, JSON mode. Adapts automatically:<br><code>TTY → pretty, piped → stable</code>'
 ---
 
 <style>
-:root {
-  --vp-home-hero-name-color: #2b2b2b;
-  --vp-home-hero-name-background: none;
-  --vp-c-brand-1: #D6A24A;
-  --vp-c-brand-2: #c4922e;
-  --vp-c-brand-3: #b0841e;
-  --vp-c-brand-soft: rgba(214, 162, 74, 0.14);
-}
+	:root {
+		--vp-c-brand-1: #d6a24a;
+		--vp-c-brand-2: #c4922e;
+		--vp-c-brand-3: #b0841e;
+		--vp-c-brand-light: #f0d08c;
+		--vp-c-brand-soft: rgba(214, 162, 74, 0.14);
+		--vp-home-hero-name-color: transparent;
+		--vp-home-hero-name-background: linear-gradient(135deg, var(--vp-c-brand-3) 30%, var(--vp-c-brand-1));
+	}
 
-.dark {
-  --vp-home-hero-name-color: #e8e8e8;
-}
+	.dark {
+		--vp-home-hero-name-color: transparent;
+		--vp-home-hero-name-background: linear-gradient(135deg, var(--vp-c-brand-1) 30%, var(--vp-c-brand-light));
+	}
 </style>

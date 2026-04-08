@@ -14,7 +14,7 @@ jobs:
       - name: Resolve metadata and validate release tag
         id: version
         env: { RELEASE_TAG: "${{ github.event.release.tag_name }}" }
-        run: bash scripts/release-meta.sh npm
+        run: node scripts/release-meta.ts npm
 
   build:
     name: Build

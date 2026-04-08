@@ -49,7 +49,7 @@
 		"endOfLine": "lf",
 		"associations": ["**/README.md", "**/docs/**/*.md", "**/.vitepress/twoslash/*.ts"]
 	},
-	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots"],
+	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots", "**/*.schema.json"],
 	"plugins": [
 		"https://plugins.dprint.dev/biome-0.12.6.wasm",
 		"https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",
