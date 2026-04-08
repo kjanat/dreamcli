@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-
 /**
  * Rebuild `src/core/json-schema/meta-descriptions.generated.ts`.
  *
@@ -13,16 +12,16 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { collectPublicApiIndex } from '../docs/.vitepress/data/api-index.ts';
+import { collectPublicApiIndex } from '@kjanat/dreamcli-docs/vitepress/data/api-index.ts';
 import {
 	buildDefinitionMetaSchemaDescriptions,
 	renderDefinitionMetaSchemaDescriptions,
-} from '../docs/.vitepress/data/meta-schema-descriptions.ts';
+} from '@kjanat/dreamcli-docs/vitepress/data/meta-schema-descriptions.ts';
 import {
 	generatedMetaSchemaDescriptionsPath,
 	packageJsonPath,
-} from '../docs/.vitepress/data/paths.ts';
-import { collectTypeDocModel } from '../docs/.vitepress/data/typedoc.ts';
+} from '@kjanat/dreamcli-docs/vitepress/data/paths.ts';
+import { collectTypeDocModel } from '@kjanat/dreamcli-docs/vitepress/data/typedoc.ts';
 
 const publicApi = await collectPublicApiIndex(packageJsonPath);
 const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);

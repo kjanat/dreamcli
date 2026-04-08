@@ -19,17 +19,17 @@ function failToLoad(path: string, error: unknown): never {
 
 async function readPackageJson(): Promise<VersionFile> {
 	try {
-		return (await Bun.file('package.json').json()) as VersionFile;
+		return (await Bun.file('packages/dreamcli/package.json').json()) as VersionFile;
 	} catch (error) {
-		return failToLoad('package.json', error);
+		return failToLoad('packages/dreamcli/package.json', error);
 	}
 }
 
 async function readDenoJson(): Promise<VersionFile> {
 	try {
-		return (await Bun.file('deno.json').json()) as VersionFile;
+		return (await Bun.file('packages/dreamcli/deno.json').json()) as VersionFile;
 	} catch (error) {
-		return failToLoad('deno.json', error);
+		return failToLoad('packages/dreamcli/deno.json', error);
 	}
 }
 

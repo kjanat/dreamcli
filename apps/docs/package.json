@@ -1,0 +1,46 @@
+{
+	"name": "@kjanat/dreamcli-docs",
+	"version": "0.0.0",
+	"private": true,
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/kjanat/dreamcli.git",
+		"directory": "apps/docs"
+	},
+	"type": "module",
+	"imports": {
+		"#dreamcli/testkit": "@kjanat/dreamcli/testkit"
+	},
+	"exports": {
+		"./*": "./*",
+		"./dist/*": "./.vitepress/dist/*",
+		"./vitepress/*": "./.vitepress/*"
+	},
+	"scripts": {
+		"build": "bunx --bun vitepress@next build",
+		"dev": "bunx --bun vitepress@next dev",
+		"preview": "bunx --bun vitepress@next preview",
+		"test": "vitest run",
+		"typecheck": "tsgo --noEmit",
+		"typecheck:tsc": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@kjanat/dreamcli": "workspace:*"
+	},
+	"devDependencies": {
+		"@shikijs/transformers": "catalog:",
+		"@shikijs/vitepress-twoslash": "catalog:",
+		"@types/bun": "catalog:",
+		"@types/node": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"floating-vue": "catalog:",
+		"mermaid": "catalog:",
+		"tsx": "catalog:",
+		"typedoc": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitepress": "catalog:",
+		"vitest": "catalog:",
+		"vue": "catalog:"
+	}
+}

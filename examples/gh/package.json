@@ -20,14 +20,17 @@
 	"scripts": {
 		"bd": "bun run build",
 		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external @kjanat/dreamcli",
+		"start": "bun src/main.ts",
 		"test": "bun test",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsgo --noEmit",
+		"typecheck:tsc": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@kjanat/dreamcli": "link:@kjanat/dreamcli"
+		"@kjanat/dreamcli": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",
+		"@typescript/native-preview": "catalog:",
 		"typescript": "catalog:"
 	},
 	"packageManager": "bun@1.3.11",

@@ -2,6 +2,11 @@
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"tags": ["-lintignore"],
 	"workspaces": {
-		".": {}
+		".": {},
+		"packages/dreamcli": {},
+		"apps/docs": {},
+		"tools/gh-project": {},
+		"examples/standalone": {},
+		"examples/gh": {}
 	}
 }

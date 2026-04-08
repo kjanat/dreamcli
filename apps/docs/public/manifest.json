@@ -1,0 +1,23 @@
+{
+	"name": "dreamcli",
+	"short_name": "dreamcli",
+	"description": "Schema-first, fully typed TypeScript CLI framework",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#f8f3e7",
+	"theme_color": "#f8f3e7",
+	"icons": [
+		{
+			"src": "/app-icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any maskable"
+		},
+		{
+			"src": "/app-icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any maskable"
+		}
+	]
+}

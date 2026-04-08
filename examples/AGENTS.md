@@ -8,19 +8,18 @@ workspace package used as a walkthrough and CI canary.
 ## STRUCTURE
 
 ```text
-*.ts     # single-file teaching examples parsed by docs
-gh/      # workspace package: miniature GitHub CLI clone
-.cache/  # generated build cache
+standalone/  # single-file teaching examples parsed by docs
+gh/          # workspace package: miniature GitHub CLI clone
 ```
 
 ## WHERE TO LOOK
 
-| Task                            | Location                                                                                                               | Notes                                        |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Edit a single-feature example   | `basic.ts`, `interactive.ts`, `json-mode.ts`, `middleware.ts`, `multi-command.ts`, `spinner-progress.ts`, `testing.ts` | keep focused, runnable, public-API only      |
-| Edit docs example metadata      | `../docs/.vitepress/data/examples.ts`                                                                                  | parses example docblocks and related symbols |
-| Edit the walkthrough package    | `gh/`                                                                                                                  | real package with commands, tests, and build |
-| Trace example-backed docs pages | `../docs/examples/`, `../docs/reference/`                                                                              | generated from example source                |
+| Task                            | Location                                                                                                                                                                                            | Notes                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Edit a single-feature example   | `standalone/basic.ts`, `standalone/interactive.ts`, `standalone/json-mode.ts`, `standalone/middleware.ts`, `standalone/multi-command.ts`, `standalone/spinner-progress.ts`, `standalone/testing.ts` | keep focused, runnable, public-API only      |
+| Edit docs example metadata      | `../apps/docs/.vitepress/data/examples.ts`                                                                                                                                                          | parses example docblocks and related symbols |
+| Edit the walkthrough package    | `gh/`                                                                                                                                                                                               | real package with commands, tests, and build |
+| Trace example-backed docs pages | `../apps/docs/examples/`, `../apps/docs/reference/`                                                                                                                                                 | generated from example source                |
 
 ## CONVENTIONS
 

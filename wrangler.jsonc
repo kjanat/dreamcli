@@ -3,14 +3,14 @@
 	"name": "dreamcli",
 	"compatibility_date": "2026-04-02",
 	"build": {
-		"watch_dir": "./src",
+		"watch_dir": "./packages/dreamcli/src",
 		"command": "bun docs:build",
 		"cwd": "."
 	},
 	"workers_dev": true,
 	"preview_urls": true,
 	"assets": {
-		"directory": "./docs/.vitepress/dist/",
+		"directory": "./apps/docs/.vitepress/dist/",
 		"not_found_handling": "single-page-application",
 		"html_handling": "drop-trailing-slash"
 	},

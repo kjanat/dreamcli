@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"types": ["bun", "node", "vue", "vite/client", "vitest", "vitest/globals"],
+		"paths": {
+			"@kjanat/dreamcli": ["../../packages/dreamcli/src/index.ts"],
+			"@kjanat/dreamcli/runtime": ["../../packages/dreamcli/src/runtime.ts"],
+			"@kjanat/dreamcli/testkit": ["../../packages/dreamcli/src/testkit.ts"],
+			"@kjanat/dreamcli/schema": ["../../packages/dreamcli/src/schema.ts"],
+			"@kjanat/dreamcli/package.json": ["../../packages/dreamcli/package.json"]
+		}
+	},
+	"include": ["**/*.ts", "**/*.vue"],
+	"exclude": ["**/dist", "**/node_modules", "**/cache"]
+}

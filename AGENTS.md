@@ -1,66 +1,78 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-07 **Commit:** 1479d26 **Branch:** master
+**Generated:** 2026-04-07 **Commit:** 0a65547 **Branch:** workspace
 
 ## OVERVIEW
 
-Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. In-repo exports point at
-`src/*.ts`; published Node defaults point at `dist/*.mjs`, while Bun and Deno keep source exports.
+Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. Bun workspaces monorepo with
+the core library, docs site, project tooling, and runnable examples as separate packages.
 
 Read `@DISCOVERIES.md` before planning, editing, or running task workflows.
 
 ## STRUCTURE
 
 ```text
-src/
-├── index.ts                # public package surface
-├── runtime.ts              # `./runtime` subpath barrel
-├── testkit.ts              # `./testkit` subpath barrel
-├── core/
-│   ├── cli/                # top-level CLI orchestration, plugins, root surface
-│   ├── schema/             # builder DSL, type inference, middleware surface
-│   ├── resolve/            # argv/env/config/prompt/default precedence
-│   ├── output/             # stdout/stderr/json/table/activity dispatch
-│   ├── completion/         # shell completion generators
-│   ├── json-schema/        # definition schema + input schema generation
-│   ├── parse/              # tokenizer + schema-aware raw parse
-│   ├── prompt/             # terminal/test prompt engines
-│   ├── config/             # config discovery + package.json walk-up
-│   ├── help/               # schema-driven help formatter
-│   └── testkit/            # in-process test harness
-└── runtime/                # Node/Bun/Deno adapters + detection
-
-docs/
-├── .vitepress/             # config, data loaders, theme, custom Vite plugins
-├── concepts/               # hand-written docs
-├── guide/                  # hand-written docs
-├── examples/               # generated routes backed by `../examples/*.ts`
-└── reference/              # overview pages + dynamic symbol routes
-
-scripts/                    # build, release, and project automation
-examples/                   # runnable examples + `examples/gh` workspace canary
-specs/                      # planning/design docs
+dreamcli-monorepo/
+├── packages/dreamcli/           # core library (@kjanat/dreamcli)
+│   └── src/
+│       ├── index.ts             # public package surface
+│       ├── runtime.ts           # `./runtime` subpath barrel
+│       ├── testkit.ts           # `./testkit` subpath barrel
+│       ├── core/
+│       │   ├── cli/             # CLIBuilder, dispatch, plugins, root surface
+│       │   ├── schema/          # builder DSL, type inference, middleware surface
+│       │   ├── resolve/         # argv/env/config/prompt/default precedence
+│       │   ├── output/          # stdout/stderr/json/table/activity dispatch
+│       │   ├── completion/      # shell completion generators
+│       │   ├── json-schema/     # definition schema + input schema generation
+│       │   ├── parse/           # tokenizer + schema-aware raw parse
+│       │   ├── prompt/          # terminal/test prompt engines
+│       │   ├── config/          # config discovery + package.json walk-up
+│       │   ├── help/            # schema-driven help formatter
+│       │   ├── schema-dsl/      # string-literal schema definitions
+│       │   ├── errors/          # CLIError, ParseError, ValidationError
+│       │   ├── execution/       # @internal shared CLI/testkit pipeline
+│       │   └── testkit/         # in-process test harness
+│       └── runtime/             # Node/Bun/Deno adapters + detection
+│
+├── apps/docs/                   # VitePress docs site (@kjanat/dreamcli-docs)
+│   ├── .vitepress/              # config, data loaders, theme, Vite plugins
+│   ├── concepts/                # hand-written fundamentals
+│   ├── guide/                   # hand-written guides
+│   ├── examples/                # route loaders backed by `../examples/standalone/`
+│   └── reference/               # overview pages + dynamic symbol routes
+│
+├── tools/gh-project/            # GitHub Project helper (@kjanat/gh-project)
+│
+├── examples/
+│   ├── standalone/              # single-file teaching examples (docs source)
+│   └── gh/                      # workspace canary: miniature GitHub CLI clone
+│
+├── scripts/                     # build, release, project automation
+└── specs/                       # planning/design docs
 ```
 
 ## WHERE TO LOOK
 
-| Task                                          | Location                        | Notes                                      |
-| --------------------------------------------- | ------------------------------- | ------------------------------------------ |
-| Add command, flag, arg, or middleware API     | `src/core/schema/`              | most public API work starts here           |
-| Fix argv parsing                              | `src/core/parse/`               | tokenizer + parser live in one file        |
-| Fix resolution precedence                     | `src/core/resolve/`             | argv -> env -> config -> prompt -> default |
-| Change help text formatting                   | `src/core/help/`                | width-aware text formatter                 |
-| Change config discovery or `packageJson()`    | `src/core/config/`              | config loaders + package metadata walk-up  |
-| Change prompt UX or test prompts              | `src/core/prompt/`              | prompt engines and sentinels               |
-| Change JSON Schema output                     | `src/core/json-schema/`         | definition schema + input schema           |
-| Change output, spinner, or progress           | `src/core/output/`              | stdout/stderr and activity handles         |
-| Change shell completions                      | `src/core/completion/`          | per-shell generators                       |
-| Change CLI dispatch or plugins                | `src/core/cli/`                 | root help, dispatch, runtime preflight     |
-| Change runtime adapters                       | `src/runtime/`                  | Node, Bun, Deno, detect, support           |
-| Change docs data, routes, or site build       | `docs/.vitepress/`              | docs app internals                         |
-| Edit guide/concept prose                      | `docs/guide/`, `docs/concepts/` | hand-authored Markdown                     |
-| Change build, release, or project automation  | `scripts/`                      | operational scripts                        |
-| Change example-backed docs or consumer canary | `examples/`                     | docs source + `examples/gh` workspace      |
+| Task                                          | Location                                  | Notes                                      |
+| --------------------------------------------- | ----------------------------------------- | ------------------------------------------ |
+| Add command, flag, arg, or middleware API     | `packages/dreamcli/src/core/schema/`      | most public API work starts here           |
+| Fix argv parsing                              | `packages/dreamcli/src/core/parse/`       | tokenizer + parser in one file             |
+| Fix resolution precedence                     | `packages/dreamcli/src/core/resolve/`     | argv -> env -> config -> prompt -> default |
+| Change help text formatting                   | `packages/dreamcli/src/core/help/`        | width-aware text formatter                 |
+| Change config discovery or `packageJson()`    | `packages/dreamcli/src/core/config/`      | config loaders + package metadata walk-up  |
+| Change prompt UX or test prompts              | `packages/dreamcli/src/core/prompt/`      | prompt engines and sentinels               |
+| Change JSON Schema output                     | `packages/dreamcli/src/core/json-schema/` | definition schema + input schema           |
+| Change output, spinner, or progress           | `packages/dreamcli/src/core/output/`      | stdout/stderr and activity handles         |
+| Change shell completions                      | `packages/dreamcli/src/core/completion/`  | per-shell generators                       |
+| Change CLI dispatch or plugins                | `packages/dreamcli/src/core/cli/`         | root help, dispatch, runtime preflight     |
+| Change runtime adapters                       | `packages/dreamcli/src/runtime/`          | Node, Bun, Deno, detect, support           |
+| Change string-literal schema DSL              | `packages/dreamcli/src/core/schema-dsl/`  | compile-time + runtime string parser       |
+| Change docs data, routes, or site build       | `apps/docs/.vitepress/`                   | docs app internals                         |
+| Edit guide/concept prose                      | `apps/docs/guide/`, `apps/docs/concepts/` | hand-authored Markdown                     |
+| Change build, release, or project automation  | `scripts/`                                | operational scripts                        |
+| Change example-backed docs or consumer canary | `examples/`                               | docs source + `examples/gh` workspace      |
+| Change project workflow tooling               | `tools/gh-project/`                       | DreamCLI-powered GitHub Project helper     |
 
 ## CONVENTIONS
 
@@ -79,24 +91,24 @@ specs/                      # planning/design docs
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
-- Do not add runtime deps
-- Do not use `process.*` or runtime-specific APIs in `src/core/`
+- Do not add runtime deps to `packages/dreamcli`
+- Do not use `process.*` or runtime-specific APIs in `packages/dreamcli/src/core/`
 - Do not import through barrels when it would create cycles; direct-file imports are intentional in
   `cli/`, `completion/`, `output/`, `prompt/`, `resolve/`, and `runtime/`
 - Do not hand-edit `dreamcli.schema.json` or `src/core/json-schema/meta-descriptions.generated.ts`
-- Do not edit `docs/.vitepress/dist/` or `docs/.vitepress/cache/`
-- Do not treat `docs/.vitepress/data/` as docs-only; scripts import it for generated source and docs
-  artifacts
+- Do not edit `apps/docs/.vitepress/dist/` or `apps/docs/.vitepress/cache/`
+- Do not treat `apps/docs/.vitepress/data/` as docs-only; scripts import it for generated source and
+  docs artifacts
 - Do not replace `bun run gh-project:*` with ad hoc GitHub project mutations
 
 ## COMMANDS
 
 ```bash
-bun run typecheck             # tsgo --noEmit
+bun run typecheck             # tsgo --noEmit (dreamcli + examples/gh)
 bun run typecheck:tsc         # tsc fallback
 bun run lint                  # biome lint
 bun run format:check          # dprint check
-bun run test                  # vitest run
+bun run test                  # vitest run (all workspaces)
 bun run meta-descriptions     # regenerate JSON Schema meta descriptions
 bun run meta-descriptions:check
 bun run docs:build            # VitePress build
@@ -107,12 +119,15 @@ bun run gh-project:list       # workflow/project helper
 
 ## NOTES
 
+- **Monorepo**: Bun workspaces (`packages/*`, `apps/*`, `tools/*`, `examples/*`). Root `package.json`
+  is `dreamcli-monorepo` (private). Scripts proxy to workspace packages via `--filter`.
 - Public subpath exports: `"."`, `"./runtime"`, `"./testkit"`, `"./schema"`
 - Node inside this repo resolves bare package imports to `dist`; Bun and Deno resolve to `src`
 - `tsdown.config.ts` emits `dreamcli.schema.json` before build and formats `package.json` on success
 - Docs build copies root artifacts into site output via
-  `docs/.vitepress/vite-plugins/source-artifacts.ts`
+  `apps/docs/.vitepress/vite-plugins/source-artifacts.ts`
 - `examples/gh` is a real workspace package, typechecked and tested separately in CI
 - CI base branch is `master`, not `main`
 - Docs deploy: Cloudflare Workers (static assets via wrangler) + GitHub Pages fallback
-- Cloudflare build env has tight memory limits; VitePress+twoslash OOMs are flaky — retry before investigating
+- Cloudflare build env has tight memory limits; VitePress+twoslash OOMs are flaky — retry before
+  investigating

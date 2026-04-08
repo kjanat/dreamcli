@@ -9,11 +9,11 @@
 		"lineWidth": 100,
 		"quoteStyle": "single",
 		"css.enabled": true,
-		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+		"associations": ["!README.md", "!apps/docs/**/*.md", "!apps/docs/.vitepress/twoslash/*.ts"]
 	},
 	"markdown": {
 		"textWrap": "maintain",
-		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+		"associations": ["!README.md", "!apps/docs/**/*.md", "!apps/docs/.vitepress/twoslash/*.ts"]
 	},
 	"markup": {
 		"html.void.selfClosing": false,
@@ -23,7 +23,7 @@
 		"vue.scriptIndent": true,
 		"vue.styleIndent": true,
 		"scriptFormatter": "biome",
-		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+		"associations": ["!README.md", "!apps/docs/**/*.md", "!apps/docs/.vitepress/twoslash/*.ts"]
 	},
 	"yaml": { "printWidth": 160 },
 	"svg": { "useTabs": false },
@@ -47,9 +47,9 @@
 		"tabWidth": 2,
 		"useTabs": false,
 		"endOfLine": "lf",
-		"associations": ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts"]
+		"associations": ["**/README.md", "**/docs/**/*.md", "**/.vitepress/twoslash/*.ts"]
 	},
-	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots"],
+	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots", "**/*.schema.json"],
 	"plugins": [
 		"https://plugins.dprint.dev/biome-0.12.6.wasm",
 		"https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",

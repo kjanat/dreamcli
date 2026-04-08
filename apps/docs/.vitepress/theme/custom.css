@@ -1,0 +1,36 @@
+:root {
+	--npm-color: #cb3837;
+	--github-color: #181717;
+	--jsr-color: oklch(78.9% 0.154 211.53);
+}
+
+:root.dark {
+	--npm-color: #cb3837;
+	--github-color: #f0f0f0;
+	--jsr-color: #f7df1e;
+}
+
+/* Prevents the user from dragging the image around. */
+.VPImage.image-src,
+.VPImage.logo {
+	-webkit-user-drag: none;
+}
+
+.VPSocialLink:hover .vpi-social-github,
+.VPSocialLink:focus-visible .vpi-social-github {
+	color: var(--github-color);
+}
+
+.VPSocialLink:hover .vpi-social-npm,
+.VPSocialLink:focus-visible .vpi-social-npm {
+	color: var(--npm-color);
+}
+
+.VPSocialLink:hover .vpi-social-jsr,
+.VPSocialLink:focus-visible .vpi-social-jsr {
+	color: var(--jsr-color);
+}
+
+.VPSocialLink [class^='vpi-social-'] {
+	transition: color 0.25s;
+}

@@ -5,14 +5,14 @@ smol      = false
 
 [install]
 auto          = "auto"
-exact         = true
+# We don't have ANY dependencies, so this doesn't matter. I want up-to-date devtools.
+exact         = false
 lockfile.save = true
 
 [run]
 silent = true
 
 [test]
-root             = "./src"
 coverage         = true
 coverageReporter = ["text", "lcov"]
 reporter.dots    = false
