@@ -272,7 +272,7 @@
 	}
 
 	.toggle-track::after {
-		content: '';
+		content: "";
 		position: absolute;
 		top: 2px;
 		left: 2px;
@@ -339,9 +339,7 @@
 
 	.settings-dropdown-enter-active,
 	.settings-dropdown-leave-active {
-		transition:
-			opacity var(--s-duration) var(--s-ease),
-			transform var(--s-duration) var(--s-ease);
+		transition: opacity var(--s-duration) var(--s-ease), transform var(--s-duration) var(--s-ease);
 	}
 
 	.settings-dropdown-enter-from,
