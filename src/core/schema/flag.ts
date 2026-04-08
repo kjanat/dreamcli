@@ -9,7 +9,13 @@
  * @module dreamcli/core/schema/flag
  */
 
-import type { PromptConfig } from './prompt.ts';
+import type {
+	ConfirmPromptConfig,
+	InputPromptConfig,
+	MultiselectPromptConfig,
+	PromptConfig,
+	SelectPromptConfig,
+} from './prompt.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
@@ -86,6 +92,24 @@ type InferFlag<B> = B extends FlagBuilder<infer C extends FlagConfig> ? Resolved
 type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 	[K in keyof T]: InferFlag<T[K]>;
 };
+
+/**
+ * Maps a {@linkcode FlagConfig} to the prompt config types that are compatible
+ * with the flag's value type. Prevents compile-time mismatches such as
+ * `flag.enum([…]).prompt({ kind: 'multiselect' })`.
+ *
+ * - Array flags (`optionalFallback: 'empty-array'`) → {@link MultiselectPromptConfig}
+ * - Boolean flags → {@link ConfirmPromptConfig}
+ * - Number flags → {@link InputPromptConfig}
+ * - String / enum / custom flags → {@link InputPromptConfig} | {@link SelectPromptConfig}
+ */
+type AllowedPromptConfig<C extends FlagConfig> = C['optionalFallback'] extends 'empty-array'
+	? MultiselectPromptConfig
+	: C['valueType'] extends boolean
+		? ConfirmPromptConfig
+		: C['valueType'] extends number
+			? InputPromptConfig
+			: InputPromptConfig | SelectPromptConfig;
 
 // --- Runtime schema data
 
@@ -469,7 +493,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli init --name foo   → skips prompt, uses CLI value
 	 * ```
 	 */
-	prompt(config: PromptConfig): FlagBuilder<C> {
+	prompt(config: AllowedPromptConfig<C>): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
 			prompt: config,
@@ -730,6 +754,7 @@ export type {
 } from './prompt.ts';
 export { PROMPT_KINDS } from './prompt.ts';
 export type {
+	AllowedPromptConfig,
 	FlagAlias,
 	FlagConfig,
 	FlagFactory,

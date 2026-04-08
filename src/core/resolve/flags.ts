@@ -8,8 +8,12 @@
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
-import type { ErasedInteractiveResolver, FlagSchema } from '#internals/core/schema/index.ts';
-import type { PromptConfig } from '#internals/core/schema/prompt.ts';
+import type {
+	ErasedInteractiveResolver,
+	FlagKind,
+	FlagSchema,
+} from '#internals/core/schema/index.ts';
+import type { PromptConfig, PromptKind } from '#internals/core/schema/prompt.ts';
 import { coerceValue } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
 import type { DeprecationWarning } from './contracts.ts';
@@ -165,12 +169,45 @@ async function resolveFlags(
 	return resolved;
 }
 
+/** Maps each flag kind to the prompt kinds that produce compatible values. */
+const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
+	boolean: ['confirm'],
+	string: ['input', 'select'],
+	number: ['input'],
+	enum: ['select'],
+	array: ['multiselect'],
+	custom: ['input', 'select', 'confirm', 'multiselect'],
+};
+
+function validatePromptFlagCompatibility(
+	flagName: string,
+	flagKind: FlagKind,
+	promptKind: PromptKind,
+): ValidationError | undefined {
+	const allowed = COMPATIBLE_PROMPT_KINDS[flagKind];
+	if (allowed.includes(promptKind)) return undefined;
+
+	return new ValidationError(
+		`Prompt kind '${promptKind}' is not compatible with ${flagKind} flag --${flagName}. Use '${allowed[0]}' instead`,
+		{
+			code: 'CONSTRAINT_VIOLATED',
+			details: { flag: flagName, flagKind, promptKind, allowed },
+			suggest: `Change the prompt to { kind: '${allowed[0]}' } for --${flagName}`,
+		},
+	);
+}
+
 async function resolvePromptValueWithConfig(
 	flagName: string,
 	schema: FlagSchema,
 	promptConfig: PromptConfig,
 	prompter: PromptEngine,
 ): Promise<PromptResolveResult> {
+	const mismatch = validatePromptFlagCompatibility(flagName, schema.kind, promptConfig.kind);
+	if (mismatch !== undefined) {
+		return { ok: false, error: mismatch };
+	}
+
 	const resolvedConfig = resolvePromptConfig(promptConfig, schema.enumValues);
 	const result = await prompter.promptOne(resolvedConfig);
 

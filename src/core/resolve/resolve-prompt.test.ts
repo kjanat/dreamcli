@@ -393,6 +393,150 @@ describe('resolve', () => {
 		});
 	});
 
+	// --- prompt kind / flag kind mismatch (issue #11)
+
+	describe('prompt kind / flag kind mismatch', () => {
+		it('rejects multiselect on enum flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					mood: createSchema('enum', {
+						enumValues: ['calm', 'happy'],
+						prompt: { kind: 'multiselect', message: 'Pick moods' },
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter([]);
+
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
+			await expect(resolve(schema, parsed, { prompter: createTestPrompter([]) })).rejects.toThrow(
+				/not compatible/,
+			);
+		});
+
+		it('rejects input on boolean flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					force: createSchema('boolean', {
+						prompt: { kind: 'input', message: 'Force?' },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter([]);
+
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
+		});
+
+		it('rejects multiselect on boolean flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					force: createSchema('boolean', {
+						prompt: { kind: 'multiselect', message: 'Force?' },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter([]);
+
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
+		});
+
+		it('rejects confirm on string flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					name: createSchema('string', {
+						prompt: { kind: 'confirm', message: 'Name?' },
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter([]);
+
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
+		});
+
+		it('rejects multiselect on number flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					port: createSchema('number', {
+						prompt: { kind: 'multiselect', message: 'Port?' },
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter([]);
+
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
+		});
+
+		it('rejects confirm on number flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					port: createSchema('number', {
+						prompt: { kind: 'confirm', message: 'Port?' },
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter([]);
+
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
+		});
+
+		it('includes flag name and suggested kind in error message', async () => {
+			const schema = makeSchema({
+				flags: {
+					mood: createSchema('enum', {
+						enumValues: ['calm', 'happy'],
+						prompt: { kind: 'multiselect', message: 'Pick moods' },
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter([]);
+
+			try {
+				await resolve(schema, parsed, { prompter });
+				expect.unreachable('should have thrown');
+			} catch (error) {
+				expect(error).toBeInstanceOf(ValidationError);
+				const ve = error as InstanceType<typeof ValidationError>;
+				expect(ve.message).toContain('multiselect');
+				expect(ve.message).toContain('--mood');
+				expect(ve.code).toBe('CONSTRAINT_VIOLATED');
+			}
+		});
+
+		it('does not prompt the user before rejecting', async () => {
+			let prompted = false;
+			const prompter: import('#internals/core/prompt/index.ts').PromptEngine = {
+				promptOne() {
+					prompted = true;
+					return Promise.resolve({ answered: true, value: 'calm' });
+				},
+			};
+			const schema = makeSchema({
+				flags: {
+					mood: createSchema('enum', {
+						enumValues: ['calm', 'happy'],
+						prompt: { kind: 'multiselect', message: 'Pick moods' },
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
+			expect(prompted).toBe(false);
+		});
+	});
+
 	// --- backward compatibility
 
 	describe('backward compatibility', () => {
