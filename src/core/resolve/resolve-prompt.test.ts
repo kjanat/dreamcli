@@ -515,6 +515,7 @@ describe('resolve', () => {
 					const ve = error as InstanceType<typeof ValidationError>;
 					expect(ve.message).toContain('multiselect');
 					expect(ve.message).toContain('--mood');
+					expect(ve.message).toContain("'select'");
 					expect(ve.code).toBe('CONSTRAINT_VIOLATED');
 				}
 			});
