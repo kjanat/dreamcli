@@ -715,5 +715,11 @@ describe('resolve', () => {
 				expect(COMPATIBLE_PROMPT_KINDS).toHaveProperty(kind);
 			}
 		});
+
+		it('COMPATIBLE_PROMPT_KINDS contains no stale keys', () => {
+			for (const key of Object.keys(COMPATIBLE_PROMPT_KINDS)) {
+				expect(FLAG_KINDS).toContain(key);
+			}
+		});
 	});
 });
