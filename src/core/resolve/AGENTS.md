@@ -28,7 +28,7 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 
 | Function                            | File        | Role                                                          |
 | ----------------------------------- | ----------- | ------------------------------------------------------------- |
-| `resolve()`                         | `flags.ts`  | Main entry — orchestrates full resolution for a command       |
+| `resolve()`                         | `index.ts`  | Main entry — orchestrates full resolution for a command       |
 | `resolveFlags()`                    | `flags.ts`  | All flags: CLI -> env -> config -> prompt -> default          |
 | `resolveArgs()`                     | `args.ts`   | All args: parsed -> default -> required validation            |
 | `coerceValue()`                     | `coerce.ts` | Unified raw value -> flag's declared kind (env/config/prompt) |

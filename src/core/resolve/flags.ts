@@ -8,11 +8,8 @@
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
-import type {
-	ErasedInteractiveResolver,
-	FlagKind,
-	FlagSchema,
-} from '#internals/core/schema/index.ts';
+import type { ErasedInteractiveResolver } from '#internals/core/schema/command.ts';
+import type { FlagKind, FlagSchema } from '#internals/core/schema/flag.ts';
 import type { PromptConfig, PromptKind } from '#internals/core/schema/prompt.ts';
 import { coerceValue } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
