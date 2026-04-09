@@ -1,4 +1,3 @@
-import { normalize } from 'node:path';
 import { env } from 'node:process';
 import pkg from '@kjanat/dreamcli/package.json' with { type: 'json' };
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
@@ -8,7 +7,12 @@ import jsr from '../../../packages/dreamcli/deno.json' with { type: 'json' };
 import tsc from '../../../tsconfig.json' with { type: 'json' };
 import { collectPublicApiIndex } from './data/api-index.ts';
 import { collectExampleMeta } from './data/examples.ts';
-import { examplesRoot, packageJsonPath } from './data/paths.ts';
+import {
+	examplesRoot,
+	packageJsonPath,
+	packageRoot,
+	rootDirPath as projectRoot,
+} from './data/paths.ts';
 import {
 	collectCaseInsensitiveCollisions,
 	toCollisionKey,
@@ -17,8 +21,6 @@ import {
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
 
-const projectRoot = normalize(`${import.meta.dirname}/../../..`);
-const packageRoot = normalize(`${projectRoot}/packages/dreamcli`);
 const exampleMeta = await collectExampleMeta(examplesRoot);
 const apiIndex = await collectPublicApiIndex(packageJsonPath);
 const symbolRoutes = new Map<string, string>();

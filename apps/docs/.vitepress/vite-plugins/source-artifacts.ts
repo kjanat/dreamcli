@@ -9,15 +9,12 @@
  * @module
  */
 
-import { normalize } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { Plugin } from 'vitepress';
 
-const rootDir = normalize(`${import.meta.dirname}/../../../..`);
-const packageRoot = `${rootDir}/packages/dreamcli`;
-const definitionSchemaPath = `${packageRoot}/dreamcli.schema.json`;
-const emitDefinitionSchemaPath = `${packageRoot}/scripts/emit-definition-schema.ts`;
+import { definitionSchemaPath, emitDefinitionSchemaPath, packageRoot } from '../data/paths.ts';
+
 const emitDefinitionSchemaUrl = pathToFileURL(emitDefinitionSchemaPath).href;
 
 export function sourceArtifactsPlugin(): Plugin {
