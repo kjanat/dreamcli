@@ -10,9 +10,11 @@ import { describe, expect, it } from 'vitest';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
+import { FLAG_KINDS } from '#internals/core/schema/flag.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
 import { createSchema } from '#internals/core/schema/index.ts';
 import type { ResolveOptions } from './index.ts';
+import { COMPATIBLE_PROMPT_KINDS } from './flags.ts';
 import { resolve } from './index.ts';
 
 // --- Helpers
@@ -702,6 +704,16 @@ describe('resolve', () => {
 
 			const result = await resolve(schema, parsed, { prompter });
 			expect(result.deprecations).toHaveLength(0);
+		});
+	});
+
+	// --- drift guard
+
+	describe('drift guard', () => {
+		it('COMPATIBLE_PROMPT_KINDS covers all FLAG_KINDS', () => {
+			for (const kind of FLAG_KINDS) {
+				expect(COMPATIBLE_PROMPT_KINDS).toHaveProperty(kind);
+			}
 		});
 	});
 });

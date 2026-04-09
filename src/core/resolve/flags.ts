@@ -252,4 +252,4 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	return sources.length === 2 ? `${rest.join('')} or ${last}` : `${rest.join(', ')}, or ${last}`;
 }
 
-export { resolveFlags };
+export { COMPATIBLE_PROMPT_KINDS, resolveFlags };
