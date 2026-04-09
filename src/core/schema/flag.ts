@@ -108,17 +108,16 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
  * - `'array'`   → {@link MultiselectPromptConfig}
  * - `'custom'`  → all prompt kinds ({@link PromptConfig})
  */
-type AllowedPromptConfig<C extends FlagConfig> = C['flagKind'] extends 'array'
-	? MultiselectPromptConfig
-	: C['flagKind'] extends 'boolean'
-		? ConfirmPromptConfig
-		: C['flagKind'] extends 'number'
-			? InputPromptConfig
-			: C['flagKind'] extends 'enum'
-				? SelectPromptConfig | InputPromptConfig
-				: C['flagKind'] extends 'custom'
-					? PromptConfig
-					: InputPromptConfig | SelectPromptConfig;
+type PromptConfigByFlagKind = {
+	readonly string: InputPromptConfig | SelectPromptConfig;
+	readonly number: InputPromptConfig;
+	readonly boolean: ConfirmPromptConfig;
+	readonly enum: SelectPromptConfig | InputPromptConfig;
+	readonly array: MultiselectPromptConfig;
+	readonly custom: PromptConfig;
+};
+
+type AllowedPromptConfig<C extends FlagConfig> = PromptConfigByFlagKind[C['flagKind']];
 
 // --- Runtime schema data
 
