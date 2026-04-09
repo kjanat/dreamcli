@@ -509,7 +509,13 @@ describe('AllowedPromptConfig type constraints', () => {
 		flag.number().prompt({ kind: 'input', message: 'Port?' });
 		flag.boolean().prompt({ kind: 'confirm', message: 'Force?' });
 		flag.enum(['a', 'b']).prompt({ kind: 'select', message: 'Pick' });
+		flag.enum(['a', 'b']).prompt({ kind: 'input', message: 'Enter value' });
 		flag.array(flag.string()).prompt({ kind: 'multiselect', message: 'Tags?' });
+	});
+
+	it('custom flag allows input and select', () => {
+		flag.custom((raw) => raw).prompt({ kind: 'input', message: 'Value?' });
+		flag.custom((raw) => raw).prompt({ kind: 'select', message: 'Pick', choices: [{ value: 'a' }] });
 	});
 
 	it('invalid combinations rejected by FlagBuilder.prompt()', () => {

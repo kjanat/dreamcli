@@ -409,10 +409,7 @@ describe('resolve', () => {
 			const parsed = makeParsed();
 			const prompter = createTestPrompter([]);
 
-			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
-			await expect(resolve(schema, parsed, { prompter: createTestPrompter([]) })).rejects.toThrow(
-				/not compatible/,
-			);
+			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(/not compatible/);
 		});
 
 		it('rejects input on boolean flag', async () => {
@@ -534,6 +531,47 @@ describe('resolve', () => {
 
 			await expect(resolve(schema, parsed, { prompter })).rejects.toThrow(ValidationError);
 			expect(prompted).toBe(false);
+		});
+	});
+
+	// --- allowed prompt / flag combinations (positive tests)
+
+	describe('allowed prompt / flag combinations', () => {
+		it('accepts input on enum flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					region: createSchema('enum', {
+						enumValues: ['us', 'eu'],
+						prompt: { kind: 'input', message: 'Region?' },
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter(['eu']);
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ region: 'eu' });
+		});
+
+		it('accepts select on string flag', async () => {
+			const schema = makeSchema({
+				flags: {
+					format: createSchema('string', {
+						prompt: {
+							kind: 'select',
+							message: 'Format?',
+							choices: [{ value: 'json' }, { value: 'yaml' }],
+						},
+						presence: 'required',
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter(['json']);
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ format: 'json' });
 		});
 	});
 

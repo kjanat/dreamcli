@@ -174,7 +174,7 @@ const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
 	boolean: ['confirm'],
 	string: ['input', 'select'],
 	number: ['input'],
-	enum: ['select'],
+	enum: ['select', 'input'],
 	array: ['multiselect'],
 	custom: ['input', 'select', 'confirm', 'multiselect'],
 };
