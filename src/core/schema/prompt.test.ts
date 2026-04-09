@@ -413,6 +413,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: boolean;
 			readonly presence: 'defaulted';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'boolean';
 		};
 		expectTypeOf<AllowedPromptConfig<BoolConfig>>().toEqualTypeOf<ConfirmPromptConfig>();
 	});
@@ -422,6 +423,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: number;
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'number';
 		};
 		expectTypeOf<AllowedPromptConfig<NumConfig>>().toEqualTypeOf<InputPromptConfig>();
 	});
@@ -431,20 +433,22 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: string;
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'string';
 		};
 		expectTypeOf<AllowedPromptConfig<StrConfig>>().toEqualTypeOf<
 			InputPromptConfig | SelectPromptConfig
 		>();
 	});
 
-	it('enum flag allows input or select', () => {
+	it('enum flag allows select or input', () => {
 		type EnumConfig = {
 			readonly valueType: 'us' | 'eu';
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'enum';
 		};
 		expectTypeOf<AllowedPromptConfig<EnumConfig>>().toEqualTypeOf<
-			InputPromptConfig | SelectPromptConfig
+			SelectPromptConfig | InputPromptConfig
 		>();
 	});
 
@@ -453,8 +457,19 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: string[];
 			readonly presence: 'optional';
 			readonly optionalFallback: 'empty-array';
+			readonly flagKind: 'array';
 		};
 		expectTypeOf<AllowedPromptConfig<ArrConfig>>().toEqualTypeOf<MultiselectPromptConfig>();
+	});
+
+	it('custom flag allows all prompt kinds', () => {
+		type CustomConfig = {
+			readonly valueType: unknown;
+			readonly presence: 'optional';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'custom';
+		};
+		expectTypeOf<AllowedPromptConfig<CustomConfig>>().toEqualTypeOf<PromptConfig>();
 	});
 
 	it('multiselect is not assignable to enum flag prompt', () => {
@@ -462,6 +477,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: 'us' | 'eu';
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'enum';
 		};
 		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<EnumConfig>>();
 	});
@@ -471,6 +487,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: boolean;
 			readonly presence: 'defaulted';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'boolean';
 		};
 		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
 	});
@@ -480,6 +497,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: string;
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'string';
 		};
 		expectTypeOf<ConfirmPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<StrConfig>>();
 	});
@@ -489,6 +507,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: boolean;
 			readonly presence: 'defaulted';
 			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'boolean';
 		};
 		expectTypeOf<InputPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
 	});
@@ -498,6 +517,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly valueType: string[];
 			readonly presence: 'optional';
 			readonly optionalFallback: 'empty-array';
+			readonly flagKind: 'array';
 		};
 		expectTypeOf<SelectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<ArrConfig>>();
 	});
@@ -513,9 +533,12 @@ describe('AllowedPromptConfig type constraints', () => {
 		flag.array(flag.string()).prompt({ kind: 'multiselect', message: 'Tags?' });
 	});
 
-	it('custom flag allows input and select', () => {
-		flag.custom((raw) => raw).prompt({ kind: 'input', message: 'Value?' });
-		flag.custom((raw) => raw).prompt({ kind: 'select', message: 'Pick', choices: [{ value: 'a' }] });
+	it('custom flag allows all prompt kinds', () => {
+		const custom = flag.custom((raw) => raw);
+		custom.prompt({ kind: 'input', message: 'Value?' });
+		custom.prompt({ kind: 'select', message: 'Pick', choices: [{ value: 'a' }] });
+		custom.prompt({ kind: 'confirm', message: 'Continue?' });
+		custom.prompt({ kind: 'multiselect', message: 'Tags?', choices: [{ value: 'x' }] });
 	});
 
 	it('invalid combinations rejected by FlagBuilder.prompt()', () => {

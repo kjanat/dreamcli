@@ -54,6 +54,8 @@ interface FlagConfig {
 	readonly presence: FlagPresence;
 	/** What an unresolved optional flag becomes at the action boundary. */
 	readonly optionalFallback: OptionalFallback;
+	/** The runtime kind discriminator, mirroring {@link FlagKind}. */
+	readonly flagKind: FlagKind;
 }
 
 // --- Type-level helpers
@@ -66,6 +68,7 @@ type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
 	readonly valueType: C['valueType'];
 	readonly presence: P;
 	readonly optionalFallback: C['optionalFallback'];
+	readonly flagKind: C['flagKind'];
 };
 
 /**
@@ -95,21 +98,27 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 
 /**
  * Maps a {@linkcode FlagConfig} to the prompt config types that are compatible
- * with the flag's value type. Prevents compile-time mismatches such as
+ * with the flag's kind. Prevents compile-time mismatches such as
  * `flag.enum([…]).prompt({ kind: 'multiselect' })`.
  *
- * - Array flags (`optionalFallback: 'empty-array'`) → {@link MultiselectPromptConfig}
- * - Boolean flags → {@link ConfirmPromptConfig}
- * - Number flags → {@link InputPromptConfig}
- * - String / enum / custom flags → {@link InputPromptConfig} | {@link SelectPromptConfig}
+ * - `'boolean'` → {@link ConfirmPromptConfig}
+ * - `'string'`  → {@link InputPromptConfig} | {@link SelectPromptConfig}
+ * - `'number'`  → {@link InputPromptConfig}
+ * - `'enum'`    → {@link SelectPromptConfig} | {@link InputPromptConfig}
+ * - `'array'`   → {@link MultiselectPromptConfig}
+ * - `'custom'`  → all prompt kinds ({@link PromptConfig})
  */
-type AllowedPromptConfig<C extends FlagConfig> = C['optionalFallback'] extends 'empty-array'
+type AllowedPromptConfig<C extends FlagConfig> = C['flagKind'] extends 'array'
 	? MultiselectPromptConfig
-	: C['valueType'] extends boolean
+	: C['flagKind'] extends 'boolean'
 		? ConfirmPromptConfig
-		: C['valueType'] extends number
+		: C['flagKind'] extends 'number'
 			? InputPromptConfig
-			: InputPromptConfig | SelectPromptConfig;
+			: C['flagKind'] extends 'enum'
+				? SelectPromptConfig | InputPromptConfig
+				: C['flagKind'] extends 'custom'
+					? PromptConfig
+					: InputPromptConfig | SelectPromptConfig;
 
 // --- Runtime schema data
 
@@ -571,6 +580,7 @@ interface FlagFactory {
 		readonly valueType: string;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'string';
 	}>;
 
 	/**
@@ -582,6 +592,7 @@ interface FlagFactory {
 		readonly valueType: number;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'number';
 	}>;
 
 	/**
@@ -594,6 +605,7 @@ interface FlagFactory {
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'boolean';
 	}>;
 
 	/**
@@ -617,6 +629,7 @@ interface FlagFactory {
 		readonly valueType: T[number];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'enum';
 	}>;
 
 	/**
@@ -637,6 +650,7 @@ interface FlagFactory {
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-array';
+		readonly flagKind: 'array';
 	}>;
 
 	/**
@@ -672,6 +686,7 @@ interface FlagFactory {
 		readonly valueType: T;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
 	}>;
 }
 
@@ -684,6 +699,7 @@ const flag: FlagFactory = {
 		readonly valueType: string;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'string';
 	}> {
 		return new FlagBuilder(createSchema('string'));
 	},
@@ -692,6 +708,7 @@ const flag: FlagFactory = {
 		readonly valueType: number;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'number';
 	}> {
 		return new FlagBuilder(createSchema('number'));
 	},
@@ -700,6 +717,7 @@ const flag: FlagFactory = {
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'boolean';
 	}> {
 		return new FlagBuilder(
 			createSchema('boolean', {
@@ -715,6 +733,7 @@ const flag: FlagFactory = {
 		readonly valueType: T[number];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'enum';
 	}> {
 		return new FlagBuilder(createSchema('enum', { enumValues: values }));
 	},
@@ -725,6 +744,7 @@ const flag: FlagFactory = {
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-array';
+		readonly flagKind: 'array';
 	}> {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
@@ -733,6 +753,7 @@ const flag: FlagFactory = {
 		readonly valueType: T;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
 	}> {
 		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
 	},
