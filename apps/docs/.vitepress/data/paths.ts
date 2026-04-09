@@ -3,23 +3,29 @@
  *
  * @module
  */
+/** biome-ignore-all lint/style/noNonNullAssertion: explanation */
+import { $, fileURLToPath } from 'bun';
 
-import { execSync } from 'node:child_process';
-import { normalize } from 'node:path/posix';
+const rootdir = await $`git rev-parse --show-toplevel`.text().then((s) => s.trim());
+const dreamcliRoot = fileURLToPath(import.meta.resolve('@kjanat/dreamcli')).split('/src/')[0]!;
+const dreamcliPackageJson = fileURLToPath(import.meta.resolve('@kjanat/dreamcli/package.json'));
 
-const rootDir = normalize(`${import.meta.dirname}/../../../..`);
+export const rootDirPath = rootdir;
 
-export const rootDirPath = rootDir;
-export const docsRoot = `${rootDir}/apps/docs`;
-export const examplesRoot = `${rootDir}/examples/standalone`;
-export const packageRoot = `${rootDir}/packages/dreamcli`;
-export const packageJsonPath = `${packageRoot}/package.json`;
-export const tsconfigPath = `${packageRoot}/tsconfig.json`;
+export const docsRoot = `${rootdir}/apps/docs`;
 export const symbolPagesRoot = `${docsRoot}/reference/symbols`;
-export const generatedMetaSchemaDescriptionsPath = `${packageRoot}/src/core/json-schema/meta-descriptions.generated.ts`;
+
+export const examplesRoot = `${rootdir}/examples/standalone`;
+
+export const packageRoot = dreamcliRoot;
+export const packageJsonPath = dreamcliPackageJson;
+export const tsconfigPath = `${dreamcliRoot}/tsconfig.json`;
+
+const metadescPath = 'src/core/json-schema/meta-descriptions.generated.ts';
+export const generatedMetaSchemaDescriptionsPath = `${dreamcliRoot}/${metadescPath}`;
 
 /** Git ref for source links. Env override: `DOCS_GIT_REF`. */
-export const gitRef: string = (() => {
+export const gitRef = (async (): Promise<string> => {
 	const envRef = process.env['DOCS_GIT_REF'];
 	const trimmedEnvRef = envRef?.trim();
 	if (trimmedEnvRef !== undefined && trimmedEnvRef.length > 0) {
@@ -27,7 +33,7 @@ export const gitRef: string = (() => {
 	}
 
 	try {
-		return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+		return $`git rev-parse HEAD`.text().then((s) => s.trim());
 	} catch {
 		return 'HEAD';
 	}

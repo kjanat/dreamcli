@@ -16,6 +16,9 @@
 		"./dist/*": "./.vitepress/dist/*",
 		"./vitepress/*": "./.vitepress/*"
 	},
+	"files": [
+		".vitepress/dist"
+	],
 	"scripts": {
 		"build": "bunx --bun vitepress@next build",
 		"dev": "bunx --bun vitepress@next dev",

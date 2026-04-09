@@ -144,7 +144,7 @@ async function parseExample(filePath: string, repoRoot: string): Promise<Example
 		usage,
 		sourcePath,
 		routePath: `/examples/${slug}`,
-		sourceUrl: `https://github.com/kjanat/dreamcli/blob/${gitRef}/${sourcePath}`,
+		sourceUrl: `https://github.com/kjanat/dreamcli/blob/${await gitRef}/${sourcePath}`,
 		sourceCode: source,
 		relatedSymbols: collectRelatedSymbols(source),
 	};

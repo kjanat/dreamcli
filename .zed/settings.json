@@ -16,15 +16,15 @@
 	"languages": {
 		"JavaScript": {
 			"code_actions_on_format": {
-				"fixAll.biome": true,
-				"organizeImports.biome": true
+				"source.fixAll.biome": true,
+				"source.organizeImports.biome": true
 			},
 			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
 		},
 		"TypeScript": {
 			"code_actions_on_format": {
-				"fixAll.biome": true,
-				"organizeImports.biome": true
+				"source.fixAll.biome": true,
+				"source.organizeImports.biome": true
 			},
 			"language_servers": ["vtsls", "tsgo", "biome", "deno", "vue-language-server"]
 		}

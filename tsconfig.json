@@ -42,6 +42,10 @@
 			"@kjanat/dreamcli/package.json": [
 				"./packages/dreamcli/package.json",
 				"../../packages/dreamcli/package.json"
+			],
+			"@kjanat/dreamcli-docs": [
+				"./apps/docs/src/index.ts",
+				"../../apps/docs/src/index.ts"
 			]
 		}
 	},

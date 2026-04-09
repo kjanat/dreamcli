@@ -9,7 +9,7 @@
 		"lineWidth": 100,
 		"quoteStyle": "single",
 		"css.enabled": true,
-		"associations": ["!README.md", "!apps/docs/**/*.md", "!apps/docs/.vitepress/twoslash/*.ts", "*.ts.tpl"]
+		"associations": ["!README.md", "!apps/docs/**/*.md", "!apps/docs/.vitepress/twoslash/*.ts", "*.ts.tpl", "*.ts", "*.js"]
 	},
 	"markdown": {
 		"textWrap": "maintain",

@@ -9,54 +9,61 @@
  * @module
  */
 
-import { readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-
+import { error, log } from 'node:console';
+import { relative } from 'node:path';
+import { cwd, exit } from 'node:process';
 import { collectPublicApiIndex } from '@kjanat/dreamcli-docs/vitepress/data/api-index.ts';
 import {
-	buildDefinitionMetaSchemaDescriptions,
-	renderDefinitionMetaSchemaDescriptions,
+	buildDefinitionMetaSchemaDescriptions as bdDefMetaSchDesc,
+	renderDefinitionMetaSchemaDescriptions as rdrDefMetaSchDesc,
 } from '@kjanat/dreamcli-docs/vitepress/data/meta-schema-descriptions.ts';
 import {
-	generatedMetaSchemaDescriptionsPath,
+	generatedMetaSchemaDescriptionsPath as genMetaSchDescPaths,
 	packageJsonPath,
 } from '@kjanat/dreamcli-docs/vitepress/data/paths.ts';
 import { collectTypeDocModel } from '@kjanat/dreamcli-docs/vitepress/data/typedoc.ts';
+import { argv, file, spawn, write } from 'bun';
+
+log(new Date().toISOString(), relative(cwd(), import.meta.path), 'generating meta-descriptions');
 
 const publicApi = await collectPublicApiIndex(packageJsonPath);
-const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
-const metaSchemaDescriptions = buildDefinitionMetaSchemaDescriptions(typeDoc.normalized);
-const rendered = await formatGeneratedSource(
-	renderDefinitionMetaSchemaDescriptions(metaSchemaDescriptions),
-);
-const checkMode = Bun.argv.includes('--check');
+const typedocModel = await collectTypeDocModel(packageJsonPath, publicApi);
+const metaSchemaDescriptions = bdDefMetaSchDesc(typedocModel.normalized);
+const rendered = await fmtGenSrc(rdrDefMetaSchDesc(metaSchemaDescriptions));
+const checkMode = argv.includes('--check');
+
+const relGenPath = relative(cwd(), genMetaSchDescPaths);
 
 if (checkMode) {
-	const existing = await readFile(generatedMetaSchemaDescriptionsPath, 'utf8');
+	const existing = await file(genMetaSchDescPaths).text();
+
 	if (existing !== rendered) {
-		console.error(
-			'✗ src/core/json-schema/meta-descriptions.generated.ts is out of date. Run `bun run meta-descriptions`.',
+		error(
+			new Date().toISOString(),
+			`✗ ${relGenPath} is out of date. Run \`bun run meta-descriptions\`.`,
 		);
-		process.exit(1);
+		exit(1);
 	}
-	console.log('✓ src/core/json-schema/meta-descriptions.generated.ts is up to date');
-	process.exit(0);
+
+	log(new Date().toISOString(), `✓ ${relGenPath} is up to date`);
+	exit(0);
 }
 
-await writeFile(generatedMetaSchemaDescriptionsPath, rendered);
-console.log('✓ src/core/json-schema/meta-descriptions.generated.ts updated');
+await write(genMetaSchDescPaths, rendered);
+log(new Date().toISOString(), `✓ ${relGenPath} updated`);
 
-async function formatGeneratedSource(source: string): Promise<string> {
-	const tempFilePath = join(
-		dirname(generatedMetaSchemaDescriptionsPath),
-		'.meta-descriptions.generated.tmp.ts',
-	);
+async function fmtGenSrc(source: string): Promise<string> {
+	const proc = spawn(['bunx', '--bun', 'dprint', 'fmt', '--stdin', 'file.ts'], {
+		stdin: new Blob([source]),
+		stdout: 'pipe',
+		stderr: 'inherit',
+	});
 
-	try {
-		await writeFile(tempFilePath, source);
-		await Bun.$`bunx --bun dprint fmt ${tempFilePath}`.quiet();
-		return await readFile(tempFilePath, 'utf8');
-	} finally {
-		await rm(tempFilePath, { force: true });
+	const [formatted, exitCode] = await Promise.all([proc.stdout.text(), proc.exited]);
+
+	if (exitCode !== 0) {
+		throw new Error(`dprint exited with code ${exitCode}`);
 	}
+
+	return formatted;
 }

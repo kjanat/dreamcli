@@ -328,7 +328,7 @@ async function collectRawTypeDocProject(
 		entryPoints,
 		entryPointStrategy: 'resolve',
 		plugin: [],
-		sourceLinkTemplate: `https://github.com/kjanat/dreamcli/blob/${gitRef}/{path}#L{line}`,
+		sourceLinkTemplate: `https://github.com/kjanat/dreamcli/blob/${await gitRef}/{path}#L{line}`,
 		tsconfig: tsconfigPath,
 	});
 	const project = await app.convert();
