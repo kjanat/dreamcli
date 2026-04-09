@@ -4,7 +4,8 @@ telemetry = false
 smol      = false
 
 [install]
-auto          = "auto"
+auto          = "force"
+linker        = "hoisted"
 # We don't have ANY dependencies, so this doesn't matter. I want up-to-date devtools.
 exact         = false
 lockfile.save = true
