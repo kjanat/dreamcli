@@ -179,6 +179,13 @@ const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
 	custom: ['input', 'select', 'confirm', 'multiselect'],
 };
 
+/**
+ * Check whether a prompt kind is compatible with the flag's declared kind.
+ *
+ * @returns `undefined` when compatible, or a {@link ValidationError} with
+ * code `'CONSTRAINT_VIOLATED'` and an actionable `suggest` message when not.
+ * @internal
+ */
 function validatePromptFlagCompatibility(
 	flagName: string,
 	flagKind: FlagKind,
@@ -197,6 +204,14 @@ function validatePromptFlagCompatibility(
 	);
 }
 
+/**
+ * Validate prompt/flag compatibility, run the prompt engine, and coerce the result.
+ *
+ * Returns early with a {@link ValidationError} if the prompt kind is
+ * incompatible with the flag kind (checked via {@link COMPATIBLE_PROMPT_KINDS}
+ * before the prompter is invoked).
+ * @internal
+ */
 async function resolvePromptValueWithConfig(
 	flagName: string,
 	schema: FlagSchema,
@@ -218,6 +233,7 @@ async function resolvePromptValueWithConfig(
 	return coerceValue(flagName, { kind: 'prompt' }, result.value, schema);
 }
 
+/** Build a human-readable suggestion listing all available sources for a required flag. @internal */
 function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	const sources: string[] = [];
 	sources.push(`Provide --${name}${schema.kind !== 'boolean' ? ' <value>' : ''}`);

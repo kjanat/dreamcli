@@ -26,13 +26,14 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 
 ## KEY FUNCTIONS
 
-| Function              | File        | Role                                                          |
-| --------------------- | ----------- | ------------------------------------------------------------- |
-| `resolve()`           | `flags.ts`  | Main entry — orchestrates full resolution for a command       |
-| `resolveFlags()`      | `flags.ts`  | All flags: CLI -> env -> config -> prompt -> default          |
-| `resolveArgs()`       | `args.ts`   | All args: parsed -> default -> required validation            |
-| `coerceValue()`       | `coerce.ts` | Unified raw value -> flag's declared kind (env/config/prompt) |
-| `resolveConfigPath()` | `config.ts` | Dotted path lookup in config object                           |
+| Function                            | File        | Role                                                          |
+| ----------------------------------- | ----------- | ------------------------------------------------------------- |
+| `resolve()`                         | `flags.ts`  | Main entry — orchestrates full resolution for a command       |
+| `resolveFlags()`                    | `flags.ts`  | All flags: CLI -> env -> config -> prompt -> default          |
+| `resolveArgs()`                     | `args.ts`   | All args: parsed -> default -> required validation            |
+| `coerceValue()`                     | `coerce.ts` | Unified raw value -> flag's declared kind (env/config/prompt) |
+| `resolveConfigPath()`               | `config.ts` | Dotted path lookup in config object                           |
+| `validatePromptFlagCompatibility()` | `flags.ts`  | Prompt kind ↔ flag kind gate (before prompter invocation)     |
 
 ## TWO-PASS ARCHITECTURE
 
@@ -73,6 +74,23 @@ once.
 | `resolve-stdin.test.ts`       | Stdin-based resolution                     |
 | `contracts.test.ts`           | Contract verification                      |
 | `property.test.ts`            | Property path resolution                   |
+
+## PROMPT — FLAG KIND COMPATIBILITY
+
+`COMPATIBLE_PROMPT_KINDS` in `flags.ts` maps each `FlagKind` to allowed `PromptKind[]`:
+
+| Flag kind | Allowed prompt kinds                      |
+| --------- | ----------------------------------------- |
+| boolean   | confirm                                   |
+| string    | input, select                             |
+| number    | input                                     |
+| enum      | select, input                             |
+| array     | multiselect                               |
+| custom    | input, select, confirm, multiselect (all) |
+
+`validatePromptFlagCompatibility()` checks this map before `prompter.promptOne()` runs. Mismatches
+produce a `CONSTRAINT_VIOLATED` `ValidationError` with `details.flagKind`, `details.promptKind`, and
+an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` in `schema/flag.ts`.
 
 ## GOTCHAS
 
