@@ -7,6 +7,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Prompt — flag kind compatibility validation** — `FlagBuilder.prompt()` now rejects incompatible
+  prompt/flag combinations at compile time via `AllowedPromptConfig<C>` (e.g.,
+  `flag.enum([…]).prompt({ kind: 'multiselect' })` is a TypeScript error). A runtime validation gate
+  in `resolvePromptValueWithConfig()` catches mismatches before the prompter is invoked, throwing a
+  `CONSTRAINT_VIOLATED` `ValidationError` with an actionable `suggest` message.
+- **`flagKind` phantom discriminator** — `FlagConfig` now carries a `flagKind` field (phantom — never
+  read at runtime) so the type system can distinguish all six flag kinds. `AllowedPromptConfig` uses
+  an indexed-access map (`PromptConfigByFlagKind`) for union-safe resolution.
+
+### Changed
+
+- **Meta-descriptions build** — `scripts/build-meta-descriptions.ts` pipes generated source through
+  `dprint fmt --stdin ts` instead of writing/reading a temp file and formatting in-place.
+
 ### Fixed
 
 - **Docs deploy** — remove dead Workers runtime vars (`BUN_VERSION`, `NODE_OPTIONS`) that had no

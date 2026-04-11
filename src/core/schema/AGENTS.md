@@ -25,6 +25,11 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
   defaults — justified, do not "fix"
 - **Phantom brand**: `Middleware<Output>` carries type info at compile time, erased at runtime.
   Same for `_value` on FlagBuilder/ArgBuilder.
+- **`flagKind` phantom discriminator**: `FlagConfig.flagKind` mirrors `FlagSchema.kind` at the type
+  level. Each factory (`flag.string()`, `.enum()`, etc.) sets a literal `flagKind` so that
+  `AllowedPromptConfig<C>` can map each kind to its compatible prompt types via the
+  `PromptConfigByFlagKind` indexed-access map. `WithPresence` propagates `flagKind` through
+  `.required()` / `.default()` chains. Never read at runtime — phantom only.
 - **Type erasure**: `eraseBuilder()` / `eraseCommand()` centralize `as unknown as` casts for
   heterogeneous subcommand storage. These are the justified `as` cast sites.
 
@@ -35,6 +40,20 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 3. Update `InferFlag` conditional type
 4. Wire through `resolve/coerce.ts` (add coercion case in unified `coerceValue()`)
 5. Add tests in `flag.test.ts` + `resolve.test.ts`
+
+## PROMPT — FLAG KIND CONSTRAINTS
+
+`FlagBuilder.prompt()` signature is `prompt(config: AllowedPromptConfig<C>)` — a compile-time gate.
+`AllowedPromptConfig<C>` indexes into `PromptConfigByFlagKind` using `C['flagKind']`:
+
+- `boolean` → `ConfirmPromptConfig`
+- `string` → `InputPromptConfig | SelectPromptConfig`
+- `number` → `InputPromptConfig`
+- `enum` → `SelectPromptConfig | InputPromptConfig`
+- `array` → `MultiselectPromptConfig`
+- `custom` → `PromptConfig` (all kinds — the `parseFn` is responsible for handling any prompt result)
+
+Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `validatePromptFlagCompatibility()`).
 
 ## GOTCHAS
 

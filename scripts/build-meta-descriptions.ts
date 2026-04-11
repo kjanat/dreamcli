@@ -10,8 +10,7 @@
  * @module
  */
 
-import { readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
 
 import { collectPublicApiIndex } from '../docs/.vitepress/data/api-index.ts';
 import {
@@ -47,17 +46,7 @@ if (checkMode) {
 await writeFile(generatedMetaSchemaDescriptionsPath, rendered);
 console.log('✓ src/core/json-schema/meta-descriptions.generated.ts updated');
 
+/** Pipe generated source through dprint via stdin for consistent formatting. */
 async function formatGeneratedSource(source: string): Promise<string> {
-	const tempFilePath = join(
-		dirname(generatedMetaSchemaDescriptionsPath),
-		'.meta-descriptions.generated.tmp.ts',
-	);
-
-	try {
-		await writeFile(tempFilePath, source);
-		await Bun.$`bunx --bun dprint fmt ${tempFilePath}`.quiet();
-		return await readFile(tempFilePath, 'utf8');
-	} finally {
-		await rm(tempFilePath, { force: true });
-	}
+	return Bun.$`bunx --bun dprint fmt --stdin ts < ${Buffer.from(source)}`.text();
 }

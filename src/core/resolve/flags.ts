@@ -8,8 +8,9 @@
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
-import type { ErasedInteractiveResolver, FlagSchema } from '#internals/core/schema/index.ts';
-import type { PromptConfig } from '#internals/core/schema/prompt.ts';
+import type { ErasedInteractiveResolver } from '#internals/core/schema/command.ts';
+import type { FlagKind, FlagSchema } from '#internals/core/schema/flag.ts';
+import type { PromptConfig, PromptKind } from '#internals/core/schema/prompt.ts';
 import { coerceValue } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
 import type { DeprecationWarning } from './contracts.ts';
@@ -165,12 +166,60 @@ async function resolveFlags(
 	return resolved;
 }
 
+/** Maps each flag kind to the prompt kinds that produce compatible values. */
+const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
+	boolean: ['confirm'],
+	string: ['input', 'select'],
+	number: ['input'],
+	enum: ['select', 'input'],
+	array: ['multiselect'],
+	custom: ['input', 'select', 'confirm', 'multiselect'],
+};
+
+/**
+ * Check whether a prompt kind is compatible with the flag's declared kind.
+ *
+ * @returns `undefined` when compatible, or a {@link ValidationError} with
+ * code `'CONSTRAINT_VIOLATED'` and an actionable `suggest` message when not.
+ * @internal
+ */
+function validatePromptFlagCompatibility(
+	flagName: string,
+	flagKind: FlagKind,
+	promptKind: PromptKind,
+): ValidationError | undefined {
+	const allowed = COMPATIBLE_PROMPT_KINDS[flagKind];
+	if (allowed.includes(promptKind)) return undefined;
+
+	return new ValidationError(
+		`Prompt kind '${promptKind}' is not compatible with ${flagKind} flag --${flagName}. Use '${allowed[0]}' instead`,
+		{
+			code: 'CONSTRAINT_VIOLATED',
+			details: { flag: flagName, flagKind, promptKind, allowed },
+			suggest: `Change the prompt to { kind: '${allowed[0]}' } for --${flagName}`,
+		},
+	);
+}
+
+/**
+ * Validate prompt/flag compatibility, run the prompt engine, and coerce the result.
+ *
+ * Returns early with a {@link ValidationError} if the prompt kind is
+ * incompatible with the flag kind (checked via {@link COMPATIBLE_PROMPT_KINDS}
+ * before the prompter is invoked).
+ * @internal
+ */
 async function resolvePromptValueWithConfig(
 	flagName: string,
 	schema: FlagSchema,
 	promptConfig: PromptConfig,
 	prompter: PromptEngine,
 ): Promise<PromptResolveResult> {
+	const mismatch = validatePromptFlagCompatibility(flagName, schema.kind, promptConfig.kind);
+	if (mismatch !== undefined) {
+		return { ok: false, error: mismatch };
+	}
+
 	const resolvedConfig = resolvePromptConfig(promptConfig, schema.enumValues);
 	const result = await prompter.promptOne(resolvedConfig);
 
@@ -181,6 +230,7 @@ async function resolvePromptValueWithConfig(
 	return coerceValue(flagName, { kind: 'prompt' }, result.value, schema);
 }
 
+/** Build a human-readable suggestion listing all available sources for a required flag. @internal */
 function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	const sources: string[] = [];
 	sources.push(`Provide --${name}${schema.kind !== 'boolean' ? ' <value>' : ''}`);
@@ -202,4 +252,4 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	return sources.length === 2 ? `${rest.join('')} or ${last}` : `${rest.join(', ')}, or ${last}`;
 }
 
-export { resolveFlags };
+export { COMPATIBLE_PROMPT_KINDS, resolveFlags };
