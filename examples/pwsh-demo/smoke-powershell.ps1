@@ -72,6 +72,18 @@ $cases = @(
 		Excluded = @()
 	},
 	@{
+		Label = 'Deploy flag value prefix completion'
+		Input = 'pwsh-demo deploy --region e'
+		Expected = @('eu')
+		Excluded = @('us', 'ap')
+	},
+	@{
+		Label = 'Deploy inline flag value completion'
+		Input = 'pwsh-demo deploy --region=e'
+		Expected = @('--region=eu')
+		Excluded = @('--region=us', '--region=ap')
+	},
+	@{
 		Label = 'Deploy strategy value completion'
 		Input = 'pwsh-demo ship --strategy '
 		Expected = @('rolling', 'blue-green', 'canary')
@@ -84,10 +96,34 @@ $cases = @(
 		Excluded = @()
 	},
 	@{
+		Label = 'Root default-command value completion'
+		Input = 'pwsh-demo --profile o'
+		Expected = @('ops')
+		Excluded = @('o', 'open')
+	},
+	@{
+		Label = 'Quoted root default-command value completion'
+		Input = 'pwsh-demo --profile q'
+		Expected = @("'qa ops'", "'qa''s'")
+		Excluded = @('qa ops', "qa's")
+	},
+	@{
+		Label = 'Quoted inline root default-command value completion'
+		Input = 'pwsh-demo --profile=q'
+		Expected = @("--profile='qa ops'", "--profile='qa''s'")
+		Excluded = @('--profile=qa ops', "--profile=qa's")
+	},
+	@{
 		Label = 'Nested subcommand completion'
 		Input = 'pwsh-demo config se'
 		Expected = @('set')
 		Excluded = @()
+	},
+	@{
+		Label = 'Option separator stops flag completion'
+		Input = 'pwsh-demo deploy -- --re'
+		Expected = @()
+		Excluded = @('--region', '--approval', '-r')
 	}
 )
 

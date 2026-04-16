@@ -28,6 +28,8 @@ pwsh-demo ship --str<Tab>
 pwsh-demo deploy --region <Tab>
 pwsh-demo st --view <Tab>
 pwsh-demo --pro<Tab>
+pwsh-demo --profile q<Tab>
+pwsh-demo --profile=q<Tab>
 pwsh-demo config se<Tab>
 ```
 

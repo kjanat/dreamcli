@@ -23,7 +23,7 @@ const open = command('open')
 	.flag(
 		'profile',
 		flag
-			.enum(['default', 'ops', 'readonly'])
+			.enum(['default', 'ops', 'readonly', 'qa ops', "qa's"])
 			.alias('p')
 			.alias('account', { hidden: true })
 			.describe('Credential profile'),
