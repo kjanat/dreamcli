@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-16
+
 ### Added
 
 - **Prompt — flag kind compatibility validation** — `FlagBuilder.prompt()` now rejects incompatible
@@ -17,14 +19,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`flagKind` phantom discriminator** — `FlagConfig` now carries a `flagKind` field (phantom — never
   read at runtime) so the type system can distinguish all six flag kinds. `AllowedPromptConfig` uses
   an indexed-access map (`PromptConfigByFlagKind`) for union-safe resolution.
+- **PowerShell completion playground** — added a Windows-friendly `pwsh-demo` workspace with a
+  `.cmd` launcher, native `Register-ArgumentCompleter` registration, README install steps, and an
+  end-to-end smoke test so PowerShell completions can be exercised outside unit tests.
 
 ### Changed
 
 - **Meta-descriptions build** — `scripts/build-meta-descriptions.ts` pipes generated source through
   `dprint fmt --stdin ts` instead of writing/reading a temp file and formatting in-place.
+- **PowerShell install guidance** — current-session docs and generated script headers now use
+  `Out-String | Invoke-Expression`, matching the PowerShell flow that reliably evaluates multiline
+  completion output.
+- **Bun support floor** — relaxed the documented and enforced Bun minimum from `>= 1.3.11` to
+  `>= 1.3` across package metadata, runtime support checks, examples, and docs.
 
 ### Fixed
 
+- **PowerShell completions** — enum values now complete while the active token is still in progress,
+  stop suggesting flags after `--`, and quote accepted values when spaces or quotes would otherwise
+  produce invalid PowerShell input.
+- **PowerShell playground launcher** — fixed the Windows `pwsh-demo.cmd` shim so the example runs
+  reliably from PowerShell and Command Prompt.
+- **Package metadata** — moved `vite` from `optionalDependencies` to `devDependencies` so consumer
+  installs do not see it as a runtime dependency.
 - **Docs deploy** — remove dead Workers runtime vars (`BUN_VERSION`, `NODE_OPTIONS`) that had no
   effect on the static assets Worker, and add `html_handling: "drop-trailing-slash"` so clean URLs
   resolve correctly instead of 404ing on trailing slashes.
@@ -729,7 +746,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/kjanat/dreamcli/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/kjanat/dreamcli/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kjanat/dreamcli/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kjanat/dreamcli/compare/5b86f72...v1.0.0
