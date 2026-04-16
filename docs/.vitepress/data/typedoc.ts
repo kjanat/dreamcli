@@ -323,13 +323,13 @@ async function collectRawTypeDocProject(
 	const entryPoints = publicApi
 		.filter((entrypoint) => extname(entrypoint.sourcePath) === '.ts')
 		.filter((entrypoint) => !entrypoint.sourcePath.endsWith('.test.ts'))
-		.map((entrypoint) => resolve(rootDir, entrypoint.sourcePath));
+		.map((entrypoint) => normalizePath(resolve(rootDir, entrypoint.sourcePath)));
 	const app = await Application.bootstrap({
 		entryPoints,
 		entryPointStrategy: 'resolve',
 		plugin: [],
 		sourceLinkTemplate: `https://github.com/kjanat/dreamcli/blob/${gitRef}/{path}#L{line}`,
-		tsconfig: tsconfigPath,
+		tsconfig: normalizePath(tsconfigPath),
 	});
 	const project = await app.convert();
 	if (project === undefined) {

@@ -5,9 +5,15 @@
  */
 
 import { execSync } from 'node:child_process';
-import { normalize } from 'node:path/posix';
+import { resolve } from 'node:path';
 
-const rootDir = normalize(`${import.meta.dirname}/../../..`);
+const currentDir = import.meta.dirname;
+
+if (currentDir === undefined) {
+	throw new Error('docs path helpers require import.meta.dirname');
+}
+
+const rootDir = resolve(currentDir, '../../..');
 
 export const rootDirPath = rootDir;
 export const docsRoot = `${rootDir}/docs`;

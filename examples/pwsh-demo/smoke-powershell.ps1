@@ -17,12 +17,21 @@ Set-StrictMode -Version Latest
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $env:PATH = "$root;$env:PATH"
 
-$completionScript = & bun "$root/src/main.ts" completions powershell
-if (-not $completionScript) {
+$completionScript = (& bun "$root/src/main.ts" completions powershell | Out-String).TrimEnd()
+if ([string]::IsNullOrWhiteSpace($completionScript)) {
 	throw 'No completion script was generated.'
 }
 
-$completionScript | Out-String | Invoke-Expression
+$nativeCompletionScript = (& pwsh-demo completions powershell | Out-String).TrimEnd()
+if ([string]::IsNullOrWhiteSpace($nativeCompletionScript)) {
+	throw 'The native pwsh-demo launcher did not generate a completion script.'
+}
+
+if ($nativeCompletionScript -ne $completionScript) {
+	throw 'The native pwsh-demo launcher generated a different completion script than the direct Bun invocation.'
+}
+
+$nativeCompletionScript | Out-String | Invoke-Expression
 
 <#
 	.SYNOPSIS

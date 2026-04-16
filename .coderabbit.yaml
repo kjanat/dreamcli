@@ -89,9 +89,9 @@ reviews:
           If this PR changes supported runtime minimums or support claims for Node, Bun, or Deno,
           verify the update is reflected consistently across all support-truth surfaces:
           `package.json` engines, `src/runtime/support.ts`, runtime adapter tests or error messages,
-          `README.md`, `docs/guide/runtime.md`, `docs/reference/runtime.md`, and
-          `docs/reference/support-matrix.md`. Fail when runtime support changes are only updated in
-          some of these places.
+          `README.md`, `docs/guide/runtime.md`, `docs/guide/getting-started.md`,
+          `docs/reference/runtime.md`, and `docs/reference/support-matrix.md`. Fail when runtime
+          support changes are only updated in some of these places.
       - mode: error
         name: No Generated Docs Artifacts
         instructions: >-
