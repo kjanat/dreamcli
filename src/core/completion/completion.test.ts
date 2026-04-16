@@ -2388,7 +2388,7 @@ describe('generatePowerShellCompletion — script structure', () => {
 		const script = generatePowerShellCompletion(minimalSchema());
 
 		expect(script).toContain('# PowerShell completion for testcli');
-		expect(script).toContain('testcli completions powershell | Invoke-Expression');
+		expect(script).toContain('testcli completions powershell | Out-String | Invoke-Expression');
 		expect(script).toContain('$PROFILE.CurrentUserCurrentHost');
 		expect(script).toContain('Register-ArgumentCompleter -Native -CommandName');
 		expect(script).toContain('$script:__testcli_completions_paths = @{');

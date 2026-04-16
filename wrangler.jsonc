@@ -3,21 +3,21 @@
 	"name": "dreamcli",
 	"compatibility_date": "2026-04-02",
 	"build": {
-		"watch_dir": "./src",
+		"watch_dir": "./docs",
 		"command": "bun docs:build",
-		"cwd": "."
+		"cwd": ".",
 	},
 	"workers_dev": true,
 	"preview_urls": true,
 	"assets": {
 		"directory": "./docs/.vitepress/dist/",
 		"not_found_handling": "single-page-application",
-		"html_handling": "drop-trailing-slash"
+		"html_handling": "drop-trailing-slash",
 	},
 	"routes": [
 		{
 			"custom_domain": true,
-			"pattern": "dreamcli.kjanat.com"
-		}
-	]
+			"pattern": "dreamcli.kjanat.com",
+		},
+	],
 }
