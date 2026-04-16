@@ -76,21 +76,27 @@ reviews:
   pre_merge_checks:
     custom_checks:
       - mode: error
-        name: GOALS.md Completion Sync
-        instructions: If GOALS.md exists in the repository and the PR implements, modifies,
-          or completes functionality that corresponds to any listed goal, then GOALS.md
-          MUST be updated in this PR to mark completed goals as done (e.g., checkbox updated,
-          status changed, or explicitly marked completed). If new major functionality is
-          introduced that aligns with project scope but is not represented in GOALS.md,
-          a new goal entry MUST be added. If applicable changes are made but GOALS.md is
-          not updated, fail.
+        name: Release Metadata Sync
+        instructions: >-
+          If this PR changes package versions, changelog release headings, or release metadata,
+          verify the release surfaces stay aligned. `package.json` and `deno.json` must declare the
+          same version. `CHANGELOG.md` must contain the matching latest release heading, and the
+          `[Unreleased]` plus latest version comparison links must point at that version. Fail on
+          partial version bumps or inconsistent release metadata.
       - mode: error
-        name: No Stale Completed Goals
-        instructions: If GOALS.md exists and contains goals marked as completed, verify
-          that the corresponding implementation still exists in the codebase. If a PR removes
-          or breaks functionality tied to a completed goal, GOALS.md MUST be updated to
-          reflect the new status (e.g., unchecked or revised). If completed goals no longer
-          match repository state and GOALS.md is not updated accordingly, fail.
+        name: Runtime Support Sync
+        instructions: >-
+          If this PR changes supported runtime minimums or support claims for Node, Bun, or Deno,
+          verify the update is reflected consistently across all support-truth surfaces:
+          `package.json` engines, `src/runtime/support.ts`, runtime adapter tests or error messages,
+          `README.md`, `docs/guide/runtime.md`, `docs/reference/runtime.md`, and
+          `docs/reference/support-matrix.md`. Fail when runtime support changes are only updated in
+          some of these places.
+      - mode: error
+        name: No Generated Docs Artifacts
+        instructions: >-
+          Fail if the PR edits `docs/.vitepress/dist/` or `docs/.vitepress/cache/`. These are
+          generated build artifacts and should not be committed.
 issue_enrichment:
   labeling:
     auto_apply_labels: true
