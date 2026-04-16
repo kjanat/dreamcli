@@ -3,24 +3,27 @@
 ## OVERVIEW
 
 Repo-root examples are the source of truth for docs example pages. `examples/gh/` is a real Bun
-workspace package used as a walkthrough and CI canary.
+workspace package used as a walkthrough and CI canary. `examples/pwsh-demo/` is a Windows-friendly
+workspace package used to exercise PowerShell completions end to end.
 
 ## STRUCTURE
 
 ```text
-*.ts     # single-file teaching examples parsed by docs
-gh/      # workspace package: miniature GitHub CLI clone
-.cache/  # generated build cache
+*.ts       # single-file teaching examples parsed by docs
+gh/        # workspace package: miniature GitHub CLI clone
+pwsh-demo/ # workspace package: PowerShell completion playground
+.cache/    # generated build cache
 ```
 
 ## WHERE TO LOOK
 
-| Task                            | Location                                                                                                               | Notes                                        |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Edit a single-feature example   | `basic.ts`, `interactive.ts`, `json-mode.ts`, `middleware.ts`, `multi-command.ts`, `spinner-progress.ts`, `testing.ts` | keep focused, runnable, public-API only      |
-| Edit docs example metadata      | `../docs/.vitepress/data/examples.ts`                                                                                  | parses example docblocks and related symbols |
-| Edit the walkthrough package    | `gh/`                                                                                                                  | real package with commands, tests, and build |
-| Trace example-backed docs pages | `../docs/examples/`, `../docs/reference/`                                                                              | generated from example source                |
+| Task                               | Location                                                                                                               | Notes                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Edit a single-feature example      | `basic.ts`, `interactive.ts`, `json-mode.ts`, `middleware.ts`, `multi-command.ts`, `spinner-progress.ts`, `testing.ts` | keep focused, runnable, public-API only            |
+| Edit docs example metadata         | `../docs/.vitepress/data/examples.ts`                                                                                  | parses example docblocks and related symbols       |
+| Edit the walkthrough package       | `gh/`                                                                                                                  | real package with commands, tests, and build       |
+| Edit the PowerShell demo workspace | `pwsh-demo/`                                                                                                           | real package with native PowerShell smoke coverage |
+| Trace example-backed docs pages    | `../docs/examples/`, `../docs/reference/`                                                                              | generated from example source                      |
 
 ## CONVENTIONS
 
@@ -29,6 +32,8 @@ gh/      # workspace package: miniature GitHub CLI clone
 - Keep examples pedagogical and runnable; they double as docs content
 - `examples/gh` is typechecked and tested separately in CI, so edits there carry real consumer
   signal
+- `examples/pwsh-demo` is a workspace canary for completion install docs, Windows launcher behavior,
+  and native PowerShell completion execution
 
 ## ANTI-PATTERNS
 
@@ -36,9 +41,12 @@ gh/      # workspace package: miniature GitHub CLI clone
 - Do not let examples drift into pseudo-internal usage that real consumers cannot copy
 - Do not treat `.cache/` as source
 - Do not bloat single-file examples with walkthrough-only complexity; move that to `examples/gh`
+- Do not change PowerShell install behavior without updating the `pwsh-demo` smoke coverage and docs
 
 ## NOTES
 
 - `examples/gh/package.json` links `@kjanat/dreamcli` from the workspace and exposes a real `gh`
   bin
+- `examples/pwsh-demo/package.json` links `@kjanat/dreamcli` from the workspace, exposes a real
+  `pwsh-demo` bin, and includes `smoke:powershell` for end-to-end completion verification
 - Docs build derives related API symbol links from named imports in example source

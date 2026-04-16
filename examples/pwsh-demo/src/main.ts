@@ -113,6 +113,9 @@ const debugDump = command('debug-dump')
 		out.log(JSON.stringify({ section: flags.section, hidden: true }, null, 2));
 	});
 
+/**
+ * PowerShell completion playground CLI used by docs, smoke checks, and manual shell testing.
+ */
 export const pwshDemo = cli('pwsh-demo')
 	.packageJson()
 	.default(open)
