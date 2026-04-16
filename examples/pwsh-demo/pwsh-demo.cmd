@@ -1,2 +1,3 @@
 @echo off
-bun "%~dp0src\main.ts" %*
+bun --cwd "%~dp0." src\main.ts %*
+exit /b %errorlevel%

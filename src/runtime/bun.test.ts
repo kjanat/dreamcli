@@ -30,7 +30,7 @@ function mockProcess(
 	return {
 		argv: overrides?.argv ?? ['bun', 'cli.ts'],
 		env: overrides?.env ?? {},
-		versions: overrides?.versions ?? { node: '22.22.2', bun: '1.3.11' },
+		versions: overrides?.versions ?? { node: '22.22.2', bun: '1.3.12' },
 		cwd: overrides?.cwd ?? (() => '/bun/project'),
 		platform: overrides?.platform ?? 'linux',
 		stdin: overrides?.stdin ?? mockStdin(),
@@ -154,13 +154,13 @@ describe('createBunAdapter — delegation contract', () => {
 		});
 
 		it('accepts Bun when Node compatibility version is below the Node minimum', () => {
-			const proc = mockProcess({ versions: { node: '20.20.1', bun: '1.3.11' } });
+			const proc = mockProcess({ versions: { node: '20.20.1', bun: '1.3.12' } });
 			expect(() => createBunAdapter(proc)).not.toThrow();
 		});
 
 		it('throws for unsupported Bun versions', () => {
 			const proc = mockProcess({ versions: { node: '22.22.2', bun: '1.2.9' } });
-			expect(() => createBunAdapter(proc)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
+			expect(() => createBunAdapter(proc)).toThrow('@kjanat/dreamcli requires Bun >= 1.3');
 		});
 	});
 });

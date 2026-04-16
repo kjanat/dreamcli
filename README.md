@@ -486,7 +486,7 @@ ESM-only. Source included in package (`src/`).
 | Runtime            | Status                              |
 | ------------------ | ----------------------------------- |
 | Node.js >= 22.22.2 | Supported                           |
-| Bun >= 1.3.11      | Supported                           |
+| Bun >= 1.3         | Supported                           |
 | Deno >= 2.6.0      | Supported (JSR: `@kjanat/dreamcli`) |
 
 Runtime detection is automatic.
