@@ -60,7 +60,7 @@
 		"https://plugins.dprint.dev/kjanat/svg-v0.2.7.wasm",
 		"https://plugins.dprint.dev/exec-0.6.2.json@df98f54ffd3092b8a841aedd6d098a2651f16d0a796a40535774f1a8b4b9d463",
 		"https://plugins.dprint.dev/prettier-0.69.0.json@3de5c7cf5cdbae7b214f404b12503c92e7964be5fffd442b998e6d5fe4ba0e7b",
-		"https://plugins.dprint.dev/ruff-0.7.9.wasm",
+		"https://plugins.dprint.dev/ruff-0.7.10.wasm",
 		"https://plugins.dprint.dev/json-0.21.3.wasm",
 	],
 }
