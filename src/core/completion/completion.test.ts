@@ -2388,10 +2388,24 @@ describe('generatePowerShellCompletion — script structure', () => {
 		const script = generatePowerShellCompletion(minimalSchema());
 
 		expect(script).toContain('# PowerShell completion for testcli');
-		expect(script).toContain('testcli completions powershell | Invoke-Expression');
+		expect(script).toContain('testcli completions powershell | Out-String | Invoke-Expression');
 		expect(script).toContain('$PROFILE.CurrentUserCurrentHost');
 		expect(script).toContain('Register-ArgumentCompleter -Native -CommandName');
 		expect(script).toContain('$script:__testcli_completions_paths = @{');
+	});
+
+	it('derives PowerShell state from completed tokens only', () => {
+		const script = generatePowerShellCompletion(minimalSchema());
+
+		expect(script).toContain('if ($element.Extent.EndOffset -ge $CursorPosition) {');
+	});
+
+	it('stops flag completion after the option separator', () => {
+		const script = generatePowerShellCompletion(minimalSchema());
+
+		expect(script).toContain('if ($state.AfterSeparator) {');
+		expect(script).toContain('AfterSeparator = $afterSeparator');
+		expect(script).toContain("if ($token -eq '--') {");
 	});
 
 	it('includes root commands and root flags', () => {
@@ -2464,6 +2478,30 @@ describe('generatePowerShellCompletion — script structure', () => {
 
 		expect(script).toContain("EnumValues = @('dev', 'prod')");
 		expect(script).toContain('_AddInlineEnumResults');
+	});
+
+	it('quotes enum completion text as PowerShell literals when needed', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								description: 'Region',
+								enumValues: ['eu west', "qa's"],
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generatePowerShellCompletion(schema);
+
+		expect(script).toContain('_FormatCompletionValue');
+		expect(script).toContain('[CodeGeneration]::EscapeSingleQuotedStringContent($Value)');
+		expect(script).toContain('_MatchesCompletionPrefix');
 	});
 
 	it('keeps hidden aliases in parser forms but not completion forms', () => {

@@ -20,7 +20,7 @@ deno add jsr:@kjanat/dreamcli
 
 Supported minimum runtimes:
 Node.js `>= 22.22.2`,
-Bun `>= 1.3.11`,
+Bun `>= 1.3`,
 Deno `>= 2.6.0`.
 
 ## Your First Command

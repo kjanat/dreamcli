@@ -9,11 +9,11 @@
 		"lineWidth": 100,
 		"quoteStyle": "single",
 		"css.enabled": true,
-		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts", "*.ts.tpl"]
+		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts", "*.ts.tpl"],
 	},
 	"markdown": {
 		"textWrap": "maintain",
-		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"],
 	},
 	"markup": {
 		"html.void.selfClosing": false,
@@ -23,7 +23,7 @@
 		"vue.scriptIndent": true,
 		"vue.styleIndent": true,
 		"scriptFormatter": "biome",
-		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"],
 	},
 	"yaml": { "printWidth": 160 },
 	"svg": { "useTabs": false },
@@ -32,13 +32,13 @@
 		"commands": [
 			{
 				"command": "bun x sort-package-json --stdin",
-				"fileNames": ["package.json"]
+				"fileNames": ["package.json"],
 			},
 			{
 				"command": "bun x tombi format - --stdin-filename {{file_path}}",
-				"exts": ["toml"]
-			}
-		]
+				"exts": ["toml"],
+			},
+		],
 	},
 	"prettier": {
 		"singleQuote": true,
@@ -47,19 +47,20 @@
 		"tabWidth": 2,
 		"useTabs": false,
 		"endOfLine": "lf",
-		"associations": ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts"]
+		"associations": ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts"],
 	},
 	"ruff": { "preview": true, "indentWidth": 4 },
 	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots", "**/*.schema.json"],
 	"plugins": [
-		"https://plugins.dprint.dev/biome-0.12.6.wasm",
+		"https://plugins.dprint.dev/biome-0.12.8.wasm",
 		"https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",
 		"https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm",
 		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
 		"https://plugins.dprint.dev/markdown-0.21.1.wasm",
-		"https://plugins.dprint.dev/kjanat/svg-v0.2.6.wasm",
+		"https://plugins.dprint.dev/kjanat/svg-v0.2.7.wasm",
 		"https://plugins.dprint.dev/exec-0.6.2.json@df98f54ffd3092b8a841aedd6d098a2651f16d0a796a40535774f1a8b4b9d463",
-		"https://plugins.dprint.dev/prettier-0.67.1.json@59ebff9da99fa283ba37ed5c131e73d5acc6b57bb90ba4cd1230b4fbadb19dd1",
-		"https://plugins.dprint.dev/ruff-0.7.8.wasm"
-	]
+		"https://plugins.dprint.dev/prettier-0.69.0.json@3de5c7cf5cdbae7b214f404b12503c92e7964be5fffd442b998e6d5fe4ba0e7b",
+		"https://plugins.dprint.dev/ruff-0.7.9.wasm",
+		"https://plugins.dprint.dev/json-0.21.3.wasm",
+	],
 }

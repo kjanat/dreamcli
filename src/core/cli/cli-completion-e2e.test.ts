@@ -860,7 +860,7 @@ describe('CLIBuilder.run()', () => {
 			const { createAdapter } = await import('#internals/runtime/auto.ts');
 			const { detectRuntime } = await import('#internals/runtime/detect.ts');
 			const globals: GlobalForDetect = {
-				Bun: { version: '1.3.11' },
+				Bun: { version: '1.3.12' },
 				process: { versions: { node: '22.22.2' } },
 			};
 			expect(detectRuntime(globals)).toBe('bun');

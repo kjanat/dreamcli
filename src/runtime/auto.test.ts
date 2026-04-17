@@ -57,7 +57,7 @@ describe('createAdapter', () => {
 
 		it('creates adapter for Bun runtime', () => {
 			const globals: GlobalForDetect = {
-				Bun: { version: '1.3.11' },
+				Bun: { version: '1.3.12' },
 				process: { versions: { node: '22.22.2' } },
 			};
 			const adapter = createAdapter(globals);
@@ -104,7 +104,7 @@ describe('createAdapter', () => {
 			// produces a valid RuntimeAdapter.
 			const globalsForRuntime: Record<string, GlobalForDetect> = {
 				node: { process: { versions: { node: '22.22.2' } } },
-				bun: { Bun: { version: '1.3.11' }, process: { versions: { node: '22.22.2' } } },
+				bun: { Bun: { version: '1.3.12' }, process: { versions: { node: '22.22.2' } } },
 				deno: { Deno: createMockDenoNamespace() },
 				unknown: {},
 			};
@@ -174,7 +174,7 @@ describe('createAdapter', () => {
 				process: { versions: { node: '22.22.2' } },
 			};
 
-			expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Bun >= 1.3.11');
+			expect(() => createAdapter(globals)).toThrow('@kjanat/dreamcli requires Bun >= 1.3');
 		});
 
 		it('throws for unsupported Deno versions', () => {
