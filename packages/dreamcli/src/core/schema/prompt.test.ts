@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
+	AllowedPromptConfig,
 	ConfirmPromptConfig,
 	FlagSchema,
 	InferFlag,
@@ -401,6 +402,169 @@ describe('command builder with prompted flags', () => {
 			kind: 'input',
 			message: 'Project name',
 		});
+	});
+});
+
+// --- AllowedPromptConfig type constraints (issue #11)
+
+describe('AllowedPromptConfig type constraints', () => {
+	it('boolean flag allows only confirm', () => {
+		type BoolConfig = {
+			readonly valueType: boolean;
+			readonly presence: 'defaulted';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'boolean';
+		};
+		expectTypeOf<AllowedPromptConfig<BoolConfig>>().toEqualTypeOf<ConfirmPromptConfig>();
+	});
+
+	it('number flag allows only input', () => {
+		type NumConfig = {
+			readonly valueType: number;
+			readonly presence: 'optional';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'number';
+		};
+		expectTypeOf<AllowedPromptConfig<NumConfig>>().toEqualTypeOf<InputPromptConfig>();
+	});
+
+	it('string flag allows input or select', () => {
+		type StrConfig = {
+			readonly valueType: string;
+			readonly presence: 'optional';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'string';
+		};
+		expectTypeOf<AllowedPromptConfig<StrConfig>>().toEqualTypeOf<
+			InputPromptConfig | SelectPromptConfig
+		>();
+	});
+
+	it('enum flag allows select or input', () => {
+		type EnumConfig = {
+			readonly valueType: 'us' | 'eu';
+			readonly presence: 'optional';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'enum';
+		};
+		expectTypeOf<AllowedPromptConfig<EnumConfig>>().toEqualTypeOf<
+			SelectPromptConfig | InputPromptConfig
+		>();
+	});
+
+	it('array flag allows only multiselect', () => {
+		type ArrConfig = {
+			readonly valueType: string[];
+			readonly presence: 'optional';
+			readonly optionalFallback: 'empty-array';
+			readonly flagKind: 'array';
+		};
+		expectTypeOf<AllowedPromptConfig<ArrConfig>>().toEqualTypeOf<MultiselectPromptConfig>();
+	});
+
+	it('custom flag allows all prompt kinds', () => {
+		type CustomConfig = {
+			readonly valueType: unknown;
+			readonly presence: 'optional';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'custom';
+		};
+		expectTypeOf<AllowedPromptConfig<CustomConfig>>().toEqualTypeOf<PromptConfig>();
+	});
+
+	it('multiselect is not assignable to enum flag prompt', () => {
+		type EnumConfig = {
+			readonly valueType: 'us' | 'eu';
+			readonly presence: 'optional';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'enum';
+		};
+		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<EnumConfig>>();
+	});
+
+	it('multiselect is not assignable to boolean flag prompt', () => {
+		type BoolConfig = {
+			readonly valueType: boolean;
+			readonly presence: 'defaulted';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'boolean';
+		};
+		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
+	});
+
+	it('confirm is not assignable to string flag prompt', () => {
+		type StrConfig = {
+			readonly valueType: string;
+			readonly presence: 'optional';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'string';
+		};
+		expectTypeOf<ConfirmPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<StrConfig>>();
+	});
+
+	it('input is not assignable to boolean flag prompt', () => {
+		type BoolConfig = {
+			readonly valueType: boolean;
+			readonly presence: 'defaulted';
+			readonly optionalFallback: 'undefined';
+			readonly flagKind: 'boolean';
+		};
+		expectTypeOf<InputPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
+	});
+
+	it('select is not assignable to array flag prompt', () => {
+		type ArrConfig = {
+			readonly valueType: string[];
+			readonly presence: 'optional';
+			readonly optionalFallback: 'empty-array';
+			readonly flagKind: 'array';
+		};
+		expectTypeOf<SelectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<ArrConfig>>();
+	});
+
+	it('valid combinations accepted by FlagBuilder.prompt()', () => {
+		// These should compile without errors
+		flag.string().prompt({ kind: 'input', message: 'Name?' });
+		flag.string().prompt({ kind: 'select', message: 'Pick', choices: [{ value: 'a' }] });
+		flag.number().prompt({ kind: 'input', message: 'Port?' });
+		flag.boolean().prompt({ kind: 'confirm', message: 'Force?' });
+		flag.enum(['a', 'b']).prompt({ kind: 'select', message: 'Pick' });
+		flag.enum(['a', 'b']).prompt({ kind: 'input', message: 'Enter value' });
+		flag.array(flag.string()).prompt({ kind: 'multiselect', message: 'Tags?' });
+	});
+
+	it('custom flag allows all prompt kinds', () => {
+		const custom = flag.custom((raw) => raw);
+		custom.prompt({ kind: 'input', message: 'Value?' });
+		custom.prompt({ kind: 'select', message: 'Pick', choices: [{ value: 'a' }] });
+		custom.prompt({ kind: 'confirm', message: 'Continue?' });
+		custom.prompt({ kind: 'multiselect', message: 'Tags?', choices: [{ value: 'x' }] });
+	});
+
+	it('invalid combinations rejected by FlagBuilder.prompt()', () => {
+		// @ts-expect-error — multiselect is not compatible with enum flags
+		flag.enum(['a', 'b']).prompt({ kind: 'multiselect', message: 'Pick' });
+
+		// @ts-expect-error — input is not compatible with boolean flags
+		flag.boolean().prompt({ kind: 'input', message: 'Force?' });
+
+		// @ts-expect-error — multiselect is not compatible with string flags
+		flag.string().prompt({ kind: 'multiselect', message: 'Name?' });
+
+		// @ts-expect-error — confirm is not compatible with string flags
+		flag.string().prompt({ kind: 'confirm', message: 'Name?' });
+
+		// @ts-expect-error — multiselect is not compatible with number flags
+		flag.number().prompt({ kind: 'multiselect', message: 'Port?' });
+
+		// @ts-expect-error — confirm is not compatible with number flags
+		flag.number().prompt({ kind: 'confirm', message: 'Port?' });
+
+		// @ts-expect-error — confirm is not compatible with array flags
+		flag.array(flag.string()).prompt({ kind: 'confirm', message: 'Tags?' });
+
+		// @ts-expect-error — input is not compatible with array flags
+		flag.array(flag.string()).prompt({ kind: 'input', message: 'Tags?' });
 	});
 });
 

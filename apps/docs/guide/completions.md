@@ -114,7 +114,7 @@ mycli completions zsh >> ~/.zshrc
 mycli completions fish > ~/.config/fish/completions/mycli.fish
 
 # powershell
-mycli completions powershell | Invoke-Expression
+mycli completions powershell | Out-String | Invoke-Expression
 ```
 
 ## What Completes

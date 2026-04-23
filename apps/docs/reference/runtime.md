@@ -63,7 +63,7 @@ const runtime: Runtime = detectRuntime();
 | Runtime                 | Adapter       | Notes                          |
 | ----------------------- | ------------- | ------------------------------ |
 | Node.js >=\u00a022.22.2 | `NodeAdapter` | Full support                   |
-| Bun >=\u00a01.3.11      | `BunAdapter`  | Delegates to Node adapter      |
+| Bun >=\u00a01.3         | `BunAdapter`  | Delegates to Node adapter      |
 | Deno >=\u00a02.6.0      | `DenoAdapter` | Permission-safe Deno namespace |
 
 Adapter creation validates these minimum versions and throws immediately when the host runtime is too old.

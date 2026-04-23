@@ -1,3 +1,7 @@
 /.opencode/state/**/progress.txt linguist-generated -diff
 /.opencode/state/**/prd.json linguist-generated -diff
 /bun.lock linguist-generated
+
+# Windows batch files must use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf

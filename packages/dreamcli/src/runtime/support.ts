@@ -43,8 +43,8 @@ const SUPPORTED_RUNTIMES: readonly RuntimeSupportEntry[] = [
 	{
 		runtime: 'bun',
 		displayName: 'Bun',
-		minimum: '1.3.11',
-		engineRange: '>=1.3.11',
+		minimum: '1.3',
+		engineRange: '>=1.3',
 		packageName: '@kjanat/dreamcli',
 		adapterName: 'BunAdapter',
 	},

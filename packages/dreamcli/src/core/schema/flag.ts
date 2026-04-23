@@ -9,7 +9,13 @@
  * @module dreamcli/core/schema/flag
  */
 
-import type { PromptConfig } from './prompt.ts';
+import type {
+	ConfirmPromptConfig,
+	InputPromptConfig,
+	MultiselectPromptConfig,
+	PromptConfig,
+	SelectPromptConfig,
+} from './prompt.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
@@ -48,6 +54,8 @@ interface FlagConfig {
 	readonly presence: FlagPresence;
 	/** What an unresolved optional flag becomes at the action boundary. */
 	readonly optionalFallback: OptionalFallback;
+	/** The runtime kind discriminator, mirroring {@link FlagKind}. */
+	readonly flagKind: FlagKind;
 }
 
 // --- Type-level helpers
@@ -60,6 +68,7 @@ type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
 	readonly valueType: C['valueType'];
 	readonly presence: P;
 	readonly optionalFallback: C['optionalFallback'];
+	readonly flagKind: C['flagKind'];
 };
 
 /**
@@ -86,6 +95,29 @@ type InferFlag<B> = B extends FlagBuilder<infer C extends FlagConfig> ? Resolved
 type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
 	[K in keyof T]: InferFlag<T[K]>;
 };
+
+/**
+ * Maps a {@linkcode FlagConfig} to the prompt config types that are compatible
+ * with the flag's kind. Prevents compile-time mismatches such as
+ * `flag.enum([…]).prompt({ kind: 'multiselect' })`.
+ *
+ * - `'boolean'` → {@link ConfirmPromptConfig}
+ * - `'string'`  → {@link InputPromptConfig} | {@link SelectPromptConfig}
+ * - `'number'`  → {@link InputPromptConfig}
+ * - `'enum'`    → {@link SelectPromptConfig} | {@link InputPromptConfig}
+ * - `'array'`   → {@link MultiselectPromptConfig}
+ * - `'custom'`  → all prompt kinds ({@link PromptConfig})
+ */
+type PromptConfigByFlagKind = {
+	readonly string: InputPromptConfig | SelectPromptConfig;
+	readonly number: InputPromptConfig;
+	readonly boolean: ConfirmPromptConfig;
+	readonly enum: SelectPromptConfig | InputPromptConfig;
+	readonly array: MultiselectPromptConfig;
+	readonly custom: PromptConfig;
+};
+
+type AllowedPromptConfig<C extends FlagConfig> = PromptConfigByFlagKind[C['flagKind']];
 
 // --- Runtime schema data
 
@@ -469,7 +501,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli init --name foo   → skips prompt, uses CLI value
 	 * ```
 	 */
-	prompt(config: PromptConfig): FlagBuilder<C> {
+	prompt(config: AllowedPromptConfig<C>): FlagBuilder<C> {
 		return new FlagBuilder({
 			...this.schema,
 			prompt: config,
@@ -547,6 +579,7 @@ interface FlagFactory {
 		readonly valueType: string;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'string';
 	}>;
 
 	/**
@@ -558,6 +591,7 @@ interface FlagFactory {
 		readonly valueType: number;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'number';
 	}>;
 
 	/**
@@ -570,6 +604,7 @@ interface FlagFactory {
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'boolean';
 	}>;
 
 	/**
@@ -593,6 +628,7 @@ interface FlagFactory {
 		readonly valueType: T[number];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'enum';
 	}>;
 
 	/**
@@ -613,6 +649,7 @@ interface FlagFactory {
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-array';
+		readonly flagKind: 'array';
 	}>;
 
 	/**
@@ -648,6 +685,7 @@ interface FlagFactory {
 		readonly valueType: T;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
 	}>;
 }
 
@@ -660,6 +698,7 @@ const flag: FlagFactory = {
 		readonly valueType: string;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'string';
 	}> {
 		return new FlagBuilder(createSchema('string'));
 	},
@@ -668,6 +707,7 @@ const flag: FlagFactory = {
 		readonly valueType: number;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'number';
 	}> {
 		return new FlagBuilder(createSchema('number'));
 	},
@@ -676,6 +716,7 @@ const flag: FlagFactory = {
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'boolean';
 	}> {
 		return new FlagBuilder(
 			createSchema('boolean', {
@@ -691,6 +732,7 @@ const flag: FlagFactory = {
 		readonly valueType: T[number];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'enum';
 	}> {
 		return new FlagBuilder(createSchema('enum', { enumValues: values }));
 	},
@@ -701,6 +743,7 @@ const flag: FlagFactory = {
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-array';
+		readonly flagKind: 'array';
 	}> {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
@@ -709,6 +752,7 @@ const flag: FlagFactory = {
 		readonly valueType: T;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
 	}> {
 		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
 	},
@@ -730,6 +774,7 @@ export type {
 } from './prompt.ts';
 export { PROMPT_KINDS } from './prompt.ts';
 export type {
+	AllowedPromptConfig,
 	FlagAlias,
 	FlagConfig,
 	FlagFactory,

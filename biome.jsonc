@@ -4,12 +4,20 @@
 		"enabled": true,
 		"clientKind": "git",
 		"useIgnoreFile": true,
-		"defaultBranch": "master"
+		"defaultBranch": "master",
 	},
 	"files": {
-		"includes": ["**"],
-		"ignoreUnknown": false,
-		"maxSize": 5000000
+		"includes": [
+			"**",
+			"!!**/node_modules",
+			"!!**/dist",
+			"!!**/build",
+			"!!**/.opencode",
+			"!!**/.bucket",
+			"!!**/bun.lock",
+		],
+		"ignoreUnknown": true,
+		"maxSize": 5000000,
 	},
 	"formatter": { "enabled": false },
 	"linter": {
@@ -17,26 +25,26 @@
 		"rules": {
 			"recommended": true,
 			"style": {
-				"noNonNullAssertion": "info"
+				"noNonNullAssertion": "info",
 			},
 			"suspicious": {
 				"noExplicitAny": "warn",
 				"noConfusingVoidType": "info",
-				"noNonNullAssertedOptionalChain": "info"
+				"noNonNullAssertedOptionalChain": "info",
 			},
 			"complexity": {
 				"noUselessFragments": "warn",
 				"noUselessTypeConstraint": "warn",
-				"useLiteralKeys": "off"
-			}
-		}
+				"useLiteralKeys": "off",
+			},
+		},
 	},
 	"javascript": {
 		"formatter": {
 			"enabled": false,
 			"quoteStyle": "single",
-			"semicolons": "always"
-		}
+			"semicolons": "always",
+		},
 	},
 	"json": {
 		"linter": { "enabled": true },
@@ -44,8 +52,8 @@
 		"formatter": { "enabled": false },
 		"parser": {
 			"allowComments": false,
-			"allowTrailingCommas": false
-		}
+			"allowTrailingCommas": false,
+		},
 	},
 	"assist": {
 		"enabled": true,
@@ -54,9 +62,9 @@
 			"source": {
 				"recommended": true,
 				"organizeImports": "on",
-				"useSortedAttributes": "on"
-			}
-		}
+				"useSortedAttributes": "on",
+			},
+		},
 	},
 	"overrides": [
 		{
@@ -64,10 +72,10 @@
 			"json": {
 				"parser": {
 					"allowComments": true,
-					"allowTrailingCommas": true
+					"allowTrailingCommas": true,
 				},
-				"formatter": { "trailingCommas": "none" }
-			}
+				"formatter": { "trailingCommas": "none" },
+			},
 		},
 		{
 			"includes": ["**/*.svelte", "**/*.astro", "**/*.vue"],
@@ -75,14 +83,14 @@
 				"rules": {
 					"style": {
 						"useConst": "off",
-						"useImportType": "off"
+						"useImportType": "off",
 					},
 					"correctness": {
 						"noUnusedVariables": "off",
-						"noUnusedImports": "off"
-					}
-				}
-			}
-		}
-	]
+						"noUnusedImports": "off",
+					},
+				},
+			},
+		},
+	],
 }

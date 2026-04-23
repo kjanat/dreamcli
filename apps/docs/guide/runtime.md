@@ -8,7 +8,7 @@ A thin `RuntimeAdapter` interface abstracts the platform-specific edges.
 | Runtime                 | Status    | Package                  |
 | ----------------------- | --------- | ------------------------ |
 | Node.js >=\u00a022.22.2 | Supported | `@kjanat/dreamcli` (npm) |
-| Bun >=\u00a01.3.11      | Supported | `@kjanat/dreamcli` (npm) |
+| Bun >=\u00a01.3         | Supported | `@kjanat/dreamcli` (npm) |
 | Deno >=\u00a02.6.0      | Supported | `@kjanat/dreamcli` (JSR) |
 
 Adapters validate these minimum versions during creation.
