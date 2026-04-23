@@ -111,6 +111,14 @@ export default defineConfig({
 			},
 		],
 		['meta', { name: 'theme-color', content: '#f8f3e7' }],
+		[
+			'script',
+			{
+				defer: '',
+				src: 'https://static.cloudflareinsights.com/beacon.min.js',
+				'data-cf-beacon': '{"token": "ee9b04d68d3740bebb38f5c20629b7c1"}',
+			},
+		],
 	],
 	themeConfig: {
 		logo: {
