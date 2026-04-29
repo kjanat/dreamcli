@@ -318,14 +318,14 @@ function emitPowerShellHelpers(lines: string[], helperPrefix: string, dataVarNam
 	lines.push(`function ${helperPrefix}_FormatCompletionValue {`);
 	lines.push('\tparam([string]$Value)');
 	lines.push('\tif ($Value.Length -eq 0) {');
-	lines.push("\t\treturn \"''\"");
+	lines.push('\t\treturn "\'\'"');
 	lines.push('\t}');
 	lines.push('');
 	lines.push("\tif ($Value -match '^[a-zA-Z0-9_./:\\\\-]+$') {");
 	lines.push('\t\treturn $Value');
 	lines.push('\t}');
 	lines.push('');
-	lines.push("\treturn \"'$([CodeGeneration]::EscapeSingleQuotedStringContent($Value))'\"");
+	lines.push('\treturn "\'$([CodeGeneration]::EscapeSingleQuotedStringContent($Value))\'"');
 	lines.push('}');
 	lines.push('');
 	lines.push(`function ${helperPrefix}_MatchesCompletionPrefix {`);

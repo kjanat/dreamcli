@@ -35,7 +35,9 @@ const open = command('open')
 	.flag('format', flag.enum(['table', 'json', 'yaml']).alias('f').describe('Output format'))
 	.flag('verbose', flag.boolean().alias('v').describe('Verbose logging'))
 	.action(({ args, flags, out }) => {
-		out.log(`Opening ${args.workspace} with ${flags.profile ?? 'default'} profile in ${flags.shell}`);
+		out.log(
+			`Opening ${args.workspace} with ${flags.profile ?? 'default'} profile in ${flags.shell}`,
+		);
 		out.log(`Format: ${flags.format ?? 'table'}`);
 		if (flags.verbose) out.log('Verbose output enabled');
 	});
@@ -55,7 +57,9 @@ const deploy = command('deploy')
 	.flag('approval', flag.enum(['manual', 'auto']).describe('Approval mode'))
 	.flag('dryRun', flag.boolean().alias('d').describe('Preview the rollout without applying it'))
 	.action(({ args, flags, out }) => {
-		out.log(`Deploying ${args.target} to ${flags.region ?? 'us'} with ${flags.strategy ?? 'rolling'}`);
+		out.log(
+			`Deploying ${args.target} to ${flags.region ?? 'us'} with ${flags.strategy ?? 'rolling'}`,
+		);
 		out.log(`Approval: ${flags.approval ?? 'manual'}`);
 		if (flags.dryRun) out.log('Dry run only');
 	});
@@ -82,7 +86,10 @@ const configSet = command('set')
 	.description('Write a saved setting')
 	.arg('key', arg.enum(['theme', 'region', 'profile']).describe('Setting to write'))
 	.arg('value', arg.string().describe('New value'))
-	.flag('scope', flag.enum(['user', 'workspace']).alias('s').default('user').describe('Config scope'))
+	.flag(
+		'scope',
+		flag.enum(['user', 'workspace']).alias('s').default('user').describe('Config scope'),
+	)
 	.action(({ args, flags, out }) => {
 		out.log(`Saved ${args.key}=${args.value} to ${flags.scope} scope`);
 	});
@@ -107,7 +114,10 @@ const debugDump = command('debug-dump')
 	.hidden()
 	.flag(
 		'section',
-		flag.enum(['schema', 'completions', 'runtime']).default('schema').describe('Section to inspect'),
+		flag
+			.enum(['schema', 'completions', 'runtime'])
+			.default('schema')
+			.describe('Section to inspect'),
 	)
 	.action(({ flags, out }) => {
 		out.log(JSON.stringify({ section: flags.section, hidden: true }, null, 2));
