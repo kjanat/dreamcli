@@ -533,7 +533,7 @@ describe('AllowedPromptConfig type constraints', () => {
 		flag.array(flag.string()).prompt({ kind: 'multiselect', message: 'Tags?' });
 	});
 
-	it('custom flag allows all prompt kinds', () => {
+	it('custom flag allows all prompt kinds at runtime', () => {
 		const custom = flag.custom((raw) => raw);
 		custom.prompt({ kind: 'input', message: 'Value?' });
 		custom.prompt({ kind: 'select', message: 'Pick', choices: [{ value: 'a' }] });

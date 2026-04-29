@@ -24,7 +24,11 @@ const greet = command('greet')
 		// args.name: string — required positional
 		// flags.loud: boolean — defaults to false (all booleans do)
 		// flags.times: number — defaults to 1 (never undefined)
-		for (let i = 0; i < flags.times; i++) {
+		const repeatCount = Number.isFinite(flags.times)
+			? Math.max(0, Math.min(100, Math.floor(flags.times)))
+			: 1;
+
+		for (let i = 0; i < repeatCount; i++) {
 			const msg = `Hello, ${args.name}!`;
 			out.log(flags.loud ? msg.toUpperCase() : msg);
 		}

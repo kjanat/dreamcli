@@ -41,7 +41,7 @@ if ($nativeCompletionScript -ne $completionScript) {
 	throw 'The native pwsh-demo launcher generated a different completion script than the direct Bun invocation.'
 }
 
-$nativeCompletionScript | Out-String | Invoke-Expression
+Invoke-Expression $nativeCompletionScript
 
 <#
 	.SYNOPSIS

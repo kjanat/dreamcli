@@ -308,8 +308,6 @@ def main() -> int:
     templates_dir = skill_root / "assets" / "templates"
 
     entry_template_path = templates_dir / f"{args.mode}-command.ts.tpl"
-    test_template_path = templates_dir / f"{args.mode}-command.test.ts.tpl"
-
     entry_filename = f"{cli_name}.ts"
     entry_path = output_dir / entry_filename
     test_path = output_dir / f"{cli_name}.test.ts"
