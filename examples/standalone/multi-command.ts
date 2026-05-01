@@ -6,14 +6,14 @@
  * env-backed flags.
  *
  * Usage:
- *   npx tsx examples/multi-command.ts deploy production --force
- *   npx tsx examples/multi-command.ts deploy production --region eu
- *   DEPLOY_REGION=ap npx tsx examples/multi-command.ts deploy production
- *   npx tsx examples/multi-command.ts db migrate --steps 3
- *   npx tsx examples/multi-command.ts db seed
- *   npx tsx examples/multi-command.ts login --token abc123
- *   npx tsx examples/multi-command.ts --help
- *   npx tsx examples/multi-command.ts --version
+ *   npx tsx examples/standalone/multi-command.ts deploy production --force
+ *   npx tsx examples/standalone/multi-command.ts deploy production --region eu
+ *   DEPLOY_REGION=ap npx tsx examples/standalone/multi-command.ts deploy production
+ *   npx tsx examples/standalone/multi-command.ts db migrate --steps 3
+ *   npx tsx examples/standalone/multi-command.ts db seed
+ *   npx tsx examples/standalone/multi-command.ts login --token abc123
+ *   npx tsx examples/standalone/multi-command.ts --help
+ *   npx tsx examples/standalone/multi-command.ts --version
  */
 
 import { arg, cli, command, flag, group } from '@kjanat/dreamcli';

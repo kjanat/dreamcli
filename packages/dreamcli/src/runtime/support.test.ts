@@ -5,10 +5,26 @@
 
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { formatRuntimeRequirement, getRuntimeSupport, SUPPORTED_RUNTIMES } from './support.ts';
+import { getRuntimeSupport, SUPPORTED_RUNTIMES } from './support.ts';
 
 function readUtf8(path: URL): Promise<string> {
 	return readFile(path, 'utf8');
+}
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function expectContainsRuntimeRequirement(
+	contents: string,
+	displayName: string,
+	minimum: string,
+): void {
+	expect(contents).toMatch(
+		new RegExp(
+			`${escapeRegExp(displayName)}[\\s\\S]*?>=(?:\\\\u00a0|\\s)*${escapeRegExp(minimum)}`,
+		),
+	);
 }
 
 function parsePackageEngines(contents: string): Readonly<Record<string, string | undefined>> {
@@ -44,7 +60,7 @@ describe('runtime — compatibility matrix stays aligned', () => {
 		const docs = await readUtf8(new URL('../../../../apps/docs/guide/runtime.md', import.meta.url));
 
 		for (const runtime of SUPPORTED_RUNTIMES) {
-			expect(docs).toContain(formatRuntimeRequirement(runtime.runtime));
+			expectContainsRuntimeRequirement(docs, runtime.displayName, runtime.minimum);
 			expect(docs).toContain(runtime.packageName);
 		}
 		expect(docs).toContain('Adapters validate these minimum versions during creation.');
@@ -56,7 +72,7 @@ describe('runtime — compatibility matrix stays aligned', () => {
 		);
 
 		for (const runtime of SUPPORTED_RUNTIMES) {
-			expect(docs).toContain(formatRuntimeRequirement(runtime.runtime));
+			expectContainsRuntimeRequirement(docs, runtime.displayName, runtime.minimum);
 			expect(docs).toContain(runtime.adapterName);
 		}
 	});
@@ -68,8 +84,7 @@ describe('runtime — compatibility matrix stays aligned', () => {
 
 		for (const runtime of SUPPORTED_RUNTIMES) {
 			const { displayName, minimum } = getRuntimeSupport(runtime.runtime);
-			expect(docs).toContain(displayName);
-			expect(docs).toContain(`>= ${minimum}`);
+			expectContainsRuntimeRequirement(docs, displayName, minimum);
 		}
 	});
 });

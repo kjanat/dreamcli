@@ -6,10 +6,10 @@
  * assertions, middleware context, and activity assertions.
  *
  * This file is structured as a Vitest test suite — run with
- * `bun test examples/testing.ts`.
+ * `bun test examples/standalone/testing.ts`.
  *
  * Usage:
- *   bun test examples/testing.ts
+ *   bun test examples/standalone/testing.ts
  */
 
 import { arg, command, flag, middleware } from '@kjanat/dreamcli';

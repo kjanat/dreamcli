@@ -6,8 +6,8 @@
  * wrap-around timing.
  *
  * Usage:
- *   npx tsx examples/middleware.ts deploy production
- *   npx tsx examples/middleware.ts deploy production --verbose
+ *   npx tsx examples/standalone/middleware.ts deploy production
+ *   npx tsx examples/standalone/middleware.ts deploy production --verbose
  */
 
 import { arg, CLIError, cli, command, flag, middleware } from '@kjanat/dreamcli';

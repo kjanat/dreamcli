@@ -25,7 +25,7 @@ declare const data: Data;
 export { data };
 
 export default {
-	watch: ['../../examples/**/*.ts'],
+	watch: ['../../../examples/standalone/**/*.ts'],
 
 	async load(): Promise<Data> {
 		const examples = await collectExamples(examplesRoot, rootDirPath);

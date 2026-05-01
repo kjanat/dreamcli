@@ -46,6 +46,10 @@
 			"@kjanat/dreamcli-docs": [
 				"./apps/docs/src/index.ts",
 				"../../apps/docs/src/index.ts"
+			],
+			"@kjanat/dreamcli-docs/vitepress/*": [
+				"./apps/docs/.vitepress/*",
+				"../../apps/docs/.vitepress/*"
 			]
 		}
 	},

@@ -13,10 +13,10 @@
  *   5. Then default value:          "us"
  *
  * Usage:
- *   npx tsx examples/interactive.ts                    # prompts for everything
- *   npx tsx examples/interactive.ts --region eu        # skips region prompt
- *   DEPLOY_REGION=ap npx tsx examples/interactive.ts   # env resolves region
- *   echo '{}' | npx tsx examples/interactive.ts        # non-interactive: uses defaults / errors
+ *   npx tsx examples/standalone/interactive.ts                    # prompts for everything
+ *   npx tsx examples/standalone/interactive.ts --region eu        # skips region prompt
+ *   DEPLOY_REGION=ap npx tsx examples/standalone/interactive.ts   # env resolves region
+ *   echo '{}' | npx tsx examples/standalone/interactive.ts        # non-interactive: uses defaults / errors
  */
 
 import { arg, cli, command, flag } from '@kjanat/dreamcli';

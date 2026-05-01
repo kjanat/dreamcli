@@ -5,10 +5,10 @@
  * Demonstrates: typed positional args, typed flags, aliases, and default values.
  *
  * Usage:
- *   npx tsx examples/basic.ts Alice
- *   npx tsx examples/basic.ts Alice --loud --times 3
- *   npx tsx examples/basic.ts Alice -l -t 3
- *   npx tsx examples/basic.ts --help
+ *   npx tsx examples/standalone/basic.ts Alice
+ *   npx tsx examples/standalone/basic.ts Alice --loud --times 3
+ *   npx tsx examples/standalone/basic.ts Alice -l -t 3
+ *   npx tsx examples/standalone/basic.ts --help
  */
 
 import { arg, cli, command, flag } from '@kjanat/dreamcli';

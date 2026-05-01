@@ -31,7 +31,7 @@ declare const data: Data;
 export { data };
 
 export default {
-	watch: ['../../src/**/*.ts', '../../examples/**/*.ts'],
+	watch: ['../../../packages/dreamcli/src/**/*.ts', '../../../examples/standalone/**/*.ts'],
 
 	async load(): Promise<Data> {
 		const { publicApi, symbolPages } = await loadReferenceModel();

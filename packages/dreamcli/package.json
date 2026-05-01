@@ -1,6 +1,6 @@
 {
 	"name": "@kjanat/dreamcli",
-	"version": "2.0.1",
+	"version": "2.1.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"keywords": [
 		"cli",
@@ -96,7 +96,7 @@
 		"vite": "catalog:"
 	},
 	"engines": {
-		"bun": ">=1.3.11",
+		"bun": ">=1.3",
 		"deno": ">=2.6.0",
 		"node": ">=22.22.2"
 	},

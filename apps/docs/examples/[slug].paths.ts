@@ -14,7 +14,7 @@ import {
 import { examplesRoot, rootDirPath } from '@kjanat/dreamcli-docs/vitepress/data/paths.ts';
 
 export default {
-	watch: ['../../examples/**/*.ts'],
+	watch: ['../../../examples/standalone/**/*.ts'],
 
 	async paths() {
 		const examples = await collectExamples(examplesRoot, rootDirPath);
