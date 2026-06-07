@@ -86,7 +86,8 @@ function joinPath(base: string, segment: string): string {
 // --- discoverPackageJson
 
 /**
- * Discover the nearest `package.json` by walking up from `adapter.cwd`.
+ * Discover the nearest `package.json` by walking up from `startDir` (or
+ * `adapter.cwd` when omitted).
  *
  * Convenience helper behind `CLIBuilder.packageJson()`. Most apps should let
  * the CLI runtime discover package metadata automatically; call this directly
@@ -95,6 +96,15 @@ function joinPath(base: string, segment: string): string {
  * Returns the parsed metadata on success, `null` when no `package.json`
  * is found (not an error). Malformed JSON and non-object roots also
  * return `null` — the feature is a convenience, not a hard requirement.
+ *
+ * @param adapter - Adapter providing `readFile` + `cwd`.
+ * @param startDir - Optional explicit directory or file path to walk up from.
+ *   Pass an absolute path inside your own package (e.g.
+ *   `fileURLToPath(import.meta.url)`) when authoring an installable CLI whose
+ *   version should reflect the CLI's own package, not the consumer's working
+ *   directory. Defaults to `adapter.cwd` when `undefined`. A file path is
+ *   probed as a directory first (yielding nothing) before the walk-up reaches
+ *   its real parent directory, so passing `import.meta.url` resolves correctly.
  *
  * @example
  * ```ts
@@ -106,8 +116,11 @@ function joinPath(base: string, segment: string): string {
  * }
  * ```
  */
-async function discoverPackageJson(adapter: PackageJsonAdapter): Promise<PackageJsonData | null> {
-	let dir: string | undefined = adapter.cwd;
+async function discoverPackageJson(
+	adapter: PackageJsonAdapter,
+	startDir?: string,
+): Promise<PackageJsonData | null> {
+	let dir: string | undefined = startDir ?? adapter.cwd;
 
 	while (dir !== undefined) {
 		let content: string | null = null;

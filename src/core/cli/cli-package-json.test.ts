@@ -67,17 +67,81 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 
 	it('stores default settings (inferName: false)', () => {
 		const app = cli('myapp').packageJson();
-		expect(app.schema.packageJsonSettings).toEqual({ inferName: false });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			from: undefined,
+			data: undefined,
+		});
 	});
 
 	it('stores inferName: true', () => {
 		const app = cli('myapp').packageJson({ inferName: true });
-		expect(app.schema.packageJsonSettings).toEqual({ inferName: true });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: true,
+			from: undefined,
+			data: undefined,
+		});
 	});
 
 	it('packageJsonSettings is undefined when .packageJson() not called', () => {
 		const app = cli('myapp');
 		expect(app.schema.packageJsonSettings).toBeUndefined();
+	});
+
+	it('stores from as a plain string path', () => {
+		const app = cli('myapp').packageJson({ from: '/anchor' });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			from: '/anchor',
+			data: undefined,
+		});
+	});
+
+	it('normalizes a file: URL string in from', () => {
+		const app = cli('myapp').packageJson({ from: 'file:///anchor/cli.js' });
+		expect(app.schema.packageJsonSettings?.from).toBe('/anchor/cli.js');
+	});
+
+	it('normalizes a URL instance in from', () => {
+		const app = cli('myapp').packageJson({ from: new URL('file:///anchor/cli.js') });
+		expect(app.schema.packageJsonSettings?.from).toBe('/anchor/cli.js');
+	});
+
+	it('stores data and hardcodes inferName false / from undefined', () => {
+		const app = cli('myapp').packageJson({ version: '5.5.5' });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			from: undefined,
+			data: { version: '5.5.5' },
+		});
+	});
+
+	it('empty object falls through to the settings overload (not data)', () => {
+		const app = cli('myapp').packageJson({});
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			from: undefined,
+			data: undefined,
+		});
+	});
+
+	it('routes name/bin objects to the data path', () => {
+		expect(cli('x').packageJson({ name: 'pkg' }).schema.packageJsonSettings?.data).toEqual({
+			name: 'pkg',
+		});
+		expect(
+			cli('x').packageJson({ bin: { tool: './c.js' } }).schema.packageJsonSettings?.data,
+		).toEqual({ bin: { tool: './c.js' } });
+	});
+
+	it('routes non-object / array inputs to the settings overload', () => {
+		// Defensive: the public overloads forbid these, but the runtime guard
+		// must not misclassify them as data (covers the null / Array.isArray paths).
+		const callPackageJson = (value: unknown): ReturnType<typeof cli> =>
+			(cli('x').packageJson as (v: unknown) => ReturnType<typeof cli>)(value);
+
+		expect(callPackageJson(null).schema.packageJsonSettings?.data).toBeUndefined();
+		expect(callPackageJson([1]).schema.packageJsonSettings?.data).toBeUndefined();
 	});
 });
 
@@ -312,5 +376,144 @@ describe('CLIBuilder.run() — package.json combined with config', () => {
 		});
 
 		expect(stdout.join('')).toBe('4.5.6\n');
+	});
+});
+
+// === CLIBuilder.packageJson({ from }) — anchored discovery in run()
+
+describe('CLIBuilder.packageJson({ from }) — anchored discovery', () => {
+	it('anchors discovery to the from directory, overriding cwd', async () => {
+		const app = cli('myapp').packageJson({ from: '/anchor' }).command(infoCommand());
+
+		// cwd is the default '/test'; the from anchor must win.
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/package.json': '{"version":"1.0.0"}',
+			'/anchor/package.json': '{"version":"8.8.8"}',
+		});
+
+		expect(stdout.join('')).toBe('8.8.8\n');
+	});
+
+	it('anchors discovery from a file: URL string (e.g. import.meta.url)', async () => {
+		const app = cli('myapp').packageJson({ from: 'file:///anchor/cli.js' }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/anchor/package.json': '{"version":"2.2.2"}',
+		});
+
+		expect(stdout.join('')).toBe('2.2.2\n');
+	});
+
+	it('anchors discovery from a URL instance', async () => {
+		const app = cli('myapp')
+			.packageJson({ from: new URL('file:///anchor/cli.js') })
+			.command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/anchor/package.json': '{"version":"2.2.2"}',
+		});
+
+		expect(stdout.join('')).toBe('2.2.2\n');
+	});
+});
+
+// === CLIBuilder.packageJson(data) — pre-loaded data
+
+describe('CLIBuilder.packageJson(data) — pre-loaded data', () => {
+	it('reports version from data via run() without touching the filesystem', async () => {
+		let readCalled = false;
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', '--version'],
+			stdout: (s) => stdoutLines.push(s),
+			readFile: async () => {
+				readCalled = true;
+				return null;
+			},
+		});
+
+		const app = cli('myapp').packageJson({ version: '6.0.0' }).command(infoCommand());
+
+		try {
+			await app.run({ adapter });
+		} catch (e: unknown) {
+			if (!(e instanceof ExitError)) throw e;
+		}
+
+		expect(readCalled).toBe(false);
+		expect(stdoutLines.join('')).toBe('6.0.0\n');
+	});
+
+	it('reports version from data via execute() — filesystem-free path', async () => {
+		const app = cli('myapp').packageJson({ version: '6.0.0' }).command(infoCommand());
+
+		const result = await app.execute(['--version']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toBe('6.0.0\n');
+	});
+
+	it('fills description from data into help via execute()', async () => {
+		const app = cli('myapp').packageJson({ description: 'Data desc' }).command(infoCommand());
+
+		const result = await app.execute(['--help']);
+
+		expect(result.stdout.join('')).toContain('Data desc');
+	});
+
+	it('explicit .version() before .packageJson(data) wins', async () => {
+		const app = cli('myapp').version('9.9.9').packageJson({ version: '1.1.1' }).command(infoCommand());
+
+		const result = await app.execute(['--version']);
+
+		expect(result.stdout.join('')).toBe('9.9.9\n');
+	});
+
+	it('explicit .description() wins over data description', async () => {
+		const app = cli('myapp')
+			.description('Explicit desc')
+			.packageJson({ description: 'Data desc' })
+			.command(infoCommand());
+
+		const result = await app.execute(['--help']);
+
+		expect(result.stdout.join('')).toContain('Explicit desc');
+		expect(result.stdout.join('')).not.toContain('Data desc');
+	});
+
+	it('does NOT infer name from data even when name/bin present', async () => {
+		const app = cli('placeholder')
+			.packageJson({ name: '@scope/my-tool', bin: { 'my-tool': './dist/cli.js' } })
+			.command(infoCommand());
+
+		expect(app.schema.packageJsonSettings?.inferName).toBe(false);
+
+		const result = await app.execute(['--help']);
+		expect(result.stdout.join('')).toContain('placeholder');
+		expect(result.stdout.join('')).not.toContain('my-tool');
+	});
+});
+
+// === CLIBuilder.packageJson() — settings vs data discrimination (end-to-end)
+
+describe('CLIBuilder.packageJson() — settings vs data discrimination', () => {
+	it('empty {} routes to settings: --version falls through as unknown flag', async () => {
+		const app = cli('myapp').packageJson({}).command(infoCommand());
+
+		const { exitCode, stderr } = await runWithAdapter(app, ['--version']);
+
+		expect(exitCode).toBe(2);
+		expect(stderr.join('')).toContain('Unknown flag --version');
+	});
+
+	it('{ inferName: true } routes to settings and still infers the name', async () => {
+		const app = cli('placeholder').packageJson({ inferName: true }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/package.json': '{"name":"@scope/inferred-tool"}',
+		});
+
+		expect(stdout.join('')).toContain('inferred-tool');
+		expect(stdout.join('')).not.toContain('placeholder');
 	});
 });

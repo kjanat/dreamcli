@@ -87,12 +87,15 @@ cli('mycli')
   .run();
 ```
 
-### `.packageJson(settings?)`
+### `.packageJson(settings?)` / `.packageJson(data)`
 
-Enable automatic `package.json` discovery during `.run()`. When enabled, dreamcli walks up from
-the current working directory, reads the nearest `package.json`, and uses its `version` and
-`description` fields as fallback CLI metadata. Pass `{ inferName: true }` to also infer the CLI
-name from the package `bin` entry or package name. This has no effect in `.execute()`.
+Source the CLI's `version` and `description` (and optionally its name) from `package.json`. There
+are two complementary forms.
+
+**Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
+directory, reads the nearest `package.json`, and uses its `version`/`description` as fallback
+metadata. Pass `{ inferName: true }` to also infer the CLI name from the package `bin` entry or
+package name. This has no effect in `.execute()`.
 
 ```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
@@ -103,6 +106,38 @@ cli('mycli')
   .packageJson({ inferName: true })
   .command(deploy)
   .run();
+```
+
+**Anchored discovery (`from`).** Discovery defaults to the consumer's cwd, which is wrong for an
+**installable** CLI (`npm i -g`, `bunx`, `npx`) — its version should reflect its OWN package, not
+wherever it happens to be invoked. Pass `{ from: import.meta.url }` to anchor the walk-up to the
+CLI's own module instead. Accepts a path string, a `file:` URL string, or a `URL` instance.
+
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
+// Report THIS CLI's version from any working directory:
+cli('mycli')
+  .packageJson({ from: import.meta.url })
+  .command(deploy)
+  .run();
+```
+
+**Pre-loaded (`data`) form.** Pass an already-imported `package.json` to skip the filesystem
+entirely. Bundlers can statically resolve it, locking the reported version at build time. Unlike the
+discovery forms, the data form **also works in `.execute()`** — `version`/`description` are merged
+into the CLI schema at builder time. Explicit `.version()`/`.description()` still win, and the data
+form does not infer the name.
+
+```ts
+import { cli, command } from '@kjanat/dreamcli';
+import pkg from './package.json' with { type: 'json' };
+
+const deploy = command('deploy');
+
+cli('mycli').packageJson(pkg).command(deploy).run();
 ```
 
 ### `.plugin(definition)`
