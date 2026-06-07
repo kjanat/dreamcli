@@ -11,8 +11,9 @@
 
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
-import { createSchema } from '#internals/core/schema/index.ts';
-import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createSchema } from '#internals/core/schema/flag.ts';
+import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
 // --- Version tag for generated script headers

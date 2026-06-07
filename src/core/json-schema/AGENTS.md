@@ -3,8 +3,7 @@
 ## OVERVIEW
 
 Single large module plus one generated companion file. It emits both DreamCLI definition metadata
-and draft-2020-12 input schemas, and it bridges the string-literal schema DSL into JSON Schema
-output.
+and draft-2020-12 input schemas, deriving them from zod schemas via `z.toJSONSchema()`.
 
 ## FILES
 
@@ -16,12 +15,12 @@ output.
 
 ## WHERE TO LOOK
 
-| Task                             | Location                                                                        | Notes                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Change definition schema shape   | `generateSchema()`                                                              | CLI tree, flags, args, examples, hidden and prompt filtering |
-| Change input validation schema   | `generateInputSchema()`                                                         | JSON Schema 2020-12 for config/editor use cases              |
-| Change DSL -> JSON Schema bridge | `parseSchema()`, `nodeToJsonSchema()` in `index.ts`                             | feeds custom and DSL flag shapes                             |
-| Regenerate descriptions          | `meta-descriptions.generated.ts`, `../../../scripts/build-meta-descriptions.ts` | script is source of truth                                    |
+| Task                             | Location                                                                                  | Notes                                                        |
+| -------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Change definition schema shape   | `generateSchema()`                                                                        | CLI tree, flags, args, examples, hidden and prompt filtering |
+| Change input validation schema   | `generateInputSchema()`                                                                   | JSON Schema 2020-12 for config/editor use cases              |
+| Change zod -> JSON Schema bridge | `flagZod()`/`argZod()` (`../schema/zod-kinds.ts`), `normalizeDefFragment()` in `index.ts` | derive flag/arg shapes via `z.toJSONSchema()`                |
+| Regenerate descriptions          | `meta-descriptions.generated.ts`, `../../../scripts/build-meta-descriptions.ts`           | script is source of truth                                    |
 
 ## CONVENTIONS
 

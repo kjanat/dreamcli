@@ -7,6 +7,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **zod validation substrate** — `zod` (`^4.0.0`) is now a peer dependency and the single
+  schema/validation engine. New internal `src/core/schema/zod-kinds.ts` derives a canonical
+  declared-type zod schema from each flag/arg kind (`buildZodSchema`, `flagZod`, `argZod`),
+  driving both JSON Schema generation and runtime coercion.
+- **Shared structural guards** — `src/core/internal/guards.ts` consolidates the previously
+  duplicated `isRecord` / `isPlainObject` helpers.
+
+### Changed
+
+- **JSON Schema generation** — `generateInputSchema` and the definition meta-schema are now
+  produced via `z.toJSONSchema()` (zod registry + post-processing) instead of the hand-built
+  DSL bridge. Public output shape is preserved.
+- **Coercion engines** — `parse` and `resolve` coercion now validate string/number/enum values
+  through zod, with all `ParseError` / `ValidationError` messages, codes, and details unchanged.
+- **Config / package.json validation** — parsed external data is now validated with zod,
+  preserving exact failure semantics (`null` return vs `CONFIG_PARSE_ERROR`).
+
+### Removed
+
+- **Custom schema DSL** — removed `src/core/schema-dsl/` entirely (string-literal tokenizer,
+  parser, compile-time `Parse<T>` types, AST validator, and AST→JSON-Schema converter). It was
+  internal-only and is fully superseded by zod.
+
 ## [2.1.0] - 2026-04-16
 
 ### Added

@@ -198,7 +198,9 @@ function coerceFlagValue(
 
 		case 'enum': {
 			const allowed = schema.enumValues;
-			if (allowed === undefined) {
+			// Empty enumValues would make buildZodSchema fall back to z.string()
+			// and accept anything — treat it as a misconfiguration, like resolve.
+			if (allowed === undefined || allowed.length === 0) {
 				throw new ParseError(
 					`Enum flag --${flagName} is misconfigured: no allowed values declared`,
 					{
@@ -275,7 +277,9 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 
 		case 'enum': {
 			const allowed = schema.enumValues;
-			if (allowed === undefined) {
+			// Empty enumValues would make buildZodSchema fall back to z.string()
+			// and accept anything — treat it as a misconfiguration, like resolve.
+			if (allowed === undefined || allowed.length === 0) {
 				throw new ParseError(
 					`Enum argument <${argName}> is misconfigured: no allowed values declared`,
 					{
