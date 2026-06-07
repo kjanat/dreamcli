@@ -13,7 +13,7 @@
  * @module dreamcli/core/json-schema
  */
 
-import { z } from 'zod';
+import * as z from 'zod';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { isRecord } from '#internals/core/internal/guards.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
@@ -589,6 +589,11 @@ function getBranchCommandDiscriminator(branch: Record<string, unknown>): string 
  * `array`→`{type:'array',items:{...}}`, `custom`/`unknown`→`{}`. The only
  * post-processing is stripping zod's `$schema` key and attaching
  * `description` / `default` / `deprecated`.
+ *
+ * `flagZod` schemas are transform-free, so input and output JSON Schemas are
+ * identical — `z.toJSONSchema`'s default (output) direction is intentional and
+ * `{ io: 'input' }` is not needed (it would also drop the `additionalProperties:
+ * false` the envelope sets explicitly).
  */
 function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 	const result = stripJsonSchemaMeta(z.toJSONSchema(flagZod(schema)));
@@ -695,8 +700,11 @@ function isPlainJsonObject(value: object): value is Record<string, unknown> {
  * - boolean literal (`{type:'boolean',const:X}`) → `{const:X}`
  * - `z.record(...)` (`{type:'object',propertyNames,additionalProperties}`)
  *   → `{type:'object',additionalProperties:...}` (drop `propertyNames`)
- * - `z.int()` safe-integer bounds → plain `{type:'integer'}`
- * - `anyOf` → `oneOf`
+ *
+ * `z.int()` safe-integer bounds are dropped upstream via the `z.toJSONSchema`
+ * `override` hook (see {@link buildDefinitionMetaSchema}). Unions are left as
+ * zod emits them (`anyOf`) — `anyOf` is the correct semantics for the
+ * meta-schema's disjoint unions.
  *
  * Recurses through `properties`, `items`, `additionalProperties`, and
  * `oneOf` / `anyOf` member lists. Cross-references emitted by the registry as
@@ -726,16 +734,6 @@ function normalizeDefFragment(value: unknown): unknown {
 		return rest;
 	}
 
-	// `z.int()` stamps safe-integer min/max bounds; the meta-schema models a
-	// plain integer.
-	if (node.type === 'integer') {
-		const SAFE = 9007199254740991;
-		if (node.minimum === -SAFE && node.maximum === SAFE) {
-			const { minimum: _min, maximum: _max, ...rest } = node;
-			return rest;
-		}
-	}
-
 	const result: Record<string, unknown> = {};
 	for (const [key, child] of Object.entries(node)) {
 		// `z.record(...)` adds `propertyNames`; the meta-schema only keeps
@@ -750,11 +748,6 @@ function normalizeDefFragment(value: unknown): unknown {
 			result[key] = Object.fromEntries(
 				Object.entries(child).map(([name, sub]) => [name, normalizeDefFragment(sub)]),
 			);
-			continue;
-		}
-		// Normalize mixed unions to `oneOf` (matches the prior DSL output).
-		if (key === 'anyOf') {
-			result.oneOf = normalizeDefFragment(child);
 			continue;
 		}
 		result[key] = normalizeDefFragment(child);
@@ -963,7 +956,17 @@ function buildDefinitionMetaSchema(): Record<string, unknown> {
 	// Render every named schema (root + the six `$defs`) in one pass so all
 	// cross-references resolve to `#/$defs/<name>`, then normalize to the
 	// meta-schema's conventions.
-	const registryOutput = z.toJSONSchema(registry, { uri: (id) => `#/$defs/${id}` });
+	const registryOutput = z.toJSONSchema(registry, {
+		uri: (id) => `#/$defs/${id}`,
+		override: (ctx) => {
+			// `z.int()` stamps JS safe-integer min/max bounds; the meta-schema
+			// models a plain integer, so drop them at the source.
+			if (ctx.jsonSchema.type === 'integer') {
+				delete ctx.jsonSchema.minimum;
+				delete ctx.jsonSchema.maximum;
+			}
+		},
+	});
 	const registrySchemas = isRecord(registryOutput.schemas) ? registryOutput.schemas : {};
 	const defs: Record<string, unknown> = {};
 	for (const name of ['command', 'flag', 'arg', 'prompt', 'choice', 'example']) {

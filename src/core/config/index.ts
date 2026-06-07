@@ -11,7 +11,7 @@
  * @module dreamcli/core/config
  */
 
-import { z } from 'zod';
+import * as z from 'zod';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { isPlainObject } from '#internals/core/internal/guards.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';

@@ -169,7 +169,8 @@ function coerceFlagValue(
 ): unknown {
 	switch (schema.kind) {
 		case 'string':
-			return buildZodSchema('string').parse(raw);
+			// argv values are already strings; no coercion or validation needed.
+			return raw;
 
 		case 'number': {
 			const n = Number(raw);
@@ -257,7 +258,8 @@ function coerceFlagValue(
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
 	switch (schema.kind) {
 		case 'string':
-			return buildZodSchema('string').parse(raw);
+			// argv values are already strings; no coercion or validation needed.
+			return raw;
 
 		case 'number': {
 			const n = Number(raw);

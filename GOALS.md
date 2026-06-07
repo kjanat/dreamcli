@@ -350,8 +350,8 @@ Adapters:
 ### 8) Non-functional requirements
 
 - **TypeScript ergonomics:** avoid type explosions that make TS slow or unreadable in editor hovers.
-- **Small dependency footprint:** lean core with `zod` as the sole runtime dependency (the
-  schema/validation substrate); optional extras behind adapters/plugins.
+- **Small dependency footprint:** lean core with `zod` as the sole dependency (a peer dependency;
+  the schema/validation substrate); optional extras behind adapters/plugins.
 - **Tree-shakeable ESM:** modern packaging with ESM-only exports and clear defaults.
 - **Deterministic tests:** no reliance on wall-clock time, real filesystem, or actual TTY unless
   explicitly integrated.

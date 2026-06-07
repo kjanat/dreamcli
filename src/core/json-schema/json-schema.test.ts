@@ -624,6 +624,49 @@ describe('generateSchema — definition metadata', () => {
 			"The command invocation (e.g. `'deploy production --force'`).",
 		);
 	});
+
+	it('emits internal `#/$defs/<name>` cross-references', () => {
+		// The registry `uri` callback resolves all named schemas to internal
+		// JSON pointers; guard that shape so a future zod change can't silently
+		// switch to inlined or external refs.
+		expect(definitionMetaSchema).toHaveProperty(
+			['properties', 'commands', 'items'],
+			{ $ref: '#/$defs/command' },
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'command', 'properties', 'flags', 'additionalProperties'],
+			{ $ref: '#/$defs/flag' },
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'command', 'properties', 'commands', 'items'],
+			{ $ref: '#/$defs/command' },
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'command', 'properties', 'args', 'items'],
+			{ $ref: '#/$defs/arg' },
+		);
+	});
+
+	it('emits unions as `anyOf` and integers without safe-integer bounds', () => {
+		// `deprecated: string | true` is a disjoint union — `anyOf` is the
+		// correct semantics (not `oneOf`).
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'flag', 'properties', 'deprecated', 'anyOf'],
+			[{ type: 'string' }, { const: true }],
+		);
+		// `z.int()` bounds are stripped via the `override` hook.
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'prompt', 'properties', 'min', 'type'],
+			'integer',
+		);
+		expect(definitionMetaSchema).not.toHaveProperty([
+			'$defs',
+			'prompt',
+			'properties',
+			'min',
+			'minimum',
+		]);
+	});
 });
 
 // === generateInputSchema — JSON Schema validation

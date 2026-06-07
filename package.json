@@ -105,9 +105,6 @@
 	"overrides": {
 		"vitepress": "next"
 	},
-	"dependencies": {
-		"zod": "^4.4.3"
-	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.2",
 		"@biomejs/biome": "^2.4.10",
@@ -131,7 +128,11 @@
 		"vitepress": "^2.0.0-alpha.17",
 		"vitest": "^4.1.2",
 		"wrangler": "^4.80.0",
-		"yaml": "^2.8.3"
+		"yaml": "^2.8.3",
+		"zod": "^4.0.0"
+	},
+	"peerDependencies": {
+		"zod": "^4.0.0"
 	},
 	"packageManager": "bun@1.3.12",
 	"engines": {

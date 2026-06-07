@@ -18,7 +18,7 @@
  * @internal
  */
 
-import { z } from 'zod';
+import * as z from 'zod';
 import type { ArgSchema } from './arg.ts';
 import type { FlagSchema } from './flag.ts';
 

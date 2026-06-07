@@ -8,7 +8,7 @@
  * @module dreamcli/core/config/package-json
  */
 
-import { z } from 'zod';
+import * as z from 'zod';
 import { isRecord } from '#internals/core/internal/guards.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
@@ -27,11 +27,9 @@ import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
  */
 const binSchema = z.union([
 	z.string(),
-	// Object bin: must be a loose (non-array) object whose values are all
-	// strings; any non-string value drops the whole field (parse fails).
-	z
-		.custom<Record<string, string>>((v) => isRecord(v))
-		.refine((v) => Object.values(v).every((entry) => typeof entry === 'string')),
+	// Object bin: a record of string→string; any non-string value drops the
+	// whole field (parse fails), matching the historical hand-checked extraction.
+	z.record(z.string(), z.string()),
 ]);
 
 /** @internal */

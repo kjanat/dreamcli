@@ -4,8 +4,8 @@
 
 ## OVERVIEW
 
-Schema-first, fully typed TypeScript CLI framework. `zod` is the sole runtime dependency — the
-schema/validation substrate behind parsing, coercion, and JSON Schema generation. In-repo exports point at
+Schema-first, fully typed TypeScript CLI framework. `zod` is the sole dependency — declared as a peer
+dependency — the schema/validation substrate behind parsing, coercion, and JSON Schema generation. In-repo exports point at
 `src/*.ts`; published Node defaults point at `dist/*.mjs`, while Bun and Deno keep source exports.
 
 Read `@DISCOVERIES.md` before planning, editing, or running task workflows.
@@ -80,7 +80,7 @@ specs/                      # planning/design docs
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
-- Keep runtime deps minimal — `zod` is the only one; justify any further addition
+- Keep dependencies minimal — `zod` (a peer dependency) is the only one; justify any further addition
 - Do not use `process.*` or runtime-specific APIs in `src/core/`
 - Do not import through barrels when it would create cycles; direct-file imports are intentional in
   `cli/`, `completion/`, `output/`, `prompt/`, `resolve/`, and `runtime/`
