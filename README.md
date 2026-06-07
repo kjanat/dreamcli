@@ -3,7 +3,7 @@
 [![NPM](https://img.shields.io/npm/v/@kjanat/dreamcli?logo=npm&labelColor=CB3837&color=black)][npm]
 [![JSR](https://img.shields.io/jsr/v/@kjanat/dreamcli?logoColor=083344&logo=jsr&logoSize=auto&label=&labelColor=f7df1e&color=black)][jsr]
 
-Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
+Schema-first, fully typed TypeScript CLI framework, powered by [zod](https://zod.dev) as its schema and validation substrate.
 
 One flag declaration configures the entire resolution pipeline:
 

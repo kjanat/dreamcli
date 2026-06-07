@@ -10,6 +10,7 @@
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
+import { isRecord } from '#internals/core/internal/guards.ts';
 
 type AggregateIssueSourceKind = 'env' | 'config' | 'stdin' | 'prompt';
 
@@ -21,10 +22,6 @@ interface AggregateIssueSummary {
 	readonly message: string;
 	readonly sourceKind?: AggregateIssueSourceKind;
 	readonly sourceLabel?: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function readStringProperty(record: object, key: string): string | undefined {

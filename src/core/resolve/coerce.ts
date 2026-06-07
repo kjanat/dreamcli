@@ -8,6 +8,7 @@
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import { buildZodSchema } from '#internals/core/schema/zod-kinds.ts';
 import type { ArgDiagnosticSource, FlagDiagnosticSource } from './contracts.ts';
 import type { SharedPropertySchema } from './property.ts';
 import { toSharedArgPropertySchema, toSharedFlagPropertySchema } from './property.ts';
@@ -165,11 +166,16 @@ function coerceSharedPropertyValue(
 ): CoerceResult {
 	switch (schema.kind) {
 		case 'string': {
-			if (typeof raw === 'string') return { ok: true, value: raw };
-			if (source.kind === 'prompt') return { ok: true, value: String(raw) };
-			if (source.kind === 'config' && (typeof raw === 'number' || typeof raw === 'boolean')) {
-				return { ok: true, value: String(raw) };
-			}
+			// Source-specific normalization: prompt always stringifies; config
+			// permits number/boolean → String(raw). The resulting value is then
+			// validated by the canonical declared-type zod schema (z.string()).
+			const normalized =
+				source.kind === 'prompt' ||
+				(source.kind === 'config' && (typeof raw === 'number' || typeof raw === 'boolean'))
+					? String(raw)
+					: raw;
+			const parsed = buildZodSchema('string').safeParse(normalized);
+			if (parsed.success) return { ok: true, value: parsed.data };
 			return coercionError(
 				flagName,
 				source,
@@ -184,35 +190,22 @@ function coerceSharedPropertyValue(
 		}
 
 		case 'number': {
-			if (typeof raw === 'number') {
-				if (Number.isNaN(raw)) {
-					return coercionError(
-						flagName,
-						source,
-						'TYPE_MISMATCH',
-						'number',
-						raw,
-						'Invalid number value NaN',
-						source.kind === 'env'
-							? `Set ${source.envVar} to a valid number`
-							: source.kind === 'config'
-								? `Set ${source.configPath} to a valid number in your config`
-								: `Enter a valid number for --${flagName}`,
-					);
-				}
-				return { ok: true, value: raw };
-			}
-			if (typeof raw === 'string') {
-				const value = Number(raw);
-				if (!Number.isNaN(value)) return { ok: true, value };
-			}
+			// Source-specific normalization: numeric strings coerce to Number
+			// before the canonical z.number() schema (which rejects NaN) decides.
+			const normalized = typeof raw === 'string' ? Number(raw) : raw;
+			const parsed = buildZodSchema('number').safeParse(normalized);
+			if (parsed.success) return { ok: true, value: parsed.data };
 			return coercionError(
 				flagName,
 				source,
 				'TYPE_MISMATCH',
 				'number',
 				raw,
-				typeof raw === 'string' ? `Invalid number value '${raw}'` : 'Invalid number value',
+				typeof raw === 'number'
+					? 'Invalid number value NaN'
+					: typeof raw === 'string'
+						? `Invalid number value '${raw}'`
+						: 'Invalid number value',
 				source.kind === 'env'
 					? `Set ${source.envVar} to a valid number`
 					: source.kind === 'config'
@@ -223,8 +216,11 @@ function coerceSharedPropertyValue(
 
 		case 'enum': {
 			const allowed = schema.enumValues ?? [];
-			if (typeof raw === 'string' && allowed.includes(raw)) {
-				return { ok: true, value: raw };
+			// z.enum(allowed) is the membership decision; falls back to z.string()
+			// when no values are declared, which still rejects non-strings.
+			const parsed = buildZodSchema('enum', { enumValues: allowed }).safeParse(raw);
+			if (parsed.success && allowed.includes(parsed.data as string)) {
+				return { ok: true, value: parsed.data };
 			}
 			return {
 				ok: false,

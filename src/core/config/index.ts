@@ -11,17 +11,23 @@
  * @module dreamcli/core/config
  */
 
+import { z } from 'zod';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { isPlainObject } from '#internals/core/internal/guards.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
-/** @internal */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-		return false;
-	}
-	const proto = Object.getPrototypeOf(value);
-	return proto === Object.prototype || proto === null;
-}
+/**
+ * Zod schema validating that parsed config is a plain object.
+ *
+ * Backs the shape check in {@link discoverConfig}. A `z.custom` wrapping the
+ * shared {@link isPlainObject} guard is used (rather than `z.record` /
+ * `z.looseObject`) so the strict prototype semantics are preserved exactly:
+ * arrays, primitives, `null`, and class instances are rejected, while
+ * `Object.create(null)` records are accepted.
+ *
+ * @internal
+ */
+const configShapeSchema = z.custom<Record<string, unknown>>((value) => isPlainObject(value));
 
 // --- Types — format loaders
 
@@ -328,11 +334,11 @@ async function discoverConfig(
 		}
 
 		try {
-			const data = loader.parse(content);
-			if (!isPlainObject(data)) {
+			const parsed = configShapeSchema.safeParse(loader.parse(content));
+			if (!parsed.success) {
 				throw new Error('Config loader must return a plain object');
 			}
-			return { found: true, path: candidatePath, data, format: ext };
+			return { found: true, path: candidatePath, data: parsed.data, format: ext };
 		} catch (cause: unknown) {
 			throw new CLIError(`Failed to parse config file: ${candidatePath}`, {
 				code: 'CONFIG_PARSE_ERROR',

@@ -11,6 +11,7 @@
 
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
+import { createSchema } from '#internals/core/schema/index.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
@@ -145,21 +146,7 @@ function createRootFlags(hasVersion: boolean): Readonly<Record<string, FlagSchem
  * @internal
  */
 function createSyntheticRootFlag(description: string): FlagSchema {
-	return {
-		kind: 'boolean',
-		presence: 'optional',
-		defaultValue: undefined,
-		aliases: [],
-		envVar: undefined,
-		configPath: undefined,
-		description,
-		enumValues: undefined,
-		elementSchema: undefined,
-		prompt: undefined,
-		parseFn: undefined,
-		deprecated: undefined,
-		propagate: false,
-	};
+	return createSchema('boolean', { description });
 }
 
 // --- Command tree walking — shared infrastructure

@@ -8,14 +8,47 @@
  * @module dreamcli/core/config/package-json
  */
 
+import { z } from 'zod';
+import { isRecord } from '#internals/core/internal/guards.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 
-// --- Narrowing helpers
+// --- Validation schemas
 
-/** Type guard: narrows `unknown` to a plain (non-array) object. */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+/**
+ * Zod schema describing the package.json fields this module reads.
+ *
+ * The root must be a loose object (shared {@link isRecord} semantics — any
+ * non-null, non-array object). Each field is independently coerced: non-string
+ * `name`/`version`/`description` and malformed `bin` values are dropped rather
+ * than rejected, matching the historical hand-checked extraction. Parsing never
+ * throws here — callers convert failure to a `null` return.
+ *
+ * @internal
+ */
+const binSchema = z.union([
+	z.string(),
+	// Object bin: must be a loose (non-array) object whose values are all
+	// strings; any non-string value drops the whole field (parse fails).
+	z
+		.custom<Record<string, string>>((v) => isRecord(v))
+		.refine((v) => Object.values(v).every((entry) => typeof entry === 'string')),
+]);
+
+/** @internal */
+const packageJsonSchema = z
+	.custom<Record<string, unknown>>((value) => isRecord(value))
+	.transform((obj) => {
+		const name = z.string().safeParse(obj['name']);
+		const version = z.string().safeParse(obj['version']);
+		const description = z.string().safeParse(obj['description']);
+		const bin = binSchema.safeParse(obj['bin']);
+		return {
+			...(name.success ? { name: name.data } : {}),
+			...(version.success ? { version: version.data } : {}),
+			...(description.success ? { description: description.data } : {}),
+			...(bin.success ? { bin: bin.data } : {}),
+		} satisfies PackageJsonData;
+	});
 
 // --- Types
 
@@ -139,45 +172,17 @@ async function discoverPackageJson(adapter: PackageJsonAdapter): Promise<Package
  * @internal
  */
 function parsePackageJson(content: string): PackageJsonData | null {
+	let parsed: unknown;
 	try {
-		const parsed: unknown = JSON.parse(content);
-		if (!isPlainObject(parsed)) {
-			return null;
-		}
-		const name = typeof parsed['name'] === 'string' ? parsed['name'] : undefined;
-		const version = typeof parsed['version'] === 'string' ? parsed['version'] : undefined;
-		const description =
-			typeof parsed['description'] === 'string' ? parsed['description'] : undefined;
-		const bin = parseBinField(parsed['bin']);
-		return {
-			...(name !== undefined ? { name } : {}),
-			...(version !== undefined ? { version } : {}),
-			...(description !== undefined ? { description } : {}),
-			...(bin !== undefined ? { bin } : {}),
-		};
+		parsed = JSON.parse(content);
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Parse the `bin` field from package.json.
- *
- * Accepts either a string (`"bin": "./dist/cli.js"`) or an object
- * (`"bin": { "mycli": "./dist/cli.js" }`). Returns `undefined` for
- * anything else.
- *
- * @internal
- */
-function parseBinField(value: unknown): string | Readonly<Record<string, string>> | undefined {
-	if (typeof value === 'string') return value;
-	if (!isPlainObject(value)) return undefined;
-	const result: Record<string, string> = {};
-	for (const [k, v] of Object.entries(value)) {
-		if (typeof v !== 'string') return undefined;
-		result[k] = v;
-	}
-	return result;
+	// zod validates the root shape and extracts/coerces fields. A non-object
+	// root fails the schema, yielding the historical `null` return rather than
+	// a thrown error.
+	const result = packageJsonSchema.safeParse(parsed);
+	return result.success ? result.data : null;
 }
 
 // --- inferCliName

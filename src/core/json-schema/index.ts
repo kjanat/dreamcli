@@ -13,7 +13,9 @@
  * @module dreamcli/core/json-schema
  */
 
+import { z } from 'zod';
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { isRecord } from '#internals/core/internal/guards.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
@@ -24,8 +26,7 @@ import type {
 	PromptConfig,
 	SelectChoice,
 } from '#internals/core/schema/index.ts';
-import { parseSchema } from '#internals/core/schema-dsl/runtime.ts';
-import { nodeToJsonSchema } from '#internals/core/schema-dsl/to-json-schema.ts';
+import { argZod, flagZod } from '#internals/core/schema/zod-kinds.ts';
 import { definitionMetaSchemaDescriptions } from './meta-descriptions.generated.ts';
 
 // --- Options
@@ -96,8 +97,14 @@ const DEFINITION_SCHEMA_URL = 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dre
 /** Meta-schema URL for JSON Schema draft 2020-12 (input validation). */
 const JSON_SCHEMA_DRAFT = 'https://json-schema.org/draft/2020-12/schema';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
+/**
+ * Strip zod's emitted `$schema` (and any `$id`) key from a `z.toJSONSchema`
+ * fragment. zod stamps the meta-schema URL on the top-level fragment; the
+ * envelope is rebuilt by the callers in this module.
+ */
+function stripJsonSchemaMeta(fragment: Record<string, unknown>): Record<string, unknown> {
+	const { $schema: _schema, $id: _id, ...rest } = fragment;
+	return rest;
 }
 
 // === Definition schema — generateSchema()
@@ -570,89 +577,55 @@ function getBranchCommandDiscriminator(branch: Record<string, unknown>): string 
 		: undefined;
 }
 
-// --- Type mapping — flags → JSON Schema types
+// --- Type mapping — flags / args → JSON Schema types (zod-derived)
 
+/**
+ * Build the JSON Schema type fragment for a flag from its declared-type zod
+ * schema (`flagZod`), then layer on JSON Schema annotations.
+ *
+ * The shape produced by `z.toJSONSchema` already matches the conventions the
+ * input schema asserts: `string`→`{type:'string'}`, `number`→`{type:'number'}`,
+ * `boolean`→`{type:'boolean'}`, `enum`→`{type:'string',enum:[...]}`,
+ * `array`→`{type:'array',items:{...}}`, `custom`/`unknown`→`{}`. The only
+ * post-processing is stripping zod's `$schema` key and attaching
+ * `description` / `default` / `deprecated`.
+ */
 function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
-	const result: Record<string, unknown> = {};
-
-	switch (schema.kind) {
-		case 'string':
-			result.type = 'string';
-			break;
-		case 'number':
-			result.type = 'number';
-			break;
-		case 'boolean':
-			result.type = 'boolean';
-			break;
-		case 'enum':
-			result.type = 'string';
-			if (schema.enumValues !== undefined) {
-				result.enum = [...schema.enumValues];
-			}
-			break;
-		case 'array':
-			result.type = 'array';
-			if (schema.elementSchema !== undefined) {
-				result.items = flagToJsonSchemaType(schema.elementSchema);
-			}
-			break;
-		case 'custom':
-			// Opaque type — no JSON Schema constraint
-			break;
-	}
-
-	if (schema.description !== undefined) {
-		result.description = schema.description;
-	}
-	if (schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)) {
-		result.default = schema.defaultValue;
-	}
-	if (schema.deprecated !== undefined) {
-		result.deprecated = schema.deprecated;
-	}
-
-	return result;
+	const result = stripJsonSchemaMeta(z.toJSONSchema(flagZod(schema)));
+	return annotateInputType(result, schema.description, schema.defaultValue, schema, schema.deprecated);
 }
 
-// --- Type mapping — args → JSON Schema types
-
+/**
+ * Build the JSON Schema type fragment for a positional arg from its
+ * declared-type zod schema (`argZod`), wrapping variadic args in an array.
+ */
 function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
-	const kind = argKindToType(schema);
+	const kind = stripJsonSchemaMeta(z.toJSONSchema(argZod(schema)));
 	const result: Record<string, unknown> = schema.variadic
 		? { type: 'array', items: kind }
-		: { ...kind };
+		: kind;
 
-	if (schema.description !== undefined) {
-		result.description = schema.description;
-	}
-	if (schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)) {
-		result.default = schema.defaultValue;
-	}
-	if (schema.deprecated !== undefined) {
-		result.deprecated = schema.deprecated;
-	}
-
-	return result;
+	return annotateInputType(result, schema.description, schema.defaultValue, schema, schema.deprecated);
 }
 
-/** Map an arg's kind to a JSON Schema type fragment. */
-function argKindToType(schema: ArgSchema): Record<string, unknown> {
-	switch (schema.kind) {
-		case 'string':
-			return { type: 'string' };
-		case 'number':
-			return { type: 'number' };
-		case 'enum': {
-			const result: Record<string, unknown> = { type: 'string' };
-			if (schema.enumValues !== undefined) {
-				result.enum = [...schema.enumValues];
-			}
-			return result;
-		}
-		case 'custom':
-			return {};
+/** Attach JSON Schema `description`/`default`/`deprecated` annotations. */
+function annotateInputType(
+	result: Record<string, unknown>,
+	description: string | undefined,
+	defaultValue: unknown,
+	schema: { readonly presence: string },
+	deprecated: string | boolean | undefined,
+): Record<string, unknown> {
+	if (description !== undefined) {
+		result.description = description;
 	}
+	if (schema.presence === 'defaulted' && isJsonSerializable(defaultValue)) {
+		result.default = defaultValue;
+	}
+	if (deprecated !== undefined) {
+		result.deprecated = deprecated;
+	}
+	return result;
 }
 
 // === Utilities
@@ -710,11 +683,83 @@ function isPlainJsonObject(value: object): value is Record<string, unknown> {
 	return proto === Object.prototype || proto === null;
 }
 
-// === Definition meta-schema — derived from schema DSL definitions
+// === Definition meta-schema — derived from zod object schemas
 
-/** Convert a DSL string to a JSON Schema object definition. */
-function def(source: string): Record<string, unknown> {
-	return nodeToJsonSchema(parseSchema(source));
+/**
+ * Normalize a `z.toJSONSchema` fragment to the JSON Schema conventions the
+ * definition meta-schema has always emitted (previously hand-built from a
+ * schema DSL):
+ *
+ * - strip zod's `$schema` / `$id` keys
+ * - literal-string union (`{type:'string',enum:[...]}`) → `{enum:[...]}`
+ * - boolean literal (`{type:'boolean',const:X}`) → `{const:X}`
+ * - `z.record(...)` (`{type:'object',propertyNames,additionalProperties}`)
+ *   → `{type:'object',additionalProperties:...}` (drop `propertyNames`)
+ * - `z.int()` safe-integer bounds → plain `{type:'integer'}`
+ * - `anyOf` → `oneOf`
+ *
+ * Recurses through `properties`, `items`, `additionalProperties`, and
+ * `oneOf` / `anyOf` member lists. Cross-references emitted by the registry as
+ * `{$ref:'#/$defs/<name>'}` are preserved verbatim.
+ */
+function normalizeDefFragment(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(normalizeDefFragment);
+	}
+	if (!isRecord(value)) {
+		return value;
+	}
+
+	const node = stripJsonSchemaMeta(value);
+
+	// Literal: `{type:<primitive>, const: …}` → `{const: …}` (drop redundant
+	// `type`, matching the prior DSL literal convention for both `true`/`false`
+	// and string literals such as the `$schema` const).
+	if ('const' in node && (node.type === 'boolean' || node.type === 'string')) {
+		const { type: _type, ...rest } = node;
+		return rest;
+	}
+
+	// Literal-string union: `{type:'string', enum:[…]}` → `{enum:[…]}`.
+	if (node.type === 'string' && Array.isArray(node.enum)) {
+		const { type: _type, ...rest } = node;
+		return rest;
+	}
+
+	// `z.int()` stamps safe-integer min/max bounds; the meta-schema models a
+	// plain integer.
+	if (node.type === 'integer') {
+		const SAFE = 9007199254740991;
+		if (node.minimum === -SAFE && node.maximum === SAFE) {
+			const { minimum: _min, maximum: _max, ...rest } = node;
+			return rest;
+		}
+	}
+
+	const result: Record<string, unknown> = {};
+	for (const [key, child] of Object.entries(node)) {
+		// `z.record(...)` adds `propertyNames`; the meta-schema only keeps
+		// `additionalProperties`.
+		if (key === 'propertyNames') {
+			continue;
+		}
+		// `properties` / `$defs` are name→schema maps: normalize each value, but
+		// never treat the map itself as a schema fragment (its keys may legitimately
+		// be `$schema`/`$id`, e.g. the root's `$schema` literal property).
+		if ((key === 'properties' || key === '$defs') && isRecord(child)) {
+			result[key] = Object.fromEntries(
+				Object.entries(child).map(([name, sub]) => [name, normalizeDefFragment(sub)]),
+			);
+			continue;
+		}
+		// Normalize mixed unions to `oneOf` (matches the prior DSL output).
+		if (key === 'anyOf') {
+			result.oneOf = normalizeDefFragment(child);
+			continue;
+		}
+		result[key] = normalizeDefFragment(child);
+	}
+	return result;
 }
 
 interface DefinitionMetaSchemaDescriptionNode {
@@ -792,10 +837,11 @@ function withDefinitionMetaSchemaDescriptions(
 /**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
  *
- * Each `$defs` entry is defined once as a schema DSL string — the DSL
- * parser produces a runtime AST, and {@link nodeToJsonSchema} converts
- * that AST to a JSON Schema fragment. No probe fixtures, no override
- * maps, no manually maintained type definitions.
+ * Each `$defs` entry is declared once as a zod object schema. `z.toJSONSchema`
+ * (via a local registry, so the six named schemas cross-reference through
+ * `$ref: '#/$defs/<name>'`) produces the fragments, which are normalized
+ * ({@link normalizeDefFragment}) to the conventions this schema has always
+ * emitted. No probe fixtures, override maps, or hand-maintained JSON.
  *
  * Hosted at {@link DEFINITION_SCHEMA_URL} for `$schema` resolution. Also
  * exported so tooling can validate definition documents without a network
@@ -811,79 +857,138 @@ function withDefinitionMetaSchemaDescriptions(
  * const valid = validate(generateSchema(myCli.schema));
  * ```
  */
-const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDescriptions(
-	{
-		$schema: JSON_SCHEMA_DRAFT,
-		$id: DEFINITION_SCHEMA_URL,
-		title: '@kjanat/dreamcli definition schema',
-		description:
-			'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
-		...def(`{
-		$schema: '${DEFINITION_SCHEMA_URL}';
-		name: string;
-		version?: string;
-		description?: string;
-		defaultCommand?: string;
-		commands: @command[]
-	}`),
-		$defs: {
-			command: def(`{
-			name: string;
-			description?: string;
-			aliases?: string[];
-			hidden?: true;
-			examples?: @example[];
-			flags: Record<string, @flag>;
-			args: @arg[];
-			commands: @command[]
-		}`),
-			flag: def(`{
-			kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
-			presence: 'optional' | 'required' | 'defaulted';
-			defaultValue?: unknown;
-			aliases?: string[];
-			envVar?: string;
-			configPath?: string;
-			description?: string;
-			enumValues?: string[];
-			elementSchema?: @flag;
-			prompt?: @prompt;
-			deprecated?: string | true;
-			propagate?: true
-		}`),
-			arg: def(`{
-			name: string;
-			kind: 'string' | 'number' | 'enum' | 'custom';
-			presence: 'required' | 'optional' | 'defaulted';
-			variadic?: true;
-			stdinMode?: true;
-			defaultValue?: unknown;
-			description?: string;
-			envVar?: string;
-			enumValues?: string[];
-			deprecated?: string | true
-		}`),
-			prompt: def(`{
-			kind: 'confirm' | 'input' | 'select' | 'multiselect';
-			message: string;
-			placeholder?: string;
-			choices?: @choice[];
-			min?: integer;
-			max?: integer
-		}`),
-			choice: def(`{
-			value: string;
-			label?: string;
-			description?: string
-		}`),
-			example: def(`{
-			command: string;
-			description?: string
-		}`),
+const definitionMetaSchema: Record<string, unknown> = buildDefinitionMetaSchema();
+
+/**
+ * Construct the definition meta-schema from zod object schemas.
+ *
+ * @internal
+ */
+function buildDefinitionMetaSchema(): Record<string, unknown> {
+	const registry = z.registry<{ id: string }>();
+	const named = <T extends z.ZodType>(schema: T, id: string): T => {
+		registry.add(schema, { id });
+		return schema;
+	};
+
+	const choice = named(
+		z.object({
+			value: z.string(),
+			label: z.string().optional(),
+			description: z.string().optional(),
+		}),
+		'choice',
+	);
+
+	const example = named(
+		z.object({
+			command: z.string(),
+			description: z.string().optional(),
+		}),
+		'example',
+	);
+
+	const prompt = named(
+		z.object({
+			kind: z.enum(['confirm', 'input', 'select', 'multiselect']),
+			message: z.string(),
+			placeholder: z.string().optional(),
+			choices: z.array(choice).optional(),
+			min: z.int().optional(),
+			max: z.int().optional(),
+		}),
+		'prompt',
+	);
+
+	const flag: z.ZodType = named(
+		z.object({
+			kind: z.enum(['string', 'number', 'boolean', 'enum', 'array', 'custom']),
+			presence: z.enum(['optional', 'required', 'defaulted']),
+			defaultValue: z.unknown().optional(),
+			aliases: z.array(z.string()).optional(),
+			envVar: z.string().optional(),
+			configPath: z.string().optional(),
+			description: z.string().optional(),
+			enumValues: z.array(z.string()).optional(),
+			elementSchema: z.lazy(() => flag).optional(),
+			prompt: prompt.optional(),
+			deprecated: z.union([z.string(), z.literal(true)]).optional(),
+			propagate: z.literal(true).optional(),
+		}),
+		'flag',
+	);
+
+	const arg = named(
+		z.object({
+			name: z.string(),
+			kind: z.enum(['string', 'number', 'enum', 'custom']),
+			presence: z.enum(['required', 'optional', 'defaulted']),
+			variadic: z.literal(true).optional(),
+			stdinMode: z.literal(true).optional(),
+			defaultValue: z.unknown().optional(),
+			description: z.string().optional(),
+			envVar: z.string().optional(),
+			enumValues: z.array(z.string()).optional(),
+			deprecated: z.union([z.string(), z.literal(true)]).optional(),
+		}),
+		'arg',
+	);
+
+	const command: z.ZodType = named(
+		z.object({
+			name: z.string(),
+			description: z.string().optional(),
+			aliases: z.array(z.string()).optional(),
+			hidden: z.literal(true).optional(),
+			examples: z.array(example).optional(),
+			flags: z.record(z.string(), flag),
+			args: z.array(arg),
+			commands: z.array(z.lazy(() => command)),
+		}),
+		'command',
+	);
+
+	named(
+		z.object({
+			$schema: z.literal(DEFINITION_SCHEMA_URL),
+			name: z.string(),
+			version: z.string().optional(),
+			description: z.string().optional(),
+			defaultCommand: z.string().optional(),
+			commands: z.array(command),
+		}),
+		'root',
+	);
+
+	// Render every named schema (root + the six `$defs`) in one pass so all
+	// cross-references resolve to `#/$defs/<name>`, then normalize to the
+	// meta-schema's conventions.
+	const registryOutput = z.toJSONSchema(registry, { uri: (id) => `#/$defs/${id}` });
+	const registrySchemas = isRecord(registryOutput.schemas) ? registryOutput.schemas : {};
+	const defs: Record<string, unknown> = {};
+	for (const name of ['command', 'flag', 'arg', 'prompt', 'choice', 'example']) {
+		const fragment = registrySchemas[name];
+		if (isRecord(fragment)) {
+			defs[name] = normalizeDefFragment(fragment);
+		}
+	}
+
+	const rootFragment = normalizeDefFragment(registrySchemas.root);
+	const rootObject = isRecord(rootFragment) ? rootFragment : {};
+
+	return withDefinitionMetaSchemaDescriptions(
+		{
+			$schema: JSON_SCHEMA_DRAFT,
+			$id: DEFINITION_SCHEMA_URL,
+			title: '@kjanat/dreamcli definition schema',
+			description:
+				'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
+			...rootObject,
+			$defs: defs,
 		},
-	},
-	definitionMetaSchemaDescriptions,
-);
+		definitionMetaSchemaDescriptions,
+	);
+}
 
 // === Exports
 

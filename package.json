@@ -105,6 +105,9 @@
 	"overrides": {
 		"vitepress": "next"
 	},
+	"dependencies": {
+		"zod": "^4.4.3"
+	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.2",
 		"@biomejs/biome": "^2.4.10",

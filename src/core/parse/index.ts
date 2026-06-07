@@ -15,6 +15,7 @@
 
 import { ParseError } from '#internals/core/errors/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
+import { buildZodSchema } from '#internals/core/schema/zod-kinds.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -168,17 +169,18 @@ function coerceFlagValue(
 ): unknown {
 	switch (schema.kind) {
 		case 'string':
-			return raw;
+			return buildZodSchema('string').parse(raw);
 
 		case 'number': {
 			const n = Number(raw);
-			if (Number.isNaN(n)) {
+			const result = buildZodSchema('number').safeParse(n);
+			if (!result.success) {
 				throw new ParseError(`Invalid number value '${raw}' for flag ${displayName}`, {
 					code: 'INVALID_VALUE',
 					details: { flag: flagName, input: displayName, value: raw, expected: 'number' },
 				});
 			}
-			return n;
+			return result.data;
 		}
 
 		case 'boolean':
@@ -204,7 +206,8 @@ function coerceFlagValue(
 					},
 				);
 			}
-			if (!allowed.includes(raw)) {
+			const result = buildZodSchema('enum', { enumValues: allowed }).safeParse(raw);
+			if (!result.success) {
 				throw new ParseError(
 					`Invalid value '${raw}' for flag ${displayName}. Allowed: ${allowed.join(', ')}`,
 					{
@@ -213,7 +216,7 @@ function coerceFlagValue(
 					},
 				);
 			}
-			return raw;
+			return result.data;
 		}
 
 		case 'array':
@@ -254,17 +257,18 @@ function coerceFlagValue(
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
 	switch (schema.kind) {
 		case 'string':
-			return raw;
+			return buildZodSchema('string').parse(raw);
 
 		case 'number': {
 			const n = Number(raw);
-			if (Number.isNaN(n)) {
+			const result = buildZodSchema('number').safeParse(n);
+			if (!result.success) {
 				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>`, {
 					code: 'INVALID_VALUE',
 					details: { arg: argName, value: raw, expected: 'number' },
 				});
 			}
-			return n;
+			return result.data;
 		}
 
 		case 'enum': {
@@ -278,7 +282,8 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 					},
 				);
 			}
-			if (!allowed.includes(raw)) {
+			const result = buildZodSchema('enum', { enumValues: allowed }).safeParse(raw);
+			if (!result.success) {
 				throw new ParseError(
 					`Invalid value '${raw}' for argument <${argName}>. Allowed: ${allowed.join(', ')}`,
 					{
@@ -287,7 +292,7 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 					},
 				);
 			}
-			return raw;
+			return result.data;
 		}
 
 		case 'custom': {

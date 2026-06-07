@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import type {
 	ActivityEvent,
@@ -88,19 +89,7 @@ function argEntry(
 ): CommandArgEntry {
 	return {
 		name,
-		schema: {
-			kind: 'string',
-			presence: 'required',
-			variadic: false,
-			stdinMode: false,
-			defaultValue: undefined,
-			description: undefined,
-			envVar: undefined,
-			enumValues: undefined,
-			parseFn: undefined,
-			deprecated: undefined,
-			...overrides,
-		},
+		schema: createArgSchema(overrides.kind ?? 'string', overrides),
 	};
 }
 
