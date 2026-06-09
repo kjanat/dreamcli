@@ -433,21 +433,37 @@ const result = await discoverConfig('mycli', adapter, {
 });
 ```
 
-### `discoverPackageJson(adapter)`
+### `discoverPackageJson(adapter, startDir?)`
 
-Walk up from `adapter.cwd` and return the nearest parsed `package.json` metadata, or `null` when no
-package file is found. This is the helper used by `.packageJson()` during `.run()`.
+Walk up from `startDir` (or `adapter.cwd` when omitted) and return the nearest parsed `package.json`
+metadata, or `null` when no package file is found. This is the helper used by `.packageJson()` during
+`.run()`.
+
+The optional `startDir` anchors the upward walk — the same behavior `.packageJson({ from })` exposes
+on the builder. Pass an absolute filesystem path inside your own package (e.g.
+`fileURLToPath(import.meta.url)`) when authoring an installable CLI whose version should reflect its
+OWN package rather than the consumer's working directory. Unlike `.packageJson({ from })` — which
+also accepts a `file:` URL string or `URL` instance and normalizes it — this helper takes a plain
+path string, so convert URLs yourself first.
 
 ```ts twoslash
 import { discoverPackageJson } from '@kjanat/dreamcli';
 import { createTestAdapter } from '@kjanat/dreamcli/testkit';
+import { fileURLToPath } from 'node:url';
 
 const adapter = createTestAdapter();
 
+// Default: walk up from adapter.cwd
 const pkg = await discoverPackageJson(adapter);
 if (pkg !== null) {
   console.log(pkg.version);
 }
+
+// Anchored: walk up from the CLI's own module
+const own = await discoverPackageJson(
+  adapter,
+  fileURLToPath(import.meta.url),
+);
 ```
 
 ### `inferCliName(pkg)`

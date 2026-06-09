@@ -9,8 +9,6 @@
  * @module dreamcli/core/cli
  */
 
-import { fileURLToPath } from 'node:url';
-
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import { generateCompletion, SHELLS } from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
@@ -983,13 +981,28 @@ function inferInvocationName(argv: readonly string[]): string | undefined {
  * (string path, `file:` URL string, or {@link URL} instance) to a plain
  * filesystem path string. `undefined` passes through unchanged.
  *
+ * Runtime-agnostic by design — relies only on the `URL` global (available in
+ * every JS runtime) rather than `node:url`, keeping core free of Node
+ * built-ins. Non-`file:` inputs are returned unchanged as paths.
+ *
  * @internal
  */
 function normalizeFromSetting(from: string | URL | undefined): string | undefined {
 	if (from === undefined) return undefined;
-	if (from instanceof URL) return fileURLToPath(from);
-	if (from.startsWith('file:')) return fileURLToPath(from);
-	return from;
+	const isFileUrl = from instanceof URL || from.startsWith('file:');
+	if (!isFileUrl) return from;
+
+	/*
+	 * `URL.pathname` strips the `file://` scheme/authority; `decodeURIComponent`
+	 * resolves percent-escapes. A leading-slash drive letter (`/C:/…`) marks a
+	 * Windows path — drop the slash and switch to backslashes; otherwise it is a
+	 * POSIX path already.
+	 */
+	const decoded = decodeURIComponent(new URL(from).pathname);
+	if (/^\/[A-Za-z]:/.test(decoded)) {
+		return decoded.slice(1).replace(/\//g, '\\');
+	}
+	return decoded;
 }
 
 /**
