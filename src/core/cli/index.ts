@@ -989,8 +989,13 @@ function inferInvocationName(argv: readonly string[]): string | undefined {
  */
 function normalizeFromSetting(from: string | URL | undefined): string | undefined {
 	if (from === undefined) return undefined;
-	const isFileUrl = from instanceof URL || from.startsWith('file:');
-	if (!isFileUrl) return from;
+	if (from instanceof URL) {
+		// Only file: URLs map to a filesystem path; pass others through verbatim.
+		if (from.protocol !== 'file:') return from.href;
+	} else if (!from.startsWith('file:')) {
+		// Plain path (or non-file URL string) — already usable as-is.
+		return from;
+	}
 
 	/*
 	 * `URL.pathname` strips the `file://` scheme/authority; `decodeURIComponent`
