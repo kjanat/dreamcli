@@ -987,8 +987,7 @@ function inferInvocationName(argv: readonly string[]): string | undefined {
  */
 function normalizeFromSetting(from: string | URL | undefined): string | undefined {
 	if (from === undefined) return undefined;
-	if (from instanceof URL) return fileURLToPath(from);
-	if (from.startsWith('file:')) return fileURLToPath(from);
+	if (from instanceof URL || (typeof from === 'string' && from.startsWith('file:'))) return fileURLToPath(from);
 	return from;
 }
 

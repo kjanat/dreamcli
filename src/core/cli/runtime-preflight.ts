@@ -278,27 +278,27 @@ async function applyPackageJsonDiscovery(
 	isCompletions: boolean,
 ): Promise<RuntimePreflightSchemaLike> {
 	const packageJsonSettings = schema.packageJsonSettings;
-	const packageSchema =
-		packageJsonSettings !== undefined && !isCompletions
-			? await (async (): Promise<RuntimePreflightSchemaLike> => {
-					// Pre-loaded data short-circuits filesystem discovery entirely.
-					const pkg =
-						packageJsonSettings.data ?? (await discoverPackageJson(adapter, packageJsonSettings.from));
-					if (pkg === null) return schema;
+	let packageSchema = schema;
 
-					const inferredName = packageJsonSettings.inferName ? inferCliName(pkg) : undefined;
-					return {
-						...schema,
-						...(schema.version === undefined && pkg.version !== undefined
-							? { version: pkg.version }
-							: {}),
-						...(schema.description === undefined && pkg.description !== undefined
-							? { description: pkg.description }
-							: {}),
-						...(inferredName !== undefined ? { name: inferredName } : {}),
-					};
-				})()
-			: schema;
+	if (packageJsonSettings !== undefined && !isCompletions) {
+		// Pre-loaded data short-circuits filesystem discovery entirely.
+		const pkg =
+			packageJsonSettings.data ?? (await discoverPackageJson(adapter, packageJsonSettings.from));
+
+		if (pkg !== null) {
+			const inferredName = packageJsonSettings.inferName ? inferCliName(pkg) : undefined;
+			packageSchema = {
+				...schema,
+				...(schema.version === undefined && pkg.version !== undefined
+					? { version: pkg.version }
+					: {}),
+				...(schema.description === undefined && pkg.description !== undefined
+					? { description: pkg.description }
+					: {}),
+				...(inferredName !== undefined ? { name: inferredName } : {}),
+			};
+		}
+	}
 
 	return inheritedName !== undefined ? { ...packageSchema, name: inheritedName } : packageSchema;
 }
