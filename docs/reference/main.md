@@ -87,12 +87,15 @@ cli('mycli')
   .run();
 ```
 
-### `.packageJson(settings?)`
+### `.packageJson(settings?)` / `.packageJson(data)`
 
-Enable automatic `package.json` discovery during `.run()`. When enabled, dreamcli walks up from
-the current working directory, reads the nearest `package.json`, and uses its `version` and
-`description` fields as fallback CLI metadata. Pass `{ inferName: true }` to also infer the CLI
-name from the package `bin` entry or package name. This has no effect in `.execute()`.
+Source the CLI's `version` and `description` (and optionally its name) from `package.json`. There
+are two complementary forms.
+
+**Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
+directory, reads the nearest `package.json`, and uses its `version`/`description` as fallback
+metadata. Pass `{ inferName: true }` to also infer the CLI name from the package `bin` entry or
+package name. This has no effect in `.execute()`.
 
 ```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
@@ -103,6 +106,38 @@ cli('mycli')
   .packageJson({ inferName: true })
   .command(deploy)
   .run();
+```
+
+**Anchored discovery (`from`).** Discovery defaults to the consumer's cwd, which is wrong for an
+**installable** CLI (`npm i -g`, `bunx`, `npx`) — its version should reflect its OWN package, not
+wherever it happens to be invoked. Pass `{ from: import.meta.url }` to anchor the walk-up to the
+CLI's own module instead. Accepts a path string, a `file:` URL string, or a `URL` instance.
+
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
+// Report THIS CLI's version from any working directory:
+cli('mycli')
+  .packageJson({ from: import.meta.url })
+  .command(deploy)
+  .run();
+```
+
+**Pre-loaded (`data`) form.** Pass an already-imported `package.json` to skip the filesystem
+entirely. Bundlers can statically resolve it, locking the reported version at build time. Unlike the
+discovery forms, the data form **also works in `.execute()`** — `version`/`description` are merged
+into the CLI schema at builder time. Explicit `.version()`/`.description()` still win, and the data
+form does not infer the name.
+
+```ts
+import { cli, command } from '@kjanat/dreamcli';
+import pkg from './package.json' with { type: 'json' };
+
+const deploy = command('deploy');
+
+cli('mycli').packageJson(pkg).command(deploy).run();
 ```
 
 ### `.plugin(definition)`
@@ -398,21 +433,37 @@ const result = await discoverConfig('mycli', adapter, {
 });
 ```
 
-### `discoverPackageJson(adapter)`
+### `discoverPackageJson(adapter, startDir?)`
 
-Walk up from `adapter.cwd` and return the nearest parsed `package.json` metadata, or `null` when no
-package file is found. This is the helper used by `.packageJson()` during `.run()`.
+Walk up from `startDir` (or `adapter.cwd` when omitted) and return the nearest parsed `package.json`
+metadata, or `null` when no package file is found. This is the helper used by `.packageJson()` during
+`.run()`.
+
+The optional `startDir` anchors the upward walk — the same behavior `.packageJson({ from })` exposes
+on the builder. Pass an absolute filesystem path inside your own package (e.g.
+`fileURLToPath(import.meta.url)`) when authoring an installable CLI whose version should reflect its
+OWN package rather than the consumer's working directory. Unlike `.packageJson({ from })` — which
+also accepts a `file:` URL string or `URL` instance and normalizes it — this helper takes a plain
+path string, so convert URLs yourself first.
 
 ```ts twoslash
 import { discoverPackageJson } from '@kjanat/dreamcli';
 import { createTestAdapter } from '@kjanat/dreamcli/testkit';
+import { fileURLToPath } from 'node:url';
 
 const adapter = createTestAdapter();
 
+// Default: walk up from adapter.cwd
 const pkg = await discoverPackageJson(adapter);
 if (pkg !== null) {
   console.log(pkg.version);
 }
+
+// Anchored: walk up from the CLI's own module
+const own = await discoverPackageJson(
+  adapter,
+  fileURLToPath(import.meta.url),
+);
 ```
 
 ### `inferCliName(pkg)`

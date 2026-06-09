@@ -11,6 +11,7 @@
 
 import type { FormatLoader } from '#internals/core/config/index.ts';
 import { discoverConfig } from '#internals/core/config/index.ts';
+import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { discoverPackageJson, inferCliName } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
@@ -34,6 +35,10 @@ interface RuntimeConfigSettings {
 interface RuntimePackageJsonSettings {
 	/** Whether to infer the CLI binary name from `package.json` `bin` field. */
 	readonly inferName: boolean;
+	/** Explicit anchor (resolved path) for discovery; `undefined` falls back to `adapter.cwd`. */
+	readonly from: string | undefined;
+	/** Pre-loaded data; when set, discovery is skipped entirely. */
+	readonly data: PackageJsonData | undefined;
 }
 
 /**
@@ -276,7 +281,9 @@ async function applyPackageJsonDiscovery(
 	const packageSchema =
 		packageJsonSettings !== undefined && !isCompletions
 			? await (async (): Promise<RuntimePreflightSchemaLike> => {
-					const pkg = await discoverPackageJson(adapter);
+					// Pre-loaded data short-circuits filesystem discovery entirely.
+					const pkg =
+						packageJsonSettings.data ?? (await discoverPackageJson(adapter, packageJsonSettings.from));
 					if (pkg === null) return schema;
 
 					const inferredName = packageJsonSettings.inferName ? inferCliName(pkg) : undefined;

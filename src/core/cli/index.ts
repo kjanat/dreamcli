@@ -12,6 +12,7 @@
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import { generateCompletion, SHELLS } from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
+import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
@@ -228,6 +229,26 @@ interface PackageJsonSettings {
 	 * @defaultValue `false`
 	 */
 	readonly inferName: boolean;
+	/**
+	 * Explicit filesystem anchor for discovery; overrides `adapter.cwd`.
+	 *
+	 * Resolved to a string path before storage. When set, `discoverPackageJson`
+	 * walks up from here instead of the runtime cwd. Required for installable
+	 * CLIs whose version should reflect THEIR OWN package, not the consumer's
+	 * working directory.
+	 */
+	readonly from: string | undefined;
+	/**
+	 * Pre-loaded data; skips filesystem discovery, uses values verbatim.
+	 *
+	 * @example
+	 * ```ts
+	 * import pkg from './package.json' with { type: 'json' };
+	 *
+	 * cli('mycli').packageJson(pkg);
+	 * ```
+	 */
+	readonly data: PackageJsonData | undefined;
 }
 
 // --- Options for execute/run
@@ -430,6 +451,35 @@ class CLIBuilder {
 	}
 
 	/**
+	 * Enable package.json metadata from pre-loaded data.
+	 *
+	 * Pass an already-imported `package.json` to skip filesystem discovery
+	 * entirely — useful for bundled or installable CLIs where the version
+	 * should be locked at build time. The data's `version`/`description` are
+	 * merged into the CLI schema immediately, so this form works in **both**
+	 * `.run()` and `.execute()` (the filesystem-free path). Explicit
+	 * `.version()`/`.description()` calls still take precedence, and the data
+	 * form does not infer the CLI name.
+	 *
+	 * Detected by field shape: an object carrying at least one of
+	 * `name`/`version`/`description`/`bin`. An empty `{}` or a settings-shaped
+	 * object falls through to the settings overload.
+	 *
+	 * @param data - Pre-loaded `package.json` metadata.
+	 *
+	 * @example
+	 * ```ts
+	 * import pkg from './package.json' with { type: 'json' };
+	 *
+	 * // No filesystem; works in .run() AND .execute():
+	 * cli('mycli')
+	 *   .packageJson(pkg)
+	 *   .command(deploy)
+	 *   .run();
+	 * ```
+	 */
+	packageJson(data: PackageJsonData): CLIBuilder;
+	/**
 	 * Enable automatic package.json metadata discovery.
 	 *
 	 * When enabled, `.run()` walks up from `cwd` to find the nearest
@@ -437,10 +487,15 @@ class CLIBuilder {
 	 * into the CLI schema. Explicit `.version()` and `.description()`
 	 * calls always take precedence over discovered values.
 	 *
-	 * Has no effect in `.execute()` (which is filesystem-free by design).
+	 * Has no effect in `.execute()` (which is filesystem-free by design) —
+	 * use the {@link CLIBuilder.packageJson | data overload} for that.
 	 *
-	 * @param settings - Optional settings. Pass `{ inferName: true }` to
-	 *   also infer the CLI name from `bin` keys or the package `name` field.
+	 * @param settings - Optional settings:
+	 *   - `inferName`: also infer the CLI name from `bin` keys or `name` field.
+	 *   - `from`: anchor discovery to a specific file/URL/path instead of `cwd`.
+	 *     Pass `import.meta.url` for installable CLIs that need to report
+	 *     THEIR OWN version (not the consumer's project version). Accepts
+	 *     string paths, `file:` URL strings, or `URL` instances.
 	 *
 	 * @example
 	 * ```ts
@@ -456,6 +511,12 @@ class CLIBuilder {
 	 *   .command(deploy)
 	 *   .run();
 	 *
+	 * // Installable CLI; discover OUR package.json, not the consumer's:
+	 * cli('mycli')
+	 *   .packageJson({ from: import.meta.url })
+	 *   .command(deploy)
+	 *   .run();
+	 *
 	 * // Explicit values always win:
 	 * cli('mycli')
 	 *   .packageJson()
@@ -463,11 +524,31 @@ class CLIBuilder {
 	 *   .run();
 	 * ```
 	 */
-	packageJson(settings?: { readonly inferName?: boolean }): CLIBuilder {
+	packageJson(settings?: { readonly inferName?: boolean; readonly from?: string | URL }): CLIBuilder;
+	packageJson(
+		input?: PackageJsonData | { readonly inferName?: boolean; readonly from?: string | URL },
+	): CLIBuilder {
+		if (isPackageJsonData(input)) {
+			// Merge data into schema immediately so `.execute()` (which skips
+			// runtime preflight) still picks up version/description. Explicit
+			// `.version()`/`.description()` calls win, matching settings semantics.
+			return new CLIBuilder({
+				...this.schema,
+				...(this.schema.version === undefined && input.version !== undefined
+					? { version: input.version }
+					: {}),
+				...(this.schema.description === undefined && input.description !== undefined
+					? { description: input.description }
+					: {}),
+				packageJsonSettings: { inferName: false, from: undefined, data: input },
+			});
+		}
 		return new CLIBuilder({
 			...this.schema,
 			packageJsonSettings: {
-				inferName: settings?.inferName ?? false,
+				inferName: input?.inferName ?? false,
+				from: normalizeFromSetting(input?.from),
+				data: undefined,
 			},
 		});
 	}
@@ -891,6 +972,58 @@ function inferInvocationName(argv: readonly string[]): string | undefined {
 	}
 
 	return argv0 !== undefined ? basename(argv0) : undefined;
+}
+
+// --- packageJson.from normalisation
+
+/**
+ * Coerce a {@link PackageJsonSettings.from | `packageJson.from`} input
+ * (string path, `file:` URL string, or {@link URL} instance) to a plain
+ * filesystem path string. `undefined` passes through unchanged.
+ *
+ * Runtime-agnostic by design — relies only on the `URL` global (available in
+ * every JS runtime) rather than `node:url`, keeping core free of Node
+ * built-ins. Non-`file:` inputs are returned unchanged as paths.
+ *
+ * @internal
+ */
+function normalizeFromSetting(from: string | URL | undefined): string | undefined {
+	if (from === undefined) return undefined;
+	if (from instanceof URL) {
+		// Only file: URLs map to a filesystem path; pass others through verbatim.
+		if (from.protocol !== 'file:') return from.href;
+	} else if (!from.startsWith('file:')) {
+		// Plain path (or non-file URL string) — already usable as-is.
+		return from;
+	}
+
+	/*
+	 * `URL.pathname` strips the `file://` scheme/authority; `decodeURIComponent`
+	 * resolves percent-escapes. A leading-slash drive letter (`/C:/…`) marks a
+	 * Windows path — drop the slash and switch to backslashes; otherwise it is a
+	 * POSIX path already.
+	 */
+	const decoded = decodeURIComponent(new URL(from).pathname);
+	if (/^\/[A-Za-z]:/.test(decoded)) {
+		return decoded.slice(1).replace(/\//g, '\\');
+	}
+	return decoded;
+}
+
+/**
+ * Predicate distinguishing the {@link PackageJsonData | data} overload of
+ * `.packageJson()` from the settings overload at runtime.
+ *
+ * A value is treated as `PackageJsonData` when it's a plain object that
+ * carries at least one recognised field (`name`, `version`, `description`,
+ * or `bin`). An empty `{}` or a settings-shaped object (`inferName` /
+ * `from`) falls through to the settings overload.
+ *
+ * @internal
+ */
+function isPackageJsonData(value: unknown): value is PackageJsonData {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+	return 'name' in value || 'version' in value || 'description' in value || 'bin' in value;
 }
 
 // --- Factory function

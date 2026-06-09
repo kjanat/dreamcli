@@ -7,6 +7,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-06-09
+
+### Added
+
+- **`.packageJson(data)` — pre-loaded metadata** — `CLIBuilder.packageJson()` now accepts an
+  already-imported `package.json` object (e.g. `import pkg from './package.json' with { type: 'json' }`),
+  skipping filesystem discovery entirely. The data is detected via field shape (`name`/`version`/
+  `description`/`bin`), and its `version`/`description` are merged into the CLI schema at builder time
+  so the data form works in **both** `.run()` and `.execute()` (the filesystem-free path that
+  previously couldn't consume `.packageJson()` at all). Explicit `.version()`/`.description()` still
+  win; an empty `{}` or a settings-shaped object falls through to the settings overload, so this is a
+  non-breaking addition.
+- **`.packageJson({ from })` — anchored discovery** — discovery can now be anchored to an explicit
+  location instead of the runtime cwd. Pass `{ from: import.meta.url }` (also accepts path strings,
+  `file:` URL strings, or `URL` instances) so installable CLIs (`npm i -g`, `bunx`, `npx`) report
+  their OWN version from any working directory. `discoverPackageJson(adapter, startDir?)` gained a
+  matching optional anchor parameter.
+
 ## [2.1.0] - 2026-04-16
 
 ### Added
@@ -746,7 +764,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/kjanat/dreamcli/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/kjanat/dreamcli/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/kjanat/dreamcli/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kjanat/dreamcli/compare/v1.0.0...v2.0.0

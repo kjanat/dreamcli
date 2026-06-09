@@ -21,3 +21,7 @@ declare module 'node:readline' {
 declare module 'node:fs/promises' {
 	function readFile(path: string | URL, encoding: 'utf8'): Promise<string>;
 }
+
+declare module 'node:url' {
+	function fileURLToPath(url: string | URL): string;
+}
