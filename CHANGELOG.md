@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-06-09
+
 ### Added
 
 - **`.packageJson(data)` — pre-loaded metadata** — `CLIBuilder.packageJson()` now accepts an
@@ -762,7 +764,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/kjanat/dreamcli/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/kjanat/dreamcli/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/kjanat/dreamcli/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kjanat/dreamcli/compare/v1.0.0...v2.0.0
