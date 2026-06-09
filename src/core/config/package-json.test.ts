@@ -88,6 +88,75 @@ describe('discoverPackageJson', () => {
 		});
 	});
 
+	// --- explicit startDir
+
+	describe('explicit startDir', () => {
+		it('walks from explicit startDir instead of adapter.cwd', async () => {
+			const adapter = createAdapter(
+				{
+					'/anchor/package.json': '{"name":"anchored","version":"7.0.0"}',
+					'/projects/myapp/package.json': '{"name":"cwd-pkg","version":"1.0.0"}',
+				},
+				'/projects/myapp',
+			);
+
+			const result = await discoverPackageJson(adapter, '/anchor');
+			expect(result).toEqual({ name: 'anchored', version: '7.0.0' });
+		});
+
+		it('walks up from a startDir deeper than the package.json', async () => {
+			const adapter = createAdapter(
+				{
+					'/anchor/package.json': '{"version":"3.0.0"}',
+				},
+				'/somewhere/else',
+			);
+
+			const result = await discoverPackageJson(adapter, '/anchor/dist/sub');
+			expect(result?.version).toBe('3.0.0');
+		});
+
+		it('treats a file-like startDir as a directory first, then walks up', async () => {
+			const probed: string[] = [];
+			const adapter: PackageJsonAdapter = {
+				cwd: '/test',
+				readFile: async (path: string) => {
+					probed.push(path);
+					if (path === '/pkg/package.json') return '{"name":"pkg","version":"9.9.9"}';
+					return null;
+				},
+			};
+
+			// A file path (e.g. fileURLToPath(import.meta.url)) is probed as a
+			// directory first (no hit), then the walk-up reaches the real parent.
+			const result = await discoverPackageJson(adapter, '/pkg/dist/cli.js');
+			expect(result?.version).toBe('9.9.9');
+			expect(probed).toEqual([
+				'/pkg/dist/cli.js/package.json',
+				'/pkg/dist/package.json',
+				'/pkg/package.json',
+			]);
+		});
+
+		it('falls back to adapter.cwd when startDir is undefined', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '{"version":"1.2.3"}',
+			});
+
+			const result = await discoverPackageJson(adapter, undefined);
+			expect(result?.version).toBe('1.2.3');
+		});
+
+		it('returns null when startDir chain has no package.json', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': '{"version":"1.2.3"}',
+			});
+
+			const result = await discoverPackageJson(adapter, '/no/such/dir');
+			expect(result).toBeNull();
+		});
+	});
+
 	// --- field extraction
 
 	describe('field extraction', () => {

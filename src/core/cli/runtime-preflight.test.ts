@@ -89,6 +89,52 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.filteredArgv).toEqual(['deploy']);
 	});
 
+	it('uses pre-loaded packageJson data and skips package.json discovery', async () => {
+		const readFile = vi.fn(async () => null);
+		const app = cli('myapp')
+			.packageJson({ version: '4.4.4', description: 'pre-loaded' })
+			.command(command('info').action(() => {}));
+
+		const adapter = createTestAdapter({ argv: ['node', 'test', 'info'], readFile });
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.schema.version).toBe('4.4.4');
+		expect(preflight.schema.description).toBe('pre-loaded');
+		expect(readFile).not.toHaveBeenCalled();
+	});
+
+	it('honors packageJson from anchor when discovering metadata', async () => {
+		const app = cli('myapp')
+			.packageJson({ from: '/anchor' })
+			.command(command('info').action(() => {}));
+
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'info'],
+			cwd: '/work',
+			readFile: async (path) =>
+				path === '/anchor/package.json' ? '{"version":"5.5.5"}' : null,
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.schema.version).toBe('5.5.5');
+	});
+
 	it('skips config discovery for completions invocations', async () => {
 		const readFile = vi.fn(async () => '{"deploy":{"region":"eu"}}');
 		const app = cli('myapp').config('myapp').completions();
