@@ -394,8 +394,8 @@ function configFormat(
 
 // --- Exports
 
-export type { PackageJsonAdapter, PackageJsonData } from './package-json.ts';
-export { discoverPackageJson, inferCliName } from './package-json.ts';
+export type { PackageJsonAdapter, PackageJsonData, PackageRepository } from './package-json.ts';
+export { discoverPackageJson, inferCliName, packageRepositoryUrl } from './package-json.ts';
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,

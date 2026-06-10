@@ -26,6 +26,7 @@ export type {
 	CLIRunOptions,
 	CLISchema,
 	ConfigSettings,
+	HelpLinks,
 	PackageJsonSettings,
 	PluginCommandContext,
 	ResolvedCommandParams,
@@ -49,6 +50,7 @@ export type {
 	FormatLoader,
 	PackageJsonAdapter,
 	PackageJsonData,
+	PackageRepository,
 } from './core/config/index.ts';
 export {
 	buildConfigSearchPaths,
@@ -56,6 +58,7 @@ export {
 	discoverConfig,
 	discoverPackageJson,
 	inferCliName,
+	packageRepositoryUrl,
 } from './core/config/index.ts';
 export type {
 	CLIErrorJSON,
@@ -75,7 +78,7 @@ export {
 	ValidationError,
 } from './core/errors/index.ts';
 export type { HelpOptions } from './core/help/index.ts';
-export { formatHelp } from './core/help/index.ts';
+export { formatHelp, osc8, visibleWidth } from './core/help/index.ts';
 export type { JsonSchemaOptions } from './core/json-schema/index.ts';
 export {
 	definitionMetaSchema,

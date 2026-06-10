@@ -140,6 +140,39 @@ const deploy = command('deploy');
 cli('mycli').packageJson(pkg).command(deploy).run();
 ```
 
+### `.links(links?)`
+
+Make the root-help header clickable with [OSC 8
+hyperlinks](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda). The program name and
+version on the first line of root `--help` output become links in supporting terminals. Escapes are
+only emitted when stdout is a TTY (override with the `help.hyperlinks` run option), and only on the
+header line — usage lines, the `--help` hint, the commands table, and completion scripts stay plain.
+
+URLs not provided are derived from `package.json` metadata when `.packageJson()` is active (both the
+discovery and pre-loaded data forms): the name links to the normalized `repository` URL (falling back
+to `homepage`), and the version links to the forge release tag (`{repo}/releases/tag/v{version}` on
+GitHub, `{repo}/-/releases/v{version}` on GitLab).
+
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+
+// Derive both links from package.json repository/homepage:
+cli('mycli').packageJson().links().command(deploy).run();
+
+// Explicit URLs (no package.json required):
+cli('mycli')
+  .version('1.0.0')
+  .links({
+    name: 'https://github.com/me/mycli',
+    version:
+      'https://github.com/me/mycli/releases/tag/v1.0.0',
+  })
+  .command(deploy)
+  .run();
+```
+
 ### `.plugin(definition)`
 
 Register a CLI plugin created with `plugin(...)`. Plugins run in registration order and can observe
@@ -476,6 +509,47 @@ import { inferCliName } from '@kjanat/dreamcli';
 
 inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
 inferCliName({ name: '@scope/mycli' }); // 'mycli'
+```
+
+### `packageRepositoryUrl(pkg)`
+
+Resolve a package's `repository` field to a browsable `https://` URL. Handles the locator formats
+npm accepts — the `{ type, url }` object form, `git+`-prefixed and `.git`-suffixed URLs, scp-style
+locators (`git@host:u/r.git`), and the `github:`/`gitlab:`/`bitbucket:`/bare `u/r` shorthands.
+Returns `undefined` when the field is absent or unrecognised. Used by `.links()` to derive the
+header name link.
+
+```ts twoslash
+import { packageRepositoryUrl } from '@kjanat/dreamcli';
+
+packageRepositoryUrl({
+  repository: 'git+https://github.com/me/mycli.git',
+});
+// 'https://github.com/me/mycli'
+packageRepositoryUrl({ repository: 'github:me/mycli' });
+// 'https://github.com/me/mycli'
+```
+
+## Help
+
+### `osc8(url, text)`
+
+Wrap `text` in an [OSC 8
+hyperlink](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda) pointing at `url`
+(string or `URL`). Supporting terminals render clickable text; others ignore the escapes. Useful for
+linking arbitrary help strings, e.g. `.version(osc8(releaseUrl, '1.0.0'))`.
+
+### `visibleWidth(text)`
+
+Measure the visible column width of `text`, ignoring ANSI CSI (colors) and OSC (hyperlink) escape
+sequences. Help formatting uses this internally for padding and wrapping, so colored or linked text
+no longer breaks table alignment.
+
+```ts twoslash
+import { osc8, visibleWidth } from '@kjanat/dreamcli';
+
+const link = osc8('https://github.com/me/mycli', 'mycli');
+visibleWidth(link); // 5
 ```
 
 ## Errors
