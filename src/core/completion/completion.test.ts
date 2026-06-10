@@ -98,6 +98,7 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 		...(overrides.packageJsonSettings !== undefined
 			? { packageJsonSettings: overrides.packageJsonSettings }
 			: { packageJsonSettings: undefined }),
+		helpLinks: undefined,
 		hasBuiltInCompletions: overrides.hasBuiltInCompletions ?? false,
 		plugins: overrides.plugins ?? [],
 	};

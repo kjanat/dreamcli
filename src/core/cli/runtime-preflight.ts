@@ -20,6 +20,8 @@ import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import type { HelpLinks } from './help-links.ts';
+import { deriveHelpLinks } from './help-links.ts';
 import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 
@@ -65,6 +67,8 @@ interface RuntimePreflightSchemaLike {
 	readonly configSettings: RuntimeConfigSettings | undefined;
 	/** Package.json discovery settings; `undefined` disables package.json inference. */
 	readonly packageJsonSettings: RuntimePackageJsonSettings | undefined;
+	/** Root-help header link targets; `undefined` fields may be derived from package.json. */
+	readonly helpLinks: HelpLinks | undefined;
 	/** Whether `.completions()` registered the built-in completions command. */
 	readonly hasBuiltInCompletions: boolean;
 	/** Plugins forwarded into the execution pipeline. */
@@ -296,6 +300,7 @@ async function applyPackageJsonDiscovery(
 							? { description: pkg.description }
 							: {}),
 						...(inferredName !== undefined ? { name: inferredName } : {}),
+						helpLinks: deriveHelpLinks(schema.helpLinks, pkg, schema.version ?? pkg.version),
 					};
 				})()
 			: schema;

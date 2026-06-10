@@ -20,6 +20,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 // --- Types
 
 /**
+ * Object form of the package.json `repository` field
+ * (e.g. `{"type":"git","url":"git+https://github.com/u/r.git"}`).
+ */
+interface PackageRepository {
+	/** Version control system type (usually `'git'`). */
+	readonly type?: string;
+	/** Repository URL or locator. */
+	readonly url?: string;
+	/** Subdirectory within a monorepo where the package lives. */
+	readonly directory?: string;
+}
+
+/**
  * Subset of package.json fields relevant to CLI metadata.
  *
  * All fields are optional — a valid package.json may omit any of them.
@@ -33,6 +46,10 @@ interface PackageJsonData {
 	readonly description?: string;
 	/** Binary entry point(s) — string for single-bin, object for multi-bin. */
 	readonly bin?: string | Readonly<Record<string, string>>;
+	/** Project homepage URL. */
+	readonly homepage?: string;
+	/** Repository locator — URL/shorthand string or `{type, url, directory}` object. */
+	readonly repository?: string | PackageRepository;
 }
 
 /**
@@ -162,11 +179,15 @@ function parsePackageJson(content: string): PackageJsonData | null {
 		const description =
 			typeof parsed['description'] === 'string' ? parsed['description'] : undefined;
 		const bin = parseBinField(parsed['bin']);
+		const homepage = typeof parsed['homepage'] === 'string' ? parsed['homepage'] : undefined;
+		const repository = parseRepositoryField(parsed['repository']);
 		return {
 			...(name !== undefined ? { name } : {}),
 			...(version !== undefined ? { version } : {}),
 			...(description !== undefined ? { description } : {}),
 			...(bin !== undefined ? { bin } : {}),
+			...(homepage !== undefined ? { homepage } : {}),
+			...(repository !== undefined ? { repository } : {}),
 		};
 	} catch {
 		return null;
@@ -191,6 +212,102 @@ function parseBinField(value: unknown): string | Readonly<Record<string, string>
 		result[k] = v;
 	}
 	return result;
+}
+
+/**
+ * Parse the `repository` field from package.json.
+ *
+ * Accepts either a locator string (`"repository": "github:u/r"`) or an
+ * object (`"repository": { "type": "git", "url": "..." }`). Returns
+ * `undefined` for anything else.
+ *
+ * @internal
+ */
+function parseRepositoryField(value: unknown): string | PackageRepository | undefined {
+	if (typeof value === 'string') return value;
+	if (!isPlainObject(value)) return undefined;
+	const type = typeof value['type'] === 'string' ? value['type'] : undefined;
+	const url = typeof value['url'] === 'string' ? value['url'] : undefined;
+	const directory = typeof value['directory'] === 'string' ? value['directory'] : undefined;
+	if (type === undefined && url === undefined && directory === undefined) return undefined;
+	return {
+		...(type !== undefined ? { type } : {}),
+		...(url !== undefined ? { url } : {}),
+		...(directory !== undefined ? { directory } : {}),
+	};
+}
+
+// --- packageRepositoryUrl
+
+/** Browsable base URLs for npm repository shorthand prefixes. @internal */
+const SHORTHAND_HOSTS: Readonly<Record<string, string>> = {
+	github: 'https://github.com',
+	gitlab: 'https://gitlab.com',
+	bitbucket: 'https://bitbucket.org',
+};
+
+/** Strip a trailing `.git` suffix from a repository path. @internal */
+function stripGitSuffix(path: string): string {
+	return path.endsWith('.git') ? path.slice(0, -'.git'.length) : path;
+}
+
+/**
+ * Resolve a package's `repository` field to a browsable `https://` URL.
+ *
+ * Handles the locator formats npm accepts:
+ * - object form: `{ "type": "git", "url": "git+https://github.com/u/r.git" }`
+ * - `https`/`git`/`ssh` URLs (`git+` prefix and `.git` suffix stripped)
+ * - scp-style locators: `git@github.com:u/r.git`
+ * - shorthands: `github:u/r`, `gitlab:u/r`, `bitbucket:u/r`, and bare `u/r`
+ *   (GitHub, per npm convention)
+ *
+ * Returns `undefined` when the field is absent or unrecognised.
+ *
+ * @example
+ * ```ts
+ * packageRepositoryUrl({ repository: 'git+https://github.com/u/r.git' });
+ * // 'https://github.com/u/r'
+ * ```
+ */
+function packageRepositoryUrl(pkg: PackageJsonData): string | undefined {
+	const raw = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url;
+	if (raw === undefined) return undefined;
+
+	let locator = raw.trim();
+	if (locator.length === 0) return undefined;
+
+	// npm shorthands: `github:u/r`, `gitlab:u/r`, `bitbucket:u/r`
+	const shorthand = /^(github|gitlab|bitbucket):([^/]+\/[^/]+)$/.exec(locator);
+	if (shorthand !== null && shorthand[1] !== undefined && shorthand[2] !== undefined) {
+		const host = SHORTHAND_HOSTS[shorthand[1]];
+		if (host !== undefined) {
+			return `${host}/${stripGitSuffix(shorthand[2])}`;
+		}
+	}
+
+	// Bare `u/r` implies GitHub (npm convention)
+	if (/^[\w.-]+\/[\w.-]+$/.test(locator)) {
+		return `https://github.com/${stripGitSuffix(locator)}`;
+	}
+
+	if (locator.startsWith('git+')) {
+		locator = locator.slice('git+'.length);
+	}
+
+	// scp-style locator: `git@github.com:u/r.git`
+	const scp = /^git@([^:/]+):(.+)$/.exec(locator);
+	if (scp !== null && scp[1] !== undefined && scp[2] !== undefined) {
+		return `https://${scp[1]}/${stripGitSuffix(scp[2].replace(/\/+$/, ''))}`;
+	}
+
+	if (!/^(?:https?|git|ssh):\/\//.test(locator)) return undefined;
+	try {
+		const url = new URL(locator);
+		const path = stripGitSuffix(url.pathname.replace(/\/+$/, ''));
+		return `https://${url.hostname}${path}`;
+	} catch {
+		return undefined;
+	}
 }
 
 // --- inferCliName
@@ -229,5 +346,5 @@ function inferCliName(pkg: PackageJsonData): string | undefined {
 
 // --- Exports
 
-export type { PackageJsonAdapter, PackageJsonData };
-export { discoverPackageJson, inferCliName };
+export type { PackageJsonAdapter, PackageJsonData, PackageRepository };
+export { discoverPackageJson, inferCliName, packageRepositoryUrl };

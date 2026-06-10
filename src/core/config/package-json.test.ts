@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { PackageJsonAdapter } from './package-json.ts';
-import { discoverPackageJson, inferCliName } from './package-json.ts';
+import { discoverPackageJson, inferCliName, packageRepositoryUrl } from './package-json.ts';
 
 // === Test helpers
 
@@ -238,6 +238,51 @@ describe('discoverPackageJson', () => {
 			const result = await discoverPackageJson(adapter);
 			expect(result?.bin).toBeUndefined();
 		});
+
+		it('extracts homepage and string repository', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					homepage: 'https://myapp.dev',
+					repository: 'github:me/myapp',
+				}),
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.homepage).toBe('https://myapp.dev');
+			expect(result?.repository).toBe('github:me/myapp');
+		});
+
+		it('extracts object repository (type/url/directory)', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					repository: {
+						type: 'git',
+						url: 'git+https://github.com/me/myapp.git',
+						directory: 'packages/cli',
+					},
+				}),
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.repository).toEqual({
+				type: 'git',
+				url: 'git+https://github.com/me/myapp.git',
+				directory: 'packages/cli',
+			});
+		});
+
+		it('ignores non-string homepage and malformed repository', async () => {
+			const adapter = createAdapter({
+				'/projects/myapp/package.json': JSON.stringify({
+					homepage: 42,
+					repository: { type: 7, url: false },
+				}),
+			});
+
+			const result = await discoverPackageJson(adapter);
+			expect(result?.homepage).toBeUndefined();
+			expect(result?.repository).toBeUndefined();
+		});
 	});
 
 	// --- error resilience
@@ -390,5 +435,67 @@ describe('inferCliName — resolution order', () => {
 			bin: {},
 		});
 		expect(name).toBe('fallback');
+	});
+});
+
+// === packageRepositoryUrl — repository field normalization
+
+describe('packageRepositoryUrl — repository field normalization', () => {
+	it('strips git+ prefix and .git suffix from https URLs', () => {
+		expect(packageRepositoryUrl({ repository: 'git+https://github.com/me/myapp.git' })).toBe(
+			'https://github.com/me/myapp',
+		);
+	});
+
+	it('passes plain https URLs through (trailing slash removed)', () => {
+		expect(packageRepositoryUrl({ repository: 'https://github.com/me/myapp/' })).toBe(
+			'https://github.com/me/myapp',
+		);
+	});
+
+	it('resolves the object form via its url field', () => {
+		expect(
+			packageRepositoryUrl({
+				repository: { type: 'git', url: 'git+https://github.com/me/myapp.git' },
+			}),
+		).toBe('https://github.com/me/myapp');
+	});
+
+	it('converts scp-style locators (git@host:path)', () => {
+		expect(packageRepositoryUrl({ repository: 'git@github.com:me/myapp.git' })).toBe(
+			'https://github.com/me/myapp',
+		);
+	});
+
+	it('converts git:// and ssh:// URLs to https', () => {
+		expect(packageRepositoryUrl({ repository: 'git://github.com/me/myapp.git' })).toBe(
+			'https://github.com/me/myapp',
+		);
+		expect(packageRepositoryUrl({ repository: 'ssh://git@github.com/me/myapp.git' })).toBe(
+			'https://github.com/me/myapp',
+		);
+	});
+
+	it('expands github/gitlab/bitbucket shorthands', () => {
+		expect(packageRepositoryUrl({ repository: 'github:me/myapp' })).toBe(
+			'https://github.com/me/myapp',
+		);
+		expect(packageRepositoryUrl({ repository: 'gitlab:me/myapp' })).toBe(
+			'https://gitlab.com/me/myapp',
+		);
+		expect(packageRepositoryUrl({ repository: 'bitbucket:me/myapp' })).toBe(
+			'https://bitbucket.org/me/myapp',
+		);
+	});
+
+	it('treats bare user/repo as a GitHub shorthand (npm convention)', () => {
+		expect(packageRepositoryUrl({ repository: 'me/myapp' })).toBe('https://github.com/me/myapp');
+	});
+
+	it('returns undefined for missing, empty, or unrecognised locators', () => {
+		expect(packageRepositoryUrl({})).toBeUndefined();
+		expect(packageRepositoryUrl({ repository: '  ' })).toBeUndefined();
+		expect(packageRepositoryUrl({ repository: 'not a repo' })).toBeUndefined();
+		expect(packageRepositoryUrl({ repository: { type: 'git' } })).toBeUndefined();
 	});
 });

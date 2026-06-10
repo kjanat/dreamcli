@@ -35,6 +35,8 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
+import type { HelpLinks } from './help-links.ts';
+import { deriveHelpLinks } from './help-links.ts';
 import type { OutputPolicy } from './planner.ts';
 import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
@@ -185,6 +187,14 @@ interface CLISchema {
 	 * Set via the {@linkcode CLIBuilder.packageJson | .packageJson()} builder method.
 	 */
 	readonly packageJsonSettings: PackageJsonSettings | undefined;
+	/**
+	 * OSC 8 hyperlink targets for the root-help header (name/version).
+	 *
+	 * Set via the {@linkcode CLIBuilder.links | .links()} builder method.
+	 * Fields left `undefined` are derived from package.json metadata
+	 * (`repository` / `homepage`) when `.packageJson()` is active.
+	 */
+	readonly helpLinks: HelpLinks | undefined;
 	/** Whether built-in `.completions()` command registration is active. */
 	readonly hasBuiltInCompletions: boolean;
 	/** Registered CLI plugins. */
@@ -362,6 +372,54 @@ class CLIBuilder {
 	 */
 	description(text: string): CLIBuilder {
 		return new CLIBuilder({ ...this.schema, description: text });
+	}
+
+	/**
+	 * Make the root-help header clickable with OSC 8 hyperlinks.
+	 *
+	 * Links the program name and version on the first line of root `--help`
+	 * output in terminals that support
+	 * [OSC 8 hyperlinks](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda).
+	 * The escapes are only emitted when stdout is a TTY (overridable via
+	 * `options.help.hyperlinks`), and only in the header — usage lines, the
+	 * `--help` hint, the commands table, and completion scripts stay plain.
+	 *
+	 * URLs not provided here are derived from package.json metadata when
+	 * `.packageJson()` is active (works with both filesystem discovery and
+	 * pre-loaded data):
+	 * - **name** → normalized `repository` URL, falling back to `homepage`
+	 * - **version** → forge release tag (`{repo}/releases/tag/v{version}` on
+	 *   GitHub, `{repo}/-/releases/v{version}` on GitLab)
+	 *
+	 * @param links - Explicit URLs; omit to derive everything from package.json.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * // Derive both links from package.json repository/homepage:
+	 * cli('mycli')
+	 *   .packageJson()
+	 *   .links()
+	 *   .run();
+	 *
+	 * // Explicit URLs (no package.json required):
+	 * cli('mycli')
+	 *   .version('1.0.0')
+	 *   .links({
+	 *     name: 'https://github.com/me/mycli',
+	 *     version: 'https://github.com/me/mycli/releases/tag/v1.0.0',
+	 *   })
+	 *   .run();
+	 * ```
+	 */
+	links(links?: { readonly name?: string | URL; readonly version?: string | URL }): CLIBuilder {
+		return new CLIBuilder({
+			...this.schema,
+			helpLinks: {
+				name: toUrlString(links?.name),
+				version: toUrlString(links?.version),
+			},
+		});
 	}
 
 	/**
@@ -766,10 +824,12 @@ class CLIBuilder {
 			);
 		}
 
-		// Resolve help options — default binName to CLI program name
+		// Resolve help options — default binName to CLI program name,
+		// hyperlinks to TTY detection (escapes never leak into piped output)
 		const helpOptions: HelpOptions = {
 			...options?.help,
 			binName: options?.help?.binName ?? this.schema.name,
+			hyperlinks: options?.help?.hyperlinks ?? out.isTTY,
 		};
 
 		// -- Shared options for command execution ----------------------------------
@@ -796,7 +856,7 @@ class CLIBuilder {
 				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 
 			case 'root-help': {
-				const helpText = formatRootHelp(this.schema, planned.help);
+				const helpText = formatRootHelp(resolveHelpLinksSchema(this.schema), planned.help);
 				out.log(helpText);
 				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 			}
@@ -974,6 +1034,32 @@ function inferInvocationName(argv: readonly string[]): string | undefined {
 	return argv0 !== undefined ? basename(argv0) : undefined;
 }
 
+// --- Help link helpers
+
+/** Coerce a `string | URL` link input to its string form. @internal */
+function toUrlString(value: string | URL | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	return value instanceof URL ? value.href : value;
+}
+
+/**
+ * Resolve derived help links against pre-loaded package.json data.
+ *
+ * `.run()` resolves links during runtime preflight (where discovered
+ * package.json metadata lives); this covers the filesystem-free
+ * `.execute()` path, where only the `.packageJson(data)` overload can
+ * contribute. Idempotent — already-resolved fields pass through unchanged.
+ *
+ * @internal
+ */
+function resolveHelpLinksSchema(schema: CLISchema): CLISchema {
+	if (schema.helpLinks === undefined) return schema;
+	return {
+		...schema,
+		helpLinks: deriveHelpLinks(schema.helpLinks, schema.packageJsonSettings?.data, schema.version),
+	};
+}
+
 // --- packageJson.from normalisation
 
 /**
@@ -1016,14 +1102,21 @@ function normalizeFromSetting(from: string | URL | undefined): string | undefine
  *
  * A value is treated as `PackageJsonData` when it's a plain object that
  * carries at least one recognised field (`name`, `version`, `description`,
- * or `bin`). An empty `{}` or a settings-shaped object (`inferName` /
- * `from`) falls through to the settings overload.
+ * `bin`, `homepage`, or `repository`). An empty `{}` or a settings-shaped
+ * object (`inferName` / `from`) falls through to the settings overload.
  *
  * @internal
  */
 function isPackageJsonData(value: unknown): value is PackageJsonData {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-	return 'name' in value || 'version' in value || 'description' in value || 'bin' in value;
+	return (
+		'name' in value ||
+		'version' in value ||
+		'description' in value ||
+		'bin' in value ||
+		'homepage' in value ||
+		'repository' in value
+	);
 }
 
 // --- Factory function
@@ -1093,6 +1186,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 		defaultCommand: undefined,
 		configSettings: undefined,
 		packageJsonSettings: undefined,
+		helpLinks: undefined,
 		hasBuiltInCompletions: false,
 		plugins: [],
 	});
@@ -1107,5 +1201,6 @@ export type {
 	PluginCommandContext,
 	ResolvedCommandParams,
 } from './plugin.ts';
+export type { HelpLinks } from './help-links.ts';
 export type { CLIOptions, CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };
 export { CLIBuilder, cli, formatRootHelp, plugin };

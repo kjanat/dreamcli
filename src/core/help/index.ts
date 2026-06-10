@@ -10,6 +10,7 @@
 
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
+import { padEnd, wrapText } from './ansi.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -26,6 +27,13 @@ interface HelpOptions {
 	readonly width?: number;
 	/** Binary/program name shown in the usage line. Defaults to command name. */
 	readonly binName?: string;
+	/**
+	 * Emit OSC 8 hyperlinks where link metadata is available (currently the
+	 * root-help header name/version configured via `CLIBuilder.links()`).
+	 * Defaults to `false`; `CLIBuilder.execute()`/`.run()` enable it
+	 * automatically when stdout is a TTY.
+	 */
+	readonly hyperlinks?: boolean;
 	/** @internal Whether this usage line is being rendered as merged root/default help. */
 	readonly isDefaultHelp?: boolean;
 }
@@ -51,56 +59,6 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		binName: options?.binName,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
 	};
-}
-
-// --- Internal helpers
-
-/**
- * Pad `text` to `length` with trailing spaces.
- *
- * @param text - The string to pad.
- * @param length - Target length in characters.
- * @returns The padded string, unchanged if already at or beyond `length`.
- */
-function padEnd(text: string, length: number): string {
-	if (text.length >= length) return text;
-	return text + ' '.repeat(length - text.length);
-}
-
-/**
- * Wrap text to `width`, preserving leading indent on continuation lines.
- *
- * @param text - The text to wrap.
- * @param width - Maximum line width in columns.
- * @param indent - Number of leading spaces for continuation lines.
- * @returns The wrapped string with newlines inserted as needed.
- */
-function wrapText(text: string, width: number, indent: number): string {
-	if (text.length + indent <= width) return text;
-
-	const maxLen = width - indent;
-	if (maxLen <= 0) return text;
-
-	const words = text.split(' ');
-	const lines: string[] = [];
-	let current = '';
-
-	for (const word of words) {
-		if (current.length === 0) {
-			current = word;
-		} else if (current.length + 1 + word.length <= maxLen) {
-			current += ` ${word}`;
-		} else {
-			lines.push(current);
-			current = word;
-		}
-	}
-	if (current.length > 0) {
-		lines.push(current);
-	}
-
-	const pad = ' '.repeat(indent);
-	return lines.map((line, i) => (i === 0 ? line : `${pad}${line}`)).join('\n');
 }
 
 // --- Deprecation formatting
@@ -554,4 +512,5 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 // --- Exports
 
 export type { HelpOptions };
+export { osc8, visibleWidth } from './ansi.ts';
 export { formatHelp, formatHelpSections };
