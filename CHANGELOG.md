@@ -7,6 +7,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-06-10
+
+### Added
+
+- **`.links()` — OSC 8 hyperlinks in the root-help header** — the program name and version on the
+  first line of root `--help` output can now carry
+  [OSC 8 hyperlinks](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda) in
+  supporting terminals ([#20](https://github.com/kjanat/dreamcli/issues/20)). Pass explicit URLs
+  (`.links({ name, version })`) or call `.links()` with no arguments to derive them from
+  `package.json` metadata when `.packageJson()` is active: the name links to the normalized
+  `repository` URL (falling back to `homepage`), and the version links to the forge release tag
+  (`{repo}/releases/tag/v{version}` on GitHub, `{repo}/-/releases/v{version}` on GitLab). Escapes
+  are emitted only when stdout is a TTY (overridable via the new `help.hyperlinks` option) and only
+  on the header line — usage lines, the `--help` hint, the commands table, `--version` output, and
+  completion scripts stay plain.
+- **ANSI/OSC-aware help width helpers** — help padding and wrapping now measure _visible_ width:
+  the shared `padEnd()`/`wrapText()` helpers strip ANSI CSI (colors) and OSC (hyperlink) escape
+  sequences before counting columns, so escape-bearing text no longer mangles `--help` alignment.
+  New public exports `osc8(url, text)` (wrap text in an OSC 8 hyperlink) and `visibleWidth(text)`
+  (escape-aware width measurement) support custom help rendering.
+- **`packageRepositoryUrl(pkg)`** — new public helper that normalizes a package's `repository`
+  field to a browsable `https://` URL, handling the locator formats npm accepts (`{ type, url }`
+  object form, `git+`/`.git` affixes, scp-style `git@host:u/r.git`, and the
+  `github:`/`gitlab:`/`bitbucket:`/bare `u/r` shorthands). `PackageJsonData` now also parses the
+  `homepage` and `repository` fields.
+
 ## [2.2.0] - 2026-06-09
 
 ### Added
@@ -764,7 +790,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/kjanat/dreamcli/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/kjanat/dreamcli/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/kjanat/dreamcli/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/kjanat/dreamcli/compare/v2.0.0...v2.0.1
