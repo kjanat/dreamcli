@@ -1,34 +1,19 @@
 name: autofix.ci
-
 on:
   push: { branches: [master] }
   pull_request:
   workflow_call:
-
+  workflow_dispatch:
 permissions: { contents: read }
-
-concurrency:
-  group: autofix-${{ github.ref }}
-  cancel-in-progress: true
-
+concurrency: { group: "autofix-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   autofix:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v6
-      - uses: kjanat/install-dprint@v1
-      # Always install Bun for dependency management (bun install)
       - uses: oven-sh/setup-bun@v2
-      - run: bun install # update lockfile if needed
-
-      # Update plugin versions only on merge to master
-      - if: github.event_name == 'push'
-        run: dprint config update
-
-      - run: bunx @biomejs/biome check --skip-parse-errors --no-errors-on-unmatched --changed --write
-
-        # autofix-ci will fail if the .github directory is touched
-      - run: dprint fmt --allow-no-files --excludes ".github"
-
+      - uses: denoland/setup-deno@v2
+      - uses: kjanat/runner@master
+      - run: runner install fmt:autofix fmt:update lint:autofix
       - uses: autofix-ci/action@v1
