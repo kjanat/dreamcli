@@ -233,3 +233,4 @@ $RECYCLE.BIN/
 .playwright-mcp/
 __pycache__
 .*_cache
+/deno.lock
