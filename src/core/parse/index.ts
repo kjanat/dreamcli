@@ -101,6 +101,26 @@ function tokenize(argv: readonly string[]): readonly Token[] {
 	return tokens;
 }
 
+/**
+ * Whether `token` appears in argv before the `--` end-of-options separator.
+ *
+ * Everything at or after the first `--` is a literal positional, so root-level
+ * flag interception (`--help` / `--version` / `--json`) must use this instead of
+ * a naive `Array.includes()` — otherwise a post-separator literal (`-- --json`)
+ * is wrongly treated as the flag.
+ *
+ * @param argv - Raw argument strings.
+ * @param token - Exact flag token to look for (e.g. `--version`).
+ * @returns `true` if `token` occurs before any `--` separator.
+ */
+function includesBeforeSeparator(argv: readonly string[], token: string): boolean {
+	for (const arg of argv) {
+		if (arg === '--') return false;
+		if (arg === token) return true;
+	}
+	return false;
+}
+
 // --- Parse result
 
 /**
@@ -658,4 +678,4 @@ function levenshtein(a: string, b: string): number {
 // --- Exports
 
 export type { ParseResult, Token };
-export { buildFlagLookup, flagExpectsValue, parse, tokenize };
+export { buildFlagLookup, flagExpectsValue, includesBeforeSeparator, parse, tokenize };

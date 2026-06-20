@@ -16,7 +16,7 @@ import type {
 import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
-import { parse } from '#internals/core/parse/index.ts';
+import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
@@ -256,14 +256,6 @@ function formatDeprecation(deprecation: DeprecationWarning): string {
 	return typeof deprecation.message === 'string'
 		? `Warning: ${entity} is deprecated: ${deprecation.message}`
 		: `Warning: ${entity} is deprecated`;
-}
-
-function includesBeforeSeparator(argv: readonly string[], token: string): boolean {
-	for (const arg of argv) {
-		if (arg === '--') return false;
-		if (arg === token) return true;
-	}
-	return false;
 }
 
 export type { CommandExecutionRequest, CommandExecutionResult };
