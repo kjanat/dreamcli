@@ -550,32 +550,32 @@ describe('formatRootHelp — default command', () => {
 		it('treats --version after -- as a literal positional', async () => {
 			const result = await buildApp().execute(['--', '--version']);
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout.join('')).toContain('names=["--version"]');
+			expect(result.stdout).toEqual(['names=["--version"]\n']);
 		});
 
 		it('treats a later --version after -- as a literal positional', async () => {
 			const result = await buildApp().execute(['--', 'literal', '--version']);
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout.join('')).toContain('names=["literal","--version"]');
+			expect(result.stdout).toEqual(['names=["literal","--version"]\n']);
 		});
 
 		it('treats --json after -- as a literal positional (no JSON mode)', async () => {
 			const result = await buildApp().execute(['--', '--json']);
 			expect(result.exitCode).toBe(0);
 			// Text output with the literal, not a JSON object.
-			expect(result.stdout.join('')).toContain('names=["--json"]');
+			expect(result.stdout).toEqual(['names=["--json"]\n']);
 		});
 
 		it('still intercepts --version before --', async () => {
 			const result = await buildApp().execute(['--version']);
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout.join('').trim()).toBe('9.9.9');
+			expect(result.stdout).toEqual(['9.9.9\n']);
 		});
 
 		it('still enables JSON mode for --json before --', async () => {
 			const result = await buildApp().execute(['--json', 'hi']);
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout.join('')).toContain('"names":["hi"]');
+			expect(result.stdout).toEqual(['{"names":["hi"]}\n']);
 		});
 	});
 });
