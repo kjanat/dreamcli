@@ -487,4 +487,47 @@ describe('formatRootHelp — default command', () => {
 			expect(deployDescStart).toBe(statusDescStart);
 		}
 	});
+
+	// --- value-flag value matching a command name (#25)
+
+	describe('value-flag value matching a command name (#25)', () => {
+		function buildApp() {
+			const status = command('status')
+				.description('Show status')
+				.flag('source', flag.string().alias('s').describe('Data source'))
+				.action(({ flags, out }) => {
+					out.log(`status:${flags.source ?? 'none'}`);
+				});
+			const anthropic = command('anthropic')
+				.description('Anthropic source command')
+				.action(({ out }) => {
+					out.log('anthropic-cmd');
+				});
+			return cli('mycli').default(status).command(anthropic);
+		}
+
+		it('routes --source <commandName> to the default command (space form)', async () => {
+			const result = await buildApp().execute(['--source', 'anthropic']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toContain('status:anthropic');
+		});
+
+		it('routes -s <commandName> to the default command (short alias)', async () => {
+			const result = await buildApp().execute(['-s', 'anthropic']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toContain('status:anthropic');
+		});
+
+		it('inline --source=<commandName> still works', async () => {
+			const result = await buildApp().execute(['--source=anthropic']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toContain('status:anthropic');
+		});
+
+		it('still dispatches the explicit command when typed directly', async () => {
+			const result = await buildApp().execute(['anthropic']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toContain('anthropic-cmd');
+		});
+	});
 });

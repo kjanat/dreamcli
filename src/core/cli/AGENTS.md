@@ -4,23 +4,25 @@
 
 ## KEY TYPES
 
-| Symbol             | Role                                                        |
-| ------------------ | ----------------------------------------------------------- |
-| `CLIBuilder`       | Fluent builder: `.command()`, `.default()`, `.execute()`    |
-| `cli(name)`        | Factory function -> `CLIBuilder`                            |
-| `CLISchema`        | Runtime descriptor for the full CLI                         |
-| `CLIRunOptions`    | Extends `RunOptions` with CLI-level settings                |
-| `ConfigSettings`   | Config file discovery settings for CLI                      |
-| `ErasedCommand`    | `@internal` — type-erased command for dispatch map          |
-| `formatRootHelp()` | `@internal` — root-level help rendering (in `root-help.ts`) |
+| Symbol                     | Role                                                                    |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `CLIBuilder`               | Fluent builder: `.command()`, `.default()`, `.execute()`                |
+| `cli(name)`                | Factory function -> `CLIBuilder`                                        |
+| `CLISchema`                | Runtime descriptor for the full CLI                                     |
+| `CLIRunOptions`            | Extends `RunOptions` with CLI-level settings                            |
+| `ConfigSettings`           | Config file discovery settings for CLI                                  |
+| `ErasedCommand`            | `@internal` — type-erased command for dispatch map                      |
+| `formatRootHelp()`         | `@internal` — root-level help rendering (in `root-help.ts`)             |
+| `ValueFlagLookup`          | `@internal` — value-flag arity lookup threaded into `dispatch()`        |
+| `consumesFollowingToken()` | `@internal` — whether a flag token consumes the next argv token (arity) |
 
 ## FILES
 
 | File                   | Lines | Purpose                                                              |
 | ---------------------- | ----: | -------------------------------------------------------------------- |
 | `index.ts`             |  1015 | CLIBuilder class + cli() factory + JSON error handling               |
-| `dispatch.ts`          |   285 | `@internal` — command dispatch, nested resolution, levenshtein       |
-| `planner.ts`           |   345 | `@internal` — execution planner, command resolution strategy         |
+| `dispatch.ts`          |   349 | `@internal` — command dispatch (value-flag-arity aware), levenshtein |
+| `planner.ts`           |   424 | `@internal` — execution planner, command resolution strategy         |
 | `runtime-preflight.ts` |   304 | `@internal` — runtime adapter setup, env/config preflight            |
 | `plugin.ts`            |   111 | `@internal` — plugin system + lifecycle hooks                        |
 | `propagate.ts`         |    87 | `@internal` — flag propagation through command tree                  |
@@ -54,6 +56,10 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
 - `root-help.ts` uses structural `CLISchemaLike` instead of importing `CLISchema` — avoids circular
   dep through barrel
 - `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`
+- `dispatch.ts` is value-flag-arity aware: the command-name scan skips a space-separated value-flag's
+  value (`consumesFollowingToken` + `ValueFlagLookup`, built from the default/matched command's flags)
+  so the value isn't mistaken for a command name — reuses `buildFlagLookup`/`flagExpectsValue` from
+  `parse/` as the single source of truth (#25)
 - `extractConfigFlag()` handles both `--config path` and `--config=path` forms
 - Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)
 - Cross-layer imports: `runtime/adapter.ts`, `runtime/auto.ts` (not through runtime barrel)

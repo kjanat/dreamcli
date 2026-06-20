@@ -3,8 +3,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { buildFlagLookup } from '#internals/core/parse/index.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
-import { dispatch, findClosestCommand, levenshtein, uniqueCommands } from './dispatch.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import {
+	consumesFollowingToken,
+	dispatch,
+	findClosestCommand,
+	levenshtein,
+	uniqueCommands,
+} from './dispatch.ts';
 
 // === Helpers
 
@@ -280,5 +288,90 @@ describe('uniqueCommands()', () => {
 		const unique = uniqueCommands(map);
 		expect(unique).toHaveLength(1);
 		expect(unique[0]).toBe(deploy);
+	});
+});
+
+// === consumesFollowingToken()
+
+describe('consumesFollowingToken()', () => {
+	const lookup = buildFlagLookup({
+		source: flag.string().alias('s').schema,
+		verbose: flag.boolean().alias('v').schema,
+	});
+
+	it('long value-flag consumes the next token', () => {
+		expect(consumesFollowingToken('--source', lookup)).toBe(true);
+	});
+
+	it('long value-flag with inline = consumes nothing', () => {
+		expect(consumesFollowingToken('--source=anthropic', lookup)).toBe(false);
+	});
+
+	it('boolean long flag consumes nothing', () => {
+		expect(consumesFollowingToken('--verbose', lookup)).toBe(false);
+	});
+
+	it('short value alias consumes the next token', () => {
+		expect(consumesFollowingToken('-s', lookup)).toBe(true);
+	});
+
+	it('short boolean alias consumes nothing', () => {
+		expect(consumesFollowingToken('-v', lookup)).toBe(false);
+	});
+
+	it('short bundle ending in a value-flag consumes the next token', () => {
+		expect(consumesFollowingToken('-vs', lookup)).toBe(true);
+	});
+
+	it('short bundle with a non-trailing value-flag consumes nothing (inline value)', () => {
+		expect(consumesFollowingToken('-sv', lookup)).toBe(false);
+	});
+
+	it('unknown flag conservatively consumes nothing', () => {
+		expect(consumesFollowingToken('--nope', lookup)).toBe(false);
+	});
+});
+
+// === dispatch() flag-arity awareness (#25)
+
+describe('dispatch() flag-arity awareness', () => {
+	const valueFlags = buildFlagLookup({ source: flag.string().alias('s').schema });
+	const booleanFlags = buildFlagLookup({ verbose: flag.boolean().alias('v').schema });
+
+	it('does not match a value-flag value that collides with a command name', () => {
+		const anthropic = erased(commandSchema({ name: 'anthropic' }));
+		const result = dispatch(['--source', 'anthropic'], commandMap(anthropic), [], valueFlags);
+		// The value was skipped, so no command token remains → fall through (default cmd).
+		expect(result.kind).toBe('unknown');
+		if (result.kind === 'unknown') expect(result.input).toBe('');
+	});
+
+	it('handles the short-alias form too', () => {
+		const anthropic = erased(commandSchema({ name: 'anthropic' }));
+		const result = dispatch(['-s', 'anthropic'], commandMap(anthropic), [], booleanFlags);
+		// booleanFlags has no `s`; arity-unaware → would match. With value arity:
+		const arityResult = dispatch(['-s', 'anthropic'], commandMap(anthropic), [], valueFlags);
+		expect(arityResult.kind).toBe('unknown');
+		expect(result.kind).toBe('match'); // contrast: unknown short flag is not a value-flag here
+	});
+
+	it('without arity info, the value is mis-matched as a command (legacy behaviour)', () => {
+		const anthropic = erased(commandSchema({ name: 'anthropic' }));
+		const result = dispatch(['--source', 'anthropic'], commandMap(anthropic));
+		expect(result.kind).toBe('match');
+	});
+
+	it('a boolean flag does not swallow the following command token', () => {
+		const anthropic = erased(commandSchema({ name: 'anthropic' }));
+		const result = dispatch(['-v', 'anthropic'], commandMap(anthropic), [], booleanFlags);
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') expect(result.command.schema.name).toBe('anthropic');
+	});
+
+	it('the inline = form leaves the command token matchable', () => {
+		const anthropic = erased(commandSchema({ name: 'anthropic' }));
+		const result = dispatch(['--source=eu', 'anthropic'], commandMap(anthropic), [], valueFlags);
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') expect(result.command.schema.name).toBe('anthropic');
 	});
 });

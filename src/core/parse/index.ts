@@ -658,4 +658,4 @@ function levenshtein(a: string, b: string): number {
 // --- Exports
 
 export type { ParseResult, Token };
-export { parse, tokenize };
+export { buildFlagLookup, flagExpectsValue, parse, tokenize };

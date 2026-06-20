@@ -12,6 +12,7 @@
 
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
+import { buildFlagLookup } from '#internals/core/parse/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import type { CommandMeta, CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
@@ -316,8 +317,18 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		};
 	}
 
-	const result = dispatch(filteredArgv, buildRootCommandMap(options.schema.commands));
 	const defaultCommand = options.schema.defaultCommand;
+	// At the root, a default command's flags govern value-flag arity so a
+	// space-separated value (`mycli --region eu`) is not misread as a command
+	// name and stolen from the default-command fallback (see #25).
+	const rootValueFlags =
+		defaultCommand !== undefined ? buildFlagLookup(defaultCommand.schema.flags) : undefined;
+	const result = dispatch(
+		filteredArgv,
+		buildRootCommandMap(options.schema.commands),
+		[],
+		rootValueFlags,
+	);
 
 	switch (result.kind) {
 		case 'unknown': {

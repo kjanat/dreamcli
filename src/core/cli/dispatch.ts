@@ -10,7 +10,18 @@
  * @internal
  */
 
+import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
+import type { FlagSchema } from '#internals/core/schema/flag.ts';
+
+/**
+ * Flag lookup (name/alias → `[canonicalName, schema]`) used to make the
+ * command-name scan aware of value-flag arity. Built from the flags valid at
+ * the current dispatch level via {@link buildFlagLookup}.
+ *
+ * @internal
+ */
+type ValueFlagLookup = ReadonlyMap<string, readonly [name: string, schema: FlagSchema]>;
 
 // --- Dispatch result types (discriminated union)
 
@@ -72,6 +83,9 @@ type DispatchResult = DispatchMatch | DispatchNeedsSubcommand | DispatchUnknown;
  * @param argv - Remaining argv tokens (command names + flags + args).
  * @param commands - Command map at the current tree level.
  * @param ancestorPath - Schema path from root to current level (exclusive).
+ * @param valueFlags - Lookup of flags valid at this level, used so a
+ *   space-separated value-flag's value (`--region eu`) is not mistaken for a
+ *   command name. Empty by default (arity-unaware, legacy behaviour).
  * @returns Discriminated dispatch result.
  *
  * @internal
@@ -80,22 +94,29 @@ function dispatch(
 	argv: readonly string[],
 	commands: ReadonlyMap<string, ErasedCommand>,
 	ancestorPath: readonly CommandSchema[] = [],
+	valueFlags: ValueFlagLookup = new Map(),
 ): DispatchResult {
 	// Find first non-flag token (potential command name).
 	// Flags may appear before the command name (e.g. `--verbose db migrate`).
 	// `--` terminates flag scanning — the next token is treated as a command name.
+	// Value-flags in space-separated form (`--region eu`, `-r eu`) consume the
+	// following token as their value, so it must be skipped rather than matched
+	// as a command name (see #25).
 	let cmdIdx = -1;
 	for (let i = 0; i < argv.length; i++) {
 		const token = argv[i];
+		if (token === undefined) continue;
 		if (token === '--') {
 			// End-of-flags marker: next token (if any) is the command name.
 			if (i + 1 < argv.length) cmdIdx = i + 1;
 			break;
 		}
-		if (token !== undefined && !token.startsWith('-')) {
-			cmdIdx = i;
-			break;
+		if (token.startsWith('-')) {
+			if (consumesFollowingToken(token, valueFlags)) i++; // skip the flag's value
+			continue;
 		}
+		cmdIdx = i;
+		break;
 	}
 
 	if (cmdIdx === -1) {
@@ -132,9 +153,15 @@ function dispatch(
 	const remaining = [...argv.slice(0, cmdIdx), ...argv.slice(cmdIdx + 1)];
 	const currentPath = [...ancestorPath, matched.schema];
 
-	// If command has subcommands, try to descend.
+	// If command has subcommands, try to descend. The matched command's own
+	// flags govern arity at the child level (e.g. `db --config x migrate`).
 	if (matched.subcommands.size > 0) {
-		const subResult = dispatch(remaining, matched.subcommands, currentPath);
+		const subResult = dispatch(
+			remaining,
+			matched.subcommands,
+			currentPath,
+			buildFlagLookup(matched.schema.flags),
+		);
 
 		switch (subResult.kind) {
 			case 'match':
@@ -186,6 +213,42 @@ function dispatch(
 		commandPath: currentPath,
 		remainingArgv: remaining,
 	};
+}
+
+// --- Flag-arity awareness
+
+/**
+ * Whether a flag token consumes the following argv token as its value.
+ *
+ * Mirrors the parser's value-consumption rules (`parseLongFlag` /
+ * `parseShortFlags`) so the command-name scan skips exactly the tokens the
+ * parser would treat as flag values:
+ * - `--flag value` → consumes when `--flag` is a known value-flag.
+ * - `--flag=value` → self-contained, consumes nothing.
+ * - `-abc value`   → consumes only when the trailing short flag is a value-flag;
+ *   an earlier value-flag char takes the rest of the group as an inline value.
+ *
+ * Unknown flags conservatively consume nothing (the parser reports them later).
+ *
+ * @internal
+ */
+function consumesFollowingToken(token: string, valueFlags: ValueFlagLookup): boolean {
+	if (token.startsWith('--')) {
+		if (token.includes('=')) return false;
+		const entry = valueFlags.get(token.slice(2));
+		return entry !== undefined && flagExpectsValue(entry[1]);
+	}
+
+	// Short flag group (`-abc`). A value attaches to the trailing flag only; an
+	// earlier value-flag char swallows the remaining chars as an inline value.
+	const chars = token.slice(1);
+	for (let i = 0; i < chars.length; i++) {
+		const entry = valueFlags.get(chars.charAt(i));
+		if (entry === undefined) return false;
+		if (!flagExpectsValue(entry[1])) continue;
+		return i === chars.length - 1;
+	}
+	return false;
 }
 
 // --- "Did you mean?" suggestion
@@ -282,5 +345,5 @@ function uniqueCommands(commands: ReadonlyMap<string, ErasedCommand>): readonly 
 
 // --- Exports
 
-export type { DispatchMatch, DispatchNeedsSubcommand, DispatchResult, DispatchUnknown };
-export { dispatch, findClosestCommand, levenshtein, uniqueCommands };
+export type { DispatchMatch, DispatchNeedsSubcommand, DispatchResult, DispatchUnknown, ValueFlagLookup };
+export { consumesFollowingToken, dispatch, findClosestCommand, levenshtein, uniqueCommands };

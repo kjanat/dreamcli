@@ -238,6 +238,24 @@ Examples:
 | default `serve` + sibling `status` | `surface`     | commands + root built-ins + `serve` root flags     |
 | single visible default `serve`     | `subcommands` | command name + root built-ins + `serve` root flags |
 
+### Command resolution with value-flags
+
+When locating the command name in argv, dreamcli skips the token a space-separated value-flag
+consumes, so that value is never mistaken for a command name. This is most visible with a default
+command, where every token sits at the root level:
+
+```bash
+mycli --region status   # `status` is the value of --region (even if a command
+                        # named `status` exists), so this runs the default command
+mycli --region=status   # inline form, same result
+mycli status            # a bare token dispatches the `status` command
+```
+
+The same applies one level down: `mycli db --tag x migrate` resolves `migrate`, not `x`. Boolean
+flags take no value, so a following token is still treated as a command name. For example,
+`mycli --verbose deploy` runs `deploy`. The `--` separator stops command-name scanning entirely;
+everything after it is positional.
+
 ## Related Guides
 
 - [Commands](/guide/commands)

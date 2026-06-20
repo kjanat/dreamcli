@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-06-20
+
+### Fixed
+
+- **Command dispatch now respects flag value-arity** — a space-separated value-flag value (e.g.
+  `--source anthropic`) is no longer mistaken for a command name when it collides with a registered
+  command, so the default-command fallback runs as intended
+  ([#25](https://github.com/kjanat/dreamcli/issues/25)). The command-name scan now skips the token a
+  space-separated value-flag consumes (mirroring the parser's own value-consumption rules); the
+  inline `--source=anthropic` form already worked, and both forms are now consistent.
+
 ## [2.2.1] - 2026-06-10
 
 ### Added
@@ -790,7 +801,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/kjanat/dreamcli/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/kjanat/dreamcli/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/kjanat/dreamcli/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/kjanat/dreamcli/compare/v2.0.1...v2.1.0
