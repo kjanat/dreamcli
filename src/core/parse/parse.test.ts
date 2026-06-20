@@ -3,7 +3,7 @@ import { ParseError } from '#internals/core/errors/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
-import { parse, tokenize } from './index.ts';
+import { includesBeforeSeparator, parse, tokenize } from './index.ts';
 
 // --- Helpers — build minimal CommandSchema for testing
 
@@ -911,5 +911,22 @@ describe('parse', () => {
 			expect(result.flags).toEqual({});
 			expect(result.args).toEqual({});
 		});
+	});
+});
+
+describe('includesBeforeSeparator()', () => {
+	it('finds a token before the -- separator', () => {
+		expect(includesBeforeSeparator(['--version', 'x'], '--version')).toBe(true);
+		expect(includesBeforeSeparator(['--flag', '--json', 'x'], '--json')).toBe(true);
+	});
+
+	it('ignores a token at or after the -- separator', () => {
+		expect(includesBeforeSeparator(['--', '--version'], '--version')).toBe(false);
+		expect(includesBeforeSeparator(['a', '--', '--json'], '--json')).toBe(false);
+	});
+
+	it('returns false when the token is absent', () => {
+		expect(includesBeforeSeparator(['--other'], '--version')).toBe(false);
+		expect(includesBeforeSeparator([], '--version')).toBe(false);
 	});
 });

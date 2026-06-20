@@ -22,7 +22,7 @@
 | ---------------------- | ----: | -------------------------------------------------------------------- |
 | `index.ts`             |  1015 | CLIBuilder class + cli() factory + JSON error handling               |
 | `dispatch.ts`          |   349 | `@internal` — command dispatch (value-flag-arity aware), levenshtein |
-| `planner.ts`           |   424 | `@internal` — execution planner, command resolution strategy         |
+| `planner.ts`           |   431 | `@internal` — execution planner, command resolution strategy         |
 | `runtime-preflight.ts` |   304 | `@internal` — runtime adapter setup, env/config preflight            |
 | `plugin.ts`            |   111 | `@internal` — plugin system + lifecycle hooks                        |
 | `propagate.ts`         |    87 | `@internal` — flag propagation through command tree                  |
@@ -32,7 +32,7 @@
 ## DISPATCH FLOW
 
 ```
-argv -> strip --json flag -> match subcommand (nested) -> resolve -> middleware -> action -> output
+argv -> strip --json flag (before --) -> match subcommand (nested) -> resolve -> middleware -> action -> output
         | (no match)
         -> error (unknown command / no action) -> render as JSON if --json
 ```
@@ -46,7 +46,8 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
 
 ## `--json` MODE
 
-- Stripped from argv before command dispatch
+- Stripped from argv before command dispatch, but only before the `--` separator (a `--json` after
+  `--` stays a literal positional)
 - CLI-level errors rendered as JSON when active
 - Propagated to `OutputChannel` via `jsonMode` option
 - `out.log`/`out.info` redirect to stderr in JSON mode (stdout reserved for data)

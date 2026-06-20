@@ -12,7 +12,7 @@
 
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
-import { buildFlagLookup } from '#internals/core/parse/index.ts';
+import { buildFlagLookup, includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import type { CommandMeta, CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
@@ -258,13 +258,20 @@ function buildPlannerMatchOutcome(
  * @internal
  */
 function planInvocation(options: PlanInvocationOptions): InvocationPlan {
-	const filteredArgv = options.argv.includes('--json')
-		? options.argv.filter((arg) => arg !== '--json')
-		: options.argv;
+	// `--json` is a root-level flag, not part of any command schema, so it is
+	// stripped before dispatch/parse — but only before the `--` separator, so a
+	// literal `--json` positional (after `--`) survives and reaches the command
+	// (#28). The `--json` *output mode* is detected separately in `.execute()`.
+	const separatorIndex = options.argv.indexOf('--');
+	const head = separatorIndex === -1 ? options.argv : options.argv.slice(0, separatorIndex);
+	const tail = separatorIndex === -1 ? [] : options.argv.slice(separatorIndex);
+	const filteredHead = head.includes('--json') ? head.filter((arg) => arg !== '--json') : head;
+	const filteredArgv = separatorIndex === -1 ? filteredHead : [...filteredHead, ...tail];
 
 	if (
 		options.schema.version !== undefined &&
-		(filteredArgv.includes('--version') || filteredArgv.includes('-V'))
+		(includesBeforeSeparator(options.argv, '--version') ||
+			includesBeforeSeparator(options.argv, '-V'))
 	) {
 		return {
 			kind: 'root-version',

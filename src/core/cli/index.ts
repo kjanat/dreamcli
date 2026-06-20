@@ -19,6 +19,7 @@ import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { createCaptureOutput, createOutput } from '#internals/core/output/index.ts';
+import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type {
@@ -805,7 +806,9 @@ class CLIBuilder {
 	 */
 	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
 		// -- Detect global --json mode before building output ---------------------
-		const hasJsonFlag = argv.includes('--json');
+		// Only a `--json` before the `--` separator toggles JSON mode; a literal
+		// `--json` positional (after `--`) must reach the command unchanged (#28).
+		const hasJsonFlag = includesBeforeSeparator(argv, '--json');
 		const jsonMode = hasJsonFlag || options?.jsonMode === true;
 
 		const captureOptions = {
