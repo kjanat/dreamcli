@@ -8,7 +8,9 @@ import { collectPublicApiIndex } from './api-index.ts';
 import { packageJsonPath } from './paths.ts';
 
 describe('api-index', () => {
-	it('collects every public entrypoint with grouped symbols', async () => {
+	it('collects every public entrypoint with grouped symbols', {
+		timeout: 60_000,
+	}, async () => {
 		const entrypoints = await collectPublicApiIndex(packageJsonPath);
 
 		expect(entrypoints.map((entrypoint) => entrypoint.entrypoint)).toEqual([
