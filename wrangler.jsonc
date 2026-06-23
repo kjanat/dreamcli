@@ -2,11 +2,6 @@
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "dreamcli",
 	"compatibility_date": "2026-04-02",
-	"build": {
-		"watch_dir": ["./docs", "./examples"],
-		"command": "bun docs:build",
-		"cwd": ".",
-	},
 	"workers_dev": true,
 	"preview_urls": true,
 	"assets": {

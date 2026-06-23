@@ -10,7 +10,7 @@
 		"schema-first",
 		"command-line"
 	],
-	"homepage": "https://dreamcli.kjanat.com",
+	"homepage": "https://dreamcli.kjanat.dev",
 	"bugs": {
 		"url": "https://github.com/kjanat/dreamcli/issues"
 	},
@@ -73,15 +73,17 @@
 		"./examples/*"
 	],
 	"scripts": {
-		"bd": "bunx --bun tsdown",
-		"build": "bunx --bun tsdown",
-		"build:watch": "bunx --bun tsdown --watch",
+		"bd": "run build",
+		"build": "bun --bun tsdown",
+		"build:watch": "run build --watch",
 		"ci": "run -pk typecheck lint format:check meta-descriptions:check test docs:build bd",
 		"coverage": "vitest run --coverage",
-		"dev": "bunx --bun tsdown --logLevel silent --watch & bunx --bun vitepress@next dev docs --host --port ${PORT:-5173} & wait",
-		"docs:build": "bunx --bun vitepress@next build docs",
-		"docs:dev": "bunx --bun vitepress@next dev docs",
-		"docs:preview": "bunx --bun vitepress@next preview docs",
+		"dev": "run -p build:watch docs:dev",
+		"docs:build": "bun --bun vitepress build docs",
+		"docs:deploy": "wrangler deploy",
+		"docs:dev": "bun --bun vitepress dev docs --host --port ${PORT:-5173}",
+		"docs:preview": "bun --bun vitepress preview docs",
+		"docs:upload": "wrangler versions upload",
 		"fmt": "dprint fmt",
 		"fmt:autofix": "dprint fmt --allow-no-files --excludes .github",
 		"fmt:update": "dprint config update --yes --recursive",
@@ -99,11 +101,11 @@
 		"lint:fix": "biome lint --fix",
 		"meta-descriptions": "bun --bun scripts/build-meta-descriptions.ts",
 		"meta-descriptions:check": "bun --bun scripts/build-meta-descriptions.ts --check",
-		"prepack": "bunx --bun tsdown --logLevel silent",
+		"prepack": "bun --bun tsdown --logLevel silent",
 		"publish:preview": "bunx pkg-pr-new publish --bun --comment=update --packageManager=bun,npm",
 		"schema:emit": "bun scripts/emit-definition-schema.ts",
 		"test": "vitest run",
-		"test:bun": "bunx --bun vitest run",
+		"test:bun": "bun --bun vitest run",
 		"test:gh": "run --dir examples/gh test",
 		"test:node": "npx -y vitest run",
 		"test:watch": "vitest",
@@ -159,8 +161,8 @@
 		}
 	},
 	"volta": {
-		"node": "25.9.0",
-		"npm": "11.12.1"
+		"node": "26.3.1",
+		"npm": "11.17.0"
 	},
 	"publishConfig": {
 		"access": "public",
