@@ -125,8 +125,31 @@ const login = command('login')
 const migrate = command('migrate')
   .description('Run migrations')
   .flag('steps', flag.number())
-  .action(({ flags, out }) => {
-    out.log(`migrating ${flags.steps ?? 'all'} steps`);
+  .action(async ({ flags, meta, out }) => {
+    const steps = flags.steps ?? 3;
+
+    out.log(`${meta.name} ${meta.version ?? ''}`.trim());
+    out.log(`Command: ${meta.command}`);
+
+    const spinner = out.spinner('Preparing migrations');
+    await new Promise((resolve) =>
+      setTimeout(resolve, 1000),
+    );
+    spinner.succeed(`Ready to run ${steps} steps`);
+
+    const progress = out.progress({
+      label: 'Migrating',
+      total: steps,
+    });
+
+    for (let step = 1; step <= steps; step++) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, 700),
+      );
+      progress.update(step);
+    }
+
+    progress.done(`Migrated ${steps} steps`);
   });
 
 const seed = command('seed')
@@ -153,6 +176,12 @@ cli('mycli')
 // mycli db migrate --steps 3
 // mycli db seed
 ```
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/REPLACE-WITH-DARK-GIF-ID">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/REPLACE-WITH-LIGHT-GIF-ID">
+  <img alt="DreamCLI migration progress demo" src="https://github.com/user-attachments/assets/REPLACE-WITH-LIGHT-GIF-ID">
+</picture>
 
 ## Why dreamcli
 
