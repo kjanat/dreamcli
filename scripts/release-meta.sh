@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-target="${1:-}"
+target="${1:-${RELEASE_TARGET:-}}"
 
 if [[ -z "${target}" ]]; then
-	echo 'usage: scripts/release-meta.sh <npm|jsr>'
+	echo 'usage: scripts/release-meta.sh <npm|jsr> or RELEASE_TARGET=<npm|jsr> scripts/release-meta.sh'
 	exit 1
 fi
 

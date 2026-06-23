@@ -1,41 +1,27 @@
 name: Docs
+run-name: "Docs ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event_name }}-${{ github.run_number }} by ${{ github.actor }}"
 
 on:
   push:
     branches: [master]
-    paths:
-      - docs/**
-      - src/**
-      - examples/**
-      - scripts/**
-      - package.json
-      - tsconfig.json
-      - .github/workflows/docs.yml
+    paths: [docs/**, src/**, examples/**, scripts/**, package.json, tsconfig.json, .github/workflows/docs.yml]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+permissions: { contents: read }
+env: { RUNNER_PM: bun }
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    concurrency: { group: "pages-build-${{ github.ref }}", cancel-in-progress: true }
     steps:
-      - uses: actions/checkout@v6
-
+      - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
       - uses: oven-sh/setup-bun@v2
-
-      - run: bun install --frozen-lockfile
-
-      - run: bun run docs:build
-      - uses: actions/upload-pages-artifact@v4
+      - run: runner install --frozen docs:build
+      - uses: actions/upload-pages-artifact@v5
         with: { path: docs/.vitepress/dist }
 
   deploy:
@@ -43,5 +29,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    concurrency: { group: pages-deploy, cancel-in-progress: false }
+    permissions: { pages: write, id-token: write }
     environment: { name: github-pages, url: "${{ steps.deploy.outputs.page_url }}" }
     steps: [{ id: deploy, uses: actions/deploy-pages@v5 }]

@@ -89,3 +89,11 @@ labels:
   - name: "resolution: wontfix"
     color: "#e6e6e6"
     description: Intentionally not planned
+
+  - name: cr:skip
+    color: FF570A
+    description: Skip CodeRabbit review
+
+  - name: cr:review
+    color: FF570A
+    description: Allow CodeRabbit review

@@ -15,6 +15,18 @@
 		"publish:dry": {
 			"description": "Dry-run JSR publish to verify package shape",
 			"command": "deno publish --dry-run --no-check"
+		},
+		"vitest:deno": {
+			"description": "Run Vitest tests in Deno",
+			"command": "deno run -A npm:vitest run"
+		},
+		"jsr:release-meta": {
+			"description": "Generate release metadata for JSR",
+			"command": "bash scripts/release-meta.sh jsr"
+		},
+		"jsr:publish": {
+			"description": "Publish package to JSR",
+			"command": "deno publish"
 		}
 	},
 	"imports": {

@@ -76,7 +76,7 @@
 		"bd": "bunx --bun tsdown",
 		"build": "bunx --bun tsdown",
 		"build:watch": "bunx --bun tsdown --watch",
-		"ci": "bun typecheck && bun lint && bun run format:check && bun run meta-descriptions:check && bun run test && bun run docs:build && bun bd",
+		"ci": "run -pk typecheck lint format:check meta-descriptions:check test docs:build bd",
 		"coverage": "vitest run --coverage",
 		"dev": "bunx --bun tsdown --logLevel silent --watch & bunx --bun vitepress@next dev docs --host --port ${PORT:-5173} & wait",
 		"docs:build": "bunx --bun vitepress@next build docs",
@@ -100,11 +100,18 @@
 		"meta-descriptions": "bun --bun scripts/build-meta-descriptions.ts",
 		"meta-descriptions:check": "bun --bun scripts/build-meta-descriptions.ts --check",
 		"prepack": "bunx --bun tsdown --logLevel silent",
+		"publish:preview": "bunx pkg-pr-new publish --bun --comment=update --packageManager=bun,npm",
+		"schema:emit": "bun scripts/emit-definition-schema.ts",
 		"test": "vitest run",
+		"test:bun": "bunx --bun vitest run",
+		"test:gh": "run --dir examples/gh test",
+		"test:node": "npx -y vitest run",
 		"test:watch": "vitest",
 		"typecheck": "tsgo --noEmit",
+		"typecheck:gh": "run --dir examples/gh typecheck",
 		"typecheck:tsc": "tsc --noEmit",
-		"upgrade": "bun update --latest && bun add -D vitepress@next"
+		"upgrade": "bun update --latest && bun add -D vitepress@next",
+		"version:check": "bun scripts/check-version-sync.ts"
 	},
 	"overrides": {
 		"vitepress": "next"
@@ -125,6 +132,7 @@
 		"knip": "^6.3.0",
 		"mermaid": "^11.14.0",
 		"publint": "^0.3.18",
+		"runner-run": "0.14.0",
 		"tsdown": "^0.21.7",
 		"typedoc": "^0.28.18",
 		"typescript": "catalog:",

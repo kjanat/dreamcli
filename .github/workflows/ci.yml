@@ -1,150 +1,78 @@
 name: CI
+run-name: "CI - ${{ github.workflow }} - ${{ github.ref_name }} - ${{ github.event_name }} by ${{ github.actor }}"
 
-on:
-  push: { branches: [master] }
-  pull_request: { branches: [master] }
-
-# Cancel in-progress runs for the same branch/PR
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+on: { push: { branches: [master] }, pull_request: { branches: [master] } }
+concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
+env: { RUNNER_PM: bun }
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────
-  # Static checks — Bun-only fast path for type/lint/format/version sync
-  # ─────────────────────────────────────────────────────────────────
   lint:
-    name: Static Checks
+    name: static checks
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - name: Version sync (package.json ↔ deno.json)
-        run: bun run scripts/check-version-sync.ts
-      - run: bun run typecheck
-      - run: bun run typecheck:tsc
-      - run: bun --cwd examples/gh typecheck
-      - run: bun run meta-descriptions:check
-      - run: bun run lint
-      - run: bun run format:check
+      - run: runner install --frozen version:check
+      - run: run -pk typecheck typecheck:tsc meta-descriptions:check lint format:check typecheck:gh
 
-  # ─────────────────────────────────────────────────────────────────
-  # Execution tests — runtime matrix across Bun stable and Node 22/current
-  #
-  # vitest runs natively on both Node and Bun. The test suite
-  # exercises shared CLI/testkit/runtime behavior on those runtimes.
-  # Real Deno verification lives in the dedicated Deno job below.
-  # ─────────────────────────────────────────────────────────────────
   test:
-    name: Test (${{ matrix.runtime }})
+    name: test (node ${{ matrix.node-version }}, bun latest)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        runtime: [bun, node]
-        node-version: [22.22.2, latest]
-        exclude: [{ runtime: bun, node-version: 22.22.2 }]
+    strategy: { matrix: { node-version: [22.22.2, latest] }, fail-fast: false }
     steps:
-      - uses: actions/checkout@v6
-
-      # Always install Bun for dependency management (bun install)
+      - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
       - uses: oven-sh/setup-bun@v2
-
+        with: { bun-version: latest }
       - uses: actions/setup-node@v6
-        if: matrix.runtime == 'node'
         with: { node-version: "${{ matrix.node-version }}" }
+      - run: runner install --frozen
+      - name: Test in parallel (Bun) (Node ${{ matrix.node-version }})
+        run: run -pk test:bun test:gh test:node
 
-      - run: bun install --frozen-lockfile
-
-      # Bun: execute Vitest with Bun directly.
-      # `bun run test` would hit node_modules/.bin/vitest, whose shebang is
-      # `#!/usr/bin/env node`, and therefore use the runner's Node binary.
-      - name: Test (Bun)
-        if: matrix.runtime == 'bun'
-        run: bunx --bun vitest run
-
-      - name: Test walkthrough example (Bun)
-        if: matrix.runtime == 'bun'
-        run: bun --cwd examples/gh test
-
-      # Node: run vitest via npx (uses Node, not Bun, as the runtime)
-      - name: Test (Node ${{ matrix.node-version }})
-        if: matrix.runtime == 'node'
-        run: npx vitest run
-
-  # ─────────────────────────────────────────────────────────────────
-  # Coverage — single Node floor run with explicit thresholds
-  #
-  # Coverage is intentionally measured on Node because Vitest's v8
-  # provider depends on Node inspector APIs.
-  # ─────────────────────────────────────────────────────────────────
   coverage:
-    name: Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
       - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v6
-        with: { node-version: "latest" }
-      - run: bun install --frozen-lockfile
-      - run: bun run coverage
+        with: { node-version: latest }
+      - run: runner install --frozen coverage
 
-  # ─────────────────────────────────────────────────────────────────
-  # Deno smoke — real runtime proof for the built Deno adapter path
-  #
-  # Build first, then run the smoke script against the built package.
-  # The final command also proves the Vitest CLI can execute from Deno's
-  # npm bridge in this environment.
-  # ─────────────────────────────────────────────────────────────────
   test-deno:
-    name: Test (deno)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
       - uses: oven-sh/setup-bun@v2
       - uses: denoland/setup-deno@v2
-      - run: bun install --frozen-lockfile
-      - run: bun run build
-      - name: Deno adapter smoke test
-        run: deno run --allow-read --allow-env scripts/deno-smoke-test.ts
-      - run: deno run -A npm:vitest run
+      - run: runner install --frozen build smoke vitest:deno
 
-  # ─────────────────────────────────────────────────────────────────
-  # Docs — build docs and assert no source drift
-  # ─────────────────────────────────────────────────────────────────
   docs:
-    name: Docs
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun run docs:build
-      - name: Assert clean tree after docs build
-        run: |
-          git diff --exit-code
-          test -z "$(git status --porcelain --untracked-files=all)"
+      - run: runner install --frozen docs:build
+      - run: git diff --exit-code && test -z "$(git status --porcelain --untracked-files=all)"
 
-  # ─────────────────────────────────────────────────────────────────
-  # Build — verifies the package builds, types are correct, and
-  # package.json exports are valid (publint + attw)
-  # ─────────────────────────────────────────────────────────────────
   build:
-    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [lint, test, coverage, test-deno, docs]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun run build
+      - uses: kjanat/runner@master
+      - run: runner install --frozen build

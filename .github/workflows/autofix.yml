@@ -12,9 +12,11 @@ jobs:
     timeout-minutes: 2
     env: { RUNNER_PM: bun }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - uses: denoland/setup-deno@v2
       - uses: kjanat/runner@master
-      - run: runner install fmt:autofix fmt:update lint:autofix
+      - run: runner install fmt:autofix lint:autofix
+      - run: run fmt:update
+        if: github.ref_name == 'master'
       - uses: autofix-ci/action@v1
