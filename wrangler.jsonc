@@ -14,10 +14,11 @@
 		"not_found_handling": "single-page-application",
 		"html_handling": "drop-trailing-slash",
 	},
-	"routes": [
-		{
-			"custom_domain": true,
-			"pattern": "dreamcli.kjanat.com",
-		},
-	],
+	"routes": [{
+		"custom_domain": true,
+		"pattern": "dreamcli.kjanat.dev",
+	}, {
+		"custom_domain": true,
+		"pattern": "dreamcli.kjanat.com",
+	}],
 }

@@ -13,7 +13,7 @@ import {
 	toCollisionKey,
 	toSymbolPageRoute,
 } from './data/symbol-pages.ts';
-import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins';
+import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins/index.ts';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
@@ -58,7 +58,7 @@ const compilerOptions = {
 
 const links = {
 	github: pkg.repository.url.replace(/^git[+]/, ''),
-	npm: 'https://www.npmjs.com/package/@kjanat/dreamcli',
+	npm: 'https://npm.im/@kjanat/dreamcli',
 	jsr: 'https://jsr.io/@kjanat/dreamcli',
 } as const;
 
