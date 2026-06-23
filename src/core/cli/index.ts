@@ -40,6 +40,7 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
+import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import type { OutputPolicy } from './planner.ts';
@@ -990,7 +991,7 @@ const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);
  * @internal
  */
 function basename(input: string): string | undefined {
-	const trimmed = input.replace(/[\\/]+$/g, '');
+	const trimmed = stripTrailing(input, [SLASH, BACKSLASH]);
 	if (trimmed.length === 0) return undefined;
 	const slashIdx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
 	const name = slashIdx >= 0 ? trimmed.slice(slashIdx + 1) : trimmed;

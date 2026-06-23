@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-06-23
+
 ### Added
 
 - **`out.setExitCode(code)` for normal-output status exits** — command handlers can now request a
@@ -20,6 +22,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.default()` command with no positional args, an unknown root token no longer falls through to the
   default parser as an unexpected positional. Defaults that declare positional args still receive
   those root tokens as before (https://github.com/kjanat/dreamcli/issues/26).
+
+### Security
+
+- **Hardened trailing-separator trimming against polynomial ReDoS** — the home/config path
+  resolution, `package.json` repository-URL normalization, and runtime-binary `basename` helpers
+  previously stripped trailing slashes with backtracking regexes (`/[\\/]+$/`, `/\/+$/`) that CodeQL
+  flagged as polynomial regular expressions (`js/polynomial-redos`). They now route through a shared
+  linear-time `stripTrailing` scan, so adversarial slash-heavy input can no longer trigger quadratic
+  matching. No behavior change for valid inputs.
 
 ## [2.3.0] - 2026-06-20
 
@@ -818,7 +829,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/kjanat/dreamcli/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/kjanat/dreamcli/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/kjanat/dreamcli/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/kjanat/dreamcli/compare/v2.1.0...v2.2.0

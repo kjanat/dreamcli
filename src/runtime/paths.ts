@@ -8,6 +8,8 @@
  * @module @kjanat/dreamcli/runtime/paths
  */
 
+import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
+
 /**
  * Resolve the user's home directory from environment variables.
  *
@@ -46,10 +48,10 @@ function resolveConfigDirectory(
 ): string {
 	if (isWindows) {
 		if (env.APPDATA !== undefined && env.APPDATA !== '') return env.APPDATA;
-		const normalizedHome = homedir.replace(/[\\/]+$/, '') || homedir;
+		const normalizedHome = stripTrailing(homedir, [SLASH, BACKSLASH]) || homedir;
 		return `${normalizedHome}\\AppData\\Roaming`;
 	}
-	const normalizedHome = homedir.replace(/\/+$/, '');
+	const normalizedHome = stripTrailing(homedir, [SLASH]);
 	if (env.XDG_CONFIG_HOME !== undefined && env.XDG_CONFIG_HOME !== '') {
 		return env.XDG_CONFIG_HOME;
 	}

@@ -9,6 +9,7 @@
  */
 
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import { SLASH, stripTrailing } from '#internals/strings.ts';
 
 // --- Narrowing helpers
 
@@ -297,13 +298,13 @@ function packageRepositoryUrl(pkg: PackageJsonData): string | undefined {
 	// scp-style locator: `git@github.com:u/r.git`
 	const scp = /^git@([^:/]+):(.+)$/.exec(locator);
 	if (scp !== null && scp[1] !== undefined && scp[2] !== undefined) {
-		return `https://${scp[1]}/${stripGitSuffix(scp[2].replace(/\/+$/, ''))}`;
+		return `https://${scp[1]}/${stripGitSuffix(stripTrailing(scp[2], [SLASH]))}`;
 	}
 
 	if (!/^(?:https?|git|ssh):\/\//.test(locator)) return undefined;
 	try {
 		const url = new URL(locator);
-		const path = stripGitSuffix(url.pathname.replace(/\/+$/, ''));
+		const path = stripGitSuffix(stripTrailing(url.pathname, [SLASH]));
 		return `https://${url.hostname}${path}`;
 	} catch {
 		return undefined;
