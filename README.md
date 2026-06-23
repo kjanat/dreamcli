@@ -87,6 +87,12 @@ cli('greet').default(greet).run();
 
 ### Multi-command CLI
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" width="700" height="400" alt="dreamcli-migrate-dark" srcset="https://github.com/user-attachments/assets/1ef7f20c-9ffb-4cb6-a6bc-fb562895aa6f">
+  <source media="(prefers-color-scheme: light)" width="700" height="400" alt="dreamcli-migrate-light" srcset="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b">
+  <img alt="DreamCLI migration progress demo" width="700" height="400" src="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b">
+</picture>
+
 ```ts
 import {
   cli,
@@ -176,12 +182,6 @@ cli('mycli')
 // mycli db migrate --steps 3
 // mycli db seed
 ```
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/REPLACE-WITH-DARK-GIF-ID">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/REPLACE-WITH-LIGHT-GIF-ID">
-  <img alt="DreamCLI migration progress demo" src="https://github.com/user-attachments/assets/REPLACE-WITH-LIGHT-GIF-ID">
-</picture>
 
 ## Why dreamcli
 
