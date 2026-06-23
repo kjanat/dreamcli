@@ -1,12 +1,9 @@
 name: Sync Labels
 run-name: "Sync Labels ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event_name }}-${{ github.run_number }} by ${{ github.actor }}"
-on:
-  push: { branches: [master], paths: [.github/labels.yml, .github/workflows/labels.yml] }
-  workflow_dispatch:
-
+on: { push: { branches: [master], paths: [.github/labels.yml, .github/workflows/labels.yml] }, workflow_dispatch: null }
 jobs:
   sync-labels:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 1
     permissions: { contents: read, issues: write }
-    steps: [uses: actions/checkout@v7, uses: kjanat/github-labelmanager@v1]
+    steps: [{ uses: actions/checkout@v7, with: { sparse-checkout: .github/labels.yml, sparse-checkout-cone-mode: false } }, uses: kjanat/github-labelmanager@v1]

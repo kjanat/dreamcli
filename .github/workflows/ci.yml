@@ -12,8 +12,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup
       - run: runner install --frozen version:check
       - run: run -pk typecheck typecheck:tsc meta-descriptions:check lint format:check typecheck:gh
 
@@ -24,9 +23,7 @@ jobs:
     strategy: { matrix: { node-version: [22.22.2, latest] }, fail-fast: false }
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
+      - uses: ./.github/actions/setup
       - uses: actions/setup-node@v6
         with: { node-version: "${{ matrix.node-version }}" }
       - run: runner install --frozen
@@ -39,10 +36,7 @@ jobs:
     needs: [lint]
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: oven-sh/setup-bun@v2
-      - uses: actions/setup-node@v6
-        with: { node-version: latest }
+      - uses: ./.github/actions/setup
       - run: runner install --frozen coverage
 
   test-deno:
@@ -51,9 +45,7 @@ jobs:
     needs: [lint]
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: oven-sh/setup-bun@v2
-      - uses: denoland/setup-deno@v2
+      - uses: ./.github/actions/setup
       - run: runner install --frozen build smoke vitest:deno
 
   docs:
@@ -62,8 +54,7 @@ jobs:
     needs: [lint]
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup
       - run: runner install --frozen docs:build
       - run: git diff --exit-code && test -z "$(git status --porcelain --untracked-files=all)"
 
@@ -73,6 +64,5 @@ jobs:
     needs: [lint, test, coverage, test-deno, docs]
     steps:
       - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - uses: kjanat/runner@master
+      - uses: ./.github/actions/setup
       - run: runner install --frozen build

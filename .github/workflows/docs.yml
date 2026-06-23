@@ -18,8 +18,7 @@ jobs:
     concurrency: { group: "pages-build-${{ github.ref }}", cancel-in-progress: true }
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup
       - run: runner install --frozen docs:build
       - uses: actions/upload-pages-artifact@v5
         with: { path: docs/.vitepress/dist }

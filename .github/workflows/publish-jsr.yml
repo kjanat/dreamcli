@@ -13,7 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     env: { RELEASE_TAG: "${{ github.event.release.tag_name }}", RELEASE_TARGET: jsr }
     outputs: { meta: "${{ steps.version.outputs.meta }}" }
-    steps: [uses: actions/checkout@v7, { id: version, run: bash scripts/release-meta.sh }]
+    steps: [
+      { uses: actions/checkout@v7, with: { sparse-checkout: "package.json\ndeno.json\nscripts/release-meta.sh" } },
+      { id: version, run: bash scripts/release-meta.sh },
+    ]
 
   checks:
     name: Pre-Publish Checks
@@ -22,9 +25,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: denoland/setup-deno@v2
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup
       - run: runner install --frozen --kill-on-fail version:check ci smoke
 
   publish:
@@ -36,7 +37,5 @@ jobs:
     permissions: { id-token: write }
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: denoland/setup-deno@v2
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup
       - run: runner install --frozen --kill-on-fail build jsr:publish

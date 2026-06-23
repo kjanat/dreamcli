@@ -13,4 +13,4 @@ jobs:
     name: Publish Preview
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    steps: [uses: actions/checkout@v7, uses: kjanat/runner@master, uses: oven-sh/setup-bun@v2, run: runner install --frozen build publish:preview]
+    steps: [uses: actions/checkout@v7, uses: ./.github/actions/setup, run: runner install --frozen build publish:preview]

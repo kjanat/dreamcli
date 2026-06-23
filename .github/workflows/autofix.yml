@@ -13,9 +13,7 @@ jobs:
     env: { RUNNER_PM: bun }
     steps:
       - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - uses: denoland/setup-deno@v2
-      - uses: kjanat/runner@master
+      - uses: ./.github/actions/setup
       - run: runner install fmt:autofix lint:autofix
       - run: run fmt:update
         if: github.ref_name == 'master'
