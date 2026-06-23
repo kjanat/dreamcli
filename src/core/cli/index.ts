@@ -1202,6 +1202,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 
 // --- Exports
 
+export type { HelpLinks } from './help-links.ts';
 export type {
 	BeforeParseParams,
 	CLIPlugin,
@@ -1209,6 +1210,5 @@ export type {
 	PluginCommandContext,
 	ResolvedCommandParams,
 } from './plugin.ts';
-export type { HelpLinks } from './help-links.ts';
 export type { CLIOptions, CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };
 export { CLIBuilder, cli, formatRootHelp, plugin };

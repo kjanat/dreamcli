@@ -10,7 +10,6 @@
 
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
-import { padEnd, wrapText } from './ansi.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -18,6 +17,7 @@ import type {
 	CommandSchema,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
+import { padEnd, wrapText } from './ansi.ts';
 
 // --- Configuration
 
@@ -511,6 +511,6 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 
 // --- Exports
 
-export type { HelpOptions };
 export { osc8, visibleWidth } from './ansi.ts';
+export type { HelpOptions };
 export { formatHelp, formatHelpSections };

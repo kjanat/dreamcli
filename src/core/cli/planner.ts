@@ -12,12 +12,12 @@
 
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
+import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import {
 	buildFlagLookup,
 	flagExpectsValue,
 	includesBeforeSeparator,
 } from '#internals/core/parse/index.ts';
-import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import type { CommandMeta, CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';

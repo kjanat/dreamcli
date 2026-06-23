@@ -445,7 +445,7 @@ function parseLongFlag(
 
 	// --flag value (next token is the value)
 	const nextToken = tokens[startIdx + 1];
-	if (!nextToken || nextToken.kind !== 'positional') {
+	if (nextToken?.kind !== 'positional') {
 		throw new ParseError(`Flag --${token.name} requires a value`, {
 			code: 'MISSING_VALUE',
 			details: { flag: canonicalName, input: token.name, kind: flagSchema.kind },
@@ -505,7 +505,7 @@ function parseShortFlags(
 
 		// Last char in the group — consume next token as value
 		const nextToken = tokens[nextIdx];
-		if (!nextToken || nextToken.kind !== 'positional') {
+		if (nextToken?.kind !== 'positional') {
 			throw new ParseError(`Flag -${ch} requires a value`, {
 				code: 'MISSING_VALUE',
 				details: { flag: canonicalName, input: ch, kind: flagSchema.kind },

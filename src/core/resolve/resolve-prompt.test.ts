@@ -13,8 +13,8 @@ import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.
 import { FLAG_KINDS } from '#internals/core/schema/flag.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
 import { createSchema } from '#internals/core/schema/index.ts';
-import type { ResolveOptions } from './index.ts';
 import { COMPATIBLE_PROMPT_KINDS } from './flags.ts';
+import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
 // --- Helpers

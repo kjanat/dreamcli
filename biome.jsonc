@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/latest/schema.json",
+	"$schema": "node_modules/@biomejs/biome/configuration_schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -23,7 +23,6 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
 			"style": {
 				"noNonNullAssertion": "info",
 			},
@@ -37,6 +36,9 @@
 				"noUselessTypeConstraint": "warn",
 				"useLiteralKeys": "off",
 			},
+			"a11y": {
+				"noSvgWithoutTitle": "off"
+			}
 		},
 	},
 	"javascript": {
@@ -92,5 +94,15 @@
 				},
 			},
 		},
+		{
+			"includes": ["**/*.svg"],
+			"assist": {
+				"actions": {
+					"source": {
+						"useSortedAttributes": "off"
+					}
+				},
+			}
+		}
 	],
 }

@@ -62,7 +62,7 @@ npm)
 
 	validate_release_tag "${version}"
 
-	url="https://www.npmjs.com/package/${package}/v/${version}"
+	url="https://npm.im/package/${package}/v/${version}"
 	# yq -n builds one-line JSON; strenv() pulls PACKAGE/VERSION/URL from this env assignment.
 	meta_json="$(PACKAGE="${package}" VERSION="${version}" URL="${url}" yq -n -o=json -I=0 '.package = strenv(PACKAGE) | .version = strenv(VERSION) | .url = strenv(URL)')"
 	;;
