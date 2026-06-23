@@ -399,15 +399,9 @@ describe('CLIBuilder.run() with adapter', () => {
 			}),
 		);
 
-		try {
-			await app.run({ adapter });
-		} catch (e) {
-			expect(e).toBeInstanceOf(ExitError);
-			if (!(e instanceof ExitError)) {
-				expect.unreachable('expected ExitError');
-			}
-			expect(e.code).toBe(7);
-		}
+		const run = app.run({ adapter });
+		await expect(run).rejects.toThrow(ExitError);
+		await expect(run).rejects.toMatchObject({ code: 7 });
 
 		expect(stdoutLines).toEqual(['degraded\n']);
 		expect(stderrLines).toEqual([]);
