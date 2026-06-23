@@ -3,6 +3,7 @@
 	"version": "2.3.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"keywords": [
+		"dreamcli",
 		"cli",
 		"typescript",
 		"framework",

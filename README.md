@@ -8,14 +8,7 @@ Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
 One flag declaration configures the entire resolution pipeline:
 
 ```ts
-import {
-  cli,
-  command,
-  flag,
-  arg,
-  middleware,
-  CLIError,
-} from '@kjanat/dreamcli';
+import { cli, command, flag, arg } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
   .description('Deploy to an environment')
@@ -34,6 +27,8 @@ const deploy = command('deploy')
   .action(({ args, flags, out }) => {
     out.log(`Deploying ${args.target} to ${flags.region}`);
   });
+
+cli('deploy').default(deploy).run();
 ```
 
 By the time `action` runs, `flags.region` is `"us" | "eu" | "ap"` — not `string | undefined`.
@@ -64,7 +59,7 @@ deno add jsr:@kjanat/dreamcli  # or npm:@kjanat/dreamcli
 ### Single command
 
 ```ts
-import { command, flag, arg } from '@kjanat/dreamcli';
+import { cli, command, flag, arg } from '@kjanat/dreamcli';
 
 const greet = command('greet')
   .description('Greet someone')
@@ -87,10 +82,16 @@ const greet = command('greet')
     }
   });
 
-greet.run();
+cli('greet').default(greet).run();
 ```
 
 ### Multi-command CLI
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" width="700" height="400" alt="dreamcli-migrate-dark" srcset="https://github.com/user-attachments/assets/1ef7f20c-9ffb-4cb6-a6bc-fb562895aa6f">
+  <source media="(prefers-color-scheme: light)" width="700" height="400" alt="dreamcli-migrate-light" srcset="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b">
+  <img alt="DreamCLI migration progress demo" width="700" height="400" src="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b">
+</picture>
 
 ```ts
 import {
@@ -130,8 +131,31 @@ const login = command('login')
 const migrate = command('migrate')
   .description('Run migrations')
   .flag('steps', flag.number())
-  .action(({ flags, out }) => {
-    out.log(`migrating ${flags.steps ?? 'all'} steps`);
+  .action(async ({ flags, meta, out }) => {
+    const steps = flags.steps ?? 3;
+
+    out.log(`${meta.name} ${meta.version ?? ''}`.trim());
+    out.log(`Command: ${meta.command}`);
+
+    const spinner = out.spinner('Preparing migrations');
+    await new Promise((resolve) =>
+      setTimeout(resolve, 1000),
+    );
+    spinner.succeed(`Ready to run ${steps} steps`);
+
+    const progress = out.progress({
+      label: 'Migrating',
+      total: steps,
+    });
+
+    for (let step = 1; step <= steps; step++) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, 700),
+      );
+      progress.update(step);
+    }
+
+    progress.done(`Migrated ${steps} steps`);
   });
 
 const seed = command('seed')
@@ -190,6 +214,8 @@ the insight was wiring them so types flow end-to-end.
 ### Flag types
 
 ```ts
+import { flag } from '@kjanat/dreamcli';
+
 flag.string(); // string | undefined
 flag.number(); // number | undefined
 flag.boolean(); // boolean (defaults to false)
@@ -217,6 +243,8 @@ non-interactive contexts (CI, piped stdin), prompts are automatically skipped.
 Four prompt types, declared per-flag or per-command:
 
 ```ts
+import { command, flag } from '@kjanat/dreamcli';
+
 // Per-flag
 flag.string().prompt({ kind: 'input', message: 'Name?' });
 flag
@@ -245,7 +273,7 @@ command('deploy')
 ### Derive typed context from resolved input
 
 ```ts
-import { CLIError } from '@kjanat/dreamcli';
+import { CLIError, command, flag } from '@kjanat/dreamcli';
 
 command('deploy')
   .flag('token', flag.string().env('AUTH_TOKEN'))
@@ -268,7 +296,7 @@ the action handler runs.
 ### Middleware with typed context
 
 ```ts
-import { middleware } from '@kjanat/dreamcli';
+import { command, middleware } from '@kjanat/dreamcli';
 
 const timing = middleware<{ startTime: number }>(
   async ({ next }) => {
@@ -301,26 +329,33 @@ Use middleware when you need wrapper behavior with `next()`.
 Handlers receive `out` instead of `console`. Adapts to context automatically:
 
 ```ts
-cli('mycli')
-  // ... omitted for brevity
-  .action(({ out }) => {
-    out.log('Human-readable message');
-    out.json({ status: 'ok', count: 42 });
-    out.table(rows, [
-      { key: 'name', header: 'Name' },
-      { key: 'status', header: 'Status' },
-    ]);
+import { cli, command } from '@kjanat/dreamcli';
 
-    const spinner = out.spinner('Deploying...');
-    spinner.succeed('Done');
+const rows = [
+  { name: 'api', status: 'ok' },
+  { name: 'worker', status: 'deploying' },
+];
 
-    const progress = out.progress({
-      label: 'Uploading',
-      total: 100,
-    });
-    progress.update(50);
-    progress.done('Upload complete');
+const status = command('status').action(({ out }) => {
+  out.log('Human-readable message');
+  out.json({ status: 'ok', count: 42 });
+  out.table(rows, [
+    { key: 'name', header: 'Name' },
+    { key: 'status', header: 'Status' },
+  ]);
+
+  const spinner = out.spinner('Deploying...');
+  spinner.succeed('Done');
+
+  const progress = out.progress({
+    label: 'Uploading',
+    total: 100,
   });
+  progress.update(50);
+  progress.done('Upload complete');
+});
+
+cli('mycli').default(status).run();
 ```
 
 - TTY → pretty formatting, spinners animate
@@ -332,7 +367,24 @@ cli('mycli')
 Generated from the command schema — always in sync:
 
 ```ts
-import { generateCompletion } from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+
+cli('mycli').command(command('deploy')).completions().run();
+
+// mycli completions bash
+// mycli completion zsh
+```
+
+For programmatic integrations, call the generator directly:
+
+```ts
+import {
+  cli,
+  command,
+  generateCompletion,
+} from '@kjanat/dreamcli';
+
+const myCli = cli('mycli').command(command('deploy'));
 
 generateCompletion(myCli.schema, 'bash');
 generateCompletion(myCli.schema, 'zsh');
@@ -341,6 +393,8 @@ generateCompletion(myCli.schema, 'zsh');
 ### Config file discovery
 
 ```ts
+import { command, flag } from '@kjanat/dreamcli';
+
 command('deploy').flag(
   'region',
   flag.enum(['us', 'eu']).config('deploy.region'),
@@ -350,7 +404,7 @@ command('deploy').flag(
 Searches XDG-standard paths automatically. JSON built-in, plugin hook for YAML/TOML:
 
 ```ts
-import { configFormat } from '@kjanat/dreamcli';
+import { cli, configFormat } from '@kjanat/dreamcli';
 import { parse as parseYAML } from 'yaml';
 
 cli('mycli')
@@ -361,6 +415,11 @@ cli('mycli')
 ### Structured errors
 
 ```ts
+import { CLIError } from '@kjanat/dreamcli';
+
+const target = 'production';
+const region = 'us';
+
 throw new CLIError('Deployment failed', {
   code: 'DEPLOY_FAILED',
   exitCode: 1,
@@ -378,6 +437,7 @@ In `--json` mode, errors serialize to machine-readable JSON.
 subprocesses, no `process.argv` mutation, no mocking.
 
 ```ts
+import { expect } from 'vitest';
 import { arg, command, flag } from '@kjanat/dreamcli';
 import {
   runCommand,
