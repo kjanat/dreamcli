@@ -6,7 +6,7 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 
 | File            | Lines | Purpose                                                                                        |
 | --------------- | ----: | ---------------------------------------------------------------------------------------------- |
-| `command.ts`    |  1466 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema                          |
+| `command.ts`    |  1474 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema                          |
 | `flag.ts`       |   753 | `FlagBuilder` — `flag.string()`, `.boolean()`, `.number()`, `.count()`, `.enum()`, `.custom()` |
 | `arg.ts`        |   713 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                          |
 | `activity.ts`   |   150 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                      |
@@ -63,6 +63,8 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
 - `deprecated()` modifier on both FlagBuilder and ArgBuilder — collects `DeprecationWarning` structs
 - Activity types live in `activity.ts` (not in output/) because `Out` needs them in
   `CommandBuilder.action()` signature
+- `Out.setExitCode(code)` is part of the public action-handler output surface. It requests a
+  success-path process exit code without error output; thrown errors still own failure exits.
 - `command.ts` imports activity types from `./activity.ts` directly
 
 ## TEST FILES (6)

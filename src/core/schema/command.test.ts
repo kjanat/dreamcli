@@ -329,6 +329,7 @@ describe('full command composition', () => {
 			info: vi.fn(),
 			warn: vi.fn(),
 			error: vi.fn(),
+			setExitCode: vi.fn(),
 			json: vi.fn(),
 			table: vi.fn(),
 			spinner: vi.fn(),

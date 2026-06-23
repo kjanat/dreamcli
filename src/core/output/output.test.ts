@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Out } from '#internals/core/schema/command.ts';
 import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
-import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
+import { createCaptureOutput, createOutput, getRequestedExitCode, OutputChannel } from './index.ts';
 
 // --- createOutput — factory
 
@@ -13,6 +13,7 @@ describe('createOutput', () => {
 		expect(typeof out.info).toBe('function');
 		expect(typeof out.warn).toBe('function');
 		expect(typeof out.error).toBe('function');
+		expect(typeof out.setExitCode).toBe('function');
 	});
 
 	it('discards output when no writers are provided', () => {
@@ -67,6 +68,36 @@ describe('createOutput', () => {
 		out.error('err2');
 		expect(stdoutLines).toEqual(['out1\n', 'out2\n']);
 		expect(stderrLines).toEqual(['err1\n', 'err2\n']);
+	});
+});
+
+// --- Exit code requests
+
+describe('exit code requests', () => {
+	it('records a requested exit code', () => {
+		const out = createOutput();
+
+		out.setExitCode(7);
+
+		expect(getRequestedExitCode(out)).toBe(7);
+	});
+
+	it('uses the last requested exit code', () => {
+		const out = createOutput();
+
+		out.setExitCode(3);
+		out.setExitCode(8);
+
+		expect(getRequestedExitCode(out)).toBe(8);
+	});
+
+	it('rejects invalid exit codes', () => {
+		const out = createOutput();
+
+		expect(() => out.setExitCode(-1)).toThrow(RangeError);
+		expect(() => out.setExitCode(1.5)).toThrow(RangeError);
+		expect(() => out.setExitCode(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+		expect(() => out.setExitCode(256)).toThrow(RangeError);
 	});
 });
 

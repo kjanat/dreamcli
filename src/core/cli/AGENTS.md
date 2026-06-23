@@ -1,6 +1,6 @@
 # cli — CLIBuilder, multi-command dispatch, plugins
 
-`index.ts` (~1015 lines) — heavily split: 7 `@internal` extraction files.
+`index.ts` (~1021 lines) — heavily split: 7 `@internal` extraction files.
 
 ## KEY TYPES
 
@@ -20,7 +20,7 @@
 
 | File                   | Lines | Purpose                                                              |
 | ---------------------- | ----: | -------------------------------------------------------------------- |
-| `index.ts`             |  1015 | CLIBuilder class + cli() factory + JSON error handling               |
+| `index.ts`             |  1021 | CLIBuilder class + cli() factory + JSON error handling               |
 | `dispatch.ts`          |   349 | `@internal` — command dispatch (value-flag-arity aware), levenshtein |
 | `planner.ts`           |   431 | `@internal` — execution planner, command resolution strategy         |
 | `runtime-preflight.ts` |   304 | `@internal` — runtime adapter setup, env/config preflight            |
@@ -61,6 +61,9 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
   value (`consumesFollowingToken` + `ValueFlagLookup`, built from the default/matched command's flags)
   so the value isn't mistaken for a command name — reuses `buildFlagLookup`/`flagExpectsValue` from
   `parse/` as the single source of truth (#25)
+- `planner.ts` delegates unknown root tokens to `.default()` only when the token is absent/flags-only
+  or the default declares positional args. No-arg defaults surface `UNKNOWN_COMMAND` for unknown root
+  tokens, while unknown flags before positionals still surface `UNKNOWN_FLAG` (#26).
 - `extractConfigFlag()` handles both `--config path` and `--config=path` forms
 - Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)
 - Cross-layer imports: `runtime/adapter.ts`, `runtime/auto.ts` (not through runtime barrel)

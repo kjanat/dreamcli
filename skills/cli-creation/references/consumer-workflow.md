@@ -39,6 +39,7 @@ Build a consumer-facing CLI app with DreamCLI, starting from a working template 
    - Use `out.log()` for human messages.
    - Use `out.table()` for list-shaped data.
    - For object responses, branch on `out.jsonMode` and use `out.json(data)`.
+   - For check/status results, use `out.setExitCode(code)` to keep normal output while signalling non-zero status.
 
 5. Validate behavior.
 

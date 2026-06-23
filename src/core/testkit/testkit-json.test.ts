@@ -93,6 +93,20 @@ describe('runCommand', () => {
 	// --- jsonMode
 
 	describe('jsonMode', () => {
+		it('keeps normal JSON payloads when a handler requests a non-zero exit code', async () => {
+			const cmd = command('status').action(({ out }) => {
+				out.json({ status: 'degraded' });
+				out.setExitCode(7);
+			});
+
+			const result = await runCommand(cmd, [], { jsonMode: true });
+
+			expect(result.exitCode).toBe(7);
+			expect(result.stdout).toEqual(['{"status":"degraded"}\n']);
+			expect(result.stderr).toEqual([]);
+			expect(result.error).toBeUndefined();
+		});
+
 		it('redirects log() to stderr in JSON mode', async () => {
 			const cmd = mixedOutputCommand();
 			const result = await runCommand(cmd, [], { jsonMode: true });

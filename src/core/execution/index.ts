@@ -16,6 +16,10 @@ import type {
 import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
+import {
+	clearRequestedExitCode,
+	getRequestedExitCode,
+} from '#internals/core/output/index.ts';
 import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
@@ -67,6 +71,7 @@ interface CommandExecutionResult {
  */
 async function executeCommand(request: CommandExecutionRequest): Promise<CommandExecutionResult> {
 	const { argv, command, meta, options, out, schema } = request;
+	clearRequestedExitCode(out);
 
 	try {
 		if (includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h')) {
@@ -123,7 +128,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		await executeWithExecutionSteps(command, handler, resolved.flags, resolved.args, out, meta);
 		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
-		return { exitCode: 0, error: undefined };
+		return { exitCode: getRequestedExitCode(out) ?? 0, error: undefined };
 	} catch (error: unknown) {
 		if (error instanceof CLIError) {
 			if (options?.jsonMode === true) {
@@ -150,6 +155,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		return { exitCode: 1, error: wrapped };
 	} finally {
 		out.stopActive();
+		clearRequestedExitCode(out);
 	}
 }
 

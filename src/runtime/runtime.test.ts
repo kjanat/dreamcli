@@ -384,6 +384,29 @@ describe('CLIBuilder.run() with adapter', () => {
 		expect(stdoutLines.join('')).toContain('mycli');
 	});
 
+	it('exits with a handler-requested non-zero code without error output', async () => {
+		const stdoutLines: string[] = [];
+		const stderrLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'check'],
+			stdout: (s) => stdoutLines.push(s),
+			stderr: (s) => stderrLines.push(s),
+		});
+		const app = cli('mycli').command(
+			command('check').action(({ out }) => {
+				out.log('degraded');
+				out.setExitCode(7);
+			}),
+		);
+
+		const run = app.run({ adapter });
+		await expect(run).rejects.toThrow(ExitError);
+		await expect(run).rejects.toMatchObject({ code: 7 });
+
+		expect(stdoutLines).toEqual(['degraded\n']);
+		expect(stderrLines).toEqual([]);
+	});
+
 	it('slices argv correctly (removes binary + script)', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({

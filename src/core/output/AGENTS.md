@@ -2,7 +2,7 @@
 
 Six source files: `writer.ts` (leaf), `contracts.ts` (type contracts), `display-value.ts` (value
 formatting), `renderers.ts` (table/list rendering), `activity.ts` (handle classes, ~568 lines),
-`index.ts` (OutputChannel + factories, ~669 lines).
+`index.ts` (OutputChannel + factories, ~698 lines).
 
 Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- `index.ts` ->
 `writer.ts`. `renderers.ts` + `display-value.ts` consumed by `index.ts`.
@@ -13,6 +13,7 @@ Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- 
 | ----------------------- | ----------- | ------------------------------------------------- |
 | `createOutput()`        | **Public**  | Factory -> `Out` interface (mode-dispatched)      |
 | `createCaptureOutput()` | **Public**  | Factory -> `Out` + `CapturedOutput` (for testkit) |
+| `out.setExitCode()`     | **Public**  | Request success-path exit code without output     |
 | `OutputChannel`         | `@internal` | Concrete class implementing `Out`                 |
 | `CaptureOutputChannel`  | `@internal` | Subclass capturing output + activity events       |
 
@@ -20,7 +21,7 @@ Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- 
 
 | File               | Lines | Purpose                                                   |
 | ------------------ | ----: | --------------------------------------------------------- |
-| `index.ts`         |   669 | OutputChannel class + factories + mode dispatch           |
+| `index.ts`         |   698 | OutputChannel class + factories + mode dispatch           |
 | `activity.ts`      |   568 | Spinner/progress handle classes (TTY/static/capture/noop) |
 | `contracts.ts`     |   177 | Output type contracts, mode types, option interfaces      |
 | `renderers.ts`     |   101 | Table + list rendering logic                              |
@@ -56,6 +57,8 @@ Starting a new one implicitly stops the previous. All activity output routes to 
 - Imports `schema/activity.ts` directly for activity types, `schema/command.ts` for `Out` — bypasses
   barrel to avoid circular dep
 - `writer.ts` is a leaf: `WriteFn` type + `writeLine` helper. Shared by `index.ts` and `activity.ts`
+- Exit-code requests live in a module-private `WeakMap<Out, number>`; executor reads and clears it.
+  `out.setExitCode()` does not short-circuit and writes no output.
 - Terminal escape sequences (`HIDE_CURSOR`, `ERASE_LINE`, etc.) are `@internal` constants in
   `activity.ts`
 - Spinner/progress tests use `vi.useFakeTimers()` inline with `try/finally`
@@ -66,7 +69,7 @@ Starting a new one implicitly stops the previous. All activity output routes to 
 
 | File                               | Tests | Focus                                                 |
 | ---------------------------------- | ----: | ----------------------------------------------------- |
-| `output.test.ts`                   |    49 | Core OutputChannel: log/warn/error, modes             |
+| `output.test.ts`                   |    53 | Core OutputChannel: log/warn/error, modes, exit codes |
 | `output-tty.test.ts`               |    20 | TTY-specific rendering, color, formatting             |
 | `output-table.test.ts`             |    16 | Table output in various modes                         |
 | `output-spinner.test.ts`           |    45 | Spinner handles: noop/static/TTY/capture, fake timers |

@@ -7,6 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`out.setExitCode(code)` for normal-output status exits** — command handlers can now request a
+  process exit code without throwing or emitting error-shaped output, covering status/check CLIs that
+  should print their normal report while still signalling degraded state to scripts
+  (https://github.com/kjanat/dreamcli/issues/27).
+
+### Fixed
+
+- **Unknown root commands under no-arg defaults now report `UNKNOWN_COMMAND`** — when a CLI has a
+  `.default()` command with no positional args, an unknown root token no longer falls through to the
+  default parser as an unexpected positional. Defaults that declare positional args still receive
+  those root tokens as before (https://github.com/kjanat/dreamcli/issues/26).
+
 ## [2.3.0] - 2026-06-20
 
 ### Fixed

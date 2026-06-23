@@ -68,3 +68,15 @@ expect(result.stdout).toEqual(['Deploying production to us\n']);
 ```
 
 Prefer `runCommand()` over subprocess tests for speed and deterministic assertions.
+
+## 6) Normal output with non-zero status
+
+```ts
+.action(({ out }) => {
+	out.log('Service api is degraded');
+	out.setExitCode(7);
+});
+```
+
+Use this for check/status commands. It keeps stdout/stderr normal, avoids error
+payloads in `--json` mode, and still lets scripts react to the exit code.

@@ -197,6 +197,15 @@ describe('.default()', () => {
 			expect(result.stdout.join('')).toContain('serve:9090');
 		});
 
+		it('reports unknown commands when the default accepts no positionals', async () => {
+			const app = cli('mycli').default(noArgCommand()).command(statusCommand());
+			const result = await app.execute(['wat']);
+
+			expect(result.exitCode).toBe(2);
+			expect(result.stderr.join('')).toContain('Unknown command: wat');
+			expect(result.stderr.join('')).toContain("Run 'mycli --help' for available commands");
+		});
+
 		it('preserves typo detection — mistyped sibling shows suggestion', async () => {
 			const app = cli('mycli').default(deployCommand()).command(statusCommand());
 			const result = await app.execute(['stattus']);

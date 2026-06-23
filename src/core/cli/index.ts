@@ -18,7 +18,11 @@ import { buildRunResult, executeCommand } from '#internals/core/execution/index.
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
-import { createCaptureOutput, createOutput } from '#internals/core/output/index.ts';
+import {
+	clearRequestedExitCode,
+	createCaptureOutput,
+	createOutput,
+} from '#internals/core/output/index.ts';
 import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -826,6 +830,7 @@ class CLIBuilder {
 				Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
 			);
 		}
+		clearRequestedExitCode(out);
 
 		// Resolve help options — default binName to CLI program name,
 		// hyperlinks to TTY detection (escapes never leak into piped output)
