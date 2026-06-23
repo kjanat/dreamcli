@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { mergeCommandSchema, planInvocation } from './planner.ts';
@@ -141,8 +142,13 @@ describe('planInvocation() — root interception', () => {
 // === Default-command behavior
 
 describe('planInvocation() — default command behavior', () => {
-	it('delegates unknown root argv without suggestions', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+	it('delegates unknown root argv to defaults with positional args', () => {
+		const deploy = erased(
+			commandSchema({
+				name: 'deploy',
+				args: [{ name: 'target', schema: createArgSchema('string') }],
+			}),
+		);
 		const status = erased(commandSchema({ name: 'status' }));
 
 		const result = planFor([deploy, status], ['production', '--force'], deploy);
@@ -152,6 +158,34 @@ describe('planInvocation() — default command behavior', () => {
 			expect(result.plan.command).toBe(deploy);
 			expect(result.plan.argv).toEqual(['production', '--force']);
 			expect(result.plan.meta.command).toBe('deploy');
+		}
+	});
+
+	it('rejects unknown root argv for defaults without positional args', () => {
+		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const status = erased(commandSchema({ name: 'status' }));
+
+		const result = planFor([deploy, status], ['production'], deploy);
+
+		expect(result.kind).toBe('dispatch-error');
+		if (result.kind === 'dispatch-error') {
+			expect(result.error.message).toBe('Unknown command: production');
+			expect(result.error.code).toBe('UNKNOWN_COMMAND');
+			expect(result.error.suggest).toBe("Run 'dream --help' for available commands");
+		}
+	});
+
+	it('reports unknown flags before unknown positional values for no-arg defaults', () => {
+		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const status = erased(commandSchema({ name: 'status' }));
+
+		const result = planFor([deploy, status], ['--bogus', 'production'], deploy);
+
+		expect(result.kind).toBe('dispatch-error');
+		if (result.kind === 'dispatch-error') {
+			expect(result.error.message).toBe('Unknown flag --bogus');
+			expect(result.error.code).toBe('UNKNOWN_FLAG');
+			expect(result.error.suggest).toBe("Run 'dream --help' for available commands");
 		}
 	});
 

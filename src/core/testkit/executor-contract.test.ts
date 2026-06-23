@@ -193,4 +193,67 @@ describe('runCommand() executor contract', () => {
 		expect(result.error?.code).toBe('NO_ACTION');
 		expect(stopActive).toHaveBeenCalledTimes(1);
 	});
+
+	it('allows normal output with a requested non-zero exit code', async () => {
+		const cmd = command('check').action(({ out }) => {
+			out.log('degraded');
+			out.setExitCode(7);
+		});
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(7);
+		expect(result.stdout).toEqual(['degraded\n']);
+		expect(result.stderr).toEqual([]);
+		expect(result.error).toBeUndefined();
+	});
+
+	it('lets afterAction hooks override requested exit codes', async () => {
+		const cmd = command('check').action(({ out }) => {
+			out.setExitCode(3);
+		});
+
+		const result = await runCommand(cmd, [], {
+			plugins: [
+				plugin({
+					afterAction: ({ out }) => {
+						out.setExitCode(4);
+					},
+				}),
+			],
+		});
+
+		expect(result.exitCode).toBe(4);
+		expect(result.error).toBeUndefined();
+	});
+
+	it('does not leak requested exit codes across reused output channels', async () => {
+		const [out, captured] = createCaptureOutput();
+		const failingStatus = command('check').action(({ out }) => {
+			out.setExitCode(5);
+		});
+		const healthyStatus = command('check').action(({ out }) => {
+			out.log('ok');
+		});
+
+		const first = await runCommand(failingStatus, [], { out, captured });
+		const second = await runCommand(healthyStatus, [], { out, captured });
+
+		expect(first.exitCode).toBe(5);
+		expect(second.exitCode).toBe(0);
+		expect(second.error).toBeUndefined();
+	});
+
+	it('lets thrown CLIError exit codes win over requested exit codes', async () => {
+		const cmd = command('check').action(({ out }) => {
+			out.setExitCode(7);
+			throw new CLIError('boom', { code: 'BOOM', exitCode: 3 });
+		});
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(3);
+		expect(result.stderr).toEqual(['boom\n']);
+		expect(result.error?.code).toBe('BOOM');
+	});
 });

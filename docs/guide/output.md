@@ -27,6 +27,23 @@ out.json({ status: 'ok', count: 42 });
 When the CLI is invoked with `--json`, structured payloads stay on stdout while
 plain text (`log`, `info`, `warn`, `error`) routes to stderr.
 
+## Exit Codes Without Error Output
+
+Use `out.setExitCode(code)` when a command should emit normal output but still
+return a non-zero status to scripts.
+
+```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
+command('status').action(({ out }) => {
+  out.json({ status: 'degraded' });
+  out.setExitCode(7);
+});
+```
+
+`setExitCode()` does not print anything and does not stop execution. Later calls
+win, and thrown `CLIError`s still use their own exit codes and error rendering.
+
 ## Tables
 
 ```ts twoslash

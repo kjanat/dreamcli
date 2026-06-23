@@ -55,6 +55,7 @@ Use this skill for user-facing app code, not DreamCLI framework internals.
 - Add typed flags with defaults and aliases via `flag.*()`.
 - Add env/config/prompt sources on each flag before action logic.
 - Branch on `out.jsonMode` for machine-readable responses.
+- Use `out.setExitCode(code)` for check/status commands that need normal output plus non-zero status.
 - Use `runCommand()` from `@kjanat/dreamcli/testkit` for in-process tests.
 - Keep output assertions explicit, including trailing newlines.
 

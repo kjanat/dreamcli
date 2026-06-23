@@ -340,6 +340,10 @@ import type { RunResult } from '@kjanat/dreamcli';
 Create an output channel.
 Typically not called directly — commands receive `out` in the action handler.
 
+Handlers can call `out.setExitCode(code)` to request a process exit code without
+printing error output. The command still completes normally and `RunResult.error`
+stays `undefined` unless an error is thrown.
+
 ## Parsing
 
 ### `tokenize(argv)`

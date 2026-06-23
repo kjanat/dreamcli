@@ -12,7 +12,11 @@
 
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
-import { buildFlagLookup, includesBeforeSeparator } from '#internals/core/parse/index.ts';
+import {
+	buildFlagLookup,
+	flagExpectsValue,
+	includesBeforeSeparator,
+} from '#internals/core/parse/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import type { CommandMeta, CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
@@ -249,6 +253,44 @@ function buildPlannerMatchOutcome(
 	};
 }
 
+function canDelegateUnknownRootToDefault(command: ErasedCommand, input: string): boolean {
+	return input === '' || command.schema.args.length > 0;
+}
+
+function findUnknownFlagBeforePositional(
+	argv: readonly string[],
+	flags: CommandSchema['flags'],
+): string | undefined {
+	const lookup = buildFlagLookup(flags);
+
+	for (let index = 0; index < argv.length; index++) {
+		const token = argv[index];
+		if (token === undefined || token === '--') return undefined;
+		if (token === '-' || !token.startsWith('-')) return undefined;
+
+		if (token.startsWith('--')) {
+			const equalsIndex = token.indexOf('=');
+			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
+			const entry = lookup.get(name);
+			if (entry === undefined) return equalsIndex === -1 ? token : `--${name}`;
+			if (equalsIndex === -1 && flagExpectsValue(entry[1])) index++;
+			continue;
+		}
+
+		const chars = token.slice(1);
+		for (let charIndex = 0; charIndex < chars.length; charIndex++) {
+			const char = chars.charAt(charIndex);
+			const entry = lookup.get(char);
+			if (entry === undefined) return `-${char}`;
+			if (!flagExpectsValue(entry[1])) continue;
+			if (charIndex === chars.length - 1) index++;
+			break;
+		}
+	}
+
+	return undefined;
+}
+
 /**
  * Decide what to do with an argv invocation before any command executes.
  *
@@ -342,7 +384,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			if (defaultCommand !== undefined && result.parentPath.length === 0) {
 				const suggestion =
 					result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
-				if (suggestion === undefined) {
+				if (suggestion === undefined && canDelegateUnknownRootToDefault(defaultCommand, result.input)) {
 					return buildPlannerMatchOutcome(
 						options.schema,
 						defaultCommand,
@@ -351,6 +393,20 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 						options.help,
 						options.output,
 					);
+				}
+
+				const unknownFlag = findUnknownFlagBeforePositional(
+					filteredArgv,
+					defaultCommand.schema.flags,
+				);
+				if (unknownFlag !== undefined) {
+					return {
+						kind: 'dispatch-error',
+						error: new ParseError(`Unknown flag ${unknownFlag}`, {
+							code: 'UNKNOWN_FLAG',
+							suggest: `Run '${options.schema.name} --help' for available commands`,
+						}),
+					};
 				}
 			}
 

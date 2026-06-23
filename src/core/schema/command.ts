@@ -153,6 +153,14 @@ interface Out {
 	/** Error to stderr. */
 	error(message: string): void;
 	/**
+	 * Request a process exit code without emitting error-shaped output.
+	 *
+	 * Use this for check/status commands that should print normal output but
+	 * still signal a non-zero status to scripts. This does not stop execution;
+	 * later calls overwrite earlier calls, and thrown errors still win.
+	 */
+	setExitCode(code: number): void;
+	/**
 	 * Emit a structured JSON value to stdout.
 	 *
 	 * Always serialises `value` as JSON to stdout regardless of output

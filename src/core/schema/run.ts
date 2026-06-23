@@ -155,9 +155,10 @@ export interface RunOptions {
 /**
  * Structured result from {@linkcode runCommand}.
  *
- * Contains the exit code, captured stdout/stderr output, recorded
- * {@linkcode ActivityEvent | activity events}, and an `error` field
- * that is `undefined` on success and a {@linkcode CLIError} on failure.
+	 * Contains the exit code, captured stdout/stderr output, recorded
+	 * {@linkcode ActivityEvent | activity events}, and an `error` field.
+	 * `error` is `undefined` when execution completed without throwing, even if
+	 * the handler requested a non-zero status via {@linkcode Out.setExitCode}.
  *
  * @example
  * ```ts
@@ -188,8 +189,10 @@ export interface RunResult {
 	readonly activity: readonly ActivityEvent[];
 
 	/**
-	 * The error that caused a non-zero exit, or `undefined` on success.
-	 * {@linkcode CLIError} instances are preserved; unknown errors are wrapped.
+	 * The error that caused a failure, or `undefined` when execution completed.
+	 * A non-zero `exitCode` can still have no error when a handler calls
+	 * {@linkcode Out.setExitCode}. {@linkcode CLIError} instances are preserved;
+	 * unknown errors are wrapped.
 	 */
 	readonly error: CLIError | undefined;
 }

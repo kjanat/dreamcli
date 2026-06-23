@@ -62,6 +62,24 @@ If you're building a CLI:
 - **1** when something goes wrong at runtime (network error, file not found)
 - **2** when the user gave bad input (unknown flag, missing required argument)
 
+## Setting Exit Codes In DreamCLI
+
+Throw a `CLIError` when the result is error-shaped and should render an error
+message. Use `out.setExitCode(code)` when the command should keep normal output
+but still return a status code.
+
+```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
+command('status').action(({ out }) => {
+  out.log('Service is degraded');
+  out.setExitCode(7);
+});
+```
+
+This is useful for check/status commands: humans see the normal report, while
+shell scripts can still react to `$?`.
+
 ## Signals
 
 When you press **Ctrl+C**, you're not typing a character — you're sending a **signal** called

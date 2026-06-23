@@ -48,13 +48,16 @@ const result = await runCommand(greet, ['Alice', '--loud']);
 
 ### RunResult
 
-| Field      | Type                    | Description                              |
-| ---------- | ----------------------- | ---------------------------------------- |
-| `exitCode` | `number`                | Process exit code                        |
-| `stdout`   | `string[]`              | Captured stdout lines                    |
-| `stderr`   | `string[]`              | Captured stderr lines                    |
-| `error`    | `CLIError \| undefined` | Structured error, `undefined` on success |
-| `activity` | `ActivityEvent[]`       | Spinner/progress events                  |
+| Field      | Type                    | Description                                    |
+| ---------- | ----------------------- | ---------------------------------------------- |
+| `exitCode` | `number`                | Process exit code                              |
+| `stdout`   | `string[]`              | Captured stdout lines                          |
+| `stderr`   | `string[]`              | Captured stderr lines                          |
+| `error`    | `CLIError \| undefined` | Structured error, `undefined` when none thrown |
+| `activity` | `ActivityEvent[]`       | Spinner/progress events                        |
+
+`exitCode` can be non-zero while `error` is `undefined` when a handler calls
+`out.setExitCode(code)` for normal-output status results.
 
 ## `createCaptureOutput()`
 

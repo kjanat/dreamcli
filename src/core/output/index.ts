@@ -115,6 +115,27 @@ interface ResolvedOutputOptions {
  */
 const noopWrite: WriteFn = () => {};
 
+const requestedExitCodes = new WeakMap<Out, number>();
+
+function validateExitCode(code: number): number {
+	if (!Number.isInteger(code) || code < 0 || code > 255) {
+		throw new RangeError('Exit code must be an integer from 0 to 255');
+	}
+	return code;
+}
+
+function setRequestedExitCode(out: Out, code: number): void {
+	requestedExitCodes.set(out, validateExitCode(code));
+}
+
+function getRequestedExitCode(out: Out): number | undefined {
+	return requestedExitCodes.get(out);
+}
+
+function clearRequestedExitCode(out: Out): void {
+	requestedExitCodes.delete(out);
+}
+
 /** Merge user-supplied options with defaults. */
 function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 	return {
@@ -197,6 +218,11 @@ class OutputChannel implements Out {
 	/** Error to stderr. Always emitted. */
 	error(message: string): void {
 		writeLine(this.options.stderr, message);
+	}
+
+	/** Request a successful-process exit code without writing error output. */
+	setExitCode(code: number): void {
+		setRequestedExitCode(this, code);
 	}
 
 	/**
@@ -658,9 +684,12 @@ export {
 	CaptureSpinnerHandle,
 	createCaptureOutput,
 	createOutput,
+	clearRequestedExitCode,
+	getRequestedExitCode,
 	noopProgressHandle,
 	noopSpinnerHandle,
 	OutputChannel,
+	setRequestedExitCode,
 	StaticProgressHandle,
 	StaticSpinnerHandle,
 	TTYProgressHandle,
