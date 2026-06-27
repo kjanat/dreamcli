@@ -21,6 +21,7 @@ import type {
 	ProgressOptions,
 	SpinnerHandle,
 } from '#internals/core/schema/activity.ts';
+import { bindMethods } from './bind.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 
@@ -90,6 +91,7 @@ class StaticSpinnerHandle implements SpinnerHandle {
 		private readonly write: WriteFn,
 	) {
 		writeLine(write, text);
+		bindMethods(this);
 	}
 
 	update(_text: string): void {
@@ -153,6 +155,7 @@ class StaticProgressHandle implements ProgressHandle {
 		if (label !== undefined) {
 			writeLine(write, label);
 		}
+		bindMethods(this);
 	}
 
 	increment(_n?: number): void {
@@ -263,6 +266,7 @@ class TTYSpinnerHandle implements SpinnerHandle {
 			this.frameIndex = (this.frameIndex + 1) % SPINNER_FRAMES.length;
 			this.render();
 		}, SPINNER_INTERVAL_MS);
+		bindMethods(this);
 	}
 
 	/** Render the current frame + text, overwriting the current line. */
@@ -372,6 +376,7 @@ class TTYProgressHandle implements ProgressHandle {
 				this.render();
 			}, PULSE_INTERVAL_MS);
 		}
+		bindMethods(this);
 	}
 
 	/** Advance the indeterminate pulse position with bounce logic. */
@@ -472,6 +477,7 @@ class CaptureSpinnerHandle implements SpinnerHandle {
 		private readonly events: ActivityEvent[],
 	) {
 		events.push({ type: 'spinner:start', text });
+		bindMethods(this);
 	}
 
 	update(text: string): void {
@@ -529,6 +535,7 @@ class CaptureProgressHandle implements ProgressHandle {
 		private readonly events: ActivityEvent[],
 	) {
 		events.push({ type: 'progress:start', label: opts.label ?? '', total: opts.total });
+		bindMethods(this);
 	}
 
 	increment(n?: number): void {

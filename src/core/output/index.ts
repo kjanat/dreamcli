@@ -31,6 +31,7 @@ import {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 } from './activity.ts';
+import { bindMethods } from './bind.ts';
 import type { OutputPolicy, Verbosity } from './contracts.ts';
 import {
 	resolveOutputPolicy,
@@ -186,23 +187,10 @@ class OutputChannel implements Out {
 		this.jsonMode = options.jsonMode;
 		this.isTTY = options.isTTY;
 
-		// Bind the public method surface to the instance so methods keep
-		// working when destructured off `out` (e.g. `const { log } = out`).
-		// Detached, an unbound method loses `this` and crashes on
-		// `this.options`/`this.policy`. Binding here resolves subclass
-		// overrides (spinner/progress in CaptureOutputChannel) automatically.
-		this.log = this.log.bind(this);
-		this.info = this.info.bind(this);
-		this.warn = this.warn.bind(this);
-		this.error = this.error.bind(this);
-		this.setExitCode = this.setExitCode.bind(this);
-		this.json = this.json.bind(this);
-		// `.bind()` collapses `table`'s overloads to the last signature; cast
-		// back to the declared overloaded type.
-		this.table = this.table.bind(this) as Out['table'];
-		this.spinner = this.spinner.bind(this);
-		this.progress = this.progress.bind(this);
-		this.stopActive = this.stopActive.bind(this);
+		// Bind methods to the instance so they keep working when destructured
+		// off `out` (e.g. `const { log } = out`). Resolves subclass overrides
+		// (spinner/progress in CaptureOutputChannel) automatically.
+		bindMethods(this);
 	}
 
 	/**
