@@ -195,6 +195,27 @@ describe('CLIBuilder.manifest() — builder method', () => {
 		expect(app.schema.version).toBe('9.9.9');
 		expect(app.schema.packageJsonSettings?.data).toEqual({ version: '9.9.9' });
 	});
+
+	it('explicit inferName: false resolves to no inference, scope strip default', () => {
+		const app = cli('myapp').manifest({ inferName: false });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['package.json'],
+			data: undefined,
+		});
+	});
+
+	it('routes homepage-only and repository-only objects to the data overload', () => {
+		// isPackageJsonData recognizes homepage/repository, so these are data, not settings.
+		expect(cli('x').manifest({ homepage: 'https://x.dev' }).schema.packageJsonSettings?.data).toEqual(
+			{ homepage: 'https://x.dev' },
+		);
+		expect(
+			cli('y').manifest({ repository: 'github:me/y' }).schema.packageJsonSettings?.data,
+		).toEqual({ repository: 'github:me/y' });
+	});
 });
 
 describe('CLIBuilder.denoJson() — builder method', () => {
@@ -436,6 +457,22 @@ describe('CLIBuilder.run() — package.json name inference', () => {
 
 	it('does not infer name when inferName is false (default)', async () => {
 		const app = cli('myapp').packageJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/package.json': JSON.stringify({
+				name: 'other-name',
+				bin: { 'other-tool': './dist/cli.js' },
+			}),
+		});
+
+		expect(stdout.join('')).toContain('myapp');
+		expect(stdout.join('')).not.toContain('other-tool');
+	});
+
+	it('does not infer name when inferName is EXPLICITLY false', async () => {
+		// Guards the normalizeInferName `option === false` branch: an explicit
+		// false must not flip to inference-on.
+		const app = cli('myapp').manifest({ inferName: false }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/package.json': JSON.stringify({

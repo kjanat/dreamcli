@@ -97,8 +97,10 @@ Source the CLI's `version` and `description` (and optionally its name) from a ma
 
 **Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
 directory and reads the nearest manifest among `files` (default `['package.json']`); the nearest
-directory wins, and `files` order only tiebreaks within a single directory. Files are parsed as plain
-JSON, so `package.json`, `deno.json`, and `jsr.json` all work (JSONC / `deno.jsonc` is not). A
+directory wins, and `files` order only tiebreaks within a single directory. Files are parsed as
+strict, comment-free JSON, so `package.json`, `deno.json`, and `jsr.json` all work — but a
+`deno.jsonc`, or a `deno.json` containing comments/trailing commas, fails to parse and is skipped
+(use the data form for those). A
 config-only manifest carrying no recognised metadata (e.g. a `deno.json` with only `tasks`/`imports`)
 is skipped so discovery keeps probing. Pass `{ inferName: true }` to also infer the CLI name from the
 package `bin` entry or `name`; `deno.json`/`jsr.json` have no `bin`, so the name comes from `name` —

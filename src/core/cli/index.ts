@@ -588,8 +588,10 @@ class CLIBuilder {
 	 * its `version`/`description` into the CLI schema. Explicit `.version()` /
 	 * `.description()` calls always take precedence.
 	 *
-	 * Files are parsed as plain JSON — `package.json`, `deno.json`, and `jsr.json`
-	 * qualify; JSONC (`deno.jsonc`) is not supported.
+	 * Files are parsed as strict, comment-free JSON — `package.json`, `deno.json`,
+	 * and `jsr.json` qualify. JSONC is not supported: a `deno.jsonc`, or a
+	 * `deno.json` that contains comments/trailing commas, fails to parse and is
+	 * skipped (discovery keeps walking). Use the data overload for those.
 	 *
 	 * Has no effect in `.execute()` (filesystem-free) — use the data overload.
 	 *
@@ -1162,7 +1164,12 @@ interface ManifestSettings {
 	readonly files?: readonly string[];
 }
 
-/** Discovery settings for the `.packageJson()` / `.denoJson()` presets (no `files`). */
+/**
+ * Discovery settings for the `.packageJson()` / `.denoJson()` presets (no `files`).
+ *
+ * @deprecated Both presets are deprecated; use {@link ManifestSettings} with
+ *   {@link CLIBuilder.manifest}.
+ */
 type ManifestPresetSettings = Omit<ManifestSettings, 'files'>;
 
 /**
@@ -1281,9 +1288,16 @@ function normalizeFromSetting(from: string | URL | undefined): string | undefine
  *
  * npm's `files` field (publish globs) is intentionally NOT recognised here, so
  * an object whose only key is `files` routes to the settings overload — where
- * `files` means candidate manifest filenames, never publish globs. Real
- * manifest data always also carries `name`/`version`, so this never
- * misclassifies an actual `package.json`/`deno.json`.
+ * `files` means candidate manifest filenames, never publish globs. Manifests
+ * that publish a CLI carry `name`/`version`, so those route to the data overload
+ * as expected.
+ *
+ * Edge case: a metadata-less manifest (e.g. a versionless private-root
+ * `package.json` carrying only `files`/`private`) routes to settings, so its
+ * `files` would be read as candidate filenames and the object is not stored as
+ * data. This is harmless in practice — a metadata-less manifest contributes no
+ * `version`/`description` either way — but it means a pre-loaded object must
+ * carry real metadata to be honoured as data.
  *
  * @internal
  */

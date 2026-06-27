@@ -162,9 +162,10 @@ function manifestHasMetadata(data: PackageJsonData): boolean {
  * CLI runtime discover metadata automatically; call this directly when testing
  * metadata inference or embedding the behavior in custom tooling.
  *
- * All candidate files are parsed as plain JSON — `deno.json` and `jsr.json`
- * qualify, but JSONC (`deno.jsonc`) is not supported (no comment-tolerant
- * parser in core).
+ * All candidate files are parsed as strict, comment-free JSON — `deno.json`
+ * and `jsr.json` qualify. JSONC is not supported (no comment-tolerant parser in
+ * core): a `deno.jsonc`, or a `deno.json` carrying comments/trailing commas,
+ * fails to parse and is skipped, so discovery keeps probing.
  *
  * Returns the parsed metadata on success, `null` when no manifest is found
  * (not an error). Malformed JSON, non-object roots, and config-only manifests
