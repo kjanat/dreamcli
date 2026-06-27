@@ -714,6 +714,71 @@ describe('discoverManifest', () => {
 
 		expect(await discoverManifest(adapter)).toEqual({ repository: 'github:me/root' });
 	});
+
+	// --- JSONC tolerance (deno.json commonly carries comments / trailing commas)
+
+	it('parses a deno.json with line and block comments', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': `{
+				// the package version
+				"name": "@scope/app",
+				/* block comment */
+				"version": "1.2.3"
+			}`,
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			name: '@scope/app',
+			version: '1.2.3',
+		});
+	});
+
+	it('parses a manifest with trailing commas', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"name":"app","version":"2.0.0",}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			name: 'app',
+			version: '2.0.0',
+		});
+	});
+
+	it('does NOT strip comment markers inside string values (URL safety)', async () => {
+		// `//` in https:// and a `/*` inside a string must survive — the stripper is
+		// string-aware. A trailing comma + a real comment exercise both passes.
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': `{
+				"version": "9.9.9", // ship it
+				"homepage": "https://example.com/a",
+				"repository": "git+https://github.com/me/repo.git",
+			}`,
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			version: '9.9.9',
+			homepage: 'https://example.com/a',
+			repository: 'git+https://github.com/me/repo.git',
+		});
+	});
+
+	it('discovers a deno.jsonc candidate', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.jsonc': '{\n  "version": "3.3.3" // jsonc\n}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.jsonc'] })).toEqual({
+			version: '3.3.3',
+		});
+	});
+
+	it('still returns null for genuinely malformed content', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{ not valid: at all ]',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toBeNull();
+	});
 });
 
 // === inferCliName — scope-stripping control

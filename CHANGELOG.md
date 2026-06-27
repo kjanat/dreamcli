@@ -13,8 +13,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from any manifest file, not just `package.json`. Pass `files` to choose candidate
   filenames in priority order (e.g. `['deno.json', 'jsr.json']`); discovery walks up
   from `cwd` (or `from`) and the nearest manifest directory wins. Files are parsed as
-  plain JSON, so `package.json`, `deno.json`, and `jsr.json` all work (JSONC is not
-  supported).
+  JSON with a JSONC fallback, so `package.json`, `deno.json`, `jsr.json`, and
+  `deno.jsonc` all work — including manifests with `//` / block comments or trailing
+  commas (a dependency-free, string-aware strip that leaves `//` inside string values
+  such as URLs untouched).
 - **`discoverManifest()`** — the generalized discovery helper behind `.manifest()`,
   accepting `{ startDir, files }`.
 - **Optional scope retention in name inference** — `inferName` now accepts

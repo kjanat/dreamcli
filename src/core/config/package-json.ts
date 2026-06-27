@@ -167,10 +167,10 @@ function manifestHasMetadata(data: PackageJsonData): boolean {
  * CLI runtime discover metadata automatically; call this directly when testing
  * metadata inference or embedding the behavior in custom tooling.
  *
- * All candidate files are parsed as strict, comment-free JSON — `deno.json`
- * and `jsr.json` qualify. JSONC is not supported (no comment-tolerant parser in
- * core): a `deno.jsonc`, or a `deno.json` carrying comments/trailing commas,
- * fails to parse and is skipped, so discovery keeps probing.
+ * Candidate files are parsed as JSON with a JSONC fallback — `package.json`,
+ * `deno.json`, `jsr.json`, and `deno.jsonc` all qualify, including files that
+ * carry `//` / block comments or trailing commas (common in `deno.json`). A
+ * file that fails both parses is skipped, so discovery keeps probing.
  *
  * Returns the parsed metadata on success, `null` when no manifest is found
  * (not an error). Malformed JSON, non-object roots, and config-only manifests
@@ -260,18 +260,114 @@ async function discoverPackageJson(
 	return discoverManifest(adapter, startDir !== undefined ? { startDir } : {});
 }
 
+// --- stripJsonc
+
+/** Whitespace characters JSON treats as insignificant. @internal */
+function isJsonWhitespace(ch: string): boolean {
+	return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
+}
+
+/**
+ * Strip JSONC extensions (line/block comments and trailing commas) so the result
+ * is plain JSON. String-aware: comment markers and commas inside string literals
+ * are preserved verbatim, so a `"https://…"` URL or a `"/* …"` value survives
+ * untouched. Runtime-agnostic — no dependencies, plain string scanning.
+ *
+ * Only invoked as a fallback when strict `JSON.parse` fails, so valid JSON never
+ * passes through here.
+ *
+ * @internal
+ */
+function stripJsonc(input: string): string {
+	// Pass 1 — drop comments outside of strings.
+	let decommented = '';
+	let inString = false;
+	let escaped = false;
+	for (let i = 0; i < input.length; i += 1) {
+		const ch = input[i] ?? '';
+		if (inString) {
+			decommented += ch;
+			if (escaped) escaped = false;
+			else if (ch === '\\') escaped = true;
+			else if (ch === '"') inString = false;
+			continue;
+		}
+		if (ch === '"') {
+			inString = true;
+			decommented += ch;
+			continue;
+		}
+		if (ch === '/' && input[i + 1] === '/') {
+			i += 2;
+			while (i < input.length && input[i] !== '\n') i += 1;
+			i -= 1; // let the loop's increment land on (and re-emit) the newline
+			continue;
+		}
+		if (ch === '/' && input[i + 1] === '*') {
+			i += 2;
+			while (i < input.length && !(input[i] === '*' && input[i + 1] === '/')) i += 1;
+			i += 1; // skip the '*'; the loop increment skips the closing '/'
+			continue;
+		}
+		decommented += ch;
+	}
+
+	// Pass 2 — drop commas immediately before a closing `}` or `]`.
+	let result = '';
+	inString = false;
+	escaped = false;
+	for (let i = 0; i < decommented.length; i += 1) {
+		const ch = decommented[i] ?? '';
+		if (inString) {
+			result += ch;
+			if (escaped) escaped = false;
+			else if (ch === '\\') escaped = true;
+			else if (ch === '"') inString = false;
+			continue;
+		}
+		if (ch === '"') {
+			inString = true;
+			result += ch;
+			continue;
+		}
+		if (ch === ',') {
+			let j = i + 1;
+			while (j < decommented.length && isJsonWhitespace(decommented[j] ?? '')) j += 1;
+			const next = decommented[j];
+			if (next === '}' || next === ']') {
+				continue; // trailing comma — omit it
+			}
+		}
+		result += ch;
+	}
+	return result;
+}
+
 // --- parsePackageJson
 
 /**
- * Parse a package.json content string into {@link PackageJsonData}.
+ * Parse a manifest content string into {@link PackageJsonData}.
  *
- * Returns `null` for malformed JSON or non-object roots.
+ * Strict JSON is parsed directly; on failure, a JSONC fallback strips comments
+ * and trailing commas (common in `deno.json`) and retries. Returns `null` for
+ * content that is neither valid JSON nor JSONC, or whose root is not an object.
  *
  * @internal
  */
 function parsePackageJson(content: string): PackageJsonData | null {
+	let parsed: unknown;
 	try {
-		const parsed: unknown = JSON.parse(content);
+		parsed = JSON.parse(content);
+	} catch {
+		// Tolerate JSONC: deno.json is parsed as JSONC by Deno and real files
+		// routinely carry comments / trailing commas. Retry after stripping them.
+		try {
+			parsed = JSON.parse(stripJsonc(content));
+		} catch {
+			return null;
+		}
+	}
+	try {
 		if (!isPlainObject(parsed)) {
 			return null;
 		}

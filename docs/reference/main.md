@@ -97,10 +97,9 @@ Source the CLI's `version` and `description` (and optionally its name) from a ma
 
 **Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
 directory and reads the nearest manifest among `files` (default `['package.json']`); the nearest
-directory wins, and `files` order only tiebreaks within a single directory. Files are parsed as
-strict, comment-free JSON, so `package.json`, `deno.json`, and `jsr.json` all work — but a
-`deno.jsonc`, or a `deno.json` containing comments/trailing commas, fails to parse and is skipped
-(use the data form for those). A
+directory wins, and `files` order only tiebreaks within a single directory. Files are parsed as JSON
+with a JSONC fallback, so `package.json`, `deno.json`, `jsr.json`, and `deno.jsonc` all work —
+including files with `//` / block comments or trailing commas (common in `deno.json`). A
 config-only manifest carrying no recognised metadata (e.g. a `deno.json` with only `tasks`/`imports`)
 is skipped so discovery keeps probing. Pass `{ inferName: true }` to also infer the CLI name from the
 package `bin` entry or `name`; `deno.json`/`jsr.json` have no `bin`, so the name comes from `name` —
@@ -491,8 +490,8 @@ Walk up from `options.startDir` (or `adapter.cwd` when omitted) and return the n
 metadata, or `null` when none is found. This is the helper used by `.manifest()` during `.run()`.
 `options.files` chooses the candidate filenames in per-directory priority order (default
 `['package.json']`); pass `['deno.json', 'jsr.json']` for Deno / JSR projects. Files are parsed as
-plain JSON, and a config-only manifest with no recognised metadata is skipped so the walk-up
-continues.
+JSON with a JSONC fallback (comments and trailing commas are tolerated), and a config-only manifest
+with no recognised metadata is skipped so the walk-up continues.
 
 Pass an absolute filesystem path inside your own package as `startDir` (e.g.
 `fileURLToPath(import.meta.url)`) when authoring an installable CLI whose version should reflect its

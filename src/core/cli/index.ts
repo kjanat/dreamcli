@@ -591,10 +591,10 @@ class CLIBuilder {
 	 * its `version`/`description` into the CLI schema. Explicit `.version()` /
 	 * `.description()` calls always take precedence.
 	 *
-	 * Files are parsed as strict, comment-free JSON — `package.json`, `deno.json`,
-	 * and `jsr.json` qualify. JSONC is not supported: a `deno.jsonc`, or a
-	 * `deno.json` that contains comments/trailing commas, fails to parse and is
-	 * skipped (discovery keeps walking). Use the data overload for those.
+	 * Files are parsed as JSON with a JSONC fallback — `package.json`, `deno.json`,
+	 * `jsr.json`, and `deno.jsonc` all qualify, including files with `//` / block
+	 * comments or trailing commas. A file that fails both parses is skipped
+	 * (discovery keeps walking).
 	 *
 	 * Has no effect in `.execute()` (filesystem-free) — use the data overload.
 	 *
