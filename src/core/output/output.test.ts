@@ -71,6 +71,41 @@ describe('createOutput', () => {
 	});
 });
 
+// --- Destructuring — methods stay bound to the instance
+
+describe('destructured methods', () => {
+	it('text methods work when destructured off the instance', () => {
+		const [out, captured] = createCaptureOutput();
+		const { log, info, warn, error } = out;
+
+		log('hi');
+		info('details');
+		warn('careful');
+		error('boom');
+
+		expect(captured.stdout).toEqual(['hi\n', 'details\n']);
+		expect(captured.stderr).toEqual(['careful\n', 'boom\n']);
+	});
+
+	it('json works when destructured off the instance', () => {
+		const [out, captured] = createCaptureOutput();
+		const { json } = out;
+
+		json({ ok: true });
+
+		expect(captured.stdout).toEqual(['{"ok":true}\n']);
+	});
+
+	it('setExitCode works when destructured off the instance', () => {
+		const out = createOutput();
+		const { setExitCode } = out;
+
+		setExitCode(5);
+
+		expect(getRequestedExitCode(out)).toBe(5);
+	});
+});
+
 // --- Exit code requests
 
 describe('exit code requests', () => {
