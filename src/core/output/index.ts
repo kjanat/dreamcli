@@ -31,6 +31,7 @@ import {
 	TTYProgressHandle,
 	TTYSpinnerHandle,
 } from './activity.ts';
+import { bindMethods } from './bind.ts';
 import type { OutputPolicy, Verbosity } from './contracts.ts';
 import {
 	resolveOutputPolicy,
@@ -185,6 +186,11 @@ class OutputChannel implements Out {
 		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
 		this.isTTY = options.isTTY;
+
+		// Bind methods to the instance so they keep working when destructured
+		// off `out` (e.g. `const { log } = out`). Resolves subclass overrides
+		// (spinner/progress in CaptureOutputChannel) automatically.
+		bindMethods(this);
 	}
 
 	/**

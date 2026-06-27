@@ -448,3 +448,48 @@ describe('CaptureProgressHandle — testkit event recording', () => {
 		]);
 	});
 });
+
+// === Destructuring — methods stay bound to the instance
+
+describe('progress handle methods survive destructuring', () => {
+	it('StaticProgressHandle — destructured methods keep working', () => {
+		const { write, output } = makeWriter();
+		const handle = new StaticProgressHandle('Building', write);
+		const { done } = handle;
+
+		// Detached call would crash on `this.stopped`/`this.write` if unbound.
+		expect(() => done('complete')).not.toThrow();
+		expect(output).toEqual(['Building\n', 'complete\n']);
+	});
+
+	it('TTYProgressHandle — destructured done clears the timer', () => {
+		const { write } = makeWriter();
+		// Indeterminate mode (no total) starts a real animation timer; fake
+		// timers keep it from leaking into the runner if cleanup misbehaves.
+		vi.useFakeTimers();
+		try {
+			const handle = new TTYProgressHandle({ label: 'work' }, write);
+			const { done } = handle;
+
+			// Detached call must still run cleanup (clearInterval) without `this`.
+			expect(() => done()).not.toThrow();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('CaptureProgressHandle — destructured methods record events', () => {
+		const events: ActivityEvent[] = [];
+		const handle = new CaptureProgressHandle({ total: 10 }, events);
+		const { increment, done } = handle;
+
+		increment(3);
+		done('finished');
+
+		expect(events).toEqual([
+			{ type: 'progress:start', label: '', total: 10 },
+			{ type: 'progress:increment', delta: 3 },
+			{ type: 'progress:done', text: 'finished' },
+		]);
+	});
+});

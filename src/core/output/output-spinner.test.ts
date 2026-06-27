@@ -516,3 +516,48 @@ describe('CaptureSpinnerHandle — testkit event recording', () => {
 		expect(events[1]).toEqual({ type: 'spinner:fail', text: '' });
 	});
 });
+
+// === Destructuring — methods stay bound to the instance
+
+describe('spinner handle methods survive destructuring', () => {
+	it('StaticSpinnerHandle — destructured methods keep working', () => {
+		const { write, output } = makeWriter();
+		const handle = new StaticSpinnerHandle('work', write);
+		const { succeed } = handle;
+
+		// Detached call would crash on `this.stopped`/`this.write` if unbound.
+		expect(() => succeed('done')).not.toThrow();
+		expect(output).toEqual(['work\n', 'done\n']);
+	});
+
+	it('TTYSpinnerHandle — destructured stop clears the timer', () => {
+		const { write } = makeWriter();
+		// The constructor starts a real animation timer; fake timers keep it
+		// from leaking into the runner if cleanup misbehaves.
+		vi.useFakeTimers();
+		try {
+			const handle = new TTYSpinnerHandle('work', write);
+			const { stop } = handle;
+
+			// Detached call must still run cleanup (clearInterval) without `this`.
+			expect(() => stop()).not.toThrow();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('CaptureSpinnerHandle — destructured methods record events', () => {
+		const events: ActivityEvent[] = [];
+		const handle = new CaptureSpinnerHandle('work', events);
+		const { update, succeed } = handle;
+
+		update('still');
+		succeed('ok');
+
+		expect(events).toEqual([
+			{ type: 'spinner:start', text: 'work' },
+			{ type: 'spinner:update', text: 'still' },
+			{ type: 'spinner:succeed', text: 'ok' },
+		]);
+	});
+});
