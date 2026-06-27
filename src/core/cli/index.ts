@@ -560,7 +560,10 @@ class CLIBuilder {
 	 * `version`/`description` are merged into the CLI schema immediately, so this
 	 * form works in **both** `.run()` and `.execute()` (the filesystem-free path).
 	 * Explicit `.version()`/`.description()` calls still take precedence, and the
-	 * data form does not infer the CLI name.
+	 * data form does not infer the CLI name — `inferName` / `{ scope }` are
+	 * available only on the discovery (settings) form. For a pre-loaded manifest
+	 * whose scoped `name` should drive the CLI name, set the name explicitly via
+	 * `cli(name)` (or call {@link inferCliName} on the data yourself).
 	 *
 	 * Detected by field shape: an object carrying at least one of
 	 * `name`/`version`/`description`/`bin`/`homepage`/`repository`. An empty `{}`

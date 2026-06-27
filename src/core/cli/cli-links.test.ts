@@ -393,6 +393,32 @@ describe('root help — links derived from deno.json / jsr.json discovery in .ru
 			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v5.0.0`, 'v5.0.0')}`,
 		);
 	});
+
+	it('uses the inferred (scope-kept) name as the link display text', async () => {
+		// inferName + .links() together: the OSC-8 name link's display text is the
+		// inferred schema name, so scope:'keep' must surface the scoped name in the link.
+		const app = cli('placeholder')
+			.denoJson({ inferName: { scope: 'keep' } })
+			.links()
+			.command(deployCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			files: {
+				'/test/deno.json': JSON.stringify({
+					name: '@scope/realtool',
+					version: '6.0.0',
+					repository: `git+${REPO}.git`,
+				}),
+			},
+			isTTY: true,
+		});
+
+		const output = stdout.join('');
+		expect(output).toContain(
+			`${osc8(REPO, '@scope/realtool')} ${osc8(`${REPO}/releases/tag/v6.0.0`, 'v6.0.0')}`,
+		);
+		expect(output).not.toContain('placeholder');
+	});
 });
 
 describe('root help — links derived from .denoJson(data)', () => {

@@ -113,6 +113,11 @@ interface ManifestDiscoveryOptions {
 	 * `adapter.cwd` when omitted. Pass an absolute path inside your own package
 	 * (e.g. `fileURLToPath(import.meta.url)`) for installable CLIs whose version
 	 * should reflect the CLI's own package, not the consumer's working directory.
+	 *
+	 * This low-level helper takes a resolved path **string** only. The builder
+	 * sugar `CLIBuilder.manifest({ from })` exposes the same anchor under the name
+	 * `from` and additionally accepts a `file:` URL string or `URL` instance,
+	 * normalizing it to a path first.
 	 */
 	readonly startDir?: string;
 	/**
