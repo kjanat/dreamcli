@@ -464,12 +464,18 @@ describe('progress handle methods survive destructuring', () => {
 
 	it('TTYProgressHandle — destructured done clears the timer', () => {
 		const { write } = makeWriter();
-		// Indeterminate mode (no total) starts an animation timer.
-		const handle = new TTYProgressHandle({ label: 'work' }, write);
-		const { done } = handle;
+		// Indeterminate mode (no total) starts a real animation timer; fake
+		// timers keep it from leaking into the runner if cleanup misbehaves.
+		vi.useFakeTimers();
+		try {
+			const handle = new TTYProgressHandle({ label: 'work' }, write);
+			const { done } = handle;
 
-		// Detached call must still run cleanup (clearInterval) without `this`.
-		expect(() => done()).not.toThrow();
+			// Detached call must still run cleanup (clearInterval) without `this`.
+			expect(() => done()).not.toThrow();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('CaptureProgressHandle — destructured methods record events', () => {

@@ -532,11 +532,18 @@ describe('spinner handle methods survive destructuring', () => {
 
 	it('TTYSpinnerHandle — destructured stop clears the timer', () => {
 		const { write } = makeWriter();
-		const handle = new TTYSpinnerHandle('work', write);
-		const { stop } = handle;
+		// The constructor starts a real animation timer; fake timers keep it
+		// from leaking into the runner if cleanup misbehaves.
+		vi.useFakeTimers();
+		try {
+			const handle = new TTYSpinnerHandle('work', write);
+			const { stop } = handle;
 
-		// Detached call must still run cleanup (clearInterval) without `this`.
-		expect(() => stop()).not.toThrow();
+			// Detached call must still run cleanup (clearInterval) without `this`.
+			expect(() => stop()).not.toThrow();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('CaptureSpinnerHandle — destructured methods record events', () => {
