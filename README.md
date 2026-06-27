@@ -543,11 +543,11 @@ ESM-only. Source included in package (`src/`).
 
 ## Runtime support
 
-| Runtime            | Status                              |
-| ------------------ | ----------------------------------- |
-| Node.js >= 22.22.2 | Supported                           |
-| Bun >= 1.3         | Supported                           |
-| Deno >= 2.6.0      | Supported (JSR: `@kjanat/dreamcli`) |
+| Runtime            | Status                             |
+| ------------------ | ---------------------------------- |
+| Node.js >= 22.22.2 | Supported                          |
+| Bun >= 1.3         | Supported                          |
+| Deno >= 2.6.0      | Supported (`jsr:@kjanat/dreamcli`) |
 
 Runtime detection is automatic.
 The core framework never imports platform-specific APIs directly — a thin `RuntimeAdapter` interface
