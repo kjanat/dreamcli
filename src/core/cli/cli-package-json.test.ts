@@ -9,6 +9,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { cli } from './index.ts';
+import type { ManifestSettings } from './index.ts';
 
 // === Test helpers
 
@@ -741,5 +742,71 @@ describe('CLIBuilder.packageJson() — settings vs data discrimination', () => {
 
 		expect(stdout.join('')).toContain('inferred-tool');
 		expect(stdout.join('')).not.toContain('placeholder');
+	});
+
+	it('presets pin their file list even when a settings variable leaks `files`', () => {
+		// A ManifestSettings variable binds structurally to the data overload,
+		// slips past the Omit<…,'files'> compile guard, and would otherwise leak
+		// `files` into the settings branch at runtime. Presets must pin regardless.
+		const leakyDeno: ManifestSettings = { files: ['deno.json', 'jsr.json'] };
+		const leakyPkg: ManifestSettings = { files: ['package.json'] };
+
+		expect(cli('x').packageJson(leakyDeno).schema.packageJsonSettings?.files).toEqual([
+			'package.json',
+		]);
+		expect(cli('y').denoJson(leakyPkg).schema.packageJsonSettings?.files).toEqual([
+			'deno.json',
+			'jsr.json',
+		]);
+		// manifest() is NOT a preset — it honours an explicit files list.
+		expect(cli('z').manifest(leakyDeno).schema.packageJsonSettings?.files).toEqual([
+			'deno.json',
+			'jsr.json',
+		]);
+	});
+});
+
+// === CLIBuilder.manifest(data) — end-to-end (canonical data overload)
+
+describe('CLIBuilder.manifest(data) — end-to-end', () => {
+	it('reports version from data via execute() — filesystem-free path', async () => {
+		const app = cli('myapp').manifest({ version: '8.8.8' }).command(infoCommand());
+
+		const result = await app.execute(['--version']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toBe('8.8.8\n');
+	});
+
+	it('does NOT touch the filesystem for manifest(data) in run()', async () => {
+		let readCalled = false;
+		const out: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', '--version'],
+			stdout: (s) => out.push(s),
+			stderr: () => {},
+			readFile: async () => {
+				readCalled = true;
+				return null;
+			},
+		});
+
+		const app = cli('myapp').manifest({ version: '8.8.8' }).command(infoCommand());
+		try {
+			await app.run({ adapter });
+		} catch (e: unknown) {
+			if (!(e instanceof ExitError)) throw e;
+		}
+
+		expect(readCalled).toBe(false);
+		expect(out.join('')).toBe('8.8.8\n');
+	});
+
+	it('fills description from data into help via execute()', async () => {
+		const app = cli('myapp').manifest({ description: 'Manifest data desc' }).command(infoCommand());
+
+		const result = await app.execute(['--help']);
+
+		expect(result.stdout.join('')).toContain('Manifest data desc');
 	});
 });

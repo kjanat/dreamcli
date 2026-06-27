@@ -26,7 +26,7 @@ import {
   buildConfigSearchPaths,
   configFormat,
   discoverConfig,
-  discoverPackageJson,
+  discoverManifest,
   inferCliName,
   formatHelp,
   parse,
@@ -83,35 +83,48 @@ cli('mycli')
   .command(deploy)
   .default(mainCmd)
   .config('mycli')
-  .packageJson({ inferName: true })
+  .manifest({ inferName: true })
   .run();
 ```
 
-### `.packageJson(settings?)` / `.packageJson(data)`
+### `.manifest(settings?)` / `.manifest(data)`
 
-Source the CLI's `version` and `description` (and optionally its name) from `package.json`. There
-are two complementary forms.
+Source the CLI's `version` and `description` (and optionally its name) from a manifest file —
+`package.json`, `deno.json`, or `jsr.json`. There are two complementary forms.
+
+> `.packageJson()` and `.denoJson()` are **deprecated** thin presets over `.manifest()` (pinning
+> `files` to `['package.json']` and `['deno.json', 'jsr.json']` respectively). Prefer `.manifest()`.
 
 **Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
-directory, reads the nearest `package.json`, and uses its `version`/`description` as fallback
-metadata. Pass `{ inferName: true }` to also infer the CLI name from the package `bin` entry or
-package name. This has no effect in `.execute()`.
+directory and reads the nearest manifest among `files` (default `['package.json']`); the nearest
+directory wins, and `files` order only tiebreaks within a single directory. Files are parsed as plain
+JSON, so `package.json`, `deno.json`, and `jsr.json` all work (JSONC / `deno.jsonc` is not). A
+config-only manifest carrying no recognised metadata (e.g. a `deno.json` with only `tasks`/`imports`)
+is skipped so discovery keeps probing. Pass `{ inferName: true }` to also infer the CLI name from the
+package `bin` entry or `name`; `deno.json`/`jsr.json` have no `bin`, so the name comes from `name` —
+pass `inferName: { scope: 'keep' }` to retain a leading `@scope/` (stripped by default). Discovery
+has no effect in `.execute()`.
 
 ```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
 
 const deploy = command('deploy');
 
+// Deno / JSR CLI: discover deno.json then jsr.json, keep the scoped name:
 cli('mycli')
-  .packageJson({ inferName: true })
+  .manifest({
+    files: ['deno.json', 'jsr.json'],
+    inferName: { scope: 'keep' },
+  })
   .command(deploy)
   .run();
 ```
 
 **Anchored discovery (`from`).** Discovery defaults to the consumer's cwd, which is wrong for an
-**installable** CLI (`npm i -g`, `bunx`, `npx`) — its version should reflect its OWN package, not
-wherever it happens to be invoked. Pass `{ from: import.meta.url }` to anchor the walk-up to the
-CLI's own module instead. Accepts a path string, a `file:` URL string, or a `URL` instance.
+**installable** CLI (`npm i -g`, `bunx`, `npx`, `deno install`) — its version should reflect its OWN
+package, not wherever it happens to be invoked. Pass `{ from: import.meta.url }` to anchor the
+walk-up to the CLI's own module instead. Accepts a path string, a `file:` URL string, or a `URL`
+instance.
 
 ```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
@@ -120,24 +133,24 @@ const deploy = command('deploy');
 
 // Report THIS CLI's version from any working directory:
 cli('mycli')
-  .packageJson({ from: import.meta.url })
+  .manifest({ from: import.meta.url })
   .command(deploy)
   .run();
 ```
 
-**Pre-loaded (`data`) form.** Pass an already-imported `package.json` to skip the filesystem
-entirely. Bundlers can statically resolve it, locking the reported version at build time. Unlike the
-discovery forms, the data form **also works in `.execute()`** — `version`/`description` are merged
-into the CLI schema at builder time. Explicit `.version()`/`.description()` still win, and the data
-form does not infer the name.
+**Pre-loaded (`data`) form.** Pass an already-imported manifest to skip the filesystem entirely.
+Bundlers can statically resolve it, locking the reported version at build time. Unlike the discovery
+forms, the data form **also works in `.execute()`** — `version`/`description` are merged into the CLI
+schema at builder time. Explicit `.version()`/`.description()` still win, and the data form does not
+infer the name.
 
 ```ts
 import { cli, command } from '@kjanat/dreamcli';
-import pkg from './package.json' with { type: 'json' };
+import denoCfg from './deno.json' with { type: 'json' };
 
 const deploy = command('deploy');
 
-cli('mycli').packageJson(pkg).command(deploy).run();
+cli('mycli').manifest(denoCfg).command(deploy).run();
 ```
 
 ### `.links(links?)`
@@ -148,7 +161,7 @@ version on the first line of root `--help` output become links in supporting ter
 only emitted when stdout is a TTY (override with the `help.hyperlinks` run option), and only on the
 header line — usage lines, the `--help` hint, the commands table, and completion scripts stay plain.
 
-URLs not provided are derived from `package.json` metadata when `.packageJson()` is active (both the
+URLs not provided are derived from manifest metadata when `.manifest()` is active (both the
 discovery and pre-loaded data forms): the name links to the normalized `repository` URL (falling back
 to `homepage`), and the version links to the forge release tag (`{repo}/releases/tag/v{version}` on
 GitHub, `{repo}/-/releases/v{version}` on GitLab).
@@ -158,8 +171,8 @@ import { cli, command } from '@kjanat/dreamcli';
 
 const deploy = command('deploy');
 
-// Derive both links from package.json repository/homepage:
-cli('mycli').packageJson().links().command(deploy).run();
+// Derive both links from the manifest repository/homepage:
+cli('mycli').manifest().links().command(deploy).run();
 
 // Explicit URLs (no package.json required):
 cli('mycli')
@@ -470,49 +483,60 @@ const result = await discoverConfig('mycli', adapter, {
 });
 ```
 
-### `discoverPackageJson(adapter, startDir?)`
+### `discoverManifest(adapter, options?)`
 
-Walk up from `startDir` (or `adapter.cwd` when omitted) and return the nearest parsed `package.json`
-metadata, or `null` when no package file is found. This is the helper used by `.packageJson()` during
-`.run()`.
+Walk up from `options.startDir` (or `adapter.cwd` when omitted) and return the nearest parsed manifest
+metadata, or `null` when none is found. This is the helper used by `.manifest()` during `.run()`.
+`options.files` chooses the candidate filenames in per-directory priority order (default
+`['package.json']`); pass `['deno.json', 'jsr.json']` for Deno / JSR projects. Files are parsed as
+plain JSON, and a config-only manifest with no recognised metadata is skipped so the walk-up
+continues.
 
-The optional `startDir` anchors the upward walk — the same behavior `.packageJson({ from })` exposes
-on the builder. Pass an absolute filesystem path inside your own package (e.g.
+Pass an absolute filesystem path inside your own package as `startDir` (e.g.
 `fileURLToPath(import.meta.url)`) when authoring an installable CLI whose version should reflect its
-OWN package rather than the consumer's working directory. Unlike `.packageJson({ from })` — which
-also accepts a `file:` URL string or `URL` instance and normalizes it — this helper takes a plain
-path string, so convert URLs yourself first.
+OWN package rather than the consumer's working directory. Unlike `.manifest({ from })` — which also
+accepts a `file:` URL string or `URL` instance and normalizes it — this helper takes a plain path
+string, so convert URLs yourself first.
 
 ```ts twoslash
-import { discoverPackageJson } from '@kjanat/dreamcli';
+import { discoverManifest } from '@kjanat/dreamcli';
 import { createTestAdapter } from '@kjanat/dreamcli/testkit';
 import { fileURLToPath } from 'node:url';
 
 const adapter = createTestAdapter();
 
-// Default: walk up from adapter.cwd
-const pkg = await discoverPackageJson(adapter);
+// Default: walk up from adapter.cwd looking for package.json
+const pkg = await discoverManifest(adapter);
 if (pkg !== null) {
   console.log(pkg.version);
 }
 
-// Anchored: walk up from the CLI's own module
-const own = await discoverPackageJson(
-  adapter,
-  fileURLToPath(import.meta.url),
-);
+// Deno / JSR: anchored to the CLI's own module, deno.json then jsr.json
+const own = await discoverManifest(adapter, {
+  startDir: fileURLToPath(import.meta.url),
+  files: ['deno.json', 'jsr.json'],
+});
 ```
 
-### `inferCliName(pkg)`
+> `discoverPackageJson(adapter, startDir?)` is a **deprecated** alias that delegates to
+> `discoverManifest(adapter, { startDir, files: ['package.json'] })`.
 
-Infer a CLI display name from package metadata. It prefers the first key from a `bin` object and
-otherwise falls back to the package `name` with any npm scope removed.
+### `inferCliName(pkg, options?)`
+
+Infer a CLI display name from manifest metadata. It prefers the first key from a `bin` object and
+otherwise falls back to the `name` field. By default a leading `@scope/` is stripped; pass
+`{ stripScope: false }` to keep the full scoped name (`bin` keys are never scoped, so the option only
+affects the `name` fallback — relevant for `deno.json` / `jsr.json`, which have no `bin`).
 
 ```ts twoslash
 import { inferCliName } from '@kjanat/dreamcli';
 
 inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
 inferCliName({ name: '@scope/mycli' }); // 'mycli'
+inferCliName(
+  { name: '@scope/mycli' },
+  { stripScope: false },
+); // '@scope/mycli'
 ```
 
 ### `packageRepositoryUrl(pkg)`

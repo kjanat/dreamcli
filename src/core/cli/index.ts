@@ -427,21 +427,21 @@ class CLIBuilder {
 	 * `options.help.hyperlinks`), and only in the header — usage lines, the
 	 * `--help` hint, the commands table, and completion scripts stay plain.
 	 *
-	 * URLs not provided here are derived from package.json metadata when
-	 * `.packageJson()` is active (works with both filesystem discovery and
+	 * URLs not provided here are derived from manifest metadata when
+	 * `.manifest()` is active (works with both filesystem discovery and
 	 * pre-loaded data):
 	 * - **name** → normalized `repository` URL, falling back to `homepage`
 	 * - **version** → forge release tag (`{repo}/releases/tag/v{version}` on
 	 *   GitHub, `{repo}/-/releases/v{version}` on GitLab)
 	 *
-	 * @param links - Explicit URLs; omit to derive everything from package.json.
+	 * @param links - Explicit URLs; omit to derive everything from the manifest.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
 	 * ```ts
-	 * // Derive both links from package.json repository/homepage:
+	 * // Derive both links from the manifest repository/homepage:
 	 * cli('mycli')
-	 *   .packageJson()
+	 *   .manifest()
 	 *   .links()
 	 *   .run();
 	 *
@@ -617,7 +617,7 @@ class CLIBuilder {
 	 */
 	manifest(settings?: ManifestSettings): CLIBuilder;
 	manifest(input?: PackageJsonData | ManifestSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES));
+		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, false));
 	}
 
 	/**
@@ -638,7 +638,7 @@ class CLIBuilder {
 	 */
 	packageJson(settings?: ManifestPresetSettings): CLIBuilder;
 	packageJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES));
+		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, true));
 	}
 
 	/**
@@ -670,7 +670,7 @@ class CLIBuilder {
 	 */
 	denoJson(settings?: ManifestPresetSettings): CLIBuilder;
 	denoJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DENO_MANIFEST_FILES));
+		return new CLIBuilder(buildManifestSchema(this.schema, input, DENO_MANIFEST_FILES, true));
 	}
 
 	// -- Command registration ------------------------------------------------
@@ -1194,6 +1194,7 @@ function buildManifestSchema(
 	schema: CLISchema,
 	input: PackageJsonData | ManifestSettings | undefined,
 	defaultFiles: readonly string[],
+	pinFiles: boolean,
 ): CLISchema {
 	if (isPackageJsonData(input)) {
 		// Merge data into schema immediately so `.execute()` (which skips runtime
@@ -1217,13 +1218,17 @@ function buildManifestSchema(
 		};
 	}
 	const { inferName, stripScope } = normalizeInferName(input?.inferName);
+	// Presets (`pinFiles`) always use their fixed list: the `Omit<…,'files'>` guard
+	// only stops fresh literals at compile time, so a `ManifestSettings`-typed
+	// variable could otherwise leak `files` through the data-overload dispatch gap.
+	const files = pinFiles ? defaultFiles : (input?.files ?? defaultFiles);
 	return {
 		...schema,
 		packageJsonSettings: {
 			inferName,
 			stripScope,
 			from: normalizeFromSetting(input?.from),
-			files: input?.files ?? defaultFiles,
+			files,
 			data: undefined,
 		},
 	};

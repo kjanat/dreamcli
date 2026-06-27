@@ -374,6 +374,25 @@ describe('root help — links derived from deno.json / jsr.json discovery in .ru
 
 		expect(stdout.join('')).toContain(osc8(`${REPO}/releases/tag/v2.0.0`, 'v2.0.0'));
 	});
+
+	it('derives links from jsr.json when a sibling deno.json is config-only', async () => {
+		// Marquee Deno shape: config-only deno.json (tasks/imports, no metadata) must
+		// NOT shadow jsr.json for the help-link channel — links come from jsr.json.
+		const app = cli('mytool').denoJson().links().command(deployCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			files: {
+				'/test/deno.json': JSON.stringify({ tasks: { dev: 'vite' }, imports: {} }),
+				'/test/jsr.json': JSON.stringify({ version: '5.0.0', repository: `git+${REPO}.git` }),
+			},
+			isTTY: true,
+		});
+
+		const output = stdout.join('');
+		expect(output).toContain(
+			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v5.0.0`, 'v5.0.0')}`,
+		);
+	});
 });
 
 describe('root help — links derived from .denoJson(data)', () => {
