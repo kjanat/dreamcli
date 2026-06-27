@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-06-27
+
+### Fixed
+
+- **Destructuring `out` and activity handles** — `Out` methods and the spinner/progress activity
+  handle methods are now bound to their instance, so pulling them off via destructuring (e.g.
+  `const { done } = handle`) no longer breaks `this`-dependent behaviour and cleanup
+  (https://github.com/kjanat/dreamcli/pull/40).
+
 ## [2.4.0] - 2026-06-23
 
 ### Added
@@ -829,7 +838,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.4.1...HEAD
+[2.4.1]: https://github.com/kjanat/dreamcli/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/kjanat/dreamcli/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/kjanat/dreamcli/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/kjanat/dreamcli/compare/v2.2.0...v2.2.1
