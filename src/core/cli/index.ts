@@ -236,7 +236,7 @@ interface ConfigSettings {
  */
 interface PackageJsonSettings {
 	/**
-	 * Infer CLI name from package.json `bin` keys or `name` field.
+	 * Infer CLI name from manifest `bin` keys or `name` field.
 	 *
 	 * When `true`, the discovered name replaces the `cli(name)` value.
 	 * Explicit `.version()`/`.description()` calls still take precedence
@@ -246,14 +246,29 @@ interface PackageJsonSettings {
 	 */
 	readonly inferName: boolean;
 	/**
+	 * Strip a leading `@scope/` from the inferred `name` fallback.
+	 *
+	 * Only consulted when {@link PackageJsonSettings.inferName | `inferName`}
+	 * is `true` and the name comes from the manifest `name` field (not a `bin`
+	 * key, which is never scoped).
+	 *
+	 * @defaultValue `true`
+	 */
+	readonly stripScope: boolean;
+	/**
 	 * Explicit filesystem anchor for discovery; overrides `adapter.cwd`.
 	 *
-	 * Resolved to a string path before storage. When set, `discoverPackageJson`
+	 * Resolved to a string path before storage. When set, `discoverManifest`
 	 * walks up from here instead of the runtime cwd. Required for installable
 	 * CLIs whose version should reflect THEIR OWN package, not the consumer's
 	 * working directory.
 	 */
 	readonly from: string | undefined;
+	/**
+	 * Candidate manifest filenames, in per-directory priority order
+	 * (e.g. `['deno.json', 'jsr.json']` for `.denoJson()`).
+	 */
+	readonly files: readonly string[];
 	/**
 	 * Pre-loaded data; skips filesystem discovery, uses values verbatim.
 	 *
@@ -261,7 +276,7 @@ interface PackageJsonSettings {
 	 * ```ts
 	 * import pkg from './package.json' with { type: 'json' };
 	 *
-	 * cli('mycli').packageJson(pkg);
+	 * cli('mycli').manifest(pkg);
 	 * ```
 	 */
 	readonly data: PackageJsonData | undefined;
@@ -515,106 +530,125 @@ class CLIBuilder {
 	}
 
 	/**
-	 * Enable package.json metadata from pre-loaded data.
+	 * Enable manifest metadata from pre-loaded data.
 	 *
-	 * Pass an already-imported `package.json` to skip filesystem discovery
-	 * entirely — useful for bundled or installable CLIs where the version
-	 * should be locked at build time. The data's `version`/`description` are
-	 * merged into the CLI schema immediately, so this form works in **both**
-	 * `.run()` and `.execute()` (the filesystem-free path). Explicit
-	 * `.version()`/`.description()` calls still take precedence, and the data
-	 * form does not infer the CLI name.
+	 * Pass an already-imported manifest (`package.json`, `deno.json`, `jsr.json`)
+	 * to skip filesystem discovery entirely — useful for bundled or installable
+	 * CLIs where the version should be locked at build time. The data's
+	 * `version`/`description` are merged into the CLI schema immediately, so this
+	 * form works in **both** `.run()` and `.execute()` (the filesystem-free path).
+	 * Explicit `.version()`/`.description()` calls still take precedence, and the
+	 * data form does not infer the CLI name.
 	 *
 	 * Detected by field shape: an object carrying at least one of
-	 * `name`/`version`/`description`/`bin`. An empty `{}` or a settings-shaped
-	 * object falls through to the settings overload.
+	 * `name`/`version`/`description`/`bin`/`homepage`/`repository`. An empty `{}`
+	 * or a settings-shaped object falls through to the settings overload.
 	 *
-	 * @param data - Pre-loaded `package.json` metadata.
+	 * @param data - Pre-loaded manifest metadata.
 	 *
 	 * @example
 	 * ```ts
-	 * import pkg from './package.json' with { type: 'json' };
+	 * import denoCfg from './deno.json' with { type: 'json' };
 	 *
 	 * // No filesystem; works in .run() AND .execute():
 	 * cli('mycli')
-	 *   .packageJson(pkg)
+	 *   .manifest(denoCfg)
 	 *   .command(deploy)
 	 *   .run();
 	 * ```
 	 */
-	packageJson(data: PackageJsonData): CLIBuilder;
+	manifest(data: PackageJsonData): CLIBuilder;
 	/**
-	 * Enable automatic package.json metadata discovery.
+	 * Enable automatic manifest metadata discovery.
 	 *
-	 * When enabled, `.run()` walks up from `cwd` to find the nearest
-	 * `package.json` and merges its `version` and `description` fields
-	 * into the CLI schema. Explicit `.version()` and `.description()`
-	 * calls always take precedence over discovered values.
+	 * When enabled, `.run()` walks up from `cwd` (or {@link ManifestSettings.from})
+	 * to find the nearest manifest among {@link ManifestSettings.files} and merges
+	 * its `version`/`description` into the CLI schema. Explicit `.version()` /
+	 * `.description()` calls always take precedence.
 	 *
-	 * Has no effect in `.execute()` (which is filesystem-free by design) —
-	 * use the {@link CLIBuilder.packageJson | data overload} for that.
+	 * Files are parsed as plain JSON — `package.json`, `deno.json`, and `jsr.json`
+	 * qualify; JSONC (`deno.jsonc`) is not supported.
+	 *
+	 * Has no effect in `.execute()` (filesystem-free) — use the data overload.
 	 *
 	 * @param settings - Optional settings:
-	 *   - `inferName`: also infer the CLI name from `bin` keys or `name` field.
-	 *   - `from`: anchor discovery to a specific file/URL/path instead of `cwd`.
-	 *     Pass `import.meta.url` for installable CLIs that need to report
-	 *     THEIR OWN version (not the consumer's project version). Accepts
-	 *     string paths, `file:` URL strings, or `URL` instances.
+	 *   - `files`: candidate manifest filenames in priority order
+	 *     (default `['package.json']`).
+	 *   - `inferName`: infer the CLI name from `bin` keys or `name`. Pass
+	 *     `{ scope: 'keep' }` to keep a leading `@scope/` (stripped by default).
+	 *   - `from`: anchor discovery to a file/URL/path instead of `cwd`. Pass
+	 *     `import.meta.url` for installable CLIs that must report THEIR OWN
+	 *     version. Accepts string paths, `file:` URL strings, or `URL` instances.
 	 *
 	 * @example
 	 * ```ts
-	 * // Auto-fill version + description from nearest package.json:
+	 * // Deno CLI: discover OUR deno.json (then jsr.json), keep the scope in name:
 	 * cli('mycli')
-	 *   .packageJson()
+	 *   .manifest({
+	 *     files: ['deno.json', 'jsr.json'],
+	 *     from: import.meta.url,
+	 *     inferName: { scope: 'keep' },
+	 *   })
 	 *   .command(deploy)
-	 *   .run();
-	 *
-	 * // Also infer CLI name from bin key / package name:
-	 * cli('mycli')
-	 *   .packageJson({ inferName: true })
-	 *   .command(deploy)
-	 *   .run();
-	 *
-	 * // Installable CLI; discover OUR package.json, not the consumer's:
-	 * cli('mycli')
-	 *   .packageJson({ from: import.meta.url })
-	 *   .command(deploy)
-	 *   .run();
-	 *
-	 * // Explicit values always win:
-	 * cli('mycli')
-	 *   .packageJson()
-	 *   .version('2.0.0-beta')  // wins over package.json
 	 *   .run();
 	 * ```
 	 */
-	packageJson(settings?: { readonly inferName?: boolean; readonly from?: string | URL }): CLIBuilder;
-	packageJson(
-		input?: PackageJsonData | { readonly inferName?: boolean; readonly from?: string | URL },
-	): CLIBuilder {
-		if (isPackageJsonData(input)) {
-			// Merge data into schema immediately so `.execute()` (which skips
-			// runtime preflight) still picks up version/description. Explicit
-			// `.version()`/`.description()` calls win, matching settings semantics.
-			return new CLIBuilder({
-				...this.schema,
-				...(this.schema.version === undefined && input.version !== undefined
-					? { version: input.version }
-					: {}),
-				...(this.schema.description === undefined && input.description !== undefined
-					? { description: input.description }
-					: {}),
-				packageJsonSettings: { inferName: false, from: undefined, data: input },
-			});
-		}
-		return new CLIBuilder({
-			...this.schema,
-			packageJsonSettings: {
-				inferName: input?.inferName ?? false,
-				from: normalizeFromSetting(input?.from),
-				data: undefined,
-			},
-		});
+	manifest(settings?: ManifestSettings): CLIBuilder;
+	manifest(input?: PackageJsonData | ManifestSettings): CLIBuilder {
+		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES));
+	}
+
+	/**
+	 * Discover metadata from `package.json` (preset for {@link CLIBuilder.manifest}).
+	 *
+	 * @deprecated Use {@link CLIBuilder.manifest} — `.manifest()` defaults to
+	 *   `package.json` and also supports `deno.json` / `jsr.json` via `files`.
+	 *
+	 * @param data - Pre-loaded `package.json` metadata.
+	 */
+	packageJson(data: PackageJsonData): CLIBuilder;
+	/**
+	 * Discover metadata from `package.json` (preset for {@link CLIBuilder.manifest}).
+	 *
+	 * @deprecated Use {@link CLIBuilder.manifest}.
+	 *
+	 * @param settings - `inferName` / `from` (see {@link CLIBuilder.manifest}).
+	 */
+	packageJson(settings?: ManifestPresetSettings): CLIBuilder;
+	packageJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
+		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES));
+	}
+
+	/**
+	 * Discover metadata from `deno.json` then `jsr.json` (preset for
+	 * {@link CLIBuilder.manifest}).
+	 *
+	 * @deprecated Use `.manifest({ files: ['deno.json', 'jsr.json'] })`.
+	 *
+	 * @param data - Pre-loaded `deno.json` / `jsr.json` metadata.
+	 */
+	denoJson(data: PackageJsonData): CLIBuilder;
+	/**
+	 * Discover metadata from `deno.json` then `jsr.json` (preset for
+	 * {@link CLIBuilder.manifest}).
+	 *
+	 * @deprecated Use `.manifest({ files: ['deno.json', 'jsr.json'] })`.
+	 *
+	 * @param settings - `inferName` / `from` (see {@link CLIBuilder.manifest}).
+	 *   `deno.json` / `jsr.json` have no `bin` field, so `inferName` resolves
+	 *   from `name`; pass `{ scope: 'keep' }` to retain a leading `@scope/`.
+	 *
+	 * @example
+	 * ```ts
+	 * cli('mycli')
+	 *   .denoJson({ from: import.meta.url })
+	 *   .command(deploy)
+	 *   .run();
+	 * ```
+	 */
+	denoJson(settings?: ManifestPresetSettings): CLIBuilder;
+	denoJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
+		return new CLIBuilder(buildManifestSchema(this.schema, input, DENO_MANIFEST_FILES));
 	}
 
 	// -- Command registration ------------------------------------------------
@@ -1069,6 +1103,101 @@ function resolveHelpLinksSchema(schema: CLISchema): CLISchema {
 	};
 }
 
+// --- manifest discovery settings
+
+/** Default manifest filenames for `.manifest()` / `.packageJson()`. @internal */
+const DEFAULT_MANIFEST_FILES: readonly string[] = ['package.json'];
+
+/** Manifest filenames for the `.denoJson()` preset, in priority order. @internal */
+const DENO_MANIFEST_FILES: readonly string[] = ['deno.json', 'jsr.json'];
+
+/**
+ * CLI-name inference control for {@link ManifestSettings.inferName}.
+ *
+ * - `false` (or omitted): do not infer the name.
+ * - `true`: infer, stripping a leading `@scope/` from the `name` fallback.
+ * - `{ scope: 'keep' }`: infer, keeping the full scoped name.
+ * - `{ scope: 'strip' }`: infer, stripping the scope (explicit form of `true`).
+ */
+type InferNameOption = boolean | { readonly scope?: 'keep' | 'strip' };
+
+/** Discovery settings accepted by {@link CLIBuilder.manifest}. */
+interface ManifestSettings {
+	/** Infer the CLI name from `bin` keys or `name`. @defaultValue `false` */
+	readonly inferName?: InferNameOption;
+	/** Anchor discovery to a file/URL/path instead of `cwd`. */
+	readonly from?: string | URL;
+	/** Candidate filenames in priority order. @defaultValue `['package.json']` */
+	readonly files?: readonly string[];
+}
+
+/** Discovery settings for the `.packageJson()` / `.denoJson()` presets (no `files`). */
+type ManifestPresetSettings = Omit<ManifestSettings, 'files'>;
+
+/**
+ * Normalise an {@link InferNameOption} into the flat `{ inferName, stripScope }`
+ * pair stored in {@link PackageJsonSettings}.
+ *
+ * @internal
+ */
+function normalizeInferName(option: InferNameOption | undefined): {
+	readonly inferName: boolean;
+	readonly stripScope: boolean;
+} {
+	if (option === undefined || option === false) return { inferName: false, stripScope: true };
+	if (option === true) return { inferName: true, stripScope: true };
+	return { inferName: true, stripScope: option.scope !== 'keep' };
+}
+
+/**
+ * Build the next {@link CLISchema} for a manifest builder method.
+ *
+ * Shared by {@link CLIBuilder.manifest}, {@link CLIBuilder.packageJson}, and
+ * {@link CLIBuilder.denoJson}. The data overload (detected via field shape)
+ * merges `version`/`description` immediately so `.execute()` sees them; the
+ * settings overload stores discovery config for runtime preflight.
+ *
+ * @internal
+ */
+function buildManifestSchema(
+	schema: CLISchema,
+	input: PackageJsonData | ManifestSettings | undefined,
+	defaultFiles: readonly string[],
+): CLISchema {
+	if (isPackageJsonData(input)) {
+		// Merge data into schema immediately so `.execute()` (which skips runtime
+		// preflight) still picks up version/description. Explicit
+		// `.version()`/`.description()` calls win, matching settings semantics.
+		return {
+			...schema,
+			...(schema.version === undefined && input.version !== undefined
+				? { version: input.version }
+				: {}),
+			...(schema.description === undefined && input.description !== undefined
+				? { description: input.description }
+				: {}),
+			packageJsonSettings: {
+				inferName: false,
+				stripScope: true,
+				from: undefined,
+				files: defaultFiles,
+				data: input,
+			},
+		};
+	}
+	const { inferName, stripScope } = normalizeInferName(input?.inferName);
+	return {
+		...schema,
+		packageJsonSettings: {
+			inferName,
+			stripScope,
+			from: normalizeFromSetting(input?.from),
+			files: input?.files ?? defaultFiles,
+			data: undefined,
+		},
+	};
+}
+
 // --- packageJson.from normalisation
 
 /**
@@ -1211,5 +1340,14 @@ export type {
 	PluginCommandContext,
 	ResolvedCommandParams,
 } from './plugin.ts';
-export type { CLIOptions, CLIRunOptions, CLISchema, ConfigSettings, PackageJsonSettings };
+export type {
+	CLIOptions,
+	CLIRunOptions,
+	CLISchema,
+	ConfigSettings,
+	InferNameOption,
+	ManifestPresetSettings,
+	ManifestSettings,
+	PackageJsonSettings,
+};
 export { CLIBuilder, cli, formatRootHelp, plugin };

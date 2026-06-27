@@ -7,6 +7,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`.manifest()` — runtime-agnostic manifest discovery** — discover CLI metadata
+  from any manifest file, not just `package.json`. Pass `files` to choose candidate
+  filenames in priority order (e.g. `['deno.json', 'jsr.json']`); discovery walks up
+  from `cwd` (or `from`) and the nearest manifest directory wins. Files are parsed as
+  plain JSON, so `package.json`, `deno.json`, and `jsr.json` all work (JSONC is not
+  supported).
+- **`discoverManifest()`** — the generalized discovery helper behind `.manifest()`,
+  accepting `{ startDir, files }`.
+- **Optional scope retention in name inference** — `inferName` now accepts
+  `{ scope: 'keep' | 'strip' }` (and `inferCliName(pkg, { stripScope })`) so a scoped
+  `name` like `@scope/mycli` can be kept verbatim instead of always stripping to
+  `mycli`. Relevant for `deno.json` / `jsr.json`, which have no `bin` field.
+- **`.denoJson()`** — deprecated convenience preset for `.manifest({ files: ['deno.json', 'jsr.json'] })`.
+
+### Deprecated
+
+- **`.packageJson()`, `.denoJson()`, and `discoverPackageJson()`** — superseded by
+  `.manifest()` / `discoverManifest()`. The presets still work (delegating to the
+  generalized path); `.packageJson()` keeps `['package.json']` as its file list.
+
 ## [2.4.1] - 2026-06-27
 
 ### Fixed

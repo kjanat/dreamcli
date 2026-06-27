@@ -69,7 +69,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson();
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -78,7 +80,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({ inferName: true });
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: true,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -92,7 +96,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({ from: '/anchor' });
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: '/anchor',
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -111,7 +117,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({ version: '5.5.5' });
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: { version: '5.5.5' },
 		});
 	});
@@ -120,7 +128,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({});
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -142,6 +152,73 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 
 		expect(callPackageJson(null).schema.packageJsonSettings?.data).toBeUndefined();
 		expect(callPackageJson([1]).schema.packageJsonSettings?.data).toBeUndefined();
+	});
+});
+
+// === CLIBuilder.manifest() / .denoJson() — builder methods
+
+describe('CLIBuilder.manifest() — builder method', () => {
+	it('defaults files to package.json', () => {
+		const app = cli('myapp').manifest();
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['package.json'],
+			data: undefined,
+		});
+	});
+
+	it('stores custom files in priority order', () => {
+		const app = cli('myapp').manifest({ files: ['deno.json', 'jsr.json'] });
+		expect(app.schema.packageJsonSettings?.files).toEqual(['deno.json', 'jsr.json']);
+	});
+
+	it('inferName: { scope: "keep" } sets stripScope false', () => {
+		const app = cli('myapp').manifest({ inferName: { scope: 'keep' } });
+		expect(app.schema.packageJsonSettings).toMatchObject({ inferName: true, stripScope: false });
+	});
+
+	it('inferName: { scope: "strip" } keeps stripScope true', () => {
+		const app = cli('myapp').manifest({ inferName: { scope: 'strip' } });
+		expect(app.schema.packageJsonSettings).toMatchObject({ inferName: true, stripScope: true });
+	});
+
+	it('inferName: true strips scope by default', () => {
+		const app = cli('myapp').manifest({ inferName: true });
+		expect(app.schema.packageJsonSettings).toMatchObject({ inferName: true, stripScope: true });
+	});
+
+	it('data overload merges version immediately', () => {
+		const app = cli('myapp').manifest({ version: '9.9.9' });
+		expect(app.schema.version).toBe('9.9.9');
+		expect(app.schema.packageJsonSettings?.data).toEqual({ version: '9.9.9' });
+	});
+});
+
+describe('CLIBuilder.denoJson() — builder method', () => {
+	it('stores deno.json then jsr.json as candidate files', () => {
+		const app = cli('myapp').denoJson();
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['deno.json', 'jsr.json'],
+			data: undefined,
+		});
+	});
+
+	it('normalizes from and honours inferName scope', () => {
+		const app = cli('myapp').denoJson({
+			from: 'file:///lib/cli.js',
+			inferName: { scope: 'keep' },
+		});
+		expect(app.schema.packageJsonSettings).toMatchObject({
+			from: '/lib/cli.js',
+			inferName: true,
+			stripScope: false,
+			files: ['deno.json', 'jsr.json'],
+		});
 	});
 });
 
@@ -176,6 +253,65 @@ describe('CLIBuilder.run() — package.json version', () => {
 		// No version configured → --version falls through as unknown flag
 		expect(exitCode).toBe(2);
 		expect(stderr.join('')).toContain('Unknown flag --version');
+	});
+});
+
+// === CLIBuilder.run() — deno.json / manifest discovery
+
+describe('CLIBuilder.run() — deno.json discovery', () => {
+	it('.denoJson() fills version from deno.json', async () => {
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"name":"@scope/myapp","version":"4.5.6"}',
+		});
+
+		expect(stdout.join('')).toBe('4.5.6\n');
+	});
+
+	it('.denoJson() falls back to jsr.json when deno.json is absent', async () => {
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/jsr.json': '{"version":"7.8.9"}',
+		});
+
+		expect(stdout.join('')).toBe('7.8.9\n');
+	});
+
+	it('.manifest({ files }) discovers the requested manifest', async () => {
+		const app = cli('myapp').manifest({ files: ['deno.json'] }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"version":"1.2.3"}',
+		});
+
+		expect(stdout.join('')).toBe('1.2.3\n');
+	});
+
+	it('inferName keeps the scope when scope: "keep"', async () => {
+		const app = cli('placeholder')
+			.denoJson({ inferName: { scope: 'keep' } })
+			.command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/deno.json': '{"name":"@scope/realname","version":"1.0.0"}',
+		});
+
+		// Scoped name is preserved as the CLI binary name in help output.
+		expect(stdout.join('')).toContain('@scope/realname');
+	});
+
+	it('inferName strips the scope by default', async () => {
+		const app = cli('placeholder').denoJson({ inferName: true }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/deno.json': '{"name":"@scope/realname","version":"1.0.0"}',
+		});
+
+		const help = stdout.join('');
+		expect(help).toContain('realname');
+		expect(help).not.toContain('@scope/realname');
 	});
 });
 

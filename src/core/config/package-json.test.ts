@@ -7,7 +7,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { PackageJsonAdapter } from './package-json.ts';
-import { discoverPackageJson, inferCliName, packageRepositoryUrl } from './package-json.ts';
+import {
+	discoverManifest,
+	discoverPackageJson,
+	inferCliName,
+	packageRepositoryUrl,
+} from './package-json.ts';
 
 // === Test helpers
 
@@ -497,5 +502,104 @@ describe('packageRepositoryUrl — repository field normalization', () => {
 		expect(packageRepositoryUrl({ repository: '  ' })).toBeUndefined();
 		expect(packageRepositoryUrl({ repository: 'not a repo' })).toBeUndefined();
 		expect(packageRepositoryUrl({ repository: { type: 'git' } })).toBeUndefined();
+	});
+});
+
+// === discoverManifest — generalized multi-file discovery
+
+describe('discoverManifest', () => {
+	it('defaults to package.json (parity with discoverPackageJson)', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"name":"myapp","version":"1.0.0"}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ name: 'myapp', version: '1.0.0' });
+	});
+
+	it('discovers deno.json when requested', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"name":"@scope/myapp","version":"3.1.0"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			name: '@scope/myapp',
+			version: '3.1.0',
+		});
+	});
+
+	it('falls back to jsr.json when deno.json is absent', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/jsr.json': '{"name":"@scope/myapp","version":"4.2.0"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			name: '@scope/myapp',
+			version: '4.2.0',
+		});
+	});
+
+	it('honours per-directory file priority (deno.json beats jsr.json in same dir)', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"version":"1.0.0"}',
+			'/projects/myapp/jsr.json': '{"version":"9.9.9"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '1.0.0',
+		});
+	});
+
+	it('nearest directory wins over file order higher up', async () => {
+		// jsr.json is nearer (cwd); deno.json sits higher. Nearest dir wins.
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/jsr.json': '{"version":"1.0.0"}',
+				'/projects/deno.json': '{"version":"2.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '1.0.0',
+		});
+	});
+
+	it('walks up from an explicit startDir anchor', async () => {
+		const adapter = createAdapter(
+			{ '/lib/cli/deno.json': '{"version":"7.0.0"}' },
+			'/somewhere/else',
+		);
+
+		expect(
+			await discoverManifest(adapter, { startDir: '/lib/cli/bin', files: ['deno.json'] }),
+		).toEqual({ version: '7.0.0' });
+	});
+
+	it('returns null when no candidate file is found', async () => {
+		const adapter = createAdapter({ '/projects/myapp/package.json': '{"version":"1.0.0"}' });
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toBeNull();
+	});
+});
+
+// === inferCliName — scope-stripping control
+
+describe('inferCliName — scope handling', () => {
+	it('strips the scope by default', () => {
+		expect(inferCliName({ name: '@scope/mycli' })).toBe('mycli');
+	});
+
+	it('keeps the scope when stripScope is false', () => {
+		expect(inferCliName({ name: '@scope/mycli' }, { stripScope: false })).toBe('@scope/mycli');
+	});
+
+	it('strips when stripScope is explicitly true', () => {
+		expect(inferCliName({ name: '@scope/mycli' }, { stripScope: true })).toBe('mycli');
+	});
+
+	it('bin keys ignore stripScope (never scoped)', () => {
+		expect(inferCliName({ bin: { tool: './c.js' }, name: '@scope/x' }, { stripScope: false })).toBe(
+			'tool',
+		);
 	});
 });

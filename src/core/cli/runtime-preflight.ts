@@ -12,7 +12,7 @@
 import type { FormatLoader } from '#internals/core/config/index.ts';
 import { discoverConfig } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
-import { discoverPackageJson, inferCliName } from '#internals/core/config/package-json.ts';
+import { discoverManifest, inferCliName } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
@@ -33,12 +33,16 @@ interface RuntimeConfigSettings {
 	readonly loaders: readonly FormatLoader[] | undefined;
 }
 
-/** Package.json discovery settings extracted from CLISchema. @internal */
+/** Manifest discovery settings extracted from CLISchema. @internal */
 interface RuntimePackageJsonSettings {
-	/** Whether to infer the CLI binary name from `package.json` `bin` field. */
+	/** Whether to infer the CLI binary name from `bin` keys or `name`. */
 	readonly inferName: boolean;
+	/** Strip a leading `@scope/` from the inferred `name` fallback. */
+	readonly stripScope: boolean;
 	/** Explicit anchor (resolved path) for discovery; `undefined` falls back to `adapter.cwd`. */
 	readonly from: string | undefined;
+	/** Candidate manifest filenames in priority order. */
+	readonly files: readonly string[];
 	/** Pre-loaded data; when set, discovery is skipped entirely. */
 	readonly data: PackageJsonData | undefined;
 }
@@ -287,10 +291,16 @@ async function applyPackageJsonDiscovery(
 			? await (async (): Promise<RuntimePreflightSchemaLike> => {
 					// Pre-loaded data short-circuits filesystem discovery entirely.
 					const pkg =
-						packageJsonSettings.data ?? (await discoverPackageJson(adapter, packageJsonSettings.from));
+						packageJsonSettings.data ??
+						(await discoverManifest(adapter, {
+							...(packageJsonSettings.from !== undefined ? { startDir: packageJsonSettings.from } : {}),
+							files: packageJsonSettings.files,
+						}));
 					if (pkg === null) return schema;
 
-					const inferredName = packageJsonSettings.inferName ? inferCliName(pkg) : undefined;
+					const inferredName = packageJsonSettings.inferName
+						? inferCliName(pkg, { stripScope: packageJsonSettings.stripScope })
+						: undefined;
 					return {
 						...schema,
 						...(schema.version === undefined && pkg.version !== undefined

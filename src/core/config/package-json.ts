@@ -101,28 +101,98 @@ function joinPath(base: string, segment: string): string {
 	return base.endsWith(sep) ? `${base}${segment}` : `${base}${sep}${segment}`;
 }
 
+// --- discoverManifest
+
+/** Default manifest filenames probed when none are supplied. @internal */
+const DEFAULT_MANIFEST_FILES: readonly string[] = ['package.json'];
+
+/** Options for {@link discoverManifest}. */
+interface ManifestDiscoveryOptions {
+	/**
+	 * Explicit directory or file path to walk up from. Defaults to
+	 * `adapter.cwd` when omitted. Pass an absolute path inside your own package
+	 * (e.g. `fileURLToPath(import.meta.url)`) for installable CLIs whose version
+	 * should reflect the CLI's own package, not the consumer's working directory.
+	 */
+	readonly startDir?: string;
+	/**
+	 * Candidate manifest filenames, in per-directory priority order
+	 * (e.g. `['deno.json', 'jsr.json']`). At each directory the first existing,
+	 * parseable file wins, so the nearest manifest directory always takes
+	 * precedence over file order. Defaults to `['package.json']`.
+	 */
+	readonly files?: readonly string[];
+}
+
+/**
+ * Discover the nearest manifest (`package.json`, `deno.json`, `jsr.json`, …)
+ * by walking up from `startDir` (or `adapter.cwd` when omitted).
+ *
+ * Convenience helper behind `CLIBuilder.manifest()`. Most apps should let the
+ * CLI runtime discover metadata automatically; call this directly when testing
+ * metadata inference or embedding the behavior in custom tooling.
+ *
+ * All candidate files are parsed as plain JSON — `deno.json` and `jsr.json`
+ * qualify, but JSONC (`deno.jsonc`) is not supported (no comment-tolerant
+ * parser in core).
+ *
+ * Returns the parsed metadata on success, `null` when no manifest is found
+ * (not an error). Malformed JSON and non-object roots also return `null` —
+ * the feature is a convenience, not a hard requirement.
+ *
+ * @param adapter - Adapter providing `readFile` + `cwd`.
+ * @param options - Optional anchor (`startDir`) and candidate filenames (`files`).
+ *
+ * @example
+ * ```ts
+ * import { discoverManifest } from '@kjanat/dreamcli';
+ *
+ * const meta = await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] });
+ * if (meta !== null) {
+ *   console.log(meta.version); // '1.2.3'
+ * }
+ * ```
+ */
+async function discoverManifest(
+	adapter: PackageJsonAdapter,
+	options: ManifestDiscoveryOptions = {},
+): Promise<PackageJsonData | null> {
+	const files = options.files ?? DEFAULT_MANIFEST_FILES;
+	let dir: string | undefined = options.startDir ?? adapter.cwd;
+
+	while (dir !== undefined) {
+		for (const file of files) {
+			let content: string | null = null;
+			try {
+				content = await adapter.readFile(joinPath(dir, file));
+			} catch {
+				// Adapter may throw on permission errors, is-directory, or other
+				// syscall failures — skip this file and keep probing.
+			}
+			if (content !== null) {
+				const parsed = parsePackageJson(content);
+				if (parsed !== null) {
+					return parsed;
+				}
+			}
+		}
+		dir = parentDir(dir);
+	}
+
+	return null;
+}
+
 // --- discoverPackageJson
 
 /**
  * Discover the nearest `package.json` by walking up from `startDir` (or
  * `adapter.cwd` when omitted).
  *
- * Convenience helper behind `CLIBuilder.packageJson()`. Most apps should let
- * the CLI runtime discover package metadata automatically; call this directly
- * when testing metadata inference or embedding the behavior in custom tooling.
- *
- * Returns the parsed metadata on success, `null` when no `package.json`
- * is found (not an error). Malformed JSON and non-object roots also
- * return `null` — the feature is a convenience, not a hard requirement.
+ * @deprecated Use {@link discoverManifest} with `{ files: ['package.json'] }`
+ *   (the default), which also supports `deno.json` / `jsr.json`.
  *
  * @param adapter - Adapter providing `readFile` + `cwd`.
  * @param startDir - Optional explicit directory or file path to walk up from.
- *   Pass an absolute path inside your own package (e.g.
- *   `fileURLToPath(import.meta.url)`) when authoring an installable CLI whose
- *   version should reflect the CLI's own package, not the consumer's working
- *   directory. Defaults to `adapter.cwd` when `undefined`. A file path is
- *   probed as a directory first (yielding nothing) before the walk-up reaches
- *   its real parent directory, so passing `import.meta.url` resolves correctly.
  *
  * @example
  * ```ts
@@ -138,26 +208,7 @@ async function discoverPackageJson(
 	adapter: PackageJsonAdapter,
 	startDir?: string,
 ): Promise<PackageJsonData | null> {
-	let dir: string | undefined = startDir ?? adapter.cwd;
-
-	while (dir !== undefined) {
-		let content: string | null = null;
-		try {
-			content = await adapter.readFile(joinPath(dir, 'package.json'));
-		} catch {
-			// Adapter may throw on permission errors, is-directory, or other
-			// syscall failures — skip this directory and keep walking up.
-		}
-		if (content !== null) {
-			const parsed = parsePackageJson(content);
-			if (parsed !== null) {
-				return parsed;
-			}
-		}
-		dir = parentDir(dir);
-	}
-
-	return null;
+	return discoverManifest(adapter, startDir !== undefined ? { startDir } : {});
 }
 
 // --- parsePackageJson
@@ -314,31 +365,44 @@ function packageRepositoryUrl(pkg: PackageJsonData): string | undefined {
 // --- inferCliName
 
 /**
- * Infer the CLI binary name from package.json data.
+ * Infer the CLI binary name from manifest data.
  *
  * Resolution order:
  * 1. First key of `bin` object (e.g. `{"mycli": "./dist/cli.js"}` → `"mycli"`)
- * 2. Package `name` with scope stripped (e.g. `"@scope/mycli"` → `"mycli"`)
+ * 2. Package `name`, scope stripped by default (e.g. `"@scope/mycli"` → `"mycli"`);
+ *    pass `{ stripScope: false }` to keep the full scoped name
  * 3. `undefined` if neither exists
+ *
+ * Note: `bin` keys are never scoped, so `stripScope` only affects the `name`
+ * fallback (relevant for `deno.json` / `jsr.json`, which have no `bin` field).
+ *
+ * @param pkg - Parsed manifest metadata.
+ * @param options - `stripScope` (default `true`): strip a leading `@scope/`
+ *   from the `name` fallback.
  *
  * @example
  * ```ts
  * import { inferCliName } from '@kjanat/dreamcli';
  *
- * inferCliName({ bin: { mycli: './dist/cli.js' } }); // 'mycli'
- * inferCliName({ name: '@scope/mycli' });             // 'mycli'
- * inferCliName({ name: 'mycli' });                    // 'mycli'
- * inferCliName({});                                   // undefined
+ * inferCliName({ bin: { mycli: './dist/cli.js' } });        // 'mycli'
+ * inferCliName({ name: '@scope/mycli' });                   // 'mycli'
+ * inferCliName({ name: '@scope/mycli' }, { stripScope: false }); // '@scope/mycli'
+ * inferCliName({ name: 'mycli' });                          // 'mycli'
+ * inferCliName({});                                         // undefined
  * ```
  */
-function inferCliName(pkg: PackageJsonData): string | undefined {
-	// Prefer bin key name
+function inferCliName(
+	pkg: PackageJsonData,
+	options: { readonly stripScope?: boolean } = {},
+): string | undefined {
+	// Prefer bin key name (never scoped).
 	if (typeof pkg.bin === 'object') {
 		const keys = Object.keys(pkg.bin);
 		if (keys.length > 0 && keys[0] !== undefined) return keys[0];
 	}
-	// Fall back to package name, stripped of scope
+	// Fall back to package name, optionally stripped of scope.
 	if (pkg.name !== undefined) {
+		if (options.stripScope === false) return pkg.name;
 		const slashIdx = pkg.name.indexOf('/');
 		return slashIdx >= 0 ? pkg.name.slice(slashIdx + 1) : pkg.name;
 	}
@@ -347,5 +411,5 @@ function inferCliName(pkg: PackageJsonData): string | undefined {
 
 // --- Exports
 
-export type { PackageJsonAdapter, PackageJsonData, PackageRepository };
-export { discoverPackageJson, inferCliName, packageRepositoryUrl };
+export type { ManifestDiscoveryOptions, PackageJsonAdapter, PackageJsonData, PackageRepository };
+export { discoverManifest, discoverPackageJson, inferCliName, packageRepositoryUrl };
