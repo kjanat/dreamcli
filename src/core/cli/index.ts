@@ -187,18 +187,22 @@ interface CLISchema {
 	 */
 	readonly configSettings: ConfigSettings | undefined;
 	/**
-	 * Package.json auto-discovery settings. When defined, `.run()` discovers
-	 * the nearest `package.json` and merges metadata before dispatch.
+	 * Manifest auto-discovery settings. When defined, `.run()` discovers the
+	 * nearest manifest (`package.json`, `deno.json`, `jsr.json`, …) and merges
+	 * metadata before dispatch.
 	 *
-	 * Set via the {@linkcode CLIBuilder.packageJson | .packageJson()} builder method.
+	 * Set via the {@linkcode CLIBuilder.manifest | .manifest()} builder method
+	 * (or the {@linkcode CLIBuilder.packageJson | .packageJson()} /
+	 * {@linkcode CLIBuilder.denoJson | .denoJson()} presets).
 	 */
-	readonly packageJsonSettings: PackageJsonSettings | undefined;
+	readonly packageJsonSettings: ResolvedManifestSettings | undefined;
 	/**
 	 * OSC 8 hyperlink targets for the root-help header (name/version).
 	 *
 	 * Set via the {@linkcode CLIBuilder.links | .links()} builder method.
-	 * Fields left `undefined` are derived from package.json metadata
-	 * (`repository` / `homepage`) when `.packageJson()` is active.
+	 * Fields left `undefined` are derived from manifest metadata
+	 * (`repository` / `homepage`) when manifest discovery ({@linkcode
+	 * CLIBuilder.manifest | .manifest()}) is active.
 	 */
 	readonly helpLinks: HelpLinks | undefined;
 	/** Whether built-in `.completions()` command registration is active. */
@@ -229,12 +233,20 @@ interface ConfigSettings {
 }
 
 /**
- * Package.json auto-discovery settings.
+ * Manifest auto-discovery settings — the resolved/normalized shape stored in
+ * the schema.
  *
  * Stored in {@link CLISchema} and consumed by `CLIBuilder.run()` to
- * call {@link discoverPackageJson} before dispatching to a command.
+ * call {@link discoverManifest} before dispatching to a command.
+ *
+ * Note: the schema FIELD name (`packageJsonSettings`) keeps its `packageJson`
+ * prefix for backward compatibility — renaming it would break consumers reading
+ * `app.schema.packageJsonSettings`. The type itself is now generically named
+ * (it holds discovery config for any manifest — `package.json`, `deno.json`,
+ * `jsr.json`); the legacy {@link PackageJsonSettings} alias remains exported for
+ * backward compatibility.
  */
-interface PackageJsonSettings {
+interface ResolvedManifestSettings {
 	/**
 	 * Infer CLI name from manifest `bin` keys or `name` field.
 	 *
@@ -248,7 +260,7 @@ interface PackageJsonSettings {
 	/**
 	 * Strip a leading `@scope/` from the inferred `name` fallback.
 	 *
-	 * Only consulted when {@link PackageJsonSettings.inferName | `inferName`}
+	 * Only consulted when {@link ResolvedManifestSettings.inferName | `inferName`}
 	 * is `true` and the name comes from the manifest `name` field (not a `bin`
 	 * key, which is never scoped).
 	 *
@@ -281,6 +293,16 @@ interface PackageJsonSettings {
 	 */
 	readonly data: PackageJsonData | undefined;
 }
+
+/**
+ * Resolved manifest discovery settings stored in {@link CLISchema}.
+ *
+ * @deprecated Renamed to {@link ResolvedManifestSettings}. The stored shape
+ *   holds generic manifest discovery config (`package.json`, `deno.json`,
+ *   `jsr.json`), not just `package.json`; the misleading name is kept only for
+ *   backward compatibility.
+ */
+type PackageJsonSettings = ResolvedManifestSettings;
 
 // --- Options for execute/run
 
@@ -1118,8 +1140,11 @@ const DENO_MANIFEST_FILES: readonly string[] = ['deno.json', 'jsr.json'];
  * - `true`: infer, stripping a leading `@scope/` from the `name` fallback.
  * - `{ scope: 'keep' }`: infer, keeping the full scoped name.
  * - `{ scope: 'strip' }`: infer, stripping the scope (explicit form of `true`).
+ *
+ * `scope` is required in the object form: an empty `{}` is rejected so that an
+ * options object can never silently enable inference (use `true` for that).
  */
-type InferNameOption = boolean | { readonly scope?: 'keep' | 'strip' };
+type InferNameOption = boolean | { readonly scope: 'keep' | 'strip' };
 
 /** Discovery settings accepted by {@link CLIBuilder.manifest}. */
 interface ManifestSettings {
@@ -1127,7 +1152,13 @@ interface ManifestSettings {
 	readonly inferName?: InferNameOption;
 	/** Anchor discovery to a file/URL/path instead of `cwd`. */
 	readonly from?: string | URL;
-	/** Candidate filenames in priority order. @defaultValue `['package.json']` */
+	/**
+	 * Candidate manifest filenames in priority order — NOT npm's `files` publish
+	 * globs. Discovery probes each name per directory and takes the first that
+	 * parses.
+	 *
+	 * @defaultValue `['package.json']`
+	 */
 	readonly files?: readonly string[];
 }
 
@@ -1136,7 +1167,7 @@ type ManifestPresetSettings = Omit<ManifestSettings, 'files'>;
 
 /**
  * Normalise an {@link InferNameOption} into the flat `{ inferName, stripScope }`
- * pair stored in {@link PackageJsonSettings}.
+ * pair stored in {@link ResolvedManifestSettings}.
  *
  * @internal
  */
@@ -1201,7 +1232,7 @@ function buildManifestSchema(
 // --- packageJson.from normalisation
 
 /**
- * Coerce a {@link PackageJsonSettings.from | `packageJson.from`} input
+ * Coerce a {@link ResolvedManifestSettings.from | `manifest.from`} input
  * (string path, `file:` URL string, or {@link URL} instance) to a plain
  * filesystem path string. `undefined` passes through unchanged.
  *
@@ -1242,6 +1273,12 @@ function normalizeFromSetting(from: string | URL | undefined): string | undefine
  * carries at least one recognised field (`name`, `version`, `description`,
  * `bin`, `homepage`, or `repository`). An empty `{}` or a settings-shaped
  * object (`inferName` / `from`) falls through to the settings overload.
+ *
+ * npm's `files` field (publish globs) is intentionally NOT recognised here, so
+ * an object whose only key is `files` routes to the settings overload — where
+ * `files` means candidate manifest filenames, never publish globs. Real
+ * manifest data always also carries `name`/`version`, so this never
+ * misclassifies an actual `package.json`/`deno.json`.
  *
  * @internal
  */
@@ -1349,5 +1386,6 @@ export type {
 	ManifestPresetSettings,
 	ManifestSettings,
 	PackageJsonSettings,
+	ResolvedManifestSettings,
 };
 export { CLIBuilder, cli, formatRootHelp, plugin };

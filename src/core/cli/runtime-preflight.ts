@@ -33,8 +33,15 @@ interface RuntimeConfigSettings {
 	readonly loaders: readonly FormatLoader[] | undefined;
 }
 
-/** Manifest discovery settings extracted from CLISchema. @internal */
-interface RuntimePackageJsonSettings {
+/**
+ * Manifest discovery settings extracted from CLISchema for preflight use.
+ *
+ * Mirrors the public `ResolvedManifestSettings` shape (consumed structurally),
+ * named with the `Runtime` prefix to match its {@link RuntimeConfigSettings}
+ * sibling and avoid colliding with the exported public type.
+ * @internal
+ */
+interface RuntimeManifestSettings {
 	/** Whether to infer the CLI binary name from `bin` keys or `name`. */
 	readonly inferName: boolean;
 	/** Strip a leading `@scope/` from the inferred `name` fallback. */
@@ -70,7 +77,7 @@ interface RuntimePreflightSchemaLike {
 	/** Config file discovery settings; `undefined` disables config loading. */
 	readonly configSettings: RuntimeConfigSettings | undefined;
 	/** Package.json discovery settings; `undefined` disables package.json inference. */
-	readonly packageJsonSettings: RuntimePackageJsonSettings | undefined;
+	readonly packageJsonSettings: RuntimeManifestSettings | undefined;
 	/** Root-help header link targets; `undefined` fields may be derived from package.json. */
 	readonly helpLinks: HelpLinks | undefined;
 	/** Whether `.completions()` registered the built-in completions command. */

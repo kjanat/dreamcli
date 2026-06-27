@@ -310,6 +310,88 @@ describe('root help — links derived from package.json discovery in .run()', ()
 	});
 });
 
+// === Root help — links derived from deno.json / jsr.json manifests
+
+describe('root help — links derived from deno.json / jsr.json discovery in .run()', () => {
+	it('derives name + release link from a discovered deno.json on a TTY', async () => {
+		const app = cli('mytool').denoJson().links().command(deployCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			files: {
+				'/test/deno.json': JSON.stringify({
+					version: '3.0.0',
+					repository: { type: 'git', url: `git+${REPO}.git` },
+				}),
+			},
+			isTTY: true,
+		});
+
+		const output = stdout.join('');
+		expect(output).toContain(
+			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v3.0.0`, 'v3.0.0')}`,
+		);
+	});
+
+	it('derives links from jsr.json when deno.json is absent', async () => {
+		const app = cli('mytool').denoJson().links().command(deployCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			files: {
+				'/test/jsr.json': JSON.stringify({ version: '4.1.0', repository: `git+${REPO}.git` }),
+			},
+			isTTY: true,
+		});
+
+		const output = stdout.join('');
+		expect(output).toContain(
+			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v4.1.0`, 'v4.1.0')}`,
+		);
+	});
+
+	it('surfaces the repository link from a deno.json carrying only repository', async () => {
+		// manifestHasMetadata accepts a repository-only manifest; prove that link
+		// reaches the header end-to-end (no version → name link only, no release).
+		const app = cli('mytool').denoJson().links().command(deployCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			files: { '/test/deno.json': JSON.stringify({ repository: `git+${REPO}.git` }) },
+			isTTY: true,
+		});
+
+		expect(stdout.join('')).toContain(osc8(REPO, 'mytool'));
+	});
+
+	it('.manifest({ files }) discovery derives links the same way', async () => {
+		const app = cli('mytool')
+			.manifest({ files: ['deno.json', 'jsr.json'] })
+			.links()
+			.command(deployCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			files: { '/test/jsr.json': JSON.stringify({ version: '2.0.0', repository: REPO }) },
+			isTTY: true,
+		});
+
+		expect(stdout.join('')).toContain(osc8(`${REPO}/releases/tag/v2.0.0`, 'v2.0.0'));
+	});
+});
+
+describe('root help — links derived from .denoJson(data)', () => {
+	it('derives name from repository and version from the release tag', async () => {
+		const app = cli('mytool')
+			.denoJson({ version: '2.4.1', repository: `git+${REPO}.git` })
+			.links()
+			.command(deployCommand());
+
+		const result = await app.execute(['--help'], { isTTY: true });
+
+		const output = result.stdout.join('');
+		expect(output).toContain(
+			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v2.4.1`, 'v2.4.1')}`,
+		);
+	});
+});
+
 // === formatRootHelp — hyperlinks option
 
 describe('formatRootHelp — hyperlinks option', () => {

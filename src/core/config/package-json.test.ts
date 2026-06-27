@@ -196,13 +196,15 @@ describe('discoverPackageJson', () => {
 			expect(result?.bin).toBe('./dist/cli.js');
 		});
 
-		it('returns undefined for missing fields', async () => {
+		it('skips a metadata-less manifest and keeps looking (returns null when none exists)', async () => {
+			// A package.json with no recognized metadata fields is not a discovery
+			// hit: the walk-up continues so a sibling/parent manifest can win.
 			const adapter = createAdapter({
 				'/projects/myapp/package.json': '{}',
 			});
 
 			const result = await discoverPackageJson(adapter);
-			expect(result).toEqual({});
+			expect(result).toBeNull();
 		});
 
 		it('ignores non-string name/version/description', async () => {
@@ -579,6 +581,138 @@ describe('discoverManifest', () => {
 		const adapter = createAdapter({ '/projects/myapp/package.json': '{"version":"1.0.0"}' });
 
 		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toBeNull();
+	});
+
+	it('falls through to jsr.json when deno.json in the same dir is malformed', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{bad',
+			'/projects/myapp/jsr.json': '{"version":"2.3.4"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '2.3.4',
+		});
+	});
+
+	it('walks up when the nearest dir holds only a malformed candidate', async () => {
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/deno.json': '{bad',
+				'/projects/deno.json': '{"version":"5.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			version: '5.0.0',
+		});
+	});
+
+	it('falls through to jsr.json when reading deno.json throws in the same dir', async () => {
+		const adapter: PackageJsonAdapter = {
+			cwd: '/projects/myapp',
+			readFile: async (path: string) => {
+				if (path === '/projects/myapp/deno.json') {
+					throw new Error('EACCES: permission denied');
+				}
+				if (path === '/projects/myapp/jsr.json') {
+					return '{"version":"6.7.8"}';
+				}
+				return null;
+			},
+		};
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '6.7.8',
+		});
+	});
+
+	it('returns null without reading when files is empty', async () => {
+		let reads = 0;
+		const adapter: PackageJsonAdapter = {
+			cwd: '/projects/myapp',
+			readFile: async () => {
+				reads++;
+				return null;
+			},
+		};
+
+		expect(await discoverManifest(adapter, { files: [] })).toBeNull();
+		expect(reads).toBe(0);
+	});
+
+	it('skips a config-only deno.json and uses jsr.json metadata in the same dir', async () => {
+		// deno.json carries only config (tasks/imports), no CLI metadata — it
+		// must NOT shadow the sibling jsr.json that holds the real version.
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"tasks":{"dev":"deno run main.ts"},"imports":{"@std/":"jsr:@std/"}}',
+			'/projects/myapp/jsr.json': '{"name":"@s/p","version":"1.2.3"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			name: '@s/p',
+			version: '1.2.3',
+		});
+	});
+
+	it('walks past a metadata-less deno.json to a real manifest in a parent dir', async () => {
+		// A config-only deno.json in cwd must not halt the walk-up.
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/deno.json': '{"tasks":{"dev":"deno run main.ts"}}',
+				'/projects/deno.json': '{"version":"2.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			version: '2.0.0',
+		});
+	});
+
+	// --- metadata acceptance via non-name/version fields
+	// manifestHasMetadata accepts a hit on ANY recognized field, not just
+	// name/version/description. A manifest carrying only repository/homepage/bin
+	// must still be returned so deriveHelpLinks can surface its links — guarding
+	// against a regression that drops one of those OR-clauses.
+
+	it('accepts a manifest whose only field is repository', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"repository":"github:me/myapp"}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ repository: 'github:me/myapp' });
+	});
+
+	it('accepts a manifest whose only field is homepage', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"homepage":"https://myapp.dev"}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ homepage: 'https://myapp.dev' });
+	});
+
+	it('accepts a manifest whose only field is bin', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"bin":{"mycli":"./dist/cli.js"}}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ bin: { mycli: './dist/cli.js' } });
+	});
+
+	it('skips a repository/homepage/bin-less manifest and keeps walking up', async () => {
+		// A manifest with ONLY non-metadata fields (no name/version/description/
+		// bin/homepage/repository) is not a hit — the nearer dir must not shadow a
+		// real manifest higher up.
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/package.json': '{"private":true,"dependencies":{"x":"1.0.0"}}',
+				'/projects/package.json': '{"repository":"github:me/root"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter)).toEqual({ repository: 'github:me/root' });
 	});
 });
 

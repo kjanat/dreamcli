@@ -21,13 +21,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `{ scope: 'keep' | 'strip' }` (and `inferCliName(pkg, { stripScope })`) so a scoped
   `name` like `@scope/mycli` can be kept verbatim instead of always stripping to
   `mycli`. Relevant for `deno.json` / `jsr.json`, which have no `bin` field.
-- **`.denoJson()`** — deprecated convenience preset for `.manifest({ files: ['deno.json', 'jsr.json'] })`.
+- **`.denoJson()`** — deprecated convenience preset for
+  `.manifest({ files: ['deno.json', 'jsr.json'] })` (see Deprecated below).
+
+### Changed
+
+- **Manifest discovery now requires recognized metadata to count as a hit** — a
+  parseable but metadata-less manifest (`{}`, or one carrying only non-metadata
+  fields such as `dependencies` / `scripts` / `type`, or a config-only `deno.json`
+  with just `tasks` / `imports`) is no longer treated as a match. Discovery now
+  walks up to parent directories and tries the remaining candidate files instead
+  of halting. This also changes the deprecated `discoverPackageJson()` /
+  `.packageJson()`: where a metadata-less `package.json` previously halted the
+  walk-up and resolved to `{}`, the walk-up now continues, so an ancestor's
+  version can surface (relevant in monorepos). Pass pre-loaded `data` or an
+  explicit `from` / `startDir` to pin discovery to one directory.
 
 ### Deprecated
 
 - **`.packageJson()`, `.denoJson()`, and `discoverPackageJson()`** — superseded by
-  `.manifest()` / `discoverManifest()`. The presets still work (delegating to the
-  generalized path); `.packageJson()` keeps `['package.json']` as its file list.
+  `.manifest()` / `discoverManifest()`, whose defaults (`['package.json']`) match the
+  old behavior. All still work, delegating to the generalized path.
 
 ## [2.4.1] - 2026-06-27
 

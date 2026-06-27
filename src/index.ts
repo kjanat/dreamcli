@@ -33,6 +33,7 @@ export type {
 	PackageJsonSettings,
 	PluginCommandContext,
 	ResolvedCommandParams,
+	ResolvedManifestSettings,
 } from './core/cli/index.ts';
 export { CLIBuilder, cli, plugin } from './core/cli/index.ts';
 export type { CompletionOptions, Shell } from './core/completion/index.ts';

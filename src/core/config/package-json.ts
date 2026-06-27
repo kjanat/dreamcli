@@ -117,11 +117,41 @@ interface ManifestDiscoveryOptions {
 	readonly startDir?: string;
 	/**
 	 * Candidate manifest filenames, in per-directory priority order
-	 * (e.g. `['deno.json', 'jsr.json']`). At each directory the first existing,
-	 * parseable file wins, so the nearest manifest directory always takes
-	 * precedence over file order. Defaults to `['package.json']`.
+	 * (e.g. `['deno.json', 'jsr.json']`). At each directory the first existing
+	 * file that carries CLI metadata wins, so the nearest manifest directory
+	 * always takes precedence over file order. A file that parses but holds no
+	 * recognised metadata (e.g. a config-only `deno.json` with just
+	 * `tasks`/`imports`) is skipped, so a sibling `jsr.json` — or a manifest
+	 * higher up — can still be found. Defaults to `['package.json']`.
+	 *
+	 * An empty list is a deliberate no-op: with no candidates to probe, the
+	 * walk-up reads nothing and resolves to `null` (consistent with the
+	 * "returns `null` when no manifest is found" contract).
 	 */
 	readonly files?: readonly string[];
+}
+
+/**
+ * Whether parsed manifest data carries any CLI-relevant metadata.
+ *
+ * {@link parsePackageJson} returns an empty object for a config-only manifest
+ * (e.g. a `deno.json` holding only `tasks` / `imports` / `compilerOptions`).
+ * Treating that empty result as a discovery hit would shadow a sibling
+ * `jsr.json` and halt the walk-up, silently dropping real metadata. Discovery
+ * therefore only accepts a manifest that actually carries at least one
+ * recognised field.
+ *
+ * @internal
+ */
+function manifestHasMetadata(data: PackageJsonData): boolean {
+	return (
+		data.name !== undefined ||
+		data.version !== undefined ||
+		data.description !== undefined ||
+		data.bin !== undefined ||
+		data.homepage !== undefined ||
+		data.repository !== undefined
+	);
 }
 
 /**
@@ -137,8 +167,11 @@ interface ManifestDiscoveryOptions {
  * parser in core).
  *
  * Returns the parsed metadata on success, `null` when no manifest is found
- * (not an error). Malformed JSON and non-object roots also return `null` —
- * the feature is a convenience, not a hard requirement.
+ * (not an error). Malformed JSON, non-object roots, and config-only manifests
+ * that carry no recognised metadata (e.g. a `deno.json` with only `tasks` /
+ * `imports`) are all skipped, so discovery keeps probing the remaining
+ * candidate files and parent directories — the feature is a convenience, not a
+ * hard requirement.
  *
  * @param adapter - Adapter providing `readFile` + `cwd`.
  * @param options - Optional anchor (`startDir`) and candidate filenames (`files`).
@@ -171,7 +204,7 @@ async function discoverManifest(
 			}
 			if (content !== null) {
 				const parsed = parsePackageJson(content);
-				if (parsed !== null) {
+				if (parsed !== null && manifestHasMetadata(parsed)) {
 					return parsed;
 				}
 			}
@@ -190,6 +223,16 @@ async function discoverManifest(
  *
  * @deprecated Use {@link discoverManifest} with `{ files: ['package.json'] }`
  *   (the default), which also supports `deno.json` / `jsr.json`.
+ *
+ * Behavior note (changed by the manifest generalization): a parseable but
+ * metadata-less `package.json` — `{}`, or one carrying only non-metadata fields
+ * such as `dependencies` / `scripts` / `type` — is no longer treated as a
+ * discovery hit. Previously such a file halted the walk-up and resolved to `{}`;
+ * now it is skipped and the walk-up CONTINUES to parent directories. In a
+ * monorepo this means a metadata-less leaf `package.json` no longer shadows an
+ * ancestor manifest, so an ancestor's `version` can surface where the old
+ * behavior returned `{}`. Pass pre-loaded `data` (or use {@link discoverManifest}
+ * with an explicit `startDir`) when you need to pin discovery to one directory.
  *
  * @param adapter - Adapter providing `readFile` + `cwd`.
  * @param startDir - Optional explicit directory or file path to walk up from.

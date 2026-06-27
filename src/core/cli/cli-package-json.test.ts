@@ -313,6 +313,72 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 		expect(help).toContain('realname');
 		expect(help).not.toContain('@scope/realname');
 	});
+
+	it('.manifest({ files, from }) composes a custom file list with an anchor through run()', async () => {
+		// Headline installable-Deno-CLI case: a non-default `files` list AND a
+		// `from` anchor wired together. The anchor's deno.json must win over the
+		// cwd ('/test') one, proving startDir+files are passed together.
+		const app = cli('placeholder')
+			.manifest({
+				files: ['deno.json', 'jsr.json'],
+				from: 'file:///anchor/cli.js',
+				inferName: { scope: 'keep' },
+			})
+			.command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"name":"@scope/wrong","version":"0.0.0"}',
+			'/anchor/deno.json': '{"name":"@scope/right","version":"5.6.7"}',
+		});
+
+		expect(stdout.join('')).toBe('5.6.7\n');
+	});
+
+	it('keeps the anchored scoped name when inferName scope is "keep"', async () => {
+		const app = cli('placeholder')
+			.manifest({
+				files: ['deno.json', 'jsr.json'],
+				from: 'file:///anchor/cli.js',
+				inferName: { scope: 'keep' },
+			})
+			.command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/deno.json': '{"name":"@scope/wrong","version":"0.0.0"}',
+			'/anchor/deno.json': '{"name":"@scope/right","version":"5.6.7"}',
+		});
+
+		expect(stdout.join('')).toContain('@scope/right');
+	});
+
+	it('.denoJson() skips a config-only deno.json and uses jsr.json version', async () => {
+		// Headline Deno shape through the public preset: deno.json kept as a
+		// tasks/imports config file, publish metadata lives in jsr.json. The
+		// config-only deno.json must NOT shadow the sibling jsr.json.
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"tasks":{"dev":"deno run main.ts"},"imports":{}}',
+			'/test/jsr.json': '{"name":"@s/p","version":"1.2.3"}',
+		});
+
+		expect(stdout.join('')).toBe('1.2.3\n');
+	});
+
+	it('inferName preserves the configured cli() name when the manifest has no name/bin', async () => {
+		// deno.json carries a version but no `name` and no `bin`, so inferCliName
+		// returns undefined — the configured cli('placeholder') name must survive
+		// (not be clobbered with an empty/undefined value).
+		const app = cli('placeholder').denoJson({ inferName: true }).command(infoCommand());
+
+		const files = { '/test/deno.json': '{"version":"1.0.0"}' };
+
+		const help = await runWithAdapter(app, ['--help'], files);
+		expect(help.stdout.join('')).toContain('placeholder');
+
+		const version = await runWithAdapter(app, ['--version'], files);
+		expect(version.stdout.join('')).toBe('1.0.0\n');
+	});
 });
 
 // === CLIBuilder.run() — description discovery
@@ -396,6 +462,30 @@ describe('CLIBuilder.run() — package.json walk-up', () => {
 		);
 
 		expect(stdout.join('')).toBe('5.0.0\n');
+	});
+});
+
+// === CLIBuilder.run() — walk-up past a metadata-less manifest
+
+describe('CLIBuilder.run() — walk-up past a metadata-less package.json', () => {
+	it('skips a metadata-less leaf and surfaces an ancestor version', async () => {
+		// Documented behavior change (manifest generalization): a metadata-less
+		// leaf package.json — e.g. a monorepo root with only private/workspaces —
+		// no longer halts the walk-up. The nearest ancestor carrying real metadata
+		// wins, so its version surfaces where the old behavior resolved to {}.
+		const app = cli('myapp').packageJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(
+			app,
+			['--version'],
+			{
+				'/projects/myapp/package.json': '{"private":true,"workspaces":["packages/*"]}',
+				'/projects/package.json': '{"version":"7.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(stdout.join('')).toBe('7.0.0\n');
 	});
 });
 
