@@ -93,7 +93,8 @@ Source the CLI's `version` and `description` (and optionally its name) from a ma
 `package.json`, `deno.json`, or `jsr.json`. There are two complementary forms.
 
 > `.packageJson()` and `.denoJson()` are **deprecated** thin presets over `.manifest()` (pinning
-> `files` to `['package.json']` and `['deno.json', 'jsr.json']` respectively). Prefer `.manifest()`.
+> `files` to `['package.json']` and `['deno.json', 'deno.jsonc', 'jsr.json']` respectively). Prefer
+> `.manifest()`.
 
 **Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
 directory and reads the nearest manifest among `files` (default `['package.json']`); the nearest
@@ -114,7 +115,7 @@ const deploy = command('deploy');
 // Deno / JSR CLI: discover deno.json then jsr.json, keep the scoped name:
 cli('mycli')
   .manifest({
-    files: ['deno.json', 'jsr.json'],
+    files: ['deno.json', 'deno.jsonc', 'jsr.json'],
     inferName: { scope: 'keep' },
   })
   .command(deploy)
@@ -489,7 +490,7 @@ const result = await discoverConfig('mycli', adapter, {
 Walk up from `options.startDir` (or `adapter.cwd` when omitted) and return the nearest parsed manifest
 metadata, or `null` when none is found. This is the helper used by `.manifest()` during `.run()`.
 `options.files` chooses the candidate filenames in per-directory priority order (default
-`['package.json']`); pass `['deno.json', 'jsr.json']` for Deno / JSR projects. Files are parsed as
+`['package.json']`); pass `['deno.json', 'deno.jsonc', 'jsr.json']` for Deno / JSR projects. Files are parsed as
 JSON with a JSONC fallback (comments and trailing commas are tolerated), and a config-only manifest
 with no recognised metadata is skipped so the walk-up continues.
 
@@ -515,7 +516,7 @@ if (pkg !== null) {
 // Deno / JSR: anchored to the CLI's own module, deno.json then jsr.json
 const own = await discoverManifest(adapter, {
   startDir: fileURLToPath(import.meta.url),
-  files: ['deno.json', 'jsr.json'],
+  files: ['deno.json', 'deno.jsonc', 'jsr.json'],
 });
 ```
 

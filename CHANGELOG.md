@@ -24,7 +24,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `name` like `@scope/mycli` can be kept verbatim instead of always stripping to
   `mycli`. Relevant for `deno.json` / `jsr.json`, which have no `bin` field.
 - **`.denoJson()`** — deprecated convenience preset for
-  `.manifest({ files: ['deno.json', 'jsr.json'] })` (see Deprecated below).
+  `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })` (see Deprecated below).
 
 ### Changed
 

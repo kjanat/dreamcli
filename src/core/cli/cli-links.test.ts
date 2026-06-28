@@ -358,7 +358,10 @@ describe('root help — links derived from deno.json / jsr.json discovery in .ru
 			isTTY: true,
 		});
 
-		expect(stdout.join('')).toContain(osc8(REPO, 'mytool'));
+		const output = stdout.join('');
+		expect(output).toContain(osc8(REPO, 'mytool'));
+		// No version → no release/tag hyperlink may slip into the header.
+		expect(output).not.toContain('/releases/tag/');
 	});
 
 	it('.manifest({ files }) discovery derives links the same way', async () => {

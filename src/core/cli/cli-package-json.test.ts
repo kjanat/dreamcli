@@ -219,13 +219,13 @@ describe('CLIBuilder.manifest() — builder method', () => {
 });
 
 describe('CLIBuilder.denoJson() — builder method', () => {
-	it('stores deno.json then jsr.json as candidate files', () => {
+	it('stores deno.json, deno.jsonc, then jsr.json as candidate files', () => {
 		const app = cli('myapp').denoJson();
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
 			stripScope: true,
 			from: undefined,
-			files: ['deno.json', 'jsr.json'],
+			files: ['deno.json', 'deno.jsonc', 'jsr.json'],
 			data: undefined,
 		});
 	});
@@ -239,7 +239,7 @@ describe('CLIBuilder.denoJson() — builder method', () => {
 			from: '/lib/cli.js',
 			inferName: true,
 			stripScope: false,
-			files: ['deno.json', 'jsr.json'],
+			files: ['deno.json', 'deno.jsonc', 'jsr.json'],
 		});
 	});
 });
@@ -299,6 +299,16 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 		});
 
 		expect(stdout.join('')).toBe('7.8.9\n');
+	});
+
+	it('.denoJson() discovers a deno.jsonc file (with comments)', async () => {
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.jsonc': '{\n  // pinned\n  "version": "6.6.6"\n}',
+		});
+
+		expect(stdout.join('')).toBe('6.6.6\n');
 	});
 
 	it('.manifest({ files }) discovers the requested manifest', async () => {
@@ -793,6 +803,7 @@ describe('CLIBuilder.packageJson() — settings vs data discrimination', () => {
 		]);
 		expect(cli('y').denoJson(leakyPkg).schema.packageJsonSettings?.files).toEqual([
 			'deno.json',
+			'deno.jsonc',
 			'jsr.json',
 		]);
 		// manifest() is NOT a preset — it honours an explicit files list.

@@ -278,7 +278,7 @@ interface ResolvedManifestSettings {
 	readonly from: string | undefined;
 	/**
 	 * Candidate manifest filenames, in per-directory priority order
-	 * (e.g. `['deno.json', 'jsr.json']` for `.denoJson()`).
+	 * (e.g. `['deno.json', 'deno.jsonc', 'jsr.json']` for `.denoJson()`).
 	 */
 	readonly files: readonly string[];
 	/**
@@ -647,19 +647,19 @@ class CLIBuilder {
 	}
 
 	/**
-	 * Discover metadata from `deno.json` then `jsr.json` (preset for
+	 * Discover metadata from `deno.json`, `deno.jsonc`, then `jsr.json` (preset for
 	 * {@link CLIBuilder.manifest}).
 	 *
-	 * @deprecated Use `.manifest({ files: ['deno.json', 'jsr.json'] })`.
+	 * @deprecated Use `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
 	 *
 	 * @param data - Pre-loaded `deno.json` / `jsr.json` metadata.
 	 */
 	denoJson(data: PackageJsonData): CLIBuilder;
 	/**
-	 * Discover metadata from `deno.json` then `jsr.json` (preset for
+	 * Discover metadata from `deno.json`, `deno.jsonc`, then `jsr.json` (preset for
 	 * {@link CLIBuilder.manifest}).
 	 *
-	 * @deprecated Use `.manifest({ files: ['deno.json', 'jsr.json'] })`.
+	 * @deprecated Use `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
 	 *
 	 * @param settings - `inferName` / `from` (see {@link CLIBuilder.manifest}).
 	 *   `deno.json` / `jsr.json` have no `bin` field, so `inferName` resolves
@@ -1136,7 +1136,7 @@ function resolveHelpLinksSchema(schema: CLISchema): CLISchema {
 const DEFAULT_MANIFEST_FILES: readonly string[] = ['package.json'];
 
 /** Manifest filenames for the `.denoJson()` preset, in priority order. @internal */
-const DENO_MANIFEST_FILES: readonly string[] = ['deno.json', 'jsr.json'];
+const DENO_MANIFEST_FILES: readonly string[] = ['deno.json', 'deno.jsonc', 'jsr.json'];
 
 /**
  * CLI-name inference control for {@link ManifestSettings.inferName}.
