@@ -7,6 +7,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-06-28
+
+### Added
+
+- **`.manifest()` — runtime-agnostic manifest discovery** — discover CLI metadata
+  from any manifest file, not just `package.json`. Pass `files` to choose candidate
+  filenames in priority order (e.g. `['deno.json', 'jsr.json']`); discovery walks up
+  from `cwd` (or `from`) and the nearest manifest directory wins. Files are parsed as
+  JSON with a JSONC fallback, so `package.json`, `deno.json`, `jsr.json`, and
+  `deno.jsonc` all work — including manifests with `//` / block comments or trailing
+  commas (a dependency-free, string-aware strip that leaves `//` inside string values
+  such as URLs untouched).
+- **`discoverManifest()`** — the generalized discovery helper behind `.manifest()`,
+  accepting `{ startDir, files }`.
+- **Optional scope retention in name inference** — `inferName` now accepts
+  `{ scope: 'keep' | 'strip' }` (and `inferCliName(pkg, { stripScope })`) so a scoped
+  `name` like `@scope/mycli` can be kept verbatim instead of always stripping to
+  `mycli`. Relevant for `deno.json` / `jsr.json`, which have no `bin` field.
+- **`.denoJson()`** — deprecated convenience preset for
+  `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })` (see Deprecated below).
+
+### Changed
+
+- **Manifest discovery now requires recognized metadata to count as a hit** — a
+  parseable but metadata-less manifest (`{}`, or one carrying only non-metadata
+  fields such as `dependencies` / `scripts` / `type`, or a config-only `deno.json`
+  with just `tasks` / `imports`) is no longer treated as a match. Discovery now
+  walks up to parent directories and tries the remaining candidate files instead
+  of halting. This also changes the deprecated `discoverPackageJson()` /
+  `.packageJson()`: where a metadata-less `package.json` previously halted the
+  walk-up and resolved to `{}`, the walk-up now continues, so an ancestor's
+  version can surface (relevant in monorepos). Pass pre-loaded `data` or an
+  explicit `from` / `startDir` to pin discovery to one directory.
+
+### Deprecated
+
+- **`.packageJson()`, `.denoJson()`, and `discoverPackageJson()`** — superseded by
+  `.manifest()` / `discoverManifest()`, whose defaults (`['package.json']`) match the
+  old behavior. All still work, delegating to the generalized path.
+
 ## [2.4.1] - 2026-06-27
 
 ### Fixed
@@ -838,7 +878,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/kjanat/dreamcli/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/kjanat/dreamcli/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/kjanat/dreamcli/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/kjanat/dreamcli/compare/v2.2.1...v2.3.0

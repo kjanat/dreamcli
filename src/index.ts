@@ -27,9 +27,13 @@ export type {
 	CLISchema,
 	ConfigSettings,
 	HelpLinks,
+	InferNameOption,
+	ManifestPresetSettings,
+	ManifestSettings,
 	PackageJsonSettings,
 	PluginCommandContext,
 	ResolvedCommandParams,
+	ResolvedManifestSettings,
 } from './core/cli/index.ts';
 export { CLIBuilder, cli, plugin } from './core/cli/index.ts';
 export type { CompletionOptions, Shell } from './core/completion/index.ts';
@@ -48,6 +52,7 @@ export type {
 	ConfigFound,
 	ConfigNotFound,
 	FormatLoader,
+	ManifestDiscoveryOptions,
 	PackageJsonAdapter,
 	PackageJsonData,
 	PackageRepository,
@@ -56,6 +61,7 @@ export {
 	buildConfigSearchPaths,
 	configFormat,
 	discoverConfig,
+	discoverManifest,
 	discoverPackageJson,
 	inferCliName,
 	packageRepositoryUrl,

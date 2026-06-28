@@ -7,7 +7,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { PackageJsonAdapter } from './package-json.ts';
-import { discoverPackageJson, inferCliName, packageRepositoryUrl } from './package-json.ts';
+import {
+	discoverManifest,
+	discoverPackageJson,
+	inferCliName,
+	packageRepositoryUrl,
+} from './package-json.ts';
 
 // === Test helpers
 
@@ -191,13 +196,15 @@ describe('discoverPackageJson', () => {
 			expect(result?.bin).toBe('./dist/cli.js');
 		});
 
-		it('returns undefined for missing fields', async () => {
+		it('skips a metadata-less manifest and keeps looking (returns null when none exists)', async () => {
+			// A package.json with no recognized metadata fields is not a discovery
+			// hit: the walk-up continues so a sibling/parent manifest can win.
 			const adapter = createAdapter({
 				'/projects/myapp/package.json': '{}',
 			});
 
 			const result = await discoverPackageJson(adapter);
-			expect(result).toEqual({});
+			expect(result).toBeNull();
 		});
 
 		it('ignores non-string name/version/description', async () => {
@@ -497,5 +504,301 @@ describe('packageRepositoryUrl — repository field normalization', () => {
 		expect(packageRepositoryUrl({ repository: '  ' })).toBeUndefined();
 		expect(packageRepositoryUrl({ repository: 'not a repo' })).toBeUndefined();
 		expect(packageRepositoryUrl({ repository: { type: 'git' } })).toBeUndefined();
+	});
+});
+
+// === discoverManifest — generalized multi-file discovery
+
+describe('discoverManifest', () => {
+	it('defaults to package.json (parity with discoverPackageJson)', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"name":"myapp","version":"1.0.0"}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ name: 'myapp', version: '1.0.0' });
+	});
+
+	it('discovers deno.json when requested', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"name":"@scope/myapp","version":"3.1.0"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			name: '@scope/myapp',
+			version: '3.1.0',
+		});
+	});
+
+	it('falls back to jsr.json when deno.json is absent', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/jsr.json': '{"name":"@scope/myapp","version":"4.2.0"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			name: '@scope/myapp',
+			version: '4.2.0',
+		});
+	});
+
+	it('honours per-directory file priority (deno.json beats jsr.json in same dir)', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"version":"1.0.0"}',
+			'/projects/myapp/jsr.json': '{"version":"9.9.9"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '1.0.0',
+		});
+	});
+
+	it('nearest directory wins over file order higher up', async () => {
+		// jsr.json is nearer (cwd); deno.json sits higher. Nearest dir wins.
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/jsr.json': '{"version":"1.0.0"}',
+				'/projects/deno.json': '{"version":"2.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '1.0.0',
+		});
+	});
+
+	it('walks up from an explicit startDir anchor', async () => {
+		const adapter = createAdapter(
+			{ '/lib/cli/deno.json': '{"version":"7.0.0"}' },
+			'/somewhere/else',
+		);
+
+		expect(
+			await discoverManifest(adapter, { startDir: '/lib/cli/bin', files: ['deno.json'] }),
+		).toEqual({ version: '7.0.0' });
+	});
+
+	it('returns null when no candidate file is found', async () => {
+		const adapter = createAdapter({ '/projects/myapp/package.json': '{"version":"1.0.0"}' });
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toBeNull();
+	});
+
+	it('falls through to jsr.json when deno.json in the same dir is malformed', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{bad',
+			'/projects/myapp/jsr.json': '{"version":"2.3.4"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '2.3.4',
+		});
+	});
+
+	it('walks up when the nearest dir holds only a malformed candidate', async () => {
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/deno.json': '{bad',
+				'/projects/deno.json': '{"version":"5.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			version: '5.0.0',
+		});
+	});
+
+	it('falls through to jsr.json when reading deno.json throws in the same dir', async () => {
+		const adapter: PackageJsonAdapter = {
+			cwd: '/projects/myapp',
+			readFile: async (path: string) => {
+				if (path === '/projects/myapp/deno.json') {
+					throw new Error('EACCES: permission denied');
+				}
+				if (path === '/projects/myapp/jsr.json') {
+					return '{"version":"6.7.8"}';
+				}
+				return null;
+			},
+		};
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			version: '6.7.8',
+		});
+	});
+
+	it('returns null without reading when files is empty', async () => {
+		let reads = 0;
+		const adapter: PackageJsonAdapter = {
+			cwd: '/projects/myapp',
+			readFile: async () => {
+				reads++;
+				return null;
+			},
+		};
+
+		expect(await discoverManifest(adapter, { files: [] })).toBeNull();
+		expect(reads).toBe(0);
+	});
+
+	it('skips a config-only deno.json and uses jsr.json metadata in the same dir', async () => {
+		// deno.json carries only config (tasks/imports), no CLI metadata — it
+		// must NOT shadow the sibling jsr.json that holds the real version.
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"tasks":{"dev":"deno run main.ts"},"imports":{"@std/":"jsr:@std/"}}',
+			'/projects/myapp/jsr.json': '{"name":"@s/p","version":"1.2.3"}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] })).toEqual({
+			name: '@s/p',
+			version: '1.2.3',
+		});
+	});
+
+	it('walks past a metadata-less deno.json to a real manifest in a parent dir', async () => {
+		// A config-only deno.json in cwd must not halt the walk-up.
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/deno.json': '{"tasks":{"dev":"deno run main.ts"}}',
+				'/projects/deno.json': '{"version":"2.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			version: '2.0.0',
+		});
+	});
+
+	// --- metadata acceptance via non-name/version fields
+	// manifestHasMetadata accepts a hit on ANY recognized field, not just
+	// name/version/description. A manifest carrying only repository/homepage/bin
+	// must still be returned so deriveHelpLinks can surface its links — guarding
+	// against a regression that drops one of those OR-clauses.
+
+	it('accepts a manifest whose only field is repository', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"repository":"github:me/myapp"}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ repository: 'github:me/myapp' });
+	});
+
+	it('accepts a manifest whose only field is homepage', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"homepage":"https://myapp.dev"}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ homepage: 'https://myapp.dev' });
+	});
+
+	it('accepts a manifest whose only field is bin', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/package.json': '{"bin":{"mycli":"./dist/cli.js"}}',
+		});
+
+		expect(await discoverManifest(adapter)).toEqual({ bin: { mycli: './dist/cli.js' } });
+	});
+
+	it('skips a repository/homepage/bin-less manifest and keeps walking up', async () => {
+		// A manifest with ONLY non-metadata fields (no name/version/description/
+		// bin/homepage/repository) is not a hit — the nearer dir must not shadow a
+		// real manifest higher up.
+		const adapter = createAdapter(
+			{
+				'/projects/myapp/package.json': '{"private":true,"dependencies":{"x":"1.0.0"}}',
+				'/projects/package.json': '{"repository":"github:me/root"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(await discoverManifest(adapter)).toEqual({ repository: 'github:me/root' });
+	});
+
+	// --- JSONC tolerance (deno.json commonly carries comments / trailing commas)
+
+	it('parses a deno.json with line and block comments', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': `{
+				// the package version
+				"name": "@scope/app",
+				/* block comment */
+				"version": "1.2.3"
+			}`,
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			name: '@scope/app',
+			version: '1.2.3',
+		});
+	});
+
+	it('parses a manifest with trailing commas', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{"name":"app","version":"2.0.0",}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			name: 'app',
+			version: '2.0.0',
+		});
+	});
+
+	it('does NOT strip comment markers inside string values (URL safety)', async () => {
+		// `//` in https:// and a `/*` inside a string must survive — the stripper is
+		// string-aware. A trailing comma + a real comment exercise both passes.
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': `{
+				"version": "9.9.9", // ship it
+				"homepage": "https://example.com/a",
+				"repository": "git+https://github.com/me/repo.git",
+			}`,
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toEqual({
+			version: '9.9.9',
+			homepage: 'https://example.com/a',
+			repository: 'git+https://github.com/me/repo.git',
+		});
+	});
+
+	it('discovers a deno.jsonc candidate', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.jsonc': '{\n  "version": "3.3.3" // jsonc\n}',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.jsonc'] })).toEqual({
+			version: '3.3.3',
+		});
+	});
+
+	it('still returns null for genuinely malformed content', async () => {
+		const adapter = createAdapter({
+			'/projects/myapp/deno.json': '{ not valid: at all ]',
+		});
+
+		expect(await discoverManifest(adapter, { files: ['deno.json'] })).toBeNull();
+	});
+});
+
+// === inferCliName — scope-stripping control
+
+describe('inferCliName — scope handling', () => {
+	it('strips the scope by default', () => {
+		expect(inferCliName({ name: '@scope/mycli' })).toBe('mycli');
+	});
+
+	it('keeps the scope when stripScope is false', () => {
+		expect(inferCliName({ name: '@scope/mycli' }, { stripScope: false })).toBe('@scope/mycli');
+	});
+
+	it('strips when stripScope is explicitly true', () => {
+		expect(inferCliName({ name: '@scope/mycli' }, { stripScope: true })).toBe('mycli');
+	});
+
+	it('bin keys ignore stripScope (never scoped)', () => {
+		expect(inferCliName({ bin: { tool: './c.js' }, name: '@scope/x' }, { stripScope: false })).toBe(
+			'tool',
+		);
 	});
 });

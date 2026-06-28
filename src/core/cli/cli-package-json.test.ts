@@ -9,6 +9,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { cli } from './index.ts';
+import type { ManifestSettings } from './index.ts';
 
 // === Test helpers
 
@@ -69,7 +70,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson();
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -78,7 +81,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({ inferName: true });
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: true,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -92,7 +97,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({ from: '/anchor' });
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: '/anchor',
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -111,7 +118,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({ version: '5.5.5' });
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: { version: '5.5.5' },
 		});
 	});
@@ -120,7 +129,9 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 		const app = cli('myapp').packageJson({});
 		expect(app.schema.packageJsonSettings).toEqual({
 			inferName: false,
+			stripScope: true,
 			from: undefined,
+			files: ['package.json'],
 			data: undefined,
 		});
 	});
@@ -142,6 +153,94 @@ describe('CLIBuilder.packageJson() — builder method', () => {
 
 		expect(callPackageJson(null).schema.packageJsonSettings?.data).toBeUndefined();
 		expect(callPackageJson([1]).schema.packageJsonSettings?.data).toBeUndefined();
+	});
+});
+
+// === CLIBuilder.manifest() / .denoJson() — builder methods
+
+describe('CLIBuilder.manifest() — builder method', () => {
+	it('defaults files to package.json', () => {
+		const app = cli('myapp').manifest();
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['package.json'],
+			data: undefined,
+		});
+	});
+
+	it('stores custom files in priority order', () => {
+		const app = cli('myapp').manifest({ files: ['deno.json', 'jsr.json'] });
+		expect(app.schema.packageJsonSettings?.files).toEqual(['deno.json', 'jsr.json']);
+	});
+
+	it('inferName: { scope: "keep" } sets stripScope false', () => {
+		const app = cli('myapp').manifest({ inferName: { scope: 'keep' } });
+		expect(app.schema.packageJsonSettings).toMatchObject({ inferName: true, stripScope: false });
+	});
+
+	it('inferName: { scope: "strip" } keeps stripScope true', () => {
+		const app = cli('myapp').manifest({ inferName: { scope: 'strip' } });
+		expect(app.schema.packageJsonSettings).toMatchObject({ inferName: true, stripScope: true });
+	});
+
+	it('inferName: true strips scope by default', () => {
+		const app = cli('myapp').manifest({ inferName: true });
+		expect(app.schema.packageJsonSettings).toMatchObject({ inferName: true, stripScope: true });
+	});
+
+	it('data overload merges version immediately', () => {
+		const app = cli('myapp').manifest({ version: '9.9.9' });
+		expect(app.schema.version).toBe('9.9.9');
+		expect(app.schema.packageJsonSettings?.data).toEqual({ version: '9.9.9' });
+	});
+
+	it('explicit inferName: false resolves to no inference, scope strip default', () => {
+		const app = cli('myapp').manifest({ inferName: false });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['package.json'],
+			data: undefined,
+		});
+	});
+
+	it('routes homepage-only and repository-only objects to the data overload', () => {
+		// isPackageJsonData recognizes homepage/repository, so these are data, not settings.
+		expect(cli('x').manifest({ homepage: 'https://x.dev' }).schema.packageJsonSettings?.data).toEqual(
+			{ homepage: 'https://x.dev' },
+		);
+		expect(
+			cli('y').manifest({ repository: 'github:me/y' }).schema.packageJsonSettings?.data,
+		).toEqual({ repository: 'github:me/y' });
+	});
+});
+
+describe('CLIBuilder.denoJson() — builder method', () => {
+	it('stores deno.json, deno.jsonc, then jsr.json as candidate files', () => {
+		const app = cli('myapp').denoJson();
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['deno.json', 'deno.jsonc', 'jsr.json'],
+			data: undefined,
+		});
+	});
+
+	it('normalizes from and honours inferName scope', () => {
+		const app = cli('myapp').denoJson({
+			from: 'file:///lib/cli.js',
+			inferName: { scope: 'keep' },
+		});
+		expect(app.schema.packageJsonSettings).toMatchObject({
+			from: '/lib/cli.js',
+			inferName: true,
+			stripScope: false,
+			files: ['deno.json', 'deno.jsonc', 'jsr.json'],
+		});
 	});
 });
 
@@ -176,6 +275,141 @@ describe('CLIBuilder.run() — package.json version', () => {
 		// No version configured → --version falls through as unknown flag
 		expect(exitCode).toBe(2);
 		expect(stderr.join('')).toContain('Unknown flag --version');
+	});
+});
+
+// === CLIBuilder.run() — deno.json / manifest discovery
+
+describe('CLIBuilder.run() — deno.json discovery', () => {
+	it('.denoJson() fills version from deno.json', async () => {
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"name":"@scope/myapp","version":"4.5.6"}',
+		});
+
+		expect(stdout.join('')).toBe('4.5.6\n');
+	});
+
+	it('.denoJson() falls back to jsr.json when deno.json is absent', async () => {
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/jsr.json': '{"version":"7.8.9"}',
+		});
+
+		expect(stdout.join('')).toBe('7.8.9\n');
+	});
+
+	it('.denoJson() discovers a deno.jsonc file (with comments)', async () => {
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.jsonc': '{\n  // pinned\n  "version": "6.6.6"\n}',
+		});
+
+		expect(stdout.join('')).toBe('6.6.6\n');
+	});
+
+	it('.manifest({ files }) discovers the requested manifest', async () => {
+		const app = cli('myapp').manifest({ files: ['deno.json'] }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"version":"1.2.3"}',
+		});
+
+		expect(stdout.join('')).toBe('1.2.3\n');
+	});
+
+	it('inferName keeps the scope when scope: "keep"', async () => {
+		const app = cli('placeholder')
+			.denoJson({ inferName: { scope: 'keep' } })
+			.command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/deno.json': '{"name":"@scope/realname","version":"1.0.0"}',
+		});
+
+		// Scoped name is preserved as the CLI binary name in help output.
+		expect(stdout.join('')).toContain('@scope/realname');
+	});
+
+	it('inferName strips the scope by default', async () => {
+		const app = cli('placeholder').denoJson({ inferName: true }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/deno.json': '{"name":"@scope/realname","version":"1.0.0"}',
+		});
+
+		const help = stdout.join('');
+		expect(help).toContain('realname');
+		expect(help).not.toContain('@scope/realname');
+	});
+
+	it('.manifest({ files, from }) composes a custom file list with an anchor through run()', async () => {
+		// Headline installable-Deno-CLI case: a non-default `files` list AND a
+		// `from` anchor wired together. The anchor's deno.json must win over the
+		// cwd ('/test') one, proving startDir+files are passed together.
+		const app = cli('placeholder')
+			.manifest({
+				files: ['deno.json', 'jsr.json'],
+				from: 'file:///anchor/cli.js',
+				inferName: { scope: 'keep' },
+			})
+			.command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"name":"@scope/wrong","version":"0.0.0"}',
+			'/anchor/deno.json': '{"name":"@scope/right","version":"5.6.7"}',
+		});
+
+		expect(stdout.join('')).toBe('5.6.7\n');
+	});
+
+	it('keeps the anchored scoped name when inferName scope is "keep"', async () => {
+		const app = cli('placeholder')
+			.manifest({
+				files: ['deno.json', 'jsr.json'],
+				from: 'file:///anchor/cli.js',
+				inferName: { scope: 'keep' },
+			})
+			.command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/deno.json': '{"name":"@scope/wrong","version":"0.0.0"}',
+			'/anchor/deno.json': '{"name":"@scope/right","version":"5.6.7"}',
+		});
+
+		expect(stdout.join('')).toContain('@scope/right');
+	});
+
+	it('.denoJson() skips a config-only deno.json and uses jsr.json version', async () => {
+		// Headline Deno shape through the public preset: deno.json kept as a
+		// tasks/imports config file, publish metadata lives in jsr.json. The
+		// config-only deno.json must NOT shadow the sibling jsr.json.
+		const app = cli('myapp').denoJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/test/deno.json': '{"tasks":{"dev":"deno run main.ts"},"imports":{}}',
+			'/test/jsr.json': '{"name":"@s/p","version":"1.2.3"}',
+		});
+
+		expect(stdout.join('')).toBe('1.2.3\n');
+	});
+
+	it('inferName preserves the configured cli() name when the manifest has no name/bin', async () => {
+		// deno.json carries a version but no `name` and no `bin`, so inferCliName
+		// returns undefined — the configured cli('placeholder') name must survive
+		// (not be clobbered with an empty/undefined value).
+		const app = cli('placeholder').denoJson({ inferName: true }).command(infoCommand());
+
+		const files = { '/test/deno.json': '{"version":"1.0.0"}' };
+
+		const help = await runWithAdapter(app, ['--help'], files);
+		expect(help.stdout.join('')).toContain('placeholder');
+
+		const version = await runWithAdapter(app, ['--version'], files);
+		expect(version.stdout.join('')).toBe('1.0.0\n');
 	});
 });
 
@@ -244,6 +478,22 @@ describe('CLIBuilder.run() — package.json name inference', () => {
 		expect(stdout.join('')).toContain('myapp');
 		expect(stdout.join('')).not.toContain('other-tool');
 	});
+
+	it('does not infer name when inferName is EXPLICITLY false', async () => {
+		// Guards the normalizeInferName `option === false` branch: an explicit
+		// false must not flip to inference-on.
+		const app = cli('myapp').manifest({ inferName: false }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--help'], {
+			'/test/package.json': JSON.stringify({
+				name: 'other-name',
+				bin: { 'other-tool': './dist/cli.js' },
+			}),
+		});
+
+		expect(stdout.join('')).toContain('myapp');
+		expect(stdout.join('')).not.toContain('other-tool');
+	});
 });
 
 // === CLIBuilder.run() — walk-up resolution
@@ -260,6 +510,30 @@ describe('CLIBuilder.run() — package.json walk-up', () => {
 		);
 
 		expect(stdout.join('')).toBe('5.0.0\n');
+	});
+});
+
+// === CLIBuilder.run() — walk-up past a metadata-less manifest
+
+describe('CLIBuilder.run() — walk-up past a metadata-less package.json', () => {
+	it('skips a metadata-less leaf and surfaces an ancestor version', async () => {
+		// Documented behavior change (manifest generalization): a metadata-less
+		// leaf package.json — e.g. a monorepo root with only private/workspaces —
+		// no longer halts the walk-up. The nearest ancestor carrying real metadata
+		// wins, so its version surfaces where the old behavior resolved to {}.
+		const app = cli('myapp').packageJson().command(infoCommand());
+
+		const { stdout } = await runWithAdapter(
+			app,
+			['--version'],
+			{
+				'/projects/myapp/package.json': '{"private":true,"workspaces":["packages/*"]}',
+				'/projects/package.json': '{"version":"7.0.0"}',
+			},
+			'/projects/myapp',
+		);
+
+		expect(stdout.join('')).toBe('7.0.0\n');
 	});
 });
 
@@ -515,5 +789,72 @@ describe('CLIBuilder.packageJson() — settings vs data discrimination', () => {
 
 		expect(stdout.join('')).toContain('inferred-tool');
 		expect(stdout.join('')).not.toContain('placeholder');
+	});
+
+	it('presets pin their file list even when a settings variable leaks `files`', () => {
+		// A ManifestSettings variable binds structurally to the data overload,
+		// slips past the Omit<…,'files'> compile guard, and would otherwise leak
+		// `files` into the settings branch at runtime. Presets must pin regardless.
+		const leakyDeno: ManifestSettings = { files: ['deno.json', 'jsr.json'] };
+		const leakyPkg: ManifestSettings = { files: ['package.json'] };
+
+		expect(cli('x').packageJson(leakyDeno).schema.packageJsonSettings?.files).toEqual([
+			'package.json',
+		]);
+		expect(cli('y').denoJson(leakyPkg).schema.packageJsonSettings?.files).toEqual([
+			'deno.json',
+			'deno.jsonc',
+			'jsr.json',
+		]);
+		// manifest() is NOT a preset — it honours an explicit files list.
+		expect(cli('z').manifest(leakyDeno).schema.packageJsonSettings?.files).toEqual([
+			'deno.json',
+			'jsr.json',
+		]);
+	});
+});
+
+// === CLIBuilder.manifest(data) — end-to-end (canonical data overload)
+
+describe('CLIBuilder.manifest(data) — end-to-end', () => {
+	it('reports version from data via execute() — filesystem-free path', async () => {
+		const app = cli('myapp').manifest({ version: '8.8.8' }).command(infoCommand());
+
+		const result = await app.execute(['--version']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toBe('8.8.8\n');
+	});
+
+	it('does NOT touch the filesystem for manifest(data) in run()', async () => {
+		let readCalled = false;
+		const out: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', '--version'],
+			stdout: (s) => out.push(s),
+			stderr: () => {},
+			readFile: async () => {
+				readCalled = true;
+				return null;
+			},
+		});
+
+		const app = cli('myapp').manifest({ version: '8.8.8' }).command(infoCommand());
+		try {
+			await app.run({ adapter });
+		} catch (e: unknown) {
+			if (!(e instanceof ExitError)) throw e;
+		}
+
+		expect(readCalled).toBe(false);
+		expect(out.join('')).toBe('8.8.8\n');
+	});
+
+	it('fills description from data into help via execute()', async () => {
+		const app = cli('myapp').manifest({ description: 'Manifest data desc' }).command(infoCommand());
+
+		const result = await app.execute(['--help']);
+
+		expect(result.stdout.join('')).toContain('Manifest data desc');
 	});
 });
