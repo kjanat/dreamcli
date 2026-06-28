@@ -90,6 +90,53 @@ Workarounds:
 
 References: [CLI Semantics](/guide/semantics), [Flags](/guide/flags)
 
+## "Exactly One Of" Is Not Built In
+
+DreamCLI has no declarative mutual-exclusion modifier.
+There is no `.exclusive()`, no `.conflicts()`, and no required-one-of group — flags are resolved independently of one another.
+
+Why:
+
+- the schema models each flag as a standalone, independently resolved value;
+- cross-flag rules are open-ended (exactly-one, at-most-one, all-or-none, implies), and a single declarative knob would cover only a slice of them.
+
+Workaround — enforce the rule in `.derive()`, which runs after resolution and before the action, and throw a `CLIError`:
+
+```ts twoslash
+import { CLIError, command, flag } from '@kjanat/dreamcli';
+
+command('lsp-server')
+  .flag('stdio', flag.boolean())
+  .flag('node-ipc', flag.boolean())
+  .flag('socket', flag.number())
+  .derive(({ flags }) => {
+    const count =
+      Number(flags.stdio) +
+      Number(flags['node-ipc']) +
+      Number(flags.socket !== undefined);
+    if (count === 0) {
+      throw new CLIError('No transport selected.', {
+        code: 'NO_TRANSPORT',
+        suggest:
+          'Pass exactly one of --stdio, --node-ipc, or --socket <port>',
+      });
+    }
+    if (count > 1) {
+      throw new CLIError(
+        'Choose exactly one transport flag.',
+        { code: 'TOO_MANY_TRANSPORTS' },
+      );
+    }
+    return {};
+  })
+  .action(({ out }) => out.log('starting'));
+```
+
+The thrown `CLIError` renders a friendly message on stderr and exits with code `1`.
+For a complete, typed version that hands the chosen transport to the action, see the `transport-launcher` example.
+
+References: [Flags](/guide/flags), [Errors](/guide/errors), [CLI Semantics](/guide/semantics)
+
 ## The Framework Is Overkill For Tiny One-Off Scripts
 
 dreamcli is optimized for typed multi-source resolution, middleware, structured output, completions, and in-process testing.

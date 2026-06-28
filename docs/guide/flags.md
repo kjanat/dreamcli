@@ -102,6 +102,57 @@ an empty array `[]`.
 For the exact parser rules around repeated flags, short-flag stacking, `--`
 separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics).
 
+## Flag Names
+
+The string you pass to `.flag(name, …)` is the flag's **canonical name**, and it is used in two
+places at once:
+
+- on the command line as `--name`;
+- as the key on the `flags` object inside your handler.
+
+No case conversion happens — the name you declare is the name you read. Single-word names are
+valid identifiers, so dot access works (`flags.region`). Hyphenated names are not valid
+identifiers, so read them with bracket access (`flags['node-ipc']`).
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('serve')
+  .flag(
+    'node-ipc',
+    flag.boolean().describe('Use the Node IPC transport'),
+  )
+  .flag('dry-run', flag.boolean())
+  .action(({ flags, out }) => {
+    // Hyphenated names are read with bracket access — there is no `flags.nodeIpc`.
+    if (flags['node-ipc']) out.log('ipc');
+    if (flags['dry-run']) out.log('dry run');
+  });
+```
+
+Reach for a hyphenated name when you want the conventional CLI spelling (`--node-ipc`,
+`--dry-run`); reach for a single-word or camelCase name (`--nodeIpc`) when ergonomic dot access
+matters more.
+
+### Aliases Are CLI Tokens, Not Handler Keys
+
+`.alias()` adds an alternate **spelling on the command line**. It resolves back to the canonical
+name — it never becomes a second property on `flags`.
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('serve')
+  // Accepts both `--skip-pass` and `--skipPass` on the CLI…
+  .flag('skip-pass', flag.boolean().alias('skipPass'))
+  .action(({ flags, out }) => {
+    // …but the handler has exactly one key: the canonical name.
+    if (flags['skip-pass']) out.log('skipping');
+  });
+```
+
+So typing `--skipPass` still arrives as `flags['skip-pass']`.
+
 ## Modifiers
 
 Every flag type supports the same modifier chain:
