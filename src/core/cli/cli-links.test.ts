@@ -182,7 +182,7 @@ describe('root help — explicit links', () => {
 describe('root help — links derived from .packageJson(data)', () => {
 	it('derives name from repository and version from the GitHub release tag', async () => {
 		const app = cli('mytool')
-			.packageJson({ version: '2.4.1', repository: `git+${REPO}.git` })
+			.packageJson({ version: '2.5.0', repository: `git+${REPO}.git` })
 			.links()
 			.command(deployCommand());
 
@@ -190,14 +190,14 @@ describe('root help — links derived from .packageJson(data)', () => {
 
 		const output = result.stdout.join('');
 		expect(output).toContain(
-			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v2.4.1`, 'v2.4.1')}`,
+			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v2.5.0`, 'v2.5.0')}`,
 		);
 	});
 
 	it('derives links when .links() is called before .packageJson(data)', async () => {
 		const app = cli('mytool')
 			.links()
-			.packageJson({ version: '2.4.1', repository: REPO })
+			.packageJson({ version: '2.5.0', repository: REPO })
 			.command(deployCommand());
 
 		const result = await app.execute(['--help'], { isTTY: true });
@@ -427,7 +427,7 @@ describe('root help — links derived from deno.json / jsr.json discovery in .ru
 describe('root help — links derived from .denoJson(data)', () => {
 	it('derives name from repository and version from the release tag', async () => {
 		const app = cli('mytool')
-			.denoJson({ version: '2.4.1', repository: `git+${REPO}.git` })
+			.denoJson({ version: '2.5.0', repository: `git+${REPO}.git` })
 			.links()
 			.command(deployCommand());
 
@@ -435,7 +435,7 @@ describe('root help — links derived from .denoJson(data)', () => {
 
 		const output = result.stdout.join('');
 		expect(output).toContain(
-			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v2.4.1`, 'v2.4.1')}`,
+			`${osc8(REPO, 'mytool')} ${osc8(`${REPO}/releases/tag/v2.5.0`, 'v2.5.0')}`,
 		);
 	});
 });

@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-06-28
+
 ### Added
 
 - **`.manifest()` — runtime-agnostic manifest discovery** — discover CLI metadata
@@ -876,7 +878,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/kjanat/dreamcli/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/kjanat/dreamcli/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/kjanat/dreamcli/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/kjanat/dreamcli/compare/v2.2.1...v2.3.0
