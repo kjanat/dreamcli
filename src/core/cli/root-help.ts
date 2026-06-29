@@ -53,14 +53,19 @@ interface CLISchemaLike {
  */
 function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	const width = options?.width ?? 80;
+	const binName = options?.binName ?? schema.name;
 	const hyperlinks = options?.hyperlinks === true;
 	const inlineDefault = options?.inlineDefault ?? true;
 	const showDefaultInCommands = options?.showDefaultInCommands ?? false;
 
 	const surface = resolveRootSurface(schema);
 	const defaultCommand = surface.visibleDefaultCommand;
-	const surfaceCommand = resolveSurfaceCommand(schema, defaultCommand);
-	const inline = inlineDefault && surfaceCommand !== undefined;
+	// `inlineDefault: false` hides the default command's args/flags, but the eager
+	// `--completions` flag is a root-level option that must still be advertised, so
+	// a synthetic completions-only surface is rendered even then.
+	const inlineDefaultCommand = inlineDefault ? defaultCommand : undefined;
+	const surfaceCommand = resolveSurfaceCommand(schema, inlineDefaultCommand);
+	const inline = surfaceCommand !== undefined;
 
 	const sections: string[] = [formatHeader(schema, hyperlinks)];
 	if (schema.description !== undefined) {
@@ -78,21 +83,23 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 		: '';
 	const rootUsage =
 		placeholder.length > 0
-			? `Usage: ${schema.name} ${placeholder} [options]`
-			: `Usage: ${schema.name} [options]`;
+			? `Usage: ${binName} ${placeholder} [options]`
+			: `Usage: ${binName} [options]`;
 
 	let surfaceSections: string[] = [];
 	if (inline && surfaceCommand !== undefined) {
 		surfaceSections = [
 			...formatHelpSections(surfaceCommand, {
 				...options,
-				binName: schema.name,
+				binName,
 				isDefaultHelp: true,
 			}),
 		];
 	}
 	const surfaceUsage = surfaceSections.shift();
-	if (inline && surfaceUsage !== undefined) {
+	// Merge the surface usage into the root usage only when the default command is
+	// actually inlined; a completions-only synthetic surface keeps the root usage.
+	if (inline && surfaceUsage !== undefined && inlineDefaultCommand !== undefined) {
 		sections.push(
 			surface.hasVisibleSubcommands ? mergeUsageSections(rootUsage, surfaceUsage) : surfaceUsage,
 		);
@@ -137,7 +144,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 				? ' [command]'
 				: ' <command>'
 			: '';
-		sections.push(`Run '${schema.name}${footerPlaceholder} --help' for more information.`);
+		sections.push(`Run '${binName}${footerPlaceholder} --help' for more information.`);
 	}
 
 	return `${sections.join('\n\n')}\n`;

@@ -9,6 +9,8 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 
+// === Helpers
+
 function lspCommand() {
 	return command('recipe-lsp')
 		.description('Recipe pharmacological-notation language server')
@@ -27,7 +29,11 @@ function appWithFlag() {
 		.default(lspCommand());
 }
 
+// === .completions({ as: 'flag' })
+
 describe(".completions({ as: 'flag' })", () => {
+	// --- registration
+
 	describe('registration', () => {
 		it('does not register a completions subcommand', () => {
 			const app = appWithFlag();
@@ -50,6 +56,8 @@ describe(".completions({ as: 'flag' })", () => {
 			);
 		});
 	});
+
+	// --- eager flag interception
 
 	describe('eager flag interception', () => {
 		it('prints a script and exits 0 for an explicit shell', async () => {
@@ -91,6 +99,8 @@ describe(".completions({ as: 'flag' })", () => {
 		});
 	});
 
+	// --- auto-detection from the environment
+
 	describe('auto-detection from the environment', () => {
 		it('detects the shell from $SHELL', async () => {
 			const result = await appWithFlag().execute(['--completions'], {
@@ -118,6 +128,8 @@ describe(".completions({ as: 'flag' })", () => {
 			expect(result.stderr.join('')).toContain("recipe-lsp --completions zsh");
 		});
 	});
+
+	// --- help and dispatch coexistence
 
 	describe('help and dispatch coexistence', () => {
 		it('advertises --completions <shell> in root help flags', async () => {
@@ -149,7 +161,11 @@ describe(".completions({ as: 'flag' })", () => {
 	});
 });
 
+// === .help() configuration
+
 describe('.help() configuration', () => {
+	// --- helpers
+
 	function hybrid() {
 		const status = command('status')
 			.description('Show status')
@@ -190,5 +206,19 @@ describe('.help() configuration', () => {
 			.execute(['--help'], { help: { showDefaultInCommands: false } });
 
 		expect(result.stdout.join('')).not.toContain('(default)');
+	});
+
+	it('keeps advertising --completions even when inlineDefault is false', async () => {
+		const app = cli('recipe-lsp')
+			.completions({ as: 'flag' })
+			.default(lspCommand())
+			.help({ inlineDefault: false });
+		const result = await app.execute(['--help']);
+
+		const output = result.stdout.join('');
+		// The eager flag is a root option, advertised regardless of inlineDefault.
+		expect(output).toContain('--completions <bash|zsh|fish|powershell>');
+		// inlineDefault: false still suppresses the default command's own flags.
+		expect(output).not.toContain('--port');
 	});
 });

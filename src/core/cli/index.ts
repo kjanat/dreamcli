@@ -883,11 +883,12 @@ class CLIBuilder {
 	 * lone root surface. The flag may be given without a value to auto-detect the
 	 * shell from `$SHELL` / `$PSModulePath`.
 	 *
-	 * Call this **after** registering all other commands so the completion
-	 * script includes the full command set. The captured schema is a
-	 * snapshot at call time — commands registered after `.completions()`
-	 * will not appear in the generated script. Completion options are also
-	 * captured at call time.
+	 * In subcommand mode, call this **after** registering all other commands so
+	 * the completion script includes the full command set: that path snapshots the
+	 * schema (and completion options) at call time, so commands registered
+	 * afterwards will not appear in that subcommand's generated script. In flag
+	 * mode, generation runs at execution time from the final builder schema, so
+	 * registration order does not matter.
 	 *
 	 * @example
 	 * ```ts

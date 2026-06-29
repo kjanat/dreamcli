@@ -497,6 +497,16 @@ describe('formatRootHelp — default command', () => {
 		expect(help).toContain("Run 'mycli <command> --help' for more information.");
 	});
 
+	it('respects options.binName in usage, inline default, and footer', () => {
+		const app = cli('mycli').default(deployCommand()).command(statusCommand());
+		const help = formatRootHelp(app.schema, { binName: 'tool' });
+
+		expect(help).toContain('Usage: tool [command] [options]');
+		expect(help).toContain('       tool deploy [flags] <target>');
+		expect(help).toContain("Run 'tool [command] --help' for more information.");
+		expect(help).not.toContain('Usage: mycli');
+	});
+
 	it('aligns descriptions accounting for (default) tag width', () => {
 		const app = cli('mycli').default(deployCommand()).command(statusCommand());
 		const help = formatRootHelp(app.schema, { showDefaultInCommands: true });
