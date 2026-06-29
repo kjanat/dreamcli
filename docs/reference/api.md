@@ -36,7 +36,7 @@ and `examples/**` during docs build.
 | `@kjanat/dreamcli`         | schema builders, CLI assembly, parsing, resolution, errors, completions, schema export | [`@kjanat/dreamcli`](/reference/main)            |
 | `@kjanat/dreamcli/testkit` | command tests, output capture, scripted prompts, test adapters                         | [`@kjanat/dreamcli/testkit`](/reference/testkit) |
 | `@kjanat/dreamcli/runtime` | runtime detection, explicit adapters, runtime-only helpers                             | [`@kjanat/dreamcli/runtime`](/reference/runtime) |
-| `@kjanat/dreamcli/schema`  | generated CLI definition meta-schema JSON                                              | schema asset only                                |
+| `@kjanat/dreamcli/schema`  | generated CLI definition meta-schema (export mapping differs by package target)        | [`@kjanat/dreamcli/schema`](/reference/schema)   |
 
 ## Generated Index
 
