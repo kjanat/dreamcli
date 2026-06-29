@@ -155,10 +155,10 @@ export interface RunOptions {
 /**
  * Structured result from {@linkcode runCommand}.
  *
-	 * Contains the exit code, captured stdout/stderr output, recorded
-	 * {@linkcode ActivityEvent | activity events}, and an `error` field.
-	 * `error` is `undefined` when execution completed without throwing, even if
-	 * the handler requested a non-zero status via {@linkcode Out.setExitCode}.
+ * Contains the exit code, captured stdout/stderr output, recorded
+ * {@linkcode ActivityEvent | activity events}, and an `error` field.
+ * `error` is `undefined` when execution completed without throwing, even if
+ * the handler requested a non-zero status via {@linkcode Out.setExitCode}.
  *
  * @example
  * ```ts

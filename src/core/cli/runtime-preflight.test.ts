@@ -119,8 +119,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		const adapter = createTestAdapter({
 			argv: ['node', 'test', 'info'],
 			cwd: '/work',
-			readFile: async (path) =>
-				path === '/anchor/package.json' ? '{"version":"5.5.5"}' : null,
+			readFile: async (path) => (path === '/anchor/package.json' ? '{"version":"5.5.5"}' : null),
 		});
 
 		const preflight = await prepareRuntimePreflight({

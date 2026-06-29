@@ -40,9 +40,6 @@ describe('pwsh-demo example', () => {
 		const result = await pwshDemo.execute(['bravo', '--profile', 'ops', '--shell', 'cmd']);
 
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual([
-			'Opening bravo with ops profile in cmd\n',
-			'Format: table\n',
-		]);
+		expect(result.stdout).toEqual(['Opening bravo with ops profile in cmd\n', 'Format: table\n']);
 	});
 });

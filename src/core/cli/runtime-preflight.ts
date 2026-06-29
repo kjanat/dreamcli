@@ -300,7 +300,9 @@ async function applyPackageJsonDiscovery(
 					const pkg =
 						packageJsonSettings.data ??
 						(await discoverManifest(adapter, {
-							...(packageJsonSettings.from !== undefined ? { startDir: packageJsonSettings.from } : {}),
+							...(packageJsonSettings.from !== undefined
+								? { startDir: packageJsonSettings.from }
+								: {}),
 							files: packageJsonSettings.files,
 						}));
 					if (pkg === null) return schema;

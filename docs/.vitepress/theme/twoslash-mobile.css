@@ -73,7 +73,7 @@
 }
 
 .twoslash-drag-handle::before {
-	content: "";
+	content: '';
 	width: 36px;
 	height: 4px;
 	border-radius: 2px;

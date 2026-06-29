@@ -129,10 +129,7 @@ describe('root help — explicit links', () => {
 	});
 
 	it('emits no escapes when stdout is not a TTY (default)', async () => {
-		const app = cli('mytool')
-			.version('1.0.0')
-			.links({ name: REPO })
-			.command(deployCommand());
+		const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
 		const result = await app.execute(['--help']);
 
@@ -257,10 +254,7 @@ describe('root help — links derived from .packageJson(data)', () => {
 	});
 
 	it('renders a plain header when package.json has no link metadata', async () => {
-		const app = cli('mytool')
-			.packageJson({ version: '1.0.0' })
-			.links()
-			.command(deployCommand());
+		const app = cli('mytool').packageJson({ version: '1.0.0' }).links().command(deployCommand());
 
 		const result = await app.execute(['--help'], { isTTY: true });
 

@@ -16,10 +16,7 @@ import type {
 import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
-import {
-	clearRequestedExitCode,
-	getRequestedExitCode,
-} from '#internals/core/output/index.ts';
+import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
 import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';

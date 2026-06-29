@@ -384,7 +384,10 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			if (defaultCommand !== undefined && result.parentPath.length === 0) {
 				const suggestion =
 					result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
-				if (suggestion === undefined && canDelegateUnknownRootToDefault(defaultCommand, result.input)) {
+				if (
+					suggestion === undefined &&
+					canDelegateUnknownRootToDefault(defaultCommand, result.input)
+				) {
 					return buildPlannerMatchOutcome(
 						options.schema,
 						defaultCommand,

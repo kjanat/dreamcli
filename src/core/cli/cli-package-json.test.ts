@@ -209,9 +209,9 @@ describe('CLIBuilder.manifest() — builder method', () => {
 
 	it('routes homepage-only and repository-only objects to the data overload', () => {
 		// isPackageJsonData recognizes homepage/repository, so these are data, not settings.
-		expect(cli('x').manifest({ homepage: 'https://x.dev' }).schema.packageJsonSettings?.data).toEqual(
-			{ homepage: 'https://x.dev' },
-		);
+		expect(
+			cli('x').manifest({ homepage: 'https://x.dev' }).schema.packageJsonSettings?.data,
+		).toEqual({ homepage: 'https://x.dev' });
 		expect(
 			cli('y').manifest({ repository: 'github:me/y' }).schema.packageJsonSettings?.data,
 		).toEqual({ repository: 'github:me/y' });
@@ -312,7 +312,9 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 	});
 
 	it('.manifest({ files }) discovers the requested manifest', async () => {
-		const app = cli('myapp').manifest({ files: ['deno.json'] }).command(infoCommand());
+		const app = cli('myapp')
+			.manifest({ files: ['deno.json'] })
+			.command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/deno.json': '{"version":"1.2.3"}',
@@ -736,7 +738,10 @@ describe('CLIBuilder.packageJson(data) — pre-loaded data', () => {
 	});
 
 	it('explicit .version() before .packageJson(data) wins', async () => {
-		const app = cli('myapp').version('9.9.9').packageJson({ version: '1.1.1' }).command(infoCommand());
+		const app = cli('myapp')
+			.version('9.9.9')
+			.packageJson({ version: '1.1.1' })
+			.command(infoCommand());
 
 		const result = await app.execute(['--version']);
 
