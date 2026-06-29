@@ -41,6 +41,7 @@ import type {
 } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
@@ -56,6 +57,48 @@ import { formatRootHelp } from './root-help.ts';
 import { prepareRuntimePreflight } from './runtime-preflight.ts';
 
 // --- Type-erased command — erasure function (interface now in schema/command.ts)
+
+/** Long-flag name reserved by `.completions({ as: 'flag' })`; the planner intercepts it before dispatch. */
+const COMPLETIONS_FLAG_NAME = 'completions';
+
+/**
+ * Whether a command — or any of its nested subcommands — declares a flag that
+ * collides with the eager `--completions` flag, by canonical name or long alias.
+ *
+ * @internal
+ */
+function commandReservesCompletionsFlag(schema: CommandSchema): boolean {
+	if (Object.hasOwn(schema.flags, COMPLETIONS_FLAG_NAME)) return true;
+	for (const flagSchema of Object.values(schema.flags)) {
+		if (
+			getFlagAliasNames(flagSchema, { kind: 'long', includeHidden: true }).includes(
+				COMPLETIONS_FLAG_NAME,
+			)
+		) {
+			return true;
+		}
+	}
+	return schema.commands.some(commandReservesCompletionsFlag);
+}
+
+/**
+ * Reject a command whose flags would be shadowed by the eager `--completions`
+ * flag once `.completions({ as: 'flag' })` is active. Because the planner
+ * intercepts `--completions` before dispatch, such a flag could never be reached.
+ *
+ * @internal
+ */
+function assertNoCompletionsFlagCollision(schema: CommandSchema): void {
+	if (commandReservesCompletionsFlag(schema)) {
+		throw new CLIError(
+			`Command '${schema.name}' defines a '--${COMPLETIONS_FLAG_NAME}' flag, which is reserved by .completions({ as: 'flag' })`,
+			{
+				code: 'RESERVED_FLAG',
+				suggest: `Rename the flag, or register completions as a subcommand with .completions() instead of { as: 'flag' }`,
+			},
+		);
+	}
+}
 
 function commandRoutes(schema: CommandSchema): readonly string[] {
 	return [schema.name, ...schema.aliases];
@@ -793,6 +836,9 @@ class CLIBuilder {
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema, this.schema.defaultCommand);
+		if (this.schema.completionsFlag !== undefined) {
+			assertNoCompletionsFlagCollision(cmd.schema);
+		}
 
 		return new CLIBuilder({
 			...this.schema,
@@ -846,6 +892,9 @@ class CLIBuilder {
 		}
 
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+		if (this.schema.completionsFlag !== undefined) {
+			assertNoCompletionsFlagCollision(cmd.schema);
+		}
 
 		const erased = eraseCommand(cmd);
 		return new CLIBuilder({
@@ -919,6 +968,14 @@ class CLIBuilder {
 		// and root help advertises it in the Flags section. No subcommand is
 		// registered, so the default command stays the lone root surface.
 		if (options?.as === 'flag') {
+			// The planner intercepts `--completions` before dispatch, so no command
+			// may already reserve that flag name.
+			if (this.schema.defaultCommand !== undefined) {
+				assertNoCompletionsFlagCollision(this.schema.defaultCommand.schema);
+			}
+			for (const registered of this.schema.commands) {
+				assertNoCompletionsFlagCollision(registered.schema);
+			}
 			return new CLIBuilder({
 				...this.schema,
 				hasBuiltInCompletions: true,

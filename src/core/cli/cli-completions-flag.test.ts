@@ -55,6 +55,38 @@ describe(".completions({ as: 'flag' })", () => {
 				/already been called/,
 			);
 		});
+
+		it('rejects a default command that reserves the --completions flag', () => {
+			const colliding = command('serve')
+				.flag('completions', flag.boolean())
+				.action(() => {});
+
+			expect(() => cli('x').completions({ as: 'flag' }).default(colliding)).toThrow(/reserved/);
+		});
+
+		it('rejects a previously registered command that reserves --completions (any order)', () => {
+			const colliding = command('serve')
+				.flag('completions', flag.boolean())
+				.action(() => {});
+
+			expect(() => cli('x').command(colliding).completions({ as: 'flag' })).toThrow(/reserved/);
+		});
+
+		it('rejects a --completions long-alias collision', () => {
+			const colliding = command('serve')
+				.flag('comp', flag.boolean().alias('completions'))
+				.action(() => {});
+
+			expect(() => cli('x').completions({ as: 'flag' }).default(colliding)).toThrow(/reserved/);
+		});
+
+		it('allows a --completions flag in subcommand mode', () => {
+			const colliding = command('serve')
+				.flag('completions', flag.boolean())
+				.action(() => {});
+
+			expect(() => cli('x').completions().default(colliding)).not.toThrow();
+		});
 	});
 
 	// --- eager flag interception

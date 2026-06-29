@@ -7,13 +7,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-29
+
 ### Added
 
 - **`.completions({ as: 'flag' })`** — expose shell completion as an eager
   `--completions <shell>` flag on the CLI root instead of a `completions`
   subcommand. The planner intercepts the flag before dispatch, prints the script,
   and exits; root help advertises `--completions <bash|zsh|fish|powershell>` in its
-  `Flags:` section. `.completions()` still defaults to `{ as: 'command' }`.
+  `Flags:` section. `.completions()` still defaults to `{ as: 'command' }`. Because
+  the eager flag is intercepted before dispatch, the `--completions` name is
+  reserved in flag mode — declaring a command/default flag of that name throws at
+  build time.
 - **Shell auto-detection** — `--completions` with no value (flag form) resolves the
   target shell from the environment: `$SHELL` (parsed as an interpreter path) wins
   when it names a supported shell, otherwise the presence of `$PSModulePath` selects
@@ -911,7 +916,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/kjanat/dreamcli/compare/v2.5.0...v3.0.0
 [2.5.0]: https://github.com/kjanat/dreamcli/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/kjanat/dreamcli/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/kjanat/dreamcli/compare/v2.3.0...v2.4.0
