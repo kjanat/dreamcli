@@ -29,13 +29,26 @@ interface RootSurfaceSchemaLike {
 /**
  * Normalized root shape shared by help and completion logic.
  *
+ * Since v0.3 the default command is a distinct root *surface* rather than a
+ * named subcommand: `.default()` no longer registers it under
+ * {@link RootSurfaceSchemaLike.commands}. To stay robust against callers that
+ * still place the default in the command list (e.g. hand-built test schemas),
+ * {@link resolveRootSurface} always derives {@link RootSurface.visibleSubcommands}
+ * by excluding the default command from the visible command list.
+ *
  * @internal
  */
 interface RootSurface {
+	/** All visible top-level commands as declared in `schema.commands`. */
 	readonly visibleCommands: readonly CommandSchema[];
+	/** Visible real subcommands — `visibleCommands` minus the default command. */
+	readonly visibleSubcommands: readonly CommandSchema[];
+	/** The visible default command, or `undefined` when none exists or it is hidden. */
 	readonly visibleDefaultCommand: CommandSchema | undefined;
-	readonly hasSingleVisibleDefault: boolean;
-	readonly hasVisibleSiblingCommands: boolean;
+	/** Whether a visible default command exists. */
+	readonly hasVisibleDefault: boolean;
+	/** Whether any visible real subcommands exist (the default does not count). */
+	readonly hasVisibleSubcommands: boolean;
 }
 
 /**
@@ -43,7 +56,9 @@ interface RootSurface {
  *
  * Hidden commands are excluded from the visible command list. Hidden
  * default commands remain executable, but are not surfaced through
- * help or completions.
+ * help or completions. The default command is reported separately from the
+ * real subcommands so help and completion can render it as the root surface
+ * instead of echoing it as a pseudo-subcommand.
  *
  * @internal
  */
@@ -54,19 +69,17 @@ function resolveRootSurface(schema: RootSurfaceSchemaLike): RootSurface {
 	const rawDefaultCommand = schema.defaultCommand?.schema;
 	const visibleDefaultCommand =
 		rawDefaultCommand !== undefined && !rawDefaultCommand.hidden ? rawDefaultCommand : undefined;
-	const hasSingleVisibleDefault =
-		visibleDefaultCommand !== undefined &&
-		visibleCommands.length === 1 &&
-		visibleCommands[0]?.name === visibleDefaultCommand.name;
-	const hasVisibleSiblingCommands =
-		visibleDefaultCommand !== undefined &&
-		visibleCommands.some((command) => command.name !== visibleDefaultCommand.name);
+	const visibleSubcommands =
+		visibleDefaultCommand !== undefined
+			? visibleCommands.filter((command) => command.name !== visibleDefaultCommand.name)
+			: visibleCommands;
 
 	return {
 		visibleCommands,
+		visibleSubcommands,
 		visibleDefaultCommand,
-		hasSingleVisibleDefault,
-		hasVisibleSiblingCommands,
+		hasVisibleDefault: visibleDefaultCommand !== undefined,
+		hasVisibleSubcommands: visibleSubcommands.length > 0,
 	};
 }
 

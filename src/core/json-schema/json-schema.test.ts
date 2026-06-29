@@ -78,6 +78,8 @@ function minimalCLI(overrides: MinimalCLIOverrides = {}): CLISchema {
 		packageJsonSettings: undefined,
 		helpLinks: undefined,
 		hasBuiltInCompletions: false,
+		completionsFlag: undefined,
+		helpConfig: undefined,
 		plugins: [],
 	};
 }

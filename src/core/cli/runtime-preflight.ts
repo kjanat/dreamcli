@@ -9,6 +9,7 @@
  * @internal
  */
 
+import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
 import { discoverConfig } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
@@ -80,8 +81,22 @@ interface RuntimePreflightSchemaLike {
 	readonly packageJsonSettings: RuntimeManifestSettings | undefined;
 	/** Root-help header link targets; `undefined` fields may be derived from package.json. */
 	readonly helpLinks: HelpLinks | undefined;
-	/** Whether `.completions()` registered the built-in completions command. */
+	/** Whether `.completions()` registered the built-in completions command/flag. */
 	readonly hasBuiltInCompletions: boolean;
+	/** Eager `--completions <shell>` flag config; `undefined` disables interception. */
+	readonly completionsFlag:
+		| { readonly shells: readonly Shell[]; readonly options: CompletionOptions | undefined }
+		| undefined;
+	/** Consumer-configured root-help defaults. */
+	readonly helpConfig:
+		| {
+				readonly inlineDefault?: boolean;
+				readonly showDefaultInCommands?: boolean;
+				readonly footer?: boolean;
+				readonly width?: number;
+				readonly hyperlinks?: boolean;
+		  }
+		| undefined;
 	/** Plugins forwarded into the execution pipeline. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -264,6 +279,7 @@ function invocationNeedsStdin(
 		case 'needs-subcommand':
 		case 'root-help':
 		case 'root-version':
+		case 'root-completions':
 			return false;
 	}
 }

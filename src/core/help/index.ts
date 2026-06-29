@@ -34,6 +34,31 @@ interface HelpOptions {
 	 * automatically when stdout is a TTY.
 	 */
 	readonly hyperlinks?: boolean;
+	/**
+	 * Render the default command's arguments and flags inline in root help.
+	 *
+	 * Only affects root-level help. When `false`, root help lists commands and
+	 * defers default-command details to `<bin> --help`-style hints.
+	 *
+	 * @defaultValue `true`
+	 */
+	readonly inlineDefault?: boolean;
+	/**
+	 * List the default command in the root `Commands:` table.
+	 *
+	 * By default the default command is treated as the root surface and omitted
+	 * from the command list (its args/flags render inline instead).
+	 *
+	 * @defaultValue `false`
+	 */
+	readonly showDefaultInCommands?: boolean;
+	/**
+	 * Show the `Run '<bin> <command> --help' for more information.` footer.
+	 *
+	 * Defaults to showing the hint only when visible subcommands exist; set
+	 * explicitly to force it on or off.
+	 */
+	readonly footer?: boolean;
 	/** @internal Whether this usage line is being rendered as merged root/default help. */
 	readonly isDefaultHelp?: boolean;
 }

@@ -87,6 +87,7 @@ function planFor(
 			version: '1.2.3',
 			commands,
 			defaultCommand,
+			completionsFlag: undefined,
 			plugins: [],
 		},
 		argv,

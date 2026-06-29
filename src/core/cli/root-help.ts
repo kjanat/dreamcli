@@ -12,6 +12,8 @@ import { osc8, padEnd, wrapText } from '#internals/core/help/ansi.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import { formatHelpSections } from '#internals/core/help/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { command } from '#internals/core/schema/command.ts';
+import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { resolveRootSurface } from './root-surface.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
@@ -32,6 +34,7 @@ interface CLISchemaLike {
 				readonly version: string | undefined;
 		  }
 		| undefined;
+	readonly completionsFlag?: { readonly shells: readonly string[] } | undefined;
 }
 
 // --- Root help formatter
@@ -40,110 +43,153 @@ interface CLISchemaLike {
  * Generate root-level help text for the CLI program.
  *
  * Shows program name, version, description, usage line, and available
- * commands. When the default command is the only visible top-level
- * command, merges the root summary with that command's detailed help.
+ * subcommands. The default command is the CLI's root *surface*: its arguments
+ * and flags are rendered inline (unless `inlineDefault` is `false`) and it is
+ * omitted from the `Commands:` list unless `showDefaultInCommands` is set. When
+ * `.completions({ as: 'flag' })` is active, the eager `--completions <shell>`
+ * flag is advertised in the `Flags:` section.
  *
  * @internal
  */
 function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	const width = options?.width ?? 80;
 	const hyperlinks = options?.hyperlinks === true;
-	const rootSurface = resolveRootSurface(schema);
-	if (rootSurface.hasSingleVisibleDefault) {
-		const defaultCommand = rootSurface.visibleDefaultCommand;
-		if (defaultCommand !== undefined) {
-			const sections = buildRootSections(
-				schema,
-				rootSurface.visibleCommands,
-				rootSurface.visibleDefaultCommand,
-				width,
-				hyperlinks,
-			);
-			const usageIndex = sections.findIndex((section) => section.startsWith('Usage: '));
-			const commandSections = [
-				...formatHelpSections(defaultCommand, {
-					...options,
-					binName: schema.name,
-					isDefaultHelp: true,
-				}),
-			];
-			const commandUsage = commandSections.shift();
-			if (usageIndex !== -1 && commandUsage !== undefined) {
-				sections[usageIndex] = mergeUsageSections(sections[usageIndex] ?? '', commandUsage);
-			}
-			if (
-				defaultCommand.description !== undefined &&
-				schema.description !== undefined &&
-				defaultCommand.description === schema.description
-			) {
-				commandSections.shift();
-			}
-			sections.push(...commandSections);
-			return `${sections.join('\n\n')}\n`;
-		}
+	const inlineDefault = options?.inlineDefault ?? true;
+	const showDefaultInCommands = options?.showDefaultInCommands ?? false;
+
+	const surface = resolveRootSurface(schema);
+	const defaultCommand = surface.visibleDefaultCommand;
+	const surfaceCommand = resolveSurfaceCommand(schema, defaultCommand);
+	const inline = inlineDefault && surfaceCommand !== undefined;
+
+	const sections: string[] = [formatHeader(schema, hyperlinks)];
+	if (schema.description !== undefined) {
+		sections.push(schema.description);
 	}
 
-	const sections = buildRootSections(
-		schema,
-		rootSurface.visibleCommands,
-		rootSurface.visibleDefaultCommand,
-		width,
-		hyperlinks,
-	);
-	const placeholder = commandPlaceholder(
-		rootSurface.visibleCommands,
-		rootSurface.visibleDefaultCommand,
-	);
-	sections.push(
+	// ---- Usage --------------------------------------------------------------
+	// A real default makes the command optional (`[command]`); without one a
+	// command must be chosen (`<command>`). With no subcommands at all, the
+	// default command's own usage stands alone.
+	const placeholder = surface.hasVisibleSubcommands
+		? defaultCommand !== undefined
+			? '[command]'
+			: '<command>'
+		: '';
+	const rootUsage =
 		placeholder.length > 0
-			? `Run '${schema.name} ${placeholder} --help' for more information.`
-			: `Run '${schema.name} --help' for more information.`,
-	);
+			? `Usage: ${schema.name} ${placeholder} [options]`
+			: `Usage: ${schema.name} [options]`;
+
+	let surfaceSections: string[] = [];
+	if (inline && surfaceCommand !== undefined) {
+		surfaceSections = [
+			...formatHelpSections(surfaceCommand, {
+				...options,
+				binName: schema.name,
+				isDefaultHelp: true,
+			}),
+		];
+	}
+	const surfaceUsage = surfaceSections.shift();
+	if (inline && surfaceUsage !== undefined) {
+		sections.push(
+			surface.hasVisibleSubcommands ? mergeUsageSections(rootUsage, surfaceUsage) : surfaceUsage,
+		);
+	} else {
+		sections.push(rootUsage);
+	}
+
+	// ---- Commands -----------------------------------------------------------
+	const listedCommands =
+		showDefaultInCommands && defaultCommand !== undefined
+			? [...surface.visibleSubcommands, defaultCommand]
+			: surface.visibleSubcommands;
+	if (listedCommands.length > 0) {
+		sections.push(
+			formatRootCommandsSection(
+				listedCommands,
+				showDefaultInCommands ? defaultCommand?.name : undefined,
+				width,
+			),
+		);
+	}
+
+	// ---- Inline default surface (args/flags) --------------------------------
+	if (inline && surfaceCommand !== undefined) {
+		// Drop the surface command's description when it duplicates the program
+		// description already printed at the top.
+		if (
+			surfaceCommand.description !== undefined &&
+			surfaceCommand.description === schema.description &&
+			surfaceSections[0] === surfaceCommand.description
+		) {
+			surfaceSections.shift();
+		}
+		sections.push(...surfaceSections);
+	}
+
+	// ---- Footer -------------------------------------------------------------
+	const footerVisible = options?.footer ?? surface.hasVisibleSubcommands;
+	if (footerVisible) {
+		const footerPlaceholder = surface.hasVisibleSubcommands
+			? defaultCommand !== undefined
+				? ' [command]'
+				: ' <command>'
+			: '';
+		sections.push(`Run '${schema.name}${footerPlaceholder} --help' for more information.`);
+	}
 
 	return `${sections.join('\n\n')}\n`;
 }
 
 /**
- * Assemble the header, description, usage, and commands sections for root help.
+ * Resolve the command rendered inline as the CLI's root surface.
  *
- * @param schema - The CLI schema.
- * @param visibleCommands - Non-hidden top-level commands.
- * @param width - Terminal width for text wrapping.
- * @param hyperlinks - Whether to emit OSC 8 hyperlinks in the header.
- * @returns Ordered help sections (joined later with blank lines).
+ * Returns the default command, augmented with the eager `--completions <shell>`
+ * flag when `.completions({ as: 'flag' })` is active. When there is no default
+ * command but the completions flag is configured, a synthetic surface carrying
+ * just that flag is returned so the flag is still advertised. Returns
+ * `undefined` when there is nothing to render inline.
+ *
  * @internal
  */
-function buildRootSections(
+function resolveSurfaceCommand(
 	schema: CLISchemaLike,
-	visibleCommands: readonly CommandSchema[],
-	visibleDefaultCommand: CommandSchema | undefined,
-	width: number,
-	hyperlinks: boolean,
-): string[] {
-	const sections: string[] = [];
+	defaultCommand: CommandSchema | undefined,
+): CommandSchema | undefined {
+	if (schema.completionsFlag === undefined) return defaultCommand;
+	const base = defaultCommand ?? command(schema.name).schema;
+	return {
+		...base,
+		flags: { completions: completionsFlagSchema(schema.completionsFlag.shells), ...base.flags },
+	};
+}
 
-	// ---- Header: name + version ---------------------------------------------
-	sections.push(formatHeader(schema, hyperlinks));
-
-	// ---- Description --------------------------------------------------------
-	if (schema.description !== undefined) {
-		sections.push(schema.description);
-	}
-
-	// ---- Usage line ---------------------------------------------------------
-	const placeholder = commandPlaceholder(visibleCommands, visibleDefaultCommand);
-	sections.push(
-		placeholder.length > 0
-			? `Usage: ${schema.name} ${placeholder} [options]`
-			: `Usage: ${schema.name} [options]`,
-	);
-
-	// ---- Commands list (skip hidden) ----------------------------------------
-	if (visibleCommands.length > 0) {
-		sections.push(formatRootCommandsSection(visibleCommands, visibleDefaultCommand?.name, width));
-	}
-
-	return sections;
+/**
+ * Build the synthetic, render-only flag schema for the eager `--completions`
+ * flag. It never participates in parsing (the planner intercepts the flag
+ * directly); it exists purely so root help can list
+ * `--completions <bash|zsh|…>` in its `Flags:` section.
+ *
+ * @internal
+ */
+function completionsFlagSchema(shells: readonly string[]): FlagSchema {
+	return {
+		kind: 'enum',
+		presence: 'optional',
+		defaultValue: undefined,
+		aliases: [],
+		envVar: undefined,
+		configPath: undefined,
+		description: 'Print a shell completion script and exit',
+		enumValues: shells,
+		elementSchema: undefined,
+		prompt: undefined,
+		parseFn: undefined,
+		deprecated: undefined,
+		propagate: false,
+	};
 }
 
 /**
@@ -166,25 +212,6 @@ function formatHeader(schema: CLISchemaLike, hyperlinks: boolean): string {
 	if (schema.version === undefined) return name;
 	const version = `v${schema.version}`;
 	return `${name} ${links?.version !== undefined ? osc8(links.version, version) : version}`;
-}
-
-/**
- * Return the usage-line placeholder for commands (`<command>`, `[command]`, or empty).
- *
- * @param visibleCommands - Non-hidden top-level commands.
- * @param defaultCommand - The default command, if any.
- * @returns Placeholder string for the usage line.
- * @internal
- */
-function commandPlaceholder(
-	visibleCommands: readonly CommandSchema[],
-	defaultCommand: CommandSchema | undefined,
-): string {
-	if (visibleCommands.length === 0 && defaultCommand === undefined) {
-		return '';
-	}
-
-	return defaultCommand !== undefined ? '[command]' : '<command>';
 }
 
 /**
