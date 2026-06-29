@@ -1100,7 +1100,7 @@ class CLIBuilder {
 				if (shell === undefined) {
 					const error = new CLIError('Could not detect shell', {
 						code: 'MISSING_VALUE',
-						suggest: `Pass one explicitly, e.g. '${this.schema.name} --completions zsh'`,
+						suggest: `Pass one explicitly, e.g. '${helpOptions.binName} --completions zsh'`,
 					});
 					if (jsonMode) {
 						out.json({ error: error.toJSON() });

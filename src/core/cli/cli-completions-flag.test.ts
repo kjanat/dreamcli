@@ -64,12 +64,13 @@ describe(".completions({ as: 'flag' })", () => {
 			expect(() => cli('x').completions({ as: 'flag' }).default(colliding)).toThrow(/reserved/);
 		});
 
-		it('rejects a previously registered command that reserves --completions (any order)', () => {
+		it('rejects a command that reserves --completions in either registration order', () => {
 			const colliding = command('serve')
 				.flag('completions', flag.boolean())
 				.action(() => {});
 
 			expect(() => cli('x').command(colliding).completions({ as: 'flag' })).toThrow(/reserved/);
+			expect(() => cli('x').completions({ as: 'flag' }).command(colliding)).toThrow(/reserved/);
 		});
 
 		it('rejects a --completions long-alias collision', () => {
