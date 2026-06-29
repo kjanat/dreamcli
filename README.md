@@ -531,13 +531,16 @@ expect(activity.activity).toContainEqual(
 
 ## Package structure
 
-Three subpath exports, each with a focused API surface:
+The code lives behind three focused subpath exports:
 
 | Import                     | Purpose                                                                                |
 | -------------------------- | -------------------------------------------------------------------------------------- |
 | `@kjanat/dreamcli`         | Schema builders, CLI runner, output, parsing, resolution, errors                       |
 | `@kjanat/dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
 | `@kjanat/dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
+
+A fourth export, `@kjanat/dreamcli/schema`, ships the bundled JSON Schema (`dreamcli.schema.json`)
+for editor and config validation.
 
 ESM-only. Source included in package (`src/`).
 
