@@ -28,7 +28,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **BREAKING — the default command is now the root *surface*, not a named
+- **BREAKING — the default command is now the root _surface_, not a named
   subcommand.** `.default(cmd)` registers the command only as the default; it is no
   longer added to `schema.commands`. Consequences:
   - It can no longer be invoked by its own name (`mycli mycmd` does not route to it;
