@@ -516,8 +516,10 @@ describe('help virtual subcommand — behavior', () => {
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
 		expect(output).toContain('mycli');
-		// Sole default + no subcommands → its own usage stands alone as the root surface.
-		expect(output).toContain('Usage: mycli run <target>');
+		// Sole default + no subcommands → its usage stands alone as the root surface,
+		// under the bin name only (no `run` command name — it is not a route).
+		expect(output).toContain('Usage: mycli <target>');
+		expect(output).not.toContain('mycli run <target>');
 		expect(output).toContain('Default runner');
 	});
 });

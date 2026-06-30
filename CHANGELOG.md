@@ -80,6 +80,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   enabled config discovery). Previously these framework-provided flags were invisible
   in help even though they worked. `--completions` is unchanged (still advertised via
   the inline surface when active).
+- **Root usage no longer prints the default command's name** — the merged/sole-default
+  usage line rendered `Usage: <bin> <default-name> …`, teaching an invocation that does
+  not route (`.default()` is not a named command, so the token is consumed as the
+  default's first positional). It now renders under the bin name only
+  (`Usage: <bin> [flags] <args>`).
+- **`inlineDefault: false` no longer hides a sole default command's interface** — when
+  the default command is the only surface (no visible subcommands and no eager
+  `--completions` flag), root help would collapse to a bare `Usage: <bin> [options]`
+  with no discoverable args/flags. The default is now always rendered inline in that
+  case, since suppressing it leaves no other path to its interface.
 
 ## [2.5.0] - 2026-06-28
 

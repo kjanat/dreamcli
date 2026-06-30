@@ -69,7 +69,17 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	// `inlineDefault: false` hides the default command's args/flags, but the eager
 	// `--completions` flag is a root-level option that must still be advertised, so
 	// a synthetic completions-only surface is rendered even then.
-	const inlineDefaultCommand = inlineDefault ? defaultCommand : undefined;
+	//
+	// Exception: when the default command is the *only* surface — no visible
+	// subcommands AND no eager `--completions` flag to advertise — suppressing it
+	// would collapse root help to a bare `Usage: <bin> [options]` with no
+	// discoverable interface at all. In that case the default is always rendered
+	// inline regardless of `inlineDefault`. (With a completions flag the synthetic
+	// surface still gives a discoverable path, so `inlineDefault: false` is honored.)
+	const defaultIsSoleSurface =
+		!surface.hasVisibleSubcommands && schema.completionsFlag === undefined;
+	const renderDefaultInline = inlineDefault || defaultIsSoleSurface;
+	const inlineDefaultCommand = renderDefaultInline ? defaultCommand : undefined;
 	const surfaceCommand = resolveSurfaceCommand(schema, inlineDefaultCommand);
 	const inline = surfaceCommand !== undefined;
 

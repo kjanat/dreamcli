@@ -302,8 +302,11 @@ describe('.default()', () => {
 			expect(result.exitCode).toBe(0);
 			const output = result.stdout.join('');
 			expect(output).toContain('mycli v1.0.0');
-			// Sole default + no subcommands → its own usage stands alone, no [command].
-			expect(output).toContain('Usage: mycli deploy [flags] <target>');
+			// Sole default + no subcommands → its args/flags render inline under the
+			// bin name only: no `[command]` placeholder and no command name, since
+			// `.default()` is not a named route.
+			expect(output).toContain('Usage: mycli [flags] <target>');
+			expect(output).not.toContain('mycli deploy [flags]');
 			expect(output).toContain('\n\nDeploy to an environment\n\nArguments:');
 			// Default is the surface, not echoed under Commands, and no footer.
 			expect(output).not.toContain('(default)');
@@ -328,7 +331,8 @@ describe('.default()', () => {
 
 			expect(result.exitCode).toBe(0);
 			const output = result.stdout.join('');
-			expect(output).toContain('Usage: mycli deploy [flags] <target>');
+			expect(output).toContain('Usage: mycli [flags] <target>');
+			expect(output).not.toContain('mycli deploy [flags]');
 			expect(output).toContain('Arguments:');
 		});
 
@@ -360,7 +364,8 @@ describe('.default()', () => {
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toEqual([]);
 			const output = result.stderr.join('');
-			expect(output).toContain('Usage: mycli deploy [flags] <target>');
+			expect(output).toContain('Usage: mycli [flags] <target>');
+			expect(output).not.toContain('mycli deploy [flags]');
 		});
 	});
 
@@ -413,7 +418,8 @@ describe('.default()', () => {
 			// The default group is the surface (not echoed under Commands), but its
 			// own subcommands still render inline.
 			expect(output).not.toContain('(default)');
-			expect(output).toContain('Usage: mycli run <command>');
+			expect(output).toContain('Usage: mycli <command>');
+			expect(output).not.toContain('mycli run <command>');
 			expect(output).toContain('check');
 		});
 	});
@@ -433,7 +439,8 @@ describe('formatRootHelp — default command', () => {
 		const app = cli('mycli').default(deployCommand());
 		const help = formatRootHelp(app.schema);
 
-		expect(help).toContain('Usage: mycli deploy [flags] <target>');
+		expect(help).toContain('Usage: mycli [flags] <target>');
+		expect(help).not.toContain('mycli deploy [flags]');
 		expect(help).not.toContain('Usage: mycli [command] [options]');
 	});
 
@@ -487,7 +494,20 @@ describe('formatRootHelp — default command', () => {
 		const app = cli('mycli').default(deployCommand());
 		const help = formatRootHelp(app.schema);
 
-		expect(help).toContain('Usage: mycli deploy [flags] <target>');
+		expect(help).toContain('Usage: mycli [flags] <target>');
+		expect(help).not.toContain('mycli deploy [flags]');
+	});
+
+	it('still exposes a sole default command surface when inlineDefault is false', () => {
+		// A sole default with no other surface must never collapse to a bare
+		// `Usage: <bin> [options]`: that would leave its args/flags undiscoverable.
+		// `inlineDefault: false` is overridden in this case.
+		const app = cli('mycli').default(deployCommand());
+		const help = formatRootHelp(app.schema, { inlineDefault: false });
+
+		expect(help).toContain('Usage: mycli [flags] <target>');
+		expect(help).toContain('Arguments:');
+		expect(help).not.toContain('Usage: mycli [options]');
 	});
 
 	it('footer uses <command> when no default', () => {
@@ -502,7 +522,8 @@ describe('formatRootHelp — default command', () => {
 		const help = formatRootHelp(app.schema, { binName: 'tool' });
 
 		expect(help).toContain('Usage: tool [command] [options]');
-		expect(help).toContain('       tool deploy [flags] <target>');
+		expect(help).toContain('       tool [flags] <target>');
+		expect(help).not.toContain('tool deploy [flags]');
 		expect(help).toContain("Run 'tool [command] --help' for more information.");
 		expect(help).not.toContain('Usage: mycli');
 	});

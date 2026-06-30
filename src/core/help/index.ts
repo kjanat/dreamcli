@@ -374,11 +374,15 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
  */
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const parts: string[] = ['Usage:'];
+	// For the default command rendered as the root surface (`isDefaultHelp`), the
+	// command name is NOT a route — `.default()` does not register a named command,
+	// so `mycli <name>` would be consumed as the default's first positional, not a
+	// dispatch. Render usage with only the bin name to avoid teaching a fake form.
 	const cmdName =
 		opts.binName === undefined
 			? schema.name
-			: opts.isDefaultHelp && opts.binName === schema.name
-				? schema.name
+			: opts.isDefaultHelp
+				? opts.binName
 				: `${opts.binName} ${schema.name}`;
 	parts.push(cmdName);
 
