@@ -35,6 +35,55 @@ flagTypes.number;
 //         ^?
 ```
 
+#### Numeric constraints
+
+`flag.number()` accepts optional numeric constraints, either as an options
+object or via chained methods (they compose — a later chained call overrides an
+earlier value, including one set in the options object):
+
+```ts
+flag.number({ min: 0, max: 100, int: true });
+flag.number().int().min(0).max(100); // equivalent
+flag.number({ min: 0 }).max(100); // composes to { min: 0, max: 100 }
+```
+
+| Option   | Meaning                         | Default |
+| -------- | ------------------------------- | ------- |
+| `min`    | Inclusive lower bound           | none    |
+| `max`    | Inclusive upper bound           | none    |
+| `int`    | Require an integer              | `false` |
+| `finite` | Reject `Infinity` / `-Infinity` | `true`  |
+
+The resolved value type stays `number` — constraints are enforced at runtime
+and surfaced in the exported JSON Schema (`minimum` / `maximum`, and
+`type: "integer"` when `int` is set), not at the type level. `min` / `max` must
+be finite; passing `Infinity` / `-Infinity` / `NaN` as a bound throws when the
+flag is declared (omit the field for "no bound").
+
+::: warning Finite by default
+`flag.number()` now **rejects `Infinity` and `-Infinity`** (as well as `NaN`,
+which was always rejected). Pass `finite: false` (or `.finite(false)`) to accept
+non-finite values.
+:::
+
+Constraints are checked in order **finite → int → min → max**, and apply to
+every source — CLI, env, config, and prompt. On the first failure, CLI parsing
+throws `INVALID_VALUE` while env/config/prompt resolution reports
+`CONSTRAINT_VIOLATED` (both exit code `2`):
+
+| Input (`flag.number({ int: true, min: 0, max: 100 })`) | Result                               |
+| ------------------------------------------------------ | ------------------------------------ |
+| `42`                                                   | accepted                             |
+| `0` / `100`                                            | accepted (bounds are inclusive)      |
+| `NaN`                                                  | rejected — invalid number            |
+| `Infinity`                                             | rejected — `must be a finite number` |
+| `3.7`                                                  | rejected — `must be an integer`      |
+| `-1`                                                   | rejected — `must be >= 0`            |
+| `101`                                                  | rejected — `must be <= 100`          |
+
+The same options and methods are available on `arg.number()` for positional
+arguments.
+
 ### Boolean
 
 ```ts twoslash

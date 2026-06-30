@@ -21,6 +21,10 @@ import type {
 	CommandSchema,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
+import {
+	describeNumberConstraintViolation,
+	validateNumberConstraints,
+} from '#internals/core/schema/index.ts';
 
 // --- Tokenizer — schema-agnostic argv splitting
 
@@ -198,6 +202,21 @@ function coerceFlagValue(
 					details: { flag: flagName, input: displayName, value: raw, expected: 'number' },
 				});
 			}
+			const violation = validateNumberConstraints(n, schema.numberConstraints);
+			if (violation !== undefined) {
+				const reason = describeNumberConstraintViolation(violation);
+				throw new ParseError(`Invalid number value '${raw}' for flag ${displayName}: ${reason}`, {
+					code: 'INVALID_VALUE',
+					details: {
+						flag: flagName,
+						input: displayName,
+						value: raw,
+						expected: 'number',
+						constraint: violation.kind,
+						...('bound' in violation ? { bound: violation.bound } : {}),
+					},
+				});
+			}
 			return n;
 		}
 
@@ -282,6 +301,20 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>`, {
 					code: 'INVALID_VALUE',
 					details: { arg: argName, value: raw, expected: 'number' },
+				});
+			}
+			const violation = validateNumberConstraints(n, schema.numberConstraints);
+			if (violation !== undefined) {
+				const reason = describeNumberConstraintViolation(violation);
+				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>: ${reason}`, {
+					code: 'INVALID_VALUE',
+					details: {
+						arg: argName,
+						value: raw,
+						expected: 'number',
+						constraint: violation.kind,
+						...('bound' in violation ? { bound: violation.bound } : {}),
+					},
 				});
 			}
 			return n;

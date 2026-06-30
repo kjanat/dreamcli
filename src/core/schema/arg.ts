@@ -8,6 +8,8 @@
  * @module dreamcli/core/schema/arg
  */
 
+import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
+
 // --- Type-level configuration (phantom state tracked through the chain)
 
 /** All arg presence states as a runtime array. */
@@ -33,6 +35,8 @@ interface ArgConfig {
 	readonly presence: ArgPresence;
 	/** Whether this arg consumes remaining positionals. */
 	readonly variadic: boolean;
+	/** The runtime kind discriminator, mirroring {@link ArgKind}. */
+	readonly argKind: ArgKind;
 }
 
 // --- Type-level helpers
@@ -45,6 +49,7 @@ type WithArgPresence<C extends ArgConfig, P extends ArgPresence> = {
 	readonly valueType: C['valueType'];
 	readonly presence: P;
 	readonly variadic: C['variadic'];
+	readonly argKind: C['argKind'];
 };
 
 /**
@@ -55,6 +60,7 @@ type WithVariadic<C extends ArgConfig> = {
 	readonly valueType: C['valueType'];
 	readonly presence: C['presence'];
 	readonly variadic: true;
+	readonly argKind: C['argKind'];
 };
 
 /**
@@ -125,6 +131,13 @@ interface ArgSchema {
 	readonly envVar: string | undefined;
 	/** Allowed literal values when `kind === 'enum'`. */
 	readonly enumValues: readonly string[] | undefined;
+	/**
+	 * Numeric constraints when `kind === 'number'` (`undefined` otherwise).
+	 *
+	 * Enforced at the parse and resolution boundaries. `finite` defaults to
+	 * `true`, so `Infinity` is rejected even when no constraints object is set.
+	 */
+	readonly numberConstraints: NumberConstraints | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: ArgParseFn<unknown> | undefined;
 	/**
@@ -174,6 +187,7 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
 		description: undefined,
 		envVar: undefined,
 		enumValues: undefined,
+		numberConstraints: undefined,
 		parseFn: undefined,
 		deprecated: undefined,
 		...overrides,
@@ -478,6 +492,91 @@ class ArgBuilder<C extends ArgConfig> {
 			deprecated: message ?? true,
 		});
 	}
+
+	// -- Numeric constraint modifiers ----------------------------------------
+	//
+	// Compile-time guarded via a `this` parameter so they are only callable on
+	// number-kind builders. They merge onto the single `numberConstraints`
+	// representation, overriding any value set by `arg.number({ … })`.
+
+	/**
+	 * Require an integer value. Composes with other numeric constraints.
+	 *
+	 * @param value - Whether to require an integer.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.number().int()         // rejects 3.7, accepts 3
+	 * arg.number({ int: true }).int(false) // re-allows non-integers
+	 * ```
+	 */
+	int(this: ArgBuilder<C & { readonly argKind: 'number' }>, value = true): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			numberConstraints: { ...this.schema.numberConstraints, int: value },
+		});
+	}
+
+	/**
+	 * Set an inclusive lower bound. Composes with other numeric constraints;
+	 * a later call overrides an earlier `min` (including one from the options
+	 * object).
+	 *
+	 * @param value - Inclusive minimum.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.number().min(0)              // rejects -1, accepts 0
+	 * arg.number({ min: 0 }).min(5)    // effective min is 5
+	 * ```
+	 */
+	min(this: ArgBuilder<C & { readonly argKind: 'number' }>, value: number): ArgBuilder<C> {
+		const numberConstraints = { ...this.schema.numberConstraints, min: value };
+		assertNumberConstraints(numberConstraints);
+		return new ArgBuilder({ ...this.schema, numberConstraints });
+	}
+
+	/**
+	 * Set an inclusive upper bound. Composes with other numeric constraints;
+	 * a later call overrides an earlier `max`.
+	 *
+	 * @param value - Inclusive maximum.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.number().max(100)            // rejects 101, accepts 100
+	 * ```
+	 */
+	max(this: ArgBuilder<C & { readonly argKind: 'number' }>, value: number): ArgBuilder<C> {
+		const numberConstraints = { ...this.schema.numberConstraints, max: value };
+		assertNumberConstraints(numberConstraints);
+		return new ArgBuilder({ ...this.schema, numberConstraints });
+	}
+
+	/**
+	 * Require (or, with `false`, allow) a finite value. Finiteness is enforced
+	 * by default, so this is mainly used as `.finite(false)` to re-allow
+	 * `Infinity` / `-Infinity`.
+	 *
+	 * @param allow - Whether to require a finite value.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.number().finite(false) // accepts Infinity
+	 * ```
+	 */
+	finite(this: ArgBuilder<C & { readonly argKind: 'number' }>, allow = true): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			numberConstraints: { ...this.schema.numberConstraints, finite: allow },
+		});
+	}
 }
 
 // --- Factory namespace
@@ -544,6 +643,7 @@ interface ArgFactory {
 		readonly valueType: string;
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'string';
 	}>;
 
 	/**
@@ -566,12 +666,20 @@ interface ArgFactory {
 	 * // $ mycli serve          → 3000
 	 * ```
 	 *
+	 * Constraints are enforced at the parse and resolution boundaries and also
+	 * compose via chained methods (`.int()`, `.min()`, `.max()`, `.finite()`),
+	 * which override values set here. The resolved value type stays `number`.
+	 *
+	 * @param constraints - Optional numeric constraints. `finite` defaults to
+	 *   `true`, so `Infinity` / `-Infinity` are rejected unless `finite: false`.
+	 * @defaultValue `undefined` (finite-only, no bounds, non-integer allowed)
 	 * @returns A required number {@link ArgBuilder}.
 	 */
-	number(): ArgBuilder<{
+	number(constraints?: NumberConstraints): ArgBuilder<{
 		readonly valueType: number;
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'number';
 	}>;
 
 	/**
@@ -603,6 +711,7 @@ interface ArgFactory {
 		readonly valueType: T[number];
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'enum';
 	}>;
 
 	/**
@@ -634,6 +743,7 @@ interface ArgFactory {
 		readonly valueType: T;
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'custom';
 	}>;
 }
 
@@ -670,16 +780,26 @@ const arg: ArgFactory = {
 		readonly valueType: string;
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'string';
 	}> {
 		return new ArgBuilder(createArgSchema('string'));
 	},
 
-	number(): ArgBuilder<{
+	number(constraints?: NumberConstraints): ArgBuilder<{
 		readonly valueType: number;
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'number';
 	}> {
-		return new ArgBuilder(createArgSchema('number'));
+		if (constraints !== undefined) {
+			assertNumberConstraints(constraints);
+		}
+		return new ArgBuilder(
+			createArgSchema(
+				'number',
+				constraints !== undefined ? { numberConstraints: constraints } : {},
+			),
+		);
 	},
 
 	enum<const T extends readonly [string, ...string[]]>(
@@ -688,6 +808,7 @@ const arg: ArgFactory = {
 		readonly valueType: T[number];
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'enum';
 	}> {
 		return new ArgBuilder(createArgSchema('enum', { enumValues: values }));
 	},
@@ -696,6 +817,7 @@ const arg: ArgFactory = {
 		readonly valueType: T;
 		readonly presence: 'required';
 		readonly variadic: false;
+		readonly argKind: 'custom';
 	}> {
 		return new ArgBuilder(createArgSchema('custom', { parseFn: parseFn as ArgParseFn<unknown> }));
 	},

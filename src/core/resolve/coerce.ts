@@ -7,7 +7,11 @@
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
-import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import type { ArgSchema, FlagSchema, NumberConstraints } from '#internals/core/schema/index.ts';
+import {
+	describeNumberConstraintViolation,
+	validateNumberConstraints,
+} from '#internals/core/schema/index.ts';
 import type { ArgDiagnosticSource, FlagDiagnosticSource } from './contracts.ts';
 import type { SharedPropertySchema } from './property.ts';
 import { toSharedArgPropertySchema, toSharedFlagPropertySchema } from './property.ts';
@@ -58,6 +62,51 @@ function coercionError(
 			details: { flag: flagName, ...sourceDetails(source), value: raw, expected, ...extraDetails },
 			suggest,
 		}),
+	};
+}
+
+/**
+ * Apply numeric constraints to an already-parsed number. Shares the single
+ * {@link validateNumberConstraints} check used by the parse path, so the two
+ * boundaries cannot drift. On violation, returns a `CONSTRAINT_VIOLATED`
+ * failure; the human-readable reason is also surfaced in `details.constraint`
+ * (the violation kind) and the message suffix.
+ */
+function finalizeNumber(
+	flagName: string,
+	source: CoerceSource,
+	raw: unknown,
+	value: number,
+	constraints: NumberConstraints | undefined,
+): CoerceResult {
+	const violation = validateNumberConstraints(value, constraints);
+	if (violation === undefined) {
+		return { ok: true, value };
+	}
+
+	const reason = describeNumberConstraintViolation(violation);
+	return {
+		ok: false,
+		error: new ValidationError(
+			`Invalid number value '${String(raw)}' ${sourceLabel(source)} for flag --${flagName}: ${reason}`,
+			{
+				code: 'CONSTRAINT_VIOLATED',
+				details: {
+					flag: flagName,
+					...sourceDetails(source),
+					value: raw,
+					expected: 'number',
+					constraint: violation.kind,
+					...('bound' in violation ? { bound: violation.bound } : {}),
+				},
+				suggest:
+					source.kind === 'env'
+						? `Set ${source.envVar} to a valid number`
+						: source.kind === 'config'
+							? `Set ${source.configPath} to a valid number in your config`
+							: `Enter a valid number for --${flagName}`,
+			},
+		),
 	};
 }
 
@@ -200,11 +249,13 @@ function coerceSharedPropertyValue(
 								: `Enter a valid number for --${flagName}`,
 					);
 				}
-				return { ok: true, value: raw };
+				return finalizeNumber(flagName, source, raw, raw, schema.numberConstraints);
 			}
 			if (typeof raw === 'string') {
 				const value = Number(raw);
-				if (!Number.isNaN(value)) return { ok: true, value };
+				if (!Number.isNaN(value)) {
+					return finalizeNumber(flagName, source, raw, value, schema.numberConstraints);
+				}
 			}
 			return coercionError(
 				flagName,
@@ -322,8 +373,19 @@ function redactArgCoercionMessage(
 	error: ValidationError,
 ): string {
 	switch (schema.kind) {
-		case 'number':
-			return `Invalid number value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		case 'number': {
+			const base = `Invalid number value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+			// Only a constraint violation carries a schema-derived reason suffix
+			// (e.g. `: must be >= 0`), which is safe to keep. Any other failure
+			// (e.g. TYPE_MISMATCH) embeds the raw value in `error.message`, so
+			// extracting a trailing suffix there could leak user input.
+			if (error.code !== 'CONSTRAINT_VIOLATED') {
+				return base;
+			}
+			const match = /: ([^:]+)$/.exec(error.message);
+			const suffix = match?.[1];
+			return suffix !== undefined ? `${base}: ${suffix}` : base;
+		}
 		case 'enum': {
 			const allowed = Array.isArray(error.details?.allowed)
 				? error.details.allowed.filter((value): value is string => typeof value === 'string')
@@ -356,6 +418,12 @@ function redactArgCoercionDetails(
 		arg: argName,
 		...argSourceDetails(source),
 		...(schema.kind === 'number' || schema.kind === 'custom' ? { expected: schema.kind } : {}),
+		...(schema.kind === 'number' && typeof error.details?.constraint === 'string'
+			? { constraint: error.details.constraint }
+			: {}),
+		...(schema.kind === 'number' && typeof error.details?.bound === 'number'
+			? { bound: error.details.bound }
+			: {}),
 		...(schema.kind === 'enum' && Array.isArray(error.details?.allowed)
 			? {
 					allowed: error.details.allowed.filter(

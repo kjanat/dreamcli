@@ -7,6 +7,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Numeric constraints for number flags and args** — `flag.number()` and
+  `arg.number()` now accept `{ min?, max?, int?, finite? }` (bounds inclusive),
+  and the same constraints compose via chained `.int()` / `.min(n)` / `.max(n)` /
+  `.finite(allow?)` methods (a later call overrides an earlier value, including
+  one set in the options object). The chained methods are compile-time guarded
+  to number-kind builders only. Constraints are enforced identically across the
+  parse path and the env/config/prompt resolution path (order: finite → int →
+  min → max): parse-time (CLI) violations throw `INVALID_VALUE`, while
+  env/config/prompt coercion reports `CONSTRAINT_VIOLATED` (both exit code `2`).
+  They are also surfaced in the exported JSON Schema as `minimum` / `maximum` and
+  `type: "integer"` when `int` is set. `min` / `max` must be finite — a
+  non-finite bound (`Infinity` / `-Infinity` / `NaN`) throws at construction. The
+  resolved TypeScript value type stays `number`.
+
+### Changed
+
+- **`finite` defaults to `true` (behavior change)** — `flag.number()` /
+  `arg.number()` now **reject `Infinity` and `-Infinity`**, which previously
+  passed straight through to handlers (`Number("Infinity")` is not `NaN`). Pass
+  `{ finite: false }` (or `.finite(false)`) to opt back into accepting non-finite
+  values. `NaN` continues to be rejected as before.
+
 ## [2.5.0] - 2026-06-28
 
 ### Added

@@ -30,6 +30,73 @@ describe('arg.number() — creates and modifies number args', () => {
 		expect(a.schema.presence).toBe('required');
 		expect(a.schema.variadic).toBe(false);
 	});
+
+	it('has no constraints by default', () => {
+		expect(arg.number().schema.numberConstraints).toBeUndefined();
+	});
+
+	it('stores constraints from the options object', () => {
+		const a = arg.number({ min: 1, max: 9, int: true, finite: false });
+		expect(a.schema.numberConstraints).toEqual({ min: 1, max: 9, int: true, finite: false });
+	});
+
+	it('keeps the resolved value type as number regardless of constraints', () => {
+		const a = arg.number({ int: true });
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number>();
+	});
+});
+
+describe('arg.number() chained constraint methods', () => {
+	it('.int()/.min()/.max()/.finite() build constraints', () => {
+		expect(arg.number().int().min(0).max(100).schema.numberConstraints).toEqual({
+			int: true,
+			min: 0,
+			max: 100,
+		});
+		expect(arg.number().finite(false).schema.numberConstraints).toEqual({ finite: false });
+	});
+
+	it('chained methods merge onto and override the options object', () => {
+		expect(arg.number({ min: 0 }).max(100).schema.numberConstraints).toEqual({ min: 0, max: 100 });
+		expect(arg.number({ min: 0 }).min(5).schema.numberConstraints).toEqual({ min: 5 });
+	});
+
+	it('preserves presence/variadic through the chain', () => {
+		const a = arg.number().optional().min(0);
+		expect(a.schema.presence).toBe('optional');
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number | undefined>();
+	});
+
+	it('constraint methods are number-kind only at compile time', () => {
+		// @ts-expect-error — .min() is not available on string args
+		arg.string().min(0);
+		// @ts-expect-error — .int() is not available on enum args
+		arg.enum(['a', 'b']).int();
+		expect(true).toBe(true);
+	});
+});
+
+describe('arg.number() rejects non-finite bounds at construction', () => {
+	it('throws for an infinite max in the options object', () => {
+		expect(() => arg.number({ max: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+	});
+
+	it('throws for an infinite chained .min()', () => {
+		expect(() => arg.number().min(Number.NEGATIVE_INFINITY)).toThrow(RangeError);
+	});
+
+	it('throws for a NaN bound', () => {
+		expect(() => arg.number().max(Number.NaN)).toThrow(RangeError);
+	});
+
+	it('still accepts finite bounds', () => {
+		expect(() => arg.number({ min: 0, max: 100 }).max(1000)).not.toThrow();
+	});
+
+	it('throws when min exceeds max', () => {
+		expect(() => arg.number({ min: 100, max: 0 })).toThrow(RangeError);
+		expect(() => arg.number({ max: 0 }).min(100)).toThrow(RangeError);
+	});
 });
 
 describe('arg.enum() — creates and modifies enum args', () => {
