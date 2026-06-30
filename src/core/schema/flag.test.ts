@@ -24,6 +24,70 @@ describe('flag.number()', () => {
 		expect(f.schema.kind).toBe('number');
 		expect(f.schema.presence).toBe('optional');
 	});
+
+	it('has no constraints by default', () => {
+		expect(flag.number().schema.numberConstraints).toBeUndefined();
+	});
+
+	it('stores constraints from the options object', () => {
+		const f = flag.number({ min: 0, max: 100, int: true, finite: false });
+		expect(f.schema.numberConstraints).toEqual({ min: 0, max: 100, int: true, finite: false });
+	});
+
+	it('keeps the resolved value type as number regardless of constraints', () => {
+		const f = flag.number({ int: true, min: 0 });
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number | undefined>();
+	});
+});
+
+describe('flag.number() chained constraint methods', () => {
+	it('.int() sets int true', () => {
+		expect(flag.number().int().schema.numberConstraints).toEqual({ int: true });
+	});
+
+	it('.int(false) sets int false', () => {
+		expect(flag.number().int(false).schema.numberConstraints).toEqual({ int: false });
+	});
+
+	it('.min()/.max() set inclusive bounds', () => {
+		expect(flag.number().min(0).max(100).schema.numberConstraints).toEqual({ min: 0, max: 100 });
+	});
+
+	it('.finite(false) opts back into Infinity', () => {
+		expect(flag.number().finite(false).schema.numberConstraints).toEqual({ finite: false });
+	});
+
+	it('chained methods merge onto the options object', () => {
+		const f = flag.number({ min: 0 }).max(100);
+		expect(f.schema.numberConstraints).toEqual({ min: 0, max: 100 });
+	});
+
+	it('a later chained method overrides an earlier value', () => {
+		const f = flag.number({ min: 0 }).min(5);
+		expect(f.schema.numberConstraints).toEqual({ min: 5 });
+	});
+
+	it('preserves presence through the chain', () => {
+		const f = flag.number().required().min(0);
+		expect(f.schema.presence).toBe('required');
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number>();
+	});
+
+	it('does not mutate the source builder (immutability)', () => {
+		const base = flag.number({ min: 0 });
+		base.max(100);
+		expect(base.schema.numberConstraints).toEqual({ min: 0 });
+	});
+
+	it('constraint methods are number-kind only at compile time', () => {
+		// @ts-expect-error — .min() is not available on string flags
+		flag.string().min(0);
+		// @ts-expect-error — .int() is not available on boolean flags
+		flag.boolean().int();
+		// @ts-expect-error — .finite() is not available on enum flags
+		flag.enum(['a', 'b']).finite();
+		expect(true).toBe(true);
+	});
 });
 
 describe('flag.boolean()', () => {

@@ -154,6 +154,7 @@ function createSyntheticRootFlag(description: string): FlagSchema {
 		configPath: undefined,
 		description,
 		enumValues: undefined,
+		numberConstraints: undefined,
 		elementSchema: undefined,
 		prompt: undefined,
 		parseFn: undefined,

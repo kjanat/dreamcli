@@ -143,6 +143,8 @@ export type {
 	MiddlewareHandler,
 	MiddlewareParams,
 	MultiselectPromptConfig,
+	NumberConstraints,
+	NumberConstraintViolation,
 	Out,
 	ProgressHandle,
 	ProgressOptions,

@@ -579,9 +579,17 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 		case 'string':
 			result.type = 'string';
 			break;
-		case 'number':
-			result.type = 'number';
+		case 'number': {
+			const constraints = schema.numberConstraints;
+			result.type = constraints?.int === true ? 'integer' : 'number';
+			if (constraints?.min !== undefined) {
+				result.minimum = constraints.min;
+			}
+			if (constraints?.max !== undefined) {
+				result.maximum = constraints.max;
+			}
 			break;
+		}
 		case 'boolean':
 			result.type = 'boolean';
 			break;
@@ -641,8 +649,19 @@ function argKindToType(schema: ArgSchema): Record<string, unknown> {
 	switch (schema.kind) {
 		case 'string':
 			return { type: 'string' };
-		case 'number':
-			return { type: 'number' };
+		case 'number': {
+			const constraints = schema.numberConstraints;
+			const result: Record<string, unknown> = {
+				type: constraints?.int === true ? 'integer' : 'number',
+			};
+			if (constraints?.min !== undefined) {
+				result.minimum = constraints.min;
+			}
+			if (constraints?.max !== undefined) {
+				result.maximum = constraints.max;
+			}
+			return result;
+		}
 		case 'enum': {
 			const result: Record<string, unknown> = { type: 'string' };
 			if (schema.enumValues !== undefined) {

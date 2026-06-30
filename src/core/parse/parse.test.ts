@@ -930,3 +930,101 @@ describe('includesBeforeSeparator()', () => {
 		expect(includesBeforeSeparator([], '--version')).toBe(false);
 	});
 });
+
+// === Numeric constraints (parse boundary)
+
+describe('numeric constraints — flags', () => {
+	function numberFlagSchema(constraints?: Parameters<typeof createSchema>[1]) {
+		return makeSchema({ flags: { n: createSchema('number', constraints) } });
+	}
+
+	it('rejects Infinity by default (finite defaults true)', () => {
+		const schema = numberFlagSchema();
+		expect(() => parse(schema, ['--n', 'Infinity'])).toThrow('must be a finite number');
+		try {
+			parse(schema, ['--n', 'Infinity']);
+		} catch (err) {
+			if (!(err instanceof ParseError)) throw err;
+			expect(err.code).toBe('INVALID_VALUE');
+		}
+	});
+
+	it('rejects -Infinity by default', () => {
+		expect(() => parse(numberFlagSchema(), ['--n=-Infinity'])).toThrow('must be a finite number');
+	});
+
+	it('still rejects NaN', () => {
+		expect(() => parse(numberFlagSchema(), ['--n', 'NaN'])).toThrow('Invalid number value');
+	});
+
+	it('{ finite: false } allows Infinity', () => {
+		const result = parse(numberFlagSchema({ numberConstraints: { finite: false } }), [
+			'--n',
+			'Infinity',
+		]);
+		expect(result.flags.n).toBe(Number.POSITIVE_INFINITY);
+	});
+
+	it('{ int: true } rejects 3.7 and accepts 3', () => {
+		const schema = numberFlagSchema({ numberConstraints: { int: true } });
+		expect(() => parse(schema, ['--n', '3.7'])).toThrow('must be an integer');
+		expect(parse(schema, ['--n', '3']).flags.n).toBe(3);
+	});
+
+	it('{ min: 0 } rejects -1 and accepts 0', () => {
+		const schema = numberFlagSchema({ numberConstraints: { min: 0 } });
+		// `--n=-1` inline form: a bare `-1` token would tokenize as a short flag.
+		expect(() => parse(schema, ['--n=-1'])).toThrow('must be >= 0');
+		expect(parse(schema, ['--n', '0']).flags.n).toBe(0);
+	});
+
+	it('{ max: 100 } rejects 101 and accepts 100', () => {
+		const schema = numberFlagSchema({ numberConstraints: { max: 100 } });
+		expect(() => parse(schema, ['--n', '101'])).toThrow('must be <= 100');
+		expect(parse(schema, ['--n', '100']).flags.n).toBe(100);
+	});
+
+	it('combined constraints enforce in order finite → int → min → max', () => {
+		const schema = numberFlagSchema({ numberConstraints: { int: true, min: 0, max: 10 } });
+		expect(() => parse(schema, ['--n', '5.5'])).toThrow('must be an integer');
+		expect(() => parse(schema, ['--n=-1'])).toThrow('must be >= 0');
+		expect(() => parse(schema, ['--n', '11'])).toThrow('must be <= 10');
+		expect(parse(schema, ['--n', '7']).flags.n).toBe(7);
+	});
+
+	it('valid values pass through unchanged', () => {
+		expect(parse(numberFlagSchema(), ['--n', '42.5']).flags.n).toBe(42.5);
+	});
+});
+
+describe('numeric constraints — args', () => {
+	function numberArgSchema(constraints?: Parameters<typeof createArgSchema>[1]) {
+		return makeSchema({
+			args: [{ name: 'count', schema: createArgSchema('number', constraints) }],
+		});
+	}
+
+	it('rejects Infinity by default', () => {
+		expect(() => parse(numberArgSchema(), ['Infinity'])).toThrow('must be a finite number');
+	});
+
+	it('{ int: true } rejects 3.7, accepts 3', () => {
+		const schema = numberArgSchema({ numberConstraints: { int: true } });
+		expect(() => parse(schema, ['3.7'])).toThrow('must be an integer');
+		expect(parse(schema, ['3']).args.count).toBe(3);
+	});
+
+	it('{ min: 0, max: 100 } bounds are inclusive', () => {
+		const schema = numberArgSchema({ numberConstraints: { min: 0, max: 100 } });
+		// `--` separator so `-1` is treated as a positional, not a short flag.
+		expect(() => parse(schema, ['--', '-1'])).toThrow('must be >= 0');
+		expect(() => parse(schema, ['101'])).toThrow('must be <= 100');
+		expect(parse(schema, ['0']).args.count).toBe(0);
+		expect(parse(schema, ['100']).args.count).toBe(100);
+	});
+
+	it('{ finite: false } allows Infinity', () => {
+		const schema = numberArgSchema({ numberConstraints: { finite: false } });
+		expect(parse(schema, ['Infinity']).args.count).toBe(Number.POSITIVE_INFINITY);
+	});
+});

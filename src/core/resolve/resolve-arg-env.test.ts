@@ -421,3 +421,43 @@ describe('resolve', () => {
 		});
 	});
 });
+
+// === Numeric constraints (arg env coerce path; raw value redacted, reason kept)
+
+describe('resolve — arg env numeric constraints', () => {
+	it('enforces constraints and redacts the raw value while keeping the reason', async () => {
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'count',
+					schema: createArgSchema('number', {
+						envVar: 'COUNT',
+						numberConstraints: { int: true, min: 0, max: 100 },
+					}),
+				},
+			],
+		});
+		try {
+			await resolve(schema, makeParsed(), { env: { COUNT: '150' } });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('CONSTRAINT_VIOLATED');
+				expect(err.message).toContain('<redacted>');
+				expect(err.message).not.toContain('150');
+				expect(err.message).toContain('must be <= 100');
+				expect(err.details).toMatchObject({ arg: 'count', constraint: 'max' });
+			}
+		}
+	});
+
+	it('rejects Infinity from arg env by default', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'count', schema: createArgSchema('number', { envVar: 'COUNT' }) }],
+		});
+		await expect(resolve(schema, makeParsed(), { env: { COUNT: 'Infinity' } })).rejects.toThrow(
+			'must be a finite number',
+		);
+	});
+});

@@ -32,6 +32,17 @@ argTypes.number;
 //         ^?
 ```
 
+`arg.number()` takes the same numeric constraints as `flag.number()` — an
+options object or chained `.int()` / `.min()` / `.max()` / `.finite()` methods,
+which compose. `finite` defaults to `true`, so `Infinity` / `-Infinity` (and
+`NaN`) are rejected with error code `INVALID_VALUE` (exit `2`). See
+[Numeric constraints](/guide/flags#numeric-constraints) for the full table.
+
+```ts
+arg.number({ min: 0, max: 100, int: true });
+arg.number().int().min(0).max(100); // equivalent
+```
+
 ### Custom
 
 ```ts twoslash

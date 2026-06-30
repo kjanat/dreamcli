@@ -633,3 +633,64 @@ describe('resolve', () => {
 		});
 	});
 });
+
+// === Numeric constraints (env coerce path mirrors the parse path)
+
+describe('resolve — env numeric constraints', () => {
+	it('rejects Infinity by default (finite)', async () => {
+		const schema = makeSchema({
+			flags: { count: createSchema('number', { envVar: 'COUNT' }) },
+		});
+		try {
+			await resolve(schema, makeParsed(), { env: { COUNT: 'Infinity' } });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('CONSTRAINT_VIOLATED');
+				expect(err.message).toContain('must be a finite number');
+				expect(err.details).toMatchObject({ flag: 'count', constraint: 'finite' });
+			}
+		}
+	});
+
+	it('{ finite: false } allows Infinity from env', async () => {
+		const schema = makeSchema({
+			flags: {
+				count: createSchema('number', { envVar: 'COUNT', numberConstraints: { finite: false } }),
+			},
+		});
+		const result = await resolve(schema, makeParsed(), { env: { COUNT: 'Infinity' } });
+		expect(result.flags).toEqual({ count: Number.POSITIVE_INFINITY });
+	});
+
+	it('{ int: true } rejects non-integer env value', async () => {
+		const schema = makeSchema({
+			flags: {
+				count: createSchema('number', { envVar: 'COUNT', numberConstraints: { int: true } }),
+			},
+		});
+		await expect(resolve(schema, makeParsed(), { env: { COUNT: '3.7' } })).rejects.toThrow(
+			'must be an integer',
+		);
+	});
+
+	it('{ min: 0, max: 100 } enforces inclusive bounds from env', async () => {
+		const schema = makeSchema({
+			flags: {
+				count: createSchema('number', {
+					envVar: 'COUNT',
+					numberConstraints: { min: 0, max: 100 },
+				}),
+			},
+		});
+		await expect(resolve(schema, makeParsed(), { env: { COUNT: '-1' } })).rejects.toThrow(
+			'must be >= 0',
+		);
+		await expect(resolve(schema, makeParsed(), { env: { COUNT: '101' } })).rejects.toThrow(
+			'must be <= 100',
+		);
+		const ok = await resolve(schema, makeParsed(), { env: { COUNT: '100' } });
+		expect(ok.flags).toEqual({ count: 100 });
+	});
+});

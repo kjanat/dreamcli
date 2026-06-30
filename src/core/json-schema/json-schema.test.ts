@@ -98,6 +98,7 @@ function argEntry(
 			description: undefined,
 			envVar: undefined,
 			enumValues: undefined,
+			numberConstraints: undefined,
 			parseFn: undefined,
 			deprecated: undefined,
 			...overrides,
@@ -927,5 +928,56 @@ describe('generateInputSchema — input validation', () => {
 		const cmd = commandDef({ name: 'deploy' });
 		const result = generateInputSchema(cmd);
 		expect(result).not.toHaveProperty(['properties', 'command']);
+	});
+});
+
+// === Numeric constraints → JSON Schema
+
+describe('numeric constraints — JSON Schema integration', () => {
+	it('emits type: integer and minimum/maximum for constrained number flags', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: {
+				times: flagDef({ kind: 'number', numberConstraints: { int: true, min: 0, max: 100 } }),
+			},
+		});
+		const result = generateInputSchema(cmd);
+		expect(result).toHaveProperty(['properties', 'times'], {
+			type: 'integer',
+			minimum: 0,
+			maximum: 100,
+		});
+	});
+
+	it('emits type: number (not integer) when int is not set', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: { ratio: flagDef({ kind: 'number', numberConstraints: { min: 0 } }) },
+		});
+		const result = generateInputSchema(cmd);
+		expect(result).toHaveProperty(['properties', 'ratio', 'type'], 'number');
+		expect(result).toHaveProperty(['properties', 'ratio', 'minimum'], 0);
+		expect(result).not.toHaveProperty(['properties', 'ratio', 'maximum']);
+	});
+
+	it('omits minimum/maximum when no bounds are set (finite has no JSON-Schema field)', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: { plain: flagDef({ kind: 'number', numberConstraints: { finite: false } }) },
+		});
+		const result = generateInputSchema(cmd);
+		expect(result).toHaveProperty(['properties', 'plain', 'type'], 'number');
+		expect(result).not.toHaveProperty(['properties', 'plain', 'minimum']);
+		expect(result).not.toHaveProperty(['properties', 'plain', 'maximum']);
+	});
+
+	it('emits constraints consistently for number args', () => {
+		const cmd = commandDef({
+			name: 'test',
+			args: [argEntry('count', { kind: 'number', numberConstraints: { int: true, min: 1 } })],
+		});
+		const result = generateInputSchema(cmd);
+		expect(result).toHaveProperty(['properties', 'count', 'type'], 'integer');
+		expect(result).toHaveProperty(['properties', 'count', 'minimum'], 1);
 	});
 });
