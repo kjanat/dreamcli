@@ -51,11 +51,12 @@ describe('.default()', () => {
 			expect(app.schema.defaultCommand?.schema.name).toBe('deploy');
 		});
 
-		it('registers the command in the commands array', () => {
+		it('keeps the default command out of the commands array', () => {
 			const app = cli('mycli').default(deployCommand());
 
-			expect(app.schema.commands).toHaveLength(1);
-			expect(app.schema.commands[0]?.schema.name).toBe('deploy');
+			// Since v0.3 the default is the root surface, not a named subcommand.
+			expect(app.schema.commands).toHaveLength(0);
+			expect(app.schema.defaultCommand?.schema.name).toBe('deploy');
 		});
 
 		it('returns a new CLIBuilder (immutable)', () => {
@@ -159,12 +160,14 @@ describe('.default()', () => {
 			expect(result.stdout.join('')).toContain('deploy:staging:forced');
 		});
 
-		it('allows invoking default command by name', async () => {
+		it('does not register the default command as a named route', async () => {
 			const app = cli('mycli').default(deployCommand());
-			const result = await app.execute(['deploy', 'production']);
+			// The default's own name is not a subcommand route: `deploy` is consumed
+			// as the default command's positional argument, not dispatched by name.
+			const result = await app.execute(['deploy']);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout.join('')).toContain('deploy:production:normal');
+			expect(result.stdout.join('')).toContain('deploy:deploy:normal');
 		});
 	});
 
@@ -215,13 +218,14 @@ describe('.default()', () => {
 			expect(result.stderr.join('')).toContain("Did you mean 'status'?");
 		});
 
-		it('reports unknown commands instead of delegating', async () => {
+		it('delegates default-name-like tokens to the default (default is not a route)', async () => {
 			const app = cli('mycli').default(deployCommand()).command(statusCommand());
+			// `deploy` is no longer a route, so a near-miss is not suggested as a
+			// command — it is delegated to the default as a positional argument.
 			const result = await app.execute(['deplooy']);
 
-			expect(result.exitCode).toBe(2);
-			expect(result.stderr.join('')).toContain('Unknown command: deplooy');
-			expect(result.stderr.join('')).toContain("Did you mean 'deploy'?");
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toContain('deploy:deplooy:normal');
 		});
 	});
 
@@ -291,18 +295,18 @@ describe('.default()', () => {
 	// --- help and version
 
 	describe('help and version', () => {
-		it('--help merges root and default help for a lone visible command', async () => {
+		it('--help renders the default command inline as the root surface', async () => {
 			const app = cli('mycli').version('1.0.0').default(deployCommand());
 			const result = await app.execute(['--help']);
 
 			expect(result.exitCode).toBe(0);
 			const output = result.stdout.join('');
 			expect(output).toContain('mycli v1.0.0');
-			expect(output).toContain('Usage: mycli [command] [options]');
-			expect(output).toContain('Commands:');
-			expect(output).toContain('deploy (default)');
-			expect(output).toContain('       mycli deploy [flags] <target>');
+			// Sole default + no subcommands → its own usage stands alone, no [command].
+			expect(output).toContain('Usage: mycli deploy [flags] <target>');
 			expect(output).toContain('\n\nDeploy to an environment\n\nArguments:');
+			// Default is the surface, not echoed under Commands, and no footer.
+			expect(output).not.toContain('(default)');
 			expect(output).not.toContain("Run 'mycli [command] --help' for more information.");
 		});
 
@@ -318,15 +322,14 @@ describe('.default()', () => {
 			expect(output).toContain('status');
 		});
 
-		it('-h merges root and default help for a lone visible command', async () => {
+		it('-h renders the default command inline as the root surface', async () => {
 			const app = cli('mycli').default(deployCommand());
 			const result = await app.execute(['-h']);
 
 			expect(result.exitCode).toBe(0);
 			const output = result.stdout.join('');
-			expect(output).toContain('Usage: mycli [command] [options]');
-			expect(output).toContain('       mycli deploy [flags] <target>');
-			expect(output).toContain('Commands:');
+			expect(output).toContain('Usage: mycli deploy [flags] <target>');
+			expect(output).toContain('Arguments:');
 		});
 
 		it('--version shows version, not default command', async () => {
@@ -357,8 +360,7 @@ describe('.default()', () => {
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toEqual([]);
 			const output = result.stderr.join('');
-			expect(output).toContain('Usage: mycli [command] [options]');
-			expect(output).toContain('       mycli deploy [flags] <target>');
+			expect(output).toContain('Usage: mycli deploy [flags] <target>');
 		});
 	});
 
@@ -378,9 +380,8 @@ describe('.default()', () => {
 
 			expect(result.exitCode).toBe(0);
 			const output = result.stdout.join('');
-			expect(output).toContain('Usage: greet [command] [options]');
-			expect(output).toContain('Commands:');
-			expect(output).toContain('       greet [flags] <name>');
+			// Sole default whose name equals the bin → collapsed to a single usage line.
+			expect(output).toContain('Usage: greet [flags] <name>');
 			expect(output).not.toContain('Usage: greet greet [flags] <name>');
 		});
 
@@ -409,8 +410,10 @@ describe('.default()', () => {
 
 			expect(result.exitCode).toBe(0);
 			const output = result.stdout.join('');
-			expect(output).toContain('run (default)');
-			expect(output).toContain('       mycli run <command>');
+			// The default group is the surface (not echoed under Commands), but its
+			// own subcommands still render inline.
+			expect(output).not.toContain('(default)');
+			expect(output).toContain('Usage: mycli run <command>');
 			expect(output).toContain('check');
 		});
 	});
@@ -419,11 +422,19 @@ describe('.default()', () => {
 // === Root help formatting with default command
 
 describe('formatRootHelp — default command', () => {
-	it('shows [command] (optional) when default exists', () => {
-		const app = cli('mycli').default(deployCommand());
+	it('shows [command] (optional) when a default and subcommands exist', () => {
+		const app = cli('mycli').default(deployCommand()).command(statusCommand());
 		const help = formatRootHelp(app.schema);
 
 		expect(help).toContain('Usage: mycli [command] [options]');
+	});
+
+	it('omits the command placeholder for a sole default command', () => {
+		const app = cli('mycli').default(deployCommand());
+		const help = formatRootHelp(app.schema);
+
+		expect(help).toContain('Usage: mycli deploy [flags] <target>');
+		expect(help).not.toContain('Usage: mycli [command] [options]');
 	});
 
 	it('shows <command> (required) when no default', () => {
@@ -433,12 +444,20 @@ describe('formatRootHelp — default command', () => {
 		expect(help).toContain('Usage: mycli <command> [options]');
 	});
 
-	it('marks default command with (default) tag', () => {
+	it('marks default command with (default) tag when shown in commands', () => {
 		const app = cli('mycli').default(deployCommand()).command(statusCommand());
-		const help = formatRootHelp(app.schema);
+		const help = formatRootHelp(app.schema, { showDefaultInCommands: true });
 
 		expect(help).toContain('deploy (default)');
 		expect(help).not.toContain('status (default)');
+	});
+
+	it('omits the default command from the commands list by default', () => {
+		const app = cli('mycli').default(deployCommand()).command(statusCommand());
+		const help = formatRootHelp(app.schema);
+
+		expect(help).not.toContain('(default)');
+		expect(help).toContain('status');
 	});
 
 	it('treats hidden defaults as invisible in root help', () => {
@@ -468,8 +487,7 @@ describe('formatRootHelp — default command', () => {
 		const app = cli('mycli').default(deployCommand());
 		const help = formatRootHelp(app.schema);
 
-		expect(help).toContain('Usage: mycli [command] [options]');
-		expect(help).toContain('       mycli deploy [flags] <target>');
+		expect(help).toContain('Usage: mycli deploy [flags] <target>');
 	});
 
 	it('footer uses <command> when no default', () => {
@@ -479,9 +497,19 @@ describe('formatRootHelp — default command', () => {
 		expect(help).toContain("Run 'mycli <command> --help' for more information.");
 	});
 
+	it('respects options.binName in usage, inline default, and footer', () => {
+		const app = cli('mycli').default(deployCommand()).command(statusCommand());
+		const help = formatRootHelp(app.schema, { binName: 'tool' });
+
+		expect(help).toContain('Usage: tool [command] [options]');
+		expect(help).toContain('       tool deploy [flags] <target>');
+		expect(help).toContain("Run 'tool [command] --help' for more information.");
+		expect(help).not.toContain('Usage: mycli');
+	});
+
 	it('aligns descriptions accounting for (default) tag width', () => {
 		const app = cli('mycli').default(deployCommand()).command(statusCommand());
-		const help = formatRootHelp(app.schema);
+		const help = formatRootHelp(app.schema, { showDefaultInCommands: true });
 
 		const lines = help.split('\n');
 		const deployLine = lines.find((l) => l.includes('deploy (default)'));

@@ -48,4 +48,13 @@ jobs:
       - uses: actions/download-artifact@v8
         with: { name: tarball }
       - name: Publish to npm
-        run: npx npm@latest publish "${TARBALL}" --provenance --access public
+        env: { VERSION: "${{ fromJSON(needs.meta.outputs.meta).version }}" }
+        run: |
+          # Prerelease versions (e.g. 3.0.0-rc.1) publish under the `next`
+          # dist-tag so they never become the default `latest` install.
+          case "${VERSION}" in
+            *-*) dist_tag=next ;;
+            *) dist_tag=latest ;;
+          esac
+          echo "Publishing ${VERSION} under dist-tag '${dist_tag}'"
+          npx npm@latest publish "${TARBALL}" --provenance --access public --tag "${dist_tag}"

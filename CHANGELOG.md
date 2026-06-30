@@ -7,8 +7,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+<!-- ## [3.0.0-rc.1]  -->
+
 ### Added
 
+- **`.completions({ as: 'flag' })`** — expose shell completion as an eager
+  `--completions <shell>` flag on the CLI root instead of a `completions`
+  subcommand. The planner intercepts the flag before dispatch, prints the script,
+  and exits; root help advertises `--completions <bash|zsh|fish|powershell>` in its
+  `Flags:` section. `.completions()` still defaults to `{ as: 'command' }`. Because
+  the eager flag is intercepted before dispatch, the `--completions` name is
+  reserved in flag mode — declaring a command/default flag of that name throws at
+  build time.
+- **Shell auto-detection** — `--completions` with no value (flag form) resolves the
+  target shell from the environment: `$SHELL` (parsed as an interpreter path) wins
+  when it names a supported shell, otherwise the presence of `$PSModulePath` selects
+  PowerShell — the reliable signal for `pwsh`, which never sets `$SHELL`.
+- **`detectShell(env)` / `normalizeShell(raw)`** — exported helpers behind the
+  detection above; `normalizeShell` accepts bare names, `$SHELL` paths, and the
+  `pwsh`/`powershell` pair.
+- **`.help(config)` builder + extended `HelpOptions`** — configure root-help
+  rendering: `inlineDefault`, `showDefaultInCommands`, and `footer` (plus the
+  existing `width` / `hyperlinks`). Builder config is merged under runtime
+  `options.help` (runtime wins).
 - **Numeric constraints for number flags and args** — `flag.number()` and
   `arg.number()` now accept `{ min?, max?, int?, finite? }` (bounds inclusive),
   and the same constraints compose via chained `.int()` / `.min(n)` / `.max(n)` /
@@ -25,6 +46,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING — the default command is now the root _surface_, not a named
+  subcommand.** `.default(cmd)` registers the command only as the default; it is no
+  longer added to `schema.commands`. Consequences:
+  - It can no longer be invoked by its own name (`mycli mycmd` does not route to it;
+    the token is treated as input to the default command).
+  - It is omitted from the root `Commands:` list by default (re-enable with
+    `.help({ showDefaultInCommands: true })`).
+  - Root `--help` renders the default command's `Arguments:`/`Flags:` inline even
+    when sibling commands exist (previously only when it was the sole command), and a
+    sole default with no subcommands shows its own usage line directly instead of a
+    `[command]` placeholder.
 - **`finite` defaults to `true` (behavior change)** — `flag.number()` /
   `arg.number()` now **reject `Infinity` and `-Infinity`**, which previously
   passed straight through to handlers (`Number("Infinity")` is not `NaN`). Pass
@@ -902,7 +934,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.1...HEAD
+[3.0.0-rc.1]: https://github.com/kjanat/dreamcli/compare/v2.5.0...v3.0.0-rc.1
 [2.5.0]: https://github.com/kjanat/dreamcli/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/kjanat/dreamcli/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/kjanat/dreamcli/compare/v2.3.0...v2.4.0

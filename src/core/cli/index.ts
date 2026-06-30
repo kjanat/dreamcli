@@ -10,7 +10,12 @@
  */
 
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
-import { generateCompletion, SHELLS } from '#internals/core/completion/index.ts';
+import {
+	detectShell,
+	generateCompletion,
+	normalizeShell,
+	SHELLS,
+} from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
@@ -36,6 +41,7 @@ import type {
 } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
+import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
@@ -51,6 +57,48 @@ import { formatRootHelp } from './root-help.ts';
 import { prepareRuntimePreflight } from './runtime-preflight.ts';
 
 // --- Type-erased command — erasure function (interface now in schema/command.ts)
+
+/** Long-flag name reserved by `.completions({ as: 'flag' })`; the planner intercepts it before dispatch. */
+const COMPLETIONS_FLAG_NAME = 'completions';
+
+/**
+ * Whether a command — or any of its nested subcommands — declares a flag that
+ * collides with the eager `--completions` flag, by canonical name or long alias.
+ *
+ * @internal
+ */
+function commandReservesCompletionsFlag(schema: CommandSchema): boolean {
+	if (Object.hasOwn(schema.flags, COMPLETIONS_FLAG_NAME)) return true;
+	for (const flagSchema of Object.values(schema.flags)) {
+		if (
+			getFlagAliasNames(flagSchema, { kind: 'long', includeHidden: true }).includes(
+				COMPLETIONS_FLAG_NAME,
+			)
+		) {
+			return true;
+		}
+	}
+	return schema.commands.some(commandReservesCompletionsFlag);
+}
+
+/**
+ * Reject a command whose flags would be shadowed by the eager `--completions`
+ * flag once `.completions({ as: 'flag' })` is active. Because the planner
+ * intercepts `--completions` before dispatch, such a flag could never be reached.
+ *
+ * @internal
+ */
+function assertNoCompletionsFlagCollision(schema: CommandSchema): void {
+	if (commandReservesCompletionsFlag(schema)) {
+		throw new CLIError(
+			`Command '${schema.name}' defines a '--${COMPLETIONS_FLAG_NAME}' flag, which is reserved by .completions({ as: 'flag' })`,
+			{
+				code: 'RESERVED_FLAG',
+				suggest: `Rename the flag, or register completions as a subcommand with .completions() instead of { as: 'flag' }`,
+			},
+		);
+	}
+}
 
 function commandRoutes(schema: CommandSchema): readonly string[] {
 	return [schema.name, ...schema.aliases];
@@ -79,10 +127,12 @@ function assertNoSiblingRouteConflict(
 function assertNoTopLevelRouteConflict(
 	commands: readonly ErasedCommand[],
 	incoming: CommandSchema,
+	defaultCommand?: ErasedCommand | undefined,
 ): void {
 	const routeOwners = new Map<string, string>();
 
-	for (const command of commands) {
+	const existing = defaultCommand !== undefined ? [...commands, defaultCommand] : commands;
+	for (const command of existing) {
 		for (const route of commandRoutes(command.schema)) {
 			assertNoSiblingRouteConflict('root', routeOwners, route, command.schema.name);
 		}
@@ -205,10 +255,74 @@ interface CLISchema {
 	 * CLIBuilder.manifest | .manifest()}) is active.
 	 */
 	readonly helpLinks: HelpLinks | undefined;
-	/** Whether built-in `.completions()` command registration is active. */
+	/** Whether built-in `.completions()` registration (command or flag) is active. */
 	readonly hasBuiltInCompletions: boolean;
+	/**
+	 * Eager `--completions <shell>` flag configuration.
+	 *
+	 * Set when `.completions({ as: 'flag' })` is used instead of the default
+	 * `completions` subcommand. When defined, the planner intercepts
+	 * `--completions <shell>` before dispatch, prints the script, and exits;
+	 * root help advertises the flag in its `Flags:` section.
+	 */
+	readonly completionsFlag: CompletionsFlagConfig | undefined;
+	/**
+	 * Consumer-configured root-help defaults.
+	 *
+	 * Set via the {@linkcode CLIBuilder.help | .help()} builder method and merged
+	 * under runtime `options.help` (runtime wins) before rendering.
+	 */
+	readonly helpConfig: HelpConfig | undefined;
 	/** Registered CLI plugins. */
 	readonly plugins: readonly CLIPlugin[];
+}
+
+/**
+ * Configuration for the eager `--completions <shell>` flag.
+ *
+ * Stored in {@link CLISchema} when `.completions({ as: 'flag' })` is used.
+ *
+ * @internal
+ */
+interface CompletionsFlagConfig {
+	/** Shell targets the flag accepts (mirrors {@link SHELLS}). */
+	readonly shells: readonly Shell[];
+	/** Generator options captured at build time (e.g. `functionPrefix`, `rootMode`). */
+	readonly options: CompletionOptions | undefined;
+}
+
+/**
+ * Consumer-facing root-help configuration set via {@linkcode CLIBuilder.help}.
+ *
+ * Every field is optional; unset fields fall back to built-in defaults and may
+ * be overridden per call through runtime `options.help`.
+ */
+interface HelpConfig {
+	/**
+	 * Render the default command's arguments and flags inline at the root.
+	 *
+	 * @defaultValue `true`
+	 */
+	readonly inlineDefault?: boolean;
+	/**
+	 * Also list the default command in the root `Commands:` table.
+	 *
+	 * By default the default command is the root surface and is omitted from the
+	 * command list (its args/flags render inline instead).
+	 *
+	 * @defaultValue `false`
+	 */
+	readonly showDefaultInCommands?: boolean;
+	/**
+	 * Show the `Run '<bin> <command> --help' for more information.` hint.
+	 *
+	 * Defaults to showing the hint only when visible subcommands exist.
+	 */
+	readonly footer?: boolean;
+	/** Maximum line width (columns). */
+	readonly width?: number;
+	/** Emit OSC 8 hyperlinks in the header when supported. */
+	readonly hyperlinks?: boolean;
 }
 
 /**
@@ -466,6 +580,31 @@ class CLIBuilder {
 	}
 
 	/**
+	 * Configure root-help rendering defaults.
+	 *
+	 * Stored on the schema and merged **under** any runtime `options.help`
+	 * (runtime wins). Call multiple times to set fields incrementally.
+	 *
+	 * @param config - Help rendering options (see {@link HelpConfig}).
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * // Echo the default command under Commands and never show the footer:
+	 * cli('mycli')
+	 *   .help({ showDefaultInCommands: true, footer: false })
+	 *   .default(serve)
+	 *   .run();
+	 * ```
+	 */
+	help(config: HelpConfig): CLIBuilder {
+		return new CLIBuilder({
+			...this.schema,
+			helpConfig: { ...this.schema.helpConfig, ...config },
+		});
+	}
+
+	/**
 	 * Enable automatic config file discovery.
 	 *
 	 * When enabled, `.run()` probes standard paths before dispatching:
@@ -695,7 +834,10 @@ class CLIBuilder {
 		A extends Record<string, ArgBuilder<ArgConfig>>,
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
-		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema, this.schema.defaultCommand);
+		if (this.schema.completionsFlag !== undefined) {
+			assertNoCompletionsFlagCollision(cmd.schema);
+		}
 
 		return new CLIBuilder({
 			...this.schema,
@@ -710,8 +852,11 @@ class CLIBuilder {
 	 * dispatch normally, but empty argv or flags-only argv falls through to
 	 * this command instead of showing root help.
 	 *
-	 * The command is also registered as a normal subcommand (can be invoked
-	 * by name). Only one default command is allowed.
+	 * The default command is the CLI's root *surface*: its flags and arguments
+	 * are rendered inline in root help. It is **not** a named subcommand — it
+	 * cannot be invoked by its own name (`mycli mycmd` does not route to it) and
+	 * it is omitted from the root `Commands:` list by default (re-enable with
+	 * `.help({ showDefaultInCommands: true })`). Only one default is allowed.
 	 *
 	 * @example
 	 * ```ts
@@ -746,11 +891,13 @@ class CLIBuilder {
 		}
 
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+		if (this.schema.completionsFlag !== undefined) {
+			assertNoCompletionsFlagCollision(cmd.schema);
+		}
 
 		const erased = eraseCommand(cmd);
 		return new CLIBuilder({
 			...this.schema,
-			commands: [...this.schema.commands, erased],
 			defaultCommand: erased,
 		});
 	}
@@ -775,27 +922,35 @@ class CLIBuilder {
 	// -- Built-in subcommands ------------------------------------------------
 
 	/**
-	 * Register a built-in `completions` subcommand that generates shell
-	 * completion scripts.
+	 * Register built-in shell completion.
 	 *
-	 * The generated command accepts a `--shell` flag (required, enum of
-	 * all {@link Shell} values) and writes the completion script to stdout
-	 * via `out.log()`. Unsupported shells throw a descriptive {@linkcode CLIError}
-	 * instead of a generic parse error.
+	 * By default (`{ as: 'command' }`) this registers a `completions` subcommand
+	 * that accepts a `shell` argument and writes the script to stdout. With
+	 * `{ as: 'flag' }` it instead exposes an eager `--completions <shell>` flag on
+	 * the CLI root — no subcommand is registered, so a default command stays the
+	 * lone root surface. The flag may be given without a value to auto-detect the
+	 * shell from `$SHELL` / `$PSModulePath`.
 	 *
-	 * Call this **after** registering all other commands so the completion
-	 * script includes the full command set. The captured schema is a
-	 * snapshot at call time — commands registered after `.completions()`
-	 * will not appear in the generated script. Completion options are also
-	 * captured at call time.
+	 * In subcommand mode, call this **after** registering all other commands so
+	 * the completion script includes the full command set: that path snapshots the
+	 * schema (and completion options) at call time, so commands registered
+	 * afterwards will not appear in that subcommand's generated script. In flag
+	 * mode, generation runs at execution time from the final builder schema, so
+	 * registration order does not matter.
 	 *
 	 * @example
 	 * ```ts
+	 * // Subcommand form (default):
 	 * cli('mycli')
 	 *   .version('1.0.0')
 	 *   .command(deploy)
-	 *   .command(login)
 	 *   .completions({ rootMode: 'surface' })
+	 *   .run();
+	 *
+	 * // Eager-flag form, ideal for single-command CLIs:
+	 * cli('mycli')
+	 *   .completions({ as: 'flag' })
+	 *   .default(serve)
 	 *   .run();
 	 * ```
 	 */
@@ -807,16 +962,31 @@ class CLIBuilder {
 			});
 		}
 
+		// `as: 'flag'` exposes an eager `--completions <shell>` flag instead of a
+		// subcommand. The planner intercepts it before dispatch (see planner.ts)
+		// and root help advertises it in the Flags section. No subcommand is
+		// registered, so the default command stays the lone root surface.
+		if (options?.as === 'flag') {
+			// The planner intercepts `--completions` before dispatch, so no command
+			// may already reserve that flag name.
+			if (this.schema.defaultCommand !== undefined) {
+				assertNoCompletionsFlagCollision(this.schema.defaultCommand.schema);
+			}
+			for (const registered of this.schema.commands) {
+				assertNoCompletionsFlagCollision(registered.schema);
+			}
+			return new CLIBuilder({
+				...this.schema,
+				hasBuiltInCompletions: true,
+				completionsFlag: { shells: SHELLS, options },
+			});
+		}
+
 		// Capture current schema — includes all commands registered so far.
 		// The completions command itself is deliberately excluded from the
 		// generated script (it would be noise in shell completions).
 		const cliSchema = this.schema;
 		const completionOptions = options;
-
-		// Supported shells for validation. Keep in sync with completion/index.ts SHELLS.
-		const shellMap = new Map<string, Shell>();
-		for (const s of SHELLS) shellMap.set(s, s);
-		shellMap.set('pwsh', 'powershell');
 
 		const cmd = command('completions')
 			.alias('completion')
@@ -827,12 +997,9 @@ class CLIBuilder {
 					.custom((raw: string): Shell => {
 						// Normalize $SHELL paths across Unix/Windows:
 						// /bin/zsh → zsh, C:\Program Files\PowerShell\7\pwsh.exe → pwsh
-						const segments = raw.split(/[\\/]/);
-						const basename = segments[segments.length - 1] ?? raw;
-						const name = basename.replace(/\.(?:exe|cmd|bat)$/i, '');
-						const shell = shellMap.get(name);
+						const shell = normalizeShell(raw);
 						if (shell === undefined) {
-							throw new Error(`Unknown shell '${name}'. Valid shells: ${SHELLS.join(', ')}`);
+							throw new Error(`Unknown shell '${raw}'. Valid shells: ${SHELLS.join(', ')}`);
 						}
 						return shell;
 					})
@@ -894,12 +1061,14 @@ class CLIBuilder {
 		}
 		clearRequestedExitCode(out);
 
-		// Resolve help options — default binName to CLI program name,
-		// hyperlinks to TTY detection (escapes never leak into piped output)
+		// Resolve help options — builder-level `.help()` config under runtime
+		// `options.help` (runtime wins), then default binName to the CLI program
+		// name and hyperlinks to TTY detection (escapes never leak into piped output).
 		const helpOptions: HelpOptions = {
+			...this.schema.helpConfig,
 			...options?.help,
 			binName: options?.help?.binName ?? this.schema.name,
-			hyperlinks: options?.help?.hyperlinks ?? out.isTTY,
+			hyperlinks: options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isTTY,
 		};
 
 		// -- Shared options for command execution ----------------------------------
@@ -924,6 +1093,34 @@ class CLIBuilder {
 			case 'root-version':
 				out.log(planned.version);
 				return buildRunResult({ exitCode: 0, error: undefined }, captured);
+
+			case 'root-completions': {
+				const shell = planned.shell ?? detectShell(options?.env ?? {});
+				if (shell === undefined) {
+					const error = new CLIError('Could not detect shell', {
+						code: 'MISSING_VALUE',
+						suggest: `Pass one explicitly, e.g. '${helpOptions.binName} --completions zsh'`,
+					});
+					if (jsonMode) {
+						out.json({ error: error.toJSON() });
+					} else {
+						out.error(error.message);
+						out.error(`Suggestion: ${error.suggest}`);
+					}
+					return buildRunResult({ exitCode: error.exitCode, error }, captured);
+				}
+				const completionSchema =
+					helpOptions.binName === undefined || helpOptions.binName === this.schema.name
+						? this.schema
+						: { ...this.schema, name: helpOptions.binName };
+				const script = generateCompletion(completionSchema, shell, planned.options);
+				if (jsonMode) {
+					out.json({ shell, script });
+				} else {
+					out.log(script);
+				}
+				return buildRunResult({ exitCode: 0, error: undefined }, captured);
+			}
 
 			case 'root-help': {
 				const helpText = formatRootHelp(resolveHelpLinksSchema(this.schema), planned.help);
@@ -1385,6 +1582,8 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 		packageJsonSettings: undefined,
 		helpLinks: undefined,
 		hasBuiltInCompletions: false,
+		completionsFlag: undefined,
+		helpConfig: undefined,
 		plugins: [],
 	});
 }
@@ -1403,7 +1602,9 @@ export type {
 	CLIOptions,
 	CLIRunOptions,
 	CLISchema,
+	CompletionsFlagConfig,
 	ConfigSettings,
+	HelpConfig,
 	InferNameOption,
 	ManifestPresetSettings,
 	ManifestSettings,

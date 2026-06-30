@@ -10,6 +10,8 @@
  * @internal
  */
 
+import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
+import { normalizeShell } from '#internals/core/completion/index.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
@@ -39,6 +41,13 @@ interface PlannerSchemaLike {
 	readonly commands: readonly ErasedCommand[];
 	/** Fallback command when no subcommand token matches. */
 	readonly defaultCommand: ErasedCommand | undefined;
+	/**
+	 * Eager `--completions <shell>` flag configuration, when `.completions()`
+	 * was registered with `{ as: 'flag' }`. `undefined` disables interception.
+	 */
+	readonly completionsFlag:
+		| { readonly shells: readonly Shell[]; readonly options: CompletionOptions | undefined }
+		| undefined;
 	/** Plugins forwarded into every matched execution plan. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -57,6 +66,19 @@ interface RootVersionOutcome {
 	readonly kind: 'root-version';
 	/** Resolved version string to render. */
 	readonly version: string;
+}
+
+/** Root-level `--completions [shell]` interception outcome. */
+interface RootCompletionsOutcome {
+	/** Discriminant — argv matched the eager `--completions [shell]` flag. */
+	readonly kind: 'root-completions';
+	/**
+	 * Resolved, validated target shell, or `undefined` when the flag was given
+	 * without a value and the shell should be auto-detected from the environment.
+	 */
+	readonly shell: Shell | undefined;
+	/** Generator options captured at build time. */
+	readonly options: CompletionOptions | undefined;
 }
 
 /** CLI-level dispatch failure before command execution starts. */
@@ -84,6 +106,7 @@ interface PlannerMatchOutcome {
 type DispatchOutcome =
 	| RootHelpOutcome
 	| RootVersionOutcome
+	| RootCompletionsOutcome
 	| DispatchErrorOutcome
 	| PlannerMatchOutcome;
 
@@ -292,11 +315,67 @@ function findUnknownFlagBeforePositional(
 }
 
 /**
+ * Detect and resolve the eager `--completions [shell]` flag before dispatch.
+ *
+ * Accepts `--completions <shell>` and `--completions=<shell>`. When no value is
+ * given (`--completions` alone, or followed by another flag), the shell is left
+ * `undefined` so the caller can auto-detect it from the environment. Scans only
+ * before a `--` separator so a literal positional survives.
+ *
+ * Returns `undefined` when the flag is absent, a `root-completions` outcome
+ * otherwise, or a `dispatch-error` when an explicit value names an unknown shell.
+ *
+ * @internal
+ */
+function planCompletionsFlag(
+	argv: readonly string[],
+	config: { readonly shells: readonly Shell[]; readonly options: CompletionOptions | undefined },
+): RootCompletionsOutcome | DispatchErrorOutcome | undefined {
+	const separatorIndex = argv.indexOf('--');
+	const scanEnd = separatorIndex === -1 ? argv.length : separatorIndex;
+
+	for (let index = 0; index < scanEnd; index++) {
+		const token = argv[index];
+		if (token === undefined) continue;
+
+		let rawShell: string | undefined;
+		if (token === '--completions') {
+			const next = index + 1 < scanEnd ? argv[index + 1] : undefined;
+			rawShell = next !== undefined && !next.startsWith('-') ? next : undefined;
+		} else if (token.startsWith('--completions=')) {
+			rawShell = token.slice('--completions='.length);
+		} else {
+			continue;
+		}
+
+		// No explicit value → defer to environment auto-detection.
+		if (rawShell === undefined || rawShell === '') {
+			return { kind: 'root-completions', shell: undefined, options: config.options };
+		}
+
+		const shell = normalizeShell(rawShell);
+		if (shell === undefined || !config.shells.includes(shell)) {
+			return {
+				kind: 'dispatch-error',
+				error: new ParseError(`Unknown shell '${rawShell}'`, {
+					code: 'INVALID_VALUE',
+					suggest: `Valid shells: ${config.shells.join(', ')}`,
+				}),
+			};
+		}
+
+		return { kind: 'root-completions', shell, options: config.options };
+	}
+
+	return undefined;
+}
+
+/**
  * Decide what to do with an argv invocation before any command executes.
  *
- * Handles root interception (`--help`, `--version`, bare `help` token),
- * dispatches into the command tree, falls back to the default command, and
- * produces structured errors for unknown commands/flags.
+ * Handles root interception (`--help`, `--version`, `--completions <shell>`,
+ * bare `help` token), dispatches into the command tree, falls back to the
+ * default command, and produces structured errors for unknown commands/flags.
  * @internal
  */
 function planInvocation(options: PlanInvocationOptions): InvocationPlan {
@@ -319,6 +398,13 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			kind: 'root-version',
 			version: options.schema.version,
 		};
+	}
+
+	if (options.schema.completionsFlag !== undefined) {
+		const completionsOutcome = planCompletionsFlag(options.argv, options.schema.completionsFlag);
+		if (completionsOutcome !== undefined) {
+			return completionsOutcome;
+		}
 	}
 
 	const firstArg = filteredArgv[0];
@@ -356,12 +442,12 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		};
 	}
 
-	if (options.schema.commands.length === 0) {
+	if (options.schema.commands.length === 0 && options.schema.defaultCommand === undefined) {
 		return {
 			kind: 'dispatch-error',
 			error: new CLIError('No commands registered', {
 				code: 'NO_ACTION',
-				suggest: 'Add commands via .command() before calling .run()',
+				suggest: 'Add commands via .command() or .default() before calling .run()',
 			}),
 		};
 	}
@@ -484,6 +570,7 @@ export type {
 	PlanInvocationOptions,
 	PlannerMatchOutcome,
 	PlannerSchemaLike,
+	RootCompletionsOutcome,
 	RootHelpOutcome,
 	RootVersionOutcome,
 };

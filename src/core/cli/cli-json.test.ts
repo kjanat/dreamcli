@@ -126,7 +126,9 @@ describe('CLIBuilder --json CLI-level error rendering', () => {
 		const parsed = JSON.parse(result.stdout[0] ?? '');
 		expect(parsed.error.code).toBe('NO_ACTION');
 		expect(parsed.error.message).toBe('No commands registered');
-		expect(parsed.error.suggest).toBe('Add commands via .command() before calling .run()');
+		expect(parsed.error.suggest).toBe(
+			'Add commands via .command() or .default() before calling .run()',
+		);
 		// stderr should be empty — all output goes through json() to stdout
 		expect(result.stderr).toEqual([]);
 	});

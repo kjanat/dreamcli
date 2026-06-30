@@ -55,6 +55,16 @@ interface CompletionOptions {
 	 */
 	readonly functionPrefix?: string;
 	/**
+	 * Where the built-in shell completion is exposed.
+	 *
+	 * - `'command'` registers a `completions` subcommand (the default).
+	 * - `'flag'` exposes an eager `--completions <shell>` flag on the CLI root
+	 *   instead, keeping the root free of a `completions` subcommand.
+	 *
+	 * @defaultValue `'command'`
+	 */
+	readonly as?: 'command' | 'flag';
+	/**
 	 * Controls which root-level surface shell completion exposes when a
 	 * default command exists.
 	 *
@@ -109,13 +119,29 @@ function resolveRootCompletionSurface(
 	const rootSurface = resolveRootSurface(schema);
 	const rootFlags = createRootFlags(schema.version !== undefined);
 	const defaultFlags = rootSurface.visibleDefaultCommand?.flags ?? {};
+	// Default flags surface at the root either always (`surface`) or only when
+	// the default is the sole surface (`subcommands`).
 	const includeDefaultFlags =
 		rootMode === 'surface'
-			? rootSurface.visibleDefaultCommand !== undefined
-			: rootSurface.hasSingleVisibleDefault;
+			? rootSurface.hasVisibleDefault
+			: rootSurface.hasVisibleDefault && !rootSurface.hasVisibleSubcommands;
+
+	// Generated completion scripts keep treating the default command as part of
+	// the root surface (a walkable node carrying its own flags/args), regardless
+	// of whether it is registered under `commands` — since v0.3 `.default()` keeps
+	// it only in `defaultCommand`. Re-add it here so the per-shell generators,
+	// which build their dispatch machinery from this list, behave unchanged.
+	const defaultCommand = rootSurface.visibleDefaultCommand;
+	const alreadyListed =
+		defaultCommand !== undefined &&
+		rootSurface.visibleCommands.some((c) => c.name === defaultCommand.name);
+	const visibleCommands =
+		defaultCommand !== undefined && !alreadyListed
+			? [defaultCommand, ...rootSurface.visibleCommands]
+			: rootSurface.visibleCommands;
 
 	return {
-		visibleCommands: rootSurface.visibleCommands,
+		visibleCommands,
 		visibleDefaultCommand: rootSurface.visibleDefaultCommand,
 		rootFlags,
 		defaultFlags,

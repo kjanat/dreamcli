@@ -18,11 +18,13 @@ import {
 } from './completion-test-helpers.ts';
 import type { CompletionOptions } from './index.ts';
 import {
+	detectShell,
 	generateBashCompletion,
 	generateCompletion,
 	generateFishCompletion,
 	generatePowerShellCompletion,
 	generateZshCompletion,
+	normalizeShell,
 	SHELLS,
 } from './index.ts';
 
@@ -100,6 +102,8 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 			: { packageJsonSettings: undefined }),
 		helpLinks: undefined,
 		hasBuiltInCompletions: overrides.hasBuiltInCompletions ?? false,
+		completionsFlag: undefined,
+		helpConfig: undefined,
 		plugins: overrides.plugins ?? [],
 	};
 }
@@ -113,6 +117,56 @@ describe('Shell type — SHELLS constant', () => {
 
 	it('is a frozen readonly tuple', () => {
 		expect(Object.isFrozen(SHELLS)).toBe(true);
+	});
+});
+
+// === Shell normalization and detection
+
+describe('normalizeShell', () => {
+	it('accepts bare shell names', () => {
+		expect(normalizeShell('zsh')).toBe('zsh');
+		expect(normalizeShell('bash')).toBe('bash');
+	});
+
+	it('parses $SHELL-style interpreter paths', () => {
+		expect(normalizeShell('/usr/bin/zsh')).toBe('zsh');
+		expect(normalizeShell('/bin/bash')).toBe('bash');
+	});
+
+	it('treats pwsh and powershell identically, including Windows paths', () => {
+		expect(normalizeShell('pwsh')).toBe('powershell');
+		expect(normalizeShell('powershell')).toBe('powershell');
+		expect(normalizeShell('C:\\Program Files\\PowerShell\\7\\pwsh.exe')).toBe('powershell');
+	});
+
+	it('returns undefined for unsupported shells', () => {
+		expect(normalizeShell('ksh')).toBeUndefined();
+		expect(normalizeShell('/usr/bin/ksh')).toBeUndefined();
+	});
+});
+
+describe('detectShell', () => {
+	it('resolves a recognized $SHELL', () => {
+		expect(detectShell({ SHELL: '/usr/bin/zsh' })).toBe('zsh');
+	});
+
+	it('lets a recognized $SHELL win over the PowerShell fallback', () => {
+		// A pwsh session launched from bash inherits SHELL=/bin/bash.
+		expect(detectShell({ SHELL: '/bin/bash', PSModulePath: 'C:\\x' })).toBe('bash');
+	});
+
+	it('falls back to PowerShell via $PSModulePath when $SHELL is unset', () => {
+		expect(detectShell({ PSModulePath: 'C:\\x' })).toBe('powershell');
+	});
+
+	it('falls back to PowerShell when $SHELL is unrecognized', () => {
+		expect(detectShell({ SHELL: '/usr/bin/ksh', PSModulePath: 'C:\\x' })).toBe('powershell');
+	});
+
+	it('returns undefined without any signal', () => {
+		expect(detectShell({})).toBeUndefined();
+		expect(detectShell({ SHELL: '' })).toBeUndefined();
+		expect(detectShell({ SHELL: '/usr/bin/ksh' })).toBeUndefined();
 	});
 });
 
