@@ -90,6 +90,32 @@ describe('flag.number() chained constraint methods', () => {
 	});
 });
 
+describe('flag.number() rejects non-finite bounds at construction', () => {
+	it('throws for an infinite max in the options object', () => {
+		expect(() => flag.number({ max: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+	});
+
+	it('throws for an infinite min in the options object', () => {
+		expect(() => flag.number({ min: Number.NEGATIVE_INFINITY })).toThrow(RangeError);
+	});
+
+	it('throws for a NaN bound', () => {
+		expect(() => flag.number({ max: Number.NaN })).toThrow(RangeError);
+	});
+
+	it('throws for an infinite chained .max()', () => {
+		expect(() => flag.number().max(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+	});
+
+	it('throws for an infinite chained .min()', () => {
+		expect(() => flag.number().min(Number.NEGATIVE_INFINITY)).toThrow(RangeError);
+	});
+
+	it('still accepts finite bounds', () => {
+		expect(() => flag.number({ min: 0, max: 100 }).min(-5).max(1000)).not.toThrow();
+	});
+});
+
 describe('flag.boolean()', () => {
 	it('creates a boolean flag defaulted to false', () => {
 		const f = flag.boolean();

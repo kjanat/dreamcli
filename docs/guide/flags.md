@@ -56,7 +56,9 @@ flag.number({ min: 0 }).max(100); // composes to { min: 0, max: 100 }
 
 The resolved value type stays `number` — constraints are enforced at runtime
 and surfaced in the exported JSON Schema (`minimum` / `maximum`, and
-`type: "integer"` when `int` is set), not at the type level.
+`type: "integer"` when `int` is set), not at the type level. `min` / `max` must
+be finite; passing `Infinity` / `-Infinity` / `NaN` as a bound throws when the
+flag is declared (omit the field for "no bound").
 
 ::: warning Finite by default
 `flag.number()` now **rejects `Infinity` and `-Infinity`** (as well as `NaN`,

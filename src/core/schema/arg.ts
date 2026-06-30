@@ -8,7 +8,7 @@
  * @module dreamcli/core/schema/arg
  */
 
-import type { NumberConstraints } from './number-constraints.ts';
+import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
@@ -534,10 +534,9 @@ class ArgBuilder<C extends ArgConfig> {
 	 * ```
 	 */
 	min(this: ArgBuilder<C & { readonly argKind: 'number' }>, value: number): ArgBuilder<C> {
-		return new ArgBuilder({
-			...this.schema,
-			numberConstraints: { ...this.schema.numberConstraints, min: value },
-		});
+		const numberConstraints = { ...this.schema.numberConstraints, min: value };
+		assertNumberConstraints(numberConstraints);
+		return new ArgBuilder({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -553,10 +552,9 @@ class ArgBuilder<C extends ArgConfig> {
 	 * ```
 	 */
 	max(this: ArgBuilder<C & { readonly argKind: 'number' }>, value: number): ArgBuilder<C> {
-		return new ArgBuilder({
-			...this.schema,
-			numberConstraints: { ...this.schema.numberConstraints, max: value },
-		});
+		const numberConstraints = { ...this.schema.numberConstraints, max: value };
+		assertNumberConstraints(numberConstraints);
+		return new ArgBuilder({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -793,6 +791,9 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 		readonly argKind: 'number';
 	}> {
+		if (constraints !== undefined) {
+			assertNumberConstraints(constraints);
+		}
 		return new ArgBuilder(
 			createArgSchema(
 				'number',

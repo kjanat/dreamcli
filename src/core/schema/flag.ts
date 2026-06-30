@@ -9,7 +9,7 @@
  * @module dreamcli/core/schema/flag
  */
 
-import type { NumberConstraints } from './number-constraints.ts';
+import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
@@ -612,10 +612,9 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	min(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value: number): FlagBuilder<C> {
-		return new FlagBuilder({
-			...this.schema,
-			numberConstraints: { ...this.schema.numberConstraints, min: value },
-		});
+		const numberConstraints = { ...this.schema.numberConstraints, min: value };
+		assertNumberConstraints(numberConstraints);
+		return new FlagBuilder({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -631,10 +630,9 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	max(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value: number): FlagBuilder<C> {
-		return new FlagBuilder({
-			...this.schema,
-			numberConstraints: { ...this.schema.numberConstraints, max: value },
-		});
+		const numberConstraints = { ...this.schema.numberConstraints, max: value };
+		assertNumberConstraints(numberConstraints);
+		return new FlagBuilder({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -822,6 +820,9 @@ const flag: FlagFactory = {
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'number';
 	}> {
+		if (constraints !== undefined) {
+			assertNumberConstraints(constraints);
+		}
 		return new FlagBuilder(
 			createSchema('number', constraints !== undefined ? { numberConstraints: constraints } : {}),
 		);

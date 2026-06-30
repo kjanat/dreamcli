@@ -76,6 +76,24 @@ describe('arg.number() chained constraint methods', () => {
 	});
 });
 
+describe('arg.number() rejects non-finite bounds at construction', () => {
+	it('throws for an infinite max in the options object', () => {
+		expect(() => arg.number({ max: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+	});
+
+	it('throws for an infinite chained .min()', () => {
+		expect(() => arg.number().min(Number.NEGATIVE_INFINITY)).toThrow(RangeError);
+	});
+
+	it('throws for a NaN bound', () => {
+		expect(() => arg.number().max(Number.NaN)).toThrow(RangeError);
+	});
+
+	it('still accepts finite bounds', () => {
+		expect(() => arg.number({ min: 0, max: 100 }).max(1000)).not.toThrow();
+	});
+});
+
 describe('arg.enum() — creates and modifies enum args', () => {
 	it('creates an enum arg with required presence', () => {
 		const a = arg.enum(['us', 'eu', 'ap']);

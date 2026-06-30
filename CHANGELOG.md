@@ -18,10 +18,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   parse path and the env/config/prompt resolution path (order: finite → int →
   min → max): parse-time (CLI) violations throw `INVALID_VALUE`, while
   env/config/prompt coercion reports `CONSTRAINT_VIOLATED` (both exit code `2`).
-  They are
-  also surfaced in the exported JSON Schema as `minimum` / `maximum` and
-  `type: "integer"` when `int` is set. The resolved TypeScript value type stays
-  `number`.
+  They are also surfaced in the exported JSON Schema as `minimum` / `maximum` and
+  `type: "integer"` when `int` is set. `min` / `max` must be finite — a
+  non-finite bound (`Infinity` / `-Infinity` / `NaN`) throws at construction. The
+  resolved TypeScript value type stays `number`.
 
 ### Changed
 

@@ -109,5 +109,34 @@ function describeNumberConstraintViolation(violation: NumberConstraintViolation)
 	}
 }
 
+/**
+ * Assert that a constraints object is well-formed at schema-construction time.
+ *
+ * `min` / `max` must be finite — an infinite or `NaN` bound is meaningless (omit
+ * the field for "no bound") and would serialize to `null` in the emitted JSON
+ * Schema. Throws so the misconfiguration surfaces where the flag/arg is
+ * declared, not at parse time.
+ *
+ * @param constraints - The constraints to validate.
+ * @throws RangeError if `min` or `max` is non-finite (`Infinity` / `-Infinity` / `NaN`).
+ */
+function assertNumberConstraints(constraints: NumberConstraints): void {
+	if (constraints.min !== undefined && !Number.isFinite(constraints.min)) {
+		throw new RangeError(
+			`number constraint 'min' must be a finite number (got ${constraints.min}); omit it for no lower bound`,
+		);
+	}
+	if (constraints.max !== undefined && !Number.isFinite(constraints.max)) {
+		throw new RangeError(
+			`number constraint 'max' must be a finite number (got ${constraints.max}); omit it for no upper bound`,
+		);
+	}
+}
+
 export type { NumberConstraints, NumberConstraintViolation };
-export { DEFAULT_FINITE, describeNumberConstraintViolation, validateNumberConstraints };
+export {
+	assertNumberConstraints,
+	DEFAULT_FINITE,
+	describeNumberConstraintViolation,
+	validateNumberConstraints,
+};
