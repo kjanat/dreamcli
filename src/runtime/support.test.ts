@@ -47,7 +47,8 @@ describe('runtime — compatibility matrix stays aligned', () => {
 			expect(docs).toContain(formatRuntimeRequirement(runtime.runtime));
 			expect(docs).toContain(runtime.packageName);
 		}
-		expect(docs).toContain('Adapters validate these minimum versions during creation.');
+		expect(docs).toContain('DreamCLI does not');
+		expect(docs).toContain('hard-fail the host CLI at runtime');
 	});
 
 	it('documents the reference runtime support matrix', async () => {

@@ -11,8 +11,9 @@ A thin `RuntimeAdapter` interface abstracts the platform-specific edges.
 | Bun >= 1.3         | Supported | `@kjanat/dreamcli` (npm) |
 | Deno >= 2.6.0      | Supported | `@kjanat/dreamcli` (JSR) |
 
-Adapters validate these minimum versions during creation.
-Unsupported runtimes fail fast with a descriptive error before command execution starts.
+These minimums are the tested support floor, declared in the package `engines` field.
+As a dependency, your package manager enforces them at install time; DreamCLI does not
+hard-fail the host CLI at runtime when the version is lower.
 
 ## How It Works
 

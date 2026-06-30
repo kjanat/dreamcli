@@ -16,27 +16,6 @@ import { createDenoAdapter } from './deno.ts';
 import type { GlobalForDetect } from './detect.ts';
 import { detectRuntime } from './detect.ts';
 import { createNodeAdapter } from './node.ts';
-import { assertRuntimeVersionSupported } from './support.ts';
-
-function detectRuntimeVersion(
-	runtime: ReturnType<typeof detectRuntime>,
-	globals: GlobalForDetect,
-): string | undefined {
-	switch (runtime) {
-		case 'bun':
-			return globals.Bun?.version;
-		case 'deno':
-			return globals.Deno?.version?.deno;
-		case 'node':
-			return globals.process?.versions?.node;
-		case 'unknown':
-			return undefined;
-		default: {
-			const _exhaustive: never = runtime;
-			return _exhaustive;
-		}
-	}
-}
 
 function isDenoNamespace(value: unknown): value is DenoNamespace {
 	if (typeof value !== 'object' || value === null) return false;
@@ -86,9 +65,6 @@ function getInjectedDenoNamespace(globals: GlobalForDetect): DenoNamespace | und
 function createAdapter(globals?: GlobalForDetect): RuntimeAdapter {
 	const runtimeGlobals = globals ?? globalThis;
 	const runtime = detectRuntime(runtimeGlobals);
-	if (runtime !== 'unknown') {
-		assertRuntimeVersionSupported(runtime, detectRuntimeVersion(runtime, runtimeGlobals));
-	}
 
 	switch (runtime) {
 		case 'bun':

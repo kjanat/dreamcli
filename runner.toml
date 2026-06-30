@@ -1,0 +1,8 @@
+#:schema https://kjanat.github.io/runner/schemas/runner.toml.schema.json
+
+[install]
+pms     = ["bun"]
+scripts = "allow"
+
+[github]
+group_output = true

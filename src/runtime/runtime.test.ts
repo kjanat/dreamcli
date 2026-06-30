@@ -218,13 +218,6 @@ describe('createNodeAdapter', () => {
 		expect(writeFn).toHaveBeenCalledWith('error message');
 	});
 
-	it('throws for unsupported Node.js versions', () => {
-		const mockProc = mockNodeProcess({ versions: { node: '21.9.0' } });
-		expect(() => createNodeAdapter(mockProc)).toThrow(
-			'@kjanat/dreamcli requires Node.js >= 22.22.2',
-		);
-	});
-
 	it('delegates exit to process.exit', () => {
 		const exitFn = vi.fn() as unknown as (code: number) => never;
 		const mockProc = mockNodeProcess({ exit: exitFn });

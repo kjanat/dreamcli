@@ -62,6 +62,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   passed straight through to handlers (`Number("Infinity")` is not `NaN`). Pass
   `{ finite: false }` (or `.finite(false)`) to opt back into accepting non-finite
   values. `NaN` continues to be rejected as before.
+- **BREAKING — the runtime no longer hard-fails the host CLI on its version.**
+  Adapter construction previously threw (a bare, uncaught `Error`) when the
+  detected Node/Bun/Deno version was below DreamCLI's declared minimum, crashing
+  the consumer's CLI — including on `--help`. That check is removed: as a
+  dependency the consumer's package manager already enforces the `engines` range
+  at install time (and more softly), and when DreamCLI is bundled/inlined the
+  consumer — not us — owns their CLI's supported-runtime policy. `SUPPORTED_RUNTIMES`
+  and the generated `engines` minimums are unchanged and remain the source of
+  truth for docs and packaging.
 
 ## [2.5.0] - 2026-06-28
 
