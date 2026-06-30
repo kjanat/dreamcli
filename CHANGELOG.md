@@ -63,6 +63,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `{ finite: false }` (or `.finite(false)`) to opt back into accepting non-finite
   values. `NaN` continues to be rejected as before.
 
+### Fixed
+
+- **Root `--help` now matches consistently with `--version`** (#29) — previously
+  `--help` / `-h` were intercepted at the root only when they were the very first
+  token, while `--version` / `-V` matched anywhere before `--`. A help flag
+  preceded only by flags (e.g. `mycli --verbose --help`) now shows root help,
+  mirroring `mycli --verbose --version`. A help flag that follows a subcommand
+  token still scopes to that subcommand (`mycli deploy --help` → `deploy` help);
+  `--version` remains a global, position-independent flag by design (there is no
+  per-command version). The bare `help` token now triggers root help from the same
+  position as `--help`, and the `--` end-of-options separator is respected for both.
+- **Generated `--help` now advertises the active built-in global flags** (#32) — root
+  help renders a `Global options:` block listing `--help, -h` and `--json` (always),
+  `--version, -V` (when a version is set), and `--config <path>` (when `.config()`
+  enabled config discovery). Previously these framework-provided flags were invisible
+  in help even though they worked. `--completions` is unchanged (still advertised via
+  the inline surface when active).
+
 ## [2.5.0] - 2026-06-28
 
 ### Added

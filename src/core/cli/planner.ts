@@ -315,6 +315,74 @@ function findUnknownFlagBeforePositional(
 }
 
 /**
+ * Result of scanning the pre-`--`, `--json`-stripped head for root interception.
+ * @internal
+ */
+interface RootHeadScan {
+	/**
+	 * `--help` / `-h` appeared in the head before any command-dispatch token.
+	 *
+	 * Mirrors the global reach of `--version` (#29): a help flag preceded only by
+	 * flags (no subcommand token) is a *root* help request. A help flag that
+	 * follows a subcommand token is left to that command's executor, so
+	 * `app sub --help` still renders the subcommand's help.
+	 */
+	readonly helpBeforeCommand: boolean;
+	/** First command-dispatch (positional) token, or `undefined` when the head is all flags. */
+	readonly firstCommandToken: string | undefined;
+	/** Index of {@linkcode firstCommandToken} in the head, or `-1` when absent. */
+	readonly commandTokenIndex: number;
+}
+
+/**
+ * Scan the pre-`--`, `--json`-stripped head to locate the first command-dispatch
+ * token and detect a root-level `--help` / `-h` ahead of it.
+ *
+ * Value-flag arity is honoured (via `valueFlags`) so a flag value that happens
+ * to look like a command name is not mistaken for one — matching how
+ * {@linkcode dispatch} reads the same argv.
+ *
+ * @internal
+ */
+function scanRootHead(
+	head: readonly string[],
+	valueFlags: ReturnType<typeof buildFlagLookup> | undefined,
+): RootHeadScan {
+	for (let index = 0; index < head.length; index++) {
+		const token = head[index];
+		if (token === undefined) continue;
+
+		if (token === '--help' || token === '-h') {
+			return { helpBeforeCommand: true, firstCommandToken: undefined, commandTokenIndex: -1 };
+		}
+
+		// Positional (command-dispatch) token: `-` alone or anything not flag-shaped.
+		if (token === '-' || !token.startsWith('-')) {
+			return { helpBeforeCommand: false, firstCommandToken: token, commandTokenIndex: index };
+		}
+
+		if (token.startsWith('--')) {
+			const equalsIndex = token.indexOf('=');
+			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
+			const entry = valueFlags?.get(name);
+			if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry[1])) index++;
+			continue;
+		}
+
+		// Short-flag cluster: consume a trailing value-expecting flag's argument.
+		const chars = token.slice(1);
+		for (let charIndex = 0; charIndex < chars.length; charIndex++) {
+			const entry = valueFlags?.get(chars.charAt(charIndex));
+			if (entry === undefined || !flagExpectsValue(entry[1])) continue;
+			if (charIndex === chars.length - 1) index++;
+			break;
+		}
+	}
+
+	return { helpBeforeCommand: false, firstCommandToken: undefined, commandTokenIndex: -1 };
+}
+
+/**
  * Detect and resolve the eager `--completions [shell]` flag before dispatch.
  *
  * Accepts `--completions <shell>` and `--completions=<shell>`. When no value is
@@ -389,6 +457,13 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	const filteredHead = head.includes('--json') ? head.filter((arg) => arg !== '--json') : head;
 	const filteredArgv = separatorIndex === -1 ? filteredHead : [...filteredHead, ...tail];
 
+	const defaultCommand = options.schema.defaultCommand;
+	// At the root, a default command's flags govern value-flag arity so a
+	// space-separated value (`mycli --region eu`) is not misread as a command
+	// name — both for root interception below and dispatch (see #25).
+	const rootValueFlags =
+		defaultCommand !== undefined ? buildFlagLookup(defaultCommand.schema.flags) : undefined;
+
 	if (
 		options.schema.version !== undefined &&
 		(includesBeforeSeparator(options.argv, '--version') ||
@@ -407,20 +482,28 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		}
 	}
 
-	const firstArg = filteredArgv[0];
-	if (firstArg === '--help' || firstArg === '-h') {
+	// `--help` / `-h` is intercepted at the root with the same positional reach as
+	// `--version` (#29): a help flag preceded only by flags (no subcommand token)
+	// is a root request, so `app --verbose --help` mirrors `app --verbose --version`.
+	// A help flag *after* a subcommand token is left to that command's executor,
+	// keeping `app sub --help` scoped to the subcommand (version stays global by
+	// design — there is no per-command version).
+	const headScan = scanRootHead(filteredHead, rootValueFlags);
+	if (headScan.helpBeforeCommand) {
 		return {
 			kind: 'root-help',
 			help: options.help,
 		};
 	}
 
-	if (firstArg === 'help') {
+	// Bare `help` token: a root help request (or `<command> --help` forwarding)
+	// when it is the first command token and no real `help` command is registered.
+	if (headScan.firstCommandToken === 'help') {
 		const hasRealHelpCommand = options.schema.commands.some(
 			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
 		);
 		if (!hasRealHelpCommand) {
-			const rest = filteredArgv.slice(1);
+			const rest = filteredArgv.slice(headScan.commandTokenIndex + 1);
 			if (rest.length === 0) {
 				return {
 					kind: 'root-help',
@@ -435,14 +518,14 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		}
 	}
 
-	if (firstArg === undefined && options.schema.defaultCommand === undefined) {
+	if (filteredArgv.length === 0 && defaultCommand === undefined) {
 		return {
 			kind: 'root-help',
 			help: options.help,
 		};
 	}
 
-	if (options.schema.commands.length === 0 && options.schema.defaultCommand === undefined) {
+	if (options.schema.commands.length === 0 && defaultCommand === undefined) {
 		return {
 			kind: 'dispatch-error',
 			error: new CLIError('No commands registered', {
@@ -452,12 +535,6 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		};
 	}
 
-	const defaultCommand = options.schema.defaultCommand;
-	// At the root, a default command's flags govern value-flag arity so a
-	// space-separated value (`mycli --region eu`) is not misread as a command
-	// name and stolen from the default-command fallback (see #25).
-	const rootValueFlags =
-		defaultCommand !== undefined ? buildFlagLookup(defaultCommand.schema.flags) : undefined;
 	const result = dispatch(
 		filteredArgv,
 		buildRootCommandMap(options.schema.commands),

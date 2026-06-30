@@ -177,6 +177,54 @@ describe('--version flag', () => {
 	});
 });
 
+// --- Built-in global options in root help (#32)
+
+describe('root help — built-in global options', () => {
+	it('always advertises --help, -h and --json', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const output = (await app.execute(['--help'])).stdout.join('');
+
+		expect(output).toContain('Global options:');
+		expect(output).toContain('-h, --help');
+		expect(output).toContain('--json');
+	});
+
+	it('advertises --version only when a version is configured', async () => {
+		const withVersion = (
+			await cli('mycli').version('1.0.0').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withVersion).toContain('-V, --version');
+
+		const withoutVersion = (
+			await cli('mycli').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withoutVersion).not.toContain('--version');
+	});
+
+	it('advertises --config <path> only when config discovery is enabled', async () => {
+		const withConfig = (
+			await cli('mycli').config('mycli').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withConfig).toContain('--config <path>');
+
+		const withoutConfig = (
+			await cli('mycli').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withoutConfig).not.toContain('--config');
+	});
+
+	it('lists every active built-in for a default-command CLI', async () => {
+		const app = cli('mycli').version('1.0.0').config('mycli').default(deployCommand());
+		const output = (await app.execute(['--help'])).stdout.join('');
+
+		expect(output).toContain('Global options:');
+		expect(output).toContain('-h, --help');
+		expect(output).toContain('-V, --version');
+		expect(output).toContain('--json');
+		expect(output).toContain('--config <path>');
+	});
+});
+
 // --- Root help
 
 describe('root help', () => {
