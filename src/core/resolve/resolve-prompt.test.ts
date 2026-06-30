@@ -9,7 +9,12 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
-import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
+import {
+	createTerminalPrompter,
+	createTestPrompter,
+	PROMPT_CANCEL,
+	type ReadFn,
+} from '#internals/core/prompt/index.ts';
 import { FLAG_KINDS } from '#internals/core/schema/flag.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
 import { createSchema } from '#internals/core/schema/index.ts';
@@ -41,6 +46,17 @@ function makeParsed(overrides?: Partial<ParseResult>): ParseResult {
 		flags: {},
 		args: {},
 		...overrides,
+	};
+}
+
+/** A ReadFn that yields queued lines, then EOF (`null`). */
+function mockRead(lines: readonly (string | null)[]): ReadFn {
+	let index = 0;
+	return () => {
+		if (index >= lines.length) return Promise.resolve(null);
+		const line = lines[index];
+		index += 1;
+		return Promise.resolve(line ?? null);
 	};
 }
 
@@ -303,6 +319,105 @@ describe('resolve', () => {
 
 			const result = await resolve(schema, parsed, { prompter });
 			expect(result.flags).toEqual({ name: undefined });
+		});
+	});
+
+	// --- empty input + prompt/flag defaults (issues #34 / #35)
+
+	describe('empty input defaults', () => {
+		it('empty input with no prompt-default falls through to flag .default() (#35)', async () => {
+			const schema = makeSchema({
+				flags: {
+					name: createSchema('string', {
+						defaultValue: 'Anonymous',
+						prompt: { kind: 'input', message: 'Name' },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			// Real terminal prompter; user presses Enter (empty line).
+			const prompter = createTerminalPrompter(mockRead(['']), () => {});
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ name: 'Anonymous' });
+		});
+
+		it('empty test-prompter answer with no prompt-default falls through to flag .default()', async () => {
+			const schema = makeSchema({
+				flags: {
+					name: createSchema('string', {
+						defaultValue: 'Anonymous',
+						prompt: { kind: 'input', message: 'Name' },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter(['']);
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ name: 'Anonymous' });
+		});
+
+		it('blank (whitespace) input with no prompt-default falls through to flag .default()', async () => {
+			const schema = makeSchema({
+				flags: {
+					name: createSchema('string', {
+						defaultValue: 'Anonymous',
+						prompt: { kind: 'input', message: 'Name' },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter(['   ']);
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ name: 'Anonymous' });
+		});
+
+		it('empty input resolves to prompt-level default, overriding flag .default() (#34)', async () => {
+			const schema = makeSchema({
+				flags: {
+					name: createSchema('string', {
+						defaultValue: 'flag-default',
+						prompt: { kind: 'input', message: 'Name', default: 'prompt-default' },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTerminalPrompter(mockRead(['']), () => {});
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ name: 'prompt-default' });
+		});
+
+		it('empty input with no prompt-default and no flag default → optional flag undefined', async () => {
+			const schema = makeSchema({
+				flags: {
+					name: createSchema('string', {
+						prompt: { kind: 'input', message: 'Name' },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTestPrompter(['']);
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ name: undefined });
+		});
+
+		it('confirm prompt with default:false resolves empty Enter to false', async () => {
+			const schema = makeSchema({
+				flags: {
+					force: createSchema('boolean', {
+						prompt: { kind: 'confirm', message: 'Delete?', default: false },
+					}),
+				},
+			});
+			const parsed = makeParsed();
+			const prompter = createTerminalPrompter(mockRead(['']), () => {});
+
+			const result = await resolve(schema, parsed, { prompter });
+			expect(result.flags).toEqual({ force: false });
 		});
 	});
 

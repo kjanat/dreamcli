@@ -222,6 +222,40 @@ describe('createTerminalPrompter', () => {
 			expect(result).toEqual({ answered: false });
 			expect(lines.some((line) => line.includes('Too many invalid attempts'))).toBe(true);
 		});
+
+		it('defaults to true with (Y/n) hint when default is omitted', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['']), write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q' });
+			expect(result).toEqual({ answered: true, value: true });
+			expect(lines[0]).toContain('(Y/n)');
+		});
+
+		it('shows (y/N) hint and empty resolves to false when default is false', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['']), write);
+			const result = await prompter.promptOne({
+				kind: 'confirm',
+				message: 'Delete everything?',
+				default: false,
+			});
+			expect(result).toEqual({ answered: true, value: false });
+			expect(lines[0]).toContain('(y/N)');
+		});
+
+		it('shows (Y/n) hint when default is explicitly true', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['']), write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q', default: true });
+			expect(result).toEqual({ answered: true, value: true });
+			expect(lines[0]).toContain('(Y/n)');
+		});
+
+		it('explicit y still overrides default: false', async () => {
+			const prompter = createTerminalPrompter(mockRead(['y']), captureWrite().write);
+			const result = await prompter.promptOne({ kind: 'confirm', message: 'q', default: false });
+			expect(result).toEqual({ answered: true, value: true });
+		});
 	});
 
 	// --- input
@@ -302,6 +336,70 @@ describe('createTerminalPrompter', () => {
 			});
 			expect(result).toEqual({ answered: false });
 			expect(lines.some((l) => l.includes('Too many invalid attempts'))).toBe(true);
+		});
+
+		it('resolves empty input to the configured default', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['']), write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'Name',
+				default: 'Anonymous',
+			});
+			expect(result).toEqual({ answered: true, value: 'Anonymous' });
+			expect(lines[0]).toContain('default: Anonymous');
+		});
+
+		it('prefers typed input over the configured default', async () => {
+			const prompter = createTerminalPrompter(mockRead(['Alice']), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'Name',
+				default: 'Anonymous',
+			});
+			expect(result).toEqual({ answered: true, value: 'Alice' });
+		});
+
+		it('does not run validate against the default on empty input', async () => {
+			let validateCalls = 0;
+			const prompter = createTerminalPrompter(mockRead(['']), captureWrite().write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'Name',
+				default: 'Anonymous',
+				validate: (v) => {
+					validateCalls += 1;
+					return v === '' ? 'Required' : true;
+				},
+			});
+			expect(result).toEqual({ answered: true, value: 'Anonymous' });
+			expect(validateCalls).toBe(0);
+		});
+
+		it('shows both placeholder and default in the hint', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['x']), write);
+			await prompter.promptOne({
+				kind: 'input',
+				message: 'Name',
+				placeholder: 'your name',
+				default: 'Anonymous',
+			});
+			expect(lines[0]).toContain('your name');
+			expect(lines[0]).toContain('default: Anonymous');
+		});
+
+		it('still validates typed (non-empty) input when a default is set', async () => {
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['ab', 'abc']), write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'Code',
+				default: 'fallback',
+				validate: (v) => (v.length >= 3 ? true : 'Must be at least 3 chars'),
+			});
+			expect(result).toEqual({ answered: true, value: 'abc' });
+			expect(lines.some((l) => l.includes('Must be at least 3 chars'))).toBe(true);
 		});
 	});
 

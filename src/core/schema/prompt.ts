@@ -36,6 +36,12 @@ interface PromptConfigBase {
 interface ConfirmPromptConfig extends PromptConfigBase {
 	/** Discriminator identifying this as a yes/no confirmation prompt. */
 	readonly kind: 'confirm';
+	/**
+	 * Value used when the user submits an empty line (presses Enter). Also
+	 * drives the displayed hint: `true` → `(Y/n)`, `false` → `(y/N)`.
+	 * @defaultValue `true`
+	 */
+	readonly default?: boolean;
 }
 
 /** Free-text input prompt — maps to `string` and `number` flags. Part of {@link PromptConfig}. */
@@ -44,6 +50,15 @@ interface InputPromptConfig extends PromptConfigBase {
 	readonly kind: 'input';
 	/** Placeholder text shown before user types (informational only). */
 	readonly placeholder?: string;
+	/**
+	 * Value used when the user submits an empty line (presses Enter), shown in
+	 * the hint as `(default: <value>)`. When set, an empty submission resolves
+	 * to this value without running {@link InputPromptConfig.validate | validate}.
+	 * When omitted, an empty submission is treated as "no answer" so resolution
+	 * falls through to the flag's `.default()`.
+	 * @defaultValue `undefined`
+	 */
+	readonly default?: string;
 	/**
 	 * Inline validation function. Return `true` if valid, or a string
 	 * error message if invalid. Called before coercion to flag kind.

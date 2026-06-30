@@ -28,6 +28,37 @@ after prompts are skipped or unanswered.
 For the exact non-interactive rules, cancellation fallthrough, and full
 precedence chain, see [CLI Semantics](/guide/semantics).
 
+## Prompt Defaults
+
+`confirm` and `input` prompts accept a `default` that is used when the user
+submits an empty line (presses Enter):
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+// Enter → false; hint renders as `(y/N)` for a safe destructive default.
+flag.boolean().prompt({
+  kind: 'confirm',
+  message: 'Delete everything?',
+  default: false,
+});
+
+// Enter → 'Anonymous'; hint renders as `Name (default: Anonymous):`.
+flag.string().default('Anonymous').prompt({
+  kind: 'input',
+  message: 'Name',
+  default: 'Anonymous',
+});
+```
+
+A `confirm` default of `true` (or unset) shows `(Y/n)`; `false` shows `(y/N)`.
+
+For `input`, an empty submission resolves to the prompt-level `default` when set
+(skipping `validate`). When **no** prompt-level `default` is set, an empty
+submission is treated as "no answer" and resolution falls through to the flag's
+`.default()` — so pressing Enter never clobbers a configured default with `""`.
+Precedence among defaults is **prompt-level `default` > flag `.default()`**.
+
 ## Prompt Types
 
 | Kind          | Input            | Output     |
