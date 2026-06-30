@@ -16,7 +16,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one set in the options object). The chained methods are compile-time guarded
   to number-kind builders only. Constraints are enforced identically across the
   parse path and the env/config/prompt resolution path (order: finite → int →
-  min → max), throwing `INVALID_VALUE` (exit code `2`) on violation. They are
+  min → max): parse-time (CLI) violations throw `INVALID_VALUE`, while
+  env/config/prompt coercion reports `CONSTRAINT_VIOLATED` (both exit code `2`).
+  They are
   also surfaced in the exported JSON Schema as `minimum` / `maximum` and
   `type: "integer"` when `int` is set. The resolved TypeScript value type stays
   `number`.

@@ -213,6 +213,7 @@ function coerceFlagValue(
 						value: raw,
 						expected: 'number',
 						constraint: violation.kind,
+						...('bound' in violation ? { bound: violation.bound } : {}),
 					},
 				});
 			}
@@ -307,7 +308,13 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 				const reason = describeNumberConstraintViolation(violation);
 				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>: ${reason}`, {
 					code: 'INVALID_VALUE',
-					details: { arg: argName, value: raw, expected: 'number', constraint: violation.kind },
+					details: {
+						arg: argName,
+						value: raw,
+						expected: 'number',
+						constraint: violation.kind,
+						...('bound' in violation ? { bound: violation.bound } : {}),
+					},
 				});
 			}
 			return n;

@@ -460,4 +460,31 @@ describe('resolve — arg env numeric constraints', () => {
 			'must be a finite number',
 		);
 	});
+
+	it('redacts a colon-delimited raw env value without leaking the trailing fragment', async () => {
+		// Non-numeric input → TYPE_MISMATCH (not a constraint violation). The raw
+		// value embeds `: `, which a naive suffix extraction would leak past the
+		// `<redacted>` placeholder. Redaction must drop it entirely.
+		const schema = makeSchema({
+			args: [
+				{
+					name: 'count',
+					schema: createArgSchema('number', {
+						envVar: 'COUNT',
+						numberConstraints: { min: 0, max: 100 },
+					}),
+				},
+			],
+		});
+		try {
+			await resolve(schema, makeParsed(), { env: { COUNT: 'nope: leaked-secret' } });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.message).toContain('<redacted>');
+				expect(err.message).not.toContain('leaked-secret');
+			}
+		}
+	});
 });

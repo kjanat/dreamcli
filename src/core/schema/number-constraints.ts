@@ -59,9 +59,9 @@ const DEFAULT_FINITE = true;
  *
  * The single source of truth for numeric-constraint checks, shared by the
  * parse and coerce paths. Checks run in a fixed order — **finite → int → min →
- * max** — and the first failure is returned. `NaN` is treated as non-finite, so
- * it fails the finite check (callers typically reject `NaN` earlier with a
- * dedicated message).
+ * max** — and the first failure is returned. `NaN` is always rejected as a
+ * `finite` violation, regardless of the `finite` option (a non-finite value can
+ * otherwise slip past `min`/`max`, since `NaN < x` and `NaN > x` are both false).
  *
  * @param value - The numeric value to validate.
  * @param constraints - Constraints to enforce, or `undefined` for defaults.
@@ -71,6 +71,9 @@ function validateNumberConstraints(
 	value: number,
 	constraints: NumberConstraints | undefined,
 ): NumberConstraintViolation | undefined {
+	if (Number.isNaN(value)) {
+		return { kind: 'finite' };
+	}
 	const finite = constraints?.finite ?? DEFAULT_FINITE;
 	if (finite && !Number.isFinite(value)) {
 		return { kind: 'finite' };

@@ -65,8 +65,9 @@ non-finite values.
 :::
 
 Constraints are checked in order **finite → int → min → max**, and apply to
-every source (CLI, env, config). The first failure throws with error code
-`INVALID_VALUE` (exit code `2`):
+every source — CLI, env, config, and prompt. On the first failure, CLI parsing
+throws `INVALID_VALUE` while env/config/prompt resolution reports
+`CONSTRAINT_VIOLATED` (both exit code `2`):
 
 | Input (`flag.number({ int: true, min: 0, max: 100 })`) | Result                               |
 | ------------------------------------------------------ | ------------------------------------ |

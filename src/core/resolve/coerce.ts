@@ -373,12 +373,16 @@ function redactArgCoercionMessage(
 ): string {
 	switch (schema.kind) {
 		case 'number': {
-			// Preserve the constraint reason suffix (e.g. `: must be >= 0`) while
-			// redacting the raw value. The suffix contains only schema-derived
-			// text (bounds, "integer"), never user input.
+			const base = `Invalid number value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+			// Only a constraint violation carries a schema-derived reason suffix
+			// (e.g. `: must be >= 0`), which is safe to keep. Any other failure
+			// (e.g. TYPE_MISMATCH) embeds the raw value in `error.message`, so
+			// extracting a trailing suffix there could leak user input.
+			if (error.code !== 'CONSTRAINT_VIOLATED') {
+				return base;
+			}
 			const match = /: ([^:]+)$/.exec(error.message);
 			const suffix = match?.[1];
-			const base = `Invalid number value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
 			return suffix !== undefined ? `${base}: ${suffix}` : base;
 		}
 		case 'enum': {
