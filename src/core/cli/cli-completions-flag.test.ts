@@ -23,10 +23,7 @@ function lspCommand() {
 }
 
 function appWithFlag() {
-	return cli('recipe-lsp')
-		.version('0.2.1')
-		.completions({ as: 'flag' })
-		.default(lspCommand());
+	return cli('recipe-lsp').version('0.2.1').completions({ as: 'flag' }).default(lspCommand());
 }
 
 // === .completions({ as: 'flag' })
@@ -158,7 +155,7 @@ describe(".completions({ as: 'flag' })", () => {
 
 			expect(result.exitCode).toBe(1);
 			expect(result.stderr.join('')).toContain('Could not detect shell');
-			expect(result.stderr.join('')).toContain("recipe-lsp --completions zsh");
+			expect(result.stderr.join('')).toContain('recipe-lsp --completions zsh');
 		});
 	});
 
@@ -222,7 +219,7 @@ describe('.help() configuration', () => {
 	it('footer: false suppresses the hint even with subcommands', async () => {
 		const result = await hybrid().help({ footer: false }).execute(['--help']);
 
-		expect(result.stdout.join('')).not.toContain("for more information.");
+		expect(result.stdout.join('')).not.toContain('for more information.');
 	});
 
 	it('inlineDefault: false drops the inline default args/flags', async () => {

@@ -131,8 +131,7 @@ function assertNoTopLevelRouteConflict(
 ): void {
 	const routeOwners = new Map<string, string>();
 
-	const existing =
-		defaultCommand !== undefined ? [...commands, defaultCommand] : commands;
+	const existing = defaultCommand !== undefined ? [...commands, defaultCommand] : commands;
 	for (const command of existing) {
 		for (const route of commandRoutes(command.schema)) {
 			assertNoSiblingRouteConflict('root', routeOwners, route, command.schema.name);

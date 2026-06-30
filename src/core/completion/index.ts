@@ -82,7 +82,8 @@ function normalizeShell(raw: string): Shell | undefined {
  */
 function detectShell(env: Readonly<Record<string, string | undefined>>): Shell | undefined {
 	const shellVar = env.SHELL;
-	const fromShell = shellVar !== undefined && shellVar !== '' ? normalizeShell(shellVar) : undefined;
+	const fromShell =
+		shellVar !== undefined && shellVar !== '' ? normalizeShell(shellVar) : undefined;
 	if (fromShell !== undefined) return fromShell;
 	if (env.PSModulePath !== undefined) return 'powershell';
 	return undefined;
