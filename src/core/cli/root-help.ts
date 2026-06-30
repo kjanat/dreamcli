@@ -192,6 +192,7 @@ function completionsFlagSchema(shells: readonly string[]): FlagSchema {
 		description: 'Print a shell completion script and exit',
 		enumValues: shells,
 		elementSchema: undefined,
+		numberConstraints: undefined,
 		prompt: undefined,
 		parseFn: undefined,
 		deprecated: undefined,
