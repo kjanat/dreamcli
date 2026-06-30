@@ -35,6 +35,55 @@ flagTypes.number;
 //         ^?
 ```
 
+#### Numeric constraints
+
+`flag.number()` accepts optional numeric constraints, either as an options
+object or via chained methods (they compose — a later chained call overrides an
+earlier value, including one set in the options object):
+
+```ts
+flag.number({ min: 0, max: 100, int: true });
+flag.number().int().min(0).max(100); // equivalent
+flag.number({ min: 0 }).max(100); // composes to { min: 0, max: 100 }
+```
+
+| Option   | Meaning                         | Default |
+| -------- | ------------------------------- | ------- |
+| `min`    | Inclusive lower bound           | none    |
+| `max`    | Inclusive upper bound           | none    |
+| `int`    | Require an integer              | `false` |
+| `finite` | Reject `Infinity` / `-Infinity` | `true`  |
+
+The resolved value type stays `number` — constraints are enforced at runtime
+and surfaced in the exported JSON Schema (`minimum` / `maximum`, and
+`type: "integer"` when `int` is set), not at the type level. `min` / `max` must
+be finite; passing `Infinity` / `-Infinity` / `NaN` as a bound throws when the
+flag is declared (omit the field for "no bound").
+
+::: warning Finite by default
+`flag.number()` now **rejects `Infinity` and `-Infinity`** (as well as `NaN`,
+which was always rejected). Pass `finite: false` (or `.finite(false)`) to accept
+non-finite values.
+:::
+
+Constraints are checked in order **finite → int → min → max**, and apply to
+every source — CLI, env, config, and prompt. On the first failure, CLI parsing
+throws `INVALID_VALUE` while env/config/prompt resolution reports
+`CONSTRAINT_VIOLATED` (both exit code `2`):
+
+| Input (`flag.number({ int: true, min: 0, max: 100 })`) | Result                               |
+| ------------------------------------------------------ | ------------------------------------ |
+| `42`                                                   | accepted                             |
+| `0` / `100`                                            | accepted (bounds are inclusive)      |
+| `NaN`                                                  | rejected — invalid number            |
+| `Infinity`                                             | rejected — `must be a finite number` |
+| `3.7`                                                  | rejected — `must be an integer`      |
+| `-1`                                                   | rejected — `must be >= 0`            |
+| `101`                                                  | rejected — `must be <= 100`          |
+
+The same options and methods are available on `arg.number()` for positional
+arguments.
+
 ### Boolean
 
 ```ts twoslash
@@ -101,6 +150,57 @@ an empty array `[]`.
 
 For the exact parser rules around repeated flags, short-flag stacking, `--`
 separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics).
+
+## Flag Names
+
+The string you pass to `.flag(name, …)` is the flag's **canonical name**, and it is used in two
+places at once:
+
+- on the command line as `--name`;
+- as the key on the `flags` object inside your handler.
+
+No case conversion happens — the name you declare is the name you read. Single-word names are
+valid identifiers, so dot access works (`flags.region`). Hyphenated names are not valid
+identifiers, so read them with bracket access (`flags['node-ipc']`).
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('serve')
+  .flag(
+    'node-ipc',
+    flag.boolean().describe('Use the Node IPC transport'),
+  )
+  .flag('dry-run', flag.boolean())
+  .action(({ flags, out }) => {
+    // Hyphenated names are read with bracket access — there is no `flags.nodeIpc`.
+    if (flags['node-ipc']) out.log('ipc');
+    if (flags['dry-run']) out.log('dry run');
+  });
+```
+
+Reach for a hyphenated name when you want the conventional CLI spelling (`--node-ipc`,
+`--dry-run`); reach for a single-word or camelCase name (`--nodeIpc`) when ergonomic dot access
+matters more.
+
+### Aliases Are CLI Tokens, Not Handler Keys
+
+`.alias()` adds an alternate **spelling on the command line**. It resolves back to the canonical
+name — it never becomes a second property on `flags`.
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('serve')
+  // Accepts both `--skip-pass` and `--skipPass` on the CLI…
+  .flag('skip-pass', flag.boolean().alias('skipPass'))
+  .action(({ flags, out }) => {
+    // …but the handler has exactly one key: the canonical name.
+    if (flags['skip-pass']) out.log('skipping');
+  });
+```
+
+So typing `--skipPass` still arrives as `flags['skip-pass']`.
 
 ## Modifiers
 

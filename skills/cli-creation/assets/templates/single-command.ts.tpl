@@ -30,7 +30,11 @@ export const hello = command('hello')
 	.flag('times', flag.number().default(1).alias('n').describe('Repeat count'))
 	.middleware(sparkle)
 	.action(({ args, flags, ctx, out }) => {
-		for (let i = 0; i < flags.times; i++) {
+		const repeatCount = Number.isFinite(flags.times)
+			? Math.max(0, Math.min(100, Math.floor(flags.times)))
+			: 1;
+
+		for (let i = 0; i < repeatCount; i++) {
 			const base = `Hello, ${args.name}!`;
 			out.log(ctx.sparkle(base));
 		}

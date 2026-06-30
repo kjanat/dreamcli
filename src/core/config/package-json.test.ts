@@ -645,7 +645,8 @@ describe('discoverManifest', () => {
 		// deno.json carries only config (tasks/imports), no CLI metadata — it
 		// must NOT shadow the sibling jsr.json that holds the real version.
 		const adapter = createAdapter({
-			'/projects/myapp/deno.json': '{"tasks":{"dev":"deno run main.ts"},"imports":{"@std/":"jsr:@std/"}}',
+			'/projects/myapp/deno.json':
+				'{"tasks":{"dev":"deno run main.ts"},"imports":{"@std/":"jsr:@std/"}}',
 			'/projects/myapp/jsr.json': '{"name":"@s/p","version":"1.2.3"}',
 		});
 

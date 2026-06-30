@@ -913,3 +913,56 @@ describe('resolve', () => {
 		});
 	});
 });
+
+// === Numeric constraints (config coerce path mirrors the parse path)
+
+describe('resolve — config numeric constraints', () => {
+	it('rejects out-of-range config number', async () => {
+		const schema = makeSchema({
+			flags: {
+				retries: createSchema('number', {
+					configPath: 'retries',
+					numberConstraints: { int: true, min: 0, max: 5 },
+				}),
+			},
+		});
+		try {
+			await resolve(schema, makeParsed(), { config: { retries: 10 } });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('CONSTRAINT_VIOLATED');
+				expect(err.message).toContain('must be <= 5');
+				expect(err.details).toMatchObject({ flag: 'retries', constraint: 'max' });
+			}
+		}
+	});
+
+	it('rejects non-integer config number when int required', async () => {
+		const schema = makeSchema({
+			flags: {
+				retries: createSchema('number', {
+					configPath: 'retries',
+					numberConstraints: { int: true },
+				}),
+			},
+		});
+		await expect(resolve(schema, makeParsed(), { config: { retries: 2.5 } })).rejects.toThrow(
+			'must be an integer',
+		);
+	});
+
+	it('accepts an in-range config number', async () => {
+		const schema = makeSchema({
+			flags: {
+				retries: createSchema('number', {
+					configPath: 'retries',
+					numberConstraints: { int: true, min: 0, max: 5 },
+				}),
+			},
+		});
+		const result = await resolve(schema, makeParsed(), { config: { retries: 3 } });
+		expect(result.flags).toEqual({ retries: 3 });
+	});
+});

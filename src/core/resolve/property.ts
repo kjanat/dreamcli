@@ -9,7 +9,7 @@
  * @internal
  */
 
-import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import type { ArgSchema, FlagSchema, NumberConstraints } from '#internals/core/schema/index.ts';
 
 /** Flag/arg kinds that share a common coercion path. */
 const SHARED_PROPERTY_MODEL_KINDS = ['string', 'number', 'enum', 'custom'] as const;
@@ -20,7 +20,7 @@ type SharedPropertyKind = (typeof SHARED_PROPERTY_MODEL_KINDS)[number];
 /** Minimal coercion-relevant slice of a flag or arg schema, discriminated by kind. */
 type SharedPropertySchema =
 	| { readonly kind: 'string' }
-	| { readonly kind: 'number' }
+	| { readonly kind: 'number'; readonly numberConstraints: NumberConstraints | undefined }
 	| { readonly kind: 'enum'; readonly enumValues: readonly string[] | undefined }
 	| { readonly kind: 'custom'; readonly parseFn?: (raw: unknown) => unknown };
 
@@ -53,7 +53,7 @@ function toSharedFlagPropertySchema(schema: FlagSchema): SharedPropertySchema | 
 		case 'string':
 			return { kind: 'string' };
 		case 'number':
-			return { kind: 'number' };
+			return { kind: 'number', numberConstraints: schema.numberConstraints };
 		case 'enum':
 			return { kind: 'enum', enumValues: schema.enumValues };
 		case 'custom':
@@ -72,7 +72,7 @@ function toSharedArgPropertySchema(schema: ArgSchema): SharedPropertySchema {
 		case 'string':
 			return { kind: 'string' };
 		case 'number':
-			return { kind: 'number' };
+			return { kind: 'number', numberConstraints: schema.numberConstraints };
 		case 'enum':
 			return { kind: 'enum', enumValues: schema.enumValues };
 		case 'custom': {

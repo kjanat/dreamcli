@@ -1,0 +1,44 @@
+/*
+ * Social link icons: uniform neutral look at rest, true brand colours on hover.
+ *
+ * Each social svg (config.ts) stacks two layers that share the same geometry:
+ *   .sl-mono  — a `currentColor` silhouette, so all three render in the exact
+ *               same muted theme colour (--vp-c-text-2) and brightness at rest.
+ *   .sl-brand — the real brand fills, including JSR's two-tone logo
+ *               (#f7df1e pill + #083344 glyph).
+ * We crossfade between the two on hover/focus. The mechanism is identical for
+ * GitHub, npm and JSR, so none sticks out at rest; each blooms to its own
+ * brand colour(s) only on hover.
+ */
+.VPSocialLink .sl-mono,
+.VPSocialLink .sl-brand {
+	transition: opacity 0.25s ease;
+}
+
+.VPSocialLink .sl-mono {
+	opacity: 1;
+}
+
+.VPSocialLink .sl-brand {
+	opacity: 0;
+}
+
+.VPSocialLink:hover .sl-mono,
+.VPSocialLink:focus-visible .sl-mono {
+	opacity: 0;
+}
+
+.VPSocialLink:hover .sl-brand,
+.VPSocialLink:focus-visible .sl-brand {
+	opacity: 1;
+}
+
+/*
+ * GitHub's brand mark is achromatic (#181717). On a dark background that black
+ * would vanish, so flip it to a light fill in dark mode. Author CSS overrides
+ * the path's presentation-attribute fill. npm red and JSR yellow/navy read fine
+ * on both themes, so only the GitHub mark needs this.
+ */
+:root.dark .VPSocialLink .gh-mark {
+	fill: #f0f0f0;
+}

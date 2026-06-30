@@ -9,6 +9,7 @@
  * @module dreamcli/core/schema/flag
  */
 
+import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
@@ -165,6 +166,13 @@ interface FlagSchema {
 	readonly description: string | undefined;
 	/** Allowed literal values when `kind === 'enum'`. */
 	readonly enumValues: readonly string[] | undefined;
+	/**
+	 * Numeric constraints when `kind === 'number'` (`undefined` otherwise).
+	 *
+	 * Enforced at the parse and resolution boundaries. `finite` defaults to
+	 * `true`, so `Infinity` is rejected even when no constraints object is set.
+	 */
+	readonly numberConstraints: NumberConstraints | undefined;
 	/** Element schema when `kind === 'array'`. */
 	readonly elementSchema: FlagSchema | undefined;
 	/** Interactive prompt configuration for v0.3+ resolution. */
@@ -295,6 +303,7 @@ function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSche
 		configPath: undefined,
 		description: undefined,
 		enumValues: undefined,
+		numberConstraints: undefined,
 		elementSchema: undefined,
 		prompt: undefined,
 		parseFn: undefined,
@@ -561,6 +570,91 @@ class FlagBuilder<C extends FlagConfig> {
 			propagate: true,
 		});
 	}
+
+	// -- Numeric constraint modifiers ----------------------------------------
+	//
+	// Compile-time guarded via a `this` parameter so they are only callable on
+	// number-kind builders. They merge onto the single `numberConstraints`
+	// representation, overriding any value set by `flag.number({ … })`.
+
+	/**
+	 * Require an integer value. Composes with other numeric constraints.
+	 *
+	 * @param value - Whether to require an integer.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.number().int()         // rejects 3.7, accepts 3
+	 * flag.number({ int: true }).int(false) // re-allows non-integers
+	 * ```
+	 */
+	int(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value = true): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			numberConstraints: { ...this.schema.numberConstraints, int: value },
+		});
+	}
+
+	/**
+	 * Set an inclusive lower bound. Composes with other numeric constraints;
+	 * a later call overrides an earlier `min` (including one from the options
+	 * object).
+	 *
+	 * @param value - Inclusive minimum.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.number().min(0)              // rejects -1, accepts 0
+	 * flag.number({ min: 0 }).min(5)    // effective min is 5
+	 * ```
+	 */
+	min(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value: number): FlagBuilder<C> {
+		const numberConstraints = { ...this.schema.numberConstraints, min: value };
+		assertNumberConstraints(numberConstraints);
+		return new FlagBuilder({ ...this.schema, numberConstraints });
+	}
+
+	/**
+	 * Set an inclusive upper bound. Composes with other numeric constraints;
+	 * a later call overrides an earlier `max`.
+	 *
+	 * @param value - Inclusive maximum.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.number().max(100)            // rejects 101, accepts 100
+	 * ```
+	 */
+	max(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value: number): FlagBuilder<C> {
+		const numberConstraints = { ...this.schema.numberConstraints, max: value };
+		assertNumberConstraints(numberConstraints);
+		return new FlagBuilder({ ...this.schema, numberConstraints });
+	}
+
+	/**
+	 * Require (or, with `false`, allow) a finite value. Finiteness is enforced
+	 * by default, so this is mainly used as `.finite(false)` to re-allow
+	 * `Infinity` / `-Infinity`.
+	 *
+	 * @param allow - Whether to require a finite value.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.number().finite(false) // accepts Infinity
+	 * ```
+	 */
+	finite(this: FlagBuilder<C & { readonly flagKind: 'number' }>, allow = true): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			numberConstraints: { ...this.schema.numberConstraints, finite: allow },
+		});
+	}
 }
 
 // --- Factory namespace
@@ -583,11 +677,28 @@ interface FlagFactory {
 	}>;
 
 	/**
-	 * Number-valued flag.
+	 * Number-valued flag, with optional numeric constraints.
 	 *
+	 * Constraints are enforced at the parse and resolution boundaries. The
+	 * resolved value type stays `number` — constraints are runtime + schema, not
+	 * type-level. Bounds are inclusive.
+	 *
+	 * Constraints also compose via chained methods (`.int()`, `.min()`,
+	 * `.max()`, `.finite()`), which override values set here.
+	 *
+	 * @param constraints - Optional numeric constraints. `finite` defaults to
+	 *   `true`, so `Infinity` / `-Infinity` are rejected unless `finite: false`.
+	 * @defaultValue `undefined` (finite-only, no bounds, non-integer allowed)
 	 * @returns A {@link FlagBuilder} for `number` values.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.number()                       // finite numbers only
+	 * flag.number({ int: true, min: 0 })  // non-negative integers
+	 * flag.number({ finite: false })      // also accepts Infinity
+	 * ```
 	 */
-	number(): FlagBuilder<{
+	number(constraints?: NumberConstraints): FlagBuilder<{
 		readonly valueType: number;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
@@ -703,13 +814,18 @@ const flag: FlagFactory = {
 		return new FlagBuilder(createSchema('string'));
 	},
 
-	number(): FlagBuilder<{
+	number(constraints?: NumberConstraints): FlagBuilder<{
 		readonly valueType: number;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'number';
 	}> {
-		return new FlagBuilder(createSchema('number'));
+		if (constraints !== undefined) {
+			assertNumberConstraints(constraints);
+		}
+		return new FlagBuilder(
+			createSchema('number', constraints !== undefined ? { numberConstraints: constraints } : {}),
+		);
 	},
 
 	boolean(): FlagBuilder<{

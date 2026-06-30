@@ -345,5 +345,11 @@ function uniqueCommands(commands: ReadonlyMap<string, ErasedCommand>): readonly 
 
 // --- Exports
 
-export type { DispatchMatch, DispatchNeedsSubcommand, DispatchResult, DispatchUnknown, ValueFlagLookup };
+export type {
+	DispatchMatch,
+	DispatchNeedsSubcommand,
+	DispatchResult,
+	DispatchUnknown,
+	ValueFlagLookup,
+};
 export { consumesFollowingToken, dispatch, findClosestCommand, levenshtein, uniqueCommands };

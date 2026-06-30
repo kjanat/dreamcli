@@ -25,6 +25,7 @@ describe('example docs generation', () => {
 			'multi-command',
 			'spinner-progress',
 			'testing',
+			'transport-launcher',
 		]);
 
 		const basic = examples.find((example) => example.slug === 'basic');

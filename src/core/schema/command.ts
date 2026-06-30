@@ -1191,7 +1191,9 @@ class CommandBuilder<
 	 * The builder controls the flag's type, presence, aliases, env/config
 	 * bindings, and description. See {@link FlagBuilder} for available modifiers.
 	 *
-	 * @param name - Flag name (used as `--name` on CLI and `flags.*` in handler).
+	 * @param name - Flag name: the `--name` CLI token and the matching key on `flags`
+	 *   in the handler. The name is preserved as-is (no camelCasing); read non-identifier
+	 *   names such as `'dry-run'` with bracket access (`flags['dry-run']`).
 	 * @param builder - Configured {@linkcode FlagBuilder} from {@linkcode flag | flag.string()},
 	 *   `flag.boolean()`, `flag.number()`, `flag.enum()`, `flag.array()`, or `flag.custom()`.
 	 *

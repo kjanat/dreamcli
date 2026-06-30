@@ -76,7 +76,11 @@ const greet = command('greet')
     flag.number().default(1).describe('Repeat count'),
   )
   .action(({ args, flags, out }) => {
-    for (let i = 0; i < flags.times; i++) {
+    const repeatCount = Number.isFinite(flags.times)
+      ? Math.max(0, Math.min(100, Math.floor(flags.times)))
+      : 1;
+
+    for (let i = 0; i < repeatCount; i++) {
       const msg = `Hello, ${args.name}!`;
       out.log(flags.loud ? msg.toUpperCase() : msg);
     }
@@ -531,13 +535,16 @@ expect(activity.activity).toContainEqual(
 
 ## Package structure
 
-Three subpath exports, each with a focused API surface:
+The code lives behind three focused subpath exports:
 
 | Import                     | Purpose                                                                                |
 | -------------------------- | -------------------------------------------------------------------------------------- |
 | `@kjanat/dreamcli`         | Schema builders, CLI runner, output, parsing, resolution, errors                       |
 | `@kjanat/dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
 | `@kjanat/dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
+
+A fourth export, `@kjanat/dreamcli/schema`, ships the bundled JSON Schema (`dreamcli.schema.json`)
+for editor and config validation.
 
 ESM-only. Source included in package (`src/`).
 

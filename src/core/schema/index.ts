@@ -88,4 +88,9 @@ export type {
 	MiddlewareParams,
 } from './middleware.ts';
 export { middleware } from './middleware.ts';
+export type { NumberConstraints, NumberConstraintViolation } from './number-constraints.ts';
+export {
+	describeNumberConstraintViolation,
+	validateNumberConstraints,
+} from './number-constraints.ts';
 export type { RunOptions, RunResult } from './run.ts';
