@@ -66,4 +66,4 @@ const runtime: Runtime = detectRuntime();
 | Bun >= 1.3         | `BunAdapter`  | Delegates to Node adapter      |
 | Deno >= 2.6.0      | `DenoAdapter` | Permission-safe Deno namespace |
 
-Adapter creation validates these minimum versions and throws immediately when the host runtime is too old.
+These minimums are the tested support floor, declared in the package `engines` field. Adapter creation does not validate the runtime version or throw: as a dependency the package manager enforces `engines` at install time, and when DreamCLI is bundled the consuming CLI owns its supported-runtime policy.
