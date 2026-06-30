@@ -447,7 +447,7 @@ describe('resolve — arg env numeric constraints', () => {
 				expect(err.message).toContain('<redacted>');
 				expect(err.message).not.toContain('150');
 				expect(err.message).toContain('must be <= 100');
-				expect(err.details).toMatchObject({ arg: 'count', constraint: 'max' });
+				expect(err.details).toMatchObject({ arg: 'count', constraint: 'max', bound: 100 });
 			}
 		}
 	});

@@ -97,6 +97,7 @@ function finalizeNumber(
 					value: raw,
 					expected: 'number',
 					constraint: violation.kind,
+					...('bound' in violation ? { bound: violation.bound } : {}),
 				},
 				suggest:
 					source.kind === 'env'
@@ -419,6 +420,9 @@ function redactArgCoercionDetails(
 		...(schema.kind === 'number' || schema.kind === 'custom' ? { expected: schema.kind } : {}),
 		...(schema.kind === 'number' && typeof error.details?.constraint === 'string'
 			? { constraint: error.details.constraint }
+			: {}),
+		...(schema.kind === 'number' && typeof error.details?.bound === 'number'
+			? { bound: error.details.bound }
 			: {}),
 		...(schema.kind === 'enum' && Array.isArray(error.details?.allowed)
 			? {

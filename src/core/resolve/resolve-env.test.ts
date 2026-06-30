@@ -693,4 +693,21 @@ describe('resolve — env numeric constraints', () => {
 		const ok = await resolve(schema, makeParsed(), { env: { COUNT: '100' } });
 		expect(ok.flags).toEqual({ count: 100 });
 	});
+
+	it('includes the violated bound in env-path details (matches parse)', async () => {
+		const schema = makeSchema({
+			flags: {
+				count: createSchema('number', { envVar: 'COUNT', numberConstraints: { max: 100 } }),
+			},
+		});
+		try {
+			await resolve(schema, makeParsed(), { env: { COUNT: '101' } });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.details).toMatchObject({ flag: 'count', constraint: 'max', bound: 100 });
+			}
+		}
+	});
 });
