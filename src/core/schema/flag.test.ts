@@ -114,6 +114,18 @@ describe('flag.number() rejects non-finite bounds at construction', () => {
 	it('still accepts finite bounds', () => {
 		expect(() => flag.number({ min: 0, max: 100 }).min(-5).max(1000)).not.toThrow();
 	});
+
+	it('throws when min exceeds max (options object)', () => {
+		expect(() => flag.number({ min: 100, max: 0 })).toThrow(RangeError);
+	});
+
+	it('throws when a chained bound inverts the range', () => {
+		expect(() => flag.number({ max: 0 }).min(100)).toThrow(RangeError);
+	});
+
+	it('allows min equal to max (single permitted value)', () => {
+		expect(() => flag.number({ min: 5, max: 5 })).not.toThrow();
+	});
 });
 
 describe('flag.boolean()', () => {

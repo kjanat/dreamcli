@@ -114,11 +114,13 @@ function describeNumberConstraintViolation(violation: NumberConstraintViolation)
  *
  * `min` / `max` must be finite — an infinite or `NaN` bound is meaningless (omit
  * the field for "no bound") and would serialize to `null` in the emitted JSON
- * Schema. Throws so the misconfiguration surfaces where the flag/arg is
- * declared, not at parse time.
+ * Schema. An inverted range (`min > max`) is also rejected, since it makes the
+ * flag/arg permanently unsatisfiable. Throws so the misconfiguration surfaces
+ * where the flag/arg is declared, not at parse time.
  *
  * @param constraints - The constraints to validate.
- * @throws RangeError if `min` or `max` is non-finite (`Infinity` / `-Infinity` / `NaN`).
+ * @throws RangeError if `min` or `max` is non-finite (`Infinity` / `-Infinity` /
+ *   `NaN`), or if `min` exceeds `max`.
  */
 function assertNumberConstraints(constraints: NumberConstraints): void {
 	if (constraints.min !== undefined && !Number.isFinite(constraints.min)) {
@@ -129,6 +131,15 @@ function assertNumberConstraints(constraints: NumberConstraints): void {
 	if (constraints.max !== undefined && !Number.isFinite(constraints.max)) {
 		throw new RangeError(
 			`number constraint 'max' must be a finite number (got ${constraints.max}); omit it for no upper bound`,
+		);
+	}
+	if (
+		constraints.min !== undefined &&
+		constraints.max !== undefined &&
+		constraints.min > constraints.max
+	) {
+		throw new RangeError(
+			`number constraint 'min' (${constraints.min}) must not exceed 'max' (${constraints.max})`,
 		);
 	}
 }

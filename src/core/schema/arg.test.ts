@@ -92,6 +92,11 @@ describe('arg.number() rejects non-finite bounds at construction', () => {
 	it('still accepts finite bounds', () => {
 		expect(() => arg.number({ min: 0, max: 100 }).max(1000)).not.toThrow();
 	});
+
+	it('throws when min exceeds max', () => {
+		expect(() => arg.number({ min: 100, max: 0 })).toThrow(RangeError);
+		expect(() => arg.number({ max: 0 }).min(100)).toThrow(RangeError);
+	});
 });
 
 describe('arg.enum() — creates and modifies enum args', () => {
