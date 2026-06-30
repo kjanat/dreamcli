@@ -16,7 +16,6 @@ import type { WriteFn } from '#internals/core/output/index.ts';
 import type { ReadFn } from '#internals/core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
-import { assertRuntimeVersionSupported } from './support.ts';
 
 // --- Node.js error shape — for ENOENT detection without @types/node
 
@@ -142,15 +141,6 @@ function resolveConfigDir(
 	return resolveConfigDirectory(env, platform === 'win32', homedir);
 }
 
-function assertProcessRuntimeSupported(proc: NodeProcess): void {
-	if (proc.versions?.bun !== undefined) {
-		assertRuntimeVersionSupported('bun', proc.versions.bun);
-		return;
-	}
-
-	assertRuntimeVersionSupported('node', proc.versions?.node);
-}
-
 // --- Node adapter factory
 
 /**
@@ -176,7 +166,6 @@ function assertProcessRuntimeSupported(proc: NodeProcess): void {
  */
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const p = proc ?? getNodeProcess();
-	assertProcessRuntimeSupported(p);
 
 	const stdoutWrite: WriteFn = (data) => {
 		p.stdout.write(data);

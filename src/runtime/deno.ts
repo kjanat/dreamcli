@@ -23,7 +23,6 @@ import type { WriteFn } from '#internals/core/output/index.ts';
 import type { ReadFn } from '#internals/core/prompt/index.ts';
 import type { RuntimeAdapter } from './adapter.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
-import { assertRuntimeVersionSupported } from './support.ts';
 
 // --- Minimal Deno namespace shape — avoids @types/deno dependency
 
@@ -169,7 +168,6 @@ function safeCwd(deno: DenoNamespace): string {
  */
 function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	const d = ns ?? getDenoNamespace();
-	assertRuntimeVersionSupported('deno', d.version?.deno);
 	const encoder = new TextEncoder();
 
 	// --- Synthetic argv: Deno.args has user args only (no binary/script) ---
