@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { normalize } from 'node:path';
 import { env } from 'node:process';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
@@ -17,6 +18,18 @@ import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins/index.ts';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
+
+// `src/schema.ts` statically imports `../dreamcli.schema.json`, a gitignored
+// build artifact. TypeDoc (run by `*.paths.ts` dynamic-route loaders and
+// `*.data.ts` data loaders) typechecks that import, so the schema must exist
+// before route/data resolution. VitePress bundles those loaders in a transient
+// esbuild step that bypasses this Vite config's plugins, so the source-artifacts
+// plugin's `buildStart` hook fires too late. Emitting here at config
+// module-evaluation time — the first thing VitePress runs — guarantees the
+// artifact exists before any loader is bundled or executed. Run via subprocess
+// so the script resolves `@kjanat/dreamcli` in its own Bun context; importing it
+// here breaks VitePress's esbuild config loader (cannot resolve the self-import).
+execFileSync('bun', ['scripts/emit-definition-schema.ts'], { cwd: projectRoot });
 const exampleMeta = await collectExampleMeta(examplesRoot);
 const apiIndex = await collectPublicApiIndex(packageJsonPath);
 const symbolRoutes = new Map<string, string>();
