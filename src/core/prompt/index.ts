@@ -361,8 +361,13 @@ async function promptInput(
 
 		const trimmed = line.trim();
 
-		if (trimmed === '' && config.default !== undefined) {
-			return { answered: true, value: config.default };
+		// An empty submission is the absence of a value, not a value to validate:
+		// resolve to the configured default, else return blank so the resolver can
+		// treat it as "no answer" and fall through to the flag's own default.
+		if (trimmed === '') {
+			return config.default !== undefined
+				? { answered: true, value: config.default }
+				: { answered: true, value: '' };
 		}
 
 		if (config.validate !== undefined) {

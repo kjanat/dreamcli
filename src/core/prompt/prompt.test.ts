@@ -376,6 +376,26 @@ describe('createTerminalPrompter', () => {
 			expect(validateCalls).toBe(0);
 		});
 
+		it('returns blank without validating when input is empty and no default is set', async () => {
+			// A required-style validator must not trap empty input: an empty answer is
+			// "no answer", returned verbatim so the resolver can fall through to the
+			// flag's own default instead of looping on validation.
+			let validateCalls = 0;
+			const { write, lines } = captureWrite();
+			const prompter = createTerminalPrompter(mockRead(['']), write);
+			const result = await prompter.promptOne({
+				kind: 'input',
+				message: 'Name',
+				validate: (v) => {
+					validateCalls += 1;
+					return v === '' ? 'Required' : true;
+				},
+			});
+			expect(result).toEqual({ answered: true, value: '' });
+			expect(validateCalls).toBe(0);
+			expect(lines.some((l) => l.includes('Required'))).toBe(false);
+		});
+
 		it('shows both placeholder and default in the hint', async () => {
 			const { write, lines } = captureWrite();
 			const prompter = createTerminalPrompter(mockRead(['x']), write);
