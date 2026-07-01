@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: runner install --frozen --kill-on-fail version:check ci smoke
+      - run: runner install -fK schema:emit version:check ci smoke
 
   publish:
     name: Publish to JSR
@@ -38,4 +38,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: runner install --frozen --kill-on-fail build jsr:publish
+      - run: runner install -fK build jsr:publish
