@@ -15,12 +15,12 @@ resolve layer.
 
 ## WHERE TO LOOK
 
-| Task                          | Location                               | Notes                                                    |
-| ----------------------------- | -------------------------------------- | -------------------------------------------------------- |
-| Change engine contract        | `PromptEngine`, `ResolvedPromptConfig` | select and multiselect choices are guaranteed non-empty  |
-| Change test prompts           | `createTestPrompter()`                 | queue-driven, supports malformed values and cancellation |
-| Change terminal prompts       | `createTerminalPrompter()`             | line-based read/write seam, no raw mode                  |
-| Change cancellation semantics | `PROMPT_CANCEL`                        | shared sentinel for test flows                           |
+| Task                          | Location                               | Notes                                                                             |
+| ----------------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
+| Change engine contract        | `PromptEngine`, `ResolvedPromptConfig` | select and multiselect choices are guaranteed non-empty                           |
+| Change test prompts           | `createTestPrompter()`                 | queue-driven; runs `input` `validate`, supports malformed values and cancellation |
+| Change terminal prompts       | `createTerminalPrompter()`             | line-based read/write seam, no raw mode                                           |
+| Change cancellation semantics | `PROMPT_CANCEL`                        | shared sentinel for test flows                                                    |
 
 ## CONVENTIONS
 
@@ -29,6 +29,8 @@ resolve layer.
 - Choice merging happens before the engine sees config; engines should not infer enum choices
   themselves
 - `TestAnswer` stays `unknown` so downstream validation paths can be tested
+- The test prompter mirrors the terminal `input` contract: a string answer is run through
+  `config.validate`, and a failing answer is rejected as a cancellation (not accepted verbatim)
 
 ## ANTI-PATTERNS
 

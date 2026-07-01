@@ -148,9 +148,11 @@ const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typ
  * A queued answer consumed by {@link createTestPrompter}.
  *
  * The test prompter returns these values exactly as provided; it does not
- * coerce or validate them. The normal resolution pipeline performs any later
- * type coercion, so tests can supply values in the same shapes real prompts
- * would yield:
+ * coerce them. The one exception mirrors the terminal prompter: a string answer
+ * to an `input` prompt is run through the prompt's `validate` function, and a
+ * failing answer is rejected as a cancellation (see {@link createTestPrompter}).
+ * The normal resolution pipeline performs any later type coercion, so tests can
+ * supply values in the same shapes real prompts would yield:
  *
  * - `string` for `input` and `select`
  * - `boolean` for `confirm`
@@ -186,6 +188,12 @@ interface TestPrompterOptions {
  * Pass `PROMPT_CANCEL` as an answer to simulate the user cancelling
  * that prompt.
  *
+ * For `input` prompts that declare a `validate` function, a string answer is
+ * validated just as the terminal prompter does. An answer that fails validation
+ * is rejected as a cancellation (`{ answered: false }`) — mirroring the terminal
+ * prompter exhausting its retries — so prompt validation is integration-testable
+ * via {@linkcode runCommand} rather than silently accepted as the resolved value.
+ *
  * @param answers - Ordered queue of answers. Use `PROMPT_CANCEL` for
  *   cancellation.
  * @param options - Controls behavior when the queue is exhausted.
@@ -206,7 +214,7 @@ function createTestPrompter(
 ): PromptEngine {
 	let index = 0;
 	return {
-		promptOne(): Promise<PromptResult> {
+		promptOne(config): Promise<PromptResult> {
 			if (index >= answers.length) {
 				if (options?.onExhausted === 'cancel') {
 					return Promise.resolve({ answered: false });
@@ -221,6 +229,20 @@ function createTestPrompter(
 			index += 1;
 			if (answer === PROMPT_CANCEL) {
 				return Promise.resolve({ answered: false });
+			}
+			// Mirror the terminal prompter's `input` contract: run `config.validate`
+			// against the queued answer so prompt validation is integration-testable
+			// (#36). A failing answer is rejected the way the terminal prompter
+			// rejects after exhausting its retries — as a cancellation — so the
+			// resolution pipeline surfaces it (required-flag error / default
+			// fallback) instead of injecting the invalid value verbatim. Only
+			// `input` prompts carry a validator and only string answers are the
+			// shape the terminal prompter would ever validate; non-string answers
+			// stay verbatim so downstream coercion paths remain testable.
+			if (config.kind === 'input' && config.validate !== undefined && typeof answer === 'string') {
+				if (config.validate(answer) !== true) {
+					return Promise.resolve({ answered: false });
+				}
 			}
 			return Promise.resolve({ answered: true, value: answer });
 		},

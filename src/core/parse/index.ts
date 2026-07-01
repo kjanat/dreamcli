@@ -125,6 +125,27 @@ function includesBeforeSeparator(argv: readonly string[], token: string): boolea
 	return false;
 }
 
+/**
+ * Remove every occurrence of `token` that appears before the `--` end-of-options
+ * separator, leaving post-separator literals untouched.
+ *
+ * The strip counterpart to {@linkcode includesBeforeSeparator}: root-level flags
+ * (`--json`) are stripped before dispatch/parse so the command schema never sees
+ * them, but a literal after `--` (`-- --json`) must reach the command unchanged.
+ *
+ * @param argv - Raw argument strings.
+ * @param token - Exact flag token to strip (e.g. `--json`).
+ * @returns A new argv with pre-separator occurrences of `token` removed, or the
+ *   original reference when `token` does not occur before the separator.
+ */
+function stripBeforeSeparator(argv: readonly string[], token: string): readonly string[] {
+	const separatorIndex = argv.indexOf('--');
+	const head = separatorIndex === -1 ? argv : argv.slice(0, separatorIndex);
+	if (!head.includes(token)) return argv;
+	const filteredHead = head.filter((arg) => arg !== token);
+	return separatorIndex === -1 ? filteredHead : [...filteredHead, ...argv.slice(separatorIndex)];
+}
+
 // --- Parse result
 
 /**
@@ -711,4 +732,11 @@ function levenshtein(a: string, b: string): number {
 // --- Exports
 
 export type { ParseResult, Token };
-export { buildFlagLookup, flagExpectsValue, includesBeforeSeparator, parse, tokenize };
+export {
+	buildFlagLookup,
+	flagExpectsValue,
+	includesBeforeSeparator,
+	parse,
+	stripBeforeSeparator,
+	tokenize,
+};
