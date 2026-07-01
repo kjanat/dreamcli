@@ -227,6 +227,20 @@ async function resolvePromptValueWithConfig(
 		return { ok: false, error: undefined };
 	}
 
+	// An empty/blank `input` answer with no prompt-level default is not a real
+	// answer — fall through (ok: false) so resolution reaches the flag's
+	// `.default()`. When a prompt-level default exists, the prompt engine has
+	// already applied it (so the value is the default, not blank), giving it
+	// precedence over the flag default.
+	if (
+		promptConfig.kind === 'input' &&
+		promptConfig.default === undefined &&
+		typeof result.value === 'string' &&
+		result.value.trim() === ''
+	) {
+		return { ok: false, error: undefined };
+	}
+
 	return coerceValue(flagName, { kind: 'prompt' }, result.value, schema);
 }
 

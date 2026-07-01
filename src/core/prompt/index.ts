@@ -283,10 +283,11 @@ const MAX_RETRIES = 10;
 /**
  * Confirm prompt: yes/no question.
  *
- * Displays `(Y/n)` because empty input defaults to yes.
- * Accepts: y, yes, n, no, empty (uses default). Case-insensitive.
+ * The hint reflects {@link ConfirmPromptConfig.default}: `(Y/n)` when the
+ * default is `true` (or unset), `(y/N)` when `false`. An empty submission
+ * resolves to that default. Accepts: y, yes, n, no, empty. Case-insensitive.
  *
- * @param config - {@link ConfirmPromptConfig} with the question message
+ * @param config - {@link ConfirmPromptConfig} with the question message and optional default
  * @param read - {@link ReadFn} for reading a line of user input
  * @param write - {@link WriteFn} for rendering prompt text
  * @returns Resolved {@link PromptResult} — `true`/`false` value, or cancelled on EOF
@@ -296,7 +297,7 @@ async function promptConfirm(
 	read: ReadFn,
 	write: WriteFn,
 ): Promise<PromptResult> {
-	const defaultValue = true;
+	const defaultValue = config.default ?? true;
 	let retries = 0;
 
 	while (retries < MAX_RETRIES) {
@@ -328,13 +329,17 @@ async function promptConfirm(
 /**
  * Input prompt: free-text string entry.
  *
- * Displays the message, reads a line, and optionally validates via
- * `config.validate`. Loops on invalid input up to `MAX_RETRIES`.
+ * Displays the message and a hint listing the placeholder and/or
+ * {@link InputPromptConfig.default | default}, reads a line, and optionally
+ * validates via {@link InputPromptConfig.validate | validate}. When a default
+ * is configured, an empty submission resolves to it without running validation;
+ * otherwise an empty submission is returned verbatim (and treated as "no answer"
+ * by the resolver). Loops on invalid input up to `MAX_RETRIES`.
  *
- * @param config - {@link InputPromptConfig} with message, optional placeholder and validator
+ * @param config - {@link InputPromptConfig} with message, optional placeholder, default, and validator
  * @param read - {@link ReadFn} for reading a line of user input
  * @param write - {@link WriteFn} for rendering prompt text and validation errors
- * @returns Resolved {@link PromptResult} — trimmed string value, or cancelled on EOF/exhausted retries
+ * @returns Resolved {@link PromptResult} — trimmed string value (or default), or cancelled on EOF/exhausted retries
  */
 async function promptInput(
 	config: InputPromptConfig,
@@ -343,14 +348,27 @@ async function promptInput(
 ): Promise<PromptResult> {
 	let retries = 0;
 
+	const hints: string[] = [];
+	if (config.placeholder !== undefined) hints.push(config.placeholder);
+	if (config.default !== undefined) hints.push(`default: ${config.default}`);
+	const hint = hints.length > 0 ? ` (${hints.join(', ')})` : '';
+
 	while (retries < MAX_RETRIES) {
-		const placeholder = config.placeholder !== undefined ? ` (${config.placeholder})` : '';
-		write(`${config.message}${placeholder}: `);
+		write(`${config.message}${hint}: `);
 
 		const line = await read();
 		if (line === null) return { answered: false };
 
 		const trimmed = line.trim();
+
+		// An empty submission is the absence of a value, not a value to validate:
+		// resolve to the configured default, else return blank so the resolver can
+		// treat it as "no answer" and fall through to the flag's own default.
+		if (trimmed === '') {
+			return config.default !== undefined
+				? { answered: true, value: config.default }
+				: { answered: true, value: '' };
+		}
 
 		if (config.validate !== undefined) {
 			const result = config.validate(trimmed);

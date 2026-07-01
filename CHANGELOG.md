@@ -43,6 +43,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `type: "integer"` when `int` is set. `min` / `max` must be finite — a
   non-finite bound (`Infinity` / `-Infinity` / `NaN`) throws at construction. The
   resolved TypeScript value type stays `number`.
+- **Prompt-level defaults for `confirm` and `input` prompts** — `confirm`
+  prompts accept `default?: boolean` (drives the `(Y/n)` vs `(y/N)` hint and the
+  empty-line result, so a confirm can default to **No**), and `input` prompts
+  accept `default?: string` (shown in the hint as `(default: <value>)` and used
+  when the user presses Enter, skipping `validate`). Precedence among defaults is
+  prompt-level `default` > flag `.default()`. Unset `confirm` default stays
+  backward compatible (`true`).
 
 ### Changed
 
@@ -71,6 +78,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   consumer — not us — owns their CLI's supported-runtime policy. `SUPPORTED_RUNTIMES`
   and the generated `engines` minimums are unchanged and remain the source of
   truth for docs and packaging.
+
+### Fixed
+
+- **Empty `input`-prompt answer no longer clobbers a flag's `.default()`** — a
+  flag declared with both `.default(...)` and an `input` prompt previously
+  resolved to `""` when the user submitted an empty line, because empty input was
+  treated as a real answer that short-circuited the default fallback. An empty or
+  blank `input` answer with no prompt-level `default` is now treated as "no
+  answer", so resolution falls through to the flag's `.default()` (or, for a
+  required flag, the standard missing-flag error).
 
 ## [2.5.0] - 2026-06-28
 
