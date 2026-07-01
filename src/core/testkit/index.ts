@@ -17,6 +17,7 @@
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
+import { includesBeforeSeparator, stripBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { CommandMeta, Out, RunnableCommand } from '#internals/core/schema/command.ts';
 import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
@@ -30,16 +31,20 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
  * Run a command builder against the given argv with injected options.
  *
  * This is the testkit wrapper around the shared executor:
- * 1. Create or reuse capture output
- * 2. Build standalone schema/meta defaults when CLI dispatch did not
- * 3. Delegate parse -> resolve -> execute to the shared executor
- * 4. Return the structured result with captured buffers
+ * 1. Apply the CLI root-flag layer (detect/strip `--json`) so copied real argv works
+ * 2. Create or reuse capture output
+ * 3. Build standalone schema/meta defaults when CLI dispatch did not
+ * 4. Delegate parse -> resolve -> execute to the shared executor
+ * 5. Return the structured result with captured buffers
  *
  * Errors are normalized by the shared executor into structured {@linkcode RunResult}s
  * with appropriate exit codes. The function never throws.
  *
  * @param cmd - The command builder (must have an action handler)
- * @param argv - Raw argv strings (NOT including the command name itself)
+ * @param argv - Raw argv strings (NOT including the command name itself). A
+ *   CLI-level `--json` before the `--` separator is honored and stripped here,
+ *   just like the real CLI root — so `['--json']` enables JSON mode rather than
+ *   failing as an unknown flag. Equivalent to passing `{ jsonMode: true }`.
  * @param options - Injectable runtime state
  * @returns Structured run result with exit code and captured output
  */
@@ -48,6 +53,16 @@ async function runCommand(
 	argv: readonly string[],
 	options?: RunOptions,
 ): Promise<RunResult> {
+	// Root-flag layer mirroring `CLIBuilder.execute()`: `--json` is owned by the
+	// CLI root, not the command schema, so it would otherwise reach `parse()` as
+	// an unknown flag (#33). Detect it before the `--` separator (a literal
+	// `--json` positional after `--` survives), enable JSON mode, and strip it so
+	// the command schema never sees it. The explicit `options.jsonMode` keeps
+	// working — either source enables JSON mode.
+	const hasJsonFlag = includesBeforeSeparator(argv, '--json');
+	const jsonMode = hasJsonFlag || options?.jsonMode === true;
+	const effectiveArgv = hasJsonFlag ? stripBeforeSeparator(argv, '--json') : argv;
+
 	let out: Out;
 	let captured: CapturedOutput;
 	if (options?.out !== undefined) {
@@ -56,7 +71,7 @@ async function runCommand(
 	} else {
 		const captureOptions = {
 			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
-			...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
+			...(jsonMode ? { jsonMode } : {}),
 			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 		};
 		[out, captured] = createCaptureOutput(
@@ -74,13 +89,22 @@ async function runCommand(
 		command: schema.name,
 	};
 
+	// Thread the effective JSON mode into the executor so its error path renders
+	// structured JSON, matching dispatch where the planner sets `options.jsonMode`.
+	const effectiveOptions: RunOptions | undefined =
+		options !== undefined
+			? { ...options, ...(jsonMode ? { jsonMode } : {}) }
+			: jsonMode
+				? { jsonMode }
+				: undefined;
+
 	const result = await executeCommand({
 		command: cmd,
-		argv,
+		argv: effectiveArgv,
 		out,
 		schema,
 		meta,
-		...(options !== undefined ? { options } : {}),
+		...(effectiveOptions !== undefined ? { options: effectiveOptions } : {}),
 	});
 
 	return buildRunResult(result, captured);

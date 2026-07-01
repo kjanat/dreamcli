@@ -253,6 +253,69 @@ describe('runCommand', () => {
 		});
 	});
 
+	// --- prompt validate (#36)
+
+	describe('prompt validate', () => {
+		/** Input-prompt flag whose validate requires an `@`. */
+		function emailCommand() {
+			return command('signup')
+				.flag(
+					'email',
+					flag
+						.string()
+						.required()
+						.prompt({
+							kind: 'input',
+							message: 'Email?',
+							validate: (value) => value.includes('@') || 'must be an email',
+						}),
+				)
+				.action(({ flags, out }) => {
+					out.log(`email=${flags.email}`);
+				});
+		}
+
+		it('accepts a queued answer that passes validate', async () => {
+			const result = await runCommand(emailCommand(), [], { answers: ['a@b.com'] });
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['email=a@b.com\n']);
+		});
+
+		it('rejects a queued answer that fails validate (not accepted verbatim)', async () => {
+			const result = await runCommand(emailCommand(), [], { answers: ['not-an-email'] });
+
+			// Mirrors the terminal prompter: failed validation behaves like a
+			// cancellation, so resolution surfaces the required-flag error rather
+			// than injecting the invalid value.
+			expect(result.exitCode).toBe(2);
+			expect(result.error?.code).toBe('REQUIRED_FLAG');
+		});
+
+		it('falls back to default when a queued answer fails validate', async () => {
+			const cmd = command('signup')
+				.flag(
+					'email',
+					flag
+						.string()
+						.default('default@example.com')
+						.prompt({
+							kind: 'input',
+							message: 'Email?',
+							validate: (value) => value.includes('@') || 'must be an email',
+						}),
+				)
+				.action(({ flags, out }) => {
+					out.log(`email=${flags.email}`);
+				});
+
+			const result = await runCommand(cmd, [], { answers: ['nope'] });
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['email=default@example.com\n']);
+		});
+	});
+
 	// --- answers with interactive resolver
 
 	describe('answers with interactive resolver', () => {

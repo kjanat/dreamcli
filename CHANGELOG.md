@@ -117,6 +117,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with no discoverable args/flags. The default is now always rendered inline in that
   case, since suppressing it leaves no other path to its interface.
 
+### Fixed
+
+- **`runCommand()` now honors a CLI-level `--json` passed in `argv`** — the testkit
+  gained the same root-flag layer as the real CLI: a `--json` before the `--`
+  separator enables JSON mode and is stripped before parsing, instead of failing
+  with `Unknown flag --json` (exit 2). A literal `--json` after `--` still reaches
+  the command unchanged. The existing `{ jsonMode: true }` option keeps working —
+  either source enables JSON mode. Copying a real `mycli --json …` invocation into a
+  test now works verbatim.
+- **`createTestPrompter()` now runs an `input` prompt's `validate`** — a queued
+  string answer to an `input` prompt is validated exactly as the terminal prompter
+  does; an answer that fails validation is rejected as a cancellation rather than
+  injected verbatim as the resolved value, so prompt validation is integration-testable
+  through `runCommand(cmd, argv, { answers })`. Non-string answers stay verbatim so
+  downstream coercion paths remain testable.
+
 ## [2.5.0] - 2026-06-28
 
 ### Added
