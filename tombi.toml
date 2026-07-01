@@ -51,3 +51,7 @@ strict  = true
 [[schemas]]
 path    = "https://kjanat.github.io/runner/schemas/runner.toml.schema.json"
 include = ["runner.toml", ".runner.toml"]
+
+[[schemas]]
+path    = "https://unpkg.com/wrangler@4/config-schema.json"
+include = ["wrangler.toml"]

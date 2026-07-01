@@ -10,13 +10,8 @@
 	},
 	"type": "module",
 	"module": "src/main.ts",
-	"bin": {
-		"gh": "src/main.ts"
-	},
-	"files": [
-		"src",
-		"!src/**/*.test.ts"
-	],
+	"bin": "src/main.ts",
+	"files": ["src", "!src/**/*.test.ts"],
 	"scripts": {
 		"bd": "bun run build",
 		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external @kjanat/dreamcli",

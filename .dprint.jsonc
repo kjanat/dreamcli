@@ -29,14 +29,16 @@
 	"svg": { "useTabs": false },
 	"exec": {
 		"cwd": "${configDir}",
+		"cacheKey": "1",
+		"timeout": 30,
+		"associations": ["**/*.toml"],
 		"commands": [
 			{
-				"command": "bun x sort-package-json --stdin",
-				"fileNames": ["package.json"]
-			},
-			{
-				"command": "bun x tombi format - --stdin-filename {{file_path}}",
-				"exts": ["toml"]
+				"associations": ["**/*.toml"],
+				"exts": ["toml"],
+				"command": "tombi format - --stdin-filename {{file_path}}",
+				"cacheKeyFiles": ["tombi.toml"],
+				"setupCommand": "npm i -g tombi@latest"
 			}
 		]
 	},
@@ -47,20 +49,21 @@
 		"tabWidth": 2,
 		"useTabs": false,
 		"endOfLine": "lf",
-		"associations": ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts"]
+		"associations": ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts", "!**"]
 	},
 	"ruff": { "preview": true, "indentWidth": 4 },
 	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots", "**/*.schema.json"],
 	"plugins": [
+		"https://plugins.dprint.dev/kjanat/svg-v0.4.1.wasm",
+		"https://plugins.dprint.dev/kjanat/sortpackagejson-0.2.1.wasm",
 		"https://plugins.dprint.dev/biome-0.13.0.wasm",
+		"https://plugins.dprint.dev/markdown-0.22.1.wasm",
+		"https://plugins.dprint.dev/ruff-0.7.20.wasm",
+		"https://plugins.dprint.dev/json-0.22.0.wasm",
 		"https://plugins.dprint.dev/g-plane/malva-v0.16.0.wasm",
 		"https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.3.wasm",
 		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
-		"https://plugins.dprint.dev/markdown-0.22.1.wasm",
-		"https://plugins.dprint.dev/kjanat/svg-v0.4.1.wasm",
 		"https://plugins.dprint.dev/exec-0.7.2.json@6c30bd00dfb176774ece412d0fbf149478269ecc92c55ab2d6f4116938ed993e",
-		"https://plugins.dprint.dev/prettier-0.72.0.json@6e7af2cb2182a5a11358d3adde9ae0ef3b94b7d2e5dcfdd252e3f7c3916541fe",
-		"https://plugins.dprint.dev/ruff-0.7.20.wasm",
-		"https://plugins.dprint.dev/json-0.22.0.wasm"
+		"https://plugins.dprint.dev/prettier-0.72.0.json@6e7af2cb2182a5a11358d3adde9ae0ef3b94b7d2e5dcfdd252e3f7c3916541fe"
 	]
 }

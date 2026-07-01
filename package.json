@@ -2,14 +2,7 @@
 	"name": "@kjanat/dreamcli",
 	"version": "3.0.0-rc.1",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
-	"keywords": [
-		"dreamcli",
-		"cli",
-		"typescript",
-		"framework",
-		"schema-first",
-		"command-line"
-	],
+	"keywords": ["dreamcli", "cli", "typescript", "framework", "schema-first", "command-line"],
 	"homepage": "https://dreamcli.kjanat.dev",
 	"bugs": {
 		"url": "https://github.com/kjanat/dreamcli/issues"
@@ -69,9 +62,7 @@
 		"!src/**/*test-helpers.ts",
 		"!**/AGENTS.md"
 	],
-	"workspaces": [
-		"./examples/*"
-	],
+	"workspaces": ["./examples/*"],
 	"scripts": {
 		"bd": "run build",
 		"build": "bun --bun tsdown",

@@ -13,13 +13,7 @@
 	"bin": {
 		"pwsh-demo": "src/main.ts"
 	},
-	"files": [
-		"src",
-		"README.md",
-		"smoke-powershell.ps1",
-		"pwsh-demo.cmd",
-		"!src/**/*.test.ts"
-	],
+	"files": ["src", "README.md", "smoke-powershell.ps1", "pwsh-demo.cmd", "!src/**/*.test.ts"],
 	"scripts": {
 		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external @kjanat/dreamcli",
 		"smoke:powershell": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File ./smoke-powershell.ps1",
