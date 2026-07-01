@@ -107,7 +107,7 @@ function formatHelpDefaultValue(value: unknown): string {
 
 // --- Flag formatting
 
-/** Formatted flag entry for the flags table. */
+/** Formatted flag entry for the flags table. @internal */
 interface FlagEntry {
 	readonly left: string;
 	readonly description: string;

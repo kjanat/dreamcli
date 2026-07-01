@@ -518,13 +518,8 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		}
 	}
 
-	if (filteredArgv.length === 0 && defaultCommand === undefined) {
-		return {
-			kind: 'root-help',
-			help: options.help,
-		};
-	}
-
+	// A CLI with no commands and no default is misconfigured: report NO_ACTION
+	// even for a bare invocation, rather than masking it with empty root help.
 	if (options.schema.commands.length === 0 && defaultCommand === undefined) {
 		return {
 			kind: 'dispatch-error',
@@ -532,6 +527,13 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 				code: 'NO_ACTION',
 				suggest: 'Add commands via .command() or .default() before calling .run()',
 			}),
+		};
+	}
+
+	if (filteredArgv.length === 0 && defaultCommand === undefined) {
+		return {
+			kind: 'root-help',
+			help: options.help,
 		};
 	}
 

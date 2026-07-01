@@ -562,6 +562,15 @@ describe('error handling', () => {
 		expect(result.stderr.join('')).toContain('No commands registered');
 	});
 
+	it('returns NO_ACTION (not empty help) on a bare invocation with no commands', async () => {
+		const app = cli('mycli');
+		const result = await app.execute([]);
+
+		expect(result.exitCode).toBe(1);
+		expect(result.error?.code).toBe('NO_ACTION');
+		expect(result.stderr.join('')).toContain('No commands registered');
+	});
+
 	it('returns error for command without action handler', async () => {
 		const app = cli('mycli').command(noActionCommand());
 		const result = await app.execute(['broken']);
