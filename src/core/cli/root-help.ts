@@ -9,8 +9,8 @@
  */
 
 import { osc8, padEnd, wrapText } from '#internals/core/help/ansi.ts';
-import type { HelpOptions } from '#internals/core/help/index.ts';
-import { formatHelpSections } from '#internals/core/help/index.ts';
+import type { FlagEntry, HelpOptions } from '#internals/core/help/index.ts';
+import { formatFlagEntriesBlock, formatHelpSections } from '#internals/core/help/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
@@ -35,6 +35,12 @@ interface CLISchemaLike {
 		  }
 		| undefined;
 	readonly completionsFlag?: { readonly shells: readonly string[] } | undefined;
+	/**
+	 * Config discovery settings. Only its presence is read — defined means
+	 * `.config()` enabled the built-in `--config <path>` flag, so root help
+	 * advertises it in `Global options:`.
+	 */
+	readonly configSettings?: { readonly appName: string } | undefined;
 }
 
 // --- Root help formatter
@@ -63,7 +69,17 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	// `inlineDefault: false` hides the default command's args/flags, but the eager
 	// `--completions` flag is a root-level option that must still be advertised, so
 	// a synthetic completions-only surface is rendered even then.
-	const inlineDefaultCommand = inlineDefault ? defaultCommand : undefined;
+	//
+	// Exception: when the default command is the *only* surface — no visible
+	// subcommands AND no eager `--completions` flag to advertise — suppressing it
+	// would collapse root help to a bare `Usage: <bin> [options]` with no
+	// discoverable interface at all. In that case the default is always rendered
+	// inline regardless of `inlineDefault`. (With a completions flag the synthetic
+	// surface still gives a discoverable path, so `inlineDefault: false` is honored.)
+	const defaultIsSoleSurface =
+		!surface.hasVisibleSubcommands && schema.completionsFlag === undefined;
+	const renderDefaultInline = inlineDefault || defaultIsSoleSurface;
+	const inlineDefaultCommand = renderDefaultInline ? defaultCommand : undefined;
 	const surfaceCommand = resolveSurfaceCommand(schema, inlineDefaultCommand);
 	const inline = surfaceCommand !== undefined;
 
@@ -134,6 +150,15 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 			surfaceSections.shift();
 		}
 		sections.push(...surfaceSections);
+	}
+
+	// ---- Global options (active built-in flags) -----------------------------
+	// Built-ins are framework-provided and never appear in any command schema, so
+	// they are advertised here for discoverability (#32). `--completions` is not
+	// listed: when active it is already injected into the inline surface's flags.
+	const globalOptions = formatGlobalOptionsSection(schema, width);
+	if (globalOptions.length > 0) {
+		sections.push(globalOptions);
 	}
 
 	// ---- Footer -------------------------------------------------------------
@@ -264,6 +289,36 @@ function formatRootCommandsSection(
 	}
 
 	return lines.join('\n');
+}
+
+/**
+ * Build the `Global options:` section advertising the active built-in flags.
+ *
+ * `--help, -h` and `--json` are always available; `--version, -V` is shown only
+ * when the program declares a version; `--config <path>` only when `.config()`
+ * enabled config discovery. The eager `--completions` flag is intentionally
+ * omitted — it is advertised via the inline surface when active.
+ *
+ * @param schema - The CLI schema (read for `version` and `configSettings`).
+ * @param width - Terminal width for description wrapping.
+ * @returns Formatted `Global options:` block (always non-empty).
+ * @internal
+ */
+function formatGlobalOptionsSection(schema: CLISchemaLike, width: number): string {
+	const entries: FlagEntry[] = [
+		{ left: '-h, --help', description: 'Show this help message and exit' },
+	];
+	if (schema.version !== undefined) {
+		entries.push({ left: '-V, --version', description: 'Print the version number and exit' });
+	}
+	entries.push({ left: '--json', description: 'Emit machine-readable JSON output' });
+	if (schema.configSettings !== undefined) {
+		entries.push({
+			left: '--config <path>',
+			description: 'Load configuration from the given file',
+		});
+	}
+	return formatFlagEntriesBlock('Global options:', entries, width);
 }
 
 /**

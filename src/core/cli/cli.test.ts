@@ -177,6 +177,54 @@ describe('--version flag', () => {
 	});
 });
 
+// --- Built-in global options in root help (#32)
+
+describe('root help — built-in global options', () => {
+	it('always advertises --help, -h and --json', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const output = (await app.execute(['--help'])).stdout.join('');
+
+		expect(output).toContain('Global options:');
+		expect(output).toContain('-h, --help');
+		expect(output).toContain('--json');
+	});
+
+	it('advertises --version only when a version is configured', async () => {
+		const withVersion = (
+			await cli('mycli').version('1.0.0').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withVersion).toContain('-V, --version');
+
+		const withoutVersion = (
+			await cli('mycli').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withoutVersion).not.toContain('--version');
+	});
+
+	it('advertises --config <path> only when config discovery is enabled', async () => {
+		const withConfig = (
+			await cli('mycli').config('mycli').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withConfig).toContain('--config <path>');
+
+		const withoutConfig = (
+			await cli('mycli').command(deployCommand()).execute(['--help'])
+		).stdout.join('');
+		expect(withoutConfig).not.toContain('--config');
+	});
+
+	it('lists every active built-in for a default-command CLI', async () => {
+		const app = cli('mycli').version('1.0.0').config('mycli').default(deployCommand());
+		const output = (await app.execute(['--help'])).stdout.join('');
+
+		expect(output).toContain('Global options:');
+		expect(output).toContain('-h, --help');
+		expect(output).toContain('-V, --version');
+		expect(output).toContain('--json');
+		expect(output).toContain('--config <path>');
+	});
+});
+
 // --- Root help
 
 describe('root help', () => {
@@ -468,8 +516,10 @@ describe('help virtual subcommand — behavior', () => {
 		expect(result.exitCode).toBe(0);
 		const output = result.stdout.join('');
 		expect(output).toContain('mycli');
-		// Sole default + no subcommands → its own usage stands alone as the root surface.
-		expect(output).toContain('Usage: mycli run <target>');
+		// Sole default + no subcommands → its usage stands alone as the root surface,
+		// under the bin name only (no `run` command name — it is not a route).
+		expect(output).toContain('Usage: mycli <target>');
+		expect(output).not.toContain('mycli run <target>');
 		expect(output).toContain('Default runner');
 	});
 });
@@ -509,6 +559,15 @@ describe('error handling', () => {
 
 		expect(result.exitCode).toBe(1);
 		expect(result.error).toBeDefined();
+		expect(result.stderr.join('')).toContain('No commands registered');
+	});
+
+	it('returns NO_ACTION (not empty help) on a bare invocation with no commands', async () => {
+		const app = cli('mycli');
+		const result = await app.execute([]);
+
+		expect(result.exitCode).toBe(1);
+		expect(result.error?.code).toBe('NO_ACTION');
 		expect(result.stderr.join('')).toContain('No commands registered');
 	});
 

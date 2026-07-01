@@ -140,6 +140,77 @@ describe('planInvocation() — root interception', () => {
 	});
 });
 
+// === Consistent --help / --version positional reach (#29)
+
+describe('planInvocation() — consistent help/version reach (#29)', () => {
+	function defaultWithVerbose(): ErasedCommand {
+		return erased(commandSchema({ name: 'app', flags: { verbose: flagSchema('boolean', false) } }));
+	}
+
+	it('intercepts root help when only flags precede --help', () => {
+		const app = defaultWithVerbose();
+
+		const result = planFor([], ['--verbose', '--help'], app);
+
+		expect(result).toEqual({ kind: 'root-help', help });
+	});
+
+	it('intercepts root version when only flags precede --version (mirror of --help)', () => {
+		const app = defaultWithVerbose();
+
+		const result = planFor([], ['--verbose', '--version'], app);
+
+		expect(result).toEqual({ kind: 'root-version', version: '1.2.3' });
+	});
+
+	it('intercepts root help for a bare --help', () => {
+		const deploy = erased(commandSchema({ name: 'deploy' }));
+
+		expect(planFor([deploy], ['--help'])).toEqual({ kind: 'root-help', help });
+		expect(planFor([deploy], ['-h'])).toEqual({ kind: 'root-help', help });
+	});
+
+	it('keeps --help after a subcommand token scoped to that subcommand', () => {
+		const deploy = erased(commandSchema({ name: 'deploy' }));
+
+		const result = planFor([deploy], ['deploy', '--help']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.command).toBe(deploy);
+			expect(result.plan.argv).toEqual(['--help']);
+		}
+	});
+
+	it('respects the -- separator: a literal --help after -- is not root help', () => {
+		const deploy = erased(
+			commandSchema({
+				name: 'app',
+				args: [{ name: 'rest', schema: createArgSchema('string') }],
+			}),
+		);
+
+		const result = planFor([], ['--', '--help'], deploy);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.command).toBe(deploy);
+			expect(result.plan.argv).toEqual(['--', '--help']);
+		}
+	});
+
+	it('treats a bare help token after flags as a root help request', () => {
+		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const app = erased(
+			commandSchema({ name: 'app', flags: { verbose: flagSchema('boolean', false) } }),
+		);
+
+		const result = planFor([deploy], ['--verbose', 'help'], app);
+
+		expect(result).toEqual({ kind: 'root-help', help });
+	});
+});
+
 // === Default-command behavior
 
 describe('planInvocation() — default command behavior', () => {

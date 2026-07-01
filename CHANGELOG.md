@@ -89,6 +89,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   answer", so resolution falls through to the flag's `.default()` (or, for a
   required flag, the standard missing-flag error).
 
+### Fixed
+
+- **Root `--help` now matches consistently with `--version`** (#29) — previously
+  `--help` / `-h` were intercepted at the root only when they were the very first
+  token, while `--version` / `-V` matched anywhere before `--`. A help flag
+  preceded only by flags (e.g. `mycli --verbose --help`) now shows root help,
+  mirroring `mycli --verbose --version`. A help flag that follows a subcommand
+  token still scopes to that subcommand (`mycli deploy --help` → `deploy` help);
+  `--version` remains a global, position-independent flag by design (there is no
+  per-command version). The bare `help` token now triggers root help from the same
+  position as `--help`, and the `--` end-of-options separator is respected for both.
+- **Generated `--help` now advertises the active built-in global flags** (#32) — root
+  help renders a `Global options:` block listing `--help, -h` and `--json` (always),
+  `--version, -V` (when a version is set), and `--config <path>` (when `.config()`
+  enabled config discovery). Previously these framework-provided flags were invisible
+  in help even though they worked. `--completions` is unchanged (still advertised via
+  the inline surface when active).
+- **Root usage no longer prints the default command's name** — the merged/sole-default
+  usage line rendered `Usage: <bin> <default-name> …`, teaching an invocation that does
+  not route (`.default()` is not a named command, so the token is consumed as the
+  default's first positional). It now renders under the bin name only
+  (`Usage: <bin> [flags] <args>`).
+- **`inlineDefault: false` no longer hides a sole default command's interface** — when
+  the default command is the only surface (no visible subcommands and no eager
+  `--completions` flag), root help would collapse to a bare `Usage: <bin> [options]`
+  with no discoverable args/flags. The default is now always rendered inline in that
+  case, since suppressing it leaves no other path to its interface.
+
 ## [2.5.0] - 2026-06-28
 
 ### Added

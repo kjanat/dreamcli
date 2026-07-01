@@ -107,7 +107,7 @@ function formatHelpDefaultValue(value: unknown): string {
 
 // --- Flag formatting
 
-/** Formatted flag entry for the flags table. */
+/** Formatted flag entry for the flags table. @internal */
 interface FlagEntry {
 	readonly left: string;
 	readonly description: string;
@@ -374,11 +374,15 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
  */
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const parts: string[] = ['Usage:'];
+	// For the default command rendered as the root surface (`isDefaultHelp`), the
+	// command name is NOT a route — `.default()` does not register a named command,
+	// so `mycli <name>` would be consumed as the default's first positional, not a
+	// dispatch. Render usage with only the bin name to avoid teaching a fake form.
 	const cmdName =
 		opts.binName === undefined
 			? schema.name
-			: opts.isDefaultHelp && opts.binName === schema.name
-				? schema.name
+			: opts.isDefaultHelp
+				? opts.binName
 				: `${opts.binName} ${schema.name}`;
 	parts.push(cmdName);
 
@@ -447,13 +451,31 @@ function formatFlagsSection(
 	flags: Readonly<Record<string, FlagSchema>>,
 	opts: ResolvedHelpOptions,
 ): string {
-	const lines: string[] = ['Flags:'];
+	return formatFlagEntriesBlock('Flags:', buildFlagEntries(flags), opts.width);
+}
+
+/**
+ * Render a titled two-column flag block from pre-built {@link FlagEntry} rows.
+ *
+ * Shared by the per-command `Flags:` section and the root-help `Global options:`
+ * block (built-in flags), so column alignment and description wrapping stay
+ * identical across both. Returns `''` when there are no entries.
+ *
+ * @param title - Section heading (e.g. `'Flags:'`, `'Global options:'`).
+ * @param entries - Formatted left/description rows.
+ * @param width - Terminal width for description wrapping.
+ * @returns Multi-line block string, or `''` when `entries` is empty.
+ * @internal
+ */
+function formatFlagEntriesBlock(
+	title: string,
+	entries: readonly FlagEntry[],
+	width: number,
+): string {
+	if (entries.length === 0) return '';
+	const lines: string[] = [title];
 	const GAP = 2;
 
-	const entries = buildFlagEntries(flags);
-	if (entries.length === 0) return '';
-
-	// Compute max left width
 	let maxLeft = 0;
 	for (const entry of entries) {
 		const indented = `  ${entry.left}`;
@@ -467,7 +489,7 @@ function formatFlagsSection(
 			lines.push(left);
 		} else {
 			const padded = padEnd(left, descCol);
-			const wrapped = wrapText(entry.description, opts.width, descCol);
+			const wrapped = wrapText(entry.description, width, descCol);
 			lines.push(`${padded}${wrapped}`);
 		}
 	}
@@ -537,5 +559,5 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 // --- Exports
 
 export { osc8, visibleWidth } from './ansi.ts';
-export type { HelpOptions };
-export { formatHelp, formatHelpSections };
+export type { FlagEntry, HelpOptions };
+export { formatFlagEntriesBlock, formatHelp, formatHelpSections };
