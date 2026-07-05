@@ -4,6 +4,7 @@
  * @module
  */
 
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, relative, resolve } from 'node:path';
 
@@ -198,11 +199,19 @@ function resolvePublicEntrypointTarget(rootDir: string, value: unknown): string 
 
 	for (const key of ['bun', 'deno', 'default', 'import']) {
 		const candidate = value[key];
-		if (
-			typeof candidate === 'string' &&
-			(candidate.endsWith('.ts') || candidate.endsWith('.json'))
-		) {
+		if (typeof candidate !== 'string') {
+			continue;
+		}
+
+		if (candidate.endsWith('.ts') || candidate.endsWith('.json')) {
 			return resolve(rootDir, candidate);
+		}
+
+		// tsdown-managed exports point at built `dist` artifacts; the docs
+		// pipeline reads source, so map each build output back to its entry.
+		const sourceCandidate = candidate.replace(/^\.\/dist\/(.+?)\.[cm]?js$/, './src/$1.ts');
+		if (sourceCandidate !== candidate && existsSync(resolve(rootDir, sourceCandidate))) {
+			return resolve(rootDir, sourceCandidate);
 		}
 	}
 

@@ -1,3 +1,4 @@
+import { createColors } from 'ansispeck';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { arg } from './arg.ts';
@@ -337,6 +338,7 @@ describe('full command composition', () => {
 			stopActive: vi.fn(),
 			jsonMode: false,
 			isTTY: false,
+			color: createColors(false),
 		};
 
 		// Simulate what the runtime will do

@@ -8,6 +8,7 @@
  *
  * @module dreamcli/core/schema/command
  */
+import type { Colors } from 'ansispeck';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type {
 	ProgressHandle,
@@ -189,6 +190,24 @@ interface Out {
 	 * decorative output should be suppressed regardless of `isTTY`.
 	 */
 	readonly isTTY: boolean;
+
+	/**
+	 * Context-aware ANSI color palette (powered by `ansispeck`).
+	 *
+	 * Colors are enabled only when stdout is a TTY, JSON mode is off, and the
+	 * environment supports color (`NO_COLOR`, `FORCE_COLOR`, `--no-color`,
+	 * `--color`, `CI` are respected). When disabled, every formatter is an
+	 * identity function — `out.color.red('x')` returns `'x'` — so handlers can
+	 * style unconditionally without gating on `isTTY`/`jsonMode` themselves.
+	 *
+	 * @example
+	 * ```ts
+	 * .action(({ out }) => {
+	 *   out.log(`${out.color.green('✔')} deployed ${out.color.bold('api')}`);
+	 * });
+	 * ```
+	 */
+	readonly color: Colors;
 
 	/**
 	 * Render tabular data.

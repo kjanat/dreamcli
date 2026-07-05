@@ -1,3 +1,4 @@
+import type { Colors } from 'ansispeck';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Out } from '#internals/core/schema/command.ts';
 import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
@@ -239,6 +240,7 @@ describe('OutputChannel', () => {
 			isTTY: false,
 			verbosity: 'normal',
 			jsonMode: false,
+			color: false,
 		});
 		channel.log('test');
 		expect(lines).toEqual(['test\n']);
@@ -251,6 +253,7 @@ describe('OutputChannel', () => {
 			isTTY: true,
 			verbosity: 'quiet',
 			jsonMode: false,
+			color: false,
 		});
 		expect(channel.options.isTTY).toBe(true);
 		expect(channel.options.verbosity).toBe('quiet');
@@ -263,6 +266,7 @@ describe('OutputChannel', () => {
 			isTTY: true,
 			verbosity: 'quiet',
 			jsonMode: true,
+			color: false,
 		});
 		expect(channel.policy).toEqual({
 			jsonMode: true,
@@ -475,5 +479,65 @@ describe('jsonMode', () => {
 		out.json({ ok: true });
 		expect(captured.stdout).toEqual(['{"ok":true}\n']);
 		expect(captured.stderr).toEqual(['visible\n']);
+	});
+});
+
+// --- out.color — context-aware ANSI palette
+
+describe('out.color', () => {
+	it('is exposed on every channel and typed as Colors', () => {
+		const out = createOutput();
+		expectTypeOf(out.color).toMatchTypeOf<Colors>();
+		expect(typeof out.color.red).toBe('function');
+		expect(typeof out.color.bold).toBe('function');
+	});
+
+	it('defaults to identity formatters (non-TTY)', () => {
+		const out = createOutput();
+		expect(out.color.red('x')).toBe('x');
+		expect(out.color.bold('y')).toBe('y');
+	});
+
+	it('stays identity when isTTY is false regardless of environment', () => {
+		const out = createOutput({ isTTY: false });
+		expect(out.color.green('ok')).toBe('ok');
+	});
+
+	it('stays identity in JSON mode even on a TTY', () => {
+		const out = createOutput({ isTTY: true, jsonMode: true });
+		expect(out.color.red('x')).toBe('x');
+	});
+
+	it('emits ANSI codes when color: true is forced', () => {
+		const out = createOutput({ color: true });
+		expect(out.color.red('x')).toBe('\x1b[31mx\x1b[39m');
+	});
+
+	it('explicit color: false wins over a TTY', () => {
+		const out = createOutput({ isTTY: true, color: false });
+		expect(out.color.red('x')).toBe('x');
+	});
+
+	it('explicit color: true wins over JSON mode (embedder policy)', () => {
+		const out = createOutput({ jsonMode: true, color: true });
+		expect(out.color.red('x')).toBe('\x1b[31mx\x1b[39m');
+	});
+
+	it('nested styles survive composition when forced on', () => {
+		const out = createOutput({ color: true });
+		const c = out.color;
+		expect(c.red(`a ${c.bold('b')} c`)).toBe('\x1b[31ma \x1b[1mb\x1b[22m c\x1b[39m');
+	});
+
+	it('flows through createCaptureOutput for colored-output assertions', () => {
+		const [out, captured] = createCaptureOutput({ color: true });
+		out.log(out.color.green('done'));
+		expect(captured.stdout).toEqual(['\x1b[32mdone\x1b[39m\n']);
+	});
+
+	it('capture channels default to identity colors (deterministic tests)', () => {
+		const [out, captured] = createCaptureOutput();
+		out.log(out.color.green('done'));
+		expect(captured.stdout).toEqual(['done\n']);
 	});
 });

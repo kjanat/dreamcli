@@ -42,6 +42,7 @@ describe('OutputChannel.isTTY', () => {
 			stderr: () => {},
 			isTTY: true,
 			verbosity: 'normal',
+			color: false,
 			jsonMode: false,
 		});
 		expect(channel.isTTY).toBe(true);
@@ -54,6 +55,7 @@ describe('OutputChannel.isTTY', () => {
 			stderr: () => {},
 			isTTY: true,
 			verbosity: 'normal',
+			color: false,
 			jsonMode: false,
 		});
 		const piped = new OutputChannel({
@@ -61,6 +63,7 @@ describe('OutputChannel.isTTY', () => {
 			stderr: () => {},
 			isTTY: false,
 			verbosity: 'normal',
+			color: false,
 			jsonMode: false,
 		});
 		expect(tty.isTTY).toBe(tty.options.isTTY);

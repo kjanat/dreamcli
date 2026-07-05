@@ -11,6 +11,7 @@
  * @module dreamcli/core/output
  */
 
+import { type Colors, createColors, isColorSupported } from 'ansispeck';
 import type {
 	ActivityEvent,
 	ProgressHandle,
@@ -97,6 +98,19 @@ interface OutputOptions {
 	 * @defaultValue `false`
 	 */
 	readonly jsonMode?: boolean;
+
+	/**
+	 * Explicitly enable or disable ANSI colors on `out.color`.
+	 *
+	 * When set, this wins over the auto-gate — use it to force colors in
+	 * captured test output or when embedding into a host that manages its
+	 * own color policy.
+	 *
+	 * @defaultValue auto — enabled when `isTTY` is `true`, `jsonMode` is
+	 *   `false`, and the environment supports color (`NO_COLOR`,
+	 *   `FORCE_COLOR`, `--no-color`, `--color`, `CI` are respected).
+	 */
+	readonly color?: boolean;
 }
 
 // --- Resolved options (all fields required, filled from defaults)
@@ -108,6 +122,7 @@ interface ResolvedOutputOptions {
 	readonly isTTY: boolean;
 	readonly verbosity: Verbosity;
 	readonly jsonMode: boolean;
+	readonly color: boolean;
 }
 
 /**
@@ -139,12 +154,17 @@ function clearRequestedExitCode(out: Out): void {
 
 /** Merge user-supplied options with defaults. */
 function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
+	const isTTY = options?.isTTY ?? false;
+	const jsonMode = options?.jsonMode ?? false;
 	return {
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
-		isTTY: options?.isTTY ?? false,
+		isTTY,
 		verbosity: options?.verbosity ?? 'normal',
-		jsonMode: options?.jsonMode ?? false,
+		jsonMode,
+		// Explicit `color` wins; otherwise gate on TTY, JSON mode, and
+		// environment support (NO_COLOR/FORCE_COLOR/--no-color/--color/CI).
+		color: options?.color ?? (isTTY && !jsonMode && isColorSupported),
 	};
 }
 
@@ -181,11 +201,20 @@ class OutputChannel implements Out {
 	 */
 	readonly isTTY: boolean;
 
+	/**
+	 * Context-aware ANSI color palette.
+	 *
+	 * Enabled per the resolved `color` option — identity functions when
+	 * colors are off, so handlers can style unconditionally.
+	 */
+	readonly color: Colors;
+
 	constructor(options: ResolvedOutputOptions) {
 		this.options = options;
 		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
 		this.isTTY = options.isTTY;
+		this.color = createColors(options.color);
 
 		// Bind methods to the instance so they keep working when destructured
 		// off `out` (e.g. `const { log } = out`). Resolves subclass overrides

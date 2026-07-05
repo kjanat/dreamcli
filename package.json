@@ -97,6 +97,9 @@
 	"overrides": {
 		"vitepress": "next"
 	},
+	"dependencies": {
+		"ansispeck": "^0.1.2"
+	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.4",
 		"@biomejs/biome": "^2.5.2",

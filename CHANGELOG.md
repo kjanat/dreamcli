@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`out.color` — context-aware ANSI colors** — every handler's `out` now carries
+  a color palette powered by [`ansispeck`](https://github.com/kjanat/ansispeck).
+  Colors auto-enable only when stdout is a TTY, JSON mode is off, and the
+  environment supports color (`NO_COLOR`, `FORCE_COLOR`, `--no-color`, `--color`,
+  `CI` respected); otherwise every formatter is an identity function, so handlers
+  can write `out.log(out.color.green('✔ done'))` unconditionally.
+  `createOutput({ color })` forces the palette on/off (useful for asserting
+  colored output in tests), and the `Colors` type is re-exported from the root
+  entrypoint. First runtime dependency — kept external in `dist` (~1 kB gzipped
+  install).
+
 ## [3.0.0-rc.1] - 2026-07-02
 
 ### Added

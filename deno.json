@@ -30,6 +30,7 @@
 		}
 	},
 	"imports": {
+		"ansispeck": "jsr:@kjanat/ansispeck@^0.1.1",
 		"#dreamcli": "./src/index.ts",
 		"#dreamcli/runtime": "./src/runtime.ts",
 		"#dreamcli/testkit": "./src/testkit.ts",
@@ -61,5 +62,6 @@
 	"fmt": { "exclude": ["**"] },
 	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
 	"nodeModulesDir": "manual",
-	"exclude": ["**/*.test.ts", "*.ts", "*cache/", "coverage/", "dist/", "scripts/", "**/*.tpl"]
+	"exclude": ["**/*.test.ts", "*.ts", "*cache/", "coverage/", "dist/", "scripts/", "**/*.tpl"],
+	"minimumDependencyAge": { "exclude": ["jsr:@kjanat/ansispeck", "npm:ansispeck"] }
 }

@@ -18,6 +18,9 @@
  * @module @kjanat/dreamcli
  */
 
+// The palette type behind `out.color` (from `ansispeck`), re-exported so
+// handlers can type color-aware helpers without a direct dependency.
+export type { Colors } from 'ansispeck';
 export type {
 	BeforeParseParams,
 	CLIOptions,
