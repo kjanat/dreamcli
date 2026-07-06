@@ -39,6 +39,10 @@
 			"types": "./dist/testkit.d.mts",
 			"default": "./dist/testkit.mjs"
 		},
+		"./version": {
+			"types": "./dist/version.d.mts",
+			"default": "./dist/version.mjs"
+		},
 		"./package.json": "./package.json",
 		"./schema": "./dreamcli.schema.json"
 	},

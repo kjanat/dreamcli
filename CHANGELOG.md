@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`@kjanat/dreamcli/version` subpath** — exposes the framework's own build
+  identity as `DREAMCLI_VERSION` and `DREAMCLI_REVISION` (git short SHA) for
+  diagnostics and bug reports. Deliberately a subpath rather than root exports
+  so the constants stay out of root-import IDE completions; both report
+  `'dev'` when running unbundled source.
+
 ## [3.0.0-rc.2] - 2026-07-06
 
 ### Added

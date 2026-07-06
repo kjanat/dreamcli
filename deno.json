@@ -41,7 +41,8 @@
 		".": "./src/index.ts",
 		"./runtime": "./src/runtime.ts",
 		"./testkit": "./src/testkit.ts",
-		"./schema": "./src/schema.ts"
+		"./schema": "./src/schema.ts",
+		"./version": "./src/version.ts"
 	},
 	"compilerOptions": {
 		"strict": true,
@@ -51,6 +52,7 @@
 			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
 			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"],
 			"@kjanat/dreamcli/schema": ["./src/schema.ts"],
+			"@kjanat/dreamcli/version": ["./src/version.ts"],
 			"@kjanat/dreamcli/package.json": ["./package.json"]
 		}
 	},

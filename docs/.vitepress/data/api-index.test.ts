@@ -18,6 +18,7 @@ describe('api-index', () => {
 			'@kjanat/dreamcli/runtime',
 			'@kjanat/dreamcli/schema',
 			'@kjanat/dreamcli/testkit',
+			'@kjanat/dreamcli/version',
 		]);
 
 		const root = entrypoints.find((entrypoint) => entrypoint.entrypoint === '@kjanat/dreamcli');
@@ -70,5 +71,14 @@ describe('api-index', () => {
 			kind: 'function',
 			sourcePath: 'src/core/testkit/index.ts',
 		});
+
+		const version = entrypoints.find(
+			(entrypoint) => entrypoint.entrypoint === '@kjanat/dreamcli/version',
+		);
+		expect(version?.sourcePath).toBe('src/version.ts');
+		expect(version?.kindGroups.find((group) => group.kind === 'constant')?.symbols).toEqual([
+			{ name: 'DREAMCLI_REVISION', kind: 'constant', sourcePath: 'src/version.ts' },
+			{ name: 'DREAMCLI_VERSION', kind: 'constant', sourcePath: 'src/version.ts' },
+		]);
 	});
 });

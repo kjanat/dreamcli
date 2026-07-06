@@ -49,6 +49,17 @@ describe('typedoc normalization', () => {
 				exportIds: expect.arrayContaining(['@kjanat/dreamcli/testkit:runCommand']),
 				missingExports: [],
 			},
+			{
+				entrypoint: '@kjanat/dreamcli/version',
+				subpath: './version',
+				sourcePath: 'src/version.ts',
+				hasTypeDoc: true,
+				exportIds: [
+					'@kjanat/dreamcli/version:DREAMCLI_REVISION',
+					'@kjanat/dreamcli/version:DREAMCLI_VERSION',
+				],
+				missingExports: [],
+			},
 		]);
 	});
 

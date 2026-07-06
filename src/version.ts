@@ -1,11 +1,15 @@
 /**
- * Build-time version constants.
+ * DreamCLI's own build-time version constants.
+ *
+ * Not the app version configured via `cli().version(...)` — these identify
+ * the framework build itself (diagnostics, bug reports, completion-script
+ * stamps). Kept on a dedicated subpath so they stay out of root-entrypoint
+ * import completions.
  *
  * Replaced by tsdown `define` during bundling. In development (unbundled),
  * the declared globals resolve to the `'dev'` fallback.
  *
- * @module dreamcli/version
- * @internal
+ * @module @kjanat/dreamcli/version
  */
 
 declare const __DREAMCLI_VERSION__: string;

@@ -17,6 +17,9 @@ export const entries = {
 	index: 'src/index.ts',
 	runtime: 'src/runtime.ts',
 	testkit: 'src/testkit.ts',
+	// Deliberately a subpath (not re-exported from the root) so the framework's
+	// own version constants don't crowd root-import IDE completions.
+	version: 'src/version.ts',
 } satisfies UserConfig['entry'];
 
 export default defineConfig({
