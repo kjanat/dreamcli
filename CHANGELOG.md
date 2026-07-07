@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.4] - 2026-07-06
+
 ### Added
 
 - **`.default(cmd, { route: true })`** — expose a default command under its own
@@ -1050,7 +1052,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.3...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.4...HEAD
+[3.0.0-rc.4]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.3...v3.0.0-rc.4
 [3.0.0-rc.3]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.2...v3.0.0-rc.3
 [3.0.0-rc.2]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.1...v3.0.0-rc.2
 [3.0.0-rc.1]: https://github.com/kjanat/dreamcli/compare/v2.5.0...v3.0.0-rc.1
