@@ -229,6 +229,15 @@ interface CLISchema {
 	 */
 	readonly defaultCommand: ErasedCommand | undefined;
 	/**
+	 * Whether the default command is also exposed as a named top-level route.
+	 *
+	 * Set by `.default(cmd, { route: true })`. When `true`, `mycli <name>`
+	 * dispatches to the default command (in addition to the bare/flags-only root
+	 * surface behavior) and the command is listed in the root `Commands:`
+	 * section. When `false` (the default), the default is the root surface only.
+	 */
+	readonly defaultCommandRouted: boolean;
+	/**
 	 * Config discovery settings.
 	 *
 	 * When defined, {@linkcode CLIBuilder.run | .run()} auto-discovers and loads a config file before command dispatch.
@@ -472,6 +481,30 @@ function buildCommandRunOptions(
 }
 
 // --- CLIBuilder — immutable builder for the CLI program
+
+/**
+ * Options for {@linkcode CLIBuilder.default | .default()}.
+ */
+interface DefaultCommandOptions {
+	/**
+	 * Also expose the default command under its own name as a routable
+	 * top-level command.
+	 *
+	 * By default a default command is the root *surface* only — `mycli` (bare or
+	 * flags-only) runs it, but `mycli <its-name>` does not route to it (the token
+	 * is consumed as the default's first positional). Set `route: true` for CLIs
+	 * that intentionally expose both forms: `mycli` and `mycli <its-name>` become
+	 * the same command, and it is listed in the root `Commands:` section beside
+	 * its siblings.
+	 *
+	 * The name wins over positional interpretation: with `route: true`, a
+	 * positional value equal to the command's own name is consumed as the route,
+	 * so pass such a value after `--` (`mycli -- <name>`).
+	 *
+	 * @defaultValue `false`
+	 */
+	readonly route?: boolean;
+}
 
 /**
  * Immutable CLI program builder.
@@ -853,10 +886,17 @@ class CLIBuilder {
 	 * this command instead of showing root help.
 	 *
 	 * The default command is the CLI's root *surface*: its flags and arguments
-	 * are rendered inline in root help. It is **not** a named subcommand — it
-	 * cannot be invoked by its own name (`mycli mycmd` does not route to it) and
-	 * it is omitted from the root `Commands:` list by default (re-enable with
-	 * `.help({ showDefaultInCommands: true })`). Only one default is allowed.
+	 * are rendered inline in root help. By default it is **not** a named
+	 * subcommand — it cannot be invoked by its own name (`mycli mycmd` does not
+	 * route to it) and it is omitted from the root `Commands:` list (re-enable
+	 * listing with `.help({ showDefaultInCommands: true })`). Only one default is
+	 * allowed.
+	 *
+	 * Pass `{ route: true }` to *also* expose the command under its own name as a
+	 * routable top-level command: `mycli` and `mycli <name>` then run the same
+	 * command object, and it is listed in `Commands:` beside its siblings. This
+	 * avoids duplicating the command just to keep both forms equivalent during a
+	 * v3 migration.
 	 *
 	 * @example
 	 * ```ts
@@ -873,16 +913,25 @@ class CLIBuilder {
 	 *   .default(deploy)
 	 *   .command(status)
 	 *   .run();
+	 *
+	 * // Default that is also a named route — `mytool` and `mytool status` are
+	 * // the same surface, and `status` is listed beside `logs`:
+	 * cli('mytool')
+	 *   .default(status, { route: true })
+	 *   .command(logs)
+	 *   .run();
 	 * ```
 	 *
 	 * @param cmd - {@link CommandBuilder} to register as the default.
+	 * @param options - Default-command options. `{ route: true }` also exposes
+	 *   the command under its own name (see {@link DefaultCommandOptions}).
 	 * @returns The builder (for chaining).
 	 */
 	default<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
 		A extends Record<string, ArgBuilder<ArgConfig>>,
 		C extends Record<string, unknown>,
-	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
+	>(cmd: CommandBuilder<F, A, C>, options?: DefaultCommandOptions): CLIBuilder {
 		if (this.schema.defaultCommand !== undefined) {
 			throw new CLIError('Only one default command is allowed', {
 				code: 'DUPLICATE_DEFAULT',
@@ -899,6 +948,7 @@ class CLIBuilder {
 		return new CLIBuilder({
 			...this.schema,
 			defaultCommand: erased,
+			defaultCommandRouted: options?.route ?? false,
 		});
 	}
 
@@ -1578,6 +1628,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 		description: undefined,
 		commands: [],
 		defaultCommand: undefined,
+		defaultCommandRouted: false,
 		configSettings: undefined,
 		packageJsonSettings: undefined,
 		helpLinks: undefined,
@@ -1604,6 +1655,7 @@ export type {
 	CLISchema,
 	CompletionsFlagConfig,
 	ConfigSettings,
+	DefaultCommandOptions,
 	HelpConfig,
 	InferNameOption,
 	ManifestPresetSettings,

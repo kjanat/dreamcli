@@ -24,6 +24,12 @@ interface RootSurfaceSchemaLike {
 		readonly schema: CommandSchema;
 	}>;
 	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
+	/**
+	 * Whether the default command is also exposed as a named route
+	 * (`.default(cmd, { route: true })`). Optional so hand-built schema-like
+	 * objects default to the surface-only behavior.
+	 */
+	readonly defaultCommandRouted?: boolean | undefined;
 }
 
 /**
@@ -49,6 +55,12 @@ interface RootSurface {
 	readonly hasVisibleDefault: boolean;
 	/** Whether any visible real subcommands exist (the default does not count). */
 	readonly hasVisibleSubcommands: boolean;
+	/**
+	 * Whether the visible default is also a named route (`.default(cmd, { route:
+	 * true })`), meaning it should be listed in `Commands:` beside its siblings
+	 * in addition to being rendered as the root surface.
+	 */
+	readonly defaultRouted: boolean;
 }
 
 /**
@@ -80,6 +92,7 @@ function resolveRootSurface(schema: RootSurfaceSchemaLike): RootSurface {
 		visibleDefaultCommand,
 		hasVisibleDefault: visibleDefaultCommand !== undefined,
 		hasVisibleSubcommands: visibleSubcommands.length > 0,
+		defaultRouted: visibleDefaultCommand !== undefined && schema.defaultCommandRouted === true,
 	};
 }
 

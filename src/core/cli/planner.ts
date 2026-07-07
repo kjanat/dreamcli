@@ -41,6 +41,8 @@ interface PlannerSchemaLike {
 	readonly commands: readonly ErasedCommand[];
 	/** Fallback command when no subcommand token matches. */
 	readonly defaultCommand: ErasedCommand | undefined;
+	/** Whether the default command is also exposed as a named top-level route. */
+	readonly defaultCommandRouted: boolean;
 	/**
 	 * Eager `--completions <shell>` flag configuration, when `.completions()`
 	 * was registered with `{ as: 'flag' }`. `undefined` disables interception.
@@ -537,12 +539,16 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		};
 	}
 
-	const result = dispatch(
-		filteredArgv,
-		buildRootCommandMap(options.schema.commands),
-		[],
-		rootValueFlags,
-	);
+	// A routed default command (`.default(cmd, { route: true })`) is dispatchable
+	// by its own name in addition to the bare/flags-only root surface. It lives
+	// only in `defaultCommand` (kept disjoint from `commands`), so add it to the
+	// root route map here rather than duplicating it into `commands`.
+	const rootCommands =
+		defaultCommand !== undefined && options.schema.defaultCommandRouted
+			? [...options.schema.commands, defaultCommand]
+			: options.schema.commands;
+
+	const result = dispatch(filteredArgv, buildRootCommandMap(rootCommands), [], rootValueFlags);
 
 	switch (result.kind) {
 		case 'unknown': {

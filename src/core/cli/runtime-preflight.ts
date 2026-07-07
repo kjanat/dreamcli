@@ -75,6 +75,8 @@ interface RuntimePreflightSchemaLike {
 	readonly commands: readonly ErasedCommand[];
 	/** Fallback command when no subcommand token matches. */
 	readonly defaultCommand: ErasedCommand | undefined;
+	/** Whether the default command is also exposed as a named top-level route. */
+	readonly defaultCommandRouted: boolean;
 	/** Config file discovery settings; `undefined` disables config loading. */
 	readonly configSettings: RuntimeConfigSettings | undefined;
 	/** Package.json discovery settings; `undefined` disables package.json inference. */

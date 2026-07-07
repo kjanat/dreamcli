@@ -7,6 +7,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`.default(cmd, { route: true })`** — expose a default command under its own
+  name as a routable top-level command, in addition to the bare/flags-only root
+  surface. `mycli` and `mycli <name>` then run the same command object, and it
+  is listed in the root `Commands:` section (tagged `(default)`) beside its
+  siblings. Lets CLIs keep both a short root shorthand and an explicit,
+  documented named command without duplicating the builder (#55). Opt-in only
+  — the surface-only default remains the default behavior. With `route: true`
+  the name wins over positional interpretation, so a positional value equal to
+  the command's own name must be passed after `--`.
+
 ## [3.0.0-rc.3] - 2026-07-06
 
 ### Added

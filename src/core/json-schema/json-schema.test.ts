@@ -74,6 +74,7 @@ function minimalCLI(overrides: MinimalCLIOverrides = {}): CLISchema {
 		description: overrides.description ?? undefined,
 		commands: overrides.commands ?? [],
 		defaultCommand: overrides.defaultCommand ?? undefined,
+		defaultCommandRouted: false,
 		configSettings: undefined,
 		packageJsonSettings: undefined,
 		helpLinks: undefined,

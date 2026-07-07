@@ -77,6 +77,7 @@ interface MinimalSchemaOverrides {
 	readonly description?: string | undefined;
 	readonly commands?: CLISchema['commands'];
 	readonly defaultCommand?: CLISchema['defaultCommand'];
+	readonly defaultCommandRouted?: CLISchema['defaultCommandRouted'];
 	readonly configSettings?: CLISchema['configSettings'];
 	readonly packageJsonSettings?: CLISchema['packageJsonSettings'];
 	readonly hasBuiltInCompletions?: CLISchema['hasBuiltInCompletions'];
@@ -94,6 +95,7 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 		...('defaultCommand' in overrides
 			? { defaultCommand: overrides.defaultCommand }
 			: { defaultCommand: undefined }),
+		defaultCommandRouted: overrides.defaultCommandRouted ?? false,
 		...(overrides.configSettings !== undefined
 			? { configSettings: overrides.configSettings }
 			: { configSettings: undefined }),

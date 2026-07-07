@@ -2,7 +2,15 @@
 	"name": "@kjanat/dreamcli",
 	"version": "3.0.0-rc.3",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
-	"keywords": ["dreamcli", "cli", "typescript", "framework", "schema-first", "command-line"],
+	"keywords": [
+		"dreamcli",
+		"cli",
+		"typescript",
+		"framework",
+		"schema-first",
+		"command-line",
+		"ansispeck"
+	],
 	"homepage": "https://dreamcli.kjanat.dev",
 	"bugs": {
 		"url": "https://github.com/kjanat/dreamcli/issues"
@@ -113,8 +121,8 @@
 		"@types/bun": "catalog:",
 		"@types/deno": "^2.7.0",
 		"@types/node": "catalog:",
-		"@typescript/native-preview": "^7.0.0-dev.20260705.1",
-		"@vitest/coverage-v8": "^4.1.9",
+		"@typescript/native-preview": "^7.0.0-dev.20260706.1",
+		"@vitest/coverage-v8": "^4.1.10",
 		"dprint": "^0.55.1",
 		"floating-vue": "^5.2.2",
 		"knip": "^6.24.0",
@@ -122,11 +130,11 @@
 		"publint": "^0.3.21",
 		"runner-run": "0.19.1",
 		"tsdown": "^0.22.3",
-		"typedoc": "^0.28.19",
+		"typedoc": "^0.28.20",
 		"typescript": "catalog:",
 		"vite": "^8.1.3",
-		"vitepress": "^2.0.0-alpha.17",
-		"vitest": "^4.1.9",
+		"vitepress": "^2.0.0-alpha.18",
+		"vitest": "^4.1.10",
 		"wrangler": "^4.107.0",
 		"yaml": "^2.9.0"
 	},

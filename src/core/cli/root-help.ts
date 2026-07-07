@@ -28,6 +28,8 @@ interface CLISchemaLike {
 		readonly schema: CommandSchema;
 	}>;
 	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
+	/** Whether the default is also a named route — listed in `Commands:` when so. */
+	readonly defaultCommandRouted?: boolean | undefined;
 	readonly helpLinks?:
 		| {
 				readonly name: string | undefined;
@@ -124,15 +126,19 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	}
 
 	// ---- Commands -----------------------------------------------------------
-	const listedCommands =
-		showDefaultInCommands && defaultCommand !== undefined
-			? [...surface.visibleSubcommands, defaultCommand]
-			: surface.visibleSubcommands;
+	// A routed default (`.default(cmd, { route: true })`) is listed beside its
+	// siblings even without `showDefaultInCommands`, since it is a real named
+	// route; a surface-only default is listed only when explicitly opted in.
+	const listDefaultInCommands =
+		defaultCommand !== undefined && (surface.defaultRouted || showDefaultInCommands);
+	const listedCommands = listDefaultInCommands
+		? [...surface.visibleSubcommands, defaultCommand]
+		: surface.visibleSubcommands;
 	if (listedCommands.length > 0) {
 		sections.push(
 			formatRootCommandsSection(
 				listedCommands,
-				showDefaultInCommands ? defaultCommand?.name : undefined,
+				listDefaultInCommands ? defaultCommand?.name : undefined,
 				width,
 			),
 		);

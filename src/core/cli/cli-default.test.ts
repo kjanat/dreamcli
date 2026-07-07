@@ -425,6 +425,120 @@ describe('.default()', () => {
 	});
 });
 
+// === Routed default (.default(cmd, { route: true }))
+
+describe('.default() — routed (route: true)', () => {
+	// Mirrors the claude-down shape: a `status` default that is also the
+	// documented named command, beside real sibling commands.
+	function sourceStatusCommand() {
+		return command('status')
+			.description('Show status')
+			.flag('source', flag.string().describe('Source to check'))
+			.action(({ flags, out }) => {
+				out.log(`status:${flags.source ?? 'all'}`);
+			});
+	}
+
+	function anthropicCommand() {
+		return command('anthropic')
+			.description('Check Anthropic')
+			.action(({ out }) => {
+				out.log('anthropic:ok');
+			});
+	}
+
+	function routedApp() {
+		return cli('claude-down')
+			.default(sourceStatusCommand(), { route: true })
+			.command(anthropicCommand());
+	}
+
+	// --- schema
+
+	it('records defaultCommandRouted on the schema', () => {
+		expect(routedApp().schema.defaultCommandRouted).toBe(true);
+		expect(cli('claude-down').default(sourceStatusCommand()).schema.defaultCommandRouted).toBe(
+			false,
+		);
+	});
+
+	it('keeps a single command identity (default not duplicated into commands)', () => {
+		const app = routedApp();
+
+		// One conceptual command: `status` lives only in defaultCommand, never
+		// copied into the commands array (which holds only the real siblings).
+		expect(app.schema.commands.map((c) => c.schema.name)).toEqual(['anthropic']);
+		expect(app.schema.defaultCommand?.schema.name).toBe('status');
+	});
+
+	// --- dispatch parity: root and named forms are the same surface
+
+	it('runs the default on bare argv', async () => {
+		const result = await routedApp().execute([]);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('status:all');
+	});
+
+	it('routes the default command by its own name', async () => {
+		const result = await routedApp().execute(['status']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('status:all');
+	});
+
+	it('accepts the same flags via root and named forms', async () => {
+		const root = await routedApp().execute(['--source', 'anthropic']);
+		const named = await routedApp().execute(['status', '--source', 'anthropic']);
+
+		expect(root.stdout.join('')).toContain('status:anthropic');
+		expect(named.stdout.join('')).toContain('status:anthropic');
+	});
+
+	it('still dispatches sibling commands by name', async () => {
+		const result = await routedApp().execute(['anthropic']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('anthropic:ok');
+	});
+
+	// --- help
+
+	it('lists the routed default in Commands, marked (default)', () => {
+		const help = formatRootHelp(routedApp().schema);
+
+		expect(help).toContain('Commands:');
+		expect(help).toContain('status (default)');
+		expect(help).toContain('anthropic');
+	});
+
+	// --- guards / non-routed parity
+
+	it('a surface-only default is neither listed nor routable by name', async () => {
+		const app = cli('claude-down').default(sourceStatusCommand()).command(anthropicCommand());
+
+		expect(formatRootHelp(app.schema)).not.toContain('status (default)');
+
+		// `status` is not a route; the default has no positional to absorb it,
+		// so it is an unknown command rather than a dispatch to the default.
+		const result = await app.execute(['status']);
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain('Unknown command: status');
+	});
+
+	it('rejects a sibling that reuses the routed default name', () => {
+		try {
+			cli('claude-down')
+				.default(sourceStatusCommand(), { route: true })
+				.command(command('status').action(() => {}));
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(err).toBeInstanceOf(CLIError);
+			expect((err as CLIError).code).toBe('DUPLICATE_COMMAND');
+		}
+	});
+});
+
 // === Root help formatting with default command
 
 describe('formatRootHelp — default command', () => {

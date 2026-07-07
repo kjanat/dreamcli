@@ -29,6 +29,7 @@ export type {
 	CLIRunOptions,
 	CLISchema,
 	ConfigSettings,
+	DefaultCommandOptions,
 	HelpLinks,
 	InferNameOption,
 	ManifestPresetSettings,

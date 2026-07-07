@@ -1,31 +1,22 @@
-import { $, env } from 'bun';
 import { existsSync } from 'node:fs';
-import { defineConfig, type UserConfig } from 'tsdown';
-import attw from './.attw.json' with { type: 'json' };
-import pkg from './package.json' with { type: 'json' };
+import { profile, ignoreRules } from './.attw.json' with { type: 'json' };
+import { version } from './package.json' with { type: 'json' };
 import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 
-const version = JSON.stringify(pkg.version);
-const revision = JSON.stringify((await $`git rev-parse --short HEAD`.text()).trim());
-
-const { profile, ignoreRules } = attw;
-if (profile !== 'strict' && profile !== 'node16' && profile !== 'esm-only') {
-	throw new Error(`Invalid attw profile in .attw.json: ${profile}`);
-}
+import type { AttwOptions, UserConfig } from 'tsdown';
+import { defineConfig } from 'tsdown';
 
 export const entries = {
 	index: 'src/index.ts',
 	runtime: 'src/runtime.ts',
 	testkit: 'src/testkit.ts',
-	// Deliberately a subpath (not re-exported from the root) so the framework's
-	// own version constants don't crowd root-import IDE completions.
 	version: 'src/version.ts',
 } satisfies UserConfig['entry'];
 
 export default defineConfig({
 	define: {
-		__DREAMCLI_VERSION__: version,
-		__DREAMCLI_REVISION__: revision,
+		__DREAMCLI_VERSION__: JSON.stringify(version),
+		__DREAMCLI_REVISION__: JSON.stringify((await Bun.$`git rev-parse --short HEAD`.text()).trim()),
 	},
 	entry: entries,
 	format: 'esm',
@@ -58,8 +49,13 @@ export default defineConfig({
 	minify: 'dce-only',
 	unbundle: true,
 	publint: { enabled: 'local-only', level: 'suggestion', strict: true },
-	attw: { enabled: 'local-only', profile, ignoreRules, level: 'warn' },
-	report: { enabled: !env.CI },
+	attw: {
+		enabled: 'local-only',
+		profile: profile as any satisfies AttwOptions['profile'],
+		ignoreRules,
+		level: 'warn',
+	},
+	report: 'local-only',
 	hooks: {
 		'build:prepare': () => {
 			return emitDefinitionSchema();

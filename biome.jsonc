@@ -14,7 +14,8 @@
 			"!!**/build",
 			"!!**/.opencode",
 			"!!**/.bucket",
-			"!!**/bun.lock"
+			"!!**/bun.lock",
+			"!!*.config.ts"
 		],
 		"ignoreUnknown": true,
 		"maxSize": 5000000
