@@ -10,7 +10,6 @@
  */
 
 import type { RuntimeAdapter } from './adapter.ts';
-import { createBunAdapter } from './bun.ts';
 import type { DenoNamespace } from './deno.ts';
 import { createDenoAdapter } from './deno.ts';
 import type { GlobalForDetect } from './detect.ts';
@@ -47,8 +46,8 @@ function getInjectedDenoNamespace(globals: GlobalForDetect): DenoNamespace | und
  * Create a runtime adapter for the current environment.
  *
  * Detection order follows {@link detectRuntime}: Bun → Deno → Node → unknown.
- * Unknown runtimes fall back to the Node adapter because most JS runtimes
- * expose a Node-compatible `process` global.
+ * Only Deno needs a distinct adapter; Bun, Node, and unknown runtimes all use
+ * the Node adapter because they expose a Node-compatible `process` global.
  *
  * @param globals - Override `globalThis` for testing. Production callers
  *   should omit this parameter.
@@ -67,10 +66,12 @@ function createAdapter(globals?: GlobalForDetect): RuntimeAdapter {
 	const runtime = detectRuntime(runtimeGlobals);
 
 	switch (runtime) {
-		case 'bun':
-			return createBunAdapter();
 		case 'deno':
 			return createDenoAdapter(getInjectedDenoNamespace(runtimeGlobals));
+		// Bun exposes a Node-compatible `process` global, so it uses the Node
+		// adapter — there is no distinct Bun adapter. Detection still labels the
+		// runtime `'bun'` (see detectRuntime); only the I/O adapter is shared.
+		case 'bun':
 		case 'node':
 		case 'unknown':
 			return createNodeAdapter();

@@ -18,15 +18,15 @@ Create a runtime adapter via auto-detection.
 import {
   createAdapter,
   createNodeAdapter,
-  createBunAdapter,
   createDenoAdapter,
 } from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter(); // auto-detect
-const nodeAdapter = createNodeAdapter(); // explicit Node.js
-const bunAdapter = createBunAdapter(); // explicit Bun
+const nodeAdapter = createNodeAdapter(); // explicit Node.js (also used for Bun)
 const denoAdapter = createDenoAdapter(); // explicit Deno
 ```
+
+> Bun exposes a Node-compatible `process`, so it uses the Node adapter — there is no separate Bun factory. Runtime detection still reports `'bun'` (see [`detectRuntime()`](#detectruntime)).
 
 ### RuntimeAdapter Interface
 

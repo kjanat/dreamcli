@@ -6,8 +6,9 @@
  *
  * Start here when embedding DreamCLI in a real host runtime:
  * - {@link createAdapter} for normal auto-detected production use
- * - {@link createNodeAdapter}, {@link createDenoAdapter}, or
- *   {@link createBunAdapter} when the runtime must be selected explicitly
+ * - {@link createNodeAdapter} or {@link createDenoAdapter} when the runtime
+ *   must be selected explicitly (Bun uses the Node adapter — its `process` is
+ *   Node-compatible — so there is no separate Bun factory)
  *
  * Most applications do not need this subpath unless they are wiring DreamCLI
  * into a custom host, testing runtime behavior directly, or building their own
@@ -22,7 +23,6 @@ export type {
 } from './runtime/index.ts';
 export {
 	createAdapter,
-	createBunAdapter,
 	createDenoAdapter,
 	createNodeAdapter,
 	detectRuntime,

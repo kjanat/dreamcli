@@ -138,7 +138,6 @@ describe('@kjanat/dreamcli/runtime', () => {
 					'ExitError',
 					'RUNTIMES',
 					'createAdapter',
-					'createBunAdapter',
 					'createDenoAdapter',
 					'createNodeAdapter',
 					'detectRuntime',
@@ -182,7 +181,6 @@ describe('project structure', () => {
 		'./runtime/adapter.ts',
 		'./runtime/detect.ts',
 		'./runtime/node.ts',
-		'./runtime/bun.ts',
 		'./runtime/deno.ts',
 	] as const;
 

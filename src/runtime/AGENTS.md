@@ -13,8 +13,7 @@ adapter factories, `ExitError`, detection. `createTestAdapter`/`TestAdapterOptio
 | -------------------- | ----------- | ----: | ------------------------------------------------------------------- |
 | `adapter.ts`         | **Active**  |   300 | `RuntimeAdapter` interface — process/env/IO abstraction             |
 | `auto.ts`            | **Active**  |   110 | `createAdapter()` — auto-detecting adapter factory                  |
-| `node.ts`            | **Active**  |   278 | `createNodeAdapter()` — Node.js implementation                      |
-| `bun.ts`             | **Active**  |    55 | `createBunAdapter()` — delegates to Node adapter                    |
+| `node.ts`            | **Active**  |   278 | `createNodeAdapter()` — Node.js impl (also used for Bun)            |
 | `deno.ts`            | **Active**  |   355 | `createDenoAdapter()` — Deno namespace implementation               |
 | `detect.ts`          | **Active**  |   102 | `detectRuntime()` — Bun/Deno/Node feature detection                 |
 | `paths.ts`           | `@internal` |    56 | XDG/platform path resolution utilities                              |

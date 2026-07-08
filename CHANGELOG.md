@@ -7,6 +7,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- **`createBunAdapter` export** (from `@kjanat/dreamcli/runtime`). Bun exposes a
+  Node-compatible `process`, so the Bun adapter had been a pure passthrough to
+  the Node adapter since the runtime version hard-fail was dropped — it blessed
+  a runtime rather than abstracting distinct I/O. Auto-detection now maps Bun to
+  the Node adapter directly and `src/runtime/bun.ts` is gone. Runtime detection
+  is unchanged: `detectRuntime()` still reports `'bun'` and `RUNTIMES` still
+  lists it. Callers that selected the Bun adapter explicitly should use
+  `createNodeAdapter` (identical behavior) or rely on `createAdapter()`
+  auto-detection (#51).
+
 ## [3.0.0-rc.4] - 2026-07-06
 
 ### Added
