@@ -81,6 +81,8 @@ const prompter = createTestPrompter([
 
 Returns a runtime adapter for testing (no real process access).
 
+Use `terminalSize: { columns, rows }` to simulate terminal-aware help wrapping in `cli().run({ adapter })` tests.
+
 ## `PROMPT_CANCEL`
 
 Sentinel value to simulate prompt cancellation.

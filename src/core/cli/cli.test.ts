@@ -340,6 +340,58 @@ describe('CLIBuilder.run — runtime name inheritance', () => {
 	});
 });
 
+// --- Runtime terminal width
+
+describe('CLIBuilder.run — terminal help width', () => {
+	const inspect = command('inspect')
+		.description('alpha beta gamma delta epsilon zeta eta theta iota')
+		.action(({ out }) => {
+			out.log('inspect');
+		});
+
+	it('uses adapter terminal width for root help', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', '--help'],
+			terminalSize: { columns: 40, rows: 20 },
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli('mycli').help({ footer: false }).command(inspect);
+
+		try {
+			await app.run({ adapter });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		expect(stdoutLines.join('')).toContain(
+			'  inspect  alpha beta gamma delta\n           epsilon zeta eta theta iota\n',
+		);
+	});
+
+	it('lets explicit help width override adapter terminal width', async () => {
+		const stdoutLines: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', '--help'],
+			terminalSize: { columns: 40, rows: 20 },
+			stdout: (line) => stdoutLines.push(line),
+		});
+		const app = cli('mycli').help({ footer: false }).command(inspect);
+
+		try {
+			await app.run({ adapter, help: { width: 80 } });
+		} catch (err: unknown) {
+			if (!(err instanceof ExitError)) throw err;
+			expect(err.code).toBe(0);
+		}
+
+		expect(stdoutLines.join('')).toContain(
+			'  inspect  alpha beta gamma delta epsilon zeta eta theta iota\n',
+		);
+	});
+});
+
 // --- Command dispatch
 
 describe('command dispatch', () => {

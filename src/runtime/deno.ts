@@ -21,7 +21,7 @@
 
 import type { WriteFn } from '#internals/core/output/index.ts';
 import type { ReadFn } from '#internals/core/prompt/index.ts';
-import type { RuntimeAdapter } from './adapter.ts';
+import type { RuntimeAdapter, TerminalSize } from './adapter.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 
 // --- Minimal Deno namespace shape — avoids @types/deno dependency
@@ -75,6 +75,15 @@ interface DenoNamespace {
 		/** Whether stdout is connected to a TTY. */
 		isTerminal(): boolean;
 	};
+
+	/** Current console dimensions. */
+	consoleSize?(): { readonly columns: number; readonly rows: number };
+
+	/** Register a native signal listener. */
+	addSignalListener?(signal: 'SIGWINCH', listener: () => void): void;
+
+	/** Remove a native signal listener. */
+	removeSignalListener?(signal: 'SIGWINCH', listener: () => void): void;
 
 	/** Standard error — synchronous byte writer. */
 	readonly stderr: {
@@ -222,10 +231,54 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		readStdin: () => readDenoStdinAll(d, stdinIsTTY),
 		isTTY: d.stdout.isTerminal(),
 		stdinIsTTY,
+		getTerminalSize: () => readDenoTerminalSize(d),
+		onTerminalResize: (listener) => onDenoTerminalResize(d, listener),
 		exit: (code) => d.exit(code),
 		readFile,
 		homedir,
 		configDir,
+	};
+}
+
+/** Normalize terminal dimensions and discard unusable values. @internal */
+function normalizeTerminalSize(
+	columns: number | undefined,
+	rows: number | undefined,
+): TerminalSize | undefined {
+	if (columns === undefined || rows === undefined) return undefined;
+	if (!Number.isFinite(columns) || !Number.isFinite(rows)) return undefined;
+	if (columns <= 0 || rows <= 0) return undefined;
+	return { columns, rows };
+}
+
+/** Read native Deno terminal dimensions. @internal */
+function readDenoTerminalSize(deno: DenoNamespace): TerminalSize | undefined {
+	if (!deno.stdout.isTerminal() || deno.consoleSize === undefined) return undefined;
+
+	try {
+		const size = deno.consoleSize();
+		return normalizeTerminalSize(size.columns, size.rows);
+	} catch {
+		return undefined;
+	}
+}
+
+/** Subscribe to native Deno resize signals where SIGWINCH exists. @internal */
+function onDenoTerminalResize(deno: DenoNamespace, listener: () => void): (() => void) | undefined {
+	if (!deno.stdout.isTerminal()) return undefined;
+	if (deno.build.os === 'windows') return undefined;
+	if (deno.addSignalListener === undefined || deno.removeSignalListener === undefined) {
+		return undefined;
+	}
+
+	try {
+		deno.addSignalListener('SIGWINCH', listener);
+	} catch {
+		return undefined;
+	}
+
+	return () => {
+		deno.removeSignalListener?.('SIGWINCH', listener);
 	};
 }
 

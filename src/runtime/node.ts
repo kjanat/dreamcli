@@ -14,7 +14,7 @@
 
 import type { WriteFn } from '#internals/core/output/index.ts';
 import type { ReadFn } from '#internals/core/prompt/index.ts';
-import type { RuntimeAdapter } from './adapter.ts';
+import type { RuntimeAdapter, TerminalSize } from './adapter.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 
 // --- Node.js error shape — for ENOENT detection without @types/node
@@ -63,6 +63,12 @@ interface NodeProcess {
 	/** Standard output stream with TTY detection and write. */
 	readonly stdout: {
 		readonly isTTY?: boolean;
+		readonly columns?: number;
+		readonly rows?: number;
+		getWindowSize?(): readonly [number, number];
+		on?(event: 'resize', listener: () => void): unknown;
+		off?(event: 'resize', listener: () => void): unknown;
+		removeListener?(event: 'resize', listener: () => void): unknown;
 		write(data: string): unknown;
 	};
 	/** Standard error stream with write. */
@@ -208,11 +214,63 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		readStdin: () => readNodeStdinAll(p, stdinIsTTY),
 		isTTY: p.stdout.isTTY === true,
 		stdinIsTTY,
+		getTerminalSize: () => readNodeTerminalSize(p),
+		onTerminalResize: (listener) => onNodeTerminalResize(p, listener),
 		exit: (code) => p.exit(code),
 		readFile,
 		homedir,
 		configDir,
 	};
+}
+
+/** Normalize terminal dimensions and discard unusable values. @internal */
+function normalizeTerminalSize(
+	columns: number | undefined,
+	rows: number | undefined,
+): TerminalSize | undefined {
+	if (columns === undefined || rows === undefined) return undefined;
+	if (!Number.isFinite(columns) || !Number.isFinite(rows)) return undefined;
+	if (columns <= 0 || rows <= 0) return undefined;
+	return { columns, rows };
+}
+
+/** Read Node/Bun terminal dimensions from stdout. @internal */
+function readNodeTerminalSize(proc: NodeProcess): TerminalSize | undefined {
+	if (proc.stdout.isTTY !== true) return undefined;
+
+	try {
+		const size = proc.stdout.getWindowSize?.();
+		if (size !== undefined) {
+			const [columns, rows] = size;
+			const normalized = normalizeTerminalSize(columns, rows);
+			if (normalized !== undefined) return normalized;
+		}
+	} catch {
+		// Fall through to columns/rows below.
+	}
+
+	return normalizeTerminalSize(proc.stdout.columns, proc.stdout.rows);
+}
+
+/** Subscribe to Node/Bun stdout resize events when available. @internal */
+function onNodeTerminalResize(proc: NodeProcess, listener: () => void): (() => void) | undefined {
+	if (proc.stdout.isTTY !== true || proc.stdout.on === undefined) return undefined;
+
+	if (proc.stdout.off !== undefined) {
+		proc.stdout.on('resize', listener);
+		return () => {
+			proc.stdout.off?.('resize', listener);
+		};
+	}
+
+	if (proc.stdout.removeListener !== undefined) {
+		proc.stdout.on('resize', listener);
+		return () => {
+			proc.stdout.removeListener?.('resize', listener);
+		};
+	}
+
+	return undefined;
 }
 
 /**

@@ -78,6 +78,13 @@ function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 			writeSync: vi.fn(() => 0),
 			isTerminal: () => false,
 		},
+		...(overrides?.consoleSize !== undefined ? { consoleSize: overrides.consoleSize } : {}),
+		...(overrides?.addSignalListener !== undefined
+			? { addSignalListener: overrides.addSignalListener }
+			: {}),
+		...(overrides?.removeSignalListener !== undefined
+			? { removeSignalListener: overrides.removeSignalListener }
+			: {}),
 		stderr: overrides?.stderr ?? {
 			writeSync: vi.fn(() => 0),
 		},
@@ -114,6 +121,8 @@ describe('createDenoAdapter', () => {
 			expect(typeof adapter.stdin).toBe('function');
 			expect(typeof adapter.isTTY).toBe('boolean');
 			expect(typeof adapter.stdinIsTTY).toBe('boolean');
+			expect(typeof adapter.getTerminalSize).toBe('function');
+			expect(typeof adapter.onTerminalResize).toBe('function');
 			expect(typeof adapter.exit).toBe('function');
 			expect(typeof adapter.readFile).toBe('function');
 			expect(typeof adapter.homedir).toBe('string');
@@ -285,6 +294,70 @@ describe('createDenoAdapter', () => {
 			const ns = mockDeno();
 			const adapter = createDenoAdapter(ns);
 			expect(adapter.stdinIsTTY).toBe(false);
+		});
+	});
+
+	// --- terminal size
+
+	describe('terminal size', () => {
+		it('reads terminal size through Deno.consoleSize()', () => {
+			const ns = mockDeno({
+				stdout: { writeSync: vi.fn(() => 0), isTerminal: () => true },
+				consoleSize: () => ({ columns: 144, rows: 48 }),
+			});
+			const adapter = createDenoAdapter(ns);
+
+			expect(adapter.getTerminalSize()).toEqual({ columns: 144, rows: 48 });
+		});
+
+		it('returns undefined when stdout is not a terminal', () => {
+			const ns = mockDeno({
+				stdout: { writeSync: vi.fn(() => 0), isTerminal: () => false },
+				consoleSize: () => ({ columns: 144, rows: 48 }),
+			});
+			const adapter = createDenoAdapter(ns);
+
+			expect(adapter.getTerminalSize()).toBeUndefined();
+		});
+
+		it('subscribes to SIGWINCH on Unix runtimes', () => {
+			let resizeListener: (() => void) | undefined;
+			let removed = false;
+			let calls = 0;
+			const ns = mockDeno({
+				stdout: { writeSync: vi.fn(() => 0), isTerminal: () => true },
+				addSignalListener: (_signal, listener) => {
+					resizeListener = listener;
+				},
+				removeSignalListener: (_signal, listener) => {
+					removed = resizeListener === listener;
+					resizeListener = undefined;
+				},
+			});
+			const adapter = createDenoAdapter(ns);
+
+			const cleanup = adapter.onTerminalResize(() => {
+				calls += 1;
+			});
+			resizeListener?.();
+			cleanup?.();
+
+			expect(calls).toBe(1);
+			expect(removed).toBe(true);
+		});
+
+		it('does not subscribe to SIGWINCH on Windows', () => {
+			const addSignalListener = vi.fn();
+			const ns = mockDeno({
+				build: { os: 'windows' },
+				stdout: { writeSync: vi.fn(() => 0), isTerminal: () => true },
+				addSignalListener,
+				removeSignalListener: vi.fn(),
+			});
+			const adapter = createDenoAdapter(ns);
+
+			expect(adapter.onTerminalResize(() => {})).toBeUndefined();
+			expect(addSignalListener).not.toHaveBeenCalled();
 		});
 	});
 

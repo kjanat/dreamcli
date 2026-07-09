@@ -7,6 +7,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.6] - 2026-07-09
+
+### Added
+
+- **Runtime terminal sizing hooks** — `RuntimeAdapter` now exposes
+  `getTerminalSize()` and `onTerminalResize()`. Node/Bun read
+  `process.stdout.getWindowSize()` (falling back to `columns` / `rows`) and
+  subscribe to stdout `resize`; Deno uses native `Deno.consoleSize()` and
+  `SIGWINCH` on non-Windows platforms.
+
+### Changed
+
+- **Help output now fits the live terminal in `.run()`** — root and command help
+  use runtime terminal columns when no explicit `.help({ width })` or runtime
+  `help.width` is provided. Non-TTY or unavailable sizes still fall back to 80,
+  and `.execute()` remains deterministic for tests.
+
 ## [3.0.0-rc.5] - 2026-07-08
 
 ### Removed
@@ -1066,7 +1083,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.5...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.6...HEAD
+[3.0.0-rc.6]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.5...v3.0.0-rc.6
 [3.0.0-rc.5]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.4...v3.0.0-rc.5
 [3.0.0-rc.4]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.3...v3.0.0-rc.4
 [3.0.0-rc.3]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.2...v3.0.0-rc.3

@@ -1262,9 +1262,19 @@ class CLIBuilder {
 
 		const effectiveBuilder =
 			preflight.schema === this.schema ? this : new CLIBuilder(preflight.schema);
+		const terminalSize = adapter.getTerminalSize();
+		const runtimeHelpWidth =
+			options?.help?.width === undefined && preflight.schema.helpConfig?.width === undefined
+				? terminalSize?.columns
+				: undefined;
+		const runtimeHelpOptions =
+			runtimeHelpWidth !== undefined
+				? { ...options?.help, width: runtimeHelpWidth }
+				: options?.help;
 		const executeOptions: CLIRunOptions = {
 			...options,
 			...preflight.inputs,
+			...(runtimeHelpOptions !== undefined ? { help: runtimeHelpOptions } : {}),
 			out: createOutput({
 				stdout: adapter.stdout,
 				stderr: adapter.stderr,

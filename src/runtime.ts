@@ -20,6 +20,7 @@
 export type {
 	Runtime,
 	RuntimeAdapter,
+	TerminalSize,
 } from './runtime/index.ts';
 export {
 	createAdapter,

@@ -28,9 +28,19 @@ Instead, a `RuntimeAdapter` provides:
 - `exit` — process exit
 - `isTTY` — terminal detection
 - `stdinIsTTY` — interactive stdin detection
+- `getTerminalSize` — current stdout columns and rows when available
+- `onTerminalResize` — terminal resize subscription when supported
 - `readFile` / `homedir` / `configDir` — filesystem access
 
 Runtime detection is automatic — dreamcli picks the right adapter at startup.
+
+## Terminal Width
+
+When `cli().run()` renders help, DreamCLI uses the runtime adapter's terminal width if stdout is a TTY and no explicit help width is configured. Direct `formatHelp()` calls and `cli().execute()` keep the deterministic 80-column fallback.
+
+Node and Bun use `process.stdout.getWindowSize()` when available, falling back to `process.stdout.columns` / `rows`. Deno uses `Deno.consoleSize()`. Resize subscriptions use stdout `resize` on Node/Bun and `SIGWINCH` on Deno Unix platforms.
+
+Set a fixed width with `.help({ width })` or runtime `help: { width }` when tests or generated output need stable wrapping.
 
 ## Explicit Adapter
 

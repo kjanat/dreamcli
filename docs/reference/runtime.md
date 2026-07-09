@@ -7,7 +7,7 @@ import {
   createAdapter,
   detectRuntime,
 } from '@kjanat/dreamcli/runtime';
-import type { RuntimeAdapter } from '@kjanat/dreamcli/runtime';
+import type { RuntimeAdapter, TerminalSize } from '@kjanat/dreamcli/runtime';
 ```
 
 ## `createAdapter()`
@@ -41,10 +41,14 @@ const denoAdapter = createDenoAdapter(); // explicit Deno
 | `readStdin()`    | method   | Read all piped stdin as a single string, or `null` when stdin is a TTY / no data is piped |
 | `isTTY`          | readonly | Whether stdout is connected to a TTY                                                      |
 | `stdinIsTTY`     | readonly | Whether stdin is connected to a TTY                                                       |
+| `getTerminalSize()` | method | Read current stdout terminal dimensions, or `undefined` when unavailable                  |
+| `onTerminalResize(listener)` | method | Subscribe to terminal resize events when supported                                |
 | `exit(code)`     | method   | Exit the process                                                                          |
 | `readFile(path)` | method   | Read a UTF-8 file for config discovery                                                    |
 | `homedir`        | readonly | User home directory                                                                       |
 | `configDir`      | readonly | Platform-specific configuration directory                                                 |
+
+`TerminalSize` is `{ columns: number; rows: number }`. Node and Bun read `process.stdout.getWindowSize()` when available, falling back to `columns` / `rows`. Deno uses `Deno.consoleSize()`.
 
 ## `detectRuntime()`
 
@@ -63,7 +67,7 @@ const runtime: Runtime = detectRuntime();
 | Runtime            | Adapter       | Notes                          |
 | ------------------ | ------------- | ------------------------------ |
 | Node.js >= 22.22.2 | `NodeAdapter` | Full support                   |
-| Bun >= 1.3         | `BunAdapter`  | Delegates to Node adapter      |
+| Bun >= 1.3         | `NodeAdapter` | Uses Node-compatible `process` |
 | Deno >= 2.6.0      | `DenoAdapter` | Permission-safe Deno namespace |
 
 These minimums are the tested support floor, declared in the package `engines` field. Adapter creation does not validate the runtime version or throw: as a dependency the package manager enforces `engines` at install time, and when DreamCLI is bundled the consuming CLI owns its supported-runtime policy.

@@ -103,6 +103,11 @@ describe('createTestAdapter', () => {
 		expect(adapter.isTTY).toBe(true);
 	});
 
+	it('accepts custom terminal size', () => {
+		const adapter = createTestAdapter({ terminalSize: { columns: 120, rows: 30 } });
+		expect(adapter.getTerminalSize()).toEqual({ columns: 120, rows: 30 });
+	});
+
 	it('default exit throws ExitError', () => {
 		const adapter = createTestAdapter();
 		expect(() => adapter.exit(0)).toThrow(ExitError);
@@ -239,6 +244,65 @@ describe('createNodeAdapter', () => {
 		expect(adapter.isTTY).toBe(false);
 	});
 
+	it('reads terminal size from getWindowSize when stdout is a TTY', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: {
+					isTTY: true,
+					getWindowSize: () => [132, 43],
+					write: vi.fn(),
+				},
+			}),
+		);
+
+		expect(adapter.getTerminalSize()).toEqual({ columns: 132, rows: 43 });
+	});
+
+	it('falls back to columns and rows when getWindowSize is unavailable', () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: {
+					isTTY: true,
+					columns: 100,
+					rows: 24,
+					write: vi.fn(),
+				},
+			}),
+		);
+
+		expect(adapter.getTerminalSize()).toEqual({ columns: 100, rows: 24 });
+	});
+
+	it('subscribes to stdout resize events when supported', () => {
+		let resizeListener: (() => void) | undefined;
+		let removed = false;
+		let calls = 0;
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: {
+					isTTY: true,
+					write: vi.fn(),
+					on: (_event, listener) => {
+						resizeListener = listener;
+					},
+					off: (_event, listener) => {
+						removed = resizeListener === listener;
+						resizeListener = undefined;
+					},
+				},
+			}),
+		);
+
+		const cleanup = adapter.onTerminalResize(() => {
+			calls += 1;
+		});
+		resizeListener?.();
+		cleanup?.();
+
+		expect(calls).toBe(1);
+		expect(removed).toBe(true);
+	});
+
 	it('uses globalThis.process when no proc argument given', () => {
 		// This test verifies the default path — on Node.js,
 		// globalThis.process is always available.
@@ -260,6 +324,8 @@ describe('RuntimeAdapter interface', () => {
 		expect(adapter.stdout).toBeDefined();
 		expect(adapter.stderr).toBeDefined();
 		expect(adapter.isTTY).toBeDefined();
+		expect(adapter.getTerminalSize).toBeDefined();
+		expect(adapter.onTerminalResize).toBeDefined();
 		expect(adapter.exit).toBeDefined();
 	});
 
@@ -271,6 +337,8 @@ describe('RuntimeAdapter interface', () => {
 		expect(adapter.stdout).toBeDefined();
 		expect(adapter.stderr).toBeDefined();
 		expect(typeof adapter.isTTY).toBe('boolean');
+		expect(adapter.getTerminalSize).toBeDefined();
+		expect(adapter.onTerminalResize).toBeDefined();
 		expect(adapter.exit).toBeDefined();
 	});
 });

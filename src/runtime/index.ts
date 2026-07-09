@@ -9,7 +9,7 @@
  * @module @kjanat/dreamcli/runtime
  */
 
-export type { RuntimeAdapter, TestAdapterOptions } from './adapter.ts';
+export type { RuntimeAdapter, TerminalSize, TestAdapterOptions } from './adapter.ts';
 export { createTestAdapter, ExitError } from './adapter.ts';
 export { createAdapter } from './auto.ts';
 export type { DenoNamespace } from './deno.ts';

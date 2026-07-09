@@ -83,6 +83,12 @@ interface RuntimeAdapter {
 	/** Whether stdin is connected to a TTY (used for prompt gating). */
 	readonly stdinIsTTY: boolean;
 
+	/** Read current terminal dimensions for stdout, if available. */
+	readonly getTerminalSize: () => TerminalSize | undefined;
+
+	/** Subscribe to terminal resize events when the runtime supports them. */
+	readonly onTerminalResize: (listener: () => void) => (() => void) | undefined;
+
 	/**
 	 * Exit the process with the given code.
 	 * Must not return (divergent function).
@@ -120,6 +126,14 @@ interface RuntimeAdapter {
 	 * Config discovery appends the app-specific subdirectory.
 	 */
 	readonly configDir: string;
+}
+
+/** Current terminal dimensions in columns and rows. */
+interface TerminalSize {
+	/** Terminal width in columns. */
+	readonly columns: number;
+	/** Terminal height in rows. */
+	readonly rows: number;
 }
 
 // --- Test adapter — injectable stub for testing
@@ -175,6 +189,12 @@ interface TestAdapterOptions {
 
 	/** TTY flag for stdin (defaults to `false`). */
 	readonly stdinIsTTY?: boolean;
+
+	/** Terminal dimensions returned by `getTerminalSize()`. */
+	readonly terminalSize?: TerminalSize;
+
+	/** Resize subscription hook returned by `onTerminalResize()`. */
+	readonly onTerminalResize?: (listener: () => void) => (() => void) | undefined;
 
 	/**
 	 * Exit function (defaults to throwing {@linkcode ExitError}).
@@ -286,6 +306,8 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 		},
 		isTTY: options?.isTTY ?? false,
 		stdinIsTTY,
+		getTerminalSize: () => options?.terminalSize,
+		onTerminalResize: (listener) => options?.onTerminalResize?.(listener),
 		exit:
 			options?.exit ??
 			((code: number): never => {
@@ -299,5 +321,5 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 
 // --- Exports
 
-export type { RuntimeAdapter, TestAdapterOptions };
+export type { RuntimeAdapter, TerminalSize, TestAdapterOptions };
 export { createTestAdapter, ExitError };
