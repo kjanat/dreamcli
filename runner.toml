@@ -1,8 +1,8 @@
 #:schema https://kjanat.github.io/runner/schemas/runner.toml.schema.json
 
-[install]
-pms     = ["bun"]
-scripts = "allow"
+pm.node             = "bun"
+github.group_output = true
 
-[github]
-group_output = true
+[install]
+pms = ["bun"]
+# scripts = "allow" # unsupported for bun at the moment as a bun limitation.

@@ -46,7 +46,7 @@ const SUPPORTED_RUNTIMES: readonly RuntimeSupportEntry[] = [
 		minimum: '1.3',
 		engineRange: '>=1.3',
 		packageName: '@kjanat/dreamcli',
-		adapterName: 'BunAdapter',
+		adapterName: 'NodeAdapter',
 	},
 	{
 		runtime: 'deno',
