@@ -8,6 +8,7 @@
  * @module dreamcli/core/config/package-json
  */
 
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { SLASH, stripTrailing } from '#internals/strings.ts';
 
@@ -448,6 +449,21 @@ function stripGitSuffix(path: string): string {
 	return path.endsWith('.git') ? path.slice(0, -'.git'.length) : path;
 }
 
+/** Options for {@link packageRepositoryUrl}. */
+interface PackageRepositoryUrlOptions {
+	/**
+	 * Throw a `CLIError` (code `INVALID_REPOSITORY`) instead of returning
+	 * `undefined` when the `repository` field is absent or not a recognisable
+	 * locator. With `require: true` the return type narrows to `string`, so
+	 * callers that know their manifest carries a valid repository need no
+	 * assertion — and a bad manifest fails fast with a real message instead
+	 * of propagating `undefined`.
+	 *
+	 * @defaultValue `false`
+	 */
+	readonly require?: boolean;
+}
+
 /**
  * Resolve a package's `repository` field to a browsable `https://` URL.
  *
@@ -458,15 +474,51 @@ function stripGitSuffix(path: string): string {
  * - shorthands: `github:u/r`, `gitlab:u/r`, `bitbucket:u/r`, and bare `u/r`
  *   (GitHub, per npm convention)
  *
- * Returns `undefined` when the field is absent or unrecognised.
+ * Returns `undefined` when the field is absent or unrecognised — or, with
+ * `{ require: true }`, throws instead and the return type is `string`.
+ * (The narrowing cannot key off the input type alone: a present `repository`
+ * may still be an empty string, a url-less object, or an unparseable
+ * locator, so the `string` promise is backed by the runtime check.)
  *
  * @example
  * ```ts
  * packageRepositoryUrl({ repository: 'git+https://github.com/u/r.git' });
  * // 'https://github.com/u/r'
+ *
+ * const url: string = packageRepositoryUrl(pkg, { require: true });
+ * // throws CLIError when pkg.repository is missing or unrecognised
  * ```
  */
-function packageRepositoryUrl(pkg: PackageJsonData): string | undefined {
+function packageRepositoryUrl(
+	pkg: PackageJsonData,
+	options: PackageRepositoryUrlOptions & { readonly require: true },
+): string;
+function packageRepositoryUrl(
+	pkg: PackageJsonData,
+	options?: PackageRepositoryUrlOptions,
+): string | undefined;
+function packageRepositoryUrl(
+	pkg: PackageJsonData,
+	options?: PackageRepositoryUrlOptions,
+): string | undefined {
+	const url = resolveRepositoryUrl(pkg);
+	if (url === undefined && options?.require === true) {
+		throw new CLIError(
+			pkg.repository === undefined
+				? "package.json has no 'repository' field"
+				: `package.json 'repository' is not a recognisable locator: ${JSON.stringify(pkg.repository)}`,
+			{
+				code: 'INVALID_REPOSITORY',
+				suggest:
+					"Set 'repository' to a supported locator (e.g. 'github:user/repo' or 'git+https://github.com/user/repo.git'), or drop { require: true } and handle undefined",
+			},
+		);
+	}
+	return url;
+}
+
+/** Locator normalization behind {@link packageRepositoryUrl}. @internal */
+function resolveRepositoryUrl(pkg: PackageJsonData): string | undefined {
 	const raw = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url;
 	if (raw === undefined) return undefined;
 
@@ -556,5 +608,11 @@ function inferCliName(
 
 // --- Exports
 
-export type { ManifestDiscoveryOptions, PackageJsonAdapter, PackageJsonData, PackageRepository };
+export type {
+	ManifestDiscoveryOptions,
+	PackageJsonAdapter,
+	PackageJsonData,
+	PackageRepository,
+	PackageRepositoryUrlOptions,
+};
 export { discoverManifest, discoverPackageJson, inferCliName, packageRepositoryUrl };

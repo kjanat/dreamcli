@@ -30,6 +30,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `'first'` keeps the first value while still consuming later value tokens.
   Counted per logical flag (aliases + negated + parity spellings); env/config
   precedence is never a duplicate.
+- **`packageRepositoryUrl(pkg, { require: true })`** — narrows the return
+  type to `string`, throwing a `CLIError` (code `INVALID_REPOSITORY`) at the
+  call site when the `repository` field is missing or not a recognisable
+  locator. Removes the `!` assertion for manifests known to carry a valid
+  repository, with the guarantee enforced at runtime rather than assumed.
 - **Flag spelling parity (kebab ↔ camel)** — `--doThis` matches a flag named
   `do-this` and vice versa, for names and long aliases, on by default.
   Handler keys, help, completions, and suggestions stay canonical.

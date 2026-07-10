@@ -60,6 +60,7 @@ export type {
 	PackageJsonAdapter,
 	PackageJsonData,
 	PackageRepository,
+	PackageRepositoryUrlOptions,
 } from './core/config/index.ts';
 export {
 	buildConfigSearchPaths,

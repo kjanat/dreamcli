@@ -399,6 +399,7 @@ export type {
 	PackageJsonAdapter,
 	PackageJsonData,
 	PackageRepository,
+	PackageRepositoryUrlOptions,
 } from './package-json.ts';
 export {
 	discoverManifest,
