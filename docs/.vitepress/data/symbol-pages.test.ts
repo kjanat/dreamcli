@@ -81,7 +81,9 @@ describe('symbol page generation', () => {
 		});
 		expect(cliPage?.content).toContain('# `cli`');
 		expect(cliPage?.content).toContain('## Signatures');
-		expect(cliPage?.content).toContain('function cli(name: string): CLIBuilder;');
+		expect(cliPage?.content).toContain(
+			'function cli(name: string, options?: Omit<CLIOptions, "name">): CLIBuilder;',
+		);
 		expect(cliPage?.content).toContain('## Examples');
 		expect(cliPage?.content).toContain('## Related Examples');
 		expect(cliPage?.content).toContain('- [Basic single-command CLI.](/examples/basic)');

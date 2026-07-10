@@ -180,6 +180,7 @@ export default defineConfig({
 						{ text: 'Flags', link: '/guide/flags' },
 						{ text: 'Arguments', link: '/guide/arguments' },
 						{ text: 'Output', link: '/guide/output' },
+						{ text: 'Help', link: '/guide/help' },
 						{ text: 'Errors', link: '/guide/errors' },
 					],
 				},

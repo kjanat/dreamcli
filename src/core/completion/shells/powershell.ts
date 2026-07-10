@@ -14,10 +14,11 @@
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
-import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
+import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
+	getVisibleNegatedName,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
 	versionTag,
@@ -157,10 +158,15 @@ function appendPowerShellPathEntry(
 	lines.push('\t\t)');
 	lines.push('\t\tFlags = @(');
 	for (const [name, schema] of Object.entries(flags)) {
+		// Suggestions list only visible forms; parse recognition includes hidden
+		// forms (hidden aliases and hidden negated spellings are still parseable).
+		const visibleNegated = getVisibleNegatedName(name, schema);
+		const parseNegated = getFlagNegatedName(name, schema);
 		const forms = dedupeValues([
 			`--${name}`,
 			...getFlagAliasNames(schema, { kind: 'short' }).map((alias) => `-${alias}`),
 			...getFlagAliasNames(schema, { kind: 'long' }).map((alias) => `--${alias}`),
+			...(visibleNegated !== undefined ? [`--${visibleNegated}`] : []),
 		]);
 		const parseForms = dedupeValues([
 			`--${name}`,
@@ -170,6 +176,7 @@ function appendPowerShellPathEntry(
 			...getFlagAliasNames(schema, { kind: 'long', includeHidden: true }).map(
 				(alias) => `--${alias}`,
 			),
+			...(parseNegated !== undefined ? [`--${parseNegated}`] : []),
 		]);
 		lines.push('\t\t\t@{');
 		lines.push(`\t\t\t\tCanonicalName = ${quotePowerShellString(name)}`);

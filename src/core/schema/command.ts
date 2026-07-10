@@ -20,6 +20,7 @@ import type {
 } from './activity.ts';
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
+import { getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { RunOptions, RunResult } from './run.ts';
@@ -558,7 +559,7 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
 
 // --- Flag collision validation
 
-type FlagFormKind = 'canonical' | 'alias';
+type FlagFormKind = 'canonical' | 'alias' | 'negation';
 
 interface FlagForm {
 	readonly owner: string;
@@ -575,12 +576,16 @@ function describeFlagForm(form: FlagForm): string {
 	if (form.kind === 'canonical') {
 		return `canonical flag ${formatFlagToken(form.name, form.kind)}`;
 	}
+	if (form.kind === 'negation') {
+		return `${form.hidden ? 'hidden ' : ''}negated spelling ${formatFlagToken(form.name, form.kind)}`;
+	}
 
 	const aliasType = form.name.length === 1 ? 'short alias' : 'long alias';
 	return `${form.hidden ? 'hidden ' : ''}${aliasType} ${formatFlagToken(form.name, form.kind)}`;
 }
 
 function listFlagForms(name: string, schema: FlagSchema): readonly FlagForm[] {
+	const negatedName = getFlagNegatedName(name, schema);
 	return [
 		{
 			owner: name,
@@ -594,6 +599,16 @@ function listFlagForms(name: string, schema: FlagSchema): readonly FlagForm[] {
 			kind: 'alias' as const,
 			hidden: alias.hidden,
 		})),
+		...(negatedName !== undefined && schema.negation !== undefined
+			? [
+					{
+						owner: name,
+						name: negatedName,
+						kind: 'negation' as const,
+						hidden: schema.negation.hidden,
+					},
+				]
+			: []),
 	];
 }
 

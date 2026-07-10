@@ -102,6 +102,27 @@ const definitionMetaSchemaDescriptions = {
 					description:
 						'Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.',
 				},
+				negation: {
+					description:
+						"Negation settings when `kind === 'boolean'` and `.negatable()` was\ncalled (`undefined` otherwise). See FlagNegation.",
+				},
+				duplicates: {
+					description:
+						"How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (default, matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.",
+				},
+			},
+		},
+		negation: {
+			description:
+				'Negation settings for a boolean flag (set by `.negatable()`).\n\nThe negated spelling and the positive form are two spellings of ONE\nlogical flag: they share duplicate policy, and the last CLI occurrence\nwins across both. The negated spelling is presence-only — `--no-foo=x`\nis rejected.',
+			properties: {
+				alias: {
+					description:
+						"Explicit negated spelling without the `--` prefix (e.g. `'no-sandbox'`).\n`undefined` synthesizes `no-<flagName>` wherever the flag name is known.",
+				},
+				hidden: {
+					description: 'Hide the negated spelling from help, completions, and suggestions.',
+				},
 			},
 		},
 		arg: {

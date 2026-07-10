@@ -18,6 +18,7 @@ import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
+	getVisibleNegatedName,
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
@@ -195,6 +196,11 @@ function appendFishFlagCompletions(
 		parts.push(`-l ${quoteShellArg(name)}`);
 		for (const alias of getFlagAliasNames(schema, { kind: 'long' })) {
 			parts.push(`-l ${quoteShellArg(alias)}`);
+		}
+		// Visible negated spelling shares the entry — and thus the description.
+		const negated = getVisibleNegatedName(name, schema);
+		if (negated !== undefined) {
+			parts.push(`-l ${quoteShellArg(negated)}`);
 		}
 		parts.push(`-d ${quoteShellArg(schema.description ?? name)}`);
 

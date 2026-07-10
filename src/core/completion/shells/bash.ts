@@ -21,6 +21,7 @@ import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
+	getVisibleNegatedName,
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
@@ -371,7 +372,8 @@ function escapeBashDollarQuote(value: string): string {
 }
 
 /**
- * Collect all `--flag` words (long + short aliases) for a flag record.
+ * Collect all `--flag` words (long + short aliases + visible negated
+ * spellings) for a flag record.
  *
  * @internal
  */
@@ -381,6 +383,10 @@ function collectFlagWords(flags: Readonly<Record<string, FlagSchema>>): string {
 		words.push(`--${name}`);
 		for (const alias of getFlagAliasNames(schema)) {
 			words.push(alias.length === 1 ? `-${alias}` : `--${alias}`);
+		}
+		const negated = getVisibleNegatedName(name, schema);
+		if (negated !== undefined) {
+			words.push(`--${negated}`);
 		}
 	}
 	return words.join(' ');

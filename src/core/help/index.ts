@@ -146,10 +146,18 @@ interface FlagEntry {
 function formatFlagLeft(name: string, schema: FlagSchema, theme: HelpTheme): string {
 	const visibleShortAliases = getFlagAliasNames(schema, { kind: 'short' });
 	const visibleLongAliases = getFlagAliasNames(schema, { kind: 'long' });
+	// Negatable booleans render as one logical flag: `--[no-]foo` when the
+	// negated spelling is the synthesized default, or an extra `--no-custom`
+	// form when a custom alias was set. Hidden negations render nothing.
+	const negation =
+		schema.negation !== undefined && !schema.negation.hidden ? schema.negation : undefined;
+	const canonicalForm =
+		negation !== undefined && negation.alias === undefined ? `--[no-]${name}` : `--${name}`;
 	const forms = [
 		...visibleShortAliases.map((alias) => `-${alias}`),
-		`--${name}`,
+		canonicalForm,
 		...visibleLongAliases.map((alias) => `--${alias}`),
+		...(negation?.alias !== undefined ? [`--${negation.alias}`] : []),
 	];
 
 	// Value placeholder (skip for kinds that take no value)

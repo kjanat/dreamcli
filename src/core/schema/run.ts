@@ -133,6 +133,17 @@ export interface RunOptions {
 	readonly help?: HelpOptions;
 
 	/**
+	 * Flag-parsing behavior settings.
+	 *
+	 * `caseParity` accepts the kebab↔camel counterpart spelling of each flag
+	 * name/alias (`--doThis` for `do-this`, and vice versa). The CLI layer
+	 * threads `cli(name, { flags })` settings here automatically.
+	 *
+	 * @defaultValue `{ caseParity: true }`
+	 */
+	readonly flags?: { readonly caseParity?: boolean };
+
+	/**
 	 * Command schema with propagated flags merged in.
 	 *
 	 * When provided, used for parsing and resolution instead of `cmd.schema`.

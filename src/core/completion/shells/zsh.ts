@@ -20,6 +20,7 @@ import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import {
+	getVisibleNegatedName,
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
@@ -321,6 +322,9 @@ function escapeZshDescription(value: string): string {
  * - `'(-s --name --alias)'{-s,--name,--alias}'[description]'` for flags with
  *   visible aliases
  *
+ * A visible negated spelling (`--no-name`) joins the flag's form group — the
+ * two spellings are one logical flag, so completing one excludes the other.
+ *
  * @internal
  */
 function buildZshFlagSpecsFromFlags(
@@ -332,7 +336,9 @@ function buildZshFlagSpecsFromFlags(
 		const longFlag = `--${name}`;
 		const shortFlags = getFlagAliasNames(schema, { kind: 'short' }).map((alias) => `-${alias}`);
 		const longAliases = getFlagAliasNames(schema, { kind: 'long' }).map((alias) => `--${alias}`);
-		const allForms = [...shortFlags, longFlag, ...longAliases];
+		const negated = getVisibleNegatedName(name, schema);
+		const negatedForms = negated !== undefined ? [`--${negated}`] : [];
+		const allForms = [...shortFlags, longFlag, ...longAliases, ...negatedForms];
 
 		let valuePart = '';
 		if (!flagExpectsValue(schema)) {

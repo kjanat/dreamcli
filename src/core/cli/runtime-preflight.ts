@@ -15,6 +15,7 @@ import { discoverConfig } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { discoverManifest, inferCliName } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
+import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
@@ -97,8 +98,11 @@ interface RuntimePreflightSchemaLike {
 				readonly footer?: boolean;
 				readonly width?: number;
 				readonly hyperlinks?: boolean;
+				readonly theme?: HelpThemeFactory;
 		  }
 		| undefined;
+	/** Flag-parsing behavior settings (e.g. case parity). */
+	readonly flagSettings: { readonly caseParity?: boolean } | undefined;
 	/** Plugins forwarded into the execution pipeline. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -247,13 +251,17 @@ function extractConfigFlag(argv: readonly string[]): {
 }
 
 /** Check whether a single command's args declare stdin-mode and argv leaves them unresolved. @internal */
-function commandInvocationNeedsStdin(schema: CommandSchema, argv: readonly string[]): boolean {
+function commandInvocationNeedsStdin(
+	schema: CommandSchema,
+	argv: readonly string[],
+	flagSettings?: { readonly caseParity?: boolean },
+): boolean {
 	if (argv.includes('--help') || argv.includes('-h')) {
 		return false;
 	}
 
 	try {
-		const parsed = parse(schema, argv);
+		const parsed = parse(schema, argv, flagSettings);
 		return schema.args.some(({ name, schema: argSchema }) => {
 			const parsedValue = parsed.args[name];
 			return argSchema.stdinMode && (parsedValue === undefined || parsedValue === '-');
@@ -280,7 +288,11 @@ function invocationNeedsStdin(
 
 	switch (plan.kind) {
 		case 'match':
-			return commandInvocationNeedsStdin(plan.plan.mergedSchema, plan.plan.argv);
+			return commandInvocationNeedsStdin(
+				plan.plan.mergedSchema,
+				plan.plan.argv,
+				schema.flagSettings,
+			);
 		case 'dispatch-error':
 		case 'needs-subcommand':
 		case 'root-help':

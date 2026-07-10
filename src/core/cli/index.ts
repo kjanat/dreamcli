@@ -282,8 +282,28 @@ interface CLISchema {
 	 * under runtime `options.help` (runtime wins) before rendering.
 	 */
 	readonly helpConfig: HelpConfig | undefined;
+	/**
+	 * Flag-parsing behavior settings.
+	 *
+	 * Set via the `cli(name, { flags })` / `cli({ flags })` factory forms.
+	 */
+	readonly flagSettings: FlagSettings | undefined;
 	/** Registered CLI plugins. */
 	readonly plugins: readonly CLIPlugin[];
+}
+
+/**
+ * Flag-parsing behavior settings, set via the {@linkcode cli} factory.
+ */
+interface FlagSettings {
+	/**
+	 * Accept the kebab↔camel counterpart spelling of each flag name/alias
+	 * (`--doThis` for a flag named `do-this`, and vice versa). Automatically
+	 * disabled per spelling pair when a command explicitly defines both.
+	 *
+	 * @defaultValue `true`
+	 */
+	readonly caseParity?: boolean;
 }
 
 /**
@@ -489,6 +509,7 @@ function buildCommandRunOptions(
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 		...(options?.out !== undefined ? { out: options.out } : {}),
 		...(options?.captured !== undefined ? { captured: options.captured } : {}),
+		...(options?.flags !== undefined ? { flags: options.flags } : {}),
 	};
 }
 
@@ -1136,10 +1157,12 @@ class CLIBuilder {
 		};
 
 		// -- Shared options for command execution ----------------------------------
+		const flagSettings = options?.flags ?? this.schema.flagSettings;
 		const effectiveOptions: CLIRunOptions = {
 			...options,
 			plugins: this.schema.plugins,
 			...(jsonMode ? { jsonMode } : {}),
+			...(flagSettings !== undefined ? { flags: flagSettings } : {}),
 		};
 		const output: OutputPolicy = {
 			jsonMode,
@@ -1616,6 +1639,12 @@ interface CLIOptions {
 	 * @defaultValue `false`
 	 */
 	readonly inherit?: boolean;
+
+	/**
+	 * Flag-parsing behavior settings (e.g. `{ caseParity: false }` to accept
+	 * only declared flag spellings).
+	 */
+	readonly flags?: FlagSettings;
 }
 
 /**
@@ -1638,12 +1667,17 @@ interface CLIOptions {
  * ```
  */
 
-function cli(name: string): CLIBuilder;
+function cli(name: string, options?: Omit<CLIOptions, 'name'>): CLIBuilder;
 /** Create a new CLI program builder from an options object. */
 function cli(options: CLIOptions): CLIBuilder;
-function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
-	const name = typeof nameOrOptions === 'string' ? nameOrOptions : (nameOrOptions.name ?? 'cli');
-	const inheritName = typeof nameOrOptions === 'string' ? false : (nameOrOptions.inherit ?? false);
+function cli(
+	nameOrOptions: string | CLIOptions,
+	extraOptions?: Omit<CLIOptions, 'name'>,
+): CLIBuilder {
+	const options: CLIOptions =
+		typeof nameOrOptions === 'string' ? { name: nameOrOptions, ...extraOptions } : nameOrOptions;
+	const name = options.name ?? 'cli';
+	const inheritName = options.inherit ?? false;
 
 	return new CLIBuilder({
 		name,
@@ -1659,6 +1693,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 		hasBuiltInCompletions: false,
 		completionsFlag: undefined,
 		helpConfig: undefined,
+		flagSettings: options.flags,
 		plugins: [],
 	});
 }

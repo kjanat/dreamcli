@@ -37,6 +37,7 @@ const ROOT_PROPERTY_TARGETS: Readonly<Record<string, NodeTarget>> = {
 const DEF_TARGETS: Readonly<Record<string, NodeTarget>> = {
 	command: { exportId: 'dreamcli:CommandSchema' },
 	flag: { exportId: 'dreamcli:FlagSchema' },
+	negation: { exportId: 'dreamcli:FlagNegation' },
 	arg: { exportId: 'dreamcli:ArgSchema' },
 	prompt: { exportId: 'dreamcli:PromptConfig' },
 	choice: { exportId: 'dreamcli:SelectChoice' },
@@ -73,6 +74,12 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		prompt: { exportId: 'dreamcli:FlagSchema', property: 'prompt' },
 		deprecated: { exportId: 'dreamcli:FlagSchema', property: 'deprecated' },
 		propagate: { exportId: 'dreamcli:FlagSchema', property: 'propagate' },
+		negation: { exportId: 'dreamcli:FlagSchema', property: 'negation' },
+		duplicates: { exportId: 'dreamcli:DuplicatePolicy' },
+	},
+	negation: {
+		alias: { exportId: 'dreamcli:FlagNegation', property: 'alias' },
+		hidden: { exportId: 'dreamcli:FlagNegation', property: 'hidden' },
 	},
 	arg: {
 		name: { exportId: 'dreamcli:CommandArgEntry' },

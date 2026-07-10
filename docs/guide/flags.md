@@ -324,8 +324,8 @@ places at once:
 - on the command line as `--name`;
 - as the key on the `flags` object inside your handler.
 
-No case conversion happens — the name you declare is the name you read. Single-word names are
-valid identifiers, so dot access works (`flags.region`). Hyphenated names are not valid
+The name you declare is the name you read — handler keys are never case-converted. Single-word
+names are valid identifiers, so dot access works (`flags.region`). Hyphenated names are not valid
 identifiers, so read them with bracket access (`flags['node-ipc']`).
 
 ```ts twoslash
@@ -346,7 +346,39 @@ command('serve')
 
 Reach for a hyphenated name when you want the conventional CLI spelling (`--node-ipc`,
 `--dry-run`); reach for a single-word or camelCase name (`--nodeIpc`) when ergonomic dot access
-matters more.
+matters more. Either way users can type both spellings — see
+[Spelling parity](#spelling-parity-kebab-camel) below.
+
+### Spelling Parity (kebab ↔ camel) {#spelling-parity-kebab-camel}
+
+On the command line, every flag name and long alias also accepts its kebab↔camel counterpart:
+a flag named `dry-run` matches both `--dry-run` and `--dryRun`, and a flag named `dryRun`
+matches both spellings too. The handler key is always the canonical name — parity is purely
+CLI-token sugar, and help, completions, and "did you mean" suggestions advertise only the
+declared spelling.
+
+Two escape hatches:
+
+- **Per pair, automatic** — if a command explicitly defines *both* spellings as separate flags
+  (`do-this` and `doThis`), parity is disabled for that pair and each spelling matches only its
+  own flag.
+- **Globally** — pass `flags: { caseParity: false }` to the `cli()` factory (or to
+  `cmd.run()` / `.execute()` options) to accept declared spellings only:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('mycli', { flags: { caseParity: false } })
+  .command(
+    command('build')
+      .flag('dry-run', flag.boolean())
+      .action(() => {}),
+  );
+// $ mycli build --dry-run   → ok
+// $ mycli build --dryRun    → Unknown flag --dryRun
+```
+
+Parity is not case-insensitivity: `--DRY-RUN` never matches.
 
 ### Aliases Are CLI Tokens, Not Handler Keys
 
@@ -395,6 +427,79 @@ flag
   // inherit in subcommands
   .propagate();
 ```
+
+## Negatable Booleans
+
+`.negatable()` gives a boolean flag a negated spelling that sets it to `false` — the classic
+`--sandbox` / `--no-sandbox` pair as **one logical flag**:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('build')
+  .flag(
+    'sandbox',
+    flag.boolean().default(true).negatable().describe('Run the build sandboxed'),
+  )
+  .action(({ flags, out }) => {
+    if (!flags.sandbox) out.warn('sandbox disabled');
+  });
+// $ mycli build                → sandbox = true  (default)
+// $ mycli build --sandbox      → sandbox = true
+// $ mycli build --no-sandbox   → sandbox = false
+```
+
+Semantics:
+
+- Both spellings are the same flag: the **last CLI occurrence wins** across them, and they share
+  the flag's [duplicate policy](#duplicate-policy).
+- The negated spelling is presence-only — `--no-sandbox=true` is an error. Explicit values stay
+  on the positive spelling (`--sandbox=false`).
+- Help renders the pair as one entry: `--[no-]sandbox`.
+- Only CLI tokens are affected; env, config, prompt, and default resolution are unchanged.
+
+Customize the spelling with `alias` (rendered as its own form) or keep it parseable but
+unadvertised with `hidden`:
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+flag.boolean().negatable({ alias: 'plain' }); // --color / --plain
+flag.boolean().negatable({ hidden: true }); // --no-… parses, help shows only the positive form
+```
+
+The negated spelling participates in schema-time collision validation — defining `no-sandbox` as
+its own flag next to a negatable `sandbox` is an error.
+
+## Duplicate Policy {#duplicate-policy}
+
+By default, repeating a singleton flag on the command line is last-write-wins
+(`--region us --region eu` → `'eu'`). For flags that are configuration knobs rather than
+mergeable inputs, `.duplicates()` makes repeats explicit:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('run')
+  .flag('spawn', flag.enum(['session', 'same-dir', 'worktree']).duplicates('error'))
+  .flag('capacity', flag.number().duplicates('first'))
+  .action(() => {});
+// $ mycli run --spawn session --spawn worktree
+// #   → Error: Flag --spawn may only be specified once   (code: DUPLICATE_FLAG)
+// $ mycli run --capacity 2 --capacity 9   → capacity = 2 (first wins)
+```
+
+- `'last'` — last occurrence wins (default, historic behavior).
+- `'first'` — first occurrence wins; later occurrences still consume their value token, they just
+  don't overwrite.
+- `'error'` — a second occurrence throws a `ParseError` with code `DUPLICATE_FLAG` and
+  `details: { flag, count, values }`.
+
+Occurrences are counted per **logical flag** — aliases, negated spellings, and
+[parity spellings](#spelling-parity-kebab-camel) all count toward the same flag. Only CLI tokens
+count: a flag set both on the CLI and via env/config follows the normal precedence chain and is
+never a duplicate. `.duplicates()` is unavailable on `array`, `count`, and `keyValue` flags,
+which inherently accumulate.
 
 ## Resolution Chain
 

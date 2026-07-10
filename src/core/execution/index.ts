@@ -101,7 +101,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			out,
 		});
 
-		const parsed = parse(schema, argv);
+		const parsed = parse(schema, argv, options?.flags);
 
 		const effectivePrompter =
 			options?.prompter ??

@@ -242,6 +242,8 @@ function completionsFlagSchema(shells: readonly string[]): FlagSchema {
 		parseFn: undefined,
 		deprecated: undefined,
 		propagate: false,
+		negation: undefined,
+		duplicates: 'last',
 	};
 }
 
