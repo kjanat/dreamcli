@@ -43,7 +43,7 @@ type WidenContext<C extends Record<string, unknown>, Output extends Record<strin
 /**
  * Widen the context type when adding command-scoped derived context.
  *
- * Validation-only derive handlers return `undefined`, preserving `C`.
+ * Validation-only derive handlers return `undefined` (or nothing), preserving `C`.
  * Context-producing derive handlers return an object that merges into `C`
  * using the same first-call replacement rules as middleware.
  */
@@ -395,16 +395,17 @@ type DeriveParams<
  *
  * Derive handlers may:
  * - validate resolved input and throw {@linkcode CLIError}
- * - return `undefined` to continue without changing context
+ * - return nothing (or `undefined`) to continue without changing context
  * - return an object whose properties merge into `ctx` downstream
  *
+ * Handlers may be async; the resolved value follows the same rules.
  * They cannot wrap downstream execution; use {@linkcode middleware} for that.
  */
 type DeriveHandler<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
-	Output extends Record<string, unknown> | undefined = undefined,
+	Output extends Record<string, unknown> | undefined | void = undefined,
 > = (params: DeriveParams<F, A, C>) => Output | Promise<Output>;
 
 /**
@@ -937,8 +938,10 @@ class CommandBuilder<
 	 * Derive runs after full resolution and before the action handler.
 	 * It receives typed `{ args, flags, ctx, out, meta }` and may either:
 	 *
-	 * - return `undefined` for validation-only behavior
+	 * - return nothing (or `undefined`) for validation-only behavior
 	 * - return an object to merge additional properties into `ctx`
+	 *
+	 * Handlers may be async — the runtime awaits them before continuing.
 	 *
 	 * Unlike middleware, derive cannot wrap downstream execution and does not
 	 * use `next()`. Use {@linkcode middleware} for timing, logging, retries, cleanup,
@@ -968,7 +971,7 @@ class CommandBuilder<
 	 * @param handler - Derive function receiving typed args/flags/ctx.
 	 * @returns The builder (for chaining).
 	 */
-	derive<Output extends Record<string, unknown> | undefined>(
+	derive<Output extends Record<string, unknown> | undefined | void>(
 		handler: DeriveHandler<F, A, C, Output>,
 	): CommandBuilder<F, A, WidenDerivedContext<C, Output>> {
 		const erased = handler as unknown as ErasedDeriveHandler;

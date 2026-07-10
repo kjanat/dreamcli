@@ -24,6 +24,31 @@ describe('CommandBuilder.derive()', () => {
 				});
 		});
 
+		it('no-return derive preserves ctx type', () => {
+			command('deploy')
+				.flag('token', flag.string())
+				.derive(({ flags }) => {
+					if (flags.token === undefined)
+						throw new CLIError('missing token', { code: 'AUTH_REQUIRED' });
+				})
+				.action(({ ctx }) => {
+					expectTypeOf(ctx).toEqualTypeOf<Readonly<Record<string, never>>>();
+				});
+		});
+
+		it('async no-return derive preserves ctx type', () => {
+			command('deploy')
+				.flag('token', flag.string())
+				.derive(async ({ flags }) => {
+					await Promise.resolve();
+					if (flags.token === undefined)
+						throw new CLIError('missing token', { code: 'AUTH_REQUIRED' });
+				})
+				.action(({ ctx }) => {
+					expectTypeOf(ctx).toEqualTypeOf<Readonly<Record<string, never>>>();
+				});
+		});
+
 		it('context-returning derive widens ctx', () => {
 			command('deploy')
 				.flag('token', flag.string().required())
@@ -124,6 +149,29 @@ describe('CommandBuilder.derive()', () => {
 						});
 					}
 					return undefined;
+				})
+				.action(({ ctx }) => {
+					receivedCtx = ctx;
+				});
+
+			const result = await runCommand(cmd, ['--token', 'ghp_valid']);
+			expect(result.exitCode).toBe(0);
+			expect(receivedCtx).toEqual({});
+		});
+
+		it('supports async validation-only derive handlers without a return', async () => {
+			let receivedCtx: unknown;
+
+			const cmd = command('deploy')
+				.flag('token', flag.string().required())
+				.derive(async ({ flags }) => {
+					await Promise.resolve();
+					if (!flags.token.startsWith('ghp_')) {
+						throw new CLIError('Invalid token format', {
+							code: 'INVALID_VALUE',
+							exitCode: 2,
+						});
+					}
 				})
 				.action(({ ctx }) => {
 					receivedCtx = ctx;
