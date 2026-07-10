@@ -406,8 +406,8 @@ type DeriveHandler<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
-	Output extends Record<string, unknown> | undefined | void = undefined,
-> = (params: DeriveParams<F, A, C>) => Output | Promise<Output>;
+	Output extends Record<string, unknown> | undefined = undefined,
+> = (params: DeriveParams<F, A, C>) => Output | Promise<Output> | void | Promise<void>;
 
 /**
  * Type-erased derive handler stored on the command builder.
@@ -986,7 +986,7 @@ class CommandBuilder<
 	 * @param handler - Derive function receiving typed args/flags/ctx.
 	 * @returns The builder (for chaining).
 	 */
-	derive<Output extends Record<string, unknown> | undefined | void>(
+	derive<Output extends Record<string, unknown> | undefined = undefined>(
 		handler: DeriveHandler<F, A, C, Output>,
 	): CommandBuilder<F, A, WidenDerivedContext<C, Output>> {
 		const erased = handler as unknown as ErasedDeriveHandler;
