@@ -108,7 +108,7 @@ const definitionMetaSchemaDescriptions = {
 				},
 				duplicates: {
 					description:
-						"How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (default, matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.",
+						"How repeated CLI occurrences of a singleton flag combine.\nDefaults to `'last'`.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.",
 				},
 			},
 		},

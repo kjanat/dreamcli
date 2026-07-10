@@ -622,6 +622,5 @@ function formatExamplesSection(examples: readonly CommandExample[], theme: HelpT
 
 export { osc8, visibleWidth } from './ansi.ts';
 export type { HelpTheme, HelpThemeFactory } from './theme.ts';
-export { defaultHelpTheme, resolveHelpTheme } from './theme.ts';
 export type { FlagEntry, HelpOptions };
 export { formatFlagEntriesBlock, formatHelp, formatHelpSections };

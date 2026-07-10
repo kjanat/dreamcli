@@ -216,8 +216,9 @@ interface FlagNegation {
 
 /**
  * How repeated CLI occurrences of a singleton flag combine.
+ * Defaults to `'last'`.
  *
- * - `'last'`  — last occurrence wins (default, matches historic behavior)
+ * - `'last'`  — last occurrence wins (matches historic behavior)
  * - `'first'` — first occurrence wins; later ones parse but are ignored
  * - `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)
  *
