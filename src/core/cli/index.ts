@@ -28,6 +28,7 @@ import {
 	createCaptureOutput,
 	createOutput,
 } from '#internals/core/output/index.ts';
+import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -283,27 +284,13 @@ interface CLISchema {
 	 */
 	readonly helpConfig: HelpConfig | undefined;
 	/**
-	 * Flag-parsing behavior settings.
+	 * Flag-parsing behavior settings ({@link ParseOptions}).
 	 *
 	 * Set via the `cli(name, { flags })` / `cli({ flags })` factory forms.
 	 */
-	readonly flagSettings: FlagSettings | undefined;
+	readonly flagSettings: ParseOptions | undefined;
 	/** Registered CLI plugins. */
 	readonly plugins: readonly CLIPlugin[];
-}
-
-/**
- * Flag-parsing behavior settings, set via the {@linkcode cli} factory.
- */
-interface FlagSettings {
-	/**
-	 * Accept the kebab↔camel counterpart spelling of each flag name/alias
-	 * (`--doThis` for a flag named `do-this`, and vice versa). Automatically
-	 * disabled per spelling pair when a command explicitly defines both.
-	 *
-	 * @defaultValue `true`
-	 */
-	readonly caseParity?: boolean;
 }
 
 /**
@@ -1169,8 +1156,12 @@ class CLIBuilder {
 			isTTY: out.isTTY,
 			verbosity: options?.verbosity ?? 'normal',
 		};
+		// The planner scans flag arity during dispatch, so it must see the same
+		// merged flag settings (runtime override wins) that command parsing uses.
+		const planSchema =
+			options?.flags !== undefined ? { ...this.schema, flagSettings } : this.schema;
 		const planned = planInvocation({
-			schema: this.schema,
+			schema: planSchema,
 			argv,
 			help: helpOptions,
 			output,
@@ -1642,9 +1633,10 @@ interface CLIOptions {
 
 	/**
 	 * Flag-parsing behavior settings (e.g. `{ caseParity: false }` to accept
-	 * only declared flag spellings).
+	 * only declared flag spellings). Shares the {@link ParseOptions} contract
+	 * used by `parse()` and `RunOptions.flags`.
 	 */
-	readonly flags?: FlagSettings;
+	readonly flags?: ParseOptions;
 }
 
 /**

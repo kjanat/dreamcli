@@ -17,6 +17,7 @@ import { discoverManifest, inferCliName } from '#internals/core/config/package-j
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
+import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
@@ -102,7 +103,7 @@ interface RuntimePreflightSchemaLike {
 		  }
 		| undefined;
 	/** Flag-parsing behavior settings (e.g. case parity). */
-	readonly flagSettings: { readonly caseParity?: boolean } | undefined;
+	readonly flagSettings: ParseOptions | undefined;
 	/** Plugins forwarded into the execution pipeline. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -254,7 +255,7 @@ function extractConfigFlag(argv: readonly string[]): {
 function commandInvocationNeedsStdin(
 	schema: CommandSchema,
 	argv: readonly string[],
-	flagSettings?: { readonly caseParity?: boolean },
+	flagSettings?: ParseOptions,
 ): boolean {
 	if (argv.includes('--help') || argv.includes('-h')) {
 		return false;

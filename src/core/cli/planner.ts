@@ -52,7 +52,7 @@ interface PlannerSchemaLike {
 		| { readonly shells: readonly Shell[]; readonly options: CompletionOptions | undefined }
 		| undefined;
 	/** Flag-parsing behavior settings (case parity) applied to flag lookups. */
-	readonly flagSettings?: { readonly caseParity?: boolean } | undefined;
+	readonly flagSettings?: ParseOptions | undefined;
 	/** Plugins forwarded into every matched execution plan. */
 	readonly plugins: readonly CLIPlugin[];
 }

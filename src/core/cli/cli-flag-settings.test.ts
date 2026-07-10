@@ -43,6 +43,25 @@ describe('cli(name, { flags })', () => {
 		expect(result.exitCode).toBe(0);
 		expect(seen()).toBe(true);
 	});
+
+	it('the planner sees the runtime override during dispatch arity scanning', async () => {
+		// A parity spelling of a value flag whose value collides with a
+		// subcommand name: the planner must skip 'status' as the flag's value
+		// (needs the runtime parity setting), not dispatch to the subcommand.
+		let seen: string | undefined;
+		const app = cli('mycli', { flags: { caseParity: false } })
+			.command(command('status').action(() => {}))
+			.default(
+				command('serve')
+					.flag('log-level', flag.string())
+					.action(({ flags }) => {
+						seen = flags['log-level'];
+					}),
+			);
+		const result = await app.execute(['--logLevel', 'status'], { flags: { caseParity: true } });
+		expect(result.exitCode).toBe(0);
+		expect(seen).toBe('status');
+	});
 });
 
 describe('negatable help rendering', () => {

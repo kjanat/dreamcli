@@ -98,7 +98,7 @@ export {
 } from './core/json-schema/index.ts';
 export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.ts';
 export { createOutput } from './core/output/index.ts';
-export type { ParseResult, Token } from './core/parse/index.ts';
+export type { ParseOptions, ParseResult, Token } from './core/parse/index.ts';
 export { parse, tokenize } from './core/parse/index.ts';
 export type {
 	PromptEngine,
@@ -189,6 +189,7 @@ export {
 	createSchema,
 	FlagBuilder,
 	flag,
+	getFlagNegatedName,
 	group,
 	middleware,
 } from './core/schema/index.ts';
