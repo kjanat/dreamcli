@@ -12,6 +12,9 @@ import type { CLIPlugin } from '#internals/core/cli/plugin.ts';
 import type { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
+// Type-only: erased at compile time, so the parse → schema module edge does
+// not become a runtime import cycle.
+import type { ParseOptions } from '#internals/core/parse/index.ts';
 import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
 import type { ActivityEvent } from './activity.ts';
 import type { CommandMeta, CommandSchema, Out } from './command.ts';
@@ -131,6 +134,17 @@ export interface RunOptions {
 	 * Used when `--help` is detected.
 	 */
 	readonly help?: HelpOptions;
+
+	/**
+	 * Flag-parsing behavior settings.
+	 *
+	 * `caseParity` accepts the kebab↔camel counterpart spelling of each flag
+	 * name/alias (`--doThis` for `do-this`, and vice versa). The CLI layer
+	 * threads `cli(name, { flags })` settings here automatically.
+	 *
+	 * @defaultValue `{ caseParity: true }`
+	 */
+	readonly flags?: ParseOptions;
 
 	/**
 	 * Command schema with propagated flags merged in.

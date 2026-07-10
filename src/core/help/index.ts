@@ -8,6 +8,7 @@
  * @module dreamcli/core/help
  */
 
+import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
@@ -17,7 +18,9 @@ import type {
 	CommandSchema,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
-import { padEnd, wrapText } from './ansi.ts';
+import { padEnd, visibleWidth, wrapText } from './ansi.ts';
+import type { HelpTheme, HelpThemeFactory } from './theme.ts';
+import { resolveHelpTheme } from './theme.ts';
 
 // --- Configuration
 
@@ -61,6 +64,23 @@ interface HelpOptions {
 	readonly footer?: boolean;
 	/** @internal Whether this usage line is being rendered as merged root/default help. */
 	readonly isDefaultHelp?: boolean;
+	/**
+	 * Gated ANSI palette used to style help output. Identity formatters mean
+	 * plain text. `CLIBuilder.execute()`/`.run()` thread the output channel's
+	 * `out.color` here automatically, so styling follows the same policy as
+	 * handler output (TTY + color support, no `--json`, `NO_COLOR` honored).
+	 *
+	 * @defaultValue `undefined` (plain text)
+	 */
+	readonly colors?: Colors;
+	/**
+	 * Theme overrides merged over the built-in help theme. Receives the gated
+	 * palette; never invoked when color is off, so overrides cannot leak
+	 * escapes into piped output.
+	 *
+	 * @defaultValue `undefined` (built-in theme)
+	 */
+	readonly theme?: HelpThemeFactory;
 }
 
 /** Resolved help options with defaults applied. */
@@ -68,6 +88,7 @@ interface ResolvedHelpOptions {
 	readonly width: number;
 	readonly binName: string | undefined;
 	readonly isDefaultHelp: boolean;
+	readonly theme: HelpTheme;
 }
 
 const DEFAULT_WIDTH = 80;
@@ -83,6 +104,7 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		width: options?.width ?? DEFAULT_WIDTH,
 		binName: options?.binName,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
+		theme: resolveHelpTheme(options?.colors, options?.theme),
 	};
 }
 
@@ -118,23 +140,32 @@ interface FlagEntry {
  *
  * @param name - Long flag name (without `--` prefix).
  * @param schema - The {@link FlagSchema} describing the flag.
+ * @param theme - Theme applied to the flag forms and value hint.
  * @returns Formatted left-column string for the flags table.
  */
-function formatFlagLeft(name: string, schema: FlagSchema): string {
+function formatFlagLeft(name: string, schema: FlagSchema, theme: HelpTheme): string {
 	const visibleShortAliases = getFlagAliasNames(schema, { kind: 'short' });
 	const visibleLongAliases = getFlagAliasNames(schema, { kind: 'long' });
+	// Negatable booleans render as one logical flag: `--[no-]foo` when the
+	// negated spelling is the synthesized default, or an extra `--no-custom`
+	// form when a custom alias was set. Hidden negations render nothing.
+	const negation =
+		schema.negation !== undefined && !schema.negation.hidden ? schema.negation : undefined;
+	const canonicalForm =
+		negation !== undefined && negation.alias === undefined ? `--[no-]${name}` : `--${name}`;
 	const forms = [
 		...visibleShortAliases.map((alias) => `-${alias}`),
-		`--${name}`,
+		canonicalForm,
 		...visibleLongAliases.map((alias) => `--${alias}`),
+		...(negation?.alias !== undefined ? [`--${negation.alias}`] : []),
 	];
 
 	// Value placeholder (skip for kinds that take no value)
 	if (schema.kind !== 'boolean' && schema.kind !== 'count') {
-		return `${forms.join(', ')} ${formatValueHint(schema)}`;
+		return `${theme.flag(forms.join(', '))} ${theme.placeholder(formatValueHint(schema))}`;
 	}
 
-	return forms.join(', ');
+	return theme.flag(forms.join(', '));
 }
 
 /**
@@ -180,9 +211,10 @@ function formatValueHint(schema: FlagSchema): string {
  * Build description with env/config/prompt/default/required/deprecated annotations.
  *
  * @param schema - The {@link FlagSchema} to describe.
+ * @param theme - Theme applied to the metadata annotations (description stays plain).
  * @returns Concatenated description string with metadata annotations.
  */
-function formatFlagDescription(schema: FlagSchema): string {
+function formatFlagDescription(schema: FlagSchema, theme: HelpTheme): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
@@ -191,22 +223,22 @@ function formatFlagDescription(schema: FlagSchema): string {
 
 	// Deprecation annotation — prominent, before other metadata
 	if (schema.deprecated !== undefined) {
-		parts.push(formatDeprecated(schema.deprecated));
+		parts.push(theme.deprecated(formatDeprecated(schema.deprecated)));
 	}
 
 	// Resolution source annotations — show users where values can come from
 	if (schema.envVar !== undefined) {
-		parts.push(`[env: ${schema.envVar}]`);
+		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
 	}
 	if (schema.configPath !== undefined) {
-		parts.push(`[config: ${schema.configPath}]`);
+		parts.push(theme.annotation(`[config: ${schema.configPath}]`));
 	}
 	if (schema.prompt !== undefined) {
-		parts.push('[prompt]');
+		parts.push(theme.annotation('[prompt]'));
 	}
 
 	if (schema.presence === 'required') {
-		parts.push('[required]');
+		parts.push(theme.annotation('[required]'));
 	} else if (
 		schema.presence === 'defaulted' &&
 		schema.kind !== 'boolean' &&
@@ -214,7 +246,7 @@ function formatFlagDescription(schema: FlagSchema): string {
 	) {
 		// Don't show "(default: false)" for boolean or "(default: 0)" for
 		// count — both are obvious
-		parts.push(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
+		parts.push(theme.defaultValue(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`));
 	}
 
 	return parts.join(' ');
@@ -224,9 +256,13 @@ function formatFlagDescription(schema: FlagSchema): string {
  * Build the flag entries sorted: short-aliased first, then alphabetical.
  *
  * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @param theme - Theme threaded into the per-flag formatters.
  * @returns Sorted array of {@link FlagEntry} objects for the flags table.
  */
-function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly FlagEntry[] {
+function buildFlagEntries(
+	flags: Readonly<Record<string, FlagSchema>>,
+	theme: HelpTheme,
+): readonly FlagEntry[] {
 	const names = Object.keys(flags);
 	if (names.length === 0) return [];
 
@@ -247,8 +283,8 @@ function buildFlagEntries(flags: Readonly<Record<string, FlagSchema>>): readonly
 		const schema = flags[name];
 		if (schema === undefined) continue;
 		entries.push({
-			left: formatFlagLeft(name, schema),
-			description: formatFlagDescription(schema),
+			left: formatFlagLeft(name, schema, theme),
+			description: formatFlagDescription(schema, theme),
 		});
 	}
 	return entries;
@@ -277,9 +313,10 @@ function formatArgUsage(entry: CommandArgEntry): string {
  * Format arg description with annotations.
  *
  * @param schema - The {@link ArgSchema} to describe.
+ * @param theme - Theme applied to the metadata annotations (description stays plain).
  * @returns Concatenated description string with metadata annotations.
  */
-function formatArgDescription(schema: ArgSchema): string {
+function formatArgDescription(schema: ArgSchema, theme: HelpTheme): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
@@ -287,15 +324,15 @@ function formatArgDescription(schema: ArgSchema): string {
 	}
 
 	if (schema.deprecated !== undefined) {
-		parts.push(formatDeprecated(schema.deprecated));
+		parts.push(theme.deprecated(formatDeprecated(schema.deprecated)));
 	}
 
 	if (schema.envVar !== undefined) {
-		parts.push(`[env: ${schema.envVar}]`);
+		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
 	}
 
 	if (schema.presence === 'defaulted') {
-		parts.push(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
+		parts.push(theme.defaultValue(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`));
 	}
 
 	return parts.join(' ');
@@ -342,7 +379,7 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 
 	// ---- Examples -----------------------------------------------------------
 	if (schema.examples.length > 0) {
-		sections.push(formatExamplesSection(schema.examples));
+		sections.push(formatExamplesSection(schema.examples, opts.theme));
 	}
 
 	return sections;
@@ -387,7 +424,8 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
  * @returns Single-line usage string, e.g. `Usage: mycli deploy [flags] <env>`.
  */
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
-	const parts: string[] = ['Usage:'];
+	const { theme } = opts;
+	const parts: string[] = [theme.sectionTitle('Usage:')];
 	// For the default command rendered as the root surface (`isDefaultHelp`), the
 	// command name is NOT a route — `.default()` does not register a named command,
 	// so `mycli <name>` would be consumed as the default's first positional, not a
@@ -398,22 +436,22 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 			: opts.isDefaultHelp
 				? opts.binName
 				: `${opts.binName} ${schema.name}`;
-	parts.push(cmdName);
+	parts.push(theme.usageBin(cmdName));
 
 	// Subcommand placeholder — groups show <command> before flags/args
 	if (schema.commands.length > 0) {
-		parts.push('<command>');
+		parts.push(theme.placeholder('<command>'));
 	}
 
 	// Flags placeholder
 	const flagNames = Object.keys(schema.flags);
 	if (flagNames.length > 0) {
-		parts.push('[flags]');
+		parts.push(theme.placeholder('[flags]'));
 	}
 
 	// Positional args
 	for (const entry of schema.args) {
-		parts.push(formatArgUsage(entry));
+		parts.push(theme.arg(formatArgUsage(entry)));
 	}
 
 	return parts.join(' ');
@@ -427,17 +465,19 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
  * @returns Multi-line arguments section string.
  */
 function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpOptions): string {
-	const lines: string[] = ['Arguments:'];
+	const { theme } = opts;
+	const lines: string[] = [theme.sectionTitle('Arguments:')];
 	const GAP = 2;
 
-	// Compute max left width
+	// Compute max left width (visible columns — the left column may carry SGR escapes)
 	let maxLeft = 0;
 	const entries: Array<{ left: string; desc: string }> = [];
 	for (const entry of args) {
-		const left = `  ${formatArgUsage(entry)}`;
-		const desc = formatArgDescription(entry.schema);
+		const left = `  ${theme.arg(formatArgUsage(entry))}`;
+		const desc = formatArgDescription(entry.schema, theme);
 		entries.push({ left, desc });
-		if (left.length > maxLeft) maxLeft = left.length;
+		const leftWidth = visibleWidth(left);
+		if (leftWidth > maxLeft) maxLeft = leftWidth;
 	}
 
 	const descCol = maxLeft + GAP;
@@ -465,7 +505,11 @@ function formatFlagsSection(
 	flags: Readonly<Record<string, FlagSchema>>,
 	opts: ResolvedHelpOptions,
 ): string {
-	return formatFlagEntriesBlock('Flags:', buildFlagEntries(flags), opts.width);
+	return formatFlagEntriesBlock(
+		opts.theme.sectionTitle('Flags:'),
+		buildFlagEntries(flags, opts.theme),
+		opts.width,
+	);
 }
 
 /**
@@ -475,7 +519,7 @@ function formatFlagsSection(
  * block (built-in flags), so column alignment and description wrapping stay
  * identical across both. Returns `''` when there are no entries.
  *
- * @param title - Section heading (e.g. `'Flags:'`, `'Global options:'`).
+ * @param title - Section heading (e.g. `'Flags:'`, `'Global options:'`), pre-styled by the caller.
  * @param entries - Formatted left/description rows.
  * @param width - Terminal width for description wrapping.
  * @returns Multi-line block string, or `''` when `entries` is empty.
@@ -490,10 +534,11 @@ function formatFlagEntriesBlock(
 	const lines: string[] = [title];
 	const GAP = 2;
 
+	// Visible columns — left columns may carry SGR escapes when themed.
 	let maxLeft = 0;
 	for (const entry of entries) {
-		const indented = `  ${entry.left}`;
-		if (indented.length > maxLeft) maxLeft = indented.length;
+		const indentedWidth = visibleWidth(entry.left) + 2;
+		if (indentedWidth > maxLeft) maxLeft = indentedWidth;
 	}
 
 	const descCol = maxLeft + GAP;
@@ -522,10 +567,11 @@ function formatCommandsSection(
 	commands: readonly CommandSchema[],
 	opts: ResolvedHelpOptions,
 ): string {
-	const lines: string[] = ['Commands:'];
+	const { theme } = opts;
+	const lines: string[] = [theme.sectionTitle('Commands:')];
 	const GAP = 2;
 
-	// Compute max name length for alignment
+	// Compute max name length for alignment (plain names — styling happens at emit)
 	let maxNameLen = 0;
 	for (const cmd of commands) {
 		if (cmd.name.length > maxNameLen) {
@@ -535,7 +581,7 @@ function formatCommandsSection(
 
 	const descCol = 2 + maxNameLen + GAP; // 2 for indent
 	for (const cmd of commands) {
-		const left = `  ${cmd.name}`;
+		const left = `  ${theme.command(cmd.name)}`;
 		const desc = cmd.description ?? '';
 		if (desc.length === 0) {
 			lines.push(left);
@@ -553,17 +599,19 @@ function formatCommandsSection(
  * Render the `Examples:` help section.
  *
  * @param examples - Array of {@link CommandExample} entries.
+ * @param theme - Theme applied to the section title and `$` prompt marker.
  * @returns Multi-line examples section string.
  */
-function formatExamplesSection(examples: readonly CommandExample[]): string {
-	const lines: string[] = ['Examples:'];
+function formatExamplesSection(examples: readonly CommandExample[], theme: HelpTheme): string {
+	const lines: string[] = [theme.sectionTitle('Examples:')];
+	const prompt = theme.examplePrompt('$');
 
 	for (const example of examples) {
 		if (example.description !== undefined) {
 			lines.push(`  ${example.description}:`);
-			lines.push(`    $ ${example.command}`);
+			lines.push(`    ${prompt} ${example.command}`);
 		} else {
-			lines.push(`  $ ${example.command}`);
+			lines.push(`  ${prompt} ${example.command}`);
 		}
 	}
 
@@ -573,5 +621,6 @@ function formatExamplesSection(examples: readonly CommandExample[]): string {
 // --- Exports
 
 export { osc8, visibleWidth } from './ansi.ts';
+export type { HelpTheme, HelpThemeFactory } from './theme.ts';
 export type { FlagEntry, HelpOptions };
 export { formatFlagEntriesBlock, formatHelp, formatHelpSections };

@@ -11,6 +11,7 @@
 
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
+import { getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
@@ -191,6 +192,8 @@ function createSyntheticRootFlag(description: string): FlagSchema {
 		parseFn: undefined,
 		deprecated: undefined,
 		propagate: false,
+		negation: undefined,
+		duplicates: 'last',
 	};
 }
 
@@ -258,6 +261,23 @@ function walkCommandTree(
 	return nodes;
 }
 
+// --- Negation — shared visibility filter
+
+/**
+ * Effective negated long-form spelling for user-facing suggestion lists.
+ *
+ * Returns the negated spelling without the `--` prefix (e.g. `no-verbose`)
+ * when the flag is negatable and the negation is not hidden; `undefined`
+ * otherwise. Negated spellings are long-only and take no value, so they only
+ * belong in suggestion lists — never in value-flag (operand-skip) patterns.
+ *
+ * @internal
+ */
+function getVisibleNegatedName(name: string, schema: FlagSchema): string | undefined {
+	if (schema.negation === undefined || schema.negation.hidden) return undefined;
+	return getFlagNegatedName(name, schema);
+}
+
 // --- Shell escaping utilities
 
 /**
@@ -307,6 +327,7 @@ function quoteShellArg(value: string): string {
 
 export type { CommandNode, CompletionOptions, RootCompletionSurface };
 export {
+	getVisibleNegatedName,
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,

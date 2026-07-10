@@ -238,6 +238,19 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
 	if (schema.propagate) {
 		result.propagate = true;
 	}
+	if (schema.negation !== undefined) {
+		const negation: Record<string, unknown> = {};
+		if (schema.negation.alias !== undefined) {
+			negation.alias = schema.negation.alias;
+		}
+		if (schema.negation.hidden) {
+			negation.hidden = true;
+		}
+		result.negation = negation;
+	}
+	if (schema.duplicates !== 'last') {
+		result.duplicates = schema.duplicates;
+	}
 
 	return result;
 }
@@ -892,7 +905,13 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			elementSchema?: @flag;
 			prompt?: @prompt;
 			deprecated?: string | true;
-			propagate?: true
+			propagate?: true;
+			negation?: @negation;
+			duplicates?: 'last' | 'first' | 'error'
+		}`),
+			negation: def(`{
+			alias?: string;
+			hidden?: true
 		}`),
 			arg: def(`{
 			name: string;

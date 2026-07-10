@@ -106,6 +106,7 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 		hasBuiltInCompletions: overrides.hasBuiltInCompletions ?? false,
 		completionsFlag: undefined,
 		helpConfig: undefined,
+		flagSettings: undefined,
 		plugins: overrides.plugins ?? [],
 	};
 }
@@ -519,6 +520,54 @@ describe('generateBashCompletion', () => {
 			expect(script).toContain('--skip-pass');
 			expect(script).toContain('-x');
 			expect(script).not.toContain('--skipPass');
+		});
+
+		it('includes visible negated spellings for negatable flags', () => {
+			const schema = minimalSchema({
+				commands: [
+					erased(
+						commandSchema({
+							name: 'deploy',
+							flags: {
+								sandbox: flagSchema({
+									kind: 'boolean',
+									negation: { alias: undefined, hidden: false },
+								}),
+								color: flagSchema({
+									kind: 'boolean',
+									negation: { alias: 'monochrome', hidden: false },
+								}),
+							},
+						}),
+					),
+				],
+			});
+			const script = generateBashCompletion(schema);
+
+			expect(script).toContain('--no-sandbox');
+			expect(script).toContain('--monochrome');
+		});
+
+		it('excludes hidden negated spellings from bash completion candidates', () => {
+			const schema = minimalSchema({
+				commands: [
+					erased(
+						commandSchema({
+							name: 'deploy',
+							flags: {
+								telemetry: flagSchema({
+									kind: 'boolean',
+									negation: { alias: undefined, hidden: true },
+								}),
+							},
+						}),
+					),
+				],
+			});
+			const script = generateBashCompletion(schema);
+
+			expect(script).toContain('--telemetry');
+			expect(script).not.toContain('--no-telemetry');
 		});
 	});
 
@@ -1604,6 +1653,51 @@ describe('generateZshCompletion', () => {
 			expect(script).not.toContain('--legacySkipPass');
 		});
 
+		it('adds the visible negated spelling to the flag form group', () => {
+			const schema = minimalSchema({
+				commands: [
+					erased(
+						commandSchema({
+							name: 'deploy',
+							flags: {
+								force: flagSchema({
+									kind: 'boolean',
+									description: 'Force',
+									negation: { alias: undefined, hidden: false },
+								}),
+							},
+						}),
+					),
+				],
+			});
+			const script = generateZshCompletion(schema);
+
+			expect(script).toContain("(--force --no-force)'{--force,--no-force}'[Force]");
+		});
+
+		it('excludes hidden negated spellings from zsh flag specs', () => {
+			const schema = minimalSchema({
+				commands: [
+					erased(
+						commandSchema({
+							name: 'deploy',
+							flags: {
+								telemetry: flagSchema({
+									kind: 'boolean',
+									description: 'Telemetry',
+									negation: { alias: undefined, hidden: true },
+								}),
+							},
+						}),
+					),
+				],
+			});
+			const script = generateZshCompletion(schema);
+
+			expect(script).toContain('--telemetry[Telemetry]');
+			expect(script).not.toContain('--no-telemetry');
+		});
+
 		it('escapes quotes in flag spec names', () => {
 			const schema = minimalSchema({
 				commands: [
@@ -2436,6 +2530,55 @@ describe('generateFishCompletion — script structure', () => {
 		expect(runLines.join('\n')).toContain('-l config-path');
 		expect(runLines.join('\n')).not.toContain('-l configPath');
 	});
+
+	it('adds the visible negated spelling with the same description', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							sandbox: flagSchema({
+								kind: 'boolean',
+								description: 'Enable sandbox',
+								negation: { alias: undefined, hidden: false },
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateFishCompletion(schema);
+		const deployLines = extractFishCompletionLines(
+			script,
+			'__testcli_completions_path_is',
+			'deploy',
+		);
+
+		expect(deployLines.join('\n')).toContain("-l sandbox -l no-sandbox -d 'Enable sandbox'");
+	});
+
+	it('excludes hidden negated spellings from fish suggestions', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							telemetry: flagSchema({
+								kind: 'boolean',
+								negation: { alias: undefined, hidden: true },
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generateFishCompletion(schema);
+
+		expect(script).toContain('-l telemetry');
+		expect(script).not.toContain('-l no-telemetry');
+	});
 });
 
 // === generatePowerShellCompletion — script structure
@@ -2582,5 +2725,33 @@ describe('generatePowerShellCompletion — script structure', () => {
 		expect(script).toContain("Forms = @('--config-path')");
 		expect(script).toContain("ParseForms = @('--config-path', '--configPath')");
 		expect(script).not.toMatch(/^\s*Forms = @\('--config-path', '--configPath'\)$/m);
+	});
+
+	it('suggests visible negated spellings and keeps hidden ones parse-only', () => {
+		const schema = minimalSchema({
+			commands: [
+				erased(
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							sandbox: flagSchema({
+								kind: 'boolean',
+								negation: { alias: undefined, hidden: false },
+							}),
+							telemetry: flagSchema({
+								kind: 'boolean',
+								negation: { alias: undefined, hidden: true },
+							}),
+						},
+					}),
+				),
+			],
+		});
+		const script = generatePowerShellCompletion(schema);
+
+		expect(script).toContain("Forms = @('--sandbox', '--no-sandbox')");
+		expect(script).toContain("ParseForms = @('--sandbox', '--no-sandbox')");
+		expect(script).toContain("ParseForms = @('--telemetry', '--no-telemetry')");
+		expect(script).not.toMatch(/^\s*Forms = @\('--telemetry', '--no-telemetry'\)$/m);
 	});
 });

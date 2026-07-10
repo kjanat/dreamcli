@@ -17,6 +17,7 @@ export type ParseErrorCode =
 	| 'MISSING_VALUE'
 	| 'INVALID_VALUE'
 	| 'INVALID_SCHEMA'
+	| 'DUPLICATE_FLAG'
 	| 'UNEXPECTED_POSITIONAL';
 
 /** Codes emitted during post-parse validation / resolution. */

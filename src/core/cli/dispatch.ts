@@ -11,17 +11,17 @@
  */
 
 import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
+import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
-import type { FlagSchema } from '#internals/core/schema/flag.ts';
 
 /**
- * Flag lookup (name/alias → `[canonicalName, schema]`) used to make the
+ * Flag lookup (spelling → {@link FlagLookupEntry}) used to make the
  * command-name scan aware of value-flag arity. Built from the flags valid at
  * the current dispatch level via {@link buildFlagLookup}.
  *
  * @internal
  */
-type ValueFlagLookup = ReadonlyMap<string, readonly [name: string, schema: FlagSchema]>;
+type ValueFlagLookup = ReadonlyMap<string, FlagLookupEntry>;
 
 // --- Dispatch result types (discriminated union)
 
@@ -86,6 +86,8 @@ type DispatchResult = DispatchMatch | DispatchNeedsSubcommand | DispatchUnknown;
  * @param valueFlags - Lookup of flags valid at this level, used so a
  *   space-separated value-flag's value (`--region eu`) is not mistaken for a
  *   command name. Empty by default (arity-unaware, legacy behaviour).
+ * @param parseOptions - Parser toggles (case parity) applied to descent-level
+ *   flag lookups built inside dispatch.
  * @returns Discriminated dispatch result.
  *
  * @internal
@@ -95,6 +97,7 @@ function dispatch(
 	commands: ReadonlyMap<string, ErasedCommand>,
 	ancestorPath: readonly CommandSchema[] = [],
 	valueFlags: ValueFlagLookup = new Map(),
+	parseOptions?: ParseOptions,
 ): DispatchResult {
 	// Find first non-flag token (potential command name).
 	// Flags may appear before the command name (e.g. `--verbose db migrate`).
@@ -160,7 +163,8 @@ function dispatch(
 			remaining,
 			matched.subcommands,
 			currentPath,
-			buildFlagLookup(matched.schema.flags),
+			buildFlagLookup(matched.schema.flags, parseOptions),
+			parseOptions,
 		);
 
 		switch (subResult.kind) {
@@ -236,7 +240,7 @@ function consumesFollowingToken(token: string, valueFlags: ValueFlagLookup): boo
 	if (token.startsWith('--')) {
 		if (token.includes('=')) return false;
 		const entry = valueFlags.get(token.slice(2));
-		return entry !== undefined && flagExpectsValue(entry[1]);
+		return entry !== undefined && flagExpectsValue(entry.schema);
 	}
 
 	// Short flag group (`-abc`). A value attaches to the trailing flag only; an
@@ -245,7 +249,7 @@ function consumesFollowingToken(token: string, valueFlags: ValueFlagLookup): boo
 	for (let i = 0; i < chars.length; i++) {
 		const entry = valueFlags.get(chars.charAt(i));
 		if (entry === undefined) return false;
-		if (!flagExpectsValue(entry[1])) continue;
+		if (!flagExpectsValue(entry.schema)) continue;
 		return i === chars.length - 1;
 	}
 	return false;

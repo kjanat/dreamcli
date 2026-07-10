@@ -53,10 +53,12 @@ export { CommandBuilder, command, group } from './command.ts';
 export type {
 	ConfirmPromptConfig,
 	DateFlagOptions,
+	DuplicatePolicy,
 	FlagAlias,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagNegation,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
@@ -83,6 +85,7 @@ export {
 	FLAG_PRESENCES,
 	FlagBuilder,
 	flag,
+	getFlagNegatedName,
 	PROMPT_KINDS,
 } from './flag.ts';
 export type {

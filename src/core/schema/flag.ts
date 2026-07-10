@@ -197,6 +197,40 @@ interface FlagAlias {
 }
 
 /**
+ * Negation settings for a boolean flag (set by `.negatable()`).
+ *
+ * The negated spelling and the positive form are two spellings of ONE
+ * logical flag: they share duplicate policy, and the last CLI occurrence
+ * wins across both. The negated spelling is presence-only — `--no-foo=x`
+ * is rejected.
+ */
+interface FlagNegation {
+	/**
+	 * Explicit negated spelling without the `--` prefix (e.g. `'no-sandbox'`).
+	 * `undefined` synthesizes `no-<flagName>` wherever the flag name is known.
+	 */
+	readonly alias: string | undefined;
+	/** Hide the negated spelling from help, completions, and suggestions. */
+	readonly hidden: boolean;
+}
+
+/**
+ * How repeated CLI occurrences of a singleton flag combine.
+ *
+ * - `'last'`  — last occurrence wins (matches historic behavior)
+ * - `'first'` — first occurrence wins; later ones parse but are ignored
+ * - `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)
+ *
+ * Applies to CLI token occurrences only — env/config/prompt/default
+ * resolution keeps its precedence semantics and never raises duplicates.
+ * Occurrences are counted per *logical* flag: aliases and the negated
+ * spelling all count toward the same flag.
+ *
+ * @defaultValue `'last'`
+ */
+type DuplicatePolicy = 'last' | 'first' | 'error';
+
+/**
  * The runtime descriptor stored inside every {@linkcode FlagBuilder}. Consumers (parser,
  * help generator, resolution chain) read this to understand the flag's shape
  * without touching generics.
@@ -288,6 +322,17 @@ interface FlagSchema {
 	 * @defaultValue `false`
 	 */
 	readonly propagate: boolean;
+	/**
+	 * Negation settings when `kind === 'boolean'` and `.negatable()` was
+	 * called (`undefined` otherwise). See {@link FlagNegation}.
+	 */
+	readonly negation: FlagNegation | undefined;
+	/**
+	 * Duplicate policy for repeated CLI occurrences. See {@link DuplicatePolicy}.
+	 *
+	 * @defaultValue `'last'`
+	 */
+	readonly duplicates: DuplicatePolicy;
 }
 
 /**
@@ -355,6 +400,22 @@ function getFlagAliasNames(
 }
 
 /**
+ * Effective negated spelling for a flag, or `undefined` when not negatable.
+ *
+ * The builder cannot know its flag name, so a default (`no-<name>`) is
+ * synthesized here — everywhere the canonical name is known (parser, help,
+ * completions, collision validation).
+ *
+ * @param name - Canonical flag name.
+ * @param schema - Flag schema (read for {@link FlagNegation}).
+ * @returns The negated spelling without the `--` prefix.
+ */
+function getFlagNegatedName(name: string, schema: FlagSchema): string | undefined {
+	if (schema.negation === undefined) return undefined;
+	return schema.negation.alias ?? `no-${name}`;
+}
+
+/**
  * Create a raw {@link FlagSchema} object with sensible defaults.
  *
  * Most consumers should prefer the higher-level {@link flag} factory,
@@ -402,6 +463,8 @@ function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSche
 		parseFn: undefined,
 		deprecated: undefined,
 		propagate: false,
+		negation: undefined,
+		duplicates: 'last',
 		...rest,
 		aliases,
 	};
@@ -871,6 +934,67 @@ class FlagBuilder<C extends FlagConfig> {
 	 */
 	unique(this: FlagBuilder<C & { readonly flagKind: 'array' }>, value = true): FlagBuilder<C> {
 		return new FlagBuilder({ ...this.schema, unique: value });
+	}
+
+	// -- Boolean modifiers -----------------------------------------------------
+
+	/**
+	 * Accept a negated spelling (`--no-<name>`) that sets the flag to `false`.
+	 *
+	 * Both spellings are ONE logical flag: the last CLI occurrence wins across
+	 * them, and they share the duplicate policy. The negated spelling is
+	 * presence-only — `--no-<name>=true` is rejected. Help renders the flag as
+	 * `--[no-]<name>` (or lists a custom alias); env/config/prompt/default
+	 * resolution is unaffected.
+	 *
+	 * @param options - Optional custom spelling (`alias`, without `--`) and
+	 *   `hidden` to keep the negated spelling parseable but unadvertised.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.boolean().default(true).negatable()
+	 * // $ mycli build --no-sandbox → sandbox = false
+	 * // $ mycli build --sandbox    → sandbox = true
+	 * ```
+	 */
+	negatable(
+		this: FlagBuilder<C & { readonly flagKind: 'boolean' }>,
+		options?: { alias?: string; hidden?: boolean },
+	): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			negation: { alias: options?.alias, hidden: options?.hidden ?? false },
+		});
+	}
+
+	// -- Occurrence modifiers --------------------------------------------------
+
+	/**
+	 * Set how repeated CLI occurrences of this flag combine.
+	 *
+	 * Counted per logical flag — aliases and the negated spelling all count
+	 * toward the same flag. CLI tokens only: env/config/prompt/default
+	 * resolution keeps its precedence semantics. Not available on `array`,
+	 * `count`, or `keyValue` flags, which inherently accumulate.
+	 *
+	 * @param policy - `'last'` (default), `'first'`, or `'error'`.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.enum(['session', 'same-dir', 'worktree']).duplicates('error')
+	 * // $ mycli run --spawn session --spawn worktree
+	 * // #   → Error: Flag --spawn may only be specified once
+	 * ```
+	 */
+	duplicates(
+		this: FlagBuilder<
+			C & { readonly flagKind: 'boolean' | 'string' | 'number' | 'enum' | 'custom' }
+		>,
+		policy: DuplicatePolicy,
+	): FlagBuilder<C> {
+		return new FlagBuilder({ ...this.schema, duplicates: policy });
 	}
 }
 
@@ -1365,10 +1489,12 @@ export type {
 export { PROMPT_KINDS } from './prompt.ts';
 export type {
 	AllowedPromptConfig,
+	DuplicatePolicy,
 	FlagAlias,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagNegation,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
@@ -1390,6 +1516,7 @@ export {
 	FlagBuilder,
 	flag,
 	getFlagAliasNames,
+	getFlagNegatedName,
 	normalizeFlagAlias,
 	normalizeFlagAliases,
 };

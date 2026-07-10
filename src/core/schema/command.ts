@@ -20,6 +20,7 @@ import type {
 } from './activity.ts';
 import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
 import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
+import { getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { RunOptions, RunResult } from './run.ts';
@@ -405,8 +406,8 @@ type DeriveHandler<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
 	A extends Record<string, ArgBuilder<ArgConfig>>,
 	C extends Record<string, unknown> = Record<string, never>,
-	Output extends Record<string, unknown> | undefined | void = undefined,
-> = (params: DeriveParams<F, A, C>) => Output | Promise<Output>;
+	Output extends Record<string, unknown> | undefined = undefined,
+> = (params: DeriveParams<F, A, C>) => Output | Promise<Output> | void | Promise<void>;
 
 /**
  * Type-erased derive handler stored on the command builder.
@@ -558,7 +559,7 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
 
 // --- Flag collision validation
 
-type FlagFormKind = 'canonical' | 'alias';
+type FlagFormKind = 'canonical' | 'alias' | 'negation';
 
 interface FlagForm {
 	readonly owner: string;
@@ -575,12 +576,16 @@ function describeFlagForm(form: FlagForm): string {
 	if (form.kind === 'canonical') {
 		return `canonical flag ${formatFlagToken(form.name, form.kind)}`;
 	}
+	if (form.kind === 'negation') {
+		return `${form.hidden ? 'hidden ' : ''}negated spelling ${formatFlagToken(form.name, form.kind)}`;
+	}
 
 	const aliasType = form.name.length === 1 ? 'short alias' : 'long alias';
 	return `${form.hidden ? 'hidden ' : ''}${aliasType} ${formatFlagToken(form.name, form.kind)}`;
 }
 
 function listFlagForms(name: string, schema: FlagSchema): readonly FlagForm[] {
+	const negatedName = getFlagNegatedName(name, schema);
 	return [
 		{
 			owner: name,
@@ -594,6 +599,16 @@ function listFlagForms(name: string, schema: FlagSchema): readonly FlagForm[] {
 			kind: 'alias' as const,
 			hidden: alias.hidden,
 		})),
+		...(negatedName !== undefined && schema.negation !== undefined
+			? [
+					{
+						owner: name,
+						name: negatedName,
+						kind: 'negation' as const,
+						hidden: schema.negation.hidden,
+					},
+				]
+			: []),
 	];
 }
 
@@ -971,7 +986,7 @@ class CommandBuilder<
 	 * @param handler - Derive function receiving typed args/flags/ctx.
 	 * @returns The builder (for chaining).
 	 */
-	derive<Output extends Record<string, unknown> | undefined | void>(
+	derive<Output extends Record<string, unknown> | undefined = undefined>(
 		handler: DeriveHandler<F, A, C, Output>,
 	): CommandBuilder<F, A, WidenDerivedContext<C, Output>> {
 		const erased = handler as unknown as ErasedDeriveHandler;

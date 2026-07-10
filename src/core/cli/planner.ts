@@ -15,6 +15,7 @@ import { normalizeShell } from '#internals/core/completion/index.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
+import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
 	flagExpectsValue,
@@ -50,6 +51,8 @@ interface PlannerSchemaLike {
 	readonly completionsFlag:
 		| { readonly shells: readonly Shell[]; readonly options: CompletionOptions | undefined }
 		| undefined;
+	/** Flag-parsing behavior settings (case parity) applied to flag lookups. */
+	readonly flagSettings?: ParseOptions | undefined;
 	/** Plugins forwarded into every matched execution plan. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -285,8 +288,9 @@ function canDelegateUnknownRootToDefault(command: ErasedCommand, input: string):
 function findUnknownFlagBeforePositional(
 	argv: readonly string[],
 	flags: CommandSchema['flags'],
+	parseOptions?: ParseOptions,
 ): string | undefined {
-	const lookup = buildFlagLookup(flags);
+	const lookup = buildFlagLookup(flags, parseOptions);
 
 	for (let index = 0; index < argv.length; index++) {
 		const token = argv[index];
@@ -298,7 +302,7 @@ function findUnknownFlagBeforePositional(
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = lookup.get(name);
 			if (entry === undefined) return equalsIndex === -1 ? token : `--${name}`;
-			if (equalsIndex === -1 && flagExpectsValue(entry[1])) index++;
+			if (equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
 			continue;
 		}
 
@@ -307,7 +311,7 @@ function findUnknownFlagBeforePositional(
 			const char = chars.charAt(charIndex);
 			const entry = lookup.get(char);
 			if (entry === undefined) return `-${char}`;
-			if (!flagExpectsValue(entry[1])) continue;
+			if (!flagExpectsValue(entry.schema)) continue;
 			if (charIndex === chars.length - 1) index++;
 			break;
 		}
@@ -367,7 +371,7 @@ function scanRootHead(
 			const equalsIndex = token.indexOf('=');
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = valueFlags?.get(name);
-			if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry[1])) index++;
+			if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
 			continue;
 		}
 
@@ -375,7 +379,7 @@ function scanRootHead(
 		const chars = token.slice(1);
 		for (let charIndex = 0; charIndex < chars.length; charIndex++) {
 			const entry = valueFlags?.get(chars.charAt(charIndex));
-			if (entry === undefined || !flagExpectsValue(entry[1])) continue;
+			if (entry === undefined || !flagExpectsValue(entry.schema)) continue;
 			if (charIndex === chars.length - 1) index++;
 			break;
 		}
@@ -464,7 +468,9 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	// space-separated value (`mycli --region eu`) is not misread as a command
 	// name — both for root interception below and dispatch (see #25).
 	const rootValueFlags =
-		defaultCommand !== undefined ? buildFlagLookup(defaultCommand.schema.flags) : undefined;
+		defaultCommand !== undefined
+			? buildFlagLookup(defaultCommand.schema.flags, options.schema.flagSettings)
+			: undefined;
 
 	if (
 		options.schema.version !== undefined &&
@@ -548,7 +554,13 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			? [...options.schema.commands, defaultCommand]
 			: options.schema.commands;
 
-	const result = dispatch(filteredArgv, buildRootCommandMap(rootCommands), [], rootValueFlags);
+	const result = dispatch(
+		filteredArgv,
+		buildRootCommandMap(rootCommands),
+		[],
+		rootValueFlags,
+		options.schema.flagSettings,
+	);
 
 	switch (result.kind) {
 		case 'unknown': {
@@ -572,6 +584,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 				const unknownFlag = findUnknownFlagBeforePositional(
 					filteredArgv,
 					defaultCommand.schema.flags,
+					options.schema.flagSettings,
 				);
 				if (unknownFlag !== undefined) {
 					return {

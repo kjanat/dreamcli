@@ -5,7 +5,8 @@
  * (malformed JSON, missing fields, non-object roots), and inferCliName()
  * resolution order (bin → name → undefined).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import { isCLIError } from '#internals/core/errors/index.ts';
 import type { PackageJsonAdapter } from './package-json.ts';
 import {
 	discoverManifest,
@@ -504,6 +505,47 @@ describe('packageRepositoryUrl — repository field normalization', () => {
 		expect(packageRepositoryUrl({ repository: '  ' })).toBeUndefined();
 		expect(packageRepositoryUrl({ repository: 'not a repo' })).toBeUndefined();
 		expect(packageRepositoryUrl({ repository: { type: 'git' } })).toBeUndefined();
+	});
+
+	describe('{ require: true }', () => {
+		it('narrows the return type to string', () => {
+			// Assignment to `string` (no undefined, no assertion) IS the test.
+			const url: string = packageRepositoryUrl(
+				{ repository: 'github:me/myapp' },
+				{ require: true },
+			);
+			expect(url).toBe('https://github.com/me/myapp');
+			expectTypeOf(
+				packageRepositoryUrl({ repository: 'github:me/myapp' }, { require: true }),
+			).toEqualTypeOf<string>();
+			expectTypeOf(packageRepositoryUrl({ repository: 'github:me/myapp' })).toEqualTypeOf<
+				string | undefined
+			>();
+		});
+
+		it('throws INVALID_REPOSITORY when the field is missing', () => {
+			try {
+				packageRepositoryUrl({}, { require: true });
+				expect.unreachable('expected INVALID_REPOSITORY');
+			} catch (error) {
+				if (!isCLIError(error)) throw error;
+				expect(error.code).toBe('INVALID_REPOSITORY');
+				expect(error.message).toContain("no 'repository' field");
+			}
+		});
+
+		it('throws INVALID_REPOSITORY for unrecognised locators, naming the value', () => {
+			expect(() => packageRepositoryUrl({ repository: 'not a repo' }, { require: true })).toThrow(
+				/not a recognisable locator: "not a repo"/,
+			);
+			expect(() =>
+				packageRepositoryUrl({ repository: { type: 'git' } }, { require: true }),
+			).toThrow(/not a recognisable locator/);
+		});
+
+		it('require: false keeps the undefined-returning behavior', () => {
+			expect(packageRepositoryUrl({}, { require: false })).toBeUndefined();
+		});
 	});
 });
 

@@ -7,6 +7,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Themed help output** — root and per-command help render with a semantic
+  color theme (bold+underlined section titles, cyan literals, dimmed metadata,
+  yellow deprecations) whenever color is enabled, using the same gate as
+  `out.color` (TTY + color support, no `--json`, `NO_COLOR`/`FORCE_COLOR`
+  honored). Piped and JSON output stays byte-clean. Customize via
+  `.help({ theme: (c) => ({ sectionTitle: c.magenta }) })` — the factory
+  receives the gated ansispeck palette and is never invoked when color is off,
+  so custom themes cannot leak escapes. New public types: `HelpTheme`,
+  `HelpThemeFactory`.
+- **Negatable booleans** — `flag.boolean().negatable()` accepts `--no-<name>`
+  as `false`. Both spellings are one logical flag (last CLI occurrence wins,
+  shared duplicate policy); the negated spelling is presence-only
+  (`--no-foo=x` errors) and renders as `--[no-]foo` in help. Custom spelling
+  via `{ alias }`, unadvertised via `{ hidden }`. Env/config/prompt/default
+  resolution is unchanged.
+- **Duplicate policy** — `.duplicates('last' | 'first' | 'error')` on
+  singleton flags controls repeated CLI occurrences. `'error'` throws
+  `ParseError` code `DUPLICATE_FLAG` with `{ flag, count, values }` details;
+  `'first'` keeps the first value while still consuming later value tokens.
+  Counted per logical flag (aliases + negated + parity spellings); env/config
+  precedence is never a duplicate.
+- **`packageRepositoryUrl(pkg, { require: true })`** — narrows the return
+  type to `string`, throwing a `CLIError` (code `INVALID_REPOSITORY`) at the
+  call site when the `repository` field is missing or not a recognisable
+  locator. Removes the `!` assertion for manifests known to carry a valid
+  repository, with the guarantee enforced at runtime rather than assumed.
+- **Flag spelling parity (kebab ↔ camel)** — `--doThis` matches a flag named
+  `do-this` and vice versa, for names and long aliases, on by default.
+  Handler keys, help, completions, and suggestions stay canonical.
+  Automatically disabled per pair when both spellings are declared explicitly;
+  globally via `cli('mycli', { flags: { caseParity: false } })` (new
+  `cli(name, options)` overload) or `RunOptions.flags`.
+
 ## [3.0.0-rc.7] - 2026-07-10
 
 ### Added

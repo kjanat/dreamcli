@@ -20,7 +20,7 @@ import type { FormatLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
-import type { HelpOptions } from '#internals/core/help/index.ts';
+import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import {
@@ -28,6 +28,7 @@ import {
 	createCaptureOutput,
 	createOutput,
 } from '#internals/core/output/index.ts';
+import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -282,6 +283,12 @@ interface CLISchema {
 	 * under runtime `options.help` (runtime wins) before rendering.
 	 */
 	readonly helpConfig: HelpConfig | undefined;
+	/**
+	 * Flag-parsing behavior settings ({@link ParseOptions}).
+	 *
+	 * Set via the `cli(name, { flags })` / `cli({ flags })` factory forms.
+	 */
+	readonly flagSettings: ParseOptions | undefined;
 	/** Registered CLI plugins. */
 	readonly plugins: readonly CLIPlugin[];
 }
@@ -332,6 +339,17 @@ interface HelpConfig {
 	readonly width?: number;
 	/** Emit OSC 8 hyperlinks in the header when supported. */
 	readonly hyperlinks?: boolean;
+	/**
+	 * Theme overrides for help output, merged over the built-in theme.
+	 *
+	 * The factory receives the gated ansispeck palette (same instance as
+	 * `out.color`), so overrides follow the output channel's color policy.
+	 * It is never invoked when color is off — themed help cannot leak escapes
+	 * into piped, `--json`, or `NO_COLOR` output.
+	 *
+	 * @defaultValue `undefined` (built-in theme)
+	 */
+	readonly theme?: HelpThemeFactory;
 }
 
 /**
@@ -478,6 +496,7 @@ function buildCommandRunOptions(
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 		...(options?.out !== undefined ? { out: options.out } : {}),
 		...(options?.captured !== undefined ? { captured: options.captured } : {}),
+		...(options?.flags !== undefined ? { flags: options.flags } : {}),
 	};
 }
 
@@ -1114,27 +1133,35 @@ class CLIBuilder {
 
 		// Resolve help options — builder-level `.help()` config under runtime
 		// `options.help` (runtime wins), then default binName to the CLI program
-		// name and hyperlinks to TTY detection (escapes never leak into piped output).
+		// name, hyperlinks to TTY detection, and colors to the output channel's
+		// gated palette (escapes never leak into piped output).
 		const helpOptions: HelpOptions = {
 			...this.schema.helpConfig,
 			...options?.help,
 			binName: options?.help?.binName ?? this.schema.name,
 			hyperlinks: options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isTTY,
+			colors: options?.help?.colors ?? out.color,
 		};
 
 		// -- Shared options for command execution ----------------------------------
+		const flagSettings = options?.flags ?? this.schema.flagSettings;
 		const effectiveOptions: CLIRunOptions = {
 			...options,
 			plugins: this.schema.plugins,
 			...(jsonMode ? { jsonMode } : {}),
+			...(flagSettings !== undefined ? { flags: flagSettings } : {}),
 		};
 		const output: OutputPolicy = {
 			jsonMode,
 			isTTY: out.isTTY,
 			verbosity: options?.verbosity ?? 'normal',
 		};
+		// The planner scans flag arity during dispatch, so it must see the same
+		// merged flag settings (runtime override wins) that command parsing uses.
+		const planSchema =
+			options?.flags !== undefined ? { ...this.schema, flagSettings } : this.schema;
 		const planned = planInvocation({
-			schema: this.schema,
+			schema: planSchema,
 			argv,
 			help: helpOptions,
 			output,
@@ -1603,6 +1630,13 @@ interface CLIOptions {
 	 * @defaultValue `false`
 	 */
 	readonly inherit?: boolean;
+
+	/**
+	 * Flag-parsing behavior settings (e.g. `{ caseParity: false }` to accept
+	 * only declared flag spellings). Shares the {@link ParseOptions} contract
+	 * used by `parse()` and `RunOptions.flags`.
+	 */
+	readonly flags?: ParseOptions;
 }
 
 /**
@@ -1625,12 +1659,17 @@ interface CLIOptions {
  * ```
  */
 
-function cli(name: string): CLIBuilder;
+function cli(name: string, options?: Omit<CLIOptions, 'name'>): CLIBuilder;
 /** Create a new CLI program builder from an options object. */
 function cli(options: CLIOptions): CLIBuilder;
-function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
-	const name = typeof nameOrOptions === 'string' ? nameOrOptions : (nameOrOptions.name ?? 'cli');
-	const inheritName = typeof nameOrOptions === 'string' ? false : (nameOrOptions.inherit ?? false);
+function cli(
+	nameOrOptions: string | CLIOptions,
+	extraOptions?: Omit<CLIOptions, 'name'>,
+): CLIBuilder {
+	const options: CLIOptions =
+		typeof nameOrOptions === 'string' ? { name: nameOrOptions, ...extraOptions } : nameOrOptions;
+	const name = options.name ?? 'cli';
+	const inheritName = options.inherit ?? false;
 
 	return new CLIBuilder({
 		name,
@@ -1646,6 +1685,7 @@ function cli(nameOrOptions: string | CLIOptions): CLIBuilder {
 		hasBuiltInCompletions: false,
 		completionsFlag: undefined,
 		helpConfig: undefined,
+		flagSettings: options.flags,
 		plugins: [],
 	});
 }

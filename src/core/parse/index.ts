@@ -14,7 +14,7 @@
  */
 
 import { ParseError } from '#internals/core/errors/index.ts';
-import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
+import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
@@ -163,27 +163,151 @@ interface ParseResult {
 	readonly args: Readonly<Record<string, unknown>>;
 }
 
-// --- Internal lookup helpers
+/** Options accepted by {@link parse} and {@link buildFlagLookup}. */
+interface ParseOptions {
+	/**
+	 * Accept the kebab↔camel counterpart spelling of each flag name/alias
+	 * (`--doThis` for a flag named `do-this`, and vice versa). Automatically
+	 * disabled per spelling pair when a command explicitly defines both.
+	 *
+	 * @defaultValue `true`
+	 */
+	readonly caseParity?: boolean;
+}
+
+// --- Flag-name case conversion (kebab↔camel parity)
+
+/** `do-this` → `doThis`. Returns the input unchanged when nothing converts. */
+function kebabToCamel(name: string): string {
+	return name.replace(/-+([a-z0-9])/g, (_match, char: string) => char.toUpperCase());
+}
+
+/** `doThis` → `do-this`. Returns the input unchanged when nothing converts. */
+function camelToKebab(name: string): string {
+	return name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+}
 
 /**
- * Build a map from flag name/alias → [canonicalName, {@link FlagSchema}].
+ * The kebab↔camel counterpart spelling of a flag name, or `undefined` when
+ * the name has none (single-char aliases, single lowercase words).
+ */
+function counterpartSpelling(name: string): string | undefined {
+	if (name.length < 2) return undefined;
+	if (name.includes('-')) {
+		const camel = kebabToCamel(name);
+		return camel !== name ? camel : undefined;
+	}
+	const kebab = camelToKebab(name);
+	return kebab !== name ? kebab : undefined;
+}
+
+// --- Internal lookup helpers
+
+/** One resolvable spelling in the flag lookup map. */
+interface FlagLookupEntry {
+	/** Canonical flag name (the key in the command's flag record). */
+	readonly name: string;
+	/** The flag's schema. */
+	readonly schema: FlagSchema;
+	/** This spelling is the flag's negated form (`--no-foo`) — parses to `false`. */
+	readonly negated: boolean;
+	/** This spelling is a case-parity counterpart, not a declared spelling. */
+	readonly parity: boolean;
+}
+
+/**
+ * Build a map from flag spelling → {@link FlagLookupEntry}.
  *
- * Supports both long names and single-char aliases for short flag expansion.
+ * Covers canonical names, aliases (long + single-char), negated spellings of
+ * `.negatable()` booleans, and — unless `caseParity` is `false` — the
+ * kebab↔camel counterpart of every declared spelling. Counterparts never
+ * override declared spellings: when a command defines both `do-this` and
+ * `doThis` explicitly, each spelling exact-matches its own flag and no
+ * parity entries are added for the pair.
  *
  * @param flags - Flag schemas keyed by canonical name
- * @returns Lookup map covering all names and aliases
+ * @param options - Parity toggle (see {@link ParseOptions})
+ * @returns Lookup map covering all resolvable spellings
  */
 function buildFlagLookup(
 	flags: Readonly<Record<string, FlagSchema>>,
-): ReadonlyMap<string, readonly [name: string, schema: FlagSchema]> {
-	const lookup = new Map<string, readonly [string, FlagSchema]>();
+	options?: ParseOptions,
+): ReadonlyMap<string, FlagLookupEntry> {
+	const lookup = new Map<string, FlagLookupEntry>();
+
+	// Pass 1: declared spellings — canonical names, aliases, negated forms.
 	for (const [name, schema] of Object.entries(flags)) {
-		lookup.set(name, [name, schema]);
+		lookup.set(name, { name, schema, negated: false, parity: false });
 		for (const alias of getFlagAliasNames(schema, { includeHidden: true })) {
-			lookup.set(alias, [name, schema]);
+			lookup.set(alias, { name, schema, negated: false, parity: false });
+		}
+		const negatedName = getFlagNegatedName(name, schema);
+		if (negatedName !== undefined) {
+			lookup.set(negatedName, { name, schema, negated: true, parity: false });
 		}
 	}
+
+	// Pass 2: case-parity counterparts. Runs after ALL declared spellings are
+	// registered so an explicitly declared counterpart always wins (per-pair
+	// auto-optout).
+	if (options?.caseParity !== false) {
+		for (const [spelling, entry] of [...lookup]) {
+			const counterpart = counterpartSpelling(spelling);
+			if (counterpart !== undefined && !lookup.has(counterpart)) {
+				lookup.set(counterpart, { ...entry, parity: true });
+			}
+		}
+	}
+
 	return lookup;
+}
+
+// --- Duplicate-occurrence tracking
+
+/** Mutable per-parse record of CLI occurrences for one logical flag. */
+interface FlagOccurrences {
+	count: number;
+	readonly values: unknown[];
+}
+
+/**
+ * Record one CLI occurrence of a logical flag and enforce its duplicate
+ * policy.
+ *
+ * @param occurrences - Per-parse accumulator keyed by canonical name
+ * @param name - Canonical flag name
+ * @param schema - Flag schema (read for {@link FlagSchema.duplicates})
+ * @param value - The occurrence's raw value (or the boolean it implies)
+ * @param displayName - User-facing spelling for error messages
+ * @returns `true` when the occurrence should be applied; `false` when the
+ *   `'first'` policy suppresses it (the token is still consumed)
+ * @throws ParseError `DUPLICATE_FLAG` on a repeat under the `'error'` policy
+ */
+function recordFlagOccurrence(
+	occurrences: Map<string, FlagOccurrences>,
+	name: string,
+	schema: FlagSchema,
+	value: unknown,
+	displayName: string,
+): boolean {
+	const record = occurrences.get(name) ?? { count: 0, values: [] };
+	record.count += 1;
+	record.values.push(value);
+	occurrences.set(name, record);
+
+	if (record.count === 1) return true;
+	if (schema.duplicates === 'error') {
+		throw new ParseError(`Flag --${name} may only be specified once`, {
+			code: 'DUPLICATE_FLAG',
+			details: {
+				flag: name,
+				input: displayName,
+				count: record.count,
+				values: [...record.values],
+			},
+		});
+	}
+	return schema.duplicates !== 'first';
 }
 
 /**
@@ -433,6 +557,7 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
  *
  * @param schema - The command schema to parse against
  * @param argv   - Raw argv strings (NOT including the command name itself)
+ * @param options - Parser behavior toggles (see {@link ParseOptions})
  * @returns Parsed flag and arg values
  * @throws ParseError for unknown flags, missing values, type mismatches
  *
@@ -442,13 +567,18 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
  * // => { args: { target: 'production' }, flags: { force: true } }
  * ```
  */
-function parse(schema: CommandSchema, argv: readonly string[]): ParseResult {
+function parse(
+	schema: CommandSchema,
+	argv: readonly string[],
+	options?: ParseOptions,
+): ParseResult {
 	const tokens = tokenize(argv);
-	const flagLookup = buildFlagLookup(schema.flags);
+	const flagLookup = buildFlagLookup(schema.flags, options);
 
 	// Mutable accumulators — frozen in the result
 	const flags: Record<string, unknown> = {};
 	const positionals: string[] = [];
+	const occurrences = new Map<string, FlagOccurrences>();
 
 	let i = 0;
 	while (i < tokens.length) {
@@ -467,12 +597,12 @@ function parse(schema: CommandSchema, argv: readonly string[]): ParseResult {
 		}
 
 		if (token.kind === 'long-flag') {
-			i = parseLongFlag(token, tokens, i, flagLookup, flags);
+			i = parseLongFlag(token, tokens, i, flagLookup, flags, occurrences);
 			continue;
 		}
 
 		// token.kind === 'short-flags'
-		i = parseShortFlags(token, tokens, i, flagLookup, flags);
+		i = parseShortFlags(token, tokens, i, flagLookup, flags, occurrences);
 	}
 
 	// Map positionals to named args
@@ -489,16 +619,18 @@ function parse(schema: CommandSchema, argv: readonly string[]): ParseResult {
  * @param token - Long-flag token to process
  * @param tokens - Full token array (for lookahead)
  * @param startIdx - Current index of `token` in the array
- * @param flagLookup - Name/alias → [canonical, schema] map from {@link buildFlagLookup}
+ * @param flagLookup - Spelling → {@link FlagLookupEntry} map from {@link buildFlagLookup}
  * @param flags - Mutable accumulator for resolved flag values
+ * @param occurrences - Per-parse duplicate-occurrence accumulator
  * @returns Next index to continue parsing from
  */
 function parseLongFlag(
 	token: { readonly kind: 'long-flag'; readonly name: string; readonly value: string | undefined },
 	tokens: readonly Token[],
 	startIdx: number,
-	flagLookup: ReadonlyMap<string, readonly [string, FlagSchema]>,
+	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
 	flags: Record<string, unknown>,
+	occurrences: Map<string, FlagOccurrences>,
 ): number {
 	const entry = flagLookup.get(token.name);
 	if (!entry) {
@@ -513,21 +645,34 @@ function parseLongFlag(
 		);
 	}
 
-	const [canonicalName, flagSchema] = entry;
+	const { name: canonicalName, schema: flagSchema, negated } = entry;
+	const displayName = `--${token.name}`;
+
+	if (negated) {
+		// Negated spelling is presence-only: it always means `false`.
+		if (token.value !== undefined) {
+			throw new ParseError(`Flag ${displayName} does not take a value`, {
+				code: 'INVALID_VALUE',
+				details: { flag: canonicalName, input: token.name, value: token.value },
+			});
+		}
+		if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, false, displayName)) {
+			flags[canonicalName] = false;
+		}
+		return startIdx + 1;
+	}
 
 	if (!flagExpectsValue(flagSchema)) {
 		// Boolean or count flag — consumes no value token
 		if (token.value !== undefined) {
-			flags[canonicalName] = coerceFlagValue(
-				canonicalName,
-				token.value,
-				flagSchema,
-				`--${token.name}`,
-			);
+			const coerced = coerceFlagValue(canonicalName, token.value, flagSchema, displayName);
+			if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, coerced, displayName)) {
+				flags[canonicalName] = coerced;
+			}
 		} else if (flagSchema.kind === 'count') {
 			const existing = flags[canonicalName];
 			flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
-		} else {
+		} else if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName)) {
 			flags[canonicalName] = true;
 		}
 		return startIdx + 1;
@@ -535,19 +680,23 @@ function parseLongFlag(
 
 	if (token.value !== undefined) {
 		// --flag=value (inline)
-		setFlagValue(flags, canonicalName, flagSchema, token.value);
+		if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, token.value, displayName)) {
+			setFlagValue(flags, canonicalName, flagSchema, token.value);
+		}
 		return startIdx + 1;
 	}
 
 	// --flag value (next token is the value)
 	const nextToken = tokens[startIdx + 1];
 	if (nextToken?.kind !== 'positional') {
-		throw new ParseError(`Flag --${token.name} requires a value`, {
+		throw new ParseError(`Flag ${displayName} requires a value`, {
 			code: 'MISSING_VALUE',
 			details: { flag: canonicalName, input: token.name, kind: flagSchema.kind },
 		});
 	}
-	setFlagValue(flags, canonicalName, flagSchema, nextToken.value, `--${token.name}`);
+	if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName)) {
+		setFlagValue(flags, canonicalName, flagSchema, nextToken.value, displayName);
+	}
 	return startIdx + 2;
 }
 
@@ -559,16 +708,18 @@ function parseLongFlag(
  * @param token - Short-flags token to expand
  * @param tokens - Full token array (for lookahead)
  * @param startIdx - Current index of `token` in the array
- * @param flagLookup - Name/alias → [canonical, schema] map from {@link buildFlagLookup}
+ * @param flagLookup - Spelling → {@link FlagLookupEntry} map from {@link buildFlagLookup}
  * @param flags - Mutable accumulator for resolved flag values
+ * @param occurrences - Per-parse duplicate-occurrence accumulator
  * @returns Next index to continue parsing from
  */
 function parseShortFlags(
 	token: { readonly kind: 'short-flags'; readonly chars: string },
 	tokens: readonly Token[],
 	startIdx: number,
-	flagLookup: ReadonlyMap<string, readonly [string, FlagSchema]>,
+	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
 	flags: Record<string, unknown>,
+	occurrences: Map<string, FlagOccurrences>,
 ): number {
 	const { chars } = token;
 	let nextIdx = startIdx + 1;
@@ -583,14 +734,15 @@ function parseShortFlags(
 			});
 		}
 
-		const [canonicalName, flagSchema] = entry;
+		const { name: canonicalName, schema: flagSchema } = entry;
+		const displayName = `-${ch}`;
 
 		if (!flagExpectsValue(flagSchema)) {
 			// Boolean or count short flag — consumes no value
 			if (flagSchema.kind === 'count') {
 				const existing = flags[canonicalName];
 				flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
-			} else {
+			} else if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName)) {
 				flags[canonicalName] = true;
 			}
 			continue;
@@ -600,7 +752,9 @@ function parseShortFlags(
 			// Value-expecting flag in the middle of combined shorts:
 			// -oFile → -o with value "File" (rest of chars is the value)
 			const inlineValue = chars.slice(ci + 1);
-			setFlagValue(flags, canonicalName, flagSchema, inlineValue, `-${ch}`);
+			if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, inlineValue, displayName)) {
+				setFlagValue(flags, canonicalName, flagSchema, inlineValue, displayName);
+			}
 			break; // consumed all remaining chars
 		}
 
@@ -612,7 +766,11 @@ function parseShortFlags(
 				details: { flag: canonicalName, input: ch, kind: flagSchema.kind },
 			});
 		}
-		setFlagValue(flags, canonicalName, flagSchema, nextToken.value, `-${ch}`);
+		if (
+			recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName)
+		) {
+			setFlagValue(flags, canonicalName, flagSchema, nextToken.value, displayName);
+		}
 		nextIdx++;
 	}
 
@@ -754,21 +912,20 @@ function mapPositionals(
  */
 function suggestFlag(
 	input: string,
-	lookup: ReadonlyMap<string, readonly [string, FlagSchema]>,
+	lookup: ReadonlyMap<string, FlagLookupEntry>,
 ): string | undefined {
 	let bestName: string | undefined;
 	let bestDist = Number.POSITIVE_INFINITY;
 	const threshold = Math.max(2, Math.floor(input.length / 2));
 
-	for (const key of lookup.keys()) {
-		const entry = lookup.get(key);
-		if (entry === undefined) continue;
-		const [canonicalName, schema] = entry;
-		const alias = schema.aliases.find((candidate) => candidate.name === key);
-
-		// Only suggest canonical names or visible long aliases.
-		if (key.length < 2) continue;
-		if (key !== canonicalName && alias?.hidden) continue;
+	for (const [key, entry] of lookup) {
+		// Only suggest declared, visible spellings: canonical names, visible
+		// long aliases, and visible negated spellings — never single chars or
+		// case-parity counterparts (the canonical spelling is the advertised one).
+		if (key.length < 2 || entry.parity) continue;
+		if (entry.negated && entry.schema.negation?.hidden === true) continue;
+		const alias = entry.schema.aliases.find((candidate) => candidate.name === key);
+		if (key !== entry.name && !entry.negated && alias?.hidden) continue;
 
 		const dist = levenshtein(input, key);
 		if (dist < bestDist && dist <= threshold) {
@@ -822,11 +979,13 @@ function levenshtein(a: string, b: string): number {
 
 // --- Exports
 
-export type { ParseResult, Token };
+export type { FlagLookupEntry, ParseOptions, ParseResult, Token };
 export {
 	buildFlagLookup,
+	camelToKebab,
 	flagExpectsValue,
 	includesBeforeSeparator,
+	kebabToCamel,
 	parse,
 	stripBeforeSeparator,
 	tokenize,

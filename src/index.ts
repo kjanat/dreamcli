@@ -60,6 +60,7 @@ export type {
 	PackageJsonAdapter,
 	PackageJsonData,
 	PackageRepository,
+	PackageRepositoryUrlOptions,
 } from './core/config/index.ts';
 export {
 	buildConfigSearchPaths,
@@ -87,7 +88,7 @@ export {
 	ParseError,
 	ValidationError,
 } from './core/errors/index.ts';
-export type { HelpOptions } from './core/help/index.ts';
+export type { HelpOptions, HelpTheme, HelpThemeFactory } from './core/help/index.ts';
 export { formatHelp, osc8, visibleWidth } from './core/help/index.ts';
 export type { JsonSchemaOptions } from './core/json-schema/index.ts';
 export {
@@ -97,7 +98,7 @@ export {
 } from './core/json-schema/index.ts';
 export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.ts';
 export { createOutput } from './core/output/index.ts';
-export type { ParseResult, Token } from './core/parse/index.ts';
+export type { ParseOptions, ParseResult, Token } from './core/parse/index.ts';
 export { parse, tokenize } from './core/parse/index.ts';
 export type {
 	PromptEngine,
@@ -129,10 +130,12 @@ export type {
 	DateFlagOptions,
 	DeriveHandler,
 	DeriveParams,
+	DuplicatePolicy,
 	Fallback,
 	FlagConfig,
 	FlagFactory,
 	FlagKind,
+	FlagNegation,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
@@ -186,6 +189,7 @@ export {
 	createSchema,
 	FlagBuilder,
 	flag,
+	getFlagNegatedName,
 	group,
 	middleware,
 } from './core/schema/index.ts';

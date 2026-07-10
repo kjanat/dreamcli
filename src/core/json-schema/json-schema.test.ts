@@ -81,6 +81,7 @@ function minimalCLI(overrides: MinimalCLIOverrides = {}): CLISchema {
 		hasBuiltInCompletions: false,
 		completionsFlag: undefined,
 		helpConfig: undefined,
+		flagSettings: undefined,
 		plugins: [],
 	};
 }
@@ -366,6 +367,45 @@ describe('generateSchema — definition metadata', () => {
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'quiet', 'propagate']);
 	});
 
+	it('serializes negation settings on negatable flags', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: {
+				sandbox: flagDef({
+					kind: 'boolean',
+					negation: { alias: undefined, hidden: false },
+				}),
+				color: flagDef({
+					kind: 'boolean',
+					negation: { alias: 'monochrome', hidden: true },
+				}),
+				force: flagDef({ kind: 'boolean' }),
+			},
+		});
+		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'sandbox', 'negation'], {});
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'color', 'negation'], {
+			alias: 'monochrome',
+			hidden: true,
+		});
+		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'force', 'negation']);
+	});
+
+	it('includes duplicates only when the policy is non-default', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: {
+				spawn: flagDef({ kind: 'enum', enumValues: ['a', 'b'], duplicates: 'error' }),
+				once: flagDef({ duplicates: 'first' }),
+				region: flagDef({ duplicates: 'last' }),
+			},
+		});
+		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'spawn', 'duplicates'], 'error');
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'once', 'duplicates'], 'first');
+		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'region', 'duplicates']);
+	});
+
 	it('serializes prompt config on flags', () => {
 		const cmd = commandDef({
 			name: 'test',
@@ -638,6 +678,30 @@ describe('generateSchema — definition metadata', () => {
 		expect(definitionMetaSchema).toHaveProperty(
 			['$defs', 'example', 'properties', 'command', 'description'],
 			"The command invocation (e.g. `'deploy production --force'`).",
+		);
+	});
+
+	it('describes flag negation and duplicate policy in the meta-schema', () => {
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'flag', 'properties', 'negation', '$ref'],
+			'#/$defs/negation',
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'flag', 'properties', 'duplicates', 'enum'],
+			['last', 'first', 'error'],
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'negation', 'properties', 'alias', 'type'],
+			'string',
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'negation', 'properties', 'hidden', 'const'],
+			true,
+		);
+		// Both fields are optional — negation/duplicates only appear when set.
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'flag', 'required'],
+			['kind', 'presence'],
 		);
 	});
 });
