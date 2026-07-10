@@ -100,7 +100,7 @@ const definitionMetaSchemaDescriptions = {
 				},
 				propagate: {
 					description:
-						'Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.',
+						'Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.\n\nDefault: `false`',
 				},
 				negation: {
 					description:
@@ -108,7 +108,7 @@ const definitionMetaSchemaDescriptions = {
 				},
 				duplicates: {
 					description:
-						"How repeated CLI occurrences of a singleton flag combine.\nDefaults to `'last'`.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.",
+						"How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`",
 				},
 			},
 		},
@@ -144,7 +144,8 @@ const definitionMetaSchemaDescriptions = {
 					description: 'Whether this arg consumes all remaining positionals.',
 				},
 				stdinMode: {
-					description: 'Whether this arg may read from stdin during resolution.',
+					description:
+						'Whether this arg may read from stdin during resolution.\n\nDefault: `false`',
 				},
 				defaultValue: {
 					description: 'Runtime default value (if any).',
@@ -184,10 +185,10 @@ const definitionMetaSchemaDescriptions = {
 						'Available choices. When omitted for `enum` flags, the enum values\nfrom the flag schema are used automatically.',
 				},
 				min: {
-					description: 'Minimum number of selections required.',
+					description: 'Minimum number of selections required.\n\nDefault: `0`',
 				},
 				max: {
-					description: 'Maximum number of selections allowed.',
+					description: 'Maximum number of selections allowed.\n\nDefault: `Infinity`',
 				},
 			},
 		},
@@ -199,7 +200,7 @@ const definitionMetaSchemaDescriptions = {
 					description: 'The value returned when this choice is selected.',
 				},
 				label: {
-					description: 'Display label shown to the user.',
+					description: 'Display label shown to the user.\n\nDefault: value',
 				},
 				description: {
 					description: 'Optional description shown alongside the choice.',

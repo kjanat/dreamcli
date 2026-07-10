@@ -216,7 +216,6 @@ interface FlagNegation {
 
 /**
  * How repeated CLI occurrences of a singleton flag combine.
- * Defaults to `'last'`.
  *
  * - `'last'`  — last occurrence wins (matches historic behavior)
  * - `'first'` — first occurrence wins; later ones parse but are ignored
@@ -226,6 +225,8 @@ interface FlagNegation {
  * resolution keeps its precedence semantics and never raises duplicates.
  * Occurrences are counted per *logical* flag: aliases and the negated
  * spelling all count toward the same flag.
+ *
+ * @defaultValue `'last'`
  */
 type DuplicatePolicy = 'last' | 'first' | 'error';
 

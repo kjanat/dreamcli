@@ -135,15 +135,25 @@ function getNodeDescription(
 	}
 
 	if (target.property === undefined) {
-		return toDescriptionNode(node.comment?.summary);
+		return toDescriptionNode(node.comment);
 	}
 
 	const child = node.children.find((entry) => entry.name === target.property);
-	return toDescriptionNode(child?.comment?.summary);
+	return toDescriptionNode(child?.comment ?? null);
 }
 
-function toDescriptionNode(summary: string | undefined): MetaSchemaDescriptionNode | undefined {
-	const description = normalizeSummary(summary);
+function toDescriptionNode(
+	comment: NormalizedApiNode['comment'],
+): MetaSchemaDescriptionNode | undefined {
+	const summary = normalizeSummary(comment?.summary);
+	const defaultTag = comment?.blockTags.find((tag) => tag.tag === '@defaultValue');
+	const defaultText = normalizeSummary(defaultTag?.content);
+	const defaultParagraph = defaultText !== undefined ? `Default: ${defaultText}` : undefined;
+
+	const description =
+		summary !== undefined && defaultParagraph !== undefined
+			? `${summary}\n\n${defaultParagraph}`
+			: (summary ?? defaultParagraph);
 	if (description === undefined) {
 		return undefined;
 	}
