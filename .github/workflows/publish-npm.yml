@@ -43,6 +43,8 @@ jobs:
     environment: { name: npm, url: "${{ fromJSON(needs.meta.outputs.meta).url }}" }
     permissions: { contents: read, id-token: write }
     steps:
+      - uses: actions/checkout@v7
+        with: { sparse-checkout: ".node-version\npackage.json" }
       - { uses: actions/setup-node@v6, with: { node-version-file: .node-version, registry-url: https://registry.npmjs.org/ } }
       - { uses: actions/download-artifact@v8, with: { name: tarball } }
       - name: Publish to npm
