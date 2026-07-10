@@ -15,6 +15,7 @@
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
@@ -334,8 +335,8 @@ function buildZshFlagSpecsFromFlags(
 		const allForms = [...shortFlags, longFlag, ...longAliases];
 
 		let valuePart = '';
-		if (schema.kind === 'boolean') {
-			// Boolean flags take no argument value
+		if (!flagExpectsValue(schema)) {
+			// Boolean and count flags take no argument value
 		} else if (schema.kind === 'enum' && schema.enumValues !== undefined) {
 			const escapedValues = schema.enumValues.map(escapeZshEnumValue);
 			valuePart = `:value:(${escapedValues.join(' ')})`;

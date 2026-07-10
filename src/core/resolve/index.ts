@@ -80,6 +80,7 @@ async function resolve(
 			prompter,
 			schema.interactive,
 			deprecations,
+			options?.stat,
 		);
 	} catch (error) {
 		if (!isValidationError(error)) {

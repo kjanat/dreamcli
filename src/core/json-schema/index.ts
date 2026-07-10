@@ -576,9 +576,25 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 	const result: Record<string, unknown> = {};
 
 	switch (schema.kind) {
-		case 'string':
+		case 'string': {
 			result.type = 'string';
+			const constraints = schema.stringConstraints;
+			// nonEmpty is expressible as minLength >= 1 in JSON Schema.
+			const minLength =
+				constraints?.nonEmpty === true
+					? Math.max(constraints.minLength ?? 1, 1)
+					: constraints?.minLength;
+			if (minLength !== undefined) {
+				result.minLength = minLength;
+			}
+			if (constraints?.maxLength !== undefined) {
+				result.maxLength = constraints.maxLength;
+			}
+			if (constraints?.pattern !== undefined) {
+				result.pattern = constraints.pattern.source;
+			}
 			break;
+		}
 		case 'number': {
 			const constraints = schema.numberConstraints;
 			result.type = constraints?.int === true ? 'integer' : 'number';
@@ -607,6 +623,14 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 			break;
 		case 'custom':
 			// Opaque type — no JSON Schema constraint
+			break;
+		case 'count':
+			result.type = 'integer';
+			result.minimum = 0;
+			break;
+		case 'keyValue':
+			result.type = 'object';
+			result.additionalProperties = { type: 'string' };
 			break;
 	}
 
@@ -857,7 +881,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			commands: @command[]
 		}`),
 			flag: def(`{
-			kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom';
+			kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom' | 'count' | 'keyValue';
 			presence: 'optional' | 'required' | 'defaulted';
 			defaultValue?: unknown;
 			aliases?: string[];

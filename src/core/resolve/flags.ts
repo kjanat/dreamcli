@@ -20,6 +20,13 @@ type PromptResolveResult =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError | undefined };
 
+/**
+ * Filesystem probe injected by the caller for `flag.path()` checks.
+ *
+ * Returns what exists at the path, or `null` when nothing does.
+ */
+type StatFn = (path: string) => Promise<'file' | 'directory' | null>;
+
 /** Walk every declared flag through the resolution chain (cli -> env -> config -> prompt -> default), collecting deprecations and throwing aggregated errors. */
 async function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
@@ -29,6 +36,7 @@ async function resolveFlags(
 	prompter: PromptEngine | undefined,
 	interactive: ErasedInteractiveResolver | undefined,
 	deprecations: DeprecationWarning[],
+	stat: StatFn | undefined,
 ): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -142,6 +150,11 @@ async function resolveFlags(
 			continue;
 		}
 
+		if (schema.kind === 'keyValue' && schema.presence !== 'required') {
+			resolved[name] = {};
+			continue;
+		}
+
 		if (schema.presence === 'required') {
 			const details: Record<string, unknown> = { flag: name, kind: schema.kind };
 			if (schema.envVar !== undefined) details.envVar = schema.envVar;
@@ -159,11 +172,62 @@ async function resolveFlags(
 		resolved[name] = undefined;
 	}
 
+	// Post-resolution pass — rules that apply to the final value regardless
+	// of which source produced it (CLI, env, config, prompt, or default).
+	for (const [name, schema] of Object.entries(flagSchemas)) {
+		const value = resolved[name];
+
+		if (schema.kind === 'array' && schema.unique && Array.isArray(value)) {
+			resolved[name] = [...new Set(value)];
+		}
+
+		if (schema.pathChecks !== undefined && typeof value === 'string' && stat !== undefined) {
+			const violation = await validatePathChecks(name, value, schema.pathChecks, stat);
+			if (violation !== undefined) {
+				errors.push(violation);
+			}
+		}
+	}
+
 	if (isNonEmpty(errors)) {
 		throwAggregatedErrors(errors);
 	}
 
 	return resolved;
+}
+
+/**
+ * Check a resolved path value against its declared filesystem expectations.
+ *
+ * @returns `undefined` when the path satisfies the checks, or a
+ * {@link ValidationError} with code `'CONSTRAINT_VIOLATED'` otherwise.
+ * @internal
+ */
+async function validatePathChecks(
+	flagName: string,
+	value: string,
+	checks: NonNullable<FlagSchema['pathChecks']>,
+	stat: StatFn,
+): Promise<ValidationError | undefined> {
+	const found = await stat(value);
+	if (found === null) {
+		return new ValidationError(`Path '${value}' for flag --${flagName} does not exist`, {
+			code: 'CONSTRAINT_VIOLATED',
+			details: { flag: flagName, value, constraint: 'mustExist' },
+			suggest: `Provide an existing path for --${flagName}`,
+		});
+	}
+	if (checks.type !== undefined && found !== checks.type) {
+		return new ValidationError(
+			`Path '${value}' for flag --${flagName} is a ${found}, expected a ${checks.type}`,
+			{
+				code: 'CONSTRAINT_VIOLATED',
+				details: { flag: flagName, value, constraint: 'pathType', expected: checks.type },
+				suggest: `Provide a ${checks.type} path for --${flagName}`,
+			},
+		);
+	}
+	return undefined;
 }
 
 /** Maps each flag kind to the prompt kinds that produce compatible values. */
@@ -174,6 +238,8 @@ const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
 	enum: ['select', 'input'],
 	array: ['multiselect'],
 	custom: ['input', 'select', 'confirm', 'multiselect'],
+	count: [],
+	keyValue: [],
 };
 
 /**
@@ -191,12 +257,24 @@ function validatePromptFlagCompatibility(
 	const allowed = COMPATIBLE_PROMPT_KINDS[flagKind];
 	if (allowed.includes(promptKind)) return undefined;
 
+	const first = allowed[0];
+	if (first === undefined) {
+		return new ValidationError(
+			`Prompt kind '${promptKind}' is not compatible with ${flagKind} flag --${flagName}. ${flagKind} flags are not promptable`,
+			{
+				code: 'CONSTRAINT_VIOLATED',
+				details: { flag: flagName, flagKind, promptKind, allowed },
+				suggest: `Remove the prompt config for --${flagName}`,
+			},
+		);
+	}
+
 	return new ValidationError(
-		`Prompt kind '${promptKind}' is not compatible with ${flagKind} flag --${flagName}. Use '${allowed[0]}' instead`,
+		`Prompt kind '${promptKind}' is not compatible with ${flagKind} flag --${flagName}. Use '${first}' instead`,
 		{
 			code: 'CONSTRAINT_VIOLATED',
 			details: { flag: flagName, flagKind, promptKind, allowed },
-			suggest: `Change the prompt to { kind: '${allowed[0]}' } for --${flagName}`,
+			suggest: `Change the prompt to { kind: '${first}' } for --${flagName}`,
 		},
 	);
 }
@@ -247,7 +325,8 @@ async function resolvePromptValueWithConfig(
 /** Build a human-readable suggestion listing all available sources for a required flag. @internal */
 function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	const sources: string[] = [];
-	sources.push(`Provide --${name}${schema.kind !== 'boolean' ? ' <value>' : ''}`);
+	const takesValue = schema.kind !== 'boolean' && schema.kind !== 'count';
+	sources.push(`Provide --${name}${takesValue ? ' <value>' : ''}`);
 
 	if (schema.envVar !== undefined) {
 		sources.push(`set ${schema.envVar}`);

@@ -17,6 +17,15 @@ import type {
 	PromptConfig,
 	SelectPromptConfig,
 } from './prompt.ts';
+import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
+import {
+	type DateFlagOptions,
+	parseBytesValue,
+	parseDateValue,
+	parseDurationValue,
+	parseUrlValue,
+	type UrlFlagOptions,
+} from './value-parsers.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
@@ -38,9 +47,9 @@ type FlagPresence = (typeof FLAG_PRESENCES)[number];
  * Fallback behavior when an optional flag resolves no value from any source.
  *
  * Most optional flags resolve to `undefined`; array flags instead resolve to
- * an empty array `[]`.
+ * an empty array `[]`, and key-value flags to an empty object `{}`.
  */
-type OptionalFallback = 'undefined' | 'empty-array';
+type OptionalFallback = 'undefined' | 'empty-array' | 'empty-object';
 
 /**
  * Compile-time state carried through the builder chain.
@@ -79,14 +88,14 @@ type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
  * inference. Most apps do not need to mention it explicitly.
  *
  * - `'optional'` + `'undefined'` fallback  → `T | undefined`
- * - `'optional'` + `'empty-array'` fallback → `T`
+ * - `'optional'` + `'empty-array'` / `'empty-object'` fallback → `T`
  * - `'required'`   → `T`
  * - `'defaulted'`  → `T`
  */
 type ResolvedValue<C extends FlagConfig> = C['presence'] extends 'optional'
-	? C['optionalFallback'] extends 'empty-array'
-		? C['valueType']
-		: C['valueType'] | undefined
+	? C['optionalFallback'] extends 'undefined'
+		? C['valueType'] | undefined
+		: C['valueType']
 	: C['valueType'];
 
 /** Extract the resolved value type from a {@linkcode FlagBuilder}. */
@@ -108,6 +117,7 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
  * - `'enum'`    → {@link SelectPromptConfig} | {@link InputPromptConfig}
  * - `'array'`   → {@link MultiselectPromptConfig}
  * - `'custom'`  → all prompt kinds ({@link PromptConfig})
+ * - `'count'` / `'keyValue'` → `never` (not promptable)
  */
 type PromptConfigByFlagKind = {
 	readonly string: InputPromptConfig | SelectPromptConfig;
@@ -116,6 +126,8 @@ type PromptConfigByFlagKind = {
 	readonly enum: SelectPromptConfig | InputPromptConfig;
 	readonly array: MultiselectPromptConfig;
 	readonly custom: PromptConfig;
+	readonly count: never;
+	readonly keyValue: never;
 };
 
 type AllowedPromptConfig<C extends FlagConfig> = PromptConfigByFlagKind[C['flagKind']];
@@ -123,7 +135,16 @@ type AllowedPromptConfig<C extends FlagConfig> = PromptConfigByFlagKind[C['flagK
 // --- Runtime schema data
 
 /** All flag kind discriminators as a runtime array. */
-const FLAG_KINDS = ['string', 'number', 'boolean', 'enum', 'array', 'custom'] as const;
+const FLAG_KINDS = [
+	'string',
+	'number',
+	'boolean',
+	'enum',
+	'array',
+	'custom',
+	'count',
+	'keyValue',
+] as const;
 
 /** Discriminator for the kind of value a flag accepts. */
 type FlagKind = (typeof FLAG_KINDS)[number];
@@ -135,6 +156,37 @@ type FlagKind = (typeof FLAG_KINDS)[number];
  * value from config files. Narrow inside the function as needed.
  */
 type FlagParseFn<T> = (raw: unknown) => T;
+
+/** Options accepted by `flag.path()`. */
+interface PathFlagOptions {
+	/**
+	 * Reject the value if nothing exists at the path.
+	 * @defaultValue `false` (`true` when `type` is set)
+	 */
+	readonly mustExist?: boolean;
+	/**
+	 * Require the path to be a file or a directory. Implies existence.
+	 * @defaultValue `undefined` (any kind)
+	 */
+	readonly type?: 'file' | 'directory';
+}
+
+/**
+ * Filesystem expectations attached by `flag.path()`.
+ *
+ * Checked after resolution (not during parse) via the runtime adapter, so
+ * `src/core` stays free of platform I/O and all sources (CLI, env, config)
+ * are validated identically.
+ */
+interface PathChecks {
+	/** Reject the value if nothing exists at the path. */
+	readonly mustExist: boolean;
+	/**
+	 * Require the existing path to be a file or a directory. Implies
+	 * existence when set.
+	 */
+	readonly type: 'file' | 'directory' | undefined;
+}
 
 /** Runtime descriptor for a flag alias. */
 interface FlagAlias {
@@ -173,8 +225,44 @@ interface FlagSchema {
 	 * `true`, so `Infinity` is rejected even when no constraints object is set.
 	 */
 	readonly numberConstraints: NumberConstraints | undefined;
+	/**
+	 * String constraints when `kind === 'string'` (`undefined` otherwise).
+	 *
+	 * Enforced at the parse and resolution boundaries, in fixed order:
+	 * nonEmpty → minLength → maxLength → pattern.
+	 */
+	readonly stringConstraints: StringConstraints | undefined;
 	/** Element schema when `kind === 'array'`. */
 	readonly elementSchema: FlagSchema | undefined;
+	/**
+	 * Value separator when `kind === 'array'` (`undefined` otherwise).
+	 *
+	 * When set, each CLI occurrence is split on this separator before element
+	 * coercion, so `--tag a,b --tag c` yields `['a', 'b', 'c']`. Env and
+	 * config string values use this separator too (default `','`).
+	 */
+	readonly separator: string | undefined;
+	/**
+	 * Deduplicate resolved array values when `kind === 'array'`.
+	 *
+	 * Applied after all sources resolve, preserving first-seen order.
+	 * Uses `SameValueZero` semantics (like `Set`).
+	 */
+	readonly unique: boolean;
+	/**
+	 * Filesystem checks for path-valued flags (set by `flag.path()`).
+	 *
+	 * Validated after resolution through the runtime adapter.
+	 */
+	readonly pathChecks: PathChecks | undefined;
+	/**
+	 * Help placeholder label (e.g. `'url'` renders as `<url>`).
+	 *
+	 * Set by the sugar factories (`flag.url()`, `flag.date()`, …) so help
+	 * output names the expected value shape; `undefined` falls back to the
+	 * kind-derived hint.
+	 */
+	readonly valueHint: string | undefined;
 	/** Interactive prompt configuration for v0.3+ resolution. */
 	readonly prompt: PromptConfig | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
@@ -304,7 +392,12 @@ function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSche
 		description: undefined,
 		enumValues: undefined,
 		numberConstraints: undefined,
+		stringConstraints: undefined,
 		elementSchema: undefined,
+		separator: undefined,
+		unique: false,
+		pathChecks: undefined,
+		valueHint: undefined,
 		prompt: undefined,
 		parseFn: undefined,
 		deprecated: undefined,
@@ -655,6 +748,130 @@ class FlagBuilder<C extends FlagConfig> {
 			numberConstraints: { ...this.schema.numberConstraints, finite: allow },
 		});
 	}
+
+	// -- String constraint modifiers -------------------------------------------
+	//
+	// Compile-time guarded via a `this` parameter so they are only callable on
+	// string-kind builders. They merge onto the single `stringConstraints`
+	// representation, overriding any value set by `flag.string({ … })`.
+
+	/**
+	 * Reject empty strings. Composes with other string constraints.
+	 *
+	 * @param value - Whether to reject empty strings.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().nonEmpty()   // rejects '', accepts 'x'
+	 * ```
+	 */
+	nonEmpty(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value = true): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			stringConstraints: { ...this.schema.stringConstraints, nonEmpty: value },
+		});
+	}
+
+	/**
+	 * Set an inclusive minimum length (UTF-16 code units). Composes with other
+	 * string constraints; a later call overrides an earlier `minLength`.
+	 *
+	 * @param value - Inclusive minimum length.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().minLength(3)   // rejects 'ab', accepts 'abc'
+	 * ```
+	 */
+	minLength(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value: number): FlagBuilder<C> {
+		const stringConstraints = { ...this.schema.stringConstraints, minLength: value };
+		assertStringConstraints(stringConstraints);
+		return new FlagBuilder({ ...this.schema, stringConstraints });
+	}
+
+	/**
+	 * Set an inclusive maximum length (UTF-16 code units). Composes with other
+	 * string constraints; a later call overrides an earlier `maxLength`.
+	 *
+	 * @param value - Inclusive maximum length.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().maxLength(8)   // rejects 9+ chars
+	 * ```
+	 */
+	maxLength(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value: number): FlagBuilder<C> {
+		const stringConstraints = { ...this.schema.stringConstraints, maxLength: value };
+		assertStringConstraints(stringConstraints);
+		return new FlagBuilder({ ...this.schema, stringConstraints });
+	}
+
+	/**
+	 * Require the value to match a regular expression. Anchor with `^`/`$`
+	 * for full-string matching. Composes with other string constraints.
+	 *
+	 * @param value - Pattern the value must match.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().pattern(/^ghp_/)   // rejects 'abc', accepts 'ghp_x'
+	 * ```
+	 */
+	pattern(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value: RegExp): FlagBuilder<C> {
+		return new FlagBuilder({
+			...this.schema,
+			stringConstraints: { ...this.schema.stringConstraints, pattern: value },
+		});
+	}
+
+	// -- Array modifiers -------------------------------------------------------
+
+	/**
+	 * Split each CLI occurrence on a separator before element coercion, so
+	 * `--tag a,b --tag c` resolves to `['a', 'b', 'c']`. Elements are coerced
+	 * (and rejected) individually with the element schema's own error format.
+	 *
+	 * Env and config string values are split on the same separator (their
+	 * default split is `','` even without this modifier).
+	 *
+	 * @param value - Separator string (e.g. `','`).
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.array(flag.enum(['us', 'eu', 'ap'])).separator(',')
+	 * // --region us,eu --region ap → ['us', 'eu', 'ap']
+	 * ```
+	 */
+	separator(this: FlagBuilder<C & { readonly flagKind: 'array' }>, value: string): FlagBuilder<C> {
+		if (value.length === 0) {
+			throw new RangeError('array separator must not be empty');
+		}
+		return new FlagBuilder({ ...this.schema, separator: value });
+	}
+
+	/**
+	 * Deduplicate the resolved array, preserving first-seen order. Applied
+	 * after all sources resolve, using `SameValueZero` semantics (like `Set`).
+	 *
+	 * @param value - Whether to deduplicate.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.array(flag.string()).separator(',').unique()
+	 * // --tag a,a --tag a → ['a']
+	 * ```
+	 */
+	unique(this: FlagBuilder<C & { readonly flagKind: 'array' }>, value = true): FlagBuilder<C> {
+		return new FlagBuilder({ ...this.schema, unique: value });
+	}
 }
 
 // --- Factory namespace
@@ -665,11 +882,25 @@ class FlagBuilder<C extends FlagConfig> {
  */
 interface FlagFactory {
 	/**
-	 * String-valued flag.
+	 * String-valued flag, with optional string constraints.
 	 *
+	 * Constraints are enforced at the parse and resolution boundaries, in
+	 * fixed order: nonEmpty → minLength → maxLength → pattern. They also
+	 * compose via chained methods (`.nonEmpty()`, `.minLength()`,
+	 * `.maxLength()`, `.pattern()`), which override values set here.
+	 *
+	 * @param constraints - Optional string constraints.
+	 * @defaultValue `undefined` (no constraints)
 	 * @returns A {@link FlagBuilder} for `string` values.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string()                              // any string
+	 * flag.string({ nonEmpty: true })            // rejects ''
+	 * flag.string({ pattern: /^ghp_/ })          // token shapes
+	 * ```
 	 */
-	string(): FlagBuilder<{
+	string(constraints?: StringConstraints): FlagBuilder<{
 		readonly valueType: string;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
@@ -798,6 +1029,160 @@ interface FlagFactory {
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
 	}>;
+
+	/**
+	 * URL-valued flag. Parses into a `URL`; invalid URLs are rejected with an
+	 * `INVALID_VALUE` error naming the flag.
+	 *
+	 * @param options - Optional protocol allowlist (without trailing colon).
+	 * @returns A {@link FlagBuilder} for `URL` values.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.url()                            // any URL
+	 * flag.url({ protocols: ['https'] })    // https only
+	 * ```
+	 */
+	url(options?: UrlFlagOptions): FlagBuilder<{
+		readonly valueType: URL;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}>;
+
+	/**
+	 * Path-valued flag. The value stays a `string`; optional filesystem
+	 * checks run **after resolution** through the runtime adapter, so CLI,
+	 * env, and config values are validated identically.
+	 *
+	 * @param options - Optional existence/type checks. `type` implies
+	 *   existence.
+	 * @returns A {@link FlagBuilder} for path strings.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.path()                          // any string, help shows <path>
+	 * flag.path({ mustExist: true })       // rejects missing paths
+	 * flag.path({ type: 'directory' })     // must exist and be a directory
+	 * ```
+	 */
+	path(options?: PathFlagOptions): FlagBuilder<{
+		readonly valueType: string;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'string';
+	}>;
+
+	/**
+	 * Date-valued flag. Accepts strict ISO-8601 (`2026-07-10`,
+	 * `2026-07-10T14:30:00Z`) and parses into a `Date`. Lenient `Date.parse`
+	 * inputs (`'0'`, `'March 5'`) and calendar-invalid dates (`2026-02-31`)
+	 * are rejected.
+	 *
+	 * Returns `Date` (not `Temporal`) because the supported runtimes do not
+	 * all ship Temporal yet; use `flag.custom()` with `Temporal.PlainDate.from`
+	 * where the target runtime has it.
+	 *
+	 * @param options - Optional inclusive `min`/`max` date bounds.
+	 * @returns A {@link FlagBuilder} for `Date` values.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.date()
+	 * flag.date({ min: new Date('2020-01-01') })
+	 * ```
+	 */
+	date(options?: DateFlagOptions): FlagBuilder<{
+		readonly valueType: Date;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}>;
+
+	/**
+	 * Duration flag. Accepts `'30s'`, `'5m'`, `'1.5h'`, `'250ms'`, `'2d'`,
+	 * compounds like `'1h30m'`, or a bare millisecond count, and resolves to
+	 * **milliseconds**.
+	 *
+	 * @returns A {@link FlagBuilder} for duration values in milliseconds.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.duration().default(30_000)   // --timeout 45s → 45000
+	 * ```
+	 */
+	duration(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}>;
+
+	/**
+	 * Byte-size flag. Accepts `'512mb'`, `'1.5gb'`, `'64kb'`, `'100b'` or a
+	 * bare byte count, and resolves to **bytes**. Units are binary
+	 * (`1kb` = 1024) and case-insensitive.
+	 *
+	 * @returns A {@link FlagBuilder} for sizes in bytes.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.bytes().default(10 * 1024 ** 2)   // --max-size 512kb → 524288
+	 * ```
+	 */
+	bytes(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}>;
+
+	/**
+	 * Count flag — resolves to how many times the flag appears. `-vvv`,
+	 * `-v -v -v`, and `--verbose --verbose --verbose` all yield `3`; absent
+	 * yields `0`. An explicit value (`--verbose=2`, env, config) sets the
+	 * count directly.
+	 *
+	 * Not promptable.
+	 *
+	 * @returns A {@link FlagBuilder} for occurrence counts (defaulted to `0`).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.count().alias('v').describe('Increase verbosity')
+	 * // $ mycli build -vv → verbose = 2
+	 * ```
+	 */
+	count(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'defaulted';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'count';
+	}>;
+
+	/**
+	 * Key-value flag — repeated `KEY=VALUE` occurrences merge into a
+	 * `Record<string, string>` (docker/kubectl `--env` style). The value is
+	 * split at the **first** `=`, so `--env A=b=c` yields `{ A: 'b=c' }`.
+	 * Later occurrences of the same key win. Absent resolves to `{}`.
+	 *
+	 * Env vars accept separator-joined pairs (`A=1,B=2`); config files accept
+	 * a plain object. Not promptable.
+	 *
+	 * @returns A {@link FlagBuilder} for `Record<string, string>` values.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.keyValue().alias('e').describe('Environment variables')
+	 * // $ mycli run -e A=1 -e B=2 → env = { A: '1', B: '2' }
+	 * ```
+	 */
+	keyValue(): FlagBuilder<{
+		readonly valueType: Record<string, string>;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'empty-object';
+		readonly flagKind: 'keyValue';
+	}>;
 }
 
 /**
@@ -805,13 +1190,18 @@ interface FlagFactory {
  * {@link FlagBuilder} with full type inference and safe modifier chaining.
  */
 const flag: FlagFactory = {
-	string(): FlagBuilder<{
+	string(constraints?: StringConstraints): FlagBuilder<{
 		readonly valueType: string;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'string';
 	}> {
-		return new FlagBuilder(createSchema('string'));
+		if (constraints !== undefined) {
+			assertStringConstraints(constraints);
+		}
+		return new FlagBuilder(
+			createSchema('string', constraints !== undefined ? { stringConstraints: constraints } : {}),
+		);
 	},
 
 	number(constraints?: NumberConstraints): FlagBuilder<{
@@ -872,6 +1262,90 @@ const flag: FlagFactory = {
 	}> {
 		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
 	},
+
+	url(options?: UrlFlagOptions): FlagBuilder<{
+		readonly valueType: URL;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}> {
+		return new FlagBuilder(
+			createSchema('custom', {
+				parseFn: (raw: unknown) => parseUrlValue(raw, options),
+				valueHint: 'url',
+			}),
+		);
+	},
+
+	path(options?: PathFlagOptions): FlagBuilder<{
+		readonly valueType: string;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'string';
+	}> {
+		const pathChecks =
+			options?.mustExist === true || options?.type !== undefined
+				? { mustExist: options.mustExist ?? true, type: options.type }
+				: undefined;
+		return new FlagBuilder(createSchema('string', { pathChecks, valueHint: 'path' }));
+	},
+
+	date(options?: DateFlagOptions): FlagBuilder<{
+		readonly valueType: Date;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}> {
+		return new FlagBuilder(
+			createSchema('custom', {
+				parseFn: (raw: unknown) => parseDateValue(raw, options),
+				valueHint: 'date',
+			}),
+		);
+	},
+
+	duration(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}> {
+		return new FlagBuilder(
+			createSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
+		);
+	},
+
+	bytes(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+	}> {
+		return new FlagBuilder(createSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }));
+	},
+
+	count(): FlagBuilder<{
+		readonly valueType: number;
+		readonly presence: 'defaulted';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'count';
+	}> {
+		return new FlagBuilder(
+			createSchema('count', {
+				presence: 'defaulted',
+				defaultValue: 0,
+			}),
+		);
+	},
+
+	keyValue(): FlagBuilder<{
+		readonly valueType: Record<string, string>;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'empty-object';
+		readonly flagKind: 'keyValue';
+	}> {
+		return new FlagBuilder(createSchema('keyValue', { valueHint: 'key=value' }));
+	},
 };
 
 // --- Exports
@@ -902,9 +1376,13 @@ export type {
 	InferFlag,
 	InferFlags,
 	OptionalFallback,
+	PathChecks,
+	PathFlagOptions,
 	ResolvedValue,
 	WithPresence,
 };
+export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
+export type { DateFlagOptions, UrlFlagOptions } from './value-parsers.ts';
 export {
 	createSchema,
 	FLAG_KINDS,

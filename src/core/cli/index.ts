@@ -472,6 +472,7 @@ function buildCommandRunOptions(
 		...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
 		...(options?.answers !== undefined ? { answers: options.answers } : {}),
+		...(options?.stat !== undefined ? { stat: options.stat } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),

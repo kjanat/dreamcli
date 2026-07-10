@@ -16,6 +16,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
@@ -386,7 +387,7 @@ function collectFlagWords(flags: Readonly<Record<string, FlagSchema>>): string {
 }
 
 /**
- * Collect all non-boolean flag forms across every node and root surface,
+ * Collect all value-taking flag forms across every node and root surface,
  * deduplicated and escaped for use in a bash `case` pattern.
  *
  * Returns a `|`-joined pattern like `--schema|-s|--output|-o` that the
@@ -402,7 +403,7 @@ function collectValueFlagPattern(
 	const forms = new Set<string>();
 	const addFlags = (flags: Readonly<Record<string, FlagSchema>>): void => {
 		for (const [name, schema] of Object.entries(flags)) {
-			if (schema.kind === 'boolean') continue;
+			if (!flagExpectsValue(schema)) continue;
 			forms.add(`--${name}`);
 			for (const alias of getFlagAliasNames(schema, { includeHidden: true })) {
 				forms.add(alias.length === 1 ? `-${alias}` : `--${alias}`);

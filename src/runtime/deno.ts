@@ -104,6 +104,9 @@ interface DenoNamespace {
 
 	/** Read a file as UTF-8 text (requires `--allow-read`). */
 	readTextFile(path: string): Promise<string>;
+
+	/** Probe a filesystem path (requires `--allow-read`). */
+	stat(path: string): Promise<{ readonly isDirectory: boolean }>;
 }
 
 // --- Permission-safe helpers
@@ -213,6 +216,21 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		}
 	};
 
+	const stat = async (path: string): Promise<'file' | 'directory' | null> => {
+		try {
+			const info = await d.stat(path);
+			return info.isDirectory ? 'directory' : 'file';
+		} catch (err: unknown) {
+			// NotFound = nothing at this path → null (expected for path checks)
+			if (isDenoErrorNamed(err, 'NotFound')) return null;
+			// PermissionDenied propagates — unlike config probing (readFile),
+			// a path check runs on an explicitly provided value, and reporting
+			// "does not exist" for a permission failure would mislead. Node
+			// behaves the same (EACCES throws).
+			throw err;
+		}
+	};
+
 	// --- Home directory ---
 	const homedir = resolveDenoHomedir(env, d.build.os === 'windows');
 
@@ -235,6 +253,7 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		onTerminalResize: (listener) => onDenoTerminalResize(d, listener),
 		exit: (code) => d.exit(code),
 		readFile,
+		stat,
 		homedir,
 		configDir,
 	};

@@ -23,7 +23,9 @@ import type {
 } from '#internals/core/schema/index.ts';
 import {
 	describeNumberConstraintViolation,
+	describeStringConstraintViolation,
 	validateNumberConstraints,
+	validateStringConstraints,
 } from '#internals/core/schema/index.ts';
 
 // --- Tokenizer — schema-agnostic argv splitting
@@ -191,7 +193,7 @@ function buildFlagLookup(
  * @returns `true` if the flag expects a value token after it
  */
 function flagExpectsValue(schema: FlagSchema): boolean {
-	return schema.kind !== 'boolean';
+	return schema.kind !== 'boolean' && schema.kind !== 'count';
 }
 
 // --- Value coercion
@@ -212,8 +214,25 @@ function coerceFlagValue(
 	displayName = `--${flagName}`,
 ): unknown {
 	switch (schema.kind) {
-		case 'string':
+		case 'string': {
+			const violation = validateStringConstraints(raw, schema.stringConstraints);
+			if (violation !== undefined) {
+				const reason = describeStringConstraintViolation(violation);
+				throw new ParseError(`Invalid value '${raw}' for flag ${displayName}: ${reason}`, {
+					code: 'INVALID_VALUE',
+					details: {
+						flag: flagName,
+						input: displayName,
+						value: raw,
+						expected: 'string',
+						constraint: violation.kind,
+						...('bound' in violation ? { bound: violation.bound } : {}),
+						...('pattern' in violation ? { pattern: violation.pattern } : {}),
+					},
+				});
+			}
 			return raw;
+		}
 
 		case 'number': {
 			const n = Number(raw);
@@ -299,6 +318,26 @@ function coerceFlagValue(
 				});
 			}
 		}
+
+		case 'count': {
+			// Explicit count values: --verbose=2. Reject '' explicitly —
+			// Number('') is 0, which would silently accept `--verbose=`.
+			const n = raw.trim() === '' ? Number.NaN : Number(raw);
+			if (!Number.isInteger(n) || n < 0) {
+				throw new ParseError(
+					`Invalid count value '${raw}' for flag ${displayName}. Use a non-negative integer`,
+					{
+						code: 'INVALID_VALUE',
+						details: { flag: flagName, input: displayName, value: raw, expected: 'count' },
+					},
+				);
+			}
+			return n;
+		}
+
+		case 'keyValue':
+			// Split at the FIRST '=' so values may contain '=' themselves.
+			return parseKeyValuePair(flagName, raw, displayName);
 	}
 }
 
@@ -477,7 +516,7 @@ function parseLongFlag(
 	const [canonicalName, flagSchema] = entry;
 
 	if (!flagExpectsValue(flagSchema)) {
-		// Boolean flag
+		// Boolean or count flag — consumes no value token
 		if (token.value !== undefined) {
 			flags[canonicalName] = coerceFlagValue(
 				canonicalName,
@@ -485,6 +524,9 @@ function parseLongFlag(
 				flagSchema,
 				`--${token.name}`,
 			);
+		} else if (flagSchema.kind === 'count') {
+			const existing = flags[canonicalName];
+			flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
 		} else {
 			flags[canonicalName] = true;
 		}
@@ -544,8 +586,13 @@ function parseShortFlags(
 		const [canonicalName, flagSchema] = entry;
 
 		if (!flagExpectsValue(flagSchema)) {
-			// Boolean short flag
-			flags[canonicalName] = true;
+			// Boolean or count short flag — consumes no value
+			if (flagSchema.kind === 'count') {
+				const existing = flags[canonicalName];
+				flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
+			} else {
+				flags[canonicalName] = true;
+			}
 			continue;
 		}
 
@@ -589,18 +636,62 @@ function setFlagValue(
 	rawValue: string,
 	displayName = `--${name}`,
 ): void {
-	const coerced = coerceFlagValue(name, rawValue, schema, displayName);
-
 	if (schema.kind === 'array') {
+		// With a separator, one occurrence may carry several elements
+		// (--tag a,b); each element is coerced individually so errors name
+		// the offending element, not the whole token.
+		const parts = schema.separator !== undefined ? rawValue.split(schema.separator) : [rawValue];
+		const coercedParts = parts
+			.filter((part) => schema.separator === undefined || part.length > 0)
+			.map((part) => coerceFlagValue(name, part, schema, displayName));
 		const existing = flags[name];
 		if (Array.isArray(existing)) {
-			existing.push(coerced);
+			existing.push(...coercedParts);
 		} else {
-			flags[name] = [coerced];
+			flags[name] = coercedParts;
 		}
-	} else {
-		flags[name] = coerced;
+		return;
 	}
+
+	if (schema.kind === 'keyValue') {
+		const pair = parseKeyValuePair(name, rawValue, displayName);
+		const existing = flags[name];
+		// Object.fromEntries defines own data properties, so keys like
+		// '__proto__' are stored verbatim instead of being silently eaten by
+		// the prototype setter.
+		flags[name] = Object.fromEntries([
+			...(isPlainRecord(existing) ? Object.entries(existing) : []),
+			pair,
+		]);
+		return;
+	}
+
+	flags[name] = coerceFlagValue(name, rawValue, schema, displayName);
+}
+
+/** Narrow to a mutable string-record accumulator (keyValue flags only ever store these). */
+function isPlainRecord(value: unknown): value is Record<string, string> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Split a `KEY=VALUE` token at the first `=`.
+ *
+ * @throws ParseError when the token has no `=` or an empty key.
+ */
+function parseKeyValuePair(
+	flagName: string,
+	raw: string,
+	displayName = `--${flagName}`,
+): readonly [string, string] {
+	const eq = raw.indexOf('=');
+	if (eq <= 0) {
+		throw new ParseError(`Invalid value '${raw}' for flag ${displayName}. Use KEY=VALUE`, {
+			code: 'INVALID_VALUE',
+			details: { flag: flagName, input: displayName, value: raw, expected: 'key=value' },
+		});
+	}
+	return [raw.slice(0, eq), raw.slice(eq + 1)];
 }
 
 // --- Positional arg mapping

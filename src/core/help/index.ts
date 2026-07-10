@@ -129,8 +129,8 @@ function formatFlagLeft(name: string, schema: FlagSchema): string {
 		...visibleLongAliases.map((alias) => `--${alias}`),
 	];
 
-	// Value placeholder (skip for boolean)
-	if (schema.kind !== 'boolean') {
+	// Value placeholder (skip for kinds that take no value)
+	if (schema.kind !== 'boolean' && schema.kind !== 'count') {
 		return `${forms.join(', ')} ${formatValueHint(schema)}`;
 	}
 
@@ -140,10 +140,16 @@ function formatFlagLeft(name: string, schema: FlagSchema): string {
 /**
  * Produce a type hint like `<string>`, `<number>`, `<us|eu|ap>`.
  *
+ * A schema-level `valueHint` (set by sugar factories like `flag.url()`)
+ * overrides the kind-derived hint.
+ *
  * @param schema - The {@link FlagSchema} whose value type determines the hint.
- * @returns Angle-bracketed hint string, or empty string for booleans.
+ * @returns Angle-bracketed hint string, or empty string for no-value kinds.
  */
 function formatValueHint(schema: FlagSchema): string {
+	if (schema.valueHint !== undefined) {
+		return `<${schema.valueHint}>`;
+	}
 	switch (schema.kind) {
 		case 'string':
 			return '<string>';
@@ -161,9 +167,12 @@ function formatValueHint(schema: FlagSchema): string {
 			return `<${elemHint}>...`;
 		}
 		case 'boolean':
+		case 'count':
 			return '';
 		case 'custom':
 			return '<value>';
+		case 'keyValue':
+			return '<key=value>';
 	}
 }
 
@@ -198,8 +207,13 @@ function formatFlagDescription(schema: FlagSchema): string {
 
 	if (schema.presence === 'required') {
 		parts.push('[required]');
-	} else if (schema.presence === 'defaulted' && schema.kind !== 'boolean') {
-		// Don't show "(default: false)" for boolean — it's obvious
+	} else if (
+		schema.presence === 'defaulted' &&
+		schema.kind !== 'boolean' &&
+		schema.kind !== 'count'
+	) {
+		// Don't show "(default: false)" for boolean or "(default: 0)" for
+		// count — both are obvious
 		parts.push(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
 	}
 

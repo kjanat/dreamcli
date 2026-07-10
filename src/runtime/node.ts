@@ -199,6 +199,20 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		}
 	};
 
+	const stat = async (path: string): Promise<'file' | 'directory' | null> => {
+		const fs = await import('node:fs/promises');
+		try {
+			const info = await fs.stat(path);
+			return info.isDirectory() ? 'directory' : 'file';
+		} catch (err: unknown) {
+			// ENOENT/ENOTDIR = nothing at this path → null (expected for path checks)
+			if (isNodeSystemError(err) && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) {
+				return null;
+			}
+			throw err; // Permission denied, etc. → caller handles
+		}
+	};
+
 	const homedir = resolveHomedir(p.env, p.platform);
 	const configDir = resolveConfigDir(p.env, p.platform, homedir);
 
@@ -218,6 +232,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		onTerminalResize: (listener) => onNodeTerminalResize(p, listener),
 		exit: (code) => p.exit(code),
 		readFile,
+		stat,
 		homedir,
 		configDir,
 	};

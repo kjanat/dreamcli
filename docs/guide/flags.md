@@ -20,6 +20,34 @@ flagTypes.string;
 //          ^?
 ```
 
+#### String constraints
+
+`flag.string()` accepts optional string constraints, either as an options
+object or via chained methods (they compose — a later chained call overrides an
+earlier value, including one set in the options object):
+
+```ts
+flag.string({ nonEmpty: true, pattern: /^ghp_/ });
+flag.string().nonEmpty().pattern(/^ghp_/); // equivalent
+flag.string().minLength(3).maxLength(64);
+```
+
+| Option      | Meaning                                     | Default |
+| ----------- | ------------------------------------------- | ------- |
+| `nonEmpty`  | Reject the empty string `''`                | `false` |
+| `minLength` | Inclusive minimum length (UTF-16 units)     | none    |
+| `maxLength` | Inclusive maximum length (UTF-16 units)     | none    |
+| `pattern`   | RegExp the value must match                 | none    |
+
+Constraints are checked in order **nonEmpty → minLength → maxLength →
+pattern** and apply to every source — CLI, env, config, and prompt. On the
+first failure, CLI parsing throws `INVALID_VALUE` while env/config/prompt
+resolution reports `CONSTRAINT_VIOLATED` (both exit code `2`). Anchor patterns
+with `^`/`$` for full-string matching; length bounds must be non-negative
+integers and `minLength` must not exceed `maxLength` (violations throw where
+the flag is declared). String constraints are surfaced in the exported JSON
+Schema as `minLength` / `maxLength` / `pattern`.
+
 ### Number
 
 ```ts twoslash
@@ -129,6 +157,26 @@ flagTypes.array;
 //         ^?
 ```
 
+Array flags resolve to `[]` when unset — they never resolve to `undefined`.
+
+#### Separators and deduplication
+
+By default each occurrence of an array flag contributes exactly one element
+(`--tag a --tag b`). With `.separator()`, each occurrence is also split, so
+CSV-style input works alongside repetition — and each element is coerced
+individually, so an error names the offending element, not the whole token:
+
+```ts
+flag.array(flag.enum(['us', 'eu', 'ap'])).separator(',').unique();
+// --region us,eu --region eu  →  ['us', 'eu']
+// --region us,mars            →  Invalid value 'mars' for flag --region. Allowed: us, eu, ap
+```
+
+`.unique()` deduplicates the final resolved array (first-seen order, `Set`
+semantics), regardless of which source produced the values. Env and config
+string values already split on `','` by default; `.separator()` changes that
+delimiter everywhere (e.g. `MYAPP_REGION=us|eu` with `.separator('|')`).
+
 ### Custom
 
 ```ts twoslash
@@ -144,9 +192,126 @@ flagTypes.custom;
 //         ^?
 ```
 
-Array flags are the one optional flag kind that still resolve to a value when
-unset: if no CLI/env/config/prompt/default value is found, they fall back to
-an empty array `[]`.
+### URL
+
+Parses into a `URL`; invalid URLs are rejected with the flag named in the
+error. Optionally restrict protocols:
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const urlFlag = flag.url({ protocols: ['https'] });
+
+declare const flagTypes: {
+  url: InferFlag<typeof urlFlag>;
+};
+// ---cut---
+flagTypes.url;
+//        ^?
+```
+
+### Path
+
+The value stays a `string` (help shows `<path>`), with optional filesystem
+checks that run **after resolution** through the runtime adapter — so CLI,
+env, and config values are validated identically:
+
+```ts
+flag.path(); // any string
+flag.path({ mustExist: true }); // rejects missing paths
+flag.path({ type: 'directory' }); // must exist and be a directory
+```
+
+In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
+function via run options to enable the checks; without one they are skipped.
+
+### Date
+
+Accepts strict ISO-8601 (`2026-07-10`, `2026-07-10T14:30:00Z`) and parses into
+a `Date`. Lenient `Date.parse` inputs (`'0'`, `'March 5'`) and
+calendar-invalid dates (`2026-02-31`) are rejected. Offset-less datetimes
+(`2026-07-10T14:30`) are treated as **UTC**, not local time, so `min` / `max`
+acceptance never depends on the machine's timezone. Optional inclusive
+`min` / `max` bounds:
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const dateFlag = flag.date({ min: new Date('2020-01-01') });
+
+declare const flagTypes: {
+  date: InferFlag<typeof dateFlag>;
+};
+// ---cut---
+flagTypes.date;
+//         ^?
+```
+
+### Duration
+
+Accepts `'30s'`, `'5m'`, `'1.5h'`, `'250ms'`, `'2d'`, compounds like
+`'1h30m'`, or a bare millisecond count — and resolves to **milliseconds**:
+
+```ts
+flag.duration().default(30_000);
+// --timeout 45s   → 45000
+// --timeout 1h30m → 5400000
+```
+
+### Bytes
+
+Accepts `'512mb'`, `'1.5gb'`, `'64kb'`, `'100b'` or a bare byte count, and
+resolves to **bytes**. Units are binary (`1kb` = 1024) and case-insensitive:
+
+```ts
+flag.bytes().default(10 * 1024 ** 2);
+// --max-size 512kb → 524288
+```
+
+### Count
+
+Resolves to how many times the flag appears — the classic verbosity pattern.
+`-vvv`, `-v -v -v`, and `--verbose --verbose --verbose` all yield `3`; absent
+yields `0`. An explicit value (`--verbose=2`, env, config) sets the count
+directly. Count flags take no value token and are not promptable:
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const countFlag = flag.count().alias('v');
+
+declare const flagTypes: {
+  count: InferFlag<typeof countFlag>;
+};
+// ---cut---
+flagTypes.count;
+//         ^?
+```
+
+### Key-Value
+
+Repeated `KEY=VALUE` occurrences merge into a `Record<string, string>`
+(docker/kubectl `--env` style). The value is split at the **first** `=`, so
+`--env A=b=c` yields `{ A: 'b=c' }`; later occurrences of the same key win.
+Unset resolves to `{}`. Env vars accept comma-separated pairs (`A=1,B=2`) —
+which means an env-sourced *value* cannot itself contain a comma; use the CLI
+or a config file (plain object) for those:
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const kvFlag = flag.keyValue().alias('e');
+
+declare const flagTypes: {
+  env: InferFlag<typeof kvFlag>;
+};
+// ---cut---
+flagTypes.env;
+//         ^?
+```
+
+Array and key-value flags are the optional flag kinds that still resolve to a
+value when unset: arrays fall back to `[]`, key-value flags to `{}`.
 
 For the exact parser rules around repeated flags, short-flag stacking, `--`
 separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics).

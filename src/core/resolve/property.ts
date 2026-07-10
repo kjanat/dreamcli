@@ -9,7 +9,12 @@
  * @internal
  */
 
-import type { ArgSchema, FlagSchema, NumberConstraints } from '#internals/core/schema/index.ts';
+import type {
+	ArgSchema,
+	FlagSchema,
+	NumberConstraints,
+	StringConstraints,
+} from '#internals/core/schema/index.ts';
 
 /** Flag/arg kinds that share a common coercion path. */
 const SHARED_PROPERTY_MODEL_KINDS = ['string', 'number', 'enum', 'custom'] as const;
@@ -19,7 +24,7 @@ type SharedPropertyKind = (typeof SHARED_PROPERTY_MODEL_KINDS)[number];
 
 /** Minimal coercion-relevant slice of a flag or arg schema, discriminated by kind. */
 type SharedPropertySchema =
-	| { readonly kind: 'string' }
+	| { readonly kind: 'string'; readonly stringConstraints: StringConstraints | undefined }
 	| { readonly kind: 'number'; readonly numberConstraints: NumberConstraints | undefined }
 	| { readonly kind: 'enum'; readonly enumValues: readonly string[] | undefined }
 	| { readonly kind: 'custom'; readonly parseFn?: (raw: unknown) => unknown };
@@ -51,7 +56,7 @@ const sharedPropertyModelContract = {
 function toSharedFlagPropertySchema(schema: FlagSchema): SharedPropertySchema | undefined {
 	switch (schema.kind) {
 		case 'string':
-			return { kind: 'string' };
+			return { kind: 'string', stringConstraints: schema.stringConstraints };
 		case 'number':
 			return { kind: 'number', numberConstraints: schema.numberConstraints };
 		case 'enum':
@@ -62,6 +67,8 @@ function toSharedFlagPropertySchema(schema: FlagSchema): SharedPropertySchema | 
 				: { kind: 'custom', parseFn: schema.parseFn };
 		case 'boolean':
 		case 'array':
+		case 'count':
+		case 'keyValue':
 			return undefined;
 	}
 }
@@ -70,7 +77,7 @@ function toSharedFlagPropertySchema(schema: FlagSchema): SharedPropertySchema | 
 function toSharedArgPropertySchema(schema: ArgSchema): SharedPropertySchema {
 	switch (schema.kind) {
 		case 'string':
-			return { kind: 'string' };
+			return { kind: 'string', stringConstraints: undefined };
 		case 'number':
 			return { kind: 'number', numberConstraints: schema.numberConstraints };
 		case 'enum':

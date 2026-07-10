@@ -7,10 +7,17 @@
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
-import type { ArgSchema, FlagSchema, NumberConstraints } from '#internals/core/schema/index.ts';
+import type {
+	ArgSchema,
+	FlagSchema,
+	NumberConstraints,
+	StringConstraints,
+} from '#internals/core/schema/index.ts';
 import {
 	describeNumberConstraintViolation,
+	describeStringConstraintViolation,
 	validateNumberConstraints,
+	validateStringConstraints,
 } from '#internals/core/schema/index.ts';
 import type { ArgDiagnosticSource, FlagDiagnosticSource } from './contracts.ts';
 import type { SharedPropertySchema } from './property.ts';
@@ -110,6 +117,50 @@ function finalizeNumber(
 	};
 }
 
+/**
+ * Apply string constraints to an already-string value. Shares the single
+ * {@link validateStringConstraints} check used by the parse path, so the two
+ * boundaries cannot drift. On violation, returns a `CONSTRAINT_VIOLATED`
+ * failure mirroring {@link finalizeNumber}.
+ */
+function finalizeString(
+	flagName: string,
+	source: CoerceSource,
+	value: string,
+	constraints: StringConstraints | undefined,
+): CoerceResult {
+	const violation = validateStringConstraints(value, constraints);
+	if (violation === undefined) {
+		return { ok: true, value };
+	}
+
+	const reason = describeStringConstraintViolation(violation);
+	return {
+		ok: false,
+		error: new ValidationError(
+			`Invalid value '${value}' ${sourceLabel(source)} for flag --${flagName}: ${reason}`,
+			{
+				code: 'CONSTRAINT_VIOLATED',
+				details: {
+					flag: flagName,
+					...sourceDetails(source),
+					value,
+					expected: 'string',
+					constraint: violation.kind,
+					...('bound' in violation ? { bound: violation.bound } : {}),
+					...('pattern' in violation ? { pattern: violation.pattern } : {}),
+				},
+				suggest:
+					source.kind === 'env'
+						? `Set ${source.envVar} to a valid string`
+						: source.kind === 'config'
+							? `Set ${source.configPath} to a valid string in your config`
+							: `Enter a valid value for --${flagName}`,
+			},
+		),
+	};
+}
+
 /** Coerce a raw value from env/config/prompt into the type declared by a flag schema. */
 function coerceValue(
 	flagName: string,
@@ -171,7 +222,7 @@ function coerceValue(
 			}
 			if (typeof raw === 'string') {
 				if (raw === '') return { ok: true, value: [] };
-				const parts = raw.split(',');
+				const parts = raw.split(schema.separator ?? ',').filter((part) => part.length > 0);
 				if (schema.elementSchema) {
 					const coerced: unknown[] = [];
 					for (const part of parts) {
@@ -201,9 +252,87 @@ function coerceValue(
 						: `Provide valid values for --${flagName}`,
 			);
 		}
+
+		case 'count': {
+			// Reject '' explicitly — Number('') is 0, which would silently
+			// accept an empty env var as a zero count.
+			const value = typeof raw === 'string' ? (raw.trim() === '' ? Number.NaN : Number(raw)) : raw;
+			if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+				return { ok: true, value };
+			}
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'count',
+				raw,
+				typeof raw === 'string' ? `Invalid count value '${raw}'` : 'Invalid count value',
+				source.kind === 'env'
+					? `Set ${source.envVar} to a non-negative integer`
+					: source.kind === 'config'
+						? `Set ${source.configPath} to a non-negative integer in your config`
+						: `Enter a non-negative integer for --${flagName}`,
+			);
+		}
+
+		case 'keyValue': {
+			if (isStringRecord(raw)) {
+				return { ok: true, value: { ...raw } };
+			}
+			if (typeof raw === 'string') {
+				if (raw === '') return { ok: true, value: {} };
+				const pairs: [string, string][] = [];
+				// Empty segments are dropped (trailing-comma parity with array
+				// coercion). Values themselves cannot contain ',' via env —
+				// use CLI or config for those.
+				for (const pair of raw.split(',').filter((segment) => segment.length > 0)) {
+					const eq = pair.indexOf('=');
+					if (eq <= 0) {
+						return coercionError(
+							flagName,
+							source,
+							'TYPE_MISMATCH',
+							'key=value',
+							raw,
+							`Invalid key-value pair '${pair}'`,
+							source.kind === 'env'
+								? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
+								: source.kind === 'config'
+									? `Set ${source.configPath} to an object with string values`
+									: `Use KEY=VALUE for --${flagName}`,
+						);
+					}
+					pairs.push([pair.slice(0, eq), pair.slice(eq + 1)]);
+				}
+				// fromEntries defines own data properties — '__proto__' keys are
+				// stored verbatim, not routed to the prototype setter.
+				return { ok: true, value: Object.fromEntries(pairs) };
+			}
+			return coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'key=value',
+				raw,
+				'Invalid key-value value',
+				source.kind === 'env'
+					? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
+					: source.kind === 'config'
+						? `Set ${source.configPath} to an object with string values`
+						: `Use KEY=VALUE for --${flagName}`,
+			);
+		}
 	}
 
 	throw new Error(`Unreachable flag coercion kind: ${schema.kind}`);
+}
+
+/** Narrow config-sourced objects to plain string-valued records. */
+function isStringRecord(value: unknown): value is Readonly<Record<string, string>> {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return false;
+	}
+	return Object.values(value).every((entry) => typeof entry === 'string');
 }
 
 function coerceSharedPropertyValue(
@@ -214,10 +343,14 @@ function coerceSharedPropertyValue(
 ): CoerceResult {
 	switch (schema.kind) {
 		case 'string': {
-			if (typeof raw === 'string') return { ok: true, value: raw };
-			if (source.kind === 'prompt') return { ok: true, value: String(raw) };
+			if (typeof raw === 'string') {
+				return finalizeString(flagName, source, raw, schema.stringConstraints);
+			}
+			if (source.kind === 'prompt') {
+				return finalizeString(flagName, source, String(raw), schema.stringConstraints);
+			}
 			if (source.kind === 'config' && (typeof raw === 'number' || typeof raw === 'boolean')) {
-				return { ok: true, value: String(raw) };
+				return finalizeString(flagName, source, String(raw), schema.stringConstraints);
 			}
 			return coercionError(
 				flagName,

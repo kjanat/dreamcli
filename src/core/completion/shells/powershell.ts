@@ -13,6 +13,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
@@ -174,7 +175,7 @@ function appendPowerShellPathEntry(
 		lines.push(`\t\t\t\tCanonicalName = ${quotePowerShellString(name)}`);
 		lines.push(`\t\t\t\tForms = ${formatPowerShellArray(forms)}`);
 		lines.push(`\t\t\t\tParseForms = ${formatPowerShellArray(parseForms)}`);
-		lines.push(`\t\t\t\tRequiresValue = ${schema.kind === 'boolean' ? '$false' : '$true'}`);
+		lines.push(`\t\t\t\tRequiresValue = ${flagExpectsValue(schema) ? '$true' : '$false'}`);
 		lines.push(`\t\t\t\tDescription = ${quotePowerShellString(schema.description ?? name)}`);
 		lines.push(`\t\t\t\tEnumValues = ${formatPowerShellArray(schema.enumValues ?? [])}`);
 		lines.push('\t\t\t}');

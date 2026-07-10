@@ -52,6 +52,7 @@ export type {
 export { CommandBuilder, command, group } from './command.ts';
 export type {
 	ConfirmPromptConfig,
+	DateFlagOptions,
 	FlagAlias,
 	FlagConfig,
 	FlagFactory,
@@ -64,6 +65,8 @@ export type {
 	InferFlags,
 	InputPromptConfig,
 	MultiselectPromptConfig,
+	PathChecks,
+	PathFlagOptions,
 	PromptConfig,
 	PromptConfigBase,
 	PromptKind,
@@ -71,6 +74,7 @@ export type {
 	ResolvedValue,
 	SelectChoice,
 	SelectPromptConfig,
+	UrlFlagOptions,
 	WithPresence,
 } from './flag.ts';
 export {
@@ -94,3 +98,8 @@ export {
 	validateNumberConstraints,
 } from './number-constraints.ts';
 export type { RunOptions, RunResult } from './run.ts';
+export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
+export {
+	describeStringConstraintViolation,
+	validateStringConstraints,
+} from './string-constraints.ts';

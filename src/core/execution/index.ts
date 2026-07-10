@@ -104,6 +104,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			...(options?.env !== undefined ? { env: options.env } : {}),
 			...(options?.config !== undefined ? { config: options.config } : {}),
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
+			...(options?.stat !== undefined ? { stat: options.stat } : {}),
 		};
 		const resolved = await resolve(schema, parsed, resolveOptions);
 		const resolvedParams: ResolvedCommandParams = {

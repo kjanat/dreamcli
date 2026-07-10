@@ -110,6 +110,16 @@ interface RuntimeAdapter {
 	readonly readFile: (path: string) => Promise<string | null>;
 
 	/**
+	 * Probe what exists at a filesystem path.
+	 *
+	 * Returns `'file'` or `'directory'` for existing paths (other kinds such
+	 * as sockets report `'file'`), or `null` when nothing exists there.
+	 *
+	 * Used by `flag.path()` existence/type checks after resolution.
+	 */
+	readonly stat: (path: string) => Promise<'file' | 'directory' | null>;
+
+	/**
 	 * User home directory (absolute path).
 	 *
 	 * - Node/Bun: derived from `HOME` / `USERPROFILE` env
@@ -220,6 +230,19 @@ interface TestAdapterOptions {
 	 */
 	readonly readFile?: (path: string) => Promise<string | null>;
 
+	/**
+	 * Filesystem probe stub for `flag.path()` checks (defaults to returning
+	 * `null` — nothing exists).
+	 *
+	 * Supply a custom function to simulate a virtual filesystem in tests:
+	 * ```ts
+	 * createTestAdapter({
+	 *   stat: (path) => Promise.resolve(path === '/data' ? 'directory' : null),
+	 * })
+	 * ```
+	 */
+	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
+
 	/** Home directory (defaults to `'/home/test'`). */
 	readonly homedir?: string;
 
@@ -265,6 +288,10 @@ const eofRead: ReadFn = () => Promise.resolve(null);
 
 /** Noop file reader — returns `null` (not found) for all paths. */
 const noopReadFile: (path: string) => Promise<string | null> = () => Promise.resolve(null);
+
+/** Noop stat — reports `null` (nothing exists) for all paths. */
+const noopStat: (path: string) => Promise<'file' | 'directory' | null> = () =>
+	Promise.resolve(null);
 
 /**
  * Create a test runtime adapter with injectable process state.
@@ -314,6 +341,7 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 				throw new ExitError(code);
 			}),
 		readFile: options?.readFile ?? noopReadFile,
+		stat: options?.stat ?? noopStat,
 		homedir: options?.homedir ?? '/home/test',
 		configDir: options?.configDir ?? '/home/test/.config',
 	};

@@ -125,6 +125,8 @@ interface RuntimePreflightOptions {
 	readonly jsonMode?: boolean;
 	/** TTY detection override; bypasses adapter TTY check. */
 	readonly isTTY?: boolean;
+	/** Filesystem probe override for `flag.path()` checks; bypasses the adapter probe. */
+	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 }
 
 /**
@@ -149,6 +151,8 @@ interface RuntimeExecutionInputs {
 	readonly prompter?: PromptEngine;
 	/** Loaded config data for the config resolution step. */
 	readonly config?: Readonly<Record<string, unknown>>;
+	/** Filesystem probe (from the adapter) for `flag.path()` checks. */
+	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 }
 
 /** Preflight succeeded — all runtime inputs are resolved and ready for execution. @internal */
@@ -431,6 +435,7 @@ async function prepareRuntimePreflight(
 			isTTY: options.options?.isTTY ?? options.adapter.isTTY,
 			jsonMode,
 			verbosity: options.options?.verbosity ?? 'normal',
+			stat: options.options?.stat ?? options.adapter.stat,
 			...(stdinData !== undefined ? { stdinData } : {}),
 			...(options.options?.prompter !== undefined
 				? { prompter: options.options.prompter }

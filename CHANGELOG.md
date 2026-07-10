@@ -7,6 +7,53 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.7] - 2026-07-10
+
+### Added
+
+- **`.derive()` handlers may omit the return** — a validation-only derive with
+  no `return` statement (sync or async) now typechecks; previously `void` /
+  `Promise<void>` failed the `Output` constraint and forced an explicit
+  `return undefined`.
+- **String constraints** — `flag.string({ nonEmpty, minLength, maxLength, pattern })`
+  plus chained `.nonEmpty()` / `.minLength()` / `.maxLength()` / `.pattern()`,
+  mirroring the numeric-constraint model. Checked in fixed order
+  (nonEmpty → minLength → maxLength → pattern) at both the CLI parse boundary
+  (`INVALID_VALUE`) and env/config/prompt resolution (`CONSTRAINT_VIOLATED`),
+  and emitted into the exported JSON Schema as `minLength` / `maxLength` /
+  `pattern`.
+- **`.separator()` and `.unique()` on array flags** — `.separator(',')` splits
+  each CLI occurrence before element coercion, so `--region us,eu --region ap`
+  works alongside repetition and errors name the offending element. Env/config
+  string values use the same separator (default remains `','`). `.unique()`
+  deduplicates the final resolved array (first-seen order) regardless of
+  source.
+- **`flag.url()`** — parses into a `URL`, with optional
+  `{ protocols: ['https'] }` allowlist. Help shows `<url>`.
+- **`flag.path()`** — path string with opt-in filesystem checks
+  (`{ mustExist: true }`, `{ type: 'file' | 'directory' }`) validated after
+  resolution through the runtime adapter, so CLI/env/config values are checked
+  identically. `RuntimeAdapter` gained a `stat()` primitive (Node/Bun via
+  `node:fs/promises`, Deno via `Deno.stat`; test adapters default to "nothing
+  exists"), and `RunOptions` / `ResolveOptions` accept a `stat` injection for
+  process-free execution — without one, checks are skipped.
+- **`flag.date()`** — strict ISO-8601 → `Date` with optional inclusive
+  `min` / `max` bounds. Rejects lenient `Date.parse` inputs (`'0'`,
+  `'March 5'`) and calendar-invalid dates (`2026-02-31`).
+- **`flag.duration()`** — `'30s'`, `'5m'`, `'1.5h'`, `'250ms'`, `'2d'`,
+  compounds (`'1h30m'`), or bare milliseconds → milliseconds.
+- **`flag.bytes()`** — `'512mb'`, `'1.5gb'`, `'64kb'` or bare bytes → bytes
+  (binary units, case-insensitive).
+- **`flag.count()`** — occurrence counter (`-vvv` → `3`, absent → `0`,
+  explicit `--verbose=2` supported). Takes no value token, not promptable,
+  and joins boolean flags in help (no `<value>` placeholder) and shell
+  completions.
+- **`flag.keyValue()`** — repeated `KEY=VALUE` merges into
+  `Record<string, string>` (split at the first `=`, later keys win, unset
+  resolves to `{}`). Env accepts comma-separated pairs; config accepts a plain
+  object. New `'empty-object'` optional fallback joins arrays' `[]` as the
+  kinds that resolve to a value when unset.
+
 ## [3.0.0-rc.6] - 2026-07-09
 
 ### Added
@@ -1083,7 +1130,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.6...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.7...HEAD
+[3.0.0-rc.7]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.6...v3.0.0-rc.7
 [3.0.0-rc.6]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.5...v3.0.0-rc.6
 [3.0.0-rc.5]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.4...v3.0.0-rc.5
 [3.0.0-rc.4]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.3...v3.0.0-rc.4

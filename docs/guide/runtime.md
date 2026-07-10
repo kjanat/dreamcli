@@ -30,7 +30,7 @@ Instead, a `RuntimeAdapter` provides:
 - `stdinIsTTY` — interactive stdin detection
 - `getTerminalSize` — current stdout columns and rows when available
 - `onTerminalResize` — terminal resize subscription when supported
-- `readFile` / `homedir` / `configDir` — filesystem access
+- `readFile` / `stat` / `homedir` / `configDir` — filesystem access
 
 Runtime detection is automatic — dreamcli picks the right adapter at startup.
 

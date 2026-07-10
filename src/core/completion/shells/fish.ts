@@ -13,6 +13,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
@@ -197,7 +198,7 @@ function appendFishFlagCompletions(
 		}
 		parts.push(`-d ${quoteShellArg(schema.description ?? name)}`);
 
-		if (schema.kind !== 'boolean') {
+		if (flagExpectsValue(schema)) {
 			parts.push('-r', '-f');
 		}
 		if (schema.kind === 'enum' && schema.enumValues !== undefined) {
@@ -231,7 +232,7 @@ function collectFishValueFlagPatterns(
 
 	for (const flags of flagSets) {
 		for (const [name, schema] of Object.entries(flags)) {
-			if (schema.kind === 'boolean') continue;
+			if (!flagExpectsValue(schema)) continue;
 
 			exact.add(`--${name}`);
 			prefix.add(`--${name}=*`);

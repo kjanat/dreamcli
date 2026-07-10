@@ -73,6 +73,16 @@ export interface RunOptions {
 	readonly answers?: readonly TestAnswer[];
 
 	/**
+	 * Filesystem probe for `flag.path()` checks: reports what exists at a
+	 * path (`'file'`, `'directory'`, or `null` for nothing).
+	 *
+	 * `CLIBuilder.run()` supplies the runtime adapter's probe automatically.
+	 * When absent (process-free `.execute()` / `runCommand()` without an
+	 * override), path checks are skipped.
+	 */
+	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
+
+	/**
 	 * Verbosity level for the output channel.
 	 * @defaultValue `'normal'`
 	 */

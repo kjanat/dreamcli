@@ -55,6 +55,11 @@ interface ResolveOptions {
 	readonly config?: Readonly<Record<string, unknown>>;
 	/** Interactive prompt engine; absent in non-TTY / CI contexts. */
 	readonly prompter?: PromptEngine;
+	/**
+	 * Filesystem probe for `flag.path()` checks: what exists at the path, or
+	 * `null` when nothing does. When absent, path checks are skipped.
+	 */
+	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 }
 
 /** Structured deprecation notice emitted for explicitly sourced values. */
