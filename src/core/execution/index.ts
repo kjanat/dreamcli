@@ -72,7 +72,14 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 	try {
 		if (includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h')) {
-			const helpText = formatHelp(schema, options?.help);
+			// Standalone `cmd.run()` / testkit paths reach here without the CLI
+			// builder's help merge — default the palette from the output channel.
+			const helpText = formatHelp(
+				schema,
+				options?.help?.colors !== undefined
+					? options.help
+					: { ...options?.help, colors: out.color },
+			);
 			out.log(helpText);
 			return { exitCode: 0, error: undefined };
 		}

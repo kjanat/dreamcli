@@ -87,7 +87,7 @@ export {
 	ParseError,
 	ValidationError,
 } from './core/errors/index.ts';
-export type { HelpOptions } from './core/help/index.ts';
+export type { HelpOptions, HelpTheme, HelpThemeFactory } from './core/help/index.ts';
 export { formatHelp, osc8, visibleWidth } from './core/help/index.ts';
 export type { JsonSchemaOptions } from './core/json-schema/index.ts';
 export {

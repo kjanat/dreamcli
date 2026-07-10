@@ -20,7 +20,7 @@ import type { FormatLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
-import type { HelpOptions } from '#internals/core/help/index.ts';
+import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import {
@@ -332,6 +332,17 @@ interface HelpConfig {
 	readonly width?: number;
 	/** Emit OSC 8 hyperlinks in the header when supported. */
 	readonly hyperlinks?: boolean;
+	/**
+	 * Theme overrides for help output, merged over the built-in theme.
+	 *
+	 * The factory receives the gated ansispeck palette (same instance as
+	 * `out.color`), so overrides follow the output channel's color policy.
+	 * It is never invoked when color is off — themed help cannot leak escapes
+	 * into piped, `--json`, or `NO_COLOR` output.
+	 *
+	 * @defaultValue `undefined` (built-in theme)
+	 */
+	readonly theme?: HelpThemeFactory;
 }
 
 /**
@@ -1114,12 +1125,14 @@ class CLIBuilder {
 
 		// Resolve help options — builder-level `.help()` config under runtime
 		// `options.help` (runtime wins), then default binName to the CLI program
-		// name and hyperlinks to TTY detection (escapes never leak into piped output).
+		// name, hyperlinks to TTY detection, and colors to the output channel's
+		// gated palette (escapes never leak into piped output).
 		const helpOptions: HelpOptions = {
 			...this.schema.helpConfig,
 			...options?.help,
 			binName: options?.help?.binName ?? this.schema.name,
 			hyperlinks: options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isTTY,
+			colors: options?.help?.colors ?? out.color,
 		};
 
 		// -- Shared options for command execution ----------------------------------

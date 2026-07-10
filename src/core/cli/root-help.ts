@@ -9,8 +9,12 @@
  */
 
 import { osc8, padEnd, wrapText } from '#internals/core/help/ansi.ts';
-import type { FlagEntry, HelpOptions } from '#internals/core/help/index.ts';
-import { formatFlagEntriesBlock, formatHelpSections } from '#internals/core/help/index.ts';
+import type { FlagEntry, HelpOptions, HelpTheme } from '#internals/core/help/index.ts';
+import {
+	formatFlagEntriesBlock,
+	formatHelpSections,
+	resolveHelpTheme,
+} from '#internals/core/help/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
@@ -65,6 +69,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	const hyperlinks = options?.hyperlinks === true;
 	const inlineDefault = options?.inlineDefault ?? true;
 	const showDefaultInCommands = options?.showDefaultInCommands ?? false;
+	const theme = resolveHelpTheme(options?.colors, options?.theme);
 
 	const surface = resolveRootSurface(schema);
 	const defaultCommand = surface.visibleDefaultCommand;
@@ -85,7 +90,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	const surfaceCommand = resolveSurfaceCommand(schema, inlineDefaultCommand);
 	const inline = surfaceCommand !== undefined;
 
-	const sections: string[] = [formatHeader(schema, hyperlinks)];
+	const sections: string[] = [formatHeader(schema, hyperlinks, theme)];
 	if (schema.description !== undefined) {
 		sections.push(schema.description);
 	}
@@ -99,10 +104,11 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 			? '[command]'
 			: '<command>'
 		: '';
+	const usageTitle = theme.sectionTitle('Usage:');
 	const rootUsage =
 		placeholder.length > 0
-			? `Usage: ${binName} ${placeholder} [options]`
-			: `Usage: ${binName} [options]`;
+			? `${usageTitle} ${theme.usageBin(binName)} ${theme.placeholder(placeholder)} ${theme.placeholder('[options]')}`
+			: `${usageTitle} ${theme.usageBin(binName)} ${theme.placeholder('[options]')}`;
 
 	let surfaceSections: string[] = [];
 	if (inline && surfaceCommand !== undefined) {
@@ -119,7 +125,9 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	// actually inlined; a completions-only synthetic surface keeps the root usage.
 	if (inline && surfaceUsage !== undefined && inlineDefaultCommand !== undefined) {
 		sections.push(
-			surface.hasVisibleSubcommands ? mergeUsageSections(rootUsage, surfaceUsage) : surfaceUsage,
+			surface.hasVisibleSubcommands
+				? mergeUsageSections(rootUsage, surfaceUsage, usageTitle)
+				: surfaceUsage,
 		);
 	} else {
 		sections.push(rootUsage);
@@ -140,6 +148,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 				listedCommands,
 				listDefaultInCommands ? defaultCommand?.name : undefined,
 				width,
+				theme,
 			),
 		);
 	}
@@ -162,7 +171,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	// Built-ins are framework-provided and never appear in any command schema, so
 	// they are advertised here for discoverability (#32). `--completions` is not
 	// listed: when active it is already injected into the inline surface's flags.
-	const globalOptions = formatGlobalOptionsSection(schema, width);
+	const globalOptions = formatGlobalOptionsSection(schema, width, theme);
 	if (globalOptions.length > 0) {
 		sections.push(globalOptions);
 	}
@@ -247,14 +256,16 @@ function completionsFlagSchema(shells: readonly string[]): FlagSchema {
  *
  * @param schema - The CLI schema.
  * @param hyperlinks - Whether OSC 8 hyperlinks may be emitted.
+ * @param theme - Theme applied to the name and version (inside any hyperlink).
  * @returns The header line.
  * @internal
  */
-function formatHeader(schema: CLISchemaLike, hyperlinks: boolean): string {
+function formatHeader(schema: CLISchemaLike, hyperlinks: boolean, theme: HelpTheme): string {
 	const links = hyperlinks ? schema.helpLinks : undefined;
-	const name = links?.name !== undefined ? osc8(links.name, schema.name) : schema.name;
+	const styledName = theme.headerName(schema.name);
+	const name = links?.name !== undefined ? osc8(links.name, styledName) : styledName;
 	if (schema.version === undefined) return name;
-	const version = `v${schema.version}`;
+	const version = theme.headerVersion(`v${schema.version}`);
 	return `${name} ${links?.version !== undefined ? osc8(links.version, version) : version}`;
 }
 
@@ -264,6 +275,7 @@ function formatHeader(schema: CLISchemaLike, hyperlinks: boolean): string {
  * @param visibleCommands - Non-hidden top-level commands.
  * @param defaultName - Name of the default command (appends " (default)" tag).
  * @param width - Terminal width for description wrapping.
+ * @param theme - Theme applied to the title, command names, and default tag.
  * @returns Formatted commands block.
  * @internal
  */
@@ -271,12 +283,14 @@ function formatRootCommandsSection(
 	visibleCommands: readonly CommandSchema[],
 	defaultName: string | undefined,
 	width: number,
+	theme: HelpTheme,
 ): string {
-	const lines: string[] = ['Commands:'];
+	const lines: string[] = [theme.sectionTitle('Commands:')];
 	const GAP = 2;
 	const DEFAULT_TAG = ' (default)';
 
-	// Compute max command name length for alignment (account for default tag)
+	// Compute max command name length for alignment (plain lengths — styling
+	// happens at emit and padEnd measures visible width)
 	let maxNameLen = 0;
 	for (const cmd of visibleCommands) {
 		const tagLen = cmd.name === defaultName ? DEFAULT_TAG.length : 0;
@@ -289,7 +303,9 @@ function formatRootCommandsSection(
 	const descCol = 2 + maxNameLen + GAP; // 2 for indent
 	for (const cmd of visibleCommands) {
 		const isDefault = cmd.name === defaultName;
-		const label = isDefault ? `${cmd.name}${DEFAULT_TAG}` : cmd.name;
+		const label = isDefault
+			? `${theme.command(cmd.name)}${theme.annotation(DEFAULT_TAG)}`
+			: theme.command(cmd.name);
 		const padded = padEnd(`  ${label}`, descCol);
 		const desc = cmd.description ?? '';
 		if (desc.length === 0) {
@@ -312,24 +328,32 @@ function formatRootCommandsSection(
  *
  * @param schema - The CLI schema (read for `version` and `configSettings`).
  * @param width - Terminal width for description wrapping.
+ * @param theme - Theme applied to the title and flag forms.
  * @returns Formatted `Global options:` block (always non-empty).
  * @internal
  */
-function formatGlobalOptionsSection(schema: CLISchemaLike, width: number): string {
+function formatGlobalOptionsSection(
+	schema: CLISchemaLike,
+	width: number,
+	theme: HelpTheme,
+): string {
 	const entries: FlagEntry[] = [
-		{ left: '-h, --help', description: 'Show this help message and exit' },
+		{ left: theme.flag('-h, --help'), description: 'Show this help message and exit' },
 	];
 	if (schema.version !== undefined) {
-		entries.push({ left: '-V, --version', description: 'Print the version number and exit' });
+		entries.push({
+			left: theme.flag('-V, --version'),
+			description: 'Print the version number and exit',
+		});
 	}
-	entries.push({ left: '--json', description: 'Emit machine-readable JSON output' });
+	entries.push({ left: theme.flag('--json'), description: 'Emit machine-readable JSON output' });
 	if (schema.configSettings !== undefined) {
 		entries.push({
-			left: '--config <path>',
+			left: `${theme.flag('--config')} ${theme.placeholder('<path>')}`,
 			description: 'Load configuration from the given file',
 		});
 	}
-	return formatFlagEntriesBlock('Global options:', entries, width);
+	return formatFlagEntriesBlock(theme.sectionTitle('Global options:'), entries, width);
 }
 
 /**
@@ -337,15 +361,19 @@ function formatGlobalOptionsSection(schema: CLISchemaLike, width: number): strin
  *
  * @param rootUsage - The root usage line (e.g. `Usage: mycli [command] [options]`).
  * @param commandUsage - The default command's usage line.
+ * @param usageTitle - The themed `Usage:` title — byte-identical in both lines
+ *   within one render, so the styled prefix strips cleanly.
  * @returns Combined usage block with aligned continuation.
  * @internal
  */
-function mergeUsageSections(rootUsage: string, commandUsage: string): string {
-	const usagePrefix = 'Usage: ';
+function mergeUsageSections(rootUsage: string, commandUsage: string, usageTitle: string): string {
+	const usagePrefix = `${usageTitle} `;
 	const commandSuffix = commandUsage.startsWith(usagePrefix)
 		? commandUsage.slice(usagePrefix.length)
 		: commandUsage;
-	return `${rootUsage}\n${' '.repeat(usagePrefix.length)}${commandSuffix}`;
+	// Continuation indent matches the VISIBLE 'Usage: ' width (7), not the
+	// escape-carrying prefix length.
+	return `${rootUsage}\n${' '.repeat('Usage: '.length)}${commandSuffix}`;
 }
 
 // --- Exports
