@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.8] - 2026-07-11
+
 ### Added
 
 - **Themed help output** — root and per-command help render with a semantic
@@ -41,6 +43,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Automatically disabled per pair when both spellings are declared explicitly;
   globally via `cli('mycli', { flags: { caseParity: false } })` (new
   `cli(name, options)` overload) or `RunOptions.flags`.
+
+### Fixed
+
+- `execute(argv, { flags })` overrides now reach the planner's dispatch arity
+  scanning, not just command parsing.
+- Generated meta-schema descriptions render `@defaultValue` tags as a
+  `Default: <value>` paragraph instead of silently dropping them.
 
 ## [3.0.0-rc.7] - 2026-07-10
 
@@ -1165,7 +1174,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.7...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.8...HEAD
+[3.0.0-rc.8]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.7...v3.0.0-rc.8
 [3.0.0-rc.7]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.6...v3.0.0-rc.7
 [3.0.0-rc.6]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.5...v3.0.0-rc.6
 [3.0.0-rc.5]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.4...v3.0.0-rc.5
