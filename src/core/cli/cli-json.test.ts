@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
@@ -208,7 +209,13 @@ describe('CLIBuilder --json with root flags', () => {
 		expect(doc).toMatchObject({
 			name: 'test',
 			version: '1.0.0',
-			commands: [{ name: 'data' }],
+			commands: [
+				{
+					name: 'data',
+					description: 'Get data',
+					flags: { limit: { kind: 'number', presence: 'defaulted', defaultValue: 10 } },
+				},
+			],
 		});
 		// Machine-readable output only — no help text anywhere.
 		expect(result.stderr).toEqual([]);
@@ -220,7 +227,10 @@ describe('CLIBuilder --json with root flags', () => {
 
 		expect(result.exitCode).toBe(0);
 		const doc: unknown = JSON.parse(result.stdout.join(''));
-		expect(doc).toMatchObject({ name: 'data' });
+		expect(doc).toMatchObject({
+			name: 'data',
+			flags: { limit: { kind: 'number', defaultValue: 10 } },
+		});
 		expect(result.stderr).toEqual([]);
 	});
 
@@ -230,8 +240,23 @@ describe('CLIBuilder --json with root flags', () => {
 
 		expect(result.exitCode).toBe(0);
 		const doc: unknown = JSON.parse(result.stdout.join(''));
-		expect(doc).toMatchObject({ name: 'data' });
+		expect(doc).toMatchObject({
+			name: 'data',
+			flags: { limit: { kind: 'number', defaultValue: 10 } },
+		});
 		expect(result.stderr).toEqual([]);
+	});
+
+	it('command help emits JSON with a caller-supplied out channel', async () => {
+		// An injected `out` predates the resolved JSON mode — the help branch
+		// must honor `options.jsonMode` / root `--json`, not just the channel flag.
+		const [out, captured] = createCaptureOutput();
+		const app = cli('test').version('1.0.0').command(dataCommand());
+		const result = await app.execute(['data', '--help', '--json'], { out, captured });
+
+		expect(result.exitCode).toBe(0);
+		const doc: unknown = JSON.parse(captured.stdout.join(''));
+		expect(doc).toMatchObject({ name: 'data', flags: { limit: { kind: 'number' } } });
 	});
 
 	it('json help output round-trips through JSON.parse regardless of flag order', async () => {
@@ -242,7 +267,10 @@ describe('CLIBuilder --json with root flags', () => {
 		]) {
 			const result = await app.execute(argv);
 			expect(result.exitCode).toBe(0);
-			expect(() => JSON.parse(result.stdout.join(''))).not.toThrow();
+			const doc: unknown = JSON.parse(result.stdout.join(''));
+			expect(doc).toMatchObject({
+				commands: [{ name: 'data', flags: { limit: { kind: 'number' } } }],
+			});
 		}
 	});
 });

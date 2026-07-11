@@ -73,7 +73,10 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 	try {
 		if (includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h')) {
-			if (out.jsonMode) {
+			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
+			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
+			// `out` may predate it, so the channel flag alone is not authoritative.
+			if (out.jsonMode || options?.jsonMode === true) {
 				out.json(generateCommandSchema(schema));
 				return { exitCode: 0, error: undefined };
 			}

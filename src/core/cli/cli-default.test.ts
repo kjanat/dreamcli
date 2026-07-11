@@ -371,6 +371,7 @@ describe('.default()', () => {
 				defaultCommand: {
 					name: 'deploy',
 					flags: { force: { kind: 'boolean' } },
+					args: [{ name: 'target', kind: 'string' }],
 				},
 			});
 		});
