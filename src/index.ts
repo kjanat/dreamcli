@@ -93,6 +93,7 @@ export { formatHelp, osc8, visibleWidth } from './core/help/index.ts';
 export type { JsonSchemaOptions } from './core/json-schema/index.ts';
 export {
 	definitionMetaSchema,
+	generateCommandSchema,
 	generateInputSchema,
 	generateSchema,
 } from './core/json-schema/index.ts';

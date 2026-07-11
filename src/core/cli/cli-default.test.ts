@@ -358,14 +358,21 @@ describe('.default()', () => {
 			expect(result.stdout.join('')).toContain('"ok":true');
 		});
 
-		it('merged root help still respects jsonMode', async () => {
+		it('root help in jsonMode emits the definition including the default command', async () => {
 			const result = await cli('mycli').default(deployCommand()).execute(['--help', '--json']);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toEqual([]);
-			const output = result.stderr.join('');
-			expect(output).toContain('Usage: mycli [flags] <target>');
-			expect(output).not.toContain('mycli deploy [flags]');
+			expect(result.stderr).toEqual([]);
+			const doc: unknown = JSON.parse(result.stdout.join(''));
+			// The default command's full definition (flags and all) is present —
+			// it lives only in `defaultCommand`, never in `commands`.
+			expect(doc).toMatchObject({
+				name: 'mycli',
+				defaultCommand: {
+					name: 'deploy',
+					flags: { force: { kind: 'boolean' } },
+				},
+			});
 		});
 	});
 
