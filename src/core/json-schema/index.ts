@@ -139,7 +139,10 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 		schema.defaultCommand !== undefined &&
 		(opts.includeHidden || !schema.defaultCommand.schema.hidden)
 	) {
-		result.defaultCommand = schema.defaultCommand.schema.name;
+		// Full definition, not just the name — the default command lives only in
+		// `defaultCommand` (never in `commands`), so a name-only reference would
+		// drop its flags/args from the document entirely.
+		result.defaultCommand = serializeCommand(schema.defaultCommand.schema, opts);
 	}
 
 	result.commands = schema.commands
@@ -150,6 +153,25 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 }
 
 // --- Command serialization
+
+/**
+ * Generate the definition metadata document for a single command.
+ *
+ * The per-command counterpart of {@link generateSchema}: the same
+ * JSON-serializable shape as one entry of its `commands` array (flags, args,
+ * subcommands, examples). Powers `--help` in `--json` mode and is useful for
+ * embedding one command's definition into custom tooling.
+ *
+ * @param schema - The command schema to serialize.
+ * @param options - Generation options.
+ * @returns A plain object suitable for `JSON.stringify()`.
+ */
+function generateCommandSchema(
+	schema: CommandSchema,
+	options?: JsonSchemaOptions,
+): Record<string, unknown> {
+	return serializeCommand(schema, resolveOptions(options));
+}
 
 /**
  * Serialize a single {@link CommandSchema} into a plain object.
@@ -879,7 +901,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 		name: string;
 		version?: string;
 		description?: string;
-		defaultCommand?: string;
+		defaultCommand?: @command;
 		commands: @command[]
 	}`),
 		$defs: {
@@ -950,4 +972,4 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 // === Exports
 
 export type { JsonSchemaOptions };
-export { definitionMetaSchema, generateInputSchema, generateSchema };
+export { definitionMetaSchema, generateCommandSchema, generateInputSchema, generateSchema };

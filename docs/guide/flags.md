@@ -159,6 +159,21 @@ flagTypes.array;
 
 Array flags resolve to `[]` when unset — they never resolve to `undefined`.
 
+The element builder describes the *value shape only*: kinds and their value
+constraints (`flag.number({ int: true, min: 0 })`, `.nonEmpty()`,
+`.pattern()`, enum values, custom `parseFn`). Flag-level settings —
+`.alias()`, `.env()`, `.default()`, `.prompt()`, `.describe()`, and friends —
+belong on the array itself and are a **compile error** in element position,
+since an element schema would silently ignore them:
+
+```ts
+flag.array(flag.number({ min: 1 })).env('PORTS').describe('Ports'); // ✓
+// flag.array(flag.number().env('PORTS'))  ✗ compile error — env the array, not the element
+```
+
+`flag.path()`, `flag.count()`, `flag.keyValue()`, and nested `flag.array()`
+are not element-eligible either.
+
 #### Separators and deduplication
 
 By default each occurrence of an array flag contributes exactly one element

@@ -15,6 +15,7 @@ import type {
 } from '#internals/core/cli/plugin.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
+import { generateCommandSchema } from '#internals/core/json-schema/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
 import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
@@ -72,6 +73,13 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 	try {
 		if (includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h')) {
+			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
+			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
+			// `out` may predate it, so the channel flag alone is not authoritative.
+			if (out.jsonMode || options?.jsonMode === true) {
+				out.json(generateCommandSchema(schema));
+				return { exitCode: 0, error: undefined };
+			}
 			// Standalone `cmd.run()` / testkit paths reach here without the CLI
 			// builder's help merge — default the palette from the output channel.
 			const helpText = formatHelp(

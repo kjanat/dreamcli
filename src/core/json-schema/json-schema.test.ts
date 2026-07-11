@@ -132,7 +132,7 @@ describe('generateSchema — definition metadata', () => {
 		expect(result).toHaveProperty('description', 'A CLI tool');
 	});
 
-	it('includes defaultCommand as name reference', () => {
+	it('includes the defaultCommand as a full command definition', () => {
 		const deploy = commandDef({ name: 'deploy' });
 		const result = generateSchema(
 			minimalCLI({
@@ -140,7 +140,8 @@ describe('generateSchema — definition metadata', () => {
 				defaultCommand: erased(deploy),
 			}),
 		);
-		expect(result).toHaveProperty('defaultCommand', 'deploy');
+		expect(result).toHaveProperty('defaultCommand');
+		expect(result.defaultCommand).toMatchObject({ name: 'deploy', flags: {}, args: [] });
 	});
 
 	it('omits hidden defaultCommand when includeHidden is false', () => {

@@ -87,6 +87,22 @@ and `dim`. A styled span can cross a soft-wrap boundary — colors carry
 invisibly across the continuation indent, but `underline`, `inverse`, and
 background styles would visibly paint it.
 
+## JSON Help
+
+With `--json`, help emits the CLI's **definition document** instead of text —
+the same machine-readable shape produced by `generateSchema()`, so
+`mycli --help --json | jq '.commands[].name'` just works:
+
+```sh
+$ mycli --help --json          # root: { $schema, name, version, defaultCommand?, commands }
+$ mycli deploy --help --json   # command: { name, description, flags, args, commands }
+```
+
+The root document includes the default command's *full* definition under
+`defaultCommand` (flags and args included), and carries a `$schema` pointer to
+the definition meta-schema for validation and editor tooling. Nothing is
+written to stderr — the JSON is the help.
+
 ## Programmatic Rendering
 
 `formatHelp()` renders a command's help as a plain string — useful for custom

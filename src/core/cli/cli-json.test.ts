@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
@@ -199,23 +200,77 @@ describe('CLIBuilder --json with root flags', () => {
 		expect(result.stderr).toContainEqual('1.2.3\n');
 	});
 
-	it('--help still works with --json present', async () => {
+	it('--help with --json emits the definition document on stdout', async () => {
 		const app = cli('test').version('1.0.0').command(dataCommand());
 		const result = await app.execute(['--help', '--json']);
 
 		expect(result.exitCode).toBe(0);
-		// Help text goes to stderr in JSON mode
-		expect(result.stderr.length).toBeGreaterThan(0);
-		expect(result.stdout).toEqual([]);
+		const doc: unknown = JSON.parse(result.stdout.join(''));
+		expect(doc).toMatchObject({
+			name: 'test',
+			version: '1.0.0',
+			commands: [
+				{
+					name: 'data',
+					description: 'Get data',
+					flags: { limit: { kind: 'number', presence: 'defaulted', defaultValue: 10 } },
+				},
+			],
+		});
+		// Machine-readable output only — no help text anywhere.
+		expect(result.stderr).toEqual([]);
 	});
 
-	it('`help --json <command>` preserves json mode', async () => {
+	it('`help --json <command>` emits the command definition on stdout', async () => {
 		const app = cli('test').version('1.0.0').command(dataCommand());
 		const result = await app.execute(['help', '--json', 'data']);
 
 		expect(result.exitCode).toBe(0);
-		// Help text goes to stderr in JSON mode (stdout reserved for data)
-		expect(result.stderr.length).toBeGreaterThan(0);
-		expect(result.stdout).toEqual([]);
+		const doc: unknown = JSON.parse(result.stdout.join(''));
+		expect(doc).toMatchObject({
+			name: 'data',
+			flags: { limit: { kind: 'number', defaultValue: 10 } },
+		});
+		expect(result.stderr).toEqual([]);
+	});
+
+	it('`<command> --help --json` emits the command definition on stdout', async () => {
+		const app = cli('test').version('1.0.0').command(dataCommand());
+		const result = await app.execute(['data', '--help', '--json']);
+
+		expect(result.exitCode).toBe(0);
+		const doc: unknown = JSON.parse(result.stdout.join(''));
+		expect(doc).toMatchObject({
+			name: 'data',
+			flags: { limit: { kind: 'number', defaultValue: 10 } },
+		});
+		expect(result.stderr).toEqual([]);
+	});
+
+	it('command help emits JSON with a caller-supplied out channel', async () => {
+		// An injected `out` predates the resolved JSON mode — the help branch
+		// must honor `options.jsonMode` / root `--json`, not just the channel flag.
+		const [out, captured] = createCaptureOutput();
+		const app = cli('test').version('1.0.0').command(dataCommand());
+		const result = await app.execute(['data', '--help', '--json'], { out, captured });
+
+		expect(result.exitCode).toBe(0);
+		const doc: unknown = JSON.parse(captured.stdout.join(''));
+		expect(doc).toMatchObject({ name: 'data', flags: { limit: { kind: 'number' } } });
+	});
+
+	it('json help output round-trips through JSON.parse regardless of flag order', async () => {
+		const app = cli('test').version('1.0.0').command(dataCommand());
+		for (const argv of [
+			['--json', '--help'],
+			['--help', '--json'],
+		]) {
+			const result = await app.execute(argv);
+			expect(result.exitCode).toBe(0);
+			const doc: unknown = JSON.parse(result.stdout.join(''));
+			expect(doc).toMatchObject({
+				commands: [{ name: 'data', flags: { limit: { kind: 'number' } } }],
+			});
+		}
 	});
 });

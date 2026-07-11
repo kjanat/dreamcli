@@ -7,6 +7,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **JSON help** — `--help` with `--json` emits the CLI's definition document
+  (the `generateSchema()` shape, `$schema`-tagged) on stdout instead of help
+  text, for root help, `help <command>`, and `<command> --help` alike. New
+  `generateCommandSchema(schema)` export produces the per-command document.
+
+### Changed
+
+- **`generateSchema()` emits the default command's full definition** — the
+  `defaultCommand` field was a name-only string reference while the default
+  command's flags/args appeared nowhere in the document (it never lists in
+  `commands`). It is now the complete serialized command.
+
+- **`flag.array()` rejects non-element builders at compile time** — the
+  element position now requires a builder carrying only value-shape settings
+  (kind, constraints, enum values, `parseFn`). Flag-level modifiers
+  (`.alias()`, `.env()`, `.default()`, `.prompt()`, `.describe()`, …) were
+  silently ignored on elements before; passing them is now a type error, as
+  is `flag.path()` / `flag.count()` / `flag.keyValue()` / nested arrays.
+  Type-level only — no runtime behavior change.
+
 ## [3.0.0-rc.8] - 2026-07-11
 
 ### Added

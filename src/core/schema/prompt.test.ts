@@ -414,6 +414,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'defaulted';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'boolean';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<AllowedPromptConfig<BoolConfig>>().toEqualTypeOf<ConfirmPromptConfig>();
 	});
@@ -424,6 +425,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'number';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<AllowedPromptConfig<NumConfig>>().toEqualTypeOf<InputPromptConfig>();
 	});
@@ -434,6 +436,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'string';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<AllowedPromptConfig<StrConfig>>().toEqualTypeOf<
 			InputPromptConfig | SelectPromptConfig
@@ -446,6 +449,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'enum';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<AllowedPromptConfig<EnumConfig>>().toEqualTypeOf<
 			SelectPromptConfig | InputPromptConfig
@@ -458,6 +462,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'empty-array';
 			readonly flagKind: 'array';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<AllowedPromptConfig<ArrConfig>>().toEqualTypeOf<MultiselectPromptConfig>();
 	});
@@ -468,6 +473,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'custom';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<AllowedPromptConfig<CustomConfig>>().toEqualTypeOf<PromptConfig>();
 	});
@@ -478,6 +484,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'enum';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<EnumConfig>>();
 	});
@@ -488,6 +495,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'defaulted';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'boolean';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
 	});
@@ -498,6 +506,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'string';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<ConfirmPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<StrConfig>>();
 	});
@@ -508,6 +517,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'defaulted';
 			readonly optionalFallback: 'undefined';
 			readonly flagKind: 'boolean';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<InputPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
 	});
@@ -518,6 +528,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly presence: 'optional';
 			readonly optionalFallback: 'empty-array';
 			readonly flagKind: 'array';
+			readonly elementEligible: false;
 		};
 		expectTypeOf<SelectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<ArrConfig>>();
 	});

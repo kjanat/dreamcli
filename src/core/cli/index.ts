@@ -22,6 +22,7 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
+import { generateCommandSchema, generateSchema } from '#internals/core/json-schema/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import {
 	clearRequestedExitCode,
@@ -1201,8 +1202,12 @@ class CLIBuilder {
 			}
 
 			case 'root-help': {
-				const helpText = formatRootHelp(resolveHelpLinksSchema(this.schema), planned.help);
-				out.log(helpText);
+				if (jsonMode) {
+					out.json(generateSchema(this.schema));
+				} else {
+					const helpText = formatRootHelp(resolveHelpLinksSchema(this.schema), planned.help);
+					out.log(helpText);
+				}
 				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 			}
 
@@ -1219,8 +1224,12 @@ class CLIBuilder {
 			}
 
 			case 'needs-subcommand': {
-				const helpText = formatHelp(planned.command.schema, planned.help);
-				out.log(helpText);
+				if (jsonMode) {
+					out.json(generateCommandSchema(planned.command.schema));
+				} else {
+					const helpText = formatHelp(planned.command.schema, planned.help);
+					out.log(helpText);
+				}
 				return buildRunResult({ exitCode: 0, error: undefined }, captured);
 			}
 
