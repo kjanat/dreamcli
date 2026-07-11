@@ -66,6 +66,16 @@ interface FlagConfig {
 	readonly optionalFallback: OptionalFallback;
 	/** The runtime kind discriminator, mirroring {@link FlagKind}. */
 	readonly flagKind: FlagKind;
+	/**
+	 * Whether this builder may still be passed to `flag.array()` as the
+	 * element schema.
+	 *
+	 * Factories producing element-meaningful kinds start `true`. Flag-level
+	 * modifiers (`.alias()`, `.env()`, `.prompt()`, `.default()`, …) flip it
+	 * to `false` — those settings describe the *flag*, are never read from an
+	 * element schema, and would otherwise be silently ignored.
+	 */
+	readonly elementEligible: boolean;
 }
 
 // --- Type-level helpers
@@ -79,6 +89,19 @@ type WithPresence<C extends FlagConfig, P extends FlagPresence> = {
 	readonly presence: P;
 	readonly optionalFallback: C['optionalFallback'];
 	readonly flagKind: C['flagKind'];
+	readonly elementEligible: false;
+};
+
+/**
+ * Advanced type helper: marks a builder as no longer usable as an array
+ * element (returned by flag-level modifiers whose settings elements ignore).
+ */
+type WithoutElementEligibility<C extends FlagConfig> = {
+	readonly valueType: C['valueType'];
+	readonly presence: C['presence'];
+	readonly optionalFallback: C['optionalFallback'];
+	readonly flagKind: C['flagKind'];
+	readonly elementEligible: false;
 };
 
 /**
@@ -577,7 +600,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli build --verbose  → verbose = true
 	 * ```
 	 */
-	alias(name: string, options?: { hidden?: boolean }): FlagBuilder<C> {
+	alias(name: string, options?: { hidden?: boolean }): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			aliases: [
@@ -604,7 +627,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli request --api-key sk-456 → apiKey = 'sk-456' (CLI wins)
 	 * ```
 	 */
-	env(varName: string): FlagBuilder<C> {
+	env(varName: string): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			envVar: varName,
@@ -627,7 +650,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // #   → CLI flag wins
 	 * ```
 	 */
-	config(path: string): FlagBuilder<C> {
+	config(path: string): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			configPath: path,
@@ -640,7 +663,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * @param description - Text displayed next to the flag in `--help`.
 	 * @returns The builder (for chaining).
 	 */
-	describe(description: string): FlagBuilder<C> {
+	describe(description: string): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			description,
@@ -666,7 +689,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli init --name foo   → skips prompt, uses CLI value
 	 * ```
 	 */
-	prompt(config: AllowedPromptConfig<C>): FlagBuilder<C> {
+	prompt(config: AllowedPromptConfig<C>): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			prompt: config,
@@ -692,7 +715,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // ⚠ --dest is deprecated: Use --target instead
 	 * ```
 	 */
-	deprecated(message?: string): FlagBuilder<C> {
+	deprecated(message?: string): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			deprecated: message ?? true,
@@ -720,7 +743,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // #   → same, inherited from parent
 	 * ```
 	 */
-	propagate(): FlagBuilder<C> {
+	propagate(): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			propagate: true,
@@ -961,7 +984,7 @@ class FlagBuilder<C extends FlagConfig> {
 	negatable(
 		this: FlagBuilder<C & { readonly flagKind: 'boolean' }>,
 		options?: { alias?: string; hidden?: boolean },
-	): FlagBuilder<C> {
+	): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			negation: { alias: options?.alias, hidden: options?.hidden ?? false },
@@ -993,7 +1016,7 @@ class FlagBuilder<C extends FlagConfig> {
 			C & { readonly flagKind: 'boolean' | 'string' | 'number' | 'enum' | 'custom' }
 		>,
 		policy: DuplicatePolicy,
-	): FlagBuilder<C> {
+	): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({ ...this.schema, duplicates: policy });
 	}
 }
@@ -1029,6 +1052,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'string';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1058,6 +1082,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'number';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1071,6 +1096,7 @@ interface FlagFactory {
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'boolean';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1095,6 +1121,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'enum';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1109,13 +1136,14 @@ interface FlagFactory {
 	 * @param element - {@link FlagBuilder} describing the element type.
 	 * @returns A {@link FlagBuilder} for arrays of the element type.
 	 */
-	array<E extends FlagConfig>(
+	array<E extends FlagConfig & { readonly elementEligible: true }>(
 		element: FlagBuilder<E>,
 	): FlagBuilder<{
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-array';
 		readonly flagKind: 'array';
+		readonly elementEligible: false;
 	}>;
 
 	/**
@@ -1152,6 +1180,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1172,6 +1201,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1195,6 +1225,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'string';
+		readonly elementEligible: false;
 	}>;
 
 	/**
@@ -1221,6 +1252,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1240,6 +1272,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1259,6 +1292,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1282,6 +1316,7 @@ interface FlagFactory {
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'count';
+		readonly elementEligible: false;
 	}>;
 
 	/**
@@ -1306,6 +1341,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-object';
 		readonly flagKind: 'keyValue';
+		readonly elementEligible: false;
 	}>;
 }
 
@@ -1319,6 +1355,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'string';
+		readonly elementEligible: true;
 	}> {
 		if (constraints !== undefined) {
 			assertStringConstraints(constraints);
@@ -1333,6 +1370,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'number';
+		readonly elementEligible: true;
 	}> {
 		if (constraints !== undefined) {
 			assertNumberConstraints(constraints);
@@ -1347,6 +1385,7 @@ const flag: FlagFactory = {
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'boolean';
+		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
 			createSchema('boolean', {
@@ -1363,17 +1402,19 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'enum';
+		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(createSchema('enum', { enumValues: values }));
 	},
 
-	array<E extends FlagConfig>(
+	array<E extends FlagConfig & { readonly elementEligible: true }>(
 		element: FlagBuilder<E>,
 	): FlagBuilder<{
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-array';
 		readonly flagKind: 'array';
+		readonly elementEligible: false;
 	}> {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
@@ -1383,6 +1424,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
 	},
@@ -1392,6 +1434,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
 			createSchema('custom', {
@@ -1406,6 +1449,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'string';
+		readonly elementEligible: false;
 	}> {
 		const pathChecks =
 			options?.mustExist === true || options?.type !== undefined
@@ -1419,6 +1463,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
 			createSchema('custom', {
@@ -1433,6 +1478,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
 			createSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
@@ -1444,6 +1490,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(createSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }));
 	},
@@ -1453,6 +1500,7 @@ const flag: FlagFactory = {
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'count';
+		readonly elementEligible: false;
 	}> {
 		return new FlagBuilder(
 			createSchema('count', {
@@ -1467,6 +1515,7 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-object';
 		readonly flagKind: 'keyValue';
+		readonly elementEligible: false;
 	}> {
 		return new FlagBuilder(createSchema('keyValue', { valueHint: 'key=value' }));
 	},

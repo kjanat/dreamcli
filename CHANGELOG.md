@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`flag.array()` rejects non-element builders at compile time** — the
+  element position now requires a builder carrying only value-shape settings
+  (kind, constraints, enum values, `parseFn`). Flag-level modifiers
+  (`.alias()`, `.env()`, `.default()`, `.prompt()`, `.describe()`, …) were
+  silently ignored on elements before; passing them is now a type error, as
+  is `flag.path()` / `flag.count()` / `flag.keyValue()` / nested arrays.
+  Type-level only — no runtime behavior change.
+
 ## [3.0.0-rc.8] - 2026-07-11
 
 ### Added
