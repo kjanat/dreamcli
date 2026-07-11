@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.9] - 2026-07-11
+
 ### Added
 
 - **JSON help** — `--help` with `--json` emits the CLI's definition document
@@ -1196,7 +1198,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.8...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.9...HEAD
+[3.0.0-rc.9]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.8...v3.0.0-rc.9
 [3.0.0-rc.8]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.7...v3.0.0-rc.8
 [3.0.0-rc.7]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.6...v3.0.0-rc.7
 [3.0.0-rc.6]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.5...v3.0.0-rc.6
