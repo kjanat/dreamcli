@@ -68,16 +68,19 @@ const BEL = '\u0007';
  *
  * @param url - Link target (string or `URL` instance).
  * @param text - Visible link text.
+ * @defaultValue the link target itself, so terminals without OSC 8 support still show a usable URL.
  * @returns The OSC 8 escape sequence wrapping `text`.
  *
  * @example
  * ```ts
  * cli('mycli').version(osc8('https://github.com/me/mycli/releases/tag/v1.0.0', '1.0.0'));
+ *
+ * osc8('https://dreamcli.kjanat.dev'); // linked, displayed as the URL
  * ```
  */
-function osc8(url: string | URL, text: string): string {
+function osc8(url: string | URL, text?: string): string {
 	const href = url instanceof URL ? url.href : url;
-	return `${OSC}8;;${href}${BEL}${text}${OSC}8;;${BEL}`;
+	return `${OSC}8;;${href}${BEL}${text ?? href}${OSC}8;;${BEL}`;
 }
 
 // --- Width-aware padding and wrapping

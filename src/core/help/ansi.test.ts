@@ -22,6 +22,23 @@ describe('osc8 — hyperlink construction', () => {
 			'\u001B]8;;https://example.com/path\u0007x\u001B]8;;\u0007',
 		);
 	});
+
+	it('defaults the visible text to the link target', () => {
+		const link = osc8('https://example.com');
+		expect(link).toBe(osc8('https://example.com', 'https://example.com'));
+		expect(stripAnsi(link)).toBe('https://example.com');
+	});
+
+	it('defaults to the normalized href for a URL instance', () => {
+		// `new URL('https://example.com')` serializes with a trailing slash, and the displayed text must be the same href the link points at.
+		const link = osc8(new URL('https://example.com'));
+		expect(stripAnsi(link)).toBe('https://example.com/');
+		expect(link).toBe(osc8('https://example.com/', 'https://example.com/'));
+	});
+
+	it('treats an explicit undefined text as omitted', () => {
+		expect(osc8('https://example.com', undefined)).toBe(osc8('https://example.com'));
+	});
 });
 
 // === stripAnsi / visibleWidth — escape-aware measurement

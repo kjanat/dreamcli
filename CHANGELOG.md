@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`osc8()` link text is optional** — it now defaults to the link target, so
+  `osc8('https://x.dev')` renders as a hyperlink displaying its own URL.
+  Terminals without OSC 8 support still show a usable address. Passing an
+  explicit label is unchanged.
+
 ## [3.0.0-rc.9] - 2026-07-11
 
 ### Added
