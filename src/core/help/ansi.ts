@@ -10,16 +10,31 @@
  * @module dreamcli/core/help/ansi
  */
 
+// --- Terminal control characters
+
+/** `ESC` — introduces every ANSI escape sequence. */
+const ESC = '\u001B';
+/** `BEL` — the legacy OSC terminator (the other being `ESC \`, i.e. ST). */
+const BEL = '\u0007';
+/** OSC introducer: `ESC ]`. */
+const OSC = `${ESC}]`;
+
 // --- Escape stripping
 
 /**
- * Matches ANSI escape sequences: CSI (e.g. SGR color codes like `\x1b[31m`)
+ * Matches ANSI escape sequences: CSI (e.g. SGR color codes like `ESC [31m`)
  * and OSC (e.g. OSC 8 hyperlinks), with both BEL and ST terminators.
+ *
+ * Composed from the {@link ESC}/{@link BEL} constants instead of written as a
+ * regex literal, so the control characters this module matches and the ones it
+ * emits have a single definition.
  *
  * @internal
  */
-// biome-ignore lint/suspicious/noControlCharactersInRegex: matching terminal escape sequences requires control characters
-const ANSI_PATTERN = /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001B]*(?:\u0007|\u001B\\))/g;
+const ANSI_PATTERN = new RegExp(
+	`${ESC}(?:\\[[0-?]*[ -/]*[@-~]|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\))`,
+	'g',
+);
 
 /**
  * Remove ANSI CSI and OSC escape sequences from `text`.
@@ -53,9 +68,6 @@ function visibleWidth(text: string): number {
 }
 
 // --- OSC 8 hyperlinks
-
-const OSC = '\u001B]';
-const BEL = '\u0007';
 
 /**
  * Wrap `text` in an [OSC 8 hyperlink](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda)
