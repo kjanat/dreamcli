@@ -1,7 +1,11 @@
 #:schema https://kjanat.github.io/runner/schemas/runner.toml.schema.json
 
-pm.node             = "bun"
-github.group_output = true
+[pm]
+node = "bun"
 
-install.pms = ["bun"]
-# scripts = "allow" # unsupported for bun at the moment as a bun limitation.
+[github]
+group_output = true
+
+[install]
+# pms     = ["bun"]
+scripts = "allow"  # unsupported for bun at the moment as a bun limitation.

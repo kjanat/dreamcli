@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { arg } from '#internals/core/schema/arg.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from './index.ts';

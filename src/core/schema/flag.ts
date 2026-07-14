@@ -1536,6 +1536,8 @@ export type {
 	SelectPromptConfig,
 } from './prompt.ts';
 export { PROMPT_KINDS } from './prompt.ts';
+export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
+export type { DateFlagOptions, UrlFlagOptions } from './value-parsers.ts';
 export type {
 	AllowedPromptConfig,
 	DuplicatePolicy,
@@ -1556,8 +1558,6 @@ export type {
 	ResolvedValue,
 	WithPresence,
 };
-export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
-export type { DateFlagOptions, UrlFlagOptions } from './value-parsers.ts';
 export {
 	createSchema,
 	FLAG_KINDS,

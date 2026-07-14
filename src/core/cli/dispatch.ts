@@ -10,8 +10,8 @@
  * @internal
  */
 
-import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
+import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
 
 /**

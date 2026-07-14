@@ -127,12 +127,12 @@ function generateCompletion(schema: CLISchema, shell: Shell, options?: Completio
 
 export type { CompletionOptions, Shell };
 export {
+	detectShell,
 	generateBashCompletion,
 	generateCompletion,
 	generateFishCompletion,
 	generatePowerShellCompletion,
 	generateZshCompletion,
-	detectShell,
 	normalizeShell,
 	SHELLS,
 };

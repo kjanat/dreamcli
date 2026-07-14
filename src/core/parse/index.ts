@@ -248,10 +248,9 @@ function buildFlagLookup(
 	}
 
 	// Pass 2: case-parity counterparts. Runs after ALL declared spellings are
-	// registered so an explicitly declared counterpart always wins (per-pair
-	// auto-optout). The pass inserts into `lookup`, and a live Map iterator
-	// would visit those insertions, so it walks a snapshot of the declared
-	// spellings instead.
+	// registered so an explicitly declared counterpart always wins (per-pair auto-optout).
+	// The pass inserts into `lookup`, and a live Map iterator would visit those insertions,
+	// so it walks a snapshot of the declared spellings instead.
 	if (options?.caseParity !== false) {
 		const declared = [...lookup];
 		for (const [spelling, entry] of declared) {
