@@ -22,7 +22,6 @@ export default defineConfig({
 	format: 'esm',
 	dts: {
 		enabled: true,
-		tsgo: true,
 		entry: ['**', '!src/**/*{.test,test-helpers}.ts'],
 		newContext: true,
 		resolver: 'oxc',
@@ -61,5 +60,5 @@ export default defineConfig({
 			return emitDefinitionSchema();
 		},
 	},
-	onSuccess: 'bun fmt package.json',
+	onSuccess: 'bun run fmt:dprint package.json',
 });
