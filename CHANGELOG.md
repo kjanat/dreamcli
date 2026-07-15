@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.11] - 2026-07-15
+
+### Fixed
+
+- **JSR publish** — the Deno import map pinned `ansispeck` below `0.2.0`,
+  so the JSR build resolved an ansispeck whose `createColors` rejected
+  `osc8`'s two-argument call and failed type checking. The map now tracks
+  `^0.2.0` alongside the npm dependency. (rc.10 published to npm only.)
+
 ## [3.0.0-rc.10] - 2026-07-15
 
 ### Changed
@@ -1211,7 +1220,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.10...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.11...HEAD
+[3.0.0-rc.11]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.10...v3.0.0-rc.11
 [3.0.0-rc.10]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.9...v3.0.0-rc.10
 [3.0.0-rc.9]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.8...v3.0.0-rc.9
 [3.0.0-rc.8]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.7...v3.0.0-rc.8
