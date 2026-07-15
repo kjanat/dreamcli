@@ -5,7 +5,7 @@
     "": {
       "name": "@kjanat/dreamcli",
       "dependencies": {
-        "ansispeck": "^0.1.2",
+        "ansispeck": "^0.2.0",
       },
       "devDependencies": {
         "@arethetypeswrong/core": "^0.18.5",
@@ -729,7 +729,7 @@
 
     "ansis": ["ansis@4.3.1", "", {}, "sha512-BJ8/l4R5LRE7hW9WdSuGYrLSHi2ynxeFpDFbH0K/CgNeY/tyhk+vO6TYxXC5r5CpUhNVX310xzPsN/H9lCdfOA=="],
 
-    "ansispeck": ["ansispeck@0.1.2", "", {}, "sha512-C8cz1NraBBRgr0pyr3paCq9qbCIUxDzvCIatE7enZtV8CfTeEiN/difCpHMESr3rCvovahD+IEVNcf7kaw0NRQ=="],
+    "ansispeck": ["ansispeck@0.2.0", "", {}, "sha512-/AD3Uc2fm8r8MTzQihUaZy0Q/Al8c5taMllroJFBeN08UBa40bx+qSMgg1ANJcOEsIGJ/FUBlzpemy602UnyVQ=="],
 
     "argparse": ["argparse@2.0.1", "", {}, "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="],
 

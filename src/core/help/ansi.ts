@@ -10,40 +10,30 @@
  * @module dreamcli/core/help/ansi
  */
 
-// --- Terminal control characters
+import { strip } from 'ansispeck';
 
-/** `ESC` — introduces every ANSI escape sequence. */
-const ESC = '\u001B';
-/** `BEL` — the legacy OSC terminator (the other being `ESC \`, i.e. ST). */
-const BEL = '\u0007';
+// --- OSC 8 escape sequence pieces
+
 /** OSC introducer: `ESC ]`. */
-const OSC = `${ESC}]`;
+const OSC = '\u001B]';
+/** `BEL` — the OSC terminator this module emits (the other being `ESC \`, ST). */
+const BEL = '\u0007';
 
 // --- Escape stripping
 
 /**
- * Matches ANSI escape sequences: CSI (e.g. SGR color codes like `ESC [31m`)
- * and OSC (e.g. OSC 8 hyperlinks), with both BEL and ST terminators.
- *
- * Composed from the {@link ESC}/{@link BEL} constants instead of written as a
- * regex literal, so the control characters this module matches and the ones it
- * emits have a single definition.
- *
- * @internal
- */
-const ANSI_PATTERN = new RegExp(
-	`${ESC}(?:\\[[0-?]*[ -/]*[@-~]|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\))`,
-	'g',
-);
-
-/**
  * Remove ANSI CSI and OSC escape sequences from `text`.
+ *
+ * Delegates to `ansispeck`'s stripper, which handles SGR sequences and OSC
+ * hyperlinks under both terminators (`BEL` and `ESC \`). Kept as a named
+ * export so help formatting and custom help renderers reach the width-aware
+ * helpers and their stripper through one module.
  *
  * @param text - Text possibly containing terminal escapes.
  * @returns The text with all escape sequences removed.
  */
 function stripAnsi(text: string): string {
-	return text.replace(ANSI_PATTERN, '');
+	return strip(text);
 }
 
 /**

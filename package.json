@@ -110,7 +110,7 @@
 		"vitepress": "next"
 	},
 	"dependencies": {
-		"ansispeck": "^0.1.2"
+		"ansispeck": "^0.2.0"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",
