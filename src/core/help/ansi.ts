@@ -10,14 +10,7 @@
  * @module dreamcli/core/help/ansi
  */
 
-import { strip } from 'ansispeck';
-
-// --- OSC 8 escape sequence pieces
-
-/** OSC introducer: `ESC ]`. */
-const OSC = '\u001B]';
-/** `BEL` — the OSC terminator this module emits (the other being `ESC \`, ST). */
-const BEL = '\u0007';
+import { createColors, strip } from 'ansispeck';
 
 // --- Escape stripping
 
@@ -25,9 +18,9 @@ const BEL = '\u0007';
  * Remove ANSI CSI and OSC escape sequences from `text`.
  *
  * Delegates to `ansispeck`'s stripper, which handles SGR sequences and OSC
- * hyperlinks under both terminators (`BEL` and `ESC \`). Kept as a named
- * export so help formatting and custom help renderers reach the width-aware
- * helpers and their stripper through one module.
+ * hyperlinks under both terminators. Kept as a named export so help
+ * formatting and custom help renderers reach the width-aware helpers and
+ * their stripper through one module.
  *
  * @param text - Text possibly containing terminal escapes.
  * @returns The text with all escape sequences removed.
@@ -59,30 +52,29 @@ function visibleWidth(text: string): number {
 
 // --- OSC 8 hyperlinks
 
+const emitLink = createColors(false, true).link;
+
 /**
  * Wrap `text` in an [OSC 8 hyperlink](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda)
  * pointing at `url`.
  *
- * Supporting terminals render `text` as a clickable link; non-supporting
- * terminals ignore the escape sequence and show plain text. Combine with
- * {@linkcode visibleWidth}-aware formatting when embedding links in aligned
- * output.
+ * Supporting terminals render `text` as a clickable link; others show it
+ * plain. `text` defaults to the URL, so an omitted label degrades to a
+ * usable address. The framework's help layer decides *whether* to link
+ * (`help.hyperlinks`); this always emits when called.
  *
  * @param url - Link target (string or `URL` instance).
  * @param text - Visible link text.
- * @defaultValue the link target itself, so terminals without OSC 8 support still show a usable URL.
  * @returns The OSC 8 escape sequence wrapping `text`.
  *
  * @example
  * ```ts
  * cli('mycli').version(osc8('https://github.com/me/mycli/releases/tag/v1.0.0', '1.0.0'));
- *
  * osc8('https://dreamcli.kjanat.dev'); // linked, displayed as the URL
  * ```
  */
 function osc8(url: string | URL, text?: string): string {
-	const href = url instanceof URL ? url.href : url;
-	return `${OSC}8;;${href}${BEL}${text ?? href}${OSC}8;;${BEL}`;
+	return emitLink(url, text);
 }
 
 // --- Width-aware padding and wrapping

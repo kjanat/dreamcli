@@ -11,15 +11,15 @@ import { osc8, padEnd, stripAnsi, visibleWidth, wrapText } from './ansi.ts';
 // === osc8 — hyperlink construction
 
 describe('osc8 — hyperlink construction', () => {
-	it('wraps text in an OSC 8 hyperlink terminated by BEL', () => {
+	it('wraps text in an OSC 8 hyperlink terminated by ST', () => {
 		expect(osc8('https://example.com', 'name')).toBe(
-			'\u001B]8;;https://example.com\u0007name\u001B]8;;\u0007',
+			'\u001B]8;;https://example.com\u001B\\name\u001B]8;;\u001B\\',
 		);
 	});
 
 	it('accepts a URL instance', () => {
 		expect(osc8(new URL('https://example.com/path'), 'x')).toBe(
-			'\u001B]8;;https://example.com/path\u0007x\u001B]8;;\u0007',
+			'\u001B]8;;https://example.com/path\u001B\\x\u001B]8;;\u001B\\',
 		);
 	});
 

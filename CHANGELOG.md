@@ -13,6 +13,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `osc8('https://x.dev')` renders as a hyperlink displaying its own URL.
   Terminals without OSC 8 support still show a usable address. Passing an
   explicit label is unchanged.
+- **`osc8()` now delegates to `ansispeck`'s hyperlink constructor** — it emits
+  the **ST** (`ESC \`) terminator instead of **BEL** (`\x07`). Both are valid
+  OSC 8 terminators supported by modern terminals; the rendered link is
+  unchanged. This removes dreamcli's last hand-rolled escape-sequence code.
 
 ## [3.0.0-rc.9] - 2026-07-11
 
