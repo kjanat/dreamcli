@@ -24,8 +24,6 @@ import type {
 	PromptConfig,
 	SelectChoice,
 } from '#internals/core/schema/index.ts';
-import { parseSchema } from '#internals/core/schema-dsl/runtime.ts';
-import { nodeToJsonSchema } from '#internals/core/schema-dsl/to-json-schema.ts';
 import { definitionMetaSchemaDescriptions } from './meta-descriptions.generated.ts';
 
 // --- Options
@@ -788,12 +786,7 @@ function isPlainJsonObject(value: object): value is Record<string, unknown> {
 	return proto === Object.prototype || proto === null;
 }
 
-// === Definition meta-schema — derived from schema DSL definitions
-
-/** Convert a DSL string to a JSON Schema object definition. */
-function def(source: string): Record<string, unknown> {
-	return nodeToJsonSchema(parseSchema(source));
-}
+// === Definition meta-schema
 
 interface DefinitionMetaSchemaDescriptionNode {
 	readonly description?: string;
@@ -870,11 +863,6 @@ function withDefinitionMetaSchemaDescriptions(
 /**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
  *
- * Each `$defs` entry is defined once as a schema DSL string — the DSL
- * parser produces a runtime AST, and {@link nodeToJsonSchema} converts
- * that AST to a JSON Schema fragment. No probe fixtures, no override
- * maps, no manually maintained type definitions.
- *
  * Hosted at {@link DEFINITION_SCHEMA_URL} for `$schema` resolution. Also
  * exported so tooling can validate definition documents without a network
  * round-trip.
@@ -896,74 +884,113 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 		title: '@kjanat/dreamcli definition schema',
 		description:
 			'Describes the structure of a CLI built with dreamcli — commands, flags, args, types, constraints, env bindings, and prompts.',
-		...def(`{
-		$schema: '${DEFINITION_SCHEMA_URL}';
-		name: string;
-		version?: string;
-		description?: string;
-		defaultCommand?: @command;
-		commands: @command[]
-	}`),
+		type: 'object',
+		additionalProperties: false,
+		properties: {
+			$schema: { const: DEFINITION_SCHEMA_URL },
+			name: { type: 'string' },
+			version: { type: 'string' },
+			description: { type: 'string' },
+			defaultCommand: { $ref: '#/$defs/command' },
+			commands: { type: 'array', items: { $ref: '#/$defs/command' } },
+		},
+		required: ['$schema', 'name', 'commands'],
 		$defs: {
-			command: def(`{
-			name: string;
-			description?: string;
-			aliases?: string[];
-			hidden?: true;
-			examples?: @example[];
-			flags: Record<string, @flag>;
-			args: @arg[];
-			commands: @command[]
-		}`),
-			flag: def(`{
-			kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'custom' | 'count' | 'keyValue';
-			presence: 'optional' | 'required' | 'defaulted';
-			defaultValue?: unknown;
-			aliases?: string[];
-			envVar?: string;
-			configPath?: string;
-			description?: string;
-			enumValues?: string[];
-			elementSchema?: @flag;
-			prompt?: @prompt;
-			deprecated?: string | true;
-			propagate?: true;
-			negation?: @negation;
-			duplicates?: 'last' | 'first' | 'error'
-		}`),
-			negation: def(`{
-			alias?: string;
-			hidden?: true
-		}`),
-			arg: def(`{
-			name: string;
-			kind: 'string' | 'number' | 'enum' | 'custom';
-			presence: 'required' | 'optional' | 'defaulted';
-			variadic?: true;
-			stdinMode?: true;
-			defaultValue?: unknown;
-			description?: string;
-			envVar?: string;
-			enumValues?: string[];
-			deprecated?: string | true
-		}`),
-			prompt: def(`{
-			kind: 'confirm' | 'input' | 'select' | 'multiselect';
-			message: string;
-			placeholder?: string;
-			choices?: @choice[];
-			min?: integer;
-			max?: integer
-		}`),
-			choice: def(`{
-			value: string;
-			label?: string;
-			description?: string
-		}`),
-			example: def(`{
-			command: string;
-			description?: string
-		}`),
+			command: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					name: { type: 'string' },
+					description: { type: 'string' },
+					aliases: { type: 'array', items: { type: 'string' } },
+					hidden: { const: true },
+					examples: { type: 'array', items: { $ref: '#/$defs/example' } },
+					flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
+					args: { type: 'array', items: { $ref: '#/$defs/arg' } },
+					commands: { type: 'array', items: { $ref: '#/$defs/command' } },
+				},
+				required: ['name', 'flags', 'args', 'commands'],
+			},
+			flag: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					kind: {
+						enum: ['string', 'number', 'boolean', 'enum', 'array', 'custom', 'count', 'keyValue'],
+					},
+					presence: { enum: ['optional', 'required', 'defaulted'] },
+					defaultValue: {},
+					aliases: { type: 'array', items: { type: 'string' } },
+					envVar: { type: 'string' },
+					configPath: { type: 'string' },
+					description: { type: 'string' },
+					enumValues: { type: 'array', items: { type: 'string' } },
+					elementSchema: { $ref: '#/$defs/flag' },
+					prompt: { $ref: '#/$defs/prompt' },
+					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
+					propagate: { const: true },
+					negation: { $ref: '#/$defs/negation' },
+					duplicates: { enum: ['last', 'first', 'error'] },
+				},
+				required: ['kind', 'presence'],
+			},
+			negation: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					alias: { type: 'string' },
+					hidden: { const: true },
+				},
+			},
+			arg: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					name: { type: 'string' },
+					kind: { enum: ['string', 'number', 'enum', 'custom'] },
+					presence: { enum: ['required', 'optional', 'defaulted'] },
+					variadic: { const: true },
+					stdinMode: { const: true },
+					defaultValue: {},
+					description: { type: 'string' },
+					envVar: { type: 'string' },
+					enumValues: { type: 'array', items: { type: 'string' } },
+					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
+				},
+				required: ['name', 'kind', 'presence'],
+			},
+			prompt: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					kind: { enum: ['confirm', 'input', 'select', 'multiselect'] },
+					message: { type: 'string' },
+					placeholder: { type: 'string' },
+					choices: { type: 'array', items: { $ref: '#/$defs/choice' } },
+					min: { type: 'integer' },
+					max: { type: 'integer' },
+				},
+				required: ['kind', 'message'],
+			},
+			choice: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					value: { type: 'string' },
+					label: { type: 'string' },
+					description: { type: 'string' },
+				},
+				required: ['value'],
+			},
+			example: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					command: { type: 'string' },
+					description: { type: 'string' },
+				},
+				required: ['command'],
+			},
 		},
 	},
 	definitionMetaSchemaDescriptions,
