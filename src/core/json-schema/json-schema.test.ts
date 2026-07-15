@@ -104,6 +104,7 @@ function argEntry(
 			enumValues: undefined,
 			numberConstraints: undefined,
 			parseFn: undefined,
+			standard: undefined,
 			deprecated: undefined,
 			...overrides,
 		},

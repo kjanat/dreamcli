@@ -237,6 +237,7 @@ function completionsFlagSchema(shells: readonly string[]): FlagSchema {
 		valueHint: undefined,
 		prompt: undefined,
 		parseFn: undefined,
+		standard: undefined,
 		deprecated: undefined,
 		propagate: false,
 		negation: undefined,

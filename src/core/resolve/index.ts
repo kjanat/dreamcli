@@ -22,6 +22,7 @@ import { resolveArgs } from './args.ts';
 import type { DeprecationWarning, ResolveOptions, ResolveResult } from './contracts.ts';
 import { collectValidationErrors, isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import { resolveFlags } from './flags.ts';
+import { applyStandardValidators } from './standard.ts';
 
 /**
  * Resolve parsed values against a command schema.
@@ -97,6 +98,11 @@ async function resolve(
 		}
 		errors.push(...collectValidationErrors(error));
 	}
+
+	const validated = await applyStandardValidators(schema, flags, args);
+	flags = validated.flags;
+	args = validated.args;
+	errors.push(...validated.errors);
 
 	if (isNonEmpty(errors)) {
 		throwAggregatedErrors(errors);
