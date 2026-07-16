@@ -39,7 +39,7 @@ export type {
 	ResolvedCommandParams,
 	ResolvedManifestSettings,
 } from './core/cli/index.ts';
-export { CLIBuilder, cli, plugin } from './core/cli/index.ts';
+export { CLIBuilder, cli, isMainModule, plugin } from './core/cli/index.ts';
 export type { CompletionOptions, Shell } from './core/completion/index.ts';
 export {
 	generateBashCompletion,

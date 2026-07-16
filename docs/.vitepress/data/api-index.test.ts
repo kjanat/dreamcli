@@ -33,6 +33,11 @@ describe('api-index', () => {
 			kind: 'function',
 			sourcePath: 'src/core/cli/index.ts',
 		});
+		expect(root?.kindGroups.find((group) => group.kind === 'function')?.symbols).toContainEqual({
+			name: 'isMainModule',
+			kind: 'function',
+			sourcePath: 'src/core/cli/index.ts',
+		});
 		expect(root?.kindGroups.find((group) => group.kind === 'interface')?.symbols).toContainEqual({
 			name: 'CLIOptions',
 			kind: 'interface',

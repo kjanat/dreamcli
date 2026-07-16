@@ -127,7 +127,7 @@ const debugDump = command('debug-dump')
  * PowerShell completion playground CLI used by docs, smoke checks, and manual shell testing.
  */
 export const pwshDemo = cli('pwsh-demo')
-	.packageJson()
+	.manifest({ from: import.meta.url })
 	.default(open)
 	.command(deploy)
 	.command(status)
