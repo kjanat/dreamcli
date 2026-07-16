@@ -14,7 +14,7 @@
  *   deno run -A __CLI_NAME__.ts Twilight --sparkle --times 2
  */
 
-import { arg, cli, command, flag, middleware } from '@kjanat/dreamcli';
+import { arg, cli, command, flag, isMainModule, middleware } from '@kjanat/dreamcli';
 
 const sparkle = middleware<{ sparkle: (message: string) => string }>(async ({ flags, next }) => {
 	const sparkleEnabled = flags.sparkle === true;
@@ -42,6 +42,6 @@ export const hello = command('hello')
 
 export const app = cli('__CLI_NAME__').default(hello);
 
-if (import.meta.main) {
+if (isMainModule(import.meta)) {
 	app.run();
 }

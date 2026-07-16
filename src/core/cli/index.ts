@@ -797,8 +797,9 @@ class CLIBuilder {
 	 *   - `inferName`: infer the CLI name from `bin` keys or `name`. Pass
 	 *     `{ scope: 'keep' }` to keep a leading `@scope/` (stripped by default).
 	 *   - `from`: anchor discovery to a file/URL/path instead of `cwd`. Pass
-	 *     `import.meta.url` for installable CLIs that must report THEIR OWN
-	 *     version. Accepts string paths, `file:` URL strings, or `URL` instances.
+	 *     `import.meta` for installable CLIs that must report THEIR OWN version.
+	 *     Accepts `import.meta`, string paths, `file:` URL strings, or `URL`
+	 *     instances.
 	 *
 	 * @example
 	 * ```ts
@@ -806,7 +807,7 @@ class CLIBuilder {
 	 * cli('mycli')
 	 *   .manifest({
 	 *     files: ['deno.json', 'jsr.json'],
-	 *     from: import.meta.url,
+	 *     from: import.meta,
 	 *     inferName: { scope: 'keep' },
 	 *   })
 	 *   .command(deploy)
@@ -861,7 +862,7 @@ class CLIBuilder {
 	 * @example
 	 * ```ts
 	 * cli('mycli')
-	 *   .denoJson({ from: import.meta.url })
+	 *   .denoJson({ from: import.meta })
 	 *   .command(deploy)
 	 *   .run();
 	 * ```
@@ -1449,8 +1450,13 @@ type InferNameOption = boolean | { readonly scope: 'keep' | 'strip' };
 interface ManifestSettings {
 	/** Infer the CLI name from `bin` keys or `name`. @defaultValue `false` */
 	readonly inferName?: InferNameOption;
-	/** Anchor discovery to a file/URL/path instead of `cwd`. */
-	readonly from?: string | URL;
+	/**
+	 * Anchor discovery to a file/URL/path instead of `cwd`. Pass `import.meta`
+	 * to anchor to the calling module without naming `import.meta.url`, which
+	 * fails to type-check when a project `tsconfig.json` `lib` override drops the
+	 * runtime's ambient `ImportMeta` extras.
+	 */
+	readonly from?: string | URL | ImportMeta;
 	/**
 	 * Candidate manifest filenames in priority order — NOT npm's `files` publish
 	 * globs. Discovery probes each name per directory and takes the first that
@@ -1542,8 +1548,8 @@ function buildManifestSchema(
 
 /**
  * Coerce a {@link ResolvedManifestSettings.from | `manifest.from`} input
- * (string path, `file:` URL string, or {@link URL} instance) to a plain
- * filesystem path string. `undefined` passes through unchanged.
+ * (string path, `file:` URL string, {@link URL} instance, or `import.meta`) to
+ * a plain filesystem path string. `undefined` passes through unchanged.
  *
  * Runtime-agnostic by design — relies only on the `URL` global (available in
  * every JS runtime) rather than `node:url`, keeping core free of Node
@@ -1551,14 +1557,15 @@ function buildManifestSchema(
  *
  * @internal
  */
-function normalizeFromSetting(from: string | URL | undefined): string | undefined {
+function normalizeFromSetting(from: string | URL | ImportMeta | undefined): string | undefined {
 	if (from === undefined) return undefined;
-	if (from instanceof URL) {
+	const source = typeof from === 'object' && !(from instanceof URL) ? from.url : from;
+	if (source instanceof URL) {
 		// Only file: URLs map to a filesystem path; pass others through verbatim.
-		if (from.protocol !== 'file:') return from.href;
-	} else if (!from.startsWith('file:')) {
+		if (source.protocol !== 'file:') return source.href;
+	} else if (!source.startsWith('file:')) {
 		// Plain path (or non-file URL string) — already usable as-is.
-		return from;
+		return source;
 	}
 
 	/*
@@ -1567,7 +1574,7 @@ function normalizeFromSetting(from: string | URL | undefined): string | undefine
 	 * Windows path — drop the slash and switch to backslashes; otherwise it is a
 	 * POSIX path already.
 	 */
-	const decoded = decodeURIComponent(new URL(from).pathname);
+	const decoded = decodeURIComponent(new URL(source).pathname);
 	if (/^\/[A-Za-z]:/.test(decoded)) {
 		return decoded.slice(1).replace(/\//g, '\\');
 	}
@@ -1699,6 +1706,27 @@ function cli(
 	});
 }
 
+/**
+ * Report whether the calling module is the process entrypoint, cross-runtime.
+ *
+ * Pass `import.meta`. The check reads its `main` flag, which Deno, Bun, and Node
+ * set on the module invoked directly. Taking the whole `import.meta`
+ * keeps calling code free of a direct `import.meta.main` access, which fails to
+ * type-check when a project `tsconfig.json` `lib` override drops the runtime's
+ * ambient `ImportMeta` extras.
+ *
+ * @param meta - The calling module's `import.meta`.
+ * @returns `true` when the module was run as the entrypoint.
+ *
+ * @example
+ * ```ts
+ * if (isMainModule(import.meta)) cli('mycli').command(deploy).run();
+ * ```
+ */
+function isMainModule(meta: ImportMeta): boolean {
+	return meta.main === true;
+}
+
 // --- Exports
 
 export type { HelpLinks } from './help-links.ts';
@@ -1723,4 +1751,4 @@ export type {
 	PackageJsonSettings,
 	ResolvedManifestSettings,
 };
-export { CLIBuilder, cli, formatRootHelp, plugin };
+export { CLIBuilder, cli, formatRootHelp, isMainModule, plugin };

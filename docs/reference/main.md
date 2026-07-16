@@ -7,6 +7,7 @@ Key types: [`ActivityEvent`](/reference/symbols/main/ActivityEvent), [`BeforePar
 ```ts twoslash
 import {
   cli,
+  isMainModule,
   command,
   group,
   flag,
@@ -124,9 +125,11 @@ cli('mycli')
 
 **Anchored discovery (`from`).** Discovery defaults to the consumer's cwd, which is wrong for an
 **installable** CLI (`npm i -g`, `bunx`, `npx`, `deno install`) — its version should reflect its OWN
-package, not wherever it happens to be invoked. Pass `{ from: import.meta.url }` to anchor the
-walk-up to the CLI's own module instead. Accepts a path string, a `file:` URL string, or a `URL`
-instance.
+package, not wherever it happens to be invoked. Pass `{ from: import.meta }` to anchor the walk-up
+to the CLI's own module instead. Taking the whole object keeps consumer code from accessing
+runtime-specific `ImportMeta` properties directly, so it remains typed even when the project's
+ambient `ImportMeta` interface is empty. Path strings, `file:` URL strings, and `URL` instances are
+also accepted.
 
 ```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
@@ -135,7 +138,7 @@ const deploy = command('deploy');
 
 // Report THIS CLI's version from any working directory:
 cli('mycli')
-  .manifest({ from: import.meta.url })
+  .manifest({ from: import.meta })
   .command(deploy)
   .run();
 ```
@@ -153,6 +156,28 @@ import denoCfg from './deno.json' with { type: 'json' };
 const deploy = command('deploy');
 
 cli('mycli').manifest(denoCfg).command(deploy).run();
+```
+
+### `isMainModule(meta)`
+
+Report whether a module is the process entrypoint on Node, Bun, or Deno. Pass `import.meta` whole
+instead of reading `import.meta.main` directly. This preserves normal typing in projects whose
+ambient `ImportMeta` interface omits runtime-specific properties and needs no global augmentation,
+which keeps the pattern valid for JSR packages.
+
+```ts twoslash
+import {
+  cli,
+  command,
+  isMainModule,
+} from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+const app = cli('mycli').command(deploy);
+
+if (isMainModule(import.meta)) {
+  app.run();
+}
 ```
 
 ### `.links(links?)`
@@ -497,8 +522,8 @@ with no recognised metadata is skipped so the walk-up continues.
 Pass an absolute filesystem path inside your own package as `startDir` (e.g.
 `fileURLToPath(import.meta.url)`) when authoring an installable CLI whose version should reflect its
 OWN package rather than the consumer's working directory. Unlike `.manifest({ from })` — which also
-accepts a `file:` URL string or `URL` instance and normalizes it — this helper takes a plain path
-string, so convert URLs yourself first.
+accepts `import.meta`, a `file:` URL string, or a `URL` instance and normalizes it — this helper takes
+a plain path string, so convert URLs yourself first.
 
 ```ts twoslash
 import { discoverManifest } from '@kjanat/dreamcli';

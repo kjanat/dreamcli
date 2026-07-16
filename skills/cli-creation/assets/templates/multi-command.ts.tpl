@@ -15,7 +15,7 @@
  *   deno run -A __CLI_NAME__.ts snack donut --count 2
  */
 
-import { arg, cli, command, flag, group, middleware } from '@kjanat/dreamcli';
+import { arg, cli, command, flag, group, isMainModule, middleware } from '@kjanat/dreamcli';
 
 const sparkle = middleware<{ sparkle: (message: string) => string }>(async ({ flags, next }) => {
 	const sparkleEnabled = flags.sparkle === true;
@@ -84,6 +84,6 @@ export const app = cli('__CLI_NAME__')
 	.command(party)
 	.completions();
 
-if (import.meta.main) {
+if (isMainModule(import.meta)) {
 	app.run();
 }

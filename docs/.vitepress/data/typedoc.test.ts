@@ -22,7 +22,11 @@ describe('typedoc normalization', () => {
 				subpath: '.',
 				sourcePath: 'src/index.ts',
 				hasTypeDoc: true,
-				exportIds: expect.arrayContaining(['@kjanat/dreamcli:CLIBuilder', '@kjanat/dreamcli:cli']),
+				exportIds: expect.arrayContaining([
+					'@kjanat/dreamcli:CLIBuilder',
+					'@kjanat/dreamcli:cli',
+					'@kjanat/dreamcli:isMainModule',
+				]),
 				missingExports: [],
 			},
 			{

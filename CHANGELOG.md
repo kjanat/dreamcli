@@ -7,6 +7,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`isMainModule(import.meta)`** — report whether the calling module is the
+  process entrypoint on Node, Bun, or Deno without directly accessing the
+  runtime-specific `import.meta.main` property in consumer code.
+
+### Changed
+
+- **`.manifest({ from: import.meta })`** — anchored manifest discovery now
+  accepts the calling module's complete `import.meta` object and extracts its
+  URL internally. Together with `isMainModule()`, this avoids global
+  `ImportMeta` augmentation, allowing consumers with an empty ambient
+  `ImportMeta` interface to pass both TypeScript/Deno checks and JSR publish
+  validation.
+
 ## [3.0.0-rc.11] - 2026-07-15
 
 ### Fixed

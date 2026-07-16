@@ -18,7 +18,7 @@
 
 // oxlint-disable-next-line no-unused-vars -- for CLIBuilder type in JSDoc
 import type { CLIBuilder } from '@kjanat/dreamcli';
-import { cli } from '@kjanat/dreamcli';
+import { cli, isMainModule } from '@kjanat/dreamcli';
 
 import { auth } from './commands/auth.ts';
 import { issue } from './commands/issue.ts';
@@ -27,14 +27,19 @@ import { pr } from './commands/pr.ts';
 /**
  * Create the example CLI and register commands.
  *
- * {@linkcode CLIBuilder.packageJson | packageJson()} fills `version` and `description` from the nearest `package.json`.\
- * The CLI name still comes from `cli('gh')` unless `packageJson({ inferName: true })` is used.
+ * {@linkcode CLIBuilder.manifest | manifest()} fills `version` and `description` from this package's manifest.\
+ * The CLI name still comes from `cli('gh')` unless `manifest({ inferName: true })` is used.
  *
  * Command registration order determines the order shown in `--help`.
  */
-export const gh = cli('gh').packageJson().command(auth).command(pr).command(issue).completions();
+export const gh = cli('gh')
+	.manifest({ from: import.meta })
+	.command(auth)
+	.command(pr)
+	.command(issue)
+	.completions();
 
 // Run the CLI if this file is executed directly (e.g. `bun src/main.ts ...`).
-if (import.meta.main) {
+if (isMainModule(import.meta)) {
 	gh.run();
 }
