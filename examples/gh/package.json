@@ -15,12 +15,11 @@
 	"scripts": {
 		"bd": "bun run build",
 		"build": "bun build src/main.ts --install --outdir=dist --format=esm --target=node --external @kjanat/dreamcli",
-		"preinstall": "cd ../.. && bun link",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@kjanat/dreamcli": "link:@kjanat/dreamcli"
+		"@kjanat/dreamcli": "file:../.."
 	},
 	"devDependencies": {
 		"@types/bun": "latest",
