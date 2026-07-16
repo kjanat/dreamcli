@@ -9,7 +9,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import type { ManifestSettings } from './index.ts';
-import { cli } from './index.ts';
+import { cli, isMainModule } from './index.ts';
 
 // === Test helpers
 
@@ -690,6 +690,28 @@ describe('CLIBuilder.packageJson({ from }) — anchored discovery', () => {
 		});
 
 		expect(stdout.join('')).toBe('2.2.2\n');
+	});
+
+	it('anchors discovery from an import.meta object', async () => {
+		const meta: ImportMeta = { ...import.meta, url: 'file:///anchor/cli.js' };
+		const app = cli('myapp').packageJson({ from: meta }).command(infoCommand());
+
+		const { stdout } = await runWithAdapter(app, ['--version'], {
+			'/anchor/package.json': '{"version":"3.3.3"}',
+		});
+
+		expect(stdout.join('')).toBe('3.3.3\n');
+	});
+});
+
+describe('isMainModule', () => {
+	it('is false when the module is not the process entrypoint', () => {
+		expect(isMainModule(import.meta)).toBe(false);
+	});
+
+	it('is true when import.meta.main is set', () => {
+		const meta: ImportMeta = { ...import.meta, main: true };
+		expect(isMainModule(meta)).toBe(true);
 	});
 });
 

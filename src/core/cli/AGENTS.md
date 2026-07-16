@@ -8,6 +8,7 @@
 | -------------------------- | ----------------------------------------------------------------------- |
 | `CLIBuilder`               | Fluent builder: `.command()`, `.default()`, `.execute()`                |
 | `cli(name)`                | Factory function -> `CLIBuilder`                                        |
+| `isMainModule(meta)`       | Entrypoint guard for ambient `ImportMeta` compatibility                 |
 | `CLISchema`                | Runtime descriptor for the full CLI                                     |
 | `CLIRunOptions`            | Extends `RunOptions` with CLI-level settings                            |
 | `ConfigSettings`           | Config file discovery settings for CLI                                  |
@@ -65,6 +66,9 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
   or the default declares positional args. No-arg defaults surface `UNKNOWN_COMMAND` for unknown root
   tokens, while unknown flags before positionals still surface `UNKNOWN_FLAG` (#26).
 - `extractConfigFlag()` handles both `--config path` and `--config=path` forms
+- `.manifest({ from: import.meta.url })` is the conventional anchored-discovery form. Passing
+  `import.meta` whole and using `isMainModule(import.meta)` are compatibility forms for consumers
+  whose ambient `ImportMeta` omits `url`/`main` and that cannot use global augmentation on JSR.
 - Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)
 - Cross-layer imports: `runtime/adapter.ts`, `runtime/auto.ts` (not through runtime barrel)
 - `planner.ts` orchestrates the execution pipeline — shared with testkit via `execution/`
