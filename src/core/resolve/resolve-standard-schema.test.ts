@@ -105,6 +105,20 @@ describe('Standard Schema v1 interop — flags', () => {
 		expect(bad.exitCode).toBe(2);
 		expect(bad.error?.message).toContain('must be longer than two characters');
 	});
+
+	it('validates and transforms Standard Schema array elements', async () => {
+		const cmd = command('run')
+			.flag('count', flag.array(flag.custom(evenInt)))
+			.action(({ flags, out }) => out.log(flags.count.join(',')));
+
+		const ok = await runCommand(cmd, ['--count', '2', '--count', '4']);
+		expect(ok.exitCode).toBe(0);
+		expect(ok.stdout[0]).toBe('2,4\n');
+
+		const bad = await runCommand(cmd, ['--count', '2', '--count', '3']);
+		expect(bad.exitCode).toBe(2);
+		expect(bad.error?.message).toContain('--count[1] failed validation');
+	});
 });
 
 // === Args
@@ -138,6 +152,20 @@ describe('Standard Schema v1 interop — args', () => {
 		expect(bad.exitCode).toBe(2);
 		expect(bad.error?.code).toBe('CONSTRAINT_VIOLATED');
 		expect(bad.error?.message).toContain('must be longer than two characters');
+	});
+
+	it('validates and transforms every variadic positional value', async () => {
+		const cmd = command('run')
+			.arg('n', arg.custom(evenInt).variadic())
+			.action(({ args, out }) => out.log(args.n.join(',')));
+
+		const ok = await runCommand(cmd, ['2', '4']);
+		expect(ok.exitCode).toBe(0);
+		expect(ok.stdout[0]).toBe('2,4\n');
+
+		const bad = await runCommand(cmd, ['2', '3']);
+		expect(bad.exitCode).toBe(2);
+		expect(bad.error?.message).toContain('<n>[1] failed validation');
 	});
 });
 

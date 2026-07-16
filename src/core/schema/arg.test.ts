@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { ArgSchema, InferArg, InferArgs } from './arg.ts';
 import { ArgBuilder, arg } from './arg.ts';
+import type { StandardSchemaV1 } from './standard.ts';
 
 /** Test-only wrapper for custom parse validation. */
 interface ParsedPath {
@@ -9,6 +10,14 @@ interface ParsedPath {
 function parsePath(raw: string): ParsedPath {
 	return { segments: raw.split('/') };
 }
+
+const standardNumber: StandardSchemaV1<unknown, number> = {
+	'~standard': {
+		version: 1,
+		vendor: 'test',
+		validate: (value) => ({ value: Number(value) }),
+	},
+};
 
 // --- Factory functions — runtime schema
 
@@ -152,6 +161,14 @@ describe('arg.custom() — creates and modifies custom args', () => {
 		const parseFn = (raw: string) => Number.parseInt(raw, 16);
 		const a = arg.custom(parseFn);
 		expect(a.schema.parseFn).toBe(parseFn);
+	});
+
+	it('stores a Standard Schema validator and infers its output type', () => {
+		const a = arg.custom(standardNumber);
+		expect(a.schema.kind).toBe('custom');
+		expect(a.schema.standard).toBe(standardNumber);
+		expect(a.schema.parseFn).toBeUndefined();
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number>();
 	});
 });
 

@@ -1,10 +1,19 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { FlagAlias, FlagSchema, InferFlag, InferFlags } from './flag.ts';
 import { FlagBuilder, flag } from './flag.ts';
+import type { StandardSchemaV1 } from './standard.ts';
 
 function alias(name: string, hidden = false): FlagAlias {
 	return { name, hidden };
 }
+
+const standardNumber: StandardSchemaV1<unknown, number> = {
+	'~standard': {
+		version: 1,
+		vendor: 'test',
+		validate: (value) => ({ value: Number(value) }),
+	},
+};
 
 // --- Factory functions — runtime schema
 
@@ -188,6 +197,25 @@ describe('flag.custom()', () => {
 			return { host: host ?? '', port: Number(port ?? 0) };
 		});
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<{ host: string; port: number } | undefined>();
+	});
+
+	it('stores a Standard Schema validator and infers its output type', () => {
+		const f = flag.custom(standardNumber);
+		expect(f.schema.kind).toBe('custom');
+		expect(f.schema.standard).toBe(standardNumber);
+		expect(f.schema.parseFn).toBeUndefined();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number | undefined>();
+	});
+
+	it('recognizes callable Standard Schema validators before parse functions', () => {
+		const callable = Object.assign((value: unknown) => String(value), standardNumber) as ((
+			value: unknown,
+		) => string) &
+			StandardSchemaV1<unknown, number>;
+		const f = flag.custom(callable);
+		expect(f.schema.standard).toBe(callable);
+		expect(f.schema.parseFn).toBeUndefined();
+		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<number | undefined>();
 	});
 });
 

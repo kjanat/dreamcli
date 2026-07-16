@@ -9,7 +9,7 @@
  */
 
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
-import type { InferStandardOutput, StandardSchemaV1 } from './standard.ts';
+import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
@@ -733,6 +733,34 @@ interface ArgFactory {
 	}>;
 
 	/**
+	 * Custom positional argument validated by a Standard Schema v1 validator
+	 * (zod, valibot, arktype, …). The resolved value from any source is
+	 * validated after resolution; the arg's value type is the validator's
+	 * output type.
+	 *
+	 * Sync and async validators are both supported. Validation issues surface
+	 * as a `CONSTRAINT_VIOLATED` error naming the argument.
+	 *
+	 * @example
+	 * ```ts
+	 * import { z } from 'zod';
+	 * arg.custom(z.string().uuid())
+	 * // inferred type: string
+	 * ```
+	 *
+	 * @param schema - A Standard Schema v1 validator.
+	 * @returns A required custom {@link ArgBuilder} typed to the validator's output.
+	 */
+	custom<S extends StandardSchemaV1>(
+		schema: S,
+	): ArgBuilder<{
+		readonly valueType: InferStandardOutput<S>;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}>;
+
+	/**
 	 * Custom-parsed positional argument. Required by default.
 	 *
 	 * The parse function receives the raw string and must return a value of
@@ -759,34 +787,6 @@ interface ArgFactory {
 	 */
 	custom<T>(parseFn: ArgParseFn<T>): ArgBuilder<{
 		readonly valueType: T;
-		readonly presence: 'required';
-		readonly variadic: false;
-		readonly argKind: 'custom';
-	}>;
-
-	/**
-	 * Custom positional argument validated by a Standard Schema v1 validator
-	 * (zod, valibot, arktype, …). The resolved value from any source is
-	 * validated after resolution; the arg's value type is the validator's
-	 * output type.
-	 *
-	 * Sync and async validators are both supported. Validation issues surface
-	 * as a `CONSTRAINT_VIOLATED` error naming the argument.
-	 *
-	 * @example
-	 * ```ts
-	 * import { z } from 'zod';
-	 * arg.custom(z.string().uuid())
-	 * // inferred type: string
-	 * ```
-	 *
-	 * @param schema - A Standard Schema v1 validator.
-	 * @returns A required custom {@link ArgBuilder} typed to the validator's output.
-	 */
-	custom<S extends StandardSchemaV1>(
-		schema: S,
-	): ArgBuilder<{
-		readonly valueType: InferStandardOutput<S>;
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
@@ -867,10 +867,10 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 		readonly argKind: 'custom';
 	}> {
-		if (typeof parseFnOrSchema === 'function') {
-			return new ArgBuilder(createArgSchema('custom', { parseFn: parseFnOrSchema }));
+		if (isStandardSchemaV1(parseFnOrSchema)) {
+			return new ArgBuilder(createArgSchema('custom', { standard: parseFnOrSchema }));
 		}
-		return new ArgBuilder(createArgSchema('custom', { standard: parseFnOrSchema }));
+		return new ArgBuilder(createArgSchema('custom', { parseFn: parseFnOrSchema }));
 	},
 };
 

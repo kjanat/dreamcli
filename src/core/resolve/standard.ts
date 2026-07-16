@@ -91,11 +91,32 @@ async function applyStandardValidators(
 	const errors: ValidationError[] = [];
 	const nextFlags: Record<string, unknown> = { ...flags };
 	for (const [name, flagSchema] of Object.entries(schema.flags)) {
-		const validator = flagSchema.standard;
-		if (validator === undefined || flags[name] === undefined) {
+		const value = flags[name];
+		if (value === undefined) {
 			continue;
 		}
-		const result = await validateValue(`--${name}`, flags[name], validator);
+		const elementValidator =
+			flagSchema.kind === 'array' ? flagSchema.elementSchema?.standard : undefined;
+		if (elementValidator !== undefined && Array.isArray(value)) {
+			const nextValue: unknown[] = [];
+			for (const [index, element] of value.entries()) {
+				const result = await validateValue(`--${name}[${index}]`, element, elementValidator);
+				if (result.ok) {
+					nextValue.push(result.value);
+				} else {
+					nextValue.push(element);
+					errors.push(result.error);
+				}
+			}
+			nextFlags[name] = nextValue;
+			continue;
+		}
+
+		const validator = flagSchema.standard;
+		if (validator === undefined) {
+			continue;
+		}
+		const result = await validateValue(`--${name}`, value, validator);
 		if (result.ok) {
 			nextFlags[name] = result.value;
 		} else {
@@ -106,10 +127,26 @@ async function applyStandardValidators(
 	const nextArgs: Record<string, unknown> = { ...args };
 	for (const entry of schema.args) {
 		const validator = entry.schema.standard;
-		if (validator === undefined || args[entry.name] === undefined) {
+		const value = args[entry.name];
+		if (validator === undefined || value === undefined) {
 			continue;
 		}
-		const result = await validateValue(`<${entry.name}>`, args[entry.name], validator);
+		if (entry.schema.variadic && Array.isArray(value)) {
+			const nextValue: unknown[] = [];
+			for (const [index, element] of value.entries()) {
+				const result = await validateValue(`<${entry.name}>[${index}]`, element, validator);
+				if (result.ok) {
+					nextValue.push(result.value);
+				} else {
+					nextValue.push(element);
+					errors.push(result.error);
+				}
+			}
+			nextArgs[entry.name] = nextValue;
+			continue;
+		}
+
+		const result = await validateValue(`<${entry.name}>`, value, validator);
 		if (result.ok) {
 			nextArgs[entry.name] = result.value;
 		} else {

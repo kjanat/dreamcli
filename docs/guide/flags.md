@@ -631,6 +631,24 @@ flag.custom((value) => {
 The parse function receives the raw string value and returns the parsed type.
 Thrown errors become validation errors with the flag name in context.
 
+### Standard Schema Validators
+
+`flag.custom()` also accepts any [Standard Schema v1](https://standardschema.dev/schema)
+validator, including Zod, Valibot, and ArkType schemas:
+
+```ts
+import { flag } from '@kjanat/dreamcli';
+import { z } from 'zod';
+
+const port = flag.custom(z.coerce.number().int().min(1).max(65_535));
+// inferred type: number | undefined
+```
+
+Standard Schema validation runs after source resolution, so the same sync or async validator
+handles CLI, env, config, prompt, and default values. Validation issues become
+`CONSTRAINT_VIOLATED` errors. When used as a `flag.array()` element, the validator runs once per
+resolved element.
+
 ## Propagation
 
 Flags marked with `.propagate()` are inherited by all subcommands:

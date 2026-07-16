@@ -107,6 +107,7 @@ export type {
 	StandardSchemaV1,
 	StandardSchemaV1FailureResult,
 	StandardSchemaV1Issue,
+	StandardSchemaV1Options,
 	StandardSchemaV1PathSegment,
 	StandardSchemaV1Props,
 	StandardSchemaV1Result,
