@@ -20,10 +20,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   discovery now also accepts the calling module's complete `import.meta`
   object and extracts its URL internally. The conventional
   `{ from: import.meta.url }` form remains supported and preferred when runtime
-  typings expose `url`. Together with `isMainModule()`, the new form avoids
-  global `ImportMeta` augmentation, allowing consumers with an empty ambient
-  `ImportMeta` interface to pass both TypeScript/Deno checks and JSR publish
-  validation.
+  typings expose `url`. Together with `isMainModule(import.meta)`, the new forms
+  avoid global `ImportMeta` augmentation, allowing consumers with an empty
+  ambient `ImportMeta` interface to pass both TypeScript/Deno checks and JSR
+  publish validation.
 
 ## [3.0.0-rc.11] - 2026-07-15
 
