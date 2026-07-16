@@ -33,7 +33,7 @@ import { pr } from './commands/pr.ts';
  * Command registration order determines the order shown in `--help`.
  */
 export const gh = cli('gh')
-	.manifest({ from: import.meta.url })
+	.manifest({ from: import.meta, files: ['package.json'] })
 	.command(auth)
 	.command(pr)
 	.command(issue)
