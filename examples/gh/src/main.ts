@@ -18,7 +18,7 @@
 
 // oxlint-disable-next-line no-unused-vars -- for CLIBuilder type in JSDoc
 import type { CLIBuilder } from '@kjanat/dreamcli';
-import { cli, isMainModule } from '@kjanat/dreamcli';
+import { cli } from '@kjanat/dreamcli';
 
 import { auth } from './commands/auth.ts';
 import { issue } from './commands/issue.ts';
@@ -33,13 +33,13 @@ import { pr } from './commands/pr.ts';
  * Command registration order determines the order shown in `--help`.
  */
 export const gh = cli('gh')
-	.manifest({ from: import.meta })
+	.manifest({ from: import.meta.url })
 	.command(auth)
 	.command(pr)
 	.command(issue)
 	.completions();
 
 // Run the CLI if this file is executed directly (e.g. `bun src/main.ts ...`).
-if (isMainModule(import.meta)) {
+if (import.meta.main) {
 	gh.run();
 }

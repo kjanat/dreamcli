@@ -11,7 +11,7 @@
  * @module
  */
 
-import { arg, cli, command, flag, group, isMainModule } from '@kjanat/dreamcli';
+import { arg, cli, command, flag, group } from '@kjanat/dreamcli';
 
 const open = command('open')
 	.description('Open a workspace session')
@@ -127,7 +127,7 @@ const debugDump = command('debug-dump')
  * PowerShell completion playground CLI used by docs, smoke checks, and manual shell testing.
  */
 export const pwshDemo = cli('pwsh-demo')
-	.manifest({ from: import.meta })
+	.manifest({ from: import.meta.url })
 	.default(open)
 	.command(deploy)
 	.command(status)
@@ -135,6 +135,6 @@ export const pwshDemo = cli('pwsh-demo')
 	.command(debugDump)
 	.completions({ rootMode: 'surface' });
 
-if (isMainModule(import.meta)) {
+if (import.meta.main) {
 	pwshDemo.run();
 }

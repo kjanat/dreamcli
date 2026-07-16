@@ -797,9 +797,10 @@ class CLIBuilder {
 	 *   - `inferName`: infer the CLI name from `bin` keys or `name`. Pass
 	 *     `{ scope: 'keep' }` to keep a leading `@scope/` (stripped by default).
 	 *   - `from`: anchor discovery to a file/URL/path instead of `cwd`. Pass
-	 *     `import.meta` for installable CLIs that must report THEIR OWN version.
-	 *     Accepts `import.meta`, string paths, `file:` URL strings, or `URL`
-	 *     instances.
+	 *     `import.meta.url` for installable CLIs that must report THEIR OWN
+	 *     version. If the consumer's ambient `ImportMeta` omits `url`, pass
+	 *     `import.meta` instead. Also accepts string paths, `file:` URL strings,
+	 *     or `URL` instances.
 	 *
 	 * @example
 	 * ```ts
@@ -807,7 +808,7 @@ class CLIBuilder {
 	 * cli('mycli')
 	 *   .manifest({
 	 *     files: ['deno.json', 'jsr.json'],
-	 *     from: import.meta,
+	 *     from: import.meta.url,
 	 *     inferName: { scope: 'keep' },
 	 *   })
 	 *   .command(deploy)
@@ -862,7 +863,7 @@ class CLIBuilder {
 	 * @example
 	 * ```ts
 	 * cli('mycli')
-	 *   .denoJson({ from: import.meta })
+	 *   .denoJson({ from: import.meta.url })
 	 *   .command(deploy)
 	 *   .run();
 	 * ```
@@ -1451,10 +1452,10 @@ interface ManifestSettings {
 	/** Infer the CLI name from `bin` keys or `name`. @defaultValue `false` */
 	readonly inferName?: InferNameOption;
 	/**
-	 * Anchor discovery to a file/URL/path instead of `cwd`. Pass `import.meta`
-	 * to anchor to the calling module without naming `import.meta.url`, which
-	 * fails to type-check when a project `tsconfig.json` `lib` override drops the
-	 * runtime's ambient `ImportMeta` extras.
+	 * Anchor discovery to a file/URL/path instead of `cwd`. Normally, pass
+	 * `import.meta.url`. Pass `import.meta` whole as a compatibility form when a
+	 * project `tsconfig.json` `lib` override drops the runtime's ambient
+	 * `ImportMeta` extras and direct `.url` access does not type-check.
 	 */
 	readonly from?: string | URL | ImportMeta;
 	/**
@@ -1709,11 +1710,11 @@ function cli(
 /**
  * Report whether the calling module is the process entrypoint, cross-runtime.
  *
- * Pass `import.meta`. The check reads its `main` flag, which Deno, Bun, and Node
- * set on the module invoked directly. Taking the whole `import.meta`
- * keeps calling code free of a direct `import.meta.main` access, which fails to
- * type-check when a project `tsconfig.json` `lib` override drops the runtime's
- * ambient `ImportMeta` extras.
+ * Node, Bun, and Deno set `import.meta.main` on the module invoked directly;
+ * projects with the runtime's ambient types can read that property directly.
+ * This helper is a compatibility form for projects whose `tsconfig.json` `lib`
+ * override drops those `ImportMeta` extras: passing `import.meta` whole avoids
+ * a direct `.main` access without requiring global augmentation.
  *
  * @param meta - The calling module's `import.meta`.
  * @returns `true` when the module was run as the entrypoint.

@@ -125,11 +125,9 @@ cli('mycli')
 
 **Anchored discovery (`from`).** Discovery defaults to the consumer's cwd, which is wrong for an
 **installable** CLI (`npm i -g`, `bunx`, `npx`, `deno install`) — its version should reflect its OWN
-package, not wherever it happens to be invoked. Pass `{ from: import.meta }` to anchor the walk-up
-to the CLI's own module instead. Taking the whole object keeps consumer code from accessing
-runtime-specific `ImportMeta` properties directly, so it remains typed even when the project's
-ambient `ImportMeta` interface is empty. Path strings, `file:` URL strings, and `URL` instances are
-also accepted.
+package, not wherever it happens to be invoked. In a conventional Node, Bun, or Deno project, pass
+`{ from: import.meta.url }` to anchor the walk-up to the CLI's own module. Path strings, `file:` URL
+strings, and `URL` instances are also accepted.
 
 ```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
@@ -138,10 +136,16 @@ const deploy = command('deploy');
 
 // Report THIS CLI's version from any working directory:
 cli('mycli')
-  .manifest({ from: import.meta })
+  .manifest({ from: import.meta.url })
   .command(deploy)
   .run();
 ```
+
+If the project's ambient `ImportMeta` interface omits the runtime-specific `url` property, pass the
+whole object instead: `.manifest({ from: import.meta })`. DreamCLI extracts the URL internally. This
+compatibility form is useful for cross-runtime packages that cannot augment `ImportMeta` globally.
+JSR does not accept global augmentation. Projects whose runtime typings already provide
+`import.meta.url` do not need it.
 
 **Pre-loaded (`data`) form.** Pass an already-imported manifest to skip the filesystem entirely.
 Bundlers can statically resolve it, locking the reported version at build time. Unlike the discovery
@@ -160,10 +164,23 @@ cli('mycli').manifest(denoCfg).command(deploy).run();
 
 ### `isMainModule(meta)`
 
-Report whether a module is the process entrypoint on Node, Bun, or Deno. Pass `import.meta` whole
-instead of reading `import.meta.main` directly. This preserves normal typing in projects whose
-ambient `ImportMeta` interface omits runtime-specific properties and needs no global augmentation,
-which keeps the pattern valid for JSR packages.
+Node, Bun, and Deno expose the conventional entrypoint guard directly. Use it when the runtime's
+ambient types are available:
+
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+const deploy = command('deploy');
+const app = cli('mycli').command(deploy);
+
+if (import.meta.main) {
+  app.run();
+}
+```
+
+`isMainModule(import.meta)` is the compatibility form for projects whose ambient `ImportMeta`
+interface omits `main`. It performs the same check without direct property access or global
+augmentation, keeping cross-runtime JSR packages type-checkable and publishable:
 
 ```ts twoslash
 import {
@@ -521,9 +538,9 @@ with no recognised metadata is skipped so the walk-up continues.
 
 Pass an absolute filesystem path inside your own package as `startDir` (e.g.
 `fileURLToPath(import.meta.url)`) when authoring an installable CLI whose version should reflect its
-OWN package rather than the consumer's working directory. Unlike `.manifest({ from })` — which also
-accepts `import.meta`, a `file:` URL string, or a `URL` instance and normalizes it — this helper takes
-a plain path string, so convert URLs yourself first.
+OWN package rather than the consumer's working directory. Unlike `.manifest({ from })`, which also
+accepts `import.meta`, a `file:` URL string, or a `URL` instance and normalizes it, this helper takes a
+plain path string, so convert URLs yourself first.
 
 ```ts twoslash
 import { discoverManifest } from '@kjanat/dreamcli';
