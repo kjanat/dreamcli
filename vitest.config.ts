@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+	resolve: { tsconfigPaths: true },
 	test: {
 		// ansispeck detects color support from the environment at import time,
 		// and CI runners (GitHub Actions) advertise color even without a TTY.
