@@ -114,7 +114,6 @@
 	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",
-		"@biomejs/biome": "<=2.5.2 || >=2.5.4",
 		"@iarna/toml": "^2.2.5",
 		"@shikijs/transformers": "^4.3.1",
 		"@shikijs/vitepress-twoslash": "^4.3.1",
@@ -123,6 +122,7 @@
 		"@types/node": "catalog:",
 		"@typescript/native": "catalog:",
 		"@vitest/coverage-v8": "^4.1.10",
+		"biome": "npm:@biomejs/biome@^2.5.4",
 		"dprint": "^0.55.1",
 		"floating-vue": "^5.2.2",
 		"knip": "^6.25.0",

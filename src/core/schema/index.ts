@@ -101,6 +101,19 @@ export {
 	validateNumberConstraints,
 } from './number-constraints.ts';
 export type { RunOptions, RunResult } from './run.ts';
+export type {
+	InferStandardInput,
+	InferStandardOutput,
+	StandardSchemaV1,
+	StandardSchemaV1FailureResult,
+	StandardSchemaV1Issue,
+	StandardSchemaV1Options,
+	StandardSchemaV1PathSegment,
+	StandardSchemaV1Props,
+	StandardSchemaV1Result,
+	StandardSchemaV1SuccessResult,
+	StandardSchemaV1Types,
+} from './standard.ts';
 export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
 export {
 	describeStringConstraintViolation,

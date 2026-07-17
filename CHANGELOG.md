@@ -9,6 +9,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Standard Schema v1 validation** — `flag.custom(schema)` and
+  `arg.custom(schema)` accept any conforming validator (including callable,
+  sync, and async schemas) with inferred output types and no runtime
+  dependency. Validation runs after source resolution, so argv, env, config,
+  prompt, stdin, and default values behave consistently; array flags and
+  variadic args validate each element.
 - **`isMainModule(import.meta)`**: Compatibility helper for consumers whose
   ambient `ImportMeta` interface omits `main`. Projects with normal Node, Bun,
   or Deno runtime typings can keep using the conventional
@@ -24,6 +30,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   avoid global `ImportMeta` augmentation, allowing consumers with an empty
   ambient `ImportMeta` interface to pass both TypeScript/Deno checks and JSR
   publish validation.
+
+### Removed
+
+- **Internal schema DSL** — the private template-literal parser, validator, and
+  JSON Schema converter were replaced by direct definition-schema objects,
+  removing roughly 1,500 lines without changing the generated schema.
 
 ## [3.0.0-rc.11] - 2026-07-15
 

@@ -17,18 +17,38 @@
 	],
 	"languages": {
 		"JavaScript": {
+			"formatter": [
+				{ "language_server": { "name": "biome" } },
+				{ "language_server": { "name": "dprint" } },
+				{
+					"external": {
+						"command": "bunx",
+						"arguments": ["dprint", "fmt", "--stdin", "{buffer_path}"]
+					}
+				}
+			],
 			"code_actions_on_format": {
 				"source.fixAll.biome": true,
 				"source.organizeImports.biome": true
 			},
-			"language_servers": ["vtsls", "tsgo", "biome", "deno"]
+			"language_servers": ["typescript", "biome", "oxlint", "deno"]
 		},
 		"TypeScript": {
+			"formatter": [
+				{ "language_server": { "name": "biome" } },
+				{ "language_server": { "name": "dprint" } },
+				{
+					"external": {
+						"command": "bunx",
+						"arguments": ["dprint", "fmt", "--stdin", "{buffer_path}"]
+					}
+				}
+			],
 			"code_actions_on_format": {
 				"source.fixAll.biome": true,
 				"source.organizeImports.biome": true
 			},
-			"language_servers": ["vtsls", "tsgo", "biome", "deno", "vue-language-server"]
+			"language_servers": ["typescript", "biome", "oxlint", "deno", "vue-language-server"]
 		}
 	},
 	"lsp": {
@@ -42,11 +62,7 @@
 			}
 		},
 		"dprint": {
-			"binary": {
-				"path": "bunx",
-				"ignore_system_version": true,
-				"arguments": ["dprint", "lsp"]
-			}
+			"binary": { "path": "bunx", "arguments": ["dprint", "lsp"] }
 		},
 		"json-language-server": {
 			"settings": {

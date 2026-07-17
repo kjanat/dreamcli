@@ -9,6 +9,7 @@
  */
 
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
+import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
@@ -100,6 +101,13 @@ type ArgKind = (typeof ARG_KINDS)[number];
 type ArgParseFn<T> = (raw: string) => T;
 
 /**
+ * The value type produced by `arg.custom()` for a given argument: the return
+ * type of a parse function, or the output type of a Standard Schema validator.
+ */
+type CustomArgValue<A> =
+	A extends ArgParseFn<infer T> ? T : A extends StandardSchemaV1 ? InferStandardOutput<A> : never;
+
+/**
  * The runtime descriptor stored inside every {@linkcode ArgBuilder}. Consumers (parser,
  * help generator) read this to understand the arg's shape without touching
  * generics.
@@ -140,6 +148,15 @@ interface ArgSchema {
 	readonly numberConstraints: NumberConstraints | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: ArgParseFn<unknown> | undefined;
+	/**
+	 * Standard Schema v1 validator applied to the resolved value.
+	 *
+	 * When set, the value from any source (CLI, env, stdin, default) is
+	 * validated after resolution via `~standard.validate`. Sync and async
+	 * validators are both awaited; issues surface as a `CONSTRAINT_VIOLATED`
+	 * {@link ValidationError}. Only meaningful when `kind === 'custom'`.
+	 */
+	readonly standard: StandardSchemaV1 | undefined;
 	/**
 	 * Deprecation marker.
 	 *
@@ -189,6 +206,7 @@ function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSche
 		enumValues: undefined,
 		numberConstraints: undefined,
 		parseFn: undefined,
+		standard: undefined,
 		deprecated: undefined,
 		...overrides,
 	};
@@ -715,6 +733,34 @@ interface ArgFactory {
 	}>;
 
 	/**
+	 * Custom positional argument validated by a Standard Schema v1 validator
+	 * (zod, valibot, arktype, …). The resolved value from any source is
+	 * validated after resolution; the arg's value type is the validator's
+	 * output type.
+	 *
+	 * Sync and async validators are both supported. Validation issues surface
+	 * as a `CONSTRAINT_VIOLATED` error naming the argument.
+	 *
+	 * @example
+	 * ```ts
+	 * import { z } from 'zod';
+	 * arg.custom(z.string().uuid())
+	 * // inferred type: string
+	 * ```
+	 *
+	 * @param schema - A Standard Schema v1 validator.
+	 * @returns A required custom {@link ArgBuilder} typed to the validator's output.
+	 */
+	custom<S extends StandardSchemaV1>(
+		schema: S,
+	): ArgBuilder<{
+		readonly valueType: InferStandardOutput<S>;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}>;
+
+	/**
 	 * Custom-parsed positional argument. Required by default.
 	 *
 	 * The parse function receives the raw string and must return a value of
@@ -813,13 +859,18 @@ const arg: ArgFactory = {
 		return new ArgBuilder(createArgSchema('enum', { enumValues: values }));
 	},
 
-	custom<T>(parseFn: ArgParseFn<T>): ArgBuilder<{
-		readonly valueType: T;
+	custom<A extends ArgParseFn<unknown> | StandardSchemaV1>(
+		parseFnOrSchema: A,
+	): ArgBuilder<{
+		readonly valueType: CustomArgValue<A>;
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
 	}> {
-		return new ArgBuilder(createArgSchema('custom', { parseFn: parseFn as ArgParseFn<unknown> }));
+		if (isStandardSchemaV1(parseFnOrSchema)) {
+			return new ArgBuilder(createArgSchema('custom', { standard: parseFnOrSchema }));
+		}
+		return new ArgBuilder(createArgSchema('custom', { parseFn: parseFnOrSchema }));
 	},
 };
 

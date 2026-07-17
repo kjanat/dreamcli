@@ -17,6 +17,7 @@ import type {
 	PromptConfig,
 	SelectPromptConfig,
 } from './prompt.ts';
+import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
 	type DateFlagOptions,
@@ -180,6 +181,13 @@ type FlagKind = (typeof FLAG_KINDS)[number];
  */
 type FlagParseFn<T> = (raw: unknown) => T;
 
+/**
+ * The value type produced by `flag.custom()` for a given argument: the return
+ * type of a parse function, or the output type of a Standard Schema validator.
+ */
+type CustomFlagValue<A> =
+	A extends FlagParseFn<infer T> ? T : A extends StandardSchemaV1 ? InferStandardOutput<A> : never;
+
 /** Options accepted by `flag.path()`. */
 interface PathFlagOptions {
 	/**
@@ -324,6 +332,15 @@ interface FlagSchema {
 	readonly prompt: PromptConfig | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: FlagParseFn<unknown> | undefined;
+	/**
+	 * Standard Schema v1 validator applied to the resolved value.
+	 *
+	 * When set, the value from any source (CLI, env, config, prompt, default)
+	 * is validated after resolution via `~standard.validate`. Sync and async
+	 * validators are both awaited; issues surface as a `CONSTRAINT_VIOLATED`
+	 * {@link ValidationError}. Only meaningful when `kind === 'custom'`.
+	 */
+	readonly standard: StandardSchemaV1 | undefined;
 	/**
 	 * Deprecation marker.
 	 *
@@ -484,6 +501,7 @@ function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSche
 		valueHint: undefined,
 		prompt: undefined,
 		parseFn: undefined,
+		standard: undefined,
 		deprecated: undefined,
 		propagate: false,
 		negation: undefined,
@@ -1147,6 +1165,34 @@ interface FlagFactory {
 	}>;
 
 	/**
+	 * Custom flag validated by a Standard Schema v1 validator (zod, valibot,
+	 * arktype, …). The resolved value from any source is validated after
+	 * resolution; the flag's value type is the validator's output type.
+	 *
+	 * Sync and async validators are both supported. Validation issues surface
+	 * as a `CONSTRAINT_VIOLATED` error naming the flag.
+	 *
+	 * @example
+	 * ```ts
+	 * import { z } from 'zod';
+	 * flag.custom(z.string().url())
+	 * // inferred type: string | undefined
+	 * ```
+	 *
+	 * @param schema - A Standard Schema v1 validator.
+	 * @returns A {@link FlagBuilder} whose value type is the validator's output.
+	 */
+	custom<S extends StandardSchemaV1>(
+		schema: S,
+	): FlagBuilder<{
+		readonly valueType: InferStandardOutput<S>;
+		readonly presence: 'optional';
+		readonly optionalFallback: 'undefined';
+		readonly flagKind: 'custom';
+		readonly elementEligible: true;
+	}>;
+
+	/**
 	 * Custom-parsed flag. The parse function receives the raw value and must
 	 * return a value of type `T`. The return type is inferred from `parseFn`.
 	 *
@@ -1419,14 +1465,19 @@ const flag: FlagFactory = {
 		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
 	},
 
-	custom<T>(parseFn: FlagParseFn<T>): FlagBuilder<{
-		readonly valueType: T;
+	custom<A extends FlagParseFn<unknown> | StandardSchemaV1>(
+		parseFnOrSchema: A,
+	): FlagBuilder<{
+		readonly valueType: CustomFlagValue<A>;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(createSchema('custom', { parseFn: parseFn as FlagParseFn<unknown> }));
+		if (isStandardSchemaV1(parseFnOrSchema)) {
+			return new FlagBuilder(createSchema('custom', { standard: parseFnOrSchema }));
+		}
+		return new FlagBuilder(createSchema('custom', { parseFn: parseFnOrSchema }));
 	},
 
 	url(options?: UrlFlagOptions): FlagBuilder<{

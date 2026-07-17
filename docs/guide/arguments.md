@@ -57,6 +57,11 @@ argTypes.custom;
 //         ^?
 ```
 
+`arg.custom()` also accepts any [Standard Schema v1](https://standardschema.dev/schema)
+validator. Its output type is inferred, sync and async validators are supported, and validation
+runs after CLI, env, stdin, or default resolution. A variadic custom argument validates each
+resolved element separately.
+
 ## Declaration
 
 ```ts twoslash

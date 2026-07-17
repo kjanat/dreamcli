@@ -7,7 +7,7 @@
 Schema-first, fully typed TypeScript CLI framework. Zero runtime deps. In-repo exports point at
 `src/*.ts`; published Node defaults point at `dist/*.mjs`, while Bun and Deno keep source exports.
 
-Read `@DISCOVERIES.md` before planning, editing, or running task workflows.
+Read @DISCOVERIES.md before planning, editing, or running task workflows.
 
 ## STRUCTURE
 
