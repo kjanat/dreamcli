@@ -6,6 +6,7 @@ smol      = false
 [install]
 auto          = "auto"
 exact         = true
+linker        = "hoisted"
 lockfile.save = true
 
 [run]

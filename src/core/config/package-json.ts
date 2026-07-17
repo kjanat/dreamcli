@@ -493,6 +493,7 @@ function packageRepositoryUrl(
 	pkg: PackageJsonData,
 	options: PackageRepositoryUrlOptions & { readonly require: true },
 ): string;
+/** Resolve a package repository URL, returning `undefined` for absent or invalid locators. */
 function packageRepositoryUrl(
 	pkg: PackageJsonData,
 	options?: PackageRepositoryUrlOptions,

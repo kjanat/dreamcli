@@ -31,7 +31,13 @@
 				"source.fixAll.biome": true,
 				"source.organizeImports.biome": true
 			},
-			"language_servers": ["typescript", "biome", "oxlint", "deno"]
+			"language_servers": [
+				"typescript-ls",
+				"biome",
+				"oxlint",
+				"deno",
+				"!typescript-language-server"
+			]
 		},
 		"TypeScript": {
 			"formatter": [
@@ -48,11 +54,27 @@
 				"source.fixAll.biome": true,
 				"source.organizeImports.biome": true
 			},
-			"language_servers": ["typescript", "biome", "oxlint", "deno", "vue-language-server"]
+			"language_servers": [
+				"typescript-ls",
+				"biome",
+				"oxlint",
+				"deno",
+				"vue-language-server",
+				"!typescript-language-server"
+			]
 		}
 	},
 	"lsp": {
-		"deno": { "settings": { "deno": { "enable": true } } },
+		"deno": {
+			"settings": {
+				"deno": {
+					"enable": true,
+					"enablePaths": ["./src", "./scripts/deno-smoke-test.ts"],
+					"config": "./deno.json",
+					"importMap": "./import_map.json"
+				}
+			}
+		},
 		"vtsls": {
 			"initialization_options": {
 				// https://github.com/yioneko/vtsls/blob/04c4d90fb4f18dff34d9282cdb7f508aab12cd95/packages/service/configuration.schema.json#L380

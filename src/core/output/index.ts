@@ -140,14 +140,17 @@ function validateExitCode(code: number): number {
 	return code;
 }
 
+/** Store the exit code requested through an output channel. @internal */
 function setRequestedExitCode(out: Out, code: number): void {
 	requestedExitCodes.set(out, validateExitCode(code));
 }
 
+/** Read the exit code requested through an output channel. @internal */
 function getRequestedExitCode(out: Out): number | undefined {
 	return requestedExitCodes.get(out);
 }
 
+/** Clear a previously requested exit code from an output channel. @internal */
 function clearRequestedExitCode(out: Out): void {
 	requestedExitCodes.delete(out);
 }

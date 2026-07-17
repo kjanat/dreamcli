@@ -228,9 +228,9 @@ $RECYCLE.BIN/
 /_*.ts
 /*example*.ts
 .codex
-/dreamcli.schema.json
 /.bucket/
 .playwright-mcp/
 __pycache__
 .*_cache
 /deno.lock
+/import_map.json

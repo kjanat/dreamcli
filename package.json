@@ -94,6 +94,7 @@
 		"meta-descriptions": "bun --bun scripts/build-meta-descriptions.ts",
 		"meta-descriptions:check": "bun --bun scripts/build-meta-descriptions.ts --check",
 		"prepack": "bun --bun tsdown --logLevel silent",
+		"prepare": "./.importmap.ts",
 		"publish:preview": "bunx pkg-pr-new publish --bun --comment=update --packageManager=bun,npm",
 		"schema:emit": "bun scripts/emit-definition-schema.ts",
 		"test": "vitest run",
@@ -119,10 +120,11 @@
 		"@vitest/coverage-v8": "^4.1.10",
 		"biome": "npm:@biomejs/biome@^2.5.4",
 		"dprint": "^0.55.1",
+		"importmapify": "1.0.1",
 		"knip": "^6.25.0",
 		"publint": "^0.3.21",
-		"runner-run": "0.19.1",
-		"tsdown": "^0.22.4",
+		"runner-run": "0.20.0",
+		"tsdown": "^0.22.9",
 		"typescript": "catalog:",
 		"vitest": "^4.1.10",
 		"yaml": "^2.9.0"
@@ -144,7 +146,7 @@
 		}
 	},
 	"volta": {
-		"node": "26.4.0",
+		"node": "26.5.0",
 		"npm": "11.18.0"
 	},
 	"publishConfig": {
