@@ -21,6 +21,17 @@ function flagDef(overrides: FlagSchemaOverrides = {}): FlagSchema {
 	return createSchema(overrides.kind ?? 'string', overrides);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function expectRecord(value: unknown): Record<string, unknown> {
+	if (!isRecord(value)) {
+		throw new TypeError('expected a record');
+	}
+	return value;
+}
+
 /** Minimal CommandSchema with all required fields. */
 function commandDef(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return {
@@ -257,6 +268,68 @@ describe('generateSchema — definition metadata', () => {
 			presence: 'optional',
 		});
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'c', 'kind'], 'custom');
+	});
+
+	it('serializes constrained and hinted flag fields', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: {
+				retries: flagDef({
+					kind: 'number',
+					numberConstraints: { min: 1, max: 5, int: true, finite: false },
+				}),
+				tag: flagDef({
+					kind: 'string',
+					stringConstraints: {
+						nonEmpty: true,
+						minLength: 2,
+						maxLength: 12,
+						pattern: /^v\d+$/i,
+					},
+				}),
+				files: flagDef({
+					kind: 'array',
+					elementSchema: flagDef({ kind: 'string' }),
+					separator: ',',
+					unique: true,
+				}),
+				path: flagDef({
+					kind: 'string',
+					pathChecks: { mustExist: true, type: 'file' },
+					valueHint: 'path',
+				}),
+			},
+		});
+		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'retries'], {
+			kind: 'number',
+			presence: 'optional',
+			numberConstraints: { min: 1, max: 5, int: true, finite: false },
+		});
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'tag'], {
+			kind: 'string',
+			presence: 'optional',
+			stringConstraints: {
+				nonEmpty: true,
+				minLength: 2,
+				maxLength: 12,
+				pattern: '^v\\d+$',
+			},
+		});
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'files'], {
+			kind: 'array',
+			presence: 'optional',
+			elementSchema: { kind: 'string', presence: 'optional' },
+			separator: ',',
+			unique: true,
+		});
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'path'], {
+			kind: 'string',
+			presence: 'optional',
+			pathChecks: { mustExist: true, type: 'file' },
+			valueHint: 'path',
+		});
 	});
 
 	it('includes flag defaultValue when defaulted and serializable', () => {
@@ -705,6 +778,106 @@ describe('generateSchema — definition metadata', () => {
 			['$defs', 'flag', 'required'],
 			['kind', 'presence'],
 		);
+	});
+
+	it('describes constrained flag fixtures in the meta-schema', () => {
+		expect(definitionMetaSchema).toMatchObject({
+			$defs: {
+				flag: {
+					properties: {
+						numberConstraints: {
+							type: 'object',
+							additionalProperties: false,
+							properties: {
+								min: { type: 'number' },
+								max: { type: 'number' },
+								int: { type: 'boolean' },
+								finite: { type: 'boolean' },
+							},
+						},
+						stringConstraints: {
+							type: 'object',
+							additionalProperties: false,
+							properties: {
+								nonEmpty: { type: 'boolean' },
+								minLength: { type: 'integer', minimum: 0 },
+								maxLength: { type: 'integer', minimum: 0 },
+								pattern: { type: 'string' },
+							},
+						},
+						separator: { type: 'string', minLength: 1 },
+						unique: { type: 'boolean' },
+						pathChecks: {
+							type: 'object',
+							additionalProperties: false,
+							properties: {
+								mustExist: { type: 'boolean' },
+								type: { enum: ['file', 'directory'] },
+							},
+							required: ['mustExist'],
+						},
+						valueHint: { type: 'string' },
+					},
+				},
+			},
+		});
+	});
+
+	it('keeps serialized FlagSchema fields exhaustive against the meta-schema', () => {
+		const allFieldsFlag = {
+			kind: 'array',
+			presence: 'defaulted',
+			defaultValue: ['v1'],
+			aliases: [{ name: 'a', hidden: false }],
+			envVar: 'VERSIONS',
+			configPath: 'release.versions',
+			description: 'Release versions',
+			enumValues: ['v1'],
+			numberConstraints: { min: 1, max: 5, int: true, finite: false },
+			stringConstraints: {
+				nonEmpty: true,
+				minLength: 2,
+				maxLength: 12,
+				pattern: /^v\d+$/,
+			},
+			elementSchema: flagDef({ kind: 'string' }),
+			separator: ',',
+			unique: true,
+			pathChecks: { mustExist: true, type: 'file' },
+			valueHint: 'version',
+			prompt: { kind: 'input', message: 'Version?', placeholder: 'v1' },
+			parseFn: (value: unknown) => value,
+			standard: {
+				'~standard': {
+					version: 1,
+					vendor: 'test',
+					validate: (value: unknown) => ({ value }),
+				},
+			},
+			deprecated: 'use --release',
+			propagate: true,
+			negation: { alias: 'no-versions', hidden: true },
+			duplicates: 'error',
+		} satisfies FlagSchema;
+		const result = generateSchema(
+			minimalCLI({
+				commands: [erased(commandDef({ flags: { versions: allFieldsFlag } }))],
+			}),
+		);
+		const commands = expectRecord(result).commands;
+		if (!Array.isArray(commands)) {
+			throw new TypeError('expected commands');
+		}
+		const command = expectRecord(commands[0]);
+		const flags = expectRecord(command.flags);
+		const serializedFlag = expectRecord(flags.versions);
+		const defs = expectRecord(definitionMetaSchema.$defs);
+		const flagMetaSchema = expectRecord(defs.flag);
+		const flagMetaProperties = expectRecord(flagMetaSchema.properties);
+
+		expect(Object.keys(serializedFlag).sort()).toEqual(Object.keys(flagMetaProperties).sort());
+		expect(serializedFlag).not.toHaveProperty('parseFn');
+		expect(serializedFlag).not.toHaveProperty('standard');
 	});
 });
 

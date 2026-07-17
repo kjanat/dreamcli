@@ -67,6 +67,9 @@ interface ResolvedOptions {
 	readonly includePrompts: boolean;
 }
 
+/** Flag fields that survive definition serialization. */
+type SerializedFlagField = Exclude<keyof FlagSchema, 'parseFn' | 'standard'>;
+
 /**
  * Apply defaults to optional {@link JsonSchemaOptions}.
  *
@@ -246,8 +249,34 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
 	if (schema.enumValues !== undefined) {
 		result.enumValues = [...schema.enumValues];
 	}
+	if (schema.numberConstraints !== undefined) {
+		result.numberConstraints = { ...schema.numberConstraints };
+	}
+	if (schema.stringConstraints !== undefined) {
+		result.stringConstraints = {
+			...schema.stringConstraints,
+			...(schema.stringConstraints.pattern !== undefined
+				? { pattern: schema.stringConstraints.pattern.source }
+				: {}),
+		};
+	}
 	if (schema.elementSchema !== undefined) {
 		result.elementSchema = serializeFlag(schema.elementSchema, opts);
+	}
+	if (schema.separator !== undefined) {
+		result.separator = schema.separator;
+	}
+	if (schema.unique) {
+		result.unique = true;
+	}
+	if (schema.pathChecks !== undefined) {
+		result.pathChecks = {
+			mustExist: schema.pathChecks.mustExist,
+			...(schema.pathChecks.type !== undefined ? { type: schema.pathChecks.type } : {}),
+		};
+	}
+	if (schema.valueHint !== undefined) {
+		result.valueHint = schema.valueHint;
 	}
 	if (opts.includePrompts && schema.prompt !== undefined) {
 		result.prompt = serializePrompt(schema.prompt);
@@ -925,13 +954,45 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					configPath: { type: 'string' },
 					description: { type: 'string' },
 					enumValues: { type: 'array', items: { type: 'string' } },
+					numberConstraints: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							min: { type: 'number' },
+							max: { type: 'number' },
+							int: { type: 'boolean' },
+							finite: { type: 'boolean' },
+						},
+					},
+					stringConstraints: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							nonEmpty: { type: 'boolean' },
+							minLength: { type: 'integer', minimum: 0 },
+							maxLength: { type: 'integer', minimum: 0 },
+							pattern: { type: 'string' },
+						},
+					},
 					elementSchema: { $ref: '#/$defs/flag' },
+					separator: { type: 'string', minLength: 1 },
+					unique: { type: 'boolean' },
+					pathChecks: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							mustExist: { type: 'boolean' },
+							type: { enum: ['file', 'directory'] },
+						},
+						required: ['mustExist'],
+					},
+					valueHint: { type: 'string' },
 					prompt: { $ref: '#/$defs/prompt' },
 					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
 					propagate: { const: true },
 					negation: { $ref: '#/$defs/negation' },
 					duplicates: { enum: ['last', 'first', 'error'] },
-				},
+				} satisfies Record<SerializedFlagField, Record<string, unknown>>,
 				required: ['kind', 'presence'],
 			},
 			negation: {
