@@ -256,7 +256,12 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
 		result.stringConstraints = {
 			...schema.stringConstraints,
 			...(schema.stringConstraints.pattern !== undefined
-				? { pattern: schema.stringConstraints.pattern.source }
+				? {
+						pattern: {
+							source: schema.stringConstraints.pattern.source,
+							flags: schema.stringConstraints.pattern.flags,
+						},
+					}
 				: {}),
 		};
 	}
@@ -971,7 +976,15 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 							nonEmpty: { type: 'boolean' },
 							minLength: { type: 'integer', minimum: 0 },
 							maxLength: { type: 'integer', minimum: 0 },
-							pattern: { type: 'string' },
+							pattern: {
+								type: 'object',
+								additionalProperties: false,
+								properties: {
+									source: { type: 'string' },
+									flags: { type: 'string' },
+								},
+								required: ['source', 'flags'],
+							},
 						},
 					},
 					elementSchema: { $ref: '#/$defs/flag' },

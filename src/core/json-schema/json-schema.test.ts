@@ -314,7 +314,7 @@ describe('generateSchema — definition metadata', () => {
 				nonEmpty: true,
 				minLength: 2,
 				maxLength: 12,
-				pattern: '^v\\d+$',
+				pattern: { source: '^v\\d+$', flags: 'i' },
 			},
 		});
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'files'], {
@@ -802,7 +802,15 @@ describe('generateSchema — definition metadata', () => {
 								nonEmpty: { type: 'boolean' },
 								minLength: { type: 'integer', minimum: 0 },
 								maxLength: { type: 'integer', minimum: 0 },
-								pattern: { type: 'string' },
+								pattern: {
+									type: 'object',
+									additionalProperties: false,
+									properties: {
+										source: { type: 'string' },
+										flags: { type: 'string' },
+									},
+									required: ['source', 'flags'],
+								},
 							},
 						},
 						separator: { type: 'string', minLength: 1 },
@@ -876,6 +884,10 @@ describe('generateSchema — definition metadata', () => {
 		const flagMetaProperties = expectRecord(flagMetaSchema.properties);
 
 		expect(Object.keys(serializedFlag).sort()).toEqual(Object.keys(flagMetaProperties).sort());
+		expect(serializedFlag).toHaveProperty(['stringConstraints', 'pattern'], {
+			source: '^v\\d+$',
+			flags: '',
+		});
 		expect(serializedFlag).not.toHaveProperty('parseFn');
 		expect(serializedFlag).not.toHaveProperty('standard');
 	});
