@@ -1,16 +1,13 @@
-#!/usr/bin/env bun
-import { writeImportMap } from 'importmapify';
-import pkg from '#package.json';
+import { defineConfig } from 'importmapify';
+import pkg from '#package.json' with { type: 'json' };
 
 const n = 'ansispeck';
 const version = pkg['dependencies'][n].replace(/^(?:npm:)?ansispeck@/, '');
 const ansispeck = `jsr:@kjanat/${n}@${version}`;
 
-const out = writeImportMap({
-	root: import.meta.dirname,
-	out: 'import_map.json',
+export default defineConfig({
+	packages: { ansispeck },
 	additionalImports: {
-		ansispeck,
 		'#dreamcli/schema': './src/schema.ts',
 	},
 	scopes: {
@@ -18,6 +15,5 @@ const out = writeImportMap({
 			'dreamcli/testkit': 'jsr:@kjanat/dreamcli@^3/testkit',
 		},
 	},
+	extensions: ['ts'],
 });
-
-console.log('Wrote import map to', out);

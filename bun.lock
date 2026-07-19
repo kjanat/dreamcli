@@ -17,7 +17,7 @@
         "@vitest/coverage-v8": "^4.1.10",
         "biome": "npm:@biomejs/biome@^2.5.4",
         "dprint": "^0.55.1",
-        "importmapify": "1.0.1",
+        "importmapify": "1.6.0",
         "knip": "^6.25.0",
         "publint": "^0.3.21",
         "runner-run": "0.20.0",
@@ -936,7 +936,7 @@
 
     "import-without-cache": ["import-without-cache@0.4.0", "", {}, "sha512-NkJQA7oZ4YHQhd2+H3BoRFKF3d/XNsiKpHZCQEMH9pDX27hQQLsTyOocyRgaIVtf8gHX3Nt3LPkR4e5EdtPAGQ=="],
 
-    "importmapify": ["importmapify@1.0.1", "", { "dependencies": { "dreamcli": "npm:@kjanat/dreamcli@^3.0.0-rc.11" }, "bin": { "importmapify": "dist/mod.mjs" } }, "sha512-RMCnBhzk9ElyqhVl2+puuDV5m5ACzkvV74Q3JrzTcSXxg4n+K3uN3NF6a55ie0tZb8tYNjaBFA2cDFthIWhG1w=="],
+    "importmapify": ["importmapify@1.6.0", "", { "dependencies": { "ansispeck": "^0.2.0", "dreamcli": "npm:@kjanat/dreamcli@^3.0.0-rc.11" }, "bin": { "importmapify": "dist/mod.mjs" } }, "sha512-yW9hZ1+xEPSQR9KNly7G0AuHAIInlj7caQQ9olzqvcKDC7/721HGYxhNGwTm1U6UfE+0V1g4hT4GpC6GdDAc6w=="],
 
     "internmap": ["internmap@1.0.1", "", {}, "sha512-lDB5YccMydFBtasVtxnZ3MRBHuaoE8GKsppq+EchKL2U4nK/DmEpPHNH8MZe5HkMtpSiTSOZwfN0tzYjO/lJEw=="],
 
