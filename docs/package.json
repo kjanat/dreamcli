@@ -23,6 +23,7 @@
 		"typescript": "catalog:",
 		"vite": "^8.1.4",
 		"vitepress": "next",
+		"vitest": "catalog:",
 		"wrangler": "^4.110.0"
 	}
 }
