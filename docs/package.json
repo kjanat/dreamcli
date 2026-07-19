@@ -1,0 +1,29 @@
+{
+	"name": "@kjanat/dreamcli-docs",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "bun --bun vitepress build .",
+		"deploy": "wrangler deploy",
+		"dev": "bun --bun vitepress dev . --host --port ${PORT:-5173}",
+		"preview": "bun --bun vitepress preview .",
+		"upload": "wrangler versions upload"
+	},
+	"dependencies": {
+		"@kjanat/dreamcli": "file:.."
+	},
+	"devDependencies": {
+		"@shikijs/transformers": "^4.3.1",
+		"@shikijs/vitepress-twoslash": "^4.3.1",
+		"@types/node": "catalog:",
+		"floating-vue": "^5.2.2",
+		"mermaid": "^11.16.0",
+		"typedoc": "^0.28.20",
+		"typescript": "catalog:",
+		"vite": "^8.1.4",
+		"vitepress": "next",
+		"vitest": "catalog:",
+		"wrangler": "^4.110.0"
+	}
+}

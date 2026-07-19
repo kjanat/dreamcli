@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+// oxlint-disable no-unused-vars | CLIBuilder is used for type inference of the JSDoc comments
+// deno-lint-ignore-file no-unused-vars
 /**
  * Walkthrough example package entrypoint for a miniature `gh` clone.
  *
@@ -16,7 +18,6 @@
  * @module
  */
 
-// oxlint-disable-next-line no-unused-vars -- for CLIBuilder type in JSDoc
 import type { CLIBuilder } from '@kjanat/dreamcli';
 import { cli } from '@kjanat/dreamcli';
 

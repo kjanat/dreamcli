@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { sparse-checkout: ".node-version\npackage.json" }
-      - { uses: actions/setup-node@v6, with: { node-version-file: .node-version, registry-url: https://registry.npmjs.org/ } }
+      - { uses: actions/setup-node@v7, with: { node-version-file: .node-version, registry-url: https://registry.npmjs.org/, package-manager-cache: false } }
       - { uses: actions/download-artifact@v8, with: { name: tarball } }
       - name: Publish to npm
         env:

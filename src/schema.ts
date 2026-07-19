@@ -11,6 +11,7 @@
  * console.log(schema.$id); // "dreamcli.schema.json"
  * ```
  *
+ * @ignore
  * @module @kjanat/dreamcli/schema
  */
-export { default } from '../dreamcli.schema.json' with { type: 'json' };
+export { default } from '#schema' with { type: 'json' };

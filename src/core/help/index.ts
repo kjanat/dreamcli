@@ -131,7 +131,9 @@ function formatHelpDefaultValue(value: unknown): string {
 
 /** Formatted flag entry for the flags table. @internal */
 interface FlagEntry {
+	/** Preformatted flag names and value hint for the left table column. */
 	readonly left: string;
+	/** Preformatted help text for the description table column. */
 	readonly description: string;
 }
 

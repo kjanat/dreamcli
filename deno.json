@@ -29,14 +29,7 @@
 			"command": "deno publish"
 		}
 	},
-	"imports": {
-		"ansispeck": "jsr:@kjanat/ansispeck@^0.2.0",
-		"#dreamcli": "./src/index.ts",
-		"#dreamcli/runtime": "./src/runtime.ts",
-		"#dreamcli/testkit": "./src/testkit.ts",
-		"#schema": "./dreamcli.schema.json",
-		"#internals/*": "./src/*"
-	},
+	"importMap": "./import_map.json",
 	"exports": {
 		".": "./src/index.ts",
 		"./runtime": "./src/runtime.ts",
@@ -64,6 +57,7 @@
 	"fmt": { "exclude": ["**"] },
 	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
 	"nodeModulesDir": "manual",
+	"preferPackageJson": false,
 	"exclude": ["**/*.test.ts", "*.ts", "*cache/", "coverage/", "dist/", "scripts/", "**/*.tpl"],
 	"minimumDependencyAge": {
 		"exclude": [

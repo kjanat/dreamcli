@@ -154,6 +154,7 @@ type PromptConfigByFlagKind = {
 	readonly keyValue: never;
 };
 
+/** Prompt configuration compatible with the kind carried by a {@link FlagConfig}. */
 type AllowedPromptConfig<C extends FlagConfig> = PromptConfigByFlagKind[C['flagKind']];
 
 // --- Runtime schema data
@@ -1606,7 +1607,9 @@ export type {
 	OptionalFallback,
 	PathChecks,
 	PathFlagOptions,
+	PromptConfigByFlagKind,
 	ResolvedValue,
+	WithoutElementEligibility,
 	WithPresence,
 };
 export {

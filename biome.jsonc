@@ -20,7 +20,7 @@
 		"ignoreUnknown": true,
 		"maxSize": 5000000
 	},
-	"formatter": { "enabled": false },
+	"formatter": { "enabled": false, "lineWidth": 100, "indentStyle": "tab" },
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -46,7 +46,8 @@
 		"formatter": {
 			"enabled": false,
 			"quoteStyle": "single",
-			"semicolons": "always"
+			"semicolons": "always",
+			"lineWidth": 100
 		}
 	},
 	"json": {

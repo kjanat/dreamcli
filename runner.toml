@@ -7,5 +7,5 @@ node = "bun"
 group_output = true
 
 [install]
-# pms     = ["bun"]
+pms     = ["bun"]
 scripts = "allow"  # unsupported for bun at the moment as a bun limitation.
