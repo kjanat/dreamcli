@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { command } from '#internals/core/schema/command.ts';
 import { cli } from './index.ts';
 
+// === Helpers
+
 function deployCommand() {
 	return command('deploy')
 		.description('Deploy the app')
@@ -14,6 +16,8 @@ function deployCommand() {
 			out.log('deployed');
 		});
 }
+
+// === Function-form examples — end to end
 
 describe('function-form examples — end to end', () => {
 	it('resolves meta.name to the invoked program name in command help', async () => {
@@ -45,5 +49,14 @@ describe('function-form examples — end to end', () => {
 		const result = await app.execute(['deploy', '--help', '--json']);
 		const parsed = JSON.parse(result.stdout.join('')) as { examples?: { command: string }[] };
 		expect(parsed.examples?.[0]?.command).toBe('mycli deploy --force');
+	});
+
+	it('propagates a runtime binName override to root --json help', async () => {
+		const app = cli('mycli').command(deployCommand());
+		const result = await app.execute(['--help', '--json'], { help: { binName: 'renamed' } });
+		const parsed = JSON.parse(result.stdout.join('')) as {
+			commands?: { examples?: { command: string }[] }[];
+		};
+		expect(parsed.commands?.[0]?.examples?.[0]?.command).toBe('renamed deploy --force');
 	});
 });

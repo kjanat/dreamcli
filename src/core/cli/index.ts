@@ -1222,7 +1222,12 @@ class CLIBuilder {
 
 			case 'root-help': {
 				if (jsonMode) {
-					out.json(generateSchema(this.schema));
+					out.json(
+						generateSchema(this.schema, undefined, {
+							name: planned.help.binName ?? this.schema.name,
+							version: planned.help.version ?? this.schema.version,
+						}),
+					);
 				} else {
 					const helpText = formatRootHelp(resolveHelpLinksSchema(this.schema), planned.help);
 					out.log(helpText);

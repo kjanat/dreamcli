@@ -206,4 +206,5 @@ export {
 	getFlagNegatedName,
 	group,
 	middleware,
+	resolveExampleCommand,
 } from './core/schema/index.ts';

@@ -115,6 +115,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * @param schema - The CLI schema from `CLIBuilder.schema`.
  * @param options - Generation options.
+ * @param meta - Program name/version for function-form examples; defaults to
+ *   the CLI schema's own `name`/`version`.
  * @returns A plain object suitable for `JSON.stringify()`.
  *
  * @example
@@ -124,9 +126,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * writeFileSync('cli-schema.json', JSON.stringify(definition, null, 2));
  * ```
  */
-function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<string, unknown> {
+function generateSchema(
+	schema: CLISchema,
+	options?: JsonSchemaOptions,
+	meta?: ExampleMeta,
+): Record<string, unknown> {
 	const opts = resolveOptions(options);
-	const meta: ExampleMeta = { name: schema.name, version: schema.version };
+	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: schema.version };
 
 	const result: Record<string, unknown> = {
 		$schema: DEFINITION_SCHEMA_URL,
@@ -146,12 +152,12 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 		// Full definition, not just the name — the default command lives only in
 		// `defaultCommand` (never in `commands`), so a name-only reference would
 		// drop its flags/args from the document entirely.
-		result.defaultCommand = serializeCommand(schema.defaultCommand.schema, opts, meta);
+		result.defaultCommand = serializeCommand(schema.defaultCommand.schema, opts, resolvedMeta);
 	}
 
 	result.commands = schema.commands
 		.filter((cmd) => opts.includeHidden || !cmd.schema.hidden)
-		.map((cmd) => serializeCommand(cmd.schema, opts, meta));
+		.map((cmd) => serializeCommand(cmd.schema, opts, resolvedMeta));
 
 	return result;
 }
@@ -168,6 +174,8 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
  *
  * @param schema - The command schema to serialize.
  * @param options - Generation options.
+ * @param meta - Program name/version for function-form examples; defaults to
+ *   the command's own name with no version.
  * @returns A plain object suitable for `JSON.stringify()`.
  */
 function generateCommandSchema(
