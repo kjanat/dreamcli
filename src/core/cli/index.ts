@@ -24,7 +24,7 @@ import { buildRunResult, executeCommand } from '#internals/core/execution/index.
 import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import { generateCommandSchema, generateSchema } from '#internals/core/json-schema/index.ts';
-import type { CapturedOutput } from '#internals/core/output/index.ts';
+import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import {
 	clearRequestedExitCode,
 	createCaptureOutput,
@@ -1240,14 +1240,17 @@ class CLIBuilder {
 	 * @returns Structured result with exit code and captured output.
 	 */
 	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
-		// -- Detect global --json mode before building output ---------------------
-		// Only a `--json` before the `--` separator toggles JSON mode; a literal
-		// `--json` positional (after `--`) must reach the command unchanged (#28).
+		// -- Detect global --json / --quiet before building output ----------------
+		// Only occurrences before the `--` separator count; a literal positional
+		// (after `--`) must reach the command unchanged (#28).
 		const hasJsonFlag = includesBeforeSeparator(argv, '--json');
 		const jsonMode = hasJsonFlag || options?.jsonMode === true;
+		const hasQuietFlag =
+			includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
+		const verbosity: Verbosity | undefined = hasQuietFlag ? 'quiet' : options?.verbosity;
 
 		const captureOptions = {
-			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+			...(verbosity !== undefined ? { verbosity } : {}),
 			...(jsonMode ? { jsonMode } : {}),
 			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 			...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
@@ -1286,12 +1289,13 @@ class CLIBuilder {
 			...options,
 			plugins: this.schema.plugins,
 			...(jsonMode ? { jsonMode } : {}),
+			...(verbosity !== undefined ? { verbosity } : {}),
 			...(flagSettings !== undefined ? { flags: flagSettings } : {}),
 		};
 		const output: OutputPolicy = {
 			jsonMode,
 			isTTY: out.isTTY,
-			verbosity: options?.verbosity ?? 'normal',
+			verbosity: verbosity ?? 'normal',
 		};
 		// The planner scans flag arity during dispatch, so it must see the same
 		// merged flag settings (runtime override wins) that command parsing uses.

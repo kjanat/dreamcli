@@ -44,6 +44,35 @@ command('status').action(({ out }) => {
 `setExitCode()` does not print anything and does not stop execution. Later calls
 win, and thrown `CLIError`s still use their own exit codes and error rendering.
 
+## Status Lines and Quiet Mode
+
+`out.status()` prints success and progress notes like `Wrote <path>` to
+**stderr**, so stdout stays clean for piping, and it is suppressed under quiet
+verbosity:
+
+```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
+command('gen').action(({ out }) => {
+  out.log('dist/app.js');           // the result — stdout, always
+  out.status('Wrote dist/app.js');  // the note — stderr, silenced by -q
+});
+```
+
+Every CLI accepts a global `--quiet`/`-q` flag that sets quiet verbosity,
+suppressing `info` and `status` while `log`, `warn`, and `error` still emit.
+Like `--json`, it is a root-level flag: it is stripped before dispatch (so
+command schemas never see it) and only counts before the `--` separator — a
+literal `-q` after `--` reaches the command as a positional.
+
+| Method   | Stream                     | Suppressed by quiet |
+| -------- | -------------------------- | ------------------- |
+| `log`    | stdout                     | no                  |
+| `info`   | stdout (stderr in `--json`)| yes                 |
+| `status` | stderr                     | yes                 |
+| `warn`   | stderr                     | no                  |
+| `error`  | stderr                     | no                  |
+
 ## Tables
 
 ```ts twoslash

@@ -18,7 +18,7 @@ import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import { parse } from '#internals/core/parse/index.ts';
+import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
@@ -405,8 +405,12 @@ async function prepareRuntimePreflight(
 		options.schema.configSettings !== undefined
 			? extractConfigFlag(rawArgv)
 			: { configPath: undefined, filteredArgv: rawArgv };
-	const hasJsonFlag = filteredArgv.includes('--json');
+	// Only pre-separator occurrences count; a literal after `--` is a
+	// positional for the command (#28).
+	const hasJsonFlag = includesBeforeSeparator(filteredArgv, '--json');
 	const jsonMode = hasJsonFlag || options.options?.jsonMode === true;
+	const hasQuietFlag =
+		includesBeforeSeparator(filteredArgv, '--quiet') || includesBeforeSeparator(filteredArgv, '-q');
 	const isCompletions = isCompletionsInvocation(options.schema, filteredArgv);
 	const schema = await applyPackageJsonDiscovery(
 		options.schema,
@@ -447,7 +451,7 @@ async function prepareRuntimePreflight(
 			env: options.options?.env ?? options.adapter.env,
 			isTTY: options.options?.isTTY ?? options.adapter.isTTY,
 			jsonMode,
-			verbosity: options.options?.verbosity ?? 'normal',
+			verbosity: hasQuietFlag ? 'quiet' : (options.options?.verbosity ?? 'normal'),
 			stat: options.options?.stat ?? options.adapter.stat,
 			...(stdinData !== undefined ? { stdinData } : {}),
 			...(options.options?.prompter !== undefined

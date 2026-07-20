@@ -173,6 +173,38 @@ describe('verbosity', () => {
 	});
 });
 
+// --- status() — quiet-suppressible stderr channel
+
+describe('status', () => {
+	it('writes to stderr, keeping stdout clean', () => {
+		const [out, captured] = createCaptureOutput();
+		out.status('Wrote dist/app.js');
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr).toEqual(['Wrote dist/app.js\n']);
+	});
+
+	it('is suppressed in quiet mode', () => {
+		const [out, captured] = createCaptureOutput({ verbosity: 'quiet' });
+		out.status('Wrote dist/app.js');
+		expect(captured.stderr).toEqual([]);
+	});
+
+	it('stays on stderr in JSON mode', () => {
+		const [out, captured] = createCaptureOutput({ jsonMode: true });
+		out.status('Wrote dist/app.js');
+		out.json({ ok: true });
+		expect(captured.stdout).toEqual(['{"ok":true}\n']);
+		expect(captured.stderr).toEqual(['Wrote dist/app.js\n']);
+	});
+
+	it('keeps working when destructured off out', () => {
+		const [out, captured] = createCaptureOutput();
+		const { status } = out;
+		status('detached');
+		expect(captured.stderr).toEqual(['detached\n']);
+	});
+});
+
 // --- TTY detection
 
 describe('isTTY', () => {
