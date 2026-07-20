@@ -2,7 +2,13 @@ import type { Colors } from 'ansispeck';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Out } from '#internals/core/schema/command.ts';
 import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
-import { createCaptureOutput, createOutput, getRequestedExitCode, OutputChannel } from './index.ts';
+import {
+	createCaptureOutput,
+	createOutput,
+	getRequestedExitCode,
+	OutputChannel,
+	resolveHyperlinkOverride,
+} from './index.ts';
 
 // --- createOutput — factory
 
@@ -188,6 +194,57 @@ describe('isTTY', () => {
 	});
 });
 
+// --- Hyperlink support gate
+
+describe('isHyperlinkSupported', () => {
+	it('falls back to isTTY when no override is set', () => {
+		expect(createOutput({ isTTY: true }).isHyperlinkSupported).toBe(true);
+		expect(createOutput({ isTTY: false }).isHyperlinkSupported).toBe(false);
+	});
+
+	it('explicit hyperlinks option wins over isTTY', () => {
+		expect(createOutput({ isTTY: false, hyperlinks: true }).isHyperlinkSupported).toBe(true);
+		expect(createOutput({ isTTY: true, hyperlinks: false }).isHyperlinkSupported).toBe(false);
+	});
+});
+
+// --- resolveHyperlinkOverride — env/argv precedence
+
+describe('resolveHyperlinkOverride', () => {
+	it('returns undefined when nothing forces a decision', () => {
+		expect(resolveHyperlinkOverride({}, [])).toBeUndefined();
+	});
+
+	it('NO_HYPERLINKS forces off', () => {
+		expect(resolveHyperlinkOverride({ NO_HYPERLINKS: '1' }, [])).toBe(false);
+	});
+
+	it('--no-hyperlinks forces off', () => {
+		expect(resolveHyperlinkOverride({}, ['--no-hyperlinks'])).toBe(false);
+	});
+
+	it('FORCE_HYPERLINKS forces on', () => {
+		expect(resolveHyperlinkOverride({ FORCE_HYPERLINKS: '1' }, [])).toBe(true);
+	});
+
+	it('--hyperlinks forces on', () => {
+		expect(resolveHyperlinkOverride({}, ['--hyperlinks'])).toBe(true);
+	});
+
+	it('off wins when both off and on are present', () => {
+		expect(resolveHyperlinkOverride({ NO_HYPERLINKS: '1', FORCE_HYPERLINKS: '1' }, [])).toBe(false);
+	});
+
+	it('ignores flag tokens after the `--` separator', () => {
+		expect(resolveHyperlinkOverride({}, ['deploy', '--', '--no-hyperlinks'])).toBeUndefined();
+		expect(resolveHyperlinkOverride({}, ['deploy', '--', '--hyperlinks'])).toBeUndefined();
+	});
+
+	it('honors flag tokens before the `--` separator', () => {
+		expect(resolveHyperlinkOverride({}, ['--no-hyperlinks', '--', 'positional'])).toBe(false);
+	});
+});
+
 // --- createCaptureOutput — test helper
 
 describe('createCaptureOutput', () => {
@@ -241,6 +298,7 @@ describe('OutputChannel', () => {
 			verbosity: 'normal',
 			jsonMode: false,
 			color: false,
+			isHyperlinkSupported: false,
 		});
 		channel.log('test');
 		expect(lines).toEqual(['test\n']);
@@ -254,6 +312,7 @@ describe('OutputChannel', () => {
 			verbosity: 'quiet',
 			jsonMode: false,
 			color: false,
+			isHyperlinkSupported: false,
 		});
 		expect(channel.options.isTTY).toBe(true);
 		expect(channel.options.verbosity).toBe('quiet');
@@ -267,6 +326,7 @@ describe('OutputChannel', () => {
 			verbosity: 'quiet',
 			jsonMode: true,
 			color: false,
+			isHyperlinkSupported: false,
 		});
 		expect(channel.policy).toEqual({
 			jsonMode: true,

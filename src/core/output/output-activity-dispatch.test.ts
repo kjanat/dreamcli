@@ -34,6 +34,7 @@ function makeChannel(opts: { jsonMode?: boolean; isTTY?: boolean }): {
 		verbosity: 'normal',
 		jsonMode: opts.jsonMode ?? false,
 		color: false,
+		isHyperlinkSupported: false,
 	});
 	return { channel, stdout, stderr };
 }
@@ -139,6 +140,7 @@ describe('active handle tracking — implicit stop', () => {
 			isTTY: false,
 			verbosity: 'normal',
 			color: false,
+			isHyperlinkSupported: false,
 			jsonMode: false,
 		});
 		const first = channel.spinner('First', { fallback: 'static' });
@@ -157,6 +159,7 @@ describe('active handle tracking — implicit stop', () => {
 			isTTY: true,
 			verbosity: 'normal',
 			color: false,
+			isHyperlinkSupported: false,
 			jsonMode: false,
 		});
 		const spinner = channel.spinner('Spinning');
@@ -176,6 +179,7 @@ describe('active handle tracking — implicit stop', () => {
 			isTTY: true,
 			verbosity: 'normal',
 			color: false,
+			isHyperlinkSupported: false,
 			jsonMode: false,
 		});
 		const progress = channel.progress({ total: 10 });
@@ -195,6 +199,7 @@ describe('active handle tracking — implicit stop', () => {
 			isTTY: false,
 			verbosity: 'normal',
 			color: false,
+			isHyperlinkSupported: false,
 			jsonMode: false,
 		});
 		// Both are noop (non-TTY, silent fallback)
@@ -214,6 +219,7 @@ describe('active handle tracking — implicit stop', () => {
 			isTTY: true,
 			verbosity: 'normal',
 			color: false,
+			isHyperlinkSupported: false,
 			jsonMode: true,
 		});
 		const first = channel.spinner('First');
@@ -256,6 +262,7 @@ describe('stopActive() — explicit cleanup', () => {
 				isTTY: true,
 				verbosity: 'normal',
 				color: false,
+				isHyperlinkSupported: false,
 				jsonMode: false,
 			});
 			channel.spinner('Leaked');
@@ -283,6 +290,7 @@ describe('stopActive() — explicit cleanup', () => {
 				isTTY: true,
 				verbosity: 'normal',
 				color: false,
+				isHyperlinkSupported: false,
 				jsonMode: false,
 			});
 			// Indeterminate progress starts a pulse timer
@@ -306,6 +314,7 @@ describe('stopActive() — explicit cleanup', () => {
 			isTTY: false,
 			verbosity: 'normal',
 			color: false,
+			isHyperlinkSupported: false,
 			jsonMode: false,
 		});
 		expect(() => {
@@ -322,6 +331,7 @@ describe('stopActive() — explicit cleanup', () => {
 			isTTY: false,
 			verbosity: 'normal',
 			color: false,
+			isHyperlinkSupported: false,
 			jsonMode: false,
 		});
 		const handle = channel.spinner('work', { fallback: 'static' });

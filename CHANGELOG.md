@@ -7,8 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.12] - 2026-07-20
+
 ### Added
 
+- **`out.isHyperlinkSupported`** — resolved OSC 8 hyperlink gate on the output
+  channel. Honors `NO_HYPERLINKS`/`FORCE_HYPERLINKS` and the
+  `--no-hyperlinks`/`--hyperlinks` flags, falling back to `isTTY`. Consumers
+  rendering their own `out.color.link(...)` output can gate on it to keep OSC 8
+  escapes out of piped or opted-out contexts.
 - **Standard Schema v1 validation** — `flag.custom(schema)` and
   `arg.custom(schema)` accept any conforming validator (including callable,
   sync, and async schemas) with inferred output types and no runtime
@@ -36,6 +43,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Internal schema DSL** — the private template-literal parser, validator, and
   JSON Schema converter were replaced by direct definition-schema objects,
   removing roughly 1,500 lines without changing the generated schema.
+
+### Fixed
+
+- **`NO_HYPERLINKS` ignored in the help header** — root-help header hyperlinks
+  gated on raw TTY status, so `NO_HYPERLINKS=1` (and `--no-hyperlinks`) still
+  emitted OSC 8 links in the header. The gate now consults
+  `out.isHyperlinkSupported`, which respects the standard hyperlink overrides.
 
 ## [3.0.0-rc.11] - 2026-07-15
 
@@ -1250,7 +1264,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.11...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.12...HEAD
+[3.0.0-rc.12]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.11...v3.0.0-rc.12
 [3.0.0-rc.11]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.10...v3.0.0-rc.11
 [3.0.0-rc.10]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.9...v3.0.0-rc.10
 [3.0.0-rc.9]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.8...v3.0.0-rc.9

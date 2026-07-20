@@ -154,6 +154,43 @@ describe('root help — explicit links', () => {
 		expect(result.stdout.join('')).not.toContain(ESC);
 	});
 
+	describe('environment overrides', () => {
+		it('NO_HYPERLINKS suppresses header links on a TTY', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help'], {
+				isTTY: true,
+				env: { NO_HYPERLINKS: '1' },
+			});
+
+			expect(result.stdout.join('')).not.toContain(ESC);
+		});
+
+		it('FORCE_HYPERLINKS emits header links without a TTY', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help'], { env: { FORCE_HYPERLINKS: '1' } });
+
+			expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
+		});
+
+		it('--no-hyperlinks in argv suppresses header links on a TTY', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help', '--no-hyperlinks'], { isTTY: true });
+
+			expect(result.stdout.join('')).not.toContain(ESC);
+		});
+
+		it('--hyperlinks in argv emits header links without a TTY', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help', '--hyperlinks']);
+
+			expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
+		});
+	});
+
 	it('links only the name when no version URL is configured', async () => {
 		const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 

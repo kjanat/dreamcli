@@ -339,6 +339,7 @@ describe('full command composition', () => {
 			jsonMode: false,
 			isTTY: false,
 			color: createColors(false),
+			isHyperlinkSupported: false,
 		};
 
 		// Simulate what the runtime will do
