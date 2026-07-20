@@ -3,8 +3,8 @@
  * stripping, `--` separator semantics, and the `.run()` adapter path.
  */
 import { describe, expect, it } from 'vitest';
-import { command } from '#internals/core/schema/command.ts';
 import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { cli } from './index.ts';
 
