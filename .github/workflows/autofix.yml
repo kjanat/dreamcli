@@ -17,6 +17,8 @@ jobs:
       - run: runner install
       - uses: ./.github/actions/dprint-warmup
       - run: run -s fmt:autofix lint:autofix
-      - run: bash scripts/ci-retry-hang.sh 20 run fmt:update
+      # `dprint config update` queries every plugin registry and may download
+      # and compile new plugin versions; 20s starves legitimate runs.
+      - run: bash scripts/ci-retry-hang.sh 90 run fmt:update
         if: github.ref_name == 'master'
       - uses: autofix-ci/action@v1
