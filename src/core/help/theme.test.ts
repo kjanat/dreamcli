@@ -145,6 +145,13 @@ describe('example command highlighting', () => {
 		expect(help).not.toContain(on.cyan("'./a b'"));
 	});
 
+	it('cyans short flags as well as long flags', () => {
+		const help = formatHelp(exampleCommand('mycli -f production'), { colors: on });
+		expect(help).toContain(on.cyan('-f'));
+		expect(help).toContain('production');
+		expect(help).not.toContain(on.cyan('production'));
+	});
+
 	it('keeps a quoted argument with internal spaces as one plain token', () => {
 		const help = formatHelp(exampleCommand("mycli --msg 'a b c'"), { colors: on });
 		expect(help).toContain(`${on.cyan('--msg')} 'a b c'`);
