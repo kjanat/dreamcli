@@ -132,6 +132,45 @@ describe('formatHelp theming', () => {
 	});
 });
 
+describe('example command highlighting', () => {
+	function exampleCommand(cmd: string) {
+		return command('deploy').description('Deploy the app').example(cmd).schema;
+	}
+
+	it('bolds the binary, cyans flag tokens, and leaves values plain', () => {
+		const help = formatHelp(exampleCommand("mycli --scope './a b' run"), { colors: on });
+		expect(help).toContain(on.bold('mycli'));
+		expect(help).toContain(on.cyan('--scope'));
+		expect(help).toContain("'./a b'");
+		expect(help).not.toContain(on.cyan("'./a b'"));
+	});
+
+	it('cyans short flags as well as long flags', () => {
+		const help = formatHelp(exampleCommand('mycli -f production'), { colors: on });
+		expect(help).toContain(on.cyan('-f'));
+		expect(help).toContain('production');
+		expect(help).not.toContain(on.cyan('production'));
+	});
+
+	it('keeps a quoted argument with internal spaces as one plain token', () => {
+		const help = formatHelp(exampleCommand("mycli --msg 'a b c'"), { colors: on });
+		expect(help).toContain(`${on.cyan('--msg')} 'a b c'`);
+	});
+
+	it('emits no escapes when color is off', () => {
+		const help = formatHelp(exampleCommand("mycli --scope './a b' run"));
+		expect(help).not.toContain(ESC);
+		expect(help).toContain("$ mycli --scope './a b' run");
+	});
+
+	it('strip-equivalence holds with quoted args and irregular spacing', () => {
+		const schema = exampleCommand("mycli --scope './a b'  run --force");
+		const plain = formatHelp(schema);
+		const colored = formatHelp(schema, { colors: on });
+		expect(stripAnsi(colored)).toBe(plain);
+	});
+});
+
 describe('defaultHelpTheme', () => {
 	it('is identity end-to-end with a disabled palette', () => {
 		const theme = defaultHelpTheme(createColors(false));
