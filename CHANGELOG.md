@@ -7,6 +7,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.17] - 2026-07-20
+
+### Added
+
+- **`out.status()`** — a success/status line channel that writes to **stderr**
+  (stdout stays clean for piping) and is suppressed under quiet verbosity.
+  `info` remains stdout-bound; `warn`/`error` remain always-emitted.
+- **Global `--quiet`/`-q` flag** — sets quiet verbosity on every CLI, wired
+  like `--json`: detected and stripped at the root before dispatch (command
+  schemas never see it), honoring the `--` separator so a literal `-q`
+  positional reaches the command unchanged. Listed under root help's
+  `Global options:`.
+
+### Fixed
+
+- **`.run()` misread a post-separator `--json`** — runtime preflight used a
+  naive `includes('--json')`, so `mycli cmd -- --json` entered JSON mode via
+  the adapter path even though `.execute()` correctly treats it as a
+  positional. Preflight now uses the `--`-aware detection.
+
 ## [3.0.0-rc.16] - 2026-07-20
 
 ### Added
@@ -1315,7 +1335,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.16...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.17...HEAD
+[3.0.0-rc.17]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.16...v3.0.0-rc.17
 [3.0.0-rc.16]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.15...v3.0.0-rc.16
 [3.0.0-rc.15]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.14...v3.0.0-rc.15
 [3.0.0-rc.14]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.13...v3.0.0-rc.14

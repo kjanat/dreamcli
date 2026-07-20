@@ -444,6 +444,9 @@ function planCompletionsFlag(
 	return undefined;
 }
 
+/** Root-level output flags stripped before dispatch (never part of a command schema). */
+const ROOT_OUTPUT_FLAGS = new Set(['--json', '--quiet', '-q']);
+
 /**
  * Decide what to do with an argv invocation before any command executes.
  *
@@ -453,14 +456,17 @@ function planCompletionsFlag(
  * @internal
  */
 function planInvocation(options: PlanInvocationOptions): InvocationPlan {
-	// `--json` is a root-level flag, not part of any command schema, so it is
-	// stripped before dispatch/parse — but only before the `--` separator, so a
-	// literal `--json` positional (after `--`) survives and reaches the command
-	// (#28). The `--json` *output mode* is detected separately in `.execute()`.
+	// `--json` and `--quiet`/`-q` are root-level flags, not part of any command
+	// schema, so they are stripped before dispatch/parse — but only before the
+	// `--` separator, so a literal positional (after `--`) survives and reaches
+	// the command (#28). The output mode/verbosity themselves are detected
+	// separately in `.execute()`.
 	const separatorIndex = options.argv.indexOf('--');
 	const head = separatorIndex === -1 ? options.argv : options.argv.slice(0, separatorIndex);
 	const tail = separatorIndex === -1 ? [] : options.argv.slice(separatorIndex);
-	const filteredHead = head.includes('--json') ? head.filter((arg) => arg !== '--json') : head;
+	const filteredHead = head.some((arg) => ROOT_OUTPUT_FLAGS.has(arg))
+		? head.filter((arg) => !ROOT_OUTPUT_FLAGS.has(arg))
+		: head;
 	const filteredArgv = separatorIndex === -1 ? filteredHead : [...filteredHead, ...tail];
 
 	const defaultCommand = options.schema.defaultCommand;

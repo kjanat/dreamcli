@@ -150,6 +150,13 @@ interface Out {
 	log(message: string): void;
 	/** Informational (may be suppressed in quiet mode). */
 	info(message: string): void;
+	/**
+	 * Status line to stderr, suppressed in quiet mode.
+	 *
+	 * Keeps stdout clean for piping; for success and progress notes like
+	 * `Wrote <path>` that scripts silence with `--quiet`.
+	 */
+	status(message: string): void;
 	/** Warning to stderr. */
 	warn(message: string): void;
 	/** Error to stderr. */

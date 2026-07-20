@@ -347,6 +347,10 @@ function formatGlobalOptionsSection(
 		});
 	}
 	entries.push({ left: theme.flag('--json'), description: 'Emit machine-readable JSON output' });
+	entries.push({
+		left: theme.flag('-q, --quiet'),
+		description: 'Suppress informational output',
+	});
 	if (schema.configSettings !== undefined) {
 		entries.push({
 			left: `${theme.flag('--config')} ${theme.placeholder('<path>')}`,

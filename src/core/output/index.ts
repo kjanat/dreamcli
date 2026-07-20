@@ -293,6 +293,15 @@ class OutputChannel implements Out {
 		writeLine(writer, message);
 	}
 
+	/**
+	 * Status line to stderr (stdout stays clean for piping).
+	 * Suppressed when verbosity is `'quiet'`.
+	 */
+	status(message: string): void {
+		if (!shouldEmitInfo(this.policy)) return;
+		writeLine(this.options.stderr, message);
+	}
+
 	/** Warning to stderr. Always emitted. */
 	warn(message: string): void {
 		writeLine(this.options.stderr, message);

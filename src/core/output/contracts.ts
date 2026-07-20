@@ -104,7 +104,7 @@ function resolveTextStream(policy: OutputPolicy): OutputStream {
 	return policy.jsonMode ? 'stderr' : 'stdout';
 }
 
-/** Whether `info()` messages should be emitted under the current policy. */
+/** Whether `info()`/`status()` messages should be emitted under the current policy. */
 function shouldEmitInfo(policy: OutputPolicy): boolean {
 	return policy.verbosity !== 'quiet';
 }

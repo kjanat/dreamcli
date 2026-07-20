@@ -346,6 +346,7 @@ describe('full command composition', () => {
 		const mockOut: Out = {
 			log: vi.fn(),
 			info: vi.fn(),
+			status: vi.fn(),
 			warn: vi.fn(),
 			error: vi.fn(),
 			setExitCode: vi.fn(),
