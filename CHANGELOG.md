@@ -7,6 +7,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.16] - 2026-07-20
+
+### Added
+
+- **`resolveRenderContext(argv, options?)`** — pre-`run()` probe returning the
+  output decisions the framework will make for a given argv: `jsonMode`
+  (`--`-aware `--json` detection), `isTTY`, the gated `color` palette, and
+  `isHyperlinkSupported`. Computed with the same composition `.execute()`/
+  `.run()` feed into the output channel, so content styled before `run()` —
+  banners, hand-rendered help — matches the channel that will actually render,
+  with zero argv re-parsing.
+- **`includesBeforeSeparator` / `stripBeforeSeparator`** exported from the
+  package root — the `--`-aware root-flag primitives, for consumers who only
+  need correct flag detection.
+
 ## [3.0.0-rc.15] - 2026-07-20
 
 ### Added
@@ -1300,7 +1315,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.15...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.16...HEAD
+[3.0.0-rc.16]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.15...v3.0.0-rc.16
 [3.0.0-rc.15]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.14...v3.0.0-rc.15
 [3.0.0-rc.14]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.13...v3.0.0-rc.14
 [3.0.0-rc.13]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.12...v3.0.0-rc.13
