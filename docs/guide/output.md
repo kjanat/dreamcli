@@ -116,6 +116,40 @@ The output channel automatically adjusts behavior:
 
 One code path, correct output everywhere.
 
+## Pre-run Render Context
+
+Inside a handler, `out` answers every rendering question: `out.jsonMode`,
+`out.isTTY`, `out.color`, `out.isHyperlinkSupported`. Content built **before**
+`run()` — a banner, hand-rendered help — has no `out`, and re-deriving the
+answers from raw argv goes wrong (`argv.includes('--json')` misreads a
+post-`--` literal like `mycli -- --json`).
+
+`resolveRenderContext` runs the same composition `run()` feeds into the output
+channel, so pre-run styling matches what will actually render:
+
+```ts twoslash
+import { resolveRenderContext } from '@kjanat/dreamcli';
+
+const ctx = resolveRenderContext(process.argv.slice(2), {
+  isTTY: process.stdout.isTTY === true,
+  env: process.env,
+});
+
+// Identity formatters when color is off — style unconditionally
+const banner = ctx.color.bold('mycli');
+// `ctx.jsonMode` used pre-separator-aware --json detection
+if (!ctx.jsonMode) console.error(banner);
+```
+
+The returned `color` is the same gated palette the channel will expose as
+`out.color` (`ctx.color.isColorSupported` is the boolean form), and
+`ctx.isHyperlinkSupported` honors `NO_HYPERLINKS`/`FORCE_HYPERLINKS` the same
+way the help header does.
+
+For just the `--`-aware flag reads, the primitives are also exported:
+`includesBeforeSeparator(argv, '--json')` and its strip counterpart
+`stripBeforeSeparator`.
+
 ## What's Next?
 
 - Related examples: [JSON mode](/examples/json-mode), [Spinner and progress](/examples/spinner-progress)

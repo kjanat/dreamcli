@@ -36,10 +36,18 @@ export type {
 	ManifestSettings,
 	PackageJsonSettings,
 	PluginCommandContext,
+	RenderContext,
+	RenderContextOptions,
 	ResolvedCommandParams,
 	ResolvedManifestSettings,
 } from './core/cli/index.ts';
-export { CLIBuilder, cli, isMainModule, plugin } from './core/cli/index.ts';
+export {
+	CLIBuilder,
+	cli,
+	isMainModule,
+	plugin,
+	resolveRenderContext,
+} from './core/cli/index.ts';
 export type { CompletionOptions, Shell } from './core/completion/index.ts';
 export {
 	generateBashCompletion,
@@ -100,7 +108,12 @@ export {
 export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.ts';
 export { createOutput } from './core/output/index.ts';
 export type { ParseOptions, ParseResult, Token } from './core/parse/index.ts';
-export { parse, tokenize } from './core/parse/index.ts';
+export {
+	includesBeforeSeparator,
+	parse,
+	stripBeforeSeparator,
+	tokenize,
+} from './core/parse/index.ts';
 export type {
 	PromptEngine,
 	ReadFn,

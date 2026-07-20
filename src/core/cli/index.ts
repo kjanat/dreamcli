@@ -9,6 +9,7 @@
  * @module dreamcli/core/cli
  */
 
+import type { Colors } from 'ansispeck';
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import {
 	detectShell,
@@ -481,6 +482,104 @@ interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {
 	 * Ignored by `.execute()` (which is process-free by design).
 	 */
 	readonly adapter?: RuntimeAdapter;
+}
+
+// --- Render context
+
+/**
+ * Inputs for {@linkcode resolveRenderContext}. Pass the host facts (TTY
+ * status, environment) and any explicit overrides; the resolver applies the
+ * same gating `.execute()`/`.run()` feed into the output channel.
+ */
+interface RenderContextOptions {
+	/**
+	 * Whether stdout is connected to a TTY (e.g. `process.stdout.isTTY`).
+	 *
+	 * @defaultValue `false`
+	 */
+	readonly isTTY?: boolean;
+	/**
+	 * Force JSON mode on regardless of argv.
+	 *
+	 * @defaultValue detected from a pre-separator `--json` in `argv`
+	 */
+	readonly jsonMode?: boolean;
+	/**
+	 * Explicitly enable or disable colors, winning over the auto-gate.
+	 *
+	 * @defaultValue auto — `isTTY && !jsonMode` and environment support
+	 */
+	readonly color?: boolean;
+	/**
+	 * Environment variables consulted for `NO_HYPERLINKS`/`FORCE_HYPERLINKS`
+	 * (e.g. `process.env`).
+	 *
+	 * @defaultValue `{}`
+	 */
+	readonly env?: Readonly<Record<string, string | undefined>>;
+}
+
+/**
+ * The output decisions the framework will make for a given argv, resolved
+ * before `.run()`.
+ */
+interface RenderContext {
+	/** Whether a pre-separator `--json` puts the run in JSON mode. */
+	readonly jsonMode: boolean;
+	/** The TTY status the output channel will carry. */
+	readonly isTTY: boolean;
+	/**
+	 * The gated ANSI palette the output channel will expose as `out.color` —
+	 * identity formatters when color is off; `color.isColorSupported` is the
+	 * boolean gate.
+	 */
+	readonly color: Colors;
+	/** Whether OSC 8 hyperlinks should be emitted (see `out.isHyperlinkSupported`). */
+	readonly isHyperlinkSupported: boolean;
+}
+
+/**
+ * Resolve the render context for content built before `.run()`.
+ *
+ * Content styled ahead of execution — hand-rendered banners, custom help, or
+ * anything else emitted outside an action handler — has no `out` to consult,
+ * which pushes consumers into re-deriving the framework's decisions from raw
+ * argv (`argv.includes('--json')` misreads a post-`--` literal). This probe
+ * runs the same composition `.execute()`/`.run()` feed into the output
+ * channel — `--`-aware `--json` detection, the color gate, and the hyperlink
+ * override — so pre-run styling matches the channel that will render.
+ *
+ * @param argv - Raw argv tokens (NOT including the binary/script path,
+ *   i.e. equivalent to `process.argv.slice(2)`).
+ * @param options - Host facts and overrides.
+ * @returns The resolved output decisions.
+ *
+ * @example
+ * ```ts
+ * const ctx = resolveRenderContext(process.argv.slice(2), {
+ *   isTTY: process.stdout.isTTY === true,
+ *   env: process.env,
+ * });
+ * const banner = ctx.color.bold('mycli');
+ * ```
+ */
+function resolveRenderContext(
+	argv: readonly string[],
+	options?: RenderContextOptions,
+): RenderContext {
+	const jsonMode = includesBeforeSeparator(argv, '--json') || options?.jsonMode === true;
+	const out = createOutput({
+		jsonMode,
+		isTTY: options?.isTTY ?? false,
+		...(options?.color !== undefined ? { color: options.color } : {}),
+		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
+	});
+	return {
+		jsonMode: out.jsonMode,
+		isTTY: out.isTTY,
+		color: out.color,
+		isHyperlinkSupported: out.isHyperlinkSupported,
+	};
 }
 
 // --- Command run options builder
@@ -1796,6 +1895,8 @@ export type {
 	ManifestPresetSettings,
 	ManifestSettings,
 	PackageJsonSettings,
+	RenderContext,
+	RenderContextOptions,
 	ResolvedManifestSettings,
 };
-export { CLIBuilder, cli, formatRootHelp, isMainModule, plugin };
+export { CLIBuilder, cli, formatRootHelp, isMainModule, plugin, resolveRenderContext };
