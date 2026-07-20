@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.15] - 2026-07-20
+
+### Added
+
+- **Configurable flag order in help** — `.help({ flagOrder })` controls the
+  `Flags:` table order: `'alphabetical'` (default, short-aliased flags first
+  then alphabetical) or `'declaration'` (the order `.flag()` was called). For
+  full control, `.help({ sortFlags: (a, b) => number })` supplies a custom
+  comparator over flag names that wins over `flagOrder`. Both are also
+  accepted at runtime via `execute`/`run` `help` options.
+
 ## [3.0.0-rc.14] - 2026-07-20
 
 ### Added
@@ -1289,7 +1300,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.14...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.15...HEAD
+[3.0.0-rc.15]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.14...v3.0.0-rc.15
 [3.0.0-rc.14]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.13...v3.0.0-rc.14
 [3.0.0-rc.13]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.12...v3.0.0-rc.13
 [3.0.0-rc.12]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.11...v3.0.0-rc.12

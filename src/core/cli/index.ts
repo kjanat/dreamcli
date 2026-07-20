@@ -342,6 +342,24 @@ interface HelpConfig {
 	/** Emit OSC 8 hyperlinks in the header when supported. */
 	readonly hyperlinks?: boolean;
 	/**
+	 * Order of flags in the `Flags:` table.
+	 *
+	 * - `'alphabetical'` — short-aliased flags first, then alphabetical by name.
+	 * - `'declaration'` — the order `.flag()` was called.
+	 *
+	 * Ignored when {@link HelpConfig.sortFlags} is set.
+	 *
+	 * @defaultValue `'alphabetical'`
+	 */
+	readonly flagOrder?: 'alphabetical' | 'declaration';
+	/**
+	 * Custom comparator over flag long names for the `Flags:` table. When set,
+	 * it wins over {@link HelpConfig.flagOrder}.
+	 *
+	 * @defaultValue `undefined` (use `flagOrder`)
+	 */
+	readonly sortFlags?: (a: string, b: string) => number;
+	/**
 	 * Theme overrides for help output, merged over the built-in theme.
 	 *
 	 * The factory receives the gated ansispeck palette (same instance as

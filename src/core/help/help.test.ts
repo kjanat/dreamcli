@@ -488,6 +488,52 @@ describe('formatHelp', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// Flag ordering
+	// -----------------------------------------------------------------------
+
+	describe('flag ordering', () => {
+		// Declaration order differs from every derived order, so each mode is
+		// distinguishable: zebra/mango are long-only, apple/banana short-aliased.
+		function ordered() {
+			return command('run')
+				.flag('zebra', flag.boolean())
+				.flag('apple', flag.boolean().alias('a'))
+				.flag('mango', flag.boolean())
+				.flag('banana', flag.boolean().alias('b'));
+		}
+
+		function flagOrderIn(help: string): string[] {
+			return ['zebra', 'apple', 'mango', 'banana']
+				.map((name) => ({ name, at: help.indexOf(`--${name}`) }))
+				.sort((x, y) => x.at - y.at)
+				.map((entry) => entry.name);
+		}
+
+		it('defaults to short-aliased first, then alphabetical', () => {
+			const help = formatHelp(ordered().schema);
+			expect(flagOrderIn(help)).toEqual(['apple', 'banana', 'mango', 'zebra']);
+		});
+
+		it("flagOrder: 'declaration' preserves .flag() call order", () => {
+			const help = formatHelp(ordered().schema, { flagOrder: 'declaration' });
+			expect(flagOrderIn(help)).toEqual(['zebra', 'apple', 'mango', 'banana']);
+		});
+
+		it('sortFlags applies a custom comparator', () => {
+			const help = formatHelp(ordered().schema, { sortFlags: (a, b) => b.localeCompare(a) });
+			expect(flagOrderIn(help)).toEqual(['zebra', 'mango', 'banana', 'apple']);
+		});
+
+		it('sortFlags wins over flagOrder', () => {
+			const help = formatHelp(ordered().schema, {
+				flagOrder: 'declaration',
+				sortFlags: (a, b) => a.localeCompare(b),
+			});
+			expect(flagOrderIn(help)).toEqual(['apple', 'banana', 'mango', 'zebra']);
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// Examples section
 	// -----------------------------------------------------------------------
 

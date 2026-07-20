@@ -35,6 +35,24 @@ interface HelpOptions {
 	/** Program version passed to function-form examples as `meta.version`. */
 	readonly version?: string;
 	/**
+	 * Order of flags in the `Flags:` table.
+	 *
+	 * - `'alphabetical'` — short-aliased flags first, then alphabetical by name.
+	 * - `'declaration'` — the order `.flag()` was called.
+	 *
+	 * Ignored when {@link HelpOptions.sortFlags} is set.
+	 *
+	 * @defaultValue `'alphabetical'`
+	 */
+	readonly flagOrder?: 'alphabetical' | 'declaration';
+	/**
+	 * Custom comparator over flag long names for the `Flags:` table. When set,
+	 * it wins over {@link HelpOptions.flagOrder}.
+	 *
+	 * @defaultValue `undefined` (use `flagOrder`)
+	 */
+	readonly sortFlags?: (a: string, b: string) => number;
+	/**
 	 * Emit OSC 8 hyperlinks where link metadata is available (currently the
 	 * root-help header name/version configured via `CLIBuilder.links()`).
 	 * Defaults to `false`; `CLIBuilder.execute()`/`.run()` enable it
@@ -92,6 +110,8 @@ interface ResolvedHelpOptions {
 	readonly width: number;
 	readonly binName: string | undefined;
 	readonly version: string | undefined;
+	readonly flagOrder: 'alphabetical' | 'declaration';
+	readonly sortFlags: ((a: string, b: string) => number) | undefined;
 	readonly isDefaultHelp: boolean;
 	readonly theme: HelpTheme;
 }
@@ -109,6 +129,8 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		width: options?.width ?? DEFAULT_WIDTH,
 		binName: options?.binName,
 		version: options?.version,
+		flagOrder: options?.flagOrder ?? 'alphabetical',
+		sortFlags: options?.sortFlags,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
 		theme: resolveHelpTheme(options?.colors, options?.theme),
 	};
@@ -261,38 +283,59 @@ function formatFlagDescription(schema: FlagSchema, theme: HelpTheme): string {
 }
 
 /**
- * Build the flag entries sorted: short-aliased first, then alphabetical.
+ * Default flag order: short-aliased flags first, then alphabetical by name.
+ */
+function defaultFlagOrder(
+	a: string,
+	b: string,
+	flags: Readonly<Record<string, FlagSchema>>,
+): number {
+	const aSchema = flags[a];
+	const bSchema = flags[b];
+	if (aSchema === undefined || bSchema === undefined) return 0;
+	const aHasShort = getFlagAliasNames(aSchema, { kind: 'short' }).length > 0;
+	const bHasShort = getFlagAliasNames(bSchema, { kind: 'short' }).length > 0;
+	if (aHasShort && !bHasShort) return -1;
+	if (!aHasShort && bHasShort) return 1;
+	return a.localeCompare(b);
+}
+
+/**
+ * Order flag names for the table: an explicit `sortFlags` comparator wins,
+ * then `'declaration'` preserves `.flag()` call order, otherwise the default
+ * short-first alphabetical order.
+ */
+function orderFlagNames(
+	names: readonly string[],
+	flags: Readonly<Record<string, FlagSchema>>,
+	opts: ResolvedHelpOptions,
+): readonly string[] {
+	if (opts.sortFlags !== undefined) return [...names].sort(opts.sortFlags);
+	if (opts.flagOrder === 'declaration') return names;
+	return [...names].sort((a, b) => defaultFlagOrder(a, b, flags));
+}
+
+/**
+ * Build the flag entries in the configured order.
  *
  * @param flags - Map of flag names to {@link FlagSchema} definitions.
- * @param theme - Theme threaded into the per-flag formatters.
- * @returns Sorted array of {@link FlagEntry} objects for the flags table.
+ * @param opts - Resolved help options (theme + flag ordering).
+ * @returns Array of {@link FlagEntry} objects for the flags table.
  */
 function buildFlagEntries(
 	flags: Readonly<Record<string, FlagSchema>>,
-	theme: HelpTheme,
+	opts: ResolvedHelpOptions,
 ): readonly FlagEntry[] {
 	const names = Object.keys(flags);
 	if (names.length === 0) return [];
 
-	// Sort: flags with short aliases first, then alphabetically by name
-	const sorted = [...names].sort((a, b) => {
-		const aSchema = flags[a];
-		const bSchema = flags[b];
-		if (aSchema === undefined || bSchema === undefined) return 0;
-		const aHasShort = getFlagAliasNames(aSchema, { kind: 'short' }).length > 0;
-		const bHasShort = getFlagAliasNames(bSchema, { kind: 'short' }).length > 0;
-		if (aHasShort && !bHasShort) return -1;
-		if (!aHasShort && bHasShort) return 1;
-		return a.localeCompare(b);
-	});
-
 	const entries: FlagEntry[] = [];
-	for (const name of sorted) {
+	for (const name of orderFlagNames(names, flags, opts)) {
 		const schema = flags[name];
 		if (schema === undefined) continue;
 		entries.push({
-			left: formatFlagLeft(name, schema, theme),
-			description: formatFlagDescription(schema, theme),
+			left: formatFlagLeft(name, schema, opts.theme),
+			description: formatFlagDescription(schema, opts.theme),
 		});
 	}
 	return entries;
@@ -516,7 +559,7 @@ function formatFlagsSection(
 ): string {
 	return formatFlagEntriesBlock(
 		opts.theme.sectionTitle('Flags:'),
-		buildFlagEntries(flags, opts.theme),
+		buildFlagEntries(flags, opts),
 		opts.width,
 	);
 }
