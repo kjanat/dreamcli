@@ -9,7 +9,7 @@ concurrency: { group: "autofix-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   autofix:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     env: { RUNNER_PM: bun }
     steps:
       - uses: actions/checkout@v7
