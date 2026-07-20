@@ -234,6 +234,15 @@ describe('resolveHyperlinkOverride', () => {
 	it('off wins when both off and on are present', () => {
 		expect(resolveHyperlinkOverride({ NO_HYPERLINKS: '1', FORCE_HYPERLINKS: '1' }, [])).toBe(false);
 	});
+
+	it('ignores flag tokens after the `--` separator', () => {
+		expect(resolveHyperlinkOverride({}, ['deploy', '--', '--no-hyperlinks'])).toBeUndefined();
+		expect(resolveHyperlinkOverride({}, ['deploy', '--', '--hyperlinks'])).toBeUndefined();
+	});
+
+	it('honors flag tokens before the `--` separator', () => {
+		expect(resolveHyperlinkOverride({}, ['--no-hyperlinks', '--', 'positional'])).toBe(false);
+	});
 });
 
 // --- createCaptureOutput — test helper

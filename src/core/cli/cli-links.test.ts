@@ -181,6 +181,14 @@ describe('root help — explicit links', () => {
 
 			expect(result.stdout.join('')).not.toContain(ESC);
 		});
+
+		it('--hyperlinks in argv emits header links without a TTY', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help', '--hyperlinks']);
+
+			expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
+		});
 	});
 
 	it('links only the name when no version URL is configured', async () => {

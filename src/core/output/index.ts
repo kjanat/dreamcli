@@ -181,8 +181,10 @@ function resolveHyperlinkOverride(
 	env: Readonly<Record<string, string | undefined>>,
 	argv: readonly string[],
 ): boolean | undefined {
-	if (env.NO_HYPERLINKS || argv.includes('--no-hyperlinks')) return false;
-	if (env.FORCE_HYPERLINKS || argv.includes('--hyperlinks')) return true;
+	const separator = argv.indexOf('--');
+	const flags = separator === -1 ? argv : argv.slice(0, separator);
+	if (env.NO_HYPERLINKS || flags.includes('--no-hyperlinks')) return false;
+	if (env.FORCE_HYPERLINKS || flags.includes('--hyperlinks')) return true;
 	return undefined;
 }
 
