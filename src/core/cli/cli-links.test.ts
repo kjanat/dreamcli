@@ -5,7 +5,7 @@
  * package.json metadata (repository/homepage, discovery and pre-loaded
  * data), and that escapes never leak outside the header line.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { osc8 } from '#internals/core/help/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
@@ -155,26 +155,31 @@ describe('root help — explicit links', () => {
 	});
 
 	describe('environment overrides', () => {
-		afterEach(() => {
-			vi.unstubAllEnvs();
-		});
-
 		it('NO_HYPERLINKS suppresses header links on a TTY', async () => {
-			vi.stubEnv('NO_HYPERLINKS', '1');
 			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
-			const result = await app.execute(['--help'], { isTTY: true });
+			const result = await app.execute(['--help'], {
+				isTTY: true,
+				env: { NO_HYPERLINKS: '1' },
+			});
 
 			expect(result.stdout.join('')).not.toContain(ESC);
 		});
 
 		it('FORCE_HYPERLINKS emits header links without a TTY', async () => {
-			vi.stubEnv('FORCE_HYPERLINKS', '1');
 			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
-			const result = await app.execute(['--help']);
+			const result = await app.execute(['--help'], { env: { FORCE_HYPERLINKS: '1' } });
 
 			expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
+		});
+
+		it('--no-hyperlinks in argv suppresses header links on a TTY', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help', '--no-hyperlinks'], { isTTY: true });
+
+			expect(result.stdout.join('')).not.toContain(ESC);
 		});
 	});
 

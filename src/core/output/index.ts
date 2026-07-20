@@ -113,17 +113,14 @@ interface OutputOptions {
 	readonly color?: boolean;
 
 	/**
-	 * Explicitly enable or disable OSC 8 hyperlink support on
-	 * `out.isHyperlinkSupported`.
+	 * Resolved OSC 8 hyperlink support for `out.isHyperlinkSupported`.
 	 *
-	 * When set, this wins over the auto-gate. When omitted, the gate honors
-	 * `NO_HYPERLINKS`/`--no-hyperlinks` (force off) and
-	 * `FORCE_HYPERLINKS`/`--hyperlinks` (force on), then falls back to
-	 * `isTTY`.
+	 * When set, this wins over the `isTTY` fallback. Callers pass the
+	 * `NO_HYPERLINKS`/`FORCE_HYPERLINKS` (and `--no-hyperlinks`/`--hyperlinks`)
+	 * decision here via {@linkcode resolveHyperlinkOverride}, keeping `process`
+	 * access out of the output layer.
 	 *
-	 * @defaultValue auto — `NO_HYPERLINKS`/`FORCE_HYPERLINKS` (and the
-	 *   `--no-hyperlinks`/`--hyperlinks` argv flags) override, otherwise
-	 *   `isTTY`.
+	 * @defaultValue `isTTY`
 	 */
 	readonly hyperlinks?: boolean;
 }
@@ -175,12 +172,15 @@ function clearRequestedExitCode(out: Out): void {
  * Forced hyperlink decision from `NO_HYPERLINKS`/`FORCE_HYPERLINKS` and the
  * `--no-hyperlinks`/`--hyperlinks` argv flags; `undefined` when unset.
  *
+ * Pure over its inputs — callers pass the adapter's `env`/`argv` so the
+ * output layer never touches `process` directly.
+ *
  * @see https://no-hyperlinks.org/
  */
-function hyperlinkOverride(): boolean | undefined {
-	const proc = globalThis.process;
-	const env = proc?.env ?? {};
-	const argv = proc?.argv ?? [];
+function resolveHyperlinkOverride(
+	env: Readonly<Record<string, string | undefined>>,
+	argv: readonly string[],
+): boolean | undefined {
 	if (env.NO_HYPERLINKS || argv.includes('--no-hyperlinks')) return false;
 	if (env.FORCE_HYPERLINKS || argv.includes('--hyperlinks')) return true;
 	return undefined;
@@ -199,9 +199,9 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 		// Explicit `color` wins; otherwise gate on TTY, JSON mode, and
 		// environment support (NO_COLOR/FORCE_COLOR/--no-color/--color/CI).
 		color: options?.color ?? (isTTY && !jsonMode && isColorSupported),
-		// Explicit `hyperlinks` wins; otherwise NO_HYPERLINKS/FORCE_HYPERLINKS
-		// (and the matching argv flags) override, then fall back to TTY.
-		isHyperlinkSupported: options?.hyperlinks ?? hyperlinkOverride() ?? isTTY,
+		// Explicit `hyperlinks` (the caller-resolved env/argv override) wins;
+		// otherwise fall back to TTY.
+		isHyperlinkSupported: options?.hyperlinks ?? isTTY,
 	};
 }
 
@@ -770,6 +770,7 @@ export {
 	noopProgressHandle,
 	noopSpinnerHandle,
 	OutputChannel,
+	resolveHyperlinkOverride,
 	StaticProgressHandle,
 	StaticSpinnerHandle,
 	setRequestedExitCode,

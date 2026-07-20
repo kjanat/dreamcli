@@ -1,8 +1,14 @@
 import type { Colors } from 'ansispeck';
-import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Out } from '#internals/core/schema/command.ts';
 import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
-import { createCaptureOutput, createOutput, getRequestedExitCode, OutputChannel } from './index.ts';
+import {
+	createCaptureOutput,
+	createOutput,
+	getRequestedExitCode,
+	OutputChannel,
+	resolveHyperlinkOverride,
+} from './index.ts';
 
 // --- createOutput — factory
 
@@ -191,10 +197,6 @@ describe('isTTY', () => {
 // --- Hyperlink support gate
 
 describe('isHyperlinkSupported', () => {
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
 	it('falls back to isTTY when no override is set', () => {
 		expect(createOutput({ isTTY: true }).isHyperlinkSupported).toBe(true);
 		expect(createOutput({ isTTY: false }).isHyperlinkSupported).toBe(false);
@@ -204,20 +206,33 @@ describe('isHyperlinkSupported', () => {
 		expect(createOutput({ isTTY: false, hyperlinks: true }).isHyperlinkSupported).toBe(true);
 		expect(createOutput({ isTTY: true, hyperlinks: false }).isHyperlinkSupported).toBe(false);
 	});
+});
 
-	it('NO_HYPERLINKS forces off even on a TTY', () => {
-		vi.stubEnv('NO_HYPERLINKS', '1');
-		expect(createOutput({ isTTY: true }).isHyperlinkSupported).toBe(false);
+// --- resolveHyperlinkOverride — env/argv precedence
+
+describe('resolveHyperlinkOverride', () => {
+	it('returns undefined when nothing forces a decision', () => {
+		expect(resolveHyperlinkOverride({}, [])).toBeUndefined();
 	});
 
-	it('FORCE_HYPERLINKS forces on even when piped', () => {
-		vi.stubEnv('FORCE_HYPERLINKS', '1');
-		expect(createOutput({ isTTY: false }).isHyperlinkSupported).toBe(true);
+	it('NO_HYPERLINKS forces off', () => {
+		expect(resolveHyperlinkOverride({ NO_HYPERLINKS: '1' }, [])).toBe(false);
 	});
 
-	it('explicit hyperlinks option wins over environment overrides', () => {
-		vi.stubEnv('NO_HYPERLINKS', '1');
-		expect(createOutput({ isTTY: false, hyperlinks: true }).isHyperlinkSupported).toBe(true);
+	it('--no-hyperlinks forces off', () => {
+		expect(resolveHyperlinkOverride({}, ['--no-hyperlinks'])).toBe(false);
+	});
+
+	it('FORCE_HYPERLINKS forces on', () => {
+		expect(resolveHyperlinkOverride({ FORCE_HYPERLINKS: '1' }, [])).toBe(true);
+	});
+
+	it('--hyperlinks forces on', () => {
+		expect(resolveHyperlinkOverride({}, ['--hyperlinks'])).toBe(true);
+	});
+
+	it('off wins when both off and on are present', () => {
+		expect(resolveHyperlinkOverride({ NO_HYPERLINKS: '1', FORCE_HYPERLINKS: '1' }, [])).toBe(false);
 	});
 });
 

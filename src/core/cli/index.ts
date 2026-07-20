@@ -28,6 +28,7 @@ import {
 	clearRequestedExitCode,
 	createCaptureOutput,
 	createOutput,
+	resolveHyperlinkOverride,
 } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
@@ -465,6 +466,17 @@ interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {
 }
 
 // --- Command run options builder
+
+/**
+ * Conditional-spread wrapper for the output channel's `hyperlinks` option:
+ * omit the key entirely when there is no override so `exactOptionalPropertyTypes`
+ * stays happy and the channel falls back to `isTTY`.
+ *
+ * @internal
+ */
+function hyperlinksOption(override: boolean | undefined): { hyperlinks?: boolean } {
+	return override !== undefined ? { hyperlinks: override } : {};
+}
 
 /**
  * Build {@linkcode RunOptions} from {@linkcode CLIRunOptions}, conditionally spreading each
@@ -1121,6 +1133,7 @@ class CLIBuilder {
 			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 			...(jsonMode ? { jsonMode } : {}),
 			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+			...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
 		};
 		let out: Out;
 		let captured: CapturedOutput;
@@ -1324,6 +1337,7 @@ class CLIBuilder {
 				...(preflight.inputs.verbosity !== 'normal'
 					? { verbosity: preflight.inputs.verbosity }
 					: {}),
+				...hyperlinksOption(resolveHyperlinkOverride(adapter.env, adapter.argv)),
 			}),
 		};
 		const result = await effectiveBuilder.execute(preflight.filteredArgv, executeOptions);
