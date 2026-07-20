@@ -77,7 +77,12 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
 			// `out` may predate it, so the channel flag alone is not authoritative.
 			if (out.jsonMode || options?.jsonMode === true) {
-				out.json(generateCommandSchema(schema));
+				out.json(
+					generateCommandSchema(schema, undefined, {
+						name: options?.help?.binName ?? schema.name,
+						version: options?.help?.version,
+					}),
+				);
 				return { exitCode: 0, error: undefined };
 			}
 			// Standalone `cmd.run()` / testkit paths reach here without the CLI

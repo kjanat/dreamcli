@@ -2,8 +2,15 @@ import { createColors } from 'ansispeck';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { arg } from './arg.ts';
-import type { ActionParams, CommandArgEntry, CommandSchema, Out } from './command.ts';
-import { CommandBuilder, command, group } from './command.ts';
+import type {
+	ActionParams,
+	CommandArgEntry,
+	CommandExample,
+	CommandSchema,
+	ExampleMeta,
+	Out,
+} from './command.ts';
+import { CommandBuilder, command, group, resolveExampleCommand } from './command.ts';
 import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
@@ -101,6 +108,17 @@ describe('.example()', () => {
 		const b = a.example('deploy staging');
 		expect(a).not.toBe(b);
 		expect(a.schema.examples).toEqual([]);
+	});
+
+	it('accepts a function-form command resolved against program meta', () => {
+		const build = (m: ExampleMeta) => `${m.name} deploy --force`;
+		const cmd = command('deploy').example(build, 'Force deploy');
+		const stored = cmd.schema.examples[0];
+		expect(stored?.command).toBe(build);
+		expect(stored?.description).toBe('Force deploy');
+		expect(resolveExampleCommand(build, { name: 'mycli', version: '1.0.0' })).toBe(
+			'mycli deploy --force',
+		);
 	});
 });
 
@@ -603,7 +621,7 @@ describe('CommandSchema', () => {
 		expectTypeOf(schema.description).toEqualTypeOf<string | undefined>();
 		expectTypeOf(schema.aliases).toEqualTypeOf<readonly string[]>();
 		expectTypeOf(schema.hidden).toBeBoolean();
-		expectTypeOf(schema.examples).toMatchTypeOf<readonly { command: string }[]>();
+		expectTypeOf(schema.examples).toEqualTypeOf<readonly CommandExample[]>();
 		expectTypeOf(schema.flags).toMatchTypeOf<Record<string, unknown>>();
 		expectTypeOf(schema.args).toMatchTypeOf<readonly CommandArgEntry[]>();
 		expectTypeOf(schema.hasAction).toBeBoolean();

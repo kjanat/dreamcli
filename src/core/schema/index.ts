@@ -44,12 +44,14 @@ export type {
 	ErasedCommand,
 	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
+	ExampleCommand,
+	ExampleMeta,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
 	Out,
 } from './command.ts';
-export { CommandBuilder, command, group } from './command.ts';
+export { CommandBuilder, command, group, resolveExampleCommand } from './command.ts';
 export type {
 	ConfirmPromptConfig,
 	DateFlagOptions,

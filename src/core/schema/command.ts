@@ -453,12 +453,37 @@ type ExecutionStep =
 
 // --- Runtime schema data
 
+/**
+ * Program metadata passed to a function-form example, resolved at render time.
+ *
+ * `name` is the actually-invoked program name (`options.help.binName`, falling
+ * back to the command name) so examples stay truthful under symlinks,
+ * `inheritName`, and `npx x` vs a global install. `version` is the program
+ * version, or `undefined` when none is configured.
+ */
+interface ExampleMeta {
+	readonly name: string;
+	readonly version: string | undefined;
+}
+
+/**
+ * An example command line: a literal string, or a function resolved at render
+ * time with the program {@link ExampleMeta} (so the program name need not be
+ * hardcoded).
+ */
+type ExampleCommand = string | ((meta: ExampleMeta) => string);
+
 /** A single usage example shown in help text. */
 interface CommandExample {
 	/** The command invocation (e.g. `'deploy production --force'`). */
-	readonly command: string;
+	readonly command: ExampleCommand;
 	/** Optional description of what this example does. */
 	readonly description?: string;
+}
+
+/** Resolve an {@link ExampleCommand} to its string form for the given meta. */
+function resolveExampleCommand(command: ExampleCommand, meta: ExampleMeta): string {
+	return typeof command === 'function' ? command(meta) : command;
 }
 
 /**
@@ -1195,7 +1220,13 @@ class CommandBuilder<
 	 * Call multiple times to add several examples. Each example shows a
 	 * shell invocation, optionally with a description.
 	 *
-	 * @param cmd - The example command line (without the program name prefix).
+	 * `cmd` may be a literal string or a function receiving the program
+	 * {@link ExampleMeta} (`name`, `version`), resolved at render time. Use the
+	 * function form to reference the invoked program name instead of hardcoding
+	 * it, so examples stay truthful under symlinks, `inheritName`, and
+	 * `npx x` vs a global install.
+	 *
+	 * @param cmd - The example command line, or a `(meta) => string` builder.
 	 * @param description - Optional one-line explanation of what the example does.
 	 *
 	 * @example
@@ -1204,19 +1235,19 @@ class CommandBuilder<
 	 *   .arg('target', arg.string())
 	 *   .flag('force', flag.boolean().alias('f'))
 	 *   .example('deploy production', 'Deploy to production')
-	 *   .example('deploy staging -f', 'Force deploy to staging')
+	 *   .example((m) => `${m.name} deploy staging -f`, 'Force deploy to staging')
 	 *   .action(({ args, flags }) => { ... });
 	 *
 	 * // $ mycli deploy --help
 	 * // ...
 	 * // Examples:
-	 * //   deploy production      Deploy to production
-	 * //   deploy staging -f      Force deploy to staging
+	 * //   deploy production        Deploy to production
+	 * //   mycli deploy staging -f  Force deploy to staging
 	 * ```
 	 *
 	 * @returns The builder (for chaining).
 	 */
-	example(cmd: string, description?: string): CommandBuilder<F, A, C> {
+	example(cmd: ExampleCommand, description?: string): CommandBuilder<F, A, C> {
 		const entry: CommandExample =
 			description !== undefined ? { command: cmd, description } : { command: cmd };
 		return new CommandBuilder(
@@ -1536,6 +1567,8 @@ export type {
 	ErasedCommand,
 	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
+	ExampleCommand,
+	ExampleMeta,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
@@ -1544,4 +1577,4 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export { CommandBuilder, command, group };
+export { CommandBuilder, command, group, resolveExampleCommand };

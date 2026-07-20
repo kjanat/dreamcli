@@ -132,6 +132,8 @@ export type {
 	DeriveHandler,
 	DeriveParams,
 	DuplicatePolicy,
+	ExampleCommand,
+	ExampleMeta,
 	Fallback,
 	FlagConfig,
 	FlagFactory,
@@ -204,4 +206,5 @@ export {
 	getFlagNegatedName,
 	group,
 	middleware,
+	resolveExampleCommand,
 } from './core/schema/index.ts';

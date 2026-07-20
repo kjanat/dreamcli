@@ -169,6 +169,15 @@ describe('example command highlighting', () => {
 		const colored = formatHelp(schema, { colors: on });
 		expect(stripAnsi(colored)).toBe(plain);
 	});
+
+	it('highlights a function-form example after resolving it', () => {
+		const schema = command('deploy')
+			.description('Deploy the app')
+			.example((m) => `${m.name} --force`).schema;
+		const help = formatHelp(schema, { binName: 'mycli', colors: on });
+		expect(help).toContain(on.bold('mycli'));
+		expect(help).toContain(on.cyan('--force'));
+	});
 });
 
 describe('defaultHelpTheme', () => {

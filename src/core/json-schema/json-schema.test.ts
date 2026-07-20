@@ -225,6 +225,17 @@ describe('generateSchema — definition metadata', () => {
 		);
 	});
 
+	it('resolves function-form example commands against the program meta', () => {
+		const cmd = commandDef({
+			name: 'deploy',
+			examples: [{ command: (m) => `${m.name}@${m.version ?? 'dev'} deploy` }],
+		});
+		const result = generateSchema(
+			minimalCLI({ name: 'mycli', version: '2.0.0', commands: [erased(cmd)] }),
+		);
+		expect(result).toHaveProperty(['commands', 0, 'examples'], [{ command: 'mycli@2.0.0 deploy' }]);
+	});
+
 	// -------------------------------------------------------------------
 	// Flag serialization
 	// -------------------------------------------------------------------
