@@ -1,5 +1,5 @@
 import type { Colors } from 'ansispeck';
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import type { Out } from '#internals/core/schema/command.ts';
 import type { CapturedOutput, OutputOptions, Verbosity, WriteFn } from './index.ts';
 import { createCaptureOutput, createOutput, getRequestedExitCode, OutputChannel } from './index.ts';
@@ -188,6 +188,39 @@ describe('isTTY', () => {
 	});
 });
 
+// --- Hyperlink support gate
+
+describe('isHyperlinkSupported', () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	it('falls back to isTTY when no override is set', () => {
+		expect(createOutput({ isTTY: true }).isHyperlinkSupported).toBe(true);
+		expect(createOutput({ isTTY: false }).isHyperlinkSupported).toBe(false);
+	});
+
+	it('explicit hyperlinks option wins over isTTY', () => {
+		expect(createOutput({ isTTY: false, hyperlinks: true }).isHyperlinkSupported).toBe(true);
+		expect(createOutput({ isTTY: true, hyperlinks: false }).isHyperlinkSupported).toBe(false);
+	});
+
+	it('NO_HYPERLINKS forces off even on a TTY', () => {
+		vi.stubEnv('NO_HYPERLINKS', '1');
+		expect(createOutput({ isTTY: true }).isHyperlinkSupported).toBe(false);
+	});
+
+	it('FORCE_HYPERLINKS forces on even when piped', () => {
+		vi.stubEnv('FORCE_HYPERLINKS', '1');
+		expect(createOutput({ isTTY: false }).isHyperlinkSupported).toBe(true);
+	});
+
+	it('explicit hyperlinks option wins over environment overrides', () => {
+		vi.stubEnv('NO_HYPERLINKS', '1');
+		expect(createOutput({ isTTY: false, hyperlinks: true }).isHyperlinkSupported).toBe(true);
+	});
+});
+
 // --- createCaptureOutput — test helper
 
 describe('createCaptureOutput', () => {
@@ -241,6 +274,7 @@ describe('OutputChannel', () => {
 			verbosity: 'normal',
 			jsonMode: false,
 			color: false,
+			isHyperlinkSupported: false,
 		});
 		channel.log('test');
 		expect(lines).toEqual(['test\n']);
@@ -254,6 +288,7 @@ describe('OutputChannel', () => {
 			verbosity: 'quiet',
 			jsonMode: false,
 			color: false,
+			isHyperlinkSupported: false,
 		});
 		expect(channel.options.isTTY).toBe(true);
 		expect(channel.options.verbosity).toBe('quiet');
@@ -267,6 +302,7 @@ describe('OutputChannel', () => {
 			verbosity: 'quiet',
 			jsonMode: true,
 			color: false,
+			isHyperlinkSupported: false,
 		});
 		expect(channel.policy).toEqual({
 			jsonMode: true,

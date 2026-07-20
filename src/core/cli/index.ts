@@ -1136,13 +1136,15 @@ class CLIBuilder {
 
 		// Resolve help options — builder-level `.help()` config under runtime
 		// `options.help` (runtime wins), then default binName to the CLI program
-		// name, hyperlinks to TTY detection, and colors to the output channel's
-		// gated palette (escapes never leak into piped output).
+		// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
+		// FORCE_HYPERLINKS honored, else TTY), and colors to the output
+		// channel's gated palette (escapes never leak into piped output).
 		const helpOptions: HelpOptions = {
 			...this.schema.helpConfig,
 			...options?.help,
 			binName: options?.help?.binName ?? this.schema.name,
-			hyperlinks: options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isTTY,
+			hyperlinks:
+				options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isHyperlinkSupported,
 			colors: options?.help?.colors ?? out.color,
 		};
 

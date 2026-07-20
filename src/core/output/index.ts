@@ -111,6 +111,21 @@ interface OutputOptions {
 	 *   `FORCE_COLOR`, `--no-color`, `--color`, `CI` are respected).
 	 */
 	readonly color?: boolean;
+
+	/**
+	 * Explicitly enable or disable OSC 8 hyperlink support on
+	 * `out.isHyperlinkSupported`.
+	 *
+	 * When set, this wins over the auto-gate. When omitted, the gate honors
+	 * `NO_HYPERLINKS`/`--no-hyperlinks` (force off) and
+	 * `FORCE_HYPERLINKS`/`--hyperlinks` (force on), then falls back to
+	 * `isTTY`.
+	 *
+	 * @defaultValue auto — `NO_HYPERLINKS`/`FORCE_HYPERLINKS` (and the
+	 *   `--no-hyperlinks`/`--hyperlinks` argv flags) override, otherwise
+	 *   `isTTY`.
+	 */
+	readonly hyperlinks?: boolean;
 }
 
 // --- Resolved options (all fields required, filled from defaults)
@@ -123,6 +138,7 @@ interface ResolvedOutputOptions {
 	readonly verbosity: Verbosity;
 	readonly jsonMode: boolean;
 	readonly color: boolean;
+	readonly isHyperlinkSupported: boolean;
 }
 
 /**
@@ -155,6 +171,21 @@ function clearRequestedExitCode(out: Out): void {
 	requestedExitCodes.delete(out);
 }
 
+/**
+ * Forced hyperlink decision from `NO_HYPERLINKS`/`FORCE_HYPERLINKS` and the
+ * `--no-hyperlinks`/`--hyperlinks` argv flags; `undefined` when unset.
+ *
+ * @see https://no-hyperlinks.org/
+ */
+function hyperlinkOverride(): boolean | undefined {
+	const proc = globalThis.process;
+	const env = proc?.env ?? {};
+	const argv = proc?.argv ?? [];
+	if (env.NO_HYPERLINKS || argv.includes('--no-hyperlinks')) return false;
+	if (env.FORCE_HYPERLINKS || argv.includes('--hyperlinks')) return true;
+	return undefined;
+}
+
 /** Merge user-supplied options with defaults. */
 function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 	const isTTY = options?.isTTY ?? false;
@@ -168,6 +199,9 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 		// Explicit `color` wins; otherwise gate on TTY, JSON mode, and
 		// environment support (NO_COLOR/FORCE_COLOR/--no-color/--color/CI).
 		color: options?.color ?? (isTTY && !jsonMode && isColorSupported),
+		// Explicit `hyperlinks` wins; otherwise NO_HYPERLINKS/FORCE_HYPERLINKS
+		// (and the matching argv flags) override, then fall back to TTY.
+		isHyperlinkSupported: options?.hyperlinks ?? hyperlinkOverride() ?? isTTY,
 	};
 }
 
@@ -212,12 +246,21 @@ class OutputChannel implements Out {
 	 */
 	readonly color: Colors;
 
+	/**
+	 * Whether OSC 8 hyperlinks should be emitted for this channel.
+	 *
+	 * Honors `NO_HYPERLINKS`/`FORCE_HYPERLINKS` and the
+	 * `--no-hyperlinks`/`--hyperlinks` argv flags, falling back to `isTTY`.
+	 */
+	readonly isHyperlinkSupported: boolean;
+
 	constructor(options: ResolvedOutputOptions) {
 		this.options = options;
 		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
 		this.isTTY = options.isTTY;
 		this.color = createColors(options.color);
+		this.isHyperlinkSupported = options.isHyperlinkSupported;
 
 		// Bind methods to the instance so they keep working when destructured
 		// off `out` (e.g. `const { log } = out`). Resolves subclass overrides

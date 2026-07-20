@@ -211,6 +211,16 @@ interface Out {
 	readonly color: Colors;
 
 	/**
+	 * Whether OSC 8 terminal hyperlinks should be emitted.
+	 *
+	 * Honors `NO_HYPERLINKS`/`FORCE_HYPERLINKS` and the
+	 * `--no-hyperlinks`/`--hyperlinks` argv flags, falling back to `isTTY`.
+	 * Handlers rendering their own `out.color.link(...)` output can gate on
+	 * this to keep OSC 8 escapes out of piped or opted-out contexts.
+	 */
+	readonly isHyperlinkSupported: boolean;
+
+	/**
 	 * Render tabular data.
 	 *
 	 * - **TTY mode** (non-JSON): Pretty-print aligned columns with headers.
