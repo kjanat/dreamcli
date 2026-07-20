@@ -598,10 +598,36 @@ function formatCommandsSection(
 }
 
 /**
+ * One shell token: a single- or double-quoted span (kept whole so internal
+ * spaces don't split it) or a run of non-whitespace characters.
+ */
+const EXAMPLE_TOKEN = /(?:'[^']*'|"[^"]*"|\S)+/g;
+
+/**
+ * Highlight an example command per token: the leading binary via `usageBin`,
+ * flag tokens (`-x`, `--long`) via `flag`, everything else plain.
+ *
+ * Uses `replace` so only the token spans are wrapped and the whitespace
+ * between them is preserved verbatim — with the color gate off (identity
+ * formatters) the result equals `command`, so `stripAnsi(highlighted)` stays
+ * equal to the plain rendering.
+ */
+function highlightExampleCommand(command: string, theme: HelpTheme): string {
+	let index = 0;
+	return command.replace(EXAMPLE_TOKEN, (token) => {
+		const styled =
+			index === 0 ? theme.usageBin(token) : token.startsWith('-') ? theme.flag(token) : token;
+		index += 1;
+		return styled;
+	});
+}
+
+/**
  * Render the `Examples:` help section.
  *
  * @param examples - Array of {@link CommandExample} entries.
- * @param theme - Theme applied to the section title and `$` prompt marker.
+ * @param theme - Theme applied to the section title, `$` prompt marker, and
+ *   per-token command highlighting.
  * @returns Multi-line examples section string.
  */
 function formatExamplesSection(examples: readonly CommandExample[], theme: HelpTheme): string {
@@ -609,11 +635,12 @@ function formatExamplesSection(examples: readonly CommandExample[], theme: HelpT
 	const prompt = theme.examplePrompt('$');
 
 	for (const example of examples) {
+		const command = highlightExampleCommand(example.command, theme);
 		if (example.description !== undefined) {
 			lines.push(`  ${example.description}:`);
-			lines.push(`    ${prompt} ${example.command}`);
+			lines.push(`    ${prompt} ${command}`);
 		} else {
-			lines.push(`  ${prompt} ${example.command}`);
+			lines.push(`  ${prompt} ${command}`);
 		}
 	}
 

@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.13] - 2026-07-20
+
+### Changed
+
+- **Syntax-highlighted example commands** — the `Examples:` help section now
+  highlights each command per token: the leading binary via `usageBin` (bold)
+  and flag tokens (`-x`, `--long`) via `flag` (cyan), with values left plain.
+  Tokenizing is quote-aware so `--scope './a b'` stays one token, and the
+  existing color gate is respected (identity formatters when `NO_COLOR` or
+  non-TTY), so `stripAnsi(colored)` still equals the plain rendering.
+
 ## [3.0.0-rc.12] - 2026-07-20
 
 ### Added
@@ -1264,7 +1275,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.12...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.13...HEAD
+[3.0.0-rc.13]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.12...v3.0.0-rc.13
 [3.0.0-rc.12]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.11...v3.0.0-rc.12
 [3.0.0-rc.11]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.10...v3.0.0-rc.11
 [3.0.0-rc.10]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.9...v3.0.0-rc.10
