@@ -86,6 +86,22 @@ command('deploy')
   );
 ```
 
+An example can also be a function, resolved at render time with the program
+`meta` (`name`, `version`). Use it to reference the invoked program name instead
+of hardcoding it, so examples stay truthful under symlinks, `inheritName`, and
+`npx x` vs a global install:
+
+```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
+command('deploy')
+  .description('Deploy to an environment')
+  // `m.name` is the actually-invoked program name (help.binName), not a literal
+  .example((m) => `${m.name} deploy production --force`, 'Force deploy to prod');
+```
+
+The resolved command is what renders in both `--help` text and `--json` output.
+
 ### Default Command
 
 Set a default command that runs when no subcommand is specified:
