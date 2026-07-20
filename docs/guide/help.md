@@ -23,10 +23,58 @@ cli('mycli')
     footer: true,
     // Pin the line width (defaults to the terminal width, falling back to 80)
     width: 100,
-    // OSC 8 hyperlinks in the header (defaults to TTY detection)
+    // OSC 8 hyperlinks in the header. Defaults to the channel's resolved
+    // support: NO_HYPERLINKS/FORCE_HYPERLINKS (and --no-hyperlinks/--hyperlinks)
+    // are honored, otherwise TTY detection.
     hyperlinks: true,
+    // Order of the Flags: table — 'alphabetical' (default) or 'declaration'
+    flagOrder: 'declaration',
   });
 ```
+
+### Flag order
+
+By default the `Flags:` table lists short-aliased flags first, then
+alphabetically by name. `flagOrder: 'declaration'` instead preserves the order
+you called `.flag()`, so you control the layout by ordering your builder calls:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('mycli')
+  .command(
+    command('serve')
+      .flag('port', flag.number())
+      .flag('host', flag.string())
+      .action(() => {}),
+  )
+  // 'port' then 'host', as declared — not alphabetized to 'host', 'port'
+  .help({ flagOrder: 'declaration' });
+```
+
+For full control, `sortFlags` supplies a comparator over flag long names and
+wins over `flagOrder`:
+
+```ts twoslash
+import { cli, command } from '@kjanat/dreamcli';
+
+cli('mycli')
+  .command(command('serve').action(() => {}))
+  // Reverse-alphabetical
+  .help({ sortFlags: (a, b) => b.localeCompare(a) });
+```
+
+Both are also accepted per call via `execute(argv, { help })` / `run({ help })`.
+
+### Header hyperlinks
+
+The root-help header can wrap the program name and version in OSC 8 terminal
+hyperlinks (pointing at the repository and release tag). Emission follows the
+standard hyperlink signals: `NO_HYPERLINKS` / `--no-hyperlinks` force them off,
+`FORCE_HYPERLINKS` / `--hyperlinks` force them on, otherwise the header links
+only on a TTY. The same resolved decision is exposed to handlers as
+`out.isHyperlinkSupported`, so code rendering its own `out.color.link(...)`
+output can gate on it and keep escapes out of piped or opted-out contexts.
 
 ## Theming
 
@@ -52,7 +100,11 @@ The built-in theme follows clap/cargo conventions:
 | `headerVersion` | `vX.Y.Z` in the root header                            | dim              |
 | `examplePrompt` | the `$` marker in `Examples:`                          | dim              |
 
-Descriptions stay unstyled for readability.
+Descriptions stay unstyled for readability. Example commands are highlighted
+per token with the existing roles — the leading binary via `usageBin` (bold)
+and flag tokens (`-x`, `--long`) via `flag` (cyan), values plain. Tokenizing is
+quote-aware, so `--scope './a b'` stays one token, and the highlighting respects
+the color gate: with color off the command is byte-identical to its plain form.
 
 ### Custom Themes
 
