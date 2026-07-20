@@ -9,12 +9,14 @@ concurrency: { group: "autofix-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   autofix:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     env: { RUNNER_PM: bun }
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: runner install fmt:autofix lint:autofix
-      - run: run fmt:update
+      - run: runner install
+      - uses: ./.github/actions/dprint-warmup
+      - run: run -s fmt:autofix lint:autofix
+      - run: bash scripts/ci-retry-hang.sh 20 run fmt:update
         if: github.ref_name == 'master'
       - uses: autofix-ci/action@v1

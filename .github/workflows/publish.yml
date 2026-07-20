@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Publish
 
 on:
   release: { types: [published] }
@@ -11,36 +11,40 @@ jobs:
   meta:
     name: Resolve Release Metadata
     runs-on: ubuntu-latest
-    env: { RELEASE_TAG: "${{ github.event.release.tag_name }}", RELEASE_TARGET: npm }
-    outputs: { meta: "${{ steps.version.outputs.meta }}" }
+    env: { RELEASE_TAG: "${{ github.event.release.tag_name }}" }
+    outputs:
+      npm: ${{ steps.npm.outputs.meta }}
+      jsr: ${{ steps.jsr.outputs.meta }}
     steps: [
       { uses: actions/checkout@v7, with: { sparse-checkout: "package.json\ndeno.json\nscripts/release-meta.sh" } },
-      { id: version, run: bash scripts/release-meta.sh },
+      { id: npm, run: bash scripts/release-meta.sh npm },
+      { id: jsr, run: bash scripts/release-meta.sh jsr },
     ]
 
-  build:
-    name: Build
+  checks:
+    name: Pre-Publish Checks
     needs: [meta]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     outputs: { tarball: "${{ steps.pack.outputs.tarball }}" }
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
-      - uses: oven-sh/setup-bun@v2
-      - run: runner install --frozen schema:emit version:check build
+      - uses: ./.github/actions/setup
+      - run: runner install --frozen
+      - uses: ./.github/actions/dprint-warmup
+      - run: run -s schema:emit version:check ci smoke
       - id: pack
         run: echo "tarball=$(bun pm pack --quiet --ignore-scripts | tr -d '[:space:]')" >> "${GITHUB_OUTPUT}"
       - uses: actions/upload-artifact@v7
         with: { name: tarball, path: "${{ steps.pack.outputs.tarball }}", retention-days: 1 }
 
-  publish:
-    name: Publish
-    needs: [meta, build]
-    env: { TARBALL: "${{ needs.build.outputs.tarball }}" }
+  publish-npm:
+    name: Publish to npm
+    needs: [meta, checks]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: { name: npm, url: "${{ fromJSON(needs.meta.outputs.meta).url }}" }
+    env: { TARBALL: "${{ needs.checks.outputs.tarball }}" }
+    environment: { name: npm, url: "${{ fromJSON(needs.meta.outputs.npm).url }}" }
     permissions: { contents: read, id-token: write }
     steps:
       - uses: actions/checkout@v7
@@ -49,7 +53,7 @@ jobs:
       - { uses: actions/download-artifact@v8, with: { name: tarball } }
       - name: Publish to npm
         env:
-          VERSION: ${{ fromJSON(needs.meta.outputs.meta).version }}
+          VERSION: ${{ fromJSON(needs.meta.outputs.npm).version }}
           NPM_CONFIG_PROVENANCE: ${{ vars.NPM_CONFIG_PROVENANCE || 'true' }}
           NPM_VERSION: ${{ vars.NPM_VERSION }}
         run: |
@@ -63,3 +67,15 @@ jobs:
           esac
           echo "Publishing ${VERSION} under dist-tag '${dist_tag}'"
           npm publish "${TARBALL}" --access public --tag "${dist_tag}"
+
+  publish-jsr:
+    name: Publish to JSR
+    needs: [meta, checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: { name: jsr, url: "${{ fromJSON(needs.meta.outputs.jsr).url }}" }
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: runner install -fK build jsr:publish
