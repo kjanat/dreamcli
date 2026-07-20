@@ -100,7 +100,8 @@ command('deploy')
   .example((m) => `${m.name} deploy production --force`, 'Force deploy to prod');
 ```
 
-The resolved command is what renders in both `--help` text and `--json` output.
+The string the callback returns is rendered verbatim as the example, in both
+`--help` text and `--json` output.
 
 ### Default Command
 
