@@ -7,6 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.14] - 2026-07-20
+
+### Added
+
+- **Function-form examples** — `.example()` now accepts a
+  `(meta) => string` builder alongside the literal string. `meta` carries the
+  invoked program `name` (`help.binName`, falling back to the command name) and
+  `version`, resolved at render time, so examples reference the real program
+  name instead of hardcoding it and stay truthful under symlinks, `inheritName`,
+  and `npx x` vs a global install. The thunk resolves in both `--help` text
+  (composing with example highlighting) and `--json`/definition-schema output.
+- **`ExampleMeta`** and **`ExampleCommand`** public types for annotating
+  function-form example builders.
+
 ## [3.0.0-rc.13] - 2026-07-20
 
 ### Changed
@@ -1275,7 +1289,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.13...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.14...HEAD
+[3.0.0-rc.14]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.13...v3.0.0-rc.14
 [3.0.0-rc.13]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.12...v3.0.0-rc.13
 [3.0.0-rc.12]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.11...v3.0.0-rc.12
 [3.0.0-rc.11]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.10...v3.0.0-rc.11

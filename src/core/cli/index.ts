@@ -1152,6 +1152,7 @@ class CLIBuilder {
 		// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
 		// FORCE_HYPERLINKS honored, else TTY), and colors to the output
 		// channel's gated palette (escapes never leak into piped output).
+		const resolvedVersion = options?.help?.version ?? this.schema.version;
 		const helpOptions: HelpOptions = {
 			...this.schema.helpConfig,
 			...options?.help,
@@ -1159,6 +1160,7 @@ class CLIBuilder {
 			hyperlinks:
 				options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isHyperlinkSupported,
 			colors: options?.help?.colors ?? out.color,
+			...(resolvedVersion !== undefined ? { version: resolvedVersion } : {}),
 		};
 
 		// -- Shared options for command execution ----------------------------------
@@ -1242,7 +1244,12 @@ class CLIBuilder {
 
 			case 'needs-subcommand': {
 				if (jsonMode) {
-					out.json(generateCommandSchema(planned.command.schema));
+					out.json(
+						generateCommandSchema(planned.command.schema, undefined, {
+							name: planned.help.binName ?? planned.command.schema.name,
+							version: planned.help.version,
+						}),
+					);
 				} else {
 					const helpText = formatHelp(planned.command.schema, planned.help);
 					out.log(helpText);

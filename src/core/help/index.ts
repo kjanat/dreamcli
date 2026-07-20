@@ -10,12 +10,14 @@
 
 import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
+import { resolveExampleCommand } from '#internals/core/schema/command.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
 	CommandExample,
 	CommandSchema,
+	ExampleMeta,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
 import { padEnd, visibleWidth, wrapText } from './ansi.ts';
@@ -30,6 +32,8 @@ interface HelpOptions {
 	readonly width?: number;
 	/** Binary/program name shown in the usage line. Defaults to command name. */
 	readonly binName?: string;
+	/** Program version passed to function-form examples as `meta.version`. */
+	readonly version?: string;
 	/**
 	 * Emit OSC 8 hyperlinks where link metadata is available (currently the
 	 * root-help header name/version configured via `CLIBuilder.links()`).
@@ -87,6 +91,7 @@ interface HelpOptions {
 interface ResolvedHelpOptions {
 	readonly width: number;
 	readonly binName: string | undefined;
+	readonly version: string | undefined;
 	readonly isDefaultHelp: boolean;
 	readonly theme: HelpTheme;
 }
@@ -103,6 +108,7 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 	return {
 		width: options?.width ?? DEFAULT_WIDTH,
 		binName: options?.binName,
+		version: options?.version,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
 		theme: resolveHelpTheme(options?.colors, options?.theme),
 	};
@@ -381,7 +387,8 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 
 	// ---- Examples -----------------------------------------------------------
 	if (schema.examples.length > 0) {
-		sections.push(formatExamplesSection(schema.examples, opts.theme));
+		const meta: ExampleMeta = { name: opts.binName ?? schema.name, version: opts.version };
+		sections.push(formatExamplesSection(schema.examples, opts.theme, meta));
 	}
 
 	return sections;
@@ -628,14 +635,19 @@ function highlightExampleCommand(command: string, theme: HelpTheme): string {
  * @param examples - Array of {@link CommandExample} entries.
  * @param theme - Theme applied to the section title, `$` prompt marker, and
  *   per-token command highlighting.
+ * @param meta - Program name/version passed to function-form example commands.
  * @returns Multi-line examples section string.
  */
-function formatExamplesSection(examples: readonly CommandExample[], theme: HelpTheme): string {
+function formatExamplesSection(
+	examples: readonly CommandExample[],
+	theme: HelpTheme,
+	meta: ExampleMeta,
+): string {
 	const lines: string[] = [theme.sectionTitle('Examples:')];
 	const prompt = theme.examplePrompt('$');
 
 	for (const example of examples) {
-		const command = highlightExampleCommand(example.command, theme);
+		const command = highlightExampleCommand(resolveExampleCommand(example.command, meta), theme);
 		if (example.description !== undefined) {
 			lines.push(`  ${example.description}:`);
 			lines.push(`    ${prompt} ${command}`);

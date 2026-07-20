@@ -132,6 +132,8 @@ export type {
 	DeriveHandler,
 	DeriveParams,
 	DuplicatePolicy,
+	ExampleCommand,
+	ExampleMeta,
 	Fallback,
 	FlagConfig,
 	FlagFactory,

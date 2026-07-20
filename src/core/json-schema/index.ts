@@ -14,12 +14,14 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { resolveExampleCommand } from '#internals/core/schema/command.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
 	CommandArgEntry,
 	CommandExample,
 	CommandSchema,
+	ExampleMeta,
 	FlagSchema,
 	PromptConfig,
 	SelectChoice,
@@ -124,6 +126,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<string, unknown> {
 	const opts = resolveOptions(options);
+	const meta: ExampleMeta = { name: schema.name, version: schema.version };
 
 	const result: Record<string, unknown> = {
 		$schema: DEFINITION_SCHEMA_URL,
@@ -143,12 +146,12 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 		// Full definition, not just the name — the default command lives only in
 		// `defaultCommand` (never in `commands`), so a name-only reference would
 		// drop its flags/args from the document entirely.
-		result.defaultCommand = serializeCommand(schema.defaultCommand.schema, opts);
+		result.defaultCommand = serializeCommand(schema.defaultCommand.schema, opts, meta);
 	}
 
 	result.commands = schema.commands
 		.filter((cmd) => opts.includeHidden || !cmd.schema.hidden)
-		.map((cmd) => serializeCommand(cmd.schema, opts));
+		.map((cmd) => serializeCommand(cmd.schema, opts, meta));
 
 	return result;
 }
@@ -170,8 +173,10 @@ function generateSchema(schema: CLISchema, options?: JsonSchemaOptions): Record<
 function generateCommandSchema(
 	schema: CommandSchema,
 	options?: JsonSchemaOptions,
+	meta?: ExampleMeta,
 ): Record<string, unknown> {
-	return serializeCommand(schema, resolveOptions(options));
+	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: undefined };
+	return serializeCommand(schema, resolveOptions(options), resolvedMeta);
 }
 
 /**
@@ -181,7 +186,11 @@ function generateCommandSchema(
  * @param opts - Resolved generation options (hidden/prompt inclusion).
  * @returns JSON-serializable object representing the command.
  */
-function serializeCommand(schema: CommandSchema, opts: ResolvedOptions): Record<string, unknown> {
+function serializeCommand(
+	schema: CommandSchema,
+	opts: ResolvedOptions,
+	meta: ExampleMeta,
+): Record<string, unknown> {
 	const result: Record<string, unknown> = { name: schema.name };
 
 	if (schema.description !== undefined) {
@@ -194,7 +203,7 @@ function serializeCommand(schema: CommandSchema, opts: ResolvedOptions): Record<
 		result.hidden = true;
 	}
 	if (schema.examples.length > 0) {
-		result.examples = schema.examples.map(serializeExample);
+		result.examples = schema.examples.map((example) => serializeExample(example, meta));
 	}
 
 	// Flags — always present (consumers iterate without existence check)
@@ -210,7 +219,7 @@ function serializeCommand(schema: CommandSchema, opts: ResolvedOptions): Record<
 	// Subcommands — always present
 	result.commands = schema.commands
 		.filter((cmd) => opts.includeHidden || !cmd.hidden)
-		.map((cmd) => serializeCommand(cmd, opts));
+		.map((cmd) => serializeCommand(cmd, opts, meta));
 
 	return result;
 }
@@ -416,11 +425,17 @@ function serializeChoice(choice: SelectChoice): Record<string, unknown> {
 /**
  * Serialize a {@link CommandExample} into a plain object.
  *
+ * Function-form commands are resolved against `meta` so the output is a plain
+ * serializable string rather than a dropped function.
+ *
  * @param example - The example to serialize.
+ * @param meta - Program name/version passed to function-form commands.
  * @returns JSON-serializable object with command and optional description.
  */
-function serializeExample(example: CommandExample): Record<string, unknown> {
-	const result: Record<string, unknown> = { command: example.command };
+function serializeExample(example: CommandExample, meta: ExampleMeta): Record<string, unknown> {
+	const result: Record<string, unknown> = {
+		command: resolveExampleCommand(example.command, meta),
+	};
 	if (example.description !== undefined) {
 		result.description = example.description;
 	}

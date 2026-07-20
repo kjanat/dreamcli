@@ -515,6 +515,25 @@ describe('formatHelp', () => {
 			expect(help).toContain('$ deploy staging');
 			expect(help).toContain('$ deploy production --force');
 		});
+
+		it('resolves a function-form example with the program name', () => {
+			const cmd = command('deploy').example((m) => `${m.name} deploy --force`, 'Force deploy');
+			const help = formatHelp(cmd.schema, { binName: 'mycli' });
+			expect(help).toContain('Force deploy:');
+			expect(help).toContain('$ mycli deploy --force');
+		});
+
+		it('passes the program version to a function-form example', () => {
+			const cmd = command('gen').example((m) => `gen@${m.version ?? 'dev'}`);
+			const help = formatHelp(cmd.schema, { binName: 'mycli', version: '1.2.3' });
+			expect(help).toContain('$ gen@1.2.3');
+		});
+
+		it('falls back meta.name to the command name when no binName is set', () => {
+			const cmd = command('deploy').example((m) => `${m.name} --force`);
+			const help = formatHelp(cmd.schema);
+			expect(help).toContain('$ deploy --force');
+		});
 	});
 
 	// -----------------------------------------------------------------------
