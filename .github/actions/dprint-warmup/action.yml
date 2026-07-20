@@ -3,7 +3,7 @@ description: Cache dprint's plugin store and pre-resolve plugins with a hang-det
 runs: {
   using: composite,
   steps: [
-    { uses: actions/cache@v5, with: { path: ~/.cache/dprint, key: "dprint-${{ runner.os }}-${{ hashFiles('.dprint.jsonc') }}" } },
+    { uses: actions/cache@v6, with: { path: ~/.cache/dprint, key: "dprint-${{ runner.os }}-${{ hashFiles('.dprint.jsonc') }}" } },
     { shell: bash, run: "bash scripts/ci-retry-hang.sh 20 bunx dprint output-file-paths > /dev/null" },
   ],
 }

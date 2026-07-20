@@ -9,7 +9,7 @@ concurrency: { group: "autofix-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   autofix:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     env: { RUNNER_PM: bun }
     steps:
       - uses: actions/checkout@v7
@@ -17,6 +17,8 @@ jobs:
       - run: runner install
       - uses: ./.github/actions/dprint-warmup
       - run: run -s fmt:autofix lint:autofix
-      - run: bash scripts/ci-retry-hang.sh 20 run fmt:update
+      # `dprint config update` queries every plugin registry and may download
+      # and compile new plugin versions; 20s starves legitimate runs.
+      - run: bash scripts/ci-retry-hang.sh 90 run fmt:update
         if: github.ref_name == 'master'
       - uses: autofix-ci/action@v1
