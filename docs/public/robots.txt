@@ -1,2 +1,7 @@
+# Content signals declare how content may be used after access.
+# See https://contentsignals.org/ — a "yes" is permission, not a warranty.
 User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
+
+Sitemap: https://dreamcli.kjanat.dev/sitemap.xml
