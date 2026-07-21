@@ -25,8 +25,13 @@ function prefersMarkdown(accept: string | null): boolean {
 function markdownPath(pathname: string): string {
 	if (pathname.endsWith('.md')) return pathname;
 	const trimmed = pathname.replace(/\/+$/, '');
-	if (trimmed === '') return '/index.md';
+	// The root answers with the llms.txt index rather than the landing page's
+	// marketing copy, which is what an agent asking for markdown wants first.
+	if (trimmed === '') return '/llms.txt';
 	if (trimmed.endsWith('.html')) return `${trimmed.slice(0, -'.html'.length)}.md`;
+	// Anything already carrying an extension (llms.txt, sitemap.xml, assets) is
+	// served as-is rather than probing for a markdown twin that cannot exist.
+	if (/\.[a-z0-9]+$/i.test(trimmed)) return trimmed;
 	return `${trimmed}.md`;
 }
 

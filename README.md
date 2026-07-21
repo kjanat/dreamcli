@@ -2,6 +2,7 @@
 
 [![NPM](https://img.shields.io/npm/v/@kjanat/dreamcli?logo=npm&labelColor=CB3837&color=black)][npm]
 [![JSR](https://img.shields.io/jsr/v/@kjanat/dreamcli?logoColor=083344&logo=jsr&logoSize=auto&label=&labelColor=f7df1e&color=black)][jsr]
+[![Socket](https://badge.socket.dev/npm/package/@kjanat/dreamcli)][socket]
 
 Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
 
@@ -584,3 +585,4 @@ handles the divergent edges (argv, env, filesystem, TTY detection, exit behavior
 [LICENSE]: https://github.com/kjanat/dreamcli/blob/master/LICENSE
 [npm]: https://npm.im/@kjanat/dreamcli
 [jsr]: https://jsr.io/@kjanat/dreamcli
+[socket]: https://socket.dev/npm/package/@kjanat/dreamcli
