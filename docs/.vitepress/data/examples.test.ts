@@ -19,11 +19,16 @@ describe('example docs generation', () => {
 		// should appear in the generated docs surface.
 		expect(examples.map((example) => example.slug)).toEqual([
 			'basic',
+			'flag-types',
+			'help-config',
 			'interactive',
 			'json-mode',
 			'middleware',
 			'multi-command',
+			'output-extras',
+			'parser-control',
 			'spinner-progress',
+			'standard-schema',
 			'testing',
 			'transport-launcher',
 		]);

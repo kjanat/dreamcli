@@ -48,7 +48,7 @@ const timing = middleware<{ startTime: number }>(async ({ out, next }) => {
 
 	// Code after `next()` runs after the action completes (onion model).
 	const elapsed = (performance.now() - start).toFixed(0);
-	out.info(`Completed in ${elapsed}ms`);
+	out.status(`Completed in ${elapsed}ms`);
 });
 
 // --- Command using both middlewares ---
