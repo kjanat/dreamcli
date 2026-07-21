@@ -1,6 +1,6 @@
 {
 	"name": "@kjanat/dreamcli",
-	"version": "3.0.0-rc.19",
+	"version": "3.0.0-rc.20",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"keywords": [
 		"dreamcli",
@@ -108,7 +108,7 @@
 		"version:check": "bun scripts/check-version-sync.ts"
 	},
 	"dependencies": {
-		"ansispeck": "^0.2.0"
+		"ansispeck": "^0.4.1"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",

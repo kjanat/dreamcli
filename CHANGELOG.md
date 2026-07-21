@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.20] - 2026-07-21
+
+### Changed
+
+- **ansispeck `^0.4.1`** — bumped from `^0.2.0` (npm dependency and JSR
+  import map).
+
 ## [3.0.0-rc.19] - 2026-07-21
 
 ### Added
