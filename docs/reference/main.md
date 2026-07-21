@@ -471,19 +471,21 @@ Generate a shell completion script from a command schema.
 
 ## Config
 
-### `buildConfigSearchPaths(appName, cwd, configDir, loaders?)`
+### `buildConfigSearchPaths(appName, options)`
 
 Build the default search-path list dreamcli uses for config discovery. This is mainly useful for
-debugging, custom bootstrapping, or help text that wants to show the exact probed paths.
+debugging, custom bootstrapping, or help text that wants to show the exact probed paths. Options
+carry the scope directories: `baseDir` (project ancestor walk starts here), `userConfigDirs`,
+`systemConfigDirs`, and `loaders`.
 
 ```ts twoslash
 import { buildConfigSearchPaths } from '@kjanat/dreamcli';
 
-const paths = buildConfigSearchPaths(
-  'mycli',
-  process.cwd(),
-  '/home/me/.config',
-);
+const paths = buildConfigSearchPaths('mycli', {
+  baseDir: process.cwd(),
+  userConfigDirs: ['/home/me/.config'],
+  systemConfigDirs: ['/etc'],
+});
 ```
 
 ### `configFormat(extensions, parseFn)`

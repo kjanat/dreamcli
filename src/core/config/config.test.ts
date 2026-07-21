@@ -16,6 +16,12 @@ function stubAdapter(
 		cwd: overrides?.cwd ?? '/project',
 		configDir: overrides?.configDir ?? '/home/alice/.config',
 		readFile: overrides?.readFile ?? (async (path: string) => files?.[path] ?? null),
+		...(overrides?.userConfigDirs !== undefined
+			? { userConfigDirs: overrides.userConfigDirs }
+			: {}),
+		...(overrides?.systemConfigDirs !== undefined
+			? { systemConfigDirs: overrides.systemConfigDirs }
+			: {}),
 	};
 }
 
@@ -38,35 +44,75 @@ const tomlLoader: FormatLoader = {
 // === buildConfigSearchPaths
 
 describe('buildConfigSearchPaths', () => {
-	it('returns 3 JSON paths in priority order', () => {
-		const paths = buildConfigSearchPaths('myapp', '/project', '/home/alice/.config');
+	it('walks ancestors then user then system scopes in priority order', () => {
+		const paths = buildConfigSearchPaths('myapp', {
+			baseDir: '/repo/pkg',
+			userConfigDirs: ['/home/alice/.config'],
+			systemConfigDirs: ['/etc'],
+		});
 		expect(paths).toEqual([
-			'/project/.myapp.json',
-			'/project/myapp.config.json',
+			'/repo/pkg/.myapp.json',
+			'/repo/pkg/myapp.config.json',
+			'/repo/pkg/.config/myapp.json',
+			'/repo/.myapp.json',
+			'/repo/myapp.config.json',
+			'/repo/.config/myapp.json',
+			'/.myapp.json',
+			'/myapp.config.json',
+			'/.config/myapp.json',
 			'/home/alice/.config/myapp/config.json',
+			'/etc/myapp/config.json',
 		]);
 	});
 
-	it('uses backslash when base paths contain backslash', () => {
-		const paths = buildConfigSearchPaths(
-			'myapp',
-			'C:\\Users\\alice\\project',
-			'C:\\Users\\alice\\AppData\\Roaming',
-		);
+	it('probes multiple user scopes in order', () => {
+		const paths = buildConfigSearchPaths('myapp', {
+			baseDir: '/p',
+			userConfigDirs: ['/home/alice/.config', '/home/alice/Library/Application Support'],
+		});
+		expect(paths.slice(-2)).toEqual([
+			'/home/alice/.config/myapp/config.json',
+			'/home/alice/Library/Application Support/myapp/config.json',
+		]);
+	});
+
+	it('uses backslash and stops at the drive root for backslash paths', () => {
+		const paths = buildConfigSearchPaths('myapp', {
+			baseDir: 'C:\\Users\\alice\\project',
+			userConfigDirs: ['C:\\Users\\alice\\AppData\\Roaming'],
+		});
 		expect(paths).toEqual([
 			'C:\\Users\\alice\\project\\.myapp.json',
 			'C:\\Users\\alice\\project\\myapp.config.json',
+			'C:\\Users\\alice\\project\\.config\\myapp.json',
+			'C:\\Users\\alice\\.myapp.json',
+			'C:\\Users\\alice\\myapp.config.json',
+			'C:\\Users\\alice\\.config\\myapp.json',
+			'C:\\Users\\.myapp.json',
+			'C:\\Users\\myapp.config.json',
+			'C:\\Users\\.config\\myapp.json',
+			'C:\\.myapp.json',
+			'C:\\myapp.config.json',
+			'C:\\.config\\myapp.json',
 			'C:\\Users\\alice\\AppData\\Roaming\\myapp\\config.json',
 		]);
 	});
 
 	it('includes additional extensions from loaders', () => {
-		const paths = buildConfigSearchPaths('myapp', '/project', '/home/.config', [tomlLoader]);
-		expect(paths).toEqual([
+		const paths = buildConfigSearchPaths('myapp', {
+			baseDir: '/project',
+			userConfigDirs: ['/home/.config'],
+			loaders: [tomlLoader],
+		});
+		expect(paths.slice(0, 6)).toEqual([
 			'/project/.myapp.json',
 			'/project/.myapp.toml',
 			'/project/myapp.config.json',
 			'/project/myapp.config.toml',
+			'/project/.config/myapp.json',
+			'/project/.config/myapp.toml',
+		]);
+		expect(paths.slice(-2)).toEqual([
 			'/home/.config/myapp/config.json',
 			'/home/.config/myapp/config.toml',
 		]);
@@ -77,8 +123,20 @@ describe('buildConfigSearchPaths', () => {
 			extensions: ['json'],
 			parse: JSON.parse as (content: string) => Record<string, unknown>,
 		};
-		const paths = buildConfigSearchPaths('myapp', '/p', '/c', [extraJsonLoader]);
-		expect(paths).toEqual(['/p/.myapp.json', '/p/myapp.config.json', '/c/myapp/config.json']);
+		const paths = buildConfigSearchPaths('myapp', {
+			baseDir: '/p',
+			userConfigDirs: ['/c'],
+			loaders: [extraJsonLoader],
+		});
+		expect(paths).toEqual([
+			'/p/.myapp.json',
+			'/p/myapp.config.json',
+			'/p/.config/myapp.json',
+			'/.myapp.json',
+			'/myapp.config.json',
+			'/.config/myapp.json',
+			'/c/myapp/config.json',
+		]);
 	});
 });
 
@@ -92,6 +150,93 @@ describe('discoverConfig', () => {
 			const adapter = stubAdapter();
 			const result = await discoverConfig('myapp', adapter);
 			expect(result).toEqual({ found: false });
+		});
+
+		it('finds a config in an ancestor directory', async () => {
+			const adapter = stubAdapter(
+				{ '/repo/.myapp.json': '{"source":"ancestor"}' },
+				{ cwd: '/repo/packages/app' },
+			);
+			const result = await discoverConfig('myapp', adapter);
+			expect(result.found).toBe(true);
+			if (result.found) {
+				expect(result.path).toBe('/repo/.myapp.json');
+				expect(result.data).toEqual({ source: 'ancestor' });
+			}
+		});
+
+		it('prefers the nearest directory over an ancestor', async () => {
+			const adapter = stubAdapter(
+				{
+					'/repo/.myapp.json': '{"source":"root"}',
+					'/repo/packages/app/.config/myapp.json': '{"source":"leaf"}',
+				},
+				{ cwd: '/repo/packages/app' },
+			);
+			const result = await discoverConfig('myapp', adapter);
+			expect(result.found).toBe(true);
+			if (result.found) {
+				expect(result.path).toBe('/repo/packages/app/.config/myapp.json');
+			}
+		});
+
+		it('finds a project .config/ candidate', async () => {
+			const adapter = stubAdapter({ '/project/.config/myapp.json': '{"scope":"dot-config"}' });
+			const result = await discoverConfig('myapp', adapter);
+			expect(result.found).toBe(true);
+			if (result.found) {
+				expect(result.path).toBe('/project/.config/myapp.json');
+			}
+		});
+
+		it('anchors the ancestor walk to baseDir instead of cwd', async () => {
+			const adapter = stubAdapter({ '/elsewhere/.myapp.json': '{"anchor":"base"}' });
+			const result = await discoverConfig('myapp', adapter, { baseDir: '/elsewhere/deep' });
+			expect(result.found).toBe(true);
+			if (result.found) {
+				expect(result.path).toBe('/elsewhere/.myapp.json');
+			}
+		});
+
+		it('probes secondary user config dirs after the primary', async () => {
+			const adapter = stubAdapter(
+				{ '/home/alice/Library/Application Support/myapp/config.json': '{"scope":"mac"}' },
+				{
+					userConfigDirs: ['/home/alice/.config', '/home/alice/Library/Application Support'],
+				},
+			);
+			const result = await discoverConfig('myapp', adapter);
+			expect(result.found).toBe(true);
+			if (result.found) {
+				expect(result.path).toBe('/home/alice/Library/Application Support/myapp/config.json');
+			}
+		});
+
+		it('falls back to a system config dir after user scopes', async () => {
+			const adapter = stubAdapter(
+				{ '/etc/myapp/config.json': '{"scope":"system"}' },
+				{ systemConfigDirs: ['/etc'] },
+			);
+			const result = await discoverConfig('myapp', adapter);
+			expect(result.found).toBe(true);
+			if (result.found) {
+				expect(result.path).toBe('/etc/myapp/config.json');
+			}
+		});
+
+		it('prefers a user config over a system config', async () => {
+			const adapter = stubAdapter(
+				{
+					'/home/alice/.config/myapp/config.json': '{"scope":"user"}',
+					'/etc/myapp/config.json': '{"scope":"system"}',
+				},
+				{ systemConfigDirs: ['/etc'] },
+			);
+			const result = await discoverConfig('myapp', adapter);
+			expect(result.found).toBe(true);
+			if (result.found) {
+				expect(result.path).toBe('/home/alice/.config/myapp/config.json');
+			}
 		});
 
 		it('finds dotfile in cwd first', async () => {
@@ -644,7 +789,11 @@ describe('configFormat — convenience factory', () => {
 
 	it('created loader appears in search paths', () => {
 		const loader = configFormat(['toml', 'tml'], () => ({}));
-		const paths = buildConfigSearchPaths('myapp', '/p', '/c', [loader]);
+		const paths = buildConfigSearchPaths('myapp', {
+			baseDir: '/p',
+			userConfigDirs: ['/c'],
+			loaders: [loader],
+		});
 		expect(paths).toContain('/p/.myapp.toml');
 		expect(paths).toContain('/p/.myapp.tml');
 		expect(paths).toContain('/p/myapp.config.toml');

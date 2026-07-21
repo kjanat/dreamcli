@@ -260,6 +260,9 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		mkdir: (path) => d.mkdir(path, { recursive: true }),
 		homedir,
 		configDir,
+		userConfigDirs:
+			d.build.os === 'darwin' ? [configDir, `${homedir}/Library/Application Support`] : [configDir],
+		systemConfigDirs: d.build.os === 'windows' ? [] : ['/etc'],
 	};
 }
 

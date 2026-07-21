@@ -791,12 +791,16 @@ class CLIBuilder {
 	/**
 	 * Enable automatic config file discovery.
 	 *
-	 * When enabled, `.run()` probes standard paths before dispatching:
-	 * 1. `$CWD/.{appName}.json`
-	 * 2. `$CWD/{appName}.config.json`
-	 * 3. `$CONFIG_DIR/{appName}/config.json`
-	 *    (`$XDG_CONFIG_HOME` / `~/.config` on Unix,
+	 * When enabled, `.run()` probes standard paths before dispatching,
+	 * first match wins, no merging:
+	 * 1. Project scope — for `$CWD` and each ancestor directory up to the
+	 *    filesystem root, nearest first:
+	 *    `.{appName}.json`, `{appName}.config.json`, `.config/{appName}.json`
+	 * 2. User scope — `{dir}/{appName}/config.json` for each user config
+	 *    root (`$XDG_CONFIG_HOME` / `~/.config` on Unix, plus
+	 *    `~/Library/Application Support` on macOS,
 	 *    `%APPDATA%` / `%USERPROFILE%\\AppData\\Roaming` on Windows)
+	 * 3. System scope — `/etc/{appName}/config.json` on Linux and macOS
 	 *
 	 * The user can override the path via `--config <path>` or `--config=<path>`.
 	 *
