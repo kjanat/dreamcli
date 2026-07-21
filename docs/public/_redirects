@@ -1,4 +1,0 @@
-# The Accept-based rewrite maps `/` to `/raw/`, which asset handling would
-# canonicalise with a 307 to `/raw`. A redirect is not content negotiation, so
-# serve the index there directly with a 200 instead.
-/raw/ /raw/index 200
