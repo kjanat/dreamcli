@@ -7,6 +7,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-07-21
+
+No library code changed; this release ships agent-facing material that was
+being built but never published.
+
+### Added
+
+- **The `cli-creation` skill now ships in the package** — `skills/` was absent
+  from npm's `files` and JSR's `publish.include`, so consumers installing from
+  either registry never received it.
+- **Documentation lookup paths in the `cli-creation` skill** — `deno doc`
+  against JSR (works whether the consumer installed from npm or JSR, including
+  subpaths, `--json`, and `--filter`), plus the site's `llms.txt`,
+  `llms-full.txt`, and `/raw/` markdown endpoints, so API shapes are read from
+  the published package rather than recalled.
+
 ## [3.0.0] - 2026-07-21
 
 The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and

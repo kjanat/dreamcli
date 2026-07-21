@@ -31,6 +31,41 @@ root surface, and added a large typed-flag surface; snippets below assume it.
    - `references/consumer-workflow.md` — request to validated CLI.
    - `references/runtime-notes.md` — Bun/Node/Deno execution.
 
+## Looking Things Up
+
+Prefer these over recalling API shapes from memory; they reflect the installed
+or published version rather than training data.
+
+**The API, offline-ish, no repo needed.** If `deno` is on the system this works
+regardless of whether the project installed from npm or JSR:
+
+```bash
+deno doc jsr:@kjanat/dreamcli 2>/dev/null                    # full public API (~4k lines)
+deno doc jsr:@kjanat/dreamcli/testkit 2>/dev/null            # subpath: testkit, runtime, schema, version
+deno doc --json jsr:@kjanat/dreamcli 2>/dev/null             # machine-readable, for scripted lookups
+deno doc --filter=CLIBuilder jsr:@kjanat/dreamcli 2>/dev/null # one symbol
+```
+
+`2>/dev/null` matters: deno writes download and type-check progress to stderr,
+which otherwise swamps the documentation output.
+
+Pin a version with `jsr:@kjanat/dreamcli@3.0.0` when the project is not on
+latest. `--filter` takes a declaration name; it prints nothing for a name that
+does not exist, which is itself a useful signal.
+
+**The docs site, as markdown.** Every page is authored markdown served under
+`/raw/`, and any page URL returns markdown under content negotiation:
+
+```bash
+curl -s https://dreamcli.kjanat.dev/llms.txt        # index of every page, one line each
+curl -s https://dreamcli.kjanat.dev/llms-full.txt   # every page concatenated (~250 kB)
+curl -s https://dreamcli.kjanat.dev/raw/guide/flags # one page, authored markdown
+curl -sH 'Accept: text/markdown' https://dreamcli.kjanat.dev/guide/flags
+```
+
+Start from `llms.txt` to find the right page, then fetch that page rather than
+pulling `llms-full.txt` into context.
+
 ## Grounding Sources
 
 Paths are relative to the dreamcli repository root.

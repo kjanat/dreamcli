@@ -1,7 +1,7 @@
 {
 	"$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
 	"name": "@kjanat/dreamcli",
-	"version": "3.0.0",
+	"version": "3.0.1",
 	"license": "MIT",
 	"tasks": {
 		"check": {
@@ -50,7 +50,15 @@
 		}
 	},
 	"publish": {
-		"include": ["CHANGELOG.md", "LICENSE", "README.md", "dreamcli.schema.json", "examples", "src"],
+		"include": [
+			"CHANGELOG.md",
+			"LICENSE",
+			"README.md",
+			"dreamcli.schema.json",
+			"examples",
+			"skills",
+			"src"
+		],
 		"exclude": ["src/**/*.test.ts", "src/**/*test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"lib": ["deno.ns", "deno.shared_globals"],
