@@ -7,6 +7,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.18] - 2026-07-21
+
+### Added
+
+- **`flag.path({ type: 'directory', create: true })`** — creates the directory
+  (recursively) at resolution time when nothing exists at the path. Only
+  available with `type: 'directory'`, enforced at the type level. Creation
+  runs through a new `mkdir` seam: `RuntimeAdapter.mkdir`, overridable via
+  run options, noop in the test adapter, so `src/core` stays process-free.
+
+### Fixed
+
+- **`flag.path({ type, mustExist: false })` rejected missing paths** — the
+  builder recorded the explicit `mustExist: false`, but resolution errored on
+  any missing path whenever path checks were active, making an optional
+  to-be-created path (e.g. an `--outdir` that the command itself creates)
+  impossible to declare. A missing path now passes when `mustExist` is
+  `false`; an existing path is still type-checked.
+
 ## [3.0.0-rc.17] - 2026-07-20
 
 ### Added

@@ -235,10 +235,16 @@ env, and config values are validated identically:
 flag.path(); // any string
 flag.path({ mustExist: true }); // rejects missing paths
 flag.path({ type: 'directory' }); // must exist and be a directory
+flag.path({ type: 'directory', mustExist: false }); // missing passes; existing must be a directory
+flag.path({ type: 'directory', create: true }); // created recursively when missing
 ```
 
+`create` is only available with `type: 'directory'` (enforced at the type
+level) and still rejects an existing non-directory path.
+
 In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
-function via run options to enable the checks; without one they are skipped.
+function via run options to enable the checks (plus `mkdir` for `create`);
+without them the checks are skipped and nothing is created.
 
 ### Date
 

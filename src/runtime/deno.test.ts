@@ -95,6 +95,7 @@ function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
 		readTextFile: overrides?.readTextFile ?? (() => Promise.reject(makeDenoError('NotFound'))),
 		stat: overrides?.stat ?? (() => Promise.reject(makeDenoError('NotFound'))),
+		mkdir: overrides?.mkdir ?? (() => Promise.resolve()),
 	};
 }
 

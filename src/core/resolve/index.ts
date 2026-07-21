@@ -82,6 +82,7 @@ async function resolve(
 			schema.interactive,
 			deprecations,
 			options?.stat,
+			options?.mkdir,
 		);
 	} catch (error) {
 		if (!isValidationError(error)) {

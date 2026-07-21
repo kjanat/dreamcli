@@ -60,6 +60,11 @@ interface ResolveOptions {
 	 * `null` when nothing does. When absent, path checks are skipped.
 	 */
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
+	/**
+	 * Recursive directory creation for `flag.path()` `create` checks. When
+	 * absent, missing paths are not created and existence rules apply as-is.
+	 */
+	readonly mkdir?: (path: string) => Promise<void>;
 }
 
 /** Structured deprecation notice emitted for explicitly sourced values. */

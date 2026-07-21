@@ -306,7 +306,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 				path: flagDef({
 					kind: 'string',
-					pathChecks: { mustExist: true, type: 'file' },
+					pathChecks: { mustExist: true, type: 'file', create: false },
 					valueHint: 'path',
 				}),
 			},
@@ -862,7 +862,7 @@ describe('generateSchema — definition metadata', () => {
 			elementSchema: flagDef({ kind: 'string' }),
 			separator: ',',
 			unique: true,
-			pathChecks: { mustExist: true, type: 'file' },
+			pathChecks: { mustExist: true, type: 'file', create: false },
 			valueHint: 'version',
 			prompt: { kind: 'input', message: 'Version?', placeholder: 'v1' },
 			parseFn: (value: unknown) => value,
