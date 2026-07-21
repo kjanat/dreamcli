@@ -71,6 +71,15 @@ interface ConfigDiscoveryOptions {
 	 * Probed in order; first found wins.
 	 */
 	readonly searchPaths?: readonly string[];
+
+	/**
+	 * Directory the project-scope ancestor walk starts from.
+	 * Anchors discovery to a location other than the process working
+	 * directory (e.g. the directory of a file an editor integration is
+	 * operating on).
+	 * @defaultValue `adapter.cwd`
+	 */
+	readonly baseDir?: string;
 }
 
 /** Successful config discovery — file found and parsed. */
@@ -121,7 +130,35 @@ const jsonLoader: FormatLoader = {
  */
 function joinPath(base: string, ...segments: readonly string[]): string {
 	const sep = base.includes('\\') ? '\\' : '/';
-	return [base, ...segments].join(sep);
+	const trimmed = base.endsWith(sep) ? base.slice(0, -1) : base;
+	return [trimmed, ...segments].join(sep);
+}
+
+/**
+ * List a directory and every ancestor up to the filesystem root,
+ * nearest first. Separator is inferred from the input; POSIX (`/`) and
+ * Windows drive roots (`C:\`) both terminate the walk.
+ *
+ * @internal
+ */
+function ancestorDirs(base: string): readonly string[] {
+	const sep = base.includes('\\') ? '\\' : '/';
+	let current = base;
+	while (current.length > 1 && current.endsWith(sep) && !current.endsWith(`:${sep}`)) {
+		current = current.slice(0, -1);
+	}
+	const dirs: string[] = [current];
+	while (true) {
+		const idx = current.lastIndexOf(sep);
+		if (idx < 0) break;
+		let parent = current.slice(0, idx);
+		if (parent === '') parent = sep;
+		else if (/^[A-Za-z]:$/.test(parent)) parent = `${parent}${sep}`;
+		if (parent === current) break;
+		dirs.push(parent);
+		current = parent;
+	}
+	return dirs;
 }
 
 /**
@@ -139,6 +176,24 @@ function getExtension(path: string): string {
 
 // --- buildConfigSearchPaths
 
+/** Directory scopes feeding {@link buildConfigSearchPaths}. */
+interface ConfigSearchPathOptions {
+	/** Directory the project-scope ancestor walk starts from. */
+	readonly baseDir: string;
+	/**
+	 * User-scope config roots, highest priority first
+	 * (XDG / AppData, plus `~/Library/Application Support` on macOS).
+	 */
+	readonly userConfigDirs: readonly string[];
+	/**
+	 * System-scope config roots (`/etc` on Linux and macOS).
+	 * @defaultValue `[]`
+	 */
+	readonly systemConfigDirs?: readonly string[];
+	/** Custom {@link FormatLoader}s whose extensions expand the search set. */
+	readonly loaders?: readonly FormatLoader[];
+}
+
 /**
  * Build the default config search paths for an app.
  *
@@ -147,43 +202,59 @@ function getExtension(path: string): string {
  * manually. Exported for debugging, custom discovery flows, and help text.
  *
  * Search order (first match wins):
- * 1. `$CWD/.{appName}.json` — dotfile in project root
- * 2. `$CWD/{appName}.config.json` — explicit config in project root
- * 3. `$CONFIG_DIR/{appName}/config.json` — XDG / AppData standard
- *    (`$XDG_CONFIG_HOME` / `~/.config` on Unix,
- *    `%APPDATA%` / `%USERPROFILE%\\AppData\\Roaming` on Windows)
+ * 1. Project scope — for `baseDir` and each ancestor directory up to the
+ *    filesystem root, nearest first:
+ *    1. `{dir}/.{appName}.json` — dotfile
+ *    2. `{dir}/{appName}.config.json` — explicit config
+ *    3. `{dir}/.config/{appName}.json` — project `.config/` convention
+ * 2. User scope — `{userConfigDir}/{appName}/config.json` for each entry of
+ *    `userConfigDirs`, in order.
+ * 3. System scope — `{systemConfigDir}/{appName}/config.json` for each entry
+ *    of `systemConfigDirs`, in order.
  *
  * When custom {@link ConfigDiscoveryOptions.loaders | loaders} are registered,
  * each path pattern is repeated per supported extension (JSON always first).
  *
  * @param appName - CLI application name used to derive config filenames.
- * @param cwd - Current working directory (project-root search location).
- * @param configDir - Platform config directory (XDG / AppData).
- * @param loaders - Optional custom {@link FormatLoader}s whose extensions expand the search set.
+ * @param options - Directory scopes and loaders (see {@link ConfigSearchPathOptions}).
  * @returns Ordered list of candidate config file paths (first match wins).
  *
  * @example
  * ```ts
- * const paths = buildConfigSearchPaths('mycli', '/repo', '/home/me/.config');
+ * const paths = buildConfigSearchPaths('mycli', {
+ *   baseDir: '/repo/packages/app',
+ *   userConfigDirs: ['/home/me/.config'],
+ *   systemConfigDirs: ['/etc'],
+ * });
  * ```
  */
 function buildConfigSearchPaths(
 	appName: string,
-	cwd: string,
-	configDir: string,
-	loaders?: readonly FormatLoader[],
+	options: ConfigSearchPathOptions,
 ): readonly string[] {
-	const extensions = buildExtensionList(loaders);
+	const extensions = buildExtensionList(options.loaders);
 
 	const paths: string[] = [];
-	for (const ext of extensions) {
-		paths.push(joinPath(cwd, `.${appName}.${ext}`));
+	for (const dir of ancestorDirs(options.baseDir)) {
+		for (const ext of extensions) {
+			paths.push(joinPath(dir, `.${appName}.${ext}`));
+		}
+		for (const ext of extensions) {
+			paths.push(joinPath(dir, `${appName}.config.${ext}`));
+		}
+		for (const ext of extensions) {
+			paths.push(joinPath(dir, '.config', `${appName}.${ext}`));
+		}
 	}
-	for (const ext of extensions) {
-		paths.push(joinPath(cwd, `${appName}.config.${ext}`));
+	for (const dir of options.userConfigDirs) {
+		for (const ext of extensions) {
+			paths.push(joinPath(dir, appName, `config.${ext}`));
+		}
 	}
-	for (const ext of extensions) {
-		paths.push(joinPath(configDir, appName, `config.${ext}`));
+	for (const dir of options.systemConfigDirs ?? []) {
+		for (const ext of extensions) {
+			paths.push(joinPath(dir, appName, `config.${ext}`));
+		}
 	}
 	return paths;
 }
@@ -260,7 +331,8 @@ function buildLoaderMap(loaders?: readonly FormatLoader[]): ReadonlyMap<string, 
  * Exported so custom hosts and tests can type the minimal adapter required by
  * {@link discoverConfig} without depending on the full runtime adapter shape.
  */
-type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'>;
+type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'> &
+	Partial<Pick<RuntimeAdapter, 'userConfigDirs' | 'systemConfigDirs'>>;
 
 /**
  * Discover and load a config file.
@@ -298,7 +370,12 @@ async function discoverConfig(
 		options?.configPath !== undefined
 			? [options.configPath]
 			: (options?.searchPaths ??
-				buildConfigSearchPaths(appName, adapter.cwd, adapter.configDir, options?.loaders));
+				buildConfigSearchPaths(appName, {
+					baseDir: options?.baseDir ?? adapter.cwd,
+					userConfigDirs: adapter.userConfigDirs ?? [adapter.configDir],
+					systemConfigDirs: adapter.systemConfigDirs ?? [],
+					...(options?.loaders !== undefined ? { loaders: options.loaders } : {}),
+				}));
 
 	for (const candidatePath of searchPaths) {
 		const content = await adapter.readFile(candidatePath);
@@ -413,6 +490,7 @@ export type {
 	ConfigDiscoveryResult,
 	ConfigFound,
 	ConfigNotFound,
+	ConfigSearchPathOptions,
 	FormatLoader,
 };
 export { buildConfigSearchPaths, configFormat, discoverConfig };

@@ -34,14 +34,27 @@ This searches standard locations for config files named `.mycli.json`, `mycli.co
 
 ### Search Paths
 
-Config discovery is platform-aware:
+Config discovery is platform-aware. The first match wins; files are never
+merged across locations.
 
-1. `--config <path>` or `--config=<path>` (explicit override)
-2. `./.mycli.json`, `./mycli.config.json` (project-local)
-3. Unix: `$XDG_CONFIG_HOME/mycli/config.json`
-4. Unix fallback: `~/.config/mycli/config.json`
-5. Windows: `%APPDATA%\\mycli\\config.json`
-6. Windows fallback: `%USERPROFILE%\\AppData\\Roaming\\mycli\\config.json`
+1. `--config <path>` or `--config=<path>` (explicit override, skips discovery)
+2. Project scope — for the working directory and each ancestor up to the
+   filesystem root, nearest first:
+   1. `.mycli.json`
+   2. `mycli.config.json`
+   3. `.config/mycli.json`
+3. User scope, in order:
+   - Unix: `$XDG_CONFIG_HOME/mycli/config.json`, falling back to
+     `~/.config/mycli/config.json`
+   - macOS: the Unix locations, then
+     `~/Library/Application Support/mycli/config.json`
+   - Windows: `%APPDATA%\\mycli\\config.json`, falling back to
+     `%USERPROFILE%\\AppData\\Roaming\\mycli\\config.json`
+4. System scope — `/etc/mycli/config.json` on Linux and macOS
+
+When calling `discoverConfig()` directly, `baseDir` anchors the project-scope
+walk to a directory other than `cwd` (useful for editor integrations operating
+on a specific file), and custom `searchPaths` replace the whole default list.
 
 ## Custom Formats
 

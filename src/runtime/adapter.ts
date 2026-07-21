@@ -146,6 +146,23 @@ interface RuntimeAdapter {
 	 * Config discovery appends the app-specific subdirectory.
 	 */
 	readonly configDir: string;
+
+	/**
+	 * User-scope config roots for discovery, highest priority first.
+	 *
+	 * - Unix: `[configDir]`
+	 * - macOS: `[configDir, ~/Library/Application Support]`
+	 * - Windows: `[configDir]`
+	 *
+	 * When absent, discovery falls back to `[configDir]`.
+	 */
+	readonly userConfigDirs?: readonly string[];
+
+	/**
+	 * System-scope config roots for discovery (`['/etc']` on Linux and
+	 * macOS, `[]` on Windows). When absent, discovery probes none.
+	 */
+	readonly systemConfigDirs?: readonly string[];
 }
 
 /** Current terminal dimensions in columns and rows. */
@@ -264,6 +281,12 @@ interface TestAdapterOptions {
 
 	/** Config directory (defaults to `'/home/test/.config'`). */
 	readonly configDir?: string;
+
+	/** User-scope config roots for discovery (defaults to `[configDir]`). */
+	readonly userConfigDirs?: readonly string[];
+
+	/** System-scope config roots for discovery (defaults to `[]`). */
+	readonly systemConfigDirs?: readonly string[];
 }
 
 /**
@@ -364,6 +387,8 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 		mkdir: options?.mkdir ?? noopMkdir,
 		homedir: options?.homedir ?? '/home/test',
 		configDir: options?.configDir ?? '/home/test/.config',
+		userConfigDirs: options?.userConfigDirs ?? [options?.configDir ?? '/home/test/.config'],
+		systemConfigDirs: options?.systemConfigDirs ?? [],
 	};
 }
 

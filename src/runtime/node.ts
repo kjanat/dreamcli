@@ -220,6 +220,9 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 
 	const homedir = resolveHomedir(p.env, p.platform);
 	const configDir = resolveConfigDir(p.env, p.platform, homedir);
+	const userConfigDirs =
+		p.platform === 'darwin' ? [configDir, `${homedir}/Library/Application Support`] : [configDir];
+	const systemConfigDirs = p.platform === 'win32' ? [] : ['/etc'];
 
 	const stdinIsTTY = p.stdin.isTTY === true;
 
@@ -241,6 +244,8 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		mkdir,
 		homedir,
 		configDir,
+		userConfigDirs,
+		systemConfigDirs,
 	};
 }
 

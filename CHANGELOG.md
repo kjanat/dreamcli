@@ -7,6 +7,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0-rc.19] - 2026-07-21
+
+### Added
+
+- **Expanded config discovery** (#61) — the default search now covers three
+  scopes, first match wins, no merging:
+  1. **Project**: the base directory (default `cwd`) and every ancestor up
+     to the filesystem root, nearest first, each probed for
+     `.{appName}.{ext}`, `{appName}.config.{ext}`, and the new
+     `.config/{appName}.{ext}` convention.
+  2. **User**: XDG / AppData as before, plus
+     `~/Library/Application Support/{appName}/config.{ext}` on macOS.
+  3. **System**: `/etc/{appName}/config.{ext}` on Linux and macOS.
+- **`baseDir` discovery option** — `discoverConfig()` accepts a base
+  directory to anchor the project-scope walk somewhere other than `cwd`.
+- **`RuntimeAdapter.userConfigDirs` / `systemConfigDirs`** — optional
+  ordered config roots supplied by the runtime adapters; discovery falls
+  back to `[configDir]` / `[]` when a custom adapter omits them.
+
+### Changed
+
+- **Breaking**: `buildConfigSearchPaths(appName, options)` replaces the
+  positional `(appName, cwd, configDir, loaders?)` signature; options carry
+  `baseDir`, `userConfigDirs`, `systemConfigDirs`, and `loaders`.
+
 ## [3.0.0-rc.18] - 2026-07-21
 
 ### Added
