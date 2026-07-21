@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Copy documentation sources into the build output so agents can fetch the
- * markdown a page was built from.
+ * Copy documentation sources into the build output under `/raw/` so agents can
+ * fetch the markdown a page was built from.
  *
  * VitePress renders these files to HTML; shipping the sources alongside means
- * `Accept: text/markdown` is answered with authored markdown instead of a
- * lossy HTML-to-markdown conversion.
+ * `Accept: text/markdown` is answered with authored markdown instead of a lossy
+ * HTML-to-markdown conversion. A Cloudflare Transform Rule matching the Accept
+ * header rewrites `/<page>` to `/raw/<page>`; the paths stay directly fetchable
+ * for anyone who prefers a plain URL over content negotiation.
  */
 
 import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
@@ -23,6 +25,7 @@ const SECTIONS: readonly { readonly title: string; readonly prefix: string }[] =
 
 const docsRoot = dirname(import.meta.dirname);
 const distRoot = join(docsRoot, '.vitepress', 'dist');
+const rawRoot = join(distRoot, 'raw');
 const SKIP_DIRS = new Set(['.vitepress', 'node_modules', 'public']);
 
 async function collect(dir: string): Promise<string[]> {
@@ -99,15 +102,17 @@ const pages: Page[] = [];
 
 for (const source of sources) {
 	const rel = relative(docsRoot, source);
-	const target = join(distRoot, rel);
+	const route = rel === 'index.md' ? '/' : `/${rel.replace(/\.md$/, '')}`;
+	// Extensionless, so a Transform Rule is a plain `concat("/raw", path)` and
+	// `/raw/<page>` mirrors `/<page>` exactly.
+	const target = join(rawRoot, route === '/' ? 'index' : route.slice(1));
 	await mkdir(dirname(target), { recursive: true });
 	await copyFile(source, target);
 
 	const content = await readFile(source, 'utf8');
-	const route = rel === 'index.md' ? '/' : `/${rel.replace(/\.md$/, '')}`;
 	pages.push({
 		route,
-		markdownUrl: `${SITE_ORIGIN}/${rel}`,
+		markdownUrl: `${SITE_ORIGIN}/raw${route === '/' ? '/index' : route}`,
 		title: titleOf(content, route),
 		summary: summaryOf(content),
 		content,
@@ -122,8 +127,8 @@ const header = [
 	'',
 	`> ${home?.summary ?? 'Schema-first, fully typed TypeScript CLI framework.'}`,
 	'',
-	'Every documentation page is available as authored markdown at its own URL',
-	'(append `.md` to any page path, or send `Accept: text/markdown`).',
+	'Every documentation page is available as authored markdown under `/raw/`',
+	'(or send `Accept: text/markdown` to any page URL).',
 	'',
 ].join('\n');
 
@@ -161,5 +166,5 @@ const fullBody = pages
 await writeFile(join(distRoot, 'llms-full.txt'), `${header}\n${fullBody}`, 'utf8');
 
 console.log(
-	`Copied ${sources.length} markdown sources into dist, wrote llms.txt and llms-full.txt`,
+	`Copied ${sources.length} markdown sources into dist/raw, wrote llms.txt and llms-full.txt`,
 );
