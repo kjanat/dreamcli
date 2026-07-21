@@ -280,4 +280,58 @@ describe('runCommand', () => {
 			expect(result.stderr).toContainEqual('Suggestion: fix it\n');
 		});
 	});
+
+	describe('root-flag layer — --quiet', () => {
+		/** Command emitting one status line (quiet-suppressible) and one log line. */
+		function noisyCommand() {
+			return command('noisy').action(({ out }) => {
+				out.log('result');
+				out.status('working');
+			});
+		}
+
+		it('honors a CLI-level --quiet passed in argv', async () => {
+			const result = await runCommand(noisyCommand(), ['--quiet']);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['result\n']);
+			expect(result.stderr).toEqual([]);
+		});
+
+		it('honors the -q short spelling', async () => {
+			const result = await runCommand(noisyCommand(), ['-q']);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stderr).toEqual([]);
+		});
+
+		it('emits status output without --quiet', async () => {
+			const result = await runCommand(noisyCommand(), []);
+
+			expect(result.stdout).toEqual(['result\n']);
+			expect(result.stderr).toEqual(['working\n']);
+		});
+
+		it('leaves a post-separator --quiet for the command', async () => {
+			const cmd = command('echo')
+				.arg('value', arg.string())
+				.action(({ args, out }) => {
+					out.log(args.value);
+				});
+
+			const result = await runCommand(cmd, ['--', '--quiet']);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['--quiet\n']);
+		});
+
+		it('combines with --json', async () => {
+			const result = await runCommand(noisyCommand(), ['--json', '--quiet']);
+
+			expect(result.exitCode).toBe(0);
+			// JSON mode redirects `log` to stderr; `status` stays suppressed.
+			expect(result.stdout).toEqual([]);
+			expect(result.stderr).toEqual(['result\n']);
+		});
+	});
 });

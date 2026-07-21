@@ -25,19 +25,19 @@ const sparkle = middleware<{ sparkle: (message: string) => string }>(async ({ fl
 
 export const hello = command('hello')
 	.description('Say hello with optional sparkle')
+	.example(({ name }) => `${name} Twilight --sparkle --times 2`, 'Sparkly double greeting')
 	.arg('name', arg.string().default('World').describe('Who to greet'))
 	.flag('sparkle', flag.boolean().alias('s').env('SPARKLE').describe('Add sparkles'))
-	.flag('times', flag.number().default(1).alias('n').describe('Repeat count'))
+	// Constraints are enforced at every source, so the action needs no clamping.
+	.flag('times', flag.number({ int: true, min: 0, max: 100 }).default(1).alias('n').describe('Repeat count'))
 	.middleware(sparkle)
 	.action(({ args, flags, ctx, out }) => {
-		const repeatCount = Number.isFinite(flags.times)
-			? Math.max(0, Math.min(100, Math.floor(flags.times)))
-			: 1;
-
-		for (let i = 0; i < repeatCount; i++) {
-			const base = `Hello, ${args.name}!`;
-			out.log(ctx.sparkle(base));
+		for (let i = 0; i < flags.times; i++) {
+			out.log(ctx.sparkle(`Hello, ${args.name}!`));
 		}
+
+		// stderr, and silenced by --quiet: keeps stdout pipe-clean.
+		out.status(`Greeted ${args.name} ${flags.times} time(s)`);
 	});
 
 export const app = cli('__CLI_NAME__').default(hello);
