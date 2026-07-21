@@ -862,7 +862,7 @@ describe('generateSchema — definition metadata', () => {
 			elementSchema: flagDef({ kind: 'string' }),
 			separator: ',',
 			unique: true,
-			pathChecks: { mustExist: true, type: 'file', create: false },
+			pathChecks: { mustExist: true, type: 'directory', create: true },
 			valueHint: 'version',
 			prompt: { kind: 'input', message: 'Version?', placeholder: 'v1' },
 			parseFn: (value: unknown) => value,

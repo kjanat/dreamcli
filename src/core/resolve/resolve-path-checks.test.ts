@@ -268,6 +268,42 @@ describe('resolve() — path checks', () => {
 		expect(created).toEqual(['/build/out']);
 	});
 
+	it('creates a missing directory when create is set and mustExist is false', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: false, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe();
+		const created: string[] = [];
+		const mkdir = (path: string): Promise<void> => {
+			created.push(path);
+			return Promise.resolve();
+		};
+
+		const result = await resolve(schema, parsed, { stat: probe.stat, mkdir });
+		expect(result.flags).toEqual({ outDir: '/build/out' });
+		expect(created).toEqual(['/build/out']);
+	});
+
+	it('passes a missing path when create is set with mustExist false and no mkdir is available', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: false, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe();
+
+		const result = await resolve(schema, parsed, { stat: probe.stat });
+		expect(result.flags).toEqual({ outDir: '/build/out' });
+	});
+
 	it('does not call mkdir when the directory already exists', async () => {
 		const schema = makeSchema({
 			flags: {
