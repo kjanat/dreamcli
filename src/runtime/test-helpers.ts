@@ -35,6 +35,7 @@ export function createMockDenoNamespace(): DenoNamespace {
 		exit: vi.fn() as unknown as (code: number) => never,
 		readTextFile: () => Promise.reject(Object.assign(new Error('not found'), { name: 'NotFound' })),
 		stat: () => Promise.reject(Object.assign(new Error('not found'), { name: 'NotFound' })),
+		mkdir: () => Promise.resolve(),
 		version: { deno: '2.6.0' },
 	};
 }

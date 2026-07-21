@@ -189,19 +189,47 @@ type FlagParseFn<T> = (raw: unknown) => T;
 type CustomFlagValue<A> =
 	A extends FlagParseFn<infer T> ? T : A extends StandardSchemaV1 ? InferStandardOutput<A> : never;
 
-/** Options accepted by `flag.path()`. */
-interface PathFlagOptions {
+/** Options accepted by `flag.path()` for any-kind or file paths. */
+interface FilePathFlagOptions {
 	/**
 	 * Reject the value if nothing exists at the path.
 	 * @defaultValue `false` (`true` when `type` is set)
 	 */
 	readonly mustExist?: boolean;
 	/**
-	 * Require the path to be a file or a directory. Implies existence.
+	 * Require the path to be a file or a directory. Implies existence
+	 * unless `mustExist` is explicitly `false`, in which case a missing
+	 * path passes and only an existing path is type-checked.
 	 * @defaultValue `undefined` (any kind)
 	 */
-	readonly type?: 'file' | 'directory';
+	readonly type?: 'file';
+	/** Directory creation is only available with `type: 'directory'`. */
+	readonly create?: never;
 }
+
+/** Options accepted by `flag.path()` for directory paths. */
+interface DirectoryPathFlagOptions {
+	/**
+	 * Reject the value if nothing exists at the path.
+	 * @defaultValue `false` (`true` when `type` is set)
+	 */
+	readonly mustExist?: boolean;
+	/**
+	 * Require the path to be a directory. Implies existence unless
+	 * `mustExist` is explicitly `false`, in which case a missing path
+	 * passes and only an existing path is type-checked.
+	 */
+	readonly type: 'directory';
+	/**
+	 * Create the directory (recursively) when nothing exists at the path.
+	 * An existing non-directory path still fails the type check.
+	 * @defaultValue `false`
+	 */
+	readonly create?: boolean;
+}
+
+/** Options accepted by `flag.path()`. */
+type PathFlagOptions = FilePathFlagOptions | DirectoryPathFlagOptions;
 
 /**
  * Filesystem expectations attached by `flag.path()`.
@@ -215,9 +243,11 @@ interface PathChecks {
 	readonly mustExist: boolean;
 	/**
 	 * Require the existing path to be a file or a directory. Implies
-	 * existence when set.
+	 * existence when set, unless `mustExist` is `false`.
 	 */
 	readonly type: 'file' | 'directory' | undefined;
+	/** Create the directory (recursively) when nothing exists at the path. */
+	readonly create: boolean;
 }
 
 /** Runtime descriptor for a flag alias. */
@@ -1257,7 +1287,7 @@ interface FlagFactory {
 	 * env, and config values are validated identically.
 	 *
 	 * @param options - Optional existence/type checks. `type` implies
-	 *   existence.
+	 *   existence unless `mustExist` is explicitly `false`.
 	 * @returns A {@link FlagBuilder} for path strings.
 	 *
 	 * @example
@@ -1265,6 +1295,10 @@ interface FlagFactory {
 	 * flag.path()                          // any string, help shows <path>
 	 * flag.path({ mustExist: true })       // rejects missing paths
 	 * flag.path({ type: 'directory' })     // must exist and be a directory
+	 * flag.path({ type: 'directory', mustExist: false })
+	 *                                      // missing passes; existing must be a directory
+	 * flag.path({ type: 'directory', create: true })
+	 *                                      // created recursively when missing
 	 * ```
 	 */
 	path(options?: PathFlagOptions): FlagBuilder<{
@@ -1505,7 +1539,11 @@ const flag: FlagFactory = {
 	}> {
 		const pathChecks =
 			options?.mustExist === true || options?.type !== undefined
-				? { mustExist: options.mustExist ?? true, type: options.type }
+				? {
+						mustExist: options.mustExist ?? true,
+						type: options.type,
+						create: options.type === 'directory' && options.create === true,
+					}
 				: undefined;
 		return new FlagBuilder(createSchema('string', { pathChecks, valueHint: 'path' }));
 	},

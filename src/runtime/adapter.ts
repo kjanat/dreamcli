@@ -120,6 +120,16 @@ interface RuntimeAdapter {
 	readonly stat: (path: string) => Promise<'file' | 'directory' | null>;
 
 	/**
+	 * Create a directory, including missing parents.
+	 *
+	 * Succeeds when the directory already exists. Throws on other I/O errors
+	 * (permission denied, existing file at the path, etc.).
+	 *
+	 * Used by `flag.path()` `create` checks after resolution.
+	 */
+	readonly mkdir: (path: string) => Promise<void>;
+
+	/**
 	 * User home directory (absolute path).
 	 *
 	 * - Node/Bun: derived from `HOME` / `USERPROFILE` env
@@ -243,6 +253,12 @@ interface TestAdapterOptions {
 	 */
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 
+	/**
+	 * Directory creation stub for `flag.path()` `create` checks (defaults to
+	 * a noop that resolves without creating anything).
+	 */
+	readonly mkdir?: (path: string) => Promise<void>;
+
 	/** Home directory (defaults to `'/home/test'`). */
 	readonly homedir?: string;
 
@@ -293,6 +309,9 @@ const noopReadFile: (path: string) => Promise<string | null> = () => Promise.res
 const noopStat: (path: string) => Promise<'file' | 'directory' | null> = () =>
 	Promise.resolve(null);
 
+/** Noop mkdir — resolves without creating anything. */
+const noopMkdir: (path: string) => Promise<void> = () => Promise.resolve();
+
 /**
  * Create a test runtime adapter with injectable process state.
  *
@@ -342,6 +361,7 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 			}),
 		readFile: options?.readFile ?? noopReadFile,
 		stat: options?.stat ?? noopStat,
+		mkdir: options?.mkdir ?? noopMkdir,
 		homedir: options?.homedir ?? '/home/test',
 		configDir: options?.configDir ?? '/home/test/.config',
 	};

@@ -125,6 +125,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			...(options?.config !== undefined ? { config: options.config } : {}),
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
 			...(options?.stat !== undefined ? { stat: options.stat } : {}),
+			...(options?.mkdir !== undefined ? { mkdir: options.mkdir } : {}),
 		};
 		const resolved = await resolve(schema, parsed, resolveOptions);
 		const resolvedParams: ResolvedCommandParams = {

@@ -91,6 +91,7 @@ describe('flag.path() — builder schema', () => {
 		expect(flag.path({ mustExist: true }).schema.pathChecks).toEqual({
 			mustExist: true,
 			type: undefined,
+			create: false,
 		});
 	});
 
@@ -98,10 +99,12 @@ describe('flag.path() — builder schema', () => {
 		expect(flag.path({ type: 'directory' }).schema.pathChecks).toEqual({
 			mustExist: true,
 			type: 'directory',
+			create: false,
 		});
 		expect(flag.path({ type: 'file' }).schema.pathChecks).toEqual({
 			mustExist: true,
 			type: 'file',
+			create: false,
 		});
 	});
 
@@ -109,7 +112,23 @@ describe('flag.path() — builder schema', () => {
 		expect(flag.path({ mustExist: false, type: 'file' }).schema.pathChecks).toEqual({
 			mustExist: false,
 			type: 'file',
+			create: false,
 		});
+	});
+
+	it('stores create for directory paths', () => {
+		expect(flag.path({ type: 'directory', create: true }).schema.pathChecks).toEqual({
+			mustExist: true,
+			type: 'directory',
+			create: true,
+		});
+	});
+
+	it('rejects create without type: directory at the type level', () => {
+		// @ts-expect-error — create is only available with type: 'directory'
+		flag.path({ create: true });
+		// @ts-expect-error — create is only available with type: 'directory'
+		flag.path({ type: 'file', create: true });
 	});
 
 	// --- type inference
@@ -134,7 +153,7 @@ describe('flag.path() — builder schema', () => {
 
 	it('.nonEmpty() preserves pathChecks through the chain', () => {
 		const f = flag.path({ type: 'file' }).nonEmpty();
-		expect(f.schema.pathChecks).toEqual({ mustExist: true, type: 'file' });
+		expect(f.schema.pathChecks).toEqual({ mustExist: true, type: 'file', create: false });
 		expect(f.schema.stringConstraints).toEqual({ nonEmpty: true });
 	});
 });
@@ -145,7 +164,9 @@ describe('resolve() — path checks', () => {
 	it('passes when stat reports a file for mustExist', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', { pathChecks: { mustExist: true, type: undefined } }),
+				input: createSchema('string', {
+					pathChecks: { mustExist: true, type: undefined, create: false },
+				}),
 			},
 		});
 		const parsed = makeParsed({ flags: { input: '/data/report.csv' } });
@@ -159,7 +180,9 @@ describe('resolve() — path checks', () => {
 	it('rejects a missing path with CONSTRAINT_VIOLATED', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', { pathChecks: { mustExist: true, type: undefined } }),
+				input: createSchema('string', {
+					pathChecks: { mustExist: true, type: undefined, create: false },
+				}),
 			},
 		});
 		const parsed = makeParsed({ flags: { input: '/nope' } });
@@ -180,10 +203,224 @@ describe('resolve() — path checks', () => {
 		}
 	});
 
+	it('passes a missing path when mustExist is false', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: false, type: 'directory', create: false },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/not/yet/created' } });
+		const probe = statProbe();
+
+		const result = await resolve(schema, parsed, { stat: probe.stat });
+		expect(result.flags).toEqual({ outDir: '/not/yet/created' });
+		expect(probe.calls).toEqual(['/not/yet/created']);
+	});
+
+	it('rejects an existing wrong-type path even when mustExist is false', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: false, type: 'directory', create: false },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/data/report.csv' } });
+		const probe = statProbe({ '/data/report.csv': 'file' });
+
+		try {
+			await resolve(schema, parsed, { stat: probe.stat });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('CONSTRAINT_VIOLATED');
+				expect(err.details).toEqual({
+					flag: 'outDir',
+					value: '/data/report.csv',
+					constraint: 'pathType',
+					expected: 'directory',
+				});
+			}
+		}
+	});
+
+	it('creates a missing directory when create is set', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe();
+		const created: string[] = [];
+		const mkdir = (path: string): Promise<void> => {
+			created.push(path);
+			return Promise.resolve();
+		};
+
+		const result = await resolve(schema, parsed, { stat: probe.stat, mkdir });
+		expect(result.flags).toEqual({ outDir: '/build/out' });
+		expect(created).toEqual(['/build/out']);
+	});
+
+	it('creates a missing directory when create is set and mustExist is false', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: false, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe();
+		const created: string[] = [];
+		const mkdir = (path: string): Promise<void> => {
+			created.push(path);
+			return Promise.resolve();
+		};
+
+		const result = await resolve(schema, parsed, { stat: probe.stat, mkdir });
+		expect(result.flags).toEqual({ outDir: '/build/out' });
+		expect(created).toEqual(['/build/out']);
+	});
+
+	it('passes a missing path when create is set with mustExist false and no mkdir is available', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: false, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe();
+
+		const result = await resolve(schema, parsed, { stat: probe.stat });
+		expect(result.flags).toEqual({ outDir: '/build/out' });
+	});
+
+	it('does not call mkdir when the directory already exists', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe({ '/build/out': 'directory' });
+		const created: string[] = [];
+		const mkdir = (path: string): Promise<void> => {
+			created.push(path);
+			return Promise.resolve();
+		};
+
+		const result = await resolve(schema, parsed, { stat: probe.stat, mkdir });
+		expect(result.flags).toEqual({ outDir: '/build/out' });
+		expect(created).toEqual([]);
+	});
+
+	it('reports a failing mkdir as CONSTRAINT_VIOLATED', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/readonly/out' } });
+		const probe = statProbe();
+		const mkdir = (): Promise<void> => Promise.reject(new Error('EACCES: permission denied'));
+
+		try {
+			await resolve(schema, parsed, { stat: probe.stat, mkdir });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.code).toBe('CONSTRAINT_VIOLATED');
+				expect(err.message).toBe(
+					"Failed to create directory '/readonly/out' for flag --outDir: EACCES: permission denied",
+				);
+				expect(err.details).toEqual({
+					flag: 'outDir',
+					value: '/readonly/out',
+					constraint: 'create',
+				});
+			}
+		}
+	});
+
+	it('falls back to existence rules when create is set but no mkdir is available', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe();
+
+		try {
+			await resolve(schema, parsed, { stat: probe.stat });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.details).toEqual({
+					flag: 'outDir',
+					value: '/build/out',
+					constraint: 'mustExist',
+				});
+			}
+		}
+	});
+
+	it('still rejects an existing file when create is set', async () => {
+		const schema = makeSchema({
+			flags: {
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'directory', create: true },
+				}),
+			},
+		});
+		const parsed = makeParsed({ flags: { outDir: '/build/out' } });
+		const probe = statProbe({ '/build/out': 'file' });
+		const created: string[] = [];
+		const mkdir = (path: string): Promise<void> => {
+			created.push(path);
+			return Promise.resolve();
+		};
+
+		try {
+			await resolve(schema, parsed, { stat: probe.stat, mkdir });
+			expect.unreachable('should have thrown');
+		} catch (err) {
+			expect(isValidationError(err)).toBe(true);
+			if (isValidationError(err)) {
+				expect(err.details).toEqual({
+					flag: 'outDir',
+					value: '/build/out',
+					constraint: 'pathType',
+					expected: 'directory',
+				});
+			}
+		}
+		expect(created).toEqual([]);
+	});
+
 	it('rejects a file where a directory is expected', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', { pathChecks: { mustExist: true, type: 'directory' } }),
+				outDir: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'directory', create: false },
+				}),
 			},
 		});
 		const parsed = makeParsed({ flags: { outDir: '/data/report.csv' } });
@@ -213,7 +450,9 @@ describe('resolve() — path checks', () => {
 	it('rejects a directory where a file is expected', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', { pathChecks: { mustExist: true, type: 'file' } }),
+				input: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'file', create: false },
+				}),
 			},
 		});
 		const parsed = makeParsed({ flags: { input: '/data' } });
@@ -239,7 +478,9 @@ describe('resolve() — path checks', () => {
 	it('skips checks when no stat is provided', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', { pathChecks: { mustExist: true, type: 'file' } }),
+				input: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'file', create: false },
+				}),
 			},
 		});
 		const parsed = makeParsed({ flags: { input: '/nope' } });
@@ -254,7 +495,7 @@ describe('resolve() — path checks', () => {
 				input: createSchema('string', {
 					presence: 'defaulted',
 					defaultValue: '/default/missing',
-					pathChecks: { mustExist: true, type: undefined },
+					pathChecks: { mustExist: true, type: undefined, create: false },
 				}),
 			},
 		});
@@ -277,7 +518,9 @@ describe('resolve() — path checks', () => {
 	it('does not call stat when the optional path flag is unresolved', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', { pathChecks: { mustExist: true, type: 'file' } }),
+				input: createSchema('string', {
+					pathChecks: { mustExist: true, type: 'file', create: false },
+				}),
 			},
 		});
 		const parsed = makeParsed({ flags: {} });

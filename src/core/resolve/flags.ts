@@ -27,6 +27,9 @@ type PromptResolveResult =
  */
 type StatFn = (path: string) => Promise<'file' | 'directory' | null>;
 
+/** Recursive directory creation injected by the caller for `flag.path()` `create` checks. */
+type MkdirFn = (path: string) => Promise<void>;
+
 /** Walk every declared flag through the resolution chain (cli -> env -> config -> prompt -> default), collecting deprecations and throwing aggregated errors. */
 async function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
@@ -37,6 +40,7 @@ async function resolveFlags(
 	interactive: ErasedInteractiveResolver | undefined,
 	deprecations: DeprecationWarning[],
 	stat: StatFn | undefined,
+	mkdir: MkdirFn | undefined,
 ): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
@@ -182,7 +186,7 @@ async function resolveFlags(
 		}
 
 		if (schema.pathChecks !== undefined && typeof value === 'string' && stat !== undefined) {
-			const violation = await validatePathChecks(name, value, schema.pathChecks, stat);
+			const violation = await validatePathChecks(name, value, schema.pathChecks, stat, mkdir);
 			if (violation !== undefined) {
 				errors.push(violation);
 			}
@@ -208,9 +212,28 @@ async function validatePathChecks(
 	value: string,
 	checks: NonNullable<FlagSchema['pathChecks']>,
 	stat: StatFn,
+	mkdir: MkdirFn | undefined,
 ): Promise<ValidationError | undefined> {
 	const found = await stat(value);
 	if (found === null) {
+		if (checks.create && mkdir !== undefined) {
+			try {
+				await mkdir(value);
+				return undefined;
+			} catch (error) {
+				return new ValidationError(
+					`Failed to create directory '${value}' for flag --${flagName}: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+					{
+						code: 'CONSTRAINT_VIOLATED',
+						details: { flag: flagName, value, constraint: 'create' },
+						suggest: `Provide a creatable or existing directory path for --${flagName}`,
+					},
+				);
+			}
+		}
+		if (!checks.mustExist) return undefined;
 		return new ValidationError(`Path '${value}' for flag --${flagName} does not exist`, {
 			code: 'CONSTRAINT_VIOLATED',
 			details: { flag: flagName, value, constraint: 'mustExist' },

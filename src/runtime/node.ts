@@ -213,6 +213,11 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		}
 	};
 
+	const mkdir = async (path: string): Promise<void> => {
+		const fs = await import('node:fs/promises');
+		await fs.mkdir(path, { recursive: true });
+	};
+
 	const homedir = resolveHomedir(p.env, p.platform);
 	const configDir = resolveConfigDir(p.env, p.platform, homedir);
 
@@ -233,6 +238,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		exit: (code) => p.exit(code),
 		readFile,
 		stat,
+		mkdir,
 		homedir,
 		configDir,
 	};

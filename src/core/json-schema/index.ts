@@ -295,6 +295,7 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
 		result.pathChecks = {
 			mustExist: schema.pathChecks.mustExist,
 			...(schema.pathChecks.type !== undefined ? { type: schema.pathChecks.type } : {}),
+			...(schema.pathChecks.create ? { create: true } : {}),
 		};
 	}
 	if (schema.valueHint !== undefined) {
@@ -1019,6 +1020,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 						properties: {
 							mustExist: { type: 'boolean' },
 							type: { enum: ['file', 'directory'] },
+							create: { type: 'boolean' },
 						},
 						required: ['mustExist'],
 					},

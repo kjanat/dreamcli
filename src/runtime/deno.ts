@@ -107,6 +107,9 @@ interface DenoNamespace {
 
 	/** Probe a filesystem path (requires `--allow-read`). */
 	stat(path: string): Promise<{ readonly isDirectory: boolean }>;
+
+	/** Create a directory (requires `--allow-write`). */
+	mkdir(path: string, options?: { readonly recursive?: boolean }): Promise<void>;
 }
 
 // --- Permission-safe helpers
@@ -254,6 +257,7 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		exit: (code) => d.exit(code),
 		readFile,
 		stat,
+		mkdir: (path) => d.mkdir(path, { recursive: true }),
 		homedir,
 		configDir,
 	};

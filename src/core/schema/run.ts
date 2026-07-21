@@ -86,6 +86,14 @@ export interface RunOptions {
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 
 	/**
+	 * Recursive directory creation for `flag.path()` `create` checks.
+	 *
+	 * `CLIBuilder.run()` supplies the runtime adapter's implementation
+	 * automatically. When absent, missing paths are not created.
+	 */
+	readonly mkdir?: (path: string) => Promise<void>;
+
+	/**
 	 * Verbosity level for the output channel.
 	 * @defaultValue `'normal'`
 	 */

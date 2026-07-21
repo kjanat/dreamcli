@@ -132,6 +132,8 @@ interface RuntimePreflightOptions {
 	readonly isTTY?: boolean;
 	/** Filesystem probe override for `flag.path()` checks; bypasses the adapter probe. */
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
+	/** Directory creation override for `flag.path()` `create` checks; bypasses the adapter. */
+	readonly mkdir?: (path: string) => Promise<void>;
 }
 
 /**
@@ -158,6 +160,8 @@ interface RuntimeExecutionInputs {
 	readonly config?: Readonly<Record<string, unknown>>;
 	/** Filesystem probe (from the adapter) for `flag.path()` checks. */
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
+	/** Directory creation (from the adapter) for `flag.path()` `create` checks. */
+	readonly mkdir?: (path: string) => Promise<void>;
 }
 
 /** Preflight succeeded — all runtime inputs are resolved and ready for execution. @internal */
@@ -453,6 +457,7 @@ async function prepareRuntimePreflight(
 			jsonMode,
 			verbosity: hasQuietFlag ? 'quiet' : (options.options?.verbosity ?? 'normal'),
 			stat: options.options?.stat ?? options.adapter.stat,
+			mkdir: options.options?.mkdir ?? options.adapter.mkdir,
 			...(stdinData !== undefined ? { stdinData } : {}),
 			...(options.options?.prompter !== undefined
 				? { prompter: options.options.prompter }
