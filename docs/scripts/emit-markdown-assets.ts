@@ -154,7 +154,13 @@ const indexBody = orderedTitles
 	})
 	.join('\n');
 
-await writeFile(join(distRoot, 'llms.txt'), `${header}\n${indexBody}`, 'utf8');
+const index = `${header}\n${indexBody}`;
+await writeFile(join(distRoot, 'llms.txt'), index, 'utf8');
+// `/raw` and `/raw/index` answer with this index rather than the landing
+// page's hero frontmatter, so `concat("/raw", path)` on `/` is useful and a
+// bare `/raw` is browsable.
+await writeFile(join(rawRoot, 'index'), index, 'utf8');
+await writeFile(join(rawRoot, 'index.html'), index, 'utf8');
 
 const fullBody = pages
 	.map(
