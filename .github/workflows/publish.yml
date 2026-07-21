@@ -80,3 +80,16 @@ jobs:
       - uses: ./.github/actions/setup
       - uses: kjanat/install-dprint@v2
       - run: runner install -fK build jsr:publish
+
+  deploy-site:
+    name: Deploy Site
+    needs: [publish-npm, publish-jsr]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: { name: cf, url: "${{ vars.URL }}" }
+    steps:
+      # The docs site embeds the published version, so it is rebuilt only once
+      # both registries carry the release.
+      - name: Trigger Cloudflare build
+        run: curl --fail --silent --show-error -X POST "${WEBHOOK}"
+        env: { WEBHOOK: "${{ vars.WEBHOOK }}" }
