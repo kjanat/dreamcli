@@ -13,8 +13,21 @@ directory          = "docs/.vitepress/dist"
 not_found_handling = "single-page-application"
 html_handling      = "drop-trailing-slash"
 # Assets are served without invoking the worker unless it runs first, which is
-# what lets `Accept: text/markdown` reach the negotiation logic.
-run_worker_first   = true
+# what lets `Accept: text/markdown` reach the negotiation logic. Only page
+# routes need it; hashed bundles and images go straight to the asset cache.
+run_worker_first   = [
+  "/*",
+  "!/assets/*",
+  "!/icons/*",
+  "!/animations/*",
+  "!/*.png",
+  "!/*.svg",
+  "!/*.ico",
+  "!/*.css",
+  "!/*.js",
+  "!/*.json",
+  "!/*.xml",
+]
 
 [[routes]]
 custom_domain = true
