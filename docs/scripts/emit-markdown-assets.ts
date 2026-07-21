@@ -10,7 +10,7 @@
  * for anyone who prefers a plain URL over content negotiation.
  */
 
-import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
 const SITE_ORIGIN = 'https://dreamcli.kjanat.dev';
