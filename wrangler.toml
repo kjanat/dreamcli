@@ -8,7 +8,10 @@ preview_urls       = true
 [assets]
 directory          = "docs/.vitepress/dist"
 not_found_handling = "single-page-application"
-html_handling      = "drop-trailing-slash"
+# `drop-trailing-slash` answered `/raw/` with a 307, and the Accept-based
+# rewrite maps the site root to exactly that path, so an agent negotiating
+# markdown on the homepage got a redirect instead of content.
+html_handling      = "auto-trailing-slash"
 
 [[routes]]
 custom_domain = true
