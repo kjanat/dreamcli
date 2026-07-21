@@ -16,7 +16,6 @@ jobs:
       - uses: ./.github/actions/setup
       - run: runner install
       - uses: kjanat/install-dprint@v2
-        with: { version: 0.55.2 }
       - run: run -s fmt:autofix lint:autofix
       # `dprint config update` queries every plugin registry and may download
       # and compile new plugin versions; 20s starves legitimate runs.

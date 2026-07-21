@@ -16,7 +16,6 @@ jobs:
       - uses: ./.github/actions/setup
       - run: runner install --frozen schema:emit version:check
       - uses: kjanat/install-dprint@v2
-        with: { version: 0.55.2 }
       - run: run -pk typecheck meta-descriptions:check lint format:check typecheck:gh
 
   test:
