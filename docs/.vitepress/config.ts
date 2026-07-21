@@ -193,6 +193,7 @@ export default defineConfig({
 							link: '/guide/limitations',
 						},
 						{ text: 'Migration And Adoption', link: '/guide/migration' },
+						{ text: 'Upgrading From 2.x', link: '/guide/upgrading-v3' },
 						{ text: 'Troubleshooting', link: '/guide/troubleshooting' },
 						{ text: 'Middleware', link: '/guide/middleware' },
 						{ text: 'Config Files', link: '/guide/config' },

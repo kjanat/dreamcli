@@ -2,12 +2,14 @@
 /**
  * Mixed machine-readable JSON and human-readable side-channel output.
  *
- * Demonstrates: machine-readable `out.json()` stdout, human-readable stderr
- * side channels, and `--json` for CLI-managed structured errors.
+ * Demonstrates: machine-readable `out.json()` stdout, `out.status()` stderr
+ * side channels suppressible with `--quiet`, and `--json` for CLI-managed
+ * structured errors.
  *
  * Usage:
  *   npx tsx examples/json-mode.ts list                  # JSON stdout + plain stderr side channel
  *   npx tsx examples/json-mode.ts list --format table   # JSON stdout + table stderr side channel
+ *   npx tsx examples/json-mode.ts list --quiet          # JSON stdout only, status lines suppressed
  *   npx tsx examples/json-mode.ts list --json           # same success output; CLI-managed errors stay JSON-safe
  *   npx tsx examples/json-mode.ts show web-api
  *   npx tsx examples/json-mode.ts show nonexistent      # structured error
@@ -55,8 +57,10 @@ const list = command('list')
 				{ format: 'text', stream: 'stderr' },
 			);
 		} else {
+			// `out.status()` writes to stderr (stdout stays pipeable JSON) and
+			// is suppressed under `--quiet`, unlike `out.error()`.
 			for (const s of services) {
-				out.error(`${s.name}: ${s.status} (${s.uptime}%)`);
+				out.status(`${s.name}: ${s.status} (${s.uptime}%)`);
 			}
 		}
 	});
@@ -78,7 +82,7 @@ const show = command('show')
 		}
 
 		out.json(service);
-		out.error(`${service.name}: ${service.status} (uptime ${service.uptime}%)`);
+		out.status(`${service.name}: ${service.status} (uptime ${service.uptime}%)`);
 	});
 
 // --- CLI with --json support ---

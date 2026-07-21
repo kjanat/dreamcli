@@ -78,6 +78,11 @@ function showTwoslashHint(): void {
 function setupMobileBottomSheet(): (() => void) | undefined {
 	if (!isTouchDevice()) return undefined;
 
+	// Marks the same devices that get the backdrop below, so the bottom-sheet
+	// CSS can key off one signal. `@media (hover: none)` alone disagrees with
+	// this predicate on some devices, leaving a backdrop with no sheet.
+	document.documentElement.classList.add('twoslash-touch');
+
 	let activeBackdrop: HTMLElement | null = null;
 
 	function enhancePopup(popperInner: HTMLElement): void {
@@ -102,12 +107,13 @@ function setupMobileBottomSheet(): (() => void) | undefined {
 		activeBackdrop.className = 'twoslash-backdrop';
 		document.body.appendChild(activeBackdrop);
 
-		// Close on backdrop tap or close button
+		// Close on backdrop tap or close button. Dispatching a document click
+		// drives floating-vue's own auto-hide, so it clears its `--shown`
+		// state; hiding the popper with an inline style would leave state and
+		// element disagreeing and the popper permanently invisible.
 		const closePopup = () => {
-			const popper = popperInner.closest('.v-popper--theme-twoslash');
-			if (popper) (popper as HTMLElement).style.display = 'none';
-			activeBackdrop?.remove();
-			activeBackdrop = null;
+			cleanupPopup();
+			document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 		};
 
 		closeBtn.addEventListener('click', closePopup);
@@ -148,6 +154,11 @@ function setupMobileBottomSheet(): (() => void) | undefined {
 		activeBackdrop = null;
 	}
 
+	/** Whether any twoslash popper is currently shown. */
+	function anyPopperShown(): boolean {
+		return document.querySelector('.v-popper--theme-twoslash.v-popper__popper--shown') !== null;
+	}
+
 	const observer = new MutationObserver((mutations) => {
 		for (const mutation of mutations) {
 			for (const node of mutation.addedNodes) {
@@ -167,13 +178,26 @@ function setupMobileBottomSheet(): (() => void) | undefined {
 				}
 			}
 		}
+
+		// floating-vue keeps poppers mounted and toggles `--shown`, so a
+		// dismissed popup never reaches the removedNodes branch above; without
+		// this the backdrop stays over the page forever.
+		if (activeBackdrop !== null && !anyPopperShown()) {
+			cleanupPopup();
+		}
 	});
 
-	observer.observe(document.body, { childList: true, subtree: true });
+	observer.observe(document.body, {
+		childList: true,
+		subtree: true,
+		attributes: true,
+		attributeFilter: ['class'],
+	});
 
 	return () => {
 		observer.disconnect();
 		cleanupPopup();
+		document.documentElement.classList.remove('twoslash-touch');
 	};
 }
 

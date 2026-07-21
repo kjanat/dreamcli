@@ -7,6 +7,55 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-07-21
+
+The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and
+documentation below; the complete v3 feature record lives in the rc.1 - rc.20
+sections that follow. Upgrading from 2.x is covered by the new
+[upgrade guide](https://dreamcli.kjanat.dev/guide/upgrading-v3).
+
+### Fixed
+
+- **`runCommand()` rejected `--quiet`/`-q`** — the testkit gained the root-flag
+  layer for `--json` in rc.1, but `--quiet` (added in rc.17) was never taught to
+  it, so copying a real `mycli --quiet …` invocation into a test failed with
+  `Unknown flag` (exit 2). Both spellings are now detected before the `--`
+  separator, set quiet verbosity, and are stripped before parsing; a literal
+  post-separator `--quiet` still reaches the command.
+- **Mobile documentation hovers** — the twoslash bottom sheet collapsed to a
+  2px sliver (a transformed popper ancestor became the containing block for the
+  fixed sheet), its backdrop stayed over the page after dismissal, and closing a
+  popup disabled it permanently via an inline `display: none`.
+
+### Added
+
+- **Upgrade guide** — `docs/guide/upgrading-v3.md` documents every 2.5.0 →
+  3.0.0 breaking and behavioral change with before/after code.
+- **Five new examples** covering the v3 surface: `flag-types.ts` (url, path
+  with `create`, date, duration, bytes, count, keyValue, constraints, array
+  separator/unique), `parser-control.ts` (negatable, duplicates, spelling
+  parity), `standard-schema.ts` (Standard Schema v1 interop),
+  `help-config.ts` (themes, `flagOrder`, routable default, JSON help),
+  `output-extras.ts` (`out.color`, hyperlink gating, `setExitCode`).
+
+### Changed
+
+- **Examples modernized** — `basic.ts` uses function-form `.example()`,
+  `json-mode.ts` and `middleware.ts` use `out.status()` and document
+  `--quiet`, `transport-launcher.ts` replaces its hand-rolled port check
+  with declarative numeric constraints.
+- **`skills/cli-creation` rewritten for v3** — corrected stale grounding paths
+  (`examples/standalone/`, `apps/docs/` no longer exist), rebuilt the pattern
+  cookbook around the v3 surface with every snippet type-checked against the
+  published types, and modernized the scaffolder templates (function-form
+  examples, declarative numeric constraints instead of hand-clamping,
+  `out.status()`, a `--quiet` test).
+- **README refreshed** — the flag-types block lists the full v3 family
+  (dropping the `flag.custom` URL sample that `flag.url()` superseded), the
+  output sample shows `out.status()` / `out.setExitCode()` / `--quiet`, the
+  completions sample covers the eager-flag form and fixes a
+  `completion`/`completions` typo.
+
 ## [3.0.0-rc.20] - 2026-07-21
 
 ### Changed

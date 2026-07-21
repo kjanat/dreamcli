@@ -8,6 +8,15 @@ describe('hello command', () => {
 
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout).toEqual(['✨ Hello, Twilight! ✨\n', '✨ Hello, Twilight! ✨\n']);
+		// out.status() writes to stderr so stdout stays pipe-clean.
+		expect(result.stderr).toEqual(['Greeted Twilight 2 time(s)\n']);
+	});
+
+	it('suppresses status output with --quiet', async () => {
+		const result = await runCommand(hello, ['Twilight', '--quiet']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['Hello, Twilight!\n']);
 		expect(result.stderr).toEqual([]);
 	});
 

@@ -15,8 +15,8 @@ import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const greet = command('greet')
 	.description('Greet someone')
-	.example('greet Alice', 'Greet Alice once')
-	.example('greet Alice --loud --times 3', 'Shout the greeting three times')
+	.example(({ name }) => `${name} greet Alice`, 'Greet Alice once')
+	.example(({ name }) => `${name} greet Alice --loud --times 3`, 'Shout the greeting three times')
 	.arg('name', arg.string().describe('Who to greet'))
 	.flag('loud', flag.boolean().alias('l').describe('Shout the greeting'))
 	.flag('times', flag.number().default(1).alias('t').describe('Repeat count'))

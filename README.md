@@ -208,7 +208,7 @@ Third-party plugins and custom glue can extend the other libraries.
 | Built-in test harness with output capture  | `runCommand()` + capture              | No                  | No                     | No              | No            | No            |
 | Shell completions from command definitions | Built-in (bash/zsh/fish/powershell)   | No                  | Built-in (bash/zsh)    | No              | No            | No            |
 | Structured output primitives               | Built-in (`--json`, tables, spinners) | DIY                 | DIY                    | DIY             | DIY           | DIY           |
-| Config file support                        | Built-in (XDG discovery, JSON)        | DIY                 | Built-in (`.config()`) | No              | No            | No            |
+| Config file support                        | Built-in (project/user/system discovery, JSON) | DIY        | Built-in (`.config()`) | No              | No            | No            |
 
 The closest analog is what tRPC did to API routes — individual pieces existed,
 the insight was wiring them so types flow end-to-end.
@@ -220,16 +220,24 @@ the insight was wiring them so types flow end-to-end.
 ```ts
 import { flag } from '@kjanat/dreamcli';
 
-flag.string(); // string | undefined
-flag.number(); // number | undefined
-flag.boolean(); // boolean (defaults to false)
+flag.string({ nonEmpty: true }); // string | undefined, with constraints
+flag.number({ int: true, min: 1 }); // number | undefined, with constraints
+flag.boolean().negatable(); // boolean; accepts --no-<name>
 flag.enum(['us', 'eu', 'ap']); // "us" | "eu" | "ap" | undefined
-flag.array(flag.string()); // string[] | undefined
-flag.custom((v) => new URL(v)); // URL | undefined
+flag.array(flag.string()).separator(',').unique(); // string[] | undefined
+flag.url({ protocols: ['https'] }); // URL | undefined
+flag.path({ type: 'directory', create: true }); // string | undefined, mkdir when missing
+flag.date(); // Date | undefined, strict ISO-8601
+flag.duration(); // number (ms) | undefined — '1h30m', '250ms'
+flag.bytes(); // number | undefined — '512mb', '1.5gb'
+flag.count(); // number — -vvv → 3
+flag.keyValue(); // Record<string, string> — repeated KEY=VALUE
+flag.custom(zodSchema); // any Standard Schema v1 validator, inferred output
 ```
 
 Every flag supports: `.default()`, `.required()`, `.alias()`, `.env()`, `.config()`, `.describe()`,
-`.prompt()`, `.deprecated()`, `.propagate()`.
+`.prompt()`, `.deprecated()`, `.propagate()`, `.duplicates()`, plus constraint chains
+(`.int()`, `.min()`, `.nonEmpty()`, `.pattern()`, …) on their matching kinds.
 
 ### Resolution chain
 
@@ -342,6 +350,7 @@ const rows = [
 
 const status = command('status').action(({ out }) => {
   out.log('Human-readable message');
+  out.status('Progress note on stderr, silenced by --quiet');
   out.json({ status: 'ok', count: 42 });
   out.table(rows, [
     { key: 'name', header: 'Name' },
@@ -357,14 +366,17 @@ const status = command('status').action(({ out }) => {
   });
   progress.update(50);
   progress.done('Upload complete');
+
+  out.setExitCode(1); // report-and-continue failures, no throw needed
 });
 
 cli('mycli').default(status).run();
 ```
 
-- TTY → pretty formatting, spinners animate
-- Piped → minimal stable output, spinners suppressed
+- TTY → pretty formatting, colors (`out.color`), spinners animate
+- Piped → minimal stable output, identity colors, spinners suppressed
 - `--json` → structured JSON to stdout, everything else to stderr
+- `--quiet` → `status`/`info` suppressed, warnings and errors kept
 
 ### Shell completions
 
@@ -376,7 +388,12 @@ import { cli, command } from '@kjanat/dreamcli';
 cli('mycli').command(command('deploy')).completions().run();
 
 // mycli completions bash
-// mycli completion zsh
+// mycli completions zsh
+
+// Or as an eager root flag with shell auto-detection:
+cli('mycli').command(command('deploy')).completions({ as: 'flag' }).run();
+
+// mycli --completions
 ```
 
 For programmatic integrations, call the generator directly:

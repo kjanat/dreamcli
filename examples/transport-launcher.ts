@@ -8,9 +8,10 @@
  * resolve and before the action. The derived, fully typed `Transport` is then
  * handed to `.action()` through `ctx`.
  *
- * Demonstrates: an "exactly one of" rule via `.derive()` throwing `CLIError`, a
- * kebab-case flag name accessed with bracket notation (`flags['node-ipc']`), and
- * passing a typed result to the action through derived context.
+ * Demonstrates: an "exactly one of" rule via `.derive()` throwing `CLIError`,
+ * declarative numeric constraints (`flag.number({ int: true, min: 1, max: 65535 })`),
+ * a kebab-case flag name accessed with bracket notation (`flags['node-ipc']`),
+ * and passing a typed result to the action through derived context.
  *
  * Usage:
  *   npx tsx examples/transport-launcher.ts --stdio
@@ -33,7 +34,10 @@ const launcher = command('lsp-server')
 	.description('Launch the language server over exactly one transport')
 	.flag('stdio', flag.boolean().describe('Use the stdio transport'))
 	.flag('node-ipc', flag.boolean().describe('Use the Node IPC transport'))
-	.flag('socket', flag.number().describe('Use a TCP socket on <port>'))
+	.flag(
+		'socket',
+		flag.number({ int: true, min: 1, max: 65535 }).describe('Use a TCP socket on <port>'),
+	)
 	// `.derive()` runs after resolution and before the action — the idiomatic
 	// place for a constraint dreamcli does not express declaratively.
 	.derive(({ flags }): { transport: Transport } => {
@@ -41,13 +45,9 @@ const launcher = command('lsp-server')
 		if (flags.stdio) selected.push({ kind: 'stdio' });
 		// Kebab-case flag names stay kebab in the handler: bracket access, no camelCasing.
 		if (flags['node-ipc']) selected.push({ kind: 'node-ipc' });
+		// Port shape (integer, 1-65535) is already enforced declaratively by
+		// the flag's numeric constraints before `.derive()` runs.
 		if (flags.socket !== undefined) {
-			if (!Number.isInteger(flags.socket)) {
-				throw new CLIError(`--socket expects an integer port (got ${flags.socket}).`, {
-					code: 'INVALID_SOCKET_PORT',
-					suggest: 'Pass a whole number, e.g. --socket 6009',
-				});
-			}
 			selected.push({ kind: 'socket', port: flags.socket });
 		}
 

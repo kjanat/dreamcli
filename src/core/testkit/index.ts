@@ -15,7 +15,7 @@
  */
 
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
-import type { CapturedOutput } from '#internals/core/output/index.ts';
+import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { includesBeforeSeparator, stripBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { CommandMeta, Out, RunnableCommand } from '#internals/core/schema/command.ts';
@@ -31,7 +31,8 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
  * Run a command builder against the given argv with injected options.
  *
  * This is the testkit wrapper around the shared executor:
- * 1. Apply the CLI root-flag layer (detect/strip `--json`) so copied real argv works
+ * 1. Apply the CLI root-flag layer (detect/strip `--json` and `--quiet`/`-q`) so
+ *    copied real argv works
  * 2. Create or reuse capture output
  * 3. Build standalone schema/meta defaults when CLI dispatch did not
  * 4. Delegate parse -> resolve -> execute to the shared executor
@@ -41,10 +42,11 @@ import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
  * with appropriate exit codes. The function never throws.
  *
  * @param cmd - The command builder (must have an action handler)
- * @param argv - Raw argv strings (NOT including the command name itself). A
- *   CLI-level `--json` before the `--` separator is honored and stripped here,
- *   just like the real CLI root — so `['--json']` enables JSON mode rather than
- *   failing as an unknown flag. Equivalent to passing `{ jsonMode: true }`.
+ * @param argv - Raw argv strings (NOT including the command name itself).
+ *   CLI-level `--json` and `--quiet`/`-q` before the `--` separator are honored
+ *   and stripped here, just like the real CLI root — so `['--json']` enables
+ *   JSON mode and `['--quiet']` sets quiet verbosity rather than failing as
+ *   unknown flags. Equivalent to `{ jsonMode: true }` / `{ verbosity: 'quiet' }`.
  * @param options - Injectable runtime state
  * @returns Structured run result with exit code and captured output
  */
@@ -61,7 +63,13 @@ async function runCommand(
 	// working — either source enables JSON mode.
 	const hasJsonFlag = includesBeforeSeparator(argv, '--json');
 	const jsonMode = hasJsonFlag || options?.jsonMode === true;
-	const effectiveArgv = hasJsonFlag ? stripBeforeSeparator(argv, '--json') : argv;
+	const hasQuietFlag =
+		includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
+	const verbosity: Verbosity | undefined = hasQuietFlag ? 'quiet' : options?.verbosity;
+	let effectiveArgv = hasJsonFlag ? stripBeforeSeparator(argv, '--json') : argv;
+	if (hasQuietFlag) {
+		effectiveArgv = stripBeforeSeparator(stripBeforeSeparator(effectiveArgv, '--quiet'), '-q');
+	}
 
 	let out: Out;
 	let captured: CapturedOutput;
@@ -70,7 +78,7 @@ async function runCommand(
 		captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
 	} else {
 		const captureOptions = {
-			...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
+			...(verbosity !== undefined ? { verbosity } : {}),
 			...(jsonMode ? { jsonMode } : {}),
 			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 		};

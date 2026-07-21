@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { profile, ignoreRules } from './.attw.json' with { type: 'json' };
-import { version } from './package.json' with { type: 'json' };
+import { engines, version } from './package.json' with { type: 'json' };
 import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 
 import type { AttwOptions, UserConfig } from 'tsdown';
@@ -20,6 +20,7 @@ export default defineConfig({
 	},
 	entry: entries,
 	format: 'esm',
+	target: [`node${engines.node.replace('>=', '')}`, `deno${engines.deno.replace('>=', '')}`],
 	dts: {
 		enabled: true,
 		entry: ['**', '!src/**/*{.test,test-helpers}.ts'],
