@@ -36,6 +36,32 @@
 		display: none !important;
 	}
 
+	/*
+	 * 3. Zero out the popper wrapper itself.
+	 *    The inner is repositioned as a fixed bottom sheet, but floating-vue
+	 *    still absolutely positions the wrapper at the anchor, where its box
+	 *    paints as a thin vertical sliver through the page.
+	 */
+	.v-popper--theme-twoslash.v-popper__popper {
+		width: 0 !important;
+		height: 0 !important;
+		overflow: visible !important;
+		background: transparent !important;
+		border: none !important;
+		box-shadow: none !important;
+	}
+
+	/*
+	 * 4. Hidden state must hide the sheet and backdrop completely.
+	 *    A dismissed popper that keeps its inner visible leaves a stuck
+	 *    grey overlay over the whole page.
+	 */
+	.v-popper--theme-twoslash.v-popper__popper--hidden .v-popper__inner,
+	.v-popper--theme-twoslash.v-popper__popper--hidden ~ .twoslash-backdrop,
+	.v-popper--theme-twoslash.v-popper__popper--hidden .twoslash-backdrop {
+		display: none !important;
+	}
+
 	/* Compact padding + font for the popup content */
 	.twoslash-floating .twoslash-popup-code {
 		max-width: 100%;
