@@ -1,7 +1,4 @@
 /*
-  # Pages are negotiable: a cached HTML object must not answer a request that
-  # asked for markdown, so the edge has to key its cache on Accept.
-  Vary: Accept
   Link: </reference/main>; rel="service-doc"; type="text/html"; title="API reference"
   Link: </dreamcli.schema.json>; rel="describedby"; type="application/json"; title="CLI definition schema"
   Link: </sitemap.xml>; rel="sitemap"; type="application/xml"
@@ -14,4 +11,3 @@
 
 /raw/*
   Content-Type: text/markdown; charset=utf-8
-  Vary: Accept
