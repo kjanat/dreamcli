@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "bun --bun vitepress build .",
+		"build": "bun --bun vitepress build . && bun scripts/emit-markdown-assets.ts",
 		"deploy": "wrangler deploy",
 		"dev": "bun --bun vitepress dev . --host --port ${PORT:-5173}",
 		"preview": "bun --bun vitepress preview .",

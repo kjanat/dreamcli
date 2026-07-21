@@ -3,3 +3,11 @@
   Link: </dreamcli.schema.json>; rel="describedby"; type="application/json"; title="CLI definition schema"
   Link: </sitemap.xml>; rel="sitemap"; type="application/xml"
   Link: </AGENTS>; rel="author"; type="text/html"; title="Agent guide"
+
+# Every page ships the markdown it was built from at the same path + .md,
+# advertised here for agents that read Link headers instead of negotiating.
+/guide/*
+  Link: </guide/:splat.md>; rel="alternate"; type="text/markdown"
+
+/*.md
+  Content-Type: text/markdown; charset=utf-8

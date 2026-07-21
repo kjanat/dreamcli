@@ -5,10 +5,16 @@ compatibility_date = "2026-04-02"
 workers_dev        = true
 preview_urls       = true
 
+main = "docs/worker.ts"
+
 [assets]
+binding            = "ASSETS"
 directory          = "docs/.vitepress/dist"
 not_found_handling = "single-page-application"
 html_handling      = "drop-trailing-slash"
+# Assets are served without invoking the worker unless it runs first, which is
+# what lets `Accept: text/markdown` reach the negotiation logic.
+run_worker_first   = true
 
 [[routes]]
 custom_domain = true
