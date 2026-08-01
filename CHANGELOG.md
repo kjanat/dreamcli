@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Stability policy** — a new [reference page](https://dreamcli.kjanat.dev/reference/stability)
+  classifies every exported type: sealed framework values, consumer input
+  options, implementer interfaces, closed unions, and internal surface, with
+  the minor-version rules each category carries.
+
 ### Changed
 
 - **Breaking: `Out` gained a required `verbosity` member** — action handlers
