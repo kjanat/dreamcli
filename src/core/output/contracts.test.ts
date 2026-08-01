@@ -121,7 +121,7 @@ describe('output contracts', () => {
 		});
 
 		it('activity policy remains renderer-agnostic metadata', () => {
-			expectTypeOf<ActivityPolicy>().toMatchTypeOf<{
+			expectTypeOf<ActivityPolicy>().toExtend<{
 				readonly mode: 'noop' | 'static' | 'tty';
 				readonly stream: 'stderr';
 				readonly cleanup: 'none' | 'stop' | 'done';

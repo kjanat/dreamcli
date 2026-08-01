@@ -563,7 +563,7 @@ describe('type inference', () => {
 	it('third type parameter C defaults to Record<string, never>', () => {
 		// CommandBuilder with no middleware has C = Record<string, never>
 		const cmd = command('test');
-		expectTypeOf(cmd).toMatchTypeOf<CommandBuilder>();
+		expectTypeOf(cmd).toExtend<CommandBuilder>();
 		expectTypeOf(cmd._ctx).toEqualTypeOf<Record<string, never>>();
 	});
 
@@ -625,8 +625,8 @@ describe('CommandSchema', () => {
 		expectTypeOf(schema.aliases).toEqualTypeOf<readonly string[]>();
 		expectTypeOf(schema.hidden).toBeBoolean();
 		expectTypeOf(schema.examples).toEqualTypeOf<readonly CommandExample[]>();
-		expectTypeOf(schema.flags).toMatchTypeOf<Record<string, unknown>>();
-		expectTypeOf(schema.args).toMatchTypeOf<readonly CommandArgEntry[]>();
+		expectTypeOf(schema.flags).toExtend<Record<string, unknown>>();
+		expectTypeOf(schema.args).toExtend<readonly CommandArgEntry[]>();
 		expectTypeOf(schema.hasAction).toBeBoolean();
 		expectTypeOf(schema.commands).toEqualTypeOf<readonly CommandSchema[]>();
 	});

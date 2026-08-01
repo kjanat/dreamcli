@@ -486,7 +486,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly flagKind: 'enum';
 			readonly elementEligible: false;
 		};
-		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<EnumConfig>>();
+		expectTypeOf<MultiselectPromptConfig>().not.toExtend<AllowedPromptConfig<EnumConfig>>();
 	});
 
 	it('multiselect is not assignable to boolean flag prompt', () => {
@@ -497,7 +497,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly flagKind: 'boolean';
 			readonly elementEligible: false;
 		};
-		expectTypeOf<MultiselectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
+		expectTypeOf<MultiselectPromptConfig>().not.toExtend<AllowedPromptConfig<BoolConfig>>();
 	});
 
 	it('confirm is not assignable to string flag prompt', () => {
@@ -508,7 +508,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly flagKind: 'string';
 			readonly elementEligible: false;
 		};
-		expectTypeOf<ConfirmPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<StrConfig>>();
+		expectTypeOf<ConfirmPromptConfig>().not.toExtend<AllowedPromptConfig<StrConfig>>();
 	});
 
 	it('input is not assignable to boolean flag prompt', () => {
@@ -519,7 +519,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly flagKind: 'boolean';
 			readonly elementEligible: false;
 		};
-		expectTypeOf<InputPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<BoolConfig>>();
+		expectTypeOf<InputPromptConfig>().not.toExtend<AllowedPromptConfig<BoolConfig>>();
 	});
 
 	it('select is not assignable to array flag prompt', () => {
@@ -530,7 +530,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly flagKind: 'array';
 			readonly elementEligible: false;
 		};
-		expectTypeOf<SelectPromptConfig>().not.toMatchTypeOf<AllowedPromptConfig<ArrConfig>>();
+		expectTypeOf<SelectPromptConfig>().not.toExtend<AllowedPromptConfig<ArrConfig>>();
 	});
 
 	it('valid combinations accepted by FlagBuilder.prompt()', () => {
