@@ -237,6 +237,7 @@ export default defineConfig({
 							link: '/reference/resolver-contract',
 						},
 						{ text: 'Output Contract', link: '/reference/output-contract' },
+						{ text: 'Stability Policy', link: '/reference/stability' },
 						{
 							text: 'Example Hover',
 							link: '/reference/example-hover-prototype',
