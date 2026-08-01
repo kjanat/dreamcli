@@ -24,7 +24,7 @@ import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts'
 import { getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
-import type { RunOptions, RunResult } from './run.ts';
+import type { InternalRunOptions, RunResult } from './run.ts';
 
 // --- Context type utilities
 
@@ -140,13 +140,27 @@ type ErasedInteractiveResolver = (params: {
 // --- Handler types
 
 /**
+ * Seals {@linkcode Out} against structural construction outside the framework.
+ *
+ * @internal
+ */
+const outBrand: unique symbol = Symbol('dreamcli.out');
+
+/**
  * Output channel available inside action handlers.
  *
  * Provides structured methods for stdout/stderr, JSON output,
  * spinners, progress bars, and tables. The real implementation lives in
  * `src/core/output/`; this interface defines the shape that handlers consume.
+ *
+ * `Out` is a framework-created, non-exhaustive value: obtain instances from
+ * action parameters, `createOutput()`, or `createCaptureOutput()` — do not
+ * implement it. New readonly members may be added in minor releases.
  */
 interface Out {
+	/** Framework-construction seal. Obtain `Out` values from DreamCLI; do not implement this interface. */
+	readonly [outBrand]: never;
+
 	/** Write to stdout (normal output). */
 	log(message: string): void;
 	/** Informational (may be suppressed in quiet mode). */
@@ -814,7 +828,7 @@ interface ErasedCommand {
 	/** Original command builder captured at the type-erasure boundary. */
 	readonly _command?: AnyCommandBuilder;
 	/** Execute this command against argv. Closes over the typed CommandBuilder. */
-	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
+	readonly _execute: (argv: readonly string[], options?: InternalRunOptions) => Promise<RunResult>;
 }
 
 /**
@@ -1597,4 +1611,4 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export { CommandBuilder, command, group, resolveExampleCommand };
+export { CommandBuilder, command, group, outBrand, resolveExampleCommand };

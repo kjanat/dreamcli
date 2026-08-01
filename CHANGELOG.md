@@ -7,15 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- **Public output verbosity state** — action handlers can read `out.verbosity`,
-  while `resolveRenderContext()` now exposes the same `verbosity` decision for
-  custom content built before `.run()` (including `--`-aware `--quiet`/`-q`
-  detection). `verbosity` is a required member of `Out`, so a hand-rolled
-  `Out` object literal stops compiling until it declares one. Hand-rolling
-  `Out` is unsupported; take a real channel from the testkit and spy on it
-  instead:
+- **Breaking: `Out` gained a required `verbosity` member** — action handlers
+  can read `out.verbosity`, and `resolveRenderContext()` exposes the same
+  `verbosity` decision for custom content built before `.run()` (including
+  `--`-aware `--quiet`/`-q` detection). A hand-rolled `Out` object literal
+  stops compiling until it declares one; migrate to a real channel from the
+  testkit and spy on it instead:
 
   ```ts
   const [out] = createCaptureOutput();
@@ -24,6 +23,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   Do not spread a channel (`{ ...out, info: vi.fn() }`) — its methods are
   non-enumerable bound copies, so the spread result has none of them.
+
+- **Breaking: `Out` and `RenderContext` are sealed** — both interfaces now
+  carry a private brand, so implementing or structurally constructing them
+  outside the framework no longer type-checks. They are framework-created,
+  non-exhaustive values: obtain instances from action parameters,
+  `createOutput()`, `createCaptureOutput()`, or `resolveRenderContext()`, and
+  expect new readonly members in minor releases. Helpers that only need a
+  subset can accept `Pick<Out, 'info' | 'status'>`-style capability types.
+
+- **Breaking: internal execution fields left `RunOptions` and
+  `CLIRunOptions`** — `out`, `captured`, `mergedSchema`, `meta`, and `plugins`
+  were framework-populated fields marked `@internal` yet shipped on the public
+  option types. They now live on unexported internal execution options; code
+  passing them to `runCommand()` or `.execute()` stops compiling. Inject
+  writers via `createCaptureOutput()` options or `OutputOptions.stdout`/
+  `stderr` instead of replacing the channel wholesale.
 
 ### Fixed
 

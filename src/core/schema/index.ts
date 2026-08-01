@@ -102,7 +102,7 @@ export {
 	describeNumberConstraintViolation,
 	validateNumberConstraints,
 } from './number-constraints.ts';
-export type { RunOptions, RunResult } from './run.ts';
+export type { InternalRunOptions, RunOptions, RunResult } from './run.ts';
 export type {
 	InferStandardInput,
 	InferStandardOutput,

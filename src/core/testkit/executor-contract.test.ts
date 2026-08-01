@@ -12,7 +12,7 @@ import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
-import { runCommand } from './index.ts';
+import { runCommand, runCommandInternal } from './index.ts';
 
 describe('runCommand() executor contract', () => {
 	it('runs lifecycle hooks around execution steps in stable order', async () => {
@@ -35,7 +35,7 @@ describe('runCommand() executor contract', () => {
 				order.push('action');
 			});
 
-		const result = await runCommand(cmd, [], {
+		const result = await runCommandInternal(cmd, [], {
 			plugins: [
 				plugin({
 					beforeParse: () => {
@@ -80,7 +80,7 @@ describe('runCommand() executor contract', () => {
 				throw new CLIError('boom', { code: 'BOOM', exitCode: 9 });
 			});
 
-		const result = await runCommand(cmd, [], {
+		const result = await runCommandInternal(cmd, [], {
 			plugins: [
 				plugin({
 					beforeAction: () => {
@@ -109,7 +109,7 @@ describe('runCommand() executor contract', () => {
 			spinner.succeed('Done');
 		});
 
-		const result = await runCommand(cmd, [], { out, captured });
+		const result = await runCommandInternal(cmd, [], { out, captured });
 
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout).toEqual(['hello\n']);
@@ -131,7 +131,7 @@ describe('runCommand() executor contract', () => {
 			throw new Error('kaboom');
 		});
 
-		const result = await runCommand(cmd, [], { out, captured });
+		const result = await runCommandInternal(cmd, [], { out, captured });
 
 		expect(result.exitCode).toBe(1);
 		expect(result.error?.code).toBe('UNEXPECTED_ERROR');
@@ -147,7 +147,7 @@ describe('runCommand() executor contract', () => {
 			.description('Build assets')
 			.action(() => {});
 
-		const result = await runCommand(cmd, ['--help'], { out, captured });
+		const result = await runCommandInternal(cmd, ['--help'], { out, captured });
 
 		expect(result.exitCode).toBe(0);
 		expect(stopActive).toHaveBeenCalledTimes(1);
@@ -187,7 +187,7 @@ describe('runCommand() executor contract', () => {
 
 		const cmd = command('build');
 
-		const result = await runCommand(cmd, [], { out, captured });
+		const result = await runCommandInternal(cmd, [], { out, captured });
 
 		expect(result.exitCode).toBe(1);
 		expect(result.error?.code).toBe('NO_ACTION');
@@ -213,7 +213,7 @@ describe('runCommand() executor contract', () => {
 			out.setExitCode(3);
 		});
 
-		const result = await runCommand(cmd, [], {
+		const result = await runCommandInternal(cmd, [], {
 			plugins: [
 				plugin({
 					afterAction: ({ out }) => {
@@ -236,8 +236,8 @@ describe('runCommand() executor contract', () => {
 			out.log('ok');
 		});
 
-		const first = await runCommand(failingStatus, [], { out, captured });
-		const second = await runCommand(healthyStatus, [], { out, captured });
+		const first = await runCommandInternal(failingStatus, [], { out, captured });
+		const second = await runCommandInternal(healthyStatus, [], { out, captured });
 
 		expect(first.exitCode).toBe(5);
 		expect(second.exitCode).toBe(0);

@@ -46,8 +46,8 @@ import type {
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
-import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
-import { runCommand } from '#internals/core/testkit/index.ts';
+import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
+import { runCommandInternal } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
@@ -194,7 +194,7 @@ function eraseCommand<
 		subcommands,
 		_command: cmd as unknown as AnyCommandBuilder,
 		_execute(argv, options) {
-			return runCommand(cmd, argv, options);
+			return runCommandInternal(cmd, argv, options);
 		},
 	};
 }
@@ -471,10 +471,9 @@ type PackageJsonSettings = ResolvedManifestSettings;
 /**
  * Options for {@linkcode CLIBuilder.execute | .execute()} and {@linkcode CLIBuilder.run | .run()}.
  *
- * Derives from {@linkcode RunOptions} while excluding command-execution internals
- * (`meta`, `mergedSchema`) and adding the CLI-level runtime adapter.
+ * Derives from {@linkcode RunOptions}, adding the CLI-level runtime adapter.
  */
-interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {
+interface CLIRunOptions extends RunOptions {
 	/**
 	 * Runtime adapter providing platform-specific I/O, argv, env, etc.
 	 *
@@ -482,6 +481,21 @@ interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {
 	 * Ignored by `.execute()` (which is process-free by design).
 	 */
 	readonly adapter?: RuntimeAdapter;
+}
+
+/**
+ * CLI execution options extended with the fields `.run()` and dispatch
+ * populate themselves.
+ *
+ * @internal
+ */
+interface InternalCLIRunOptions extends CLIRunOptions {
+	/** Output channel override so activity renders to the terminal. */
+	readonly out?: Out;
+	/** Capture buffers override paired with `out`. */
+	readonly captured?: CapturedOutput;
+	/** CLI plugins registered on the builder. */
+	readonly plugins?: readonly CLIPlugin[];
 }
 
 // --- Render context
@@ -527,10 +541,24 @@ interface RenderContextOptions {
 }
 
 /**
+ * Seals {@linkcode RenderContext} against structural construction outside the
+ * framework.
+ *
+ * @internal
+ */
+const renderContextBrand: unique symbol = Symbol('dreamcli.renderContext');
+
+/**
  * The output decisions the framework will make for a given argv, resolved
  * before `.run()`.
+ *
+ * `RenderContext` is a framework-created, non-exhaustive value: obtain
+ * instances from {@linkcode resolveRenderContext} — do not implement it. New
+ * readonly members may be added in minor releases.
  */
 interface RenderContext {
+	/** Framework-construction seal. Obtain values from `resolveRenderContext()`; do not implement this interface. */
+	readonly [renderContextBrand]: never;
 	/** Whether a pre-separator `--json` puts the run in JSON mode. */
 	readonly jsonMode: boolean;
 	/** Active verbosity after pre-separator `--quiet`/`-q` detection. */
@@ -545,6 +573,29 @@ interface RenderContext {
 	readonly color: Colors;
 	/** Whether OSC 8 hyperlinks should be emitted (see `out.isHyperlinkSupported`). */
 	readonly isHyperlinkSupported: boolean;
+}
+
+/**
+ * Concrete {@linkcode RenderContext} carrying the resolved output decisions.
+ *
+ * @internal
+ */
+class ResolvedRenderContext implements RenderContext {
+	declare readonly [renderContextBrand]: never;
+
+	readonly jsonMode: boolean;
+	readonly verbosity: Verbosity;
+	readonly isTTY: boolean;
+	readonly color: Colors;
+	readonly isHyperlinkSupported: boolean;
+
+	constructor(out: Out) {
+		this.jsonMode = out.jsonMode;
+		this.verbosity = out.verbosity;
+		this.isTTY = out.isTTY;
+		this.color = out.color;
+		this.isHyperlinkSupported = out.isHyperlinkSupported;
+	}
 }
 
 /**
@@ -587,13 +638,7 @@ function resolveRenderContext(
 		...(options?.color !== undefined ? { color: options.color } : {}),
 		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
 	});
-	return {
-		jsonMode: out.jsonMode,
-		verbosity: out.verbosity,
-		isTTY: out.isTTY,
-		color: out.color,
-		isHyperlinkSupported: out.isHyperlinkSupported,
-	};
+	return new ResolvedRenderContext(out);
 }
 
 // --- Command run options builder
@@ -621,10 +666,10 @@ function hyperlinksOption(override: boolean | undefined): { hyperlinks?: boolean
  * @internal
  */
 function buildCommandRunOptions(
-	options: CLIRunOptions | undefined,
+	options: InternalCLIRunOptions | undefined,
 	helpOptions: HelpOptions,
 	meta?: CommandMeta,
-): RunOptions {
+): InternalRunOptions {
 	return {
 		help: helpOptions,
 		...(meta !== undefined ? { meta } : {}),
@@ -1259,6 +1304,16 @@ class CLIBuilder {
 	 * @returns Structured result with exit code and captured output.
 	 */
 	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
+		return this._execute(argv, options);
+	}
+
+	/**
+	 * Execution body shared by {@linkcode execute} and {@linkcode run}, accepting
+	 * the framework-populated output channel and plugin fields.
+	 *
+	 * @internal
+	 */
+	async _execute(argv: readonly string[], options?: InternalCLIRunOptions): Promise<RunResult> {
 		// -- Detect global --json / --quiet before building output ----------------
 		// Only occurrences before the `--` separator count; a literal positional
 		// (after `--`) must reach the command unchanged (#28).
@@ -1304,7 +1359,7 @@ class CLIBuilder {
 
 		// -- Shared options for command execution ----------------------------------
 		const flagSettings = options?.flags ?? this.schema.flagSettings;
-		const effectiveOptions: CLIRunOptions = {
+		const effectiveOptions: InternalCLIRunOptions = {
 			...options,
 			plugins: this.schema.plugins,
 			...(jsonMode ? { jsonMode } : {}),
@@ -1477,7 +1532,7 @@ class CLIBuilder {
 			runtimeHelpWidth !== undefined
 				? { ...options?.help, width: runtimeHelpWidth }
 				: options?.help;
-		const executeOptions: CLIRunOptions = {
+		const executeOptions: InternalCLIRunOptions = {
 			...options,
 			...preflight.inputs,
 			...(runtimeHelpOptions !== undefined ? { help: runtimeHelpOptions } : {}),
@@ -1492,7 +1547,7 @@ class CLIBuilder {
 				...hyperlinksOption(resolveHyperlinkOverride(adapter.env, adapter.argv)),
 			}),
 		};
-		const result = await effectiveBuilder.execute(preflight.filteredArgv, executeOptions);
+		const result = await effectiveBuilder._execute(preflight.filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {

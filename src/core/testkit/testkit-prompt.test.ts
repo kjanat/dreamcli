@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CLIRunOptions } from '#internals/core/cli/index.ts';
 import { cli } from '#internals/core/cli/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
@@ -658,9 +659,24 @@ describe('public surface exports', () => {
 			// @ts-expect-error — `mergedSchema` is internal to CLI dispatch
 			mergedSchema: command('check').schema,
 		} satisfies CLIRunOptions;
+		const invalidOut = {
+			// @ts-expect-error — `out` is internal to `.run()`'s live-channel wiring
+			out: createCaptureOutput()[0],
+		} satisfies CLIRunOptions;
+		const invalidCaptured = {
+			// @ts-expect-error — `captured` is internal to `.run()`'s live-channel wiring
+			captured: { stdout: [], stderr: [], activity: [] },
+		} satisfies CLIRunOptions;
+		const invalidPlugins = {
+			// @ts-expect-error — `plugins` is threaded from the builder, not CLI input
+			plugins: [],
+		} satisfies CLIRunOptions;
 
 		void invalidMeta;
 		void invalidMergedSchema;
+		void invalidOut;
+		void invalidCaptured;
+		void invalidPlugins;
 
 		expect(true).toBe(true);
 	});

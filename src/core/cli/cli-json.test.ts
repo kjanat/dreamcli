@@ -252,7 +252,7 @@ describe('CLIBuilder --json with root flags', () => {
 		// must honor `options.jsonMode` / root `--json`, not just the channel flag.
 		const [out, captured] = createCaptureOutput();
 		const app = cli('test').version('1.0.0').command(dataCommand());
-		const result = await app.execute(['data', '--help', '--json'], { out, captured });
+		const result = await app._execute(['data', '--help', '--json'], { out, captured });
 
 		expect(result.exitCode).toBe(0);
 		const doc: unknown = JSON.parse(captured.stdout.join(''));

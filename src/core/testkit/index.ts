@@ -19,7 +19,7 @@ import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts'
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { includesBeforeSeparator, stripBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { CommandMeta, Out, RunnableCommand } from '#internals/core/schema/command.ts';
-import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
+import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
 // RunOptions and RunResult are defined in schema/run.ts so the execution
 // contract is shared by schema, CLI dispatch, and testkit. Re-exported here
@@ -54,6 +54,20 @@ async function runCommand(
 	cmd: RunnableCommand,
 	argv: readonly string[],
 	options?: RunOptions,
+): Promise<RunResult> {
+	return runCommandInternal(cmd, argv, options);
+}
+
+/**
+ * Execution body shared by {@linkcode runCommand} and `ErasedCommand._execute`,
+ * accepting the framework-populated channel, capture, schema, and meta fields.
+ *
+ * @internal
+ */
+async function runCommandInternal(
+	cmd: RunnableCommand,
+	argv: readonly string[],
+	options?: InternalRunOptions,
 ): Promise<RunResult> {
 	// Root-flag layer mirroring `CLIBuilder.execute()`: `--json` is owned by the
 	// CLI root, not the command schema, so it would otherwise reach `parse()` as
@@ -99,7 +113,7 @@ async function runCommand(
 
 	// Thread the effective JSON mode into the executor so its error path renders
 	// structured JSON, matching dispatch where the planner sets `options.jsonMode`.
-	const effectiveOptions: RunOptions | undefined =
+	const effectiveOptions: InternalRunOptions | undefined =
 		options !== undefined
 			? { ...options, ...(jsonMode ? { jsonMode } : {}) }
 			: jsonMode
@@ -152,4 +166,4 @@ async function runCommand(
  */
 export type { RunOptions, RunResult };
 
-export { runCommand };
+export { runCommand, runCommandInternal };

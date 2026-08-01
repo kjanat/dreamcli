@@ -680,7 +680,7 @@ describe('options passthrough', () => {
 				throw new Error('kaboom');
 			}),
 		);
-		const result = await app.execute(['build'], { out, captured });
+		const result = await app._execute(['build'], { out, captured });
 
 		expect(result.exitCode).toBe(1);
 		expect(result.error?.code).toBe('UNEXPECTED_ERROR');

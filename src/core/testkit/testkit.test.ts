@@ -8,7 +8,7 @@ import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandMeta } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
-import { runCommand } from './index.ts';
+import { runCommand, runCommandInternal } from './index.ts';
 
 // --- Helpers
 
@@ -526,7 +526,7 @@ describe('runCommand', () => {
 				version: '2.0.0',
 				command: 'deploy',
 			};
-			await runCommand(cmd, [], { meta: explicit });
+			await runCommandInternal(cmd, [], { meta: explicit });
 
 			expect(handler).toHaveBeenCalledOnce();
 			const firstCall = handler.mock.calls[0];
