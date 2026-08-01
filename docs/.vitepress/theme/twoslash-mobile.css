@@ -60,6 +60,14 @@
 		box-shadow: none !important;
 	}
 
+	/* Backdrop overlay when bottom sheet is open */
+	.twoslash-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.3);
+		z-index: 9998;
+	}
+
 	/*
 	 * 4. Hidden state must hide the sheet and backdrop completely.
 	 *    A dismissed popper that keeps its inner visible leaves a stuck
@@ -84,14 +92,6 @@
 		max-height: none;
 		padding: 8px !important;
 		font-size: 0.8em;
-	}
-
-	/* Backdrop overlay when bottom sheet is open */
-	.twoslash-backdrop {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.3);
-		z-index: 9998;
 	}
 }
 
@@ -159,6 +159,14 @@
 		box-shadow: none !important;
 	}
 
+	/* Backdrop overlay when bottom sheet is open */
+	html.twoslash-touch .twoslash-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.3);
+		z-index: 9998;
+	}
+
 	/*
 	 * 4. Hidden state must hide the sheet and backdrop completely.
 	 *    A dismissed popper that keeps its inner visible leaves a stuck
@@ -183,14 +191,6 @@
 		max-height: none;
 		padding: 8px !important;
 		font-size: 0.8em;
-	}
-
-	/* Backdrop overlay when bottom sheet is open */
-	html.twoslash-touch .twoslash-backdrop {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.3);
-		z-index: 9998;
 	}
 }
 
