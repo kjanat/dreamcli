@@ -21,7 +21,7 @@ import type {
 	TableColumn,
 	TableOptions,
 } from '#internals/core/schema/activity.ts';
-import type { Out } from '#internals/core/schema/command.ts';
+import { type Out, outBrand } from '#internals/core/schema/command.ts';
 import {
 	CaptureProgressHandle,
 	CaptureSpinnerHandle,
@@ -222,6 +222,8 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
  * @internal
  */
 class OutputChannel implements Out {
+	declare readonly [outBrand]: never;
+
 	/** @internal Resolved configuration. */
 	readonly options: ResolvedOutputOptions;
 

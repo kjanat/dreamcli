@@ -39,7 +39,7 @@ describe('root help theming', () => {
 
 	it('styles header, sections, and commands under forced color', async () => {
 		const [out, captured] = createCaptureOutput({ color: true });
-		await app().execute(['--help'], { out, captured });
+		await app()._execute(['--help'], { out, captured });
 		const output = captured.stdout.join('');
 		expect(output).toContain(on.bold('mycli'));
 		expect(output).toContain(on.dim('v1.0.0'));
@@ -53,7 +53,7 @@ describe('root help theming', () => {
 	it('strip-equivalence: forced-color root help strips to the plain rendering', async () => {
 		const plain = (await app().execute(['--help'])).stdout.join('');
 		const [out, captured] = createCaptureOutput({ color: true });
-		await app().execute(['--help'], { out, captured });
+		await app()._execute(['--help'], { out, captured });
 		expect(stripAnsi(captured.stdout.join(''))).toBe(plain);
 	});
 
@@ -73,7 +73,7 @@ describe('root help theming', () => {
 				);
 		const plain = (await build().execute(['--help'])).stdout.join('');
 		const [out, captured] = createCaptureOutput({ color: true });
-		await build().execute(['--help'], { out, captured });
+		await build()._execute(['--help'], { out, captured });
 		const colored = captured.stdout.join('');
 		expect(stripAnsi(colored)).toBe(plain);
 		// The merged usage block: root line + continuation aligned under 'Usage: '.
@@ -87,7 +87,7 @@ describe('root help theming', () => {
 		const [out, captured] = createCaptureOutput({ color: true });
 		await app()
 			.help({ theme: (c) => ({ command: c.green }) })
-			.execute(['--help'], { out, captured });
+			._execute(['--help'], { out, captured });
 		const output = captured.stdout.join('');
 		expect(output).toContain(on.green('deploy'));
 		expect(output).not.toContain(on.cyan('deploy'));

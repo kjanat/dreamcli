@@ -12,7 +12,7 @@ import { arg } from '#internals/core/schema/arg.ts';
 import { command, group } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
-import { runCommand } from './index.ts';
+import { runCommand, runCommandInternal } from './index.ts';
 
 // === Helpers
 
@@ -73,7 +73,7 @@ describe('runCommand', () => {
 				},
 			};
 
-			const result = await runCommand(cmd, ['--verbose'], { mergedSchema });
+			const result = await runCommandInternal(cmd, ['--verbose'], { mergedSchema });
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toEqual(['verbose=true\n']);
 		});
@@ -93,7 +93,7 @@ describe('runCommand', () => {
 				},
 			};
 
-			const result = await runCommand(cmd, [], { mergedSchema });
+			const result = await runCommandInternal(cmd, [], { mergedSchema });
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toEqual(['verbose=false\n']);
 		});
@@ -116,7 +116,7 @@ describe('runCommand', () => {
 				},
 			};
 
-			const result = await runCommand(cmd, ['--steps', '5', '--verbose'], { mergedSchema });
+			const result = await runCommandInternal(cmd, ['--steps', '5', '--verbose'], { mergedSchema });
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toEqual(['steps=5 verbose=true\n']);
 		});
@@ -135,7 +135,7 @@ describe('runCommand', () => {
 				},
 			};
 
-			const result = await runCommand(cmd, ['--help'], { mergedSchema });
+			const result = await runCommandInternal(cmd, ['--help'], { mergedSchema });
 			expect(result.exitCode).toBe(0);
 			const output = result.stdout.join('');
 			expect(output).toContain('--verbose');

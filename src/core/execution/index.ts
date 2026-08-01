@@ -28,7 +28,7 @@ import type {
 	Out,
 	RunnableCommand,
 } from '#internals/core/schema/command.ts';
-import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
+import type { InternalRunOptions, RunResult } from '#internals/core/schema/run.ts';
 
 /**
  * Explicit executor input for a single command invocation.
@@ -46,7 +46,7 @@ interface CommandExecutionRequest {
 	/** Runtime metadata (binary name, version) propagated to the handler. */
 	readonly meta: CommandMeta;
 	/** Optional overrides for env, config, prompter, plugins, and JSON mode. */
-	readonly options?: RunOptions;
+	readonly options?: InternalRunOptions;
 }
 
 /**

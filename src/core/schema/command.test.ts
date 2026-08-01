@@ -1,6 +1,6 @@
-import { createColors } from 'ansispeck';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { arg } from './arg.ts';
 import type {
 	ActionParams,
@@ -8,7 +8,6 @@ import type {
 	CommandExample,
 	CommandSchema,
 	ExampleMeta,
-	Out,
 } from './command.ts';
 import { CommandBuilder, command, group, resolveExampleCommand } from './command.ts';
 import { flag } from './flag.ts';
@@ -343,24 +342,7 @@ describe('full command composition', () => {
 			.flag('loud', flag.boolean())
 			.action(handler);
 
-		const mockOut: Out = {
-			log: vi.fn(),
-			info: vi.fn(),
-			status: vi.fn(),
-			warn: vi.fn(),
-			error: vi.fn(),
-			setExitCode: vi.fn(),
-			json: vi.fn(),
-			table: vi.fn(),
-			spinner: vi.fn(),
-			progress: vi.fn(),
-			stopActive: vi.fn(),
-			jsonMode: false,
-			verbosity: 'normal',
-			isTTY: false,
-			color: createColors(false),
-			isHyperlinkSupported: false,
-		};
+		const [mockOut] = createCaptureOutput();
 
 		// Simulate what the runtime will do
 		const params: ActionParams<

@@ -122,22 +122,6 @@ export interface RunOptions {
 	readonly isTTY?: boolean;
 
 	/**
-	 * Output channel override used by live CLI execution.
-	 *
-	 * @internal — `CLIBuilder.run()` passes a real output channel so activity renders to
-	 * the terminal instead of being captured.
-	 */
-	readonly out?: Out;
-
-	/**
-	 * Capture buffers override paired with `out`.
-	 *
-	 * @internal — when omitted, `runCommand()` creates empty buffers for the
-	 * returned {@linkcode RunResult} while writing directly to the provided `out`.
-	 */
-	readonly captured?: CapturedOutput;
-
-	/**
 	 * Help formatting options (width, binName).
 	 * Used when `--help` is detected.
 	 */
@@ -153,6 +137,31 @@ export interface RunOptions {
 	 * @defaultValue `{ caseParity: true }`
 	 */
 	readonly flags?: ParseOptions;
+}
+
+/**
+ * Execution options threaded between the CLI dispatch layer, the shared
+ * executor, and the testkit. Extends the public {@linkcode RunOptions} with
+ * fields the framework populates itself.
+ *
+ * @internal
+ */
+export interface InternalRunOptions extends RunOptions {
+	/**
+	 * Output channel override used by live CLI execution.
+	 *
+	 * `CLIBuilder.run()` passes a real output channel so activity renders to
+	 * the terminal instead of being captured.
+	 */
+	readonly out?: Out;
+
+	/**
+	 * Capture buffers override paired with `out`.
+	 *
+	 * When omitted, `runCommand()` creates empty buffers for the returned
+	 * {@linkcode RunResult} while writing directly to the provided `out`.
+	 */
+	readonly captured?: CapturedOutput;
 
 	/**
 	 * Command schema with propagated flags merged in.
@@ -160,8 +169,6 @@ export interface RunOptions {
 	 * When provided, used for parsing and resolution instead of `cmd.schema`.
 	 * Set by the CLI dispatch layer after collecting propagated flags from
 	 * the command ancestry path.
-	 *
-	 * @internal — set by dispatch layer, not for public use.
 	 */
 	readonly mergedSchema?: CommandSchema;
 
@@ -171,16 +178,10 @@ export interface RunOptions {
 	 * When provided (by CLI dispatch layer), handlers receive this as `meta`.
 	 * When absent (standalone `runCommand()`), a minimal meta is constructed
 	 * from the command's own schema.
-	 *
-	 * @internal — populated by CLI dispatch, not for public use.
 	 */
 	readonly meta?: CommandMeta;
 
-	/**
-	 * CLI plugins registered on the parent `CLIBuilder`.
-	 *
-	 * @internal — threaded through from CLI dispatch.
-	 */
+	/** CLI plugins registered on the parent `CLIBuilder`. */
 	readonly plugins?: readonly CLIPlugin[];
 }
 
