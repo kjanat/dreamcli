@@ -35,7 +35,7 @@ The intent is simple:
 
 - `jsonMode` reserves stdout for `json()` and JSON-form table output
 - `isTTY` enables decorative activity rendering only when JSON mode is off
-- `verbosity` affects informational text, not warnings, errors, or structured output
+- `verbosity` suppresses informational text and activity, not warnings, errors, or structured output
 
 ## Activity Policy
 
@@ -66,7 +66,8 @@ Current cleanup facts:
 The frozen facts in `outputContract` are:
 
 - JSON mode reserves stdout for structured data
-- quiet mode suppresses `info()` only
+- quiet mode suppresses `info()`, `status()`, and rendered spinner/progress activity
+- capture records logical activity lifecycle events regardless of verbosity; quiet governs rendered bytes
 - non-capture activity uses stderr
 - TTY activity requires both `isTTY` and `!jsonMode`
 - spinner and progress cleanup semantics are explicit and distinct

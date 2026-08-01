@@ -10,6 +10,7 @@
  */
 import type { Colors } from 'ansispeck';
 import { CLIError } from '#internals/core/errors/index.ts';
+import type { Verbosity } from '#internals/core/output/contracts.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
@@ -188,6 +189,18 @@ interface Out {
 	readonly jsonMode: boolean;
 
 	/**
+	 * Active output verbosity for this command execution.
+	 *
+	 * Root `--quiet`/`-q` resolves to `'quiet'`. Most handlers should emit
+	 * informational output through {@linkcode Out.info | info()},
+	 * {@linkcode Out.status | status()}, {@linkcode Out.spinner | spinner()},
+	 * or {@linkcode Out.progress | progress()} and let the channel suppress it
+	 * automatically. Read this property only when custom rendering or expensive
+	 * optional work genuinely depends on the active verbosity.
+	 */
+	readonly verbosity: Verbosity;
+
+	/**
 	 * Whether stdout is connected to a TTY (terminal).
 	 *
 	 * Handlers can check this to decide whether to emit decorative output
@@ -262,8 +275,8 @@ interface Out {
 	/**
 	 * Create a spinner for indeterminate progress feedback.
 	 *
-	 * Returns a handle for lifecycle control. In non-TTY/jsonMode,
-	 * returns a no-op handle (or static fallback if configured).
+	 * Returns a no-op handle in quiet or JSON mode. Otherwise, non-TTY output
+	 * uses a no-op handle or the configured static fallback.
 	 *
 	 * @param text    - Initial spinner text.
 	 * @param options - Fallback strategy for non-TTY environments.
@@ -274,7 +287,7 @@ interface Out {
 	/**
 	 * Create a progress bar for measured work.
 	 *
-	 * Returns a handle for updating progress. Pass `total` for
+	 * Returns a no-op handle in quiet or JSON mode. Otherwise, pass `total` for
 	 * determinate mode (percentage bar); omit for indeterminate (pulsing).
 	 *
 	 * @param options - Progress configuration (total, label, fallback).

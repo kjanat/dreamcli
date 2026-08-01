@@ -60,7 +60,8 @@ command('gen').action(({ out }) => {
 ```
 
 Every CLI accepts a global `--quiet`/`-q` flag that sets quiet verbosity,
-suppressing `info` and `status` while `log`, `warn`, and `error` still emit.
+suppressing `info`, `status`, spinners, and progress bars while `log`, `warn`,
+and `error` still emit.
 Like `--json`, it is a root-level flag: it is stripped before dispatch (so
 command schemas never see it) and only counts before the `--` separator; a
 literal `-q` after `--` reaches the command as a positional.
@@ -110,7 +111,7 @@ spinner.succeed('Done');
 ```
 
 Spinners auto-disable when stdout is not a TTY (CI, piped output).
-In `--json` mode, spinners are suppressed entirely.
+In quiet and `--json` modes, spinners are suppressed entirely.
 
 ## Progress Bars
 
@@ -141,6 +142,7 @@ The output channel automatically adjusts behavior:
 | -------- | ---------------------------------------------------- |
 | TTY      | Pretty formatting, spinners animate, colors          |
 | Piped    | Minimal stable output, spinners suppressed           |
+| `--quiet` | Informational text and activity suppressed           |
 | `--json` | Structured JSON to stdout, everything else to stderr |
 
 One code path, correct output everywhere.
@@ -148,7 +150,7 @@ One code path, correct output everywhere.
 ## Pre-run Render Context
 
 Inside a handler, `out` answers every rendering question: `out.jsonMode`,
-`out.isTTY`, `out.color`, `out.isHyperlinkSupported`. Content built **before**
+`out.verbosity`, `out.isTTY`, `out.color`, `out.isHyperlinkSupported`. Content built **before**
 `run()` — a banner, hand-rendered help — has no `out`, and re-deriving the
 answers from raw argv goes wrong (`argv.includes('--json')` misreads a
 post-`--` literal like `mycli -- --json`).
@@ -167,7 +169,7 @@ const ctx = resolveRenderContext(process.argv.slice(2), {
 // Identity formatters when color is off — style unconditionally
 const banner = ctx.color.bold('mycli');
 // `ctx.jsonMode` used pre-separator-aware --json detection
-if (!ctx.jsonMode) console.error(banner);
+if (!ctx.jsonMode && ctx.verbosity !== 'quiet') console.error(banner);
 ```
 
 The returned `color` is the same gated palette the channel will expose as

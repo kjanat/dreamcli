@@ -86,6 +86,20 @@ describe('output contracts', () => {
 			});
 		});
 
+		it('suppresses all spinner and progress activity in quiet mode', () => {
+			const quietPolicy = { ...basePolicy, isTTY: true, verbosity: 'quiet' as const };
+			expect(resolveSpinnerPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+			expect(resolveProgressPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+		});
+
 		it('uses done cleanup for progress handles', () => {
 			expect(resolveProgressPolicy({ ...basePolicy, isTTY: true }, 'silent')).toEqual({
 				mode: 'tty',
@@ -118,6 +132,7 @@ describe('output contracts', () => {
 			expect(outputContract).toEqual({
 				jsonReservesStdoutForStructuredData: true,
 				quietSuppressesInfo: true,
+				quietSuppressesRenderedActivity: true,
 				activityUsesStderrOutsideCapture: true,
 				ttyActivityRequiresTTYAndNonJson: true,
 				spinnerCleanupUsesStop: true,

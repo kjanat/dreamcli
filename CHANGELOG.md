@@ -7,6 +7,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Public output verbosity state** — action handlers can read `out.verbosity`,
+  while `resolveRenderContext()` now exposes the same `verbosity` decision for
+  custom content built before `.run()` (including `--`-aware `--quiet`/`-q`
+  detection). `verbosity` is a required member of `Out`, so a hand-rolled
+  `Out` object literal stops compiling until it declares one. Hand-rolling
+  `Out` is unsupported; take a real channel from the testkit and spy on it
+  instead:
+
+  ```ts
+  const [out] = createCaptureOutput();
+  vi.spyOn(out, 'info');
+  ```
+
+  Do not spread a channel (`{ ...out, info: vi.fn() }`) — its methods are
+  non-enumerable bound copies, so the spread result has none of them.
+
+### Fixed
+
+- **Quiet mode leaked spinner and progress output** — activity handles now
+  resolve to no-ops under quiet verbosity, including interactive TTYs and
+  explicit static fallbacks. Consumers can route informational rows through
+  `out.info()` and rely on DreamCLI to suppress the complete presentation
+  layer without reading private output policy state.
+
 ## [3.0.1] - 2026-07-21
 
 No library code changed; this release ships agent-facing material that was

@@ -356,6 +356,7 @@ describe('full command composition', () => {
 			progress: vi.fn(),
 			stopActive: vi.fn(),
 			jsonMode: false,
+			verbosity: 'normal',
 			isTTY: false,
 			color: createColors(false),
 			isHyperlinkSupported: false,
@@ -587,13 +588,14 @@ describe('type inference', () => {
 		expectTypeOf<DefaultParams['ctx']>().toEqualTypeOf<Readonly<Record<string, never>>>();
 	});
 
-	it('out has log/info/warn/error methods', () => {
+	it('out exposes output methods and resolved verbosity', () => {
 		command('test').action(({ out }) => {
 			type Output = typeof out;
 			expectTypeOf<Output['log']>().toEqualTypeOf<(message: string) => void>();
 			expectTypeOf<Output['info']>().toEqualTypeOf<(message: string) => void>();
 			expectTypeOf<Output['warn']>().toEqualTypeOf<(message: string) => void>();
 			expectTypeOf<Output['error']>().toEqualTypeOf<(message: string) => void>();
+			expectTypeOf<Output['verbosity']>().toEqualTypeOf<'normal' | 'quiet'>();
 		});
 	});
 

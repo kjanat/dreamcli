@@ -169,7 +169,13 @@ describe('verbosity', () => {
 	it('defaults to normal verbosity', () => {
 		const [out, captured] = createCaptureOutput();
 		out.info('visible');
+		expect(out.verbosity).toBe('normal');
 		expect(captured.stdout).toEqual(['visible\n']);
+	});
+
+	it('exposes quiet verbosity on the public output channel', () => {
+		const out = createOutput({ verbosity: 'quiet' });
+		expect(out.verbosity).toBe('quiet');
 	});
 });
 

@@ -505,6 +505,13 @@ interface RenderContextOptions {
 	 */
 	readonly jsonMode?: boolean;
 	/**
+	 * Output verbosity override when argv does not contain root `--quiet`/`-q`.
+	 *
+	 * @defaultValue detected from a pre-separator `--quiet`/`-q` in `argv`,
+	 *   otherwise `'normal'`
+	 */
+	readonly verbosity?: Verbosity;
+	/**
 	 * Explicitly enable or disable colors, winning over the auto-gate.
 	 *
 	 * @defaultValue auto — `isTTY && !jsonMode` and environment support
@@ -526,6 +533,8 @@ interface RenderContextOptions {
 interface RenderContext {
 	/** Whether a pre-separator `--json` puts the run in JSON mode. */
 	readonly jsonMode: boolean;
+	/** Active verbosity after pre-separator `--quiet`/`-q` detection. */
+	readonly verbosity: Verbosity;
 	/** The TTY status the output channel will carry. */
 	readonly isTTY: boolean;
 	/**
@@ -568,14 +577,19 @@ function resolveRenderContext(
 	options?: RenderContextOptions,
 ): RenderContext {
 	const jsonMode = includesBeforeSeparator(argv, '--json') || options?.jsonMode === true;
+	const hasQuietFlag =
+		includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
+	const verbosity = hasQuietFlag ? 'quiet' : (options?.verbosity ?? 'normal');
 	const out = createOutput({
 		jsonMode,
 		isTTY: options?.isTTY ?? false,
+		verbosity,
 		...(options?.color !== undefined ? { color: options.color } : {}),
 		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
 	});
 	return {
 		jsonMode: out.jsonMode,
+		verbosity: out.verbosity,
 		isTTY: out.isTTY,
 		color: out.color,
 		isHyperlinkSupported: out.isHyperlinkSupported,

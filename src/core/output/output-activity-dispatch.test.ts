@@ -20,7 +20,11 @@ import { createCaptureOutput, OutputChannel } from './index.ts';
 
 // --- Test helpers ---
 
-function makeChannel(opts: { jsonMode?: boolean; isTTY?: boolean }): {
+function makeChannel(opts: {
+	jsonMode?: boolean;
+	isTTY?: boolean;
+	verbosity?: 'normal' | 'quiet';
+}): {
 	channel: OutputChannel;
 	stdout: string[];
 	stderr: string[];
@@ -31,7 +35,7 @@ function makeChannel(opts: { jsonMode?: boolean; isTTY?: boolean }): {
 		stdout: (s) => stdout.push(s),
 		stderr: (s) => stderr.push(s),
 		isTTY: opts.isTTY ?? false,
-		verbosity: 'normal',
+		verbosity: opts.verbosity ?? 'normal',
 		jsonMode: opts.jsonMode ?? false,
 		color: false,
 		isHyperlinkSupported: false,
@@ -90,6 +94,13 @@ describe('OutputChannel.spinner() — mode dispatch', () => {
 		// jsonMode takes precedence — no output
 		expect(stdout).toEqual([]);
 	});
+
+	it('quiet mode → noop even when TTY', () => {
+		const { channel, stderr } = makeChannel({ isTTY: true, verbosity: 'quiet' });
+		const handle = channel.spinner('Loading', { fallback: 'static' });
+		handle.succeed('done');
+		expect(stderr).toEqual([]);
+	});
 });
 
 // === OutputChannel — mode dispatch for progress()
@@ -126,6 +137,13 @@ describe('OutputChannel.progress() — mode dispatch', () => {
 		const all = stderr.join('');
 		expect(all).toContain('\x1b[?25l');
 		expect(all).toContain('\x1b[?25h');
+	});
+
+	it('quiet mode → noop even when TTY', () => {
+		const { channel, stderr } = makeChannel({ isTTY: true, verbosity: 'quiet' });
+		const handle = channel.progress({ total: 10, label: 'Files', fallback: 'static' });
+		handle.done('done');
+		expect(stderr).toEqual([]);
 	});
 });
 

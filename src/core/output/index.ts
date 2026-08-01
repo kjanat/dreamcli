@@ -231,6 +231,9 @@ class OutputChannel implements Out {
 	/** Whether JSON output mode is active. */
 	readonly jsonMode: boolean;
 
+	/** Active verbosity level for informational output and activity rendering. */
+	readonly verbosity: Verbosity;
+
 	/**
 	 * Whether stdout is connected to a TTY.
 	 *
@@ -260,6 +263,7 @@ class OutputChannel implements Out {
 		this.options = options;
 		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
+		this.verbosity = this.policy.verbosity;
 		this.isTTY = options.isTTY;
 		this.color = createColors(options.color);
 		this.isHyperlinkSupported = options.isHyperlinkSupported;
@@ -398,7 +402,7 @@ class OutputChannel implements Out {
 	 * Create a spinner handle.
 	 *
 	 * Mode dispatch:
-	 * - `jsonMode` → noop (structured output only, spinners suppressed)
+	 * - quiet or `jsonMode` → noop (informational activity suppressed)
 	 * - `isTTY` → animated TTY spinner (braille frames, ANSI overwrite)
 	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
 	 * - `!isTTY && fallback: 'silent'` (default) → noop
@@ -429,7 +433,7 @@ class OutputChannel implements Out {
 	 * Create a progress handle.
 	 *
 	 * Mode dispatch:
-	 * - `jsonMode` → noop (structured output only, progress suppressed)
+	 * - quiet or `jsonMode` → noop (informational activity suppressed)
 	 * - `isTTY` → animated TTY progress bar (determinate or indeterminate)
 	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
 	 * - `!isTTY && fallback: 'silent'` (default) → noop

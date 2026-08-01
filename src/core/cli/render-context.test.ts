@@ -22,6 +22,27 @@ describe('resolveRenderContext — jsonMode', () => {
 	});
 });
 
+// === Verbosity detection
+
+describe('resolveRenderContext — verbosity', () => {
+	it('defaults to normal verbosity', () => {
+		expect(resolveRenderContext([]).verbosity).toBe('normal');
+	});
+
+	it('detects pre-separator --quiet and -q', () => {
+		expect(resolveRenderContext(['deploy', '--quiet']).verbosity).toBe('quiet');
+		expect(resolveRenderContext(['-q', 'deploy']).verbosity).toBe('quiet');
+	});
+
+	it('ignores a post-separator --quiet literal', () => {
+		expect(resolveRenderContext(['deploy', '--', '--quiet']).verbosity).toBe('normal');
+	});
+
+	it('honors an explicit verbosity override when argv is not quiet', () => {
+		expect(resolveRenderContext([], { verbosity: 'quiet' }).verbosity).toBe('quiet');
+	});
+});
+
 // === TTY and color gate
 
 describe('resolveRenderContext — color', () => {
