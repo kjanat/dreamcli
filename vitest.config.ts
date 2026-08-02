@@ -7,8 +7,11 @@ export default defineConfig({
 		// and CI runners (GitHub Actions) advertise color even without a TTY.
 		// Pin it off so auto-gated color is deterministic everywhere; tests
 		// that exercise themed output opt in explicitly via `createColors(true)`
-		// or `color: true`, which bypass detection.
+		// or `color: true`, which bypass detection. FORCE_COLOR outranks
+		// NO_COLOR and any non-empty value counts as on, so the setup file
+		// deletes inherited FORCE_* variables instead of overwriting them.
 		env: { NO_COLOR: '1' },
+		setupFiles: ['./vitest.setup.ts'],
 		include: ['src/**/*.test.ts', 'docs/.vitepress/data/*.test.ts'],
 		coverage: {
 			include: ['src/**/*.ts', 'docs/.vitepress/data/*.ts'],
