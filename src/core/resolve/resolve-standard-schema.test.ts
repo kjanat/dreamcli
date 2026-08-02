@@ -169,6 +169,49 @@ describe('Standard Schema v1 interop — args', () => {
 	});
 });
 
+// === Names that an Object.prototype member also carries
+
+describe('Standard Schema v1 interop — Object.prototype member names', () => {
+	it('skips a validator on an unresolved flag named after a prototype member', async () => {
+		const cmd = command('run')
+			.flag('toString', flag.custom(asyncName))
+			.flag('needed', flag.string().required())
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('REQUIRED_FLAG');
+		expect(result.error?.message).toBe('Missing required flag --needed');
+	});
+
+	it('skips a validator on an unresolved arg named after a prototype member', async () => {
+		const cmd = command('run')
+			.arg('needed', arg.string())
+			.arg('valueOf', arg.custom(asyncName).optional())
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('REQUIRED_ARG');
+		expect(result.error?.message).toBe('Missing required argument <needed>');
+	});
+
+	it('still validates such a flag once a value resolves', async () => {
+		const cmd = command('run')
+			.flag('toString', flag.custom(asyncName))
+			.action(({ out }) => out.log('ok'));
+
+		const bad = await runCommand(cmd, ['--toString', 'no']);
+		expect(bad.exitCode).toBe(2);
+		expect(bad.error?.message).toContain('--toString failed validation');
+
+		const ok = await runCommand(cmd, ['--toString', 'yes']);
+		expect(ok.exitCode).toBe(0);
+	});
+});
+
 // === Type inference
 
 describe('Standard Schema v1 interop — types', () => {

@@ -73,6 +73,21 @@ async function validateValue(
 }
 
 /**
+ * Read one resolved value by name.
+ *
+ * `resolve()` runs this pass even after a resolver threw, so the record may be
+ * missing a declared name, and a name such as `toString` reads back the
+ * inherited `Object.prototype` method from a bare lookup.
+ *
+ * @param values - Resolved flag or arg record.
+ * @param name - Flag or arg name to read.
+ * @returns The resolved value, or `undefined` when the record does not carry it.
+ */
+function resolvedValue(values: Readonly<Record<string, unknown>>, name: string): unknown {
+	return Object.hasOwn(values, name) ? values[name] : undefined;
+}
+
+/**
  * Validate resolved flag and arg values against any attached Standard Schema
  * validators. Values without a validator, or resolved to `undefined`, pass
  * through untouched.
@@ -91,7 +106,7 @@ async function applyStandardValidators(
 	const errors: ValidationError[] = [];
 	const nextFlags: Record<string, unknown> = { ...flags };
 	for (const [name, flagSchema] of Object.entries(schema.flags)) {
-		const value = flags[name];
+		const value = resolvedValue(flags, name);
 		if (value === undefined) {
 			continue;
 		}
@@ -127,7 +142,7 @@ async function applyStandardValidators(
 	const nextArgs: Record<string, unknown> = { ...args };
 	for (const entry of schema.args) {
 		const validator = entry.schema.standard;
-		const value = args[entry.name];
+		const value = resolvedValue(args, entry.name);
 		if (validator === undefined || value === undefined) {
 			continue;
 		}

@@ -90,9 +90,11 @@ that set once a version is configured. Because a version can arrive after the
 commands are registered, `.version()` and `.manifest(data)` re-check every
 registered command too. A version that `.manifest()` reads off the filesystem
 lands later still, so `.run()` runs the guard once discovery supplies it and
-fails startup with the same error on stderr and the same exit code. Rename the
-flag, use `out.status()` for status output that root `--quiet` suppresses, or
-release the built-in with `.builtins()`.
+fails startup with the same error and the same exit code, routed the way every
+other startup failure is: message and suggestion on stderr, or the serialized
+error on stdout under `--json`. Rename the flag, use `out.status()` for status
+output that root `--quiet` suppresses, or release the built-in with
+`.builtins()`.
 
 | Method   | Stream                      | Suppressed by quiet |
 | -------- | --------------------------- | ------------------- |
