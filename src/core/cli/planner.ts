@@ -21,16 +21,19 @@ import {
 	flagExpectsValue,
 	includesBeforeSeparator,
 } from '#internals/core/parse/index.ts';
-import type { CommandMeta, CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
+import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
+import type { CompiledCLI, CompiledCommand } from './compiled.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 
 /**
- * Structural subset of CLISchema used by the planner.
+ * Descriptive subset of CLISchema used by the planner.
  *
  * Decouples invocation planning from the full CLIBuilder surface so the
  * planner can be tested and reasoned about without constructing a real CLI.
+ * The executable half of a program reaches the planner separately, as the
+ * {@linkcode CompiledCLI} passed alongside this schema.
  * @internal
  */
 interface PlannerSchemaLike {
@@ -38,10 +41,6 @@ interface PlannerSchemaLike {
 	readonly name: string;
 	/** Declared version string; `undefined` disables `--version` interception. */
 	readonly version: string | undefined;
-	/** Registered top-level commands available for dispatch. */
-	readonly commands: readonly ErasedCommand[];
-	/** Fallback command when no subcommand token matches. */
-	readonly defaultCommand: ErasedCommand | undefined;
 	/** Whether the default command is also exposed as a named top-level route. */
 	readonly defaultCommandRouted: boolean;
 	/**
@@ -53,8 +52,6 @@ interface PlannerSchemaLike {
 		| undefined;
 	/** Flag-parsing behavior settings (case parity) applied to flag lookups. */
 	readonly flagSettings?: ParseOptions | undefined;
-	/** Plugins forwarded into every matched execution plan. */
-	readonly plugins: readonly CLIPlugin[];
 }
 
 /** Root-level help interception outcome. */
@@ -122,8 +119,8 @@ type DispatchOutcome =
  * propagated ancestor flags are collected and child definitions shadow them.
  */
 interface CommandExecutionPlan {
-	/** Type-erased command instance that owns the handler. */
-	readonly command: ErasedCommand;
+	/** Compiled command node that owns the handler and execution steps. */
+	readonly command: CompiledCommand;
 	/** Command schema with propagated ancestor flags merged in. */
 	readonly mergedSchema: CommandSchema;
 	/** Remaining argv tokens after command dispatch consumed the command path. */
@@ -139,7 +136,7 @@ interface CommandExecutionPlan {
 }
 
 interface BuildCommandExecutionPlanOptions {
-	readonly command: ErasedCommand;
+	readonly command: CompiledCommand;
 	readonly commandPath: readonly CommandSchema[];
 	readonly argv: readonly string[];
 	readonly meta: CommandMeta;
@@ -158,7 +155,7 @@ interface NeedsSubcommandOutcome {
 	/** Discriminant — group command matched but no leaf subcommand was selected. */
 	readonly kind: 'needs-subcommand';
 	/** The group command that was matched. */
-	readonly command: ErasedCommand;
+	readonly command: CompiledCommand;
 	/** Full ancestor path from root to this group, used for propagated flag collection. */
 	readonly commandPath: readonly CommandSchema[];
 	/** Help options scoped to the group command's bin path. */
@@ -172,6 +169,8 @@ type InvocationPlan = DispatchOutcome | NeedsSubcommandOutcome;
 interface PlanInvocationOptions {
 	/** CLI schema subset driving dispatch decisions. */
 	readonly schema: PlannerSchemaLike;
+	/** Compiled execution graph the dispatch walk resolves commands from. */
+	readonly compiled: CompiledCLI;
 	/** Raw argv tokens (typically `adapter.argv.slice(2)`). */
 	readonly argv: readonly string[];
 	/** Root-level help configuration for rendering. */
@@ -195,11 +194,11 @@ function buildMeta(
 
 /** Build a name+alias lookup map for top-level commands. @internal */
 function buildRootCommandMap(
-	commands: readonly ErasedCommand[],
-): ReadonlyMap<string, ErasedCommand> {
-	const rootCommands = new Map<string, ErasedCommand>();
+	commands: readonly CompiledCommand[],
+): ReadonlyMap<string, CompiledCommand> {
+	const rootCommands = new Map<string, CompiledCommand>();
 
-	const addRoute = (route: string, command: ErasedCommand): void => {
+	const addRoute = (route: string, command: CompiledCommand): void => {
 		const existing = rootCommands.get(route);
 		if (existing !== undefined) {
 			throw new CLIError(
@@ -230,7 +229,7 @@ function buildRootCommandMap(
  * dispatch semantics and the future planner contract.
  */
 function mergeCommandSchema(
-	command: ErasedCommand,
+	command: CompiledCommand,
 	commandPath: readonly CommandSchema[],
 ): CommandSchema {
 	const propagated = collectPropagatedFlags(commandPath);
@@ -260,12 +259,10 @@ function buildCommandExecutionPlan(
 }
 
 function buildPlannerMatchOutcome(
-	schema: PlannerSchemaLike,
-	command: ErasedCommand,
+	options: PlanInvocationOptions,
+	command: CompiledCommand,
 	commandPath: readonly CommandSchema[],
 	argv: readonly string[],
-	help: HelpOptions,
-	output: OutputPolicy,
 ): PlannerMatchOutcome {
 	return {
 		kind: 'match',
@@ -273,15 +270,15 @@ function buildPlannerMatchOutcome(
 			command,
 			commandPath,
 			argv,
-			meta: buildMeta(schema, help, command.schema.name),
-			plugins: schema.plugins,
-			output,
-			help,
+			meta: buildMeta(options.schema, options.help, command.schema.name),
+			plugins: options.compiled.plugins,
+			output: options.output,
+			help: options.help,
 		}),
 	};
 }
 
-function canDelegateUnknownRootToDefault(command: ErasedCommand, input: string): boolean {
+function canDelegateUnknownRootToDefault(command: CompiledCommand, input: string): boolean {
 	return input === '' || command.schema.args.length > 0;
 }
 
@@ -469,7 +466,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		: head;
 	const filteredArgv = separatorIndex === -1 ? filteredHead : [...filteredHead, ...tail];
 
-	const defaultCommand = options.schema.defaultCommand;
+	const defaultCommand = options.compiled.defaultCommand;
 	// At the root, a default command's flags govern value-flag arity so a
 	// space-separated value (`mycli --region eu`) is not misread as a command
 	// name — both for root interception below and dispatch (see #25).
@@ -513,7 +510,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	// Bare `help` token: a root help request (or `<command> --help` forwarding)
 	// when it is the first command token and no real `help` command is registered.
 	if (headScan.firstCommandToken === 'help') {
-		const hasRealHelpCommand = options.schema.commands.some(
+		const hasRealHelpCommand = options.compiled.commands.some(
 			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
 		);
 		if (!hasRealHelpCommand) {
@@ -534,7 +531,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 
 	// A CLI with no commands and no default is misconfigured: report NO_ACTION
 	// even for a bare invocation, rather than masking it with empty root help.
-	if (options.schema.commands.length === 0 && defaultCommand === undefined) {
+	if (options.compiled.commands.length === 0 && defaultCommand === undefined) {
 		return {
 			kind: 'dispatch-error',
 			error: new CLIError('No commands registered', {
@@ -557,8 +554,8 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	// root route map here rather than duplicating it into `commands`.
 	const rootCommands =
 		defaultCommand !== undefined && options.schema.defaultCommandRouted
-			? [...options.schema.commands, defaultCommand]
-			: options.schema.commands;
+			? [...options.compiled.commands, defaultCommand]
+			: options.compiled.commands;
 
 	const result = dispatch(
 		filteredArgv,
@@ -578,12 +575,10 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 					canDelegateUnknownRootToDefault(defaultCommand, result.input)
 				) {
 					return buildPlannerMatchOutcome(
-						options.schema,
+						options,
 						defaultCommand,
 						[defaultCommand.schema],
 						filteredArgv,
-						options.help,
-						options.output,
 					);
 				}
 
@@ -654,12 +649,10 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 
 		case 'match':
 			return buildPlannerMatchOutcome(
-				options.schema,
+				options,
 				result.command,
 				result.commandPath,
 				result.remainingArgv,
-				options.help,
-				options.output,
 			);
 	}
 }

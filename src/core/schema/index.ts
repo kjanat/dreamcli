@@ -51,7 +51,6 @@ export type {
 	CommandSchema,
 	DeriveHandler,
 	DeriveParams,
-	ErasedCommand,
 	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
 	ExampleCommand,

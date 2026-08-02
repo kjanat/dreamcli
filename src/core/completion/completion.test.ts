@@ -4,10 +4,10 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { createCLISchema } from '#internals/core/cli/index.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type {
-	ActivityEvent,
 	CommandSchema,
 	FlagSchema,
 	FlagSchemaOverrides,
@@ -45,23 +45,6 @@ function commandSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	});
 }
 
-/** Wrap CommandSchema into an ErasedCommand for CLISchema.commands. */
-function erased(schema: CommandSchema) {
-	return {
-		schema,
-		subcommands: new Map(),
-		_execute() {
-			return Promise.resolve({
-				stdout: [] as string[],
-				stderr: [] as string[],
-				activity: [] as ActivityEvent[],
-				exitCode: 0,
-				error: undefined,
-			});
-		},
-	};
-}
-
 /** Options for `minimalSchema()` — all fields optional, allows explicit `undefined`. */
 interface MinimalSchemaOverrides {
 	readonly name?: string;
@@ -73,34 +56,21 @@ interface MinimalSchemaOverrides {
 	readonly configSettings?: CLISchema['configSettings'];
 	readonly packageJsonSettings?: CLISchema['packageJsonSettings'];
 	readonly hasBuiltInCompletions?: CLISchema['hasBuiltInCompletions'];
-	readonly plugins?: CLISchema['plugins'];
 }
 
 /** Minimal CLISchema for completion tests. */
 function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
-	return {
+	return createCLISchema({
 		name: overrides.name ?? 'testcli',
-		inheritName: false,
 		version: 'version' in overrides ? overrides.version : '1.0.0',
 		description: 'description' in overrides ? overrides.description : 'A test CLI',
 		commands: overrides.commands ?? [],
-		...('defaultCommand' in overrides
-			? { defaultCommand: overrides.defaultCommand }
-			: { defaultCommand: undefined }),
+		defaultCommand: overrides.defaultCommand,
 		defaultCommandRouted: overrides.defaultCommandRouted ?? false,
-		...(overrides.configSettings !== undefined
-			? { configSettings: overrides.configSettings }
-			: { configSettings: undefined }),
-		...(overrides.packageJsonSettings !== undefined
-			? { packageJsonSettings: overrides.packageJsonSettings }
-			: { packageJsonSettings: undefined }),
-		helpLinks: undefined,
+		configSettings: overrides.configSettings,
+		packageJsonSettings: overrides.packageJsonSettings,
 		hasBuiltInCompletions: overrides.hasBuiltInCompletions ?? false,
-		completionsFlag: undefined,
-		helpConfig: undefined,
-		flagSettings: undefined,
-		plugins: overrides.plugins ?? [],
-	};
+	});
 }
 
 // === Shell type — SHELLS constant
@@ -228,7 +198,7 @@ describe('generateBashCompletion', () => {
 			const script = generateBashCompletion(
 				minimalSchema({
 					version: '1.0.0',
-					commands: [erased(commandSchema({ name: 'deploy' }))],
+					commands: [commandSchema({ name: 'deploy' })],
 				}),
 			);
 
@@ -239,7 +209,7 @@ describe('generateBashCompletion', () => {
 			const script = generateBashCompletion(
 				minimalSchema({
 					version: undefined,
-					commands: [erased(commandSchema({ name: 'deploy' }))],
+					commands: [commandSchema({ name: 'deploy' })],
 				}),
 			);
 
@@ -270,10 +240,7 @@ describe('generateBashCompletion', () => {
 	describe('subcommand completions', () => {
 		it('lists subcommand names at root level', () => {
 			const schema = minimalSchema({
-				commands: [
-					erased(commandSchema({ name: 'deploy' })),
-					erased(commandSchema({ name: 'build' })),
-				],
+				commands: [commandSchema({ name: 'deploy' }), commandSchema({ name: 'build' })],
 			});
 			const script = generateBashCompletion(schema);
 
@@ -283,8 +250,8 @@ describe('generateBashCompletion', () => {
 		it('excludes hidden commands from completions', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(commandSchema({ name: 'deploy' })),
-					erased(commandSchema({ name: 'secret', hidden: true })),
+					commandSchema({ name: 'deploy' }),
+					commandSchema({ name: 'secret', hidden: true }),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -295,7 +262,7 @@ describe('generateBashCompletion', () => {
 
 		it('includes command aliases in subcommand detection', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'deploy', aliases: ['d', 'ship'] }))],
+				commands: [commandSchema({ name: 'deploy', aliases: ['d', 'ship'] })],
 			});
 			const script = generateBashCompletion(schema);
 
@@ -305,7 +272,7 @@ describe('generateBashCompletion', () => {
 
 		it('escapes quotes in subcommand detection', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: "it's", aliases: ['quo"te'] }))],
+				commands: [commandSchema({ name: "it's", aliases: ['quo"te'] })],
 			});
 			const script = generateBashCompletion(schema);
 
@@ -314,7 +281,7 @@ describe('generateBashCompletion', () => {
 
 		it('escapes metacharacters in top-level command aliases', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] }))],
+				commands: [commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] })],
 			});
 			const script = generateBashCompletion(schema);
 
@@ -324,12 +291,10 @@ describe('generateBashCompletion', () => {
 		it('preserves metacharacters in double-quoted nested command paths', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'db*',
-							commands: [commandSchema({ name: 'migr?te' })],
-						}),
-					),
+					commandSchema({
+						name: 'db*',
+						commands: [commandSchema({ name: 'migr?te' })],
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -343,15 +308,13 @@ describe('generateBashCompletion', () => {
 	describe('root completion policy', () => {
 		describe('hybrid CLIs', () => {
 			it('stay command-centric by default', () => {
-				const serve = erased(
-					commandSchema({
-						name: 'serve',
-						flags: {
-							port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
-						},
-					}),
-				);
-				const status = erased(commandSchema({ name: 'status' }));
+				const serve = commandSchema({
+					name: 'serve',
+					flags: {
+						port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					},
+				});
+				const status = commandSchema({ name: 'status' });
 				const schema = minimalSchema({
 					commands: [serve, status],
 					defaultCommand: serve,
@@ -363,28 +326,26 @@ describe('generateBashCompletion', () => {
 			});
 
 			it('surface default flags in surface mode', () => {
-				const serve = erased(
-					commandSchema({
-						name: 'serve',
-						flags: {
-							port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
-							verbose: flagSchema({
-								kind: 'boolean',
-								propagate: true,
-								description: 'Verbose',
-							}),
-						},
-						commands: [
-							commandSchema({
-								name: 'inspect',
-								flags: {
-									childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
-								},
-							}),
-						],
-					}),
-				);
-				const status = erased(commandSchema({ name: 'status' }));
+				const serve = commandSchema({
+					name: 'serve',
+					flags: {
+						port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+						verbose: flagSchema({
+							kind: 'boolean',
+							propagate: true,
+							description: 'Verbose',
+						}),
+					},
+					commands: [
+						commandSchema({
+							name: 'inspect',
+							flags: {
+								childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
+							},
+						}),
+					],
+				});
+				const status = commandSchema({ name: 'status' });
 				const schema = minimalSchema({
 					commands: [serve, status],
 					defaultCommand: serve,
@@ -407,14 +368,12 @@ describe('generateBashCompletion', () => {
 
 		describe('a single visible default', () => {
 			it('surfaces default flags', () => {
-				const serve = erased(
-					commandSchema({
-						name: 'serve',
-						flags: {
-							port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
-						},
-					}),
-				);
+				const serve = commandSchema({
+					name: 'serve',
+					flags: {
+						port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					},
+				});
 				const schema = minimalSchema({
 					commands: [serve],
 					defaultCommand: serve,
@@ -433,15 +392,13 @@ describe('generateBashCompletion', () => {
 		it('includes --flagname for each registered flag', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								region: flagSchema({ kind: 'string', description: 'AWS region' }),
-								force: flagSchema({ kind: 'boolean' }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({ kind: 'string', description: 'AWS region' }),
+							force: flagSchema({ kind: 'boolean' }),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -453,15 +410,13 @@ describe('generateBashCompletion', () => {
 		it('includes short aliases as -<alias>', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								force: flagSchema({ kind: 'boolean', aliases: ['f'] }),
-								verbose: flagSchema({ kind: 'boolean', aliases: ['v'] }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({ kind: 'boolean', aliases: ['f'] }),
+							verbose: flagSchema({ kind: 'boolean', aliases: ['v'] }),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -473,14 +428,12 @@ describe('generateBashCompletion', () => {
 		it('includes long aliases as --<alias>', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								force: flagSchema({ kind: 'boolean', aliases: ['no-confirm'] }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({ kind: 'boolean', aliases: ['no-confirm'] }),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -491,20 +444,18 @@ describe('generateBashCompletion', () => {
 		it('excludes hidden aliases from bash completion candidates', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								'skip-pass': flagSchema({
-									kind: 'boolean',
-									aliases: [
-										{ name: 'skipPass', hidden: true },
-										{ name: 'x', hidden: false },
-									],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							'skip-pass': flagSchema({
+								kind: 'boolean',
+								aliases: [
+									{ name: 'skipPass', hidden: true },
+									{ name: 'x', hidden: false },
+								],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -517,21 +468,19 @@ describe('generateBashCompletion', () => {
 		it('includes visible negated spellings for negatable flags', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								sandbox: flagSchema({
-									kind: 'boolean',
-									negation: { alias: undefined, hidden: false },
-								}),
-								color: flagSchema({
-									kind: 'boolean',
-									negation: { alias: 'monochrome', hidden: false },
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							sandbox: flagSchema({
+								kind: 'boolean',
+								negation: { alias: undefined, hidden: false },
+							}),
+							color: flagSchema({
+								kind: 'boolean',
+								negation: { alias: 'monochrome', hidden: false },
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -543,17 +492,15 @@ describe('generateBashCompletion', () => {
 		it('excludes hidden negated spellings from bash completion candidates', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								telemetry: flagSchema({
-									kind: 'boolean',
-									negation: { alias: undefined, hidden: true },
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							telemetry: flagSchema({
+								kind: 'boolean',
+								negation: { alias: undefined, hidden: true },
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -569,17 +516,15 @@ describe('generateBashCompletion', () => {
 		it('generates case branch for enum flag values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								region: flagSchema({
-									kind: 'enum',
-									enumValues: ['us-east-1', 'eu-west-1', 'ap-south-1'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								enumValues: ['us-east-1', 'eu-west-1', 'ap-south-1'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -592,18 +537,16 @@ describe('generateBashCompletion', () => {
 		it('includes enum flag aliases in case pattern', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								region: flagSchema({
-									kind: 'enum',
-									aliases: ['r'],
-									enumValues: ['us-east-1', 'eu-west-1'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								aliases: ['r'],
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -614,18 +557,16 @@ describe('generateBashCompletion', () => {
 		it('escapes metacharacters in enum flag case patterns', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								're*gion': flagSchema({
-									kind: 'enum',
-									aliases: ['r?'],
-									enumValues: ['us-east-1', 'eu-west-1'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							're*gion': flagSchema({
+								kind: 'enum',
+								aliases: ['r?'],
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -636,18 +577,16 @@ describe('generateBashCompletion', () => {
 		it('escapes quotes in enum flag case patterns', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								"we'ird": flagSchema({
-									kind: 'enum',
-									aliases: ["quo'te"],
-									enumValues: ['us-east-1', 'eu-west-1'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							"we'ird": flagSchema({
+								kind: 'enum',
+								aliases: ["quo'te"],
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -658,18 +597,16 @@ describe('generateBashCompletion', () => {
 		it('keeps hidden long aliases in enum case patterns', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								'skip-pass': flagSchema({
-									kind: 'enum',
-									aliases: [{ name: 'skipPass', hidden: true }],
-									enumValues: ['yes', 'no'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							'skip-pass': flagSchema({
+								kind: 'enum',
+								aliases: [{ name: 'skipPass', hidden: true }],
+								enumValues: ['yes', 'no'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -680,14 +617,12 @@ describe('generateBashCompletion', () => {
 		it('omits enum case section when no enum flags exist', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								force: flagSchema({ kind: 'boolean' }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({ kind: 'boolean' }),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -700,28 +635,25 @@ describe('generateBashCompletion', () => {
 		it('scopes same-named enum values per command', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								env: flagSchema({
-									kind: 'enum',
-									enumValues: ['prod', 'staging'],
-								}),
-							},
-						}),
-					),
-					erased(
-						commandSchema({
-							name: 'test',
-							flags: {
-								env: flagSchema({
-									kind: 'enum',
-									enumValues: ['unit', 'e2e'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['prod', 'staging'],
+							}),
+						},
+					}),
+
+					commandSchema({
+						name: 'test',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['unit', 'e2e'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -749,26 +681,23 @@ describe('generateBashCompletion', () => {
 		it('handles mixed enum and non-enum flags across commands', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								env: flagSchema({
-									kind: 'enum',
-									enumValues: ['prod', 'staging'],
-								}),
-								force: flagSchema({ kind: 'boolean' }),
-							},
-						}),
-					),
-					erased(
-						commandSchema({
-							name: 'build',
-							flags: {
-								target: flagSchema({ kind: 'string' }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['prod', 'staging'],
+							}),
+							force: flagSchema({ kind: 'boolean' }),
+						},
+					}),
+
+					commandSchema({
+						name: 'build',
+						flags: {
+							target: flagSchema({ kind: 'string' }),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -798,17 +727,15 @@ describe('generateBashCompletion', () => {
 		it('passes simple values through unescaped', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								region: flagSchema({
-									kind: 'enum',
-									enumValues: ['us-east-1', 'eu-west-1'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -820,17 +747,15 @@ describe('generateBashCompletion', () => {
 		it('uses $-quoting with IFS for values containing spaces', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								env: flagSchema({
-									kind: 'enum',
-									enumValues: ['hello world', 'foo'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								enumValues: ['hello world', 'foo'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -842,17 +767,15 @@ describe('generateBashCompletion', () => {
 		it('escapes single quotes in enum values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								msg: flagSchema({
-									kind: 'enum',
-									enumValues: ["it's", 'normal'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							msg: flagSchema({
+								kind: 'enum',
+								enumValues: ["it's", 'normal'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -864,17 +787,15 @@ describe('generateBashCompletion', () => {
 		it('escapes backslashes in enum values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								path: flagSchema({
-									kind: 'enum',
-									enumValues: ['C:\\Users', 'normal'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							path: flagSchema({
+								kind: 'enum',
+								enumValues: ['C:\\Users', 'normal'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -886,17 +807,15 @@ describe('generateBashCompletion', () => {
 		it('handles mixed pathological values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								weird: flagSchema({
-									kind: 'enum',
-									enumValues: ["it's here", 'C:\\path', 'normal'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							weird: flagSchema({
+								kind: 'enum',
+								enumValues: ["it's here", 'C:\\path', 'normal'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -1032,12 +951,10 @@ describe('generateBashCompletion', () => {
 		it('escapes quotes in nested subcmd_path assignments', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'db',
-							commands: [commandSchema({ name: 'it"migrate' })],
-						}),
-					),
+					commandSchema({
+						name: 'db',
+						commands: [commandSchema({ name: 'it"migrate' })],
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -1135,7 +1052,7 @@ describe('generateBashCompletion', () => {
 				commands: [commandSchema({ name: 'migrate', description: 'Migrate' }), hiddenChild],
 			});
 
-			const schema = minimalSchema({ commands: [erased(dbCmd)] });
+			const schema = minimalSchema({ commands: [dbCmd] });
 			const script = generateBashCompletion(schema);
 
 			expect(script).toContain('migrate');
@@ -1179,14 +1096,12 @@ describe('generateBashCompletion', () => {
 		it('includes short aliases for value-taking flags in skip pattern', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'run',
-							flags: {
-								output: flagSchema({ kind: 'string', aliases: ['o'] }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'run',
+						flags: {
+							output: flagSchema({ kind: 'string', aliases: ['o'] }),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -1200,17 +1115,15 @@ describe('generateBashCompletion', () => {
 		it('keeps hidden long aliases in the value-flag skip pattern', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'run',
-							flags: {
-								'config-path': flagSchema({
-									kind: 'string',
-									aliases: [{ name: 'configPath', hidden: true }],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'run',
+						flags: {
+							'config-path': flagSchema({
+								kind: 'string',
+								aliases: [{ name: 'configPath', hidden: true }],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateBashCompletion(schema);
@@ -1248,7 +1161,7 @@ describe('generateBashCompletion', () => {
 	describe('shell escaping', () => {
 		it('escapes single quotes in subcommand names', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: "it's-cool", description: 'Has quote' }))],
+				commands: [commandSchema({ name: "it's-cool", description: 'Has quote' })],
 			});
 			const script = generateBashCompletion(schema);
 
@@ -1260,7 +1173,7 @@ describe('generateBashCompletion', () => {
 
 		it('leaves simple names unescaped', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'deploy', description: 'Deploy' }))],
+				commands: [commandSchema({ name: 'deploy', description: 'Deploy' })],
 			});
 			const script = generateBashCompletion(schema);
 
@@ -1296,7 +1209,7 @@ describe('generateZshCompletion', () => {
 
 		it('declares local variables for state tracking', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'deploy' }))],
+				commands: [commandSchema({ name: 'deploy' })],
 			});
 			const script = generateZshCompletion(schema);
 
@@ -1320,7 +1233,7 @@ describe('generateZshCompletion', () => {
 			const script = generateZshCompletion(
 				minimalSchema({
 					version: '1.0.0',
-					commands: [erased(commandSchema({ name: 'test' }))],
+					commands: [commandSchema({ name: 'test' })],
 				}),
 			);
 
@@ -1331,7 +1244,7 @@ describe('generateZshCompletion', () => {
 			const script = generateZshCompletion(
 				minimalSchema({
 					version: undefined,
-					commands: [erased(commandSchema({ name: 'test' }))],
+					commands: [commandSchema({ name: 'test' })],
 				}),
 			);
 
@@ -1374,8 +1287,8 @@ describe('generateZshCompletion', () => {
 		it('lists subcommands with _describe', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(commandSchema({ name: 'deploy', description: 'Deploy app' })),
-					erased(commandSchema({ name: 'build', description: 'Build project' })),
+					commandSchema({ name: 'deploy', description: 'Deploy app' }),
+					commandSchema({ name: 'build', description: 'Build project' }),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1387,9 +1300,7 @@ describe('generateZshCompletion', () => {
 
 		it('includes top-level command aliases in _describe candidates', () => {
 			const schema = minimalSchema({
-				commands: [
-					erased(commandSchema({ name: 'deploy', aliases: ['d'], description: 'Deploy app' })),
-				],
+				commands: [commandSchema({ name: 'deploy', aliases: ['d'], description: 'Deploy app' })],
 			});
 			const script = generateZshCompletion(schema);
 
@@ -1400,8 +1311,8 @@ describe('generateZshCompletion', () => {
 		it('excludes hidden commands from completions', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(commandSchema({ name: 'deploy', description: 'Deploy app' })),
-					erased(commandSchema({ name: 'secret', hidden: true })),
+					commandSchema({ name: 'deploy', description: 'Deploy app' }),
+					commandSchema({ name: 'secret', hidden: true }),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1412,7 +1323,7 @@ describe('generateZshCompletion', () => {
 
 		it('includes command aliases in case pattern', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] }))],
+				commands: [commandSchema({ name: 'depl*oy', aliases: ['d?', 'ship|it'] })],
 			});
 			const script = generateZshCompletion(schema);
 
@@ -1422,13 +1333,11 @@ describe('generateZshCompletion', () => {
 		it('escapes quotes in subcommand lists and dispatch patterns', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: "it's",
-							aliases: ['quo"te'],
-							description: 'Deploy',
-						}),
-					),
+					commandSchema({
+						name: "it's",
+						aliases: ['quo"te'],
+						description: 'Deploy',
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1440,12 +1349,10 @@ describe('generateZshCompletion', () => {
 		it('escapes metacharacters in child command dispatch patterns', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'db',
-							commands: [commandSchema({ name: 'migr?te', aliases: ['move|it'] })],
-						}),
-					),
+					commandSchema({
+						name: 'db',
+						commands: [commandSchema({ name: 'migr?te', aliases: ['move|it'] })],
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1455,7 +1362,7 @@ describe('generateZshCompletion', () => {
 
 		it('uses command name as description when description is undefined', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'deploy', description: undefined }))],
+				commands: [commandSchema({ name: 'deploy', description: undefined })],
 			});
 			const script = generateZshCompletion(schema);
 
@@ -1464,7 +1371,7 @@ describe('generateZshCompletion', () => {
 
 		it('escapes colons in descriptions', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'deploy', description: 'Deploy: now' }))],
+				commands: [commandSchema({ name: 'deploy', description: 'Deploy: now' })],
 			});
 			const script = generateZshCompletion(schema);
 
@@ -1477,15 +1384,13 @@ describe('generateZshCompletion', () => {
 	describe('root completion policy', () => {
 		describe('hybrid CLIs', () => {
 			it('stay command-centric by default', () => {
-				const serve = erased(
-					commandSchema({
-						name: 'serve',
-						flags: {
-							port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
-						},
-					}),
-				);
-				const status = erased(commandSchema({ name: 'status', description: 'Status' }));
+				const serve = commandSchema({
+					name: 'serve',
+					flags: {
+						port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					},
+				});
+				const status = commandSchema({ name: 'status', description: 'Status' });
 				const schema = minimalSchema({
 					commands: [serve, status],
 					defaultCommand: serve,
@@ -1502,28 +1407,26 @@ describe('generateZshCompletion', () => {
 			});
 
 			it('surface default flags in surface mode', () => {
-				const serve = erased(
-					commandSchema({
-						name: 'serve',
-						flags: {
-							port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
-							verbose: flagSchema({
-								kind: 'boolean',
-								propagate: true,
-								description: 'Verbose',
-							}),
-						},
-						commands: [
-							commandSchema({
-								name: 'inspect',
-								flags: {
-									childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
-								},
-							}),
-						],
-					}),
-				);
-				const status = erased(commandSchema({ name: 'status' }));
+				const serve = commandSchema({
+					name: 'serve',
+					flags: {
+						port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+						verbose: flagSchema({
+							kind: 'boolean',
+							propagate: true,
+							description: 'Verbose',
+						}),
+					},
+					commands: [
+						commandSchema({
+							name: 'inspect',
+							flags: {
+								childOnly: flagSchema({ kind: 'boolean', description: 'Child only' }),
+							},
+						}),
+					],
+				});
+				const status = commandSchema({ name: 'status' });
 				const schema = minimalSchema({
 					commands: [serve, status],
 					defaultCommand: serve,
@@ -1542,14 +1445,12 @@ describe('generateZshCompletion', () => {
 
 		describe('a single visible default', () => {
 			it('surfaces default flags', () => {
-				const serve = erased(
-					commandSchema({
-						name: 'serve',
-						flags: {
-							port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
-						},
-					}),
-				);
+				const serve = commandSchema({
+					name: 'serve',
+					flags: {
+						port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+					},
+				});
 				const schema = minimalSchema({
 					commands: [serve],
 					defaultCommand: serve,
@@ -1565,7 +1466,7 @@ describe('generateZshCompletion', () => {
 	describe('extractZshRootFunction — boundary', () => {
 		it('includes the closing brace', () => {
 			const schema = minimalSchema({
-				commands: [erased(commandSchema({ name: 'run' }))],
+				commands: [commandSchema({ name: 'run' })],
 			});
 			const body = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
 			expect(body).toMatch(/\}$/);
@@ -1578,14 +1479,12 @@ describe('generateZshCompletion', () => {
 		it('generates _arguments specs for command flags', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								region: flagSchema({ kind: 'string', description: 'AWS region' }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({ kind: 'string', description: 'AWS region' }),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1597,18 +1496,16 @@ describe('generateZshCompletion', () => {
 		it('generates mutual exclusion group for short aliases', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								force: flagSchema({
-									kind: 'boolean',
-									aliases: ['f'],
-									description: 'Force',
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({
+								kind: 'boolean',
+								aliases: ['f'],
+								description: 'Force',
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1619,22 +1516,20 @@ describe('generateZshCompletion', () => {
 		it('includes visible long aliases but excludes hidden ones', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								'skip-pass': flagSchema({
-									kind: 'boolean',
-									description: 'Skip pass update',
-									aliases: [
-										{ name: 'x', hidden: false },
-										{ name: 'skipPass', hidden: false },
-										{ name: 'legacySkipPass', hidden: true },
-									],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							'skip-pass': flagSchema({
+								kind: 'boolean',
+								description: 'Skip pass update',
+								aliases: [
+									{ name: 'x', hidden: false },
+									{ name: 'skipPass', hidden: false },
+									{ name: 'legacySkipPass', hidden: true },
+								],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1648,18 +1543,16 @@ describe('generateZshCompletion', () => {
 		it('adds the visible negated spelling to the flag form group', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								force: flagSchema({
-									kind: 'boolean',
-									description: 'Force',
-									negation: { alias: undefined, hidden: false },
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({
+								kind: 'boolean',
+								description: 'Force',
+								negation: { alias: undefined, hidden: false },
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1670,18 +1563,16 @@ describe('generateZshCompletion', () => {
 		it('excludes hidden negated spellings from zsh flag specs', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								telemetry: flagSchema({
-									kind: 'boolean',
-									description: 'Telemetry',
-									negation: { alias: undefined, hidden: true },
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							telemetry: flagSchema({
+								kind: 'boolean',
+								description: 'Telemetry',
+								negation: { alias: undefined, hidden: true },
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1693,17 +1584,15 @@ describe('generateZshCompletion', () => {
 		it('escapes quotes in flag spec names', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								"we'ird": flagSchema({
-									kind: 'boolean',
-									description: 'Has quote',
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							"we'ird": flagSchema({
+								kind: 'boolean',
+								description: 'Has quote',
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1714,17 +1603,15 @@ describe('generateZshCompletion', () => {
 		it('omits value part for boolean flags', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								force: flagSchema({
-									kind: 'boolean',
-									description: 'Force deploy',
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({
+								kind: 'boolean',
+								description: 'Force deploy',
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1736,14 +1623,12 @@ describe('generateZshCompletion', () => {
 		it('adds :value: for string flags', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								name: flagSchema({ kind: 'string', description: 'Name' }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							name: flagSchema({ kind: 'string', description: 'Name' }),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1754,14 +1639,12 @@ describe('generateZshCompletion', () => {
 		it('escapes closing brackets in flag descriptions', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								name: flagSchema({ kind: 'string', description: 'A]B' }),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							name: flagSchema({ kind: 'string', description: 'A]B' }),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1772,18 +1655,16 @@ describe('generateZshCompletion', () => {
 		it('adds enum values for enum flags', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								region: flagSchema({
-									kind: 'enum',
-									description: 'Region',
-									enumValues: ['us-east-1', 'eu-west-1'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								description: 'Region',
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1794,17 +1675,15 @@ describe('generateZshCompletion', () => {
 		it('uses flag name as description when description is undefined', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								verbose: flagSchema({
-									kind: 'boolean',
-									description: undefined,
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							verbose: flagSchema({
+								kind: 'boolean',
+								description: undefined,
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1819,18 +1698,16 @@ describe('generateZshCompletion', () => {
 		it('passes simple values through unescaped', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								region: flagSchema({
-									kind: 'enum',
-									description: 'Region',
-									enumValues: ['us-east-1', 'eu-west-1'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							region: flagSchema({
+								kind: 'enum',
+								description: 'Region',
+								enumValues: ['us-east-1', 'eu-west-1'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1841,18 +1718,16 @@ describe('generateZshCompletion', () => {
 		it('escapes spaces in enum values with backslash', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								env: flagSchema({
-									kind: 'enum',
-									description: 'Environment',
-									enumValues: ['hello world', 'foo'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							env: flagSchema({
+								kind: 'enum',
+								description: 'Environment',
+								enumValues: ['hello world', 'foo'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1863,18 +1738,16 @@ describe('generateZshCompletion', () => {
 		it('escapes single quotes in enum values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								msg: flagSchema({
-									kind: 'enum',
-									description: 'Message',
-									enumValues: ["it's", 'normal'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							msg: flagSchema({
+								kind: 'enum',
+								description: 'Message',
+								enumValues: ["it's", 'normal'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1885,18 +1758,16 @@ describe('generateZshCompletion', () => {
 		it('escapes backslashes in enum values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								path: flagSchema({
-									kind: 'enum',
-									description: 'Path',
-									enumValues: ['C:\\Users', 'normal'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							path: flagSchema({
+								kind: 'enum',
+								description: 'Path',
+								enumValues: ['C:\\Users', 'normal'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1907,18 +1778,16 @@ describe('generateZshCompletion', () => {
 		it('escapes parentheses in enum values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								expr: flagSchema({
-									kind: 'enum',
-									description: 'Expr',
-									enumValues: ['(a)', 'normal'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							expr: flagSchema({
+								kind: 'enum',
+								description: 'Expr',
+								enumValues: ['(a)', 'normal'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -1929,18 +1798,16 @@ describe('generateZshCompletion', () => {
 		it('handles mixed pathological values', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								weird: flagSchema({
-									kind: 'enum',
-									description: 'Weird',
-									enumValues: ["it's here", 'C:\\path', 'normal'],
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							weird: flagSchema({
+								kind: 'enum',
+								description: 'Weird',
+								enumValues: ["it's here", 'C:\\path', 'normal'],
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -2160,18 +2027,16 @@ describe('generateZshCompletion', () => {
 		it('includes all short aliases in exclusion group', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								verbose: flagSchema({
-									kind: 'boolean',
-									aliases: ['v', 'V'],
-									description: 'Verbose',
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							verbose: flagSchema({
+								kind: 'boolean',
+								aliases: ['v', 'V'],
+								description: 'Verbose',
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -2183,18 +2048,16 @@ describe('generateZshCompletion', () => {
 		it('single short alias still works', () => {
 			const schema = minimalSchema({
 				commands: [
-					erased(
-						commandSchema({
-							name: 'deploy',
-							flags: {
-								force: flagSchema({
-									kind: 'boolean',
-									aliases: ['f'],
-									description: 'Force',
-								}),
-							},
-						}),
-					),
+					commandSchema({
+						name: 'deploy',
+						flags: {
+							force: flagSchema({
+								kind: 'boolean',
+								aliases: ['f'],
+								description: 'Force',
+							}),
+						},
+					}),
 				],
 			});
 			const script = generateZshCompletion(schema);
@@ -2218,7 +2081,7 @@ describe('generateZshCompletion', () => {
 				commands: [commandSchema({ name: 'migrate', description: 'Migrate' }), hiddenChild],
 			});
 
-			const schema = minimalSchema({ commands: [erased(dbCmd)] });
+			const schema = minimalSchema({ commands: [dbCmd] });
 			const script = generateZshCompletion(schema);
 
 			expect(script).toContain('migrate');
@@ -2261,15 +2124,13 @@ describe('generateCompletion — dispatcher', () => {
 	});
 
 	it('passes completion options through to shell generators', () => {
-		const serve = erased(
-			commandSchema({
-				name: 'serve',
-				flags: {
-					port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
-				},
-			}),
-		);
-		const status = erased(commandSchema({ name: 'status' }));
+		const serve = commandSchema({
+			name: 'serve',
+			flags: {
+				port: flagSchema({ kind: 'string', aliases: ['p'], description: 'Port' }),
+			},
+		});
+		const status = commandSchema({ name: 'status' });
 		const schema = minimalSchema({
 			commands: [serve, status],
 			defaultCommand: serve,
@@ -2352,7 +2213,7 @@ function nestedSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 	});
 
 	return minimalSchema({
-		commands: [erased(dbCmd), erased(deployCmd)],
+		commands: [dbCmd, deployCmd],
 		...overrides,
 	});
 }
@@ -2400,7 +2261,7 @@ function deepNestedSchema(): CLISchema {
 		commands: [tableCmd],
 	});
 
-	return minimalSchema({ commands: [erased(dbCmd)] });
+	return minimalSchema({ commands: [dbCmd] });
 }
 
 // === generateFishCompletion — script structure
@@ -2419,8 +2280,8 @@ describe('generateFishCompletion — script structure', () => {
 	it('includes root commands and root flags', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(commandSchema({ name: 'deploy', description: 'Deploy app' })),
-				erased(commandSchema({ name: 'build', description: 'Build app' })),
+				commandSchema({ name: 'deploy', description: 'Deploy app' }),
+				commandSchema({ name: 'build', description: 'Build app' }),
 			],
 		});
 		const script = generateFishCompletion(schema);
@@ -2452,17 +2313,15 @@ describe('generateFishCompletion — script structure', () => {
 	});
 
 	it('surfaces default-command flags at the root in surface mode', () => {
-		const serve = erased(
-			commandSchema({
-				name: 'serve',
-				description: 'Start server',
-				flags: {
-					port: flagSchema({ kind: 'number', aliases: ['p'], description: 'Port' }),
-					verbose: flagSchema({ kind: 'boolean', description: 'Verbose logging' }),
-				},
-			}),
-		);
-		const status = erased(commandSchema({ name: 'status', description: 'Show status' }));
+		const serve = commandSchema({
+			name: 'serve',
+			description: 'Start server',
+			flags: {
+				port: flagSchema({ kind: 'number', aliases: ['p'], description: 'Port' }),
+				verbose: flagSchema({ kind: 'boolean', description: 'Verbose logging' }),
+			},
+		});
+		const status = commandSchema({ name: 'status', description: 'Show status' });
 		const script = generateFishCompletion(
 			minimalSchema({ commands: [serve, status], defaultCommand: serve }),
 			{ rootMode: 'surface' },
@@ -2477,18 +2336,16 @@ describe('generateFishCompletion — script structure', () => {
 	it('escapes enum values for fish completions', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'deploy',
-						flags: {
-							region: flagSchema({
-								kind: 'enum',
-								description: 'Region',
-								enumValues: ['us-east', 'eu west', "qa's"],
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'deploy',
+					flags: {
+						region: flagSchema({
+							kind: 'enum',
+							description: 'Region',
+							enumValues: ['us-east', 'eu west', "qa's"],
+						}),
+					},
+				}),
 			],
 		});
 		const script = generateFishCompletion(schema);
@@ -2501,17 +2358,15 @@ describe('generateFishCompletion — script structure', () => {
 	it('keeps hidden aliases in value-flag path parsing but not suggestions', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'run',
-						flags: {
-							'config-path': flagSchema({
-								kind: 'string',
-								aliases: [{ name: 'configPath', hidden: true }],
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'run',
+					flags: {
+						'config-path': flagSchema({
+							kind: 'string',
+							aliases: [{ name: 'configPath', hidden: true }],
+						}),
+					},
+				}),
 			],
 		});
 		const script = generateFishCompletion(schema);
@@ -2526,18 +2381,16 @@ describe('generateFishCompletion — script structure', () => {
 	it('adds the visible negated spelling with the same description', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'deploy',
-						flags: {
-							sandbox: flagSchema({
-								kind: 'boolean',
-								description: 'Enable sandbox',
-								negation: { alias: undefined, hidden: false },
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'deploy',
+					flags: {
+						sandbox: flagSchema({
+							kind: 'boolean',
+							description: 'Enable sandbox',
+							negation: { alias: undefined, hidden: false },
+						}),
+					},
+				}),
 			],
 		});
 		const script = generateFishCompletion(schema);
@@ -2553,17 +2406,15 @@ describe('generateFishCompletion — script structure', () => {
 	it('excludes hidden negated spellings from fish suggestions', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'deploy',
-						flags: {
-							telemetry: flagSchema({
-								kind: 'boolean',
-								negation: { alias: undefined, hidden: true },
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'deploy',
+					flags: {
+						telemetry: flagSchema({
+							kind: 'boolean',
+							negation: { alias: undefined, hidden: true },
+						}),
+					},
+				}),
 			],
 		});
 		const script = generateFishCompletion(schema);
@@ -2603,8 +2454,8 @@ describe('generatePowerShellCompletion — script structure', () => {
 	it('includes root commands and root flags', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(commandSchema({ name: 'deploy', description: 'Deploy app' })),
-				erased(commandSchema({ name: 'build', description: 'Build app' })),
+				commandSchema({ name: 'deploy', description: 'Deploy app' }),
+				commandSchema({ name: 'build', description: 'Build app' }),
 			],
 		});
 		const script = generatePowerShellCompletion(schema);
@@ -2628,17 +2479,15 @@ describe('generatePowerShellCompletion — script structure', () => {
 	});
 
 	it('surfaces default-command flags at the root in surface mode', () => {
-		const serve = erased(
-			commandSchema({
-				name: 'serve',
-				description: 'Start server',
-				flags: {
-					port: flagSchema({ kind: 'number', aliases: ['p'], description: 'Port' }),
-					verbose: flagSchema({ kind: 'boolean', description: 'Verbose logging' }),
-				},
-			}),
-		);
-		const status = erased(commandSchema({ name: 'status', description: 'Show status' }));
+		const serve = commandSchema({
+			name: 'serve',
+			description: 'Start server',
+			flags: {
+				port: flagSchema({ kind: 'number', aliases: ['p'], description: 'Port' }),
+				verbose: flagSchema({ kind: 'boolean', description: 'Verbose logging' }),
+			},
+		});
+		const status = commandSchema({ name: 'status', description: 'Show status' });
 		const script = generatePowerShellCompletion(
 			minimalSchema({ commands: [serve, status], defaultCommand: serve }),
 			{ rootMode: 'surface' },
@@ -2652,18 +2501,16 @@ describe('generatePowerShellCompletion — script structure', () => {
 	it('includes enum values in the generated flag metadata', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'deploy',
-						flags: {
-							env: flagSchema({
-								kind: 'enum',
-								description: 'Environment',
-								enumValues: ['dev', 'prod'],
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'deploy',
+					flags: {
+						env: flagSchema({
+							kind: 'enum',
+							description: 'Environment',
+							enumValues: ['dev', 'prod'],
+						}),
+					},
+				}),
 			],
 		});
 		const script = generatePowerShellCompletion(schema);
@@ -2675,18 +2522,16 @@ describe('generatePowerShellCompletion — script structure', () => {
 	it('quotes enum completion text as PowerShell literals when needed', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'deploy',
-						flags: {
-							region: flagSchema({
-								kind: 'enum',
-								description: 'Region',
-								enumValues: ['eu west', "qa's"],
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'deploy',
+					flags: {
+						region: flagSchema({
+							kind: 'enum',
+							description: 'Region',
+							enumValues: ['eu west', "qa's"],
+						}),
+					},
+				}),
 			],
 		});
 		const script = generatePowerShellCompletion(schema);
@@ -2699,17 +2544,15 @@ describe('generatePowerShellCompletion — script structure', () => {
 	it('keeps hidden aliases in parser forms but not completion forms', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'run',
-						flags: {
-							'config-path': flagSchema({
-								kind: 'string',
-								aliases: [{ name: 'configPath', hidden: true }],
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'run',
+					flags: {
+						'config-path': flagSchema({
+							kind: 'string',
+							aliases: [{ name: 'configPath', hidden: true }],
+						}),
+					},
+				}),
 			],
 		});
 		const script = generatePowerShellCompletion(schema);
@@ -2722,21 +2565,19 @@ describe('generatePowerShellCompletion — script structure', () => {
 	it('suggests visible negated spellings and keeps hidden ones parse-only', () => {
 		const schema = minimalSchema({
 			commands: [
-				erased(
-					commandSchema({
-						name: 'deploy',
-						flags: {
-							sandbox: flagSchema({
-								kind: 'boolean',
-								negation: { alias: undefined, hidden: false },
-							}),
-							telemetry: flagSchema({
-								kind: 'boolean',
-								negation: { alias: undefined, hidden: true },
-							}),
-						},
-					}),
-				),
+				commandSchema({
+					name: 'deploy',
+					flags: {
+						sandbox: flagSchema({
+							kind: 'boolean',
+							negation: { alias: undefined, hidden: false },
+						}),
+						telemetry: flagSchema({
+							kind: 'boolean',
+							negation: { alias: undefined, hidden: true },
+						}),
+					},
+				}),
 			],
 		});
 		const script = generatePowerShellCompletion(schema);

@@ -26,7 +26,6 @@ import type { FlagBuilder, FlagConfig, FlagDefinition, FlagSchema, InferFlags } 
 import { createFlagSchema, getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
-import type { InternalRunOptions, RunResult } from './run.ts';
 
 // --- Context type utilities
 
@@ -938,54 +937,16 @@ function validateCommandFlagTree(
 	}
 }
 
-// --- Type-erased command interface (shared between schema and CLI layers)
+// --- Runnable command shape (testkit entry point)
 
 /**
- * A type-erased command entry for heterogeneous command storage.
- *
- * Advanced/internal bridge type: most consumers should work with
- * {@link CommandBuilder} and never reference `ErasedCommand` directly.
- *
- * Commands registered via `CLIBuilder.command()` have heterogeneous `F`, `A`,
- * and `C` type parameters. At the dispatch level we only need the runtime
- * schema (for name/alias matching and help) and the ability to delegate to
- * `runCommand()`. This interface captures exactly that contract.
- *
- * The `_execute` function closes over the original typed {@linkcode CommandBuilder},
- * preserving full type safety inside the closure while presenting a
- * uniform interface to the dispatcher.
- *
- * Defined here (rather than in the CLI layer) so both {@linkcode CommandBuilder} and
- * `CLIBuilder` can reference it without circular imports.
- *
- * @internal
- */
-interface ErasedCommand {
-	/** Runtime schema for name matching and help rendering. */
-	readonly schema: CommandSchema;
-	/**
-	 * Nested subcommands (name/alias → erased child).
-	 *
-	 * Built recursively by `eraseCommand()` in the CLI layer.
-	 * Empty map for leaf commands. The dispatch layer uses this for
-	 * recursive command tree traversal.
-	 *
-	 * @internal
-	 */
-	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
-	/** Original command builder captured at the type-erasure boundary. */
-	readonly _command?: AnyCommandBuilder;
-	/** Execute this command against argv. Closes over the typed CommandBuilder. */
-	readonly _execute: (argv: readonly string[], options?: InternalRunOptions) => Promise<RunResult>;
-}
-
-/**
- * Structural subset of {@linkcode CommandBuilder} consumed by the execution pipeline.
+ * Structural subset of {@linkcode CommandBuilder} accepted by `runCommand()`.
  *
  * Avoids generic type parameters so any `CommandBuilder<F, A, C>` satisfies
  * this interface structurally — no variance constraints, no inference needed.
- * Used by `runCommand()` and the shared executor to accept commands without
- * requiring TypeScript to resolve {@linkcode CommandBuilder}'s full generic signature.
+ * The testkit reads `handler` and `_executionSteps` off it and hands them to
+ * the shared executor, so TypeScript never has to resolve
+ * {@linkcode CommandBuilder}'s full generic signature.
  *
  * @internal
  */
@@ -1004,8 +965,8 @@ interface RunnableCommand {
  * custom tooling that mirrors the framework's type-erasure boundary.
  *
  * Uses widest possible generic bounds so any `CommandBuilder<F, A, C>` is
- * assignable. The CLI layer's `eraseCommand()` traverses these to build
- * the execution tree.
+ * assignable. The CLI layer's `compileCommand()` traverses these to build
+ * the execution graph.
  *
  * @internal
  */
@@ -1075,7 +1036,7 @@ class CommandBuilder<
 	 * @internal Nested sub-command builders (type-erased for heterogeneous storage).
 	 *
 	 * Stored separately from `schema.commands` because builders carry action
-	 * handlers and phantom types needed by `eraseCommand()` in the CLI layer.
+	 * handlers and phantom types needed by `compileCommand()` in the CLI layer.
 	 * `schema.commands` holds pure `CommandSchema[]` for help/completion.
 	 */
 	readonly _subcommands: readonly AnyCommandBuilder[];
@@ -1570,7 +1531,7 @@ class CommandBuilder<
 	 * Register a nested subcommand on this command.
 	 *
 	 * The subcommand's builder is stored in `_subcommands` for the CLI layer's
-	 * `eraseCommand()` to traverse when building the execution tree. The
+	 * `compileCommand()` to traverse when building the execution graph. The
 	 * subcommand's `CommandSchema` is also appended to `schema.commands` for
 	 * help rendering and completion generation.
 	 *
@@ -1733,11 +1694,11 @@ export type {
 	DeriveHandler,
 	DeriveParams,
 	ErasedActionHandler,
-	ErasedCommand,
 	ErasedDeriveHandler,
 	ErasedInteractiveResolver,
 	ExampleCommand,
 	ExampleMeta,
+	ExecutionStep,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,

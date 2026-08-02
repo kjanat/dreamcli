@@ -12,7 +12,8 @@
 
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
 import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
-import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import type { CompiledCommand } from './compiled.ts';
 
 /**
  * Flag lookup (spelling → {@link FlagLookupEntry}) used to make the
@@ -30,7 +31,7 @@ interface DispatchMatch {
 	/** Discriminant — a command name in argv matched a registered command. */
 	readonly kind: 'match';
 	/** The matched (target) command. */
-	readonly command: ErasedCommand;
+	readonly command: CompiledCommand;
 	/** Root → target (inclusive). Used for `collectPropagatedFlags()`. */
 	readonly commandPath: readonly CommandSchema[];
 	/** argv after consuming command name segments. */
@@ -42,7 +43,7 @@ interface DispatchNeedsSubcommand {
 	/** Discriminant — command group reached without a subcommand or handler. */
 	readonly kind: 'needs-subcommand';
 	/** The group command that needs a subcommand. */
-	readonly command: ErasedCommand;
+	readonly command: CompiledCommand;
 	/** Root → group (inclusive). */
 	readonly commandPath: readonly CommandSchema[];
 }
@@ -54,7 +55,7 @@ interface DispatchUnknown {
 	/** The unrecognised input token. Empty string when no token present. */
 	readonly input: string;
 	/** Commands available at the level where matching failed. */
-	readonly candidates: readonly ErasedCommand[];
+	readonly candidates: readonly CompiledCommand[];
 	/** Ancestor path up to (but not including) the unknown level. */
 	readonly parentPath: readonly CommandSchema[];
 }
@@ -94,7 +95,7 @@ type DispatchResult = DispatchMatch | DispatchNeedsSubcommand | DispatchUnknown;
  */
 function dispatch(
 	argv: readonly string[],
-	commands: ReadonlyMap<string, ErasedCommand>,
+	commands: ReadonlyMap<string, CompiledCommand>,
 	ancestorPath: readonly CommandSchema[] = [],
 	valueFlags: ValueFlagLookup = new Map(),
 	parseOptions?: ParseOptions,
@@ -300,7 +301,10 @@ function levenshtein(a: string, b: string): number {
  *
  * @internal
  */
-function findClosestCommand(input: string, commands: readonly ErasedCommand[]): string | undefined {
+function findClosestCommand(
+	input: string,
+	commands: readonly CompiledCommand[],
+): string | undefined {
 	const MAX_DISTANCE = 3;
 	let bestName: string | undefined;
 	let bestDist = MAX_DISTANCE + 1;
@@ -335,9 +339,11 @@ function findClosestCommand(input: string, commands: readonly ErasedCommand[]): 
  *
  * @internal
  */
-function uniqueCommands(commands: ReadonlyMap<string, ErasedCommand>): readonly ErasedCommand[] {
-	const seen = new Set<ErasedCommand>();
-	const result: ErasedCommand[] = [];
+function uniqueCommands(
+	commands: ReadonlyMap<string, CompiledCommand>,
+): readonly CompiledCommand[] {
+	const seen = new Set<CompiledCommand>();
+	const result: CompiledCommand[] = [];
 	for (const cmd of commands.values()) {
 		if (!seen.has(cmd)) {
 			seen.add(cmd);

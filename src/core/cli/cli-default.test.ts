@@ -48,7 +48,7 @@ describe('.default()', () => {
 			const app = cli('mycli').default(deployCommand());
 
 			expect(app.schema.defaultCommand).toBeDefined();
-			expect(app.schema.defaultCommand?.schema.name).toBe('deploy');
+			expect(app.schema.defaultCommand?.name).toBe('deploy');
 		});
 
 		it('keeps the default command out of the commands array', () => {
@@ -56,7 +56,7 @@ describe('.default()', () => {
 
 			// Since v0.3 the default is the root surface, not a named subcommand.
 			expect(app.schema.commands).toHaveLength(0);
-			expect(app.schema.defaultCommand?.schema.name).toBe('deploy');
+			expect(app.schema.defaultCommand?.name).toBe('deploy');
 		});
 
 		it('returns a new CLIBuilder (immutable)', () => {
@@ -475,8 +475,8 @@ describe('.default() — routed (route: true)', () => {
 
 		// One conceptual command: `status` lives only in defaultCommand, never
 		// copied into the commands array (which holds only the real siblings).
-		expect(app.schema.commands.map((c) => c.schema.name)).toEqual(['anthropic']);
-		expect(app.schema.defaultCommand?.schema.name).toBe('status');
+		expect(app.schema.commands.map((c) => c.name)).toEqual(['anthropic']);
+		expect(app.schema.defaultCommand?.name).toBe('status');
 	});
 
 	// --- dispatch parity: root and named forms are the same surface

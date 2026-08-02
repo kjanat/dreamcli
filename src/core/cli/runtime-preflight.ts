@@ -21,12 +21,12 @@ import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
-import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import type { CompiledCLI } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import { planInvocation } from './planner.ts';
-import type { CLIPlugin } from './plugin.ts';
 
 /** Config discovery settings extracted from CLISchema for preflight use. @internal */
 interface RuntimeConfigSettings {
@@ -58,10 +58,12 @@ interface RuntimeManifestSettings {
 }
 
 /**
- * Structural subset of CLISchema used by runtime preflight.
+ * Descriptive subset of CLISchema used by runtime preflight.
  *
  * Decouples adapter-driven sourcing (config, package.json, stdin) from the
- * full CLIBuilder surface so preflight can be tested independently.
+ * full CLIBuilder surface so preflight can be tested independently. Preflight
+ * rewrites fields of this shape and hands the result back; the executable half
+ * of the program travels beside it as a {@linkcode CompiledCLI}.
  * @internal
  */
 interface RuntimePreflightSchemaLike {
@@ -73,10 +75,6 @@ interface RuntimePreflightSchemaLike {
 	readonly version: string | undefined;
 	/** Declared description; `undefined` allows package.json inference. */
 	readonly description: string | undefined;
-	/** Registered top-level commands for dispatch planning during stdin detection. */
-	readonly commands: readonly ErasedCommand[];
-	/** Fallback command when no subcommand token matches. */
-	readonly defaultCommand: ErasedCommand | undefined;
 	/** Whether the default command is also exposed as a named top-level route. */
 	readonly defaultCommandRouted: boolean;
 	/** Config file discovery settings; `undefined` disables config loading. */
@@ -104,8 +102,6 @@ interface RuntimePreflightSchemaLike {
 		| undefined;
 	/** Flag-parsing behavior settings (e.g. case parity). */
 	readonly flagSettings: ParseOptions | undefined;
-	/** Plugins forwarded into the execution pipeline. */
-	readonly plugins: readonly CLIPlugin[];
 }
 
 /**
@@ -193,6 +189,8 @@ type RuntimePreflightResult = ReadyRuntimePreflight | RuntimeConfigErrorPrefligh
 interface PrepareRuntimePreflightOptions {
 	/** CLI schema subset driving preflight decisions. */
 	readonly schema: RuntimePreflightSchemaLike;
+	/** Compiled execution graph, forwarded to the planner for stdin detection. */
+	readonly compiled: CompiledCLI;
 	/** Runtime adapter providing argv, env, stdin, and filesystem access. */
 	readonly adapter: RuntimeAdapter;
 	/** Caller-supplied overrides; `undefined` means auto-detect everything. */
@@ -282,10 +280,12 @@ function commandInvocationNeedsStdin(
 /** Plan the invocation and check whether the matched command needs stdin data. @internal */
 function invocationNeedsStdin(
 	schema: RuntimePreflightSchemaLike,
+	compiled: CompiledCLI,
 	argv: readonly string[],
 ): boolean {
 	const plan = planInvocation({
 		schema,
+		compiled,
 		argv,
 		help: { binName: schema.name },
 		output: PRECHECK_OUTPUT,
@@ -309,6 +309,7 @@ function invocationNeedsStdin(
 
 function isCompletionsInvocation(
 	schema: RuntimePreflightSchemaLike,
+	compiled: CompiledCLI,
 	argv: readonly string[],
 ): boolean {
 	if (!schema.hasBuiltInCompletions) {
@@ -317,6 +318,7 @@ function isCompletionsInvocation(
 
 	const plan = planInvocation({
 		schema,
+		compiled,
 		argv,
 		help: { binName: schema.name },
 		output: PRECHECK_OUTPUT,
@@ -415,7 +417,7 @@ async function prepareRuntimePreflight(
 	const jsonMode = hasJsonFlag || options.options?.jsonMode === true;
 	const hasQuietFlag =
 		includesBeforeSeparator(filteredArgv, '--quiet') || includesBeforeSeparator(filteredArgv, '-q');
-	const isCompletions = isCompletionsInvocation(options.schema, filteredArgv);
+	const isCompletions = isCompletionsInvocation(options.schema, options.compiled, filteredArgv);
 	const schema = await applyPackageJsonDiscovery(
 		options.schema,
 		options.adapter,
@@ -443,7 +445,8 @@ async function prepareRuntimePreflight(
 			? createTerminalPrompter(options.adapter.stdin, options.adapter.stderr)
 			: undefined;
 	const stdinData =
-		options.options?.stdinData === undefined && invocationNeedsStdin(schema, filteredArgv)
+		options.options?.stdinData === undefined &&
+		invocationNeedsStdin(schema, options.compiled, filteredArgv)
 			? await options.adapter.readStdin()
 			: options.options?.stdinData;
 

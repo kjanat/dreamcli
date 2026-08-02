@@ -34,8 +34,8 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
   `AllowedPromptConfig<C>` can map each kind to its compatible prompt types via the
   `PromptConfigByFlagKind` indexed-access map. `WithPresence` propagates `flagKind` through
   `.required()` / `.default()` chains. Never read at runtime — phantom only.
-- **Type erasure**: `eraseBuilder()` / `eraseCommand()` centralize `as unknown as` casts for
-  heterogeneous subcommand storage. These are the justified `as` cast sites.
+- **Type erasure**: `eraseBuilder()` centralizes the `as unknown as` cast for heterogeneous
+  subcommand storage in `_subcommands`. This is the justified `as` cast site.
 - **Schema seal**: `FlagSchema` / `ArgSchema` / `CommandSchema` carry `readonly [schemaBrand]` from
   `brand.ts` as their first member. The symbol is `declare`-only, so no runtime key exists and
   callers cannot spell it, which makes the factories the only construction path. `brand.ts` exports

@@ -35,7 +35,7 @@ describe(".completions({ as: 'flag' })", () => {
 		it('does not register a completions subcommand', () => {
 			const app = appWithFlag();
 
-			expect(app.schema.commands.some((c) => c.schema.name === 'completions')).toBe(false);
+			expect(app.schema.commands.some((c) => c.name === 'completions')).toBe(false);
 			expect(app.schema.completionsFlag).toBeDefined();
 			expect(app.schema.completionsFlag?.shells).toEqual(['bash', 'zsh', 'fish', 'powershell']);
 		});
@@ -43,7 +43,7 @@ describe(".completions({ as: 'flag' })", () => {
 		it('still registers the completions subcommand for the default surface', () => {
 			const app = cli('recipe-lsp').completions().default(lspCommand());
 
-			expect(app.schema.commands.some((c) => c.schema.name === 'completions')).toBe(true);
+			expect(app.schema.commands.some((c) => c.name === 'completions')).toBe(true);
 			expect(app.schema.completionsFlag).toBeUndefined();
 		});
 

@@ -49,7 +49,8 @@ injected execution options, and return captured output.
 
 ## GOTCHAS
 
-- `mergedSchema` field on `RunOptions` is `@internal` — used by CLI dispatch layer only
+- `mergedSchema` field on `RunOptions` is `@internal` — read by `runCommandInternal()` for callers
+  that emulate dispatch; CLI dispatch hands its merged schema to `executeCommand()` directly
 - `CaptureOutputChannel` (from output/) wired here for output + activity capture
 - Execution pipeline shared with CLI via `execution/index.ts` (@internal)
 - Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)

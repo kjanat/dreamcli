@@ -101,10 +101,8 @@ interface RootCompletionSurface {
  * @internal
  */
 interface RootCompletionSchemaLike {
-	readonly commands: ReadonlyArray<{
-		readonly schema: CommandSchema;
-	}>;
-	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
+	readonly commands: readonly CommandSchema[];
+	readonly defaultCommand: CommandSchema | undefined;
 	readonly version: string | undefined;
 }
 

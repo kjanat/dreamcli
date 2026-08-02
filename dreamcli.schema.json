@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json",
   "title": "@kjanat/dreamcli definition schema",
-  "description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\\\nBuilt incrementally by CLIBuilder.",
+  "description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered command schemas.\\\nSealed by createCLISchema and rebuilt by each CLIBuilder step.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -23,14 +23,14 @@
     },
     "defaultCommand": {
       "$ref": "#/$defs/command",
-      "description": "Default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method."
+      "description": "Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition."
     },
     "commands": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/command"
       },
-      "description": "Registered commands (type-erased for heterogeneous storage)."
+      "description": "Schemas of the registered commands, in registration order."
     }
   },
   "required": [

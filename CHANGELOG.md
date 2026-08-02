@@ -14,25 +14,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   options, implementer interfaces, closed unions, and internal surface, with
   the minor-version rules each category carries.
 
-- **Definition types and normalization factories for flags, args, and
-  commands** — `createFlagSchema()` and `createCommandSchema()` join the
-  existing `createArgSchema()`. The flag and arg factories take a plain
-  definition object, or a kind plus that kind's fields;
-  `createCommandSchema()` takes a complete command definition object. Each
-  returns the normalized schema; feeding a built schema back in produces a
-  deep-equal schema, and a field belonging to another kind throws
-  `INVALID_SCHEMA`. `createCommandSchema()` normalizes nested flags, args, and
-  subcommands. Each level ships its definition types: `FlagDefinition`,
+- **Definition types and normalization factories for flags, args, commands, and
+  the CLI** — `createFlagSchema()`, `createCommandSchema()`, and
+  `createCLISchema()` join the existing `createArgSchema()`. The flag and arg
+  factories take a plain definition object, or a kind plus that kind's fields;
+  the command and CLI factories take complete definition objects. Each returns
+  the normalized schema; feeding a built schema back in produces a deep-equal
+  schema, and a field belonging to another kind throws `INVALID_SCHEMA`.
+  `createCommandSchema()` normalizes nested flags, args, and subcommands, and
+  `createCLISchema()` normalizes commands and config settings for a description
+  of a program with no execution graph attached. Each level ships its definition
+  types: `FlagDefinition`,
   `FlagDefinitionBase`, `FlagDefinitionByKind`, `FlagDefinitionOverrides`, and
   the per-kind members `StringFlagDefinition`, `NumberFlagDefinition`,
   `BooleanFlagDefinition`, `EnumFlagDefinition`, `ArrayFlagDefinition`,
   `CustomFlagDefinition`, `CountFlagDefinition`, `KeyValueFlagDefinition`;
   `ArgDefinition`, `ArgDefinitionBase`, `ArgDefinitionByKind`,
   `ArgDefinitionOverrides`, `StringArgDefinition`, `NumberArgDefinition`,
-  `EnumArgDefinition`, `CustomArgDefinition`; and `CommandDefinition` with
-  `CommandArgEntryDefinition`. All of them are exported from the package root.
+  `EnumArgDefinition`, `CustomArgDefinition`; `CommandDefinition` with
+  `CommandArgEntryDefinition`; and `CLIDefinition` with
+  `ConfigSettingsDefinition`. All of them are exported from the package root.
 
 ### Changed
+
+- **Breaking: `CLISchema.commands` and `CLISchema.defaultCommand` hold
+  `CommandSchema`** — both used to hold `ErasedCommand` wrappers carrying the
+  action handler and an `_execute` function. The execution graph now lives
+  beside the schema instead of inside it, so `app.schema.commands[0]` is the
+  command schema itself: read `app.schema.commands[0].name` where
+  `app.schema.commands[0].schema.name` used to be needed. `ErasedCommand` is
+  gone.
+
+- **Breaking: `CLISchema.plugins` removed** — plugins are execution state, not
+  a description of the program, and `.plugin()` no longer writes to the schema.
+  Registration, order, and hook behavior are unchanged.
+
+- **Breaking: `CLIBuilder` is factory-only** — its constructor is private, so
+  `new CLIBuilder(schema)` no longer compiles. Call `cli(name)` or
+  `cli({ ... })`; every builder method still returns a new builder.
 
 - **Breaking: `CommandSchema.middleware` removed** — the executor builds the
   handler chain from the builder's ordered execution steps, so registration
@@ -47,6 +66,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   obtain one; spreading a built schema keeps the brand, so
   `{ ...schema, description }` still type-checks. `createSchema()` is deprecated
   in favor of `createFlagSchema()` and keeps working for now.
+
+- **Breaking: `CLISchema` and `ConfigSettings` are sealed** — both carry a
+  private brand, so an object literal assembled by hand no longer type-checks
+  where either is expected. Call `cli()` for an executable program or
+  `createCLISchema()` for a description; spreading a built schema keeps the
+  brand, so `{ ...app.schema, name }` still type-checks. `createCLISchema()`
+  throws `INVALID_SCHEMA` on an empty name, which `cli('')` now does too.
 
 - **Breaking: `createArgSchema()` validates its fields against the kind** — the
   second parameter is now `ArgDefinitionOverrides<K>` rather than

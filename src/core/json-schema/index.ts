@@ -148,17 +148,17 @@ function generateSchema(
 	}
 	if (
 		schema.defaultCommand !== undefined &&
-		(opts.includeHidden || !schema.defaultCommand.schema.hidden)
+		(opts.includeHidden || !schema.defaultCommand.hidden)
 	) {
 		// Full definition, not just the name — the default command lives only in
 		// `defaultCommand` (never in `commands`), so a name-only reference would
 		// drop its flags/args from the document entirely.
-		result.defaultCommand = serializeCommand(schema.defaultCommand.schema, opts, resolvedMeta);
+		result.defaultCommand = serializeCommand(schema.defaultCommand, opts, resolvedMeta);
 	}
 
 	result.commands = schema.commands
-		.filter((cmd) => opts.includeHidden || !cmd.schema.hidden)
-		.map((cmd) => serializeCommand(cmd.schema, opts, resolvedMeta));
+		.filter((cmd) => opts.includeHidden || !cmd.hidden)
+		.map((cmd) => serializeCommand(cmd, opts, resolvedMeta));
 
 	return result;
 }
@@ -499,8 +499,8 @@ function generateInputSchema(
 	// CLISchema — collect all invocable commands into branches
 	const branches: Array<Record<string, unknown>> = [];
 	for (const cmd of schema.commands) {
-		if (!opts.includeHidden && cmd.schema.hidden) continue;
-		collectInputBranches(cmd.schema, '', branches, opts);
+		if (!opts.includeHidden && cmd.hidden) continue;
+		collectInputBranches(cmd, '', branches, opts);
 	}
 
 	// Single branch: emit flat (no oneOf wrapper)
@@ -515,9 +515,8 @@ function generateInputSchema(
 	// Multiple branches: discriminated union
 	if (branches.length > 0) {
 		const defaultBranchName =
-			schema.defaultCommand !== undefined &&
-			(opts.includeHidden || !schema.defaultCommand.schema.hidden)
-				? schema.defaultCommand.schema.name
+			schema.defaultCommand !== undefined && (opts.includeHidden || !schema.defaultCommand.hidden)
+				? schema.defaultCommand.name
 				: undefined;
 		const normalizedBranches =
 			defaultBranchName !== undefined

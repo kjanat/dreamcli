@@ -25,18 +25,33 @@ import { resolve } from '#internals/core/resolve/index.ts';
 import type {
 	CommandMeta,
 	CommandSchema,
+	ErasedActionHandler,
+	ExecutionStep,
 	Out,
-	RunnableCommand,
 } from '#internals/core/schema/command.ts';
 import type { InternalRunOptions, RunResult } from '#internals/core/schema/run.ts';
+
+/**
+ * The executable half of a command: what to run, and what wraps it.
+ *
+ * The schema travels on the request instead, already merged with propagated
+ * ancestor flags.
+ * @internal
+ */
+interface ExecutableCommand {
+	/** Action handler, `undefined` when the command declares none. */
+	readonly handler: ErasedActionHandler | undefined;
+	/** Derive and middleware steps in registration order. */
+	readonly steps: readonly ExecutionStep[];
+}
 
 /**
  * Explicit executor input for a single command invocation.
  * @internal
  */
 interface CommandExecutionRequest {
-	/** The command instance whose handler will be invoked. */
-	readonly command: RunnableCommand;
+	/** The handler and execution steps to run. */
+	readonly command: ExecutableCommand;
 	/** Raw argument tokens to parse (excluding the program name). */
 	readonly argv: readonly string[];
 	/** Output channel for handler and error rendering. */
@@ -99,9 +114,9 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 		const handler = command.handler;
 		if (handler === undefined) {
-			const error = new CLIError(`Command '${command.schema.name}' has no action handler`, {
+			const error = new CLIError(`Command '${schema.name}' has no action handler`, {
 				code: 'NO_ACTION',
-				suggest: `Add an .action() handler to the '${command.schema.name}' command`,
+				suggest: `Add an .action() handler to the '${schema.name}' command`,
 			});
 			out.error(error.message);
 			return { exitCode: 1, error };
@@ -204,14 +219,14 @@ async function runResolvedHooks(
 }
 
 async function executeWithExecutionSteps(
-	command: RunnableCommand,
-	handler: NonNullable<RunnableCommand['handler']>,
+	command: ExecutableCommand,
+	handler: NonNullable<ExecutableCommand['handler']>,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
 	out: Out,
 	meta: CommandMeta,
 ): Promise<void> {
-	const steps = command._executionSteps;
+	const steps = command.steps;
 
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 
@@ -283,5 +298,5 @@ function formatDeprecation(deprecation: DeprecationWarning): string {
 		: `Warning: ${entity} is deprecated`;
 }
 
-export type { CommandExecutionRequest, CommandExecutionResult };
+export type { CommandExecutionRequest, CommandExecutionResult, ExecutableCommand };
 export { buildRunResult, executeCommand };
