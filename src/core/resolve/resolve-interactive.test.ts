@@ -495,6 +495,30 @@ describe('resolve with interactive resolver', () => {
 		expect(result.flags.e).toBe('per-flag-e');
 		expect(result.flags.f).toBe('default-f');
 	});
+
+	it('reads no override for a flag named after an Object.prototype member', async () => {
+		const schema = makeSchema({
+			flags: { toString: createFlagSchema('string', { defaultValue: 'fallback' }) },
+			interactive: () => ({}),
+		});
+
+		const prompter = createTestPrompter(['prompted']);
+		const result = await resolve(schema, makeParsed(), { prompter });
+
+		expect(result.flags['toString']).toBe('fallback');
+	});
+
+	it('still applies an override the resolver declares under such a name', async () => {
+		const schema = makeSchema({
+			flags: { valueOf: createFlagSchema('string', { defaultValue: 'fallback' }) },
+			interactive: () => ({ valueOf: { kind: 'input' as const, message: 'Value?' } }),
+		});
+
+		const prompter = createTestPrompter(['prompted']);
+		const result = await resolve(schema, makeParsed(), { prompter });
+
+		expect(result.flags['valueOf']).toBe('prompted');
+	});
 });
 
 // === Type inference
