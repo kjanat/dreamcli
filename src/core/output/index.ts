@@ -551,6 +551,21 @@ function resolveTableArgs<T extends Record<string, unknown>>(
 }
 
 /**
+ * Read one cell out of a row.
+ *
+ * A column key such as `toString` names an `Object.prototype` member, and a
+ * bare lookup returns that inherited method from a row that carries no such
+ * key.
+ *
+ * @param row - Source data row.
+ * @param key - Column key to read.
+ * @returns The cell value, or `undefined` when the row does not carry the key.
+ */
+function cellValue<T extends Record<string, unknown>>(row: T, key: keyof T & string): unknown {
+	return Object.hasOwn(row, key) ? row[key] : undefined;
+}
+
+/**
  * Keep only the keys listed in `columns`, preserving column order.
  *
  * @param rows - Source data rows.
@@ -561,7 +576,7 @@ function projectTableRows<T extends Record<string, unknown>>(
 	rows: readonly T[],
 	columns: readonly TableColumn<T>[],
 ): Record<string, unknown>[] {
-	return rows.map((row) => Object.fromEntries(columns.map((c) => [c.key, row[c.key]])));
+	return rows.map((row) => Object.fromEntries(columns.map((c) => [c.key, cellValue(row, c.key)])));
 }
 
 /**
@@ -637,7 +652,9 @@ function formatTable<T extends Record<string, unknown>>(
 	const headers = columns.map((c) => c.header ?? c.key);
 
 	// Convert all cells to strings
-	const cellGrid: string[][] = rows.map((row) => columns.map((c) => cellToString(row[c.key])));
+	const cellGrid: string[][] = rows.map((row) =>
+		columns.map((c) => cellToString(cellValue(row, c.key))),
+	);
 
 	// Compute column widths
 	const widths: number[] = headers.map((h, i) => {

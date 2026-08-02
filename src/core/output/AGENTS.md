@@ -2,7 +2,7 @@
 
 Seven source files: `writer.ts` (leaf), `contracts.ts` (type contracts), `display-value.ts` (value
 formatting), `renderers.ts` (table/list rendering), `bind.ts` (method-binding helper), `activity.ts`
-(handle classes, ~568 lines), `index.ts` (OutputChannel + factories, ~698 lines).
+(handle classes, ~575 lines), `index.ts` (OutputChannel + factories, ~814 lines).
 
 Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- `index.ts` ->
 `writer.ts`. `renderers.ts` + `display-value.ts` consumed by `index.ts`.
@@ -21,13 +21,13 @@ Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- 
 
 | File               | Lines | Purpose                                                   |
 | ------------------ | ----: | --------------------------------------------------------- |
-| `index.ts`         |   698 | OutputChannel class + factories + mode dispatch           |
-| `activity.ts`      |   568 | Spinner/progress handle classes (TTY/static/capture/noop) |
-| `contracts.ts`     |   177 | Output type contracts, mode types, option interfaces      |
-| `renderers.ts`     |   101 | Table + list rendering logic                              |
-| `display-value.ts` |    48 | Value display formatting utilities                        |
+| `index.ts`         |   814 | OutputChannel class + factories + mode dispatch           |
+| `activity.ts`      |   575 | Spinner/progress handle classes (TTY/static/capture/noop) |
+| `contracts.ts`     |   197 | Output type contracts, mode types, option interfaces      |
+| `renderers.ts`     |   125 | Table + list rendering logic                              |
 | `bind.ts`          |    59 | `bindMethods()` — binds instance methods (see GOTCHAS)    |
-| `writer.ts`        |    30 | `WriteFn` type + `writeLine` helper (leaf)                |
+| `display-value.ts` |    48 | Value display formatting utilities                        |
+| `writer.ts`        |    46 | `WriteFn` type + `writeLine` helper (leaf)                |
 
 ## OUTPUT MODES
 
@@ -65,6 +65,10 @@ Starting a new one implicitly stops the previous. All activity output routes to 
 - Spinner/progress tests use `vi.useFakeTimers()` inline with `try/finally`
 - `ActivityEvent` has 10 variants (including `progress:increment` distinct from `progress:update`)
 - Ambient `setInterval`/`clearInterval` declared in `activity.ts` (zero-dep, no `@types/node`)
+- `TableColumn.key` is caller data, so `cellValue()` in `index.ts` reads a row through
+  `Object.hasOwn()`. `formatTable()` and `projectTableRows()` both go through it. A bare
+  `row[c.key]` returns the inherited method for a column keyed `toString` or `constructor` on a row
+  that has no such key, and the text table printed `[Function: toString]` where the cell belongs.
 - **Consumer-facing value objects (`OutputChannel` + all spinner/progress handle classes) call
   `bindMethods(this)` as the last constructor statement.** This makes methods safe to destructure
   (`const { log } = out`, `const { succeed } = spinner`) or pass as detached callbacks
@@ -73,14 +77,14 @@ Starting a new one implicitly stops the previous. All activity output routes to 
   methods. The noop handle singletons are plain object literals that use no `this`, so they need no
   binding.
 
-## TEST FILES (6)
+## TEST FILES (7)
 
 | File                               | Tests | Focus                                                 |
 | ---------------------------------- | ----: | ----------------------------------------------------- |
-| `output.test.ts`                   |    56 | Core OutputChannel: log/warn/error, modes, exit codes |
+| `output.test.ts`                   |    81 | Core OutputChannel: log/warn/error, modes, exit codes |
+| `output-spinner.test.ts`           |    50 | Spinner handles: noop/static/TTY/capture, fake timers |
+| `output-progress.test.ts`          |    47 | Progress handles: noop/static/TTY/capture, fake timer |
+| `output-activity-dispatch.test.ts` |    39 | OutputChannel wiring: mode dispatch, overlap, testkit |
+| `output-table.test.ts`             |    25 | Table output in various modes                         |
 | `output-tty.test.ts`               |    20 | TTY-specific rendering, color, formatting             |
-| `output-table.test.ts`             |    16 | Table output in various modes                         |
-| `output-spinner.test.ts`           |    48 | Spinner handles: noop/static/TTY/capture, fake timers |
-| `output-progress.test.ts`          |    43 | Progress handles: noop/static/TTY/capture, fake timer |
-| `output-activity-dispatch.test.ts` |    32 | OutputChannel wiring: mode dispatch, overlap, testkit |
-| `contracts.test.ts`                |     — | Output contract verification                          |
+| `contracts.test.ts`                |    15 | Output contract verification                          |

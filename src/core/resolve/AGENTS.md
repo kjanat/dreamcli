@@ -97,7 +97,7 @@ an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` 
 
 ## GOTCHAS
 
-- Split from ~940-line monolithic index — `coerce.ts` (429 lines) is the largest piece
+- Split from ~940-line monolithic index — `coerce.ts` (633 lines) is the largest piece
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
 - `DeprecationWarning` structs collected during resolution for deprecated flag/arg usage

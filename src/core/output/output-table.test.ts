@@ -239,4 +239,55 @@ describe('table', () => {
 			expect(captured.stdout).toEqual(['[{"a":1}]\n']);
 		});
 	});
+
+	// --- column keys naming an Object.prototype member
+
+	describe('column keys naming an Object.prototype member', () => {
+		it('leaves the cell empty on a row that does not carry the key', () => {
+			const [out, captured] = createCaptureOutput();
+			out.table<Record<string, unknown>>(
+				[{ id: 1, toString: 'own' }, { id: 2 }],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'toString', header: 'Label' },
+					{ key: 'absent', header: 'Absent' },
+				],
+			);
+			const lines = captured.stdout.join('').split('\n');
+			expect(lines[2]?.trimEnd()).toBe('1   own');
+			expect(lines[3]?.trimEnd()).toBe('2');
+		});
+
+		it('renders every Object.prototype member name as an empty cell', () => {
+			const names = Object.getOwnPropertyNames(Object.prototype).filter(
+				(name) => name !== '__proto__',
+			);
+			expect(names).toHaveLength(11);
+
+			for (const name of names) {
+				const [out, captured] = createCaptureOutput();
+				out.table<Record<string, unknown>>(
+					[{ id: 1 }],
+					[
+						{ key: 'id', header: 'ID' },
+						{ key: name, header: 'H' },
+					],
+				);
+				const lines = captured.stdout.join('').split('\n');
+				expect(lines[2]?.trimEnd()).toBe('1');
+			}
+		});
+
+		it('omits the key from the JSON projection on a row that lacks it', () => {
+			const [out, captured] = createCaptureOutput({ jsonMode: true });
+			out.table<Record<string, unknown>>(
+				[{ id: 1, toString: 'own' }, { id: 2 }],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'toString', header: 'Label' },
+				],
+			);
+			expect(captured.stdout).toEqual(['[{"id":1,"toString":"own"},{"id":2}]\n']);
+		});
+	});
 });

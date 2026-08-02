@@ -27,7 +27,7 @@
 | ---------------------- | ----: | --------------------------------------------------------------------- |
 | `index.ts`             |  2282 | CLIBuilder class + cli() factory + JSON error handling                |
 | `planner.ts`           |   695 | `@internal` — execution planner, command resolution strategy          |
-| `runtime-preflight.ts` |   546 | `@internal` — runtime adapter setup, env/config preflight             |
+| `runtime-preflight.ts` |   548 | `@internal` — runtime adapter setup, env/config preflight             |
 | `root-help.ts`         |   383 | `@internal` — root-level help text + text helpers, structural schema  |
 | `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein  |
 | `reserved-flags.ts`    |   238 | `@internal` — build-time `RESERVED_FLAG` guard for root-owned flags   |
@@ -142,6 +142,11 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
 - `collectPropagatedFlags()` in `propagate.ts` tests descendant flag records with `Object.hasOwn()`.
   `in` walks `Object.prototype`, which made every subcommand look like it overrode a propagated flag
   named `toString`, `valueOf`, or any other prototype member.
+- The same rule covers value reads, which grepping for `in` does not find.
+  `commandInvocationNeedsStdin()` in `runtime-preflight.ts` decides whether `.run()` reads stdin by
+  looking each arg name up on the parsed positionals, so a bare `parsed.args[name]` returned the
+  inherited method for an arg named `toString` and the stdin-backed arg looked already supplied.
+  That lookup goes through `Object.hasOwn()`.
 - `root-help.ts` uses structural `CLISchemaLike` instead of importing `CLISchema` — avoids circular
   dep through barrel
 - `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`
