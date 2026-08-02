@@ -69,7 +69,7 @@ Resolves to:
 - Short booleans are presence-based. `-v` means `true`.
 
 dreamcli does **not** implement special negated-boolean syntax automatically.
-If you want `--no-confirm`, register that exact spelling as the flag name or as an alias.
+Call `.negatable()` on the boolean to accept `--no-confirm` alongside `--confirm`; see [Negatable Booleans](/guide/flags#negatable-booleans).
 
 ### Short-flag stacking
 
