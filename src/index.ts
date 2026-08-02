@@ -23,6 +23,10 @@
 export type { Colors } from 'ansispeck';
 export type {
 	BeforeParseParams,
+	BuiltinMode,
+	BuiltinName,
+	Builtins,
+	BuiltinsConfig,
 	CLIDefinition,
 	CLIExecuteOptions,
 	CLIOptions,

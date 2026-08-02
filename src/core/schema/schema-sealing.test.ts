@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { CLISchema, ConfigSettings } from '#internals/core/cli/index.ts';
+import type { Builtins, CLISchema, ConfigSettings } from '#internals/core/cli/index.ts';
 import { createCLISchema } from '#internals/core/cli/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { ArgSchema } from './arg.ts';
@@ -22,9 +22,13 @@ type UnbrandedCommandSchema = Omit<CommandSchema, typeof schemaBrand>;
 /** {@link ConfigSettings} with the type-only brand removed. */
 type UnbrandedConfigSettings = Omit<ConfigSettings, typeof schemaBrand>;
 
+/** {@link Builtins} with the type-only brand removed. */
+type UnbrandedBuiltins = Omit<Builtins, typeof schemaBrand>;
+
 /** {@link CLISchema} with the type-only brands removed, nested settings included. */
-type UnbrandedCLISchema = Omit<CLISchema, typeof schemaBrand | 'configSettings'> & {
+type UnbrandedCLISchema = Omit<CLISchema, typeof schemaBrand | 'configSettings' | 'builtins'> & {
 	readonly configSettings: UnbrandedConfigSettings | undefined;
+	readonly builtins: UnbrandedBuiltins;
 };
 
 const spelledFlagFields: UnbrandedFlagSchema = {
@@ -85,6 +89,12 @@ const spelledConfigSettingsFields: UnbrandedConfigSettings = {
 	loaders: undefined,
 };
 
+const spelledBuiltinsFields: UnbrandedBuiltins = {
+	help: 'on',
+	json: 'on',
+	quiet: 'on',
+};
+
 const spelledCLIFields: UnbrandedCLISchema = {
 	name: 'mycli',
 	inheritName: false,
@@ -100,6 +110,7 @@ const spelledCLIFields: UnbrandedCLISchema = {
 	completionsFlag: undefined,
 	helpConfig: undefined,
 	flagSettings: undefined,
+	builtins: spelledBuiltinsFields,
 };
 
 /**
@@ -168,6 +179,16 @@ describe('schema sealing', () => {
 			expect(sealed.appName).toBe('mycli');
 		});
 
+		it('spells every built-in field a caller can reach', () => {
+			expect(createCLISchema({ name: 'mycli' }).builtins).toEqual(spelledBuiltinsFields);
+		});
+
+		it('rejects a fully spelled built-ins literal', () => {
+			// @ts-expect-error the builtins brand key is unspellable outside createCLISchema
+			const sealed: Builtins = spelledBuiltinsFields;
+			expect(sealed.help).toBe('on');
+		});
+
 		it('spells every CLI field a caller can reach', () => {
 			expect(spelledCLIFields).toEqual(createCLISchema({ name: 'mycli' }));
 		});
@@ -187,6 +208,8 @@ describe('schema sealing', () => {
 			expectTypeOf<UnbrandedCommandSchema>().not.toExtend<CommandSchema>();
 			expectTypeOf<ConfigSettings>().toExtend<UnbrandedConfigSettings>();
 			expectTypeOf<UnbrandedConfigSettings>().not.toExtend<ConfigSettings>();
+			expectTypeOf<Builtins>().toExtend<UnbrandedBuiltins>();
+			expectTypeOf<UnbrandedBuiltins>().not.toExtend<Builtins>();
 			expectTypeOf<CLISchema>().toExtend<UnbrandedCLISchema>();
 			expectTypeOf<UnbrandedCLISchema>().not.toExtend<CLISchema>();
 		});

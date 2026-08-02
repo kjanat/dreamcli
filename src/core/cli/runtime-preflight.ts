@@ -23,10 +23,13 @@ import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import type { BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
+import { builtinEnabled } from './builtins.ts';
 import type { CompiledCLI } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import { planInvocation } from './planner.ts';
+import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
 import {
 	readRootOutputFlags,
 	resolveRootJsonMode,
@@ -107,6 +110,8 @@ interface RuntimePreflightSchemaLike {
 		| undefined;
 	/** Flag-parsing behavior settings (e.g. case parity). */
 	readonly flagSettings: ParseOptions | undefined;
+	/** Which built-in flags the root still owns; a released one is left in argv. */
+	readonly builtins: BuiltinsDraft;
 }
 
 /**
@@ -263,8 +268,9 @@ function commandInvocationNeedsStdin(
 	schema: CommandSchema,
 	argv: readonly string[],
 	flagSettings?: ParseOptions,
+	builtins?: BuiltinsConfig,
 ): boolean {
-	if (argv.includes('--help') || argv.includes('-h')) {
+	if (builtinEnabled(builtins, 'help') && (argv.includes('--help') || argv.includes('-h'))) {
 		return false;
 	}
 
@@ -302,6 +308,7 @@ function invocationNeedsStdin(
 				plan.plan.mergedSchema,
 				plan.plan.argv,
 				schema.flagSettings,
+				schema.builtins,
 			);
 		case 'dispatch-error':
 		case 'needs-subcommand':
@@ -373,6 +380,34 @@ async function applyPackageJsonDiscovery(
 	return inheritedName !== undefined ? { ...packageSchema, name: inheritedName } : packageSchema;
 }
 
+/**
+ * Re-run the `RESERVED_FLAG` guard when discovery supplied the version.
+ *
+ * `.manifest()` reads a version off the filesystem at `.run()` time, past every
+ * build-time check, so a command flag named `version` or aliased `V` would
+ * become unreachable without ever being rejected. Running the same guard here
+ * fails the startup with the identical error the build paths raise (#86).
+ *
+ * @param discovered - Schema after manifest discovery merged its metadata in.
+ * @param declared - Schema as the builder had it before discovery.
+ * @param compiled - Compiled graph carrying every registered command schema.
+ * @throws {@linkcode CLIError} `RESERVED_FLAG` for the first collision found.
+ *
+ * @internal
+ */
+function assertDiscoveredVersionIsFree(
+	discovered: RuntimePreflightSchemaLike,
+	declared: RuntimePreflightSchemaLike,
+	compiled: CompiledCLI,
+): void {
+	if (discovered.version === declared.version) return;
+	assertNoReservedFlagCollisions(
+		discovered.version,
+		[compiled.defaultCommand?.schema, ...compiled.commands.map((command) => command.schema)],
+		discovered.builtins,
+	);
+}
+
 async function loadRuntimeConfig(
 	schema: RuntimePreflightSchemaLike,
 	adapter: RuntimeAdapter,
@@ -416,7 +451,7 @@ async function prepareRuntimePreflight(
 		options.schema.configSettings !== undefined
 			? extractConfigFlag(rawArgv)
 			: { configPath: undefined, filteredArgv: rawArgv };
-	const rootOutputFlags = readRootOutputFlags(filteredArgv);
+	const rootOutputFlags = readRootOutputFlags(filteredArgv, options.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options.options?.jsonMode);
 	const verbosity = resolveRootVerbosity(rootOutputFlags, options.options?.verbosity) ?? 'normal';
 	const isCompletions = isCompletionsInvocation(options.schema, options.compiled, filteredArgv);
@@ -426,6 +461,7 @@ async function prepareRuntimePreflight(
 		options.inheritedName,
 		isCompletions,
 	);
+	assertDiscoveredVersionIsFree(schema, options.schema, options.compiled);
 	const loadedConfig = await loadRuntimeConfig(
 		schema,
 		options.adapter,

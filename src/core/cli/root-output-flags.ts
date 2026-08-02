@@ -8,6 +8,9 @@
  * bare presence, `=true`/`=1`, `=false`/`=0`, last occurrence wins, and an
  * invalid literal produces the parser's own `INVALID_VALUE` error.
  *
+ * A built-in released through `.builtins({ json: 'off' })` is neither read nor
+ * stripped here, so its tokens reach normal command parsing (#86).
+ *
  * @module dreamcli/core/cli/root-output-flags
  * @internal
  */
@@ -16,6 +19,8 @@ import { ParseError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
 import { coerceFlagValue } from '#internals/core/parse/index.ts';
 import { flag } from '#internals/core/schema/flag.ts';
+import type { BuiltinsConfig } from './builtins.ts';
+import { BUILTIN_SPECS, builtinEnabled } from './builtins.ts';
 
 /** Canonical name of a root output flag. @internal */
 type RootOutputFlagName = 'json' | 'quiet';
@@ -59,30 +64,23 @@ type RootTokenMatch =
 /** The schema root `--json`/`--quiet` share with a command-level boolean flag. */
 const rootBooleanSchema = flag.boolean().schema;
 
+/** The built-ins whose tokens this module reads, in stable order. */
+const ROOT_OUTPUT_NAMES: readonly RootOutputFlagName[] = ['json', 'quiet'];
+
+/** Index the spellings of one kind, taken from the shared built-in table. */
+function spellingIndex(kind: 'long' | 'short'): ReadonlyMap<string, RootOutputFlagName> {
+	const index = new Map<string, RootOutputFlagName>();
+	for (const name of ROOT_OUTPUT_NAMES) {
+		for (const spelling of BUILTIN_SPECS[name][kind]) index.set(spelling, name);
+	}
+	return index;
+}
+
 /** Long spellings, the only ones the tokenizer lets carry an inline `=value`. */
-const ROOT_LONG_SPELLINGS: ReadonlyMap<string, RootOutputFlagName> = new Map([
-	['--json', 'json'],
-	['--quiet', 'quiet'],
-]);
+const ROOT_LONG_SPELLINGS: ReadonlyMap<string, RootOutputFlagName> = spellingIndex('long');
 
 /** Short spellings, which have no inline-value form. */
-const ROOT_SHORT_SPELLINGS: ReadonlyMap<string, RootOutputFlagName> = new Map([['-q', 'quiet']]);
-
-/**
- * Every spelling this module strips, as a bare token without its dashes.
- *
- * The build-time `RESERVED_FLAG` guard reads this instead of restating the
- * spellings, so a token added above is reserved on command flags in the same
- * change.
- *
- * @internal
- */
-const ROOT_OUTPUT_TOKENS: ReadonlyMap<string, RootOutputFlagName> = new Map(
-	[...ROOT_LONG_SPELLINGS, ...ROOT_SHORT_SPELLINGS].map(([spelling, name]) => [
-		spelling.replace(/^-+/, ''),
-		name,
-	]),
-);
+const ROOT_SHORT_SPELLINGS: ReadonlyMap<string, RootOutputFlagName> = spellingIndex('short');
 
 /** Coerce an inline `=value` the way a command-level boolean flag coerces it. */
 function coerceRootValue(name: RootOutputFlagName, spelling: string, raw: string): RootTokenMatch {
@@ -95,19 +93,30 @@ function coerceRootValue(name: RootOutputFlagName, spelling: string, raw: string
 	}
 }
 
+/** Look up a spelling, skipping built-ins the CLI released to its commands. */
+function ownedName(
+	index: ReadonlyMap<string, RootOutputFlagName>,
+	spelling: string,
+	builtins: BuiltinsConfig | undefined,
+): RootOutputFlagName | undefined {
+	const name = index.get(spelling);
+	if (name === undefined || !builtinEnabled(builtins, name)) return undefined;
+	return name;
+}
+
 /** Resolve one pre-separator argv token against the root output flags. */
-function matchRootToken(token: string): RootTokenMatch {
-	const shortName = ROOT_SHORT_SPELLINGS.get(token);
+function matchRootToken(token: string, builtins: BuiltinsConfig | undefined): RootTokenMatch {
+	const shortName = ownedName(ROOT_SHORT_SPELLINGS, token, builtins);
 	if (shortName !== undefined) return { kind: 'flag', name: shortName, selection: 'on' };
 
-	const bareName = ROOT_LONG_SPELLINGS.get(token);
+	const bareName = ownedName(ROOT_LONG_SPELLINGS, token, builtins);
 	if (bareName !== undefined) return { kind: 'flag', name: bareName, selection: 'on' };
 
 	const equals = token.indexOf('=');
 	if (equals === -1) return { kind: 'unrelated' };
 
 	const spelling = token.slice(0, equals);
-	const valuedName = ROOT_LONG_SPELLINGS.get(spelling);
+	const valuedName = ownedName(ROOT_LONG_SPELLINGS, spelling, builtins);
 	if (valuedName === undefined) return { kind: 'unrelated' };
 
 	return coerceRootValue(valuedName, spelling, token.slice(equals + 1));
@@ -125,11 +134,13 @@ function matchRootToken(token: string): RootTokenMatch {
  * can still be honoured ahead of it.
  *
  * @param argv - Raw argv tokens (excluding the binary/script path).
+ * @param builtins - Built-in state; a released built-in's tokens are left in
+ *   argv untouched. `undefined` keeps both built-ins on.
  * @returns The selections, the stripped argv, and the first invalid value's
  *   error when one occurred.
  * @internal
  */
-function readRootOutputFlags(argv: readonly string[]): RootOutputFlags {
+function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig): RootOutputFlags {
 	const separatorIndex = argv.indexOf('--');
 	const head = separatorIndex === -1 ? argv : argv.slice(0, separatorIndex);
 
@@ -142,7 +153,7 @@ function readRootOutputFlags(argv: readonly string[]): RootOutputFlags {
 	let stripped = false;
 
 	for (const token of head) {
-		const match = matchRootToken(token);
+		const match = matchRootToken(token, builtins);
 		if (match.kind === 'unrelated') {
 			keptHead.push(token);
 			continue;
@@ -200,4 +211,4 @@ function resolveRootVerbosity(
 }
 
 export type { RootOutputFlagName, RootOutputFlags };
-export { ROOT_OUTPUT_TOKENS, readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };
+export { readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };

@@ -137,6 +137,60 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.schema.version).toBe('5.5.5');
 	});
 
+	it('rejects a discovered version that shadows a command flag', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('version', flag.boolean())
+					.action(() => {}),
+			);
+
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'info'],
+			cwd: '/work',
+			readFile: async (path) => (path === '/work/package.json' ? '{"version":"6.6.6"}' : null),
+		});
+
+		await expect(
+			prepareRuntimePreflight({
+				schema: app.schema,
+				compiled: compiledStateOf(app),
+				adapter,
+				options: undefined,
+				inheritedName: undefined,
+			}),
+		).rejects.toThrow(/reserved by the root '--version' flag/);
+	});
+
+	it('leaves a discovered version alone when no command flag collides', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('versionTag', flag.string())
+					.action(() => {}),
+			);
+
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'info'],
+			cwd: '/work',
+			readFile: async (path) => (path === '/work/package.json' ? '{"version":"6.6.6"}' : null),
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.schema.version).toBe('6.6.6');
+	});
+
 	it('skips config discovery for completions invocations', async () => {
 		const readFile = vi.fn(async () => '{"deploy":{"region":"eu"}}');
 		const app = cli('myapp').config('myapp').completions();

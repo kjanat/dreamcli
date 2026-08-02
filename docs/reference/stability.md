@@ -44,7 +44,7 @@ When the match is ambiguous, the stricter contract applies.
 ## Sealed framework values
 
 `Out`, `RenderContext`, `FlagSchema`, `ArgSchema`, `CommandSchema`, `CLISchema`,
-and `ConfigSettings`.
+`ConfigSettings`, and `Builtins`.
 
 Each carries a brand a consumer cannot spell. `Out` and `RenderContext` carry a
 `unique symbol` that no entrypoint exports. The schema family carries a
@@ -57,8 +57,8 @@ Obtain instances from the framework:
 - `RenderContext` from `resolveRenderContext()`.
 - `FlagSchema`, `ArgSchema`, `CommandSchema` from `createFlagSchema()`,
   `createArgSchema()`, `createCommandSchema()`, or the corresponding builders.
-- `CLISchema` and its `ConfigSettings` from `createCLISchema()`, or from
-  `cli(...).schema`.
+- `CLISchema` with its nested `ConfigSettings` and `Builtins` from
+  `createCLISchema()`, or from `cli(...).schema`.
 
 The guarantee is one-directional. New readonly members may appear in a minor
 release, and code that reads documented members keeps compiling. Code that
@@ -133,6 +133,12 @@ const [out] = createCaptureOutput();
 vi.spyOn(out, 'info');
 ```
 
+`Builtins` is the normalized built-in-flag state stored on `CLISchema.builtins`.
+Every key is present and typed `BuiltinMode` after normalization, whatever
+subset of them the caller supplied. The consumer-facing input form is
+`BuiltinsConfig`, which is a
+[transparent input definition](#transparent-input-definitions).
+
 The compiled execution graph behind a program is not in this category because it
 is not exported at all. See [Internal surface](#internal-surface).
 
@@ -141,9 +147,9 @@ is not exported at all. See [Internal surface](#internal-surface).
 Option objects the caller constructs and passes in.
 
 Program and execution options: `CLIOptions`, `CLIExecuteOptions`, `CLIRunOptions`,
-`RunOptions` (from `@kjanat/dreamcli/testkit`), `DefaultCommandOptions`,
-`ManifestSettings` with its name-inference value type `InferNameOption`,
-`ManifestDiscoveryOptions`, `ConfigDiscoveryOptions`, and
+`RunOptions` and `RunCommandOptions` (both from `@kjanat/dreamcli/testkit`),
+`DefaultCommandOptions`, `ManifestSettings` with its name-inference value type
+`InferNameOption`, `ManifestDiscoveryOptions`, `ConfigDiscoveryOptions`, and
 `PackageRepositoryUrlOptions`.
 
 Pipeline and rendering options: `ParseOptions`, `ResolveOptions`, `OutputOptions`,
@@ -179,7 +185,10 @@ major release.
 `CLIExecuteOptions` and `CLIRunOptions` sit on top of `RunOptions`.
 `CLIExecuteOptions` is the process-free surface with every input injected
 explicitly. `CLIRunOptions` adds the runtime adapter that `.run()` uses to reach
-the process.
+the process. `RunCommandOptions` extends `RunOptions` the same way for
+`runCommand()`, adding the `builtins` state the testkit harness mirrors from
+the CLI a command is registered on. The field stays off `RunOptions` itself,
+where the CLI schema is authoritative.
 
 `HelpTheme` is the one entry whose every member is required. A theme reaches the
 framework as the `Partial<HelpTheme>` returned by a `HelpThemeFactory`, so a new
@@ -190,13 +199,14 @@ compiling. The factory form is the supported way to supply one.
 
 Plain object types a consumer writes by hand or a code generator emits.
 
-`FlagDefinition`, `ArgDefinition`, `CommandDefinition`, `CLIDefinition`, and
-`ConfigSettingsDefinition`; the shared bases `FlagDefinitionBase` and
-`ArgDefinitionBase`; the per-kind variants `StringFlagDefinition`,
-`NumberFlagDefinition`, `BooleanFlagDefinition`, `EnumFlagDefinition`,
-`ArrayFlagDefinition`, `CustomFlagDefinition`, `CountFlagDefinition`,
-`KeyValueFlagDefinition`, `StringArgDefinition`, `NumberArgDefinition`,
-`EnumArgDefinition`, `CustomArgDefinition`; the kind-indexed maps
+`FlagDefinition`, `ArgDefinition`, `CommandDefinition`, `CLIDefinition`,
+`ConfigSettingsDefinition`, and `BuiltinsConfig`; the shared bases
+`FlagDefinitionBase` and `ArgDefinitionBase`; the per-kind variants
+`StringFlagDefinition`, `NumberFlagDefinition`, `BooleanFlagDefinition`,
+`EnumFlagDefinition`, `ArrayFlagDefinition`, `CustomFlagDefinition`,
+`CountFlagDefinition`, `KeyValueFlagDefinition`, `StringArgDefinition`,
+`NumberArgDefinition`, `EnumArgDefinition`, `CustomArgDefinition`; the
+kind-indexed maps
 `FlagDefinitionByKind` and `ArgDefinitionByKind`; the override forms
 `FlagDefinitionOverrides` and `ArgDefinitionOverrides`; the entry type
 `CommandArgEntryDefinition`; the values a definition embeds, `PathChecks`,
@@ -218,6 +228,13 @@ an already-built `FlagSchema`, and `CLIDefinition.commands` takes a
 complete structural tree and hand it to `createCLISchema()`. Second, each
 definition is a discriminated union indexed by `kind`, so a field belonging to
 another kind is unrepresentable rather than silently ignored.
+
+`BuiltinsConfig` is the input to `CLIBuilder.builtins()` and to the `builtins`
+field of `CLIDefinition`. Its keys are the members of `BuiltinName`, all
+optional, each taking a `BuiltinMode`. An absent key leaves that built-in
+`'on'`, so `{}` and an omitted `builtins` field mean the same thing. A new key
+arrives with a new `BuiltinName` member, which is a major release under
+[Closed unions](#closed-unions-and-discriminated-results).
 
 Adding a member to `FlagKind` or `ArgKind` widens these unions and is a major
 release. See [Closed unions](#closed-unions-and-discriminated-results).
@@ -304,9 +321,9 @@ The payload types the hooks receive are covered under
 ## Closed unions and discriminated results
 
 The kind and mode unions `Verbosity`, `Shell`, `ArgKind`, `FlagKind`,
-`PromptKind`, `ArgPresence`, `FlagPresence`, `DuplicatePolicy`, `Fallback`,
-`TableFormat`, `TableStream`, `ParseErrorCode`, `ValidationErrorCode`, and
-`Runtime` (from `@kjanat/dreamcli/runtime`).
+`PromptKind`, `BuiltinName`, `BuiltinMode`, `ArgPresence`, `FlagPresence`,
+`DuplicatePolicy`, `Fallback`, `TableFormat`, `TableStream`, `ParseErrorCode`,
+`ValidationErrorCode`, and `Runtime` (from `@kjanat/dreamcli/runtime`).
 
 The discriminated results `ActivityEvent`, `Token`, `PromptResult`,
 `NumberConstraintViolation`, `StringConstraintViolation`, and

@@ -1,6 +1,6 @@
 # cli — CLIBuilder, multi-command dispatch, plugins
 
-`index.ts` (~2167 lines) — heavily split: 11 `@internal` extraction files.
+`index.ts` (~2259 lines) — heavily split: 12 `@internal` extraction files.
 
 ## KEY TYPES
 
@@ -10,6 +10,7 @@
 | `cli(name)`                | Factory function -> `CLIBuilder`                                        |
 | `isMainModule(meta)`       | Entrypoint guard for ambient `ImportMeta` compatibility                 |
 | `CLISchema`                | Runtime descriptor for the full CLI, execution graph excluded           |
+| `Builtins`                 | Sealed `help`/`json`/`quiet` state on `CLISchema`, set by `.builtins()` |
 | `CLIExecuteOptions`        | Extends `RunOptions`; the process-free `.execute()` surface             |
 | `CLIRunOptions`            | Extends `CLIExecuteOptions` with the runtime `adapter`                  |
 | `ConfigSettings`           | Config file discovery settings for CLI                                  |
@@ -24,13 +25,14 @@
 
 | File                   | Lines | Purpose                                                               |
 | ---------------------- | ----: | --------------------------------------------------------------------- |
-| `index.ts`             |  2167 | CLIBuilder class + cli() factory + JSON error handling                |
-| `planner.ts`           |   669 | `@internal` — execution planner, command resolution strategy          |
-| `runtime-preflight.ts` |   490 | `@internal` — runtime adapter setup, env/config preflight             |
+| `index.ts`             |  2259 | CLIBuilder class + cli() factory + JSON error handling                |
+| `planner.ts`           |   695 | `@internal` — execution planner, command resolution strategy          |
+| `runtime-preflight.ts` |   526 | `@internal` — runtime adapter setup, env/config preflight             |
+| `root-help.ts`         |   383 | `@internal` — root-level help text + text helpers, structural schema  |
 | `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein  |
-| `root-help.ts`         |   364 | `@internal` — root-level help text + text helpers, structural schema  |
-| `reserved-flags.ts`    |   220 | `@internal` — build-time `RESERVED_FLAG` guard for root-owned flags   |
-| `root-output-flags.ts` |   203 | `@internal` — `--json`/`--quiet` reader + strip, shared by all layers |
+| `reserved-flags.ts`    |   238 | `@internal` — build-time `RESERVED_FLAG` guard for root-owned flags   |
+| `root-output-flags.ts` |   214 | `@internal` — `--json`/`--quiet` reader + strip, shared by all layers |
+| `builtins.ts`          |   208 | Built-in spelling table + `.builtins()` normalization, shared by all  |
 | `compiled.ts`          |   138 | `@internal` — compiled execution graph + `compileCommand()`           |
 | `plugin.ts`            |   117 | `@internal` — plugin system + lifecycle hooks                         |
 | `propagate.ts`         |    97 | `@internal` — flag propagation through command tree                   |
@@ -90,14 +92,36 @@ no-commands error, command map building, 3-way dispatch result (`unknown` / `nee
 - `createCLISchema()` normalizes commands through `createCommandSchema()`, which clones them. It
   builds descriptions only; `cli()` uses it just for the empty root schema, so the identity
   invariant above is never crossed.
+- `builtins.ts` holds `BUILTIN_SPECS`, the ONE spelling table for `help`/`json`/`quiet`. Every
+  built-in-aware layer reads it: `root-output-flags.ts` builds its long/short spelling maps from it,
+  `reserved-flags.ts` builds the reserved token set from it, `root-help.ts` renders
+  `Global options:` from it, and `completion/shells/shared.ts` gates the synthetic root `--help` on
+  it. Add a spelling to an existing entry and all four follow. Adding a whole built-in needs
+  `BUILTIN_NAMES` updated by hand as well: the `BuiltinName` union forces a `BUILTIN_SPECS` entry
+  through `Record` completeness, but nothing forces the `BUILTIN_NAMES` array, and the guard and the
+  `Global options:` block both walk that array. `version`/`V` is NOT a built-in — it is opt-in via
+  `.version()`, so it stays a local constant in `reserved-flags.ts` and an interception in
+  `planner.ts`.
+- `.builtins({ <name>: 'off' })` releases a built-in to the commands (#86). Normalized state lives on
+  `CLISchema.builtins` (sealed, all three keys present); readers take the partial `BuiltinsConfig`
+  and go through `builtinEnabled()`, which defaults an absent key to `'on'`, so an unthreaded reader
+  keeps today's behavior. Threading points: `readRootOutputFlags(argv, builtins)`,
+  `PlannerSchemaLike.builtins` (root `--help`/`-h`, bare `help`, the `requestsHelp` rescue),
+  `InternalRunOptions.builtins` (`executeCommand()`'s help short-circuit),
+  `RuntimePreflightSchemaLike.builtins`, `RenderContextOptions.builtins`, and testkit
+  `RunCommandOptions.builtins`. `.builtins()` must be called BEFORE the commands that declare a
+  released flag — `.command()` rejects the flag while the root still owns the token, and the
+  `RESERVED_FLAG` suggest says so.
 - `reserved-flags.ts` rejects a command flag spelled like a token the root already owns:
-  `quiet`/`q`, `json`, `help`/`h` always, plus `version`/`V` once `schema.version` is set (#84). It
-  checks canonical names, aliases (hidden included), and custom negated spellings from
-  `.negatable({ alias })`, since all three land in `buildFlagLookup` and any of them can spell a
-  reserved token. The output half of the reserved set is derived from `ROOT_OUTPUT_TOKENS` in
-  `root-output-flags.ts` rather than restated, so a token added to the strip list is reserved in the
-  same change. `help`/`h` and `version`/`V` come from `planner.ts` interception and are declared
-  here; adding one there needs a matching entry.
+  `quiet`/`q`, `json`, `help`/`h` while their built-in is on, plus `version`/`V` once
+  `schema.version` is set (#84). It checks canonical names, aliases (hidden included), and custom
+  negated spellings from `.negatable({ alias })`, since all three land in `buildFlagLookup` and any
+  of them can spell a reserved token. The guard is deliberately STRICTER than the root strip: it
+  rejects the bare `q`/`h`/`V` alias unconditionally, while the strip and interception match only
+  the exact `-q`/`-h`/`-V` tokens, so a short cluster like `-vq` still reaches the command. The
+  plain spelling is the one users type; `reserved-flags.test.ts` pins both halves.
+- `runtime-preflight.ts` re-runs the guard when `.manifest()` filesystem discovery injects a version
+  (`assertDiscoveredVersionIsFree`), the one path that lands a version past every build-time check.
 - The version half of the guard is bidirectional like the `--completions` guard:
   `.command()`/`.default()` check against the current `schema.version`, and
   `.version()`/`.manifest(data)` re-check every registered command because either can set the
@@ -154,3 +178,4 @@ no-commands error, command map building, 3-way dispatch result (`unknown` / `nee
 | `root-help-theme.test.ts`         | Root help theming                       |
 | `render-context.test.ts`          | Render context construction             |
 | `reserved-flags.test.ts`          | `RESERVED_FLAG` guard for root flags    |
+| `builtins.test.ts`                | `.builtins()` release of root built-ins |

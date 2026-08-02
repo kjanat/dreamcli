@@ -14,6 +14,8 @@
  * @module dreamcli/core/testkit
  */
 
+import type { BuiltinsConfig } from '#internals/core/cli/builtins.ts';
+import { builtinEnabled } from '#internals/core/cli/builtins.ts';
 import {
 	readRootOutputFlags,
 	resolveRootJsonMode,
@@ -31,6 +33,27 @@ import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/
 // for public testkit continuity.
 
 // --- Core execution pipeline
+
+/**
+ * Options for {@linkcode runCommand}.
+ *
+ * Extends {@linkcode RunOptions} with the CLI-root state `runCommand()` mirrors,
+ * following the way `CLIRunOptions` extends `CLIExecuteOptions` with the fields
+ * only that layer needs.
+ */
+interface RunCommandOptions extends RunOptions {
+	/**
+	 * Which built-in flags the harness mirrors, matching the CLI the command is
+	 * registered on.
+	 *
+	 * A command that owns a released built-in (`cli(...).builtins({ json: 'off' })`
+	 * plus a `json` flag) must be tested with the same setting, otherwise the
+	 * harness strips the token before `parse()` sees it.
+	 *
+	 * @defaultValue every built-in `'on'`, mirroring an unconfigured CLI root
+	 */
+	readonly builtins?: BuiltinsConfig;
+}
 
 /**
  * Run a command builder against the given argv with injected options.
@@ -53,14 +76,16 @@ import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/
  *   JSON mode and `['--quiet']` sets quiet verbosity rather than failing as
  *   unknown flags. Equivalent to `{ jsonMode: true }` / `{ verbosity: 'quiet' }`.
  *   Both accept an explicit value (`--json=false`), and an invalid one fails
- *   with the same `INVALID_VALUE` error the CLI root produces.
+ *   with the same `INVALID_VALUE` error the CLI root produces. Pass
+ *   `options.builtins` to mirror a CLI that released one of these tokens to its
+ *   commands.
  * @param options - Injectable runtime state
  * @returns Structured run result with exit code and captured output
  */
 async function runCommand(
 	cmd: RunnableCommand,
 	argv: readonly string[],
-	options?: RunOptions,
+	options?: RunCommandOptions,
 ): Promise<RunResult> {
 	return runCommandInternal(cmd, argv, options);
 }
@@ -81,7 +106,7 @@ async function runCommandInternal(
 	// reach `parse()` as unknown flags (#33). The shared reader detects them,
 	// strips them, and rejects an invalid `=value` exactly as dispatch does. The
 	// explicit `options.jsonMode` keeps working when argv says nothing.
-	const rootOutputFlags = readRootOutputFlags(argv);
+	const rootOutputFlags = readRootOutputFlags(argv, options?.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
 	const verbosity: Verbosity | undefined = resolveRootVerbosity(
 		rootOutputFlags,
@@ -105,7 +130,10 @@ async function runCommandInternal(
 		);
 	}
 
-	if (rootOutputFlags.kind === 'failed' && !requestsHelp(effectiveArgv)) {
+	if (
+		rootOutputFlags.kind === 'failed' &&
+		!(builtinEnabled(options?.builtins, 'help') && requestsHelp(effectiveArgv))
+	) {
 		const { error } = rootOutputFlags;
 		if (jsonMode) {
 			out.json({ error: error.toJSON() });
@@ -181,6 +209,6 @@ async function runCommandInternal(
  * expect(result.error).toBeUndefined();
  * ```
  */
-export type { RunOptions, RunResult };
+export type { RunCommandOptions, RunOptions, RunResult };
 
 export { runCommand, runCommandInternal };

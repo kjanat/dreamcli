@@ -8,6 +8,7 @@
  * @internal
  */
 
+import { builtinEnabled } from '#internals/core/cli/builtins.ts';
 import type {
 	BeforeParseParams,
 	CLIPlugin,
@@ -87,7 +88,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 	clearRequestedExitCode(out);
 
 	try {
-		if (requestsHelp(argv)) {
+		if (builtinEnabled(options?.builtins, 'help') && requestsHelp(argv)) {
 			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
 			// `out` may predate it, so the channel flag alone is not authoritative.

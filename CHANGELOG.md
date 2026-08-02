@@ -41,6 +41,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `CommandArgEntryDefinition`; and `CLIDefinition` with
   `ConfigSettingsDefinition`. All of them are exported from the package root.
 
+- **`.builtins()` takes `--help`, `--json`, or `--quiet` over to the commands**
+  ([#86](https://github.com/kjanat/dreamcli/issues/86)). A CLI whose `--json`
+  names the document it operates on, whose `-q` means something domain-specific,
+  or whose `--help` is a routable topic browser can now claim the token.
+  `cli('mycli').builtins({ json: 'off' })` releases every spelling that built-in
+  answers to. The root stops reading and stripping it from argv, root help stops
+  listing it under `Global options:`, the `RESERVED_FLAG` guard stops reserving
+  it, and a command may declare it as an ordinary flag that parses and reaches
+  the handler. Releasing `help` also disables command-level `--help`/`-h`, the
+  bare `help` token, the `--help` footer hint, the
+  `Run '<bin> --help' for available commands` suggestion on dispatch errors, and
+  the synthetic `--help` in generated completion scripts. `version` and
+  `completions` have no entry, since `.version()` and `.completions()` are
+  opt-in and a CLI declines those by omission. Every built-in defaults to
+  `'on'`, repeated calls merge with the last mode per built-in winning, and
+  `RunOptions.jsonMode` / `RunOptions.verbosity` keep working regardless, since
+  only argv-driven activation is disabled. The state is normalized onto
+  `CLISchema.builtins` by both `.builtins()` and the `builtins` field of
+  `createCLISchema()`, an invalid mode throws `INVALID_SCHEMA`, and
+  `BuiltinsConfig`, `Builtins`, `BuiltinName`, and `BuiltinMode` are exported
+  from the package root. `runCommand()` from `/testkit` takes the same
+  `builtins` option so a command owning a released flag can be tested; its
+  options type is now `RunCommandOptions`. The `RESERVED_FLAG` error offers
+  `.builtins({ <name>: 'off' })` alongside renaming, and a version discovered by
+  `.manifest()` filesystem walking now runs the same guard at `.run()` time
+  instead of silently shadowing a command's `version` flag.
+
 - **Definition format v1 — versioned, typed documents** — `generateSchema()`
   and `generateCommandSchema()` now emit `schemaVersion: 1`, so a consumer can
   tell which format it is reading before parsing the rest. Both return typed
