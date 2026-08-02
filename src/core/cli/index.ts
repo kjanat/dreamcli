@@ -1264,6 +1264,8 @@ class CLIBuilder {
 	 * or a settings-shaped object falls through to the settings overload.
 	 *
 	 * @param data - Pre-loaded manifest metadata.
+	 * @throws {@link CLIError} `RESERVED_FLAG` when the data carries a version and
+	 *   a registered command declares a flag named `version` or aliased `V`.
 	 *
 	 * @example
 	 * ```ts
@@ -1291,6 +1293,12 @@ class CLIBuilder {
 	 * (discovery keeps walking).
 	 *
 	 * Has no effect in `.execute()` (filesystem-free) — use the data overload.
+	 *
+	 * A discovered version lands at `.run()` time, past every build-time check, so
+	 * the `RESERVED_FLAG` guard re-runs there. A registered command that declares a
+	 * flag named `version` or aliased `V` then fails startup, writing the error and
+	 * its suggestion to stderr (a JSON error envelope on stdout under `--json`) and
+	 * exiting with the error's exit code instead of throwing.
 	 *
 	 * @param settings - Optional settings:
 	 *   - `files`: candidate manifest filenames in priority order
