@@ -290,4 +290,72 @@ describe('table', () => {
 			expect(captured.stdout).toEqual(['[{"id":1,"toString":"own"},{"id":2}]\n']);
 		});
 	});
+
+	// --- column keys held by the row's own prototype chain
+
+	describe('column keys the row inherits from its own prototype', () => {
+		class Server {
+			constructor(
+				readonly host: string,
+				readonly port: number,
+			) {}
+			get address(): string {
+				return `${this.host}:${this.port}`;
+			}
+		}
+
+		const asRows = (rows: readonly Server[]): readonly Record<string, unknown>[] =>
+			rows.map((row) => row as unknown as Record<string, unknown>);
+
+		it('renders a class getter', () => {
+			const [out, captured] = createCaptureOutput();
+			out.table<Record<string, unknown>>(asRows([new Server('web-1', 80)]), [
+				{ key: 'host', header: 'Host' },
+				{ key: 'address', header: 'Address' },
+			]);
+			const lines = captured.stdout.join('').split('\n');
+			expect(lines[2]?.trimEnd()).toBe('web-1  web-1:80');
+		});
+
+		it('keeps the class getter in the JSON projection', () => {
+			const [out, captured] = createCaptureOutput({ jsonMode: true });
+			out.table<Record<string, unknown>>(asRows([new Server('web-1', 80)]), [
+				{ key: 'host', header: 'Host' },
+				{ key: 'address', header: 'Address' },
+			]);
+			expect(captured.stdout).toEqual(['[{"host":"web-1","address":"web-1:80"}]\n']);
+		});
+
+		it('renders a value inherited from an Object.create() base', () => {
+			const [out, captured] = createCaptureOutput();
+			const row: Record<string, unknown> = Object.create({ status: 'pending' });
+			row['id'] = 1;
+
+			out.table<Record<string, unknown>>(
+				[row],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'status', header: 'Status' },
+				],
+			);
+			const lines = captured.stdout.join('').split('\n');
+			expect(lines[2]?.trimEnd()).toBe('1   pending');
+		});
+
+		it('still blanks an Object.prototype member on such a row', () => {
+			const [out, captured] = createCaptureOutput();
+			const row: Record<string, unknown> = Object.create({ status: 'pending' });
+			row['id'] = 1;
+
+			out.table<Record<string, unknown>>(
+				[row],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'toString', header: 'Label' },
+				],
+			);
+			const lines = captured.stdout.join('').split('\n');
+			expect(lines[2]?.trimEnd()).toBe('1');
+		});
+	});
 });

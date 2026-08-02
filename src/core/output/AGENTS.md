@@ -2,7 +2,7 @@
 
 Seven source files: `writer.ts` (leaf), `contracts.ts` (type contracts), `display-value.ts` (value
 formatting), `renderers.ts` (table/list rendering), `bind.ts` (method-binding helper), `activity.ts`
-(handle classes, ~575 lines), `index.ts` (OutputChannel + factories, ~814 lines).
+(handle classes, ~575 lines), `index.ts` (OutputChannel + factories, ~830 lines).
 
 Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- `index.ts` ->
 `writer.ts`. `renderers.ts` + `display-value.ts` consumed by `index.ts`.
@@ -21,7 +21,7 @@ Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- 
 
 | File               | Lines | Purpose                                                   |
 | ------------------ | ----: | --------------------------------------------------------- |
-| `index.ts`         |   814 | OutputChannel class + factories + mode dispatch           |
+| `index.ts`         |   830 | OutputChannel class + factories + mode dispatch           |
 | `activity.ts`      |   575 | Spinner/progress handle classes (TTY/static/capture/noop) |
 | `contracts.ts`     |   197 | Output type contracts, mode types, option interfaces      |
 | `renderers.ts`     |   125 | Table + list rendering logic                              |
@@ -65,10 +65,13 @@ Starting a new one implicitly stops the previous. All activity output routes to 
 - Spinner/progress tests use `vi.useFakeTimers()` inline with `try/finally`
 - `ActivityEvent` has 10 variants (including `progress:increment` distinct from `progress:update`)
 - Ambient `setInterval`/`clearInterval` declared in `activity.ts` (zero-dep, no `@types/node`)
-- `TableColumn.key` is caller data, so `cellValue()` in `index.ts` reads a row through
-  `Object.hasOwn()`. `formatTable()` and `projectTableRows()` both go through it. A bare
-  `row[c.key]` returns the inherited method for a column keyed `toString` or `constructor` on a row
-  that has no such key, and the text table printed `[Function: toString]` where the cell belongs.
+- `TableColumn.key` is caller data, so `cellValue()` in `index.ts` locates the key's holder along
+  the row's prototype chain and treats `Object.prototype` as absent. `formatTable()` and
+  `projectTableRows()` both go through it. A bare `row[c.key]` returns the inherited method for a
+  column keyed `toString` or `constructor` on a row that has no such key, and the text table printed
+  `[Function: toString]` where the cell belongs. An `Object.hasOwn()` check alone is too strict.
+  Rows are arbitrary caller objects, so a class getter and an `Object.create(defaults)` fallback are
+  ordinary data and must still render.
 - **Consumer-facing value objects (`OutputChannel` + all spinner/progress handle classes) call
   `bindMethods(this)` as the last constructor statement.** This makes methods safe to destructure
   (`const { log } = out`, `const { succeed } = spinner`) or pass as detached callbacks
@@ -85,6 +88,6 @@ Starting a new one implicitly stops the previous. All activity output routes to 
 | `output-spinner.test.ts`           |    50 | Spinner handles: noop/static/TTY/capture, fake timers |
 | `output-progress.test.ts`          |    47 | Progress handles: noop/static/TTY/capture, fake timer |
 | `output-activity-dispatch.test.ts` |    39 | OutputChannel wiring: mode dispatch, overlap, testkit |
-| `output-table.test.ts`             |    25 | Table output in various modes                         |
+| `output-table.test.ts`             |    29 | Table output in various modes                         |
 | `output-tty.test.ts`               |    20 | TTY-specific rendering, color, formatting             |
 | `contracts.test.ts`                |    15 | Output contract verification                          |

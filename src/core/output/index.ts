@@ -551,18 +551,34 @@ function resolveTableArgs<T extends Record<string, unknown>>(
 }
 
 /**
+ * Find the object along a row's prototype chain that carries a key.
+ *
+ * @param row - Source data row.
+ * @param key - Column key to locate.
+ * @returns The owning object, or `null` when nothing in the chain carries it.
+ */
+function cellKeyHolder(row: object, key: string): object | null {
+	for (let holder: object | null = row; holder !== null; holder = Object.getPrototypeOf(holder)) {
+		if (Object.hasOwn(holder, key)) return holder;
+	}
+	return null;
+}
+
+/**
  * Read one cell out of a row.
  *
- * A column key such as `toString` names an `Object.prototype` member, and a
- * bare lookup returns that inherited method from a row that carries no such
- * key.
+ * `Object.prototype` answers a lookup for a column key such as `toString` on
+ * every row, so a key it alone carries reads as absent. A key held anywhere
+ * earlier in the chain is the row's own data, which is where a class getter or
+ * an `Object.create(defaults)` fallback lives.
  *
  * @param row - Source data row.
  * @param key - Column key to read.
- * @returns The cell value, or `undefined` when the row does not carry the key.
+ * @returns The cell value, or `undefined` when only `Object.prototype` carries the key.
  */
 function cellValue<T extends Record<string, unknown>>(row: T, key: keyof T & string): unknown {
-	return Object.hasOwn(row, key) ? row[key] : undefined;
+	const holder = cellKeyHolder(row, key);
+	return holder === null || holder === Object.prototype ? undefined : row[key];
 }
 
 /**

@@ -358,12 +358,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **`out.table()` printed a native method for a column key named after an
   `Object.prototype` member** — a column keyed `toString`, `constructor`, or any
-  other member name read the row without checking own keys, so a row that
-  carried no such key rendered `[Function: toString]` in place of the empty cell
-  every other missing key produces. Dynamic rows typed as
-  `Record<string, unknown>` are the reachable case, including columns inferred
-  from a first row that does carry the key. Both the text renderer and the JSON
-  projection now test own keys.
+  other member name read the row with a bare lookup, so a row that carried no
+  such key rendered `[Function: toString]` in place of the empty cell every
+  other missing key produces. Dynamic rows typed as `Record<string, unknown>`
+  are the reachable case, including columns inferred from a first row that does
+  carry the key. Both the text renderer and the JSON projection now treat a key
+  that only `Object.prototype` carries as absent. A key held anywhere earlier in
+  the row's prototype chain still renders, so a class getter and an
+  `Object.create(defaults)` fallback reach the table as before.
+
+- **A Standard Schema validator ran against a native method on a failed
+  resolution** — when a required flag or arg was missing, `resolve()` still ran
+  the Standard Schema pass before rethrowing, over a values record the failed
+  resolver had left empty. The pass read each declared name without checking own
+  keys, so a flag or arg named after an `Object.prototype` member handed its
+  `flag.custom()` / `arg.custom()` validator the inherited method. The user saw a
+  second, invented `CONSTRAINT_VIOLATED` beside the real error. The pass now
+  tests own keys.
 
 - **Quiet mode leaked spinner and progress output** — activity handles now
   resolve to no-ops under quiet verbosity, including interactive TTYs and
