@@ -25,7 +25,7 @@ import {
 } from '#internals/core/parse/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
-import { createCommandSchema, validateCommandFlagTree } from '#internals/core/schema/command.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig, InferFlags } from '#internals/core/schema/flag.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
@@ -282,7 +282,6 @@ async function readFlags<const F extends FlagMap>(
 
 	const flags = Object.fromEntries(entries.map(([name, builder]) => [name, builder.schema]));
 	const schema = createCommandSchema({ name: INTERNAL_COMMAND_NAME, flags });
-	validateCommandFlagTree(schema);
 
 	const host = adapterReader(options?.adapter);
 	const argv = options?.argv ?? host().argv.slice(2);

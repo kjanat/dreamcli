@@ -9,7 +9,13 @@ import type {
 	CommandSchema,
 	ExampleMeta,
 } from './command.ts';
-import { CommandBuilder, command, group, resolveExampleCommand } from './command.ts';
+import {
+	CommandBuilder,
+	command,
+	createCommandSchema,
+	group,
+	resolveExampleCommand,
+} from './command.ts';
 import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
@@ -903,5 +909,124 @@ describe('command() — commands field', () => {
 	it('CommandSchema.commands is typed as readonly CommandSchema[]', () => {
 		const cmd = command('test');
 		expectTypeOf(cmd.schema.commands).toEqualTypeOf<readonly CommandSchema[]>();
+	});
+});
+
+// === createCommandSchema() flag collision validation
+
+function collisionCode(build: () => unknown): string {
+	try {
+		build();
+	} catch (error) {
+		if (error instanceof CLIError) return error.code;
+		throw error;
+	}
+
+	throw new Error('Expected createCommandSchema to throw a CLIError');
+}
+
+describe('createCommandSchema() flag collisions', () => {
+	it('rejects two flags sharing one alias on the same command', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				flags: {
+					verbose: { kind: 'boolean', aliases: ['v'] },
+					version: { kind: 'boolean', aliases: ['v'] },
+				},
+			});
+		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+	});
+
+	it('rejects an alias that spells another flag canonical name', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				flags: {
+					force: { kind: 'boolean' },
+					frobnicate: { kind: 'boolean', aliases: ['force'] },
+				},
+			});
+		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+	});
+
+	it('rejects a negated spelling that collides with another canonical name', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'build',
+				flags: {
+					sandbox: { kind: 'boolean', negation: { alias: undefined, hidden: false } },
+					'no-sandbox': { kind: 'boolean' },
+				},
+			});
+		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+	});
+
+	it('rejects a collision declared inside a nested subcommand', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				commands: [
+					{
+						name: 'migrate',
+						flags: {
+							verbose: { kind: 'boolean', aliases: ['v'] },
+							version: { kind: 'boolean', aliases: ['v'] },
+						},
+					},
+				],
+			});
+		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+	});
+
+	it('rejects a child alias that collides with a propagated ancestor alias', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				flags: { verbose: { kind: 'boolean', aliases: ['v'], propagate: true } },
+				commands: [{ name: 'migrate', flags: { version: { kind: 'boolean', aliases: ['v'] } } }],
+			});
+		expect(collisionCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+	});
+
+	it('rejects a grandchild alias that collides with a propagated root alias', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				flags: { verbose: { kind: 'boolean', aliases: ['v'], propagate: true } },
+				commands: [
+					{
+						name: 'migrate',
+						commands: [{ name: 'up', flags: { version: { kind: 'boolean', aliases: ['v'] } } }],
+					},
+				],
+			});
+		expect(collisionCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+	});
+
+	it('allows a child to shadow a propagated flag by canonical name', () => {
+		expect(() =>
+			createCommandSchema({
+				name: 'db',
+				flags: { verbose: { kind: 'boolean', aliases: ['v'], propagate: true } },
+				commands: [{ name: 'migrate', flags: { verbose: { kind: 'boolean', aliases: ['v'] } } }],
+			}),
+		).not.toThrow();
+	});
+
+	it('accepts a valid tree and stays deep-equal when fed back in', () => {
+		const built = createCommandSchema({
+			name: 'db',
+			flags: { verbose: { kind: 'boolean', aliases: ['v'], propagate: true } },
+			commands: [{ name: 'migrate', flags: { force: { kind: 'boolean', aliases: ['f'] } } }],
+		});
+		expect(createCommandSchema(built)).toEqual(built);
+	});
+
+	it('accepts a builder-composed schema fed back through the factory', () => {
+		const built = command('db')
+			.flag('verbose', flag.boolean().alias('v').propagate())
+			.command(command('migrate').flag('force', flag.boolean().alias('f'))).schema;
+		expect(createCommandSchema(built)).toEqual(built);
 	});
 });

@@ -359,6 +359,14 @@ need re-recording.
 
 ## Behavioral Changes To Review
 
+- **`createCommandSchema()` validates flag spellings.** A definition whose flags
+  share a name, an alias, or a negated spelling on one command throws
+  `FLAG_NAME_COLLISION`, and a flag spelled the same way as one propagated from
+  an ancestor command throws `PROPAGATED_FLAG_COLLISION`. The whole tree is
+  checked, nested subcommands included, and `createCLISchema()` inherits the
+  check through it. `command()` has always refused these at `.flag()` and
+  `.command()`, so only definitions composed as data change: one that used to
+  build and then lose a flag at parse time now fails at construction.
 - **Root `--json` and `--quiet` take an explicit value.** `--json=true`,
   `--json=1`, `--json=false`, and `--json=0` set the mode where 3.x failed with
   `Unknown flag`, and `--quiet` accepts the same literals. The last occurrence

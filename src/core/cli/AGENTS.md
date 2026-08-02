@@ -128,8 +128,9 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
   `.version()`/`.manifest(data)` re-check every registered command because either can set the
   version after registration. `createCLISchema()` runs the same check, plus
   `assertNoCompletionsFlagCollision()` when the definition carries `completionsFlag`, so both
-  construction paths agree; `createCommandSchema()` stays permissive, since a bare command is not
-  bound to a root.
+  construction paths agree; `createCommandSchema()` runs no root-owned-token check, since a bare
+  command is not bound to a root. It does run `validateCommandFlagTree()`, so command-local and
+  propagated collisions still throw there.
 - `root-help.ts` uses structural `CLISchemaLike` instead of importing `CLISchema` — avoids circular
   dep through barrel
 - `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`

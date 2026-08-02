@@ -634,6 +634,8 @@ interface CommandDefinition {
  *   or contains whitespace.
  * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_ARG` when
  *   an arg breaks the stdin invariants.
+ *
+ * @internal
  */
 function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 	if (definition.name === '' || /\s/u.test(definition.name)) {
@@ -681,6 +683,12 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  *
  * Flags, args, and subcommands are normalized recursively, so an already-built
  * schema fed back in produces a deep-equal schema.
+ *
+ * Flag spellings are checked across the whole tree, so a definition whose names,
+ * aliases, or negated spellings collide with each other or with a propagated
+ * ancestor flag is rejected here rather than silently losing a flag at parse
+ * time. This is the same check the {@link CommandBuilder} applies as flags and
+ * subcommands are registered.
  *
  * @param definition - Command name plus optional flags, args, and subcommands.
  * @returns A fully populated {@link CommandSchema}.
@@ -1690,12 +1698,4 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export {
-	CommandBuilder,
-	command,
-	createCommandSchema,
-	group,
-	outBrand,
-	resolveExampleCommand,
-	validateCommandFlagTree,
-};
+export { CommandBuilder, command, createCommandSchema, group, outBrand, resolveExampleCommand };
