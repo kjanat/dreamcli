@@ -242,6 +242,54 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.inputs.stdinData).toBe('piped data');
 	});
 
+	it('reads stdin for a stdin arg named after an Object.prototype member', async () => {
+		const app = cli('myapp').command(
+			command('echo')
+				.arg('toString', arg.string().stdin())
+				.action(() => {}),
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'echo'],
+			stdinData: 'piped data',
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.stdinData).toBe('piped data');
+	});
+
+	it('leaves stdin unread when such an arg already has a positional', async () => {
+		const app = cli('myapp').command(
+			command('echo')
+				.arg('toString', arg.string().stdin())
+				.action(() => {}),
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'echo', 'from-argv'],
+			stdinData: 'piped data',
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.stdinData).toBeUndefined();
+	});
+
 	it('does not read stdin for root help despite stdin-capable commands', async () => {
 		const app = cli('myapp').command(
 			command('echo')

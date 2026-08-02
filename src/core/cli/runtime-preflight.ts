@@ -277,7 +277,9 @@ function commandInvocationNeedsStdin(
 	try {
 		const parsed = parse(schema, argv, flagSettings);
 		return schema.args.some(({ name, schema: argSchema }) => {
-			const parsedValue = parsed.args[name];
+			// An arg named after an Object.prototype member would otherwise read
+			// that inherited method as a supplied positional.
+			const parsedValue = Object.hasOwn(parsed.args, name) ? parsed.args[name] : undefined;
 			return argSchema.stdinMode && (parsedValue === undefined || parsedValue === '-');
 		});
 	} catch (error: unknown) {

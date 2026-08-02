@@ -334,6 +334,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   inherited method and failed coercion instead of falling through to config,
   prompt, or default. Both lookups now test own keys.
 
+- **`.run()` never read stdin for an arg named after an `Object.prototype`
+  member** — the precheck that decides whether to read stdin looked the arg name
+  up on the parsed positionals without checking own keys, so an arg such as
+  `.arg('toString', arg.string().stdin())` looked already supplied. `.run()`
+  skipped the read and the command failed with `Missing required argument`
+  however much was piped to it. The lookup now tests own keys. `.execute()` and
+  the testkit take `stdinData` from the caller and were never affected.
+
+- **`out.table()` printed a native method for a column key named after an
+  `Object.prototype` member** — a column keyed `toString`, `constructor`, or any
+  other member name read the row without checking own keys, so a row that
+  carried no such key rendered `[Function: toString]` in place of the empty cell
+  every other missing key produces. Dynamic rows typed as
+  `Record<string, unknown>` are the reachable case, including columns inferred
+  from a first row that does carry the key. Both the text renderer and the JSON
+  projection now test own keys.
+
 - **Quiet mode leaked spinner and progress output** — activity handles now
   resolve to no-ops under quiet verbosity, including interactive TTYs and
   explicit static fallbacks. Consumers can route informational rows through
