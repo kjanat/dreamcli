@@ -312,12 +312,14 @@ function formatRootCommandsSection(
 /**
  * Build the `Global options:` section advertising the active built-in flags.
  *
- * `--help, -h`, `--json`, and `-q, --quiet` are listed while the root owns them;
- * `.builtins({ <name>: 'off' })` hands the token to the commands and drops the
- * entry. `--version, -V` is shown only when the program declares a version;
- * `--config <path>` only when `.config()` enabled config discovery. The eager
- * `--completions` flag is intentionally omitted, since it is advertised via the
- * inline surface when active.
+ * `-h, --help`, `--json`, and `-q, --quiet` are listed in {@link BUILTIN_NAMES}
+ * order while the root owns them; `.builtins({ <name>: 'off' })` hands the token
+ * to the commands and drops the entry. `-V, --version` is spliced in after the
+ * `help` entry, so it keeps its place whether or not the root still owns
+ * `--help`, and is shown only when the program declares a version.
+ * `--config <path>` is listed only when `.config()` enabled config discovery.
+ * The eager `--completions` flag is intentionally omitted, since it is
+ * advertised via the inline surface when active.
  *
  * @param schema - The CLI schema (read for `version`, `configSettings`, and `builtins`).
  * @param width - Terminal width for description wrapping.

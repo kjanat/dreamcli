@@ -28,7 +28,7 @@
 | `index.ts`             |  2282 | CLIBuilder class + cli() factory + JSON error handling                |
 | `planner.ts`           |   695 | `@internal` — execution planner, command resolution strategy          |
 | `runtime-preflight.ts` |   548 | `@internal` — runtime adapter setup, env/config preflight             |
-| `root-help.ts`         |   383 | `@internal` — root-level help text + text helpers, structural schema  |
+| `root-help.ts`         |   385 | `@internal` — root-level help text + text helpers, structural schema  |
 | `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein  |
 | `reserved-flags.ts`    |   238 | `@internal` — build-time `RESERVED_FLAG` guard for root-owned flags   |
 | `root-output-flags.ts` |   214 | `@internal` — `--json`/`--quiet` reader + strip, shared by all layers |
