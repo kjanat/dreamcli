@@ -3,13 +3,15 @@
  * `--help`, `--json`, `--quiet` tokens (#86).
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { generateCompletion } from '#internals/core/completion/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
+import type { BuiltinName } from './builtins.ts';
+import { BUILTIN_NAMES, BUILTIN_SPECS } from './builtins.ts';
 import type { BuiltinsConfig, CLIDefinition } from './index.ts';
 import { cli, createCLISchema, resolveRenderContext } from './index.ts';
 
@@ -47,6 +49,18 @@ function buildError(build: () => unknown): CLIError {
 	if (!(thrown instanceof CLIError)) throw new Error('unreachable');
 	return thrown;
 }
+
+// === Spelling-table exhaustiveness
+
+describe('builtins — BUILTIN_NAMES exhaustiveness', () => {
+	it('leaves no BuiltinName outside the array', () => {
+		expectTypeOf<Exclude<BuiltinName, (typeof BUILTIN_NAMES)[number]>>().toBeNever();
+	});
+
+	it('walks every BUILTIN_SPECS entry', () => {
+		expect([...BUILTIN_NAMES]).toEqual(Object.keys(BUILTIN_SPECS));
+	});
+});
 
 // === Normalization
 
