@@ -3,11 +3,10 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import type { ArgSchema } from './arg.ts';
 import { createArgSchema } from './arg.ts';
 import type { schemaBrand } from './brand.ts';
-import type { CommandSchema } from './command.ts';
+import type { CommandSchema, ErasedInteractiveResolver } from './command.ts';
 import { createCommandSchema } from './command.ts';
 import type { FlagSchema } from './flag.ts';
 import { createFlagSchema } from './flag.ts';
-import type { ErasedMiddlewareHandler } from './middleware.ts';
 
 /** {@link FlagSchema} with the type-only brand removed. */
 type UnbrandedFlagSchema = Omit<FlagSchema, typeof schemaBrand>;
@@ -68,7 +67,6 @@ const spelledCommandFields: UnbrandedCommandSchema = {
 	args: [],
 	hasAction: false,
 	interactive: undefined,
-	middleware: [],
 	commands: [],
 };
 
@@ -182,15 +180,16 @@ describe('schema sealing', () => {
 			expect(createCommandSchema(built)).toEqual(built);
 		});
 
-		it('rebuilds a deep-equal command schema carrying middleware', () => {
-			const handler: ErasedMiddlewareHandler = ({ next }) => next({});
+		it('rebuilds a deep-equal command schema carrying nested commands and interactive', () => {
+			const resolver: ErasedInteractiveResolver = () => ({});
 			const built = createCommandSchema({
 				name: 'deploy',
-				middleware: [handler],
-				commands: [{ name: 'status', middleware: [handler] }],
+				interactive: resolver,
+				commands: [{ name: 'status', interactive: resolver }],
 			});
 
-			expect(built.middleware).toEqual([handler]);
+			expect(built.interactive).toBe(resolver);
+			expect(built.commands[0]?.interactive).toBe(resolver);
 			expect(createCommandSchema(built)).toEqual(built);
 		});
 

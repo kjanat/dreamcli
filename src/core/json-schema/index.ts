@@ -111,8 +111,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * Walks the full command tree and produces a plain JSON-serializable object
  * representing all commands, subcommands, flags, args, and metadata.
- * Non-serializable runtime values (parse functions, middleware handlers,
- * interactive resolvers) are omitted.
+ * Non-serializable runtime values (parse functions, interactive resolvers)
+ * are omitted.
  *
  * @param schema - The CLI schema from `CLIBuilder.schema`.
  * @param options - Generation options.
@@ -547,11 +547,11 @@ function generateInputSchema(
  * Discriminate between CLISchema and CommandSchema at runtime.
  *
  * Use a command-only field combination rather than a single shape check:
- * command schemas always carry flags, args, middleware, and hasAction, while
- * the CLI root schema does not expose that execution surface.
+ * command schemas always carry flags, args, and hasAction, while the CLI root
+ * schema does not expose that execution surface.
  */
 function isCommandSchema(schema: CLISchema | CommandSchema): schema is CommandSchema {
-	return 'flags' in schema && 'args' in schema && 'middleware' in schema && 'hasAction' in schema;
+	return 'flags' in schema && 'args' in schema && 'hasAction' in schema;
 }
 
 /** Recursively collect input schema branches for all invocable commands. */

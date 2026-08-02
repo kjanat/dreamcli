@@ -32,6 +32,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Breaking: `CommandSchema.middleware` removed** — the executor builds the
+  handler chain from the builder's ordered execution steps, so registration
+  order, handler identity, and runtime behavior are unchanged.
+  `CommandDefinition` no longer accepts a `middleware` key, and
+  `createCommandSchema()` no longer emits one.
+
 - **Breaking: `FlagSchema`, `ArgSchema`, and `CommandSchema` are sealed** — all
   three carry a private brand, so an object literal assembled by hand no longer
   type-checks where a schema is expected. Call `createFlagSchema()`,

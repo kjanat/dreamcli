@@ -71,19 +71,20 @@ describe('CommandBuilder.middleware()', () => {
 	// --- runtime
 
 	describe('runtime', () => {
-		it('adds middleware handler to schema', () => {
+		it('adds a middleware execution step', () => {
 			const m = middleware(async ({ next }) => next({}));
 			const cmd = command('test').middleware(m);
-			expect(cmd.schema.middleware).toHaveLength(1);
+			expect(cmd._executionSteps).toEqual([{ kind: 'middleware', handler: m._handler }]);
 		});
 
 		it('accumulates multiple middleware in order', () => {
 			const first = middleware(async ({ next }) => next({ a: 1 }));
 			const second = middleware(async ({ next }) => next({ b: 2 }));
 			const cmd = command('test').middleware(first).middleware(second);
-			expect(cmd.schema.middleware).toHaveLength(2);
-			expect(cmd.schema.middleware[0]).toBe(first._handler);
-			expect(cmd.schema.middleware[1]).toBe(second._handler);
+			expect(cmd._executionSteps).toEqual([
+				{ kind: 'middleware', handler: first._handler },
+				{ kind: 'middleware', handler: second._handler },
+			]);
 		});
 
 		it('returns a new builder (immutability)', () => {
@@ -91,7 +92,7 @@ describe('CommandBuilder.middleware()', () => {
 			const a = command('test');
 			const b = a.middleware(m);
 			expect(a).not.toBe(b);
-			expect(a.schema.middleware).toEqual([]);
+			expect(a._executionSteps).toEqual([]);
 		});
 
 		it('drops handler when middleware added (type safety)', () => {
@@ -119,9 +120,26 @@ describe('CommandBuilder.middleware()', () => {
 			expect(cmd.schema.flags.force).toBeDefined();
 		});
 
-		it('empty middleware array by default', () => {
+		it('keeps the execution step across every later builder call', () => {
+			const m = middleware(async ({ next }) => next({}));
+			const cmd = command('deploy')
+				.middleware(m)
+				.description('Deploy')
+				.alias('d')
+				.hidden()
+				.example('deploy prod')
+				.flag('force', flag.boolean())
+				.arg('target', arg.string())
+				.command(command('status'))
+				.interactive(() => ({}))
+				.action(() => {});
+
+			expect(cmd._executionSteps).toEqual([{ kind: 'middleware', handler: m._handler }]);
+		});
+
+		it('no execution steps by default', () => {
 			const cmd = command('test');
-			expect(cmd.schema.middleware).toEqual([]);
+			expect(cmd._executionSteps).toEqual([]);
 		});
 	});
 

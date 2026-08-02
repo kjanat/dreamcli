@@ -25,8 +25,8 @@ output.
 
 ## CONVENTIONS
 
-- Output must stay JSON-serializable; runtime handlers, middleware, and interactive functions are
-  omitted by design
+- Output must stay JSON-serializable; runtime handlers and interactive functions are omitted by
+  design
 - `includeHidden` and `includePrompts` are the public switches; preserve their semantics across
   both schema generators
 - `@internal` JSDoc tags matter: docs and meta-description tooling filter on them
