@@ -1,0 +1,308 @@
+# Upgrading From 3.x To 4.0
+
+This page covers moving an existing dreamcli 3.0 CLI to 4.0.0. Coming from 2.x,
+read [Upgrading From 2.x To 3.0](/guide/upgrading-v3) first. For adopting
+dreamcli from another framework, see
+[Migration And Adoption](/guide/migration).
+
+A CLI built entirely from the fluent builders (`cli()`, `command()`, `flag`,
+`arg`) mostly runs on 4.0 unchanged. The breaking changes land on code that
+assembles schema objects by hand, hand-rolls an `Out`, reaches into
+`CLISchema.commands`, or passes framework-populated fields into execution
+options. Every category and its compatibility rules are listed on the
+[Stability Policy](/reference/stability) page.
+
+## Breaking Changes
+
+### `Out` gained a required `verbosity` member
+
+An object literal typed as `Out` stops compiling until it declares `verbosity`.
+Handlers read `out.verbosity` for the active level, and
+`resolveRenderContext()` exposes the same decision for content built before
+`.run()`, including `--`-aware `--quiet` / `-q` detection.
+
+Hand-rolled test doubles are the common casualty. Take a real channel from the
+testkit and spy on it:
+
+```ts
+import { createCaptureOutput } from '@kjanat/dreamcli/testkit';
+
+const [out] = createCaptureOutput();
+vi.spyOn(out, 'info');
+```
+
+Do not spread a channel. Its methods are installed as non-enumerable bound own
+properties, so `{ ...out, info: vi.fn() }` carries none of them.
+
+### `Out` and `RenderContext` are sealed
+
+Both interfaces carry a private brand, so implementing or structurally
+constructing them outside the framework no longer type-checks. Obtain instances
+from action parameters, `createOutput()`, `createCaptureOutput()`, or
+`resolveRenderContext()`.
+
+Helpers that only need part of the channel take a capability type:
+
+```ts twoslash
+import type { Out } from '@kjanat/dreamcli';
+// ---cut---
+function renderRows(out: Pick<Out, 'info' | 'status'>, rows: readonly string[]) {
+  for (const row of rows) out.info(row);
+}
+```
+
+Both are non-exhaustive values, so minor releases may add readonly members.
+Exhaustive mappings over their keys (`Record<keyof Out, unknown>`) will break on
+a minor.
+
+### Schemas are sealed and built by factories
+
+`FlagSchema`, `ArgSchema`, `CommandSchema`, `CLISchema`, and `ConfigSettings`
+carry the same type-only brand. An object literal assembled by hand is no longer
+assignable where a schema is expected. Four factories build them:
+`createFlagSchema()`, `createArgSchema()`, `createCommandSchema()`, and
+`createCLISchema()`. Each takes a plain definition object listing only the
+fields you care about, and fills in the rest:
+
+```ts
+// 3.x
+const schema: CommandSchema = {
+  name: 'deploy',
+  description: undefined,
+  flags: { force: createSchema('boolean') },
+  args: [],
+  commands: [],
+  hidden: false,
+  // ...every remaining field
+};
+
+// 4.0
+const schema = createCommandSchema({
+  name: 'deploy',
+  flags: { force: { kind: 'boolean' } },
+});
+```
+
+The brand has no runtime value, so nothing about the objects themselves changed.
+Spreading a built schema keeps the brand (`{ ...schema, hidden: true }` stays
+assignable), `structuredClone()` and JSON round-trips are unaffected, and
+feeding a built schema back through its factory returns a deep-equal schema.
+
+Nested fields accept either rung, so a code generator can hand
+`createCommandSchema()` or `createCLISchema()` one complete tree of plain
+objects:
+
+```ts twoslash
+import { createCLISchema } from '@kjanat/dreamcli';
+// ---cut---
+const schema = createCLISchema({
+  name: 'mycli',
+  version: '1.0.0',
+  commands: [
+    {
+      name: 'deploy',
+      flags: { region: { kind: 'enum', enumValues: ['us', 'eu', 'ap'] } },
+      args: [{ name: 'target', schema: { kind: 'string' } }],
+    },
+  ],
+});
+```
+
+The definition types are exported from the package root: `FlagDefinition`,
+`ArgDefinition`, `CommandDefinition`, `CLIDefinition`,
+`ConfigSettingsDefinition`, the per-kind members (`EnumFlagDefinition`,
+`ArrayFlagDefinition`, and the rest), and the `*DefinitionOverrides` helpers.
+
+### `createSchema()` is now `createFlagSchema()`
+
+The positional form is a rename. Both factories additionally accept a single
+definition object, and both validate fields against the kind:
+
+```ts twoslash
+import { createFlagSchema } from '@kjanat/dreamcli';
+// ---cut---
+const region = createFlagSchema('enum', { enumValues: ['us', 'eu', 'ap'] });
+
+const tags = createFlagSchema({
+  kind: 'array',
+  elementSchema: { kind: 'string' },
+  separator: ',',
+});
+```
+
+A field belonging to another kind, such as `enumValues` on a `boolean` flag,
+fails to compile and throws `INVALID_SCHEMA` at runtime.
+
+`createArgSchema()` picked up the same rule: its second parameter changed from
+`Partial<ArgSchema>` to `ArgDefinitionOverrides<K>`, and `enumValues` is
+required on an `enum` arg.
+
+### `CommandSchema.middleware` is removed
+
+The executor builds the handler chain from the builder's ordered execution
+steps, so registration order, handler identity, and runtime behavior are
+unchanged. `.middleware()` on `CommandBuilder` works exactly as before.
+
+Code that read `schema.middleware` has no replacement field. Assert on behavior
+instead, by running the command and checking what the middleware did.
+`CommandDefinition` has no `middleware` key and `createCommandSchema()` emits
+none.
+
+### `CLISchema` describes the program without the execution graph
+
+`CLISchema.commands` and `CLISchema.defaultCommand` used to hold `ErasedCommand`
+wrappers carrying the action handler and an `_execute` function. Both now hold
+`CommandSchema`, and the compiled execution graph lives beside the schema:
+
+```ts
+// 3.x
+app.schema.commands[0].schema.name;
+// 4.0
+app.schema.commands[0].name;
+```
+
+`ErasedCommand` is gone. `CLISchema.plugins` is gone as well, since plugins are
+execution state; `.plugin()` registration, order, and hook behavior are
+unchanged.
+
+### `CLIBuilder` is factory-only
+
+`CLIBuilder`'s constructor is private, so `new CLIBuilder(schema)` no longer
+compiles. Call `cli(name)` or `cli({ ... })` for an executable program, and
+`createCLISchema()` when you want a description with no handlers attached. Every
+builder method still returns a new builder.
+
+`createCLISchema()` throws `INVALID_SCHEMA` on an empty name, and `cli('')`
+does the same instead of building a nameless program.
+
+### `.execute()` and `.run()` take different option types
+
+`.execute()` takes the new `CLIExecuteOptions`, which carries the process-free
+option surface and has no `adapter` member. `CLIRunOptions` extends it with
+`adapter`, and `.run()` is the only method that accepts one.
+
+```ts
+// 3.x
+await app.execute(argv, { adapter, env });
+// 4.0
+await app.execute(argv, { env });
+await app.run({ adapter });
+```
+
+### Internal execution fields left `RunOptions`
+
+`out`, `captured`, `mergedSchema`, `meta`, and `plugins` were framework-populated
+fields marked `@internal` that shipped on the public option types. They now live
+on unexported internal execution options, so passing them to `runCommand()`,
+`.execute()`, or `.run()` stops compiling.
+
+`runCommand()` captures stdout, stderr, and activity events itself and returns
+them on `RunResult`, so tests assert on the result rather than on an injected
+channel:
+
+```ts
+const result = await runCommand(deploy, ['production']);
+
+expect(result.stdout).toEqual(['Deploying production\n']);
+expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Deploying' }]);
+```
+
+Code that genuinely needs its own writers builds a channel with
+`createOutput({ stdout, stderr })` and drives it directly. `OutputOptions.stdout`
+and `OutputOptions.stderr` are the supported injection seam.
+
+### The 2.5-era manifest API is removed
+
+Deprecated since 2.5, removed here. Every removal has a direct replacement:
+
+| Removed                                  | Replacement                                                                |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| `.packageJson(settings)`                 | `.manifest(settings)`, which defaults to `files: ['package.json']`          |
+| `.packageJson(data)`                     | `.manifest(data)`, taking the same pre-loaded data object                   |
+| `.denoJson(settings)`                    | `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'], ...settings })` |
+| `ManifestPresetSettings`                 | `ManifestSettings`, which adds `files`                                     |
+| `PackageJsonSettings`                    | `ResolvedManifestSettings`                                                 |
+| `discoverPackageJson(adapter, startDir)` | `discoverManifest(adapter, { startDir, files: ['package.json'] })`         |
+
+```ts
+// 3.x
+cli('mycli').denoJson({ inferName: true });
+// 4.0
+cli('mycli').manifest({
+  files: ['deno.json', 'deno.jsonc', 'jsr.json'],
+  inferName: true,
+});
+```
+
+`files` already defaults to `['package.json']` on both `.manifest()` and
+`discoverManifest()`, so the `package.json` migrations are a rename. The
+`CLISchema.packageJsonSettings` field keeps its name and shape. See
+[`.manifest()`](/reference/main) for the full settings surface.
+
+### `CommandConfig` and the root `AnyCommandBuilder` export are removed
+
+`CommandConfig` described the builder's type-level accumulator shape and no
+signature referenced it. `AnyCommandBuilder` is erasure machinery that appears
+only on `CommandBuilder`'s underscore members, so the package root no longer
+exports the name. Neither has a replacement; code naming them was reaching into
+internals.
+
+### Definition documents are versioned
+
+`generateSchema()` and `generateCommandSchema()` emit `schemaVersion: 1`, so a
+consumer can tell which format it is reading before parsing the rest. Both
+return typed documents (`DefinitionDocumentV1` and
+`CommandDefinitionDocumentV1`, aliased as `DefinitionDocument` and
+`CommandDefinitionDocument`) in place of `Record<string, unknown>`. The returned
+documents stay assignable to `Record<string, unknown>`, so existing consumer
+signatures keep compiling.
+
+Fragments nested inside a document (`CommandDefinitionFragmentV1`,
+`FlagDefinitionFragmentV1`, `ArgDefinitionFragmentV1`, and the rest) carry no
+`schemaVersion` of their own and take the version of the document they sit in.
+`generateInputSchema()` is standard JSON Schema and stays outside the family,
+typed as `InputSchemaDocument`.
+
+The canonical `$schema` and `$id` moved to
+`https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`, replacing
+`https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json`. The `v1`
+segment tracks the definition format, so it stays valid for every package
+release that emits `schemaVersion: 1`. The `@kjanat/dreamcli/schema` subpath and
+the jsDelivr URL keep serving the same bytes as mirrors. Documents pinned to the
+old URL still validate against a local copy, but they no longer match the
+meta-schema's `$schema` constant. For offline validation, map the canonical URL
+to the local copy in your tooling; [Schema Export](/guide/schema-export) shows
+the VS Code form.
+
+`--help --json` output changed accordingly. Command-level help serializes
+through `generateCommandSchema()`, so `schemaVersion` is now its first key. Root
+help serializes through `generateSchema()`, so `$schema` still leads, carries
+the new URL, and `schemaVersion` follows it. Snapshot tests over that output
+need re-recording.
+
+## Behavioral Changes To Review
+
+- **Quiet mode suppresses rendered spinner and progress output.** Activity
+  handles resolve to no-ops under quiet verbosity, including on interactive
+  TTYs and for explicit static fallbacks. Capture still records lifecycle
+  events, so `RunResult.activity` assertions are unaffected. Informational rows
+  routed through `out.info()` are suppressed as before.
+
+## New In 4.0
+
+Adopt at your own pace; none of these are required:
+
+- **Stability policy**: [a reference page](/reference/stability) classifying
+  every exported type and the rules each category carries into minor releases.
+- **Descriptions without an execution graph**: `createCLISchema()` and
+  `createCommandSchema()` build a normalized schema tree from plain objects, for
+  code generators, docs tooling, and fixtures that never execute.
+- **Kind-checked definitions**: the `*Definition` types make illegal field
+  combinations unrepresentable, with the same check enforced at runtime for
+  JavaScript callers.
+- **Verbosity in handler code**: `out.verbosity` and
+  `resolveRenderContext().verbosity` expose the active level for custom
+  rendering built inside or before a run.
+
+See the [CHANGELOG](https://github.com/kjanat/dreamcli/blob/master/CHANGELOG.md)
+for the complete record.

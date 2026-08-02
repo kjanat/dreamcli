@@ -9,10 +9,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Stability policy** — a new [reference page](https://dreamcli.kjanat.dev/reference/stability)
-  classifies every exported type: sealed framework values, consumer input
-  options, implementer interfaces, closed unions, and internal surface, with
-  the minor-version rules each category carries.
+- **Stability policy and a 4.0 upgrade guide** — the
+  [stability page](https://dreamcli.kjanat.dev/reference/stability) now places
+  every export of the root, `/testkit`, `/runtime`, and `/version` entrypoints
+  in one of thirteen categories, each with the rules it carries into a minor
+  release: sealed framework values, consumer input options, transparent input
+  definitions, implementer ports, externally governed protocols, structural
+  consumer configuration, closed unions and discriminated results, open unions,
+  framework-produced callback payloads, closed constructible DTOs, serialized
+  formats, classes and functions, and internal surface.
+  [Upgrading From 3.x To 4.0](https://dreamcli.kjanat.dev/guide/upgrading-v4)
+  walks the breaking changes below with before and after code.
 
 - **Definition types and normalization factories for flags, args, commands, and
   the CLI** — `createFlagSchema()`, `createCommandSchema()`, and
