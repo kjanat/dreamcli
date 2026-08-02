@@ -295,6 +295,7 @@ describe('table', () => {
 
 	describe('column keys the row inherits from its own prototype', () => {
 		class Server {
+			readonly [key: string]: unknown;
 			constructor(
 				readonly host: string,
 				readonly port: number,
@@ -304,25 +305,28 @@ describe('table', () => {
 			}
 		}
 
-		const asRows = (rows: readonly Server[]): readonly Record<string, unknown>[] =>
-			rows.map((row) => row as unknown as Record<string, unknown>);
-
 		it('renders a class getter', () => {
 			const [out, captured] = createCaptureOutput();
-			out.table<Record<string, unknown>>(asRows([new Server('web-1', 80)]), [
-				{ key: 'host', header: 'Host' },
-				{ key: 'address', header: 'Address' },
-			]);
+			out.table(
+				[new Server('web-1', 80)],
+				[
+					{ key: 'host', header: 'Host' },
+					{ key: 'address', header: 'Address' },
+				],
+			);
 			const lines = captured.stdout.join('').split('\n');
 			expect(lines[2]?.trimEnd()).toBe('web-1  web-1:80');
 		});
 
 		it('keeps the class getter in the JSON projection', () => {
 			const [out, captured] = createCaptureOutput({ jsonMode: true });
-			out.table<Record<string, unknown>>(asRows([new Server('web-1', 80)]), [
-				{ key: 'host', header: 'Host' },
-				{ key: 'address', header: 'Address' },
-			]);
+			out.table(
+				[new Server('web-1', 80)],
+				[
+					{ key: 'host', header: 'Host' },
+					{ key: 'address', header: 'Address' },
+				],
+			);
 			expect(captured.stdout).toEqual(['[{"host":"web-1","address":"web-1:80"}]\n']);
 		});
 
