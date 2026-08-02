@@ -1,25 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 
 // --- Helpers — build minimal CommandSchema for testing
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 function propagatedFlag(kind: 'string' | 'boolean' | 'number' = 'boolean') {
@@ -128,21 +119,18 @@ describe('collectPropagatedFlags', () => {
 		});
 
 		it('intermediate ancestor shadows root ancestor', () => {
-			const rootVerbose = propagatedFlag('string');
-			const midVerbose = propagatedFlag('number');
-
 			const root = makeSchema({
 				name: 'cli',
-				flags: { verbose: rootVerbose },
+				flags: { verbose: propagatedFlag('string') },
 			});
 			const mid = makeSchema({
 				name: 'db',
-				flags: { verbose: midVerbose },
+				flags: { verbose: propagatedFlag('number') },
 			});
 			const leaf = makeSchema({ name: 'migrate' });
 
 			const result = collectPropagatedFlags([root, mid, leaf]);
-			expect(result['verbose']).toBe(midVerbose);
+			expect(result['verbose']).toBe(mid.flags['verbose']);
 		});
 
 		it('deep path (4 levels) accumulates correctly', () => {
@@ -242,22 +230,19 @@ describe('collectPropagatedFlags', () => {
 		});
 
 		it('intermediate propagated flags shadow root ones', () => {
-			const rootVerbose = propagatedFlag('string');
-			const midVerbose = propagatedFlag('number');
-
 			const root = makeSchema({
 				name: 'cli',
-				flags: { verbose: rootVerbose },
+				flags: { verbose: propagatedFlag('string') },
 			});
 			const mid = makeSchema({
 				name: 'db',
-				flags: { verbose: midVerbose },
+				flags: { verbose: propagatedFlag('number') },
 			});
 			const leaf = makeSchema({ name: 'migrate' });
 
 			const result = collectPropagatedFlags([root, mid, leaf]);
 			// mid's propagated verbose overwrites root's
-			expect(result['verbose']).toBe(midVerbose);
+			expect(result['verbose']).toBe(mid.flags['verbose']);
 		});
 	});
 
@@ -277,15 +262,14 @@ describe('collectPropagatedFlags', () => {
 		});
 
 		it('returned schemas are the same references as input', () => {
-			const verboseSchema = propagatedFlag();
 			const parent = makeSchema({
 				name: 'root',
-				flags: { verbose: verboseSchema },
+				flags: { verbose: propagatedFlag() },
 			});
 			const child = makeSchema({ name: 'deploy' });
 
 			const result = collectPropagatedFlags([parent, child]);
-			expect(result['verbose']).toBe(verboseSchema);
+			expect(result['verbose']).toBe(parent.flags['verbose']);
 		});
 	});
 });

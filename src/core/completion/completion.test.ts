@@ -4,7 +4,8 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type {
 	ActivityEvent,
 	CommandSchema,
@@ -32,25 +33,16 @@ import {
 
 /** Minimal FlagSchema with all required fields. */
 function flagSchema(overrides: FlagSchemaOverrides = {}): FlagSchema {
-	return createSchema(overrides.kind ?? 'string', overrides);
+	return createFlagSchema(overrides.kind ?? 'string', overrides);
 }
 
 /** Minimal CommandSchema with all required fields. */
 function commandSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
 		hasAction: true,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 /** Wrap CommandSchema into an ErasedCommand for CLISchema.commands. */

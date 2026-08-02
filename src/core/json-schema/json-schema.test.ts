@@ -4,7 +4,9 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createArgSchema } from '#internals/core/schema/arg.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type {
 	ActivityEvent,
 	CommandArgEntry,
@@ -18,7 +20,7 @@ import { definitionMetaSchema, generateInputSchema, generateSchema } from './ind
 
 /** Minimal FlagSchema with all required fields. */
 function flagDef(overrides: FlagSchemaOverrides = {}): FlagSchema {
-	return createSchema(overrides.kind ?? 'string', overrides);
+	return createFlagSchema(overrides.kind ?? 'string', overrides);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -34,20 +36,11 @@ function expectRecord(value: unknown): Record<string, unknown> {
 
 /** Minimal CommandSchema with all required fields. */
 function commandDef(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
 		hasAction: true,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 /** Wrap CommandSchema into a minimal ErasedCommand. */
@@ -104,21 +97,7 @@ function argEntry(
 ): CommandArgEntry {
 	return {
 		name,
-		schema: {
-			kind: 'string',
-			presence: 'required',
-			variadic: false,
-			stdinMode: false,
-			defaultValue: undefined,
-			description: undefined,
-			envVar: undefined,
-			enumValues: undefined,
-			numberConstraints: undefined,
-			parseFn: undefined,
-			standard: undefined,
-			deprecated: undefined,
-			...overrides,
-		},
+		schema: createArgSchema(overrides.kind ?? 'string', overrides),
 	};
 }
 
@@ -843,44 +822,61 @@ describe('generateSchema — definition metadata', () => {
 	});
 
 	it('keeps serialized FlagSchema fields exhaustive against the meta-schema', () => {
-		const allFieldsFlag = {
-			kind: 'array',
-			presence: 'defaulted',
-			defaultValue: ['v1'],
-			aliases: [{ name: 'a', hidden: false }],
-			envVar: 'VERSIONS',
-			configPath: 'release.versions',
-			description: 'Release versions',
-			enumValues: ['v1'],
-			numberConstraints: { min: 1, max: 5, int: true, finite: false },
-			stringConstraints: {
-				nonEmpty: true,
-				minLength: 2,
-				maxLength: 12,
-				pattern: /^v\d+$/,
-			},
-			elementSchema: flagDef({ kind: 'string' }),
-			separator: ',',
-			unique: true,
-			pathChecks: { mustExist: true, type: 'directory', create: true },
-			valueHint: 'version',
-			prompt: { kind: 'input', message: 'Version?', placeholder: 'v1' },
-			parseFn: (value: unknown) => value,
-			standard: {
-				'~standard': {
-					version: 1,
-					vendor: 'test',
-					validate: (value: unknown) => ({ value }),
+		const allFieldsFlags: Readonly<Record<string, FlagSchema>> = {
+			region: flagDef({
+				kind: 'enum',
+				presence: 'defaulted',
+				defaultValue: 'us',
+				aliases: [{ name: 'r', hidden: false }],
+				envVar: 'REGION',
+				configPath: 'release.region',
+				description: 'Release region',
+				enumValues: ['us', 'eu'],
+				valueHint: 'region',
+				prompt: { kind: 'input', message: 'Region?', placeholder: 'us' },
+				deprecated: 'use --release',
+				propagate: true,
+				duplicates: 'error',
+			}),
+			port: flagDef({
+				kind: 'number',
+				numberConstraints: { min: 1, max: 5, int: true, finite: false },
+			}),
+			source: flagDef({
+				kind: 'string',
+				stringConstraints: {
+					nonEmpty: true,
+					minLength: 2,
+					maxLength: 12,
+					pattern: /^v\d+$/,
 				},
-			},
-			deprecated: 'use --release',
-			propagate: true,
-			negation: { alias: 'no-versions', hidden: true },
-			duplicates: 'error',
-		} satisfies FlagSchema;
+				pathChecks: { mustExist: true, type: 'directory', create: true },
+			}),
+			versions: flagDef({
+				kind: 'array',
+				elementSchema: flagDef({ kind: 'string' }),
+				separator: ',',
+				unique: true,
+			}),
+			force: flagDef({
+				kind: 'boolean',
+				negation: { alias: 'no-force', hidden: true },
+			}),
+			parser: flagDef({
+				kind: 'custom',
+				parseFn: (value: unknown) => value,
+				standard: {
+					'~standard': {
+						version: 1,
+						vendor: 'test',
+						validate: (value: unknown) => ({ value }),
+					},
+				},
+			}),
+		};
 		const result = generateSchema(
 			minimalCLI({
-				commands: [erased(commandDef({ flags: { versions: allFieldsFlag } }))],
+				commands: [erased(commandDef({ flags: allFieldsFlags }))],
 			}),
 		);
 		const commands = expectRecord(result).commands;
@@ -889,18 +885,23 @@ describe('generateSchema — definition metadata', () => {
 		}
 		const command = expectRecord(commands[0]);
 		const flags = expectRecord(command.flags);
-		const serializedFlag = expectRecord(flags.versions);
 		const defs = expectRecord(definitionMetaSchema.$defs);
 		const flagMetaSchema = expectRecord(defs.flag);
 		const flagMetaProperties = expectRecord(flagMetaSchema.properties);
+		const serializedFields = new Set<string>();
+		for (const name of Object.keys(allFieldsFlags)) {
+			for (const field of Object.keys(expectRecord(flags[name]))) {
+				serializedFields.add(field);
+			}
+		}
 
-		expect(Object.keys(serializedFlag).sort()).toEqual(Object.keys(flagMetaProperties).sort());
-		expect(serializedFlag).toHaveProperty(['stringConstraints', 'pattern'], {
+		expect([...serializedFields].sort()).toEqual(Object.keys(flagMetaProperties).sort());
+		expect(expectRecord(flags.source)).toHaveProperty(['stringConstraints', 'pattern'], {
 			source: '^v\\d+$',
 			flags: '',
 		});
-		expect(serializedFlag).not.toHaveProperty('parseFn');
-		expect(serializedFlag).not.toHaveProperty('standard');
+		expect(expectRecord(flags.parser)).not.toHaveProperty('parseFn');
+		expect(expectRecord(flags.parser)).not.toHaveProperty('standard');
 	});
 });
 

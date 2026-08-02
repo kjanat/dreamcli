@@ -4,25 +4,16 @@ import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { resolverContract } from './contracts.ts';
 import { resolve } from './index.ts';
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {

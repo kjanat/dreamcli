@@ -14,6 +14,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import type { schemaBrand } from '#internals/core/schema/brand.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
@@ -70,7 +71,7 @@ interface ResolvedOptions {
 }
 
 /** Flag fields that survive definition serialization. */
-type SerializedFlagField = Exclude<keyof FlagSchema, 'parseFn' | 'standard'>;
+type SerializedFlagField = Exclude<keyof FlagSchema, typeof schemaBrand | 'parseFn' | 'standard'>;
 
 /**
  * Apply defaults to optional {@link JsonSchemaOptions}.

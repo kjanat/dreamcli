@@ -8,7 +8,7 @@ counts as breaking for each category.
 
 | Category                 | Examples                                                | Minor releases may                                |
 | ------------------------ | ------------------------------------------------------- | ------------------------------------------------- |
-| Sealed framework values  | `Out`, `RenderContext`                                  | add readonly members                              |
+| Sealed framework values  | `Out`, `RenderContext`, `FlagSchema`, `ArgSchema`, `CommandSchema` | add readonly members                   |
 | Consumer input options   | `RunOptions`, `CLIRunOptions`, `OutputOptions`, `RenderContextOptions`, `HelpOptions` | add optional fields |
 | Implementer interfaces   | `RuntimeAdapter`, `PromptEngine`, `CLIPlugin`           | add optional hooks only                           |
 | Closed unions            | `Verbosity`, `ActivityEvent`, `OutputStream`            | change nothing                                    |
@@ -44,6 +44,26 @@ For test doubles, take a real channel from the testkit and spy on it:
 const [out] = createCaptureOutput();
 vi.spyOn(out, 'info');
 ```
+
+`FlagSchema`, `ArgSchema`, and `CommandSchema` carry the same brand. Build them
+with `createFlagSchema()`, `createArgSchema()`, and `createCommandSchema()`,
+which take a definition object and return the normalized schema:
+
+```ts twoslash
+import { createCommandSchema } from '@kjanat/dreamcli';
+// ---cut---
+const deploy = createCommandSchema({
+	name: 'deploy',
+	flags: { force: { kind: 'boolean' } },
+	args: [{ name: 'target', schema: { kind: 'string' } }],
+});
+```
+
+- Spreading a built schema keeps the brand, so `{ ...deploy, hidden: true }`
+  stays assignable to `CommandSchema`.
+- Feeding a built schema back through its factory produces a deep-equal schema.
+- A field belonging to another kind (`enumValues` on a `boolean` flag) fails to
+  compile and throws `INVALID_SCHEMA` at runtime.
 
 ## Consumer input options
 

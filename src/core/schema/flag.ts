@@ -9,6 +9,8 @@
  * @module dreamcli/core/schema/flag
  */
 
+import { CLIError } from '#internals/core/errors/index.ts';
+import type { schemaBrand } from './brand.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
@@ -297,9 +299,11 @@ type DuplicatePolicy = 'last' | 'first' | 'error';
  * help generator, resolution chain) read this to understand the flag's shape
  * without touching generics.
  */
-interface FlagSchema {
+interface FlagSchema<K extends FlagKind = FlagKind> {
+	/** Type-only seal produced by {@link createFlagSchema}. */
+	readonly [schemaBrand]: 'flag';
 	/** What kind of value this flag accepts. */
-	readonly kind: FlagKind;
+	readonly kind: K;
 	/** Current presence state. */
 	readonly presence: FlagPresence;
 	/** Runtime default value (if any). */
@@ -416,6 +420,209 @@ type FlagSchemaOverrides = Omit<Partial<FlagSchema>, 'aliases'> & {
 	readonly aliases?: readonly (string | FlagAlias)[];
 };
 
+/** Every {@link FlagSchema} field except the brand and the kind discriminator. */
+type FlagSchemaFields = Omit<FlagSchema, typeof schemaBrand | 'kind'>;
+
+/**
+ * {@link FlagSchemaFields} with every field optional and undefined-accepting.
+ *
+ * `aliases` widens to the alias shapes a caller may supply.
+ */
+type FlagSchemaFieldOverrides = {
+	readonly [K in keyof FlagSchemaFields]?: K extends 'aliases'
+		? readonly (string | FlagAlias)[] | undefined
+		: FlagSchemaFields[K] | undefined;
+};
+
+/**
+ * {@link FlagSchemaFieldOverrides} with `elementSchema` widened to the shapes a
+ * definition may supply.
+ */
+type FlagDefinitionFields = Omit<FlagSchemaFieldOverrides, 'elementSchema'> & {
+	readonly elementSchema?: FlagDefinition | FlagSchema | undefined;
+};
+
+/** Definition fields accepted by every flag kind. */
+interface FlagDefinitionBase {
+	/**
+	 * Presence state.
+	 * @defaultValue `'optional'`
+	 */
+	readonly presence?: FlagPresence | undefined;
+	/**
+	 * Runtime default value.
+	 * @defaultValue `undefined`
+	 */
+	readonly defaultValue?: unknown;
+	/**
+	 * Short/long aliases as bare names or {@link FlagAlias} records.
+	 * @defaultValue `[]`
+	 */
+	readonly aliases?: readonly (string | FlagAlias)[] | undefined;
+	/**
+	 * Environment variable name for env resolution.
+	 * @defaultValue `undefined`
+	 */
+	readonly envVar?: string | undefined;
+	/**
+	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
+	 * @defaultValue `undefined`
+	 */
+	readonly configPath?: string | undefined;
+	/**
+	 * Human-readable description for help text.
+	 * @defaultValue `undefined`
+	 */
+	readonly description?: string | undefined;
+	/**
+	 * Help placeholder label (`'url'` renders as `<url>`).
+	 * @defaultValue `undefined`
+	 */
+	readonly valueHint?: string | undefined;
+	/**
+	 * Interactive prompt configuration.
+	 * @defaultValue `undefined`
+	 */
+	readonly prompt?: PromptConfig | undefined;
+	/**
+	 * Deprecation marker. `true` deprecates without a message, a string carries
+	 * the migration guidance.
+	 * @defaultValue `undefined`
+	 */
+	readonly deprecated?: string | true | undefined;
+	/**
+	 * Whether the flag propagates to descendant commands.
+	 * @defaultValue `false`
+	 */
+	readonly propagate?: boolean | undefined;
+	/**
+	 * How repeated CLI occurrences combine. See {@link DuplicatePolicy}.
+	 * @defaultValue `'last'`
+	 */
+	readonly duplicates?: DuplicatePolicy | undefined;
+}
+
+/** Definition of a `string` flag. */
+interface StringFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'string';
+	/**
+	 * String constraints enforced at the parse and resolution boundaries.
+	 * @defaultValue `undefined`
+	 */
+	readonly stringConstraints?: StringConstraints | undefined;
+	/**
+	 * Filesystem checks applied after resolution.
+	 * @defaultValue `undefined`
+	 */
+	readonly pathChecks?: PathChecks | undefined;
+}
+
+/** Definition of a `number` flag. */
+interface NumberFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'number';
+	/**
+	 * Numeric constraints enforced at the parse and resolution boundaries.
+	 * @defaultValue `undefined`
+	 */
+	readonly numberConstraints?: NumberConstraints | undefined;
+}
+
+/** Definition of a `boolean` flag. */
+interface BooleanFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'boolean';
+	/**
+	 * Negated-spelling settings. See {@link FlagNegation}.
+	 * @defaultValue `undefined`
+	 */
+	readonly negation?: FlagNegation | undefined;
+}
+
+/** Definition of an `enum` flag. */
+interface EnumFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'enum';
+	/** Allowed literal values. */
+	readonly enumValues: readonly string[];
+}
+
+/** Definition of an `array` flag. */
+interface ArrayFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'array';
+	/**
+	 * Element definition or an already-built element schema.
+	 * @defaultValue `undefined`
+	 */
+	readonly elementSchema?: FlagDefinition | FlagSchema | undefined;
+	/**
+	 * Value separator each CLI occurrence is split on.
+	 * @defaultValue `undefined`
+	 */
+	readonly separator?: string | undefined;
+	/**
+	 * Deduplicate the resolved array, preserving first-seen order.
+	 * @defaultValue `false`
+	 */
+	readonly unique?: boolean | undefined;
+}
+
+/** Definition of a `custom` flag. */
+interface CustomFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'custom';
+	/**
+	 * Parse function applied to the raw value.
+	 * @defaultValue `undefined`
+	 */
+	readonly parseFn?: FlagParseFn<unknown> | undefined;
+	/**
+	 * Standard Schema v1 validator applied to the resolved value.
+	 * @defaultValue `undefined`
+	 */
+	readonly standard?: StandardSchemaV1 | undefined;
+}
+
+/** Definition of a `count` flag. */
+interface CountFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'count';
+}
+
+/** Definition of a `keyValue` flag. */
+interface KeyValueFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'keyValue';
+}
+
+/** Maps each {@link FlagKind} to its definition shape. */
+interface FlagDefinitionByKind {
+	/** Definition shape for `string` flags. */
+	readonly string: StringFlagDefinition;
+	/** Definition shape for `number` flags. */
+	readonly number: NumberFlagDefinition;
+	/** Definition shape for `boolean` flags. */
+	readonly boolean: BooleanFlagDefinition;
+	/** Definition shape for `enum` flags. */
+	readonly enum: EnumFlagDefinition;
+	/** Definition shape for `array` flags. */
+	readonly array: ArrayFlagDefinition;
+	/** Definition shape for `custom` flags. */
+	readonly custom: CustomFlagDefinition;
+	/** Definition shape for `count` flags. */
+	readonly count: CountFlagDefinition;
+	/** Definition shape for `keyValue` flags. */
+	readonly keyValue: KeyValueFlagDefinition;
+}
+
+/** Definition of a flag of kind `K`, including the kind discriminator. */
+type FlagDefinition<K extends FlagKind = FlagKind> = FlagDefinitionByKind[K];
+
+/** Definition of a flag of kind `K` with the kind discriminator removed. */
+type FlagDefinitionOverrides<K extends FlagKind = FlagKind> = Omit<FlagDefinitionByKind[K], 'kind'>;
+
 /**
  * Normalise an alias input into a full {@link FlagAlias} object.
  *
@@ -486,21 +693,267 @@ function getFlagNegatedName(name: string, schema: FlagSchema): string | undefine
 	return schema.negation.alias ?? `no-${name}`;
 }
 
+/** Every runtime key carried by a normalized {@link FlagSchema}. */
+const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
+	'kind',
+	'presence',
+	'defaultValue',
+	'aliases',
+	'envVar',
+	'configPath',
+	'description',
+	'enumValues',
+	'numberConstraints',
+	'stringConstraints',
+	'elementSchema',
+	'separator',
+	'unique',
+	'pathChecks',
+	'valueHint',
+	'prompt',
+	'parseFn',
+	'standard',
+	'deprecated',
+	'propagate',
+	'negation',
+	'duplicates',
+];
+
+/**
+ * Whether an element input already carries every normalized schema key.
+ *
+ * @param element - Element definition or schema.
+ * @returns `true` when the value is already a built {@link FlagSchema}.
+ */
+function isNormalizedFlagSchema(element: FlagDefinition | FlagSchema): element is FlagSchema {
+	return NORMALIZED_FLAG_SCHEMA_KEYS.every((key) => key in element);
+}
+
+/**
+ * Normalise an array flag's element input into a built {@link FlagSchema}.
+ *
+ * An already-built schema is returned unchanged, so repeated normalization
+ * preserves element identity.
+ *
+ * @param element - Element definition or schema.
+ * @returns The element as a fully populated {@link FlagSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link FlagKind}.
+ */
+function normalizeFlagElementSchema(element: FlagDefinition | FlagSchema): FlagSchema {
+	if (isNormalizedFlagSchema(element)) return element;
+
+	const { kind, ...fields } = element;
+	assertValidFlagDefinition(kind, fields);
+	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
+}
+
+/**
+ * Resolve a definition's nested `elementSchema` into a built {@link FlagSchema}.
+ *
+ * @param fields - Definition fields excluding the kind discriminator.
+ * @returns The same fields with `elementSchema` normalized.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a nested element field
+ *   belongs to a different {@link FlagKind}.
+ */
+function normalizeFlagDefinitionFields(fields: FlagDefinitionFields): FlagSchemaFieldOverrides {
+	const { elementSchema, ...rest } = fields;
+	if (elementSchema === undefined) return rest;
+	return { ...rest, elementSchema: normalizeFlagElementSchema(elementSchema) };
+}
+
+/**
+ * Fields that are only meaningful on one {@link FlagKind}, mapped to that kind.
+ */
+const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [keyof FlagSchemaFields, FlagKind])[] = [
+	['enumValues', 'enum'],
+	['numberConstraints', 'number'],
+	['stringConstraints', 'string'],
+	['pathChecks', 'string'],
+	['elementSchema', 'array'],
+	['separator', 'array'],
+	['parseFn', 'custom'],
+	['standard', 'custom'],
+	['negation', 'boolean'],
+];
+
+/**
+ * Reject a definition that carries a field belonging to another {@link FlagKind}.
+ *
+ * A field set to `undefined` counts as absent, and `unique` counts as absent
+ * when `false`, so re-feeding a built {@link FlagSchema} back through
+ * {@link createFlagSchema} stays valid.
+ *
+ * @param kind - Declared kind of the definition.
+ * @param fields - Definition fields excluding the kind discriminator.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on a kind mismatch.
+ */
+function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields): void {
+	for (const [field, requiredKind] of KIND_SPECIFIC_FLAG_FIELDS) {
+		if (kind === requiredKind) continue;
+		if (fields[field] === undefined) continue;
+		throw invalidFlagFieldError(kind, field, requiredKind);
+	}
+
+	if (kind !== 'array' && fields.unique === true) {
+		throw invalidFlagFieldError(kind, 'unique', 'array');
+	}
+}
+
+/**
+ * Build the `'INVALID_SCHEMA'` error for a field used on the wrong kind.
+ *
+ * @param kind - Declared kind of the definition.
+ * @param field - Offending field name.
+ * @param requiredKind - Kind the field belongs to.
+ * @returns The error to throw.
+ */
+function invalidFlagFieldError(
+	kind: FlagKind,
+	field: keyof FlagSchemaFields,
+	requiredKind: FlagKind,
+): CLIError {
+	return new CLIError(
+		`Flag schema field '${field}' requires kind '${requiredKind}', received kind '${kind}'`,
+		{
+			code: 'INVALID_SCHEMA',
+			details: { kind, field, requiredKind },
+			suggest: `Drop '${field}' or declare the flag as kind '${requiredKind}'`,
+		},
+	);
+}
+
+/**
+ * Merge already-normalized schema fields onto the {@link FlagSchema} defaults.
+ *
+ * A field set to `undefined` falls back to its default for the fields
+ * {@link FlagSchema} declares as non-nullable.
+ *
+ * @param kind - Discriminator for the value type this flag accepts.
+ * @param overrides - Schema fields shallow-merged onto the defaults.
+ * @returns A fully populated {@link FlagSchema}.
+ */
+function buildFlagSchema<K extends FlagKind>(
+	kind: K,
+	overrides?: FlagSchemaFieldOverrides,
+): FlagSchema<K> {
+	const aliases =
+		overrides?.aliases !== undefined ? normalizeFlagAliases(overrides.aliases) : ([] as const);
+	const {
+		aliases: _ignoredAliases,
+		presence,
+		unique,
+		propagate,
+		duplicates,
+		...rest
+	} = overrides ?? {};
+
+	return {
+		kind,
+		presence: presence ?? 'optional',
+		defaultValue: undefined,
+		envVar: undefined,
+		configPath: undefined,
+		description: undefined,
+		enumValues: undefined,
+		numberConstraints: undefined,
+		stringConstraints: undefined,
+		elementSchema: undefined,
+		separator: undefined,
+		unique: unique ?? false,
+		pathChecks: undefined,
+		valueHint: undefined,
+		prompt: undefined,
+		parseFn: undefined,
+		standard: undefined,
+		deprecated: undefined,
+		propagate: propagate ?? false,
+		negation: undefined,
+		duplicates: duplicates ?? 'last',
+		...rest,
+		aliases,
+	} as FlagSchema<K>;
+}
+
 /**
  * Create a raw {@link FlagSchema} object with sensible defaults.
  *
- * Most consumers should prefer the higher-level {@link flag} factory,
- * which returns an immutable {@link FlagBuilder} with type inference and
- * safe modifier chaining. `createSchema()` is the low-level escape hatch
- * for advanced schema composition, tests, or custom factories that need to
- * work directly with the runtime descriptor.
+ * Most consumers should prefer the higher-level {@link flag} factory, which
+ * returns an immutable {@link FlagBuilder} with type inference and safe
+ * modifier chaining. `createFlagSchema()` is the low-level escape hatch for
+ * advanced schema composition, tests, or custom factories that need the plain
+ * runtime descriptor.
  *
- * `overrides` are shallow-merged on top of the default shape, so callers are
+ * Fields are shallow-merged on top of the default shape, so callers are
  * responsible for keeping the resulting schema internally consistent.
+ *
+ * @param kind - Discriminator for the value type this flag accepts.
+ * @param overrides - Definition fields for `kind`, shallow-merged onto defaults.
+ * @returns A fully populated {@link FlagSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link FlagKind}.
+ *
+ * @example
+ * ```ts
+ * const schema = createFlagSchema('enum', {
+ *   enumValues: ['us', 'eu', 'ap'],
+ *   description: 'Deployment region',
+ * });
+ * ```
+ */
+function createFlagSchema<K extends FlagKind>(
+	kind: K,
+	overrides?: FlagDefinitionOverrides<K>,
+): FlagSchema<K>;
+/**
+ * Create a raw {@link FlagSchema} object from a single definition object.
+ *
+ * An already-built {@link FlagSchema} is accepted and re-normalized into a
+ * deep-equal schema.
+ *
+ * @param definition - Kind discriminator plus the fields valid for that kind.
+ * @returns A fully populated {@link FlagSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link FlagKind}.
+ *
+ * @example
+ * ```ts
+ * const schema = createFlagSchema({
+ *   kind: 'array',
+ *   elementSchema: { kind: 'string' },
+ *   separator: ',',
+ * });
+ * ```
+ */
+function createFlagSchema<K extends FlagKind>(
+	definition: FlagDefinition<K> | FlagSchema<K>,
+): FlagSchema<K>;
+function createFlagSchema(
+	kindOrDefinition: FlagKind | FlagDefinition | FlagSchema,
+	overrides?: FlagDefinitionFields,
+): FlagSchema {
+	if (typeof kindOrDefinition === 'string') {
+		const fields = overrides ?? {};
+		assertValidFlagDefinition(kindOrDefinition, fields);
+		return buildFlagSchema(kindOrDefinition, normalizeFlagDefinitionFields(fields));
+	}
+
+	const { kind, ...fields } = kindOrDefinition;
+	assertValidFlagDefinition(kind, fields);
+	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
+}
+
+/**
+ * Create a raw {@link FlagSchema} object with sensible defaults.
+ *
+ * `overrides` are shallow-merged on top of the default shape without kind
+ * validation and without element normalization.
  *
  * @param kind - Discriminator for the value type this flag accepts.
  * @param overrides - Partial {@link FlagSchema} fields merged onto defaults.
  * @returns A fully populated {@link FlagSchema}.
+ *
+ * @deprecated Renamed to {@link createFlagSchema}.
  *
  * @example
  * ```ts
@@ -511,35 +964,7 @@ function getFlagNegatedName(name: string, schema: FlagSchema): string | undefine
  * ```
  */
 function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSchema {
-	const aliases =
-		overrides?.aliases !== undefined ? normalizeFlagAliases(overrides.aliases) : ([] as const);
-	const { aliases: _ignoredAliases, ...rest } = overrides ?? {};
-
-	return {
-		kind,
-		presence: 'optional',
-		defaultValue: undefined,
-		envVar: undefined,
-		configPath: undefined,
-		description: undefined,
-		enumValues: undefined,
-		numberConstraints: undefined,
-		stringConstraints: undefined,
-		elementSchema: undefined,
-		separator: undefined,
-		unique: false,
-		pathChecks: undefined,
-		valueHint: undefined,
-		prompt: undefined,
-		parseFn: undefined,
-		standard: undefined,
-		deprecated: undefined,
-		propagate: false,
-		negation: undefined,
-		duplicates: 'last',
-		...rest,
-		aliases,
-	};
+	return buildFlagSchema(kind, overrides);
 }
 
 // --- FlagBuilder — immutable builder with type-level tracking
@@ -1630,9 +2055,18 @@ export type { StringConstraints, StringConstraintViolation } from './string-cons
 export type { DateFlagOptions, UrlFlagOptions } from './value-parsers.ts';
 export type {
 	AllowedPromptConfig,
+	ArrayFlagDefinition,
+	BooleanFlagDefinition,
+	CountFlagDefinition,
+	CustomFlagDefinition,
 	DuplicatePolicy,
+	EnumFlagDefinition,
 	FlagAlias,
 	FlagConfig,
+	FlagDefinition,
+	FlagDefinitionBase,
+	FlagDefinitionByKind,
+	FlagDefinitionOverrides,
 	FlagFactory,
 	FlagKind,
 	FlagNegation,
@@ -1642,15 +2076,19 @@ export type {
 	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
+	KeyValueFlagDefinition,
+	NumberFlagDefinition,
 	OptionalFallback,
 	PathChecks,
 	PathFlagOptions,
 	PromptConfigByFlagKind,
 	ResolvedValue,
+	StringFlagDefinition,
 	WithoutElementEligibility,
 	WithPresence,
 };
 export {
+	createFlagSchema,
 	createSchema,
 	FLAG_KINDS,
 	FLAG_PRESENCES,
