@@ -64,8 +64,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   type-checks where a schema is expected. Call `createFlagSchema()`,
   `createArgSchema()`, or `createCommandSchema()` with a definition object to
   obtain one; spreading a built schema keeps the brand, so
-  `{ ...schema, description }` still type-checks. `createSchema()` is deprecated
-  in favor of `createFlagSchema()` and keeps working for now.
+  `{ ...schema, description }` still type-checks. `createSchema()` was renamed
+  to `createFlagSchema()`, which validates its fields against the kind and
+  normalizes a nested `elementSchema`.
 
 - **Breaking: `CLISchema` and `ConfigSettings` are sealed** — both carry a
   private brand, so an object literal assembled by hand no longer type-checks

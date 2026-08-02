@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { arg, createArgSchema } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
-import { createSchema, flag } from '#internals/core/schema/flag.ts';
+import { createFlagSchema, flag } from '#internals/core/schema/flag.ts';
 
 import { formatHelp } from './index.ts';
 
@@ -304,7 +304,7 @@ describe('formatHelp', () => {
 			const nullHelp = formatHelp({
 				...base.schema,
 				flags: {
-					token: createSchema('string', {
+					token: createFlagSchema('string', {
 						presence: 'defaulted',
 						defaultValue: null,
 						description: 'Token',
@@ -314,7 +314,7 @@ describe('formatHelp', () => {
 			const undefinedHelp = formatHelp({
 				...base.schema,
 				flags: {
-					token: createSchema('string', {
+					token: createFlagSchema('string', {
 						presence: 'defaulted',
 						defaultValue: undefined,
 						description: 'Token',

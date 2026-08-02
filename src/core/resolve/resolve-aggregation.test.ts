@@ -4,7 +4,7 @@ import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
@@ -58,8 +58,8 @@ describe('resolve — aggregate diagnostics', () => {
 	it('summarizes mixed flag and arg failures with per-issue labels', async () => {
 		const schema = makeSchema({
 			flags: {
-				port: createSchema('number', { envVar: 'PORT' }),
-				region: createSchema('string', { presence: 'required' }),
+				port: createFlagSchema('number', { envVar: 'PORT' }),
+				region: createFlagSchema('string', { presence: 'required' }),
 			},
 			args: [
 				{
@@ -116,7 +116,7 @@ describe('resolve — aggregate diagnostics', () => {
 	it('keeps nested flag and arg aggregates flattened in summary details', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
+				token: createFlagSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
 			},
 			args: [
 				{

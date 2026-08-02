@@ -242,7 +242,6 @@ export {
 	createArgSchema,
 	createCommandSchema,
 	createFlagSchema,
-	createSchema,
 	FlagBuilder,
 	flag,
 	getFlagNegatedName,

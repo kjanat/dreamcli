@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import {
 	sharedPropertyModelContract,
 	toSharedArgPropertySchema,
@@ -28,14 +28,14 @@ describe('resolver shared property model', () => {
 
 	describe('schema adapters', () => {
 		it('keeps flag-only kinds outside the shared model', () => {
-			expect(toSharedFlagPropertySchema(createSchema('boolean'))).toBeUndefined();
-			expect(toSharedFlagPropertySchema(createSchema('array'))).toBeUndefined();
+			expect(toSharedFlagPropertySchema(createFlagSchema('boolean'))).toBeUndefined();
+			expect(toSharedFlagPropertySchema(createFlagSchema('array'))).toBeUndefined();
 		});
 
 		it('preserves shared enum metadata for flag coercion', () => {
 			expect(
 				toSharedFlagPropertySchema(
-					createSchema('enum', {
+					createFlagSchema('enum', {
 						enumValues: ['dev', 'prod'],
 					}),
 				),

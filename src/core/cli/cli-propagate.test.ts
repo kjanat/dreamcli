@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 
 // --- Helpers — build minimal CommandSchema for testing
@@ -14,11 +14,11 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 }
 
 function propagatedFlag(kind: 'string' | 'boolean' | 'number' = 'boolean') {
-	return createSchema(kind, { propagate: true });
+	return createFlagSchema(kind, { propagate: true });
 }
 
 function localFlag(kind: 'string' | 'boolean' | 'number' = 'boolean') {
-	return createSchema(kind, { propagate: false });
+	return createFlagSchema(kind, { propagate: false });
 }
 
 // === collectPropagatedFlags

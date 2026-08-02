@@ -3,7 +3,7 @@ import { isValidationError, ValidationError } from '#internals/core/errors/index
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
@@ -30,7 +30,7 @@ describe('resolve', () => {
 		it('resolves string flag from config when CLI and env absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', { configPath: 'deploy.region' }),
+					region: createFlagSchema('string', { configPath: 'deploy.region' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -43,7 +43,7 @@ describe('resolve', () => {
 		it('resolves string flag from top-level config path', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', { configPath: 'name' }),
+					name: createFlagSchema('string', { configPath: 'name' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -56,7 +56,7 @@ describe('resolve', () => {
 		it('resolves deeply nested config path', async () => {
 			const schema = makeSchema({
 				flags: {
-					host: createSchema('string', { configPath: 'server.database.host' }),
+					host: createFlagSchema('string', { configPath: 'server.database.host' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -71,7 +71,7 @@ describe('resolve', () => {
 		it('ignores inherited nested config properties', async () => {
 			const schema = makeSchema({
 				flags: {
-					host: createSchema('string', { configPath: 'server.database.host' }),
+					host: createFlagSchema('string', { configPath: 'server.database.host' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -87,7 +87,7 @@ describe('resolve', () => {
 		it('coerces number to string from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					label: createSchema('string', { configPath: 'label' }),
+					label: createFlagSchema('string', { configPath: 'label' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -100,7 +100,7 @@ describe('resolve', () => {
 		it('coerces boolean to string from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					label: createSchema('string', { configPath: 'label' }),
+					label: createFlagSchema('string', { configPath: 'label' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -113,7 +113,7 @@ describe('resolve', () => {
 		it('throws for non-coercible string config value', async () => {
 			const schema = makeSchema({
 				flags: {
-					label: createSchema('string', { configPath: 'label' }),
+					label: createFlagSchema('string', { configPath: 'label' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -129,7 +129,7 @@ describe('resolve', () => {
 		it('resolves number directly from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { configPath: 'server.port' }),
+					port: createFlagSchema('number', { configPath: 'server.port' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -142,7 +142,7 @@ describe('resolve', () => {
 		it('coerces numeric string from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { configPath: 'port' }),
+					port: createFlagSchema('number', { configPath: 'port' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -155,7 +155,7 @@ describe('resolve', () => {
 		it('resolves float number from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					threshold: createSchema('number', { configPath: 'threshold' }),
+					threshold: createFlagSchema('number', { configPath: 'threshold' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -168,7 +168,7 @@ describe('resolve', () => {
 		it('throws for non-numeric config value', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { configPath: 'port' }),
+					port: createFlagSchema('number', { configPath: 'port' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -195,7 +195,7 @@ describe('resolve', () => {
 		it('throws for boolean config value when number expected', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { configPath: 'port' }),
+					port: createFlagSchema('number', { configPath: 'port' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -211,7 +211,7 @@ describe('resolve', () => {
 		it('resolves boolean true directly from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						configPath: 'verbose',
 						presence: 'defaulted',
 						defaultValue: false,
@@ -228,7 +228,7 @@ describe('resolve', () => {
 		it('resolves boolean false directly from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						configPath: 'verbose',
 						presence: 'defaulted',
 						defaultValue: true,
@@ -245,7 +245,7 @@ describe('resolve', () => {
 		it('coerces string "true" from config to boolean', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						configPath: 'verbose',
 						presence: 'defaulted',
 						defaultValue: false,
@@ -262,7 +262,7 @@ describe('resolve', () => {
 		it('throws for invalid boolean config value', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						configPath: 'verbose',
 						presence: 'defaulted',
 						defaultValue: false,
@@ -287,7 +287,7 @@ describe('resolve', () => {
 		it('throws for number config value when boolean expected', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						configPath: 'verbose',
 						presence: 'defaulted',
 						defaultValue: false,
@@ -307,7 +307,7 @@ describe('resolve', () => {
 		it('resolves valid enum value from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						configPath: 'deploy.region',
 						enumValues: ['us', 'eu', 'ap'],
 					}),
@@ -323,7 +323,7 @@ describe('resolve', () => {
 		it('throws for invalid enum config value', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						configPath: 'deploy.region',
 						enumValues: ['us', 'eu', 'ap'],
 					}),
@@ -353,7 +353,7 @@ describe('resolve', () => {
 		it('throws for non-string enum config value', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						configPath: 'region',
 						enumValues: ['us', 'eu', 'ap'],
 					}),
@@ -372,7 +372,7 @@ describe('resolve', () => {
 		it('resolves array directly from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { configPath: 'tags' }),
+					tags: createFlagSchema('array', { configPath: 'tags' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -385,7 +385,7 @@ describe('resolve', () => {
 		it('resolves empty array from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { configPath: 'tags' }),
+					tags: createFlagSchema('array', { configPath: 'tags' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -398,7 +398,7 @@ describe('resolve', () => {
 		it('resolves comma-separated string as array from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { configPath: 'tags' }),
+					tags: createFlagSchema('array', { configPath: 'tags' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -411,7 +411,7 @@ describe('resolve', () => {
 		it('resolves empty string as empty array from config', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { configPath: 'tags' }),
+					tags: createFlagSchema('array', { configPath: 'tags' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -424,9 +424,9 @@ describe('resolve', () => {
 		it('coerces array elements via element schema (number)', async () => {
 			const schema = makeSchema({
 				flags: {
-					ports: createSchema('array', {
+					ports: createFlagSchema('array', {
 						configPath: 'ports',
-						elementSchema: createSchema('number'),
+						elementSchema: createFlagSchema('number'),
 					}),
 				},
 			});
@@ -440,9 +440,9 @@ describe('resolve', () => {
 		it('throws for invalid array element in config', async () => {
 			const schema = makeSchema({
 				flags: {
-					ports: createSchema('array', {
+					ports: createFlagSchema('array', {
 						configPath: 'ports',
-						elementSchema: createSchema('number'),
+						elementSchema: createFlagSchema('number'),
 					}),
 				},
 			});
@@ -463,7 +463,7 @@ describe('resolve', () => {
 		it('throws for non-array non-string config value', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { configPath: 'tags' }),
+					tags: createFlagSchema('array', { configPath: 'tags' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -479,7 +479,7 @@ describe('resolve', () => {
 		it('resolves custom flag from config via parseFn (string value)', async () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						configPath: 'hex',
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					}),
@@ -495,7 +495,7 @@ describe('resolve', () => {
 		it('passes non-string config value directly to parseFn', async () => {
 			const schema = makeSchema({
 				flags: {
-					doubled: createSchema('custom', {
+					doubled: createFlagSchema('custom', {
 						configPath: 'value',
 						parseFn: (raw: unknown) => Number(raw) * 2,
 					}),
@@ -511,7 +511,7 @@ describe('resolve', () => {
 		it('config custom flag parse failure produces validation error', async () => {
 			const schema = makeSchema({
 				flags: {
-					value: createSchema('custom', {
+					value: createFlagSchema('custom', {
 						configPath: 'value',
 						parseFn: () => {
 							throw new Error('Bad value');
@@ -541,7 +541,7 @@ describe('resolve', () => {
 		it('falls through when config path does not exist', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						configPath: 'deploy.region',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -558,7 +558,7 @@ describe('resolve', () => {
 		it('falls through when intermediate path segment is missing', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						configPath: 'deploy.region',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -575,7 +575,7 @@ describe('resolve', () => {
 		it('falls through when intermediate is a non-object', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						configPath: 'deploy.region',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -592,7 +592,7 @@ describe('resolve', () => {
 		it('falls through when intermediate is null', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						configPath: 'deploy.region',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -609,7 +609,7 @@ describe('resolve', () => {
 		it('ignores config when flag has no configPath declared', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
+					region: createFlagSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -626,7 +626,7 @@ describe('resolve', () => {
 		it('config value satisfies required flag', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required', configPath: 'auth.token' }),
+					token: createFlagSchema('string', { presence: 'required', configPath: 'auth.token' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -639,7 +639,7 @@ describe('resolve', () => {
 		it('throws when the required configPath value is absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required', configPath: 'auth.token' }),
+					token: createFlagSchema('string', { presence: 'required', configPath: 'auth.token' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -655,7 +655,7 @@ describe('resolve', () => {
 		it('CLI > env > config > default: CLI wins', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'REGION',
 						configPath: 'deploy.region',
 						presence: 'defaulted',
@@ -676,7 +676,7 @@ describe('resolve', () => {
 		it('CLI > env > config > default: env wins when CLI absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'REGION',
 						configPath: 'deploy.region',
 						presence: 'defaulted',
@@ -697,7 +697,7 @@ describe('resolve', () => {
 		it('CLI > env > config > default: config wins when CLI and env absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'REGION',
 						configPath: 'deploy.region',
 						presence: 'defaulted',
@@ -718,7 +718,7 @@ describe('resolve', () => {
 		it('CLI > env > config > default: default wins when all absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'REGION',
 						configPath: 'deploy.region',
 						presence: 'defaulted',
@@ -740,7 +740,7 @@ describe('resolve', () => {
 		it('works without config in options', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
 				},
 			});
 			const parsed = makeParsed();
@@ -752,7 +752,7 @@ describe('resolve', () => {
 		it('works with empty config', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
 				},
 			});
 			const parsed = makeParsed();
@@ -765,7 +765,7 @@ describe('resolve', () => {
 		it('env resolution still works alongside config', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { envVar: 'PORT', configPath: 'port' }),
+					port: createFlagSchema('number', { envVar: 'PORT', configPath: 'port' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -782,8 +782,8 @@ describe('resolve', () => {
 		it('aggregates config coercion error with missing required error', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { configPath: 'port' }),
-					token: createSchema('string', { presence: 'required' }),
+					port: createFlagSchema('number', { configPath: 'port' }),
+					token: createFlagSchema('string', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -805,8 +805,8 @@ describe('resolve', () => {
 		it('aggregates env and config errors together', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { envVar: 'PORT' }),
-					region: createSchema('enum', {
+					port: createFlagSchema('number', { envVar: 'PORT' }),
+					region: createFlagSchema('enum', {
 						configPath: 'region',
 						enumValues: ['us', 'eu'],
 					}),
@@ -838,25 +838,25 @@ describe('resolve', () => {
 		it('resolves mixed-source commands with config', async () => {
 			const schema = makeSchema({
 				flags: {
-					host: createSchema('string', {
+					host: createFlagSchema('string', {
 						envVar: 'HOST',
 						configPath: 'server.host',
 						presence: 'defaulted',
 						defaultValue: 'localhost',
 					}),
-					port: createSchema('number', { configPath: 'server.port' }),
-					verbose: createSchema('boolean', {
+					port: createFlagSchema('number', { configPath: 'server.port' }),
+					verbose: createFlagSchema('boolean', {
 						configPath: 'verbose',
 						presence: 'defaulted',
 						defaultValue: false,
 					}),
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						envVar: 'REGION',
 						configPath: 'deploy.region',
 						enumValues: ['us', 'eu', 'ap'],
 					}),
-					tags: createSchema('array', { configPath: 'tags' }),
-					output: createSchema('string'), // no env, no config, optional
+					tags: createFlagSchema('array', { configPath: 'tags' }),
+					output: createFlagSchema('string'), // no env, no config, optional
 				},
 			});
 			const parsed = makeParsed({ flags: { host: '0.0.0.0' } }); // CLI overrides host
@@ -884,7 +884,7 @@ describe('resolve', () => {
 		it('config with both env and config declared — env takes precedence', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', {
+					port: createFlagSchema('number', {
 						envVar: 'PORT',
 						configPath: 'port',
 					}),
@@ -908,7 +908,7 @@ describe('resolve — config numeric constraints', () => {
 	it('rejects out-of-range config number', async () => {
 		const schema = makeSchema({
 			flags: {
-				retries: createSchema('number', {
+				retries: createFlagSchema('number', {
 					configPath: 'retries',
 					numberConstraints: { int: true, min: 0, max: 5 },
 				}),
@@ -930,7 +930,7 @@ describe('resolve — config numeric constraints', () => {
 	it('rejects non-integer config number when int required', async () => {
 		const schema = makeSchema({
 			flags: {
-				retries: createSchema('number', {
+				retries: createFlagSchema('number', {
 					configPath: 'retries',
 					numberConstraints: { int: true },
 				}),
@@ -944,7 +944,7 @@ describe('resolve — config numeric constraints', () => {
 	it('accepts an in-range config number', async () => {
 		const schema = makeSchema({
 			flags: {
-				retries: createSchema('number', {
+				retries: createFlagSchema('number', {
 					configPath: 'retries',
 					numberConstraints: { int: true, min: 0, max: 5 },
 				}),
