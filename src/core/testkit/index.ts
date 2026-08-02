@@ -14,10 +14,15 @@
  * @module dreamcli/core/testkit
  */
 
+import {
+	readRootOutputFlags,
+	resolveRootJsonMode,
+	resolveRootVerbosity,
+} from '#internals/core/cli/root-output-flags.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
-import { includesBeforeSeparator, stripBeforeSeparator } from '#internals/core/parse/index.ts';
+import { requestsHelp } from '#internals/core/parse/index.ts';
 import type { CommandMeta, Out, RunnableCommand } from '#internals/core/schema/command.ts';
 import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
@@ -47,6 +52,8 @@ import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/
  *   and stripped here, just like the real CLI root — so `['--json']` enables
  *   JSON mode and `['--quiet']` sets quiet verbosity rather than failing as
  *   unknown flags. Equivalent to `{ jsonMode: true }` / `{ verbosity: 'quiet' }`.
+ *   Both accept an explicit value (`--json=false`), and an invalid one fails
+ *   with the same `INVALID_VALUE` error the CLI root produces.
  * @param options - Injectable runtime state
  * @returns Structured run result with exit code and captured output
  */
@@ -69,21 +76,18 @@ async function runCommandInternal(
 	argv: readonly string[],
 	options?: InternalRunOptions,
 ): Promise<RunResult> {
-	// Root-flag layer mirroring `CLIBuilder.execute()`: `--json` is owned by the
-	// CLI root, not the command schema, so it would otherwise reach `parse()` as
-	// an unknown flag (#33). Detect it before the `--` separator (a literal
-	// `--json` positional after `--` survives), enable JSON mode, and strip it so
-	// the command schema never sees it. The explicit `options.jsonMode` keeps
-	// working — either source enables JSON mode.
-	const hasJsonFlag = includesBeforeSeparator(argv, '--json');
-	const jsonMode = hasJsonFlag || options?.jsonMode === true;
-	const hasQuietFlag =
-		includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
-	const verbosity: Verbosity | undefined = hasQuietFlag ? 'quiet' : options?.verbosity;
-	let effectiveArgv = hasJsonFlag ? stripBeforeSeparator(argv, '--json') : argv;
-	if (hasQuietFlag) {
-		effectiveArgv = stripBeforeSeparator(stripBeforeSeparator(effectiveArgv, '--quiet'), '-q');
-	}
+	// Root-flag layer mirroring `CLIBuilder.execute()`: `--json` and `--quiet`
+	// are owned by the CLI root, not the command schema, so they would otherwise
+	// reach `parse()` as unknown flags (#33). The shared reader detects them,
+	// strips them, and rejects an invalid `=value` exactly as dispatch does. The
+	// explicit `options.jsonMode` keeps working when argv says nothing.
+	const rootOutputFlags = readRootOutputFlags(argv);
+	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
+	const verbosity: Verbosity | undefined = resolveRootVerbosity(
+		rootOutputFlags,
+		options?.verbosity,
+	);
+	const effectiveArgv = rootOutputFlags.argv;
 
 	let out: Out;
 	let captured: CapturedOutput;
@@ -99,6 +103,19 @@ async function runCommandInternal(
 		[out, captured] = createCaptureOutput(
 			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
 		);
+	}
+
+	if (rootOutputFlags.kind === 'failed' && !requestsHelp(effectiveArgv)) {
+		const { error } = rootOutputFlags;
+		if (jsonMode) {
+			out.json({ error: error.toJSON() });
+		} else {
+			out.error(error.message);
+			if (error.suggest !== undefined) {
+				out.error(`Suggestion: ${error.suggest}`);
+			}
+		}
+		return buildRunResult({ exitCode: error.exitCode, error }, captured);
 	}
 
 	// Use merged schema (with propagated flags) when provided by dispatch layer,

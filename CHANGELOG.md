@@ -190,6 +190,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `out.info()` and rely on DreamCLI to suppress the complete presentation
   layer without reading private output policy state.
 
+- **`--json=true` and `--quiet=true` failed as unknown flags**
+  ([#85](https://github.com/kjanat/dreamcli/issues/85)). Both root flags now
+  take a value the way `flag.boolean()` does. `true` and `1` enable, `false`
+  and `0` disable, the last occurrence wins, and an invalid literal fails with
+  the parser's `INVALID_VALUE` error and exit code 2 instead of `Unknown flag`.
+  `--help`, `-h`, and `--version` still render ahead of that error, so a
+  mistyped value never hides the text that documents the flag. Short `-q` keeps
+  its presence-only form, matching short boolean flags at the command level.
+  `runCommand()` from `/testkit` reads the same layer, and tokens after `--`
+  still reach the command untouched.
+
 ## [3.0.1] - 2026-07-21
 
 No library code changed; this release ships agent-facing material that was

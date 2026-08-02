@@ -27,6 +27,11 @@ out.json({ status: 'ok', count: 42 });
 When the CLI is invoked with `--json`, structured payloads stay on stdout while
 plain text (`log`, `info`, `warn`, `error`) routes to stderr.
 
+`--json` also takes an explicit value like any boolean flag: `--json=true`,
+`--json=1`, `--json=false`, and `--json=0`. The last occurrence wins, so a
+wrapper script can append `--json=false` to turn a default off, and an invalid
+value fails with exit code 2.
+
 ## Exit Codes Without Error Output
 
 Use `out.setExitCode(code)` when a command should emit normal output but still
@@ -65,6 +70,14 @@ and `error` still emit.
 Like `--json`, it is a root-level flag: it is stripped before dispatch (so
 command schemas never see it) and only counts before the `--` separator; a
 literal `-q` after `--` reaches the command as a positional.
+
+The long spelling takes an explicit value the same way: `--quiet=true`,
+`--quiet=1`, `--quiet=false`, and `--quiet=0`, with the last occurrence winning
+and an invalid value failing with exit code 2. The short `-q` is presence-only,
+as short boolean flags are everywhere else.
+
+`--help` and `--version` render ahead of that error, so a mistyped value never
+hides the text that documents the flag.
 
 | Method   | Stream                      | Suppressed by quiet |
 | -------- | --------------------------- | ------------------- |

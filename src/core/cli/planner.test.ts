@@ -98,6 +98,104 @@ describe('planInvocation() — root interception', () => {
 	});
 });
 
+// === Root output flags with an explicit value (#85)
+
+describe('planInvocation() — root output flag values (#85)', () => {
+	it('strips the =value form of --json and --quiet', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--json=true', '--quiet=false', 'deploy', '--force']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['--force']);
+		}
+	});
+
+	it('leaves -q=true for the command, matching short-flag parsing', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['deploy', '-q=true']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['-q=true']);
+		}
+	});
+
+	it('leaves the tail after -- untouched', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--json=true', 'deploy', '--', '--quiet=true']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['--', '--quiet=true']);
+		}
+	});
+
+	it('reports an invalid boolean value as a dispatch error', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--quiet=banana', 'deploy']);
+
+		expect(result.kind).toBe('dispatch-error');
+		if (result.kind === 'dispatch-error') {
+			expect(result.error.code).toBe('INVALID_VALUE');
+			expect(result.error.exitCode).toBe(2);
+			expect(result.error.message).toBe(
+				"Invalid boolean value 'banana' for flag --quiet. Use true/false or 1/0",
+			);
+			expect(result.error.details).toEqual({
+				flag: 'quiet',
+				input: '--quiet',
+				value: 'banana',
+				expected: 'boolean',
+			});
+		}
+	});
+
+	it('errors on an invalid value even when argv is otherwise empty', () => {
+		const deploy = leaf('deploy');
+
+		expect(planFor([deploy], ['--json=banana']).kind).toBe('dispatch-error');
+	});
+
+	it('renders --version ahead of an invalid value', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--version', '--quiet=banana']);
+
+		expect(result.kind).toBe('root-version');
+	});
+
+	it('renders root --help ahead of an invalid value', () => {
+		const deploy = leaf('deploy');
+
+		expect(planFor([deploy], ['--help', '--json=banana']).kind).toBe('root-help');
+		expect(planFor([deploy], ['-h', '--json=banana']).kind).toBe('root-help');
+	});
+
+	it('leaves a command --help ahead of an invalid value to the command', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['deploy', '--help', '--quiet=banana']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['--help']);
+		}
+	});
+
+	it('reports the invalid value when the help token is a post-separator literal', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['deploy', '--quiet=banana', '--', '--help']);
+
+		expect(result.kind).toBe('dispatch-error');
+	});
+});
+
 // === Consistent --help / --version positional reach (#29)
 
 describe('planInvocation() — consistent help/version reach (#29)', () => {

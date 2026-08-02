@@ -128,6 +128,20 @@ function includesBeforeSeparator(argv: readonly string[], token: string): boolea
 }
 
 /**
+ * Whether argv asks for help before the `--` end-of-options separator.
+ *
+ * Help renders ahead of flag validation everywhere: a command short-circuits to
+ * its help text before `parse()` runs, and the root does the same before
+ * dispatch, so a malformed flag value never hides the text explaining the flags.
+ *
+ * @param argv - Raw argument strings.
+ * @returns `true` if `--help` or `-h` occurs before any `--` separator.
+ */
+function requestsHelp(argv: readonly string[]): boolean {
+	return includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h');
+}
+
+/**
  * Remove every occurrence of `token` that appears before the `--` end-of-options
  * separator, leaving post-separator literals untouched.
  *
@@ -985,10 +999,12 @@ export type { FlagLookupEntry, ParseOptions, ParseResult, Token };
 export {
 	buildFlagLookup,
 	camelToKebab,
+	coerceFlagValue,
 	flagExpectsValue,
 	includesBeforeSeparator,
 	kebabToCamel,
 	parse,
+	requestsHelp,
 	stripBeforeSeparator,
 	tokenize,
 };
