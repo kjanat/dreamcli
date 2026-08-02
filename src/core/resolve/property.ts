@@ -77,7 +77,7 @@ function toSharedFlagPropertySchema(schema: FlagSchema): SharedPropertySchema | 
 function toSharedArgPropertySchema(schema: ArgSchema): SharedPropertySchema {
 	switch (schema.kind) {
 		case 'string':
-			return { kind: 'string', stringConstraints: undefined };
+			return { kind: 'string', stringConstraints: schema.stringConstraints };
 		case 'number':
 			return { kind: 'number', numberConstraints: schema.numberConstraints };
 		case 'enum':

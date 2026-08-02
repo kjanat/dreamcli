@@ -56,13 +56,15 @@ interface ResolveOptions {
 	/** Interactive prompt engine; absent in non-TTY / CI contexts. */
 	readonly prompter?: PromptEngine;
 	/**
-	 * Filesystem probe for `flag.path()` checks: what exists at the path, or
-	 * `null` when nothing does. When absent, path checks are skipped.
+	 * Filesystem probe for `flag.path()` and `arg.path()` checks: what exists
+	 * at the path, or `null` when nothing does. When absent, path checks are
+	 * skipped.
 	 */
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 	/**
-	 * Recursive directory creation for `flag.path()` `create` checks. When
-	 * absent, missing paths are not created and existence rules apply as-is.
+	 * Recursive directory creation for `flag.path()` and `arg.path()` `create`
+	 * checks. When absent, missing paths are not created and existence rules
+	 * apply as-is.
 	 */
 	readonly mkdir?: (path: string) => Promise<void>;
 }

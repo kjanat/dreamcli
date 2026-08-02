@@ -4,21 +4,21 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 
 ## FILES
 
-| File                    | Lines | Purpose                                                                                                       |
-| ----------------------- | ----: | ------------------------------------------------------------------------------------------------------------- |
-| `command.ts`            |  1828 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`               |
-| `flag.ts`               |  2073 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`  |
-| `arg.ts`                |  1102 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                                         |
-| `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing `FlagSchema` / `ArgSchema` / `CommandSchema`                |
-| `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                     |
-| `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                  |
-| `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                            |
-| `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                   |
-| `string-constraints.ts` |   147 | `StringConstraints` + shared `validateStringConstraints()` (parse & resolve both import it)                   |
-| `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                             |
-| `value-parsers.ts`      |   243 | Parse fns behind sugar factories — `parseUrlValue`, `parseDateValue`, `parseDurationValue`, `parseBytesValue` |
-| `run.ts`                |   240 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                   |
-| `index.ts`              |   148 | Barrel — re-exports all public symbols                                                                        |
+| File                    | Lines | Purpose                                                                                                                     |
+| ----------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
+| `command.ts`            |  1828 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
+| `flag.ts`               |  2012 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
+| `arg.ts`                |  1439 | `ArgBuilder` — `arg.string/number/enum/custom/url/path/date/duration/bytes()`                                               |
+| `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing `FlagSchema` / `ArgSchema` / `CommandSchema`                              |
+| `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                                   |
+| `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
+| `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                          |
+| `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                                 |
+| `string-constraints.ts` |   173 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
+| `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                                           |
+| `value-parsers.ts`      |   329 | Value machinery behind the sugar factories on both `flag` and `arg` — parsers, path option types, `buildPathChecks()`       |
+| `run.ts`                |   240 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
+| `index.ts`              |   148 | Barrel — re-exports all public symbols                                                                                      |
 
 ## TYPE SYSTEM PATTERNS
 
@@ -73,6 +73,24 @@ a `parseFn` from `value-parsers.ts` + a `valueHint` — only steps 3 and 10–11
 10. Exports — new public types go in `core/schema/index.ts` **and** root `src/index.ts`
     (alphabetical)
 11. Tests in this dir + `docs/guide/flags.md` + `CHANGELOG.md`
+
+## ARG / FLAG PARITY
+
+The value-level surface is shared. `arg.url/path/date/duration/bytes()` call the same functions in
+`value-parsers.ts` as their flag counterparts and set the same `valueHint`; `arg.path()` and
+`flag.path()` both normalize their options through `buildPathChecks()`. String constraints use one
+`stringConstraints` field on both schemas, one validator, and one error-detail fragment
+(`stringConstraintDetails()`), so a message differs only in the subject (`for flag --x` versus
+`for argument <x>`). `factory-parity.test.ts` asserts that, and a new value-level member belongs on
+both factories or on neither.
+
+Flag-only by design: `boolean`, `count`, `negatable`, `alias`, `duplicates`, `separator`, `unique`,
+`propagate` (flag syntax), `array` (`.variadic()` serves it), and `keyValue` / `prompt` / `config`
+(resolution-chain features). Arg-only: `variadic`, `stdin`, and required-by-default presence.
+
+`ArgSchema.valueHint` is carried and serialized but not rendered: help labels a positional by its
+own name, so `.arg('file', arg.path())` stays `<file>` rather than becoming `<path>`, which would
+collapse two path args into the same placeholder.
 
 ## PROMPT — FLAG KIND CONSTRAINTS
 
@@ -132,21 +150,23 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   `toString`, which then reads as a supplied value. `resolveFlags()` in `resolve/` guards its `env`
   lookup and the interactive resolver's override record with `Object.hasOwn()` for that reason.
 
-## TEST FILES (14)
+## TEST FILES (16)
 
-| File                                | Tests                                                 |
-| ----------------------------------- | ----------------------------------------------------- |
-| `command.test.ts`                   | CommandBuilder API, schema, type inference            |
-| `schema-sealing.test.ts`            | Brand seal, spread propagation, factory normalization |
-| `flag.test.ts`                      | FlagBuilder API, kinds, validation                    |
-| `flag-array-separator.test.ts`      | `.separator()` / `.unique()` parse + resolve          |
-| `flag-count-keyvalue.test.ts`       | `flag.count()` / `flag.keyValue()` end to end         |
-| `flag-negatable-duplicates.test.ts` | `.negatable()` spellings + `.duplicates()` policy     |
-| `flag-element-eligibility.test.ts`  | `flag.array()` element eligibility, type level        |
-| `standard.test.ts`                  | Standard Schema v1 types + `isStandardSchemaV1()`     |
-| `string-constraints.test.ts`        | String constraint validation + builder chaining       |
-| `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories     |
-| `arg.test.ts`                       | ArgBuilder API, kinds, validation                     |
-| `middleware.test.ts`                | Middleware factory, context typing                    |
-| `prompt.test.ts`                    | Prompt config types                                   |
-| `derive.test.ts`                    | Type derivation tests                                 |
+| File                                | Tests                                                    |
+| ----------------------------------- | -------------------------------------------------------- |
+| `command.test.ts`                   | CommandBuilder API, schema, type inference               |
+| `schema-sealing.test.ts`            | Brand seal, spread propagation, factory normalization    |
+| `flag.test.ts`                      | FlagBuilder API, kinds, validation                       |
+| `flag-array-separator.test.ts`      | `.separator()` / `.unique()` parse + resolve             |
+| `flag-count-keyvalue.test.ts`       | `flag.count()` / `flag.keyValue()` end to end            |
+| `flag-negatable-duplicates.test.ts` | `.negatable()` spellings + `.duplicates()` policy        |
+| `flag-element-eligibility.test.ts`  | `flag.array()` element eligibility, type level           |
+| `standard.test.ts`                  | Standard Schema v1 types + `isStandardSchemaV1()`        |
+| `string-constraints.test.ts`        | String constraint validation + flag/arg builder chaining |
+| `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories        |
+| `arg.test.ts`                       | ArgBuilder API, kinds, validation                        |
+| `arg-value-factories.test.ts`       | `arg.url/path/date/duration/bytes()` + arg constraints   |
+| `factory-parity.test.ts`            | Same value through `flag.*` and `arg.*`, same verdict    |
+| `middleware.test.ts`                | Middleware factory, context typing                       |
+| `prompt.test.ts`                    | Prompt config types                                      |
+| `derive.test.ts`                    | Type derivation tests                                    |

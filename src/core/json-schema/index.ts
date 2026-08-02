@@ -30,6 +30,7 @@ import type {
 	FlagPresence,
 	FlagSchema,
 	NumberConstraints,
+	PathChecks,
 	PromptConfig,
 	PromptKind,
 	SelectChoice,
@@ -80,6 +81,11 @@ interface ResolvedOptions {
 
 /** Flag fields that survive definition serialization. */
 type SerializedFlagField = Exclude<keyof FlagSchema, typeof schemaBrand | 'parseFn' | 'standard'>;
+
+/** Arg fields that survive definition serialization, plus the entry's own name. */
+type SerializedArgField =
+	| 'name'
+	| Exclude<keyof ArgSchema, typeof schemaBrand | 'parseFn' | 'standard'>;
 
 /**
  * Apply defaults to optional {@link JsonSchemaOptions}.
@@ -158,7 +164,10 @@ type FlagNegationFragmentV1 = {
 	readonly hidden?: true;
 };
 
-/** String constraints of a flag fragment, with the pattern split into source and flags. */
+/**
+ * String constraints of a flag or arg fragment, with the pattern split into
+ * source and flags.
+ */
 type FlagStringConstraintsFragmentV1 = {
 	readonly nonEmpty?: boolean;
 	readonly minLength?: number;
@@ -169,7 +178,7 @@ type FlagStringConstraintsFragmentV1 = {
 	};
 };
 
-/** Filesystem expectations of a flag fragment. */
+/** Filesystem expectations of a flag or arg fragment. */
 type FlagPathChecksFragmentV1 = {
 	readonly mustExist: boolean;
 	readonly type?: 'file' | 'directory';
@@ -220,6 +229,10 @@ type ArgDefinitionFragmentV1 = {
 	readonly description?: string;
 	readonly envVar?: string;
 	readonly enumValues?: readonly string[];
+	readonly numberConstraints?: NumberConstraints;
+	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
+	readonly pathChecks?: FlagPathChecksFragmentV1;
+	readonly valueHint?: string;
 	readonly deprecated?: string | true;
 };
 
@@ -452,15 +465,7 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitio
 			: {}),
 		...(schema.separator !== undefined ? { separator: schema.separator } : {}),
 		...(schema.unique ? { unique: true } : {}),
-		...(pathChecks !== undefined
-			? {
-					pathChecks: {
-						mustExist: pathChecks.mustExist,
-						...(pathChecks.type !== undefined ? { type: pathChecks.type } : {}),
-						...(pathChecks.create ? { create: true } : {}),
-					},
-				}
-			: {}),
+		...(pathChecks !== undefined ? { pathChecks: serializePathChecks(pathChecks) } : {}),
 		...(schema.valueHint !== undefined ? { valueHint: schema.valueHint } : {}),
 		...(opts.includePrompts && schema.prompt !== undefined
 			? { prompt: serializePrompt(schema.prompt) }
@@ -497,6 +502,20 @@ function serializeStringConstraints(
 	};
 }
 
+/**
+ * Serialize {@link PathChecks} into a plain object.
+ *
+ * @param checks - The filesystem expectations to serialize.
+ * @returns JSON-serializable object omitting the defaults.
+ */
+function serializePathChecks(checks: PathChecks): FlagPathChecksFragmentV1 {
+	return {
+		mustExist: checks.mustExist,
+		...(checks.type !== undefined ? { type: checks.type } : {}),
+		...(checks.create ? { create: true } : {}),
+	};
+}
+
 // --- Arg serialization
 
 /**
@@ -507,6 +526,8 @@ function serializeStringConstraints(
  */
 function serializeArgEntry(entry: CommandArgEntry): ArgDefinitionFragmentV1 {
 	const { name, schema } = entry;
+	const stringConstraints = schema.stringConstraints;
+	const pathChecks = schema.pathChecks;
 
 	return {
 		name,
@@ -520,6 +541,14 @@ function serializeArgEntry(entry: CommandArgEntry): ArgDefinitionFragmentV1 {
 		...(schema.description !== undefined ? { description: schema.description } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
+		...(schema.numberConstraints !== undefined
+			? { numberConstraints: { ...schema.numberConstraints } }
+			: {}),
+		...(stringConstraints !== undefined
+			? { stringConstraints: serializeStringConstraints(stringConstraints) }
+			: {}),
+		...(pathChecks !== undefined ? { pathChecks: serializePathChecks(pathChecks) } : {}),
+		...(schema.valueHint !== undefined ? { valueHint: schema.valueHint } : {}),
 		...(schema.deprecated !== undefined ? { deprecated: schema.deprecated } : {}),
 	};
 }
@@ -877,8 +906,25 @@ function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 /** Map an arg's kind to a JSON Schema type fragment. */
 function argKindToType(schema: ArgSchema): Record<string, unknown> {
 	switch (schema.kind) {
-		case 'string':
-			return { type: 'string' };
+		case 'string': {
+			const result: Record<string, unknown> = { type: 'string' };
+			const constraints = schema.stringConstraints;
+			// nonEmpty is expressible as minLength >= 1 in JSON Schema.
+			const minLength =
+				constraints?.nonEmpty === true
+					? Math.max(constraints.minLength ?? 1, 1)
+					: constraints?.minLength;
+			if (minLength !== undefined) {
+				result.minLength = minLength;
+			}
+			if (constraints?.maxLength !== undefined) {
+				result.maxLength = constraints.maxLength;
+			}
+			if (constraints?.pattern !== undefined) {
+				result.pattern = constraints.pattern.source;
+			}
+			return result;
+		}
 		case 'number': {
 			const constraints = schema.numberConstraints;
 			const result: Record<string, unknown> = {
@@ -1114,47 +1160,12 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					configPath: { type: 'string' },
 					description: { type: 'string' },
 					enumValues: { type: 'array', items: { type: 'string' } },
-					numberConstraints: {
-						type: 'object',
-						additionalProperties: false,
-						properties: {
-							min: { type: 'number' },
-							max: { type: 'number' },
-							int: { type: 'boolean' },
-							finite: { type: 'boolean' },
-						},
-					},
-					stringConstraints: {
-						type: 'object',
-						additionalProperties: false,
-						properties: {
-							nonEmpty: { type: 'boolean' },
-							minLength: { type: 'integer', minimum: 0 },
-							maxLength: { type: 'integer', minimum: 0 },
-							pattern: {
-								type: 'object',
-								additionalProperties: false,
-								properties: {
-									source: { type: 'string' },
-									flags: { type: 'string' },
-								},
-								required: ['source', 'flags'],
-							},
-						},
-					},
+					numberConstraints: { $ref: '#/$defs/numberConstraints' },
+					stringConstraints: { $ref: '#/$defs/stringConstraints' },
 					elementSchema: { $ref: '#/$defs/flag' },
 					separator: { type: 'string', minLength: 1 },
 					unique: { type: 'boolean' },
-					pathChecks: {
-						type: 'object',
-						additionalProperties: false,
-						properties: {
-							mustExist: { type: 'boolean' },
-							type: { enum: ['file', 'directory'] },
-							create: { type: 'boolean' },
-						},
-						required: ['mustExist'],
-					},
+					pathChecks: { $ref: '#/$defs/pathChecks' },
 					valueHint: { type: 'string' },
 					prompt: { $ref: '#/$defs/prompt' },
 					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
@@ -1172,6 +1183,44 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					hidden: { const: true },
 				},
 			},
+			numberConstraints: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					min: { type: 'number' },
+					max: { type: 'number' },
+					int: { type: 'boolean' },
+					finite: { type: 'boolean' },
+				},
+			},
+			stringConstraints: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					nonEmpty: { type: 'boolean' },
+					minLength: { type: 'integer', minimum: 0 },
+					maxLength: { type: 'integer', minimum: 0 },
+					pattern: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							source: { type: 'string' },
+							flags: { type: 'string' },
+						},
+						required: ['source', 'flags'],
+					},
+				},
+			},
+			pathChecks: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					mustExist: { type: 'boolean' },
+					type: { enum: ['file', 'directory'] },
+					create: { type: 'boolean' },
+				},
+				required: ['mustExist'],
+			},
 			arg: {
 				type: 'object',
 				additionalProperties: false,
@@ -1185,8 +1234,12 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					description: { type: 'string' },
 					envVar: { type: 'string' },
 					enumValues: { type: 'array', items: { type: 'string' } },
+					numberConstraints: { $ref: '#/$defs/numberConstraints' },
+					stringConstraints: { $ref: '#/$defs/stringConstraints' },
+					pathChecks: { $ref: '#/$defs/pathChecks' },
+					valueHint: { type: 'string' },
 					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
-				},
+				} satisfies Record<SerializedArgField, Record<string, unknown>>,
 				required: ['name', 'kind', 'presence'],
 			},
 			prompt: {

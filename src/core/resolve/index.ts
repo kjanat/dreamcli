@@ -92,7 +92,15 @@ async function resolve(
 	}
 
 	try {
-		args = resolveArgs(schema.args, parsed.args, stdinData, env, deprecations);
+		args = await resolveArgs(
+			schema.args,
+			parsed.args,
+			stdinData,
+			env,
+			deprecations,
+			options?.stat,
+			options?.mkdir,
+		);
 	} catch (error) {
 		if (!isValidationError(error)) {
 			throw error;

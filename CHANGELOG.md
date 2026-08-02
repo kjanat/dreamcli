@@ -136,6 +136,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [Standalone Flag Evaluation](https://dreamcli.kjanat.dev/guide/read-flags)
   walks the API with the build-script case it was added for.
 
+- **Purpose-built positional argument kinds and string constraints**
+  ([#87](https://github.com/kjanat/dreamcli/issues/87)). A base URL, an input
+  file, or a cutoff date reads naturally as a positional, and until now the only
+  route was `arg.custom()` re-implementing what `flag.url()` already did.
+  `arg.url(options?)`, `arg.path(options?)`, `arg.date(options?)`,
+  `arg.duration()`, and `arg.bytes()` mirror their flag counterparts: same value
+  types, same option objects (`UrlFlagOptions`, `PathFlagOptions`,
+  `DateFlagOptions`), same parsers. `arg.string()` takes a `StringConstraints`
+  object, and string-kind `ArgBuilder`s carry `.nonEmpty()`, `.minLength()`,
+  `.maxLength()`, and `.pattern()` alongside the numeric `.int()`, `.min()`,
+  `.max()`, and `.finite()` they already had. Both factories run the same parse
+  functions and the same constraint validator, so a value a flag accepts an
+  argument accepts, and a rejection carries the same code and the same reason,
+  differing in the subject: `for flag --x` versus `for argument <x>`.
+
+  String constraints are enforced on CLI parse (`INVALID_VALUE`) and on stdin
+  and env resolution (`CONSTRAINT_VIOLATED`), both exit code `2`; as with flags,
+  a `.default()` value is trusted as declared. `arg.path()` checks run after
+  resolution through the runtime adapter's `stat`/`mkdir`, the same seam
+  `flag.path()` uses, so a piped, env-sourced, or defaulted path is checked like
+  one typed on the command line. A variadic argument validates every value it
+  collects, path checks included. Argument values sourced from stdin or env stay
+  redacted in the message, as in
+  `Invalid value '<redacted>' from stdin for argument <x>`, so byte-for-byte
+  equality with the flag message holds for argv-sourced values.
+
+  `ArgSchema` and the arg definition types carry `stringConstraints`,
+  `pathChecks`, and `valueHint`. The first two are string-kind gated the way the
+  flag schema gates them. Args serialize `numberConstraints`,
+  `stringConstraints`, `pathChecks`, and `valueHint` into the definition
+  document, which previously emitted none of them, and `generateInputSchema()`
+  now surfaces arg string constraints as `minLength` / `maxLength` / `pattern`.
+  The meta-schema hoists the `numberConstraints`, `stringConstraints`, and
+  `pathChecks` fragments into `$defs` so the flag and arg definitions reference
+  one copy. All of it is additive at `schemaVersion: 1`. Help still renders a
+  positional by its own name rather than its `valueHint`, so
+  `mycli copy <src> <dst>` does not collapse into `<path> <path>`.
+
+  The flag-only surface stays flag-only, and
+  [the arguments guide](https://dreamcli.kjanat.dev/guide/arguments#flag-only-surface)
+  lists it with the reason for each entry. `boolean`, `count`, `negatable`,
+  `alias`, `duplicates`, `separator`, `unique`, and `propagate` are bound to
+  flag syntax; `array` is served by `.variadic()`. `keyValue` merges repeated
+  occurrences into one record, which a positional slot cannot express, and
+  `prompt` and `config` are resolution-chain sources an argument does not read.
+  For all three, `arg.custom()` with a Standard Schema validator is the
+  documented route.
+
 ### Changed
 
 - **Breaking: `CLISchema.commands` and `CLISchema.defaultCommand` hold

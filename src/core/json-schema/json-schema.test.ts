@@ -834,55 +834,75 @@ describe('generateSchema — definition metadata', () => {
 		);
 	});
 
-	it('describes constrained flag fixtures in the meta-schema', () => {
+	it('describes constrained value fixtures in the meta-schema', () => {
 		expect(definitionMetaSchema).toMatchObject({
 			$defs: {
+				numberConstraints: {
+					type: 'object',
+					additionalProperties: false,
+					properties: {
+						min: { type: 'number' },
+						max: { type: 'number' },
+						int: { type: 'boolean' },
+						finite: { type: 'boolean' },
+					},
+				},
+				stringConstraints: {
+					type: 'object',
+					additionalProperties: false,
+					properties: {
+						nonEmpty: { type: 'boolean' },
+						minLength: { type: 'integer', minimum: 0 },
+						maxLength: { type: 'integer', minimum: 0 },
+						pattern: {
+							type: 'object',
+							additionalProperties: false,
+							properties: {
+								source: { type: 'string' },
+								flags: { type: 'string' },
+							},
+							required: ['source', 'flags'],
+						},
+					},
+				},
+				pathChecks: {
+					type: 'object',
+					additionalProperties: false,
+					properties: {
+						mustExist: { type: 'boolean' },
+						type: { enum: ['file', 'directory'] },
+					},
+					required: ['mustExist'],
+				},
 				flag: {
 					properties: {
-						numberConstraints: {
-							type: 'object',
-							additionalProperties: false,
-							properties: {
-								min: { type: 'number' },
-								max: { type: 'number' },
-								int: { type: 'boolean' },
-								finite: { type: 'boolean' },
-							},
-						},
-						stringConstraints: {
-							type: 'object',
-							additionalProperties: false,
-							properties: {
-								nonEmpty: { type: 'boolean' },
-								minLength: { type: 'integer', minimum: 0 },
-								maxLength: { type: 'integer', minimum: 0 },
-								pattern: {
-									type: 'object',
-									additionalProperties: false,
-									properties: {
-										source: { type: 'string' },
-										flags: { type: 'string' },
-									},
-									required: ['source', 'flags'],
-								},
-							},
-						},
+						numberConstraints: { $ref: '#/$defs/numberConstraints' },
+						stringConstraints: { $ref: '#/$defs/stringConstraints' },
 						separator: { type: 'string', minLength: 1 },
 						unique: { type: 'boolean' },
-						pathChecks: {
-							type: 'object',
-							additionalProperties: false,
-							properties: {
-								mustExist: { type: 'boolean' },
-								type: { enum: ['file', 'directory'] },
-							},
-							required: ['mustExist'],
-						},
+						pathChecks: { $ref: '#/$defs/pathChecks' },
 						valueHint: { type: 'string' },
 					},
 				},
 			},
 		});
+	});
+
+	it('points flags and args at the same constraint definitions', () => {
+		for (const field of ['numberConstraints', 'stringConstraints', 'pathChecks'] as const) {
+			expect(definitionMetaSchema).toHaveProperty(
+				['$defs', 'arg', 'properties', field, '$ref'],
+				`#/$defs/${field}`,
+			);
+			expect(definitionMetaSchema).toHaveProperty(
+				['$defs', 'flag', 'properties', field, '$ref'],
+				`#/$defs/${field}`,
+			);
+		}
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'arg', 'properties', 'valueHint', 'type'],
+			'string',
+		);
 	});
 
 	it('keeps serialized FlagSchema fields exhaustive against the meta-schema', () => {
@@ -966,6 +986,111 @@ describe('generateSchema — definition metadata', () => {
 		});
 		expect(expectRecord(flags.parser)).not.toHaveProperty('parseFn');
 		expect(expectRecord(flags.parser)).not.toHaveProperty('standard');
+	});
+
+	it('serializes arg constraints, path checks, and value hints', () => {
+		const result = generateSchema(
+			minimalCLI({
+				commands: [
+					commandDef({
+						args: [
+							argEntry('token', {
+								stringConstraints: { nonEmpty: true, minLength: 2, pattern: /^v\d+$/ },
+								valueHint: 'token',
+							}),
+							argEntry('outDir', {
+								pathChecks: { mustExist: true, type: 'directory', create: true },
+								valueHint: 'path',
+							}),
+							argEntry('port', { kind: 'number', numberConstraints: { min: 1, int: true } }),
+						],
+					}),
+				],
+			}),
+		);
+		const commands = result.commands;
+		const command = commands[0];
+		if (command === undefined) {
+			throw new TypeError('expected a command');
+		}
+		const [token, outDir, port] = command.args;
+
+		expect(token).toMatchObject({
+			name: 'token',
+			stringConstraints: {
+				nonEmpty: true,
+				minLength: 2,
+				pattern: { source: '^v\\d+$', flags: '' },
+			},
+			valueHint: 'token',
+		});
+		expect(outDir).toMatchObject({
+			name: 'outDir',
+			pathChecks: { mustExist: true, type: 'directory', create: true },
+			valueHint: 'path',
+		});
+		expect(port).toMatchObject({
+			name: 'port',
+			numberConstraints: { min: 1, int: true },
+		});
+	});
+
+	it('keeps serialized ArgSchema fields exhaustive against the meta-schema', () => {
+		const allFieldsArgs: readonly CommandArgEntry[] = [
+			argEntry('region', {
+				kind: 'enum',
+				presence: 'defaulted',
+				defaultValue: 'us',
+				description: 'Release region',
+				envVar: 'REGION',
+				enumValues: ['us', 'eu'],
+				valueHint: 'region',
+				deprecated: 'use --release',
+			}),
+			argEntry('port', {
+				kind: 'number',
+				numberConstraints: { min: 1, max: 5, int: true, finite: false },
+			}),
+			argEntry('source', {
+				stringConstraints: { nonEmpty: true, minLength: 2, maxLength: 12, pattern: /^v\d+$/ },
+				pathChecks: { mustExist: true, type: 'directory', create: true },
+			}),
+			argEntry('extras', { variadic: true }),
+			argEntry('piped', { stdinMode: true }),
+			argEntry('parser', {
+				kind: 'custom',
+				parseFn: (value: string) => value,
+				standard: {
+					'~standard': {
+						version: 1,
+						vendor: 'test',
+						validate: (value: unknown) => ({ value }),
+					},
+				},
+			}),
+		];
+		const result = generateSchema(minimalCLI({ commands: [commandDef({ args: allFieldsArgs })] }));
+		const commands = expectRecord(result).commands;
+		if (!Array.isArray(commands)) {
+			throw new TypeError('expected commands');
+		}
+		const command = expectRecord(commands[0]);
+		const args = command.args;
+		if (!Array.isArray(args)) {
+			throw new TypeError('expected args');
+		}
+		const defs = expectRecord(definitionMetaSchema.$defs);
+		const argMetaProperties = expectRecord(expectRecord(defs.arg).properties);
+		const serializedFields = new Set<string>();
+		for (const entry of args) {
+			for (const field of Object.keys(expectRecord(entry))) {
+				serializedFields.add(field);
+			}
+		}
+
+		expect([...serializedFields].sort()).toEqual(Object.keys(argMetaProperties).sort());
+		expect(expectRecord(args[5])).not.toHaveProperty('parseFn');
+		expect(expectRecord(args[5])).not.toHaveProperty('standard');
 	});
 });
 

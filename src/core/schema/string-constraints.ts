@@ -111,6 +111,26 @@ function describeStringConstraintViolation(violation: StringConstraintViolation)
 }
 
 /**
+ * Build the error-detail fields naming the rule a value broke.
+ *
+ * The parse path for flags and args and the resolver coercion path for env,
+ * config, prompt, and stdin all attach these fields, so a consumer reading
+ * `details` gets one shape wherever the failure came from.
+ *
+ * @param violation - The violation to describe.
+ * @returns `constraint` plus the bound or pattern the violation carries.
+ */
+function stringConstraintDetails(
+	violation: StringConstraintViolation,
+): Readonly<Record<string, unknown>> {
+	return {
+		constraint: violation.kind,
+		...('bound' in violation ? { bound: violation.bound } : {}),
+		...('pattern' in violation ? { pattern: violation.pattern } : {}),
+	};
+}
+
+/**
  * Assert that a constraints object is well-formed at schema-construction time.
  *
  * Length bounds must be non-negative integers — a fractional or negative
@@ -144,4 +164,9 @@ function assertStringConstraints(constraints: StringConstraints): void {
 }
 
 export type { StringConstraints, StringConstraintViolation };
-export { assertStringConstraints, describeStringConstraintViolation, validateStringConstraints };
+export {
+	assertStringConstraints,
+	describeStringConstraintViolation,
+	stringConstraintDetails,
+	validateStringConstraints,
+};

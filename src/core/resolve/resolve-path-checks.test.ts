@@ -1,5 +1,5 @@
 /**
- * Path check tests — `flag.path()` filesystem expectations.
+ * Path check tests — `flag.path()` and `arg.path()` filesystem expectations.
  *
  * Covers the builder schema (`pathChecks`, `valueHint`), the post-resolution
  * validation pass in `resolve()`, and the end-to-end `runCommand()` surface
@@ -9,6 +9,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { isValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
+import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
+import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import type { InferFlag } from '#internals/core/schema/flag.ts';
@@ -661,5 +663,182 @@ describe('runCommand — flag.path() end to end', () => {
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout.join('\n')).toContain('file=/present.txt');
 		expect(probe.calls).toEqual(['/present.txt']);
+	});
+});
+
+// === runCommand — arg.path() end to end
+
+describe('runCommand — arg.path() end to end', () => {
+	function fileCommand<C extends ArgConfig>(builder: ArgBuilder<C>) {
+		return command('read')
+			.arg('file', builder)
+			.action(({ args, out }) => {
+				out.log(`file=${String(args.file)}`);
+			});
+	}
+
+	it('accepts an existing file', async () => {
+		const cmd = fileCommand(arg.path({ mustExist: true }));
+		const probe = statProbe({ '/data/in.txt': 'file' });
+
+		const result = await runCommand(cmd, ['/data/in.txt'], { stat: probe.stat });
+		expect(result.exitCode).toBe(0);
+		expect(result.error).toBeUndefined();
+		expect(result.stdout.join('\n')).toContain('file=/data/in.txt');
+		expect(probe.calls).toEqual(['/data/in.txt']);
+	});
+
+	it('exits 2 with CONSTRAINT_VIOLATED for a missing path', async () => {
+		const cmd = fileCommand(arg.path({ mustExist: true }));
+		const probe = statProbe();
+
+		const result = await runCommand(cmd, ['/missing.txt'], { stat: probe.stat });
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.message).toBe("Path '/missing.txt' for argument <file> does not exist");
+		expect(result.error?.details).toEqual({
+			arg: 'file',
+			value: '/missing.txt',
+			constraint: 'mustExist',
+		});
+		expect(result.error?.suggest).toBe('Provide an existing path for <file>');
+	});
+
+	it('reports a file where a directory was expected', async () => {
+		const cmd = command('build')
+			.arg('outDir', arg.path({ type: 'directory' }))
+			.action(() => {});
+		const probe = statProbe({ '/data/report.csv': 'file' });
+
+		const result = await runCommand(cmd, ['/data/report.csv'], { stat: probe.stat });
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe(
+			"Path '/data/report.csv' for argument <outDir> is a file, expected a directory",
+		);
+		expect(result.error?.suggest).toBe('Provide a directory path for <outDir>');
+	});
+
+	it('creates a missing directory when create is set', async () => {
+		const cmd = command('build')
+			.arg('outDir', arg.path({ type: 'directory', create: true }))
+			.action(({ args, out }) => {
+				out.log(`outDir=${args.outDir}`);
+			});
+		const probe = statProbe();
+		const created: string[] = [];
+		const mkdir = (path: string): Promise<void> => {
+			created.push(path);
+			return Promise.resolve();
+		};
+
+		const result = await runCommand(cmd, ['/build/out'], { stat: probe.stat, mkdir });
+		expect(result.exitCode).toBe(0);
+		expect(created).toEqual(['/build/out']);
+		expect(result.stdout.join('\n')).toContain('outDir=/build/out');
+	});
+
+	it('reports a failed directory creation against the arg', async () => {
+		const cmd = command('build')
+			.arg('outDir', arg.path({ type: 'directory', create: true }))
+			.action(() => {});
+		const probe = statProbe();
+		const mkdir = (): Promise<void> => Promise.reject(new Error('EACCES'));
+
+		const result = await runCommand(cmd, ['/root/out'], { stat: probe.stat, mkdir });
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.message).toBe(
+			"Failed to create directory '/root/out' for argument <outDir>: EACCES",
+		);
+	});
+
+	it('skips filesystem checks when no stat option is provided', async () => {
+		const cmd = fileCommand(arg.path({ mustExist: true, type: 'file' }));
+
+		const result = await runCommand(cmd, ['/definitely/missing']);
+		expect(result.exitCode).toBe(0);
+		expect(result.error).toBeUndefined();
+	});
+
+	it('never calls stat for a plain arg.path()', async () => {
+		const cmd = fileCommand(arg.path());
+		const probe = statProbe();
+
+		const result = await runCommand(cmd, ['/anything'], { stat: probe.stat });
+		expect(result.exitCode).toBe(0);
+		expect(probe.calls).toEqual([]);
+	});
+
+	// --- sources other than argv
+
+	it('validates an env-provided path value', async () => {
+		const cmd = fileCommand(arg.path({ mustExist: true }).env('INPUT_FILE'));
+		const probe = statProbe();
+
+		const result = await runCommand(cmd, [], {
+			env: { INPUT_FILE: '/env-missing.txt' },
+			stat: probe.stat,
+		});
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.message).toBe(
+			"Path '/env-missing.txt' for argument <file> does not exist",
+		);
+		expect(probe.calls).toEqual(['/env-missing.txt']);
+	});
+
+	it('validates a stdin-provided path value', async () => {
+		const cmd = fileCommand(arg.path({ type: 'file' }).stdin());
+		const probe = statProbe({ '/piped.txt': 'directory' });
+
+		const result = await runCommand(cmd, [], { stdinData: '/piped.txt', stat: probe.stat });
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe(
+			"Path '/piped.txt' for argument <file> is a directory, expected a file",
+		);
+		expect(probe.calls).toEqual(['/piped.txt']);
+	});
+
+	it('validates a defaulted path value', async () => {
+		const cmd = fileCommand(arg.path({ mustExist: true }).default('/fallback.txt'));
+		const probe = statProbe();
+
+		const result = await runCommand(cmd, [], { stat: probe.stat });
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe("Path '/fallback.txt' for argument <file> does not exist");
+	});
+
+	// --- variadic
+
+	it('checks every value a variadic path arg collects', async () => {
+		const cmd = command('read')
+			.arg('files', arg.path({ mustExist: true }).variadic())
+			.action(() => {});
+		const probe = statProbe({ '/a.txt': 'file' });
+
+		const result = await runCommand(cmd, ['/a.txt', '/b.txt'], { stat: probe.stat });
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe("Path '/b.txt' for argument <files> does not exist");
+		expect(probe.calls).toEqual(['/a.txt', '/b.txt']);
+	});
+
+	it('accepts a variadic path arg when every value exists', async () => {
+		const cmd = command('read')
+			.arg('files', arg.path({ mustExist: true }).variadic())
+			.action(() => {});
+		const probe = statProbe({ '/a.txt': 'file', '/b.txt': 'file' });
+
+		const result = await runCommand(cmd, ['/a.txt', '/b.txt'], { stat: probe.stat });
+		expect(result.exitCode).toBe(0);
+		expect(probe.calls).toEqual(['/a.txt', '/b.txt']);
+	});
+
+	it('probes nothing for an absent optional path arg', async () => {
+		const cmd = fileCommand(arg.path({ mustExist: true }).optional());
+		const probe = statProbe();
+
+		const result = await runCommand(cmd, [], { stat: probe.stat });
+		expect(result.exitCode).toBe(0);
+		expect(probe.calls).toEqual([]);
 	});
 });

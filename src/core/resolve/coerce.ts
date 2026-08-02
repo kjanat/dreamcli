@@ -12,10 +12,12 @@ import type {
 	FlagSchema,
 	NumberConstraints,
 	StringConstraints,
+	StringConstraintViolation,
 } from '#internals/core/schema/index.ts';
 import {
 	describeNumberConstraintViolation,
 	describeStringConstraintViolation,
+	stringConstraintDetails,
 	validateNumberConstraints,
 	validateStringConstraints,
 } from '#internals/core/schema/index.ts';
@@ -146,9 +148,7 @@ function finalizeString(
 					...sourceDetails(source),
 					value,
 					expected: 'string',
-					constraint: violation.kind,
-					...('bound' in violation ? { bound: violation.bound } : {}),
-					...('pattern' in violation ? { pattern: violation.pattern } : {}),
+					...stringConstraintDetails(violation),
 				},
 				suggest:
 					source.kind === 'env'
@@ -482,21 +482,52 @@ function argSourceDetails(source: ArgStringSource): Record<string, unknown> {
 function buildArgCoercionSuggest(
 	argName: string,
 	source: ArgStringSource,
-	expected: 'number' | 'custom',
+	expected: 'number' | 'string' | 'custom',
 ): string {
-	if (source.kind === 'env') {
-		return expected === 'number'
-			? `Set ${source.envVar} to a valid number`
-			: `Set ${source.envVar} to a valid value for <${argName}>`;
+	if (expected === 'custom') {
+		return source.kind === 'env'
+			? `Set ${source.envVar} to a valid value for <${argName}>`
+			: `Pipe a valid value to stdin for <${argName}>`;
 	}
 
-	return expected === 'number'
-		? `Pipe a valid number to stdin for <${argName}>`
-		: `Pipe a valid value to stdin for <${argName}>`;
+	return source.kind === 'env'
+		? `Set ${source.envVar} to a valid ${expected}`
+		: `Pipe a valid ${expected} to stdin for <${argName}>`;
 }
 
 function argSourceToCoerceSource(source: ArgStringSource): CoerceSource {
 	return source.kind === 'env' ? { kind: 'env', envVar: source.envVar } : { kind: 'prompt' };
+}
+
+/**
+ * Rebuild the human-readable reason for a string-constraint failure from the
+ * error's own details.
+ *
+ * @param error - The coercion failure produced by {@link finalizeString}.
+ * @returns The reason, or `undefined` when the failure was not a constraint
+ *   violation.
+ */
+function stringConstraintReason(error: ValidationError): string | undefined {
+	const violation = toStringConstraintViolation(error);
+	return violation === undefined ? undefined : describeStringConstraintViolation(violation);
+}
+
+/** Narrow an error's details back into the violation {@link finalizeString} reported. */
+function toStringConstraintViolation(
+	error: ValidationError,
+): StringConstraintViolation | undefined {
+	if (error.code !== 'CONSTRAINT_VIOLATED') return undefined;
+	const constraint = error.details?.constraint;
+	if (constraint === 'nonEmpty') return { kind: 'nonEmpty' };
+	const bound = error.details?.bound;
+	if ((constraint === 'minLength' || constraint === 'maxLength') && typeof bound === 'number') {
+		return { kind: constraint, bound };
+	}
+	const pattern = error.details?.pattern;
+	if (constraint === 'pattern' && typeof pattern === 'string') {
+		return { kind: 'pattern', pattern };
+	}
+	return undefined;
 }
 
 function redactArgCoercionMessage(
@@ -532,8 +563,11 @@ function redactArgCoercionMessage(
 				? `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>: ${suffix}`
 				: `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
 		}
-		case 'string':
-			return `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+		case 'string': {
+			const base = `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+			const reason = stringConstraintReason(error);
+			return reason === undefined ? base : `${base}: ${reason}`;
+		}
 		default: {
 			const exhaustive: never = schema.kind;
 			return exhaustive;
@@ -547,10 +581,15 @@ function redactArgCoercionDetails(
 	schema: ArgSchema,
 	error: ValidationError,
 ): Readonly<Record<string, unknown>> {
+	const stringViolation = schema.kind === 'string' ? toStringConstraintViolation(error) : undefined;
+
 	return {
 		arg: argName,
 		...argSourceDetails(source),
 		...(schema.kind === 'number' || schema.kind === 'custom' ? { expected: schema.kind } : {}),
+		...(stringViolation !== undefined
+			? { expected: 'string', ...stringConstraintDetails(stringViolation) }
+			: {}),
 		...(schema.kind === 'number' && typeof error.details?.constraint === 'string'
 			? { constraint: error.details.constraint }
 			: {}),
@@ -575,6 +614,12 @@ function redactArgCoercionSuggest(
 ): string | undefined {
 	if (schema.kind === 'number' || schema.kind === 'custom') {
 		return buildArgCoercionSuggest(argName, source, schema.kind);
+	}
+
+	if (schema.kind === 'string') {
+		return toStringConstraintViolation(error) === undefined
+			? undefined
+			: buildArgCoercionSuggest(argName, source, 'string');
 	}
 
 	if (schema.kind === 'enum') {

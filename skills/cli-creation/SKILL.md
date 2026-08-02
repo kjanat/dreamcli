@@ -96,16 +96,22 @@ Paths are relative to the dreamcli repository root.
 
 ## Extend the Starter
 
-**Values.** Add typed args with `arg.string()`, `arg.number()`, `arg.enum(...)`,
-`arg.custom(...)`; `.variadic()` for repeated positionals. Prefer a purpose-built
-flag kind over `flag.string()` plus parsing: `flag.url()`, `flag.path()`,
-`flag.date()`, `flag.duration()`, `flag.bytes()`, `flag.count()`,
-`flag.keyValue()`. Express validation declaratively with constraints
-(`{ int, min, max }`, `{ nonEmpty, pattern }`) or a Standard Schema passed to
-`flag.custom()`, not with hand-written checks in the action.
+**Values.** Prefer a purpose-built kind over `flag.string()` / `arg.string()`
+plus parsing. Both factories carry `url()`, `path()`, `date()`, `duration()`,
+and `bytes()`; `flag` additionally carries `boolean()`, `array()`, `count()`,
+and `keyValue()`. Positionals also take `string()`, `number()`, `enum(...)`,
+`custom(...)`, with `.variadic()` for repeated positionals, which is the arg
+form of `flag.array()`. Express validation declaratively
+with constraints (`{ int, min, max }`, `{ nonEmpty, pattern }`, chainable on
+both builders) or a Standard Schema passed to `flag.custom()` / `arg.custom()`,
+not with hand-written checks in the action. `arg` has no `keyValue()`,
+`.prompt()`, or `.config()`; parse those with `arg.custom()` or declare the
+value as a flag.
 
 **Sources.** Declare `.env()`, `.config()`, `.prompt()`, `.default()` on the flag
 and let resolution order (argv, env, config, prompt, default) do the work.
+Arguments take `.stdin()`, `.env()`, and `.default()`, resolved as
+argv, stdin, env, default.
 
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.
@@ -116,8 +122,8 @@ suppressed by `--quiet`), `out.table()` for lists, `out.json()` behind
 command must report normally but exit non-zero.
 
 **Testing.** `runCommand()` from `@kjanat/dreamcli/testkit`, with `answers` for
-prompts and `stat`/`mkdir` when `flag.path()` checks must run. Assert output
-including trailing newlines.
+prompts and `stat`/`mkdir` when `flag.path()` or `arg.path()` checks must run.
+Assert output including trailing newlines.
 
 ## Resource Map
 
