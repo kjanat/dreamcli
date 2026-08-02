@@ -110,7 +110,7 @@ const BUILTIN_SPECS: Readonly<Record<BuiltinName, BuiltinSpec>> = {
 };
 
 /** Built-in names in the order root help advertises them. @internal */
-const BUILTIN_NAMES: readonly BuiltinName[] = ['help', 'json', 'quiet'];
+const BUILTIN_NAMES = ['help', 'json', 'quiet'] as const satisfies readonly BuiltinName[];
 
 /** Every built-in on, the state a CLI starts in. @internal */
 const DEFAULT_BUILTINS: BuiltinsDraft = { help: 'on', json: 'on', quiet: 'on' };

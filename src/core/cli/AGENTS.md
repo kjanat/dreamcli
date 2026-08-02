@@ -96,12 +96,16 @@ no-commands error, command map building, 3-way dispatch result (`unknown` / `nee
   built-in-aware layer reads it: `root-output-flags.ts` builds its long/short spelling maps from it,
   `reserved-flags.ts` builds the reserved token set from it, `root-help.ts` renders
   `Global options:` from it, and `completion/shells/shared.ts` gates the synthetic root `--help` on
-  it. Add a spelling to an existing entry and all four follow. Adding a whole built-in needs
-  `BUILTIN_NAMES` updated by hand as well: the `BuiltinName` union forces a `BUILTIN_SPECS` entry
-  through `Record` completeness, but nothing forces the `BUILTIN_NAMES` array, and the guard and the
-  `Global options:` block both walk that array. `version`/`V` is NOT a built-in — it is opt-in via
-  `.version()`, so it stays a local constant in `reserved-flags.ts` and an interception in
-  `planner.ts`.
+  it. Add a spelling to an existing entry and all four follow. Adding a whole built-in still needs
+  `BUILTIN_NAMES` written by hand, but both halves are now compile-time enforced. The `BuiltinName`
+  union forces a `BUILTIN_SPECS` entry through `Record` completeness, and `BUILTIN_NAMES` is a
+  literal tuple (`as const satisfies readonly BuiltinName[]`) that `builtins.test.ts` pins with
+  `expectTypeOf<Exclude<BuiltinName, (typeof BUILTIN_NAMES)[number]>>().toBeNever()`, so a union
+  member with no array entry fails typecheck. The guard walks that array. `root-help.ts` pushes
+  each built-in by name instead, keeping `--version` between `--help` and `--json` in
+  `Global options:`, so a fourth built-in needs a `pushBuiltin()` call there that nothing enforces.
+  `version`/`V` is NOT a built-in — it is opt-in via `.version()`, so it stays a local
+  constant in `reserved-flags.ts` and an interception in `planner.ts`.
 - `.builtins({ <name>: 'off' })` releases a built-in to the commands (#86). Normalized state lives on
   `CLISchema.builtins` (sealed, all three keys present); readers take the partial `BuiltinsConfig`
   and go through `builtinEnabled()`, which defaults an absent key to `'on'`, so an unthreaded reader
