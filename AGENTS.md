@@ -50,7 +50,7 @@ specs/                      # planning/design docs
 | Fix argv parsing                              | `src/core/parse/`               | tokenizer + parser live in one file        |
 | Fix resolution precedence                     | `src/core/resolve/`             | argv -> env -> config -> prompt -> default |
 | Change help text formatting                   | `src/core/help/`                | width-aware text formatter                 |
-| Change config discovery or `packageJson()`    | `src/core/config/`              | config loaders + package metadata walk-up  |
+| Change config discovery or `manifest()`       | `src/core/config/`              | config loaders + package metadata walk-up  |
 | Change prompt UX or test prompts              | `src/core/prompt/`              | prompt engines and sentinels               |
 | Change JSON Schema output                     | `src/core/json-schema/`         | definition schema + input schema           |
 | Change output, spinner, or progress           | `src/core/output/`              | stdout/stderr and activity handles         |

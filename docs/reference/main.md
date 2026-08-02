@@ -93,9 +93,9 @@ cli('mycli')
 Source the CLI's `version` and `description` (and optionally its name) from a manifest file —
 `package.json`, `deno.json`, or `jsr.json`. There are two complementary forms.
 
-> `.packageJson()` and `.denoJson()` are **deprecated** thin presets over `.manifest()` (pinning
-> `files` to `['package.json']` and `['deno.json', 'deno.jsonc', 'jsr.json']` respectively). Prefer
-> `.manifest()`.
+> `.packageJson()` and `.denoJson()` were **removed in v4**. Use `.manifest()`: it defaults to
+> `files: ['package.json']`, and `.denoJson()` becomes
+> `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
 
 **Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
 directory and reads the nearest manifest among `files` (default `['package.json']`); the nearest
@@ -564,7 +564,7 @@ const own = await discoverManifest(adapter, {
 });
 ```
 
-> `discoverPackageJson(adapter, startDir?)` is a **deprecated** alias that delegates to
+> `discoverPackageJson(adapter, startDir?)` was **removed in v4**. Use
 > `discoverManifest(adapter, { startDir, files: ['package.json'] })`.
 
 ### `inferCliName(pkg, options?)`

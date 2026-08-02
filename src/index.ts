@@ -35,9 +35,7 @@ export type {
 	DefaultCommandOptions,
 	HelpLinks,
 	InferNameOption,
-	ManifestPresetSettings,
 	ManifestSettings,
-	PackageJsonSettings,
 	PluginCommandContext,
 	RenderContext,
 	RenderContextOptions,
@@ -79,7 +77,6 @@ export {
 	configFormat,
 	discoverConfig,
 	discoverManifest,
-	discoverPackageJson,
 	inferCliName,
 	packageRepositoryUrl,
 } from './core/config/index.ts';

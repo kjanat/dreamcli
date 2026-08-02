@@ -191,9 +191,7 @@ interface CLISchema {
 	 * nearest manifest (`package.json`, `deno.json`, `jsr.json`, …) and merges
 	 * metadata before dispatch.
 	 *
-	 * Set via the {@linkcode CLIBuilder.manifest | .manifest()} builder method
-	 * (or the {@linkcode CLIBuilder.packageJson | .packageJson()} /
-	 * {@linkcode CLIBuilder.denoJson | .denoJson()} presets).
+	 * Set via the {@linkcode CLIBuilder.manifest | .manifest()} builder method.
 	 */
 	readonly packageJsonSettings: ResolvedManifestSettings | undefined;
 	/**
@@ -383,10 +381,9 @@ interface ConfigSettings {
  *
  * Note: the schema FIELD name (`packageJsonSettings`) keeps its `packageJson`
  * prefix for backward compatibility — renaming it would break consumers reading
- * `app.schema.packageJsonSettings`. The type itself is now generically named
- * (it holds discovery config for any manifest — `package.json`, `deno.json`,
- * `jsr.json`); the legacy {@link PackageJsonSettings} alias remains exported for
- * backward compatibility.
+ * `app.schema.packageJsonSettings`. The type itself is generically named (it
+ * holds discovery config for any manifest — `package.json`, `deno.json`,
+ * `jsr.json`).
  */
 interface ResolvedManifestSettings {
 	/**
@@ -420,7 +417,7 @@ interface ResolvedManifestSettings {
 	readonly from: string | undefined;
 	/**
 	 * Candidate manifest filenames, in per-directory priority order
-	 * (e.g. `['deno.json', 'deno.jsonc', 'jsr.json']` for `.denoJson()`).
+	 * (e.g. `['deno.json', 'deno.jsonc', 'jsr.json']` for a Deno CLI).
 	 */
 	readonly files: readonly string[];
 	/**
@@ -435,16 +432,6 @@ interface ResolvedManifestSettings {
 	 */
 	readonly data: PackageJsonData | undefined;
 }
-
-/**
- * Resolved manifest discovery settings stored in {@link CLISchema}.
- *
- * @deprecated Renamed to {@link ResolvedManifestSettings}. The stored shape
- *   holds generic manifest discovery config (`package.json`, `deno.json`,
- *   `jsr.json`), not just `package.json`; the misleading name is kept only for
- *   backward compatibility.
- */
-type PackageJsonSettings = ResolvedManifestSettings;
 
 // --- CLI definition — input shape accepted by createCLISchema
 
@@ -1215,60 +1202,7 @@ class CLIBuilder {
 	 */
 	manifest(settings?: ManifestSettings): CLIBuilder;
 	manifest(input?: PackageJsonData | ManifestSettings): CLIBuilder {
-		return rebuild(this, buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, false));
-	}
-
-	/**
-	 * Discover metadata from `package.json` (preset for {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use {@link CLIBuilder.manifest} — `.manifest()` defaults to
-	 *   `package.json` and also supports `deno.json` / `jsr.json` via `files`.
-	 *
-	 * @param data - Pre-loaded `package.json` metadata.
-	 */
-	packageJson(data: PackageJsonData): CLIBuilder;
-	/**
-	 * Discover metadata from `package.json` (preset for {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use {@link CLIBuilder.manifest}.
-	 *
-	 * @param settings - `inferName` / `from` (see {@link CLIBuilder.manifest}).
-	 */
-	packageJson(settings?: ManifestPresetSettings): CLIBuilder;
-	packageJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return rebuild(this, buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, true));
-	}
-
-	/**
-	 * Discover metadata from `deno.json`, `deno.jsonc`, then `jsr.json` (preset for
-	 * {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
-	 *
-	 * @param data - Pre-loaded `deno.json` / `jsr.json` metadata.
-	 */
-	denoJson(data: PackageJsonData): CLIBuilder;
-	/**
-	 * Discover metadata from `deno.json`, `deno.jsonc`, then `jsr.json` (preset for
-	 * {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
-	 *
-	 * @param settings - `inferName` / `from` (see {@link CLIBuilder.manifest}).
-	 *   `deno.json` / `jsr.json` have no `bin` field, so `inferName` resolves
-	 *   from `name`; pass `{ scope: 'keep' }` to retain a leading `@scope/`.
-	 *
-	 * @example
-	 * ```ts
-	 * cli('mycli')
-	 *   .denoJson({ from: import.meta.url })
-	 *   .command(deploy)
-	 *   .run();
-	 * ```
-	 */
-	denoJson(settings?: ManifestPresetSettings): CLIBuilder;
-	denoJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return rebuild(this, buildManifestSchema(this.schema, input, DENO_MANIFEST_FILES, true));
+		return rebuild(this, buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES));
 	}
 
 	// -- Command registration ------------------------------------------------
@@ -1865,12 +1799,12 @@ function toUrlString(value: string | URL | undefined): string | undefined {
 }
 
 /**
- * Resolve derived help links against pre-loaded package.json data.
+ * Resolve derived help links against pre-loaded manifest data.
  *
- * `.run()` resolves links during runtime preflight (where discovered
- * package.json metadata lives); this covers the filesystem-free
- * `.execute()` path, where only the `.packageJson(data)` overload can
- * contribute. Idempotent — already-resolved fields pass through unchanged.
+ * `.run()` resolves links during runtime preflight (where discovered manifest
+ * metadata lives); this covers the filesystem-free `.execute()` path, where
+ * only the `.manifest(data)` overload can contribute. Idempotent —
+ * already-resolved fields pass through unchanged.
  *
  * @internal
  */
@@ -1884,11 +1818,8 @@ function resolveHelpLinksSchema(schema: CLISchema): CLISchema {
 
 // --- manifest discovery settings
 
-/** Default manifest filenames for `.manifest()` / `.packageJson()`. @internal */
+/** Default manifest filenames for `.manifest()`. @internal */
 const DEFAULT_MANIFEST_FILES: readonly string[] = ['package.json'];
-
-/** Manifest filenames for the `.denoJson()` preset, in priority order. @internal */
-const DENO_MANIFEST_FILES: readonly string[] = ['deno.json', 'deno.jsonc', 'jsr.json'];
 
 /**
  * CLI-name inference control for {@link ManifestSettings.inferName}.
@@ -1925,14 +1856,6 @@ interface ManifestSettings {
 }
 
 /**
- * Discovery settings for the `.packageJson()` / `.denoJson()` presets (no `files`).
- *
- * @deprecated Both presets are deprecated; use {@link ManifestSettings} with
- *   {@link CLIBuilder.manifest}.
- */
-type ManifestPresetSettings = Omit<ManifestSettings, 'files'>;
-
-/**
  * Normalise an {@link InferNameOption} into the flat `{ inferName, stripScope }`
  * pair stored in {@link ResolvedManifestSettings}.
  *
@@ -1948,12 +1871,11 @@ function normalizeInferName(option: InferNameOption | undefined): {
 }
 
 /**
- * Build the next {@link CLISchema} for a manifest builder method.
+ * Build the next {@link CLISchema} for {@link CLIBuilder.manifest}.
  *
- * Shared by {@link CLIBuilder.manifest}, {@link CLIBuilder.packageJson}, and
- * {@link CLIBuilder.denoJson}. The data overload (detected via field shape)
- * merges `version`/`description` immediately so `.execute()` sees them; the
- * settings overload stores discovery config for runtime preflight.
+ * The data overload (detected via field shape) merges `version`/`description`
+ * immediately so `.execute()` sees them; the settings overload stores discovery
+ * config for runtime preflight.
  *
  * @internal
  */
@@ -1961,7 +1883,6 @@ function buildManifestSchema(
 	schema: CLISchema,
 	input: PackageJsonData | ManifestSettings | undefined,
 	defaultFiles: readonly string[],
-	pinFiles: boolean,
 ): CLISchema {
 	if (isPackageJsonData(input)) {
 		// Merge data into schema immediately so `.execute()` (which skips runtime
@@ -1985,10 +1906,7 @@ function buildManifestSchema(
 		};
 	}
 	const { inferName, stripScope } = normalizeInferName(input?.inferName);
-	// Presets (`pinFiles`) always use their fixed list: the `Omit<…,'files'>` guard
-	// only stops fresh literals at compile time, so a `ManifestSettings`-typed
-	// variable could otherwise leak `files` through the data-overload dispatch gap.
-	const files = pinFiles ? defaultFiles : (input?.files ?? defaultFiles);
+	const files = input?.files ?? defaultFiles;
 	return {
 		...schema,
 		packageJsonSettings: {
@@ -2001,7 +1919,7 @@ function buildManifestSchema(
 	};
 }
 
-// --- packageJson.from normalisation
+// --- manifest.from normalisation
 
 /**
  * Coerce a {@link ResolvedManifestSettings.from | `manifest.from`} input
@@ -2040,7 +1958,7 @@ function normalizeFromSetting(from: string | URL | ImportMeta | undefined): stri
 
 /**
  * Predicate distinguishing the {@link PackageJsonData | data} overload of
- * `.packageJson()` from the settings overload at runtime.
+ * `.manifest()` from the settings overload at runtime.
  *
  * A value is treated as `PackageJsonData` when it's a plain object that
  * carries at least one recognised field (`name`, `version`, `description`,
@@ -2194,9 +2112,7 @@ export type {
 	DefaultCommandOptions,
 	HelpConfig,
 	InferNameOption,
-	ManifestPresetSettings,
 	ManifestSettings,
-	PackageJsonSettings,
 	RenderContext,
 	RenderContextOptions,
 	ResolvedManifestSettings,

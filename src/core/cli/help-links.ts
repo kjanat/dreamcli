@@ -1,10 +1,10 @@
 /**
  * Root-help header hyperlink resolution.
  *
- * Stores explicit `.links()` URLs and derives missing ones from package.json
+ * Stores explicit `.links()` URLs and derives missing ones from manifest
  * metadata (`repository` / `homepage`) once that data is available — during
  * runtime preflight for `.run()`, or directly from pre-loaded
- * `.packageJson(data)` for `.execute()`.
+ * `.manifest(data)` for `.execute()`.
  *
  * @module dreamcli/core/cli/help-links
  * @internal
@@ -17,7 +17,7 @@ import { packageRepositoryUrl } from '#internals/core/config/package-json.ts';
  * OSC 8 hyperlink targets for the root-help header.
  *
  * Set via `CLIBuilder.links()`; fields left `undefined` are derived from
- * package.json metadata when `.packageJson()` is active.
+ * manifest metadata when `.manifest()` is active.
  */
 interface HelpLinks {
 	/** URL the program name links to (e.g. the repository or homepage). */

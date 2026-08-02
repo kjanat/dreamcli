@@ -124,6 +124,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that appears only on `CommandBuilder`'s underscore members, so the package
   root no longer exports the name.
 
+### Removed
+
+- **Breaking: `.packageJson()`** — deprecated since 2.5. Use `.manifest()`,
+  which defaults to `files: ['package.json']` and accepts the same pre-loaded
+  data object.
+
+- **Breaking: `.denoJson()`** — deprecated since 2.5. Use
+  `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
+
+- **Breaking: `ManifestPresetSettings`** — the settings type of the two removed
+  presets. Use `ManifestSettings`, which adds `files`.
+
+- **Breaking: `PackageJsonSettings`** — the deprecated alias for
+  `ResolvedManifestSettings`, the shape stored in
+  `CLISchema.packageJsonSettings`. The schema field itself is unchanged.
+
+- **Breaking: `discoverPackageJson()`** — deprecated since 2.5. Use
+  `discoverManifest(adapter, { startDir, files: ['package.json'] })`; `files`
+  already defaults to `['package.json']`.
+
 ### Fixed
 
 - **Quiet mode leaked spinner and progress output** — activity handles now

@@ -117,7 +117,7 @@ no-commands error, command map building, 3-way dispatch result (`unknown` / `nee
 | `cli-config.test.ts`              | Config discovery integration            |
 | `cli-propagate.test.ts`           | Flag propagation through command tree   |
 | `cli-plugin.test.ts`              | Plugin system tests                     |
-| `cli-package-json.test.ts`        | Package.json metadata integration       |
+| `cli-manifest.test.ts`            | Manifest metadata integration           |
 | `cli-links.test.ts`               | Help link derivation and overrides      |
 | `cli-examples.test.ts`            | Example rendering in help               |
 | `cli-flag-order.test.ts`          | Flag ordering in help output            |

@@ -3,7 +3,7 @@
 ## OVERVIEW
 
 Config loading is adapter-driven and side-effect free from the module's perspective. It covers both
-user config discovery and `packageJson()` metadata inference.
+user config discovery and `manifest()` metadata inference.
 
 ## FILES
 
@@ -16,12 +16,12 @@ user config discovery and `packageJson()` metadata inference.
 
 ## WHERE TO LOOK
 
-| Task                            | Location                                  | Notes                                                 |
-| ------------------------------- | ----------------------------------------- | ----------------------------------------------------- |
-| Change default config locations | `buildConfigSearchPaths()`                | cwd dotfile, cwd explicit config, platform config dir |
-| Change custom format loading    | `FormatLoader`, `buildLoaderMap()`        | JSON built in; later loaders override earlier ones    |
-| Change main discovery flow      | `discoverConfig()`                        | first found path wins, parses through adapter         |
-| Change CLI metadata inference   | `discoverPackageJson()`, `inferCliName()` | backs `CLIBuilder.packageJson()`                      |
+| Task                            | Location                               | Notes                                                 |
+| ------------------------------- | -------------------------------------- | ----------------------------------------------------- |
+| Change default config locations | `buildConfigSearchPaths()`             | cwd dotfile, cwd explicit config, platform config dir |
+| Change custom format loading    | `FormatLoader`, `buildLoaderMap()`     | JSON built in; later loaders override earlier ones    |
+| Change main discovery flow      | `discoverConfig()`                     | first found path wins, parses through adapter         |
+| Change CLI metadata inference   | `discoverManifest()`, `inferCliName()` | backs `CLIBuilder.manifest()`                         |
 
 ## CONVENTIONS
 
