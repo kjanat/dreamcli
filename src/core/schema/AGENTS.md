@@ -6,7 +6,7 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 
 | File                    | Lines | Purpose                                                                                                       |
 | ----------------------- | ----: | ------------------------------------------------------------------------------------------------------------- |
-| `command.ts`            |  1751 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`               |
+| `command.ts`            |  1702 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`               |
 | `flag.ts`               |  2101 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`  |
 | `arg.ts`                |  1102 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                                         |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing `FlagSchema` / `ArgSchema` / `CommandSchema`                |
@@ -99,6 +99,11 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
 - `Out.setExitCode(code)` is part of the public action-handler output surface. It requests a
   success-path process exit code without error output; thrown errors still own failure exits.
 - `command.ts` imports activity types from `./activity.ts` directly
+- `validateCommandFlagTree()` has exactly two call sites: `createCommandSchema()`, once over the
+  finished tree, and the builder's `.flag()` / `.command()`, incrementally. `buildCommandSchema()`
+  recurses into itself, not into `createCommandSchema()`, so a nested definition is normalized once
+  and validated once. Callers downstream of a factory (`readFlags()`, `createCLISchema()`) must not
+  re-run it.
 
 ## TEST FILES (11)
 

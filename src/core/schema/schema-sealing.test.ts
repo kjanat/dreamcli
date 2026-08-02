@@ -358,6 +358,43 @@ describe('schema sealing', () => {
 			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
 		});
 
+		it('rejects a colliding flag spelling on a nested command definition', () => {
+			const build = () =>
+				createCLISchema({
+					name: 'mycli',
+					commands: [
+						{
+							name: 'db',
+							commands: [
+								{
+									name: 'migrate',
+									flags: {
+										verbose: { kind: 'boolean', aliases: ['v'] },
+										version: { kind: 'boolean', aliases: ['v'] },
+									},
+								},
+							],
+						},
+					],
+				});
+			expect(schemaErrorCode(build)).toBe('FLAG_NAME_COLLISION');
+		});
+
+		it('rejects a default command flag shadowing a propagated ancestor spelling', () => {
+			const build = () =>
+				createCLISchema({
+					name: 'mycli',
+					defaultCommand: {
+						name: 'db',
+						flags: { verbose: { kind: 'boolean', aliases: ['v'], propagate: true } },
+						commands: [
+							{ name: 'migrate', flags: { version: { kind: 'boolean', aliases: ['v'] } } },
+						],
+					},
+				});
+			expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+		});
+
 		it('builds identical flag schemas from the positional and object forms', () => {
 			expect(createFlagSchema('enum', { enumValues: ['us', 'eu'], description: 'Region' })).toEqual(
 				createFlagSchema({ kind: 'enum', enumValues: ['us', 'eu'], description: 'Region' }),

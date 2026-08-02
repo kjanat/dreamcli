@@ -163,6 +163,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to `createFlagSchema()`, which validates its fields against the kind and
   normalizes a nested `elementSchema`.
 
+- **Breaking: `createCommandSchema()` rejects colliding flag spellings.** A
+  definition whose flags share a name, an alias, or a negated spelling on one
+  command now throws `FLAG_NAME_COLLISION`, and a flag spelled the same way as
+  one propagated from an ancestor command throws `PROPAGATED_FLAG_COLLISION`.
+  The whole tree is checked, nested subcommands included. Commands built with
+  `command()` already refused these at `.flag()` and `.command()`; a definition
+  composed as data used to build without complaint and then lose one of the
+  colliding flags at parse time. `createCLISchema()` normalizes its commands
+  through the same factory and inherits the check, and `readFlags()` reports the
+  same errors it always did.
+
 - **Breaking: `CLISchema` and `ConfigSettings` are sealed** — both carry a
   private brand, so an object literal assembled by hand no longer type-checks
   where either is expected. Call `cli()` for an executable program or

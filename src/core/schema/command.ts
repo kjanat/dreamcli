@@ -634,12 +634,23 @@ interface CommandDefinition {
 }
 
 /**
- * Merge definition fields onto the {@link CommandSchema} defaults.
+ * Merge definition fields onto the {@link CommandSchema} defaults, recursively.
  *
- * @param definition - Command definition with defaults already validated.
+ * @param definition - Command definition to normalize.
  * @returns A fully populated {@link CommandSchema}.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when a name at any depth is empty.
+ *
+ * @internal
  */
 function buildCommandSchema(definition: CommandDefinition): CommandSchema {
+	if (definition.name === '') {
+		throw new CLIError('Command schema requires a non-empty name', {
+			code: 'INVALID_SCHEMA',
+			details: { name: definition.name },
+			suggest: 'Pass a dispatch name such as { name: "deploy" }',
+		});
+	}
+
 	const flags: Record<string, FlagSchema> = {};
 	for (const [name, value] of Object.entries(definition.flags ?? {})) {
 		flags[name] = createFlagSchema(value);
@@ -660,7 +671,7 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		args,
 		hasAction: definition.hasAction ?? false,
 		interactive: definition.interactive,
-		commands: (definition.commands ?? []).map((child) => createCommandSchema(child)),
+		commands: (definition.commands ?? []).map((child) => buildCommandSchema(child)),
 	};
 
 	return schema as CommandSchema;
@@ -676,9 +687,19 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  * Flags, args, and subcommands are normalized recursively, so an already-built
  * schema fed back in produces a deep-equal schema.
  *
+ * Flag spellings are checked across the whole tree, so a definition whose names,
+ * aliases, or negated spellings collide with each other or with a propagated
+ * ancestor flag is rejected here rather than silently losing a flag at parse
+ * time. This is the same check the {@link CommandBuilder} applies as flags and
+ * subcommands are registered.
+ *
  * @param definition - Command name plus optional flags, args, and subcommands.
  * @returns A fully populated {@link CommandSchema}.
- * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a name at any depth is empty.
+ * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two flags on one
+ *   command share a spelling.
+ * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a flag shadows
+ *   a spelling propagated from an ancestor command.
  *
  * @example
  * ```ts
@@ -691,15 +712,9 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  * ```
  */
 function createCommandSchema(definition: CommandDefinition): CommandSchema {
-	if (definition.name === '') {
-		throw new CLIError('Command schema requires a non-empty name', {
-			code: 'INVALID_SCHEMA',
-			details: { name: definition.name },
-			suggest: 'Pass a dispatch name such as { name: "deploy" }',
-		});
-	}
-
-	return buildCommandSchema(definition);
+	const schema = buildCommandSchema(definition);
+	validateCommandFlagTree(schema);
+	return schema;
 }
 
 /**
@@ -1684,12 +1699,4 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export {
-	CommandBuilder,
-	command,
-	createCommandSchema,
-	group,
-	outBrand,
-	resolveExampleCommand,
-	validateCommandFlagTree,
-};
+export { CommandBuilder, command, createCommandSchema, group, outBrand, resolveExampleCommand };

@@ -636,6 +636,10 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
  * @returns A fully populated {@link CLISchema}.
  * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty or a
  *   `builtins` entry is neither `'on'` nor `'off'`.
+ * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two flags on one
+ *   command share a spelling, at any depth of the command tree.
+ * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a command flag
+ *   shadows a spelling propagated from an ancestor command.
  * @throws {CLIError} With code `'RESERVED_FLAG'` when a command spells a flag
  *   the same way as a root-owned flag (`--json`, `--quiet`/`-q`, `--help`/`-h`,
  *   `--version`/`-V` once `version` is set, and `--completions` once
