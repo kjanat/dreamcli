@@ -9,10 +9,10 @@ counts as breaking for each category.
 | Category                 | Examples                                                | Minor releases may                                |
 | ------------------------ | ------------------------------------------------------- | ------------------------------------------------- |
 | Sealed framework values  | `Out`, `RenderContext`, `FlagSchema`, `ArgSchema`, `CommandSchema` | add readonly members                   |
-| Consumer input options   | `RunOptions`, `CLIRunOptions`, `OutputOptions`, `RenderContextOptions`, `HelpOptions` | add optional fields |
+| Consumer input options   | `RunOptions`, `CLIExecuteOptions`, `CLIRunOptions`, `OutputOptions`, `RenderContextOptions`, `HelpOptions` | add optional fields |
 | Implementer interfaces   | `RuntimeAdapter`, `PromptEngine`, `CLIPlugin`           | add optional hooks only                           |
 | Closed unions            | `Verbosity`, `ActivityEvent`, `OutputStream`            | change nothing                                    |
-| Internal surface         | underscore members (`_execute`, `_ctx`), `Internal*` option types | change anything, any release            |
+| Internal surface         | underscore members (`_from`, `_ctx`), `Internal*` option types | change anything, any release            |
 
 ## Sealed framework values
 

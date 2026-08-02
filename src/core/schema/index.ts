@@ -44,7 +44,6 @@ export type {
 	AnyCommandBuilder,
 	CommandArgEntry,
 	CommandArgEntryDefinition,
-	CommandConfig,
 	CommandDefinition,
 	CommandExample,
 	CommandMeta,

@@ -24,6 +24,7 @@ export type { Colors } from 'ansispeck';
 export type {
 	BeforeParseParams,
 	CLIDefinition,
+	CLIExecuteOptions,
 	CLIOptions,
 	CLIPlugin,
 	CLIPluginHooks,
@@ -133,7 +134,6 @@ export type {
 	ActionHandler,
 	ActionParams,
 	ActivityEvent,
-	AnyCommandBuilder,
 	ArgConfig,
 	ArgDefinition,
 	ArgDefinitionBase,
@@ -148,7 +148,6 @@ export type {
 	BooleanFlagDefinition,
 	CommandArgEntry,
 	CommandArgEntryDefinition,
-	CommandConfig,
 	CommandDefinition,
 	CommandExample,
 	CommandMeta,

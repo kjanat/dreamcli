@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { executeCLI } from '#internals/core/cli/index.ts';
 import { ParseError } from '#internals/core/errors/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -681,7 +682,7 @@ describe('options passthrough', () => {
 				throw new Error('kaboom');
 			}),
 		);
-		const result = await app._execute(['build'], { out, captured });
+		const result = await executeCLI(app, ['build'], { out, captured });
 
 		expect(result.exitCode).toBe(1);
 		expect(result.error?.code).toBe('UNEXPECTED_ERROR');

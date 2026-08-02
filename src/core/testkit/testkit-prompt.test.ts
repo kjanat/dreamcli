@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CLIRunOptions } from '#internals/core/cli/index.ts';
+import type { CLIExecuteOptions, CLIRunOptions } from '#internals/core/cli/index.ts';
 import { cli } from '#internals/core/cli/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
@@ -677,6 +677,18 @@ describe('public surface exports', () => {
 		void invalidOut;
 		void invalidCaptured;
 		void invalidPlugins;
+
+		expect(true).toBe(true);
+	});
+
+	it('CLIExecuteOptions excludes the runtime adapter', () => {
+		const runOnly: Pick<CLIRunOptions, 'adapter'> = {};
+		const invalidAdapter = {
+			// @ts-expect-error — `adapter` reaches `.run()` only; `.execute()` is process-free
+			adapter: runOnly.adapter,
+		} satisfies CLIExecuteOptions;
+
+		void invalidAdapter;
 
 		expect(true).toBe(true);
 	});

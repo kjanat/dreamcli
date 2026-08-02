@@ -1,6 +1,6 @@
 # cli — CLIBuilder, multi-command dispatch, plugins
 
-`index.ts` (~2193 lines) — heavily split: 9 `@internal` extraction files.
+`index.ts` (~2214 lines) — heavily split: 9 `@internal` extraction files.
 
 ## KEY TYPES
 
@@ -10,8 +10,10 @@
 | `cli(name)`                | Factory function -> `CLIBuilder`                                        |
 | `isMainModule(meta)`       | Entrypoint guard for ambient `ImportMeta` compatibility                 |
 | `CLISchema`                | Runtime descriptor for the full CLI, execution graph excluded           |
-| `CLIRunOptions`            | Extends `RunOptions` with CLI-level settings                            |
+| `CLIExecuteOptions`        | Extends `RunOptions`; the process-free `.execute()` surface             |
+| `CLIRunOptions`            | Extends `CLIExecuteOptions` with the runtime `adapter`                  |
 | `ConfigSettings`           | Config file discovery settings for CLI                                  |
+| `executeCLI()`             | `@internal` — shared execution body behind `.execute()` and `.run()`    |
 | `CompiledCommand`          | `@internal` — handler, steps, and subcommand map for one command        |
 | `CompiledCLI`              | `@internal` — compiled commands, default command, and plugins           |
 | `formatRootHelp()`         | `@internal` — root-level help rendering (in `root-help.ts`)             |
@@ -22,7 +24,7 @@
 
 | File                   | Lines | Purpose                                                              |
 | ---------------------- | ----: | -------------------------------------------------------------------- |
-| `index.ts`             |  2193 | CLIBuilder class + cli() factory + JSON error handling               |
+| `index.ts`             |  2214 | CLIBuilder class + cli() factory + JSON error handling               |
 | `runtime-preflight.ts` |   488 | `@internal` — runtime adapter setup, env/config preflight            |
 | `planner.ts`           |   674 | `@internal` — execution planner, command resolution strategy         |
 | `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein |
@@ -43,10 +45,12 @@ argv -> strip --json flag (before --) -> match subcommand (nested) -> resolve ->
 
 Nested dispatch: `group('db').command(migrate).command(seed)` -> `mycli db migrate --force`
 
-## `execute()` METHOD
+## `executeCLI()`
 
-Handles 6 concerns sequentially: `--json` extraction, `--version`, `--help`, no-commands error,
-command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `match`).
+Module-level function taking the builder as its first parameter; `.execute()` and `.run()` both
+delegate to it. Handles 6 concerns sequentially: `--json` extraction, `--version`, `--help`,
+no-commands error, command map building, 3-way dispatch result (`unknown` / `needs-subcommand` /
+`match`).
 
 ## `--json` MODE
 
