@@ -36,6 +36,22 @@ function rootCompletionWords(script: string): string {
 	return lines[marker + 1] ?? '';
 }
 
+/** The flag spellings listed in the root-help `Global options:` block, in order. */
+function globalOptionSpellings(output: string): readonly string[] {
+	const lines = output.split('\n');
+	const start = lines.findIndex((line) => line.includes('Global options:'));
+	expect(start).toBeGreaterThan(-1);
+
+	const spellings: string[] = [];
+	for (const line of lines.slice(start + 1)) {
+		const trimmed = line.trim();
+		if (trimmed === '') break;
+		if (!trimmed.startsWith('-')) continue;
+		spellings.push(trimmed.split(/ {2,}/)[0] ?? '');
+	}
+	return spellings;
+}
+
 /** Capture the {@link CLIError} a build-time call throws. */
 function buildError(build: () => unknown): CLIError {
 	let thrown: unknown;
@@ -57,8 +73,40 @@ describe('builtins — BUILTIN_NAMES exhaustiveness', () => {
 		expectTypeOf<Exclude<BuiltinName, (typeof BUILTIN_NAMES)[number]>>().toBeNever();
 	});
 
-	it('walks every BUILTIN_SPECS entry', () => {
-		expect([...BUILTIN_NAMES]).toEqual(Object.keys(BUILTIN_SPECS));
+	it('walks every BUILTIN_SPECS entry exactly once', () => {
+		expect([...BUILTIN_NAMES].sort()).toEqual(Object.keys(BUILTIN_SPECS).sort());
+	});
+});
+
+// === Root-help ordering derived from the array
+
+describe('builtins — Global options order', () => {
+	it('lists the built-ins in BUILTIN_NAMES order with --version after --help', async () => {
+		const app = cli('mycli')
+			.version('1.0.0')
+			.config('mycli')
+			.command(command('show').action(() => {}));
+
+		expect(globalOptionSpellings((await app.execute([])).stdout.join(''))).toEqual([
+			'-h, --help',
+			'-V, --version',
+			'--json',
+			'-q, --quiet',
+			'--config <path>',
+		]);
+	});
+
+	it('keeps --version first once help is released', async () => {
+		const app = cli('mycli')
+			.builtins({ help: 'off' })
+			.version('1.0.0')
+			.command(echoFlag('help', flag.string()));
+
+		expect(globalOptionSpellings((await app.execute([])).stdout.join(''))).toEqual([
+			'-V, --version',
+			'--json',
+			'-q, --quiet',
+		]);
 	});
 });
 
