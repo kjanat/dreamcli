@@ -79,6 +79,16 @@ as short boolean flags are everywhere else.
 `--help` and `--version` render ahead of that error, so a mistyped value never
 hides the text that documents the flag.
 
+The root owns those tokens: it strips `--json` and `--quiet`/`-q` from argv,
+intercepts `--version`/`-V` once the CLI declares a version, and renders help
+for `--help`/`-h` before a command's flags are parsed. A command flag spelled
+the same way could never be set, so declaring one throws `RESERVED_FLAG`.
+Naming a flag `quiet`, `json`, or `help`, aliasing one to `q` or `h`, or giving
+one a negated spelling like `.negatable({ alias: 'quiet' })` is rejected by
+`.command()`, `.default()`, and `createCLISchema()`, and `version`/`V` join
+that set once a version is configured. Rename the flag, or reach for
+`out.status()` when you wanted output that root `--quiet` suppresses.
+
 | Method   | Stream                      | Suppressed by quiet |
 | -------- | --------------------------- | ------------------- |
 | `log`    | stdout (stderr in `--json`) | no                  |

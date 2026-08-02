@@ -127,15 +127,15 @@ describe('global --quiet with an explicit value', () => {
 
 	it('reports the same error a command boolean flag reports for the same value', async () => {
 		const local = command('gen')
-			.flag('quiet', flag.boolean())
+			.flag('hush', flag.boolean())
 			.action(() => {});
 		const app = cli('mycli').command(local);
-		const result = await app.execute(['gen', '--quiet=banana']);
+		const result = await app.execute(['gen', '--hush=banana']);
 
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('INVALID_VALUE');
 		expect(result.stderr.join('')).toBe(
-			"Invalid boolean value 'banana' for flag --quiet. Use true/false or 1/0\n",
+			"Invalid boolean value 'banana' for flag --hush. Use true/false or 1/0\n",
 		);
 	});
 
@@ -173,9 +173,9 @@ describe('global --quiet with an explicit value', () => {
 		expect(rootResult.stderr.join('')).toContain('Unknown flag -q');
 
 		const local = command('gen')
-			.flag('quick', flag.boolean().alias('q'))
+			.flag('quick', flag.boolean().alias('k'))
 			.action(() => {});
-		const commandResult = await cli('mycli').command(local).execute(['gen', '-q=true']);
+		const commandResult = await cli('mycli').command(local).execute(['gen', '-k=true']);
 
 		expect(commandResult.exitCode).toBe(2);
 		expect(commandResult.stderr.join('')).toContain('Unknown flag -=');

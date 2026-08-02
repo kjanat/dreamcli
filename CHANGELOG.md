@@ -162,6 +162,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   validate against a local copy but no longer match the meta-schema's `$schema`
   constant.
 
+- **Breaking: a command flag spelled like a root-owned flag now throws
+  `RESERVED_FLAG` at build time**
+  ([#84](https://github.com/kjanat/dreamcli/issues/84)). The root removes
+  `--json` and `--quiet`/`-q` from argv before dispatch, intercepts
+  `--version`/`-V` once a version is configured, and renders help for
+  `--help`/`-h` before a command's flags are parsed. A command declaring one of
+  those spellings used to build, run, and render help while its flag stayed
+  permanently at its default value. `.command()`, `.default()`, `.version()`,
+  `.manifest(data)`, and `createCLISchema()` now reject it with `CLIError` code
+  `RESERVED_FLAG`, checking each flag's canonical name, its aliases (hidden ones
+  included), and its custom negated spelling (`.negatable({ alias: 'quiet' })`)
+  through the whole nested subcommand tree. The error names the colliding flag
+  and the root flag that shadows it, and suggests renaming, or `out.status()`
+  for output that root `--quiet` suppresses. Near misses such as
+  `jsonOutput` or `quietMode` stay legal, the default `--no-<name>` spelling
+  never collides, and `version`/`V` stay available to a CLI that declares no
+  version.
+
+- **`--completions` collision detection now covers negated spellings and the
+  definition path.** `.negatable({ alias: 'completions' })` and a
+  `createCLISchema()` definition carrying `completionsFlag` both used to build a
+  CLI whose command flag the planner intercepted. Both now throw `CLIError` code
+  `RESERVED_FLAG`, matching what `.completions({ as: 'flag' })` already rejected
+  on the builder.
+
 ### Removed
 
 - **Breaking: `.packageJson()`** — deprecated since 2.5. Use `.manifest()`,

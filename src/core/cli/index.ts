@@ -44,7 +44,7 @@ import type {
 } from '#internals/core/schema/command.ts';
 import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
-import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
+import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
@@ -57,6 +57,7 @@ import type { OutputPolicy } from './planner.ts';
 import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
+import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
 import { formatRootHelp } from './root-help.ts';
 import {
 	readRootOutputFlags,
@@ -70,13 +71,14 @@ const COMPLETIONS_FLAG_NAME = 'completions';
 
 /**
  * Whether a command — or any of its nested subcommands — declares a flag that
- * collides with the eager `--completions` flag, by canonical name or long alias.
+ * collides with the eager `--completions` flag, by canonical name, long alias,
+ * or negated spelling.
  *
  * @internal
  */
 function commandReservesCompletionsFlag(schema: CommandSchema): boolean {
 	if (Object.hasOwn(schema.flags, COMPLETIONS_FLAG_NAME)) return true;
-	for (const flagSchema of Object.values(schema.flags)) {
+	for (const [flagName, flagSchema] of Object.entries(schema.flags)) {
 		if (
 			getFlagAliasNames(flagSchema, { kind: 'long', includeHidden: true }).includes(
 				COMPLETIONS_FLAG_NAME,
@@ -84,6 +86,7 @@ function commandReservesCompletionsFlag(schema: CommandSchema): boolean {
 		) {
 			return true;
 		}
+		if (getFlagNegatedName(flagName, flagSchema) === COMPLETIONS_FLAG_NAME) return true;
 	}
 	return schema.commands.some(commandReservesCompletionsFlag);
 }
@@ -613,6 +616,10 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
  * @param definition - Program name plus optional metadata and commands.
  * @returns A fully populated {@link CLISchema}.
  * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty.
+ * @throws {CLIError} With code `'RESERVED_FLAG'` when a command spells a flag
+ *   the same way as a root-owned flag (`--json`, `--quiet`/`-q`, `--help`/`-h`,
+ *   `--version`/`-V` once `version` is set, and `--completions` once
+ *   `completionsFlag` is set), by name, alias, or negated spelling.
  *
  * @example
  * ```ts
@@ -632,7 +639,15 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 		});
 	}
 
-	return buildCLISchema(definition);
+	const schema = buildCLISchema(definition);
+	const registered = [schema.defaultCommand, ...schema.commands];
+	assertNoReservedFlagCollisions(schema.version, registered);
+	if (schema.completionsFlag !== undefined) {
+		for (const cmd of registered) {
+			if (cmd !== undefined) assertNoCompletionsFlagCollision(cmd);
+		}
+	}
+	return schema;
 }
 
 // --- Options for execute/run
@@ -948,10 +963,16 @@ class CLIBuilder {
 	/**
 	 * Set the program version (shown by `--version`).
 	 *
+	 * Declaring a version also reserves `--version`/`-V` on every registered
+	 * command, so this rejects a command that already declares either spelling.
+	 *
 	 * @param v - Semantic version string.
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command declares
+	 *   a flag named `version` or aliased `V`.
 	 */
 	version(v: string): CLIBuilder {
+		assertNoReservedFlagCollisions(v, [this.schema.defaultCommand, ...this.schema.commands]);
 		return rebuild(this, { ...this.schema, version: v });
 	}
 
@@ -1207,7 +1228,9 @@ class CLIBuilder {
 	 */
 	manifest(settings?: ManifestSettings): CLIBuilder;
 	manifest(input?: PackageJsonData | ManifestSettings): CLIBuilder {
-		return rebuild(this, buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES));
+		const next = buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES);
+		assertNoReservedFlagCollisions(next.version, [next.defaultCommand, ...next.commands]);
+		return rebuild(this, next);
 	}
 
 	// -- Command registration ------------------------------------------------
@@ -1220,6 +1243,10 @@ class CLIBuilder {
 	 *
 	 * @param cmd - {@link CommandBuilder} to register.
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
+	 *   nested subcommands, declares a flag named or aliased to a root-owned flag
+	 *   (`--json`, `--quiet`/`-q`, `--help`/`-h`, and `--version`/`-V` once
+	 *   {@link CLIBuilder.version | .version()} is set).
 	 */
 	command<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1227,6 +1254,7 @@ class CLIBuilder {
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema, this.schema.defaultCommand);
+		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema]);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
@@ -1292,6 +1320,10 @@ class CLIBuilder {
 	 * @param options - Default-command options. `{ route: true }` also exposes
 	 *   the command under its own name (see {@link DefaultCommandOptions}).
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
+	 *   nested subcommands, declares a flag named or aliased to a root-owned flag
+	 *   (`--json`, `--quiet`/`-q`, `--help`/`-h`, and `--version`/`-V` once
+	 *   {@link CLIBuilder.version | .version()} is set).
 	 */
 	default<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1306,6 +1338,7 @@ class CLIBuilder {
 		}
 
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema]);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
