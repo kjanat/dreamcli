@@ -647,16 +647,23 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 // --- Options for execute/run
 
 /**
- * Options for {@linkcode CLIBuilder.execute | .execute()} and {@linkcode CLIBuilder.run | .run()}.
+ * Options for {@linkcode CLIBuilder.execute | .execute()}, the process-free
+ * execution surface.
  *
- * Derives from {@linkcode RunOptions}, adding the CLI-level runtime adapter.
+ * Derives from {@linkcode RunOptions} with every input injected explicitly.
  */
-interface CLIRunOptions extends RunOptions {
+interface CLIExecuteOptions extends RunOptions {}
+
+/**
+ * Options for {@linkcode CLIBuilder.run | .run()}.
+ *
+ * Derives from {@linkcode CLIExecuteOptions}, adding the CLI-level runtime adapter.
+ */
+interface CLIRunOptions extends CLIExecuteOptions {
 	/**
 	 * Runtime adapter providing platform-specific I/O, argv, env, etc.
 	 *
-	 * When provided to `.run()`, replaces the default Node adapter.
-	 * Ignored by `.execute()` (which is process-free by design).
+	 * Replaces the default Node adapter.
 	 */
 	readonly adapter?: RuntimeAdapter;
 }
@@ -667,7 +674,7 @@ interface CLIRunOptions extends RunOptions {
  *
  * @internal
  */
-interface InternalCLIRunOptions extends CLIRunOptions {
+interface InternalCLIExecuteOptions extends CLIExecuteOptions {
 	/** Output channel override so activity renders to the terminal. */
 	readonly out?: Out;
 	/** Capture buffers override paired with `out`. */
@@ -833,7 +840,7 @@ function hyperlinksOption(override: boolean | undefined): { hyperlinks?: boolean
 }
 
 /**
- * Build {@linkcode RunOptions} from {@linkcode CLIRunOptions}, conditionally spreading each
+ * Build {@linkcode RunOptions} from {@linkcode CLIExecuteOptions}, conditionally spreading each
  * field to satisfy `exactOptionalPropertyTypes`.
  *
  * @param options - CLI-level run options (may be `undefined` for defaults).
@@ -844,7 +851,7 @@ function hyperlinksOption(override: boolean | undefined): { hyperlinks?: boolean
  * @internal
  */
 function buildCommandRunOptions(
-	options: InternalCLIRunOptions | undefined,
+	options: InternalCLIExecuteOptions | undefined,
 	helpOptions: HelpOptions,
 	meta?: CommandMeta,
 ): InternalRunOptions {
@@ -1514,182 +1521,8 @@ class CLIBuilder {
 	 * @param options - Injectable runtime state.
 	 * @returns Structured result with exit code and captured output.
 	 */
-	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
-		return this._execute(argv, options);
-	}
-
-	/**
-	 * Execution body shared by {@linkcode execute} and {@linkcode run}, accepting
-	 * the framework-populated output channel and plugin fields.
-	 *
-	 * @internal
-	 */
-	async _execute(argv: readonly string[], options?: InternalCLIRunOptions): Promise<RunResult> {
-		// -- Detect global --json / --quiet before building output ----------------
-		// Only occurrences before the `--` separator count; a literal positional
-		// (after `--`) must reach the command unchanged (#28).
-		const hasJsonFlag = includesBeforeSeparator(argv, '--json');
-		const jsonMode = hasJsonFlag || options?.jsonMode === true;
-		const hasQuietFlag =
-			includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
-		const verbosity: Verbosity | undefined = hasQuietFlag ? 'quiet' : options?.verbosity;
-
-		const captureOptions = {
-			...(verbosity !== undefined ? { verbosity } : {}),
-			...(jsonMode ? { jsonMode } : {}),
-			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
-			...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
-		};
-		let out: Out;
-		let captured: CapturedOutput;
-		if (options?.out !== undefined) {
-			out = options.out;
-			captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
-		} else {
-			[out, captured] = createCaptureOutput(
-				Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
-			);
-		}
-		clearRequestedExitCode(out);
-
-		// Resolve help options — builder-level `.help()` config under runtime
-		// `options.help` (runtime wins), then default binName to the CLI program
-		// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
-		// FORCE_HYPERLINKS honored, else TTY), and colors to the output
-		// channel's gated palette (escapes never leak into piped output).
-		const resolvedVersion = options?.help?.version ?? this.schema.version;
-		const helpOptions: HelpOptions = {
-			...this.schema.helpConfig,
-			...options?.help,
-			binName: options?.help?.binName ?? this.schema.name,
-			hyperlinks:
-				options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isHyperlinkSupported,
-			colors: options?.help?.colors ?? out.color,
-			...(resolvedVersion !== undefined ? { version: resolvedVersion } : {}),
-		};
-
-		// -- Shared options for command execution ----------------------------------
-		const compiled = compiledStateOf(this);
-		const flagSettings = options?.flags ?? this.schema.flagSettings;
-		const effectiveOptions: InternalCLIRunOptions = {
-			...options,
-			plugins: compiled.plugins,
-			...(jsonMode ? { jsonMode } : {}),
-			...(verbosity !== undefined ? { verbosity } : {}),
-			...(flagSettings !== undefined ? { flags: flagSettings } : {}),
-		};
-		const output: OutputPolicy = {
-			jsonMode,
-			isTTY: out.isTTY,
-			verbosity: verbosity ?? 'normal',
-		};
-		// The planner scans flag arity during dispatch, so it must see the same
-		// merged flag settings (runtime override wins) that command parsing uses.
-		const planSchema =
-			options?.flags !== undefined ? { ...this.schema, flagSettings } : this.schema;
-		const planned = planInvocation({
-			schema: planSchema,
-			compiled,
-			argv,
-			help: helpOptions,
-			output,
-		});
-
-		switch (planned.kind) {
-			case 'root-version':
-				out.log(planned.version);
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-
-			case 'root-completions': {
-				const shell = planned.shell ?? detectShell(options?.env ?? {});
-				if (shell === undefined) {
-					const error = new CLIError('Could not detect shell', {
-						code: 'MISSING_VALUE',
-						suggest: `Pass one explicitly, e.g. '${helpOptions.binName} --completions zsh'`,
-					});
-					if (jsonMode) {
-						out.json({ error: error.toJSON() });
-					} else {
-						out.error(error.message);
-						out.error(`Suggestion: ${error.suggest}`);
-					}
-					return buildRunResult({ exitCode: error.exitCode, error }, captured);
-				}
-				const completionSchema =
-					helpOptions.binName === undefined || helpOptions.binName === this.schema.name
-						? this.schema
-						: { ...this.schema, name: helpOptions.binName };
-				const script = generateCompletion(completionSchema, shell, planned.options);
-				if (jsonMode) {
-					out.json({ shell, script });
-				} else {
-					out.log(script);
-				}
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-			}
-
-			case 'root-help': {
-				if (jsonMode) {
-					out.json(
-						generateSchema(this.schema, undefined, {
-							name: planned.help.binName ?? this.schema.name,
-							version: planned.help.version ?? this.schema.version,
-						}),
-					);
-				} else {
-					const helpText = formatRootHelp(resolveHelpLinksSchema(this.schema), planned.help);
-					out.log(helpText);
-				}
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-			}
-
-			case 'dispatch-error': {
-				if (jsonMode) {
-					out.json({ error: planned.error.toJSON() });
-				} else {
-					out.error(planned.error.message);
-					if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
-						out.error(`Suggestion: ${planned.error.suggest}`);
-					}
-				}
-				return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
-			}
-
-			case 'needs-subcommand': {
-				if (jsonMode) {
-					out.json(
-						generateCommandSchema(planned.command.schema, undefined, {
-							name: planned.help.binName ?? planned.command.schema.name,
-							version: planned.help.version,
-						}),
-					);
-				} else {
-					const helpText = formatHelp(planned.command.schema, planned.help);
-					out.log(helpText);
-				}
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-			}
-
-			case 'match': {
-				const commandRunOptions = buildCommandRunOptions(
-					effectiveOptions,
-					planned.plan.help ?? helpOptions,
-					planned.plan.meta,
-				);
-				const result = await executeCommand({
-					command: {
-						handler: planned.plan.command.handler,
-						steps: planned.plan.command.steps,
-					},
-					argv: planned.plan.argv,
-					out,
-					schema: planned.plan.mergedSchema,
-					meta: planned.plan.meta,
-					options: commandRunOptions,
-				});
-				return buildRunResult(result, captured);
-			}
-		}
+	async execute(argv: readonly string[], options?: CLIExecuteOptions): Promise<RunResult> {
+		return executeCLI(this, argv, options);
 	}
 
 	/**
@@ -1746,7 +1579,7 @@ class CLIBuilder {
 			runtimeHelpWidth !== undefined
 				? { ...options?.help, width: runtimeHelpWidth }
 				: options?.help;
-		const executeOptions: InternalCLIRunOptions = {
+		const executeOptions: InternalCLIExecuteOptions = {
 			...options,
 			...preflight.inputs,
 			...(runtimeHelpOptions !== undefined ? { help: runtimeHelpOptions } : {}),
@@ -1761,7 +1594,7 @@ class CLIBuilder {
 				...hyperlinksOption(resolveHyperlinkOverride(adapter.env, adapter.argv)),
 			}),
 		};
-		const result = await effectiveBuilder._execute(preflight.filteredArgv, executeOptions);
+		const result = await executeCLI(effectiveBuilder, preflight.filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {
@@ -1774,6 +1607,192 @@ class CLIBuilder {
 		return adapter.exit(result.exitCode);
 	}
 }
+
+/**
+ * Execution body shared by {@linkcode CLIBuilder.execute} and {@linkcode CLIBuilder.run},
+ * accepting the framework-populated output channel and plugin fields.
+ *
+ * @param builder - Builder supplying the schema and compiled command graph.
+ * @param argv - Raw argv tokens (NOT including the binary/script path).
+ * @param options - Injectable runtime state plus framework-populated fields.
+ * @returns Structured result with exit code and captured output.
+ *
+ * @internal
+ */
+async function executeCLI(
+	builder: CLIBuilder,
+	argv: readonly string[],
+	options?: InternalCLIExecuteOptions,
+): Promise<RunResult> {
+	// -- Detect global --json / --quiet before building output ----------------
+	// Only occurrences before the `--` separator count; a literal positional
+	// (after `--`) must reach the command unchanged (#28).
+	const hasJsonFlag = includesBeforeSeparator(argv, '--json');
+	const jsonMode = hasJsonFlag || options?.jsonMode === true;
+	const hasQuietFlag =
+		includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
+	const verbosity: Verbosity | undefined = hasQuietFlag ? 'quiet' : options?.verbosity;
+
+	const captureOptions = {
+		...(verbosity !== undefined ? { verbosity } : {}),
+		...(jsonMode ? { jsonMode } : {}),
+		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
+	};
+	let out: Out;
+	let captured: CapturedOutput;
+	if (options?.out !== undefined) {
+		out = options.out;
+		captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
+	} else {
+		[out, captured] = createCaptureOutput(
+			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
+		);
+	}
+	clearRequestedExitCode(out);
+
+	// Resolve help options — builder-level `.help()` config under runtime
+	// `options.help` (runtime wins), then default binName to the CLI program
+	// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
+	// FORCE_HYPERLINKS honored, else TTY), and colors to the output
+	// channel's gated palette (escapes never leak into piped output).
+	const resolvedVersion = options?.help?.version ?? builder.schema.version;
+	const helpOptions: HelpOptions = {
+		...builder.schema.helpConfig,
+		...options?.help,
+		binName: options?.help?.binName ?? builder.schema.name,
+		hyperlinks:
+			options?.help?.hyperlinks ??
+			builder.schema.helpConfig?.hyperlinks ??
+			out.isHyperlinkSupported,
+		colors: options?.help?.colors ?? out.color,
+		...(resolvedVersion !== undefined ? { version: resolvedVersion } : {}),
+	};
+
+	// -- Shared options for command execution ----------------------------------
+	const compiled = compiledStateOf(builder);
+	const flagSettings = options?.flags ?? builder.schema.flagSettings;
+	const effectiveOptions: InternalCLIExecuteOptions = {
+		...options,
+		plugins: compiled.plugins,
+		...(jsonMode ? { jsonMode } : {}),
+		...(verbosity !== undefined ? { verbosity } : {}),
+		...(flagSettings !== undefined ? { flags: flagSettings } : {}),
+	};
+	const output: OutputPolicy = {
+		jsonMode,
+		isTTY: out.isTTY,
+		verbosity: verbosity ?? 'normal',
+	};
+	// The planner scans flag arity during dispatch, so it must see the same
+	// merged flag settings (runtime override wins) that command parsing uses.
+	const planSchema =
+		options?.flags !== undefined ? { ...builder.schema, flagSettings } : builder.schema;
+	const planned = planInvocation({
+		schema: planSchema,
+		compiled,
+		argv,
+		help: helpOptions,
+		output,
+	});
+
+	switch (planned.kind) {
+		case 'root-version':
+			out.log(planned.version);
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+
+		case 'root-completions': {
+			const shell = planned.shell ?? detectShell(options?.env ?? {});
+			if (shell === undefined) {
+				const error = new CLIError('Could not detect shell', {
+					code: 'MISSING_VALUE',
+					suggest: `Pass one explicitly, e.g. '${helpOptions.binName} --completions zsh'`,
+				});
+				if (jsonMode) {
+					out.json({ error: error.toJSON() });
+				} else {
+					out.error(error.message);
+					out.error(`Suggestion: ${error.suggest}`);
+				}
+				return buildRunResult({ exitCode: error.exitCode, error }, captured);
+			}
+			const completionSchema =
+				helpOptions.binName === undefined || helpOptions.binName === builder.schema.name
+					? builder.schema
+					: { ...builder.schema, name: helpOptions.binName };
+			const script = generateCompletion(completionSchema, shell, planned.options);
+			if (jsonMode) {
+				out.json({ shell, script });
+			} else {
+				out.log(script);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'root-help': {
+			if (jsonMode) {
+				out.json(
+					generateSchema(builder.schema, undefined, {
+						name: planned.help.binName ?? builder.schema.name,
+						version: planned.help.version ?? builder.schema.version,
+					}),
+				);
+			} else {
+				const helpText = formatRootHelp(resolveHelpLinksSchema(builder.schema), planned.help);
+				out.log(helpText);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'dispatch-error': {
+			if (jsonMode) {
+				out.json({ error: planned.error.toJSON() });
+			} else {
+				out.error(planned.error.message);
+				if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
+					out.error(`Suggestion: ${planned.error.suggest}`);
+				}
+			}
+			return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
+		}
+
+		case 'needs-subcommand': {
+			if (jsonMode) {
+				out.json(
+					generateCommandSchema(planned.command.schema, undefined, {
+						name: planned.help.binName ?? planned.command.schema.name,
+						version: planned.help.version,
+					}),
+				);
+			} else {
+				const helpText = formatHelp(planned.command.schema, planned.help);
+				out.log(helpText);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'match': {
+			const commandRunOptions = buildCommandRunOptions(
+				effectiveOptions,
+				planned.plan.help ?? helpOptions,
+				planned.plan.meta,
+			);
+			const result = await executeCommand({
+				command: {
+					handler: planned.plan.command.handler,
+					steps: planned.plan.command.steps,
+				},
+				argv: planned.plan.argv,
+				out,
+				schema: planned.plan.mergedSchema,
+				meta: planned.plan.meta,
+				options: commandRunOptions,
+			});
+			return buildRunResult(result, captured);
+		}
+	}
+}
+
 const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);
 
 /**
@@ -2165,6 +2184,7 @@ export type {
 } from './plugin.ts';
 export type {
 	CLIDefinition,
+	CLIExecuteOptions,
 	CLIOptions,
 	CLIRunOptions,
 	CLISchema,
@@ -2186,6 +2206,7 @@ export {
 	cli,
 	compiledStateOf,
 	createCLISchema,
+	executeCLI,
 	formatRootHelp,
 	isMainModule,
 	plugin,

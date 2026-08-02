@@ -112,6 +112,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   writers via `createCaptureOutput()` options or `OutputOptions.stdout`/
   `stderr` instead of replacing the channel wholesale.
 
+- **Breaking: `.execute()` takes `CLIExecuteOptions`**. The new root export
+  carries the process-free option surface and has no `adapter` member; passing
+  one to `.execute()` stops compiling. `CLIRunOptions` now extends
+  `CLIExecuteOptions` with `adapter`, and `.run()` remains the only method that
+  accepts it.
+
+- **Breaking: `CommandConfig` and the root `AnyCommandBuilder` export removed**.
+  `CommandConfig` described the builder's type-level accumulator shape but no
+  signature referenced it. `AnyCommandBuilder` is `@internal` erasure machinery
+  that appears only on `CommandBuilder`'s underscore members, so the package
+  root no longer exports the name.
+
 ### Fixed
 
 - **Quiet mode leaked spinner and progress output** — activity handles now

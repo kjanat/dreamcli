@@ -7,6 +7,7 @@
 import { createColors } from 'ansispeck';
 import { describe, expect, it } from 'vitest';
 
+import { executeCLI } from '#internals/core/cli/index.ts';
 import { stripAnsi } from '#internals/core/help/ansi.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { command } from '#internals/core/schema/command.ts';
@@ -39,7 +40,7 @@ describe('root help theming', () => {
 
 	it('styles header, sections, and commands under forced color', async () => {
 		const [out, captured] = createCaptureOutput({ color: true });
-		await app()._execute(['--help'], { out, captured });
+		await executeCLI(app(), ['--help'], { out, captured });
 		const output = captured.stdout.join('');
 		expect(output).toContain(on.bold('mycli'));
 		expect(output).toContain(on.dim('v1.0.0'));
@@ -53,7 +54,7 @@ describe('root help theming', () => {
 	it('strip-equivalence: forced-color root help strips to the plain rendering', async () => {
 		const plain = (await app().execute(['--help'])).stdout.join('');
 		const [out, captured] = createCaptureOutput({ color: true });
-		await app()._execute(['--help'], { out, captured });
+		await executeCLI(app(), ['--help'], { out, captured });
 		expect(stripAnsi(captured.stdout.join(''))).toBe(plain);
 	});
 
@@ -73,7 +74,7 @@ describe('root help theming', () => {
 				);
 		const plain = (await build().execute(['--help'])).stdout.join('');
 		const [out, captured] = createCaptureOutput({ color: true });
-		await build()._execute(['--help'], { out, captured });
+		await executeCLI(build(), ['--help'], { out, captured });
 		const colored = captured.stdout.join('');
 		expect(stripAnsi(colored)).toBe(plain);
 		// The merged usage block: root line + continuation aligned under 'Usage: '.
@@ -85,9 +86,10 @@ describe('root help theming', () => {
 
 	it('threads .help({ theme }) overrides into root help', async () => {
 		const [out, captured] = createCaptureOutput({ color: true });
-		await app()
-			.help({ theme: (c) => ({ command: c.green }) })
-			._execute(['--help'], { out, captured });
+		await executeCLI(app().help({ theme: (c) => ({ command: c.green }) }), ['--help'], {
+			out,
+			captured,
+		});
 		const output = captured.stdout.join('');
 		expect(output).toContain(on.green('deploy'));
 		expect(output).not.toContain(on.cyan('deploy'));

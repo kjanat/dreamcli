@@ -53,21 +53,6 @@ type WidenContext<C extends Record<string, unknown>, Output extends Record<strin
 type WidenDerivedContext<C extends Record<string, unknown>, Output> =
 	Awaited<Output> extends Record<string, unknown> ? WidenContext<C, Awaited<Output>> : C;
 
-// --- Type-level configuration (phantom state tracked through the chain)
-
-/**
- * Compile-time state carried through the command builder chain.
- *
- * `F` accumulates named flag builders; `A` accumulates named arg builders.
- * Both start empty (`{}`) and grow as `.flag()` / `.arg()` are called.
- */
-interface CommandConfig {
-	/** Accumulated flag builders keyed by flag name. */
-	readonly flags: Record<string, FlagBuilder<FlagConfig>>;
-	/** Accumulated arg builders keyed by arg name. */
-	readonly args: Record<string, ArgBuilder<ArgConfig>>;
-}
-
 // --- Interactive resolver types
 
 /**
@@ -1670,7 +1655,6 @@ export type {
 	AnyCommandBuilder,
 	CommandArgEntry,
 	CommandArgEntryDefinition,
-	CommandConfig,
 	CommandDefinition,
 	CommandExample,
 	CommandMeta,
