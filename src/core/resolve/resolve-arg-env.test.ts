@@ -476,3 +476,27 @@ describe('resolve — arg env numeric constraints', () => {
 		}
 	});
 });
+
+// === Env lookup reads own keys only
+
+describe('resolve — arg env variable named after an Object.prototype member', () => {
+	it('treats an absent variable as absent', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { envVar: 'valueOf' }) }],
+		});
+
+		await expect(resolve(schema, makeParsed(), { env: {} })).rejects.toThrow(
+			'Missing required argument <target>',
+		);
+	});
+
+	it('still reads the variable when the caller sets it', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { envVar: 'valueOf' }) }],
+		});
+
+		const result = await resolve(schema, makeParsed(), { env: { valueOf: 'set' } });
+
+		expect(result.args).toEqual({ target: 'set' });
+	});
+});

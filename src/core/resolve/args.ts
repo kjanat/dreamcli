@@ -56,7 +56,7 @@ function resolveArgs(
 		}
 
 		if (schema.envVar !== undefined) {
-			const envValue = env[schema.envVar];
+			const envValue = Object.hasOwn(env, schema.envVar) ? env[schema.envVar] : undefined;
 			if (envValue !== undefined) {
 				const coerced = coerceArgStringValue(
 					name,

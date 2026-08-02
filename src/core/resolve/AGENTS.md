@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Multi-file module (split from monolithic index). 8 source files, ~1333 source lines.
+Multi-file module (split from monolithic index). 9 source files, ~1933 source lines.
 
 ## RESOLUTION ORDER
 
@@ -15,14 +15,15 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 
 | File           | Lines | Purpose                                                                 |
 | -------------- | ----: | ----------------------------------------------------------------------- |
-| `index.ts`     |   108 | Barrel — re-exports public API                                          |
-| `flags.ts`     |   201 | `resolveFlags()` — all flags: CLI -> env -> config -> prompt -> default |
-| `args.ts`      |   141 | `resolveArgs()` — parsed -> default -> required validation              |
-| `coerce.ts`    |   429 | `coerceValue()` — unified raw value -> flag's declared kind             |
-| `config.ts`    |    25 | `resolveConfigPath()` — dotted path lookup in config object             |
-| `errors.ts`    |   228 | Error aggregation + `throwAggregatedErrors()`                           |
-| `property.ts`  |    87 | Property path resolution utilities                                      |
-| `contracts.ts` |   114 | `ResolveOptions`, `CoerceResult`, `CoerceSource` types                  |
+| `index.ts`     |   116 | Barrel — re-exports public API                                          |
+| `flags.ts`     |   376 | `resolveFlags()` — all flags: CLI -> env -> config -> prompt -> default |
+| `args.ts`      |   144 | `resolveArgs()` — parsed -> default -> required validation              |
+| `coerce.ts`    |   633 | `coerceValue()` — unified raw value -> flag's declared kind             |
+| `config.ts`    |    26 | `resolveConfigPath()` — dotted path lookup in config object             |
+| `errors.ts`    |   227 | Error aggregation + `throwAggregatedErrors()`                           |
+| `property.ts`  |   106 | Property path resolution utilities                                      |
+| `contracts.ts` |   145 | `ResolveOptions`, `CoerceResult`, `CoerceSource` types                  |
+| `standard.ts`  |   160 | Standard Schema v1 validation pass over resolved values                 |
 
 ## KEY FUNCTIONS
 
@@ -58,22 +59,24 @@ Returns `CoerceResult` (`{ ok: true; value } | { ok: false; error: ValidationErr
 aggregated `ValidationError` via `throwAggregatedErrors()`. Users see all validation messages at
 once.
 
-## TEST FILES (10, aspect-split)
+## TEST FILES (14, aspect-split)
 
-| File                          | Tests                                      |
-| ----------------------------- | ------------------------------------------ |
-| `resolve.test.ts`             | Core resolution logic, precedence rules    |
-| `resolve-errors.test.ts`      | Validation errors, missing required values |
-| `resolve-env.test.ts`         | Environment variable resolution + coercion |
-| `resolve-config.test.ts`      | Config file resolution + dotted paths      |
-| `resolve-prompt.test.ts`      | Prompt-based resolution                    |
-| `resolve-interactive.test.ts` | Two-pass interactive mode (full flow)      |
-| `resolve-integration.test.ts` | Cross-concern integration                  |
-| `resolve-aggregation.test.ts` | Error aggregation behavior                 |
-| `resolve-arg-env.test.ts`     | Arg environment variable resolution        |
-| `resolve-stdin.test.ts`       | Stdin-based resolution                     |
-| `contracts.test.ts`           | Contract verification                      |
-| `property.test.ts`            | Property path resolution                   |
+| File                              | Tests                                      |
+| --------------------------------- | ------------------------------------------ |
+| `resolve.test.ts`                 | Core resolution logic, precedence rules    |
+| `resolve-errors.test.ts`          | Validation errors, missing required values |
+| `resolve-env.test.ts`             | Environment variable resolution + coercion |
+| `resolve-config.test.ts`          | Config file resolution + dotted paths      |
+| `resolve-prompt.test.ts`          | Prompt-based resolution                    |
+| `resolve-interactive.test.ts`     | Two-pass interactive mode (full flow)      |
+| `resolve-integration.test.ts`     | Cross-concern integration                  |
+| `resolve-aggregation.test.ts`     | Error aggregation behavior                 |
+| `resolve-arg-env.test.ts`         | Arg environment variable resolution        |
+| `resolve-stdin.test.ts`           | Stdin-based resolution                     |
+| `resolve-path-checks.test.ts`     | `flag.path()` filesystem checks            |
+| `resolve-standard-schema.test.ts` | Standard Schema v1 validation pass         |
+| `contracts.test.ts`               | Contract verification                      |
+| `property.test.ts`                | Property path resolution                   |
 
 ## PROMPT — FLAG KIND COMPATIBILITY
 
@@ -99,3 +102,9 @@ an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` 
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
 - `DeprecationWarning` structs collected during resolution for deprecated flag/arg usage
 - `contracts.ts` defines shared types used across all resolve files
+- Every read of a caller-supplied record keyed by a flag name, an arg name, or an env var name goes
+  through `Object.hasOwn()` first. A flag may be named `toString` or `constructor`, and an env var
+  may be too, so a bare `record[name]` returns the inherited `Object.prototype` method and the value
+  reads as present. `resolveFlags()` guards `parsedFlags`, `env`, and the interactive resolver's
+  override record; `resolveArgs()` guards `parsedArgs` and `env`; `resolveConfigPath()` guards every
+  path segment.

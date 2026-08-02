@@ -59,7 +59,7 @@ async function resolveFlags(
 		}
 
 		if (schema.envVar !== undefined) {
-			const envValue = env[schema.envVar];
+			const envValue = Object.hasOwn(env, schema.envVar) ? env[schema.envVar] : undefined;
 			if (envValue !== undefined) {
 				const coerced = coerceValue(name, { kind: 'env', envVar: schema.envVar }, envValue, schema);
 				if (coerced.ok) {
@@ -105,7 +105,12 @@ async function resolveFlags(
 			continue;
 		}
 
-		const interactiveConfig = interactiveConfigs?.[name];
+		// A flag named after an Object.prototype member would otherwise read that
+		// inherited method as an override.
+		const interactiveConfig =
+			interactiveConfigs !== undefined && Object.hasOwn(interactiveConfigs, name)
+				? interactiveConfigs[name]
+				: undefined;
 
 		let effectivePromptConfig: PromptConfig | undefined;
 		// `interactiveConfig === false` explicitly disables prompts for this flag.

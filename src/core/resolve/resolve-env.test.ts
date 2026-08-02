@@ -702,3 +702,27 @@ describe('resolve — env numeric constraints', () => {
 		}
 	});
 });
+
+// === Env lookup reads own keys only
+
+describe('resolve — env variable named after an Object.prototype member', () => {
+	it('treats an absent variable as absent', async () => {
+		const schema = makeSchema({
+			flags: { x: createFlagSchema('string', { envVar: 'toString', defaultValue: 'fallback' }) },
+		});
+
+		const result = await resolve(schema, makeParsed(), { env: {} });
+
+		expect(result.flags).toEqual({ x: 'fallback' });
+	});
+
+	it('still reads the variable when the caller sets it', async () => {
+		const schema = makeSchema({
+			flags: { x: createFlagSchema('string', { envVar: 'toString' }) },
+		});
+
+		const result = await resolve(schema, makeParsed(), { env: { toString: 'set' } });
+
+		expect(result.flags).toEqual({ x: 'set' });
+	});
+});
