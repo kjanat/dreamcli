@@ -194,6 +194,7 @@ export default defineConfig({
 						},
 						{ text: 'Migration And Adoption', link: '/guide/migration' },
 						{ text: 'Upgrading From 2.x', link: '/guide/upgrading-v3' },
+						{ text: 'Upgrading From 3.x', link: '/guide/upgrading-v4' },
 						{ text: 'Troubleshooting', link: '/guide/troubleshooting' },
 						{ text: 'Middleware', link: '/guide/middleware' },
 						{ text: 'Config Files', link: '/guide/config' },
