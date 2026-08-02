@@ -88,7 +88,6 @@ export type {
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
-	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
 	InputPromptConfig,
@@ -110,7 +109,6 @@ export type {
 } from './flag.ts';
 export {
 	createFlagSchema,
-	createSchema,
 	FLAG_KINDS,
 	FLAG_PRESENCES,
 	FlagBuilder,

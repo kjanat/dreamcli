@@ -9,8 +9,9 @@ import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type {
 	CommandSchema,
+	FlagDefinitionOverrides,
+	FlagKind,
 	FlagSchema,
-	FlagSchemaOverrides,
 } from '#internals/core/schema/index.ts';
 import {
 	extractBashRootWords,
@@ -31,8 +32,13 @@ import {
 
 // === Test helpers
 
+/** Definition fields for any flag kind, with the kind discriminator optional. */
+type FlagDefOverrides = {
+	[K in FlagKind]: FlagDefinitionOverrides<K> & { readonly kind?: K };
+}[FlagKind];
+
 /** Minimal FlagSchema with all required fields. */
-function flagSchema(overrides: FlagSchemaOverrides = {}): FlagSchema {
+function flagSchema(overrides: FlagDefOverrides = {}): FlagSchema {
 	return createFlagSchema(overrides.kind ?? 'string', overrides);
 }
 

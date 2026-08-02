@@ -410,16 +410,6 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	readonly duplicates: DuplicatePolicy;
 }
 
-/**
- * Low-level overrides accepted by {@link createSchema}.
- *
- * `aliases` accepts both legacy string input and structured {@link FlagAlias}
- * objects so tests and internal fixtures can be migrated incrementally.
- */
-type FlagSchemaOverrides = Omit<Partial<FlagSchema>, 'aliases'> & {
-	readonly aliases?: readonly (string | FlagAlias)[];
-};
-
 /** Every {@link FlagSchema} field except the brand and the kind discriminator. */
 type FlagSchemaFields = Omit<FlagSchema, typeof schemaBrand | 'kind'>;
 
@@ -941,30 +931,6 @@ function createFlagSchema(
 	const { kind, ...fields } = kindOrDefinition;
 	assertValidFlagDefinition(kind, fields);
 	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
-}
-
-/**
- * Create a raw {@link FlagSchema} object with sensible defaults.
- *
- * `overrides` are shallow-merged on top of the default shape without kind
- * validation and without element normalization.
- *
- * @param kind - Discriminator for the value type this flag accepts.
- * @param overrides - Partial {@link FlagSchema} fields merged onto defaults.
- * @returns A fully populated {@link FlagSchema}.
- *
- * @deprecated Renamed to {@link createFlagSchema}.
- *
- * @example
- * ```ts
- * const schema = createSchema('enum', {
- *   enumValues: ['us', 'eu', 'ap'],
- *   description: 'Deployment region',
- * });
- * ```
- */
-function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSchema {
-	return buildFlagSchema(kind, overrides);
 }
 
 // --- FlagBuilder — immutable builder with type-level tracking
@@ -1867,7 +1833,10 @@ const flag: FlagFactory = {
 			assertStringConstraints(constraints);
 		}
 		return new FlagBuilder(
-			createSchema('string', constraints !== undefined ? { stringConstraints: constraints } : {}),
+			createFlagSchema(
+				'string',
+				constraints !== undefined ? { stringConstraints: constraints } : {},
+			),
 		);
 	},
 
@@ -1882,7 +1851,10 @@ const flag: FlagFactory = {
 			assertNumberConstraints(constraints);
 		}
 		return new FlagBuilder(
-			createSchema('number', constraints !== undefined ? { numberConstraints: constraints } : {}),
+			createFlagSchema(
+				'number',
+				constraints !== undefined ? { numberConstraints: constraints } : {},
+			),
 		);
 	},
 
@@ -1894,7 +1866,7 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
-			createSchema('boolean', {
+			createFlagSchema('boolean', {
 				presence: 'defaulted',
 				defaultValue: false,
 			}),
@@ -1910,7 +1882,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'enum';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(createSchema('enum', { enumValues: values }));
+		return new FlagBuilder(createFlagSchema('enum', { enumValues: values }));
 	},
 
 	array<E extends FlagConfig & { readonly elementEligible: true }>(
@@ -1922,7 +1894,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'array';
 		readonly elementEligible: false;
 	}> {
-		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
+		return new FlagBuilder(createFlagSchema('array', { elementSchema: element.schema }));
 	},
 
 	custom<A extends FlagParseFn<unknown> | StandardSchemaV1>(
@@ -1935,9 +1907,9 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		if (isStandardSchemaV1(parseFnOrSchema)) {
-			return new FlagBuilder(createSchema('custom', { standard: parseFnOrSchema }));
+			return new FlagBuilder(createFlagSchema('custom', { standard: parseFnOrSchema }));
 		}
-		return new FlagBuilder(createSchema('custom', { parseFn: parseFnOrSchema }));
+		return new FlagBuilder(createFlagSchema('custom', { parseFn: parseFnOrSchema }));
 	},
 
 	url(options?: UrlFlagOptions): FlagBuilder<{
@@ -1948,7 +1920,7 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
-			createSchema('custom', {
+			createFlagSchema('custom', {
 				parseFn: (raw: unknown) => parseUrlValue(raw, options),
 				valueHint: 'url',
 			}),
@@ -1970,7 +1942,7 @@ const flag: FlagFactory = {
 						create: options.type === 'directory' && options.create === true,
 					}
 				: undefined;
-		return new FlagBuilder(createSchema('string', { pathChecks, valueHint: 'path' }));
+		return new FlagBuilder(createFlagSchema('string', { pathChecks, valueHint: 'path' }));
 	},
 
 	date(options?: DateFlagOptions): FlagBuilder<{
@@ -1981,7 +1953,7 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
-			createSchema('custom', {
+			createFlagSchema('custom', {
 				parseFn: (raw: unknown) => parseDateValue(raw, options),
 				valueHint: 'date',
 			}),
@@ -1996,7 +1968,7 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
-			createSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
+			createFlagSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
 		);
 	},
 
@@ -2007,7 +1979,9 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(createSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }));
+		return new FlagBuilder(
+			createFlagSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }),
+		);
 	},
 
 	count(): FlagBuilder<{
@@ -2018,7 +1992,7 @@ const flag: FlagFactory = {
 		readonly elementEligible: false;
 	}> {
 		return new FlagBuilder(
-			createSchema('count', {
+			createFlagSchema('count', {
 				presence: 'defaulted',
 				defaultValue: 0,
 			}),
@@ -2032,7 +2006,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'keyValue';
 		readonly elementEligible: false;
 	}> {
-		return new FlagBuilder(createSchema('keyValue', { valueHint: 'key=value' }));
+		return new FlagBuilder(createFlagSchema('keyValue', { valueHint: 'key=value' }));
 	},
 };
 
@@ -2073,7 +2047,6 @@ export type {
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
-	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
 	KeyValueFlagDefinition,
@@ -2089,7 +2062,6 @@ export type {
 };
 export {
 	createFlagSchema,
-	createSchema,
 	FLAG_KINDS,
 	FLAG_PRESENCES,
 	FlagBuilder,

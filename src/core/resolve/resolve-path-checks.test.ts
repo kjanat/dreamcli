@@ -12,7 +12,7 @@ import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import type { InferFlag } from '#internals/core/schema/flag.ts';
-import { createSchema, flag } from '#internals/core/schema/flag.ts';
+import { createFlagSchema, flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import { resolve } from './index.ts';
 
@@ -151,7 +151,7 @@ describe('resolve() — path checks', () => {
 	it('passes when stat reports a file for mustExist', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', {
+				input: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: undefined, create: false },
 				}),
 			},
@@ -167,7 +167,7 @@ describe('resolve() — path checks', () => {
 	it('rejects a missing path with CONSTRAINT_VIOLATED', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', {
+				input: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: undefined, create: false },
 				}),
 			},
@@ -193,7 +193,7 @@ describe('resolve() — path checks', () => {
 	it('passes a missing path when mustExist is false', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: false, type: 'directory', create: false },
 				}),
 			},
@@ -209,7 +209,7 @@ describe('resolve() — path checks', () => {
 	it('rejects an existing wrong-type path even when mustExist is false', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: false, type: 'directory', create: false },
 				}),
 			},
@@ -237,7 +237,7 @@ describe('resolve() — path checks', () => {
 	it('creates a missing directory when create is set', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'directory', create: true },
 				}),
 			},
@@ -258,7 +258,7 @@ describe('resolve() — path checks', () => {
 	it('creates a missing directory when create is set and mustExist is false', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: false, type: 'directory', create: true },
 				}),
 			},
@@ -279,7 +279,7 @@ describe('resolve() — path checks', () => {
 	it('passes a missing path when create is set with mustExist false and no mkdir is available', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: false, type: 'directory', create: true },
 				}),
 			},
@@ -294,7 +294,7 @@ describe('resolve() — path checks', () => {
 	it('does not call mkdir when the directory already exists', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'directory', create: true },
 				}),
 			},
@@ -315,7 +315,7 @@ describe('resolve() — path checks', () => {
 	it('reports a failing mkdir as CONSTRAINT_VIOLATED', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'directory', create: true },
 				}),
 			},
@@ -346,7 +346,7 @@ describe('resolve() — path checks', () => {
 	it('falls back to existence rules when create is set but no mkdir is available', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'directory', create: true },
 				}),
 			},
@@ -372,7 +372,7 @@ describe('resolve() — path checks', () => {
 	it('still rejects an existing file when create is set', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'directory', create: true },
 				}),
 			},
@@ -405,7 +405,7 @@ describe('resolve() — path checks', () => {
 	it('rejects a file where a directory is expected', async () => {
 		const schema = makeSchema({
 			flags: {
-				outDir: createSchema('string', {
+				outDir: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'directory', create: false },
 				}),
 			},
@@ -437,7 +437,7 @@ describe('resolve() — path checks', () => {
 	it('rejects a directory where a file is expected', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', {
+				input: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'file', create: false },
 				}),
 			},
@@ -465,7 +465,7 @@ describe('resolve() — path checks', () => {
 	it('skips checks when no stat is provided', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', {
+				input: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'file', create: false },
 				}),
 			},
@@ -479,7 +479,7 @@ describe('resolve() — path checks', () => {
 	it('validates default values through path checks', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', {
+				input: createFlagSchema('string', {
 					presence: 'defaulted',
 					defaultValue: '/default/missing',
 					pathChecks: { mustExist: true, type: undefined, create: false },
@@ -505,7 +505,7 @@ describe('resolve() — path checks', () => {
 	it('does not call stat when the optional path flag is unresolved', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string', {
+				input: createFlagSchema('string', {
 					pathChecks: { mustExist: true, type: 'file', create: false },
 				}),
 			},
@@ -521,7 +521,7 @@ describe('resolve() — path checks', () => {
 	it('does not call stat when pathChecks is undefined', async () => {
 		const schema = makeSchema({
 			flags: {
-				input: createSchema('string'),
+				input: createFlagSchema('string'),
 			},
 		});
 		const parsed = makeParsed({ flags: { input: '/anywhere' } });

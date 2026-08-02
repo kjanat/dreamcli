@@ -18,7 +18,7 @@ import {
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { FLAG_KINDS } from '#internals/core/schema/flag.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
-import { createSchema } from '#internals/core/schema/index.ts';
+import { createFlagSchema } from '#internals/core/schema/index.ts';
 import { COMPATIBLE_PROMPT_KINDS } from './flags.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
@@ -61,7 +61,7 @@ describe('resolve', () => {
 		it('resolves flag from prompt when no CLI/env/config value', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu', 'ap'],
 						prompt: { kind: 'select', message: 'Select region' },
 						presence: 'required',
@@ -78,7 +78,7 @@ describe('resolve', () => {
 		it('resolves confirm prompt as boolean', async () => {
 			const schema = makeSchema({
 				flags: {
-					force: createSchema('boolean', {
+					force: createFlagSchema('boolean', {
 						prompt: { kind: 'confirm', message: 'Force deploy?' },
 					}),
 				},
@@ -93,7 +93,7 @@ describe('resolve', () => {
 		it('resolves input prompt as string', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						prompt: { kind: 'input', message: 'Enter name' },
 					}),
 				},
@@ -108,7 +108,7 @@ describe('resolve', () => {
 		it('resolves multiselect prompt as array', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', {
+					tags: createFlagSchema('array', {
 						prompt: {
 							kind: 'multiselect',
 							message: 'Select tags',
@@ -127,7 +127,7 @@ describe('resolve', () => {
 		it('coerces input prompt value to number for number flags', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', {
+					port: createFlagSchema('number', {
 						prompt: { kind: 'input', message: 'Enter port' },
 					}),
 				},
@@ -146,7 +146,7 @@ describe('resolve', () => {
 		it('CLI value takes priority over prompt', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						prompt: { kind: 'select', message: 'Select region' },
 					}),
@@ -163,7 +163,7 @@ describe('resolve', () => {
 		it('env value takes priority over prompt', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						envVar: 'REGION',
 						prompt: { kind: 'select', message: 'Select region' },
@@ -183,7 +183,7 @@ describe('resolve', () => {
 		it('config value takes priority over prompt', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						configPath: 'deploy.region',
 						prompt: { kind: 'select', message: 'Select region' },
@@ -203,7 +203,7 @@ describe('resolve', () => {
 		it('prompt takes priority over default', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						defaultValue: 'us',
 						prompt: { kind: 'select', message: 'Select region' },
@@ -220,25 +220,25 @@ describe('resolve', () => {
 		it('full chain: CLI > env > config > prompt > default', async () => {
 			const schema = makeSchema({
 				flags: {
-					a: createSchema('string', {
+					a: createFlagSchema('string', {
 						prompt: { kind: 'input', message: 'Enter A' },
 						defaultValue: 'def-a',
 					}),
-					b: createSchema('string', {
+					b: createFlagSchema('string', {
 						envVar: 'B',
 						prompt: { kind: 'input', message: 'Enter B' },
 						defaultValue: 'def-b',
 					}),
-					c: createSchema('string', {
+					c: createFlagSchema('string', {
 						configPath: 'c',
 						prompt: { kind: 'input', message: 'Enter C' },
 						defaultValue: 'def-c',
 					}),
-					d: createSchema('string', {
+					d: createFlagSchema('string', {
 						prompt: { kind: 'input', message: 'Enter D' },
 						defaultValue: 'def-d',
 					}),
-					e: createSchema('string', {
+					e: createFlagSchema('string', {
 						defaultValue: 'def-e',
 					}),
 				},
@@ -268,7 +268,7 @@ describe('resolve', () => {
 		it('falls through to default when prompt is cancelled', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						defaultValue: 'us',
 						prompt: { kind: 'select', message: 'Select region' },
@@ -285,7 +285,7 @@ describe('resolve', () => {
 		it('throws for required flag when prompt is cancelled and no default', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						presence: 'required',
 						prompt: { kind: 'select', message: 'Select region' },
@@ -301,7 +301,7 @@ describe('resolve', () => {
 		it('resolves optional flags to undefined when prompts are cancelled', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						prompt: { kind: 'input', message: 'Enter name' },
 					}),
 				},
@@ -320,7 +320,7 @@ describe('resolve', () => {
 		it('empty input with no prompt-default falls through to flag .default() (#35)', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						defaultValue: 'Anonymous',
 						prompt: { kind: 'input', message: 'Name' },
 					}),
@@ -337,7 +337,7 @@ describe('resolve', () => {
 		it('empty test-prompter answer with no prompt-default falls through to flag .default()', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						defaultValue: 'Anonymous',
 						prompt: { kind: 'input', message: 'Name' },
 					}),
@@ -353,7 +353,7 @@ describe('resolve', () => {
 		it('blank (whitespace) input with no prompt-default falls through to flag .default()', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						defaultValue: 'Anonymous',
 						prompt: { kind: 'input', message: 'Name' },
 					}),
@@ -369,7 +369,7 @@ describe('resolve', () => {
 		it('empty input resolves to prompt-level default, overriding flag .default() (#34)', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						defaultValue: 'flag-default',
 						prompt: { kind: 'input', message: 'Name', default: 'prompt-default' },
 					}),
@@ -385,7 +385,7 @@ describe('resolve', () => {
 		it('empty input with no prompt-default and no flag default → optional flag undefined', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						prompt: { kind: 'input', message: 'Name' },
 					}),
 				},
@@ -400,7 +400,7 @@ describe('resolve', () => {
 		it('confirm prompt with default:false resolves empty Enter to false', async () => {
 			const schema = makeSchema({
 				flags: {
-					force: createSchema('boolean', {
+					force: createFlagSchema('boolean', {
 						prompt: { kind: 'confirm', message: 'Delete?', default: false },
 					}),
 				},
@@ -419,7 +419,7 @@ describe('resolve', () => {
 		it('skips prompt when no prompter provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						defaultValue: 'us',
 						prompt: { kind: 'select', message: 'Select region' },
@@ -436,7 +436,7 @@ describe('resolve', () => {
 		it('required flag with prompt but no prompter throws', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						presence: 'required',
 						prompt: { kind: 'select', message: 'Select region' },
@@ -452,7 +452,7 @@ describe('resolve', () => {
 		it('prompter provided but flag has no prompt config — skips', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						defaultValue: 'us',
 						// No prompt config
@@ -473,7 +473,7 @@ describe('resolve', () => {
 		it('throws for invalid number from prompt', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', {
+					port: createFlagSchema('number', {
 						prompt: { kind: 'input', message: 'Enter port' },
 						presence: 'required',
 					}),
@@ -488,7 +488,7 @@ describe('resolve', () => {
 		it('throws for invalid enum from prompt', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						prompt: { kind: 'select', message: 'Select region' },
 						presence: 'required',
@@ -511,7 +511,7 @@ describe('resolve', () => {
 			it('rejects multiselect on enum flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						mood: createSchema('enum', {
+						mood: createFlagSchema('enum', {
 							enumValues: ['calm', 'happy'],
 							prompt: { kind: 'multiselect', message: 'Pick moods' },
 							presence: 'required',
@@ -527,7 +527,7 @@ describe('resolve', () => {
 			it('rejects input on boolean flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						force: createSchema('boolean', {
+						force: createFlagSchema('boolean', {
 							prompt: { kind: 'input', message: 'Force?' },
 						}),
 					},
@@ -541,7 +541,7 @@ describe('resolve', () => {
 			it('rejects multiselect on boolean flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						force: createSchema('boolean', {
+						force: createFlagSchema('boolean', {
 							prompt: { kind: 'multiselect', message: 'Force?' },
 						}),
 					},
@@ -555,7 +555,7 @@ describe('resolve', () => {
 			it('rejects confirm on string flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						name: createSchema('string', {
+						name: createFlagSchema('string', {
 							prompt: { kind: 'confirm', message: 'Name?' },
 							presence: 'required',
 						}),
@@ -570,7 +570,7 @@ describe('resolve', () => {
 			it('rejects multiselect on number flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						port: createSchema('number', {
+						port: createFlagSchema('number', {
 							prompt: { kind: 'multiselect', message: 'Port?' },
 							presence: 'required',
 						}),
@@ -585,7 +585,7 @@ describe('resolve', () => {
 			it('rejects confirm on number flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						port: createSchema('number', {
+						port: createFlagSchema('number', {
 							prompt: { kind: 'confirm', message: 'Port?' },
 							presence: 'required',
 						}),
@@ -604,7 +604,7 @@ describe('resolve', () => {
 			it('includes flag name and suggested kind in error message', async () => {
 				const schema = makeSchema({
 					flags: {
-						mood: createSchema('enum', {
+						mood: createFlagSchema('enum', {
 							enumValues: ['calm', 'happy'],
 							prompt: { kind: 'multiselect', message: 'Pick moods' },
 							presence: 'required',
@@ -637,7 +637,7 @@ describe('resolve', () => {
 				};
 				const schema = makeSchema({
 					flags: {
-						mood: createSchema('enum', {
+						mood: createFlagSchema('enum', {
 							enumValues: ['calm', 'happy'],
 							prompt: { kind: 'multiselect', message: 'Pick moods' },
 							presence: 'required',
@@ -657,7 +657,7 @@ describe('resolve', () => {
 			it('accepts input on enum flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						region: createSchema('enum', {
+						region: createFlagSchema('enum', {
 							enumValues: ['us', 'eu'],
 							prompt: { kind: 'input', message: 'Region?' },
 							presence: 'required',
@@ -674,7 +674,7 @@ describe('resolve', () => {
 			it('accepts select on string flag', async () => {
 				const schema = makeSchema({
 					flags: {
-						format: createSchema('string', {
+						format: createFlagSchema('string', {
 							prompt: {
 								kind: 'select',
 								message: 'Format?',
@@ -699,7 +699,7 @@ describe('resolve', () => {
 		it('works without options (sync-like behavior)', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', { defaultValue: 'world' }),
+					name: createFlagSchema('string', { defaultValue: 'world' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -711,7 +711,7 @@ describe('resolve', () => {
 		it('works with env/config but no prompter', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', { envVar: 'REGION' }),
+					region: createFlagSchema('string', { envVar: 'REGION' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -728,16 +728,16 @@ describe('resolve', () => {
 		it('prompts multiple flags in schema order', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						prompt: { kind: 'input', message: 'Name?' },
 						presence: 'required',
 					}),
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						prompt: { kind: 'select', message: 'Region?' },
 						presence: 'required',
 					}),
-					force: createSchema('boolean', {
+					force: createFlagSchema('boolean', {
 						prompt: { kind: 'confirm', message: 'Force?' },
 					}),
 				},
@@ -756,11 +756,11 @@ describe('resolve', () => {
 		it('only prompts flags that need it (some resolved from CLI)', async () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string', {
+					name: createFlagSchema('string', {
 						prompt: { kind: 'input', message: 'Name?' },
 						presence: 'required',
 					}),
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						enumValues: ['us', 'eu'],
 						prompt: { kind: 'select', message: 'Region?' },
 						presence: 'required',
@@ -782,7 +782,7 @@ describe('resolve', () => {
 		it('collects deprecations from prompt-resolved flags', async () => {
 			const schema = makeSchema({
 				flags: {
-					old: createSchema('string', {
+					old: createFlagSchema('string', {
 						deprecated: 'use --new',
 						prompt: { kind: 'input', message: 'Old value?' },
 					}),
@@ -800,7 +800,7 @@ describe('resolve', () => {
 		it('no deprecation when deprecated flag prompt is cancelled', async () => {
 			const schema = makeSchema({
 				flags: {
-					old: createSchema('string', {
+					old: createFlagSchema('string', {
 						deprecated: true,
 						prompt: { kind: 'input', message: 'Old?' },
 						presence: 'optional',

@@ -143,7 +143,7 @@ describe('PromptResult types', () => {
 // --- FlagSchema.prompt field
 
 describe('FlagSchema.prompt', () => {
-	it('defaults to undefined in createSchema', () => {
+	it('defaults to undefined in createFlagSchema', () => {
 		const f = flag.string();
 		expect(f.schema.prompt).toBeUndefined();
 	});

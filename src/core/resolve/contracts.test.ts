@@ -5,7 +5,7 @@ import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { resolverContract } from './contracts.ts';
 import { resolve } from './index.ts';
 
@@ -66,7 +66,7 @@ describe('resolver contracts', () => {
 	describe('flag precedence matrix', () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('string', {
+				region: createFlagSchema('string', {
 					envVar: 'REGION',
 					configPath: 'deploy.region',
 					prompt: { kind: 'input', message: 'Region' },
@@ -222,7 +222,7 @@ describe('resolver contracts', () => {
 		it('prefers env flag errors over later sources', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', {
+					port: createFlagSchema('number', {
 						envVar: 'PORT',
 						configPath: 'deploy.port',
 						prompt: { kind: 'input', message: 'Port' },
@@ -282,7 +282,7 @@ describe('resolver contracts', () => {
 		it('aggregates independent flag and arg failures', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
+					token: createFlagSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
 				},
 				args: [
 					{
