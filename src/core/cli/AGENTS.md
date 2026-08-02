@@ -1,6 +1,6 @@
 # cli — CLIBuilder, multi-command dispatch, plugins
 
-`index.ts` (~2259 lines) — heavily split: 12 `@internal` extraction files.
+`index.ts` (~2282 lines) — heavily split: 12 `@internal` extraction files.
 
 ## KEY TYPES
 
@@ -25,9 +25,9 @@
 
 | File                   | Lines | Purpose                                                               |
 | ---------------------- | ----: | --------------------------------------------------------------------- |
-| `index.ts`             |  2265 | CLIBuilder class + cli() factory + JSON error handling                |
+| `index.ts`             |  2282 | CLIBuilder class + cli() factory + JSON error handling                |
 | `planner.ts`           |   695 | `@internal` — execution planner, command resolution strategy          |
-| `runtime-preflight.ts` |   545 | `@internal` — runtime adapter setup, env/config preflight             |
+| `runtime-preflight.ts` |   546 | `@internal` — runtime adapter setup, env/config preflight             |
 | `root-help.ts`         |   383 | `@internal` — root-level help text + text helpers, structural schema  |
 | `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein  |
 | `reserved-flags.ts`    |   238 | `@internal` — build-time `RESERVED_FLAG` guard for root-owned flags   |
@@ -102,9 +102,10 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
   union forces a `BUILTIN_SPECS` entry through `Record` completeness, and `BUILTIN_NAMES` is a
   literal tuple (`as const satisfies readonly BuiltinName[]`) that `builtins.test.ts` pins with
   `expectTypeOf<Exclude<BuiltinName, (typeof BUILTIN_NAMES)[number]>>().toBeNever()`, so a union
-  member with no array entry fails typecheck. The guard walks that array. `root-help.ts` pushes
-  each built-in by name instead, keeping `--version` between `--help` and `--json` in
-  `Global options:`, so a fourth built-in needs a `pushBuiltin()` call there that nothing enforces.
+  member with no array entry fails typecheck. Both the guard and `root-help.ts` walk that array,
+  and `root-help.ts` splices its `--version` entry in during the `help` iteration to keep
+  `--version` between `--help` and `--json` in `Global options:`, so the pin covers the help block
+  too and a fourth built-in reaches it with no hand-written call.
   `version`/`V` is NOT a built-in — it is opt-in via `.version()`, so it stays a local
   constant in `reserved-flags.ts` and an interception in `planner.ts`.
 - `.builtins({ <name>: 'off' })` releases a built-in to the commands (#86). Normalized state lives on
@@ -135,8 +136,12 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
   version after registration. `createCLISchema()` runs the same check, plus
   `assertNoCompletionsFlagCollision()` when the definition carries `completionsFlag`, so both
   construction paths agree; `createCommandSchema()` runs no root-owned-token check, since a bare
-  command is not bound to a root. It does run `validateCommandFlagTree()`, so command-local and
-  propagated collisions still throw there.
+  command is not bound to a root. It does run `validateCommandFlagTree()` and `validateArgEntry()`,
+  so command-local collisions, propagated collisions, and the arg stdin/variadic invariants still
+  throw there.
+- `collectPropagatedFlags()` in `propagate.ts` tests descendant flag records with `Object.hasOwn()`.
+  `in` walks `Object.prototype`, which made every subcommand look like it overrode a propagated flag
+  named `toString`, `valueOf`, or any other prototype member.
 - `root-help.ts` uses structural `CLISchemaLike` instead of importing `CLISchema` — avoids circular
   dep through barrel
 - `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`
@@ -156,7 +161,7 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
 - `planner.ts` orchestrates the execution pipeline — shared with testkit via `execution/`
 - `runtime-preflight.ts` handles adapter creation, env loading, config discovery before dispatch
 
-## TEST FILES (26)
+## TEST FILES (27)
 
 | File                              | Tests                                   |
 | --------------------------------- | --------------------------------------- |

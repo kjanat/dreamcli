@@ -225,11 +225,15 @@ so a call without `onDeprecation` drops them.
 
 ## Errors
 
-Parse failures throw `ParseError`, resolution and constraint failures throw
-`ValidationError`, and a record that collides on a name, an alias, or a negated
-spelling throws `CLIError` before argv is read. Failure never writes output and
-never calls `adapter.exit`; only the built-in help path exits, and it exits
-with 0. The script owns what happens next:
+Parse failures throw `ParseError` and resolution and constraint failures throw
+`ValidationError`. Two kinds of definitions record throw `CLIError` before argv
+is read. A record that collides on a name, an alias, or a negated spelling
+throws `FLAG_NAME_COLLISION`. A record whose keys cannot all be read throws
+`INVALID_SCHEMA`: the definition key `__proto__`, or a replaced prototype, which
+covers an object-literal `__proto__` key and `Object.create(base)`.
+`Object.create(null)` is fine. Failure never writes output and never calls
+`adapter.exit`; only the built-in help path exits, and it exits with 0. The
+script owns what happens next:
 
 ```ts twoslash
 import { flag, isCLIError, readFlags } from '@kjanat/dreamcli';

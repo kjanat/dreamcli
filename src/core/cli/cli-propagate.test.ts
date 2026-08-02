@@ -244,6 +244,29 @@ describe('collectPropagatedFlags', () => {
 			// mid's propagated verbose overwrites root's
 			expect(result['verbose']).toBe(mid.flags['verbose']);
 		});
+
+		it('does not treat an Object.prototype member name as an intermediate override', () => {
+			const root = makeSchema({
+				name: 'cli',
+				flags: { ['valueOf']: propagatedFlag('string') },
+			});
+			const mid = makeSchema({ name: 'db' });
+			const leaf = makeSchema({ name: 'migrate' });
+
+			const result = collectPropagatedFlags([root, mid, leaf]);
+			expect(result['valueOf']).toBe(root.flags['valueOf']);
+		});
+
+		it('still shadows an Object.prototype member name the intermediate declares', () => {
+			const root = makeSchema({
+				name: 'cli',
+				flags: { ['valueOf']: propagatedFlag('string') },
+			});
+			const mid = makeSchema({ name: 'db', flags: { ['valueOf']: localFlag('number') } });
+			const leaf = makeSchema({ name: 'migrate' });
+
+			expect(Object.hasOwn(collectPropagatedFlags([root, mid, leaf]), 'valueOf')).toBe(false);
+		});
 	});
 
 	// --- Return value properties --------------------------------------------

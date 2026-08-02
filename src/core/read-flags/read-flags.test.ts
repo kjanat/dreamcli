@@ -392,6 +392,7 @@ describe('readFlags() collisions', () => {
 		expect(isParseError(error)).toBe(false);
 		expect(error).toBeInstanceOf(Error);
 		expect(error instanceof Error && error.message).toContain('collides');
+		expect(error instanceof CLIError && error.code).toBe('FLAG_NAME_COLLISION');
 	});
 
 	it('rejects an alias colliding with another canonical name', async () => {
@@ -403,6 +404,7 @@ describe('readFlags() collisions', () => {
 		);
 
 		expect(error instanceof Error && error.message).toContain('collides');
+		expect(error instanceof CLIError && error.code).toBe('FLAG_NAME_COLLISION');
 	});
 
 	it('rejects a negated spelling colliding with a canonical name', async () => {
@@ -414,6 +416,7 @@ describe('readFlags() collisions', () => {
 		);
 
 		expect(error instanceof Error && error.message).toContain('collides');
+		expect(error instanceof CLIError && error.code).toBe('FLAG_NAME_COLLISION');
 	});
 });
 
@@ -446,6 +449,35 @@ describe('readFlags() prototype keys', () => {
 		expect(nonEnumerableError instanceof CLIError && nonEnumerableError.code).toBe(
 			'INVALID_SCHEMA',
 		);
+	});
+
+	it('rejects a __proto__ definition written as an object-literal property', async () => {
+		const error = await thrownBy(() =>
+			readFlags({ __proto__: flag.string(), keep: flag.string() }, { argv: [], env: {} }),
+		);
+
+		expect(error instanceof CLIError && error.code).toBe('INVALID_SCHEMA');
+	});
+
+	it('resolves a prototype-free definitions record', async () => {
+		const definitions: Record<string, ReturnType<typeof flag.string>> = Object.create(null);
+		definitions['keep'] = flag.string();
+
+		const values = await readFlags(definitions, { argv: ['--keep', 'v'], env: {} });
+
+		expect(values['keep']).toBe('v');
+	});
+
+	it('rejects a definitions record built over another object without naming a key', async () => {
+		const base = { shared: flag.string() };
+		const definitions: Record<string, ReturnType<typeof flag.string>> = Object.create(base);
+		definitions['own'] = flag.string();
+
+		const error = await thrownBy(() => readFlags(definitions, { argv: [], env: {} }));
+
+		expect(error instanceof CLIError && error.code).toBe('INVALID_SCHEMA');
+		expect(error instanceof CLIError && error.message).toContain('replaced prototype');
+		expect(error instanceof CLIError && error.details).toBeUndefined();
 	});
 
 	it('resolves other Object.prototype key names', async () => {

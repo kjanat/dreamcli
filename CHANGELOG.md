@@ -124,8 +124,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the caller left
   out, so a call given `argv` and `env` reads nothing from the host unless a
   `flag.path()` check needs the adapter's filesystem primitives. Failures throw
-  `ParseError` and `ValidationError` instead of exiting, a colliding record or
-  the definition key `__proto__` throws `CLIError` before argv is read, and
+  `ParseError` and `ValidationError` instead of exiting, a colliding record, the
+  definition key `__proto__`, and a record whose prototype is replaced (an
+  object-literal `__proto__` key, or `Object.create(base)`, whose inherited
+  definitions are never read) each throw `CLIError` before argv is read, and
   `.deprecated()` notices reach `onDeprecation` rather than a warning stream,
   since there is no output channel on this path.
 
@@ -181,16 +183,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to `createFlagSchema()`, which validates its fields against the kind and
   normalizes a nested `elementSchema`.
 
-- **Breaking: `createCommandSchema()` rejects colliding flag spellings.** A
+- **Breaking: `createCommandSchema()` validates what the builder validates** — a
   definition whose flags share a name, an alias, or a negated spelling on one
   command now throws `FLAG_NAME_COLLISION`, and a flag spelled the same way as
   one propagated from an ancestor command throws `PROPAGATED_FLAG_COLLISION`.
   The whole tree is checked, nested subcommands included. Commands built with
   `command()` already refused these at `.flag()` and `.command()`; a definition
-  composed as data used to build without complaint and then lose one of the
-  colliding flags at parse time. `createCLISchema()` normalizes its commands
-  through the same factory and inherits the check, and `readFlags()` reports the
-  same errors it always did.
+  composed as data used to build without complaint and then answer the shared
+  spelling with one flag only. Two flags both aliased `v` still parsed under
+  `--verbose` and `--version`, help listed `-v` on both, and `-v` set the
+  second. The arg invariants moved with them, so a definition declaring one arg
+  both variadic and stdin-backed throws `INVALID_BUILDER_STATE`, and a second
+  stdin-backed arg throws `DUPLICATE_STDIN_ARG`, matching `.arg()`. Those two
+  built without complaint as well. Two stdin-backed args each resolved to the
+  whole of stdin, and a variadic stdin-backed arg read nothing from stdin and
+  failed as missing when argv supplied no positional. Every arg error names the
+  command in `details`, since a definition tree reaches them at any depth and
+  the arg name alone does not say which command declared it. A flag or arg
+  named `__proto__` now throws `INVALID_SCHEMA` from both the factory and the
+  builder, the check `readFlags()` already applied to its definitions record.
+  The factory and `.arg()` used to accept the key, which sets a prototype rather
+  than an entry, so the flag or the value the user typed disappeared; `.flag()`
+  used to report `FLAG_NAME_COLLISION` against a flag the command never
+  declared. A flag record whose prototype is replaced throws `INVALID_SCHEMA`
+  too, since only its own keys are read: an object-literal `__proto__` key lands
+  there, and so does `Object.create(base)`, whose inherited flags the factory
+  silently dropped. `createCLISchema()` normalizes its commands through the same
+  factory and inherits every check, and `readFlags()` reports the same errors it
+  always did.
 
 - **Breaking: `CLISchema` and `ConfigSettings` are sealed** — both carry a
   private brand, so an object literal assembled by hand no longer type-checks
@@ -306,6 +326,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already defaults to `['package.json']`.
 
 ### Fixed
+
+- **Flags named after `Object.prototype` members were rejected as duplicates** —
+  `.flag('constructor')`, `.flag('toString')`, `.flag('valueOf')`, and every
+  other `Object.prototype` member name failed with a `FLAG_NAME_COLLISION`
+  claiming the command already declared the flag, on commands that declared no
+  flags at all. `collectPropagatedFlags()` read its descendant records the same
+  way, so a propagated flag with one of those names would have stopped at every
+  intermediate subcommand, and `resolveFlags()` read an `.interactive()`
+  resolver's override record the same way, so the inherited method reached the
+  prompt gate as a config and failed the command with `CONSTRAINT_VIOLATED`.
+  `.flag()` refused the name first, so no 3.x CLI ever got that far. Every one of
+  those reads now tests own keys only, so all eleven of those names behave like
+  any other and `createCommandSchema()` accepts the schemas `command()` produces.
+  `__proto__` is the one `Object.prototype` name still rejected, with
+  `INVALID_SCHEMA` on both construction paths, listed under Changed above.
+
+- **An env var named after an `Object.prototype` member always read as set** —
+  `.env('toString')` on a flag, or on an arg, looked the name up on the env
+  record without checking own keys, so an unset variable resolved to the
+  inherited method and failed coercion instead of falling through to config,
+  prompt, or default. Both lookups now test own keys.
 
 - **Quiet mode leaked spinner and progress output** — activity handles now
   resolve to no-ops under quiet verbosity, including interactive TTYs and

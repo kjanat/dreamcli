@@ -64,15 +64,25 @@ describe('docs contracts', () => {
 	});
 
 	it('locks high-signal docs claims that previously drifted', async () => {
-		const [migration, runtime, readme, testingGuide, testkitReference, mainReference] =
-			await Promise.all([
-				readUtf8(new URL('../../guide/migration.md', import.meta.url)),
-				readUtf8(new URL('../../guide/runtime.md', import.meta.url)),
-				readUtf8(new URL('../../../README.md', import.meta.url)),
-				readUtf8(new URL('../../guide/testing.md', import.meta.url)),
-				readUtf8(new URL('../../reference/testkit.md', import.meta.url)),
-				readUtf8(new URL('../../reference/main.md', import.meta.url)),
-			]);
+		const [
+			migration,
+			runtime,
+			readme,
+			testingGuide,
+			testkitReference,
+			mainReference,
+			limitations,
+			semantics,
+		] = await Promise.all([
+			readUtf8(new URL('../../guide/migration.md', import.meta.url)),
+			readUtf8(new URL('../../guide/runtime.md', import.meta.url)),
+			readUtf8(new URL('../../../README.md', import.meta.url)),
+			readUtf8(new URL('../../guide/testing.md', import.meta.url)),
+			readUtf8(new URL('../../reference/testkit.md', import.meta.url)),
+			readUtf8(new URL('../../reference/main.md', import.meta.url)),
+			readUtf8(new URL('../../guide/limitations.md', import.meta.url)),
+			readUtf8(new URL('../../guide/semantics.md', import.meta.url)),
+		]);
 
 		expect(migration).toContain('runCommand(deploy, [], {');
 		expect(runtime).not.toContain('test adapter internally');
@@ -85,5 +95,9 @@ describe('docs contracts', () => {
 		expect(mainReference).toContain('.manifest({ from: import.meta })');
 		expect(mainReference).toContain('if (import.meta.main)');
 		expect(mainReference).toContain('if (isMainModule(import.meta))');
+		expect(limitations).toContain('.negatable()');
+		expect(limitations).not.toContain('unless you define that spelling yourself');
+		expect(semantics).toContain('Call `.negatable()` on the boolean');
+		expect(semantics).not.toContain('register that exact spelling as the flag name or as an alias');
 	});
 });

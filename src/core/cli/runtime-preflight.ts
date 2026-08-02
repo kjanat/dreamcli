@@ -384,10 +384,11 @@ async function applyPackageJsonDiscovery(
  * Re-run the `RESERVED_FLAG` guard when discovery supplied the version.
  *
  * `.manifest()` reads a version off the filesystem at `.run()` time, past every
- * build-time check, so a command flag named `version` or aliased `V` would
- * become unreachable without ever being rejected. Running the same guard here
- * fails the startup with the identical error the build paths raise (#86),
- * rendered like every other startup failure rather than thrown at the caller.
+ * build-time check, so a command flag spelling `--version` or `-V` as a name, an
+ * alias, or a negated spelling would become unreachable without ever being
+ * rejected. Running the same guard here fails the startup with the identical
+ * error the build paths raise (#86), rendered like every other startup failure
+ * rather than thrown at the caller.
  *
  * @param discovered - Schema after manifest discovery merged its metadata in.
  * @param declared - Schema as the builder had it before discovery.
