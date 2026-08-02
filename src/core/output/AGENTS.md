@@ -1,8 +1,8 @@
 # output — OutputChannel, spinner/progress, TTY rendering
 
 Seven source files: `writer.ts` (leaf), `contracts.ts` (type contracts), `display-value.ts` (value
-formatting), `renderers.ts` (table/list rendering), `bind.ts` (method-binding helper), `activity.ts`
-(handle classes, ~575 lines), `index.ts` (OutputChannel + factories, ~830 lines).
+formatting), `renderers.ts` (activity-handle construction), `bind.ts` (method-binding helper),
+`activity.ts` (handle classes, ~575 lines), `index.ts` (OutputChannel + factories, ~830 lines).
 
 Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- `index.ts` ->
 `writer.ts`. `renderers.ts` + `display-value.ts` consumed by `index.ts`.
@@ -19,15 +19,15 @@ Dependency graph (no cycles): `writer.ts` <- `contracts.ts` <- `activity.ts` <- 
 
 ## FILES
 
-| File               | Lines | Purpose                                                   |
-| ------------------ | ----: | --------------------------------------------------------- |
-| `index.ts`         |   830 | OutputChannel class + factories + mode dispatch           |
-| `activity.ts`      |   575 | Spinner/progress handle classes (TTY/static/capture/noop) |
-| `contracts.ts`     |   197 | Output type contracts, mode types, option interfaces      |
-| `renderers.ts`     |   125 | Table + list rendering logic                              |
-| `bind.ts`          |    59 | `bindMethods()` — binds instance methods (see GOTCHAS)    |
-| `display-value.ts` |    48 | Value display formatting utilities                        |
-| `writer.ts`        |    46 | `WriteFn` type + `writeLine` helper (leaf)                |
+| File               | Lines | Purpose                                                           |
+| ------------------ | ----: | ----------------------------------------------------------------- |
+| `index.ts`         |   830 | OutputChannel class + factories + mode dispatch + `formatTable()` |
+| `activity.ts`      |   575 | Spinner/progress handle classes (TTY/static/capture/noop)         |
+| `contracts.ts`     |   197 | Output type contracts, mode types, option interfaces              |
+| `renderers.ts`     |   125 | Spinner/progress handle factories + `resolveWriterForStream()`    |
+| `bind.ts`          |    59 | `bindMethods()` — binds instance methods (see GOTCHAS)            |
+| `display-value.ts` |    48 | Value display formatting utilities                                |
+| `writer.ts`        |    46 | `WriteFn` type + `writeLine` helper (leaf)                        |
 
 ## OUTPUT MODES
 

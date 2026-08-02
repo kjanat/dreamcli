@@ -15,7 +15,7 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 
 | File           | Lines | Purpose                                                                 |
 | -------------- | ----: | ----------------------------------------------------------------------- |
-| `index.ts`     |   116 | Barrel — re-exports public API                                          |
+| `index.ts`     |   116 | `resolve()` — orchestrates the chain, then the Standard Schema pass     |
 | `flags.ts`     |   376 | `resolveFlags()` — all flags: CLI -> env -> config -> prompt -> default |
 | `args.ts`      |   144 | `resolveArgs()` — parsed -> default -> required validation              |
 | `coerce.ts`    |   633 | `coerceValue()` — unified raw value -> flag's declared kind             |
