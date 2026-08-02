@@ -141,5 +141,6 @@ export type {
 export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
 export {
 	describeStringConstraintViolation,
+	stringConstraintDetails,
 	validateStringConstraints,
 } from './string-constraints.ts';

@@ -38,17 +38,40 @@ every source, feed help placeholders, and land in the exported JSON Schema.
 process-free execution pass `stat` (and `mkdir` for `create`) via run options,
 or the checks are skipped.
 
+### Rich arg types
+
+```ts
+arg.url({ protocols: ['https'] }); //  URL
+arg.path({ mustExist: true }); //  string, checked after resolution
+arg.date({ min: new Date('2020-01-01') }); //  Date, strict ISO-8601
+arg.duration(); //  number (ms)
+arg.bytes(); //  number
+arg.url().variadic(); //  URL[], each value validated
+```
+
+Same option objects, parsers, and error codes as the flag kinds above. Required
+by default; add `.optional()` or `.default()` to change that. `arg.path()` needs
+the same `stat`/`mkdir` injection as `flag.path()`, and a variadic path arg
+checks every value it collects.
+
+There is no `arg.array()` (use `.variadic()`), no `arg.boolean()`,
+`arg.count()`, or `arg.keyValue()`, and no `.prompt()` or `.config()` on an
+argument. Parse those with `arg.custom()`, or declare the value as a flag.
+
 ### Constraints instead of hand-written validation
 
 ```ts
 flag.number({ int: true, min: 1, max: 65535 }); // port
 flag.string({ nonEmpty: true, pattern: /^[a-z][a-z0-9-]*$/ }); // slug
 flag.number().finite(false); // opt back into Infinity
+arg.string({ nonEmpty: true, pattern: /^[a-z][a-z0-9-]*$/ }); // same on positionals
+arg.number().int().min(1); // chainable, same as flag
 ```
 
-Constraints are enforced on CLI parse (`INVALID_VALUE`) and on env/config/prompt
-resolution (`CONSTRAINT_VIOLATED`), both exit code 2. `finite` defaults to
-`true`, so `Infinity` is rejected unless you opt out.
+Constraints are enforced on CLI parse (`INVALID_VALUE`) and on
+env/config/prompt/stdin resolution (`CONSTRAINT_VIOLATED`), both exit code 2.
+A `.default()` value is trusted as declared and is not re-checked. `finite`
+defaults to `true`, so `Infinity` is rejected unless you opt out.
 
 ### Standard Schema validation
 

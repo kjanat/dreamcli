@@ -209,6 +209,21 @@ describe('formatHelp', () => {
 			const help = formatHelp(cmd.schema);
 			expect(help).toContain('[env: DEPLOY_TARGET]');
 		});
+
+		it('labels a sugar-factory arg by its own name, not its value hint', () => {
+			const cmd = command('convert')
+				.arg('input', arg.path({ mustExist: true }).describe('Source file'))
+				.arg('output', arg.path().describe('Destination file'))
+				.arg('endpoint', arg.url().optional().describe('Upload target'));
+			const help = formatHelp(cmd.schema);
+
+			expect(help).toContain('Usage: convert <input> <output> [endpoint]');
+			expect(help).toContain('<input>');
+			expect(help).toContain('<output>');
+			expect(help).toContain('[endpoint]');
+			expect(help).not.toContain('<path>');
+			expect(help).not.toContain('<url>');
+		});
 	});
 
 	// -----------------------------------------------------------------------

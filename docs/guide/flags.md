@@ -48,6 +48,9 @@ integers and `minLength` must not exceed `maxLength` (violations throw where
 the flag is declared). String constraints are surfaced in the exported JSON
 Schema as `minLength` / `maxLength` / `pattern`.
 
+The same options and methods are available on
+[`arg.string()`](/guide/arguments#string-constraints) for positional arguments.
+
 ### Number
 
 ```ts twoslash
@@ -228,8 +231,8 @@ flagTypes.url;
 ### Path
 
 The value stays a `string` (help shows `<path>`), with optional filesystem
-checks that run **after resolution** through the runtime adapter — so CLI,
-env, and config values are validated identically:
+checks that run **after resolution** through the runtime adapter, so CLI, env,
+config, prompted, and defaulted values are all validated:
 
 ```ts
 flag.path(); // any string
@@ -288,6 +291,14 @@ resolves to **bytes**. Units are binary (`1kb` = 1024) and case-insensitive:
 flag.bytes().default(10 * 1024 ** 2);
 // --max-size 512kb → 524288
 ```
+
+::: tip Positional equivalents
+`arg.url()`, `arg.path()`, `arg.date()`, `arg.duration()`, and `arg.bytes()`
+take the same options and produce the same values. See
+[Purpose-built argument kinds](/guide/arguments#purpose-built-argument-kinds).
+The kinds below have no arg equivalent; the reasons are listed under
+[What the arg factory does not have](/guide/arguments#flag-only-surface).
+:::
 
 ### Count
 
@@ -682,6 +693,8 @@ cli('mycli').command(
 ## What's Next?
 
 - [Arguments](/guide/arguments) — positional argument types
+- [What the arg factory does not have](/guide/arguments#flag-only-surface), the
+  flag members with no arg equivalent
 - [Config Files](/guide/config) — config file resolution
 - [Interactive Prompts](/guide/prompts) — prompt integration
 - [CLI Semantics](/guide/semantics) — exact parser and precedence rules

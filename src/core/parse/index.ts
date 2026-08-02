@@ -24,6 +24,7 @@ import type {
 import {
 	describeNumberConstraintViolation,
 	describeStringConstraintViolation,
+	stringConstraintDetails,
 	validateNumberConstraints,
 	validateStringConstraints,
 } from '#internals/core/schema/index.ts';
@@ -365,9 +366,7 @@ function coerceFlagValue(
 						input: displayName,
 						value: raw,
 						expected: 'string',
-						constraint: violation.kind,
-						...('bound' in violation ? { bound: violation.bound } : {}),
-						...('pattern' in violation ? { pattern: violation.pattern } : {}),
+						...stringConstraintDetails(violation),
 					},
 				});
 			}
@@ -492,8 +491,22 @@ function coerceFlagValue(
  */
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
 	switch (schema.kind) {
-		case 'string':
+		case 'string': {
+			const violation = validateStringConstraints(raw, schema.stringConstraints);
+			if (violation !== undefined) {
+				const reason = describeStringConstraintViolation(violation);
+				throw new ParseError(`Invalid value '${raw}' for argument <${argName}>: ${reason}`, {
+					code: 'INVALID_VALUE',
+					details: {
+						arg: argName,
+						value: raw,
+						expected: 'string',
+						...stringConstraintDetails(violation),
+					},
+				});
+			}
 			return raw;
+		}
 
 		case 'number': {
 			const n = Number(raw);

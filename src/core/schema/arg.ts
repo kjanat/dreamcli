@@ -1,9 +1,10 @@
 /**
  * Positional argument schema builder with full type inference.
  *
- * Each factory (`arg.string()`, `arg.number()`, `arg.enum()`, `arg.custom()`) returns an
- * immutable {@linkcode ArgBuilder} whose generic parameter tracks the value type,
- * presence state, and variadic flag through the fluent chain.
+ * Each factory (`arg.string()`, `arg.number()`, `arg.enum()`, `arg.custom()`,
+ * `arg.url()`, `arg.path()`, `arg.date()`, `arg.duration()`, `arg.bytes()`)
+ * returns an immutable {@linkcode ArgBuilder} whose generic parameter tracks the
+ * value type, presence state, and variadic flag through the fluent chain.
  *
  * @module dreamcli/core/schema/arg
  */
@@ -12,6 +13,18 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import type { schemaBrand } from './brand.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
+import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
+import {
+	buildPathChecks,
+	type DateFlagOptions,
+	type PathChecks,
+	type PathFlagOptions,
+	parseBytesValue,
+	parseDateValue,
+	parseDurationValue,
+	parseUrlValue,
+	type UrlFlagOptions,
+} from './value-parsers.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
 
@@ -150,6 +163,30 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	 * `true`, so `Infinity` is rejected even when no constraints object is set.
 	 */
 	readonly numberConstraints: NumberConstraints | undefined;
+	/**
+	 * String constraints when `kind === 'string'` (`undefined` otherwise).
+	 *
+	 * Enforced at the parse and resolution boundaries, in fixed order:
+	 * nonEmpty → minLength → maxLength → pattern. A `defaultValue` reaches
+	 * neither boundary and is not checked.
+	 */
+	readonly stringConstraints: StringConstraints | undefined;
+	/**
+	 * Filesystem checks for path-valued args (set by `arg.path()`).
+	 *
+	 * Validated after resolution through the runtime adapter, so CLI, stdin,
+	 * env, and defaulted values are all checked. Only meaningful when
+	 * `kind === 'string'`.
+	 */
+	readonly pathChecks: PathChecks | undefined;
+	/**
+	 * Help placeholder label (e.g. `'url'`).
+	 *
+	 * Set by the sugar factories (`arg.url()`, `arg.date()`, …) so tooling
+	 * reading the schema knows the expected value shape. Help renders a
+	 * positional by its own name, so this does not change the usage line.
+	 */
+	readonly valueHint: string | undefined;
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: ArgParseFn<unknown> | undefined;
 	/**
@@ -215,6 +252,11 @@ interface ArgDefinitionBase {
 	 */
 	readonly envVar?: string | undefined;
 	/**
+	 * Help placeholder label (`'url'`, `'path'`, …).
+	 * @defaultValue `undefined`
+	 */
+	readonly valueHint?: string | undefined;
+	/**
 	 * Deprecation marker. `true` deprecates without a message, a string carries
 	 * the migration guidance.
 	 * @defaultValue `undefined`
@@ -226,6 +268,16 @@ interface ArgDefinitionBase {
 interface StringArgDefinition extends ArgDefinitionBase {
 	/** Kind discriminator. */
 	readonly kind: 'string';
+	/**
+	 * String constraints enforced at the parse and resolution boundaries.
+	 * @defaultValue `undefined`
+	 */
+	readonly stringConstraints?: StringConstraints | undefined;
+	/**
+	 * Filesystem checks applied after resolution.
+	 * @defaultValue `undefined`
+	 */
+	readonly pathChecks?: PathChecks | undefined;
 }
 
 /** Definition of a `number` arg. */
@@ -292,6 +344,8 @@ type ArgDefinitionArguments<K extends ArgKind> = K extends 'enum'
 const KIND_SPECIFIC_ARG_FIELDS: readonly (readonly [keyof ArgSchemaFields, ArgKind])[] = [
 	['enumValues', 'enum'],
 	['numberConstraints', 'number'],
+	['stringConstraints', 'string'],
+	['pathChecks', 'string'],
 	['parseFn', 'custom'],
 	['standard', 'custom'],
 ];
@@ -354,6 +408,9 @@ function buildArgSchema<K extends ArgKind>(
 		envVar: undefined,
 		enumValues: undefined,
 		numberConstraints: undefined,
+		stringConstraints: undefined,
+		pathChecks: undefined,
+		valueHint: undefined,
 		parseFn: undefined,
 		standard: undefined,
 		deprecated: undefined,
@@ -810,6 +867,86 @@ class ArgBuilder<C extends ArgConfig> {
 			numberConstraints: { ...this.schema.numberConstraints, finite: allow },
 		});
 	}
+
+	// -- String constraint modifiers -------------------------------------------
+	//
+	// Compile-time guarded via a `this` parameter so they are only callable on
+	// string-kind builders. They merge onto the single `stringConstraints`
+	// representation, overriding any value set by `arg.string({ … })`.
+
+	/**
+	 * Reject empty strings. Composes with other string constraints.
+	 *
+	 * @param value - Whether to reject empty strings.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().nonEmpty()   // rejects '', accepts 'x'
+	 * ```
+	 */
+	nonEmpty(this: ArgBuilder<C & { readonly argKind: 'string' }>, value = true): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			stringConstraints: { ...this.schema.stringConstraints, nonEmpty: value },
+		});
+	}
+
+	/**
+	 * Set an inclusive minimum length (UTF-16 code units). Composes with other
+	 * string constraints; a later call overrides an earlier `minLength`.
+	 *
+	 * @param value - Inclusive minimum length.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().minLength(3)   // rejects 'ab', accepts 'abc'
+	 * ```
+	 */
+	minLength(this: ArgBuilder<C & { readonly argKind: 'string' }>, value: number): ArgBuilder<C> {
+		const stringConstraints = { ...this.schema.stringConstraints, minLength: value };
+		assertStringConstraints(stringConstraints);
+		return new ArgBuilder({ ...this.schema, stringConstraints });
+	}
+
+	/**
+	 * Set an inclusive maximum length (UTF-16 code units). Composes with other
+	 * string constraints; a later call overrides an earlier `maxLength`.
+	 *
+	 * @param value - Inclusive maximum length.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().maxLength(8)   // rejects 9+ chars
+	 * ```
+	 */
+	maxLength(this: ArgBuilder<C & { readonly argKind: 'string' }>, value: number): ArgBuilder<C> {
+		const stringConstraints = { ...this.schema.stringConstraints, maxLength: value };
+		assertStringConstraints(stringConstraints);
+		return new ArgBuilder({ ...this.schema, stringConstraints });
+	}
+
+	/**
+	 * Require the value to match a regular expression. Anchor with `^`/`$`
+	 * for full-string matching. Composes with other string constraints.
+	 *
+	 * @param value - Pattern the value must match.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().pattern(/^ghp_/)   // rejects 'abc', accepts 'ghp_x'
+	 * ```
+	 */
+	pattern(this: ArgBuilder<C & { readonly argKind: 'string' }>, value: RegExp): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			stringConstraints: { ...this.schema.stringConstraints, pattern: value },
+		});
+	}
 }
 
 // --- Factory namespace
@@ -824,7 +961,7 @@ class ArgBuilder<C extends ArgConfig> {
  * All args are **required** by default. Resolution order when extra
  * sources are configured: **CLI → stdin → env → default**.
  *
- * @example Overview — all three kinds with common modifier patterns
+ * @example Overview of common kinds with common modifier patterns
  * ```ts
  * command('process')
  *   // String arg with env fallback
@@ -856,7 +993,18 @@ class ArgBuilder<C extends ArgConfig> {
  */
 interface ArgFactory {
 	/**
-	 * String-valued positional argument. Required by default.
+	 * String-valued positional argument, with optional string constraints.
+	 * Required by default.
+	 *
+	 * Constraints are enforced at the parse and resolution boundaries, in
+	 * fixed order: nonEmpty → minLength → maxLength → pattern. A `.default()`
+	 * value reaches neither boundary and is not checked. They also compose via
+	 * chained methods (`.nonEmpty()`, `.minLength()`, `.maxLength()`,
+	 * `.pattern()`), which override values set here.
+	 *
+	 * @param constraints - Optional string constraints.
+	 * @defaultValue `undefined` (no constraints)
+	 * @returns A required string {@link ArgBuilder}.
 	 *
 	 * @example
 	 * ```ts
@@ -864,15 +1012,15 @@ interface ArgFactory {
 	 * arg.string().optional()             // string | undefined
 	 * arg.string().env('TARGET')          // falls back to $TARGET
 	 * arg.string().default('production')  // always present
+	 * arg.string({ nonEmpty: true })      // rejects ''
+	 * arg.string({ pattern: /^ghp_/ })    // token shapes
 	 *
 	 * // In a command:
 	 * command('deploy')
 	 *   .arg('target', arg.string().env('DEPLOY_TARGET').describe('Deploy target'))
 	 * ```
-	 *
-	 * @returns A required string {@link ArgBuilder}.
 	 */
-	string(): ArgBuilder<{
+	string(constraints?: StringConstraints): ArgBuilder<{
 		readonly valueType: string;
 		readonly presence: 'required';
 		readonly variadic: false;
@@ -1006,6 +1154,123 @@ interface ArgFactory {
 		readonly variadic: false;
 		readonly argKind: 'custom';
 	}>;
+
+	/**
+	 * URL-valued positional argument. Parses into a `URL`; invalid URLs are
+	 * rejected with an `INVALID_VALUE` error naming the argument.
+	 *
+	 * @param options - Optional protocol allowlist (without trailing colon).
+	 * @returns A required `URL` {@link ArgBuilder}.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.url()                            // any URL
+	 * arg.url({ protocols: ['https'] })    // https only
+	 *
+	 * // In a command:
+	 * command('fetch')
+	 *   .arg('endpoint', arg.url().env('API_URL').describe('Service endpoint'))
+	 * ```
+	 */
+	url(options?: UrlFlagOptions): ArgBuilder<{
+		readonly valueType: URL;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}>;
+
+	/**
+	 * Path-valued positional argument. The value stays a `string`; optional
+	 * filesystem checks run **after resolution** through the runtime adapter,
+	 * so CLI, stdin, env, and defaulted values are all validated.
+	 *
+	 * A variadic path arg checks every value it collects. Help renders a
+	 * positional by its own name, so the `'path'` value hint on the schema does
+	 * not reach the usage line.
+	 *
+	 * @param options - Optional existence/type checks. `type` implies
+	 *   existence unless `mustExist` is explicitly `false`.
+	 * @returns A required path-string {@link ArgBuilder}.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.path()                          // any string
+	 * arg.path({ mustExist: true })       // rejects missing paths
+	 * arg.path({ type: 'directory' })     // must exist and be a directory
+	 * arg.path({ type: 'directory', create: true })
+	 *                                     // created recursively when missing
+	 * ```
+	 */
+	path(options?: PathFlagOptions): ArgBuilder<{
+		readonly valueType: string;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'string';
+	}>;
+
+	/**
+	 * Date-valued positional argument. Accepts strict ISO-8601 (`2026-07-10`,
+	 * `2026-07-10T14:30:00Z`) and parses into a `Date`. Lenient `Date.parse`
+	 * inputs (`'0'`, `'March 5'`) and calendar-invalid dates (`2026-02-31`)
+	 * are rejected.
+	 *
+	 * Returns `Date` (not `Temporal`) because the supported runtimes do not
+	 * all ship Temporal yet; use `arg.custom()` with `Temporal.PlainDate.from`
+	 * where the target runtime has it.
+	 *
+	 * @param options - Optional inclusive `min`/`max` date bounds.
+	 * @returns A required `Date` {@link ArgBuilder}.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.date()
+	 * arg.date({ min: new Date('2020-01-01') })
+	 * ```
+	 */
+	date(options?: DateFlagOptions): ArgBuilder<{
+		readonly valueType: Date;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}>;
+
+	/**
+	 * Duration positional argument. Accepts `'30s'`, `'5m'`, `'1.5h'`,
+	 * `'250ms'`, `'2d'`, compounds like `'1h30m'`, or a bare millisecond
+	 * count, and resolves to **milliseconds**.
+	 *
+	 * @returns A required duration {@link ArgBuilder} in milliseconds.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.duration().default(30_000)   // `mycli wait 45s` → 45000
+	 * ```
+	 */
+	duration(): ArgBuilder<{
+		readonly valueType: number;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}>;
+
+	/**
+	 * Byte-size positional argument. Accepts `'512mb'`, `'1.5gb'`, `'64kb'`,
+	 * `'100b'` or a bare byte count, and resolves to **bytes**. Units are
+	 * binary (`1kb` = 1024) and case-insensitive.
+	 *
+	 * @returns A required size {@link ArgBuilder} in bytes.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.bytes().default(10 * 1024 ** 2)   // `mycli split 512kb` → 524288
+	 * ```
+	 */
+	bytes(): ArgBuilder<{
+		readonly valueType: number;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}>;
 }
 
 /**
@@ -1015,11 +1280,18 @@ interface ArgFactory {
  * an {@linkcode ArgBuilder}, then chain modifiers and pass the result to
  * `command().arg(name, builder)`.
  *
- * Four kinds are available:
+ * Four base kinds are available:
  * - `arg.string()` — raw string (most common)
  * - `arg.number()` — parsed to number, errors on NaN
  * - `arg.enum(values)` — constrained to listed literals
  * - `arg.custom(fn)` — arbitrary parse function, infers return type
+ *
+ * Five sugar factories build on them, mirroring their flag counterparts:
+ * - `arg.url()` parses to `URL`, with an optional protocol allowlist
+ * - `arg.path()` keeps the string and adds optional filesystem checks
+ * - `arg.date()` parses strict ISO-8601 to `Date`
+ * - `arg.duration()` resolves `'1h30m'` and friends to milliseconds
+ * - `arg.bytes()` resolves `'512mb'` and friends to bytes
  *
  * @example
  * ```ts
@@ -1037,13 +1309,21 @@ interface ArgFactory {
  * ```
  */
 const arg: ArgFactory = {
-	string(): ArgBuilder<{
+	string(constraints?: StringConstraints): ArgBuilder<{
 		readonly valueType: string;
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'string';
 	}> {
-		return new ArgBuilder(createArgSchema('string'));
+		if (constraints !== undefined) {
+			assertStringConstraints(constraints);
+		}
+		return new ArgBuilder(
+			createArgSchema(
+				'string',
+				constraints !== undefined ? { stringConstraints: constraints } : {},
+			),
+		);
 	},
 
 	number(constraints?: NumberConstraints): ArgBuilder<{
@@ -1086,6 +1366,67 @@ const arg: ArgFactory = {
 			return new ArgBuilder(createArgSchema('custom', { standard: parseFnOrSchema }));
 		}
 		return new ArgBuilder(createArgSchema('custom', { parseFn: parseFnOrSchema }));
+	},
+
+	url(options?: UrlFlagOptions): ArgBuilder<{
+		readonly valueType: URL;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}> {
+		return new ArgBuilder(
+			createArgSchema('custom', {
+				parseFn: (raw: string) => parseUrlValue(raw, options),
+				valueHint: 'url',
+			}),
+		);
+	},
+
+	path(options?: PathFlagOptions): ArgBuilder<{
+		readonly valueType: string;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'string';
+	}> {
+		return new ArgBuilder(
+			createArgSchema('string', { pathChecks: buildPathChecks(options), valueHint: 'path' }),
+		);
+	},
+
+	date(options?: DateFlagOptions): ArgBuilder<{
+		readonly valueType: Date;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}> {
+		return new ArgBuilder(
+			createArgSchema('custom', {
+				parseFn: (raw: string) => parseDateValue(raw, options),
+				valueHint: 'date',
+			}),
+		);
+	},
+
+	duration(): ArgBuilder<{
+		readonly valueType: number;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}> {
+		return new ArgBuilder(
+			createArgSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
+		);
+	},
+
+	bytes(): ArgBuilder<{
+		readonly valueType: number;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'custom';
+	}> {
+		return new ArgBuilder(
+			createArgSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }),
+		);
 	},
 };
 

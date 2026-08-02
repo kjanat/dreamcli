@@ -223,55 +223,10 @@
           "description": "Allowed literal values when `kind === 'enum'`."
         },
         "numberConstraints": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "min": {
-              "type": "number"
-            },
-            "max": {
-              "type": "number"
-            },
-            "int": {
-              "type": "boolean"
-            },
-            "finite": {
-              "type": "boolean"
-            }
-          }
+          "$ref": "#/$defs/numberConstraints"
         },
         "stringConstraints": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "nonEmpty": {
-              "type": "boolean"
-            },
-            "minLength": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "maxLength": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "pattern": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "source": {
-                  "type": "string"
-                },
-                "flags": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "source",
-                "flags"
-              ]
-            }
-          }
+          "$ref": "#/$defs/stringConstraints"
         },
         "elementSchema": {
           "$ref": "#/$defs/flag",
@@ -285,25 +240,7 @@
           "type": "boolean"
         },
         "pathChecks": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "mustExist": {
-              "type": "boolean"
-            },
-            "type": {
-              "enum": [
-                "file",
-                "directory"
-              ]
-            },
-            "create": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "mustExist"
-          ]
+          "$ref": "#/$defs/pathChecks"
         },
         "valueHint": {
           "type": "string"
@@ -361,6 +298,78 @@
       },
       "description": "Negation settings for a boolean flag (set by `.negatable()`).\n\nThe negated spelling and the positive form are two spellings of ONE\nlogical flag: they share duplicate policy, and the last CLI occurrence\nwins across both. The negated spelling is presence-only — `--no-foo=x`\nis rejected."
     },
+    "numberConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "int": {
+          "type": "boolean"
+        },
+        "finite": {
+          "type": "boolean"
+        }
+      }
+    },
+    "stringConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nonEmpty": {
+          "type": "boolean"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pattern": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "flags": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source",
+            "flags"
+          ]
+        }
+      }
+    },
+    "pathChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mustExist": {
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "file",
+            "directory"
+          ]
+        },
+        "create": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mustExist"
+      ]
+    },
     "arg": {
       "type": "object",
       "additionalProperties": false,
@@ -411,6 +420,18 @@
             "type": "string"
           },
           "description": "Allowed literal values when `kind === 'enum'`."
+        },
+        "numberConstraints": {
+          "$ref": "#/$defs/numberConstraints"
+        },
+        "stringConstraints": {
+          "$ref": "#/$defs/stringConstraints"
+        },
+        "pathChecks": {
+          "$ref": "#/$defs/pathChecks"
+        },
+        "valueHint": {
+          "type": "string"
         },
         "deprecated": {
           "oneOf": [

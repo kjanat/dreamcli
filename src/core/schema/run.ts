@@ -77,8 +77,8 @@ export interface RunOptions {
 	readonly answers?: readonly TestAnswer[];
 
 	/**
-	 * Filesystem probe for `flag.path()` checks: reports what exists at a
-	 * path (`'file'`, `'directory'`, or `null` for nothing).
+	 * Filesystem probe for `flag.path()` and `arg.path()` checks: reports what
+	 * exists at a path (`'file'`, `'directory'`, or `null` for nothing).
 	 *
 	 * `CLIBuilder.run()` supplies the runtime adapter's probe automatically.
 	 * When absent (process-free `.execute()` / `runCommand()` without an
@@ -87,7 +87,8 @@ export interface RunOptions {
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 
 	/**
-	 * Recursive directory creation for `flag.path()` `create` checks.
+	 * Recursive directory creation for `flag.path()` and `arg.path()` `create`
+	 * checks.
 	 *
 	 * `CLIBuilder.run()` supplies the runtime adapter's implementation
 	 * automatically. When absent, missing paths are not created.

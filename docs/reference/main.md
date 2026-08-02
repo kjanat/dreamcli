@@ -249,18 +249,29 @@ cli('mycli').plugin(tracePlugin).command(deploy);
 
 Flag factory with typed builders:
 
-| Factory                | Type                           | Default |
-| ---------------------- | ------------------------------ | ------- |
-| `flag.string()`        | `string \| undefined`          | —       |
-| `flag.number()`        | `number \| undefined`          | —       |
-| `flag.boolean()`       | `boolean`                      | `false` |
-| `flag.enum(values)`    | Union of values \| `undefined` | —       |
-| `flag.array(inner)`    | `T[]`                          | `[]`    |
-| `flag.custom(parseFn)` | Return type \| `undefined`     | —       |
+| Factory                | Type                            | Default |
+| ---------------------- | ------------------------------- | ------- |
+| `flag.string()`        | `string \| undefined`           | none    |
+| `flag.number()`        | `number \| undefined`           | none    |
+| `flag.boolean()`       | `boolean`                       | `false` |
+| `flag.enum(values)`    | Union of values \| `undefined`  | none    |
+| `flag.array(inner)`    | `T[]`                           | `[]`    |
+| `flag.custom(parseFn)` | Return type \| `undefined`      | none    |
+| `flag.url()`           | `URL \| undefined`              | none    |
+| `flag.path()`          | `string \| undefined`           | none    |
+| `flag.date()`          | `Date \| undefined`             | none    |
+| `flag.duration()`      | `number \| undefined` (ms)      | none    |
+| `flag.bytes()`         | `number \| undefined`           | none    |
+| `flag.count()`         | `number`                        | `0`     |
+| `flag.keyValue()`      | `Record<string, string>`        | `{}`    |
+
+See [Flags](/guide/flags#flag-types) for the option objects and constraints each
+kind accepts.
 
 ### `arg`
 
-Argument factory:
+Argument factory. Every kind is required unless `.optional()` or `.default()`
+says otherwise:
 
 | Factory               | Type                            |
 | --------------------- | ------------------------------- |
@@ -268,6 +279,14 @@ Argument factory:
 | `arg.number()`        | `number`                        |
 | `arg.enum(values)`    | Union of provided string values |
 | `arg.custom(parseFn)` | Return type                     |
+| `arg.url()`           | `URL`                           |
+| `arg.path()`          | `string`                        |
+| `arg.date()`          | `Date`                          |
+| `arg.duration()`      | `number` (ms)                   |
+| `arg.bytes()`         | `number`                        |
+
+`boolean`, `array`, `count`, and `keyValue` are flag-only. See
+[What the arg factory does not have](/guide/arguments#flag-only-surface).
 
 ### `middleware<Context>(handler)`
 

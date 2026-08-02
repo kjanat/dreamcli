@@ -1,17 +1,21 @@
 /**
- * Parse functions backing the sugar flag factories (`flag.url()`,
- * `flag.date()`, `flag.duration()`, `flag.bytes()`).
+ * Value-level machinery behind the sugar factories on both `flag` and `arg`
+ * (`url()`, `path()`, `date()`, `duration()`, `bytes()`).
  *
- * Each parser converts a raw CLI/env/config value into a typed value and
+ * Each parser converts a raw CLI/env/config/stdin value into a typed value and
  * throws a plain `Error` with a human-readable reason on invalid input. The
- * parse and resolve pipelines wrap thrown errors with flag context
- * (`Failed to parse flag --x: <reason>`), so parsers only describe the value
- * problem itself.
+ * parse and resolve pipelines wrap thrown errors with the subject's context
+ * (`Failed to parse flag --x: <reason>`, `Failed to parse argument <x>: …`),
+ * so parsers only describe the value problem itself.
+ *
+ * The option types keep their `Flag` prefix from the release that introduced
+ * them on the flag factory alone. They describe the value, not flag syntax,
+ * and the arg factory takes the same objects.
  *
  * @module dreamcli/core/schema/value-parsers
  */
 
-/** Options accepted by `flag.url()`. */
+/** Options accepted by `flag.url()` and `arg.url()`. */
 interface UrlFlagOptions {
 	/**
 	 * Allowed URL protocols, without the trailing colon (e.g. `['https']`).
@@ -20,7 +24,7 @@ interface UrlFlagOptions {
 	readonly protocols?: readonly string[];
 }
 
-/** Options accepted by `flag.date()`. */
+/** Options accepted by `flag.date()` and `arg.date()`. */
 interface DateFlagOptions {
 	/**
 	 * Inclusive earliest allowed date.
@@ -239,5 +243,87 @@ function parseBytesValue(raw: unknown): number {
 	return Math.round(Number(match[1]) * scale);
 }
 
-export type { DateFlagOptions, UrlFlagOptions };
-export { parseBytesValue, parseDateValue, parseDurationValue, parseUrlValue };
+/** Options accepted by `flag.path()` and `arg.path()` for any-kind or file paths. */
+interface FilePathFlagOptions {
+	/**
+	 * Reject the value if nothing exists at the path.
+	 * @defaultValue `false` (`true` when `type` is set)
+	 */
+	readonly mustExist?: boolean;
+	/**
+	 * Require the path to be a file or a directory. Implies existence
+	 * unless `mustExist` is explicitly `false`, in which case a missing
+	 * path passes and only an existing path is type-checked.
+	 * @defaultValue `undefined` (any kind)
+	 */
+	readonly type?: 'file';
+	/** Directory creation is only available with `type: 'directory'`. */
+	readonly create?: never;
+}
+
+/** Options accepted by `flag.path()` and `arg.path()` for directory paths. */
+interface DirectoryPathFlagOptions {
+	/**
+	 * Reject the value if nothing exists at the path.
+	 * @defaultValue `false` (`true` when `type` is set)
+	 */
+	readonly mustExist?: boolean;
+	/**
+	 * Require the path to be a directory. Implies existence unless
+	 * `mustExist` is explicitly `false`, in which case a missing path
+	 * passes and only an existing path is type-checked.
+	 */
+	readonly type: 'directory';
+	/**
+	 * Create the directory (recursively) when nothing exists at the path.
+	 * An existing non-directory path still fails the type check.
+	 * @defaultValue `false`
+	 */
+	readonly create?: boolean;
+}
+
+/** Options accepted by `flag.path()` and `arg.path()`. */
+type PathFlagOptions = FilePathFlagOptions | DirectoryPathFlagOptions;
+
+/**
+ * Filesystem expectations attached by `flag.path()` and `arg.path()`.
+ *
+ * Checked after resolution (not during parse) via the runtime adapter, so
+ * `src/core` stays free of platform I/O and every resolved value is validated
+ * whichever source produced it, defaults included.
+ */
+interface PathChecks {
+	/** Reject the value if nothing exists at the path. */
+	readonly mustExist: boolean;
+	/**
+	 * Require the existing path to be a file or a directory. Implies
+	 * existence when set, unless `mustExist` is `false`.
+	 */
+	readonly type: 'file' | 'directory' | undefined;
+	/** Create the directory (recursively) when nothing exists at the path. */
+	readonly create: boolean;
+}
+
+/**
+ * Normalize path factory options into the {@link PathChecks} a schema stores.
+ *
+ * Options that ask for nothing (absent, `{}`, or `mustExist: false` alone)
+ * produce `undefined`, so the schema records no checks and the resolver skips
+ * the filesystem entirely.
+ *
+ * @param options - Options passed to `flag.path()` or `arg.path()`.
+ * @returns The checks to store, or `undefined` when none were requested.
+ */
+function buildPathChecks(options?: PathFlagOptions): PathChecks | undefined {
+	if (options === undefined || (options.mustExist !== true && options.type === undefined)) {
+		return undefined;
+	}
+	return {
+		mustExist: options.mustExist ?? true,
+		type: options.type,
+		create: options.type === 'directory' && options.create === true,
+	};
+}
+
+export type { DateFlagOptions, PathChecks, PathFlagOptions, UrlFlagOptions };
+export { buildPathChecks, parseBytesValue, parseDateValue, parseDurationValue, parseUrlValue };

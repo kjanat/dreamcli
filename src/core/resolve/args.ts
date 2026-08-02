@@ -10,15 +10,19 @@ import type { ArgSchema, CommandArgEntry } from '#internals/core/schema/index.ts
 import { coerceArgStringValue } from './coerce.ts';
 import type { DeprecationWarning } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
+import type { MkdirFn, StatFn } from './path-checks.ts';
+import { validatePathChecks } from './path-checks.ts';
 
 /** Walk every declared arg through the resolution chain (cli -> stdin -> env -> default), collecting deprecations and throwing aggregated errors. */
-function resolveArgs(
+async function resolveArgs(
 	argEntries: readonly CommandArgEntry[],
 	parsedArgs: Readonly<Record<string, unknown>>,
 	stdinData: string | null | undefined,
 	env: Readonly<Record<string, string | undefined>>,
 	deprecations: DeprecationWarning[],
-): Readonly<Record<string, unknown>> {
+	stat: StatFn | undefined,
+	mkdir: MkdirFn | undefined,
+): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
 
@@ -110,11 +114,46 @@ function resolveArgs(
 		resolved[name] = undefined;
 	}
 
+	if (stat !== undefined) {
+		for (const { name, schema } of argEntries) {
+			const checks = schema.pathChecks;
+			if (checks === undefined) continue;
+
+			for (const value of pathValuesOf(resolved[name])) {
+				const violation = await validatePathChecks(
+					{ kind: 'arg', name },
+					value,
+					checks,
+					stat,
+					mkdir,
+				);
+				if (violation !== undefined) {
+					errors.push(violation);
+				}
+			}
+		}
+	}
+
 	if (isNonEmpty(errors)) {
 		throwAggregatedErrors(errors);
 	}
 
 	return resolved;
+}
+
+/**
+ * List the path strings a resolved arg value carries.
+ *
+ * A variadic path arg resolves to an array, and every entry it collected is
+ * checked; a non-string value belongs to another kind and is skipped.
+ *
+ * @param value - The resolved arg value.
+ * @returns Every path string to check, possibly none.
+ */
+function pathValuesOf(value: unknown): readonly string[] {
+	if (typeof value === 'string') return [value];
+	if (Array.isArray(value)) return value.filter((entry) => typeof entry === 'string');
+	return [];
 }
 
 function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {

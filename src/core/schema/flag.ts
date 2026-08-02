@@ -22,7 +22,10 @@ import type {
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
+	buildPathChecks,
 	type DateFlagOptions,
+	type PathChecks,
+	type PathFlagOptions,
 	parseBytesValue,
 	parseDateValue,
 	parseDurationValue,
@@ -190,67 +193,6 @@ type FlagParseFn<T> = (raw: unknown) => T;
  */
 type CustomFlagValue<A> =
 	A extends FlagParseFn<infer T> ? T : A extends StandardSchemaV1 ? InferStandardOutput<A> : never;
-
-/** Options accepted by `flag.path()` for any-kind or file paths. */
-interface FilePathFlagOptions {
-	/**
-	 * Reject the value if nothing exists at the path.
-	 * @defaultValue `false` (`true` when `type` is set)
-	 */
-	readonly mustExist?: boolean;
-	/**
-	 * Require the path to be a file or a directory. Implies existence
-	 * unless `mustExist` is explicitly `false`, in which case a missing
-	 * path passes and only an existing path is type-checked.
-	 * @defaultValue `undefined` (any kind)
-	 */
-	readonly type?: 'file';
-	/** Directory creation is only available with `type: 'directory'`. */
-	readonly create?: never;
-}
-
-/** Options accepted by `flag.path()` for directory paths. */
-interface DirectoryPathFlagOptions {
-	/**
-	 * Reject the value if nothing exists at the path.
-	 * @defaultValue `false` (`true` when `type` is set)
-	 */
-	readonly mustExist?: boolean;
-	/**
-	 * Require the path to be a directory. Implies existence unless
-	 * `mustExist` is explicitly `false`, in which case a missing path
-	 * passes and only an existing path is type-checked.
-	 */
-	readonly type: 'directory';
-	/**
-	 * Create the directory (recursively) when nothing exists at the path.
-	 * An existing non-directory path still fails the type check.
-	 * @defaultValue `false`
-	 */
-	readonly create?: boolean;
-}
-
-/** Options accepted by `flag.path()`. */
-type PathFlagOptions = FilePathFlagOptions | DirectoryPathFlagOptions;
-
-/**
- * Filesystem expectations attached by `flag.path()`.
- *
- * Checked after resolution (not during parse) via the runtime adapter, so
- * `src/core` stays free of platform I/O and all sources (CLI, env, config)
- * are validated identically.
- */
-interface PathChecks {
-	/** Reject the value if nothing exists at the path. */
-	readonly mustExist: boolean;
-	/**
-	 * Require the existing path to be a file or a directory. Implies
-	 * existence when set, unless `mustExist` is `false`.
-	 */
-	readonly type: 'file' | 'directory' | undefined;
-	/** Create the directory (recursively) when nothing exists at the path. */
-	readonly create: boolean;
-}
 
 /** Runtime descriptor for a flag alias. */
 interface FlagAlias {
@@ -1700,7 +1642,7 @@ interface FlagFactory {
 	/**
 	 * Path-valued flag. The value stays a `string`; optional filesystem
 	 * checks run **after resolution** through the runtime adapter, so CLI,
-	 * env, and config values are validated identically.
+	 * env, config, prompted, and defaulted values are all validated.
 	 *
 	 * @param options - Optional existence/type checks. `type` implies
 	 *   existence unless `mustExist` is explicitly `false`.
@@ -1959,15 +1901,9 @@ const flag: FlagFactory = {
 		readonly flagKind: 'string';
 		readonly elementEligible: false;
 	}> {
-		const pathChecks =
-			options?.mustExist === true || options?.type !== undefined
-				? {
-						mustExist: options.mustExist ?? true,
-						type: options.type,
-						create: options.type === 'directory' && options.create === true,
-					}
-				: undefined;
-		return new FlagBuilder(createFlagSchema('string', { pathChecks, valueHint: 'path' }));
+		return new FlagBuilder(
+			createFlagSchema('string', { pathChecks: buildPathChecks(options), valueHint: 'path' }),
+		);
 	},
 
 	date(options?: DateFlagOptions): FlagBuilder<{
@@ -2051,7 +1987,12 @@ export type {
 } from './prompt.ts';
 export { PROMPT_KINDS } from './prompt.ts';
 export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
-export type { DateFlagOptions, UrlFlagOptions } from './value-parsers.ts';
+export type {
+	DateFlagOptions,
+	PathChecks,
+	PathFlagOptions,
+	UrlFlagOptions,
+} from './value-parsers.ts';
 export type {
 	AllowedPromptConfig,
 	ArrayFlagDefinition,
@@ -2077,8 +2018,6 @@ export type {
 	KeyValueFlagDefinition,
 	NumberFlagDefinition,
 	OptionalFallback,
-	PathChecks,
-	PathFlagOptions,
 	PromptConfigByFlagKind,
 	ResolvedValue,
 	StringFlagDefinition,

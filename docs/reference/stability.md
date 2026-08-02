@@ -160,8 +160,11 @@ Pipeline and rendering options: `ParseOptions`, `ResolveOptions`,
 Per-call output options: `SpinnerOptions`, `ProgressOptions`, `TableOptions`, and
 `TableColumn`.
 
-Value options accepted by the flag factories: `StringConstraints`,
+Value options accepted by the flag and arg factories: `StringConstraints`,
 `NumberConstraints`, `PathFlagOptions`, `UrlFlagOptions`, and `DateFlagOptions`.
+All five describe the value rather than flag syntax, so `flag.path()` and
+`arg.path()` take one `PathFlagOptions`, `flag.url()` and `arg.url()` take one
+`UrlFlagOptions`, and `flag.date()` and `arg.date()` take one `DateFlagOptions`.
 
 Prompt configuration: `PromptConfig`, `PromptConfigBase`, `InputPromptConfig`,
 `ConfirmPromptConfig`, `SelectPromptConfig`, `MultiselectPromptConfig`, and the
@@ -220,7 +223,10 @@ a minor release, required fields only in a major.
 
 `PathChecks`, `FlagNegation`, and `CommandExample` are stored verbatim on the
 built schema, so the same type serves as consumer input and as a member of a
-sealed value. The input contract is the one that governs them.
+sealed value. The input contract is the one that governs them. `PathChecks`
+appears on both `StringFlagDefinition` and `StringArgDefinition`, alongside
+`StringConstraints` on each and `valueHint` on `FlagDefinitionBase` and
+`ArgDefinitionBase`.
 
 Two properties are load-bearing for code generators. Definitions are recursive
 and accept either rung, so `CommandDefinition.flags` takes a `FlagDefinition` or
@@ -455,6 +461,12 @@ fragment types `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
 `FlagStringConstraintsFragmentV1`, `PromptChoiceFragmentV1`, and
 `PromptDefinitionFragmentV1`; and the error envelope `CLIErrorJSON`.
 
+`FlagStringConstraintsFragmentV1` and `FlagPathChecksFragmentV1` are the value
+fragments of both `FlagDefinitionFragmentV1` and `ArgDefinitionFragmentV1`. Their
+names are frozen with the version 1 format and carry no claim about which of the
+two embeds them; the meta-schema hoists one definition per fragment and both
+parents `$ref` it.
+
 These values leave the process. The package version does not govern their shape.
 `schemaVersion` does.
 
@@ -536,6 +548,18 @@ The [API reference](/reference/api) lists their signatures.
 
 `flag` and `arg` are callable namespaces typed by `FlagFactory` and `ArgFactory`.
 A new factory method on either is a new function and ships in a minor release.
+`FlagFactory` holds `string`, `number`, `boolean`, `enum`, `array`, `custom`,
+`url`, `path`, `date`, `duration`, `bytes`, `count`, and `keyValue`.
+`ArgFactory` holds `string`, `number`, `enum`, `custom`, `url`, `path`, `date`,
+`duration`, and `bytes`; the four it does not carry are documented under
+[what the arg factory does not have](/guide/arguments#flag-only-surface).
+
+Builder modifier methods follow the same rule. `FlagBuilder` and `ArgBuilder`
+both carry `.int()`, `.min()`, `.max()`, and `.finite()` on number-kind
+builders, and `.nonEmpty()`, `.minLength()`, `.maxLength()`, and `.pattern()` on
+string-kind builders. A modifier guarded by a `this` parameter is callable only
+on the kinds it names, so widening one to another kind is additive and ships in
+a minor release.
 
 A function may gain optional trailing parameters in a minor release, and its
 return type may gain members subject to the category that return type belongs

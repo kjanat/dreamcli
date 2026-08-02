@@ -15,20 +15,12 @@ import { coerceValue } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
 import type { DeprecationWarning } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
+import type { MkdirFn, StatFn } from './path-checks.ts';
+import { validatePathChecks } from './path-checks.ts';
 
 type PromptResolveResult =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError | undefined };
-
-/**
- * Filesystem probe injected by the caller for `flag.path()` checks.
- *
- * Returns what exists at the path, or `null` when nothing does.
- */
-type StatFn = (path: string) => Promise<'file' | 'directory' | null>;
-
-/** Recursive directory creation injected by the caller for `flag.path()` `create` checks. */
-type MkdirFn = (path: string) => Promise<void>;
 
 /** Walk every declared flag through the resolution chain (cli -> env -> config -> prompt -> default), collecting deprecations and throwing aggregated errors. */
 async function resolveFlags(
@@ -191,7 +183,13 @@ async function resolveFlags(
 		}
 
 		if (schema.pathChecks !== undefined && typeof value === 'string' && stat !== undefined) {
-			const violation = await validatePathChecks(name, value, schema.pathChecks, stat, mkdir);
+			const violation = await validatePathChecks(
+				{ kind: 'flag', name },
+				value,
+				schema.pathChecks,
+				stat,
+				mkdir,
+			);
 			if (violation !== undefined) {
 				errors.push(violation);
 			}
@@ -203,59 +201,6 @@ async function resolveFlags(
 	}
 
 	return resolved;
-}
-
-/**
- * Check a resolved path value against its declared filesystem expectations.
- *
- * @returns `undefined` when the path satisfies the checks, or a
- * {@link ValidationError} with code `'CONSTRAINT_VIOLATED'` otherwise.
- * @internal
- */
-async function validatePathChecks(
-	flagName: string,
-	value: string,
-	checks: NonNullable<FlagSchema['pathChecks']>,
-	stat: StatFn,
-	mkdir: MkdirFn | undefined,
-): Promise<ValidationError | undefined> {
-	const found = await stat(value);
-	if (found === null) {
-		if (checks.create && mkdir !== undefined) {
-			try {
-				await mkdir(value);
-				return undefined;
-			} catch (error) {
-				return new ValidationError(
-					`Failed to create directory '${value}' for flag --${flagName}: ${
-						error instanceof Error ? error.message : String(error)
-					}`,
-					{
-						code: 'CONSTRAINT_VIOLATED',
-						details: { flag: flagName, value, constraint: 'create' },
-						suggest: `Provide a creatable or existing directory path for --${flagName}`,
-					},
-				);
-			}
-		}
-		if (!checks.mustExist) return undefined;
-		return new ValidationError(`Path '${value}' for flag --${flagName} does not exist`, {
-			code: 'CONSTRAINT_VIOLATED',
-			details: { flag: flagName, value, constraint: 'mustExist' },
-			suggest: `Provide an existing path for --${flagName}`,
-		});
-	}
-	if (checks.type !== undefined && found !== checks.type) {
-		return new ValidationError(
-			`Path '${value}' for flag --${flagName} is a ${found}, expected a ${checks.type}`,
-			{
-				code: 'CONSTRAINT_VIOLATED',
-				details: { flag: flagName, value, constraint: 'pathType', expected: checks.type },
-				suggest: `Provide a ${checks.type} path for --${flagName}`,
-			},
-		);
-	}
-	return undefined;
 }
 
 /** Maps each flag kind to the prompt kinds that produce compatible values. */

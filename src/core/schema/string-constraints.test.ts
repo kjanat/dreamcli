@@ -1,5 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { runCommand } from '#internals/core/testkit/index.ts';
+import type { InferArg } from './arg.ts';
+import { arg } from './arg.ts';
 import { command } from './command.ts';
 import type { InferFlag } from './flag.ts';
 import { flag } from './flag.ts';
@@ -7,6 +9,7 @@ import type { StringConstraints, StringConstraintViolation } from './string-cons
 import {
 	assertStringConstraints,
 	describeStringConstraintViolation,
+	stringConstraintDetails,
 	validateStringConstraints,
 } from './string-constraints.ts';
 
@@ -210,6 +213,32 @@ describe('describeStringConstraintViolation()', () => {
 	});
 });
 
+// === stringConstraintDetails — shared error-detail fragment
+
+describe('stringConstraintDetails()', () => {
+	it('names the rule for a nonEmpty violation', () => {
+		expect(stringConstraintDetails({ kind: 'nonEmpty' })).toEqual({ constraint: 'nonEmpty' });
+	});
+
+	it('carries the bound for a length violation', () => {
+		expect(stringConstraintDetails({ kind: 'minLength', bound: 3 })).toEqual({
+			constraint: 'minLength',
+			bound: 3,
+		});
+		expect(stringConstraintDetails({ kind: 'maxLength', bound: 8 })).toEqual({
+			constraint: 'maxLength',
+			bound: 8,
+		});
+	});
+
+	it('carries the rendered source for a pattern violation', () => {
+		expect(stringConstraintDetails({ kind: 'pattern', pattern: '/^ghp_/' })).toEqual({
+			constraint: 'pattern',
+			pattern: '/^ghp_/',
+		});
+	});
+});
+
 // === flag.string() — builder integration
 
 describe('flag.string() constraints options', () => {
@@ -325,6 +354,99 @@ describe('flag.string() chained constraint methods', () => {
 		// @ts-expect-error — .pattern() is not available on enum flags
 		flag.enum(['a', 'b']).pattern(/^a/);
 		expect(true).toBe(true);
+	});
+});
+
+// === arg.string() — builder integration
+
+describe('arg.string() constraints options', () => {
+	it('has no constraints by default', () => {
+		expect(arg.string().schema.stringConstraints).toBeUndefined();
+	});
+
+	it('stores constraints from the options object', () => {
+		const a = arg.string({ nonEmpty: true, minLength: 2, maxLength: 8, pattern: /^ghp_/ });
+		expect(a.schema.stringConstraints).toEqual({
+			nonEmpty: true,
+			minLength: 2,
+			maxLength: 8,
+			pattern: /^ghp_/,
+		});
+	});
+
+	it('keeps the resolved value type as string regardless of constraints', () => {
+		const a = arg.string({ nonEmpty: true, minLength: 2 });
+		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<string>();
+	});
+
+	it('throws RangeError for malformed bounds in the options object', () => {
+		expect(() => arg.string({ minLength: -1 })).toThrow(RangeError);
+		expect(() => arg.string({ maxLength: 2.5 })).toThrow(RangeError);
+		expect(() => arg.string({ minLength: 5, maxLength: 2 })).toThrow(RangeError);
+	});
+});
+
+describe('arg.string() chained constraint methods', () => {
+	it('.nonEmpty() sets nonEmpty true, .nonEmpty(false) sets it false', () => {
+		expect(arg.string().nonEmpty().schema.stringConstraints).toEqual({ nonEmpty: true });
+		expect(arg.string().nonEmpty(false).schema.stringConstraints).toEqual({ nonEmpty: false });
+	});
+
+	it('.minLength()/.maxLength() set inclusive bounds', () => {
+		expect(arg.string().minLength(2).maxLength(8).schema.stringConstraints).toEqual({
+			minLength: 2,
+			maxLength: 8,
+		});
+	});
+
+	it('.pattern() stores the regex', () => {
+		expect(arg.string().pattern(/^ghp_/).schema.stringConstraints).toEqual({ pattern: /^ghp_/ });
+	});
+
+	it('chained methods merge onto the options object', () => {
+		const a = arg.string({ nonEmpty: true }).minLength(2).maxLength(8).pattern(/^a/);
+		expect(a.schema.stringConstraints).toEqual({
+			nonEmpty: true,
+			minLength: 2,
+			maxLength: 8,
+			pattern: /^a/,
+		});
+	});
+
+	it('a later chained call overrides an earlier value', () => {
+		expect(arg.string({ minLength: 1 }).minLength(5).schema.stringConstraints).toEqual({
+			minLength: 5,
+		});
+		expect(arg.string({ pattern: /^a/ }).pattern(/^b/).schema.stringConstraints).toEqual({
+			pattern: /^b/,
+		});
+	});
+
+	it('throws RangeError for malformed chained bounds', () => {
+		expect(() => arg.string().minLength(-1)).toThrow(RangeError);
+		expect(() => arg.string().maxLength(-1)).toThrow(RangeError);
+		expect(() => arg.string({ maxLength: 2 }).minLength(5)).toThrow(RangeError);
+	});
+
+	it('preserves presence, variadic, and stdin state through the chain', () => {
+		const optional = arg.string().optional().nonEmpty().minLength(2);
+		expect(optional.schema.presence).toBe('optional');
+		expectTypeOf<InferArg<typeof optional>>().toEqualTypeOf<string | undefined>();
+
+		const variadic = arg.string().variadic().pattern(/^a/);
+		expect(variadic.schema.variadic).toBe(true);
+		expectTypeOf<InferArg<typeof variadic>>().toEqualTypeOf<string[]>();
+
+		const piped = arg.string().stdin().nonEmpty();
+		expect(piped.schema.stdinMode).toBe(true);
+		expect(piped.schema.stringConstraints).toEqual({ nonEmpty: true });
+	});
+
+	it('does not mutate the source builder (immutability)', () => {
+		const base = arg.string({ minLength: 2 });
+		base.maxLength(8);
+		base.nonEmpty();
+		expect(base.schema.stringConstraints).toEqual({ minLength: 2 });
 	});
 });
 
