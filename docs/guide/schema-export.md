@@ -27,12 +27,26 @@ writeFileSync(
 );
 ```
 
-Output includes a `$schema` URL pointing at the CDN-hosted definition
-schema. For offline or CI-friendly setups, use the local copy instead:
+Output includes a `$schema` URL pointing at
+`https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`. The `v1` in
+that path is the definition format version, the same one the document reports
+as `schemaVersion`. Every release that emits `schemaVersion: 1` resolves to it.
+
+Two mirrors carry the same bytes: the copy inside the installed package, and
+`https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json` on the npm
+CDN. Emitted documents always carry the canonical URL in `$schema`, and the
+meta-schema pins that exact value. For offline or CI-friendly validation, map
+the canonical URL to the local copy in your tooling instead of rewriting the
+document — in VS Code:
 
 ```json
 {
-  "$schema": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json"
+  "json.schemas": [
+    {
+      "url": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json",
+      "fileMatch": ["*.definition.json"]
+    }
+  ]
 }
 ```
 
@@ -42,7 +56,8 @@ Full example output:
 
 ```json
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json",
+  "$schema": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json",
+  "schemaVersion": 1,
   "name": "mycli",
   "version": "1.0.0",
   "commands": [

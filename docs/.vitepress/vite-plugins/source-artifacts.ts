@@ -4,7 +4,7 @@
  * Twoslash examples import `@kjanat/dreamcli/schema`, which resolves
  * through tsconfig paths to the root `dreamcli.schema.json` file. This
  * plugin ensures that file exists during docs dev/build and emits it into
- * docs dist for hosting.
+ * docs dist at the canonical `$schema` path and at the root mirror.
  *
  * @module
  */
@@ -18,6 +18,9 @@ const rootDir = normalize(`${import.meta.dirname}/../../..`);
 const definitionSchemaPath = `${rootDir}/dreamcli.schema.json`;
 const emitDefinitionSchemaPath = `${rootDir}/scripts/emit-definition-schema.ts`;
 const emitDefinitionSchemaUrl = pathToFileURL(emitDefinitionSchemaPath).href;
+
+const CANONICAL_SCHEMA_PATH = 'schemas/definition/v1.schema.json';
+const MIRROR_SCHEMA_PATH = 'dreamcli.schema.json';
 
 export function sourceArtifactsPlugin(): Plugin {
 	let buildingPromise: Promise<void> | null = null;
@@ -58,11 +61,13 @@ export function sourceArtifactsPlugin(): Plugin {
 		async generateBundle() {
 			const { readFile } = await import('node:fs/promises');
 			const schema = await readExistingSchema(readFile, definitionSchemaPath);
-			this.emitFile({
-				type: 'asset',
-				fileName: 'dreamcli.schema.json',
-				source: schema,
-			});
+			for (const fileName of [CANONICAL_SCHEMA_PATH, MIRROR_SCHEMA_PATH]) {
+				this.emitFile({
+					type: 'asset',
+					fileName,
+					source: schema,
+				});
+			}
 		},
 
 		configureServer(server) {

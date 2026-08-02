@@ -18,14 +18,22 @@ import type { schemaBrand } from '#internals/core/schema/brand.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
+	ArgKind,
+	ArgPresence,
 	ArgSchema,
 	CommandArgEntry,
 	CommandExample,
 	CommandSchema,
+	DuplicatePolicy,
 	ExampleMeta,
+	FlagKind,
+	FlagPresence,
 	FlagSchema,
+	NumberConstraints,
 	PromptConfig,
+	PromptKind,
 	SelectChoice,
+	StringConstraints,
 } from '#internals/core/schema/index.ts';
 import { definitionMetaSchemaDescriptions } from './meta-descriptions.generated.ts';
 
@@ -91,18 +99,204 @@ function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions
 /**
  * `$schema` URL for definition documents.
  *
- * Resolves via the actual file path on the CDN (`dreamcli.schema.json`).
- * For offline or local-first workflows, use
- * `./node_modules/@kjanat/dreamcli/dreamcli.schema.json`.
+ * Self-hosted. The `v1` segment is the definition format version, the value
+ * every document reports as `schemaVersion`, so it resolves for every package
+ * release that emits `schemaVersion: 1`. Two mirrors carry identical bytes:
+ * `./node_modules/@kjanat/dreamcli/dreamcli.schema.json` for offline or
+ * local-first workflows, and
+ * `https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json` on the
+ * npm CDN.
  */
-const DEFINITION_SCHEMA_URL = 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json';
+const DEFINITION_SCHEMA_URL = 'https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json';
 
 /** Meta-schema URL for JSON Schema draft 2020-12 (input validation). */
 const JSON_SCHEMA_DRAFT = 'https://json-schema.org/draft/2020-12/schema';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+/**
+ * Version of the definition document format emitted by {@link generateSchema}
+ * and {@link generateCommandSchema}.
+ */
+const DEFINITION_SCHEMA_VERSION = 1;
+
+// --- Definition document types
+
+/**
+ * A usage example inside a definition document.
+ *
+ * Function-form examples are resolved to strings during serialization.
+ */
+type ExampleDefinitionFragmentV1 = {
+	readonly command: string;
+	readonly description?: string;
+};
+
+/** A selectable choice of a `select` or `multiselect` prompt fragment. */
+type PromptChoiceFragmentV1 = {
+	readonly value: string;
+	readonly label?: string;
+	readonly description?: string;
+};
+
+/**
+ * Prompt configuration attached to a flag fragment.
+ *
+ * Validation callbacks are dropped. Only the serializable description of the
+ * prompt survives.
+ */
+type PromptDefinitionFragmentV1 = {
+	readonly kind: PromptKind;
+	readonly message: string;
+	readonly placeholder?: string;
+	readonly choices?: readonly PromptChoiceFragmentV1[];
+	readonly min?: number;
+	readonly max?: number;
+};
+
+/** Negated-spelling settings of a boolean flag fragment. */
+type FlagNegationFragmentV1 = {
+	readonly alias?: string;
+	readonly hidden?: true;
+};
+
+/** String constraints of a flag fragment, with the pattern split into source and flags. */
+type FlagStringConstraintsFragmentV1 = {
+	readonly nonEmpty?: boolean;
+	readonly minLength?: number;
+	readonly maxLength?: number;
+	readonly pattern?: {
+		readonly source: string;
+		readonly flags: string;
+	};
+};
+
+/** Filesystem expectations of a flag fragment. */
+type FlagPathChecksFragmentV1 = {
+	readonly mustExist: boolean;
+	readonly type?: 'file' | 'directory';
+	readonly create?: true;
+};
+
+/**
+ * A flag entry inside a definition document.
+ *
+ * Optional fields appear only when the flag sets them; `defaultValue` appears
+ * only when the value survives a JSON round-trip.
+ */
+type FlagDefinitionFragmentV1 = {
+	readonly kind: FlagKind;
+	readonly presence: FlagPresence;
+	readonly defaultValue?: unknown;
+	readonly aliases?: readonly string[];
+	readonly envVar?: string;
+	readonly configPath?: string;
+	readonly description?: string;
+	readonly enumValues?: readonly string[];
+	readonly numberConstraints?: NumberConstraints;
+	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
+	readonly elementSchema?: FlagDefinitionFragmentV1;
+	readonly separator?: string;
+	readonly unique?: true;
+	readonly pathChecks?: FlagPathChecksFragmentV1;
+	readonly valueHint?: string;
+	readonly prompt?: PromptDefinitionFragmentV1;
+	readonly deprecated?: string | true;
+	readonly propagate?: true;
+	readonly negation?: FlagNegationFragmentV1;
+	readonly duplicates?: DuplicatePolicy;
+};
+
+/**
+ * A positional arg entry inside a definition document.
+ *
+ * Array order carries the CLI position.
+ */
+type ArgDefinitionFragmentV1 = {
+	readonly name: string;
+	readonly kind: ArgKind;
+	readonly presence: ArgPresence;
+	readonly variadic?: true;
+	readonly stdinMode?: true;
+	readonly defaultValue?: unknown;
+	readonly description?: string;
+	readonly envVar?: string;
+	readonly enumValues?: readonly string[];
+	readonly deprecated?: string | true;
+};
+
+/**
+ * A command nested inside a definition document.
+ *
+ * Fragments carry no `schemaVersion`. They inherit the version of the document
+ * they sit in. The standalone form is {@link CommandDefinitionDocumentV1}.
+ */
+type CommandDefinitionFragmentV1 = {
+	readonly name: string;
+	readonly description?: string;
+	readonly aliases?: readonly string[];
+	readonly hidden?: true;
+	readonly examples?: readonly ExampleDefinitionFragmentV1[];
+	readonly flags: Readonly<Record<string, FlagDefinitionFragmentV1>>;
+	readonly args: readonly ArgDefinitionFragmentV1[];
+	readonly commands: readonly CommandDefinitionFragmentV1[];
+};
+
+/**
+ * A whole-CLI definition document, version 1.
+ *
+ * Produced by {@link generateSchema}. Validated by {@link definitionMetaSchema}
+ * and served at {@link DEFINITION_SCHEMA_URL}.
+ */
+type DefinitionDocumentV1 = {
+	readonly $schema: string;
+	readonly schemaVersion: 1;
+	readonly name: string;
+	readonly version?: string;
+	readonly description?: string;
+	readonly defaultCommand?: CommandDefinitionFragmentV1;
+	readonly commands: readonly CommandDefinitionFragmentV1[];
+};
+
+/**
+ * A single-command definition document, version 1.
+ *
+ * Produced by {@link generateCommandSchema}. Same shape as a
+ * {@link CommandDefinitionFragmentV1} plus the `schemaVersion` every standalone
+ * document carries.
+ */
+type CommandDefinitionDocumentV1 = CommandDefinitionFragmentV1 & {
+	readonly schemaVersion: 1;
+};
+
+/** The current whole-CLI definition document. */
+type DefinitionDocument = DefinitionDocumentV1;
+
+/** The current single-command definition document. */
+type CommandDefinitionDocument = CommandDefinitionDocumentV1;
+
+// --- Input schema types
+
+/** A JSON Schema fragment describing one flag or arg as an input property. */
+type InputSchemaProperty = Readonly<Record<string, unknown>>;
+
+/** The JSON Schema object describing one command's flags and args. */
+type InputSchemaBranch = {
+	readonly type: 'object';
+	readonly properties: Readonly<Record<string, InputSchemaProperty>>;
+	readonly additionalProperties: false;
+	readonly required?: readonly string[];
+};
+
+/**
+ * A JSON Schema (draft 2020-12) document produced by {@link generateInputSchema}.
+ *
+ * This document sits outside the definition-document family. It holds one
+ * branch for a single invocable command, a `oneOf` union for several, and a
+ * bare object schema when a CLI has none.
+ */
+type InputSchemaDocument =
+	| ({ readonly $schema: string } & InputSchemaBranch)
+	| { readonly $schema: string; readonly oneOf: readonly InputSchemaBranch[] }
+	| { readonly $schema: string; readonly type: 'object' };
 
 // === Definition schema — generateSchema()
 
@@ -131,36 +325,29 @@ function generateSchema(
 	schema: CLISchema,
 	options?: JsonSchemaOptions,
 	meta?: ExampleMeta,
-): Record<string, unknown> {
+): DefinitionDocumentV1 {
 	const opts = resolveOptions(options);
 	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: schema.version };
 
-	const result: Record<string, unknown> = {
+	// Full definition, not just the name — the default command lives only in
+	// `defaultCommand` (never in `commands`), so a name-only reference would
+	// drop its flags/args from the document entirely.
+	const defaultCommand =
+		schema.defaultCommand !== undefined && (opts.includeHidden || !schema.defaultCommand.hidden)
+			? serializeCommand(schema.defaultCommand, opts, resolvedMeta)
+			: undefined;
+
+	return {
 		$schema: DEFINITION_SCHEMA_URL,
+		schemaVersion: DEFINITION_SCHEMA_VERSION,
 		name: schema.name,
+		...(schema.version !== undefined ? { version: schema.version } : {}),
+		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(defaultCommand !== undefined ? { defaultCommand } : {}),
+		commands: schema.commands
+			.filter((cmd) => opts.includeHidden || !cmd.hidden)
+			.map((cmd) => serializeCommand(cmd, opts, resolvedMeta)),
 	};
-
-	if (schema.version !== undefined) {
-		result.version = schema.version;
-	}
-	if (schema.description !== undefined) {
-		result.description = schema.description;
-	}
-	if (
-		schema.defaultCommand !== undefined &&
-		(opts.includeHidden || !schema.defaultCommand.hidden)
-	) {
-		// Full definition, not just the name — the default command lives only in
-		// `defaultCommand` (never in `commands`), so a name-only reference would
-		// drop its flags/args from the document entirely.
-		result.defaultCommand = serializeCommand(schema.defaultCommand, opts, resolvedMeta);
-	}
-
-	result.commands = schema.commands
-		.filter((cmd) => opts.includeHidden || !cmd.hidden)
-		.map((cmd) => serializeCommand(cmd, opts, resolvedMeta));
-
-	return result;
 }
 
 // --- Command serialization
@@ -168,10 +355,11 @@ function generateSchema(
 /**
  * Generate the definition metadata document for a single command.
  *
- * The per-command counterpart of {@link generateSchema}: the same
- * JSON-serializable shape as one entry of its `commands` array (flags, args,
- * subcommands, examples). Powers `--help` in `--json` mode and is useful for
- * embedding one command's definition into custom tooling.
+ * The per-command counterpart of {@link generateSchema}: one entry of its
+ * `commands` array (flags, args, subcommands, examples), plus the
+ * `schemaVersion` every standalone document carries. Powers `--help` in
+ * `--json` mode and is useful for embedding one command's definition into
+ * custom tooling.
  *
  * @param schema - The command schema to serialize.
  * @param options - Generation options.
@@ -183,9 +371,12 @@ function generateCommandSchema(
 	schema: CommandSchema,
 	options?: JsonSchemaOptions,
 	meta?: ExampleMeta,
-): Record<string, unknown> {
+): CommandDefinitionDocumentV1 {
 	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: undefined };
-	return serializeCommand(schema, resolveOptions(options), resolvedMeta);
+	return {
+		schemaVersion: DEFINITION_SCHEMA_VERSION,
+		...serializeCommand(schema, resolveOptions(options), resolvedMeta),
+	};
 }
 
 /**
@@ -199,38 +390,29 @@ function serializeCommand(
 	schema: CommandSchema,
 	opts: ResolvedOptions,
 	meta: ExampleMeta,
-): Record<string, unknown> {
-	const result: Record<string, unknown> = { name: schema.name };
-
-	if (schema.description !== undefined) {
-		result.description = schema.description;
-	}
-	if (schema.aliases.length > 0) {
-		result.aliases = [...schema.aliases];
-	}
-	if (schema.hidden) {
-		result.hidden = true;
-	}
-	if (schema.examples.length > 0) {
-		result.examples = schema.examples.map((example) => serializeExample(example, meta));
-	}
-
+): CommandDefinitionFragmentV1 {
 	// Flags — always present (consumers iterate without existence check)
-	const flags: Record<string, Record<string, unknown>> = {};
+	const flags: Record<string, FlagDefinitionFragmentV1> = {};
 	for (const [name, flagDef] of Object.entries(schema.flags)) {
 		flags[name] = serializeFlag(flagDef, opts);
 	}
-	result.flags = flags;
 
-	// Args — always present (positional order matters)
-	result.args = schema.args.map(serializeArgEntry);
-
-	// Subcommands — always present
-	result.commands = schema.commands
-		.filter((cmd) => opts.includeHidden || !cmd.hidden)
-		.map((cmd) => serializeCommand(cmd, opts, meta));
-
-	return result;
+	return {
+		name: schema.name,
+		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(schema.aliases.length > 0 ? { aliases: [...schema.aliases] } : {}),
+		...(schema.hidden ? { hidden: true } : {}),
+		...(schema.examples.length > 0
+			? { examples: schema.examples.map((example) => serializeExample(example, meta)) }
+			: {}),
+		flags,
+		// Args — always present (positional order matters)
+		args: schema.args.map(serializeArgEntry),
+		// Subcommands — always present
+		commands: schema.commands
+			.filter((cmd) => opts.includeHidden || !cmd.hidden)
+			.map((cmd) => serializeCommand(cmd, opts, meta)),
+	};
 }
 
 // --- Flag serialization
@@ -242,90 +424,77 @@ function serializeCommand(
  * @param opts - Resolved generation options (prompt inclusion).
  * @returns JSON-serializable object representing the flag.
  */
-function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string, unknown> {
-	const result: Record<string, unknown> = {
+function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitionFragmentV1 {
+	const visibleAliases = getFlagAliasNames(schema);
+	const stringConstraints = schema.stringConstraints;
+	const pathChecks = schema.pathChecks;
+	const negation = schema.negation;
+
+	return {
 		kind: schema.kind,
 		presence: schema.presence,
+		...(schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)
+			? { defaultValue: schema.defaultValue }
+			: {}),
+		...(visibleAliases.length > 0 ? { aliases: [...visibleAliases] } : {}),
+		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
+		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
+		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
+		...(schema.numberConstraints !== undefined
+			? { numberConstraints: { ...schema.numberConstraints } }
+			: {}),
+		...(stringConstraints !== undefined
+			? { stringConstraints: serializeStringConstraints(stringConstraints) }
+			: {}),
+		...(schema.elementSchema !== undefined
+			? { elementSchema: serializeFlag(schema.elementSchema, opts) }
+			: {}),
+		...(schema.separator !== undefined ? { separator: schema.separator } : {}),
+		...(schema.unique ? { unique: true } : {}),
+		...(pathChecks !== undefined
+			? {
+					pathChecks: {
+						mustExist: pathChecks.mustExist,
+						...(pathChecks.type !== undefined ? { type: pathChecks.type } : {}),
+						...(pathChecks.create ? { create: true } : {}),
+					},
+				}
+			: {}),
+		...(schema.valueHint !== undefined ? { valueHint: schema.valueHint } : {}),
+		...(opts.includePrompts && schema.prompt !== undefined
+			? { prompt: serializePrompt(schema.prompt) }
+			: {}),
+		...(schema.deprecated !== undefined ? { deprecated: schema.deprecated } : {}),
+		...(schema.propagate ? { propagate: true } : {}),
+		...(negation !== undefined
+			? {
+					negation: {
+						...(negation.alias !== undefined ? { alias: negation.alias } : {}),
+						...(negation.hidden ? { hidden: true } : {}),
+					},
+				}
+			: {}),
+		...(schema.duplicates !== 'last' ? { duplicates: schema.duplicates } : {}),
 	};
+}
 
-	if (schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)) {
-		result.defaultValue = schema.defaultValue;
-	}
-	const visibleAliases = getFlagAliasNames(schema);
-	if (visibleAliases.length > 0) {
-		result.aliases = [...visibleAliases];
-	}
-	if (schema.envVar !== undefined) {
-		result.envVar = schema.envVar;
-	}
-	if (schema.configPath !== undefined) {
-		result.configPath = schema.configPath;
-	}
-	if (schema.description !== undefined) {
-		result.description = schema.description;
-	}
-	if (schema.enumValues !== undefined) {
-		result.enumValues = [...schema.enumValues];
-	}
-	if (schema.numberConstraints !== undefined) {
-		result.numberConstraints = { ...schema.numberConstraints };
-	}
-	if (schema.stringConstraints !== undefined) {
-		result.stringConstraints = {
-			...schema.stringConstraints,
-			...(schema.stringConstraints.pattern !== undefined
-				? {
-						pattern: {
-							source: schema.stringConstraints.pattern.source,
-							flags: schema.stringConstraints.pattern.flags,
-						},
-					}
-				: {}),
-		};
-	}
-	if (schema.elementSchema !== undefined) {
-		result.elementSchema = serializeFlag(schema.elementSchema, opts);
-	}
-	if (schema.separator !== undefined) {
-		result.separator = schema.separator;
-	}
-	if (schema.unique) {
-		result.unique = true;
-	}
-	if (schema.pathChecks !== undefined) {
-		result.pathChecks = {
-			mustExist: schema.pathChecks.mustExist,
-			...(schema.pathChecks.type !== undefined ? { type: schema.pathChecks.type } : {}),
-			...(schema.pathChecks.create ? { create: true } : {}),
-		};
-	}
-	if (schema.valueHint !== undefined) {
-		result.valueHint = schema.valueHint;
-	}
-	if (opts.includePrompts && schema.prompt !== undefined) {
-		result.prompt = serializePrompt(schema.prompt);
-	}
-	if (schema.deprecated !== undefined) {
-		result.deprecated = schema.deprecated;
-	}
-	if (schema.propagate) {
-		result.propagate = true;
-	}
-	if (schema.negation !== undefined) {
-		const negation: Record<string, unknown> = {};
-		if (schema.negation.alias !== undefined) {
-			negation.alias = schema.negation.alias;
-		}
-		if (schema.negation.hidden) {
-			negation.hidden = true;
-		}
-		result.negation = negation;
-	}
-	if (schema.duplicates !== 'last') {
-		result.duplicates = schema.duplicates;
-	}
-
-	return result;
+/**
+ * Serialize {@link StringConstraints} into a plain object.
+ *
+ * @param constraints - The string constraints to serialize.
+ * @returns JSON-serializable object with the pattern split into source and flags.
+ */
+function serializeStringConstraints(
+	constraints: StringConstraints,
+): FlagStringConstraintsFragmentV1 {
+	const pattern = constraints.pattern;
+	return {
+		...(constraints.nonEmpty !== undefined ? { nonEmpty: constraints.nonEmpty } : {}),
+		...(constraints.minLength !== undefined ? { minLength: constraints.minLength } : {}),
+		...(constraints.maxLength !== undefined ? { maxLength: constraints.maxLength } : {}),
+		...(pattern !== undefined ? { pattern: { source: pattern.source, flags: pattern.flags } } : {}),
+	};
 }
 
 // --- Arg serialization
@@ -336,37 +505,23 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): Record<string
  * @param entry - The positional arg entry (name + {@link ArgSchema}).
  * @returns JSON-serializable object representing the arg.
  */
-function serializeArgEntry(entry: CommandArgEntry): Record<string, unknown> {
+function serializeArgEntry(entry: CommandArgEntry): ArgDefinitionFragmentV1 {
 	const { name, schema } = entry;
-	const result: Record<string, unknown> = {
+
+	return {
 		name,
 		kind: schema.kind,
 		presence: schema.presence,
+		...(schema.variadic ? { variadic: true } : {}),
+		...(schema.stdinMode ? { stdinMode: true } : {}),
+		...(schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)
+			? { defaultValue: schema.defaultValue }
+			: {}),
+		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
+		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
+		...(schema.deprecated !== undefined ? { deprecated: schema.deprecated } : {}),
 	};
-
-	if (schema.variadic) {
-		result.variadic = true;
-	}
-	if (schema.stdinMode) {
-		result.stdinMode = true;
-	}
-	if (schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)) {
-		result.defaultValue = schema.defaultValue;
-	}
-	if (schema.description !== undefined) {
-		result.description = schema.description;
-	}
-	if (schema.envVar !== undefined) {
-		result.envVar = schema.envVar;
-	}
-	if (schema.enumValues !== undefined) {
-		result.enumValues = [...schema.enumValues];
-	}
-	if (schema.deprecated !== undefined) {
-		result.deprecated = schema.deprecated;
-	}
-
-	return result;
 }
 
 // --- Prompt serialization
@@ -377,40 +532,32 @@ function serializeArgEntry(entry: CommandArgEntry): Record<string, unknown> {
  * @param prompt - The prompt configuration to serialize.
  * @returns JSON-serializable object representing the prompt.
  */
-function serializePrompt(prompt: PromptConfig): Record<string, unknown> {
-	const result: Record<string, unknown> = {
-		kind: prompt.kind,
-		message: prompt.message,
-	};
-
+function serializePrompt(prompt: PromptConfig): PromptDefinitionFragmentV1 {
 	switch (prompt.kind) {
 		case 'input':
-			if (prompt.placeholder !== undefined) {
-				result.placeholder = prompt.placeholder;
-			}
 			// validate fn omitted — not serializable
-			break;
+			return {
+				kind: prompt.kind,
+				message: prompt.message,
+				...(prompt.placeholder !== undefined ? { placeholder: prompt.placeholder } : {}),
+			};
 		case 'select':
-			if (prompt.choices !== undefined) {
-				result.choices = prompt.choices.map(serializeChoice);
-			}
-			break;
+			return {
+				kind: prompt.kind,
+				message: prompt.message,
+				...(prompt.choices !== undefined ? { choices: prompt.choices.map(serializeChoice) } : {}),
+			};
 		case 'multiselect':
-			if (prompt.choices !== undefined) {
-				result.choices = prompt.choices.map(serializeChoice);
-			}
-			if (prompt.min !== undefined) {
-				result.min = prompt.min;
-			}
-			if (prompt.max !== undefined) {
-				result.max = prompt.max;
-			}
-			break;
+			return {
+				kind: prompt.kind,
+				message: prompt.message,
+				...(prompt.choices !== undefined ? { choices: prompt.choices.map(serializeChoice) } : {}),
+				...(prompt.min !== undefined ? { min: prompt.min } : {}),
+				...(prompt.max !== undefined ? { max: prompt.max } : {}),
+			};
 		case 'confirm':
-			break;
+			return { kind: prompt.kind, message: prompt.message };
 	}
-
-	return result;
 }
 
 /**
@@ -419,15 +566,12 @@ function serializePrompt(prompt: PromptConfig): Record<string, unknown> {
  * @param choice - The select/multiselect choice to serialize.
  * @returns JSON-serializable object with value, optional label and description.
  */
-function serializeChoice(choice: SelectChoice): Record<string, unknown> {
-	const result: Record<string, unknown> = { value: choice.value };
-	if (choice.label !== undefined) {
-		result.label = choice.label;
-	}
-	if (choice.description !== undefined) {
-		result.description = choice.description;
-	}
-	return result;
+function serializeChoice(choice: SelectChoice): PromptChoiceFragmentV1 {
+	return {
+		value: choice.value,
+		...(choice.label !== undefined ? { label: choice.label } : {}),
+		...(choice.description !== undefined ? { description: choice.description } : {}),
+	};
 }
 
 // --- Example serialization
@@ -442,14 +586,11 @@ function serializeChoice(choice: SelectChoice): Record<string, unknown> {
  * @param meta - Program name/version passed to function-form commands.
  * @returns JSON-serializable object with command and optional description.
  */
-function serializeExample(example: CommandExample, meta: ExampleMeta): Record<string, unknown> {
-	const result: Record<string, unknown> = {
+function serializeExample(example: CommandExample, meta: ExampleMeta): ExampleDefinitionFragmentV1 {
+	return {
 		command: resolveExampleCommand(example.command, meta),
+		...(example.description !== undefined ? { description: example.description } : {}),
 	};
-	if (example.description !== undefined) {
-		result.description = example.description;
-	}
-	return result;
 }
 
 // === Input validation schema — generateInputSchema()
@@ -485,7 +626,7 @@ function serializeExample(example: CommandExample, meta: ExampleMeta): Record<st
 function generateInputSchema(
 	schema: CLISchema | CommandSchema,
 	options?: JsonSchemaOptions,
-): Record<string, unknown> {
+): InputSchemaDocument {
 	const opts = resolveOptions(options);
 
 	// Discriminate between a leaf/group command schema and the CLI root schema.
@@ -497,7 +638,7 @@ function generateInputSchema(
 	}
 
 	// CLISchema — collect all invocable commands into branches
-	const branches: Array<Record<string, unknown>> = [];
+	const branches: InputSchemaBranch[] = [];
 	if (
 		schema.defaultCommand !== undefined &&
 		(opts.includeHidden || !schema.defaultCommand.hidden)
@@ -511,11 +652,11 @@ function generateInputSchema(
 	}
 
 	// Single branch: emit flat (no oneOf wrapper)
-	if (branches.length === 1) {
-		const branch = stripCommandDiscriminator(branches[0] ?? {});
+	const [onlyBranch] = branches;
+	if (branches.length === 1 && onlyBranch !== undefined) {
 		return {
 			$schema: JSON_SCHEMA_DRAFT,
-			...branch,
+			...stripCommandDiscriminator(onlyBranch),
 		};
 	}
 
@@ -564,7 +705,7 @@ function isCommandSchema(schema: CLISchema | CommandSchema): schema is CommandSc
 function collectInputBranches(
 	schema: CommandSchema,
 	prefix: string,
-	branches: Array<Record<string, unknown>>,
+	branches: InputSchemaBranch[],
 	opts: ResolvedOptions,
 ): void {
 	const path = prefix ? `${prefix}.${schema.name}` : schema.name;
@@ -585,11 +726,8 @@ function collectInputBranches(
  * When `commandPath` is provided, a `command` const discriminator property
  * is added and required (used in multi-command oneOf schemas).
  */
-function commandToInputSchema(
-	schema: CommandSchema,
-	commandPath?: string,
-): Record<string, unknown> {
-	const properties: Record<string, Record<string, unknown>> = {};
+function commandToInputSchema(schema: CommandSchema, commandPath?: string): InputSchemaBranch {
+	const properties: Record<string, InputSchemaProperty> = {};
 	const required: string[] = [];
 
 	// Command discriminator (for multi-command schemas)
@@ -614,58 +752,35 @@ function commandToInputSchema(
 		}
 	}
 
-	const result: Record<string, unknown> = {
+	return {
 		type: 'object',
 		properties,
 		additionalProperties: false,
+		...(required.length > 0 ? { required } : {}),
 	};
-
-	if (required.length > 0) {
-		result.required = required;
-	}
-
-	return result;
 }
 
 /** @internal */
-function stripCommandDiscriminator(branch: Record<string, unknown>): Record<string, unknown> {
-	const propertiesValue = branch.properties;
-	const requiredValue = branch.required;
-	const properties = isRecord(propertiesValue) ? { ...propertiesValue } : undefined;
-	const required = Array.isArray(requiredValue)
-		? requiredValue.filter((value): value is string => typeof value === 'string')
-		: undefined;
+function stripCommandDiscriminator(branch: InputSchemaBranch): InputSchemaBranch {
+	const { command: _discriminator, ...properties } = branch.properties;
+	const required = branch.required?.filter((value) => value !== 'command');
 
-	if (properties !== undefined) {
-		delete properties.command;
-	}
-
-	const cleanedRequired = required?.filter((value) => value !== 'command');
-	const result: Record<string, unknown> = { ...branch };
-
-	if (properties !== undefined) {
-		result.properties = properties;
-	}
-
-	if (cleanedRequired !== undefined && cleanedRequired.length > 0) {
-		result.required = cleanedRequired;
-	} else {
-		delete result.required;
-	}
-
-	return result;
+	return {
+		type: branch.type,
+		properties,
+		additionalProperties: branch.additionalProperties,
+		...(required !== undefined && required.length > 0 ? { required } : {}),
+	};
 }
 
-function getBranchCommandDiscriminator(branch: Record<string, unknown>): string | undefined {
-	const propertiesValue = branch.properties;
-	if (!isRecord(propertiesValue)) {
+function getBranchCommandDiscriminator(branch: InputSchemaBranch): string | undefined {
+	const commandValue = branch.properties.command;
+	if (commandValue === undefined) {
 		return undefined;
 	}
 
-	const commandValue = propertiesValue.command;
-	return isRecord(commandValue) && typeof commandValue.const === 'string'
-		? commandValue.const
-		: undefined;
+	const constValue = commandValue.const;
+	return typeof constValue === 'string' ? constValue : undefined;
 }
 
 // --- Type mapping — flags → JSON Schema types
@@ -926,6 +1041,21 @@ function withDefinitionMetaSchemaDescriptions(
 }
 
 /**
+ * Command-fragment property schemas shared by the nested `command` def and
+ * the standalone `commandDocument` def, so the two cannot drift.
+ */
+const commandFragmentProperties = {
+	name: { type: 'string' },
+	description: { type: 'string' },
+	aliases: { type: 'array', items: { type: 'string' } },
+	hidden: { const: true },
+	examples: { type: 'array', items: { $ref: '#/$defs/example' } },
+	flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
+	args: { type: 'array', items: { $ref: '#/$defs/arg' } },
+	commands: { type: 'array', items: { $ref: '#/$defs/command' } },
+} as const;
+
+/**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
  *
  * Hosted at {@link DEFINITION_SCHEMA_URL} for `$schema` resolution. Also
@@ -953,28 +1083,29 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 		additionalProperties: false,
 		properties: {
 			$schema: { const: DEFINITION_SCHEMA_URL },
+			schemaVersion: { const: DEFINITION_SCHEMA_VERSION },
 			name: { type: 'string' },
 			version: { type: 'string' },
 			description: { type: 'string' },
 			defaultCommand: { $ref: '#/$defs/command' },
 			commands: { type: 'array', items: { $ref: '#/$defs/command' } },
 		},
-		required: ['$schema', 'name', 'commands'],
+		required: ['$schema', 'schemaVersion', 'name', 'commands'],
 		$defs: {
 			command: {
 				type: 'object',
 				additionalProperties: false,
-				properties: {
-					name: { type: 'string' },
-					description: { type: 'string' },
-					aliases: { type: 'array', items: { type: 'string' } },
-					hidden: { const: true },
-					examples: { type: 'array', items: { $ref: '#/$defs/example' } },
-					flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
-					args: { type: 'array', items: { $ref: '#/$defs/arg' } },
-					commands: { type: 'array', items: { $ref: '#/$defs/command' } },
-				},
+				properties: commandFragmentProperties,
 				required: ['name', 'flags', 'args', 'commands'],
+			},
+			commandDocument: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					schemaVersion: { const: DEFINITION_SCHEMA_VERSION },
+					...commandFragmentProperties,
+				},
+				required: ['schemaVersion', 'name', 'flags', 'args', 'commands'],
 			},
 			flag: {
 				type: 'object',
@@ -1104,5 +1235,23 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 
 // === Exports
 
-export type { JsonSchemaOptions };
+export type {
+	ArgDefinitionFragmentV1,
+	CommandDefinitionDocument,
+	CommandDefinitionDocumentV1,
+	CommandDefinitionFragmentV1,
+	DefinitionDocument,
+	DefinitionDocumentV1,
+	ExampleDefinitionFragmentV1,
+	FlagDefinitionFragmentV1,
+	FlagNegationFragmentV1,
+	FlagPathChecksFragmentV1,
+	FlagStringConstraintsFragmentV1,
+	InputSchemaBranch,
+	InputSchemaDocument,
+	InputSchemaProperty,
+	JsonSchemaOptions,
+	PromptChoiceFragmentV1,
+	PromptDefinitionFragmentV1,
+};
 export { definitionMetaSchema, generateCommandSchema, generateInputSchema, generateSchema };

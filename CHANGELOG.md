@@ -35,6 +35,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `CommandArgEntryDefinition`; and `CLIDefinition` with
   `ConfigSettingsDefinition`. All of them are exported from the package root.
 
+- **Definition format v1 — versioned, typed documents** — `generateSchema()`
+  and `generateCommandSchema()` now emit `schemaVersion: 1`, so a consumer can
+  tell which format it is reading before parsing the rest. Both return typed
+  documents instead of `Record<string, unknown>`: `DefinitionDocumentV1` for a
+  whole CLI, `CommandDefinitionDocumentV1` for a single command, with
+  `DefinitionDocument` and `CommandDefinitionDocument` aliasing the current
+  version. Documents are distinct from the fragments nested inside them.
+  `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
+  `ArgDefinitionFragmentV1`, `ExampleDefinitionFragmentV1`,
+  `PromptDefinitionFragmentV1`, `PromptChoiceFragmentV1`,
+  `FlagNegationFragmentV1`, `FlagStringConstraintsFragmentV1`, and
+  `FlagPathChecksFragmentV1` carry no `schemaVersion` and take the version of
+  the document they sit in. `generateInputSchema()` is standard JSON Schema and
+  stays outside the family, typed as `InputSchemaDocument` with
+  `InputSchemaBranch` and `InputSchemaProperty`. Every one of these is exported
+  from the package root, and the returned documents remain assignable to
+  `Record<string, unknown>`. `--help` in `--json` mode serializes through
+  `generateCommandSchema()`, so that output gains `schemaVersion: 1` as its
+  first key.
+
 ### Changed
 
 - **Breaking: `CLISchema.commands` and `CLISchema.defaultCommand` hold
@@ -124,6 +144,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   signature referenced it. `AnyCommandBuilder` is `@internal` erasure machinery
   that appears only on `CommandBuilder`'s underscore members, so the package
   root no longer exports the name.
+
+- **Breaking: the canonical `$schema`/`$id` for definition documents is
+  self-hosted and format-versioned** —
+  `https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json` replaces the
+  jsDelivr URL in `generateSchema()` output and in `definitionMetaSchema.$id`.
+  The `v1` segment tracks the definition format, so it stays valid for every
+  package release that emits `schemaVersion: 1`, and it is permanent once
+  published. The `@kjanat/dreamcli/schema` subpath and the jsDelivr URL keep
+  serving the same bytes as mirrors. Documents pinned to the old URL still
+  validate against a local copy but no longer match the meta-schema's `$schema`
+  constant.
 
 ### Removed
 

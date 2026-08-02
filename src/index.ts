@@ -101,7 +101,25 @@ export {
 } from './core/errors/index.ts';
 export type { HelpOptions, HelpTheme, HelpThemeFactory } from './core/help/index.ts';
 export { formatHelp, osc8, visibleWidth } from './core/help/index.ts';
-export type { JsonSchemaOptions } from './core/json-schema/index.ts';
+export type {
+	ArgDefinitionFragmentV1,
+	CommandDefinitionDocument,
+	CommandDefinitionDocumentV1,
+	CommandDefinitionFragmentV1,
+	DefinitionDocument,
+	DefinitionDocumentV1,
+	ExampleDefinitionFragmentV1,
+	FlagDefinitionFragmentV1,
+	FlagNegationFragmentV1,
+	FlagPathChecksFragmentV1,
+	FlagStringConstraintsFragmentV1,
+	InputSchemaBranch,
+	InputSchemaDocument,
+	InputSchemaProperty,
+	JsonSchemaOptions,
+	PromptChoiceFragmentV1,
+	PromptDefinitionFragmentV1,
+} from './core/json-schema/index.ts';
 export {
 	definitionMetaSchema,
 	generateCommandSchema,

@@ -1,13 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json",
+  "$id": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json",
   "title": "@kjanat/dreamcli definition schema",
   "description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered command schemas.\\\nSealed by createCLISchema and rebuilt by each CLIBuilder step.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "$schema": {
-      "const": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json"
+      "const": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
     },
     "name": {
       "type": "string",
@@ -35,6 +38,7 @@
   },
   "required": [
     "$schema",
+    "schemaVersion",
     "name",
     "commands"
   ],
@@ -98,6 +102,61 @@
         "commands"
       ],
       "description": "Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nand interactive resolver."
+    },
+    "commandDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hidden": {
+          "const": true
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/example"
+          }
+        },
+        "flags": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/flag"
+          }
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arg"
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "name",
+        "flags",
+        "args",
+        "commands"
+      ]
     },
     "flag": {
       "type": "object",

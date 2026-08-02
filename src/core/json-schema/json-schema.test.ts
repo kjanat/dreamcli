@@ -15,7 +15,12 @@ import type {
 	FlagKind,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
-import { definitionMetaSchema, generateInputSchema, generateSchema } from './index.ts';
+import {
+	definitionMetaSchema,
+	generateCommandSchema,
+	generateInputSchema,
+	generateSchema,
+} from './index.ts';
 
 // === Test helpers
 
@@ -88,13 +93,97 @@ describe('generateSchema — definition metadata', () => {
 	// CLI-level fields
 	// -------------------------------------------------------------------
 
-	it('emits $schema, name, and empty commands for minimal CLI', () => {
+	it('emits $schema, schemaVersion, name, and empty commands for minimal CLI', () => {
 		const result = generateSchema(minimalCLI());
 		expect(result).toEqual({
-			$schema: 'https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json',
+			$schema: 'https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json',
+			schemaVersion: 1,
 			name: 'test-cli',
 			commands: [],
 		});
+	});
+
+	// -------------------------------------------------------------------
+	// Document versioning
+	// -------------------------------------------------------------------
+
+	it('emits schemaVersion directly after $schema', () => {
+		const result = generateSchema(minimalCLI());
+		expect(Object.keys(result).slice(0, 2)).toEqual(['$schema', 'schemaVersion']);
+		expect(result.schemaVersion).toBe(1);
+	});
+
+	it('emits schemaVersion on standalone command documents', () => {
+		const document = generateCommandSchema(commandDef({ name: 'deploy' }));
+		expect(document.schemaVersion).toBe(1);
+		expect(Object.keys(document)[0]).toBe('schemaVersion');
+	});
+
+	it('omits schemaVersion from nested command fragments', () => {
+		const rollback = commandDef({ name: 'rollback' });
+		const deploy = commandDef({ name: 'deploy', commands: [rollback] });
+		const result = generateSchema(minimalCLI({ commands: [deploy], defaultCommand: deploy }));
+		const [topLevel] = result.commands;
+		const nested = topLevel?.commands[0];
+		const standalone = generateCommandSchema(deploy);
+
+		expect(topLevel).toBeDefined();
+		expect(topLevel).not.toHaveProperty('schemaVersion');
+		expect(result.defaultCommand).toBeDefined();
+		expect(result.defaultCommand).not.toHaveProperty('schemaVersion');
+		expect(nested).toBeDefined();
+		expect(nested).not.toHaveProperty('schemaVersion');
+		expect(standalone.commands[0]).toBeDefined();
+		expect(standalone.commands[0]).not.toHaveProperty('schemaVersion');
+	});
+
+	it('stays assignable to the Record<string, unknown> consumer pattern', () => {
+		const definition: Record<string, unknown> = generateSchema(minimalCLI());
+		const command: Record<string, unknown> = generateCommandSchema(commandDef());
+		const input: Record<string, unknown> = generateInputSchema(commandDef());
+
+		expect(definition.schemaVersion).toBe(1);
+		expect(command.schemaVersion).toBe(1);
+		expect(input.$schema).toBe('https://json-schema.org/draft/2020-12/schema');
+	});
+
+	it('pins schemaVersion as a required const in the meta-schema', () => {
+		expect(definitionMetaSchema).toHaveProperty(['properties', 'schemaVersion', 'const'], 1);
+		expect(definitionMetaSchema).toHaveProperty('required', [
+			'$schema',
+			'schemaVersion',
+			'name',
+			'commands',
+		]);
+	});
+
+	it('accepts standalone command documents via a dedicated def', () => {
+		const defs = expectRecord(definitionMetaSchema.$defs);
+		const command = expectRecord(defs.command);
+		const commandDocument = expectRecord(defs.commandDocument);
+		expect(Object.keys(expectRecord(commandDocument.properties))).toEqual([
+			'schemaVersion',
+			...Object.keys(expectRecord(command.properties)),
+		]);
+		expect(commandDocument.required).toEqual([
+			'schemaVersion',
+			'name',
+			'flags',
+			'args',
+			'commands',
+		]);
+		expect(commandDocument).toHaveProperty(['properties', 'schemaVersion', 'const'], 1);
+
+		const doc: Record<string, unknown> = generateCommandSchema(
+			createCommandSchema({ name: 'deploy', hasAction: true }),
+		);
+		const allowed = new Set(Object.keys(expectRecord(commandDocument.properties)));
+		for (const key of Object.keys(doc)) {
+			expect(allowed).toContain(key);
+		}
+		for (const required of ['schemaVersion', 'name', 'flags', 'args', 'commands']) {
+			expect(doc).toHaveProperty(required);
+		}
 	});
 
 	it('includes version and description when present', () => {
