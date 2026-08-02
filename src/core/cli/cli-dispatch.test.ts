@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildFlagLookup } from '#internals/core/parse/index.ts';
 import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import {
 	consumesFollowingToken,
@@ -18,20 +19,11 @@ import {
 
 /** Minimal CommandSchema for dispatch tests. */
 function commandSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
 		hasAction: true,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 /** Create an ErasedCommand for dispatch tests. */

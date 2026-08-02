@@ -8,6 +8,8 @@
  * @module dreamcli/core/schema/arg
  */
 
+import { CLIError } from '#internals/core/errors/index.ts';
+import type { schemaBrand } from './brand.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 
@@ -112,9 +114,11 @@ type CustomArgValue<A> =
  * help generator) read this to understand the arg's shape without touching
  * generics.
  */
-interface ArgSchema {
+interface ArgSchema<K extends ArgKind = ArgKind> {
+	/** Type-only seal produced by {@link createArgSchema}. */
+	readonly [schemaBrand]: 'arg';
 	/** What kind of value this arg accepts. */
-	readonly kind: ArgKind;
+	readonly kind: K;
 	/** Current presence state. */
 	readonly presence: ArgPresence;
 	/** Whether this arg consumes all remaining positionals. */
@@ -170,6 +174,180 @@ interface ArgSchema {
 	readonly deprecated: string | true | undefined;
 }
 
+/** Every {@link ArgSchema} field except the brand and the kind discriminator. */
+type ArgSchemaFields = Omit<ArgSchema, typeof schemaBrand | 'kind'>;
+
+/** {@link ArgSchemaFields} with every field optional and undefined-accepting. */
+type ArgSchemaFieldOverrides = {
+	readonly [K in keyof ArgSchemaFields]?: ArgSchemaFields[K] | undefined;
+};
+
+/** Definition fields accepted by every arg kind. */
+interface ArgDefinitionBase {
+	/**
+	 * Presence state.
+	 * @defaultValue `'required'`
+	 */
+	readonly presence?: ArgPresence | undefined;
+	/**
+	 * Whether this arg consumes all remaining positionals.
+	 * @defaultValue `false`
+	 */
+	readonly variadic?: boolean | undefined;
+	/**
+	 * Whether this arg may read from stdin during resolution.
+	 * @defaultValue `false`
+	 */
+	readonly stdinMode?: boolean | undefined;
+	/**
+	 * Runtime default value.
+	 * @defaultValue `undefined`
+	 */
+	readonly defaultValue?: unknown;
+	/**
+	 * Human-readable description for help text.
+	 * @defaultValue `undefined`
+	 */
+	readonly description?: string | undefined;
+	/**
+	 * Environment variable name for env resolution.
+	 * @defaultValue `undefined`
+	 */
+	readonly envVar?: string | undefined;
+	/**
+	 * Deprecation marker. `true` deprecates without a message, a string carries
+	 * the migration guidance.
+	 * @defaultValue `undefined`
+	 */
+	readonly deprecated?: string | true | undefined;
+}
+
+/** Definition of a `string` arg. */
+interface StringArgDefinition extends ArgDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'string';
+}
+
+/** Definition of a `number` arg. */
+interface NumberArgDefinition extends ArgDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'number';
+	/**
+	 * Numeric constraints enforced at the parse and resolution boundaries.
+	 * @defaultValue `undefined`
+	 */
+	readonly numberConstraints?: NumberConstraints | undefined;
+}
+
+/** Definition of an `enum` arg. */
+interface EnumArgDefinition extends ArgDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'enum';
+	/** Allowed literal values. */
+	readonly enumValues: readonly string[];
+}
+
+/** Definition of a `custom` arg. */
+interface CustomArgDefinition extends ArgDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'custom';
+	/**
+	 * Parse function applied to the raw value.
+	 * @defaultValue `undefined`
+	 */
+	readonly parseFn?: ArgParseFn<unknown> | undefined;
+	/**
+	 * Standard Schema v1 validator applied to the resolved value.
+	 * @defaultValue `undefined`
+	 */
+	readonly standard?: StandardSchemaV1 | undefined;
+}
+
+/** Maps each {@link ArgKind} to its definition shape. */
+interface ArgDefinitionByKind {
+	/** Definition shape for `string` args. */
+	readonly string: StringArgDefinition;
+	/** Definition shape for `number` args. */
+	readonly number: NumberArgDefinition;
+	/** Definition shape for `enum` args. */
+	readonly enum: EnumArgDefinition;
+	/** Definition shape for `custom` args. */
+	readonly custom: CustomArgDefinition;
+}
+
+/** Definition of an arg of kind `K`, including the kind discriminator. */
+type ArgDefinition<K extends ArgKind = ArgKind> = ArgDefinitionByKind[K];
+
+/** Definition of an arg of kind `K` with the kind discriminator removed. */
+type ArgDefinitionOverrides<K extends ArgKind = ArgKind> = Omit<ArgDefinitionByKind[K], 'kind'>;
+
+/**
+ * Fields that are only meaningful on one {@link ArgKind}, mapped to that kind.
+ */
+const KIND_SPECIFIC_ARG_FIELDS: readonly (readonly [keyof ArgSchemaFields, ArgKind])[] = [
+	['enumValues', 'enum'],
+	['numberConstraints', 'number'],
+	['parseFn', 'custom'],
+	['standard', 'custom'],
+];
+
+/**
+ * Reject a definition that carries a field belonging to another {@link ArgKind}.
+ *
+ * A field set to `undefined` counts as absent, so re-feeding a built
+ * {@link ArgSchema} back through {@link createArgSchema} stays valid.
+ *
+ * @param kind - Declared kind of the definition.
+ * @param fields - Definition fields excluding the kind discriminator.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on a kind mismatch.
+ */
+function assertValidArgDefinition(kind: ArgKind, fields: ArgSchemaFieldOverrides): void {
+	for (const [field, requiredKind] of KIND_SPECIFIC_ARG_FIELDS) {
+		if (kind === requiredKind) continue;
+		if (fields[field] === undefined) continue;
+		throw new CLIError(
+			`Arg schema field '${field}' requires kind '${requiredKind}', received kind '${kind}'`,
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field, requiredKind },
+				suggest: `Drop '${field}' or declare the arg as kind '${requiredKind}'`,
+			},
+		);
+	}
+}
+
+/**
+ * Merge definition fields onto the {@link ArgSchema} defaults.
+ *
+ * A field set to `undefined` falls back to its default for the fields
+ * {@link ArgSchema} declares as non-nullable.
+ *
+ * @param kind - Discriminator for the value type this arg accepts.
+ * @param overrides - Definition fields shallow-merged onto the defaults.
+ * @returns A fully populated {@link ArgSchema}.
+ */
+function buildArgSchema<K extends ArgKind>(
+	kind: K,
+	overrides?: ArgSchemaFieldOverrides,
+): ArgSchema<K> {
+	const { presence, variadic, stdinMode, ...rest } = overrides ?? {};
+	return {
+		kind,
+		presence: presence ?? 'required',
+		variadic: variadic ?? false,
+		stdinMode: stdinMode ?? false,
+		defaultValue: undefined,
+		description: undefined,
+		envVar: undefined,
+		enumValues: undefined,
+		numberConstraints: undefined,
+		parseFn: undefined,
+		standard: undefined,
+		deprecated: undefined,
+		...rest,
+	} as ArgSchema<K>;
+}
+
 /**
  * Create a raw {@link ArgSchema} object with sensible defaults.
  *
@@ -178,13 +356,14 @@ interface ArgSchema {
  * modifiers. `createArgSchema()` exists for advanced schema composition,
  * targeted tests, or custom builders that need the plain runtime descriptor.
  *
- * `overrides` are shallow-merged on top of the default shape, so callers are
- * responsible for preserving invariants such as variadic ordering and
- * compatible `parseFn` / `kind` combinations.
+ * Fields are shallow-merged on top of the default shape, so callers are
+ * responsible for preserving invariants such as variadic ordering.
  *
  * @param kind - Discriminator for the value type this arg accepts.
- * @param overrides - Partial schema fields shallow-merged onto defaults.
+ * @param overrides - Definition fields for `kind`, shallow-merged onto defaults.
  * @returns A fully populated {@link ArgSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link ArgKind}.
  *
  * @example
  * ```ts
@@ -194,22 +373,45 @@ interface ArgSchema {
  * });
  * ```
  */
-function createArgSchema(kind: ArgKind, overrides?: Partial<ArgSchema>): ArgSchema {
-	return {
-		kind,
-		presence: 'required',
-		variadic: false,
-		stdinMode: false,
-		defaultValue: undefined,
-		description: undefined,
-		envVar: undefined,
-		enumValues: undefined,
-		numberConstraints: undefined,
-		parseFn: undefined,
-		standard: undefined,
-		deprecated: undefined,
-		...overrides,
-	};
+function createArgSchema<K extends ArgKind>(
+	kind: K,
+	overrides?: ArgDefinitionOverrides<K>,
+): ArgSchema<K>;
+/**
+ * Create a raw {@link ArgSchema} object from a single definition object.
+ *
+ * An already-built {@link ArgSchema} is accepted and re-normalized into a
+ * deep-equal schema.
+ *
+ * @param definition - Kind discriminator plus the fields valid for that kind.
+ * @returns A fully populated {@link ArgSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link ArgKind}.
+ *
+ * @example
+ * ```ts
+ * const schema = createArgSchema({
+ *   kind: 'enum',
+ *   enumValues: ['us', 'eu', 'ap'],
+ *   description: 'Target region',
+ * });
+ * ```
+ */
+function createArgSchema<K extends ArgKind>(
+	definition: ArgDefinition<K> | ArgSchema<K>,
+): ArgSchema<K>;
+function createArgSchema(
+	kindOrDefinition: ArgKind | ArgDefinition | ArgSchema,
+	overrides?: ArgSchemaFieldOverrides,
+): ArgSchema {
+	if (typeof kindOrDefinition === 'string') {
+		assertValidArgDefinition(kindOrDefinition, overrides ?? {});
+		return buildArgSchema(kindOrDefinition, overrides);
+	}
+
+	const { kind, ...fields } = kindOrDefinition;
+	assertValidArgDefinition(kind, fields);
+	return buildArgSchema(kind, fields);
 }
 
 // --- ArgBuilder — immutable builder with type-level tracking
@@ -878,14 +1080,22 @@ const arg: ArgFactory = {
 
 export type {
 	ArgConfig,
+	ArgDefinition,
+	ArgDefinitionBase,
+	ArgDefinitionByKind,
+	ArgDefinitionOverrides,
 	ArgFactory,
 	ArgKind,
 	ArgParseFn,
 	ArgPresence,
 	ArgSchema,
+	CustomArgDefinition,
+	EnumArgDefinition,
 	InferArg,
 	InferArgs,
+	NumberArgDefinition,
 	ResolvedArgValue,
+	StringArgDefinition,
 	WithArgPresence,
 	WithVariadic,
 };

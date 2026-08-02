@@ -3,7 +3,7 @@ import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
 import type { CommandSchema, InteractiveParams } from '#internals/core/schema/command.ts';
-import { command } from '#internals/core/schema/command.ts';
+import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { createSchema, flag } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
@@ -11,20 +11,11 @@ import { resolve } from './index.ts';
 // --- Helpers
 
 function makeSchema(overrides?: Partial<CommandSchema>): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
 		hasAction: true,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 function makeParsed(overrides?: Partial<ParseResult>): ParseResult {

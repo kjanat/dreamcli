@@ -19,9 +19,11 @@ import type {
 	TableColumn,
 	TableOptions,
 } from './activity.ts';
-import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
-import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
-import { getFlagNegatedName } from './flag.ts';
+import type { ArgBuilder, ArgConfig, ArgDefinition, ArgSchema, InferArgs } from './arg.ts';
+import { createArgSchema } from './arg.ts';
+import type { schemaBrand } from './brand.ts';
+import type { FlagBuilder, FlagConfig, FlagDefinition, FlagSchema, InferFlags } from './flag.ts';
+import { createFlagSchema, getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { InternalRunOptions, RunResult } from './run.ts';
@@ -528,6 +530,8 @@ function resolveExampleCommand(command: ExampleCommand, meta: ExampleMeta): stri
  * middleware, and interactive resolver.
  */
 interface CommandSchema {
+	/** Type-only seal produced by {@link createCommandSchema}. */
+	readonly [schemaBrand]: 'command';
 	/** The command name (used for dispatch, e.g. `'deploy'`). */
 	readonly name: string;
 	/** Human-readable description for help text. */
@@ -584,6 +588,149 @@ interface CommandArgEntry {
 	readonly name: string;
 	/** Runtime descriptor controlling parsing, presence, and coercion. */
 	readonly schema: ArgSchema;
+}
+
+/**
+ * A named positional argument entry accepted by {@link createCommandSchema}.
+ *
+ * The schema may be an {@link ArgDefinition} or an already-built {@link ArgSchema}.
+ */
+interface CommandArgEntryDefinition {
+	/** User-facing argument name (shown in help as `<name>`). */
+	readonly name: string;
+	/** Arg definition or an already-built schema. */
+	readonly schema: ArgDefinition | ArgSchema;
+}
+
+/**
+ * Input shape accepted by {@link createCommandSchema}.
+ *
+ * Every field except `name` is optional. Flags, args, and subcommands accept
+ * either definitions or already-built schemas.
+ */
+interface CommandDefinition {
+	/** The command name used for dispatch. */
+	readonly name: string;
+	/**
+	 * Human-readable description for help text.
+	 * @defaultValue `undefined`
+	 */
+	readonly description?: string | undefined;
+	/**
+	 * Alternative names for this command.
+	 * @defaultValue `[]`
+	 */
+	readonly aliases?: readonly string[] | undefined;
+	/**
+	 * Whether this command is hidden from help listings.
+	 * @defaultValue `false`
+	 */
+	readonly hidden?: boolean | undefined;
+	/**
+	 * Usage examples for help text.
+	 * @defaultValue `[]`
+	 */
+	readonly examples?: readonly CommandExample[] | undefined;
+	/**
+	 * Flag definitions or built schemas, keyed by flag name.
+	 * @defaultValue `{}`
+	 */
+	readonly flags?: Readonly<Record<string, FlagDefinition | FlagSchema>> | undefined;
+	/**
+	 * Ordered positional arg entries.
+	 * @defaultValue `[]`
+	 */
+	readonly args?: readonly CommandArgEntryDefinition[] | undefined;
+	/**
+	 * Whether an action handler has been registered.
+	 * @defaultValue `false`
+	 */
+	readonly hasAction?: boolean | undefined;
+	/**
+	 * Command-level interactive resolver.
+	 * @defaultValue `undefined`
+	 */
+	readonly interactive?: ErasedInteractiveResolver | undefined;
+	/**
+	 * Middleware handlers to run before the action handler, in registration order.
+	 * @defaultValue `[]`
+	 */
+	readonly middleware?: readonly ErasedMiddlewareHandler[] | undefined;
+	/**
+	 * Nested subcommand definitions or built schemas.
+	 * @defaultValue `[]`
+	 */
+	readonly commands?: readonly (CommandDefinition | CommandSchema)[] | undefined;
+}
+
+/**
+ * Merge definition fields onto the {@link CommandSchema} defaults.
+ *
+ * @param definition - Command definition with defaults already validated.
+ * @returns A fully populated {@link CommandSchema}.
+ */
+function buildCommandSchema(definition: CommandDefinition): CommandSchema {
+	const flags: Record<string, FlagSchema> = {};
+	for (const [name, value] of Object.entries(definition.flags ?? {})) {
+		flags[name] = createFlagSchema(value);
+	}
+
+	const args: CommandArgEntry[] = (definition.args ?? []).map((entry) => ({
+		name: entry.name,
+		schema: createArgSchema(entry.schema),
+	}));
+
+	const schema: Omit<CommandSchema, typeof schemaBrand> = {
+		name: definition.name,
+		description: definition.description,
+		aliases: definition.aliases ?? [],
+		hidden: definition.hidden ?? false,
+		examples: definition.examples ?? [],
+		flags,
+		args,
+		hasAction: definition.hasAction ?? false,
+		interactive: definition.interactive,
+		middleware: definition.middleware ?? [],
+		commands: (definition.commands ?? []).map((child) => createCommandSchema(child)),
+	};
+
+	return schema as CommandSchema;
+}
+
+/**
+ * Create a {@link CommandSchema} from a plain definition object.
+ *
+ * Most consumers should prefer {@link command | command()}, which returns a
+ * {@link CommandBuilder} with type inference. `createCommandSchema()` is the
+ * low-level escape hatch for tooling that composes schemas as data.
+ *
+ * Flags, args, and subcommands are normalized recursively, so an already-built
+ * schema fed back in produces a deep-equal schema.
+ *
+ * @param definition - Command name plus optional flags, args, and subcommands.
+ * @returns A fully populated {@link CommandSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty.
+ *
+ * @example
+ * ```ts
+ * const schema = createCommandSchema({
+ *   name: 'deploy',
+ *   description: 'Ship the build',
+ *   flags: { force: { kind: 'boolean' } },
+ *   args: [{ name: 'target', schema: { kind: 'string' } }],
+ * });
+ * ```
+ */
+function createCommandSchema(definition: CommandDefinition): CommandSchema {
+	if (definition.name === '') {
+		throw new CLIError('Command schema requires a non-empty name', {
+			code: 'INVALID_SCHEMA',
+			details: { name: definition.name },
+			suggest: 'Pass a dispatch name such as { name: "deploy" }',
+		});
+	}
+
+	return buildCommandSchema(definition);
 }
 
 /**
@@ -1543,19 +1690,7 @@ class CommandBuilder<
  * @returns A fresh {@link CommandBuilder} with empty flags, args, and context.
  */
 function command(name: string): CommandBuilder {
-	return new CommandBuilder({
-		name,
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-	});
+	return new CommandBuilder(createCommandSchema({ name }));
 }
 
 /**
@@ -1591,7 +1726,9 @@ export type {
 	ActionParams,
 	AnyCommandBuilder,
 	CommandArgEntry,
+	CommandArgEntryDefinition,
 	CommandConfig,
+	CommandDefinition,
 	CommandExample,
 	CommandMeta,
 	CommandSchema,
@@ -1611,4 +1748,4 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export { CommandBuilder, command, group, outBrand, resolveExampleCommand };
+export { CommandBuilder, command, createCommandSchema, group, outBrand, resolveExampleCommand };

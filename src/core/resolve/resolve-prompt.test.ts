@@ -15,6 +15,7 @@ import {
 	PROMPT_CANCEL,
 	type ReadFn,
 } from '#internals/core/prompt/index.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { FLAG_KINDS } from '#internals/core/schema/flag.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
 import { createSchema } from '#internals/core/schema/index.ts';
@@ -25,20 +26,11 @@ import { resolve } from './index.ts';
 // --- Helpers
 
 function makeSchema(overrides?: Partial<CommandSchema>): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
 		hasAction: true,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 function makeParsed(overrides?: Partial<ParseResult>): ParseResult {

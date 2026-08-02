@@ -14,7 +14,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   options, implementer interfaces, closed unions, and internal surface, with
   the minor-version rules each category carries.
 
+- **Definition types and normalization factories for flags, args, and
+  commands** — `createFlagSchema()` and `createCommandSchema()` join the
+  existing `createArgSchema()`. Each takes a plain definition object, or a kind
+  plus that kind's fields, and returns the normalized schema; feeding a built
+  schema back in produces a deep-equal schema, and a field belonging to another
+  kind throws `INVALID_SCHEMA`. `createCommandSchema()` normalizes nested flags,
+  args, and subcommands. Each level ships its definition types: `FlagDefinition`,
+  `FlagDefinitionBase`, `FlagDefinitionByKind`, `FlagDefinitionOverrides`, and
+  the per-kind members `StringFlagDefinition`, `NumberFlagDefinition`,
+  `BooleanFlagDefinition`, `EnumFlagDefinition`, `ArrayFlagDefinition`,
+  `CustomFlagDefinition`, `CountFlagDefinition`, `KeyValueFlagDefinition`;
+  `ArgDefinition`, `ArgDefinitionBase`, `ArgDefinitionByKind`,
+  `ArgDefinitionOverrides`, `StringArgDefinition`, `NumberArgDefinition`,
+  `EnumArgDefinition`, `CustomArgDefinition`; and `CommandDefinition` with
+  `CommandArgEntryDefinition`. All of them are exported from the package root.
+
 ### Changed
+
+- **Breaking: `FlagSchema`, `ArgSchema`, and `CommandSchema` are sealed** — all
+  three carry a private brand, so an object literal assembled by hand no longer
+  type-checks where a schema is expected. Call `createFlagSchema()`,
+  `createArgSchema()`, or `createCommandSchema()` with a definition object to
+  obtain one; spreading a built schema keeps the brand, so
+  `{ ...schema, description }` still type-checks. `createSchema()` is deprecated
+  in favor of `createFlagSchema()` and keeps working for now.
+
+- **Breaking: `createArgSchema()` validates its fields against the kind** — the
+  second parameter is now `ArgDefinitionOverrides<K>` rather than
+  `Partial<ArgSchema>`, so `enumValues` on a `string` arg (and the other
+  kind-scoped fields) stops compiling and throws `INVALID_SCHEMA` at runtime.
+  `enumValues` is required on an `enum` arg. A single definition object
+  (`createArgSchema({ kind: 'enum', enumValues })`) is accepted as well.
 
 - **Breaking: `Out` gained a required `verbosity` member** — action handlers
   can read `out.verbosity`, and `resolveRenderContext()` exposes the same

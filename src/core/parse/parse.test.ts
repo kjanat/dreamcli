@@ -1,27 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { ParseError } from '#internals/core/errors/index.ts';
+import type { ArgDefinitionOverrides, ArgSchema } from '#internals/core/schema/arg.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { includesBeforeSeparator, parse, tokenize } from './index.ts';
 
 // --- Helpers — build minimal CommandSchema for testing
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+	return createCommandSchema({ name: 'test', ...overrides });
 }
 
 // === Tokenizer
@@ -619,8 +608,12 @@ describe('parse', () => {
 		});
 
 		it('malformed enum arg schema throws INVALID_SCHEMA', () => {
+			const malformed: ArgSchema = {
+				...createArgSchema('enum', { enumValues: ['us'] }),
+				enumValues: undefined,
+			};
 			const schema = makeSchema({
-				args: [{ name: 'region', schema: createArgSchema('enum', { enumValues: undefined }) }],
+				args: [{ name: 'region', schema: malformed }],
 			});
 			expect(() => parse(schema, ['us'])).toThrow(ParseError);
 			try {
@@ -998,7 +991,7 @@ describe('numeric constraints — flags', () => {
 });
 
 describe('numeric constraints — args', () => {
-	function numberArgSchema(constraints?: Parameters<typeof createArgSchema>[1]) {
+	function numberArgSchema(constraints?: ArgDefinitionOverrides<'number'>) {
 		return makeSchema({
 			args: [{ name: 'count', schema: createArgSchema('number', constraints) }],
 		});

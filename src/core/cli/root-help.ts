@@ -15,6 +15,7 @@ import { resolveHelpTheme } from '#internals/core/help/theme.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { resolveRootSurface } from './root-surface.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
@@ -219,30 +220,10 @@ function resolveSurfaceCommand(
  * @internal
  */
 function completionsFlagSchema(shells: readonly string[]): FlagSchema {
-	return {
-		kind: 'enum',
-		presence: 'optional',
-		defaultValue: undefined,
-		aliases: [],
-		envVar: undefined,
-		configPath: undefined,
+	return createFlagSchema('enum', {
 		description: 'Print a shell completion script and exit',
 		enumValues: shells,
-		elementSchema: undefined,
-		separator: undefined,
-		unique: false,
-		numberConstraints: undefined,
-		stringConstraints: undefined,
-		pathChecks: undefined,
-		valueHint: undefined,
-		prompt: undefined,
-		parseFn: undefined,
-		standard: undefined,
-		deprecated: undefined,
-		propagate: false,
-		negation: undefined,
-		duplicates: 'last',
-	};
+	});
 }
 
 /**
