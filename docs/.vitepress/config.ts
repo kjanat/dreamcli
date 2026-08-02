@@ -203,6 +203,10 @@ export default defineConfig({
 						{ text: 'Shell Completions', link: '/guide/completions' },
 						{ text: 'Interactive Prompts', link: '/guide/prompts' },
 						{ text: 'Runtime Support', link: '/guide/runtime' },
+						{
+							text: 'Standalone Flag Evaluation',
+							link: '/guide/read-flags',
+						},
 					],
 				},
 				{

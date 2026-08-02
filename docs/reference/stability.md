@@ -153,9 +153,9 @@ Program and execution options: `CLIOptions`, `CLIExecuteOptions`, `CLIRunOptions
 `InferNameOption`, `ManifestDiscoveryOptions`, `ConfigDiscoveryOptions`, and
 `PackageRepositoryUrlOptions`.
 
-Pipeline and rendering options: `ParseOptions`, `ResolveOptions`, `OutputOptions`,
-`RenderContextOptions`, `HelpOptions`, `HelpTheme`, `CompletionOptions`, and
-`JsonSchemaOptions`.
+Pipeline and rendering options: `ParseOptions`, `ResolveOptions`,
+`ReadFlagsOptions`, `OutputOptions`, `RenderContextOptions`, `HelpOptions`,
+`HelpTheme`, `CompletionOptions`, and `JsonSchemaOptions`.
 
 Per-call output options: `SpinnerOptions`, `ProgressOptions`, `TableOptions`, and
 `TableColumn`.
@@ -515,7 +515,7 @@ Exported functions, by area:
   `plugin`.
 - Schema normalization: `createFlagSchema`, `createArgSchema`,
   `createCommandSchema`, `createCLISchema`.
-- Low-level pipeline: `tokenize`, `parse`, `resolve`, `formatHelp`,
+- Low-level pipeline: `tokenize`, `parse`, `resolve`, `readFlags`, `formatHelp`,
   `resolveRenderContext`, `resolvePromptConfig`, `includesBeforeSeparator`,
   `stripBeforeSeparator`, `getFlagNegatedName`, `resolveExampleCommand`.
 - Serialization: `generateSchema`, `generateCommandSchema`, `generateInputSchema`.
@@ -551,8 +551,8 @@ Class constructors follow the same rule as functions, with one exception.
 
 `InferFlag`, `InferFlags`, `InferArg`, `InferArgs`, `InferStandardInput`,
 `InferStandardOutput`, `ResolvedValue`, `ResolvedArgValue`, `WithPresence`,
-`WithArgPresence`, `WithVariadic`, and the builder state types `FlagConfig` and
-`ArgConfig`.
+`WithArgPresence`, `WithVariadic`, the builder state types `FlagConfig` and
+`ArgConfig`, and `FlagMap`, the record of flag builders `readFlags()` evaluates.
 
 These compute a type from another type. Most code reaches them through inference
 and never names one. `InferFlags<typeof flags>` in an extracted handler signature
@@ -563,6 +563,11 @@ carries the contract of whatever category that type belongs to. `FlagConfig` and
 `ArgConfig` are the compile-time state threaded through a builder chain, and a
 tracked property may be added to either in a minor release, since builders are
 obtained from `flag` and `arg` rather than written by hand.
+
+`FlagMap` constrains the type parameter of `readFlags()` rather than computing a
+type. It is a record of `FlagBuilder` values keyed by flag name, and the caller
+writes the record. Accepting more as a member is a minor release; accepting less
+is a major.
 
 ### Constants
 

@@ -33,6 +33,7 @@ import {
   parse,
   tokenize,
   resolve,
+  readFlags,
 } from '@kjanat/dreamcli';
 ```
 
@@ -414,6 +415,31 @@ Parse argv against a command schema, returning `ParseResult`.
 ### `resolve(schema, parseResult, options)`
 
 Resolve flag values through the resolution chain.
+
+### `readFlags(definitions, options?)`
+
+Evaluate a record of flag builders outside a CLI and return the resolved values, typed by
+`InferFlags`. Runs the same schema, parser, coercion, resolver, and validation a command runs, with
+no dispatch, output channel, help, or process exit. See
+[Standalone Flag Evaluation](/guide/read-flags).
+
+- `definitions`: `FlagMap`, a record of `FlagBuilder` values keyed by canonical flag name
+- `options`: `ReadFlagsOptions`, which extends `ResolveOptions` with `argv`, `adapter`, `parse`, and
+  `onDeprecation`
+
+```ts twoslash
+import { flag, readFlags } from '@kjanat/dreamcli';
+
+const options = await readFlags(
+  {
+    watch: flag.boolean().alias('w').env('WATCH'),
+    target: flag
+      .enum(['node', 'browser'])
+      .default('node'),
+  },
+  { argv: ['-w'], env: {} },
+);
+```
 
 ## Schema Export
 
