@@ -67,7 +67,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   options type is now `RunCommandOptions`. The `RESERVED_FLAG` error offers
   `.builtins({ <name>: 'off' })` alongside renaming, and a version discovered by
   `.manifest()` filesystem walking now runs the same guard at `.run()` time
-  instead of silently shadowing a command's `version` flag.
+  instead of silently shadowing a command's `version` flag. That startup failure
+  is reported the way every other `.run()` startup failure is: the message and
+  its suggestion go to stderr, `--json` puts the serialized error on stdout, and
+  the process exits with the error's exit code rather than rejecting the
+  `.run()` promise.
 
 - **Definition format v1 — versioned, typed documents** — `generateSchema()`
   and `generateCommandSchema()` now emit `schemaVersion: 1`, so a consumer can

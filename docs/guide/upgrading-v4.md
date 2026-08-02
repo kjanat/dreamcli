@@ -82,9 +82,11 @@ the whole subcommand tree. `.command()`, `.default()`, `.version()`,
 `.manifest(data)`, and `createCLISchema()` all run it, so a `version` flag
 throws whether the command is registered before or after `.version()`. A
 version that `.manifest()` reads off the filesystem arrives past every one of
-those, so `.run()` runs the same guard again once discovery supplies it, and
-the startup fails with the identical error. `--completions` is reserved on the
-same terms once `.completions({ as: 'flag' })` or
+those, so `.run()` runs the same guard again once discovery supplies it. The
+startup fails with the identical error, reported like any other `.run()`
+startup failure: message and suggestion on stderr, the serialized error on
+stdout under `--json`, and the error's exit code. `--completions` is reserved
+on the same terms once `.completions({ as: 'flag' })` or
 `CLIDefinition.completionsFlag` is set.
 
 Near misses stay legal: `quietMode` and `jsonOutput` as names, `-Q` and `-j` as

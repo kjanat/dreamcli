@@ -1637,7 +1637,7 @@ class CLIBuilder {
 			inheritedName,
 		});
 
-		if (preflight.kind === 'config-error') {
+		if (preflight.kind === 'startup-error') {
 			if (preflight.jsonMode) {
 				adapter.stdout(`${JSON.stringify({ error: preflight.error.toJSON() })}\n`);
 			} else {
