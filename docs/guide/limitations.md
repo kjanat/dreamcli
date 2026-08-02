@@ -73,20 +73,21 @@ Workarounds:
 
 References: [Examples](/examples/), [Example Hover](/reference/example-hover-prototype)
 
-## Shortcuts Like Automatic Negated Booleans Are Not Built In
+## Negated Booleans Are Opt-In Per Flag
 
 DreamCLI accepts boolean flags such as `--verbose`, `--verbose=true`, and `--verbose=false`.
-It does not synthesize special negated forms like `--no-verbose` unless you define that spelling yourself.
+`.negatable()` synthesizes the `--no-verbose` form for a flag that asks for it.
+No boolean gets a `--no-` spelling automatically; see [Negatable Booleans](/guide/flags#negatable-booleans).
 
 Why:
 
-- implicit alternate spellings make parsing and docs less explicit;
+- implicit alternate spellings on every boolean make parsing and docs less explicit;
 - the library prefers schema-declared behavior over convention-heavy magic.
 
 Workarounds:
 
-- declare the negative spelling directly if your CLI wants it;
-- document the explicit flag shape in help text.
+- add `.negatable()` to each boolean that wants the pair;
+- pass `.negatable({ alias: 'plain' })` when the negated spelling should be something other than `--no-<name>`.
 
 References: [CLI Semantics](/guide/semantics), [Flags](/guide/flags)
 
