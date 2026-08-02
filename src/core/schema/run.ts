@@ -8,6 +8,7 @@
  * @module dreamcli/core/schema/run
  */
 
+import type { BuiltinsConfig } from '#internals/core/cli/builtins.ts';
 import type { CLIPlugin } from '#internals/core/cli/plugin.ts';
 import type { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
@@ -183,6 +184,14 @@ export interface InternalRunOptions extends RunOptions {
 
 	/** CLI plugins registered on the parent `CLIBuilder`. */
 	readonly plugins?: readonly CLIPlugin[];
+
+	/**
+	 * Built-in flag state from the CLI schema.
+	 *
+	 * `help: 'off'` releases the command-level `--help`/`-h` short-circuit so a
+	 * command's own `help` flag parses. Absent means every built-in is on.
+	 */
+	readonly builtins?: BuiltinsConfig;
 }
 
 /**

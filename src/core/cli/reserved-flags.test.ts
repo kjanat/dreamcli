@@ -214,7 +214,7 @@ describe('reserved root flags', () => {
 			expect(error.message).toContain("reserved by the root '--quiet' flag");
 			expect(error.message).toContain('so the command can never receive it');
 			expect(error.suggest).toBe(
-				'Rename the flag, or use out.status() for output that root --quiet suppresses',
+				"Rename the flag, or use out.status() for output that root --quiet suppresses, or release the built-in with .builtins({ quiet: 'off' }) before registering the command",
 			);
 		});
 
@@ -236,8 +236,18 @@ describe('reserved root flags', () => {
 			expect(error.message).toContain("defines a '--quiet' negated spelling on flag 'loud'");
 		});
 
-		it('suggests renaming for the non-quiet reservations', () => {
+		it('suggests renaming or releasing for the non-quiet reservations', () => {
 			const error = reservedError(() => cli('mycli').command(booleanCommand('json')));
+
+			expect(error.suggest).toBe(
+				"Rename the flag, or release the built-in with .builtins({ json: 'off' }) before registering the command",
+			);
+		});
+
+		it('offers only renaming for the version reservation, which has no built-in switch', () => {
+			const error = reservedError(() =>
+				cli('mycli').version('1.0.0').command(booleanCommand('version')),
+			);
 
 			expect(error.suggest).toBe('Rename the flag');
 		});
@@ -314,6 +324,21 @@ describe('reserved root flags', () => {
 				expect(result.stdout.join('')).not.toContain('ran');
 				expect(result.stdout.join('')).toContain('Serve it');
 			}
+		});
+
+		it('reserves short aliases the root only strips as their own token', async () => {
+			expect(() =>
+				cli('mycli').command(commandWithFlag('quick', flag.boolean().alias('q'))),
+			).toThrow(CLIError);
+
+			const clustered = command('serve')
+				.flag('verbose', flag.boolean().alias('v'))
+				.flag('force', flag.boolean().alias('f'))
+				.action(({ flags, out }) => out.log(`${flags.verbose} ${flags.force}`));
+
+			const result = await cli('mycli').command(clustered).execute(['serve', '-vf']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toBe('true true\n');
 		});
 
 		it('intercepts --version and -V only once a version is configured', async () => {

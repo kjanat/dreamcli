@@ -4,6 +4,11 @@ Help text is generated from your schemas — usage line, arguments, flags,
 subcommands, and examples all render automatically for `--help`, `-h`,
 `help <command>`, and root help.
 
+Those three tokens belong to the root, so a command cannot declare a `help`
+flag or an `h` alias. A CLI that needs the token for itself releases it with
+`.builtins({ help: 'off' })`. See
+[Taking a built-in over](/guide/output#taking-a-built-in-over).
+
 ## Configuring Help
 
 `.help()` sets builder-level defaults; the same fields can be overridden per

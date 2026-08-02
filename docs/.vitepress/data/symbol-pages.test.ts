@@ -106,8 +106,10 @@ describe('symbol page generation', () => {
 		const middlewareFactoryPage = pages.find((page) => page.id === '@kjanat/dreamcli:middleware');
 
 		expect(runCommandPage?.content).toContain('| Parameter | Type | Description |');
-		expect(runCommandPage?.content).toContain('| `options` | `RunOptions \\| undefined` |');
-		expect(runCommandPage?.content).not.toContain('| `options` | `RunOptions \\\\| undefined` |');
+		expect(runCommandPage?.content).toContain('| `options` | `RunCommandOptions \\| undefined` |');
+		expect(runCommandPage?.content).not.toContain(
+			'| `options` | `RunCommandOptions \\\\| undefined` |',
+		);
 		expect(runOptionsPage?.content).toContain('stdinData?: string | null;');
 		expect(cliRunOptionsPage?.content).toContain('stdinData?: string | null;');
 		expect(runtimeAdapterPage?.content).toContain('Promise<string | null>');

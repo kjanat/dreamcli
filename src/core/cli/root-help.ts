@@ -16,6 +16,8 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
+import type { BuiltinName, BuiltinsConfig } from './builtins.ts';
+import { BUILTIN_SPECS, builtinEnabled, builtinFlagForms } from './builtins.ts';
 import { resolveRootSurface } from './root-surface.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
@@ -43,6 +45,12 @@ interface CLISchemaLike {
 	 * advertises it in `Global options:`.
 	 */
 	readonly configSettings?: { readonly appName: string } | undefined;
+	/**
+	 * Built-in flag state. A built-in set to `'off'` belongs to the commands, so
+	 * `Global options:` stops advertising it. Optional so hand-built schema-like
+	 * objects keep every built-in.
+	 */
+	readonly builtins?: BuiltinsConfig | undefined;
 }
 
 // --- Root help formatter
@@ -56,6 +64,9 @@ interface CLISchemaLike {
  * omitted from the `Commands:` list unless `showDefaultInCommands` is set. When
  * `.completions({ as: 'flag' })` is active, the eager `--completions <shell>`
  * flag is advertised in the `Flags:` section.
+ *
+ * A built-in released through `.builtins({ <name>: 'off' })` drops out of
+ * `Global options:`, and releasing `help` also drops the `--help` footer hint.
  *
  * @internal
  */
@@ -173,7 +184,8 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	}
 
 	// ---- Footer -------------------------------------------------------------
-	const footerVisible = options?.footer ?? surface.hasVisibleSubcommands;
+	const footerVisible =
+		builtinEnabled(schema.builtins, 'help') && (options?.footer ?? surface.hasVisibleSubcommands);
 	if (footerVisible) {
 		const footerPlaceholder = surface.hasVisibleSubcommands
 			? defaultCommand !== undefined
@@ -300,15 +312,17 @@ function formatRootCommandsSection(
 /**
  * Build the `Global options:` section advertising the active built-in flags.
  *
- * `--help, -h` and `--json` are always available; `--version, -V` is shown only
- * when the program declares a version; `--config <path>` only when `.config()`
- * enabled config discovery. The eager `--completions` flag is intentionally
- * omitted — it is advertised via the inline surface when active.
+ * `--help, -h`, `--json`, and `-q, --quiet` are listed while the root owns them;
+ * `.builtins({ <name>: 'off' })` hands the token to the commands and drops the
+ * entry. `--version, -V` is shown only when the program declares a version;
+ * `--config <path>` only when `.config()` enabled config discovery. The eager
+ * `--completions` flag is intentionally omitted, since it is advertised via the
+ * inline surface when active.
  *
- * @param schema - The CLI schema (read for `version` and `configSettings`).
+ * @param schema - The CLI schema (read for `version`, `configSettings`, and `builtins`).
  * @param width - Terminal width for description wrapping.
  * @param theme - Theme applied to the title and flag forms.
- * @returns Formatted `Global options:` block (always non-empty).
+ * @returns Formatted `Global options:` block, or `''` when nothing is active.
  * @internal
  */
 function formatGlobalOptionsSection(
@@ -316,26 +330,31 @@ function formatGlobalOptionsSection(
 	width: number,
 	theme: HelpTheme,
 ): string {
-	const entries: FlagEntry[] = [
-		{ left: theme.flag('-h, --help'), description: 'Show this help message and exit' },
-	];
+	const entries: FlagEntry[] = [];
+	const pushBuiltin = (name: BuiltinName): void => {
+		if (!builtinEnabled(schema.builtins, name)) return;
+		entries.push({
+			left: theme.flag(builtinFlagForms(name)),
+			description: BUILTIN_SPECS[name].description,
+		});
+	};
+
+	pushBuiltin('help');
 	if (schema.version !== undefined) {
 		entries.push({
 			left: theme.flag('-V, --version'),
 			description: 'Print the version number and exit',
 		});
 	}
-	entries.push({ left: theme.flag('--json'), description: 'Emit machine-readable JSON output' });
-	entries.push({
-		left: theme.flag('-q, --quiet'),
-		description: 'Suppress informational output',
-	});
+	pushBuiltin('json');
+	pushBuiltin('quiet');
 	if (schema.configSettings !== undefined) {
 		entries.push({
 			left: `${theme.flag('--config')} ${theme.placeholder('<path>')}`,
 			description: 'Load configuration from the given file',
 		});
 	}
+	if (entries.length === 0) return '';
 	return formatFlagEntriesBlock(theme.sectionTitle('Global options:'), entries, width);
 }
 

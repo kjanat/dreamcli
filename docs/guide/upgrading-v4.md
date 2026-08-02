@@ -47,8 +47,11 @@ Command 'build' defines a '--quiet' flag, which is reserved by the root
 can never receive it
 ```
 
-Rename the flag, or drop it and let root `--quiet` govern the output through
-`out.status()`:
+The error's suggestion names the remedies, `Rename the flag, use out.status()
+for output that root --quiet suppresses, or release the built-in with
+.builtins({ quiet: 'off' }) before registering the command`.
+
+Renaming and `out.status()` cover a command that never wanted the token:
 
 ```ts
 // 4.0
@@ -58,13 +61,31 @@ const build = command('build').action(({ out }) => {
 });
 ```
 
+A command that really does own the token keeps its flag and takes the built-in
+over instead. `--json` naming a document and `-q` meaning something
+domain-specific are the usual cases:
+
+```ts
+// 4.0
+cli('mycli')
+  .builtins({ quiet: 'off' })
+  .command(build);
+```
+
+`.builtins()` has to come first, since `.command()` checks against the state it
+has. See [Taking a built-in over](/guide/output#taking-a-built-in-over) for
+what `'off'` releases.
+
 The check reads each flag's canonical name, every alias including hidden ones,
 and a custom negated spelling from `.negatable({ alias: 'quiet' })`, through
 the whole subcommand tree. `.command()`, `.default()`, `.version()`,
 `.manifest(data)`, and `createCLISchema()` all run it, so a `version` flag
-throws whether the command is registered before or after `.version()`.
-`--completions` is reserved on the same terms once
-`.completions({ as: 'flag' })` or `CLIDefinition.completionsFlag` is set.
+throws whether the command is registered before or after `.version()`. A
+version that `.manifest()` reads off the filesystem arrives past every one of
+those, so `.run()` runs the same guard again once discovery supplies it, and
+the startup fails with the identical error. `--completions` is reserved on the
+same terms once `.completions({ as: 'flag' })` or
+`CLIDefinition.completionsFlag` is set.
 
 Near misses stay legal: `quietMode` and `jsonOutput` as names, `-Q` and `-j` as
 aliases, the default `--no-<name>` negated spelling, and a `version` flag on a
@@ -365,6 +386,10 @@ Adopt at your own pace; none of these are required:
 - **Verbosity in handler code**: `out.verbosity` and
   `resolveRenderContext().verbosity` expose the active level for custom
   rendering built inside or before a run.
+- **Consumer-owned built-in flags**: `.builtins({ help | json | quiet: 'off' })`
+  hands a root-owned token to the commands, for a CLI whose `--json`, `-q`, or
+  `--help` means something of its own. See
+  [Taking a built-in over](/guide/output#taking-a-built-in-over).
 
 See the [CHANGELOG](https://github.com/kjanat/dreamcli/blob/master/CHANGELOG.md)
 for the complete record.

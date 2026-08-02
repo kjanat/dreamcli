@@ -23,6 +23,8 @@ import {
 	requestsHelp,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
+import type { BuiltinsConfig } from './builtins.ts';
+import { builtinEnabled } from './builtins.ts';
 import type { CompiledCLI, CompiledCommand } from './compiled.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';
@@ -54,6 +56,11 @@ interface PlannerSchemaLike {
 		| undefined;
 	/** Flag-parsing behavior settings (case parity) applied to flag lookups. */
 	readonly flagSettings?: ParseOptions | undefined;
+	/**
+	 * Built-in flag state. `help: 'off'` stops root `--help`/`-h` interception
+	 * and bare `help` routing, and `json`/`quiet` stop being read out of argv.
+	 */
+	readonly builtins: BuiltinsConfig | undefined;
 }
 
 /** Root-level help interception outcome. */
@@ -330,7 +337,8 @@ interface RootHeadScan {
 	 * Mirrors the global reach of `--version` (#29): a help flag preceded only by
 	 * flags (no subcommand token) is a *root* help request. A help flag that
 	 * follows a subcommand token is left to that command's executor, so
-	 * `app sub --help` still renders the subcommand's help.
+	 * `app sub --help` still renders the subcommand's help. Always `false` once
+	 * the CLI releases `help` to its commands.
 	 */
 	readonly helpBeforeCommand: boolean;
 	/** First command-dispatch (positional) token, or `undefined` when the head is all flags. */
@@ -352,12 +360,13 @@ interface RootHeadScan {
 function scanRootHead(
 	head: readonly string[],
 	valueFlags: ReturnType<typeof buildFlagLookup> | undefined,
+	helpOwned: boolean,
 ): RootHeadScan {
 	for (let index = 0; index < head.length; index++) {
 		const token = head[index];
 		if (token === undefined) continue;
 
-		if (token === '--help' || token === '-h') {
+		if (helpOwned && (token === '--help' || token === '-h')) {
 			return { helpBeforeCommand: true, firstCommandToken: undefined, commandTokenIndex: -1 };
 		}
 
@@ -385,6 +394,23 @@ function scanRootHead(
 	}
 
 	return { helpBeforeCommand: false, firstCommandToken: undefined, commandTokenIndex: -1 };
+}
+
+/**
+ * Build the `Run '<scope> --help'` hint carried by a dispatch failure.
+ *
+ * A CLI that released `help` through `.builtins({ help: 'off' })` rejects the
+ * token, so the hint is dropped rather than pointing at a flag the program
+ * answers with `Unknown flag --help`.
+ *
+ * @param scopePath - Binary name plus any ancestor command names.
+ * @param helpOwned - Whether the root still owns `--help`.
+ * @returns The `suggest` field, or an empty object.
+ *
+ * @internal
+ */
+function helpHint(scopePath: string, helpOwned: boolean): { readonly suggest?: string } {
+	return helpOwned ? { suggest: `Run '${scopePath} --help' for available commands` } : {};
 }
 
 /**
@@ -452,7 +478,8 @@ function planCompletionsFlag(
  * @internal
  */
 function planInvocation(options: PlanInvocationOptions): InvocationPlan {
-	const rootOutputFlags = readRootOutputFlags(options.argv);
+	const helpOwned = builtinEnabled(options.schema.builtins, 'help');
+	const rootOutputFlags = readRootOutputFlags(options.argv, options.schema.builtins);
 	const filteredArgv = rootOutputFlags.argv;
 	const separatorIndex = filteredArgv.indexOf('--');
 	const filteredHead = separatorIndex === -1 ? filteredArgv : filteredArgv.slice(0, separatorIndex);
@@ -490,7 +517,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	// A help flag *after* a subcommand token is left to that command's executor,
 	// keeping `app sub --help` scoped to the subcommand (version stays global by
 	// design — there is no per-command version).
-	const headScan = scanRootHead(filteredHead, rootValueFlags);
+	const headScan = scanRootHead(filteredHead, rootValueFlags, helpOwned);
 	if (headScan.helpBeforeCommand) {
 		return {
 			kind: 'root-help',
@@ -500,7 +527,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 
 	// Bare `help` token: a root help request (or `<command> --help` forwarding)
 	// when it is the first command token and no real `help` command is registered.
-	if (headScan.firstCommandToken === 'help') {
+	if (helpOwned && headScan.firstCommandToken === 'help') {
 		const hasRealHelpCommand = options.compiled.commands.some(
 			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
 		);
@@ -520,7 +547,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		}
 	}
 
-	if (rootOutputFlags.kind === 'failed' && !requestsHelp(filteredArgv)) {
+	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv))) {
 		return { kind: 'dispatch-error', error: rootOutputFlags.error };
 	}
 
@@ -587,7 +614,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 						kind: 'dispatch-error',
 						error: new ParseError(`Unknown flag ${unknownFlag}`, {
 							code: 'UNKNOWN_FLAG',
-							suggest: `Run '${options.schema.name} --help' for available commands`,
+							...helpHint(options.schema.name, helpOwned),
 						}),
 					};
 				}
@@ -606,7 +633,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 					kind: 'dispatch-error',
 					error: new ParseError(`Unknown flag ${unknownFlag}`, {
 						code: 'UNKNOWN_FLAG',
-						suggest: `Run '${options.schema.name} --help' for available commands`,
+						...helpHint(options.schema.name, helpOwned),
 					}),
 				};
 			}
@@ -621,10 +648,9 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 				kind: 'dispatch-error',
 				error: new ParseError(`Unknown command: ${result.input}`, {
 					code: 'UNKNOWN_COMMAND',
-					suggest:
-						suggestion !== undefined
-							? `Did you mean '${suggestion}'?`
-							: `Run '${scopePath} --help' for available commands`,
+					...(suggestion !== undefined
+						? { suggest: `Did you mean '${suggestion}'?` }
+						: helpHint(scopePath, helpOwned)),
 				}),
 			};
 		}

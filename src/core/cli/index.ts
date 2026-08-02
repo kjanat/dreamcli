@@ -49,6 +49,8 @@ import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
+import type { Builtins, BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
+import { normalizeBuiltins } from './builtins.ts';
 import type { CompiledCLI } from './compiled.ts';
 import { assertNoSiblingRouteConflict, commandRoutes, compileCommand } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
@@ -234,6 +236,15 @@ interface CLISchema {
 	 * Set via the `cli(name, { flags })` / `cli({ flags })` factory forms.
 	 */
 	readonly flagSettings: ParseOptions | undefined;
+	/**
+	 * Which built-in flags the root still owns.
+	 *
+	 * Every built-in starts `'on'`. Set via the
+	 * {@linkcode CLIBuilder.builtins | .builtins()} builder method or the
+	 * `builtins` field of {@link CLIDefinition}; a built-in set to `'off'`
+	 * releases its tokens to the commands.
+	 */
+	readonly builtins: Builtins;
 }
 
 /**
@@ -524,6 +535,11 @@ interface CLIDefinition {
 	 */
 	readonly flagSettings?: ParseOptions | undefined;
 	/**
+	 * Which built-in flags the root keeps.
+	 * @defaultValue every built-in `'on'`
+	 */
+	readonly builtins?: BuiltinsConfig | undefined;
+	/**
 	 * Registered command definitions or built schemas, in registration order.
 	 * @defaultValue `[]`
 	 */
@@ -548,15 +564,17 @@ type ConfigSettingsDraft = Omit<ConfigSettings, typeof schemaBrand>;
  *
  * @internal
  */
-type CLISchemaDraft = Omit<CLISchema, typeof schemaBrand | 'configSettings'> & {
+type CLISchemaDraft = Omit<CLISchema, typeof schemaBrand | 'configSettings' | 'builtins'> & {
 	readonly configSettings: ConfigSettingsDraft | undefined;
+	readonly builtins: BuiltinsDraft;
 };
 
 /**
  * Apply the type-only seal to a fully populated CLI schema draft.
  *
  * The brand has no runtime value, so this is the single construction path for
- * {@link CLISchema} and {@link ConfigSettings} values in this module.
+ * {@link CLISchema}, {@link ConfigSettings}, and {@link Builtins} values in
+ * this module.
  *
  * @param draft - Draft carrying every schema field.
  * @returns The sealed schema.
@@ -598,6 +616,7 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
 		completionsFlag: definition.completionsFlag,
 		helpConfig: definition.helpConfig,
 		flagSettings: definition.flagSettings,
+		builtins: normalizeBuiltins(definition.builtins),
 	});
 }
 
@@ -614,11 +633,13 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
  *
  * @param definition - Program name plus optional metadata and commands.
  * @returns A fully populated {@link CLISchema}.
- * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty or a
+ *   `builtins` entry is neither `'on'` nor `'off'`.
  * @throws {CLIError} With code `'RESERVED_FLAG'` when a command spells a flag
  *   the same way as a root-owned flag (`--json`, `--quiet`/`-q`, `--help`/`-h`,
  *   `--version`/`-V` once `version` is set, and `--completions` once
- *   `completionsFlag` is set), by name, alias, or negated spelling.
+ *   `completionsFlag` is set), by name, alias, or negated spelling. A built-in
+ *   set to `'off'` in `builtins` is not reserved.
  *
  * @example
  * ```ts
@@ -651,7 +672,7 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 		assertNoTopLevelRouteConflict(registered, schema.defaultCommand);
 	}
 	const allCommands = [schema.defaultCommand, ...schema.commands];
-	assertNoReservedFlagCollisions(schema.version, allCommands);
+	assertNoReservedFlagCollisions(schema.version, allCommands, schema.builtins);
 	if (schema.completionsFlag !== undefined) {
 		for (const cmd of allCommands) {
 			if (cmd !== undefined) assertNoCompletionsFlagCollision(cmd);
@@ -697,6 +718,8 @@ interface InternalCLIExecuteOptions extends CLIExecuteOptions {
 	readonly captured?: CapturedOutput;
 	/** CLI plugins registered on the builder. */
 	readonly plugins?: readonly CLIPlugin[];
+	/** Built-in flag state from the schema, threaded to the command executor. */
+	readonly builtins?: BuiltinsConfig;
 }
 
 // --- Render context
@@ -741,6 +764,14 @@ interface RenderContextOptions {
 	 * @defaultValue `{}`
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
+	/**
+	 * Which built-in flags the CLI still owns, matching its
+	 * {@linkcode CLIBuilder.builtins | .builtins()} call. A built-in set to
+	 * `'off'` is not read out of `argv` here either.
+	 *
+	 * @defaultValue every built-in `'on'`
+	 */
+	readonly builtins?: BuiltinsConfig;
 }
 
 /**
@@ -830,7 +861,7 @@ function resolveRenderContext(
 	argv: readonly string[],
 	options?: RenderContextOptions,
 ): RenderContext {
-	const rootOutputFlags = readRootOutputFlags(argv);
+	const rootOutputFlags = readRootOutputFlags(argv, options?.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
 	const verbosity = resolveRootVerbosity(rootOutputFlags, options?.verbosity) ?? 'normal';
 	const out = createOutput({
@@ -876,6 +907,7 @@ function buildCommandRunOptions(
 		help: helpOptions,
 		...(meta !== undefined ? { meta } : {}),
 		...(options?.plugins !== undefined ? { plugins: options.plugins } : {}),
+		...(options?.builtins !== undefined ? { builtins: options.builtins } : {}),
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
@@ -982,8 +1014,62 @@ class CLIBuilder {
 	 *   a flag named `version` or aliased `V`.
 	 */
 	version(v: string): CLIBuilder {
-		assertNoReservedFlagCollisions(v, [this.schema.defaultCommand, ...this.schema.commands]);
+		assertNoReservedFlagCollisions(
+			v,
+			[this.schema.defaultCommand, ...this.schema.commands],
+			this.schema.builtins,
+		);
 		return rebuild(this, { ...this.schema, version: v });
+	}
+
+	/**
+	 * Choose which built-in flags the root keeps.
+	 *
+	 * `--help`/`-h`, `--json`, and `--quiet`/`-q` are root-owned by default and
+	 * never reach a command handler. Setting one to `'off'` releases every
+	 * spelling it answers to: the root stops reading it out of argv, root help
+	 * stops advertising it under `Global options:`, and a command may declare it
+	 * as an ordinary flag. `RunOptions.jsonMode` and `RunOptions.verbosity`
+	 * keep working either way, since only argv-driven activation is disabled.
+	 *
+	 * `version` and `completions` are absent by design, since `.version()` and
+	 * `.completions()` are opt-in and a CLI declines those by omission.
+	 *
+	 * Call multiple times to set built-ins incrementally; the last mode given for
+	 * a built-in wins. Turning one back `'on'` re-checks every registered command
+	 * for a collision. Call this **before** registering the commands that declare
+	 * a released flag, since `.command()` rejects the flag while the root still
+	 * owns the token.
+	 *
+	 * @param config - Built-in modes to apply over the current state.
+	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `INVALID_SCHEMA` when a value is neither `'on'` nor `'off'`.
+	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command already
+	 *   declares a flag spelled like a built-in this call keeps or restores.
+	 * @see {@link BuiltinsConfig} for the accepted keys and modes.
+	 * @see https://dreamcli.kjanat.dev/guide/output#taking-a-built-in-over
+	 *
+	 * @example
+	 * ```ts
+	 * // `--json` names the document the command validates.
+	 * cli('schematool')
+	 *   .builtins({ json: 'off' })
+	 *   .default(
+	 *     command('validate')
+	 *       .flag('json', flag.string().describe('Document to validate'))
+	 *       .action(({ flags, out }) => out.log(flags.json)),
+	 *   )
+	 *   .run();
+	 * ```
+	 */
+	builtins(config: BuiltinsConfig): CLIBuilder {
+		const builtins = normalizeBuiltins({ ...this.schema.builtins, ...config });
+		assertNoReservedFlagCollisions(
+			this.schema.version,
+			[this.schema.defaultCommand, ...this.schema.commands],
+			builtins,
+		);
+		return rebuild(this, sealCLISchema({ ...this.schema, builtins }));
 	}
 
 	/**
@@ -1239,7 +1325,11 @@ class CLIBuilder {
 	manifest(settings?: ManifestSettings): CLIBuilder;
 	manifest(input?: PackageJsonData | ManifestSettings): CLIBuilder {
 		const next = buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES);
-		assertNoReservedFlagCollisions(next.version, [next.defaultCommand, ...next.commands]);
+		assertNoReservedFlagCollisions(
+			next.version,
+			[next.defaultCommand, ...next.commands],
+			next.builtins,
+		);
 		return rebuild(this, next);
 	}
 
@@ -1256,7 +1346,8 @@ class CLIBuilder {
 	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
 	 *   nested subcommands, declares a flag named or aliased to a root-owned flag
 	 *   (`--json`, `--quiet`/`-q`, `--help`/`-h`, and `--version`/`-V` once
-	 *   {@link CLIBuilder.version | .version()} is set).
+	 *   {@link CLIBuilder.version | .version()} is set). A built-in released
+	 *   through {@link CLIBuilder.builtins | .builtins()} is not reserved.
 	 */
 	command<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1264,7 +1355,7 @@ class CLIBuilder {
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema, this.schema.defaultCommand);
-		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema]);
+		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema], this.schema.builtins);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
@@ -1333,7 +1424,8 @@ class CLIBuilder {
 	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
 	 *   nested subcommands, declares a flag named or aliased to a root-owned flag
 	 *   (`--json`, `--quiet`/`-q`, `--help`/`-h`, and `--version`/`-V` once
-	 *   {@link CLIBuilder.version | .version()} is set).
+	 *   {@link CLIBuilder.version | .version()} is set). A built-in released
+	 *   through {@link CLIBuilder.builtins | .builtins()} is not reserved.
 	 */
 	default<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1348,7 +1440,7 @@ class CLIBuilder {
 		}
 
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
-		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema]);
+		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema], this.schema.builtins);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
@@ -1607,7 +1699,7 @@ async function executeCLI(
 	options?: InternalCLIExecuteOptions,
 ): Promise<RunResult> {
 	// -- Detect global --json / --quiet before building output ----------------
-	const rootOutputFlags = readRootOutputFlags(argv);
+	const rootOutputFlags = readRootOutputFlags(argv, builder.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
 	const verbosity: Verbosity | undefined = resolveRootVerbosity(
 		rootOutputFlags,
@@ -1656,6 +1748,7 @@ async function executeCLI(
 	const effectiveOptions: InternalCLIExecuteOptions = {
 		...options,
 		plugins: compiled.plugins,
+		builtins: builder.schema.builtins,
 		...(jsonMode ? { jsonMode } : {}),
 		...(verbosity !== undefined ? { verbosity } : {}),
 		...(flagSettings !== undefined ? { flags: flagSettings } : {}),
@@ -2139,6 +2232,7 @@ function isMainModule(meta: ImportMeta): boolean {
 
 // --- Exports
 
+export type { BuiltinMode, BuiltinName, Builtins, BuiltinsConfig } from './builtins.ts';
 export type { HelpLinks } from './help-links.ts';
 export type {
 	BeforeParseParams,

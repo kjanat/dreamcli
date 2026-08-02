@@ -86,8 +86,9 @@ the same way could never be set, so declaring one throws `RESERVED_FLAG`.
 Naming a flag `quiet`, `json`, or `help`, aliasing one to `q` or `h`, or giving
 one a negated spelling like `.negatable({ alias: 'quiet' })` is rejected by
 `.command()`, `.default()`, and `createCLISchema()`, and `version`/`V` join
-that set once a version is configured. Rename the flag, or use `out.status()`
-for status output that root `--quiet` suppresses.
+that set once a version is configured. Rename the flag, use `out.status()` for
+status output that root `--quiet` suppresses, or release the built-in with
+`.builtins()`.
 
 | Method   | Stream                      | Suppressed by quiet |
 | -------- | --------------------------- | ------------------- |
@@ -96,6 +97,85 @@ for status output that root `--quiet` suppresses.
 | `status` | stderr                     | yes                 |
 | `warn`   | stderr                     | no                  |
 | `error`  | stderr                     | no                  |
+
+### Taking a built-in over
+
+Some CLIs need the token for themselves. `--json` names the document the
+command operates on, `-q` means something domain-specific, `--help` is a
+routable topic browser. `.builtins()` releases a built-in to the commands.
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+const validate = command('validate')
+  .flag('json', flag.string().describe('Document to validate'))
+  .action(({ flags, out }) => {
+    out.log(`Validating ${flags.json}`);
+  });
+
+cli('schematool')
+  .builtins({ json: 'off' })
+  .command(validate);
+```
+
+```sh
+$ schematool validate --json schema.yaml
+Validating schema.yaml
+$ schematool validate --json=schema.yaml
+Validating schema.yaml
+```
+
+Every built-in starts `'on'`. Setting one to `'off'` releases every spelling it
+answers to. The root stops reading and stripping the token, `Global options:`
+stops listing it, the `RESERVED_FLAG` guard stops reserving it, and the
+command's own flag parses and reaches the handler. `quiet: 'off'` releases both
+`--quiet` and `-q`. `help: 'off'` releases `--help` and `-h` at the root and at
+the command level, along with the bare `help` token, the `--help` footer hint,
+the `Run '<bin> --help' for available commands` suggestion on dispatch errors,
+and the synthetic `--help` in generated completion scripts. A bare invocation
+is unaffected, so `schematool` with no arguments still renders root help when
+the CLI has no default command.
+
+Call `.builtins()` before registering the commands that declare a released
+flag. `.command()` checks against the state it has, so the reverse order throws
+`RESERVED_FLAG`:
+
+```
+Command 'validate' defines a '--json' flag, which is reserved by the root
+'--json' flag. The root strips that token before dispatch, so the command can
+never receive it
+```
+
+Its suggestion names both remedies, `Rename the flag, or release the built-in
+with .builtins({ json: 'off' }) before registering the command`. The `quiet`
+variant adds `use out.status() for output that root --quiet suppresses`.
+
+Repeated calls merge, the last mode per built-in winning, and taking a built-in
+back with `'on'` re-checks every registered command.
+
+`version` and `completions` have no entry. `.version()` and `.completions()`
+are opt-in, so a CLI declines those two by not calling them.
+
+Only argv-driven activation is disabled. `RunOptions.jsonMode` and
+`RunOptions.verbosity` keep working, so `.execute(argv, { jsonMode: true })`
+still renders JSON with `json: 'off'`. In tests, pass the same setting to
+`runCommand()` so the harness mirrors the CLI the command is registered on:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+const validate = command('validate')
+  .flag('json', flag.string())
+  .action(({ flags, out }) => {
+    out.log(`Validating ${flags.json}`);
+  });
+// ---cut---
+import { runCommand } from '@kjanat/dreamcli/testkit';
+
+const result = await runCommand(validate, ['--json', 'schema.yaml'], {
+  builtins: { json: 'off' },
+});
+```
 
 ## Tables
 

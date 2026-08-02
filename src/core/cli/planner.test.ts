@@ -46,6 +46,7 @@ function planFor(
 			version: '1.2.3',
 			defaultCommandRouted: false,
 			completionsFlag: undefined,
+			builtins: undefined,
 		},
 		compiled: { commands, defaultCommand, plugins: [] },
 		argv,
