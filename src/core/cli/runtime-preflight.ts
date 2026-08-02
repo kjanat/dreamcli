@@ -182,18 +182,18 @@ interface ReadyRuntimePreflight {
 	readonly inputs: RuntimeExecutionInputs;
 }
 
-/** Preflight failed during config file discovery/loading. @internal */
-interface RuntimeConfigErrorPreflight {
-	/** Discriminant — config loading produced a structured error. */
-	readonly kind: 'config-error';
-	/** The config discovery/parse error to render. */
+/** Preflight failed before the CLI could start. @internal */
+interface RuntimeStartupErrorPreflight {
+	/** Discriminant — a startup step produced a structured error. */
+	readonly kind: 'startup-error';
+	/** The startup error to render. */
 	readonly error: CLIError;
 	/** Whether JSON output was requested (needed to choose error rendering). */
 	readonly jsonMode: boolean;
 }
 
-/** Discriminated union of preflight outcomes — either ready or config-error. @internal */
-type RuntimePreflightResult = ReadyRuntimePreflight | RuntimeConfigErrorPreflight;
+/** Discriminated union of preflight outcomes — either ready or startup-error. @internal */
+type RuntimePreflightResult = ReadyRuntimePreflight | RuntimeStartupErrorPreflight;
 
 /** Options bag for {@linkcode prepareRuntimePreflight}. @internal */
 interface PrepareRuntimePreflightOptions {
@@ -386,26 +386,36 @@ async function applyPackageJsonDiscovery(
  * `.manifest()` reads a version off the filesystem at `.run()` time, past every
  * build-time check, so a command flag named `version` or aliased `V` would
  * become unreachable without ever being rejected. Running the same guard here
- * fails the startup with the identical error the build paths raise (#86).
+ * fails the startup with the identical error the build paths raise (#86),
+ * rendered like every other startup failure rather than thrown at the caller.
  *
  * @param discovered - Schema after manifest discovery merged its metadata in.
  * @param declared - Schema as the builder had it before discovery.
  * @param compiled - Compiled graph carrying every registered command schema.
- * @throws {@linkcode CLIError} `RESERVED_FLAG` for the first collision found.
+ * @returns The `RESERVED_FLAG` error for the first collision, or `undefined`.
  *
  * @internal
  */
-function assertDiscoveredVersionIsFree(
+function discoveredVersionCollision(
 	discovered: RuntimePreflightSchemaLike,
 	declared: RuntimePreflightSchemaLike,
 	compiled: CompiledCLI,
-): void {
-	if (discovered.version === declared.version) return;
-	assertNoReservedFlagCollisions(
-		discovered.version,
-		[compiled.defaultCommand?.schema, ...compiled.commands.map((command) => command.schema)],
-		discovered.builtins,
-	);
+): CLIError | undefined {
+	if (discovered.version === declared.version) return undefined;
+
+	try {
+		assertNoReservedFlagCollisions(
+			discovered.version,
+			[compiled.defaultCommand?.schema, ...compiled.commands.map((command) => command.schema)],
+			discovered.builtins,
+		);
+		return undefined;
+	} catch (error: unknown) {
+		if (error instanceof CLIError) {
+			return error;
+		}
+		throw error;
+	}
 }
 
 async function loadRuntimeConfig(
@@ -461,7 +471,16 @@ async function prepareRuntimePreflight(
 		options.inheritedName,
 		isCompletions,
 	);
-	assertDiscoveredVersionIsFree(schema, options.schema, options.compiled);
+	const versionCollision = discoveredVersionCollision(schema, options.schema, options.compiled);
+
+	if (versionCollision !== undefined) {
+		return {
+			kind: 'startup-error',
+			error: versionCollision,
+			jsonMode,
+		};
+	}
+
 	const loadedConfig = await loadRuntimeConfig(
 		schema,
 		options.adapter,
@@ -472,7 +491,7 @@ async function prepareRuntimePreflight(
 
 	if (loadedConfig instanceof CLIError) {
 		return {
-			kind: 'config-error',
+			kind: 'startup-error',
 			error: loadedConfig,
 			jsonMode,
 		};

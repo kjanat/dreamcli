@@ -229,6 +229,127 @@ describe('CLIBuilder.run() — package.json version', () => {
 	});
 });
 
+// === CLIBuilder.run() — discovered version collides with a command flag
+
+describe('CLIBuilder.run() — discovered version reserved-flag collision', () => {
+	it('renders the collision to stderr and exits instead of rejecting', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('version', flag.boolean())
+					.action(({ out }) => {
+						out.json({ ok: true });
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app, ['info'], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toEqual([]);
+		expect(stderr).toEqual([
+			"Error: Command 'info' defines a '--version' flag, which is reserved by the root '--version' flag. The root intercepts that token before dispatch, so the command can never receive it\n",
+			'Suggestion: Rename the flag\n',
+		]);
+	});
+
+	it('serializes the collision to stdout in json mode', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('version', flag.boolean())
+					.action(({ out }) => {
+						out.json({ ok: true });
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app, ['info', '--json'], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stderr).toEqual([]);
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({
+			error: {
+				name: 'CLIError',
+				code: 'RESERVED_FLAG',
+				message:
+					"Command 'info' defines a '--version' flag, which is reserved by the root '--version' flag. The root intercepts that token before dispatch, so the command can never receive it",
+				details: { command: 'info', flag: 'version' },
+				suggest: 'Rename the flag',
+				exitCode: 1,
+			},
+		});
+	});
+
+	it('runs the discovered-version command when nothing collides', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('versionTag', flag.string())
+					.action(({ out }) => {
+						out.json({ ok: true });
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app, ['info'], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stderr).toEqual([]);
+		expect(JSON.parse(stdout.join(''))).toEqual({ ok: true });
+	});
+
+	it('renders a collision on the default command', async () => {
+		const app = cli('myapp').default(
+			command('start')
+				.flag('version', flag.boolean())
+				.action(({ out }) => {
+					out.json({ ok: true });
+				}),
+		);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app.manifest(), [], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toEqual([]);
+		expect(stderr[0]).toContain("Command 'start' defines a '--version' flag");
+	});
+
+	it('leaves a released built-in alone when discovery supplies the version', async () => {
+		const app = cli('myapp')
+			.builtins({ json: 'off' })
+			.manifest()
+			.command(
+				command('validate')
+					.flag('json', flag.string())
+					.action(({ flags, out }) => {
+						out.log(flags.json ?? '');
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(
+			app,
+			['validate', '--json', 'doc.txt'],
+			{
+				'/test/package.json': '{"version":"6.6.6"}',
+			},
+		);
+
+		expect(exitCode).toBe(0);
+		expect(stderr).toEqual([]);
+		expect(stdout.join('')).toContain('doc.txt');
+	});
+});
+
 // === CLIBuilder.run() — deno-family manifest discovery
 
 describe('CLIBuilder.run() — deno-family manifest discovery', () => {

@@ -137,7 +137,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.schema.version).toBe('5.5.5');
 	});
 
-	it('rejects a discovered version that shadows a command flag', async () => {
+	it('reports a discovered version that shadows a command flag as a startup error', async () => {
 		const app = cli('myapp')
 			.manifest()
 			.command(
@@ -152,15 +152,20 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 			readFile: async (path) => (path === '/work/package.json' ? '{"version":"6.6.6"}' : null),
 		});
 
-		await expect(
-			prepareRuntimePreflight({
-				schema: app.schema,
-				compiled: compiledStateOf(app),
-				adapter,
-				options: undefined,
-				inheritedName: undefined,
-			}),
-		).rejects.toThrow(/reserved by the root '--version' flag/);
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('startup-error');
+		if (preflight.kind !== 'startup-error') return;
+		expect(preflight.error.code).toBe('RESERVED_FLAG');
+		expect(preflight.error.message).toMatch(/reserved by the root '--version' flag/);
+		expect(preflight.error.suggest).toBe('Rename the flag');
+		expect(preflight.jsonMode).toBe(false);
 	});
 
 	it('leaves a discovered version alone when no command flag collides', async () => {
@@ -298,7 +303,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(piped.inputs.prompter).toBeUndefined();
 	});
 
-	it('returns config-error outcomes for CLI config failures', async () => {
+	it('returns startup-error outcomes for CLI config failures', async () => {
 		const app = cli('myapp')
 			.config('myapp')
 			.command(command('deploy').action(() => {}));
@@ -315,8 +320,8 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 			inheritedName: undefined,
 		});
 
-		expect(preflight.kind).toBe('config-error');
-		if (preflight.kind !== 'config-error') return;
+		expect(preflight.kind).toBe('startup-error');
+		if (preflight.kind !== 'startup-error') return;
 		expect(preflight.jsonMode).toBe(true);
 		expect(preflight.error.code).toBe('CONFIG_PARSE_ERROR');
 	});

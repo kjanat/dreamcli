@@ -25,9 +25,9 @@
 
 | File                   | Lines | Purpose                                                               |
 | ---------------------- | ----: | --------------------------------------------------------------------- |
-| `index.ts`             |  2259 | CLIBuilder class + cli() factory + JSON error handling                |
+| `index.ts`             |  2265 | CLIBuilder class + cli() factory + JSON error handling                |
 | `planner.ts`           |   695 | `@internal` — execution planner, command resolution strategy          |
-| `runtime-preflight.ts` |   526 | `@internal` — runtime adapter setup, env/config preflight             |
+| `runtime-preflight.ts` |   545 | `@internal` — runtime adapter setup, env/config preflight             |
 | `root-help.ts`         |   383 | `@internal` — root-level help text + text helpers, structural schema  |
 | `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein  |
 | `reserved-flags.ts`    |   238 | `@internal` — build-time `RESERVED_FLAG` guard for root-owned flags   |
@@ -121,7 +121,9 @@ no-commands error, command map building, 3-way dispatch result (`unknown` / `nee
   the exact `-q`/`-h`/`-V` tokens, so a short cluster like `-vq` still reaches the command. The
   plain spelling is the one users type; `reserved-flags.test.ts` pins both halves.
 - `runtime-preflight.ts` re-runs the guard when `.manifest()` filesystem discovery injects a version
-  (`assertDiscoveredVersionIsFree`), the one path that lands a version past every build-time check.
+  (`discoveredVersionCollision`), the one path that lands a version past every build-time check. It
+  returns the `CLIError` as a `startup-error` preflight result instead of throwing, so `.run()`
+  renders it through the same branch config failures use.
 - The version half of the guard is bidirectional like the `--completions` guard:
   `.command()`/`.default()` check against the current `schema.version`, and
   `.version()`/`.manifest(data)` re-check every registered command because either can set the
