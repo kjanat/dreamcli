@@ -222,45 +222,6 @@ async function discoverManifest(
 	return null;
 }
 
-// --- discoverPackageJson
-
-/**
- * Discover the nearest `package.json` by walking up from `startDir` (or
- * `adapter.cwd` when omitted).
- *
- * @deprecated Use {@link discoverManifest} with `{ files: ['package.json'] }`
- *   (the default), which also supports `deno.json` / `jsr.json`.
- *
- * Behavior note (changed by the manifest generalization): a parseable but
- * metadata-less `package.json` — `{}`, or one carrying only non-metadata fields
- * such as `dependencies` / `scripts` / `type` — is no longer treated as a
- * discovery hit. Previously such a file halted the walk-up and resolved to `{}`;
- * now it is skipped and the walk-up CONTINUES to parent directories. In a
- * monorepo this means a metadata-less leaf `package.json` no longer shadows an
- * ancestor manifest, so an ancestor's `version` can surface where the old
- * behavior returned `{}`. Pass pre-loaded `data` (or use {@link discoverManifest}
- * with an explicit `startDir`) when you need to pin discovery to one directory.
- *
- * @param adapter - Adapter providing `readFile` + `cwd`.
- * @param startDir - Optional explicit directory or file path to walk up from.
- *
- * @example
- * ```ts
- * import { discoverPackageJson } from '@kjanat/dreamcli';
- *
- * const pkg = await discoverPackageJson(adapter);
- * if (pkg !== null) {
- *   console.log(pkg.version); // '1.2.3'
- * }
- * ```
- */
-async function discoverPackageJson(
-	adapter: PackageJsonAdapter,
-	startDir?: string,
-): Promise<PackageJsonData | null> {
-	return discoverManifest(adapter, startDir !== undefined ? { startDir } : {});
-}
-
 // --- stripJsonc
 
 /** Whitespace characters JSON treats as insignificant. @internal */
@@ -616,4 +577,4 @@ export type {
 	PackageRepository,
 	PackageRepositoryUrlOptions,
 };
-export { discoverManifest, discoverPackageJson, inferCliName, packageRepositoryUrl };
+export { discoverManifest, inferCliName, packageRepositoryUrl };

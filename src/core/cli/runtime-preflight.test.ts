@@ -47,7 +47,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 	it('loads config and package metadata before execution', async () => {
 		const app = cli('fallback')
 			.config('myapp')
-			.packageJson({ inferName: true })
+			.manifest({ inferName: true })
 			.command(
 				command('deploy')
 					.flag('region', flag.string().config('deploy.region').default('us'))
@@ -90,10 +90,10 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.filteredArgv).toEqual(['deploy']);
 	});
 
-	it('uses pre-loaded packageJson data and skips package.json discovery', async () => {
+	it('uses pre-loaded manifest data and skips package.json discovery', async () => {
 		const readFile = vi.fn(async () => null);
 		const app = cli('myapp')
-			.packageJson({ version: '4.4.4', description: 'pre-loaded' })
+			.manifest({ version: '4.4.4', description: 'pre-loaded' })
 			.command(command('info').action(() => {}));
 
 		const adapter = createTestAdapter({ argv: ['node', 'test', 'info'], readFile });
@@ -113,9 +113,9 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(readFile).not.toHaveBeenCalled();
 	});
 
-	it('honors packageJson from anchor when discovering metadata', async () => {
+	it('honors the manifest anchor when discovering metadata', async () => {
 		const app = cli('myapp')
-			.packageJson({ from: '/anchor' })
+			.manifest({ from: '/anchor' })
 			.command(command('info').action(() => {}));
 
 		const adapter = createTestAdapter({
