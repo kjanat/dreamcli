@@ -88,6 +88,48 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `generateCommandSchema()`, so that output gains `schemaVersion: 1` as its
   first key.
 
+- **`readFlags()` evaluates a record of flag builders outside a CLI**
+  ([#107](https://github.com/kjanat/dreamcli/issues/107)). A build script or a
+  small tool that wants typed options without commands, handlers, output
+  channels, help, or process exit hands its flags straight to `readFlags()` and
+  awaits the resolved values, typed by `InferFlags`:
+
+  ```ts
+  const options = await readFlags({
+  	watch: flag.boolean().alias('w').env('WATCH'),
+  	minify: flag.boolean().env('MINIFY').default(true),
+  	target: flag.enum(['node', 'browser']).env('TARGET').default('node'),
+  });
+
+  options.watch; // boolean
+  options.target; // 'node' | 'browser'
+  ```
+
+  Each object key is the canonical flag name, and evaluation runs through the
+  same command schema, parser, coercion, resolver, and validation a command
+  uses. Aliases, negated spellings, duplicate policy, case parity, unknown-flag
+  rejection, collisions between names, aliases and negated forms, the CLI, env,
+  config, prompt, default precedence, constraints, Standard Schema validators,
+  and `flag.path()` checks all behave as they do inside `.action()`. `argv`,
+  `env`, `stat`, and `mkdir` fall back to the detected `RuntimeAdapter`, while
+  `config` and `prompter` stay caller-supplied, since standalone flag reading
+  has no application name to discover a file from and opens no terminal session.
+  `ReadFlagsOptions` extends `ResolveOptions` with `argv`, `adapter`, `parse`,
+  and `onDeprecation`. The adapter is built on the first fact the caller left
+  out, so a call given `argv` and `env` reads nothing from the host unless a
+  `flag.path()` check needs the adapter's filesystem primitives. Failures throw
+  `ParseError` and `ValidationError` instead of exiting, a colliding record or
+  the definition key `__proto__` throws `CLIError` before argv is read, and
+  `.deprecated()` notices reach `onDeprecation` rather than a warning stream,
+  since there is no output channel on this path. Root built-in spellings are not
+  reserved here either, so a record may declare `json`, `quiet`, or `help` as
+  ordinary flags. Positional arguments are not part of this API, and there is no
+  synchronous variant: prompts, async validators, and filesystem checks make the
+  result a promise. `readFlags`, `ReadFlagsOptions`, and `FlagMap` are exported
+  from the package root, and
+  [Standalone Flag Evaluation](https://dreamcli.kjanat.dev/guide/read-flags)
+  walks the API with the build-script case it was added for.
+
 ### Changed
 
 - **Breaking: `CLISchema.commands` and `CLISchema.defaultCommand` hold

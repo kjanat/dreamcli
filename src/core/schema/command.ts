@@ -888,6 +888,15 @@ function buildInheritedFlagsForChildren(
 	return next;
 }
 
+/**
+ * Reject a command whose flags collide on any spelling, walking subcommands.
+ *
+ * @param command - Command schema to validate.
+ * @param inheritedFlags - Propagated ancestor flags visible at this level.
+ * @throws {@link CLIError} `FLAG_NAME_COLLISION` or `PROPAGATED_FLAG_COLLISION`.
+ *
+ * @internal
+ */
 function validateCommandFlagTree(
 	command: CommandSchema,
 	inheritedFlags: Readonly<Record<string, FlagSchema>> = {},
@@ -1675,4 +1684,12 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export { CommandBuilder, command, createCommandSchema, group, outBrand, resolveExampleCommand };
+export {
+	CommandBuilder,
+	command,
+	createCommandSchema,
+	group,
+	outBrand,
+	resolveExampleCommand,
+	validateCommandFlagTree,
+};

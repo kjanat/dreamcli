@@ -149,9 +149,10 @@ Why:
 Workarounds:
 
 - use dreamcli when you expect the CLI to grow or when typed multi-source behavior matters;
+- call `readFlags()` when a script wants typed flags and nothing else: no command, no handler, no output channel;
 - use a thinner parser when you only need a tiny wrapper script.
 
-References: [Why dreamcli](/guide/why), [Architecture Rationale](/guide/rationale)
+References: [Why dreamcli](/guide/why), [Architecture Rationale](/guide/rationale), [Standalone Flag Evaluation](/guide/read-flags)
 
 ## Adoption Guidance Lives Elsewhere On Purpose
 
