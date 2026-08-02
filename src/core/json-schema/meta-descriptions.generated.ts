@@ -7,7 +7,7 @@
 const definitionMetaSchemaDescriptions = {
 	root: {
 		description:
-			'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\\\nBuilt incrementally by CLIBuilder.',
+			'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered command schemas.\\\nSealed by createCLISchema and rebuilt by each CLIBuilder step.',
 		properties: {
 			name: {
 				description: 'Program name (used in help text, usage lines, and completion scripts).',
@@ -20,10 +20,10 @@ const definitionMetaSchemaDescriptions = {
 			},
 			defaultCommand: {
 				description:
-					'Default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method.',
+					'Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition.',
 			},
 			commands: {
-				description: 'Registered commands (type-erased for heterogeneous storage).',
+				description: 'Schemas of the registered commands, in registration order.',
 			},
 		},
 	},

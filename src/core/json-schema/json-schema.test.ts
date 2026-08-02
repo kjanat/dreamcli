@@ -4,11 +4,11 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { createCLISchema } from '#internals/core/cli/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type {
-	ActivityEvent,
 	CommandArgEntry,
 	CommandSchema,
 	FlagSchema,
@@ -43,23 +43,6 @@ function commandDef(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	});
 }
 
-/** Wrap CommandSchema into a minimal ErasedCommand. */
-function erased(schema: CommandSchema) {
-	return {
-		schema,
-		subcommands: new Map(),
-		_execute() {
-			return Promise.resolve({
-				stdout: [] as string[],
-				stderr: [] as string[],
-				activity: [] as ActivityEvent[],
-				exitCode: 0,
-				error: undefined,
-			});
-		},
-	};
-}
-
 /** Options for minimalCLI — all fields optional. */
 interface MinimalCLIOverrides {
 	readonly name?: string;
@@ -71,23 +54,13 @@ interface MinimalCLIOverrides {
 
 /** Create a minimal CLISchema. */
 function minimalCLI(overrides: MinimalCLIOverrides = {}): CLISchema {
-	return {
+	return createCLISchema({
 		name: overrides.name ?? 'test-cli',
-		inheritName: false,
-		version: overrides.version ?? undefined,
-		description: overrides.description ?? undefined,
+		version: overrides.version,
+		description: overrides.description,
 		commands: overrides.commands ?? [],
-		defaultCommand: overrides.defaultCommand ?? undefined,
-		defaultCommandRouted: false,
-		configSettings: undefined,
-		packageJsonSettings: undefined,
-		helpLinks: undefined,
-		hasBuiltInCompletions: false,
-		completionsFlag: undefined,
-		helpConfig: undefined,
-		flagSettings: undefined,
-		plugins: [],
-	};
+		defaultCommand: overrides.defaultCommand,
+	});
 }
 
 /** Shorthand for creating a CommandArgEntry. */
@@ -127,8 +100,8 @@ describe('generateSchema — definition metadata', () => {
 		const deploy = commandDef({ name: 'deploy' });
 		const result = generateSchema(
 			minimalCLI({
-				commands: [erased(deploy)],
-				defaultCommand: erased(deploy),
+				commands: [deploy],
+				defaultCommand: deploy,
 			}),
 		);
 		expect(result).toHaveProperty('defaultCommand');
@@ -140,8 +113,8 @@ describe('generateSchema — definition metadata', () => {
 		const visible = commandDef({ name: 'visible' });
 		const result = generateSchema(
 			minimalCLI({
-				commands: [erased(hiddenDefault), erased(visible)],
-				defaultCommand: erased(hiddenDefault),
+				commands: [hiddenDefault, visible],
+				defaultCommand: hiddenDefault,
 			}),
 			{ includeHidden: false },
 		);
@@ -157,32 +130,32 @@ describe('generateSchema — definition metadata', () => {
 
 	it('serializes a command with name and description', () => {
 		const cmd = commandDef({ name: 'deploy', description: 'Deploy stuff' });
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'name'], 'deploy');
 		expect(result).toHaveProperty(['commands', 0, 'description'], 'Deploy stuff');
 	});
 
 	it('includes command aliases when non-empty', () => {
 		const cmd = commandDef({ name: 'deploy', aliases: ['d', 'dep'] });
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'aliases'], ['d', 'dep']);
 	});
 
 	it('omits aliases when empty', () => {
 		const cmd = commandDef({ name: 'deploy', aliases: [] });
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).not.toHaveProperty(['commands', 0, 'aliases']);
 	});
 
 	it('includes hidden: true when command is hidden', () => {
 		const cmd = commandDef({ name: 'secret', hidden: true });
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'hidden'], true);
 	});
 
 	it('omits hidden when false', () => {
 		const cmd = commandDef({ name: 'visible', hidden: false });
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).not.toHaveProperty(['commands', 0, 'hidden']);
 	});
 
@@ -194,7 +167,7 @@ describe('generateSchema — definition metadata', () => {
 				{ command: 'deploy staging' },
 			],
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(
 			['commands', 0, 'examples'],
 			[
@@ -209,9 +182,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'deploy',
 			examples: [{ command: (m) => `${m.name}@${m.version ?? 'dev'} deploy` }],
 		});
-		const result = generateSchema(
-			minimalCLI({ name: 'mycli', version: '2.0.0', commands: [erased(cmd)] }),
-		);
+		const result = generateSchema(minimalCLI({ name: 'mycli', version: '2.0.0', commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'examples'], [{ command: 'mycli@2.0.0 deploy' }]);
 	});
 
@@ -224,7 +195,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'test',
 			flags: { output: flagDef({ kind: 'string' }) },
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'output', 'kind'], 'string');
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'output', 'presence'], 'optional');
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'output', 'defaultValue']);
@@ -246,7 +217,7 @@ describe('generateSchema — definition metadata', () => {
 				c: flagDef({ kind: 'custom' }),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 's', 'kind'], 'string');
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'n', 'kind'], 'number');
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'b', 'kind'], 'boolean');
@@ -290,7 +261,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'retries'], {
 			kind: 'number',
@@ -329,7 +300,7 @@ describe('generateSchema — definition metadata', () => {
 				region: flagDef({ kind: 'string', presence: 'defaulted', defaultValue: 'us' }),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'region', 'defaultValue'], 'us');
 	});
 
@@ -340,7 +311,7 @@ describe('generateSchema — definition metadata', () => {
 				custom: flagDef({ kind: 'custom', presence: 'defaulted', defaultValue: () => 42 }),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'custom', 'defaultValue']);
 	});
 
@@ -355,7 +326,7 @@ describe('generateSchema — definition metadata', () => {
 				},
 				args: [argEntry('target', { kind: 'number', presence: 'defaulted', defaultValue })],
 			});
-			const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+			const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
 			expect(result).not.toHaveProperty(['commands', 0, 'flags', 'count', 'defaultValue']);
 			expect(result).not.toHaveProperty(['commands', 0, 'args', 0, 'defaultValue']);
@@ -374,7 +345,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'region', 'aliases'], ['r']);
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'region', 'envVar'], 'REGION');
 		expect(result).toHaveProperty(
@@ -399,7 +370,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'skip-pass', 'aliases'], ['x']);
 	});
 
@@ -411,7 +382,7 @@ describe('generateSchema — definition metadata', () => {
 				legacy: flagDef({ deprecated: 'use --new instead' }),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'old', 'deprecated'], true);
 		expect(result).toHaveProperty(
 			['commands', 0, 'flags', 'legacy', 'deprecated'],
@@ -427,7 +398,7 @@ describe('generateSchema — definition metadata', () => {
 				quiet: flagDef({ propagate: false }),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'verbose', 'propagate'], true);
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'quiet', 'propagate']);
 	});
@@ -447,7 +418,7 @@ describe('generateSchema — definition metadata', () => {
 				force: flagDef({ kind: 'boolean' }),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'sandbox', 'negation'], {});
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'color', 'negation'], {
 			alias: 'monochrome',
@@ -465,7 +436,7 @@ describe('generateSchema — definition metadata', () => {
 				region: flagDef({ duplicates: 'last' }),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'spawn', 'duplicates'], 'error');
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'once', 'duplicates'], 'first');
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'region', 'duplicates']);
@@ -487,7 +458,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'region', 'prompt'], {
 			kind: 'select',
 			message: 'Choose region',
@@ -508,7 +479,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }), {
+		const result = generateSchema(minimalCLI({ commands: [cmd] }), {
 			includePrompts: false,
 		});
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'region', 'prompt']);
@@ -529,7 +500,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'tags', 'prompt', 'min'], 1);
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'tags', 'prompt', 'max'], 3);
 	});
@@ -547,7 +518,7 @@ describe('generateSchema — definition metadata', () => {
 				}),
 			},
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(
 			['commands', 0, 'flags', 'name', 'prompt', 'placeholder'],
 			'John',
@@ -563,7 +534,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'test',
 			args: [argEntry('target'), argEntry('count', { kind: 'number' })],
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(
 			['commands', 0, 'args'],
 			[
@@ -581,7 +552,7 @@ describe('generateSchema — definition metadata', () => {
 				argEntry('region', { kind: 'enum', enumValues: ['us', 'eu'], envVar: 'REGION' }),
 			],
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'variadic'], true);
 		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'description'], 'Files to process');
 		expect(result).toHaveProperty(['commands', 0, 'args', 1, 'enumValues'], ['us', 'eu']);
@@ -593,7 +564,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'test',
 			args: [argEntry('target', { presence: 'defaulted', defaultValue: 'prod' })],
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'defaultValue'], 'prod');
 	});
 
@@ -604,7 +575,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'test',
 			flags: { meta: flagDef({ presence: 'defaulted', defaultValue: cycle }) },
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
 		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'meta', 'defaultValue']);
 	});
@@ -616,7 +587,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'test',
 			flags: { meta: flagDef({ presence: 'defaulted', defaultValue: graph }) },
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'meta', 'defaultValue'], graph);
 	});
@@ -638,7 +609,7 @@ describe('generateSchema — definition metadata', () => {
 				name: 'test',
 				flags: { meta: flagDef({ presence: 'defaulted', defaultValue }) },
 			});
-			const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+			const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
 			expect(result).not.toHaveProperty(['commands', 0, 'flags', 'meta', 'defaultValue']);
 		}
@@ -649,7 +620,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'test',
 			args: [argEntry('old', { deprecated: 'use flags instead' })],
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'deprecated'], 'use flags instead');
 	});
 
@@ -660,7 +631,7 @@ describe('generateSchema — definition metadata', () => {
 	it('recursively serializes subcommands', () => {
 		const rollback = commandDef({ name: 'rollback', description: 'Undo deploy' });
 		const deploy = commandDef({ name: 'deploy', commands: [rollback] });
-		const result = generateSchema(minimalCLI({ commands: [erased(deploy)] }));
+		const result = generateSchema(minimalCLI({ commands: [deploy] }));
 		expect(result).toHaveProperty(['commands', 0, 'commands', 0, 'name'], 'rollback');
 		expect(result).toHaveProperty(['commands', 0, 'commands', 0, 'description'], 'Undo deploy');
 	});
@@ -669,7 +640,7 @@ describe('generateSchema — definition metadata', () => {
 		const leaf = commandDef({ name: 'leaf' });
 		const mid = commandDef({ name: 'mid', commands: [leaf] });
 		const top = commandDef({ name: 'top', commands: [mid] });
-		const result = generateSchema(minimalCLI({ commands: [erased(top)] }));
+		const result = generateSchema(minimalCLI({ commands: [top] }));
 		expect(result).toHaveProperty(['commands', 0, 'commands', 0, 'commands', 0, 'name'], 'leaf');
 	});
 
@@ -679,14 +650,14 @@ describe('generateSchema — definition metadata', () => {
 
 	it('includes hidden commands by default', () => {
 		const cmd = commandDef({ name: 'secret', hidden: true });
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 'length'], 1);
 	});
 
 	it('excludes hidden commands when includeHidden is false', () => {
 		const visible = commandDef({ name: 'visible', hidden: false });
 		const hidden = commandDef({ name: 'hidden', hidden: true });
-		const result = generateSchema(minimalCLI({ commands: [erased(visible), erased(hidden)] }), {
+		const result = generateSchema(minimalCLI({ commands: [visible, hidden] }), {
 			includeHidden: false,
 		});
 		expect(result).toHaveProperty(['commands', 'length'], 1);
@@ -698,7 +669,7 @@ describe('generateSchema — definition metadata', () => {
 			name: 'parent',
 			commands: [commandDef({ name: 'visible' }), commandDef({ name: 'hidden', hidden: true })],
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(parent)] }), {
+		const result = generateSchema(minimalCLI({ commands: [parent] }), {
 			includeHidden: false,
 		});
 		expect(result).toHaveProperty(['commands', 0, 'commands', 'length'], 1);
@@ -717,7 +688,7 @@ describe('generateSchema — definition metadata', () => {
 			},
 			interactive: () => ({}),
 		});
-		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		const output = JSON.stringify(result);
 		expect(output).not.toContain('parseFn');
 		expect(output).not.toContain('interactive');
@@ -874,7 +845,7 @@ describe('generateSchema — definition metadata', () => {
 		};
 		const result = generateSchema(
 			minimalCLI({
-				commands: [erased(commandDef({ flags: allFieldsFlags }))],
+				commands: [commandDef({ flags: allFieldsFlags })],
 			}),
 		);
 		const commands = expectRecord(result).commands;
@@ -1072,7 +1043,7 @@ describe('generateInputSchema — input validation', () => {
 			flags: { region: flagDef({ kind: 'string', presence: 'required' }) },
 		});
 		const status = commandDef({ name: 'status' });
-		const cli = minimalCLI({ commands: [erased(deploy), erased(status)] });
+		const cli = minimalCLI({ commands: [deploy, status] });
 		const result = generateInputSchema(cli);
 
 		expect(result).toHaveProperty('$schema', 'https://json-schema.org/draft/2020-12/schema');
@@ -1090,8 +1061,8 @@ describe('generateInputSchema — input validation', () => {
 		const deploy = commandDef({ name: 'deploy' });
 		const status = commandDef({ name: 'status' });
 		const cli = minimalCLI({
-			commands: [erased(deploy), erased(status)],
-			defaultCommand: erased(deploy),
+			commands: [deploy, status],
+			defaultCommand: deploy,
 		});
 		const result = generateInputSchema(cli);
 
@@ -1104,7 +1075,7 @@ describe('generateInputSchema — input validation', () => {
 
 	it('produces flat schema for single-command CLI', () => {
 		const deploy = commandDef({ name: 'deploy' });
-		const cli = minimalCLI({ commands: [erased(deploy)] });
+		const cli = minimalCLI({ commands: [deploy] });
 		const result = generateInputSchema(cli);
 
 		expect(result).not.toHaveProperty('oneOf');
@@ -1116,7 +1087,7 @@ describe('generateInputSchema — input validation', () => {
 	it('uses dot-path for nested subcommands', () => {
 		const rollback = commandDef({ name: 'rollback' });
 		const deploy = commandDef({ name: 'deploy', commands: [rollback] });
-		const cli = minimalCLI({ commands: [erased(deploy)] });
+		const cli = minimalCLI({ commands: [deploy] });
 		const result = generateInputSchema(cli);
 
 		expect(result).toHaveProperty(['oneOf', 'length'], 2);
@@ -1129,7 +1100,7 @@ describe('generateInputSchema — input validation', () => {
 	it('skips group commands without actions', () => {
 		const leaf = commandDef({ name: 'leaf' });
 		const groupCmd = commandDef({ name: 'group', hasAction: false, commands: [leaf] });
-		const cli = minimalCLI({ commands: [erased(groupCmd)] });
+		const cli = minimalCLI({ commands: [groupCmd] });
 		const result = generateInputSchema(cli);
 
 		// Single invocable command — flat schema
@@ -1143,7 +1114,7 @@ describe('generateInputSchema — input validation', () => {
 		const c = commandDef({ name: 'c' });
 		const b = commandDef({ name: 'b', hasAction: false, commands: [c] });
 		const a = commandDef({ name: 'a', hasAction: false, commands: [b] });
-		const cli = minimalCLI({ commands: [erased(a)] });
+		const cli = minimalCLI({ commands: [a] });
 		const result = generateInputSchema(cli);
 
 		expect(result).toHaveProperty('type', 'object');
@@ -1158,7 +1129,7 @@ describe('generateInputSchema — input validation', () => {
 	it('includes hidden commands in input schema by default', () => {
 		const visible = commandDef({ name: 'visible' });
 		const hidden = commandDef({ name: 'hidden', hidden: true });
-		const cli = minimalCLI({ commands: [erased(visible), erased(hidden)] });
+		const cli = minimalCLI({ commands: [visible, hidden] });
 		const result = generateInputSchema(cli);
 		expect(result).toHaveProperty(['oneOf', 'length'], 2);
 	});
@@ -1166,7 +1137,7 @@ describe('generateInputSchema — input validation', () => {
 	it('excludes hidden commands when includeHidden is false', () => {
 		const visible = commandDef({ name: 'visible' });
 		const hidden = commandDef({ name: 'hidden', hidden: true });
-		const cli = minimalCLI({ commands: [erased(visible), erased(hidden)] });
+		const cli = minimalCLI({ commands: [visible, hidden] });
 		const result = generateInputSchema(cli, { includeHidden: false });
 
 		expect(result).not.toHaveProperty('oneOf');

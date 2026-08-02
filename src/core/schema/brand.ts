@@ -14,6 +14,6 @@
 declare const schemaBrand: unique symbol;
 
 /** Discriminator literals carried by the sealed schema types. */
-type SchemaBrandKind = 'flag' | 'arg' | 'command' | 'cli';
+type SchemaBrandKind = 'flag' | 'arg' | 'command' | 'cli' | 'config';
 
 export type { SchemaBrandKind, schemaBrand };

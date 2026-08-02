@@ -23,12 +23,14 @@
 export type { Colors } from 'ansispeck';
 export type {
 	BeforeParseParams,
+	CLIDefinition,
 	CLIOptions,
 	CLIPlugin,
 	CLIPluginHooks,
 	CLIRunOptions,
 	CLISchema,
 	ConfigSettings,
+	ConfigSettingsDefinition,
 	DefaultCommandOptions,
 	HelpLinks,
 	InferNameOption,
@@ -44,6 +46,7 @@ export type {
 export {
 	CLIBuilder,
 	cli,
+	createCLISchema,
 	isMainModule,
 	plugin,
 	resolveRenderContext,

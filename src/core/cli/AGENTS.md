@@ -1,6 +1,6 @@
 # cli — CLIBuilder, multi-command dispatch, plugins
 
-`index.ts` (~1021 lines) — heavily split: 7 `@internal` extraction files.
+`index.ts` (~2193 lines) — heavily split: 9 `@internal` extraction files.
 
 ## KEY TYPES
 
@@ -9,10 +9,11 @@
 | `CLIBuilder`               | Fluent builder: `.command()`, `.default()`, `.execute()`                |
 | `cli(name)`                | Factory function -> `CLIBuilder`                                        |
 | `isMainModule(meta)`       | Entrypoint guard for ambient `ImportMeta` compatibility                 |
-| `CLISchema`                | Runtime descriptor for the full CLI                                     |
+| `CLISchema`                | Runtime descriptor for the full CLI, execution graph excluded           |
 | `CLIRunOptions`            | Extends `RunOptions` with CLI-level settings                            |
 | `ConfigSettings`           | Config file discovery settings for CLI                                  |
-| `ErasedCommand`            | `@internal` — type-erased command for dispatch map                      |
+| `CompiledCommand`          | `@internal` — handler, steps, and subcommand map for one command        |
+| `CompiledCLI`              | `@internal` — compiled commands, default command, and plugins           |
 | `formatRootHelp()`         | `@internal` — root-level help rendering (in `root-help.ts`)             |
 | `ValueFlagLookup`          | `@internal` — value-flag arity lookup threaded into `dispatch()`        |
 | `consumesFollowingToken()` | `@internal` — whether a flag token consumes the next argv token (arity) |
@@ -21,14 +22,16 @@
 
 | File                   | Lines | Purpose                                                              |
 | ---------------------- | ----: | -------------------------------------------------------------------- |
-| `index.ts`             |  1021 | CLIBuilder class + cli() factory + JSON error handling               |
-| `dispatch.ts`          |   349 | `@internal` — command dispatch (value-flag-arity aware), levenshtein |
-| `planner.ts`           |   431 | `@internal` — execution planner, command resolution strategy         |
-| `runtime-preflight.ts` |   304 | `@internal` — runtime adapter setup, env/config preflight            |
-| `plugin.ts`            |   111 | `@internal` — plugin system + lifecycle hooks                        |
-| `propagate.ts`         |    87 | `@internal` — flag propagation through command tree                  |
-| `root-surface.ts`      |    74 | `@internal` — root-level CLI surface (version, help flags)           |
-| `root-help.ts`         |   133 | `@internal` — root-level help text + text helpers, structural schema |
+| `index.ts`             |  2193 | CLIBuilder class + cli() factory + JSON error handling               |
+| `runtime-preflight.ts` |   488 | `@internal` — runtime adapter setup, env/config preflight            |
+| `planner.ts`           |   674 | `@internal` — execution planner, command resolution strategy         |
+| `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein |
+| `root-help.ts`         |   364 | `@internal` — root-level help text + text helpers, structural schema |
+| `compiled.ts`          |   138 | `@internal` — compiled execution graph + `compileCommand()`          |
+| `plugin.ts`            |   117 | `@internal` — plugin system + lifecycle hooks                        |
+| `propagate.ts`         |    97 | `@internal` — flag propagation through command tree                  |
+| `root-surface.ts`      |    96 | `@internal` — root-level CLI surface (version, help flags)           |
+| `help-links.ts`        |    82 | `@internal` — help link derivation from manifest metadata            |
 
 ## DISPATCH FLOW
 
@@ -55,6 +58,23 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
 
 ## GOTCHAS
 
+- `CLISchema` holds `CommandSchema` values; handlers, execution steps, subcommand maps, and plugins
+  live in the `CompiledCLI` stored in a module-private `WeakMap` in `index.ts`. Every builder method
+  that returns a new `CLIBuilder` must go through `rebuild()` or `CLIBuilder._from()` — a `new`
+  without a compiled entry drops every handler and `compiledStateOf()` throws
+  `INVALID_BUILDER_STATE`. The constructor is `private` to enforce this.
+- `compileCommand()` stores the builder's own `schema` object, so `CompiledCommand.schema` is
+  identical (`===`) to the entry in the public schema tree. `mergeCommandSchema()` in `planner.ts`
+  returns that same object when no ancestor flag propagates, and a fresh spread when one does; the
+  spread reaches only `plan.mergedSchema` and must stay out of both trees.
+- `CLISchema` and `ConfigSettings` carry `readonly [schemaBrand]` from `schema/brand.ts` as their
+  first member. `sealCLISchema()` in `index.ts` holds the one `as` cast in the file and attaches both
+  brands; `buildCLISchema()`, `.config()`, `.configLoader()`, and the `run()` preflight rebuild all
+  route through it. Every other rebuild spreads an existing schema, which carries the brand in the
+  spread type.
+- `createCLISchema()` normalizes commands through `createCommandSchema()`, which clones them. It
+  builds descriptions only; `cli()` uses it just for the empty root schema, so the identity
+  invariant above is never crossed.
 - `root-help.ts` uses structural `CLISchemaLike` instead of importing `CLISchema` — avoids circular
   dep through barrel
 - `levenshtein()` in `dispatch.ts` uses `Uint16Array` rolling buffer — different impl from `parse/`
@@ -74,23 +94,32 @@ command map building, 3-way dispatch result (`unknown` / `needs-subcommand` / `m
 - `planner.ts` orchestrates the execution pipeline — shared with testkit via `execution/`
 - `runtime-preflight.ts` handles adapter creation, env loading, config discovery before dispatch
 
-## TEST FILES (16)
+## TEST FILES (25)
 
 | File                              | Tests                                   |
 | --------------------------------- | --------------------------------------- |
 | `cli.test.ts`                     | Core dispatch, help, errors, version    |
 | `cli-json.test.ts`                | JSON mode output + error rendering      |
 | `cli-tty.test.ts`                 | TTY detection propagation               |
+| `cli-quiet.test.ts`               | Quiet verbosity through the CLI root    |
 | `cli-middleware.test.ts`          | Middleware wiring through CLI           |
 | `cli-dispatch.test.ts`            | Subcommand dispatch, default commands   |
 | `cli-default.test.ts`             | Default command behavior                |
 | `cli-nesting.test.ts`             | Nested command groups, deep dispatch    |
 | `cli-completions.test.ts`         | Completion integration in CLI context   |
+| `cli-completions-flag.test.ts`    | `.completions({ as: 'flag' })` form     |
 | `cli-completion-e2e.test.ts`      | End-to-end completion script generation |
 | `cli-completion-contract.test.ts` | Completion contract verification        |
 | `cli-config.test.ts`              | Config discovery integration            |
 | `cli-propagate.test.ts`           | Flag propagation through command tree   |
 | `cli-plugin.test.ts`              | Plugin system tests                     |
 | `cli-package-json.test.ts`        | Package.json metadata integration       |
+| `cli-links.test.ts`               | Help link derivation and overrides      |
+| `cli-examples.test.ts`            | Example rendering in help               |
+| `cli-flag-order.test.ts`          | Flag ordering in help output            |
+| `cli-flag-settings.test.ts`       | Case-parity and flag parse settings     |
+| `compiled.test.ts`                | Compiled graph identity + retention     |
 | `planner.test.ts`                 | Execution planner tests                 |
 | `runtime-preflight.test.ts`       | Runtime preflight adapter setup         |
+| `root-help-theme.test.ts`         | Root help theming                       |
+| `render-context.test.ts`          | Render context construction             |

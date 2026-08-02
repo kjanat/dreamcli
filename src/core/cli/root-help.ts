@@ -26,10 +26,8 @@ interface CLISchemaLike {
 	readonly name: string;
 	readonly version: string | undefined;
 	readonly description: string | undefined;
-	readonly commands: ReadonlyArray<{
-		readonly schema: CommandSchema;
-	}>;
-	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
+	readonly commands: readonly CommandSchema[];
+	readonly defaultCommand: CommandSchema | undefined;
 	/** Whether the default is also a named route — listed in `Commands:` when so. */
 	readonly defaultCommandRouted?: boolean | undefined;
 	readonly helpLinks?:

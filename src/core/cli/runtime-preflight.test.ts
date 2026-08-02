@@ -10,7 +10,7 @@ import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter } from '#internals/runtime/index.ts';
-import { cli } from './index.ts';
+import { cli, compiledStateOf } from './index.ts';
 import { extractConfigFlag, prepareRuntimePreflight } from './runtime-preflight.ts';
 
 describe('runtime-preflight — extractConfigFlag', () => {
@@ -75,6 +75,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: 'custom.js',
@@ -99,6 +100,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -124,6 +126,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -144,6 +147,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -168,6 +172,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -191,6 +196,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -218,12 +224,14 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const interactive = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter: interactiveAdapter,
 			options: undefined,
 			inheritedName: undefined,
 		});
 		const piped = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter: pipedAdapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -247,6 +255,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -270,6 +279,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -291,6 +301,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -313,6 +324,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,

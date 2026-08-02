@@ -35,22 +35,23 @@ import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
+import type { schemaBrand } from '#internals/core/schema/brand.ts';
 import type {
-	AnyCommandBuilder,
 	CommandBuilder,
+	CommandDefinition,
 	CommandMeta,
 	CommandSchema,
-	ErasedCommand,
 	Out,
 } from '#internals/core/schema/command.ts';
-import { command } from '#internals/core/schema/command.ts';
+import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
-import { runCommandInternal } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
+import type { CompiledCLI } from './compiled.ts';
+import { assertNoSiblingRouteConflict, commandRoutes, compileCommand } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import type { OutputPolicy } from './planner.ts';
@@ -59,8 +60,6 @@ import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
 import { formatRootHelp } from './root-help.ts';
 import { prepareRuntimePreflight } from './runtime-preflight.ts';
-
-// --- Type-erased command — erasure function (interface now in schema/command.ts)
 
 /** Long-flag name reserved by `.completions({ as: 'flag' })`; the planner intercepts it before dispatch. */
 const COMPLETIONS_FLAG_NAME = 'completions';
@@ -104,41 +103,17 @@ function assertNoCompletionsFlagCollision(schema: CommandSchema): void {
 	}
 }
 
-function commandRoutes(schema: CommandSchema): readonly string[] {
-	return [schema.name, ...schema.aliases];
-}
-
-function assertNoSiblingRouteConflict(
-	parentCommandName: string,
-	routeOwners: Map<string, string>,
-	route: string,
-	commandName: string,
-): void {
-	const owner = routeOwners.get(route);
-	if (owner !== undefined) {
-		throw new CLIError(
-			`Duplicate command route '${route}' under '${parentCommandName}' (${owner} and ${commandName})`,
-			{
-				code: 'DUPLICATE_COMMAND',
-				suggest: 'Ensure sibling command names and aliases are unique',
-			},
-		);
-	}
-
-	routeOwners.set(route, commandName);
-}
-
 function assertNoTopLevelRouteConflict(
-	commands: readonly ErasedCommand[],
+	commands: readonly CommandSchema[],
 	incoming: CommandSchema,
-	defaultCommand?: ErasedCommand | undefined,
+	defaultCommand?: CommandSchema | undefined,
 ): void {
 	const routeOwners = new Map<string, string>();
 
 	const existing = defaultCommand !== undefined ? [...commands, defaultCommand] : commands;
-	for (const command of existing) {
-		for (const route of commandRoutes(command.schema)) {
-			assertNoSiblingRouteConflict('root', routeOwners, route, command.schema.name);
+	for (const registered of existing) {
+		for (const route of commandRoutes(registered)) {
+			assertNoSiblingRouteConflict('root', routeOwners, route, registered.name);
 		}
 	}
 
@@ -158,56 +133,17 @@ function assertNoTopLevelRouteConflict(
 	}
 }
 
-/**
- * Erase a typed  {@linkcode CommandBuilder} into an {@linkcode ErasedCommand}, recursively
- * building the subcommand tree.
- *
- * The closure captures the fully-typed builder, so  {@linkcode runCommand()} receives
- * the original `CommandBuilder<F, A>` — no type assertions needed.\
- * Subcommands are recursively erased and indexed by name and alias for
- * O(1) lookup during dispatch.
- *
- * @internal
- */
-function eraseCommand<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown>,
->(cmd: CommandBuilder<F, A, C>): ErasedCommand {
-	// Recursively erase subcommands, keyed by name and alias.
-	const subcommands = new Map<string, ErasedCommand>();
-	const routeOwners = new Map<string, string>();
-	for (const sub of cmd._subcommands) {
-		const routes = commandRoutes(sub.schema);
-		for (const route of routes) {
-			assertNoSiblingRouteConflict(cmd.schema.name, routeOwners, route, sub.schema.name);
-		}
-
-		const erased = eraseCommand(sub);
-		for (const route of routes) {
-			subcommands.set(route, erased);
-		}
-	}
-
-	return {
-		schema: cmd.schema,
-		subcommands,
-		_command: cmd as unknown as AnyCommandBuilder,
-		_execute(argv, options) {
-			return runCommandInternal(cmd, argv, options);
-		},
-	};
-}
-
 // --- CLI schema — runtime descriptor for the CLI program
 
 /**
  * Runtime descriptor for the CLI program.
  *
- * Stores the program name, version, description, and registered commands.\
- * Built incrementally by {@linkcode CLIBuilder}.
+ * Stores the program name, version, description, and registered command schemas.\
+ * Sealed by {@linkcode createCLISchema} and rebuilt by each {@linkcode CLIBuilder} step.
  */
 interface CLISchema {
+	/** Type-only seal produced by {@link createCLISchema}. */
+	readonly [schemaBrand]: 'cli';
 	/** Program name (used in help text, usage lines, and completion scripts). */
 	readonly name: string;
 	/**
@@ -220,18 +156,19 @@ interface CLISchema {
 	readonly version: string | undefined;
 	/** Program description (shown in root help). */
 	readonly description: string | undefined;
-	/** Registered commands (type-erased for heterogeneous storage). */
-	readonly commands: readonly ErasedCommand[];
+	/** Schemas of the registered commands, in registration order. */
+	readonly commands: readonly CommandSchema[];
 	/**
-	 * Default command dispatched when no subcommand matches.
+	 * Schema of the default command dispatched when no subcommand matches.
 	 *
 	 * When set, the CLI root behaves like a hybrid command group: subcommands
 	 * dispatch by name as usual, but empty argv or flags-only argv falls
 	 * through to this command instead of showing root help.
 	 *
-	 * Set via the {@linkcode CLIBuilder.default | .default()} builder method.
+	 * Set via the {@linkcode CLIBuilder.default | .default()} builder method
+	 * or the `defaultCommand` field of {@link CLIDefinition}.
 	 */
-	readonly defaultCommand: ErasedCommand | undefined;
+	readonly defaultCommand: CommandSchema | undefined;
 	/**
 	 * Whether the default command is also exposed as a named top-level route.
 	 *
@@ -292,8 +229,49 @@ interface CLISchema {
 	 * Set via the `cli(name, { flags })` / `cli({ flags })` factory forms.
 	 */
 	readonly flagSettings: ParseOptions | undefined;
-	/** Registered CLI plugins. */
-	readonly plugins: readonly CLIPlugin[];
+}
+
+/**
+ * Compiled execution graph per builder instance.
+ *
+ * Keyed weakly so handlers and execution steps stay off the public schema and
+ * out of the emitted declarations.
+ *
+ * @internal
+ */
+const compiledStates = new WeakMap<CLIBuilder, CompiledCLI>();
+
+/**
+ * Read the compiled state seeded by {@linkcode CLIBuilder._from}.
+ *
+ * @param builder - Builder to look up.
+ * @returns Its compiled execution graph.
+ * @throws {@linkcode CLIError} `INVALID_BUILDER_STATE` when the builder was not created by `cli()`.
+ *
+ * @internal
+ */
+function compiledStateOf(builder: CLIBuilder): CompiledCLI {
+	const compiled = compiledStates.get(builder);
+	if (compiled === undefined) {
+		throw new CLIError('CLI builder carries no compiled command graph', {
+			code: 'INVALID_BUILDER_STATE',
+			suggest: 'Create CLI builders with cli()',
+		});
+	}
+	return compiled;
+}
+
+/**
+ * Build the next builder in a chain, carrying the current compiled state.
+ *
+ * @param builder - Builder the chained call was made on.
+ * @param schema - Schema for the new builder.
+ * @returns The new builder.
+ *
+ * @internal
+ */
+function rebuild(builder: CLIBuilder, schema: CLISchema): CLIBuilder {
+	return CLIBuilder._from(schema, compiledStateOf(builder));
 }
 
 /**
@@ -380,6 +358,8 @@ interface HelpConfig {
  * {@link discoverConfig} before dispatching to a command.
  */
 interface ConfigSettings {
+	/** Type-only seal produced by {@link createCLISchema}. */
+	readonly [schemaBrand]: 'config';
 	/**
 	 * Application name used to build config search paths.
 	 *
@@ -465,6 +445,204 @@ interface ResolvedManifestSettings {
  *   backward compatibility.
  */
 type PackageJsonSettings = ResolvedManifestSettings;
+
+// --- CLI definition — input shape accepted by createCLISchema
+
+/**
+ * Input shape for {@link CLISchema.configSettings}, accepted by
+ * {@link createCLISchema}.
+ *
+ * Mirrors {@link ConfigSettings} with `loaders` optional.
+ */
+interface ConfigSettingsDefinition {
+	/** Application name used to build config search paths. */
+	readonly appName: string;
+	/**
+	 * Additional format loaders beyond the built-in JSON loader.
+	 * @defaultValue `undefined`
+	 */
+	readonly loaders?: readonly FormatLoader[] | undefined;
+}
+
+/**
+ * Input shape accepted by {@link createCLISchema}.
+ *
+ * Every field except `name` is optional. Commands accept either
+ * {@link CommandDefinition | definitions} or already-built
+ * {@link CommandSchema | schemas}. Plugins are execution state and have no
+ * definition field.
+ */
+interface CLIDefinition {
+	/** Program name used in help text, usage lines, and completion scripts. */
+	readonly name: string;
+	/**
+	 * Whether `.run()` should replace `name` with the invoked program name.
+	 * @defaultValue `false`
+	 */
+	readonly inheritName?: boolean | undefined;
+	/**
+	 * Program version shown by `--version`.
+	 * @defaultValue `undefined`
+	 */
+	readonly version?: string | undefined;
+	/**
+	 * Program description shown in root help.
+	 * @defaultValue `undefined`
+	 */
+	readonly description?: string | undefined;
+	/**
+	 * Whether the default command is also exposed as a named top-level route.
+	 * @defaultValue `false`
+	 */
+	readonly defaultCommandRouted?: boolean | undefined;
+	/**
+	 * Config discovery settings, as a definition or an already-built value.
+	 * @defaultValue `undefined`
+	 */
+	readonly configSettings?: ConfigSettingsDefinition | ConfigSettings | undefined;
+	/**
+	 * Manifest auto-discovery settings.
+	 * @defaultValue `undefined`
+	 */
+	readonly packageJsonSettings?: ResolvedManifestSettings | undefined;
+	/**
+	 * OSC 8 hyperlink targets for the root-help header.
+	 * @defaultValue `undefined`
+	 */
+	readonly helpLinks?: HelpLinks | undefined;
+	/**
+	 * Whether built-in `.completions()` registration is active.
+	 * @defaultValue `false`
+	 */
+	readonly hasBuiltInCompletions?: boolean | undefined;
+	/**
+	 * Eager `--completions <shell>` flag configuration.
+	 * @defaultValue `undefined`
+	 */
+	readonly completionsFlag?: CompletionsFlagConfig | undefined;
+	/**
+	 * Consumer-configured root-help defaults.
+	 * @defaultValue `undefined`
+	 */
+	readonly helpConfig?: HelpConfig | undefined;
+	/**
+	 * Flag-parsing behavior settings.
+	 * @defaultValue `undefined`
+	 */
+	readonly flagSettings?: ParseOptions | undefined;
+	/**
+	 * Registered command definitions or built schemas, in registration order.
+	 * @defaultValue `[]`
+	 */
+	readonly commands?: readonly (CommandDefinition | CommandSchema)[] | undefined;
+	/**
+	 * Default command dispatched when no subcommand matches.
+	 * @defaultValue `undefined`
+	 */
+	readonly defaultCommand?: CommandDefinition | CommandSchema | undefined;
+}
+
+/**
+ * {@link ConfigSettings} before the type-only seal is applied.
+ *
+ * @internal
+ */
+type ConfigSettingsDraft = Omit<ConfigSettings, typeof schemaBrand>;
+
+/**
+ * {@link CLISchema} before the type-only seals are applied, at the CLI level
+ * and on the nested config settings.
+ *
+ * @internal
+ */
+type CLISchemaDraft = Omit<CLISchema, typeof schemaBrand | 'configSettings'> & {
+	readonly configSettings: ConfigSettingsDraft | undefined;
+};
+
+/**
+ * Apply the type-only seal to a fully populated CLI schema draft.
+ *
+ * The brand has no runtime value, so this is the single construction path for
+ * {@link CLISchema} and {@link ConfigSettings} values in this module.
+ *
+ * @param draft - Draft carrying every schema field.
+ * @returns The sealed schema.
+ *
+ * @internal
+ */
+function sealCLISchema(draft: CLISchemaDraft): CLISchema {
+	return draft as CLISchema;
+}
+
+/**
+ * Merge definition fields onto the {@link CLISchema} defaults.
+ *
+ * @param definition - CLI definition with the name already validated.
+ * @returns A fully populated {@link CLISchema}.
+ *
+ * @internal
+ */
+function buildCLISchema(definition: CLIDefinition): CLISchema {
+	const configSettings = definition.configSettings;
+	return sealCLISchema({
+		name: definition.name,
+		inheritName: definition.inheritName ?? false,
+		version: definition.version,
+		description: definition.description,
+		commands: (definition.commands ?? []).map((child) => createCommandSchema(child)),
+		defaultCommand:
+			definition.defaultCommand !== undefined
+				? createCommandSchema(definition.defaultCommand)
+				: undefined,
+		defaultCommandRouted: definition.defaultCommandRouted ?? false,
+		configSettings:
+			configSettings !== undefined
+				? { appName: configSettings.appName, loaders: configSettings.loaders }
+				: undefined,
+		packageJsonSettings: definition.packageJsonSettings,
+		helpLinks: definition.helpLinks,
+		hasBuiltInCompletions: definition.hasBuiltInCompletions ?? false,
+		completionsFlag: definition.completionsFlag,
+		helpConfig: definition.helpConfig,
+		flagSettings: definition.flagSettings,
+	});
+}
+
+/**
+ * Create a {@link CLISchema} from a plain definition object.
+ *
+ * Most consumers should prefer {@link cli | cli()}, which returns a
+ * {@link CLIBuilder} carrying the execution graph. `createCLISchema()` builds a
+ * description only: it normalizes commands recursively through
+ * {@link createCommandSchema}, so handlers and execution steps are not part of
+ * the result and the schema cannot be executed.
+ *
+ * Feeding a built schema back in produces a deep-equal schema.
+ *
+ * @param definition - Program name plus optional metadata and commands.
+ * @returns A fully populated {@link CLISchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty.
+ *
+ * @example
+ * ```ts
+ * const schema = createCLISchema({
+ *   name: 'mycli',
+ *   version: '1.0.0',
+ *   commands: [{ name: 'deploy', flags: { force: { kind: 'boolean' } } }],
+ * });
+ * ```
+ */
+function createCLISchema(definition: CLIDefinition): CLISchema {
+	if (definition.name === '') {
+		throw new CLIError('CLI schema requires a non-empty name', {
+			code: 'INVALID_SCHEMA',
+			details: { name: definition.name },
+			suggest: 'Pass a program name such as { name: "mycli" }',
+		});
+	}
+
+	return buildCLISchema(definition);
+}
 
 // --- Options for execute/run
 
@@ -661,7 +839,7 @@ function hyperlinksOption(override: boolean | undefined): { hyperlinks?: boolean
  * @param options - CLI-level run options (may be `undefined` for defaults).
  * @param helpOptions - Help formatting options forwarded to commands.
  * @param meta - Optional command metadata (omitted for root-level dispatch).
- * @returns Options record ready for {@linkcode ErasedCommand._execute | ErasedCommand._execute()}.
+ * @returns Options record ready for the shared executor.
  *
  * @internal
  */
@@ -747,9 +925,23 @@ class CLIBuilder {
 	/** @internal Runtime schema descriptor. */
 	readonly schema: CLISchema;
 
-	/** Build a CLIBuilder from a pre-constructed schema descriptor. */
-	constructor(schema: CLISchema) {
+	private constructor(schema: CLISchema) {
 		this.schema = schema;
+	}
+
+	/**
+	 * Build a CLI builder around a schema and its compiled execution graph.
+	 *
+	 * @param schema - Runtime schema descriptor.
+	 * @param compiled - Compiled commands, default command, and plugins.
+	 * @returns The builder, with its compiled state registered.
+	 *
+	 * @internal
+	 */
+	static _from(schema: CLISchema, compiled: CompiledCLI): CLIBuilder {
+		const builder = new CLIBuilder(schema);
+		compiledStates.set(builder, compiled);
+		return builder;
 	}
 
 	// -- Metadata modifiers --------------------------------------------------
@@ -761,7 +953,7 @@ class CLIBuilder {
 	 * @returns The builder (for chaining).
 	 */
 	version(v: string): CLIBuilder {
-		return new CLIBuilder({ ...this.schema, version: v });
+		return rebuild(this, { ...this.schema, version: v });
 	}
 
 	/**
@@ -771,7 +963,7 @@ class CLIBuilder {
 	 * @returns The builder (for chaining).
 	 */
 	description(text: string): CLIBuilder {
-		return new CLIBuilder({ ...this.schema, description: text });
+		return rebuild(this, { ...this.schema, description: text });
 	}
 
 	/**
@@ -813,7 +1005,7 @@ class CLIBuilder {
 	 * ```
 	 */
 	links(links?: { readonly name?: string | URL; readonly version?: string | URL }): CLIBuilder {
-		return new CLIBuilder({
+		return rebuild(this, {
 			...this.schema,
 			helpLinks: {
 				name: toUrlString(links?.name),
@@ -841,7 +1033,7 @@ class CLIBuilder {
 	 * ```
 	 */
 	help(config: HelpConfig): CLIBuilder {
-		return new CLIBuilder({
+		return rebuild(this, {
 			...this.schema,
 			helpConfig: { ...this.schema.helpConfig, ...config },
 		});
@@ -875,13 +1067,16 @@ class CLIBuilder {
 	 * @returns The builder (for chaining).
 	 */
 	config(appName: string, loaders?: readonly FormatLoader[]): CLIBuilder {
-		return new CLIBuilder({
-			...this.schema,
-			configSettings: {
-				appName,
-				loaders,
-			},
-		});
+		return rebuild(
+			this,
+			sealCLISchema({
+				...this.schema,
+				configSettings: {
+					appName,
+					loaders,
+				},
+			}),
+		);
 	}
 
 	/**
@@ -928,13 +1123,16 @@ class CLIBuilder {
 			});
 		}
 		const existing = this.schema.configSettings.loaders ?? [];
-		return new CLIBuilder({
-			...this.schema,
-			configSettings: {
-				...this.schema.configSettings,
-				loaders: [...existing, loader],
-			},
-		});
+		return rebuild(
+			this,
+			sealCLISchema({
+				...this.schema,
+				configSettings: {
+					...this.schema.configSettings,
+					loaders: [...existing, loader],
+				},
+			}),
+		);
 	}
 
 	/**
@@ -1010,7 +1208,7 @@ class CLIBuilder {
 	 */
 	manifest(settings?: ManifestSettings): CLIBuilder;
 	manifest(input?: PackageJsonData | ManifestSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, false));
+		return rebuild(this, buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, false));
 	}
 
 	/**
@@ -1031,7 +1229,7 @@ class CLIBuilder {
 	 */
 	packageJson(settings?: ManifestPresetSettings): CLIBuilder;
 	packageJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, true));
+		return rebuild(this, buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, true));
 	}
 
 	/**
@@ -1063,7 +1261,7 @@ class CLIBuilder {
 	 */
 	denoJson(settings?: ManifestPresetSettings): CLIBuilder;
 	denoJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DENO_MANIFEST_FILES, true));
+		return rebuild(this, buildManifestSchema(this.schema, input, DENO_MANIFEST_FILES, true));
 	}
 
 	// -- Command registration ------------------------------------------------
@@ -1071,9 +1269,8 @@ class CLIBuilder {
 	/**
 	 * Register a command with the CLI program.
 	 *
-	 * The command's type parameters are erased for heterogeneous storage.
-	 * Type safety is preserved inside the closure that delegates to
-	 * {@linkcode runCommand | runCommand()}.
+	 * The command's schema joins {@link CLISchema.commands}; its handler and
+	 * subcommand tree are compiled into the builder's execution graph.
 	 *
 	 * @param cmd - {@link CommandBuilder} to register.
 	 * @returns The builder (for chaining).
@@ -1088,10 +1285,17 @@ class CLIBuilder {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
 
-		return new CLIBuilder({
-			...this.schema,
-			commands: [...this.schema.commands, eraseCommand(cmd)],
-		});
+		const compiled = compiledStateOf(this);
+		return CLIBuilder._from(
+			{
+				...this.schema,
+				commands: [...this.schema.commands, cmd.schema],
+			},
+			{
+				...compiled,
+				commands: [...compiled.commands, compileCommand(cmd)],
+			},
+		);
 	}
 
 	/**
@@ -1160,12 +1364,18 @@ class CLIBuilder {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
 
-		const erased = eraseCommand(cmd);
-		return new CLIBuilder({
-			...this.schema,
-			defaultCommand: erased,
-			defaultCommandRouted: options?.route ?? false,
-		});
+		const compiled = compiledStateOf(this);
+		return CLIBuilder._from(
+			{
+				...this.schema,
+				defaultCommand: cmd.schema,
+				defaultCommandRouted: options?.route ?? false,
+			},
+			{
+				...compiled,
+				defaultCommand: compileCommand(cmd),
+			},
+		);
 	}
 
 	/**
@@ -1179,9 +1389,10 @@ class CLIBuilder {
 	 * @see {@link plugin} to construct plugin definitions.
 	 */
 	plugin(definition: CLIPlugin): CLIBuilder {
-		return new CLIBuilder({
-			...this.schema,
-			plugins: [...this.schema.plugins, definition],
+		const compiled = compiledStateOf(this);
+		return CLIBuilder._from(this.schema, {
+			...compiled,
+			plugins: [...compiled.plugins, definition],
 		});
 	}
 
@@ -1236,12 +1447,12 @@ class CLIBuilder {
 			// The planner intercepts `--completions` before dispatch, so no command
 			// may already reserve that flag name.
 			if (this.schema.defaultCommand !== undefined) {
-				assertNoCompletionsFlagCollision(this.schema.defaultCommand.schema);
+				assertNoCompletionsFlagCollision(this.schema.defaultCommand);
 			}
 			for (const registered of this.schema.commands) {
-				assertNoCompletionsFlagCollision(registered.schema);
+				assertNoCompletionsFlagCollision(registered);
 			}
-			return new CLIBuilder({
+			return rebuild(this, {
 				...this.schema,
 				hasBuiltInCompletions: true,
 				completionsFlag: { shells: SHELLS, options },
@@ -1284,7 +1495,7 @@ class CLIBuilder {
 			});
 
 		const withCompletions = this.command(cmd);
-		return new CLIBuilder({
+		return rebuild(withCompletions, {
 			...withCompletions.schema,
 			hasBuiltInCompletions: true,
 		});
@@ -1358,10 +1569,11 @@ class CLIBuilder {
 		};
 
 		// -- Shared options for command execution ----------------------------------
+		const compiled = compiledStateOf(this);
 		const flagSettings = options?.flags ?? this.schema.flagSettings;
 		const effectiveOptions: InternalCLIRunOptions = {
 			...options,
-			plugins: this.schema.plugins,
+			plugins: compiled.plugins,
 			...(jsonMode ? { jsonMode } : {}),
 			...(verbosity !== undefined ? { verbosity } : {}),
 			...(flagSettings !== undefined ? { flags: flagSettings } : {}),
@@ -1377,6 +1589,7 @@ class CLIBuilder {
 			options?.flags !== undefined ? { ...this.schema, flagSettings } : this.schema;
 		const planned = planInvocation({
 			schema: planSchema,
+			compiled,
 			argv,
 			help: helpOptions,
 			output,
@@ -1463,14 +1676,11 @@ class CLIBuilder {
 					planned.plan.help ?? helpOptions,
 					planned.plan.meta,
 				);
-				if (planned.plan.command._command === undefined) {
-					return planned.plan.command._execute(planned.plan.argv, {
-						...commandRunOptions,
-						mergedSchema: planned.plan.mergedSchema,
-					});
-				}
 				const result = await executeCommand({
-					command: planned.plan.command._command,
+					command: {
+						handler: planned.plan.command.handler,
+						steps: planned.plan.command.steps,
+					},
 					argv: planned.plan.argv,
 					out,
 					schema: planned.plan.mergedSchema,
@@ -1502,8 +1712,10 @@ class CLIBuilder {
 		const adapter = options?.adapter ?? createAdapter();
 		const inheritedName = this.schema.inheritName ? inferInvocationName(adapter.argv) : undefined;
 
+		const compiled = compiledStateOf(this);
 		const preflight = await prepareRuntimePreflight({
 			schema: this.schema,
+			compiled,
 			adapter,
 			options,
 			inheritedName,
@@ -1522,7 +1734,9 @@ class CLIBuilder {
 		}
 
 		const effectiveBuilder =
-			preflight.schema === this.schema ? this : new CLIBuilder(preflight.schema);
+			preflight.schema === this.schema
+				? this
+				: rebuild(this, sealCLISchema({ ...this.schema, ...preflight.schema }));
 		const terminalSize = adapter.getTerminalSize();
 		const runtimeHelpWidth =
 			options?.help?.width === undefined && preflight.schema.helpConfig?.width === undefined
@@ -1911,21 +2125,9 @@ function cli(
 	const name = options.name ?? 'cli';
 	const inheritName = options.inherit ?? false;
 
-	return new CLIBuilder({
-		name,
-		inheritName,
-		version: undefined,
-		description: undefined,
+	return CLIBuilder._from(createCLISchema({ name, inheritName, flagSettings: options.flags }), {
 		commands: [],
 		defaultCommand: undefined,
-		defaultCommandRouted: false,
-		configSettings: undefined,
-		packageJsonSettings: undefined,
-		helpLinks: undefined,
-		hasBuiltInCompletions: false,
-		completionsFlag: undefined,
-		helpConfig: undefined,
-		flagSettings: options.flags,
 		plugins: [],
 	});
 }
@@ -1962,11 +2164,13 @@ export type {
 	ResolvedCommandParams,
 } from './plugin.ts';
 export type {
+	CLIDefinition,
 	CLIOptions,
 	CLIRunOptions,
 	CLISchema,
 	CompletionsFlagConfig,
 	ConfigSettings,
+	ConfigSettingsDefinition,
 	DefaultCommandOptions,
 	HelpConfig,
 	InferNameOption,
@@ -1977,4 +2181,13 @@ export type {
 	RenderContextOptions,
 	ResolvedManifestSettings,
 };
-export { CLIBuilder, cli, formatRootHelp, isMainModule, plugin, resolveRenderContext };
+export {
+	CLIBuilder,
+	cli,
+	compiledStateOf,
+	createCLISchema,
+	formatRootHelp,
+	isMainModule,
+	plugin,
+	resolveRenderContext,
+};

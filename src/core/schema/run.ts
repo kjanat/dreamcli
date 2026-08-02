@@ -2,8 +2,8 @@
  * Run result type — structured output from command execution.
  *
  * Lives in schema (not testkit) because it describes the execution contract
- * that `ErasedCommand._execute` returns. Both schema and testkit layers
- * reference it without dependency inversion.
+ * the shared executor returns. Both schema and testkit layers reference it
+ * without dependency inversion.
  *
  * @module dreamcli/core/schema/run
  */
@@ -166,9 +166,9 @@ export interface InternalRunOptions extends RunOptions {
 	/**
 	 * Command schema with propagated flags merged in.
 	 *
-	 * When provided, used for parsing and resolution instead of `cmd.schema`.
-	 * Set by the CLI dispatch layer after collecting propagated flags from
-	 * the command ancestry path.
+	 * When provided, `runCommandInternal()` uses it for parsing and resolution
+	 * instead of `cmd.schema`. CLI dispatch passes its merged schema straight to
+	 * the shared executor and leaves this field unset.
 	 */
 	readonly mergedSchema?: CommandSchema;
 

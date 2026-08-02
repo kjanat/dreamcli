@@ -66,11 +66,11 @@ import type {
   HelpOptions,
 } from '@kjanat/dreamcli';
 
-type ErasedCommand = Record<string, unknown>;
+type CompiledCommand = Record<string, unknown>;
 type OutputPolicy = Record<string, unknown>;
 
 interface CommandExecutionPlan {
-  readonly command: ErasedCommand;
+  readonly command: CompiledCommand;
   readonly mergedSchema: CommandSchema;
   readonly argv: readonly string[];
   readonly meta: CommandMeta;
@@ -84,7 +84,7 @@ Field meaning:
 
 | Field          | Meaning                                                             |
 | -------------- | ------------------------------------------------------------------- |
-| `command`      | matched leaf command to execute                                     |
+| `command`      | compiled node of the matched leaf command: handler, steps, subcommands |
 | `mergedSchema` | leaf schema after propagated ancestor flags are merged and shadowed |
 | `argv`         | remaining argv after command-name dispatch                          |
 | `meta`         | CLI metadata passed into middleware and actions                     |

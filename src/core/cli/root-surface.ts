@@ -20,10 +20,8 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
  * @internal
  */
 interface RootSurfaceSchemaLike {
-	readonly commands: ReadonlyArray<{
-		readonly schema: CommandSchema;
-	}>;
-	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
+	readonly commands: readonly CommandSchema[];
+	readonly defaultCommand: CommandSchema | undefined;
 	/**
 	 * Whether the default command is also exposed as a named route
 	 * (`.default(cmd, { route: true })`). Optional so hand-built schema-like
@@ -75,10 +73,8 @@ interface RootSurface {
  * @internal
  */
 function resolveRootSurface(schema: RootSurfaceSchemaLike): RootSurface {
-	const visibleCommands = schema.commands
-		.map((command) => command.schema)
-		.filter((command) => !command.hidden);
-	const rawDefaultCommand = schema.defaultCommand?.schema;
+	const visibleCommands = schema.commands.filter((command) => !command.hidden);
+	const rawDefaultCommand = schema.defaultCommand;
 	const visibleDefaultCommand =
 		rawDefaultCommand !== undefined && !rawDefaultCommand.hidden ? rawDefaultCommand : undefined;
 	const visibleSubcommands =

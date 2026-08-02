@@ -59,8 +59,8 @@ async function runCommand(
 }
 
 /**
- * Execution body shared by {@linkcode runCommand} and `ErasedCommand._execute`,
- * accepting the framework-populated channel, capture, schema, and meta fields.
+ * Execution body behind {@linkcode runCommand}, accepting the
+ * framework-populated channel, capture, schema, and meta fields.
  *
  * @internal
  */
@@ -121,7 +121,7 @@ async function runCommandInternal(
 				: undefined;
 
 	const result = await executeCommand({
-		command: cmd,
+		command: { handler: cmd.handler, steps: cmd._executionSteps },
 		argv: effectiveArgv,
 		out,
 		schema,

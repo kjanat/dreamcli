@@ -1,4 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { CLISchema, ConfigSettings } from '#internals/core/cli/index.ts';
+import { createCLISchema } from '#internals/core/cli/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { ArgSchema } from './arg.ts';
 import { createArgSchema } from './arg.ts';
@@ -16,6 +18,14 @@ type UnbrandedArgSchema = Omit<ArgSchema, typeof schemaBrand>;
 
 /** {@link CommandSchema} with the type-only brand removed. */
 type UnbrandedCommandSchema = Omit<CommandSchema, typeof schemaBrand>;
+
+/** {@link ConfigSettings} with the type-only brand removed. */
+type UnbrandedConfigSettings = Omit<ConfigSettings, typeof schemaBrand>;
+
+/** {@link CLISchema} with the type-only brands removed, nested settings included. */
+type UnbrandedCLISchema = Omit<CLISchema, typeof schemaBrand | 'configSettings'> & {
+	readonly configSettings: UnbrandedConfigSettings | undefined;
+};
 
 const spelledFlagFields: UnbrandedFlagSchema = {
 	kind: 'string',
@@ -68,6 +78,28 @@ const spelledCommandFields: UnbrandedCommandSchema = {
 	hasAction: false,
 	interactive: undefined,
 	commands: [],
+};
+
+const spelledConfigSettingsFields: UnbrandedConfigSettings = {
+	appName: 'mycli',
+	loaders: undefined,
+};
+
+const spelledCLIFields: UnbrandedCLISchema = {
+	name: 'mycli',
+	inheritName: false,
+	version: undefined,
+	description: undefined,
+	commands: [],
+	defaultCommand: undefined,
+	defaultCommandRouted: false,
+	configSettings: undefined,
+	packageJsonSettings: undefined,
+	helpLinks: undefined,
+	hasBuiltInCompletions: false,
+	completionsFlag: undefined,
+	helpConfig: undefined,
+	flagSettings: undefined,
 };
 
 /**
@@ -124,6 +156,28 @@ describe('schema sealing', () => {
 			expect(sealed.name).toBe('deploy');
 		});
 
+		it('spells every config settings field a caller can reach', () => {
+			expect(
+				createCLISchema({ name: 'mycli', configSettings: { appName: 'mycli' } }).configSettings,
+			).toEqual(spelledConfigSettingsFields);
+		});
+
+		it('rejects a fully spelled config settings literal', () => {
+			// @ts-expect-error the config brand key is unspellable outside createCLISchema
+			const sealed: ConfigSettings = spelledConfigSettingsFields;
+			expect(sealed.appName).toBe('mycli');
+		});
+
+		it('spells every CLI field a caller can reach', () => {
+			expect(spelledCLIFields).toEqual(createCLISchema({ name: 'mycli' }));
+		});
+
+		it('rejects a fully spelled CLI literal', () => {
+			// @ts-expect-error the cli brand key is unspellable outside createCLISchema
+			const sealed: CLISchema = spelledCLIFields;
+			expect(sealed.name).toBe('mycli');
+		});
+
 		it('leaves the brand as the only obstacle to structural assignment', () => {
 			expectTypeOf<FlagSchema>().toExtend<UnbrandedFlagSchema>();
 			expectTypeOf<UnbrandedFlagSchema>().not.toExtend<FlagSchema>();
@@ -131,6 +185,10 @@ describe('schema sealing', () => {
 			expectTypeOf<UnbrandedArgSchema>().not.toExtend<ArgSchema>();
 			expectTypeOf<CommandSchema>().toExtend<UnbrandedCommandSchema>();
 			expectTypeOf<UnbrandedCommandSchema>().not.toExtend<CommandSchema>();
+			expectTypeOf<ConfigSettings>().toExtend<UnbrandedConfigSettings>();
+			expectTypeOf<UnbrandedConfigSettings>().not.toExtend<ConfigSettings>();
+			expectTypeOf<CLISchema>().toExtend<UnbrandedCLISchema>();
+			expectTypeOf<UnbrandedCLISchema>().not.toExtend<CLISchema>();
 		});
 	});
 
@@ -155,6 +213,13 @@ describe('schema sealing', () => {
 			const built = createCommandSchema({ name: 'deploy' });
 			const widened: CommandSchema = { ...built, description: 'Ship the build' };
 			expectTypeOf({ ...built, description: 'Ship the build' }).toExtend<CommandSchema>();
+			expect(widened.description).toBe('Ship the build');
+		});
+
+		it('carries the CLI brand through a spread', () => {
+			const built = createCLISchema({ name: 'mycli' });
+			const widened: CLISchema = { ...built, description: 'Ship the build' };
+			expectTypeOf({ ...built, description: 'Ship the build' }).toExtend<CLISchema>();
 			expect(widened.description).toBe('Ship the build');
 		});
 	});
@@ -221,6 +286,28 @@ describe('schema sealing', () => {
 			expect(built.numberConstraints).toBeUndefined();
 			expect(createArgSchema(built)).toEqual(built);
 		});
+
+		it('rebuilds a deep-equal CLI schema from its own output', () => {
+			const built = createCLISchema({
+				name: 'mycli',
+				version: '1.0.0',
+				description: 'Ship the build',
+				inheritName: true,
+				defaultCommandRouted: true,
+				hasBuiltInCompletions: true,
+				configSettings: { appName: 'mycli' },
+				commands: [{ name: 'deploy', flags: { force: { kind: 'boolean' } } }],
+				defaultCommand: { name: 'serve' },
+			});
+
+			expect(createCLISchema(built)).toEqual(built);
+		});
+
+		it('re-normalizes a CLI schema whose optional fields are explicitly undefined', () => {
+			const built = createCLISchema({ name: 'mycli' });
+			expect(built.configSettings).toBeUndefined();
+			expect(createCLISchema(built)).toEqual(built);
+		});
 	});
 
 	// --- factory validation
@@ -240,6 +327,11 @@ describe('schema sealing', () => {
 
 		it('rejects a command schema without a name', () => {
 			const build = () => createCommandSchema({ name: '' });
+			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
+		it('rejects a CLI schema without a name', () => {
+			const build = () => createCLISchema({ name: '' });
 			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
 		});
 
