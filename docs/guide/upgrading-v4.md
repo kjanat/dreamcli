@@ -6,12 +6,13 @@ dreamcli from another framework, see
 [Migration And Adoption](/guide/migration).
 
 A CLI built entirely from the fluent builders (`cli()`, `command()`, `flag`,
-`arg`) mostly runs on 4.0 unchanged, with one exception: a command flag spelled
-like a root-owned flag is now rejected when you register the command. The rest
-of the breaking changes land on code that assembles schema objects by hand,
-hand-rolls an `Out`, reaches into `CLISchema.commands`, or passes
-framework-populated fields into execution options. Every category and its
-compatibility rules are listed on the
+`arg`) mostly runs on 4.0 unchanged. Two things changed on that path. A command
+flag spelled like a root-owned flag is now rejected when you register the
+command, and `.flag('__proto__')` or `.arg('__proto__')` now throws
+`INVALID_SCHEMA`. The rest of the breaking changes land on code that assembles
+schema objects by hand, hand-rolls an `Out`, reaches into `CLISchema.commands`,
+or passes framework-populated fields into execution options. Every category and
+its compatibility rules are listed on the
 [Stability Policy](/reference/stability) page.
 
 ## Breaking Changes
@@ -216,6 +217,84 @@ fails to compile and throws `INVALID_SCHEMA` at runtime.
 `Partial<ArgSchema>` to `ArgDefinitionOverrides<K>`, and `enumValues` is
 required on an `enum` arg.
 
+### `createCommandSchema()` validates what the builder validates
+
+A definition whose flags share a name, an alias, or a negated spelling on one
+command throws `FLAG_NAME_COLLISION`, and a flag spelled the same way as one
+propagated from an ancestor command throws `PROPAGATED_FLAG_COLLISION`.
+
+```ts
+// 3.x: built fine; help listed -v on both flags and -v set only --version
+createCommandSchema({
+  name: 'run',
+  flags: {
+    verbose: { kind: 'boolean', aliases: ['v'] },
+    version: { kind: 'boolean', aliases: ['v'] },
+  },
+});
+
+// 4.0: throws FLAG_NAME_COLLISION
+```
+
+In 3.x both flags still parsed under their canonical names, so what the
+collision cost was the shared spelling. Help advertised `-v` on both flags and
+the parser answered it with `--version`.
+
+The arg invariants moved with them. One arg that is both variadic and
+stdin-backed throws `INVALID_BUILDER_STATE`, and a second stdin-backed arg on
+the same command throws `DUPLICATE_STDIN_ARG`, the errors `.arg()` has always
+raised. In 3.x a definition could declare either. Two stdin-backed args each
+resolved to the whole of stdin, and a variadic stdin-backed arg read nothing
+from stdin and failed as missing when argv supplied no positional.
+
+A flag or arg named `__proto__` throws `INVALID_SCHEMA`. Both land in a record
+keyed by name, where that key sets a prototype rather than an entry, so the flag
+or the value the user typed used to disappear.
+
+```ts
+// 3.x: built fine, then the positional value never reached the handler
+createCommandSchema({
+  name: 'run',
+  args: [{ name: '__proto__', schema: { kind: 'string' } }],
+});
+
+// 4.0: throws INVALID_SCHEMA
+```
+
+A `flags` record whose prototype is replaced throws `INVALID_SCHEMA` as well.
+Only its own keys are read, so an object-literal `__proto__` key and a record
+built with `Object.create(base)` both hide a flag the caller meant to declare,
+and 3.x built the command without either one:
+
+```ts
+// 3.x: built fine, then --shared was an unknown flag
+createCommandSchema({
+  name: 'run',
+  flags: Object.create({ shared: { kind: 'boolean' } }),
+});
+
+// 4.0: throws INVALID_SCHEMA
+```
+
+`Object.create(null)` stays legal. Its prototype carries nothing, so a flag put
+on such a record is an own key and is read.
+
+The whole tree is checked, nested subcommands included, and `createCLISchema()`
+inherits the checks through it. `command()` already refused the collisions at
+`.flag()` and `.command()` and the arg invariants at `.arg()`. For those, only
+definitions composed as data change: one that used to build and then misbehave
+at parse time now fails at construction.
+
+`__proto__` changes on the builder too. `.arg('__proto__')` used to build and
+then swallow the positional value; it now throws `INVALID_SCHEMA`.
+`.flag('__proto__')` already threw, with code `FLAG_NAME_COLLISION` naming a flag
+the command never declared, and now throws `INVALID_SCHEMA` like the factory.
+
+Names such as `constructor`, `toString`, and `valueOf` are unaffected and always
+were legal as data. `.flag()` used to reject them as duplicates of a flag the
+command never declared; it now accepts them, so a schema `command()` produces
+and a schema `createCommandSchema()` produces agree on every name.
+
 ### `CommandSchema.middleware` is removed
 
 The executor builds the handler chain from the builder's ordered execution
@@ -361,14 +440,6 @@ need re-recording.
 
 ## Behavioral Changes To Review
 
-- **`createCommandSchema()` validates flag spellings.** A definition whose flags
-  share a name, an alias, or a negated spelling on one command throws
-  `FLAG_NAME_COLLISION`, and a flag spelled the same way as one propagated from
-  an ancestor command throws `PROPAGATED_FLAG_COLLISION`. The whole tree is
-  checked, nested subcommands included, and `createCLISchema()` inherits the
-  check through it. `command()` has always refused these at `.flag()` and
-  `.command()`, so only definitions composed as data change: one that used to
-  build and then lose a flag at parse time now fails at construction.
 - **Root `--json` and `--quiet` take an explicit value.** `--json=true`,
   `--json=1`, `--json=false`, and `--json=0` set the mode where 3.x failed with
   `Unknown flag`, and `--quiet` accepts the same literals. The last occurrence

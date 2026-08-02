@@ -6,8 +6,8 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 
 | File                    | Lines | Purpose                                                                                                       |
 | ----------------------- | ----: | ------------------------------------------------------------------------------------------------------------- |
-| `command.ts`            |  1702 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`               |
-| `flag.ts`               |  2101 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`  |
+| `command.ts`            |  1828 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`               |
+| `flag.ts`               |  2073 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`  |
 | `arg.ts`                |  1102 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                                         |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing `FlagSchema` / `ArgSchema` / `CommandSchema`                |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                     |
@@ -15,9 +15,10 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                            |
 | `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                   |
 | `string-constraints.ts` |   147 | `StringConstraints` + shared `validateStringConstraints()` (parse & resolve both import it)                   |
-| `value-parsers.ts`      |   237 | Parse fns behind sugar factories — `parseUrlValue`, `parseDateValue`, `parseDurationValue`, `parseBytesValue` |
-| `run.ts`                |   208 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                   |
-| `index.ts`              |   152 | Barrel — re-exports all public symbols                                                                        |
+| `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                             |
+| `value-parsers.ts`      |   243 | Parse fns behind sugar factories — `parseUrlValue`, `parseDateValue`, `parseDurationValue`, `parseBytesValue` |
+| `run.ts`                |   240 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                   |
+| `index.ts`              |   148 | Barrel — re-exports all public symbols                                                                        |
 
 ## TYPE SYSTEM PATTERNS
 
@@ -99,24 +100,53 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
 - `Out.setExitCode(code)` is part of the public action-handler output surface. It requests a
   success-path process exit code without error output; thrown errors still own failure exits.
 - `command.ts` imports activity types from `./activity.ts` directly
-- `validateCommandFlagTree()` has exactly two call sites: `createCommandSchema()`, once over the
-  finished tree, and the builder's `.flag()` / `.command()`, incrementally. `buildCommandSchema()`
+- `validateCommandFlagTree()` has exactly three call sites: `createCommandSchema()`, once over the
+  finished tree, and the builder's `.flag()` and `.command()`, incrementally. `buildCommandSchema()`
   recurses into itself, not into `createCommandSchema()`, so a nested definition is normalized once
   and validated once. Callers downstream of a factory (`readFlags()`, `createCLISchema()`) must not
-  re-run it.
+  re-run it. It catches collisions between distinct record entries only; `.flag()` owns the
+  same-name duplicate check, since a second write to one key overwrites rather than colliding.
+- `assertUsableFlagKey()` / `assertUsableArgKey()` throw `INVALID_SCHEMA` on the name `__proto__`.
+  Assigning that key on a plain object sets the prototype instead of an entry, so the flag would
+  vanish from `CommandSchema.flags` and an arg's value would vanish from `mapPositionals()` in
+  `parse/` and `resolveArgs()` in `resolve/`. Both run on the factory path and the builder path
+  (`.flag()` directly, `.arg()` through `validateArgEntry()`), so the two agree.
+- A name check alone does not cover flags. An object literal routes a bare `__proto__` key to the
+  prototype setter, so `Object.entries()` never yields it and the flag is already gone.
+  `assertUsableFlagRecord()` reads the flag record's own prototype instead; `Object.prototype` and
+  `null` (an `Object.create(null)` record) pass, anything else throws. It raises its own error
+  rather than reusing the name error, because a replaced prototype also covers
+  `Object.create(base)`, where nothing is named `__proto__` and the inherited entries are the ones
+  that would be lost. `readFlags()` carries its own copy of both checks, worded for a definitions
+  record.
+- `buildCommandSchema()` runs `validateArgEntry()` over the accumulating arg list, so the
+  stdin/variadic invariants `.arg()` enforces also apply to a definition composed as data. It takes
+  the command name and puts it in `details` on all three errors, since a definition tree reaches
+  those throws at any depth and the arg name alone does not say which command declared it.
+- Membership tests against a flag record use `Object.hasOwn()`, never `in`. `in` walks
+  `Object.prototype`, so `.flag('constructor')` reported a collision with a flag that did not exist
+  and `collectPropagatedFlags()` in `cli/propagate.ts` treated every subcommand as overriding a
+  propagated flag named after a prototype member.
+- Reads carry the same rule, and grepping for `in` does not find them. A bare `record[flagName]` on
+  a caller-supplied record returns the inherited `Object.prototype` method for a flag named
+  `toString`, which then reads as a supplied value. `resolveFlags()` in `resolve/` guards its `env`
+  lookup and the interactive resolver's override record with `Object.hasOwn()` for that reason.
 
-## TEST FILES (11)
+## TEST FILES (14)
 
-| File                           | Tests                                                 |
-| ------------------------------ | ----------------------------------------------------- |
-| `command.test.ts`              | CommandBuilder API, schema, type inference            |
-| `schema-sealing.test.ts`       | Brand seal, spread propagation, factory normalization |
-| `flag.test.ts`                 | FlagBuilder API, kinds, validation                    |
-| `flag-array-separator.test.ts` | `.separator()` / `.unique()` parse + resolve          |
-| `flag-count-keyvalue.test.ts`  | `flag.count()` / `flag.keyValue()` end to end         |
-| `string-constraints.test.ts`   | String constraint validation + builder chaining       |
-| `value-parsers.test.ts`        | URL/date/duration/bytes parsers + sugar factories     |
-| `arg.test.ts`                  | ArgBuilder API, kinds, validation                     |
-| `middleware.test.ts`           | Middleware factory, context typing                    |
-| `prompt.test.ts`               | Prompt config types                                   |
-| `derive.test.ts`               | Type derivation tests                                 |
+| File                                | Tests                                                 |
+| ----------------------------------- | ----------------------------------------------------- |
+| `command.test.ts`                   | CommandBuilder API, schema, type inference            |
+| `schema-sealing.test.ts`            | Brand seal, spread propagation, factory normalization |
+| `flag.test.ts`                      | FlagBuilder API, kinds, validation                    |
+| `flag-array-separator.test.ts`      | `.separator()` / `.unique()` parse + resolve          |
+| `flag-count-keyvalue.test.ts`       | `flag.count()` / `flag.keyValue()` end to end         |
+| `flag-negatable-duplicates.test.ts` | `.negatable()` spellings + `.duplicates()` policy     |
+| `flag-element-eligibility.test.ts`  | `flag.array()` element eligibility, type level        |
+| `standard.test.ts`                  | Standard Schema v1 types + `isStandardSchemaV1()`     |
+| `string-constraints.test.ts`        | String constraint validation + builder chaining       |
+| `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories     |
+| `arg.test.ts`                       | ArgBuilder API, kinds, validation                     |
+| `middleware.test.ts`                | Middleware factory, context typing                    |
+| `prompt.test.ts`                    | Prompt config types                                   |
+| `derive.test.ts`                    | Type derivation tests                                 |

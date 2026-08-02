@@ -68,7 +68,7 @@ function collectPropagatedFlags(
 				let shadowedByDescendant = false;
 				for (let j = i + 1; j < commandPath.length - 1; j++) {
 					const descendant = commandPath[j];
-					if (descendant !== undefined && name in descendant.flags) {
+					if (descendant !== undefined && Object.hasOwn(descendant.flags, name)) {
 						shadowedByDescendant = true;
 						break;
 					}

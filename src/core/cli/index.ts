@@ -634,12 +634,17 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
  *
  * @param definition - Program name plus optional metadata and commands.
  * @returns A fully populated {@link CLISchema}.
- * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty or a
- *   `builtins` entry is neither `'on'` nor `'off'`.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the program name is
+ *   empty, a `builtins` entry is neither `'on'` nor `'off'`, a command name at
+ *   any depth is empty, a flag or arg at any depth is named `__proto__`, or a
+ *   flag record at any depth has a replaced prototype.
  * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two flags on one
  *   command share a spelling, at any depth of the command tree.
  * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a command flag
  *   shadows a spelling propagated from an ancestor command.
+ * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when one arg is both
+ *   variadic and stdin-backed, or `'DUPLICATE_STDIN_ARG'` when two args on one
+ *   command are stdin-backed.
  * @throws {CLIError} With code `'RESERVED_FLAG'` when a command spells a flag
  *   the same way as a root-owned flag (`--json`, `--quiet`/`-q`, `--help`/`-h`,
  *   `--version`/`-V` once `version` is set, and `--completions` once
@@ -1004,8 +1009,8 @@ class CLIBuilder {
 	 *
 	 * @param v - Semantic version string.
 	 * @returns The builder (for chaining).
-	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command declares
-	 *   a flag named `version` or aliased `V`.
+	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command spells
+	 *   `--version` or `-V` as a flag name, an alias, or a negated spelling.
 	 */
 	version(v: string): CLIBuilder {
 		assertNoReservedFlagCollisions(
@@ -1265,7 +1270,8 @@ class CLIBuilder {
 	 *
 	 * @param data - Pre-loaded manifest metadata.
 	 * @throws {@link CLIError} `RESERVED_FLAG` when the data carries a version and
-	 *   a registered command declares a flag named `version` or aliased `V`.
+	 *   a registered command spells `--version` or `-V` as a flag name, an alias,
+	 *   or a negated spelling.
 	 *
 	 * @example
 	 * ```ts
@@ -1295,10 +1301,11 @@ class CLIBuilder {
 	 * Has no effect in `.execute()` (filesystem-free) — use the data overload.
 	 *
 	 * A discovered version lands at `.run()` time, past every build-time check, so
-	 * the `RESERVED_FLAG` guard re-runs there. A registered command that declares a
-	 * flag named `version` or aliased `V` then fails startup, writing the error and
-	 * its suggestion to stderr (a JSON error envelope on stdout under `--json`) and
-	 * exiting with the error's exit code instead of throwing.
+	 * the `RESERVED_FLAG` guard re-runs there. A registered command that spells
+	 * `--version` or `-V` as a flag name, an alias, or a negated spelling then fails
+	 * startup, writing the error and its suggestion to stderr (a JSON error envelope
+	 * on stdout under `--json`) and exiting with the error's exit code instead of
+	 * throwing.
 	 *
 	 * @param settings - Optional settings:
 	 *   - `files`: candidate manifest filenames in priority order
@@ -1346,10 +1353,11 @@ class CLIBuilder {
 	 * @param cmd - {@link CommandBuilder} to register.
 	 * @returns The builder (for chaining).
 	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
-	 *   nested subcommands, declares a flag named or aliased to a root-owned flag
-	 *   (`--json`, `--quiet`/`-q`, `--help`/`-h`, and `--version`/`-V` once
-	 *   {@link CLIBuilder.version | .version()} is set). A built-in released
-	 *   through {@link CLIBuilder.builtins | .builtins()} is not reserved.
+	 *   nested subcommands, spells a root-owned flag (`--json`, `--quiet`/`-q`,
+	 *   `--help`/`-h`, and `--version`/`-V` once
+	 *   {@link CLIBuilder.version | .version()} is set) as a flag name, an alias,
+	 *   or a negated spelling. A built-in released through
+	 *   {@link CLIBuilder.builtins | .builtins()} is not reserved.
 	 */
 	command<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1424,10 +1432,11 @@ class CLIBuilder {
 	 *   the command under its own name (see {@link DefaultCommandOptions}).
 	 * @returns The builder (for chaining).
 	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
-	 *   nested subcommands, declares a flag named or aliased to a root-owned flag
-	 *   (`--json`, `--quiet`/`-q`, `--help`/`-h`, and `--version`/`-V` once
-	 *   {@link CLIBuilder.version | .version()} is set). A built-in released
-	 *   through {@link CLIBuilder.builtins | .builtins()} is not reserved.
+	 *   nested subcommands, spells a root-owned flag (`--json`, `--quiet`/`-q`,
+	 *   `--help`/`-h`, and `--version`/`-V` once
+	 *   {@link CLIBuilder.version | .version()} is set) as a flag name, an alias,
+	 *   or a negated spelling. A built-in released through
+	 *   {@link CLIBuilder.builtins | .builtins()} is not reserved.
 	 */
 	default<
 		F extends Record<string, FlagBuilder<FlagConfig>>,

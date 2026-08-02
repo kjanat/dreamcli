@@ -634,11 +634,94 @@ interface CommandDefinition {
 }
 
 /**
+ * Reject a flag name a plain record cannot carry.
+ *
+ * Assigning `__proto__` on an object literal sets the prototype instead of an
+ * entry, so both construction paths refuse the key rather than let the flag
+ * vanish.
+ *
+ * @param commandName - Command the flag was declared on, for the error details.
+ * @param name - Proposed flag name.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`.
+ *
+ * @internal
+ */
+function assertUsableFlagKey(commandName: string, name: string): void {
+	if (name !== '__proto__') return;
+
+	throw new CLIError("Flag name '__proto__' is not usable as a flag", {
+		code: 'INVALID_SCHEMA',
+		details: { command: commandName, flag: '__proto__' },
+		suggest: 'Rename the flag, for example to "proto"',
+	});
+}
+
+/**
+ * Reject a flag record whose entries a name check cannot reach.
+ *
+ * Only own enumerable keys are read. An object literal routes a bare
+ * `__proto__` key to the prototype setter, and a record built over another
+ * object hides its inherited entries, so in both cases a declared flag is
+ * already gone by the time {@link assertUsableFlagKey} sees a name. The
+ * replaced prototype is the evidence common to both. `Object.prototype` and
+ * `null` (an `Object.create(null)` record) carry no entries of their own and
+ * pass.
+ *
+ * @param commandName - Command the flags were declared on, for the error details.
+ * @param flags - Flag record as the caller supplied it.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when the record's prototype is
+ *   replaced.
+ *
+ * @internal
+ */
+function assertUsableFlagRecord(commandName: string, flags: object): void {
+	const prototype: unknown = Object.getPrototypeOf(flags);
+	if (prototype === Object.prototype || prototype === null) return;
+
+	throw new CLIError(
+		`Command '${commandName}' flag record has a replaced prototype. A '__proto__' key sets the prototype instead of adding a flag, and an inherited flag is never read`,
+		{
+			code: 'INVALID_SCHEMA',
+			details: { command: commandName },
+			suggest:
+				"Pass a plain object with no '__proto__' key, or a record built with Object.create(null)",
+		},
+	);
+}
+
+/**
+ * Reject an arg name a plain record cannot carry.
+ *
+ * Resolved args reach the handler as a record keyed by arg name, and the parser
+ * accumulates positionals into one, so `__proto__` would swallow the value the
+ * user typed and hand the handler the prototype instead.
+ *
+ * @param commandName - Command the arg was declared on, for the error details.
+ * @param name - Proposed arg name.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`.
+ *
+ * @internal
+ */
+function assertUsableArgKey(commandName: string, name: string): void {
+	if (name !== '__proto__') return;
+
+	throw new CLIError(`Argument name '${name}' is not usable as an argument`, {
+		code: 'INVALID_SCHEMA',
+		details: { command: commandName, arg: name },
+		suggest: 'Rename the argument, for example to "proto"',
+	});
+}
+
+/**
  * Merge definition fields onto the {@link CommandSchema} defaults, recursively.
  *
  * @param definition - Command definition to normalize.
  * @returns A fully populated {@link CommandSchema}.
- * @throws {@link CLIError} `INVALID_SCHEMA` when a name at any depth is empty.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when a name at any depth is empty,
+ *   a flag or arg is named `__proto__` at any depth, or a flag record at any
+ *   depth has a replaced prototype.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_ARG` when
+ *   an arg breaks the stdin/variadic invariants.
  *
  * @internal
  */
@@ -651,15 +734,21 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		});
 	}
 
+	const flagDefinitions = definition.flags ?? {};
+	assertUsableFlagRecord(definition.name, flagDefinitions);
+
 	const flags: Record<string, FlagSchema> = {};
-	for (const [name, value] of Object.entries(definition.flags ?? {})) {
+	for (const [name, value] of Object.entries(flagDefinitions)) {
+		assertUsableFlagKey(definition.name, name);
 		flags[name] = createFlagSchema(value);
 	}
 
-	const args: CommandArgEntry[] = (definition.args ?? []).map((entry) => ({
-		name: entry.name,
-		schema: createArgSchema(entry.schema),
-	}));
+	const args: CommandArgEntry[] = [];
+	for (const entry of definition.args ?? []) {
+		const schema = createArgSchema(entry.schema);
+		validateArgEntry(definition.name, entry.name, schema, args);
+		args.push({ name: entry.name, schema });
+	}
 
 	const schema: Omit<CommandSchema, typeof schemaBrand> = {
 		name: definition.name,
@@ -689,17 +778,26 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  *
  * Flag spellings are checked across the whole tree, so a definition whose names,
  * aliases, or negated spellings collide with each other or with a propagated
- * ancestor flag is rejected here rather than silently losing a flag at parse
- * time. This is the same check the {@link CommandBuilder} applies as flags and
+ * ancestor flag is rejected here. Both flags still parse under their canonical
+ * names, so what a collision costs is the shared spelling. Help advertises it on
+ * both flags and the parser answers it with one of them.
+ * Args go through the same invariants {@link CommandBuilder.arg} enforces.
+ * These are the checks the {@link CommandBuilder} applies as flags, args, and
  * subcommands are registered.
  *
  * @param definition - Command name plus optional flags, args, and subcommands.
  * @returns A fully populated {@link CommandSchema}.
- * @throws {CLIError} With code `'INVALID_SCHEMA'` when a name at any depth is empty.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a name at any depth is
+ *   empty, a flag or arg at any depth is named `__proto__`, which JavaScript
+ *   cannot carry as a plain record key, or a flag record at any depth has a
+ *   replaced prototype, which hides the entries a name check would read.
  * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two flags on one
  *   command share a spelling.
  * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a flag shadows
  *   a spelling propagated from an ancestor command.
+ * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when one arg is both
+ *   variadic and stdin-backed, or `'DUPLICATE_STDIN_ARG'` when two args on one
+ *   command are stdin-backed.
  *
  * @example
  * ```ts
@@ -720,20 +818,30 @@ function createCommandSchema(definition: CommandDefinition): CommandSchema {
 /**
  * Validate a new arg entry against invariants before adding it to the command.
  *
+ * @param commandName - Command the arg was declared on. A definition tree reaches
+ *   here at any depth, so every error carries it in `details`.
  * @param name - Arg name being registered.
  * @param schema - Runtime descriptor of the arg.
  * @param args - Already-registered arg entries on this command.
  *
+ * @throws {@link CLIError} `INVALID_SCHEMA` if the name is `__proto__`.
  * @throws {@link CLIError} `INVALID_BUILDER_STATE` if both `.stdin()` and `.variadic()` are set.
  * @throws {@link CLIError} `DUPLICATE_STDIN_ARG` if another arg already uses `.stdin()`.
  *
  * @internal
  */
-function validateArgEntry(name: string, schema: ArgSchema, args: readonly CommandArgEntry[]): void {
+function validateArgEntry(
+	commandName: string,
+	name: string,
+	schema: ArgSchema,
+	args: readonly CommandArgEntry[],
+): void {
+	assertUsableArgKey(commandName, name);
+
 	if (schema.stdinMode && schema.variadic) {
 		throw new CLIError(`Argument <${name}> cannot be both variadic and stdin-backed`, {
 			code: 'INVALID_BUILDER_STATE',
-			details: { arg: name, stdinMode: true, variadic: true },
+			details: { command: commandName, arg: name, stdinMode: true, variadic: true },
 			suggest: 'Remove .stdin() or .variadic() from this argument',
 		});
 	}
@@ -751,7 +859,7 @@ function validateArgEntry(name: string, schema: ArgSchema, args: readonly Comman
 		`Only one stdin argument is allowed; <${existing.name}> is already stdin-backed`,
 		{
 			code: 'DUPLICATE_STDIN_ARG',
-			details: { arg: name, existingArg: existing.name },
+			details: { command: commandName, arg: name, existingArg: existing.name },
 			suggest: 'Keep .stdin() on a single argument per command',
 		},
 	);
@@ -1435,12 +1543,21 @@ class CommandBuilder<
 	 * ```
 	 *
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`,
+	 *   which a plain record cannot carry.
+	 * @throws {@link CLIError} `FLAG_NAME_COLLISION` when the command already
+	 *   declares this name, or the new flag's spellings collide with another
+	 *   flag's.
+	 * @throws {@link CLIError} `PROPAGATED_FLAG_COLLISION` when a spelling
+	 *   collides with one propagated to a registered subcommand.
 	 */
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
 		name: N & Exclude<N, keyof F>,
 		builder: B,
 	): CommandBuilder<F & Record<N, B>, A, C> {
-		if (name in this.schema.flags) {
+		assertUsableFlagKey(this.schema.name, name);
+
+		if (Object.hasOwn(this.schema.flags, name)) {
 			throw new CLIError(`Command '${this.schema.name}' already defines flag --${name}`, {
 				code: 'FLAG_NAME_COLLISION',
 				details: { command: this.schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
@@ -1500,12 +1617,18 @@ class CommandBuilder<
 	 * ```
 	 *
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`,
+	 *   which a plain record cannot carry.
+	 * @throws {@link CLIError} `INVALID_BUILDER_STATE` when the arg is both
+	 *   variadic and stdin-backed.
+	 * @throws {@link CLIError} `DUPLICATE_STDIN_ARG` when another arg on this
+	 *   command is already stdin-backed.
 	 */
 	arg<N extends string, B extends ArgBuilder<ArgConfig>>(
 		name: N & Exclude<N, keyof A>,
 		builder: B,
 	): CommandBuilder<F, A & Record<N, B>, C> {
-		validateArgEntry(name, builder.schema, this.schema.args);
+		validateArgEntry(this.schema.name, name, builder.schema, this.schema.args);
 		const entry: CommandArgEntry = { name, schema: builder.schema };
 		const nextArgs = [...this.schema.args, entry];
 		return new CommandBuilder(
@@ -1542,6 +1665,9 @@ class CommandBuilder<
 	 *
 	 * @param sub - Child {@link CommandBuilder} to nest under this command.
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `PROPAGATED_FLAG_COLLISION` when a spelling this
+	 *   command propagates collides with one the subcommand, or any of its own
+	 *   descendants, declares.
 	 */
 	command<
 		F2 extends Record<string, FlagBuilder<FlagConfig>>,

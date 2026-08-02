@@ -99,7 +99,9 @@ function adapterReader(injected: RuntimeAdapter | undefined): () => RuntimeAdapt
  * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two definitions share
  *   a name, an alias, or a negated spelling.
  * @throws {CLIError} With code `'INVALID_SCHEMA'` for the definition key
- *   `__proto__`, which JavaScript cannot carry as a plain record key.
+ *   `__proto__`, which JavaScript cannot carry as a plain record key, and for a
+ *   definitions record whose prototype is replaced, which hides the entries a
+ *   key check would read.
  *
  * @example
  * ```ts
@@ -130,6 +132,19 @@ async function readFlags<const F extends FlagMap>(
 	definitions: F,
 	options?: ReadFlagsOptions,
 ): Promise<InferFlags<F>> {
+	// Only own enumerable keys are read.
+	const prototype: unknown = Object.getPrototypeOf(definitions);
+	if (prototype !== Object.prototype && prototype !== null) {
+		throw new CLIError(
+			"Flag definitions record has a replaced prototype. A '__proto__' key sets the prototype instead of adding a definition, and an inherited definition is never read",
+			{
+				code: 'INVALID_SCHEMA',
+				suggest:
+					"Pass a plain object with no '__proto__' key, or a record built with Object.create(null)",
+			},
+		);
+	}
+
 	const entries = Object.entries(definitions);
 	for (const [name] of entries) {
 		if (name === '__proto__') {

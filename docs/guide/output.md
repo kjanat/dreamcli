@@ -86,9 +86,13 @@ the same way could never be set, so declaring one throws `RESERVED_FLAG`.
 Naming a flag `quiet`, `json`, or `help`, aliasing one to `q` or `h`, or giving
 one a negated spelling like `.negatable({ alias: 'quiet' })` is rejected by
 `.command()`, `.default()`, and `createCLISchema()`, and `version`/`V` join
-that set once a version is configured. Rename the flag, reach for `out.status()`
-when you wanted output that root `--quiet` suppresses, or release the built-in
-with `.builtins()`.
+that set once a version is configured. Because a version can arrive after the
+commands are registered, `.version()` and `.manifest(data)` re-check every
+registered command too. A version that `.manifest()` reads off the filesystem
+lands later still, so `.run()` runs the guard once discovery supplies it and
+fails startup with the same error on stderr and the same exit code. Rename the
+flag, reach for `out.status()` when you wanted output that root `--quiet`
+suppresses, or release the built-in with `.builtins()`.
 
 | Method   | Stream                      | Suppressed by quiet |
 | -------- | --------------------------- | ------------------- |

@@ -395,6 +395,50 @@ describe('schema sealing', () => {
 			expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
 		});
 
+		it('rejects a __proto__ flag key on a command definition', () => {
+			const build = () =>
+				createCLISchema({
+					name: 'mycli',
+					commands: [{ name: 'run', flags: { ['__proto__']: { kind: 'boolean' } } }],
+				});
+			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
+		it('rejects an object-literal __proto__ flag key on a command definition', () => {
+			const build = () =>
+				createCLISchema({
+					name: 'mycli',
+					commands: [{ name: 'run', flags: { __proto__: { kind: 'boolean' } } }],
+				});
+			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
+		it('rejects a __proto__ arg name on a command definition', () => {
+			const build = () =>
+				createCLISchema({
+					name: 'mycli',
+					commands: [{ name: 'run', args: [{ name: '__proto__', schema: { kind: 'string' } }] }],
+				});
+			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
+		it('rejects two stdin-backed args on a command definition', () => {
+			const build = () =>
+				createCLISchema({
+					name: 'mycli',
+					commands: [
+						{
+							name: 'run',
+							args: [
+								{ name: 'first', schema: { kind: 'string', stdinMode: true } },
+								{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+							],
+						},
+					],
+				});
+			expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_ARG');
+		});
+
 		it('builds identical flag schemas from the positional and object forms', () => {
 			expect(createFlagSchema('enum', { enumValues: ['us', 'eu'], description: 'Region' })).toEqual(
 				createFlagSchema({ kind: 'enum', enumValues: ['us', 'eu'], description: 'Region' }),

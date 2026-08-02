@@ -912,17 +912,21 @@ describe('command() — commands field', () => {
 	});
 });
 
-// === createCommandSchema() flag collision validation
+// === createCommandSchema() tree-wide validation
 
-function collisionCode(build: () => unknown): string {
+function schemaError(build: () => unknown): CLIError {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof CLIError) return error.code;
+		if (error instanceof CLIError) return error;
 		throw error;
 	}
 
 	throw new Error('Expected createCommandSchema to throw a CLIError');
+}
+
+function schemaErrorCode(build: () => unknown): string {
+	return schemaError(build).code;
 }
 
 describe('createCommandSchema() flag collisions', () => {
@@ -935,7 +939,7 @@ describe('createCommandSchema() flag collisions', () => {
 					version: { kind: 'boolean', aliases: ['v'] },
 				},
 			});
-		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+		expect(schemaErrorCode(build)).toBe('FLAG_NAME_COLLISION');
 	});
 
 	it('rejects an alias that spells another flag canonical name', () => {
@@ -947,7 +951,7 @@ describe('createCommandSchema() flag collisions', () => {
 					frobnicate: { kind: 'boolean', aliases: ['force'] },
 				},
 			});
-		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+		expect(schemaErrorCode(build)).toBe('FLAG_NAME_COLLISION');
 	});
 
 	it('rejects a negated spelling that collides with another canonical name', () => {
@@ -959,7 +963,7 @@ describe('createCommandSchema() flag collisions', () => {
 					'no-sandbox': { kind: 'boolean' },
 				},
 			});
-		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+		expect(schemaErrorCode(build)).toBe('FLAG_NAME_COLLISION');
 	});
 
 	it('rejects a collision declared inside a nested subcommand', () => {
@@ -976,7 +980,7 @@ describe('createCommandSchema() flag collisions', () => {
 					},
 				],
 			});
-		expect(collisionCode(build)).toBe('FLAG_NAME_COLLISION');
+		expect(schemaErrorCode(build)).toBe('FLAG_NAME_COLLISION');
 	});
 
 	it('rejects a child alias that collides with a propagated ancestor alias', () => {
@@ -986,7 +990,7 @@ describe('createCommandSchema() flag collisions', () => {
 				flags: { verbose: { kind: 'boolean', aliases: ['v'], propagate: true } },
 				commands: [{ name: 'migrate', flags: { version: { kind: 'boolean', aliases: ['v'] } } }],
 			});
-		expect(collisionCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+		expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
 	});
 
 	it('rejects a grandchild alias that collides with a propagated root alias', () => {
@@ -1001,7 +1005,7 @@ describe('createCommandSchema() flag collisions', () => {
 					},
 				],
 			});
-		expect(collisionCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+		expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
 	});
 
 	it('allows a child to shadow a propagated flag by canonical name', () => {
@@ -1028,5 +1032,329 @@ describe('createCommandSchema() flag collisions', () => {
 			.flag('verbose', flag.boolean().alias('v').propagate())
 			.command(command('migrate').flag('force', flag.boolean().alias('f'))).schema;
 		expect(createCommandSchema(built)).toEqual(built);
+	});
+});
+
+describe('createCommandSchema() nested names', () => {
+	it('rejects an empty name on a direct child', () => {
+		const build = () => createCommandSchema({ name: 'db', commands: [{ name: '' }] });
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('rejects an empty name on a grandchild', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				commands: [{ name: 'migrate', commands: [{ name: '' }] }],
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+});
+
+describe('createCommandSchema() prototype keys', () => {
+	it('rejects a __proto__ flag key instead of dropping it', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				flags: { ['__proto__']: { kind: 'boolean' }, keep: { kind: 'string' } },
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('rejects a __proto__ flag key on a nested subcommand', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				commands: [{ name: 'migrate', flags: { ['__proto__']: { kind: 'boolean' } } }],
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('rejects a __proto__ flag key written as an object-literal property', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				flags: { __proto__: { kind: 'boolean' }, keep: { kind: 'string' } },
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('rejects an object-literal __proto__ flag key on a nested subcommand', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				commands: [{ name: 'migrate', flags: { __proto__: { kind: 'boolean' } } }],
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('accepts a prototype-free flag record', () => {
+		const flags: Record<string, { kind: 'string' }> = Object.create(null);
+		flags['keep'] = { kind: 'string' };
+		expect(Object.keys(createCommandSchema({ name: 'run', flags }).flags)).toEqual(['keep']);
+	});
+
+	it('rejects a flag record built over another object without naming a flag', () => {
+		const base = { shared: { kind: 'boolean' as const } };
+		const flags: Record<string, { kind: 'string' }> = Object.create(base);
+		flags['own'] = { kind: 'string' };
+
+		let thrown: unknown;
+		try {
+			createCommandSchema({ name: 'run', flags });
+		} catch (error) {
+			thrown = error;
+		}
+
+		expect(thrown).toBeInstanceOf(CLIError);
+		if (!(thrown instanceof CLIError)) return;
+		expect(thrown.code).toBe('INVALID_SCHEMA');
+		expect(thrown.message).toContain('replaced prototype');
+		expect(thrown.details).toEqual({ command: 'run' });
+	});
+
+	it('rejects a __proto__ arg name instead of swallowing the value', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				args: [{ name: '__proto__', schema: { kind: 'string' } }],
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('rejects a __proto__ arg name on a nested subcommand', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				commands: [{ name: 'migrate', args: [{ name: '__proto__', schema: { kind: 'string' } }] }],
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('keeps other Object.prototype key names as ordinary flags', () => {
+		const schema = createCommandSchema({
+			name: 'run',
+			flags: { constructor: flag.string().schema },
+		});
+		expect(Object.keys(schema.flags)).toEqual(['constructor']);
+	});
+});
+
+// === Builder / factory parity on record-hostile names
+
+describe('CommandBuilder.flag() prototype keys', () => {
+	it('accepts an Object.prototype member name as a flag', () => {
+		const built = command('run').flag('constructor', flag.string());
+		expect(Object.keys(built.schema.flags)).toEqual(['constructor']);
+	});
+
+	it('accepts every Object.prototype member name without a false collision', () => {
+		const names = Object.getOwnPropertyNames(Object.prototype).filter(
+			(name) => name !== '__proto__',
+		);
+		expect(names).toHaveLength(11);
+
+		for (const name of names) {
+			expect(Object.keys(command('run').flag(name, flag.string()).schema.flags)).toEqual([name]);
+			expect(
+				Object.keys(
+					createCommandSchema({ name: 'run', flags: { [name]: { kind: 'string' } } }).flags,
+				),
+			).toEqual([name]);
+			expect(
+				command('run')
+					.arg(name, arg.string())
+					.schema.args.map((entry) => entry.name),
+			).toEqual([name]);
+		}
+	});
+
+	it('still rejects a genuine duplicate flag name', () => {
+		const duplicate: string = 'force';
+		const build = () => command('run').flag('force', flag.boolean()).flag(duplicate, flag.string());
+		expect(schemaErrorCode(build)).toBe('FLAG_NAME_COLLISION');
+	});
+
+	it('rejects __proto__ the way the factory does', () => {
+		const build = () => command('run').flag('__proto__', flag.boolean());
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('stays deep-equal when a prototype-named flag round-trips through the factory', () => {
+		const built = command('run')
+			.flag('constructor', flag.string())
+			.flag('toString', flag.boolean()).schema;
+		expect(createCommandSchema(built)).toEqual(built);
+	});
+});
+
+describe('CommandBuilder propagated flag collisions', () => {
+	it('rejects a subcommand whose flag collides with a propagated spelling', () => {
+		const build = () =>
+			group('db')
+				.flag('verbose', flag.boolean().alias('v').propagate())
+				.command(command('migrate').flag('version', flag.boolean().alias('v')));
+		expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+	});
+
+	it('rejects the same collision when the propagated flag is added last', () => {
+		const build = () =>
+			group('db')
+				.command(command('migrate').flag('version', flag.boolean().alias('v')))
+				.flag('verbose', flag.boolean().alias('v').propagate());
+		expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+	});
+
+	it('rejects a collision declared on a grandchild', () => {
+		const build = () =>
+			group('db')
+				.flag('verbose', flag.boolean().alias('v').propagate())
+				.command(
+					group('migrate').command(command('up').flag('version', flag.boolean().alias('v'))),
+				);
+		expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
+	});
+
+	it('accepts a subcommand flag that shadows the propagated canonical name', () => {
+		expect(() =>
+			group('db')
+				.flag('verbose', flag.boolean().alias('v').propagate())
+				.command(command('migrate').flag('verbose', flag.boolean().alias('v'))),
+		).not.toThrow();
+	});
+});
+
+describe('CommandBuilder.arg() prototype keys', () => {
+	it('rejects __proto__ the way the factory does', () => {
+		const build = () => command('run').arg('__proto__', arg.string());
+		expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+	});
+
+	it('accepts an Object.prototype member name as an arg', () => {
+		const built = command('run').arg('constructor', arg.string());
+		expect(built.schema.args.map((entry) => entry.name)).toEqual(['constructor']);
+	});
+});
+
+// === Arg invariants shared by both construction paths
+
+describe('createCommandSchema() arg invariants', () => {
+	it('rejects one arg that is both variadic and stdin-backed', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				args: [{ name: 'input', schema: { kind: 'string', variadic: true, stdinMode: true } }],
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_BUILDER_STATE');
+	});
+
+	it('rejects two stdin-backed args on one command', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				args: [
+					{ name: 'first', schema: { kind: 'string', stdinMode: true } },
+					{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+				],
+			});
+		expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_ARG');
+	});
+
+	it('rejects the same pair declared on a nested subcommand', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'db',
+				commands: [
+					{
+						name: 'migrate',
+						args: [
+							{ name: 'first', schema: { kind: 'string', stdinMode: true } },
+							{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+						],
+					},
+				],
+			});
+		expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_ARG');
+	});
+
+	it('accepts a single stdin-backed arg beside ordinary ones', () => {
+		const schema = createCommandSchema({
+			name: 'run',
+			args: [
+				{ name: 'target', schema: { kind: 'string' } },
+				{ name: 'input', schema: { kind: 'string', stdinMode: true } },
+			],
+		});
+		expect(schema.args.map((entry) => entry.name)).toEqual(['target', 'input']);
+	});
+});
+
+describe('createCommandSchema() arg error details', () => {
+	it('names the command a nested duplicate stdin arg was declared on', () => {
+		const thrown = schemaError(() =>
+			createCommandSchema({
+				name: 'db',
+				commands: [
+					{
+						name: 'migrate',
+						commands: [
+							{
+								name: 'up',
+								args: [
+									{ name: 'first', schema: { kind: 'string', stdinMode: true } },
+									{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+								],
+							},
+						],
+					},
+				],
+			}),
+		);
+
+		expect(thrown.code).toBe('DUPLICATE_STDIN_ARG');
+		expect(thrown.details).toEqual({ command: 'up', arg: 'second', existingArg: 'first' });
+	});
+
+	it('names the command a nested variadic stdin arg was declared on', () => {
+		const thrown = schemaError(() =>
+			createCommandSchema({
+				name: 'db',
+				commands: [
+					{
+						name: 'migrate',
+						args: [{ name: 'input', schema: { kind: 'string', stdinMode: true, variadic: true } }],
+					},
+				],
+			}),
+		);
+
+		expect(thrown.code).toBe('INVALID_BUILDER_STATE');
+		expect(thrown.details).toEqual({
+			command: 'migrate',
+			arg: 'input',
+			stdinMode: true,
+			variadic: true,
+		});
+	});
+
+	it('names the command a nested __proto__ arg was declared on', () => {
+		const thrown = schemaError(() =>
+			createCommandSchema({
+				name: 'db',
+				commands: [{ name: 'migrate', args: [{ name: '__proto__', schema: { kind: 'string' } }] }],
+			}),
+		);
+
+		expect(thrown.code).toBe('INVALID_SCHEMA');
+		expect(thrown.details).toEqual({ command: 'migrate', arg: '__proto__' });
+	});
+
+	it('names the command the builder declared the arg on', () => {
+		const thrown = schemaError(() =>
+			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin()),
+		);
+
+		expect(thrown.code).toBe('DUPLICATE_STDIN_ARG');
+		expect(thrown.details).toEqual({ command: 'copy', arg: 'dest', existingArg: 'source' });
 	});
 });
