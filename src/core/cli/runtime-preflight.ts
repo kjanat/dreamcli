@@ -18,7 +18,7 @@ import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
+import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
@@ -27,6 +27,11 @@ import type { CompiledCLI } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import { planInvocation } from './planner.ts';
+import {
+	readRootOutputFlags,
+	resolveRootJsonMode,
+	resolveRootVerbosity,
+} from './root-output-flags.ts';
 
 /** Config discovery settings extracted from CLISchema for preflight use. @internal */
 interface RuntimeConfigSettings {
@@ -411,12 +416,9 @@ async function prepareRuntimePreflight(
 		options.schema.configSettings !== undefined
 			? extractConfigFlag(rawArgv)
 			: { configPath: undefined, filteredArgv: rawArgv };
-	// Only pre-separator occurrences count; a literal after `--` is a
-	// positional for the command (#28).
-	const hasJsonFlag = includesBeforeSeparator(filteredArgv, '--json');
-	const jsonMode = hasJsonFlag || options.options?.jsonMode === true;
-	const hasQuietFlag =
-		includesBeforeSeparator(filteredArgv, '--quiet') || includesBeforeSeparator(filteredArgv, '-q');
+	const rootOutputFlags = readRootOutputFlags(filteredArgv);
+	const jsonMode = resolveRootJsonMode(rootOutputFlags, options.options?.jsonMode);
+	const verbosity = resolveRootVerbosity(rootOutputFlags, options.options?.verbosity) ?? 'normal';
 	const isCompletions = isCompletionsInvocation(options.schema, options.compiled, filteredArgv);
 	const schema = await applyPackageJsonDiscovery(
 		options.schema,
@@ -458,7 +460,7 @@ async function prepareRuntimePreflight(
 			env: options.options?.env ?? options.adapter.env,
 			isTTY: options.options?.isTTY ?? options.adapter.isTTY,
 			jsonMode,
-			verbosity: hasQuietFlag ? 'quiet' : (options.options?.verbosity ?? 'normal'),
+			verbosity,
 			stat: options.options?.stat ?? options.adapter.stat,
 			mkdir: options.options?.mkdir ?? options.adapter.mkdir,
 			...(stdinData !== undefined ? { stdinData } : {}),

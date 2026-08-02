@@ -32,7 +32,6 @@ import {
 	resolveHyperlinkOverride,
 } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { schemaBrand } from '#internals/core/schema/brand.ts';
@@ -59,6 +58,11 @@ import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
 import { formatRootHelp } from './root-help.ts';
+import {
+	readRootOutputFlags,
+	resolveRootJsonMode,
+	resolveRootVerbosity,
+} from './root-output-flags.ts';
 import { prepareRuntimePreflight } from './runtime-preflight.ts';
 
 /** Long-flag name reserved by `.completions({ as: 'flag' })`; the planner intercepts it before dispatch. */
@@ -696,13 +700,15 @@ interface RenderContextOptions {
 	 */
 	readonly isTTY?: boolean;
 	/**
-	 * Force JSON mode on regardless of argv.
+	 * JSON mode when argv carries no root `--json`. An explicit `--json=false`
+	 * in argv wins over this.
 	 *
 	 * @defaultValue detected from a pre-separator `--json` in `argv`
 	 */
 	readonly jsonMode?: boolean;
 	/**
-	 * Output verbosity override when argv does not contain root `--quiet`/`-q`.
+	 * Output verbosity when argv carries no root `--quiet`/`-q`. An explicit
+	 * `--quiet=false` in argv wins over this.
 	 *
 	 * @defaultValue detected from a pre-separator `--quiet`/`-q` in `argv`,
 	 *   otherwise `'normal'`
@@ -810,10 +816,9 @@ function resolveRenderContext(
 	argv: readonly string[],
 	options?: RenderContextOptions,
 ): RenderContext {
-	const jsonMode = includesBeforeSeparator(argv, '--json') || options?.jsonMode === true;
-	const hasQuietFlag =
-		includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
-	const verbosity = hasQuietFlag ? 'quiet' : (options?.verbosity ?? 'normal');
+	const rootOutputFlags = readRootOutputFlags(argv);
+	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
+	const verbosity = resolveRootVerbosity(rootOutputFlags, options?.verbosity) ?? 'normal';
 	const out = createOutput({
 		jsonMode,
 		isTTY: options?.isTTY ?? false,
@@ -1570,13 +1575,12 @@ async function executeCLI(
 	options?: InternalCLIExecuteOptions,
 ): Promise<RunResult> {
 	// -- Detect global --json / --quiet before building output ----------------
-	// Only occurrences before the `--` separator count; a literal positional
-	// (after `--`) must reach the command unchanged (#28).
-	const hasJsonFlag = includesBeforeSeparator(argv, '--json');
-	const jsonMode = hasJsonFlag || options?.jsonMode === true;
-	const hasQuietFlag =
-		includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
-	const verbosity: Verbosity | undefined = hasQuietFlag ? 'quiet' : options?.verbosity;
+	const rootOutputFlags = readRootOutputFlags(argv);
+	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
+	const verbosity: Verbosity | undefined = resolveRootVerbosity(
+		rootOutputFlags,
+		options?.verbosity,
+	);
 
 	const captureOptions = {
 		...(verbosity !== undefined ? { verbosity } : {}),

@@ -1,6 +1,6 @@
 # cli — CLIBuilder, multi-command dispatch, plugins
 
-`index.ts` (~2214 lines) — heavily split: 9 `@internal` extraction files.
+`index.ts` (~2132 lines) — heavily split: 10 `@internal` extraction files.
 
 ## KEY TYPES
 
@@ -22,18 +22,19 @@
 
 ## FILES
 
-| File                   | Lines | Purpose                                                              |
-| ---------------------- | ----: | -------------------------------------------------------------------- |
-| `index.ts`             |  2214 | CLIBuilder class + cli() factory + JSON error handling               |
-| `runtime-preflight.ts` |   488 | `@internal` — runtime adapter setup, env/config preflight            |
-| `planner.ts`           |   674 | `@internal` — execution planner, command resolution strategy         |
-| `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein |
-| `root-help.ts`         |   364 | `@internal` — root-level help text + text helpers, structural schema |
-| `compiled.ts`          |   138 | `@internal` — compiled execution graph + `compileCommand()`          |
-| `plugin.ts`            |   117 | `@internal` — plugin system + lifecycle hooks                        |
-| `propagate.ts`         |    97 | `@internal` — flag propagation through command tree                  |
-| `root-surface.ts`      |    96 | `@internal` — root-level CLI surface (version, help flags)           |
-| `help-links.ts`        |    82 | `@internal` — help link derivation from manifest metadata            |
+| File                   | Lines | Purpose                                                               |
+| ---------------------- | ----: | --------------------------------------------------------------------- |
+| `index.ts`             |  2132 | CLIBuilder class + cli() factory + JSON error handling                |
+| `planner.ts`           |   669 | `@internal` — execution planner, command resolution strategy          |
+| `runtime-preflight.ts` |   490 | `@internal` — runtime adapter setup, env/config preflight             |
+| `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein  |
+| `root-help.ts`         |   364 | `@internal` — root-level help text + text helpers, structural schema  |
+| `root-output-flags.ts` |   187 | `@internal` — `--json`/`--quiet` reader + strip, shared by all layers |
+| `compiled.ts`          |   138 | `@internal` — compiled execution graph + `compileCommand()`           |
+| `plugin.ts`            |   117 | `@internal` — plugin system + lifecycle hooks                         |
+| `propagate.ts`         |    97 | `@internal` — flag propagation through command tree                   |
+| `root-surface.ts`      |    96 | `@internal` — root-level CLI surface (version, help flags)            |
+| `help-links.ts`        |    82 | `@internal` — help link derivation from manifest metadata             |
 
 ## DISPATCH FLOW
 
@@ -57,6 +58,15 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
 
 - Stripped from argv before command dispatch, but only before the `--` separator (a `--json` after
   `--` stays a literal positional)
+- `readRootOutputFlags()` in `root-output-flags.ts` is the single reader for `--json` and
+  `--quiet`/`-q`; `planner.ts`, `executeCLI()`, `resolveRenderContext()`, `runtime-preflight.ts`, and
+  testkit `runCommand()` all go through it. It accepts `--json=true|1|false|0` via the parser's own
+  `coerceFlagValue()` with `flag.boolean()`'s schema, so values, last-wins duplicates, and the
+  `INVALID_VALUE` error match a command-level boolean (#85). Short `-q` stays presence-only, matching
+  short-flag tokenization
+- An invalid value reaches the user as a `dispatch-error`, but only after root `--version` and
+  `--help` have had their turn, so `requestsHelp()` gates it in both `planner.ts` and testkit
+  `runCommand()` the same way `executeCommand()` short-circuits a command's own `--help`
 - CLI-level errors rendered as JSON when active
 - Propagated to `OutputChannel` via `jsonMode` option
 - `out.log`/`out.info` redirect to stderr in JSON mode (stdout reserved for data)

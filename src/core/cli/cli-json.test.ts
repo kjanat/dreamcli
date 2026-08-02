@@ -260,6 +260,32 @@ describe('CLIBuilder --json with root flags', () => {
 		expect(doc).toMatchObject({ name: 'data', flags: { limit: { kind: 'number' } } });
 	});
 
+	it('--help honors an explicit --json value (#85)', async () => {
+		const app = cli('test').version('1.0.0').command(dataCommand());
+
+		for (const token of ['--json=true', '--json=1']) {
+			const machine = await app.execute(['--help', token]);
+			expect(machine.exitCode).toBe(0);
+			expect(JSON.parse(machine.stdout.join(''))).toMatchObject({ name: 'test' });
+		}
+
+		for (const token of ['--json=false', '--json=0']) {
+			const human = await app.execute(['--help', token]);
+			expect(human.exitCode).toBe(0);
+			expect(human.stdout.join('')).toContain('Usage: test');
+		}
+	});
+
+	it('<command> --help honors an explicit --json value (#85)', async () => {
+		const app = cli('test').version('1.0.0').command(dataCommand());
+
+		const machine = await app.execute(['data', '--help', '--json=true']);
+		expect(JSON.parse(machine.stdout.join(''))).toMatchObject({ name: 'data' });
+
+		const human = await app.execute(['data', '--help', '--json=false']);
+		expect(human.stdout.join('')).toContain('Usage: test data');
+	});
+
 	it('json help output round-trips through JSON.parse regardless of flag order', async () => {
 		const app = cli('test').version('1.0.0').command(dataCommand());
 		for (const argv of [

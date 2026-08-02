@@ -18,7 +18,7 @@ import { formatHelp } from '#internals/core/help/index.ts';
 import { generateCommandSchema } from '#internals/core/json-schema/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
-import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
+import { parse, requestsHelp } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
@@ -87,7 +87,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 	clearRequestedExitCode(out);
 
 	try {
-		if (includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h')) {
+		if (requestsHelp(argv)) {
 			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
 			// `out` may predate it, so the channel flag alone is not authoritative.

@@ -6,7 +6,7 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagDefinitionOverrides, FlagSchema } from '#internals/core/schema/flag.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
-import { includesBeforeSeparator, parse, tokenize } from './index.ts';
+import { includesBeforeSeparator, parse, requestsHelp, tokenize } from './index.ts';
 
 // --- Helpers — build minimal CommandSchema for testing
 
@@ -925,6 +925,23 @@ describe('includesBeforeSeparator()', () => {
 	it('returns false when the token is absent', () => {
 		expect(includesBeforeSeparator(['--other'], '--version')).toBe(false);
 		expect(includesBeforeSeparator([], '--version')).toBe(false);
+	});
+});
+
+describe('requestsHelp()', () => {
+	it('accepts both help spellings before the -- separator', () => {
+		expect(requestsHelp(['deploy', '--help'])).toBe(true);
+		expect(requestsHelp(['deploy', '-h'])).toBe(true);
+	});
+
+	it('ignores a post-separator help literal', () => {
+		expect(requestsHelp(['deploy', '--', '--help'])).toBe(false);
+		expect(requestsHelp(['deploy', '--', '-h'])).toBe(false);
+	});
+
+	it('returns false without a help token', () => {
+		expect(requestsHelp(['deploy', '--force'])).toBe(false);
+		expect(requestsHelp([])).toBe(false);
 	});
 });
 
