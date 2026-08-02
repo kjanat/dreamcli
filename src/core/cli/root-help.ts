@@ -17,7 +17,7 @@ import { command } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type { BuiltinName, BuiltinsConfig } from './builtins.ts';
-import { BUILTIN_SPECS, builtinEnabled, builtinFlagForms } from './builtins.ts';
+import { BUILTIN_NAMES, BUILTIN_SPECS, builtinEnabled, builtinFlagForms } from './builtins.ts';
 import { resolveRootSurface } from './root-surface.ts';
 
 // Re-use CLISchema inline to avoid circular import through the barrel.
@@ -339,15 +339,15 @@ function formatGlobalOptionsSection(
 		});
 	};
 
-	pushBuiltin('help');
-	if (schema.version !== undefined) {
-		entries.push({
-			left: theme.flag('-V, --version'),
-			description: 'Print the version number and exit',
-		});
+	for (const name of BUILTIN_NAMES) {
+		pushBuiltin(name);
+		if (name === 'help' && schema.version !== undefined) {
+			entries.push({
+				left: theme.flag('-V, --version'),
+				description: 'Print the version number and exit',
+			});
+		}
 	}
-	pushBuiltin('json');
-	pushBuiltin('quiet');
 	if (schema.configSettings !== undefined) {
 		entries.push({
 			left: `${theme.flag('--config')} ${theme.placeholder('<path>')}`,
