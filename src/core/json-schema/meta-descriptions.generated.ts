@@ -30,7 +30,7 @@ const definitionMetaSchemaDescriptions = {
 	defs: {
 		command: {
 			description:
-				"Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nmiddleware, and interactive resolver.",
+				"Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nand interactive resolver.",
 			properties: {
 				name: {
 					description: "The command name (used for dispatch, e.g. `'deploy'`).",

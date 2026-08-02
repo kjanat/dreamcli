@@ -527,7 +527,7 @@ function resolveExampleCommand(command: ExampleCommand, meta: ExampleMeta): stri
  *
  * Consumers (parser, help generator, CLI dispatcher) read this to
  * understand the command's shape — flags, args, aliases, subcommands,
- * middleware, and interactive resolver.
+ * and interactive resolver.
  */
 interface CommandSchema {
 	/** Type-only seal produced by {@link createCommandSchema}. */
@@ -559,15 +559,6 @@ interface CommandSchema {
 	 * @see InteractiveResolver
 	 */
 	readonly interactive: ErasedInteractiveResolver | undefined;
-	/**
-	 * Middleware handlers to run before the action handler.
-	 *
-	 * Executed in registration order — first middleware registered runs
-	 * first and calls `next()` to proceed to subsequent middleware,
-	 * ending with the action handler. Context accumulates via intersection
-	 * at the type level and via object spread at runtime.
-	 */
-	readonly middleware: readonly ErasedMiddlewareHandler[];
 	/**
 	 * Nested subcommand schemas (for help rendering and completion).
 	 *
@@ -652,11 +643,6 @@ interface CommandDefinition {
 	 */
 	readonly interactive?: ErasedInteractiveResolver | undefined;
 	/**
-	 * Middleware handlers to run before the action handler, in registration order.
-	 * @defaultValue `[]`
-	 */
-	readonly middleware?: readonly ErasedMiddlewareHandler[] | undefined;
-	/**
 	 * Nested subcommand definitions or built schemas.
 	 * @defaultValue `[]`
 	 */
@@ -704,7 +690,6 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		args,
 		hasAction: definition.hasAction ?? false,
 		interactive: definition.interactive,
-		middleware: definition.middleware ?? [],
 		commands: (definition.commands ?? []).map((child) => buildCommandSchema(child)),
 	};
 
@@ -1096,11 +1081,9 @@ class CommandBuilder<
 	readonly _subcommands: readonly AnyCommandBuilder[];
 
 	/**
-	 * @internal Execution steps in registration order.
+	 * @internal Derive and middleware steps in registration order.
 	 *
-	 * Distinct from `schema.middleware`: middleware handlers remain in schema
-	 * for backward compatibility, while derives stay command-local and builder-
-	 * scoped so future shared/global middleware can compose cleanly.
+	 * The executor builds the handler chain from this list.
 	 */
 	readonly _executionSteps: readonly ExecutionStep[];
 
@@ -1301,7 +1284,6 @@ class CommandBuilder<
 		return new CommandBuilder(
 			{
 				...this.schema,
-				middleware: [...this.schema.middleware, m._handler],
 				hasAction: false,
 			},
 			// Handler intentionally dropped — C changed, invalidating handler signature.

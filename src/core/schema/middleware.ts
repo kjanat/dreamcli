@@ -49,7 +49,7 @@ interface MiddlewareParams {
 // --- Handler types
 
 /**
- * Type-erased middleware handler stored on `CommandSchema`.
+ * Type-erased middleware handler stored on the command builder.
  *
  * At runtime, all middleware handlers have this signature. The phantom
  * `Output` type on {@linkcode Middleware} is erased.

@@ -709,20 +709,18 @@ describe('generateSchema — definition metadata', () => {
 	// Non-serializable fields omitted
 	// -------------------------------------------------------------------
 
-	it('omits parseFn, interactive, middleware from output', () => {
+	it('omits parseFn and interactive from output', () => {
 		const cmd = commandDef({
 			name: 'test',
 			flags: {
 				custom: flagDef({ kind: 'custom', parseFn: (v) => String(v) }),
 			},
 			interactive: () => ({}),
-			middleware: [() => Promise.resolve()],
 		});
 		const result = generateSchema(minimalCLI({ commands: [erased(cmd)] }));
 		const output = JSON.stringify(result);
 		expect(output).not.toContain('parseFn');
 		expect(output).not.toContain('interactive');
-		expect(output).not.toContain('middleware');
 		expect(output).not.toContain('_execute');
 		expect(output).not.toContain('hasAction');
 	});
