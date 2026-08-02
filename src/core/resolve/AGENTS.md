@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Multi-file module (split from monolithic index). 9 source files, ~1933 source lines.
+Multi-file module (split from monolithic index). 9 source files, ~1948 source lines.
 
 ## RESOLUTION ORDER
 
@@ -23,7 +23,7 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 | `errors.ts`    |   227 | Error aggregation + `throwAggregatedErrors()`                           |
 | `property.ts`  |   106 | Property path resolution utilities                                      |
 | `contracts.ts` |   145 | `ResolveOptions`, `CoerceResult`, `CoerceSource` types                  |
-| `standard.ts`  |   160 | Standard Schema v1 validation pass over resolved values                 |
+| `standard.ts`  |   175 | Standard Schema v1 validation pass over resolved values                 |
 
 ## KEY FUNCTIONS
 
@@ -108,3 +108,8 @@ an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` 
   reads as present. `resolveFlags()` guards `parsedFlags`, `env`, and the interactive resolver's
   override record; `resolveArgs()` guards `parsedArgs` and `env`; `resolveConfigPath()` guards every
   path segment.
+- `applyStandardValidators()` in `standard.ts` guards the resolved records for the same reason, even
+  though `index.ts` builds them. They are incomplete whenever a resolver threw: `resolve()` catches
+  the aggregated `ValidationError`, leaves `flags` or `args` at `{}`, and runs the validation pass
+  anyway before rethrowing. A bare read handed a `toString` flag's `flag.custom()` validator the
+  inherited method and added a second, invented `CONSTRAINT_VIOLATED` beside the real error.
