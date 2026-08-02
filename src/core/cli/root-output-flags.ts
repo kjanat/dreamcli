@@ -68,6 +68,22 @@ const ROOT_LONG_SPELLINGS: ReadonlyMap<string, RootOutputFlagName> = new Map([
 /** Short spellings, which have no inline-value form. */
 const ROOT_SHORT_SPELLINGS: ReadonlyMap<string, RootOutputFlagName> = new Map([['-q', 'quiet']]);
 
+/**
+ * Every spelling this module strips, as a bare token without its dashes.
+ *
+ * The build-time `RESERVED_FLAG` guard reads this instead of restating the
+ * spellings, so a token added above is reserved on command flags in the same
+ * change.
+ *
+ * @internal
+ */
+const ROOT_OUTPUT_TOKENS: ReadonlyMap<string, RootOutputFlagName> = new Map(
+	[...ROOT_LONG_SPELLINGS, ...ROOT_SHORT_SPELLINGS].map(([spelling, name]) => [
+		spelling.replace(/^-+/, ''),
+		name,
+	]),
+);
+
 /** Coerce an inline `=value` the way a command-level boolean flag coerces it. */
 function coerceRootValue(name: RootOutputFlagName, spelling: string, raw: string): RootTokenMatch {
 	try {
@@ -183,5 +199,5 @@ function resolveRootVerbosity(
 	return override;
 }
 
-export type { RootOutputFlags };
-export { readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };
+export type { RootOutputFlagName, RootOutputFlags };
+export { ROOT_OUTPUT_TOKENS, readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };

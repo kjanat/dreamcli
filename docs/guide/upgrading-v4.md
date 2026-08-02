@@ -6,13 +6,69 @@ dreamcli from another framework, see
 [Migration And Adoption](/guide/migration).
 
 A CLI built entirely from the fluent builders (`cli()`, `command()`, `flag`,
-`arg`) mostly runs on 4.0 unchanged. The breaking changes land on code that
-assembles schema objects by hand, hand-rolls an `Out`, reaches into
-`CLISchema.commands`, or passes framework-populated fields into execution
-options. Every category and its compatibility rules are listed on the
+`arg`) mostly runs on 4.0 unchanged, with one exception: a command flag spelled
+like a root-owned flag is now rejected when you register the command. The rest
+of the breaking changes land on code that assembles schema objects by hand,
+hand-rolls an `Out`, reaches into `CLISchema.commands`, or passes
+framework-populated fields into execution options. Every category and its
+compatibility rules are listed on the
 [Stability Policy](/reference/stability) page.
 
 ## Breaking Changes
+
+### A command flag cannot spell a root-owned flag
+
+The root owns `--json`, `--quiet` / `-q`, and `--help` / `-h`, and
+`--version` / `-V` joins them once the CLI declares a version. It strips the
+two output tokens from argv before dispatch, intercepts `--version` / `-V`, and
+renders help before a command's flags are parsed. In 3.x a command could
+declare one of those spellings anyway. It built, it ran, it showed up in help,
+and its flag sat at the default value on every invocation:
+
+```ts
+// 3.x
+const build = command('build')
+  .flag('quiet', flag.boolean().describe('Suppress build logs'))
+  .action(({ flags, out }) => {
+    out.log(`quiet=${flags.quiet}`);
+  });
+
+await cli('mycli').command(build).run();
+
+// $ mycli build --quiet
+// quiet=false
+```
+
+4.0 rejects the registration with a `CLIError` carrying code `RESERVED_FLAG`:
+
+```
+Command 'build' defines a '--quiet' flag, which is reserved by the root
+'--quiet' flag. The root strips that token before dispatch, so the command
+can never receive it
+```
+
+Rename the flag, or drop it and let root `--quiet` govern the output through
+`out.status()`:
+
+```ts
+// 4.0
+const build = command('build').action(({ out }) => {
+  out.status('Building'); // stderr, suppressed by root --quiet
+  out.log('dist/app.js');
+});
+```
+
+The check reads each flag's canonical name, every alias including hidden ones,
+and a custom negated spelling from `.negatable({ alias: 'quiet' })`, through
+the whole subcommand tree. `.command()`, `.default()`, `.version()`,
+`.manifest(data)`, and `createCLISchema()` all run it, so a `version` flag
+throws whether the command is registered before or after `.version()`.
+`--completions` is reserved on the same terms once
+`.completions({ as: 'flag' })` or `CLIDefinition.completionsFlag` is set.
+
+Near misses stay legal: `quietMode` and `jsonOutput` as names, `-Q` and `-j` as
+aliases, the default `--no-<name>` negated spelling, and a `version` flag on a
+CLI that declares no version.
 
 ### `Out` gained a required `verbosity` member
 
@@ -282,6 +338,12 @@ need re-recording.
 
 ## Behavioral Changes To Review
 
+- **Root `--json` and `--quiet` take an explicit value.** `--json=true`,
+  `--json=1`, `--json=false`, and `--json=0` set the mode where 3.x failed with
+  `Unknown flag`, and `--quiet` accepts the same literals. The last occurrence
+  wins, and an invalid literal exits 2 with the parser's `INVALID_VALUE` error.
+  Short `-q` stays presence-only. See
+  [Output](/guide/output#status-lines-and-quiet-mode).
 - **Quiet mode suppresses rendered spinner and progress output.** Activity
   handles resolve to no-ops under quiet verbosity, including on interactive
   TTYs and for explicit static fallbacks. Capture still records lifecycle

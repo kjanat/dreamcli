@@ -500,12 +500,12 @@ describe('generateSchema — definition metadata', () => {
 			name: 'test',
 			flags: {
 				verbose: flagDef({ propagate: true }),
-				quiet: flagDef({ propagate: false }),
+				silent: flagDef({ propagate: false }),
 			},
 		});
 		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'verbose', 'propagate'], true);
-		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'quiet', 'propagate']);
+		expect(result).not.toHaveProperty(['commands', 0, 'flags', 'silent', 'propagate']);
 	});
 
 	it('serializes negation settings on negatable flags', () => {

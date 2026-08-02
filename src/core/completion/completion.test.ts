@@ -2032,7 +2032,9 @@ describe('generateZshCompletion', () => {
 
 	describe('multi-short-alias exclusion groups', () => {
 		it('includes all short aliases in exclusion group', () => {
+			// `-V` is reserved by root `--version`, so this schema declares no version.
 			const schema = minimalSchema({
+				version: undefined,
 				commands: [
 					commandSchema({
 						name: 'deploy',
