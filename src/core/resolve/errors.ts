@@ -32,35 +32,34 @@ function readStringProperty(record: object, key: string): string | undefined {
 	return typeof value === 'string' ? value : undefined;
 }
 
-function hasValueProperty(record: object, key: string): boolean {
-	return Object.hasOwn(record, key);
-}
-
+/**
+ * Name the stage a failure came from, for the aggregate's per-issue label.
+ *
+ * Only a failure to read a value carries `source`. A missing required input
+ * names the env var it would have accepted without claiming the environment
+ * produced anything.
+ */
 function describeIssueSource(
 	details: object,
 ): { readonly kind: AggregateIssueSourceKind; readonly label: string } | undefined {
-	const explicitSource = readStringProperty(details, 'source');
-	if (explicitSource === 'stdin') {
-		return { kind: 'stdin', label: 'stdin' };
-	}
-
-	if (explicitSource === 'prompt') {
-		return { kind: 'prompt', label: 'prompt' };
-	}
-
-	if (hasValueProperty(details, 'value')) {
-		const envVar = readStringProperty(details, 'envVar');
-		if (envVar !== undefined) {
-			return { kind: 'env', label: `env ${envVar}` };
+	switch (readStringProperty(details, 'source')) {
+		case 'stdin':
+			return { kind: 'stdin', label: 'stdin' };
+		case 'prompt':
+			return { kind: 'prompt', label: 'prompt' };
+		case 'env': {
+			const envVar = readStringProperty(details, 'envVar');
+			return envVar === undefined ? undefined : { kind: 'env', label: `env ${envVar}` };
 		}
-
-		const configPath = readStringProperty(details, 'configPath');
-		if (configPath !== undefined) {
-			return { kind: 'config', label: `config ${configPath}` };
+		case 'config': {
+			const configPath = readStringProperty(details, 'configPath');
+			return configPath === undefined
+				? undefined
+				: { kind: 'config', label: `config ${configPath}` };
 		}
+		default:
+			return undefined;
 	}
-
-	return undefined;
 }
 
 function summarizeValidationError(error: ValidationError): AggregateIssueSummary {

@@ -26,6 +26,7 @@ import type { FlagBuilder, FlagConfig, FlagDefinition, FlagSchema, InferFlags } 
 import { createFlagSchema, getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
+import type { InputSources } from './provenance.ts';
 import { stdinConsumerReference, stdinConsumers } from './source.ts';
 import type { StdinBinding } from './stdin.ts';
 
@@ -347,11 +348,12 @@ interface CommandMeta {
 /**
  * The bag of values received by an action handler.
  *
- * - `args`  — fully resolved positional arguments
- * - `flags` — fully resolved flags
- * - `ctx`   — derive/middleware-provided context
- * - `out`   — output channel
- * - `meta`  — CLI program metadata (name, bin, version, command)
+ * - `args`: fully resolved positional arguments
+ * - `flags`: fully resolved flags
+ * - `sources`: which stage produced each of those values
+ * - `ctx`: derive/middleware-provided context
+ * - `out`: output channel
+ * - `meta`: CLI program metadata (name, bin, version, command)
  *
  * The `C` parameter defaults to `Record<string, never>`, making `ctx`
  * property access a type error until derive or middleware extends it.
@@ -365,6 +367,13 @@ interface ActionParams<
 	readonly args: Readonly<InferArgs<A>>;
 	/** Fully resolved flag values, typed from `.flag()` definitions. */
 	readonly flags: Readonly<InferFlags<F>>;
+	/**
+	 * Where each resolved value came from, keyed like `flags` and `args`.
+	 *
+	 * An input that resolved no value has no record. {@link wasExplicit} answers
+	 * the explicit-versus-defaulted question; read `stage` for the rest.
+	 */
+	readonly sources: InputSources<F, A>;
 	/** Middleware/derive-provided context, typed from `.middleware()` and `.derive()` chains. */
 	readonly ctx: Readonly<C>;
 	/** Structured output channel for stdout, stderr, JSON, tables, and spinners. */
@@ -401,17 +410,29 @@ type ActionHandler<
 type ErasedActionHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
+	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	readonly meta: CommandMeta;
 }) => void | Promise<void>;
 
 /**
+ * The provenance bag as the execution seam carries it, before a handler's own
+ * flag and arg names type it.
+ *
+ * @internal
+ */
+type ErasedInputSources = InputSources<
+	Readonly<Record<string, unknown>>,
+	Readonly<Record<string, unknown>>
+>;
+
+/**
  * The bag of values received by a derive handler.
  *
  * Identical to {@link ActionParams}: derives run after full resolution and
- * before the action handler, with typed args/flags/current context plus `out`
- * and `meta`.
+ * before the action handler, with typed args, flags, provenance, and current
+ * context plus `out` and `meta`.
  */
 type DeriveParams<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -443,6 +464,7 @@ type DeriveHandler<
 type ErasedDeriveHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
+	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	readonly meta: CommandMeta;
@@ -1904,6 +1926,7 @@ export type {
 	DeriveParams,
 	ErasedActionHandler,
 	ErasedDeriveHandler,
+	ErasedInputSources,
 	ErasedInteractiveResolver,
 	ExampleCommand,
 	ExampleMeta,

@@ -139,6 +139,8 @@ export {
 	describeNumberConstraintViolation,
 	validateNumberConstraints,
 } from './number-constraints.ts';
+export type { InputSources, ResolutionProvenance, SourcesOf } from './provenance.ts';
+export { wasExplicit } from './provenance.ts';
 export type { RunOptions, RunResult } from './run.ts';
 export type {
 	InferStandardInput,

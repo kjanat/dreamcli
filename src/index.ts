@@ -156,7 +156,7 @@ export type { FlagMap, ReadFlagsOptions } from './core/read-flags/index.ts';
 export { readFlags } from './core/read-flags/index.ts';
 export type {
 	DeprecationWarning,
-	ResolutionProvenance,
+	ResolutionProvenanceRecord,
 	ResolveOptions,
 	ResolveResult,
 } from './core/resolve/index.ts';
@@ -217,6 +217,7 @@ export type {
 	InferStandardInput,
 	InferStandardOutput,
 	InputPromptConfig,
+	InputSources,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
@@ -239,12 +240,14 @@ export type {
 	PromptConfigBase,
 	PromptKind,
 	PromptResult,
+	ResolutionProvenance,
 	ResolvedArgValue,
 	ResolvedValue,
 	RunResult,
 	SelectChoice,
 	SelectPromptConfig,
 	SourceSplitBinding,
+	SourcesOf,
 	SpinnerHandle,
 	SpinnerOptions,
 	SplitBinding,
@@ -295,4 +298,5 @@ export {
 	middleware,
 	resolveExampleCommand,
 	SPLIT_FORMATS,
+	wasExplicit,
 } from './core/schema/index.ts';

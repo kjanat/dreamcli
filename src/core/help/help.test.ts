@@ -520,6 +520,66 @@ describe('formatHelp', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// Stdin source annotations
+	// -----------------------------------------------------------------------
+
+	describe('stdin annotations', () => {
+		const triggers: ReadonlyArray<readonly [string, string]> = [
+			['dash-or-missing', '[stdin]'],
+			['dash', "[stdin: '-']"],
+			['missing', '[stdin: when omitted]'],
+		];
+
+		for (const [when, annotation] of triggers) {
+			it(`shows ${annotation} for a '${when}' flag`, () => {
+				const cmd = command('send').flag(
+					'body',
+					flag
+						.string()
+						.stdin({ when: when === 'dash' ? 'dash' : when === 'missing' ? 'missing' : undefined })
+						.describe('Message body'),
+				);
+
+				expect(formatHelp(cmd.schema, { width: 120 })).toContain(annotation);
+			});
+
+			it(`shows ${annotation} for a '${when}' arg`, () => {
+				const cmd = command('send').arg(
+					'body',
+					arg
+						.string()
+						.stdin({ when: when === 'dash' ? 'dash' : when === 'missing' ? 'missing' : undefined })
+						.describe('Message body'),
+				);
+
+				expect(formatHelp(cmd.schema, { width: 120 })).toContain(annotation);
+			});
+		}
+
+		it('places [stdin] before [env:] on both surfaces', () => {
+			const cmd = command('send')
+				.flag(
+					'body',
+					flag.string().stdin({ consume: 'broadcast' }).env('BODY').describe('Message body'),
+				)
+				.arg(
+					'target',
+					arg.string().stdin({ consume: 'broadcast' }).env('TARGET').describe('Where to send'),
+				);
+			const help = formatHelp(cmd.schema, { width: 120 });
+
+			expect(help.indexOf('[stdin]')).toBeLessThan(help.indexOf('[env: TARGET]'));
+			expect(help.lastIndexOf('[stdin]')).toBeLessThan(help.indexOf('[env: BODY]'));
+		});
+
+		it('shows no stdin annotation for an input that never reads the stream', () => {
+			const cmd = command('send').flag('body', flag.string().env('BODY'));
+
+			expect(formatHelp(cmd.schema)).not.toContain('[stdin');
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// Flag ordering
 	// -----------------------------------------------------------------------
 

@@ -290,6 +290,32 @@ await readFlags(
 A command prints these on its warning stream. There is no output channel here,
 so a call without `onDeprecation` drops them.
 
+## Where Each Value Came From
+
+The return value is the resolved flags alone, so provenance reaches the caller
+through `onSources`, which fires once with the whole record before the values are
+returned. It is keyed by the definitions record, and a flag that resolved no
+value has no entry:
+
+```ts twoslash
+import { flag, readFlags, wasExplicit } from '@kjanat/dreamcli';
+// ---cut---
+const options = await readFlags(
+  { out: flag.string().env('OUT_DIR').default('dist') },
+  {
+    argv: ['--out', 'build'],
+    env: {},
+    onSources: (sources) => {
+      if (wasExplicit(sources.out)) console.log(`overridden: ${sources.out?.stage}`);
+    },
+  },
+);
+```
+
+The records are the ones documented under
+[Which source won](/guide/semantics#which-source-won), including the two stdin
+triggers, so a script can tell a piped value from a typed `-`.
+
 ## Errors
 
 Parse failures throw `ParseError` and resolution and constraint failures throw

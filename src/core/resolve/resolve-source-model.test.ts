@@ -482,8 +482,8 @@ describe('stdin decoding', () => {
 	it('names stdin in a flag coercion failure', async () => {
 		const { schema, parsed } = flagCase(flag.number().stdin(), []);
 		await expect(resolve(schema, parsed, { stdinData: 'nope' })).rejects.toMatchObject({
-			message: "Invalid number value 'nope' from stdin for flag --value",
-			details: { flag: 'value', source: 'stdin', value: 'nope', expected: 'number' },
+			message: "Invalid number value '<redacted>' from stdin for flag --value",
+			details: { flag: 'value', source: 'stdin', expected: 'number' },
 		});
 	});
 });

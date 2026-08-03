@@ -81,6 +81,13 @@ interface ArgConfig {
 	readonly variadic: boolean;
 	/** The runtime kind discriminator, mirroring {@link ArgKind}. */
 	readonly argKind: ArgKind;
+	/**
+	 * Whether this builder may still be passed to `arg.keyValue()` as its entry
+	 * value. Factories start `true`; the modifiers that describe the positional
+	 * itself (`.env()`, `.prompt()`, `.optional()`, `.stdin()`, …) flip it to
+	 * `false`, since an entry value is never read for those settings.
+	 */
+	readonly elementEligible: boolean;
 }
 
 // --- Type-level helpers
@@ -94,6 +101,7 @@ type WithArgPresence<C extends ArgConfig, P extends ArgPresence> = {
 	readonly presence: P;
 	readonly variadic: C['variadic'];
 	readonly argKind: C['argKind'];
+	readonly elementEligible: false;
 };
 
 /**
@@ -105,6 +113,36 @@ type WithVariadic<C extends ArgConfig> = {
 	readonly presence: C['presence'];
 	readonly variadic: true;
 	readonly argKind: C['argKind'];
+	readonly elementEligible: false;
+};
+
+/**
+ * Advanced type helper: marks a builder as no longer usable as an entry value
+ * (returned by the modifiers whose settings an entry value ignores).
+ */
+type WithoutArgElementEligibility<C extends ArgConfig> = {
+	readonly valueType: C['valueType'];
+	readonly presence: C['presence'];
+	readonly variadic: C['variadic'];
+	readonly argKind: C['argKind'];
+	readonly elementEligible: false;
+};
+
+/**
+ * The element config `arg.keyValue()` assumes when given no element builder: an
+ * unconstrained string.
+ */
+type StringArgElementConfig = {
+	/** Element value type. */
+	readonly valueType: string;
+	/** Elements carry no presence of their own. */
+	readonly presence: 'required';
+	/** Elements are never variadic on their own. */
+	readonly variadic: false;
+	/** Element kind discriminator. */
+	readonly argKind: 'string';
+	/** Elements are element-eligible by construction. */
+	readonly elementEligible: true;
 };
 
 /**
@@ -239,6 +277,13 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	/** Allowed literal values when `kind === 'enum'`. */
 	readonly enumValues: readonly string[] | undefined;
 	/**
+	 * Element schema when `kind === 'keyValue'`.
+	 *
+	 * Describes the value of each entry, so `arg.keyValue(arg.number())` decodes
+	 * `A=1` to the number `1`. `undefined` leaves entry values as strings.
+	 */
+	readonly elementSchema: ArgSchema | undefined;
+	/**
 	 * Numeric constraints when `kind === 'number'` (`undefined` otherwise).
 	 *
 	 * Enforced at the parse and resolution boundaries. `finite` defaults to
@@ -335,6 +380,14 @@ type ArgSchemaFieldOverrides = {
 	readonly [K in keyof ArgSchemaFields]?: K extends 'stdin'
 		? StdinOptions | undefined
 		: ArgSchemaFields[K] | undefined;
+};
+
+/**
+ * {@link ArgSchemaFieldOverrides} with `elementSchema` widened to the shapes a
+ * definition may supply.
+ */
+type ArgDefinitionFields = Omit<ArgSchemaFieldOverrides, 'elementSchema'> & {
+	readonly elementSchema?: ArgDefinition | ArgSchema | undefined;
 };
 
 /** Definition fields accepted by every arg kind. */
@@ -478,6 +531,12 @@ interface KeyValueArgDefinition extends ArgDefinitionBase {
 	 * @defaultValue `'last'`
 	 */
 	readonly duplicateKeys?: DuplicateKeys | undefined;
+	/**
+	 * Schema describing the value of each entry, as a definition or an already
+	 * built {@link ArgSchema}.
+	 * @defaultValue `undefined`, which leaves entry values as strings
+	 */
+	readonly elementSchema?: ArgDefinition | ArgSchema | undefined;
 }
 
 /** Maps each {@link ArgKind} to its definition shape. */
@@ -520,19 +579,94 @@ const KIND_SPECIFIC_ARG_FIELDS: readonly (readonly [keyof ArgSchemaFields, ArgKi
 	['pathChecks', 'string'],
 	['parseFn', 'custom'],
 	['duplicateKeys', 'keyValue'],
+	['elementSchema', 'keyValue'],
 ];
+
+/** Every runtime key carried by a normalized {@link ArgSchema}. */
+const NORMALIZED_ARG_SCHEMA_KEYS: readonly (keyof ArgSchema)[] = [
+	'kind',
+	'presence',
+	'variadic',
+	'stdin',
+	'defaultValue',
+	'description',
+	'envVar',
+	'configPath',
+	'prompt',
+	'enumValues',
+	'elementSchema',
+	'numberConstraints',
+	'stringConstraints',
+	'pathChecks',
+	'valueHint',
+	'parseFn',
+	'separator',
+	'split',
+	'duplicateKeys',
+	'unique',
+	'standard',
+	'aggregateStandard',
+	'deprecated',
+];
+
+/**
+ * Whether an element input already carries every normalized schema key.
+ *
+ * @param element - Element definition or schema.
+ * @returns `true` when the value is already a built {@link ArgSchema}.
+ */
+function isNormalizedArgSchema(element: ArgDefinition | ArgSchema): element is ArgSchema {
+	return NORMALIZED_ARG_SCHEMA_KEYS.every((key) => key in element);
+}
+
+/**
+ * Normalize an entries arg's element input into a built {@link ArgSchema}.
+ *
+ * An already-built schema is returned unchanged, so repeated normalization
+ * preserves element identity.
+ *
+ * @param element - Element definition or schema.
+ * @returns The element as a fully populated {@link ArgSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a nested element field
+ *   belongs to a different {@link ArgKind}.
+ */
+function normalizeArgElementSchema(element: ArgDefinition | ArgSchema): ArgSchema {
+	if (isNormalizedArgSchema(element)) return element;
+
+	const { kind, ...fields } = element;
+	assertValidArgDefinition(kind, fields);
+	return buildArgSchema(kind, normalizeArgDefinitionFields(fields));
+}
+
+/**
+ * Resolve a definition's nested `elementSchema` into a built {@link ArgSchema}.
+ *
+ * @param fields - Definition fields excluding the kind discriminator.
+ * @returns The same fields with `elementSchema` normalized.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a nested element field
+ *   belongs to a different {@link ArgKind}.
+ */
+function normalizeArgDefinitionFields(fields: ArgDefinitionFields): ArgSchemaFieldOverrides {
+	const { elementSchema, ...rest } = fields;
+	if (elementSchema === undefined) return rest;
+	return { ...rest, elementSchema: normalizeArgElementSchema(elementSchema) };
+}
 
 /**
  * Reject a definition that carries a field belonging to another {@link ArgKind}.
  *
- * A field set to `undefined` counts as absent, so re-feeding a built
- * {@link ArgSchema} back through {@link createArgSchema} stays valid.
+ * A field set to `undefined` counts as absent, and `duplicateKeys` counts as
+ * absent when `'last'`, so re-feeding a built {@link ArgSchema} back through
+ * {@link createArgSchema} stays valid: a built schema always carries that
+ * default, whatever its kind. The compile-time `this` parameter on
+ * `.duplicateKeys()` is what rejects `.duplicateKeys('last')` on a scalar, since
+ * the runtime cannot tell that call apart from a round-tripped default.
  *
  * @param kind - Declared kind of the definition.
  * @param fields - Definition fields excluding the kind discriminator.
  * @throws {CLIError} With code `'INVALID_SCHEMA'` on a kind mismatch.
  */
-function assertValidArgDefinition(kind: ArgKind, fields: ArgSchemaFieldOverrides): void {
+function assertValidArgDefinition(kind: ArgKind, fields: ArgDefinitionFields): void {
 	for (const [field, requiredKind] of KIND_SPECIFIC_ARG_FIELDS) {
 		if (kind === requiredKind) continue;
 		if (fields[field] === undefined) continue;
@@ -641,6 +775,7 @@ function assembleArgSchema<K extends ArgKind>(
 		configPath: undefined,
 		prompt: undefined,
 		enumValues: undefined,
+		elementSchema: undefined,
 		numberConstraints: undefined,
 		stringConstraints: undefined,
 		pathChecks: undefined,
@@ -739,16 +874,16 @@ function createArgSchema<K extends ArgKind>(
 ): ArgSchema<K>;
 function createArgSchema(
 	kindOrDefinition: ArgKind | ArgDefinition | ArgSchema,
-	overrides?: ArgSchemaFieldOverrides,
+	overrides?: ArgDefinitionFields,
 ): ArgSchema {
 	if (typeof kindOrDefinition === 'string') {
 		assertValidArgDefinition(kindOrDefinition, overrides ?? {});
-		return buildArgSchema(kindOrDefinition, overrides);
+		return buildArgSchema(kindOrDefinition, normalizeArgDefinitionFields(overrides ?? {}));
 	}
 
 	const { kind, ...fields } = kindOrDefinition;
 	assertValidArgDefinition(kind, fields);
-	return buildArgSchema(kind, fields);
+	return buildArgSchema(kind, normalizeArgDefinitionFields(fields));
 }
 
 // --- ArgBuilder — immutable builder with type-level tracking
@@ -1098,7 +1233,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * buffer decodes to into that position, so `mycli build a - b` over
 	 * `'x\ny\n'` collects `['a', 'x', 'y', 'b']`. Each `-` stands for the whole
 	 * source, so two of them splice the buffer twice. A `-` typed beside other
-	 * tokens with nothing piped fails with `REQUIRED_ARG`; a tail of nothing but
+	 * tokens with nothing piped fails with `MISSING_STDIN`; a tail of nothing but
 	 * `-` falls through to the later sources.
 	 *
 	 * A stdin-enabled arg cannot receive a literal `-` as its value, since the
@@ -1124,7 +1259,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ echo ./dist | mycli clean        → path = './dist', checked on disk
 	 * ```
 	 */
-	stdin(options?: StdinOptions): ArgBuilder<C> {
+	stdin(options?: StdinOptions): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
 			stdin: normalizeStdinBinding(options),
@@ -1160,7 +1295,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 *   });
 	 * ```
 	 */
-	env(varName: string): ArgBuilder<C> {
+	env(varName: string): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
 			envVar: varName,
@@ -1184,7 +1319,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ mycli deploy ap-south-1  → CLI positional wins
 	 * ```
 	 */
-	config(path: string): ArgBuilder<C> {
+	config(path: string): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
 			configPath: path,
@@ -1209,7 +1344,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ mycli deploy production  → skips the prompt
 	 * ```
 	 */
-	prompt(config: AllowedArgPromptConfig<C>): ArgBuilder<C> {
+	prompt(config: AllowedArgPromptConfig<C>): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
 			prompt: config,
@@ -1233,7 +1368,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * //   <target>  Deploy target
 	 * ```
 	 */
-	describe(description: string): ArgBuilder<C> {
+	describe(description: string): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
 			description,
@@ -1261,7 +1396,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * //   <target>  Deploy target [deprecated: use --target flag instead]
 	 * ```
 	 */
-	deprecated(message?: string): ArgBuilder<C> {
+	deprecated(message?: string): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
 			deprecated: message ?? true,
@@ -1544,6 +1679,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'string';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1580,6 +1716,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'number';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1604,30 +1741,43 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'boolean';
+		readonly elementEligible: true;
 	}>;
 
 	/**
 	 * Key-value positional argument. Required by default.
 	 *
-	 * Consumes `KEY=VALUE` tokens and resolves to a `Record<string, string>`,
-	 * split at the **first** `=`. The non-variadic form reads one token, the
-	 * variadic form aggregates the whole tail. Later occurrences of the same key
-	 * win, which `.duplicateKeys()` changes. Not promptable.
+	 * Consumes `KEY=VALUE` tokens and resolves to a record, split at the
+	 * **first** `=`. The non-variadic form reads one token, the variadic form
+	 * aggregates the whole tail. Later occurrences of the same key win, which
+	 * `.duplicateKeys()` changes. Not promptable.
 	 *
-	 * @returns A required key-value {@link ArgBuilder}.
+	 * An element builder gives each entry value its own codec, constraints, and
+	 * checks, so `arg.keyValue(arg.path())` checks every value on disk.
+	 *
+	 * @param element - {@link ArgBuilder} describing the value of each entry.
+	 * @defaultValue an unconstrained string element
+	 * @returns A required key-value {@link ArgBuilder} for records of the element type.
 	 *
 	 * @example
 	 * ```ts
 	 * command('run')
 	 *   .arg('vars', arg.keyValue().variadic().describe('Template variables'))
 	 * // $ mycli run A=1 B=2 → vars = { A: '1', B: '2' }
+	 *
+	 * command('scale')
+	 *   .arg('replicas', arg.keyValue(arg.number().int().min(0)).variadic())
+	 * // $ mycli scale web=3 api=2 → replicas = { web: 3, api: 2 }
 	 * ```
 	 */
-	keyValue(): ArgBuilder<{
-		readonly valueType: Record<string, string>;
+	keyValue<E extends ArgConfig & { readonly elementEligible: true } = StringArgElementConfig>(
+		element?: ArgBuilder<E>,
+	): ArgBuilder<{
+		readonly valueType: Record<string, E['valueType']>;
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'keyValue';
+		readonly elementEligible: false;
 	}>;
 
 	/**
@@ -1660,6 +1810,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'enum';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1688,6 +1839,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1720,6 +1872,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1744,6 +1897,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1773,6 +1927,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'string';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1799,6 +1954,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1818,6 +1974,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1837,6 +1994,7 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}>;
 }
 
@@ -1883,6 +2041,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'string';
+		readonly elementEligible: true;
 	}> {
 		if (constraints !== undefined) {
 			assertStringConstraints(constraints);
@@ -1897,6 +2056,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'number';
+		readonly elementEligible: true;
 	}> {
 		if (constraints !== undefined) {
 			assertNumberConstraints(constraints);
@@ -1911,17 +2071,26 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'boolean';
+		readonly elementEligible: true;
 	}> {
 		return new ArgBuilder(createArgSchema('boolean', valueDefinitionFields(booleanValue())));
 	},
 
-	keyValue(): ArgBuilder<{
-		readonly valueType: Record<string, string>;
+	keyValue<E extends ArgConfig & { readonly elementEligible: true } = StringArgElementConfig>(
+		element?: ArgBuilder<E>,
+	): ArgBuilder<{
+		readonly valueType: Record<string, E['valueType']>;
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'keyValue';
+		readonly elementEligible: false;
 	}> {
-		return new ArgBuilder(createArgSchema('keyValue', { valueHint: 'key=value' }));
+		return new ArgBuilder(
+			createArgSchema('keyValue', {
+				valueHint: 'key=value',
+				...(element !== undefined ? { elementSchema: element.schema } : {}),
+			}),
+		);
 	},
 
 	enum<const T extends readonly [string, ...string[]]>(
@@ -1931,6 +2100,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'enum';
+		readonly elementEligible: true;
 	}> {
 		return new ArgBuilder(createArgSchema('enum', { enumValues: values }));
 	},
@@ -1942,6 +2112,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		if (isStandardSchemaV1(parseFnOrSchema)) {
 			return new ArgBuilder(
@@ -1958,6 +2129,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(urlValue(options))));
 	},
@@ -1967,6 +2139,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'string';
+		readonly elementEligible: true;
 	}> {
 		return new ArgBuilder(createArgSchema('string', valueDefinitionFields(pathValue(options))));
 	},
@@ -1976,6 +2149,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(dateValue(options))));
 	},
@@ -1985,6 +2159,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(durationValue())));
 	},
@@ -1994,6 +2169,7 @@ const arg: ArgFactory = {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'custom';
+		readonly elementEligible: true;
 	}> {
 		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(bytesValue())));
 	},
@@ -2034,7 +2210,9 @@ export type {
 	PromptConfigByArgKind,
 	ResolvedArgValue,
 	StringArgDefinition,
+	StringArgElementConfig,
 	WithArgPresence,
+	WithoutArgElementEligibility,
 	WithVariadic,
 };
 export { ARG_KINDS, ARG_PRESENCES, ArgBuilder, arg, createArgSchema };

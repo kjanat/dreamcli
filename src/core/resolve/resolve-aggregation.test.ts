@@ -76,7 +76,7 @@ describe('resolve — aggregate diagnostics', () => {
 
 		expect(error.message).toContain('Multiple validation errors (2 flags, 1 arg)');
 		expect(error.message).toContain(
-			"flag --port [env PORT]: Invalid number value 'bad-port' from env PORT for flag --port",
+			"flag --port [env PORT]: Invalid number value '<redacted>' from env PORT for flag --port",
 		);
 		expect(error.message).toContain('flag --region: Missing required flag --region');
 		expect(error.message).toContain(
@@ -90,7 +90,7 @@ describe('resolve — aggregate diagnostics', () => {
 				inputKind: 'flag',
 				name: 'port',
 				label: 'flag --port',
-				message: "Invalid number value 'bad-port' from env PORT for flag --port",
+				message: "Invalid number value '<redacted>' from env PORT for flag --port",
 				sourceKind: 'env',
 				sourceLabel: 'env PORT',
 			},

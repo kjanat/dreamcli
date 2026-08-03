@@ -850,9 +850,13 @@ const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
 /**
  * Reject a definition that carries a field belonging to another {@link FlagKind}.
  *
- * A field set to `undefined` counts as absent, and `unique` counts as absent
- * when `false`, so re-feeding a built {@link FlagSchema} back through
- * {@link createFlagSchema} stays valid.
+ * A field set to `undefined` counts as absent, `unique` counts as absent when
+ * `false`, and `duplicateKeys` counts as absent when `'last'`, so re-feeding a
+ * built {@link FlagSchema} back through {@link createFlagSchema} stays valid: a
+ * built schema always carries those defaults, whatever its kind. The compile-time
+ * `this` parameter on `.unique()` and `.duplicateKeys()` is what rejects
+ * `.duplicateKeys('last')` on a scalar, since the runtime cannot tell that call
+ * apart from a round-tripped default.
  *
  * @param kind - Declared kind of the definition.
  * @param fields - Definition fields excluding the kind discriminator.
@@ -1290,7 +1294,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * `['before', 'a', 'b', 'after']`. `.split({ stdin })` sets the decoding.
 	 * Each `-` stands for the whole source, so `--tag - --tag -` splices the
 	 * buffer twice. A `-` typed beside other occurrences with nothing piped fails
-	 * with `REQUIRED_FLAG`; occurrences of nothing but `-` fall through to the
+	 * with `MISSING_STDIN`; occurrences of nothing but `-` fall through to the
 	 * later sources.
 	 *
 	 * A stdin-enabled flag cannot receive a literal `-` as its value, since the

@@ -200,8 +200,8 @@ Suggestion: Pipe a value to stdin, or drop the '-' from <files>
 Cause:
 
 - a `-` among other occurrences is one element of the collection, and nothing
-  was piped for it to stand for. Resolution fails with `REQUIRED_FLAG` or
-  `REQUIRED_ARG` rather than shortening the collection behind the caller's back.
+  was piped for it to stand for. Resolution fails with `MISSING_STDIN` rather
+  than shortening the collection behind the caller's back.
 - occurrences of nothing but `-` behave differently: they are the whole value,
   so with nothing piped they fall through to env, config, prompt, and the
   default, the way an absent input does.
@@ -257,6 +257,73 @@ it does not make a following `-` literal either.
 References: [Flags](/guide/flags#stdin-backed-flags),
 [Arguments](/guide/arguments#stdin-backed-arguments),
 [CLI Semantics](/guide/semantics#stdin)
+
+## An Error Message Says `<redacted>` Instead Of The Value
+
+Symptom:
+
+- a validation error names the input, the source, and the reason, but prints
+  `'<redacted>'` where the offending value used to be;
+- `error.details.value` is missing on the same error.
+
+Cause:
+
+- a value that reached the framework from anywhere but argv is redacted, on both
+  surfaces and from stdin, env, config, and prompt alike. An environment
+  variable or a pipe routinely carries a secret, and a diagnostic is written to
+  a terminal, a log, and a CI transcript.
+- an explicit `-` counts as a stdin value, since the bytes came from the pipe
+  rather than from the token.
+
+Check:
+
+- which source actually produced the value. `details.source` names it, and
+  `details.envVar` or `details.configPath` names the binding;
+- whether the reason is enough on its own. `expected`, `constraint`, `bound`,
+  and `allowed` all survive redaction.
+
+Fix:
+
+- read the value from the source you control rather than from the diagnostic;
+- pass the value on argv while reproducing, where it prints in full;
+- for a `flag.custom()` parse function, write the thrown message to describe the
+  expectation rather than interpolating the input, since your own message is
+  shown verbatim and the framework cannot redact it.
+
+References: [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction),
+[Upgrading to 4.0](/guide/upgrading-v4#flag-diagnostics-redact-values-from-every-non-argv-source)
+
+## A Defaulted Input Looks Like The User Supplied It
+
+Symptom:
+
+- a mutually-exclusive rule fires when the user passed nothing;
+- a merge over a project manifest uses the CLI default instead of the manifest
+  value;
+- `flags.x !== undefined` is true for every invocation.
+
+Cause:
+
+- a `.default()` value is a real resolved value, so reading `flags` alone cannot
+  separate "the user supplied it" from "the chain fell through to the default".
+
+Check:
+
+- `sources.flags.x` in the handler, or `sources.args.x` for a positional. An
+  input the default filled reports `{ stage: 'default' }`, and one no source
+  filled has no record at all.
+
+Fix:
+
+- use `wasExplicit(sources.flags.x)`, which is false for `'default'` and for an
+  absent record and true for every other stage;
+- read `sources.flags.x?.stage === 'cli'` when the question is narrower, "did
+  the user type it on this command line";
+- do not drop `.default()` to detect this. That also drops `defaultValue` from
+  the definition document and the `(default: …)` suffix from help.
+
+References: [Value provenance](/guide/semantics#which-source-won),
+[Limitations And Workarounds](/guide/limitations)
 
 ## An Argument Declared After A Variadic One Throws
 

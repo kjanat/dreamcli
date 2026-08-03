@@ -27,7 +27,7 @@
 | ---------------------- | ----: | --------------------------------------------------------------------- |
 | `index.ts`             |  2282 | CLIBuilder class + cli() factory + JSON error handling                |
 | `planner.ts`           |   695 | `@internal` — execution planner, command resolution strategy          |
-| `runtime-preflight.ts` |   548 | `@internal` — runtime adapter setup, env/config preflight             |
+| `runtime-preflight.ts` |   557 | `@internal` — runtime adapter setup, env/config preflight             |
 | `root-help.ts`         |   385 | `@internal` — root-level help text + text helpers, structural schema  |
 | `dispatch.ts`          |   365 | `@internal` — command dispatch (value-flag-arity aware), levenshtein  |
 | `reserved-flags.ts`    |   238 | `@internal` — build-time `RESERVED_FLAG` guard for root-owned flags   |
@@ -197,3 +197,4 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
 | `render-context.test.ts`          | Render context construction             |
 | `reserved-flags.test.ts`          | `RESERVED_FLAG` guard for root flags    |
 | `builtins.test.ts`                | `.builtins()` release of root built-ins |
+| `stdin-eligibility.test.ts`       | Whether `.run()` reads stdin at all     |

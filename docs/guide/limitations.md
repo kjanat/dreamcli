@@ -101,20 +101,22 @@ Why:
 - the schema models each flag as a standalone, independently resolved value;
 - cross-flag rules are open-ended (exactly-one, at-most-one, all-or-none, implies), and a single declarative knob would cover only a slice of them.
 
-Workaround — enforce the rule in `.derive()`, which runs after resolution and before the action, and throw a `CLIError`:
+Workaround — enforce the rule in `.derive()`, which runs after resolution and before the action, and throw a `CLIError`.
+Count the flags the user actually supplied by reading `sources`, the provenance record beside `flags` and `args`.
+`wasExplicit()` is `true` for every stage except `default`, so a flag that carries a `.default()` is still counted correctly:
 
 ```ts twoslash
-import { CLIError, command, flag } from '@kjanat/dreamcli';
+import { CLIError, command, flag, wasExplicit } from '@kjanat/dreamcli';
 
 command('lsp-server')
   .flag('stdio', flag.boolean())
   .flag('node-ipc', flag.boolean())
-  .flag('socket', flag.number())
-  .derive(({ flags }) => {
+  .flag('socket', flag.number().default(6009))
+  .derive(({ sources }) => {
     const count =
-      Number(flags.stdio) +
-      Number(flags['node-ipc']) +
-      Number(flags.socket !== undefined);
+      Number(wasExplicit(sources.flags.stdio)) +
+      Number(wasExplicit(sources.flags['node-ipc'])) +
+      Number(wasExplicit(sources.flags.socket));
     if (count === 0) {
       throw new CLIError('No transport selected.', {
         code: 'NO_TRANSPORT',
@@ -136,7 +138,11 @@ command('lsp-server')
 The thrown `CLIError` renders a friendly message on stderr and exits with code `1`.
 For a complete, typed version that hands the chosen transport to the action, see the `transport-launcher` example.
 
-References: [Flags](/guide/flags), [Errors](/guide/errors), [CLI Semantics](/guide/semantics)
+Reading the resolved values instead (`flags.socket !== undefined`) works only while every flag in the rule has no declared default.
+A defaulted flag always has a value, so the rule stops detecting the conflict, and dropping `.default()` to restore it removes `defaultValue` from the definition document and the `(default: …)` suffix from help.
+`sources` is what separates the two questions.
+
+References: [Flags](/guide/flags), [Errors](/guide/errors), [Which source won](/guide/semantics#which-source-won)
 
 ## The Framework Is Overkill For Tiny One-Off Scripts
 

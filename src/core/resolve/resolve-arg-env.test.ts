@@ -188,6 +188,7 @@ describe('resolve', () => {
 				expect(err.code).toBe('TYPE_MISMATCH');
 				expect(err.details).toEqual({
 					arg: 'port',
+					source: 'env',
 					envVar: 'PORT',
 					expected: 'number',
 				});
@@ -247,6 +248,7 @@ describe('resolve', () => {
 				expect(err.code).toBe('INVALID_ENUM');
 				expect(err.details).toEqual({
 					arg: 'region',
+					source: 'env',
 					envVar: 'REGION',
 					allowed: ['us', 'eu'],
 				});
@@ -317,6 +319,7 @@ describe('resolve', () => {
 				expect(err.code).toBe('TYPE_MISMATCH');
 				expect(err.details).toEqual({
 					arg: 'color',
+					source: 'env',
 					envVar: 'COLOR',
 					expected: 'custom',
 				});

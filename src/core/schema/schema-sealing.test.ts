@@ -71,6 +71,7 @@ const spelledArgFields: UnbrandedArgSchema = {
 	configPath: undefined,
 	prompt: undefined,
 	enumValues: undefined,
+	elementSchema: undefined,
 	numberConstraints: undefined,
 	stringConstraints: undefined,
 	pathChecks: undefined,

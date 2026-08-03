@@ -14,22 +14,30 @@
  * @module dreamcli/core/schema/middleware
  */
 
-import type { CommandMeta, Out } from './command.ts';
+import type { CommandMeta, ErasedInputSources, Out } from './command.ts';
 
 // --- Middleware parameter types
 
 /**
  * Parameters received by a middleware function at runtime.
  *
- * Middleware receives erased args/flags (since it's defined independently
- * of commands) plus the accumulated context from prior middleware and a
- * `next` function to continue the chain.
+ * Middleware receives erased args, flags, and provenance (since it's defined
+ * independently of commands) plus the accumulated context from prior middleware
+ * and a `next` function to continue the chain.
  */
 interface MiddlewareParams {
 	/** Fully resolved positional arguments (type-erased). */
 	readonly args: Readonly<Record<string, unknown>>;
 	/** Fully resolved flags (type-erased). */
 	readonly flags: Readonly<Record<string, unknown>>;
+	/**
+	 * Where each resolved value came from, keyed like `flags` and `args`.
+	 *
+	 * Erased alongside them, so any key reads as `ResolutionProvenance |
+	 * undefined`. A key the bound command never declared, and one an input
+	 * resolved no value for, both read `undefined`.
+	 */
+	readonly sources: ErasedInputSources;
 	/** Context accumulated from previous middleware in the chain. */
 	readonly ctx: Readonly<Record<string, unknown>>;
 	/** Output channel. */
@@ -65,6 +73,7 @@ type ErasedMiddlewareHandler = (params: MiddlewareParams) => void | Promise<void
 type MiddlewareHandler<Output extends Record<string, unknown>> = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
+	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	readonly meta: CommandMeta;

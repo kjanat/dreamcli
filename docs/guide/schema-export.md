@@ -194,26 +194,45 @@ generateSchema(myCli.schema, { includeHidden: false });
 
 ### Definition Metadata
 
-Per command: `name`, `description`, `aliases`, `hidden`, `examples`,
-`flags`, `args`, nested `commands`.
+Version 1 froze with 4.0. Every field below is optional unless noted, and a
+field is written only when the schema carries something other than its default.
 
-Per flag: `kind`, `presence`, `defaultValue`, `aliases`, `stdin`, `envVar`,
-`configPath`, `description`, `enumValues`, `elementSchema`, `prompt`,
-`deprecated`, `propagate`.
+Per command: `name` (always), `description`, `aliases`, `hidden`, `examples`,
+`flags` (always), `args` (always), nested `commands` (always).
 
-Per arg: `name`, `kind`, `presence`, `variadic`, `stdin`, `defaultValue`,
-`description`, `envVar`, `configPath`, `enumValues`, `prompt`, `deprecated`.
+Per flag: `kind` and `presence` (both always), `defaultValue`, `aliases`,
+`stdin`, `envVar`, `configPath`, `description`, `enumValues`,
+`numberConstraints`, `stringConstraints`, `elementSchema`, `separator`,
+`split`, `duplicateKeys`, `unique`, `pathChecks`, `valueHint`, `prompt`,
+`deprecated`, `propagate`, `negation`, `duplicates`.
+
+Per arg: `name`, `kind`, and `presence` (all three always), `variadic`,
+`stdin`, `defaultValue`, `description`, `envVar`, `configPath`, `enumValues`,
+`elementSchema`, `numberConstraints`, `stringConstraints`, `pathChecks`,
+`valueHint`, `separator`, `split`, `duplicateKeys`, `unique`, `prompt`,
+`deprecated`.
+
+The arg surface carries every flag field except the five bound to flag syntax
+(`aliases`, `propagate`, `negation`, `duplicates`, and the `count` kind), and
+adds `name` and `variadic`. An `elementSchema` on an arg is an
+`ArgElementFragmentV1`, which is the arg fragment without the `name` a position
+supplies.
 
 ### What's Omitted
 
 Non-serializable runtime values are always excluded:
 
 - Parse functions (`parseFn`)
+- Standard Schema validators
 - Middleware handlers
 - Interactive resolvers
 - Action handlers
 
+Value provenance is excluded too, and for a different reason: it describes what
+one invocation did rather than what the schema declares. See
+[Value provenance](/guide/semantics#which-source-won).
+
 ## What's Next?
 
-- [Shell Completions](/guide/completions) — another schema-driven export
-- [Config Files](/guide/config) — validate config with input schemas
+- [Shell Completions](/guide/completions), another schema-driven export
+- [Config Files](/guide/config), validate config with input schemas

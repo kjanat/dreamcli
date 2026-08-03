@@ -24,6 +24,7 @@ export type ParseErrorCode =
 export type ValidationErrorCode =
 	| 'REQUIRED_FLAG'
 	| 'REQUIRED_ARG'
+	| 'MISSING_STDIN'
 	| 'INVALID_ENUM'
 	| 'TYPE_MISMATCH'
 	| 'CONSTRAINT_VIOLATED';

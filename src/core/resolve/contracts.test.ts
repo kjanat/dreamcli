@@ -246,8 +246,8 @@ describe('resolver contracts', () => {
 			expect(error.code).toBe('TYPE_MISMATCH');
 			expect(error.details).toEqual({
 				flag: 'port',
+				source: 'env',
 				envVar: 'PORT',
-				value: 'bad-port',
 				expected: 'number',
 			});
 		});

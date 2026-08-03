@@ -8,6 +8,7 @@
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { cli } from '#internals/core/cli/index.ts';
+import { generateSchema } from '#internals/core/json-schema/index.ts';
 import { readFlags } from '#internals/core/read-flags/index.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { InferArg } from './arg.ts';
@@ -204,6 +205,99 @@ describe('arg.keyValue()', () => {
 
 		const result = await app.execute(['A=1']);
 		expect(result.exitCode).toBe(0);
+		expect(received).toEqual({ A: '1' });
+	});
+});
+
+// === arg.keyValue(element)
+
+describe('arg.keyValue(element)', () => {
+	function replicasCommand(onValue: (value: Record<string, number>) => void) {
+		return command('scale')
+			.arg('replicas', arg.keyValue(arg.number().int().min(0)).variadic())
+			.action(({ args }) => {
+				onValue(args.replicas);
+			});
+	}
+
+	it('infers a record of the element type', () => {
+		const numbers = arg.keyValue(arg.number());
+		const strings = arg.keyValue();
+		expectTypeOf<InferArg<typeof numbers>>().toEqualTypeOf<Record<string, number>>();
+		expectTypeOf<InferArg<typeof strings>>().toEqualTypeOf<Record<string, string>>();
+	});
+
+	it('decodes each entry value through the element codec', async () => {
+		let received: Record<string, number> | undefined;
+		const result = await runCommand(
+			replicasCommand((value) => {
+				received = value;
+			}),
+			['web=3', 'api=2'],
+		);
+
+		expect(result.exitCode).toBe(0);
+		expect(received).toEqual({ web: 3, api: 2 });
+	});
+
+	it('applies the element constraints to a typed CLI token', async () => {
+		const result = await runCommand(
+			replicasCommand(() => {}),
+			['web=-1'],
+		);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toContain('must be >= 0');
+	});
+
+	it('applies the element constraints to an env-sourced entry, redacted', async () => {
+		const cmd = command('scale')
+			.arg('replicas', arg.keyValue(arg.number().int()).variadic().env('REPLICAS'))
+			.action(() => {});
+
+		const result = await runCommand(cmd, [], { env: { REPLICAS: 'web=1.5' } });
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.message).toContain("'<redacted>'");
+		expect(result.error?.message).toContain('must be an integer');
+	});
+
+	it('checks every entry value of a path element on disk', async () => {
+		const cmd = command('link')
+			.arg('paths', arg.keyValue(arg.path({ mustExist: true })).variadic())
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['a=/present', 'b=/missing'], {
+			stat: async (path: string) => (path === '/present' ? 'file' : null),
+		});
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toContain('/missing');
+	});
+
+	it('serializes the element into the definition document', () => {
+		const app = cli('mycli').default(
+			command('scale')
+				.arg('replicas', arg.keyValue(arg.number()).variadic())
+				.action(() => {}),
+		);
+
+		expect(generateSchema(app.schema)).toHaveProperty(
+			['defaultCommand', 'args', 0, 'elementSchema'],
+			{ kind: 'number', presence: 'required' },
+		);
+	});
+
+	it('keeps entry values as strings when no element is given', async () => {
+		let received: Record<string, string> | undefined;
+		const cmd = command('run')
+			.arg('vars', arg.keyValue().variadic())
+			.action(({ args }) => {
+				received = args.vars;
+			});
+
+		await runCommand(cmd, ['A=1']);
 		expect(received).toEqual({ A: '1' });
 	});
 });

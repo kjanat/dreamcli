@@ -83,6 +83,19 @@ interface ResolvedOptions {
 	readonly includePrompts: boolean;
 }
 
+/**
+ * One meta-schema `properties` object, keyed by every field its fragment can
+ * carry.
+ *
+ * A fragment that is a union contributes the keys of each member, so a policy
+ * spelled as `{ format: 'whole' } | { format: 'delimiter'; delimiter: string }`
+ * requires both.
+ */
+type FragmentProperties<T> = Record<FragmentKey<T>, Record<string, unknown>>;
+
+/** Every key a fragment can carry, across the members of a union. */
+type FragmentKey<T> = T extends unknown ? keyof T : never;
+
 /** Fields carrying a runtime function, which no document can hold. */
 type UnserializableField = typeof schemaBrand | 'parseFn' | 'standard' | 'aggregateStandard';
 
@@ -257,12 +270,14 @@ type FlagDefinitionFragmentV1 = {
 };
 
 /**
- * A positional arg entry inside a definition document.
+ * The value half of a positional arg entry, without the name its position
+ * carries.
  *
- * Array order carries the CLI position.
+ * The shape an entries arg's `elementSchema` takes: an entry value has a kind,
+ * a presence, and everything else a positional value can declare, but no name
+ * of its own.
  */
-type ArgDefinitionFragmentV1 = {
-	readonly name: string;
+type ArgElementFragmentV1 = {
 	readonly kind: ArgKind;
 	readonly presence: ArgPresence;
 	readonly variadic?: true;
@@ -272,6 +287,7 @@ type ArgDefinitionFragmentV1 = {
 	readonly envVar?: string;
 	readonly configPath?: string;
 	readonly enumValues?: readonly string[];
+	readonly elementSchema?: ArgElementFragmentV1;
 	readonly numberConstraints?: NumberConstraints;
 	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
 	readonly pathChecks?: FlagPathChecksFragmentV1;
@@ -282,6 +298,15 @@ type ArgDefinitionFragmentV1 = {
 	readonly unique?: true;
 	readonly prompt?: PromptDefinitionFragmentV1;
 	readonly deprecated?: string | true;
+};
+
+/**
+ * A positional arg entry inside a definition document.
+ *
+ * Array order carries the CLI position.
+ */
+type ArgDefinitionFragmentV1 = ArgElementFragmentV1 & {
+	readonly name: string;
 };
 
 /**
@@ -589,12 +614,21 @@ function serializePathChecks(checks: PathChecks): FlagPathChecksFragmentV1 {
  * @returns JSON-serializable object representing the arg.
  */
 function serializeArgEntry(entry: CommandArgEntry, opts: ResolvedOptions): ArgDefinitionFragmentV1 {
-	const { name, schema } = entry;
+	return { name: entry.name, ...serializeArgValue(entry.schema, opts) };
+}
+
+/**
+ * Serialize the value half of an {@link ArgSchema} into a plain object.
+ *
+ * @param schema - The arg schema to serialize.
+ * @param opts - Resolved generation options (prompt inclusion).
+ * @returns JSON-serializable object representing everything but the name.
+ */
+function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgElementFragmentV1 {
 	const stringConstraints = schema.stringConstraints;
 	const pathChecks = schema.pathChecks;
 
 	return {
-		name,
 		kind: schema.kind,
 		presence: schema.presence,
 		...(schema.variadic ? { variadic: true } : {}),
@@ -606,6 +640,9 @@ function serializeArgEntry(entry: CommandArgEntry, opts: ResolvedOptions): ArgDe
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
+		...(schema.elementSchema !== undefined
+			? { elementSchema: serializeArgValue(schema.elementSchema, opts) }
+			: {}),
 		...(schema.numberConstraints !== undefined
 			? { numberConstraints: { ...schema.numberConstraints } }
 			: {}),
@@ -1041,7 +1078,13 @@ function argKindToType(schema: ArgSchema): Record<string, unknown> {
 		case 'boolean':
 			return { type: 'boolean' };
 		case 'keyValue':
-			return { type: 'object', additionalProperties: { type: 'string' } };
+			return {
+				type: 'object',
+				additionalProperties:
+					schema.elementSchema === undefined
+						? { type: 'string' }
+						: argKindToType(schema.elementSchema),
+			};
 		case 'custom':
 			return {};
 	}
@@ -1189,7 +1232,35 @@ const commandFragmentProperties = {
 	flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
 	args: { type: 'array', items: { $ref: '#/$defs/arg' } },
 	commands: { type: 'array', items: { $ref: '#/$defs/command' } },
-} as const;
+} as const satisfies FragmentProperties<CommandDefinitionFragmentV1>;
+
+/**
+ * Arg-fragment property schemas shared by the named `arg` def and the unnamed
+ * `argElement` def, so an entry value and a positional cannot drift.
+ */
+const argValueFragmentProperties = {
+	kind: { enum: ['string', 'number', 'boolean', 'enum', 'custom', 'keyValue'] },
+	presence: { enum: ['required', 'optional', 'defaulted'] },
+	variadic: { const: true },
+	stdin: { $ref: '#/$defs/stdin' },
+	defaultValue: {},
+	description: { type: 'string' },
+	envVar: { type: 'string' },
+	configPath: { type: 'string' },
+	enumValues: { type: 'array', items: { type: 'string' } },
+	elementSchema: { $ref: '#/$defs/argElement' },
+	numberConstraints: { $ref: '#/$defs/numberConstraints' },
+	stringConstraints: { $ref: '#/$defs/stringConstraints' },
+	pathChecks: { $ref: '#/$defs/pathChecks' },
+	valueHint: { type: 'string' },
+	separator: { type: 'string', minLength: 1 },
+	split: { $ref: '#/$defs/split' },
+	duplicateKeys: { enum: [...DUPLICATE_KEYS] },
+	unique: { const: true },
+	prompt: { $ref: '#/$defs/prompt' },
+	deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
+} as const satisfies FragmentProperties<Omit<ArgDefinitionFragmentV1, 'name'>> &
+	Record<Exclude<SerializedArgField, 'name'>, Record<string, unknown>>;
 
 /**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
@@ -1225,7 +1296,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			description: { type: 'string' },
 			defaultCommand: { $ref: '#/$defs/command' },
 			commands: { type: 'array', items: { $ref: '#/$defs/command' } },
-		},
+		} satisfies FragmentProperties<DefinitionDocumentV1>,
 		required: ['$schema', 'schemaVersion', 'name', 'commands'],
 		$defs: {
 			command: {
@@ -1272,7 +1343,8 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					propagate: { const: true },
 					negation: { $ref: '#/$defs/negation' },
 					duplicates: { enum: ['last', 'first', 'error'] },
-				} satisfies Record<SerializedFlagField, Record<string, unknown>>,
+				} satisfies FragmentProperties<FlagDefinitionFragmentV1> &
+					Record<SerializedFlagField, Record<string, unknown>>,
 				required: ['kind', 'presence'],
 			},
 			stdin: {
@@ -1282,7 +1354,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					when: { enum: ['dash', 'missing', 'dash-or-missing'] },
 					consume: { enum: ['exclusive', 'broadcast'] },
 					trim: { type: 'boolean' },
-				} satisfies Record<keyof StdinBindingFragmentV1, Record<string, unknown>>,
+				} satisfies FragmentProperties<StdinBindingFragmentV1>,
 				required: ['when', 'consume'],
 			},
 			split: {
@@ -1291,7 +1363,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					env: { $ref: '#/$defs/splitPolicy' },
 					stdin: { $ref: '#/$defs/splitPolicy' },
-				} satisfies Record<keyof SourceSplitFragmentV1, Record<string, unknown>>,
+				} satisfies FragmentProperties<SourceSplitFragmentV1>,
 			},
 			splitPolicy: {
 				type: 'object',
@@ -1299,7 +1371,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					format: { enum: ['whole', 'delimiter', 'lines', 'json'] },
 					delimiter: { type: 'string', minLength: 1 },
-				} satisfies Record<'format' | 'delimiter', Record<string, unknown>>,
+				} satisfies FragmentProperties<SplitPolicyFragmentV1>,
 				required: ['format'],
 				oneOf: [
 					{
@@ -1318,7 +1390,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					alias: { type: 'string' },
 					hidden: { const: true },
-				},
+				} satisfies FragmentProperties<FlagNegationFragmentV1>,
 			},
 			numberConstraints: {
 				type: 'object',
@@ -1328,7 +1400,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					max: { type: 'number' },
 					int: { type: 'boolean' },
 					finite: { type: 'boolean' },
-				},
+				} satisfies FragmentProperties<NumberConstraints>,
 			},
 			stringConstraints: {
 				type: 'object',
@@ -1346,7 +1418,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 						},
 						required: ['source', 'flags'],
 					},
-				},
+				} satisfies FragmentProperties<FlagStringConstraintsFragmentV1>,
 			},
 			pathChecks: {
 				type: 'object',
@@ -1355,34 +1427,23 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					mustExist: { type: 'boolean' },
 					type: { enum: ['file', 'directory'] },
 					create: { const: true },
-				},
+				} satisfies FragmentProperties<FlagPathChecksFragmentV1>,
 				required: ['mustExist'],
+			},
+			argElement: {
+				type: 'object',
+				additionalProperties: false,
+				properties: argValueFragmentProperties,
+				required: ['kind', 'presence'],
 			},
 			arg: {
 				type: 'object',
 				additionalProperties: false,
 				properties: {
 					name: { type: 'string' },
-					kind: { enum: ['string', 'number', 'boolean', 'enum', 'custom', 'keyValue'] },
-					presence: { enum: ['required', 'optional', 'defaulted'] },
-					variadic: { const: true },
-					stdin: { $ref: '#/$defs/stdin' },
-					defaultValue: {},
-					description: { type: 'string' },
-					envVar: { type: 'string' },
-					configPath: { type: 'string' },
-					enumValues: { type: 'array', items: { type: 'string' } },
-					numberConstraints: { $ref: '#/$defs/numberConstraints' },
-					stringConstraints: { $ref: '#/$defs/stringConstraints' },
-					pathChecks: { $ref: '#/$defs/pathChecks' },
-					valueHint: { type: 'string' },
-					separator: { type: 'string', minLength: 1 },
-					split: { $ref: '#/$defs/split' },
-					duplicateKeys: { enum: [...DUPLICATE_KEYS] },
-					unique: { const: true },
-					prompt: { $ref: '#/$defs/prompt' },
-					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
-				} satisfies Record<SerializedArgField, Record<string, unknown>>,
+					...argValueFragmentProperties,
+				} satisfies FragmentProperties<ArgDefinitionFragmentV1> &
+					Record<SerializedArgField, Record<string, unknown>>,
 				required: ['name', 'kind', 'presence'],
 			},
 			prompt: {
@@ -1395,7 +1456,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					choices: { type: 'array', items: { $ref: '#/$defs/choice' } },
 					min: { type: 'integer' },
 					max: { type: 'integer' },
-				},
+				} satisfies FragmentProperties<PromptDefinitionFragmentV1>,
 				required: ['kind', 'message'],
 			},
 			choice: {
@@ -1405,7 +1466,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					value: { type: 'string' },
 					label: { type: 'string' },
 					description: { type: 'string' },
-				},
+				} satisfies FragmentProperties<PromptChoiceFragmentV1>,
 				required: ['value'],
 			},
 			example: {
@@ -1414,7 +1475,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					command: { type: 'string' },
 					description: { type: 'string' },
-				},
+				} satisfies FragmentProperties<ExampleDefinitionFragmentV1>,
 				required: ['command'],
 			},
 		},
@@ -1426,6 +1487,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 
 export type {
 	ArgDefinitionFragmentV1,
+	ArgElementFragmentV1,
 	CommandDefinitionDocument,
 	CommandDefinitionDocumentV1,
 	CommandDefinitionFragmentV1,

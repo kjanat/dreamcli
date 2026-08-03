@@ -21,6 +21,7 @@ import { resolveArgs } from './args.ts';
 import type {
 	DeprecationWarning,
 	ResolutionProvenance,
+	ResolutionProvenanceRecord,
 	ResolveOptions,
 	ResolveResult,
 } from './contracts.ts';
@@ -69,8 +70,8 @@ async function resolve(
 	options?: ResolveOptions,
 ): Promise<ResolveResult> {
 	const deprecations: DeprecationWarning[] = [];
-	const flagProvenance: Record<string, ResolutionProvenance> = {};
-	const argProvenance: Record<string, ResolutionProvenance> = {};
+	const flagProvenance = provenanceRecord();
+	const argProvenance = provenanceRecord();
 	const shared = {
 		env: options?.env ?? {},
 		config: options?.config ?? {},
@@ -109,7 +110,10 @@ async function resolve(
 		errors.push(...collectValidationErrors(error));
 	}
 
-	const validated = await applyStandardValidators(schema, flags, args);
+	const validated = await applyStandardValidators(schema, flags, args, {
+		flags: flagProvenance,
+		args: argProvenance,
+	});
 	flags = validated.flags;
 	args = validated.args;
 	errors.push(...validated.errors);
@@ -126,5 +130,24 @@ async function resolve(
 	};
 }
 
-export type { DeprecationWarning, ResolutionProvenance, ResolveOptions, ResolveResult };
+/**
+ * An empty per-surface provenance record.
+ *
+ * A handler reads this record by input name, and an input that resolved nothing
+ * must read back as `undefined`. A prototype would answer a name such as
+ * `toString` with an inherited method instead.
+ *
+ * @returns A record with no prototype.
+ */
+function provenanceRecord(): Record<string, ResolutionProvenance> {
+	return Object.create(null) as Record<string, ResolutionProvenance>;
+}
+
+export type {
+	DeprecationWarning,
+	ResolutionProvenance,
+	ResolutionProvenanceRecord,
+	ResolveOptions,
+	ResolveResult,
+};
 export { resolve };

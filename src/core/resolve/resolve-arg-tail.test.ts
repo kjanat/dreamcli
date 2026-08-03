@@ -182,7 +182,7 @@ describe("a '-' the user typed with nothing piped", () => {
 			expect(isValidationError(error) && error.suggest).toBe(
 				"Pipe a value to stdin, or drop the '-' from <files>",
 			);
-			expect(isValidationError(error) && error.code).toBe('REQUIRED_ARG');
+			expect(isValidationError(error) && error.code).toBe('MISSING_STDIN');
 			return;
 		}
 		throw new Error('expected resolution to fail');

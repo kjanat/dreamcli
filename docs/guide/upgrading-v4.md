@@ -494,8 +494,11 @@ No piped stdin for the '-' occurrence of flag --tag
 Suggestion: Pipe a value to stdin, or drop the '-' occurrence of --tag
 ```
 
-The code is `REQUIRED_FLAG` on a flag and `REQUIRED_ARG` on an argument, and
-the positional tail words it `for the '-' occurrence of argument <files>`.
+The code is `MISSING_STDIN` on both surfaces, and the positional tail words it
+`for the '-' occurrence of argument <files>`. `details` carries `flag` or `arg`
+plus `source: 'stdin'`. Code matching `REQUIRED_FLAG` or `REQUIRED_ARG` to catch
+this case matches the dedicated code instead; those two keep their own meaning,
+a required input no source filled.
 
 Two shapes are unchanged. Occurrences of nothing but `-` are the whole value, so
 with nothing piped they still fall through to env, config, prompt, and the
@@ -640,7 +643,10 @@ Add `variadic: true`, declare the argument as `keyValue`, or drop the field,
 which changed nothing on a single-value argument anyway. The values a schema
 already stores as its own default, `unique: false` and `duplicateKeys: 'last'`,
 stay accepted on any kind, so feeding a built `ArgSchema` back through
-`createArgSchema()` round-trips.
+`createArgSchema()` round-trips. That exemption is why `.duplicateKeys('last')`
+on a scalar builder is a compile-time error rather than a runtime one: at run
+time the call is indistinguishable from a round-tripped default. The same holds
+for `createFlagSchema()` and `.unique(false)`.
 
 The four builder methods are new in 4.0, so only definitions composed as data
 change. This mirrors the `array | keyValue` restriction the flag surface already
@@ -662,6 +668,38 @@ flag.array(flag.string()).split({ cli: '|', env: '|' }).env('REGIONS');
 ```
 
 Code that only ever passed CLI tokens needs no change.
+
+### Flag diagnostics redact values from every non-argv source
+
+A flag whose stdin, environment, config, or prompt value failed to coerce used to
+print that value and carry it in `details.value`. The argument surface already
+redacted it. Both surfaces now redact:
+
+```
+# 3.x
+Invalid value 'sk-live-9f2' from env API_TOKEN for flag --token: must match /^ghp_/
+
+# 4.0
+Invalid value '<redacted>' from env API_TOKEN for flag --token: must match /^ghp_/
+```
+
+Every message this affects says `'<redacted>'` where the value was, and
+`details` no longer carries a `value` key. What identifies the failure stays:
+the flag name, the source (`source`, plus `envVar` or `configPath`), the
+expected type, the constraint that failed with its bound or pattern, and the
+allowed enum values. A custom parse function's own error message is still shown,
+since your code wrote it, so write those messages to describe the expectation
+rather than to interpolate the value.
+
+Argv is unaffected. A token the user typed is already on their screen, so parse
+errors keep quoting it.
+
+Two adjustments. Tests asserting a value inside a resolution error message
+assert `'<redacted>'` instead. Code reading `error.details.value` reads the
+value from its own source, since the framework no longer copies it into a
+diagnostic. A related detail: every coercion failure now carries
+`source: 'env' | 'config' | 'stdin' | 'prompt'`, which is what the aggregate
+error uses to label an issue `[env API_TOKEN]`.
 
 ### `FlagSchema` and `ArgSchema` carry the cardinality axis
 
@@ -717,6 +755,19 @@ Adopt at your own pace; none of these are required:
   did, so an existing binding is unaffected. See
   [Flags](/guide/flags#stdin-backed-flags) and
   [Arguments](/guide/arguments#stdin-backed-arguments).
+- **Where each value came from**: handlers receive `sources` beside `flags` and
+  `args`, carrying the stage that produced each value, and `wasExplicit()`
+  answers explicit-versus-defaulted without dropping `.default()`. `resolve()`
+  exposes the same records on `ResolveResult.provenance`, and `readFlags()`
+  through its `onSources` receiver. See
+  [Which source won](/guide/semantics#which-source-won).
+- **Typed entry values on both surfaces**: `arg.keyValue(arg.number())` mirrors
+  `flag.keyValue(flag.number())`, so `mycli scale web=3` resolves to
+  `{ web: 3 }` with the element's constraints, path checks, and validators
+  applied to every entry. See [Arguments](/guide/arguments).
+- **Stdin in help**: an input that declares `.stdin()` renders `[stdin]` beside
+  `[env: X]` and `[config: y]`, or `[stdin: '-']` and `[stdin: when omitted]`
+  for the narrower triggers. See [Help](/guide/help).
 - **Consumer-owned built-in flags**: `.builtins({ help: 'off' })`,
   `.builtins({ json: 'off' })`, or `.builtins({ quiet: 'off' })` hands a
   root-owned token to the commands, for a CLI whose `--json`, `-q`, or

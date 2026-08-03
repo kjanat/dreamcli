@@ -2,22 +2,27 @@
  * The ordered resolution stages both surfaces walk.
  *
  * A stage is one {@link SourceBinding} of the input being resolved, so the
- * bindings `schema/source.ts` projects are the structure this file consumes.
- * Each surface supplies only what it alone knows: how a parsed CLI value reads,
- * how a raw value coerces, and how a prompt runs.
+ * bindings `schema/source.ts` projects are the structure this file consumes,
+ * settings included: a stage reads its splitting and its trimming off its own
+ * binding. Each surface supplies only what it alone knows: how a parsed CLI
+ * value reads, how a raw value coerces, and how a prompt runs.
  *
  * @module dreamcli/core/resolve/stages
  * @internal
  */
 
 import type { ValidationError } from '#internals/core/errors/index.ts';
-import type { PromptConfig } from '#internals/core/schema/prompt.ts';
-import type { SourceBinding } from '#internals/core/schema/source.ts';
-import { STDIN_SENTINEL } from '#internals/core/schema/source.ts';
+import type {
+	DecodedSourceBinding,
+	PromptSourceBinding,
+	SourceBinding,
+	StdinSourceBinding,
+} from '#internals/core/schema/source.ts';
+import { stdinBindingOf, STDIN_SENTINEL } from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash, stdinReadsWhenMissing } from '#internals/core/schema/stdin.ts';
 import type { CliFinish, CoerceResult } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
-import type { DecodedDiagnosticSource, ResolutionProvenance } from './contracts.ts';
+import type { ResolutionProvenance } from './contracts.ts';
 
 /** What the parser produced for one input in this invocation. */
 type CliValue =
@@ -41,14 +46,18 @@ interface StageInput {
 	/** What the parser produced for this input. */
 	readonly cli: CliValue;
 	/** Decode a raw value from a non-CLI source into the input's declared type. */
-	readonly coerce: (source: DecodedDiagnosticSource, raw: unknown) => CoerceResult;
+	readonly coerce: (binding: DecodedSourceBinding, raw: unknown) => CoerceResult;
 	/**
 	 * Aggregate what the parser produced, splicing the stdin buffer into the
 	 * position each `-` occurrence holds.
 	 */
-	readonly finishCli: (value: unknown, stdinData: string | null | undefined) => CliFinish;
+	readonly finishCli: (
+		value: unknown,
+		stdinData: string | null | undefined,
+		stdin: StdinSourceBinding | undefined,
+	) => CliFinish;
 	/** Run the prompt engine for this input. */
-	readonly runPrompt: (config: PromptConfig) => Promise<PromptOutcome>;
+	readonly runPrompt: (binding: PromptSourceBinding) => Promise<PromptOutcome>;
 }
 
 /** External state every stage reads from. */
@@ -82,8 +91,9 @@ async function runStages(
 	input: StageInput,
 	state: StageState,
 ): Promise<StageOutcome> {
+	const stdin = stdinBindingOf(bindings);
 	for (const binding of bindings) {
-		const outcome = await runStage(binding, input, state);
+		const outcome = await runStage(binding, stdin, input, state);
 		if (outcome.kind !== 'absent') return outcome;
 	}
 	return ABSENT;
@@ -92,12 +102,13 @@ async function runStages(
 /** Attempt one binding. */
 async function runStage(
 	binding: SourceBinding,
+	stdin: StdinSourceBinding | undefined,
 	input: StageInput,
 	state: StageState,
 ): Promise<StageOutcome> {
 	switch (binding.stage) {
 		case 'cli':
-			return cliStage(input, state);
+			return cliStage(stdin, input, state);
 		case 'stdin':
 			return stdinStage(binding, input, state);
 		case 'env':
@@ -118,18 +129,22 @@ async function runStage(
  * stage. When nothing was piped it produces no value and the walk continues,
  * leaving env, config, prompt, and the default reachable.
  */
-function cliStage(input: StageInput, state: StageState): StageOutcome {
+function cliStage(
+	stdin: StdinSourceBinding | undefined,
+	input: StageInput,
+	state: StageState,
+): StageOutcome {
 	if (input.cli.kind === 'dash') {
 		const buffer = state.stdinData;
-		if (typeof buffer !== 'string') return ABSENT;
-		return coerced(input, { kind: 'stdin' }, buffer, {
+		if (stdin === undefined || typeof buffer !== 'string') return ABSENT;
+		return coerced(input, stdin, buffer, {
 			stage: 'cli',
 			via: 'stdin',
 			trigger: 'dash',
 		});
 	}
 	if (input.cli.kind === 'value') {
-		const finished = input.finishCli(input.cli.value, state.stdinData);
+		const finished = input.finishCli(input.cli.value, state.stdinData, stdin);
 		if (finished.kind === 'absent') return ABSENT;
 		if (finished.kind === 'error') return { kind: 'error', error: finished.error };
 		return { kind: 'value', value: finished.value, provenance: cliProvenance(finished.viaStdin) };
@@ -154,7 +169,7 @@ function cliProvenance(viaStdin: boolean): ResolutionProvenance {
 
 /** The implicit stdin fallback, taken only by an input argv left absent. */
 function stdinStage(
-	binding: Extract<SourceBinding, { stage: 'stdin' }>,
+	binding: StdinSourceBinding,
 	input: StageInput,
 	state: StageState,
 ): StageOutcome {
@@ -162,7 +177,7 @@ function stdinStage(
 	if (input.cli.kind !== 'absent') return ABSENT;
 	const buffer = state.stdinData;
 	if (typeof buffer !== 'string') return ABSENT;
-	return coerced(input, { kind: 'stdin' }, buffer, {
+	return coerced(input, binding, buffer, {
 		stage: 'stdin',
 		via: 'stdin',
 		trigger: 'fallback',
@@ -180,7 +195,7 @@ function envStage(
 	// that inherited method as a supplied value.
 	const raw = Object.hasOwn(state.env, envVar) ? state.env[envVar] : undefined;
 	if (raw === undefined) return ABSENT;
-	return coerced(input, { kind: 'env', envVar }, raw, { stage: 'env', envVar });
+	return coerced(input, binding, raw, { stage: 'env', envVar });
 }
 
 /** The config-file stage. */
@@ -192,17 +207,17 @@ function configStage(
 	const configPath = binding.configPath;
 	const raw = resolveConfigPath(state.config, configPath);
 	if (raw === undefined) return ABSENT;
-	return coerced(input, { kind: 'config', configPath }, raw, { stage: 'config', configPath });
+	return coerced(input, binding, raw, { stage: 'config', configPath });
 }
 
 /** The interactive stage. */
 async function promptStage(
-	binding: Extract<SourceBinding, { stage: 'prompt' }>,
+	binding: PromptSourceBinding,
 	input: StageInput,
 	state: StageState,
 ): Promise<StageOutcome> {
 	if (!state.canPrompt) return ABSENT;
-	const result = await input.runPrompt(binding.prompt);
+	const result = await input.runPrompt(binding);
 	if (result.ok) {
 		return { kind: 'value', value: result.value, provenance: { stage: 'prompt' } };
 	}
@@ -212,11 +227,11 @@ async function promptStage(
 /** Decode a raw value and attach the stage's provenance on success. */
 function coerced(
 	input: StageInput,
-	source: DecodedDiagnosticSource,
+	binding: DecodedSourceBinding,
 	raw: unknown,
 	provenance: ResolutionProvenance,
 ): StageOutcome {
-	const result = input.coerce(source, raw);
+	const result = input.coerce(binding, raw);
 	return result.ok
 		? { kind: 'value', value: result.value, provenance }
 		: { kind: 'error', error: result.error };
@@ -239,10 +254,10 @@ function readCliValue(
 	bindings: readonly SourceBinding[],
 ): CliValue {
 	if (!present || value === undefined) return { kind: 'absent' };
-	const readsOnDash = bindings.some(
-		(binding) => binding.stage === 'stdin' && stdinReadsOnDash(binding),
-	);
-	if (value === STDIN_SENTINEL && readsOnDash) return { kind: 'dash' };
+	const stdin = stdinBindingOf(bindings);
+	if (value === STDIN_SENTINEL && stdin !== undefined && stdinReadsOnDash(stdin)) {
+		return { kind: 'dash' };
+	}
 	return { kind: 'value', value };
 }
 

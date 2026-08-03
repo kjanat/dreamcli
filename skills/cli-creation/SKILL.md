@@ -141,14 +141,30 @@ stdin consumer unless every stdin input passes `{ consume: 'broadcast' }`. A `-`
 occurrence on a collection splices the decoded buffer in at that position, so
 `--tag before --tag - --tag after` over `a\nb\n` gives
 `['before', 'a', 'b', 'after']`, and a variadic argument reads its tail the same
-way. A `-` typed beside other occurrences with nothing piped fails; a lone `-`
-falls through. `{ trim: true }` drops one trailing line terminator from a single
-value, which is what `arg.path({ mustExist: true }).stdin({ trim: true })`
-wants. Stdin is available to scalar, array, key-value, and variadic inputs;
-count flags cannot read it, and key-value arguments cannot prompt.
+way. A `-` typed beside other occurrences with nothing piped fails with
+`MISSING_STDIN`; a lone `-`, and a scalar `-`, fall through instead.
+`{ trim: true }` drops one trailing line terminator from a single value, which
+is what `arg.path({ mustExist: true }).stdin({ trim: true })` wants. Help names
+each binding: `[stdin]`, `[stdin: '-']`, or `[stdin: when omitted]`. Stdin is
+available to scalar, array, key-value, and variadic inputs; count flags cannot
+read it, and key-value arguments cannot prompt.
+
+**Provenance.** A handler receives `sources` beside `flags` and `args`, keyed
+the same way, holding the stage that produced each value (`cli`, `stdin`, `env`
+with its `envVar`, `config` with its `configPath`, `prompt`, `default`).
+`wasExplicit(sources.flags.x)` is the predicate for "supplied rather than
+defaulted"; never drop `.default()` to detect that, since it also drops
+`defaultValue` from the exported schema.
 
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.
+
+**Diagnostics.** A value from any source but argv is redacted in validation
+messages and in `details`, so a piped or exported secret never reaches a
+terminal or a CI log. The framework cannot redact text your own code writes: a
+`flag.custom()` parse function's thrown message and a Standard Schema issue
+message are shown verbatim, so write them to describe the expectation rather
+than to interpolate the value.
 
 **Output.** `out.log()` for results, `out.status()` for progress notes (stderr,
 suppressed by `--quiet`), `out.table()` for lists, `out.json()` behind

@@ -1134,7 +1134,11 @@ describe('generateSchema — definition metadata', () => {
 				stringConstraints: { nonEmpty: true, minLength: 2, maxLength: 12, pattern: /^v\d+$/ },
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
-			argEntry('vars', { kind: 'keyValue', duplicateKeys: 'error' }),
+			argEntry('vars', {
+				kind: 'keyValue',
+				duplicateKeys: 'error',
+				elementSchema: createArgSchema('number'),
+			}),
 			argEntry('piped', {
 				stdin: { when: 'dash-or-missing', consume: 'exclusive', trim: true },
 				configPath: 'release.piped',

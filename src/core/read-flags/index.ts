@@ -27,6 +27,7 @@ import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve
 import { resolve } from '#internals/core/resolve/index.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig, InferFlags } from '#internals/core/schema/flag.ts';
+import type { SourcesOf } from '#internals/core/schema/provenance.ts';
 import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
@@ -44,7 +45,7 @@ type FlagMap = Readonly<Record<string, FlagBuilder<FlagConfig>>>;
  * Extends {@linkcode ResolveOptions}, so `env`, `config`, `prompter`, `stat`,
  * and `mkdir` carry the meaning they have during command resolution.
  */
-interface ReadFlagsOptions extends ResolveOptions {
+interface ReadFlagsOptions<F extends FlagMap = FlagMap> extends ResolveOptions {
 	/**
 	 * User arguments only, without the binary and script entries.
 	 * @defaultValue the runtime adapter's argv past its binary and script entries
@@ -97,6 +98,16 @@ interface ReadFlagsOptions extends ResolveOptions {
 	 * @defaultValue `undefined`, which drops the notices
 	 */
 	readonly onDeprecation?: (warning: DeprecationWarning) => void;
+
+	/**
+	 * Receiver for the provenance of the resolved values, keyed by flag name.
+	 *
+	 * Called once with the whole record, before {@linkcode readFlags} returns the
+	 * values. A flag that resolved no value has no record, so the same reader
+	 * works for optional flags.
+	 * @defaultValue `undefined`, which drops the record
+	 */
+	readonly onSources?: (sources: SourcesOf<F>) => void;
 }
 
 const INTERNAL_COMMAND_NAME = '<standalone>';
@@ -262,7 +273,7 @@ function withoutUndeclaredTokens(
  */
 async function readFlags<const F extends FlagMap>(
 	definitions: F,
-	options?: ReadFlagsOptions,
+	options?: ReadFlagsOptions<F>,
 ): Promise<InferFlags<F>> {
 	for (const key of Reflect.ownKeys(definitions)) {
 		if (typeof key !== 'string' || !Object.prototype.propertyIsEnumerable.call(definitions, key)) {
@@ -339,6 +350,8 @@ async function readFlags<const F extends FlagMap>(
 	for (const warning of resolved.deprecations) {
 		options?.onDeprecation?.(warning);
 	}
+
+	options?.onSources?.(resolved.provenance.flags as SourcesOf<F>);
 
 	return resolved.flags as InferFlags<F>;
 }

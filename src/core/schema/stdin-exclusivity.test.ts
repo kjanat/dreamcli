@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { arg, createArgSchema } from './arg.ts';
+import type { SplitPolicy } from './cardinality.ts';
 import { command, createCommandSchema } from './command.ts';
 import { createFlagSchema, flag } from './flag.ts';
-import { sourceBindings } from './source.ts';
+import { sourceBindings, stdinBindingOf } from './source.ts';
 
 // === L15 — one exclusive stdin consumer per command
 
 // --- helpers
+
+const WHOLE: SplitPolicy = { format: 'whole' };
+const LINES: SplitPolicy = { format: 'lines' };
+const COMMAS: SplitPolicy = { format: 'delimiter', delimiter: ',' };
 
 function schemaError(build: () => unknown): CLIError {
 	try {
@@ -249,11 +254,17 @@ describe('sourceBindings()', () => {
 			.default('fallback').schema;
 
 		expect(sourceBindings(schema)).toEqual([
-			{ stage: 'cli' },
-			{ stage: 'stdin', when: 'dash-or-missing', consume: 'exclusive' },
-			{ stage: 'env', envVar: 'VALUE' },
-			{ stage: 'config', configPath: 'deploy.value' },
-			{ stage: 'prompt', prompt: { kind: 'input', message: 'Value' } },
+			{ stage: 'cli', split: WHOLE },
+			{
+				stage: 'stdin',
+				when: 'dash-or-missing',
+				consume: 'exclusive',
+				trim: false,
+				split: LINES,
+			},
+			{ stage: 'env', envVar: 'VALUE', split: COMMAS },
+			{ stage: 'config', configPath: 'deploy.value', split: COMMAS },
+			{ stage: 'prompt', prompt: { kind: 'input', message: 'Value' }, split: COMMAS },
 			{ stage: 'default', defaultValue: 'fallback' },
 		]);
 	});
@@ -267,16 +278,16 @@ describe('sourceBindings()', () => {
 			.default('fallback').schema;
 
 		expect(sourceBindings(schema)).toEqual([
-			{ stage: 'cli' },
-			{ stage: 'stdin', when: 'dash', consume: 'exclusive' },
-			{ stage: 'env', envVar: 'VALUE' },
-			{ stage: 'config', configPath: 'deploy.value' },
+			{ stage: 'cli', split: WHOLE },
+			{ stage: 'stdin', when: 'dash', consume: 'exclusive', trim: false, split: LINES },
+			{ stage: 'env', envVar: 'VALUE', split: COMMAS },
+			{ stage: 'config', configPath: 'deploy.value', split: COMMAS },
 			{ stage: 'default', defaultValue: 'fallback' },
 		]);
 	});
 
 	it('lists CLI alone for an input with no extra sources', () => {
-		expect(sourceBindings(flag.string().schema)).toEqual([{ stage: 'cli' }]);
+		expect(sourceBindings(flag.string().schema)).toEqual([{ stage: 'cli', split: WHOLE }]);
 	});
 
 	it('lists a default a definition declared without the defaulted presence', () => {
@@ -285,12 +296,45 @@ describe('sourceBindings()', () => {
 
 		expect(flagSchema.presence).toBe('optional');
 		expect(sourceBindings(flagSchema)).toEqual([
-			{ stage: 'cli' },
+			{ stage: 'cli', split: WHOLE },
 			{ stage: 'default', defaultValue: 'x' },
 		]);
 		expect(sourceBindings(argSchema)).toEqual([
-			{ stage: 'cli' },
+			{ stage: 'cli', split: WHOLE },
 			{ stage: 'default', defaultValue: 'y' },
 		]);
+	});
+
+	it('carries each source its own split policy', () => {
+		const schema = flag
+			.array(flag.string())
+			.separator(',')
+			.split({ env: 'json', stdin: ';' })
+			.stdin({ trim: true })
+			.env('TAGS').schema;
+
+		expect(sourceBindings(schema)).toEqual([
+			{ stage: 'cli', split: COMMAS },
+			{
+				stage: 'stdin',
+				when: 'dash-or-missing',
+				consume: 'exclusive',
+				trim: true,
+				split: { format: 'delimiter', delimiter: ';' },
+			},
+			{ stage: 'env', envVar: 'TAGS', split: { format: 'json' } },
+		]);
+	});
+
+	it('answers which binding carries stdin', () => {
+		const withStdin = sourceBindings(flag.string().stdin({ when: 'dash' }).schema);
+		expect(stdinBindingOf(withStdin)).toEqual({
+			stage: 'stdin',
+			when: 'dash',
+			consume: 'exclusive',
+			trim: false,
+			split: LINES,
+		});
+		expect(stdinBindingOf(sourceBindings(flag.string().schema))).toBeUndefined();
 	});
 });

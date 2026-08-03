@@ -976,7 +976,7 @@ function flagTokenOccurrences(
 
 	// One occurrence may carry several elements (--tag a,b); each is coerced
 	// individually so errors name the offending element, not the whole token.
-	return splitCliToken(cardinality.splitting.cli, rawValue, schema).map((part) =>
+	return splitCliToken(cardinality.cliSplit, rawValue, schema).map((part) =>
 		flagTokenOccurrence(name, part, schema, displayName),
 	);
 }
@@ -1031,7 +1031,7 @@ function mapPositionals(
 			const remaining = positionals.slice(posIdx);
 			const policy =
 				cardinality.kind === 'many' || cardinality.kind === 'entries'
-					? cardinality.splitting.cli
+					? cardinality.cliSplit
 					: WHOLE_TOKEN;
 			const occurrences = remaining.flatMap((raw) =>
 				splitCliToken(policy, raw, { stdin: entry.schema.stdin }).map((part) =>

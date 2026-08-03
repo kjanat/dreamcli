@@ -61,7 +61,7 @@ so `.split({ stdin })` decides those.
 
 A collection reads the buffer as elements and splices them where a `-`
 occurrence sits. A `-` typed beside other occurrences with nothing piped fails
-with `REQUIRED_FLAG` or `REQUIRED_ARG`, rather than shortening the collection;
+with `MISSING_STDIN`, rather than shortening the collection;
 occurrences of nothing but `-`, and a scalar `-`, fall through to the later
 sources instead. A stdin-enabled input can never receive a literal `-` as its
 value, since the token names the source; `{ when: 'missing' }` is the one
@@ -105,7 +105,8 @@ checks every value it collects.
 There is no `arg.array()` (use `.variadic()`) and no `arg.count()`, which counts
 flag occurrences. `arg.boolean()` and `arg.keyValue()` do exist:
 `arg.boolean()` consumes an explicit `true`/`false` token, and
-`arg.keyValue()` consumes `KEY=VALUE` tokens into a record. `.stdin()`,
+`arg.keyValue(element)` consumes `KEY=VALUE` tokens into a record, taking the
+same kind of element builder as `flag.keyValue(element)`. `.stdin()`,
 `.env()`, `.config()`, and `.prompt()` are all available on an argument,
 `.variadic()` included: a `-` among the tail tokens splices the decoded buffer
 in at that position, so `printf 'x\ny\n' | mycli build a - b` collects
@@ -176,6 +177,7 @@ flag
 
 flag.keyValue().duplicateKeys('error'); // -e A=1 -e A=2 fails
 arg.keyValue().variadic(); // mycli render a=1 b=2 → { a: '1', b: '2' }
+arg.keyValue(arg.number().int()).variadic(); // mycli scale web=3 → { web: 3 }
 ```
 
 `--region us,eu --region ap` and repetition both work. Put flag-level modifiers
@@ -243,6 +245,31 @@ command('serve')
 
 `.derive()` runs after resolution and before the action. It is the home for
 rules DreamCLI cannot express declaratively, and its return value widens `ctx`.
+
+### Explicit versus defaulted
+
+```ts
+command('serve')
+	.flag('port', flag.number({ int: true }).env('PORT').default(3000))
+	.derive(({ flags, sources }) => {
+		if (flags.port !== undefined && sources.flags.port?.stage === 'env') {
+			// the environment supplied it, not the command line
+		}
+		return { overridden: wasExplicit(sources.flags.port) };
+	})
+	.action(({ ctx }) => {
+		ctx.overridden; // boolean
+	});
+```
+
+`sources` is keyed like `flags` and `args`, and each entry names the stage that
+produced the value: `cli`, `stdin`, `env` with its `envVar`, `config` with its
+`configPath`, `prompt`, or `default`. An explicit `-` reports
+`{ stage: 'cli', via: 'stdin', trigger: 'dash' }`, so a piped value is
+distinguishable from a typed one. `wasExplicit()` is the predicate for
+"anything but the default", which is what a mutually-exclusive rule or an
+explicit-wins merge needs. Never drop `.default()` to detect this: that also
+drops `defaultValue` from `--help --json` and the exported schema.
 
 ## Output
 

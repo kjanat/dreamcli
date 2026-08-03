@@ -11,6 +11,7 @@
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
+import type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
 import type { ResolutionStage } from '#internals/core/schema/source.ts';
 import { RESOLUTION_ORDER } from '#internals/core/schema/source.ts';
 
@@ -41,22 +42,6 @@ type FlagDiagnosticSource = DecodedDiagnosticSource;
 
 /** Source-aware diagnostic context for arg resolution failures. */
 type ArgDiagnosticSource = DecodedDiagnosticSource;
-
-/**
- * Which stage produced a resolved value, and how.
- *
- * `via` and `trigger` distinguish the two ways stdin delivers bytes: an
- * explicit `-` keeps CLI precedence, and an absent input takes the fallback
- * stage between CLI and env.
- */
-type ResolutionProvenance =
-	| { readonly stage: 'cli' }
-	| { readonly stage: 'cli'; readonly via: 'stdin'; readonly trigger: 'dash' }
-	| { readonly stage: 'stdin'; readonly via: 'stdin'; readonly trigger: 'fallback' }
-	| { readonly stage: 'env'; readonly envVar: string }
-	| { readonly stage: 'config'; readonly configPath: string }
-	| { readonly stage: 'prompt' }
-	| { readonly stage: 'default' };
 
 /**
  * External state the resolver may consult after parsing.
@@ -98,9 +83,10 @@ interface DeprecationWarning {
 }
 
 /**
- * Which stage produced each resolved value.
+ * Which stage produced each resolved value of one command.
  *
- * @internal
+ * The erased form of {@link InputSources}: same records, keyed by plain strings
+ * because `resolve()` takes a `CommandSchema` rather than typed builders.
  */
 interface ResolutionProvenanceRecord {
 	/** Provenance of every declared flag, keyed by flag name. */
@@ -120,8 +106,6 @@ interface ResolveResult {
 	/**
 	 * Which stage produced each value. Present only for inputs that resolved a
 	 * value, so an unset optional input has no entry.
-	 *
-	 * @internal
 	 */
 	readonly provenance: ResolutionProvenanceRecord;
 }
@@ -182,13 +166,13 @@ const resolverContract: ResolverContract = {
 	recordsProvenancePerInput: true,
 };
 
+export type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
 export type {
 	ArgDiagnosticSource,
 	DecodedDiagnosticSource,
 	DeprecationWarning,
 	FlagDiagnosticSource,
 	ResolutionDiagnosticSource,
-	ResolutionProvenance,
 	ResolutionProvenanceRecord,
 	ResolveOptions,
 	ResolveResult,

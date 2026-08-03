@@ -2,24 +2,29 @@
 
 ## OVERVIEW
 
-Single-file formatter for usage, description, args, flags, and examples. It turns `CommandSchema`
-into stable text output, with width-aware wrapping and metadata annotations.
+Formatter for usage, description, args, flags, and examples. It turns `CommandSchema`
+into stable text output, with width-aware wrapping and metadata annotations. `formatHelp()` lives
+in `index.ts`; theming and ANSI-aware measurement sit beside it.
 
 ## FILES
 
-| File           | Purpose                                                                  |
-| -------------- | ------------------------------------------------------------------------ |
-| `index.ts`     | `formatHelp()`, wrapping and padding helpers, arg/flag/example rendering |
-| `help.test.ts` | formatting contract and regression coverage                              |
+| File            | Purpose                                                                  |
+| --------------- | ------------------------------------------------------------------------ |
+| `index.ts`      | `formatHelp()`, wrapping and padding helpers, arg/flag/example rendering |
+| `theme.ts`      | `HelpTheme` roles, the built-in theme, `HelpThemeFactory` resolution     |
+| `ansi.ts`       | ANSI-aware width and padding used by the tables                          |
+| `help.test.ts`  | formatting contract and regression coverage                              |
+| `theme.test.ts` | theme role resolution and factory merging                                |
+| `ansi.test.ts`  | ANSI-aware width and padding                                             |
 
 ## WHERE TO LOOK
 
-| Task                          | Location                                                            | Notes                                                      |
-| ----------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Change width or bin defaults  | `HelpOptions`, `resolveOptions()`                                   | default width 80, optional bin name                        |
-| Change flag table formatting  | `formatFlagLeft()`, `formatFlagDescription()`, `buildFlagEntries()` | aliases, env/config/prompt/default/deprecation annotations |
-| Change usage or arg rendering | arg and usage helpers in `index.ts`                                 | positional syntax and defaults                             |
-| Change text wrapping          | `wrapText()`                                                        | continuation indentation is part of the contract           |
+| Task                          | Location                                                            | Notes                                                            |
+| ----------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Change width or bin defaults  | `HelpOptions`, `resolveOptions()`                                   | default width 80, optional bin name                              |
+| Change flag table formatting  | `formatFlagLeft()`, `formatFlagDescription()`, `buildFlagEntries()` | aliases, stdin/env/config/prompt/default/deprecation annotations |
+| Change usage or arg rendering | arg and usage helpers in `index.ts`                                 | positional syntax and defaults                                   |
+| Change text wrapping          | `wrapText()`                                                        | continuation indentation is part of the contract                 |
 
 ## CONVENTIONS
 
