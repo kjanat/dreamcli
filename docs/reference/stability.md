@@ -229,6 +229,10 @@ built schema, so the same type serves as consumer input and as a member of a
 sealed value. The input contract is the one that governs them. `StdinOptions`
 splits the two roles instead: a caller writes the partial form and the schema
 stores the fully populated `StdinBinding`, which takes the same input contract.
+The binding has three axes, `when`, `consume`, and `trim`. Every
+`StdinOptions` member is optional, so a fourth axis may arrive in a minor
+release. Every `StdinBinding` member is required, so the stored form gains one
+only in a major.
 `SplitOptions` splits them the same way: a caller writes the per-source settings
 and the schema stores the CLI delimiter on `separator` and the rest on
 `SourceSplitBinding`, which `SplitBinding` resolves with the defaults filled in.
@@ -477,6 +481,11 @@ fragments of both `FlagDefinitionFragmentV1` and `ArgDefinitionFragmentV1`. Thei
 names are frozen with the version 1 format and carry no claim about which of the
 two embeds them; the meta-schema hoists one definition per fragment and both
 parents `$ref` it.
+
+`StdinBindingFragmentV1` carries `when`, `consume`, and `trim`, all three
+required and all three always written, so a reader never has to know the
+builder's defaults. The meta-schema lists them under `$defs.stdin` with
+`additionalProperties: false` and the same three in `required`.
 
 These values leave the process. The package version does not govern their shape.
 `schemaVersion` does.

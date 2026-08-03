@@ -240,12 +240,15 @@ In 3.x both flags still parsed under their canonical names, so what the
 collision cost was the shared spelling. Help advertised `-v` on both flags and
 the parser answered it with `--version`.
 
-The arg invariants moved with them. One arg that is both variadic and
-stdin-backed throws `INVALID_BUILDER_STATE`, and a second stdin-backed input on
-the same command throws `DUPLICATE_STDIN_INPUT` (renamed from v3's
-`DUPLICATE_STDIN_ARG`). In 3.x a definition could declare either. Two stdin-backed args each
-resolved to the whole of stdin, and a variadic stdin-backed arg read nothing
-from stdin and failed as missing when argv supplied no positional.
+The arg invariants moved with them. A second stdin-backed input on the same
+command throws `DUPLICATE_STDIN_INPUT` (renamed from v3's
+`DUPLICATE_STDIN_ARG`), and a positional declared after a variadic one throws
+`INVALID_BUILDER_STATE`, on both construction paths. In 3.x
+a hand-assembled `CommandSchema` could declare either, and two stdin-backed args
+each resolved to the whole of stdin while a positional behind a variadic one
+silently never filled. The placement rule is new to `.arg()` as well, and
+[its own section](#a-positional-after-a-variadic-one-is-a-build-error) covers
+what to change.
 
 A flag or arg named `__proto__` throws `INVALID_SCHEMA`. Both land in a record
 keyed by name, where that key sets a prototype rather than an entry, so the flag
@@ -281,9 +284,11 @@ on such a record is an own key and is read.
 
 The whole tree is checked, nested subcommands included, and `createCLISchema()`
 inherits the checks through it. `command()` already refused the collisions at
-`.flag()` and `.command()` and the arg invariants at `.arg()`. For those, only
-definitions composed as data change: one that used to build and then misbehave
-at parse time now fails at construction.
+`.flag()` and `.command()`, and refused a second stdin-backed arg at `.arg()`
+under the old code `DUPLICATE_STDIN_ARG`. For those, only definitions composed
+as data change: one that used to build and then misbehave at parse time now
+fails at construction. Argument placement is the exception, since `.arg()`
+accepted a positional after a variadic one in 3.x.
 
 `__proto__` changes on the builder too. `.arg('__proto__')` used to build and
 then swallow the positional value; it now throws `INVALID_SCHEMA`.
@@ -463,10 +468,11 @@ createArgSchema('string', { stdin: { when: 'dash', consume: 'broadcast' } });
 ```
 
 The definition document changes to match. An arg fragment emits
-`stdin: { when, consume }` where `stdinMode: true` used to appear, at
-`schemaVersion: 1`, which has not shipped. Tooling reading the fragment reads
-the object; tooling that only asked whether stdin was enabled checks for the
-key's presence.
+`stdin: { when, consume, trim }` where `stdinMode: true` used to appear, at
+`schemaVersion: 1`, which has not shipped. All three fields are always written,
+so a reader never has to know the builder's defaults. Tooling reading the
+fragment reads the object; tooling that only asked whether stdin was enabled
+checks for the key's presence.
 
 ### `DUPLICATE_STDIN_ARG` is now `DUPLICATE_STDIN_INPUT`
 
@@ -476,6 +482,52 @@ matches the new one; the message reads `Only one input may consume stdin
 exclusively; <name> already consumes stdin`, naming the input that was declared
 first. `details` names the offending input under `flag` or `arg` and the
 existing one under `existingFlag` or `existingArg`.
+
+### An explicit `-` with nothing piped fails inside a collection
+
+A `-` the user typed beside other occurrences used to be dropped when nothing
+was piped, so `--tag a --tag - --tag b` with an empty pipe resolved to
+`['a', 'b']` and the caller never learned the pipe had been empty. It now fails:
+
+```
+No piped stdin for the '-' occurrence of flag --tag
+Suggestion: Pipe a value to stdin, or drop the '-' occurrence of --tag
+```
+
+The code is `REQUIRED_FLAG` on a flag and `REQUIRED_ARG` on an argument, and
+the positional tail words it `for the '-' occurrence of argument <files>`.
+
+Two shapes are unchanged. Occurrences of nothing but `-` are the whole value, so
+with nothing piped they still fall through to env, config, prompt, and the
+default. So does a scalar `-`, since dropping it loses nothing. Only a
+collection could be silently shortened, so only a collection errors.
+
+A script that relied on the old drop has two ways forward: pipe a value, or stop
+passing `-` when there is nothing to read. A `{ when: 'missing' }` binding never
+enters this path, since it leaves a typed `-` literal.
+
+### `.stdin()` and `.variadic()` compose
+
+The pairing threw `INVALID_BUILDER_STATE` with the message `Argument <files>
+cannot be both variadic and stdin-backed`. It is now legal, and a `-` among the
+tail tokens splices what the buffer decodes to into that position:
+
+```ts
+command('build').arg('files', arg.string().variadic().stdin());
+```
+
+```bash
+$ printf 'x\ny\n' | mycli build a - b
+# args.files === ['a', 'x', 'y', 'b']
+
+$ printf 'x\ny\n' | mycli build
+# args.files === ['x', 'y']
+```
+
+An empty tail counts as an absent input, so a binding that covers a missing one
+takes the whole buffer. Code that caught the throw has nothing left to catch;
+delete the `try`. Nothing that built in 3.x resolves differently, since the
+pairing could not be built.
 
 ### Stdin values reach non-string codecs without their trailing terminator
 
@@ -534,6 +586,65 @@ arg.string().variadic().default('a');
 // 4.0: the array the arg produces
 arg.string().variadic().default(['a', 'b']);
 ```
+
+### A positional after a variadic one is a build error
+
+A variadic argument takes every remaining positional token, so anything
+registered behind it could never be filled and a second variadic one had nothing
+left to collect. Both used to build and then produce an argument that stayed
+empty. `.arg()` and `createCommandSchema()` now share one check:
+
+```ts
+// 3.x: built fine, then <target> never filled
+command('copy').arg('files', arg.string().variadic()).arg('target', arg.string());
+
+// 4.0: throws INVALID_BUILDER_STATE
+```
+
+```
+Argument <target> comes after variadic argument <files>, which consumes every remaining positional
+Suggestion: Declare <target> before <files>, or drop .variadic() from <files>
+```
+
+`details` carries the command in `command`, the argument that could never fill
+in `arg`, and the greedy one in `variadicArg`, so a definition tree names the
+nested command that declared the pair.
+
+Move the variadic argument last. Required, optional, and variadic in that order
+still builds, as does a scalar followed by an `arg.keyValue().variadic()` tail.
+A command that genuinely needs a trailing value after a list has to take it as a
+flag instead, since positional order alone cannot express it.
+
+### The arg collection modifiers require a collection
+
+`.unique()`, `.separator()`, `.split()`, and `.duplicateKeys()` state the shape
+they need. `.separator()` and `.split()` want a variadic argument or
+`arg.keyValue()`, `.unique()` a variadic argument of a list kind, and
+`.duplicateKeys()` `arg.keyValue()`. The compiler refuses each one elsewhere,
+and `createArgSchema()` throws `INVALID_SCHEMA`:
+
+```ts
+// 3.x: built fine, and the field was stored and never read
+createArgSchema('string', { unique: true });
+createArgSchema('string', { separator: ',' });
+
+// 4.0: throws INVALID_SCHEMA
+```
+
+```
+Arg schema field 'unique' requires a variadic arg of a list kind
+Suggestion: Add 'variadic: true' on a list kind, or drop 'unique'
+```
+
+Add `variadic: true`, declare the argument as `keyValue`, or drop the field,
+which changed nothing on a single-value argument anyway. The values a schema
+already stores as its own default, `unique: false` and `duplicateKeys: 'last'`,
+stay accepted on any kind, so feeding a built `ArgSchema` back through
+`createArgSchema()` round-trips.
+
+The four builder methods are new in 4.0, so only definitions composed as data
+change. This mirrors the `array | keyValue` restriction the flag surface already
+had.
 
 ### `.separator()` sets the CLI delimiter alone
 
@@ -600,6 +711,12 @@ Adopt at your own pace; none of these are required:
   collections read stdin with `-` splicing into occurrence order, and
   `arg.boolean()` and `arg.keyValue()` join the arg factories. See
   [Flags](/guide/flags) and [Arguments](/guide/arguments).
+- **Trimming a piped value**: `.stdin({ trim: true })` drops one trailing `\n`,
+  `\r\n`, or `\r` from a single value, so `echo ./dist | mycli clean` satisfies
+  `arg.path({ mustExist: true })`. It defaults to `false`, which is what 3.x
+  did, so an existing binding is unaffected. See
+  [Flags](/guide/flags#stdin-backed-flags) and
+  [Arguments](/guide/arguments#stdin-backed-arguments).
 - **Consumer-owned built-in flags**: `.builtins({ help: 'off' })`,
   `.builtins({ json: 'off' })`, or `.builtins({ quiet: 'off' })` hands a
   root-owned token to the commands, for a CLI whose `--json`, `-q`, or

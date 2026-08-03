@@ -109,6 +109,34 @@ only through the adapter, and only when a declared binding would fire, so a
 record whose `when: 'dash'` flag was never dashed never touches it. Pass
 `stdinData` to supply the bytes yourself, including `null` for nothing piped.
 
+`{ trim: true }` drops one trailing `\n`, `\r\n`, or `\r` from a single value
+here too:
+
+```ts twoslash
+import { flag, readFlags } from '@kjanat/dreamcli';
+// ---cut---
+const values = await readFlags(
+  { p: flag.string().stdin({ trim: true }) },
+  { argv: [], stdinData: 'hello\n' },
+);
+
+values.p; // 'hello'
+```
+
+A `-` occurrence the caller passed beside other occurrences rejects when
+`stdinData` is `null`, with the same `REQUIRED_FLAG` a command raises:
+
+```ts
+await readFlags(
+  { tag: flag.array(flag.string()).stdin() },
+  { argv: ['--tag', 'a', '--tag', '-'], stdinData: null },
+);
+// throws: No piped stdin for the '-' occurrence of flag --tag
+```
+
+Occurrences of nothing but `-` fall through instead, so `stdinData: null` with
+`argv: ['--tag', '-']` leaves the flag to env, config, prompt, and the default.
+
 Two stages need something from the caller. `config` is a plain object passed in;
 nothing is read from disk. `prompter` is a prompt engine passed in; none is
 built. A `.prompt()` flag with no prompter falls through to its default, on a

@@ -588,6 +588,33 @@ describe('generateSchema — definition metadata', () => {
 		});
 	});
 
+	it('serializes the stdin binding of a flag and of an arg with every field', () => {
+		const flagOnly = commandDef({
+			name: 'test',
+			flags: { body: flagDef({ kind: 'string', stdin: { when: 'dash', trim: true } }) },
+		});
+		const argOnly = commandDef({
+			name: 'other',
+			args: [
+				argEntry('input', {
+					stdin: { when: 'dash-or-missing', consume: 'broadcast', trim: false },
+				}),
+			],
+		});
+		const result = generateSchema(minimalCLI({ commands: [flagOnly, argOnly] }));
+
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'body', 'stdin'], {
+			when: 'dash',
+			consume: 'exclusive',
+			trim: true,
+		});
+		expect(result).toHaveProperty(['commands', 1, 'args', 0, 'stdin'], {
+			when: 'dash-or-missing',
+			consume: 'broadcast',
+			trim: false,
+		});
+	});
+
 	it('omits prompt config when includePrompts is false', () => {
 		const cmd = commandDef({
 			name: 'test',
@@ -666,15 +693,15 @@ describe('generateSchema — definition metadata', () => {
 		const cmd = commandDef({
 			name: 'test',
 			args: [
-				argEntry('files', { variadic: true, description: 'Files to process' }),
 				argEntry('region', { kind: 'enum', enumValues: ['us', 'eu'], envVar: 'REGION' }),
+				argEntry('files', { variadic: true, description: 'Files to process' }),
 			],
 		});
 		const result = generateSchema(minimalCLI({ commands: [cmd] }));
-		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'variadic'], true);
-		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'description'], 'Files to process');
-		expect(result).toHaveProperty(['commands', 0, 'args', 1, 'enumValues'], ['us', 'eu']);
-		expect(result).toHaveProperty(['commands', 0, 'args', 1, 'envVar'], 'REGION');
+		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'enumValues'], ['us', 'eu']);
+		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'envVar'], 'REGION');
+		expect(result).toHaveProperty(['commands', 0, 'args', 1, 'variadic'], true);
+		expect(result).toHaveProperty(['commands', 0, 'args', 1, 'description'], 'Files to process');
 	});
 
 	it('includes arg defaultValue when defaulted', () => {
@@ -1099,15 +1126,9 @@ describe('generateSchema — definition metadata', () => {
 				stringConstraints: { nonEmpty: true, minLength: 2, maxLength: 12, pattern: /^v\d+$/ },
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
-			argEntry('extras', {
-				variadic: true,
-				separator: ',',
-				split: { env: { format: 'json' }, stdin: { format: 'lines' } },
-				unique: true,
-			}),
 			argEntry('vars', { kind: 'keyValue', duplicateKeys: 'error' }),
 			argEntry('piped', {
-				stdin: { when: 'dash-or-missing', consume: 'exclusive' },
+				stdin: { when: 'dash-or-missing', consume: 'exclusive', trim: true },
 				configPath: 'release.piped',
 				prompt: { kind: 'input', message: 'Piped?' },
 			}),
@@ -1121,6 +1142,12 @@ describe('generateSchema — definition metadata', () => {
 						validate: (value: unknown) => ({ value }),
 					},
 				},
+			}),
+			argEntry('extras', {
+				variadic: true,
+				separator: ',',
+				split: { env: { format: 'json' }, stdin: { format: 'lines' } },
+				unique: true,
 			}),
 		];
 		const cli = minimalCLI({ commands: [commandDef({ args: allFieldsArgs })] });
@@ -1157,7 +1184,7 @@ describe('generateSchema — definition metadata', () => {
 		});
 
 		const withoutPrompts = generateSchema(cli, { includePrompts: false });
-		expect(withoutPrompts).not.toHaveProperty(['commands', 0, 'args', 5, 'prompt']);
+		expect(withoutPrompts).not.toHaveProperty(['commands', 0, 'args', 4, 'prompt']);
 	});
 });
 

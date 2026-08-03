@@ -121,19 +121,30 @@ tokens by default, comma-delimited env values, line-delimited stdin, and native
 arrays and objects from config. `.separator()` sets the CLI policy alone and is
 no longer inherited by env or config. `.unique()` dedupes a list, and
 `.duplicateKeys('last' | 'first' | 'error')` decides a repeated key on every
-source. A validator on the element builder checks each element; one on the
-collection builder checks the finished value.
+source, naming the source that carried it. A validator on the element builder
+checks each element; one on the collection builder checks the finished value.
+On the arg surface all four are collection modifiers: call them after
+`.variadic()` or on `arg.keyValue()`, or the compiler refuses them and
+`createArgSchema()` throws `INVALID_SCHEMA`.
+
+**Argument order.** A variadic argument takes every remaining positional, so it
+is the last one a command can declare. Anything registered behind it throws
+`INVALID_BUILDER_STATE`.
 
 **Sources.** Both factories declare the same sources. Chain `.stdin()`,
 `.env()`, `.config()`, `.prompt()`, `.default()` on a flag or an argument and
 let one resolution order (argv, stdin, env, config, prompt, default) do the
 work. Count and key-value flags and key-value arguments are not promptable.
-`.stdin()` takes `{ when, consume }`; one command has one exclusive stdin
-consumer unless every stdin input passes `{ consume: 'broadcast' }`. A `-`
+`.stdin()` takes `{ when, consume, trim }`; one command has one exclusive
+stdin consumer unless every stdin input passes `{ consume: 'broadcast' }`. A `-`
 occurrence on a collection splices the decoded buffer in at that position, so
 `--tag before --tag - --tag after` over `a\nb\n` gives
-`['before', 'a', 'b', 'after']`. Stdin is available to scalar, array, and
-key-value inputs; count flags and variadic arguments cannot read it.
+`['before', 'a', 'b', 'after']`, and a variadic argument reads its tail the same
+way. A `-` typed beside other occurrences with nothing piped fails; a lone `-`
+falls through. `{ trim: true }` drops one trailing line terminator from a single
+value, which is what `arg.path({ mustExist: true }).stdin({ trim: true })`
+wants. Stdin is available to scalar, array, key-value, and variadic inputs;
+count flags cannot read it, and key-value arguments cannot prompt.
 
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.

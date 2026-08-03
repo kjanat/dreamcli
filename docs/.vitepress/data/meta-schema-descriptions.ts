@@ -97,6 +97,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	stdin: {
 		when: { exportId: 'dreamcli:StdinBinding', property: 'when' },
 		consume: { exportId: 'dreamcli:StdinBinding', property: 'consume' },
+		trim: { exportId: 'dreamcli:StdinBinding', property: 'trim' },
 	},
 	negation: {
 		alias: { exportId: 'dreamcli:FlagNegation', property: 'alias' },

@@ -137,8 +137,8 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
   `assertNoCompletionsFlagCollision()` when the definition carries `completionsFlag`, so both
   construction paths agree; `createCommandSchema()` runs no root-owned-token check, since a bare
   command is not bound to a root. It does run `validateCommandFlagTree()` and `validateArgEntry()`,
-  so command-local collisions, propagated collisions, and the arg stdin/variadic invariants still
-  throw there.
+  so command-local collisions, propagated collisions, and the arg positional-order and stdin
+  invariants still throw there.
 - `collectPropagatedFlags()` in `propagate.ts` tests descendant flag records with `Object.hasOwn()`.
   `in` walks `Object.prototype`, which made every subcommand look like it overrode a propagated flag
   named `toString`, `valueOf`, or any other prototype member.

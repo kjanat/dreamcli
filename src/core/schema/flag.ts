@@ -913,13 +913,28 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 		});
 	}
 
-	if (fields.stdin !== undefined && !STDIN_CAPABLE_FLAG_KINDS.some((allowed) => allowed === kind)) {
-		throw new CLIError(`Flag schema field 'stdin' is not available on kind '${kind}'`, {
-			code: 'INVALID_SCHEMA',
-			details: { kind, field: 'stdin', allowedKinds: [...STDIN_CAPABLE_FLAG_KINDS] },
-			suggest: `Drop 'stdin' or declare the flag as one of: ${STDIN_CAPABLE_FLAG_KINDS.join(', ')}`,
-		});
+	if (fields.stdin !== undefined) {
+		assertStdinCapableKind(kind);
 	}
+}
+
+/**
+ * Reject a stdin binding on a flag kind that has no value to read.
+ *
+ * A `count` flag carries occurrences rather than a value, so both construction
+ * paths refuse the binding with the same error.
+ *
+ * @param kind - Declared kind of the flag.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on a kind that cannot read stdin.
+ */
+function assertStdinCapableKind(kind: FlagKind): void {
+	if (STDIN_CAPABLE_FLAG_KINDS.some((allowed) => allowed === kind)) return;
+
+	throw new CLIError(`Flag schema field 'stdin' is not available on kind '${kind}'`, {
+		code: 'INVALID_SCHEMA',
+		details: { kind, field: 'stdin', allowedKinds: [...STDIN_CAPABLE_FLAG_KINDS] },
+		suggest: `Drop 'stdin' or declare the flag as one of: ${STDIN_CAPABLE_FLAG_KINDS.join(', ')}`,
+	});
 }
 
 /**
@@ -1266,19 +1281,28 @@ class FlagBuilder<C extends FlagConfig> {
 	 * between CLI and env, so a flag set in the environment still reads stdin
 	 * and stdin wins. The whole buffer becomes the value, byte for byte for a
 	 * string flag; every other kind drops the single line terminator a pipe
-	 * appends before decoding.
+	 * appends before decoding, and `{ trim: true }` drops it for a string flag
+	 * too.
 	 *
 	 * A collection reads the buffer as elements instead: `--tag -` splices what
 	 * stdin decodes into the position the `-` occupies, so
 	 * `--tag before --tag - --tag after` over `'a\nb\n'` resolves to
 	 * `['before', 'a', 'b', 'after']`. `.split({ stdin })` sets the decoding.
+	 * Each `-` stands for the whole source, so `--tag - --tag -` splices the
+	 * buffer twice. A `-` typed beside other occurrences with nothing piped fails
+	 * with `REQUIRED_FLAG`; occurrences of nothing but `-` fall through to the
+	 * later sources.
+	 *
+	 * A stdin-enabled flag cannot receive a literal `-` as its value, since the
+	 * token names the source.
 	 *
 	 * Available on every flag kind except `count`. One command may declare a
 	 * single exclusive stdin consumer; pass `{ consume: 'broadcast' }` on every
 	 * input that should share the buffer.
 	 *
-	 * @param options - When to read stdin and how to share it.
+	 * @param options - When to read stdin, how to share it, and whether to trim.
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a `count` flag.
 	 *
 	 * @example
 	 * ```ts
@@ -1289,12 +1313,16 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * flag.string().stdin({ when: 'dash' })
 	 * // only `--body -` reads stdin
+	 *
+	 * flag.path({ mustExist: true }).stdin({ trim: true })
+	 * // $ echo ./dist | mycli clean       → path = './dist', checked on disk
 	 * ```
 	 */
 	stdin(
 		this: FlagBuilder<C & { readonly flagKind: StdinCapableFlagKind }>,
 		options?: StdinOptions,
 	): FlagBuilder<WithoutElementEligibility<C>> {
+		assertStdinCapableKind(this.schema.kind);
 		return new FlagBuilder({
 			...this.schema,
 			stdin: normalizeStdinBinding(options),

@@ -6,20 +6,20 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 
 | File                    | Lines | Purpose                                                                                                                     |
 | ----------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
-| `command.ts`            |  1900 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
-| `flag.ts`               |  2077 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
-| `arg.ts`                |  1547 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/url/path/date/duration/bytes/keyValue()`                              |
+| `command.ts`            |  1923 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
+| `flag.ts`               |  2406 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
+| `arg.ts`                |  2009 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/url/path/date/duration/bytes/keyValue()`                              |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing flag, arg, command, CLI, and config-settings schemas                      |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                                   |
 | `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                          |
-| `stdin.ts`              |   134 | `StdinBinding` / `StdinOptions` — the stdin axis both factories carry, plus its normalizer                                  |
-| `cardinality.ts`        |   674 | Internal cardinality axis: `Cardinality`, split policies, aggregation rules, declared-default validation                    |
-| `source.ts`             |   235 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
+| `stdin.ts`              |   156 | `StdinBinding` / `StdinOptions` — the stdin axis both factories carry, plus its normalizer                                  |
+| `cardinality.ts`        |   679 | Internal cardinality axis: `Cardinality`, split policies, aggregation rules, declared-default validation                    |
+| `source.ts`             |   252 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
 | `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                                 |
 | `string-constraints.ts` |   172 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
 | `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                                           |
-| `value.ts`              |   731 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
+| `value.ts`              |   742 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
 | `value-parsers.ts`      |   329 | Value machinery behind the sugar factories on both `flag` and `arg` — parsers, path option types, `buildPathChecks()`       |
 | `run.ts`                |   241 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
 | `index.ts`              |   157 | Barrel — re-exports all public symbols                                                                                      |
@@ -136,10 +136,14 @@ the chain was written in.
 ## SOURCE AXIS (`source.ts`, `stdin.ts`)
 
 Both internal. `stdin.ts` owns the stdin axis a flag or arg stores:
-`StdinBinding = { when: 'dash' | 'missing' | 'dash-or-missing', consume: 'exclusive' | 'broadcast' }`,
+`StdinBinding = { when: 'dash' | 'missing' | 'dash-or-missing', consume: 'exclusive' | 'broadcast', trim: boolean }`,
 normalized from the partial `StdinOptions` a caller writes. `stdinReadsOnDash()` and
 `stdinReadsWhenMissing()` are the only two places that decide what a `when` means, so the parse
-boundary, the preflight eligibility check, and the resolver cannot drift on it.
+boundary, the preflight eligibility check, and the resolver cannot drift on it. `trim` is read once,
+by `trimmedStdinValue()` in `resolve/coerce.ts`, which routes the scalar value through
+`stripTerminator()` from `cardinality.ts`. It applies only where `keepsStdinTerminator()` in
+`value.ts` says the codec still carries the terminator, which is the same predicate `decodeValue()`
+uses to drop it for every other codec, so the two cannot take a terminator each.
 
 `source.ts` owns the rest of the axis:
 
@@ -154,6 +158,9 @@ boundary, the preflight eligibility check, and the resolver cannot drift on it.
   stage would select it. A collection's occurrences reach it as a list, so it looks for the `-`
   sentinel among them as well as for a lone `-`, which is what makes `--tag before --tag -` read the
   stream at all.
+- `argCollectedNothing()` is the one definition of an empty positional tail. The preflight and
+  `resolve/args.ts` both read it, so a variadic arg that collected no token is missing for the stdin
+  fallback in the same way at both ends.
 - `stdinConsumers()` and `stdinConsumerReference()` back the `DUPLICATE_STDIN_INPUT` rule in
   `command.ts`, which spans flags and args together.
 
@@ -263,8 +270,9 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   that would be lost. `readFlags()` carries its own copy of both checks, worded for a definitions
   record.
 - `buildCommandSchema()` runs `validateArgEntry()` over the accumulating arg list and
-  `validateFlagStdinEntry()` over each flag, so the stdin/variadic invariants `.arg()` and `.flag()`
-  enforce also apply to a definition composed as data. Stdin exclusivity spans both surfaces, so
+  `validateFlagStdinEntry()` over each flag, so the positional-order and stdin invariants `.arg()`
+  and `.flag()` enforce also apply to a definition composed as data. `assertVariadicIsLast()` is the
+  positional-order rule: a variadic arg consumes the whole tail, so nothing may follow it. Stdin exclusivity spans both surfaces, so
   each check sees the flags and args registered so far. It takes
   the command name and puts it in `details` on all three errors, since a definition tree reaches
   those throws at any depth and the arg name alone does not say which command declared it.
@@ -300,4 +308,5 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
 | `middleware.test.ts`                | Middleware factory, context typing                            |
 | `prompt.test.ts`                    | Prompt config types                                           |
 | `stdin-exclusivity.test.ts`         | One exclusive stdin consumer per command + `sourceBindings()` |
+| `input-modifier-guards.test.ts`     | Arg collection modifiers + `.stdin()` on a count flag         |
 | `derive.test.ts`                    | Type derivation tests                                         |

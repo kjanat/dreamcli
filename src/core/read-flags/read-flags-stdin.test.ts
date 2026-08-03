@@ -123,4 +123,38 @@ describe('readFlags() stdin contract', () => {
 
 		expect(values.enabled).toBe(true);
 	});
+
+	it('trims a piped value when the binding asks for it', async () => {
+		const host = countingAdapter({ stdinData: 'piped\n' });
+
+		const values = await readFlags(
+			{ body: flag.string().stdin({ trim: true }) },
+			{ argv: [], adapter: host.adapter },
+		);
+
+		expect(values.body).toBe('piped');
+	});
+
+	it('splices a dash occurrence into a collection the way a command does', async () => {
+		const host = countingAdapter({ stdinData: 'a\nb\n' });
+
+		const values = await readFlags(
+			{ tag: flag.array(flag.string()).stdin() },
+			{ argv: ['--tag', 'before', '--tag', '-'], adapter: host.adapter },
+		);
+
+		expect(values.tag).toEqual(['before', 'a', 'b']);
+		expect(host.reads()).toBe(1);
+	});
+
+	it('fails on a dash occurrence with nothing piped', async () => {
+		const host = countingAdapter();
+
+		await expect(
+			readFlags(
+				{ tag: flag.array(flag.string()).stdin() },
+				{ argv: ['--tag', 'a', '--tag', '-'], adapter: host.adapter },
+			),
+		).rejects.toThrow("No piped stdin for the '-' occurrence of flag --tag");
+	});
 });

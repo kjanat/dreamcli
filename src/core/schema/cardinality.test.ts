@@ -151,8 +151,8 @@ describe('foldEntries()', () => {
 		expect(foldEntries(pairs, 'first')).toEqual({ ok: true, value: { A: '1', B: '2' } });
 	});
 
-	it('reports the repeated key under error', () => {
-		expect(foldEntries(pairs, 'error')).toEqual({ ok: false, duplicateKey: 'A' });
+	it('reports the repeated key and where it repeated under error', () => {
+		expect(foldEntries(pairs, 'error')).toEqual({ ok: false, duplicateKey: 'A', at: 2 });
 	});
 
 	it('stores a __proto__ key as an own entry', () => {

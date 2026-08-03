@@ -494,6 +494,13 @@ function parseJson(
 	}
 }
 
+/** Drop the single line terminator a pipe appends. */
+function stripTerminator(text: string): string {
+	if (text.endsWith('\r\n')) return text.slice(0, -2);
+	if (text.endsWith('\n') || text.endsWith('\r')) return text.slice(0, -1);
+	return text;
+}
+
 // --- Aggregation
 
 /** Deduplicate a resolved array, preserving first-seen order. */
@@ -501,10 +508,15 @@ function dedupe(values: readonly unknown[]): readonly unknown[] {
 	return [...new Set(values)];
 }
 
-/** The record entries folded to, or the key a duplicate policy rejected. */
+/**
+ * The record entries folded to, or the key a duplicate policy rejected.
+ *
+ * `at` is the index of the repeating pair, so a caller that knows where each
+ * pair came from can name that source in its diagnostic.
+ */
 type FoldResult =
 	| { readonly ok: true; readonly value: Readonly<Record<string, unknown>> }
-	| { readonly ok: false; readonly duplicateKey: string };
+	| { readonly ok: false; readonly duplicateKey: string; readonly at: number };
 
 /**
  * Fold ordered pairs into a record under a duplicate-key policy.
@@ -514,16 +526,16 @@ type FoldResult =
  *
  * @param pairs - The pairs in occurrence order.
  * @param duplicateKeys - What a repeated key means.
- * @returns The record, or the key that repeated under `'error'`.
+ * @returns The record, or the key that repeated under `'error'` and where.
  */
 function foldEntries(
 	pairs: readonly (readonly [string, unknown])[],
 	duplicateKeys: DuplicateKeys,
 ): FoldResult {
 	const kept = new Map<string, unknown>();
-	for (const [key, value] of pairs) {
+	for (const [at, [key, value]] of pairs.entries()) {
 		if (kept.has(key)) {
-			if (duplicateKeys === 'error') return { ok: false, duplicateKey: key };
+			if (duplicateKeys === 'error') return { ok: false, duplicateKey: key, at };
 			if (duplicateKeys === 'first') continue;
 		}
 		kept.set(key, value);
@@ -692,5 +704,6 @@ export {
 	splitEntryPair,
 	splitLines,
 	splitManyText,
+	stripTerminator,
 	validateDefault,
 };

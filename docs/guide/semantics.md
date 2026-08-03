@@ -133,10 +133,29 @@ and accepts `\n`, `\r\n`, and `\r`: `'a\nb\n'` gives `['a', 'b']` and
   `{ A: 'b=c' }`. A segment with no `=`, or an empty key, fails: `INVALID_VALUE`
   on a CLI token, `TYPE_MISMATCH` from every other source.
 - Entries fold under `.duplicateKeys()`: `'last'` (the default), `'first'`, or
-  `'error'`, which reports `CONSTRAINT_VIOLATED` naming the key. The policy
-  applies to every source, not only to repeated CLI occurrences.
+  `'error'`, which reports `CONSTRAINT_VIOLATED` naming the key and the source
+  that carried it. The policy applies to every source, not only to repeated CLI
+  occurrences.
 - A count reads an explicit value (`--verbose=2`, env, config) as the count
   itself, and must be a non-negative integer.
+
+Under `'error'`, each occurrence keeps its own source through aggregation, so a
+collection filled from both the command line and a pipe names whichever one
+carried the repeat. Tokens the user typed name no source:
+
+```bash
+$ mycli set --v A=1 --v A=2
+Duplicate key 'A' for flag --v
+
+$ printf 'A=2\n' | mycli set --v A=1 --v -
+Duplicate key 'A' from stdin for flag --v
+
+$ VARS='A=1,A=2' mycli set
+Duplicate key 'A' from env VARS for flag --env
+```
+
+The argument surface words it the same way, with `for argument <vars>` in place
+of `for flag --v`.
 
 ## Resolution Precedence
 
@@ -213,8 +232,9 @@ Outcomes:
 
 ### Stdin
 
-An input reads stdin only when it declares `.stdin()`. The binding has two
-axes, `when` and `consume`, defaulting to `dash-or-missing` and `exclusive`.
+An input reads stdin only when it declares `.stdin()`. The binding has three
+axes, `when`, `consume`, and `trim`, defaulting to `dash-or-missing`,
+`exclusive`, and `false`.
 
 | `when`              | `-` typed            | Input omitted        |
 | ------------------- | -------------------- | -------------------- |
@@ -226,7 +246,8 @@ A `-` that selects stdin resolves on the `cli` stage, so it outranks every later
 source. An omitted input reads stdin only for `when: 'missing'` or
 `when: 'dash-or-missing'`. With `when: 'dash'`, omission falls through to env,
 config, prompt, and default. When nothing is piped, every stdin form produces no
-value and the walk continues.
+value and the walk continues, except for a `-` typed beside other occurrences of
+a collection, which fails instead.
 
 The stream is read at most once per invocation, and only when a declared binding
 would fire. Declaring a second exclusive stdin input on one command, flag or
@@ -235,17 +256,22 @@ command that passes `{ consume: 'broadcast' }` receives the same buffer.
 
 For a scalar input, the whole buffer becomes the value. A `string` input keeps
 it byte for byte; every other scalar kind drops one trailing `\n`, `\r\n`, or
-`\r` before decoding, and then accepts exactly what an env value accepts. There
-is no option for this: the rule follows the codec, because a `string` is the one
-kind whose value is the text itself.
+`\r` before decoding, and then accepts exactly what an env value accepts. The
+rule follows the codec, because a `string` is the one kind whose value is the
+text itself. `{ trim: true }` drops that one terminator for a `string` too, and
+is what a piped path wants before a `mustExist` check runs.
 
 For a collection, the buffer decodes into elements under the input's stdin
 policy, `'lines'` by default. A `-` occurrence stands for the whole stdin source
-at the position it holds, and the decoded elements are spliced in there:
+at the position it holds, and the decoded elements are spliced in there. A
+variadic argument reads its tail the same way:
 
 ```bash
 $ printf 'a\nb\n' | mycli send --tag before --tag - --tag after
 # flags.tag === ['before', 'a', 'b', 'after']
+
+$ printf 'a\nb\n' | mycli build x - y
+# args.files === ['x', 'a', 'b', 'y']
 ```
 
 Splicing rules:
@@ -255,11 +281,21 @@ Splicing rules:
 - Entries splice into the same occurrence order and then fold under
   `.duplicateKeys()`, so a piped key can be overridden by a later CLI one.
 - Two `-` occurrences splice the buffer twice. The buffer is read once and each
-  occurrence stands for all of it.
+  occurrence stands for all of it, so `--tag - --tag -` over `'a\n'` resolves to
+  `['a', 'a']` and `mycli build - -` over `'x\n'` to `['x', 'x']`.
 - When every occurrence is `-` and nothing was piped, the input produces no CLI
   value, so env, config, prompt, and the default stay reachable.
+- A `-` typed beside other occurrences with nothing piped fails with
+  `REQUIRED_FLAG` or `REQUIRED_ARG`, rather than dropping the occurrence and
+  silently shortening the collection.
+- A scalar `-` with nothing piped falls through instead. It is the whole value,
+  so dropping it loses nothing, and env, config, prompt, and the default stay
+  reachable. Only a collection can be shortened, so only a collection errors.
 - An input that declares no stdin binding treats `-` as an ordinary element and
-  never reads the stream.
+  never reads the stream. An input that does declare one can never receive a
+  literal `-` as a value, on either surface: the token names the source before
+  anything reads it as text. `{ when: 'missing' }` is the one binding that
+  leaves a typed `-` literal.
 
 ## Non-Interactive Behavior
 

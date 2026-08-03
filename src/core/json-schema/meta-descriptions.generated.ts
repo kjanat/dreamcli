@@ -159,6 +159,9 @@ const definitionMetaSchemaDescriptions = {
 				consume: {
 					description: 'Whether this input consumes the stream alone.',
 				},
+				trim: {
+					description: 'Whether one trailing line terminator is dropped from a single value.',
+				},
 			},
 		},
 		negation: {

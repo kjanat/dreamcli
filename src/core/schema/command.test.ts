@@ -253,9 +253,35 @@ describe('.arg()', () => {
 		}
 	});
 
-	it('rejects stdin then variadic args at build time', () => {
+	it('accepts a variadic stdin arg in either chain order', () => {
+		for (const builder of [arg.string().stdin().variadic(), arg.string().variadic().stdin()]) {
+			const entry = command('copy').arg('files', builder).schema.args[0];
+			expect(entry?.schema.variadic).toBe(true);
+			expect(entry?.schema.stdin).toEqual({
+				when: 'dash-or-missing',
+				consume: 'exclusive',
+				trim: false,
+			});
+		}
+	});
+
+	it('rejects a positional declared after a variadic one', () => {
 		try {
-			command('copy').arg('files', arg.string().stdin().variadic());
+			command('copy').arg('files', arg.string().variadic()).arg('target', arg.string());
+			expect.unreachable('should have thrown');
+		} catch (error) {
+			expect(error).toBeInstanceOf(CLIError);
+			if (error instanceof CLIError) {
+				expect(error.code).toBe('INVALID_BUILDER_STATE');
+				expect(error.message).toContain('comes after variadic argument <files>');
+				expect(error.details).toMatchObject({ arg: 'target', variadicArg: 'files' });
+			}
+		}
+	});
+
+	it('rejects a second variadic arg on one command', () => {
+		try {
+			command('copy').arg('files', arg.string().variadic()).arg('more', arg.string().variadic());
 			expect.unreachable('should have thrown');
 		} catch (error) {
 			expect(error).toBeInstanceOf(CLIError);
@@ -265,16 +291,11 @@ describe('.arg()', () => {
 		}
 	});
 
-	it('rejects variadic then stdin args at build time', () => {
-		try {
-			command('copy').arg('files', arg.string().variadic().stdin());
-			expect.unreachable('should have thrown');
-		} catch (error) {
-			expect(error).toBeInstanceOf(CLIError);
-			if (error instanceof CLIError) {
-				expect(error.code).toBe('INVALID_BUILDER_STATE');
-			}
-		}
+	it('accepts a variadic keyValue arg as the last positional', () => {
+		const schema = command('run')
+			.arg('target', arg.string())
+			.arg('vars', arg.keyValue().variadic()).schema;
+		expect(schema.args.map((entry) => entry.name)).toEqual(['target', 'vars']);
 	});
 });
 
@@ -1239,11 +1260,38 @@ describe('CommandBuilder.arg() prototype keys', () => {
 // === Arg invariants shared by both construction paths
 
 describe('createCommandSchema() arg invariants', () => {
-	it('rejects one arg that is both variadic and stdin-backed', () => {
+	it('accepts one arg that is both variadic and stdin-backed', () => {
+		const schema = createCommandSchema({
+			name: 'run',
+			args: [{ name: 'input', schema: { kind: 'string', variadic: true, stdin: {} } }],
+		});
+		expect(schema.args[0]?.schema.stdin).toEqual({
+			when: 'dash-or-missing',
+			consume: 'exclusive',
+			trim: false,
+		});
+	});
+
+	it('rejects a positional declared after a variadic one', () => {
 		const build = () =>
 			createCommandSchema({
 				name: 'run',
-				args: [{ name: 'input', schema: { kind: 'string', variadic: true, stdin: {} } }],
+				args: [
+					{ name: 'files', schema: { kind: 'string', variadic: true } },
+					{ name: 'target', schema: { kind: 'string' } },
+				],
+			});
+		expect(schemaErrorCode(build)).toBe('INVALID_BUILDER_STATE');
+	});
+
+	it('rejects two variadic args on one command', () => {
+		const build = () =>
+			createCommandSchema({
+				name: 'run',
+				args: [
+					{ name: 'files', schema: { kind: 'string', variadic: true } },
+					{ name: 'more', schema: { kind: 'string', variadic: true } },
+				],
 			});
 		expect(schemaErrorCode(build)).toBe('INVALID_BUILDER_STATE');
 	});
@@ -1315,14 +1363,17 @@ describe('createCommandSchema() arg error details', () => {
 		expect(thrown.details).toEqual({ command: 'up', arg: 'second', existingArg: 'first' });
 	});
 
-	it('names the command a nested variadic stdin arg was declared on', () => {
+	it('names the command a nested misplaced positional was declared on', () => {
 		const thrown = schemaError(() =>
 			createCommandSchema({
 				name: 'db',
 				commands: [
 					{
 						name: 'migrate',
-						args: [{ name: 'input', schema: { kind: 'string', stdin: {}, variadic: true } }],
+						args: [
+							{ name: 'files', schema: { kind: 'string', variadic: true } },
+							{ name: 'target', schema: { kind: 'string' } },
+						],
 					},
 				],
 			}),
@@ -1331,9 +1382,8 @@ describe('createCommandSchema() arg error details', () => {
 		expect(thrown.code).toBe('INVALID_BUILDER_STATE');
 		expect(thrown.details).toEqual({
 			command: 'migrate',
-			arg: 'input',
-			stdin: { when: 'dash-or-missing', consume: 'exclusive' },
-			variadic: true,
+			arg: 'target',
+			variadicArg: 'files',
 		});
 	});
 

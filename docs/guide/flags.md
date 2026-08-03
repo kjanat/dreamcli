@@ -267,7 +267,16 @@ $ printf 'a\nb\n' | mycli send --tag - --tag z
 $ mycli send --tag -
 # nothing piped: the flag produces no CLI value and env, config, prompt,
 # and the default stay reachable, so an undeclared source leaves []
+
+$ mycli send --tag a --tag -
+# nothing piped beside a typed occurrence:
+# No piped stdin for the '-' occurrence of flag --tag
 ```
+
+A `-` the user typed beside other occurrences fails when nothing was piped,
+rather than shortening the collection behind their back. Occurrences of nothing
+but `-` are the whole value, so they fall through to the later sources the way
+an absent flag does.
 
 A flag that declares no stdin binding treats `-` as an ordinary element, and the
 stream is never read:
@@ -280,7 +289,12 @@ $ printf 'piped' | mycli send --tag - --tag x   # flag.array(flag.string())
 An explicit `-` and the implicit fallback decode identically. A spliced read is
 CLI-sourced, so it still outranks env, config, prompt, and the default. Two `-`
 occurrences splice the buffer twice, since the whole buffer is what each one
-stands for.
+stands for: `--tag - --tag -` over `'a\n'` resolves to `['a', 'a']`.
+
+A stdin-enabled input never receives a literal `-` as a value, on either
+surface. The token names the source before anything reads it as text, so a
+program that must accept `-` as data either drops the binding or declares
+`{ when: 'missing' }`, which leaves `-` literal.
 
 Broadcast consumers each decode the one shared buffer under their own binding,
 so a line-split array flag and a JSON key-value flag can read the same pipe:
@@ -321,9 +335,11 @@ flag.keyValue().duplicateKeys('first').alias('e').env('VARS');
 // VARS='A=1,A=2'     →  { A: '1' }
 ```
 
-Under `'error'`, the message names the key and the source that carried it, as in
-`Duplicate key 'A' from env VARS for flag --env`. A JSON object cannot repeat a
-key, so the policy has nothing to decide for `.split({ env: 'json' })`.
+Under `'error'`, the message names the key and the source that carried it:
+`Duplicate key 'A' from env VARS for flag --env` for the environment, and
+`Duplicate key 'A' for flag --v` for occurrences the user typed, which name no
+source. A key spliced in from a pipe reads `from stdin`. A JSON object cannot
+repeat a key, so the policy has nothing to decide for `.split({ env: 'json' })`.
 
 ### Custom
 
@@ -379,9 +395,10 @@ In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
 function via run options to enable the checks (plus `mkdir` for `create`);
 without them the checks are skipped and nothing is created.
 
-`flag.path()` trims one trailing line terminator from a value read from stdin,
-so `echo ./docs | mycli` reaches a `mustExist` check as `'./docs'`. A free-form
-`flag.string()` still preserves the stdin buffer byte for byte.
+`flag.path()` resolves as a `string`, so a value read from stdin keeps the
+buffer byte for byte, trailing line terminator included. `echo ./docs | mycli`
+reaches a `mustExist` check as `'./docs\n'` and fails. `.stdin({ trim: true })`
+drops that terminator, and `printf './docs'` works too.
 
 ### Date
 
@@ -720,10 +737,10 @@ Resolution order:
 
 `.stdin()` lets a flag read its value from piped stdin. It is available on every
 kind but `count`, which counts occurrences rather than reading a value:
-`flag.count().stdin()` does not compile, and the equivalent definition object
-throws `INVALID_SCHEMA`. A scalar takes the whole buffer; a collection decodes
-it into elements, one per line by default, and splices them where a `-`
-occurrence sits, which [Collections](#collections) covers in full.
+`flag.count().stdin()` does not compile, and both the builder and the equivalent
+definition object throw `INVALID_SCHEMA`. A scalar takes the whole buffer; a
+collection decodes it into elements, one per line by default, and splices them
+where a `-` occurrence sits, which [Collections](#collections) covers in full.
 
 ```ts twoslash
 import { command, flag } from '@kjanat/dreamcli';
@@ -746,16 +763,23 @@ The stdin stage sits ahead of env, so a flag set in the environment still reads 
 pipe and the pipe wins. Passing the sentinel `-` selects stdin too, but keeps CLI
 precedence: the bytes come from the pipe and every later stage stays out of the
 way. When nothing was piped, both forms fall through to env, config, prompt, and
-the default.
+the default. A scalar `-` is the whole value, so dropping it loses nothing. That
+is where a scalar and a collection part: `--tag a --tag -` with nothing piped
+fails, because dropping the occurrence would shorten the list.
 
 The whole buffer becomes the value. A string flag keeps it byte for byte, so
 `echo hi | mycli` gives `'hi\n'`; every other kind drops the single line
 terminator a pipe appends before decoding, so `echo true` reaches
 `flag.boolean()` as `true`.
 
+`{ trim: true }` drops that terminator for a string flag too, so
+`echo ./dist | mycli clean --path -` reaches a `mustExist` check as `'./dist'`.
+It applies to a single value; a collection's terminators separate its elements
+and `.split({ stdin })` decides them.
+
 ### Choosing when stdin is read
 
-`.stdin()` takes `{ when, consume }`:
+`.stdin()` takes `{ when, consume, trim }`:
 
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
@@ -764,6 +788,7 @@ flag.string().stdin(); // '-' or an absent flag reads stdin
 flag.string().stdin({ when: 'dash' }); // only an explicit '-'
 flag.string().stdin({ when: 'missing' }); // only an absent flag; '-' stays literal
 flag.string().stdin({ consume: 'broadcast' }); // shares the buffer with other inputs
+flag.string().stdin({ trim: true }); // drops one trailing terminator
 ```
 
 Stdin is read at most once per invocation, and only when one of these bindings
@@ -865,6 +890,19 @@ command('convert')
   .flag('body', flag.string().stdin({ consume: 'broadcast' }))
   .arg('input', arg.string().stdin({ consume: 'broadcast' }));
 // echo shared | mycli convert → flags.body === 'shared\n', args.input === 'shared\n'
+```
+
+`flag.count()` is the one kind that cannot read stdin, since it counts
+occurrences rather than reading a value. The builder method is refused by the
+compiler, and both it and the definition object throw the same error:
+
+```ts
+createFlagSchema('count', { stdin: {} });
+```
+
+```
+Flag schema field 'stdin' is not available on kind 'count'
+Suggestion: Drop 'stdin' or declare the flag as one of: string, number, boolean, enum, custom, array, keyValue
 ```
 
 ## Required vs Optional

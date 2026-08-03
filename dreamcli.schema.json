@@ -315,11 +315,16 @@
             "broadcast"
           ],
           "description": "Whether this input consumes the stream alone."
+        },
+        "trim": {
+          "type": "boolean",
+          "description": "Whether one trailing line terminator is dropped from a single value."
         }
       },
       "required": [
         "when",
-        "consume"
+        "consume",
+        "trim"
       ],
       "description": "The normalized stdin axis of a flag or an arg."
     },

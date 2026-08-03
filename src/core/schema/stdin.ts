@@ -1,10 +1,10 @@
 /**
  * The stdin binding shared by the `flag` and `arg` factories.
  *
- * A {@link StdinBinding} says when an input reads the stdin stream and whether
- * it consumes the stream alone. Both factories store one of these under their
- * `stdin` field, and the parse, preflight, and resolve pipelines read the stdin
- * axis through it.
+ * A {@link StdinBinding} says when an input reads the stdin stream, whether it
+ * consumes the stream alone, and whether a single value drops the terminator a
+ * pipe appends. Both factories store one of these under their `stdin` field, and
+ * the parse, preflight, and resolve pipelines read the stdin axis through it.
  *
  * @module dreamcli/core/schema/stdin
  */
@@ -44,6 +44,8 @@ interface StdinBinding {
 	readonly when: StdinWhen;
 	/** Whether this input consumes the stream alone. */
 	readonly consume: StdinConsume;
+	/** Whether one trailing line terminator is dropped from a single value. */
+	readonly trim: boolean;
 }
 
 /** Stdin settings accepted by `.stdin()` and by the schema definitions. */
@@ -58,10 +60,22 @@ interface StdinOptions {
 	 * @defaultValue `'exclusive'`
 	 */
 	readonly consume?: StdinConsume | undefined;
+	/**
+	 * Drop one trailing `\n`, `\r\n`, or `\r` from a single value read off the
+	 * stream, so `echo ./dir | mycli` delivers `'./dir'`. A string is the one
+	 * kind that still carries the terminator at that point; every other kind
+	 * drops it while decoding and is unaffected.
+	 * @defaultValue `false`
+	 */
+	readonly trim?: boolean | undefined;
 }
 
 /** The binding `.stdin()` produces when called without options. */
-const DEFAULT_STDIN_BINDING: StdinBinding = { when: 'dash-or-missing', consume: 'exclusive' };
+const DEFAULT_STDIN_BINDING: StdinBinding = {
+	when: 'dash-or-missing',
+	consume: 'exclusive',
+	trim: false,
+};
 
 /**
  * Reject stdin settings that name a mode outside the declared unions.
@@ -84,6 +98,13 @@ function assertStdinOptions(options: StdinOptions): void {
 			suggest: `Use one of: ${STDIN_CONSUMES.join(', ')}`,
 		});
 	}
+	if (options.trim !== undefined && typeof options.trim !== 'boolean') {
+		throw new CLIError(`Stdin trim must be a boolean, received '${String(options.trim)}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { trim: options.trim },
+			suggest: 'Pass trim: true or trim: false',
+		});
+	}
 }
 
 /**
@@ -99,26 +120,27 @@ function normalizeStdinBinding(options?: StdinOptions): StdinBinding {
 	return {
 		when: options.when ?? DEFAULT_STDIN_BINDING.when,
 		consume: options.consume ?? DEFAULT_STDIN_BINDING.consume,
+		trim: options.trim ?? DEFAULT_STDIN_BINDING.trim,
 	};
 }
 
 /**
  * Whether an explicit `-` selects stdin for this binding.
  *
- * @param binding - The stdin axis to read.
+ * @param binding - Anything carrying the stdin trigger.
  * @returns `true` for `'dash'` and `'dash-or-missing'`.
  */
-function stdinReadsOnDash(binding: StdinBinding): boolean {
+function stdinReadsOnDash(binding: Pick<StdinBinding, 'when'>): boolean {
 	return binding.when === 'dash' || binding.when === 'dash-or-missing';
 }
 
 /**
  * Whether an absent CLI value selects stdin for this binding.
  *
- * @param binding - The stdin axis to read.
+ * @param binding - Anything carrying the stdin trigger.
  * @returns `true` for `'missing'` and `'dash-or-missing'`.
  */
-function stdinReadsWhenMissing(binding: StdinBinding): boolean {
+function stdinReadsWhenMissing(binding: Pick<StdinBinding, 'when'>): boolean {
 	return binding.when === 'missing' || binding.when === 'dash-or-missing';
 }
 

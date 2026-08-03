@@ -714,8 +714,8 @@ function assertUsableArgKey(commandName: string, name: string): void {
  * @throws {@link CLIError} `INVALID_SCHEMA` when a name at any depth is empty
  *   or contains whitespace, a flag or arg is named `__proto__` at any depth,
  *   or a flag record at any depth has a replaced prototype.
- * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_INPUT`
- *   when an input breaks the stdin/variadic invariants.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_INPUT` when
+ *   an input breaks the positional-order or stdin invariants.
  *
  * @internal
  */
@@ -792,9 +792,9 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  *   command share a spelling.
  * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a flag shadows
  *   a spelling propagated from an ancestor command.
- * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when an arg is both
- *   variadic and stdin-backed, or `'DUPLICATE_STDIN_INPUT'` when two inputs on
- *   one command consume stdin and either is exclusive.
+ * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when a positional comes
+ *   after a variadic one, or `'DUPLICATE_STDIN_INPUT'` when two inputs on one
+ *   command consume stdin and either is exclusive.
  *
  * @example
  * ```ts
@@ -823,10 +823,8 @@ function createCommandSchema(definition: CommandDefinition): CommandSchema {
  * @param args - Already-registered arg entries on this command.
  *
  * @throws {@link CLIError} `INVALID_SCHEMA` if the name is `__proto__`.
- * @throws {@link CLIError} `INVALID_BUILDER_STATE` if both `.stdin()` and
- *   `.variadic()` are set.
- * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` if another input already
- *   consumes stdin exclusively.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` if an earlier arg is variadic.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` if another input already consumes stdin exclusively.
  *
  * @internal
  */
@@ -838,15 +836,39 @@ function validateArgEntry(
 	args: readonly CommandArgEntry[],
 ): void {
 	assertUsableArgKey(commandName, name);
-	if (schema.stdin !== undefined && schema.variadic) {
-		throw new CLIError(`Argument <${name}> cannot be both variadic and stdin-backed`, {
-			code: 'INVALID_BUILDER_STATE',
-			details: { command: commandName, arg: name, stdin: { ...schema.stdin }, variadic: true },
-			suggest: 'Remove .stdin() or .variadic() from this argument',
-		});
-	}
-
+	assertVariadicIsLast(commandName, name, args);
 	assertStdinExclusivity(commandName, { kind: 'arg', name, stdin: schema.stdin }, flags, args);
+}
+
+/**
+ * Reject a positional declared after one that consumes the whole tail.
+ *
+ * A variadic arg takes every remaining positional, so anything registered after
+ * it can never be filled, and a second variadic arg has nothing left to collect.
+ *
+ * @param commandName - Command the arg was declared on.
+ * @param name - Arg name being registered.
+ * @param args - Already-registered arg entries on this command.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` when an earlier arg is variadic.
+ *
+ * @internal
+ */
+function assertVariadicIsLast(
+	commandName: string,
+	name: string,
+	args: readonly CommandArgEntry[],
+): void {
+	const greedy = args.find((entry) => entry.schema.variadic);
+	if (greedy === undefined) return;
+
+	throw new CLIError(
+		`Argument <${name}> comes after variadic argument <${greedy.name}>, which consumes every remaining positional`,
+		{
+			code: 'INVALID_BUILDER_STATE',
+			details: { command: commandName, arg: name, variadicArg: greedy.name },
+			suggest: `Declare <${name}> before <${greedy.name}>, or drop .variadic() from <${greedy.name}>`,
+		},
+	);
 }
 
 /**
@@ -1688,8 +1710,8 @@ class CommandBuilder<
 	 * @returns The builder (for chaining).
 	 * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`,
 	 *   which a plain record cannot carry.
-	 * @throws {@link CLIError} `INVALID_BUILDER_STATE` when the arg is both
-	 *   variadic and stdin-backed.
+	 * @throws {@link CLIError} `INVALID_BUILDER_STATE` when an earlier arg on this
+	 *   command is variadic, so this one could never be filled.
 	 * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` when another input on this
 	 *   command already consumes stdin exclusively.
 	 */

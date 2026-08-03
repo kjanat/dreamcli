@@ -106,24 +106,41 @@ Symptom:
 
 Cause:
 
-- there is no trim option. A `string` input keeps the stdin buffer byte for byte
-  because the text *is* the value, and truncating it would discard data the
-  caller may have meant.
-- every other scalar kind, including `path`, interprets the text and drops one
-  trailing `\n`, `\r\n`, or `\r` before decoding. `echo ./docs` reaches
-  `flag.path()` as `./docs`, and `echo 42` reaches `flag.number()` as `42`.
+- a `string` input keeps the stdin buffer byte for byte by default, because for
+  a string the text *is* the value, and truncating it would discard data the
+  caller may have meant. `flag.path()` and `arg.path()` resolve as strings, so
+  they keep it too.
+- every other scalar kind interprets the text rather than keeping it, so it
+  drops one trailing `\n`, `\r\n`, or `\r` before decoding. `echo 42` reaches
+  `flag.number()` as `42`, and `echo 30s` reaches `flag.duration()` as `30s`.
 
 Check:
 
-- the input's kind. Only `string` keeps the terminator.
+- whether the binding passed `{ trim: true }`;
+- the input's kind. Only `string` and the path kinds carry the terminator this
+  far, so `trim` changes nothing on the others.
 - whether the producer appends a newline. `echo` does; `printf` without `\n`
   does not.
 
 Fix:
 
-- emit the string without a terminator, for example `printf '%s' 'value' | mycli`;
+- declare `.stdin({ trim: true })`, which drops one trailing `\n`, `\r\n`, or
+  `\r` from a single value before any check runs;
+- or emit the value without a terminator, for example `printf '%s' './docs' | mycli`;
 - or declare the input as a collection, where line splitting treats a final
   terminator as framing and drops it.
+
+```ts
+arg.path({ mustExist: true }).stdin({ trim: true });
+```
+
+```bash
+$ echo ./docs | mycli check
+# the mustExist check runs against './docs'
+```
+
+`trim` applies to a single value. A collection's terminators separate its
+elements, so `.split({ stdin })` decides those and `trim` has nothing to do.
 
 References: [CLI Semantics](/guide/semantics), [Flags](/guide/flags#path),
 [Arguments](/guide/arguments#path)
@@ -132,8 +149,8 @@ References: [CLI Semantics](/guide/semantics), [Flags](/guide/flags#path),
 
 Symptom:
 
-- a `-` occurrence on an array or key-value input produces nothing, or produces
-  more elements than the pipe carried;
+- a `-` occurrence on an array, key-value, or variadic input produces nothing,
+  or produces more elements than the pipe carried;
 - the pipe's elements land in the wrong position in the resolved list.
 
 Cause:
@@ -164,6 +181,156 @@ Fix:
 
 References: [Collections](/guide/flags#collections),
 [CLI Semantics](/guide/semantics)
+
+## A `-` Occurrence Fails With Nothing Piped
+
+Symptom:
+
+- a command that mixes typed values with a `-` exits 2 before the action runs:
+
+```
+No piped stdin for the '-' occurrence of flag --tag
+Suggestion: Pipe a value to stdin, or drop the '-' occurrence of --tag
+```
+
+```
+No piped stdin for the '-' occurrence of argument <files>
+Suggestion: Pipe a value to stdin, or drop the '-' from <files>
+```
+
+Cause:
+
+- a `-` among other occurrences is one element of the collection, and nothing
+  was piped for it to stand for. Resolution fails with `REQUIRED_FLAG` or
+  `REQUIRED_ARG` rather than shortening the collection behind the caller's back.
+- occurrences of nothing but `-` behave differently: they are the whole value,
+  so with nothing piped they fall through to env, config, prompt, and the
+  default, the way an absent input does.
+- a scalar `-` behaves that way too. It is the whole value, so dropping it
+  loses nothing and resolution falls through.
+
+Check:
+
+- whether the producer feeding the pipe actually wrote anything;
+- whether the invocation is a shell that opened no pipe at all;
+- whether the typed occurrences beside the `-` were meant to be there.
+
+Fix:
+
+- pipe a value to stdin;
+- or drop the `-` and let the remaining occurrences stand alone;
+- or declare `{ when: 'missing' }`, which leaves a typed `-` as the literal
+  string and reads the stream only when the input is absent.
+
+References: [Collections](/guide/flags#collections),
+[CLI Semantics](/guide/semantics#stdin)
+
+## A Stdin Input Will Not Accept `-` As A Value
+
+Symptom:
+
+- an input that reads stdin can never hold the one-character string `-`; the
+  token reads the stream, or fails because nothing was piped.
+
+Cause:
+
+- the token names the source before anything reads it as text, so on a
+  stdin-enabled input `-` is never data. This holds on both surfaces and for
+  both the scalar and the collection shapes.
+
+Check:
+
+- whether the value the caller wants really is a bare `-`, rather than a path
+  or a name that begins with one;
+- which `when` the binding declares.
+
+Fix:
+
+- declare `{ when: 'missing' }`, which reads the stream only for an absent
+  input and leaves a typed `-` literal;
+- or drop `.stdin()` from that input and read the stream on a different one;
+- or pass the value through `.env()`, `.config()`, or a config file.
+
+There is no escape syntax for a stdin-enabled input. `--` ends flag parsing, so
+it does not make a following `-` literal either.
+
+References: [Flags](/guide/flags#stdin-backed-flags),
+[Arguments](/guide/arguments#stdin-backed-arguments),
+[CLI Semantics](/guide/semantics#stdin)
+
+## An Argument Declared After A Variadic One Throws
+
+Symptom:
+
+- building the command throws before any argv is read:
+
+```
+Argument <target> comes after variadic argument <files>, which consumes every remaining positional
+Suggestion: Declare <target> before <files>, or drop .variadic() from <files>
+```
+
+Cause:
+
+- a variadic argument takes every remaining positional token, so anything
+  registered behind it could never be filled, and a second variadic one would
+  have nothing left to collect.
+
+Check:
+
+- the order of the `.arg()` calls, or of the `args` entries in a definition;
+- `details`, which carries the command in `command`, the argument that could
+  never fill in `arg`, and the greedy one in `variadicArg`.
+
+Fix:
+
+- move the variadic argument last;
+- or drop `.variadic()` from the earlier one.
+
+The code is `INVALID_BUILDER_STATE` on both construction paths, and a definition
+tree reports the nested command that declared the pair.
+
+References: [Variadic Arguments](/guide/arguments#variadic-arguments),
+[Upgrading to 4.0](/guide/upgrading-v4)
+
+## A Collection Modifier Throws On An Argument
+
+Symptom:
+
+- `.separator()`, `.split()`, `.unique()`, or `.duplicateKeys()` is refused by
+  the compiler, or a definition throws `INVALID_SCHEMA`:
+
+```
+Arg schema field 'separator' requires a collection, received a non-variadic 'string' arg
+Suggestion: Add 'variadic: true', declare the arg as kind 'keyValue', or drop 'separator'
+```
+
+```
+Arg schema field 'unique' requires a variadic arg of a list kind
+Suggestion: Add 'variadic: true' on a list kind, or drop 'unique'
+```
+
+Cause:
+
+- these four are collection modifiers, and an argument that aggregates nothing
+  has no elements to split, dedupe, or fold. Each states the shape it needs:
+  `.separator()` and `.split()` want a variadic argument or `arg.keyValue()`,
+  `.unique()` a variadic argument of a list kind, and `.duplicateKeys()`
+  `arg.keyValue()`.
+
+Check:
+
+- whether `.variadic()` sits ahead of the modifier in the chain;
+- for `.unique()`, that the kind is a list rather than `arg.keyValue()`, which
+  folds repeated keys through `.duplicateKeys()` instead.
+
+Fix:
+
+- add `.variadic()` before the modifier;
+- or declare the argument as `arg.keyValue()`;
+- or drop the call, which changed nothing on a single-value argument anyway.
+
+References: [Collections](/guide/arguments#collections),
+[Upgrading to 4.0](/guide/upgrading-v4)
 
 ## Two Inputs Both Want Stdin
 

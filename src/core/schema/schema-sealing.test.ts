@@ -396,16 +396,7 @@ describe('schema sealing', () => {
 			).toBe('INVALID_SCHEMA');
 		});
 
-		it('validates stdin invariants in command definitions', () => {
-			expect(
-				schemaErrorCode(() =>
-					createCommandSchema({
-						name: 'copy',
-						args: [{ name: 'input', schema: { kind: 'string', stdin: {}, variadic: true } }],
-					}),
-				),
-			).toBe('INVALID_BUILDER_STATE');
-
+		it('validates stdin and positional invariants in command definitions', () => {
 			expect(
 				schemaErrorCode(() =>
 					createCommandSchema({
@@ -417,6 +408,18 @@ describe('schema sealing', () => {
 					}),
 				),
 			).toBe('DUPLICATE_STDIN_INPUT');
+
+			expect(
+				schemaErrorCode(() =>
+					createCommandSchema({
+						name: 'copy',
+						args: [
+							{ name: 'files', schema: { kind: 'string', variadic: true } },
+							{ name: 'target', schema: { kind: 'string' } },
+						],
+					}),
+				),
+			).toBe('INVALID_BUILDER_STATE');
 		});
 
 		it('validates flag collisions across command definition trees', () => {

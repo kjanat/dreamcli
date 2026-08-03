@@ -641,9 +641,9 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
  *   command share a spelling, at any depth of the command tree.
  * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a command flag
  *   shadows a spelling propagated from an ancestor command.
- * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when one arg is both
- *   variadic and stdin-backed, or `'DUPLICATE_STDIN_INPUT'` when two inputs on
- *   one command consume stdin and either is exclusive.
+ * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when a positional comes
+ *   after a variadic one, or `'DUPLICATE_STDIN_INPUT'` when two inputs on one
+ *   command consume stdin and either is exclusive.
  * @throws {CLIError} With code `'RESERVED_FLAG'` when a command spells a flag
  *   the same way as a root-owned flag (`--json`, `--quiet`/`-q`, `--help`/`-h`,
  *   `--version`/`-V` once `version` is set, and `--completions` once

@@ -216,14 +216,18 @@ describe('.variadic()', () => {
 });
 
 describe('.stdin()', () => {
-	it('binds stdin to dash-or-missing exclusive by default', () => {
+	it('binds stdin to dash-or-missing exclusive untrimmed by default', () => {
 		const a = arg.string().stdin();
-		expect(a.schema.stdin).toEqual({ when: 'dash-or-missing', consume: 'exclusive' });
+		expect(a.schema.stdin).toEqual({
+			when: 'dash-or-missing',
+			consume: 'exclusive',
+			trim: false,
+		});
 	});
 
-	it('carries an explicit trigger and consumption mode', () => {
-		const a = arg.string().stdin({ when: 'dash', consume: 'broadcast' });
-		expect(a.schema.stdin).toEqual({ when: 'dash', consume: 'broadcast' });
+	it('carries an explicit trigger, consumption mode, and trimming', () => {
+		const a = arg.string().stdin({ when: 'dash', consume: 'broadcast', trim: true });
+		expect(a.schema.stdin).toEqual({ when: 'dash', consume: 'broadcast', trim: true });
 	});
 
 	it('preserves type inference', () => {
@@ -235,7 +239,11 @@ describe('.stdin()', () => {
 		const base = arg.string();
 		const stdinArg = base.stdin();
 		expect(base.schema.stdin).toBeUndefined();
-		expect(stdinArg.schema.stdin).toEqual({ when: 'dash-or-missing', consume: 'exclusive' });
+		expect(stdinArg.schema.stdin).toEqual({
+			when: 'dash-or-missing',
+			consume: 'exclusive',
+			trim: false,
+		});
 	});
 });
 

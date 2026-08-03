@@ -12,7 +12,7 @@ import { argCardinality, dedupe } from '#internals/core/schema/cardinality.ts';
 import type { ArgSchema, CommandArgEntry } from '#internals/core/schema/index.ts';
 import type { PromptConfig } from '#internals/core/schema/prompt.ts';
 import type { SourceBinding } from '#internals/core/schema/source.ts';
-import { sourceBindings } from '#internals/core/schema/source.ts';
+import { argCollectedNothing, sourceBindings } from '#internals/core/schema/source.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceArgValue, finishCliArgValue } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
@@ -167,13 +167,11 @@ function stageInput(
 	// inherited method as a supplied positional.
 	const present = Object.hasOwn(parsedArgs, name);
 	const parsedValue = present ? parsedArgs[name] : undefined;
-	// A variadic arg that collected nothing is an absent positional, not an
-	// empty CLI value, so the later stages stay reachable.
-	const collectedNothing =
-		schema.variadic && Array.isArray(parsedValue) && parsedValue.length === 0;
 
 	return {
-		cli: collectedNothing ? { kind: 'absent' } : readCliValue(present, parsedValue, bindings),
+		cli: argCollectedNothing(schema, parsedValue)
+			? { kind: 'absent' }
+			: readCliValue(present, parsedValue, bindings),
 		coerce: (source, raw) => coerceArgValue(name, source, raw, schema),
 		finishCli: (value, stdinData) => finishCliArgValue(name, schema, value, stdinData),
 		runPrompt: async (config) =>
