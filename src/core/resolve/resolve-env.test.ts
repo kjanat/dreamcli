@@ -160,8 +160,8 @@ describe('resolve', () => {
 					expect(err.code).toBe('TYPE_MISMATCH');
 					expect(err.details).toEqual({
 						flag: 'port',
+						source: 'env',
 						envVar: 'PORT',
-						value: 'abc',
 						expected: 'number',
 					});
 					expect(err.suggest).toBe('Set PORT to a valid number');
@@ -268,8 +268,8 @@ describe('resolve', () => {
 					expect(err.code).toBe('INVALID_ENUM');
 					expect(err.details).toEqual({
 						flag: 'region',
+						source: 'env',
 						envVar: 'REGION',
-						value: 'jp',
 						allowed: ['us', 'eu', 'ap'],
 					});
 					expect(err.suggest).toBe('Set REGION to one of: us, eu, ap');

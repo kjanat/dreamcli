@@ -13,6 +13,7 @@ import {
 	dedupe,
 	flagCardinality,
 	foldEntries,
+	splitBindingOf,
 	splitEntriesText,
 	splitLines,
 	splitManyText,
@@ -169,7 +170,7 @@ describe('flagCardinality()', () => {
 		expect(flagCardinality(createFlagSchema('count')).kind).toBe('count');
 	});
 
-	it('carries the array split policies and uniqueness', () => {
+	it('carries the CLI split policy and uniqueness', () => {
 		const schema = flag
 			.array(flag.string())
 			.separator('|')
@@ -180,21 +181,21 @@ describe('flagCardinality()', () => {
 		expect(cardinality).toMatchObject({
 			kind: 'many',
 			unique: true,
-			splitting: {
-				cli: { format: 'delimiter', delimiter: '|' },
-				env: { format: 'json' },
-				stdin: { format: 'lines' },
-			},
+			cliSplit: { format: 'delimiter', delimiter: '|' },
 		});
 	});
 
-	it('defaults env to commas and stdin to lines', () => {
+	it('leaves a CLI token whole when no separator is set', () => {
 		expect(flagCardinality(flag.array(flag.string()).schema)).toMatchObject({
-			splitting: {
-				cli: { format: 'whole' },
-				env: { format: 'delimiter', delimiter: ',' },
-				stdin: { format: 'lines' },
-			},
+			cliSplit: { format: 'whole' },
+		});
+	});
+
+	it('resolves the non-CLI defaults through the split binding', () => {
+		expect(splitBindingOf(undefined, undefined)).toEqual({
+			cli: { format: 'whole' },
+			env: { format: 'delimiter', delimiter: ',' },
+			stdin: { format: 'lines' },
 		});
 	});
 

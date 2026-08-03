@@ -21,12 +21,17 @@ import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
 import { parse, requestsHelp } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
-import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
+import type {
+	DeprecationWarning,
+	ResolveOptions,
+	ResolveResult,
+} from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
 import type {
 	CommandMeta,
 	CommandSchema,
 	ErasedActionHandler,
+	ErasedInputSources,
 	ExecutionStep,
 	Out,
 } from '#internals/core/schema/command.ts';
@@ -160,7 +165,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		}
 
 		await runResolvedHooks(options?.plugins, 'beforeAction', resolvedParams);
-		await executeWithExecutionSteps(command, handler, resolved.flags, resolved.args, out, meta);
+		await executeWithExecutionSteps(command, handler, resolved, out, meta);
 		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return { exitCode: getRequestedExitCode(out) ?? 0, error: undefined };
@@ -222,17 +227,18 @@ async function runResolvedHooks(
 async function executeWithExecutionSteps(
 	command: ExecutableCommand,
 	handler: NonNullable<ExecutableCommand['handler']>,
-	flags: Readonly<Record<string, unknown>>,
-	args: Readonly<Record<string, unknown>>,
+	resolved: ResolveResult,
 	out: Out,
 	meta: CommandMeta,
 ): Promise<void> {
 	const steps = command.steps;
+	const { args, flags } = resolved;
+	const sources: ErasedInputSources = resolved.provenance;
 
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 
 	let chain: ChainFn = async (ctx) => {
-		await handler({ flags, args, ctx, out, meta });
+		await handler({ flags, args, sources, ctx, out, meta });
 	};
 
 	for (let i = steps.length - 1; i >= 0; i--) {
@@ -242,7 +248,7 @@ async function executeWithExecutionSteps(
 		switch (step.kind) {
 			case 'derive':
 				chain = async (ctx) => {
-					const additions = await step.handler({ args, flags, ctx, out, meta });
+					const additions = await step.handler({ args, flags, sources, ctx, out, meta });
 					if (additions === undefined) {
 						await downstream(ctx);
 						return;
@@ -262,6 +268,7 @@ async function executeWithExecutionSteps(
 					await step.handler({
 						args,
 						flags,
+						sources,
 						ctx,
 						out,
 						meta,

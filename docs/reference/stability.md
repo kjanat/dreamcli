@@ -193,6 +193,11 @@ the process. `RunCommandOptions` extends `RunOptions` the same way for
 the CLI a command is registered on. The field stays off `RunOptions` itself,
 where the CLI schema is authoritative.
 
+`ReadFlagsOptions` takes an optional type parameter, the definitions record
+`readFlags()` is evaluating, which types its `onSources` receiver against the
+caller's own flag names. It defaults to `FlagMap`, so `ReadFlagsOptions` written
+without an argument keeps meaning what it did.
+
 `HelpTheme` is the one entry whose every member is required. A theme reaches the
 framework as the `Partial<HelpTheme>` returned by a `HelpThemeFactory`, so a new
 semantic role added to `HelpTheme` in a minor release leaves existing factories
@@ -281,6 +286,15 @@ added to `RuntimeAdapter` reaches these subsets only if the subset picks it.
 `TerminalSize` is built by the adapter implementation and read by the framework.
 Its two members are required and frozen with the port.
 
+`NodeProcess`, `DenoNamespace`, and `GlobalForDetect` (all from
+`@kjanat/dreamcli/runtime`) describe the host objects the built-in adapters
+read, and each is the optional parameter of the function that reads it:
+`createNodeAdapter(proc?)`, `createDenoAdapter(ns?)`, and
+`detectRuntime(globals?)`. A caller supplies one to inject a host, so they take
+the implementer-port contract in the reading direction: the framework reads
+members it names, and a new required member is a major release. They describe
+what the framework needs from a host, not the full API of any runtime.
+
 The function-typed ports are the handler and parser signatures a consumer writes
 and the framework calls: `ActionHandler`, `DeriveHandler`, `MiddlewareHandler`,
 `InteractiveResolver` with its `InteractiveResult` return type, `ArgParseFn`,
@@ -345,6 +359,9 @@ The kind and mode unions `Verbosity`, `Shell`, `ArgKind`, `FlagKind`,
 `StdinConsume`, `Fallback`, `TableFormat`, `TableStream`, `ParseErrorCode`,
 `ValidationErrorCode`, and `Runtime` (from `@kjanat/dreamcli/runtime`).
 
+The discriminated record `ResolutionProvenance`, whose `stage` narrows to the
+source that produced a value.
+
 The discriminated results `ActivityEvent`, `Token`, `PromptResult`,
 `SplitPolicy`, `NumberConstraintViolation`, `StringConstraintViolation`, and
 `ConfigDiscoveryResult` with its members `ConfigFound` and `ConfigNotFound`.
@@ -357,6 +374,21 @@ These are closed. A consumer may switch exhaustively over them and rely on the
 compiler to flag an unhandled case. Adding a variant is a breaking change and
 ships in a major release. The same rule covers the value forms, which tooling
 iterates to emit one artifact per member.
+
+`ValidationErrorCode` gained `MISSING_STDIN` in 4.0 under that rule: a `-` typed
+beside other occurrences of a collection with nothing piped now carries its own
+code instead of `REQUIRED_FLAG` or `REQUIRED_ARG`. It also reaches the open
+[`ErrorCode`](#open-unions) union, so a consumer with a fallback branch needed no
+change.
+
+`ResolutionProvenance` narrows on `stage`, and the `'cli'` arm is two records:
+one for a typed token and one for an explicit `-`, which carries `via` and
+`trigger`. Both stay at `stage: 'cli'` because both keep CLI precedence, so a
+reader that only asks about precedence tests `stage` and a reader that cares
+about the pipe tests `via`. Adding a stage is a breaking change; the runtime
+tuples `STDIN_WHENS` and `STDIN_CONSUMES` behind `StdinWhen` and `StdinConsume`
+are deliberately not exported from any entrypoint, so the types are the contract
+and the arrays stay the framework's own.
 
 ```ts twoslash
 import type { Shell } from '@kjanat/dreamcli';
@@ -416,8 +448,13 @@ The bags handed to a consumer callback: `ActionParams`, `DeriveParams`,
 `ResolvedMultiselectPromptConfig`.
 
 The values a framework call returns: `SpinnerHandle`, `ProgressHandle`,
-`ResolveResult`, `DeprecationWarning`, `Middleware`, and `CapturedOutput` (from
-`@kjanat/dreamcli/testkit`).
+`ResolveResult` with its `ResolutionProvenanceRecord`, `DeprecationWarning`,
+`Middleware`, and `CapturedOutput` (from `@kjanat/dreamcli/testkit`).
+
+The provenance bag a handler receives, `InputSources`, and the per-surface map
+`SourcesOf` behind it. Both are keyed by the caller's own flag and arg names, so
+a new stage arrives as a new `ResolutionProvenance` member rather than as a new
+key here.
 
 The normalized state a sealed schema carries: `ResolvedManifestSettings`,
 `HelpLinks`, and `CommandArgEntry`.
@@ -473,7 +510,15 @@ fragment types `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
 `FlagNegationFragmentV1`, `FlagPathChecksFragmentV1`,
 `FlagStringConstraintsFragmentV1`, `PromptChoiceFragmentV1`,
 `PromptDefinitionFragmentV1`, `SourceSplitFragmentV1`, `SplitPolicyFragmentV1`,
-and `StdinBindingFragmentV1`; and the error envelope `CLIErrorJSON`.
+`StdinBindingFragmentV1`, and `ArgElementFragmentV1`; and the error envelope
+`CLIErrorJSON`.
+
+`ArgElementFragmentV1` is the value half of a positional entry, which is what an
+entries argument's `elementSchema` holds: everything `ArgDefinitionFragmentV1`
+carries except the `name` a position supplies. The meta-schema hoists it as
+`$defs.argElement` and the named `$defs.arg` spreads the same properties, so the
+two cannot drift. A definition document never carries provenance: that is what
+one invocation did, not what a schema declares.
 
 `FlagStringConstraintsFragmentV1` and `FlagPathChecksFragmentV1` are the value
 fragments of both `FlagDefinitionFragmentV1` and `ArgDefinitionFragmentV1`. Their
@@ -548,7 +593,8 @@ Exported functions, by area:
   `createCommandSchema`, `createCLISchema`.
 - Low-level pipeline: `tokenize`, `parse`, `resolve`, `readFlags`, `formatHelp`,
   `resolveRenderContext`, `resolvePromptConfig`, `includesBeforeSeparator`,
-  `stripBeforeSeparator`, `getFlagNegatedName`, `resolveExampleCommand`.
+  `stripBeforeSeparator`, `getFlagNegatedName`, `resolveExampleCommand`,
+  `wasExplicit`.
 - Serialization: `generateSchema`, `generateCommandSchema`, `generateInputSchema`.
 - Discovery: `discoverConfig`, `discoverManifest`, `inferCliName`,
   `buildConfigSearchPaths`, `configFormat`, `packageRepositoryUrl`.
@@ -595,10 +641,11 @@ Class constructors follow the same rule as functions, with one exception.
 
 `InferFlag`, `InferFlags`, `InferArg`, `InferArgs`, `InferStandardInput`,
 `InferStandardOutput`, `ResolvedValue`, `ResolvedArgValue`, `ArgDefaultValue`,
-`WithPresence`, `WithArgPresence`, `WithVariadic`, the builder state types
-`FlagConfig`, `ArgConfig`, and `StringElementConfig`, the element config a
-collection factory assumes when given no element builder, and `FlagMap`, the
-record of flag builders `readFlags()` evaluates.
+`WithPresence`, `WithArgPresence`, `WithVariadic`,
+`WithoutArgElementEligibility`, the builder state types `FlagConfig`,
+`ArgConfig`, `StringElementConfig`, and `StringArgElementConfig`, the element
+configs a collection factory assumes when given no element builder, and
+`FlagMap`, the record of flag builders `readFlags()` evaluates.
 
 These compute a type from another type. Most code reaches them through inference
 and never names one. `InferFlags<typeof flags>` in an extracted handler signature
@@ -608,7 +655,9 @@ The mapping each performs is frozen within a major version. The type it produces
 carries the contract of whatever category that type belongs to. `FlagConfig` and
 `ArgConfig` are the compile-time state threaded through a builder chain, and a
 tracked property may be added to either in a minor release, since builders are
-obtained from `flag` and `arg` rather than written by hand.
+obtained from `flag` and `arg` rather than written by hand. `ArgConfig` gained
+`elementEligible` in 4.0 under that rule, which is what lets `arg.keyValue()`
+accept an element builder and refuse one already described as a positional.
 
 `FlagMap` constrains the type parameter of `readFlags()` rather than computing a
 type. It is a record of `FlagBuilder` values keyed by flag name, and the caller

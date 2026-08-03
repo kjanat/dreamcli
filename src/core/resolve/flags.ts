@@ -15,7 +15,7 @@ import type {
 } from '#internals/core/schema/command.ts';
 import type { FlagKind, FlagSchema } from '#internals/core/schema/flag.ts';
 import type { PromptConfig, PromptKind } from '#internals/core/schema/prompt.ts';
-import type { SourceBinding } from '#internals/core/schema/source.ts';
+import type { PromptSourceBinding, SourceBinding } from '#internals/core/schema/source.ts';
 import {
 	bindingsBeforePrompt,
 	bindingsFromPrompt,
@@ -100,6 +100,7 @@ async function resolveFlags(
 		}
 
 		const bindings = withPromptBinding(
+			schema,
 			sourceBindings(schema),
 			effectivePromptConfig(name, schema, interactiveConfigs),
 		);
@@ -192,12 +193,13 @@ function stageInput(
 	const present = Object.hasOwn(parsedFlags, name);
 	return {
 		cli: readCliValue(present, present ? parsedFlags[name] : undefined, bindings),
-		coerce: (source, raw) => coerceValue(name, source, raw, schema),
-		finishCli: (value, stdinData) => finishCliFlagValue(name, schema, value, stdinData),
-		runPrompt: async (config) =>
+		coerce: (binding, raw) => coerceValue(name, binding, raw, schema),
+		finishCli: (value, stdinData, stdin) =>
+			finishCliFlagValue(name, schema, value, stdinData, stdin),
+		runPrompt: async (binding) =>
 			prompter === undefined
 				? { ok: false, error: undefined }
-				: resolvePromptValueWithConfig(name, schema, config, prompter),
+				: resolvePromptValueWithConfig(name, schema, binding, prompter),
 	};
 }
 
@@ -310,9 +312,10 @@ function validatePromptFlagCompatibility(
 async function resolvePromptValueWithConfig(
 	flagName: string,
 	schema: FlagSchema,
-	promptConfig: PromptConfig,
+	binding: PromptSourceBinding,
 	prompter: PromptEngine,
 ): Promise<PromptOutcome> {
+	const promptConfig = binding.prompt;
 	const mismatch = validatePromptFlagCompatibility(flagName, schema.kind, promptConfig.kind);
 	if (mismatch !== undefined) {
 		return { ok: false, error: mismatch };
@@ -342,7 +345,7 @@ async function resolvePromptValueWithConfig(
 		return { ok: false, error: undefined };
 	}
 
-	return coerceValue(flagName, { kind: 'prompt' }, result.value, schema);
+	return coerceValue(flagName, binding, result.value, schema);
 }
 
 /** Build a human-readable suggestion listing all available sources for a required flag. @internal */
@@ -351,8 +354,15 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	const takesValue = schema.kind !== 'boolean' && schema.kind !== 'count';
 	sources.push(`Provide --${name}${takesValue ? ' <value>' : ''}`);
 
-	if (schema.stdin !== undefined) {
-		sources.push(`pipe a value to stdin`);
+	const stdin = schema.stdin;
+	if (stdin !== undefined) {
+		sources.push(
+			stdin.when === 'dash'
+				? `pass --${name} - to read stdin`
+				: stdin.when === 'missing'
+					? `pipe a value to stdin`
+					: `pipe a value to stdin or pass --${name} -`,
+		);
 	}
 
 	if (schema.envVar !== undefined) {

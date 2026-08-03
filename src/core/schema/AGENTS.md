@@ -6,23 +6,24 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 
 | File                    | Lines | Purpose                                                                                                                     |
 | ----------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
-| `command.ts`            |  1923 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
-| `flag.ts`               |  2406 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
-| `arg.ts`                |  2009 | `ArgBuilder` — `arg.string/number/enum/custom/url/path/date/duration/bytes()`                                               |
+| `command.ts`            |  1946 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
+| `flag.ts`               |  2410 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
+| `arg.ts`                |  2187 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/keyValue/url/path/date/duration/bytes()`                              |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing `FlagSchema` / `ArgSchema` / `CommandSchema`                              |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                                   |
-| `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
+| `middleware.ts`         |   180 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                          |
 | `stdin.ts`              |   156 | `StdinBinding` / `StdinOptions` — the stdin axis both factories carry, plus its normalizer                                  |
-| `cardinality.ts`        |   679 | Internal cardinality axis: `Cardinality`, split policies, aggregation rules, declared-default validation                    |
-| `source.ts`             |   252 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
+| `cardinality.ts`        |   669 | Internal cardinality axis: `Cardinality`, split policies, aggregation rules, declared-default validation                    |
+| `source.ts`             |   321 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
+| `provenance.ts`         |    92 | Public provenance surface — `ResolutionProvenance`, `InputSources`, `SourcesOf`, `wasExplicit()`                            |
 | `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                                 |
 | `string-constraints.ts` |   172 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
 | `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                                           |
-| `value.ts`              |   742 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
+| `value.ts`              |   777 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, `stripTerminator()`, both schema projections)           |
 | `value-parsers.ts`      |   329 | Value machinery behind the sugar factories on both `flag` and `arg` — parsers, path option types, `buildPathChecks()`       |
-| `run.ts`                |   241 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
-| `index.ts`              |   157 | Barrel — re-exports all public symbols                                                                                      |
+| `run.ts`                |   243 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
+| `index.ts`              |   173 | Barrel — re-exports all public symbols                                                                                      |
 
 ## TYPE SYSTEM PATTERNS
 
@@ -132,6 +133,18 @@ from `.default()`, and from every modifier that could invalidate an existing
 default (`nextFlag()` / `nextArg()`), so the verdict does not depend on the order
 the chain was written in.
 
+## PROVENANCE (`provenance.ts`)
+
+Public, and the only public module under `schema/` that describes a resolution outcome rather than a
+declaration. It holds `ResolutionProvenance` (the per-input record every stage produces),
+`SourcesOf<T>` (that record keyed by one surface's input names), `InputSources<F, A>` (the `sources`
+bag on `ActionParams`), and `wasExplicit()`. It imports nothing, which is what lets
+`schema/command.ts` name `InputSources` on `ActionParams` without a cycle through `resolve/`.
+
+`resolve/contracts.ts` re-exports `ResolutionProvenance` and adds the erased
+`ResolutionProvenanceRecord` that `ResolveResult.provenance` carries. Provenance never reaches the
+definition document: it is what one invocation did, not what a schema declares.
+
 ## SOURCE AXIS (`source.ts`, `stdin.ts`)
 
 Both internal. `stdin.ts` owns the stdin axis a flag or arg stores:
@@ -140,16 +153,24 @@ normalized from the partial `StdinOptions` a caller writes. `stdinReadsOnDash()`
 `stdinReadsWhenMissing()` are the only two places that decide what a `when` means, so the parse
 boundary, the preflight eligibility check, and the resolver cannot drift on it. `trim` is read once,
 by `trimmedStdinValue()` in `resolve/coerce.ts`, which routes the scalar value through
-`stripTerminator()` from `cardinality.ts`. It applies only where `keepsStdinTerminator()` in
-`value.ts` says the codec still carries the terminator, which is the same predicate `decodeValue()`
-uses to drop it for every other codec, so the two cannot take a terminator each.
+`stripTerminator()` from `value.ts`. It applies only where `keepsStdinTerminator()` says the codec
+still carries the terminator, which is the same predicate `decodeValue()` uses to drop it for every
+other codec, so the two cannot take a terminator each; both live in `value.ts` beside the one
+`stripTerminator()` body.
+
+`STDIN_WHENS` and `STDIN_CONSUMES` are the runtime tuples behind `StdinWhen` and `StdinConsume`.
+They stay off the public entrypoints: the types are exported, the tuples are not, so a consumer
+switches over the union instead of iterating a frozen array the framework may reorder.
 
 `source.ts` owns the rest of the axis:
 
 - `RESOLUTION_ORDER` is the one ordered stage list, `cli -> stdin -> env -> config -> prompt -> default`.
-- `sourceBindings(schema)` projects a flag or arg onto the `SourceBinding[]` it actually declares.
-  `resolve/stages.ts` walks that list, so a binding the projection omits is a source no stage can
-  produce, and a per-source setting has one place to live.
+- `sourceBindings(schema)` projects a flag or arg onto the `SourceBinding[]` it actually declares,
+  settings included. Every value-carrying stage carries the `SplitPolicy` its text decodes under,
+  and the stdin binding carries its `trim`, so `resolve/coerce.ts` reads a per-source setting off the
+  binding rather than off the schema. A cardinality keeps only `cliSplit`, which is what the parse
+  boundary needs and the one place bindings cannot reach. `stdinBindingOf(bindings)` answers which
+  binding is the stdin one, for the dash path and the CLI splice.
 - `bindingsBeforePrompt()` / `bindingsFromPrompt()` split it for the flag resolver's two passes, and
   `withPromptBinding()` applies an `.interactive()` override to one invocation's list.
 - `invocationSelectsStdin()` answers whether reading the stream is warranted at all; both
@@ -214,7 +235,11 @@ non-string raw before calling it. Both store the caller's function verbatim on t
 
 Flag-only by design: `count`, `negatable`, `alias`, `duplicates`, `propagate` (flag syntax), and
 `array` (`.variadic()` serves it). Arg-only: `variadic` and required-by-default presence. `boolean`,
-`keyValue`, `separator`, `unique`, `split`, `duplicateKeys`, and `standard` are on both surfaces.
+`keyValue`, `separator`, `unique`, `split`, `duplicateKeys`, `elementSchema`, and `standard` are on
+both surfaces. `flag.keyValue(element)` and `arg.keyValue(element)` take the same shape of element
+builder, guarded by the `elementEligible` phantom on both configs: a factory sets it `true`, and
+every modifier describing the input itself (`.env()`, `.config()`, `.prompt()`, `.describe()`,
+`.deprecated()`, `.stdin()`, and the presence and variadic modifiers) flips it to `false`.
 
 The source axis is shared outright. `.stdin()`, `.env()`, `.config()`, `.prompt()`, and `.default()`
 are on both builders, and `source.ts` projects either schema onto the same ordered `SourceBinding`
@@ -285,7 +310,7 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   `toString`, which then reads as a supplied value. `resolveFlags()` in `resolve/` guards its `env`
   lookup and the interactive resolver's override record with `Object.hasOwn()` for that reason.
 
-## TEST FILES (20)
+## TEST FILES (22)
 
 | File                                | Tests                                                         |
 | ----------------------------------- | ------------------------------------------------------------- |
@@ -301,7 +326,8 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
 | `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories             |
 | `value.test.ts`                     | Codecs, constraint routing, hint carriage, projections        |
 | `cardinality.test.ts`               | Split policies, folding, projections, validated defaults      |
-| `arg-collection-kinds.test.ts`      | `arg.boolean()` / `arg.keyValue()` e2e + `readFlags()` parity |
+| `arg-collection-kinds.test.ts`      | `arg.boolean()` / `arg.keyValue(element)` e2e + `readFlags()` |
+| `provenance.test.ts`                | `wasExplicit()` truth table over every stage                  |
 | `arg.test.ts`                       | ArgBuilder API, kinds, validation                             |
 | `arg-value-factories.test.ts`       | `arg.url/path/date/duration/bytes()` + arg constraints        |
 | `factory-parity.test.ts`            | Same value through `flag.*` and `arg.*`, same verdict         |

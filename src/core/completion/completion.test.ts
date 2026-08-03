@@ -2114,6 +2114,38 @@ describe('generateZshCompletion', () => {
 
 // === generateCompletion — dispatcher
 
+describe('source bindings reach no shell script', () => {
+	const piped = commandSchema({
+		name: 'send',
+		flags: {
+			body: flagSchema({
+				kind: 'string',
+				description: 'Message body',
+				stdin: { when: 'dash' },
+				envVar: 'BODY',
+				configPath: 'send.body',
+			}),
+		},
+	});
+
+	for (const shell of SHELLS) {
+		it(`keeps the ${shell} script free of source annotations`, () => {
+			const script = generateCompletion(minimalSchema({ commands: [piped] }), shell);
+
+			expect(script).toContain('--body');
+			expect(script).not.toContain('[stdin');
+			expect(script).not.toContain('[env:');
+			expect(script).not.toContain('[config:');
+		});
+	}
+
+	it('carries the plain description where a shell renders one', () => {
+		const script = generateCompletion(minimalSchema({ commands: [piped] }), 'zsh');
+
+		expect(script).toContain('Message body');
+	});
+});
+
 describe('generateCompletion — dispatcher', () => {
 	it('delegates bash to generateBashCompletion', () => {
 		const schema = minimalSchema();

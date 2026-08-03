@@ -166,6 +166,30 @@ Every step past the command line is opt-in. An input takes part in a step only w
 that source, so a flag or argument with nothing declared stays command-line only and is
 required-or-optional based on its own declaration.
 
+## Which Source Won
+
+Picking a winner answers one question and hides another. The program ends up
+with a value, and it no longer knows whether a person chose that value or the
+program fell back to its own last resort. Those are different facts, and a
+surprising number of decisions need the second one:
+
+- a rule that two options may not both be given has to know which ones were
+  given, not which ones ended up set;
+- a warning that "this option has no effect in this mode" is only honest if the
+  user actually passed it;
+- a tool layering its own settings over a project file must not let its own
+  fallback outrank the file.
+
+Comparing the resolved value against the fallback does not answer it. It fails
+in exactly the case the check exists for, a user deliberately passing the value
+that happens to equal the fallback. Removing the fallback to make absence
+observable is worse: the fallback is real documentation, and it disappears from
+help and from any schema the program exports.
+
+So the resolution chain records which step produced each value, and hands that
+record along beside the values themselves. A program can then ask which source
+won, or just ask the coarser question, was this supplied at all.
+
 ## One Value Or Many
 
 Some inputs hold one value. Others hold a list, or a set of key-value entries.
@@ -203,3 +227,4 @@ an error is a decision the input declares once and every source obeys.
 - [Output and TTY](/concepts/output) — how CLIs talk back to you
 - [Exit Codes](/concepts/exit-codes) — how CLIs signal success or failure
 - [Flags guide](/guide/flags) — implementing flags with env var and config resolution in dreamcli
+- [Value provenance](/guide/semantics#which-source-won) — how dreamcli reports which source won

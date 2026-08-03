@@ -2,16 +2,19 @@
  * The source axis shared by the `flag` and `arg` factories.
  *
  * A flag or arg declares its sources through flat fields (`stdin`, `envVar`,
- * `configPath`, `prompt`, `defaultValue`). {@link sourceBindings} normalizes
- * those into one ordered {@link SourceBinding} list in {@link RESOLUTION_ORDER}
- * order, and `resolve/stages.ts` walks that list for both surfaces, so a stage
- * reads its settings off its own binding rather than off the schema.
+ * `configPath`, `prompt`, `defaultValue`, `separator`, `split`).
+ * {@link sourceBindings} normalizes those into one ordered
+ * {@link SourceBinding} list in {@link RESOLUTION_ORDER} order, and
+ * `resolve/stages.ts` walks that list for both surfaces, so a stage reads its
+ * settings off its own binding rather than off the schema.
  *
  * @module dreamcli/core/schema/source
  * @internal
  */
 
 import type { ArgSchema } from './arg.ts';
+import type { SplitPolicy } from './cardinality.ts';
+import { splitBindingOf } from './cardinality.ts';
 import type { FlagSchema } from './flag.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { StdinBinding, StdinConsume, StdinWhen } from './stdin.ts';
@@ -36,14 +39,44 @@ function stageRank(stage: ResolutionStage): number {
 	return RESOLUTION_ORDER.indexOf(stage);
 }
 
-/** One declared source of a flag or an arg. */
+/**
+ * One declared source of a flag or an arg.
+ *
+ * Every stage that carries raw text also carries the {@link SplitPolicy} that
+ * text decodes under, so a collection's per-source splitting is read off the
+ * binding of the stage that produced the value. A declared default is already
+ * the typed value and has nothing to split.
+ */
 type SourceBinding =
-	| { readonly stage: 'cli' }
-	| { readonly stage: 'stdin'; readonly when: StdinWhen; readonly consume: StdinConsume }
-	| { readonly stage: 'env'; readonly envVar: string }
-	| { readonly stage: 'config'; readonly configPath: string }
-	| { readonly stage: 'prompt'; readonly prompt: PromptConfig }
+	| { readonly stage: 'cli'; readonly split: SplitPolicy }
+	| {
+			readonly stage: 'stdin';
+			readonly when: StdinWhen;
+			readonly consume: StdinConsume;
+			readonly trim: boolean;
+			readonly split: SplitPolicy;
+	  }
+	| { readonly stage: 'env'; readonly envVar: string; readonly split: SplitPolicy }
+	| { readonly stage: 'config'; readonly configPath: string; readonly split: SplitPolicy }
+	| { readonly stage: 'prompt'; readonly prompt: PromptConfig; readonly split: SplitPolicy }
 	| { readonly stage: 'default'; readonly defaultValue: unknown };
+
+/** The stdin source of an input, once {@link sourceBindings} has projected it. */
+type StdinSourceBinding = Extract<SourceBinding, { readonly stage: 'stdin' }>;
+
+/** The interactive source of an input, once {@link sourceBindings} has projected it. */
+type PromptSourceBinding = Extract<SourceBinding, { readonly stage: 'prompt' }>;
+
+/**
+ * The sources whose raw values a stage decodes.
+ *
+ * A CLI token is decoded at the parse boundary, and a default never decodes at
+ * all, so neither reaches the resolver's coercion pass.
+ */
+type DecodedSourceBinding = Exclude<
+	SourceBinding,
+	{ readonly stage: 'cli' } | { readonly stage: 'default' }
+>;
 
 /**
  * Project a flag or arg schema onto its source axis.
@@ -53,30 +86,54 @@ type SourceBinding =
  * sources the schema actually declares. The resolver walks this list, so a
  * source the list omits is a source no stage can produce.
  *
+ * A config value is native when it is an array or an object, and a config
+ * string decodes under the environment policy, which is the delimited form a
+ * user would have typed. A prompt answer reads the same way.
+ *
  * @param schema - The flag or arg schema to read.
  * @returns The declared sources, ordered by precedence.
  */
 function sourceBindings(schema: FlagSchema | ArgSchema): readonly SourceBinding[] {
-	const bindings: SourceBinding[] = [{ stage: 'cli' }];
+	const splitting = splitBindingOf(schema.separator, schema.split);
+	const bindings: SourceBinding[] = [{ stage: 'cli', split: splitting.cli }];
 
 	const stdin = schema.stdin;
 	if (stdin !== undefined) {
-		bindings.push({ stage: 'stdin', when: stdin.when, consume: stdin.consume });
+		bindings.push({
+			stage: 'stdin',
+			when: stdin.when,
+			consume: stdin.consume,
+			trim: stdin.trim,
+			split: splitting.stdin,
+		});
 	}
 	if (schema.envVar !== undefined) {
-		bindings.push({ stage: 'env', envVar: schema.envVar });
+		bindings.push({ stage: 'env', envVar: schema.envVar, split: splitting.env });
 	}
 	if (schema.configPath !== undefined) {
-		bindings.push({ stage: 'config', configPath: schema.configPath });
+		bindings.push({ stage: 'config', configPath: schema.configPath, split: splitting.env });
 	}
 	if (schema.prompt !== undefined) {
-		bindings.push({ stage: 'prompt', prompt: schema.prompt });
+		bindings.push({ stage: 'prompt', prompt: schema.prompt, split: splitting.env });
 	}
 	if (schema.defaultValue !== undefined) {
 		bindings.push({ stage: 'default', defaultValue: schema.defaultValue });
 	}
 
 	return bindings;
+}
+
+/**
+ * The stdin source of an input, or `undefined` when it declares none.
+ *
+ * @param bindings - One input's source list.
+ * @returns The stdin binding, when the list carries one.
+ */
+function stdinBindingOf(bindings: readonly SourceBinding[]): StdinSourceBinding | undefined {
+	for (const binding of bindings) {
+		if (binding.stage === 'stdin') return binding;
+	}
+	return undefined;
 }
 
 /**
@@ -106,11 +163,13 @@ function bindingsFromPrompt(bindings: readonly SourceBinding[]): readonly Source
  * away the one it declares, so the effective list is per invocation rather than
  * per schema.
  *
+ * @param schema - The flag or arg the list belongs to, read for its splitting.
  * @param bindings - One input's source list.
  * @param prompt - The prompt config to use, or `undefined` for no prompt.
  * @returns The list with its prompt binding set to `prompt`.
  */
 function withPromptBinding(
+	schema: FlagSchema | ArgSchema,
 	bindings: readonly SourceBinding[],
 	prompt: PromptConfig | undefined,
 ): readonly SourceBinding[] {
@@ -118,7 +177,8 @@ function withPromptBinding(
 	if (prompt === undefined) return rest;
 	const after = rest.findIndex((binding) => stageRank(binding.stage) > PROMPT_RANK);
 	const at = after === -1 ? rest.length : after;
-	return [...rest.slice(0, at), { stage: 'prompt', prompt }, ...rest.slice(at)];
+	const split = splitBindingOf(schema.separator, schema.split).env;
+	return [...rest.slice(0, at), { stage: 'prompt', prompt, split }, ...rest.slice(at)];
 }
 
 /** One stdin-enabled input of a command, named by the surface that declares it. */
@@ -238,7 +298,15 @@ function inputSelectsStdin(
 	return Array.isArray(value) ? value.includes(STDIN_SENTINEL) : value === STDIN_SENTINEL;
 }
 
-export type { ParsedInputs, ResolutionStage, SourceBinding, StdinConsumer };
+export type {
+	DecodedSourceBinding,
+	ParsedInputs,
+	PromptSourceBinding,
+	ResolutionStage,
+	SourceBinding,
+	StdinConsumer,
+	StdinSourceBinding,
+};
 export {
 	argCollectedNothing,
 	bindingsBeforePrompt,
@@ -246,6 +314,7 @@ export {
 	invocationSelectsStdin,
 	RESOLUTION_ORDER,
 	sourceBindings,
+	stdinBindingOf,
 	stdinConsumerReference,
 	stdinConsumers,
 	withPromptBinding,

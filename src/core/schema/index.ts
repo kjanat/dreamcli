@@ -56,6 +56,7 @@ export type {
 	DeriveHandler,
 	DeriveParams,
 	ErasedDeriveHandler,
+	ErasedInputSources,
 	ErasedInteractiveResolver,
 	ExampleCommand,
 	ExampleMeta,
@@ -148,6 +149,8 @@ export {
 	describeNumberConstraintViolation,
 	validateNumberConstraints,
 } from './number-constraints.ts';
+export type { InputSources, ResolutionProvenance, SourcesOf } from './provenance.ts';
+export { wasExplicit } from './provenance.ts';
 export type { InternalRunOptions, RunOptions, RunResult } from './run.ts';
 export type {
 	InferStandardInput,

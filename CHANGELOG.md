@@ -9,6 +9,48 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Handlers can see where each value came from**
+  ([#90](https://github.com/kjanat/dreamcli/issues/90)). `ActionParams`,
+  `DeriveParams`, and `MiddlewareParams` gain `sources`, keyed like `flags` and
+  `args`, holding the full record resolution already produced:
+  `{ stage: 'cli' }`, `{ stage: 'cli', via: 'stdin', trigger: 'dash' }`,
+  `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`,
+  `{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`,
+  `{ stage: 'prompt' }`, or `{ stage: 'default' }`. An input that resolved no
+  value has no record. `wasExplicit(record)` derives the explicit-versus-defaulted
+  question from it without dropping `.default()`, which would also drop
+  `defaultValue` from the definition document. `ResolveResult.provenance` carries
+  the same records for a direct `resolve()` caller, and `readFlags()` hands them
+  to a new `onSources` receiver, typed against the definitions record.
+  `ResolutionProvenance`, `ResolutionProvenanceRecord`, `InputSources`,
+  `SourcesOf`, and `wasExplicit` are exported from the package root.
+
+- **`arg.keyValue()` takes an element builder**
+  ([#87](https://github.com/kjanat/dreamcli/issues/87)). Entry values used to be
+  strings on the positional surface while `flag.keyValue(element)` gave them a
+  codec. `arg.keyValue(arg.number().int().min(0))` now resolves
+  `mycli scale web=3` to `{ web: 3 }`, with the element's constraints, path
+  checks, and Standard Schema validator applied to every entry, from every
+  source. The element is guarded the same way flags guard theirs: `ArgConfig`
+  gains `elementEligible`, so a builder already described as a positional
+  (`.optional()`, `.env()`, `.stdin()`, `.describe()`, …) is refused in element
+  position at compile time. `ArgSchema` gains `elementSchema`, which serializes
+  into definition documents under the new `ArgElementFragmentV1` shape and the
+  `$defs.argElement` meta-schema definition.
+
+- **Help names the stdin source.** An input that declares `.stdin()` renders
+  `[stdin]` beside the existing `[env: X]`, `[config: y]`, and `[prompt]`
+  annotations, on the flag table and the argument table alike. The narrower
+  triggers say which one applies: `[stdin: '-']` for `{ when: 'dash' }` and
+  `[stdin: when omitted]` for `{ when: 'missing' }`. Completion scripts are
+  unchanged; they carry the plain description.
+
+- **A dedicated error code for a dash with nothing piped.**
+  `ValidationErrorCode` gains `MISSING_STDIN`, which replaces the borrowed
+  `REQUIRED_FLAG` / `REQUIRED_ARG` on the one failure that is neither: a `-`
+  typed beside other occurrences of a collection when the stream is empty. Those
+  two keep their own meaning, a required input no source filled.
+
 - **A variadic argument reads stdin from its tail.** `.stdin()` and
   `.variadic()` now compose. A `-` among the tail tokens stands for the whole
   stdin source at that position, so
@@ -311,6 +353,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Breaking: flag diagnostics redact the value of every non-argv source.** A
+  stdin, environment, config, or prompt value that failed to coerce used to be
+  printed and stored under `details.value` on the flag surface, while the
+  argument surface already redacted it. Both surfaces now report
+  `Invalid value '<redacted>' from env API_TOKEN for flag --token: must match
+  /^ghp_/` and omit `value` from `details`. Everything that identifies the
+  failure stays: the input name, the source, the expected type, the constraint
+  that failed with its bound or pattern, the allowed enum values, and a custom
+  parse function's own message. A Standard Schema validator's
+  `CONSTRAINT_VIOLATED` failure follows
+  the same rule: `details.value` is recorded only for a value typed on the
+  command line, and omitted for one a pipe, an explicit `-`, the environment, a
+  config file, or a prompt supplied. Argv is untouched, since a token the user
+  typed is already on their screen. Every coercion failure now also carries
+  `source: 'env' | 'config' | 'stdin' | 'prompt'` in `details`, which is what
+  labels an issue `[env API_TOKEN]` in an aggregate error and what now gives the
+  argument surface the same label the flag surface had.
+
 - **Breaking: a positional declared after a variadic one is a build error.** A
   variadic argument consumes every remaining positional, so anything registered
   behind it could never be filled and a second variadic one had nothing left to
@@ -325,7 +385,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Breaking: an explicit `-` with nothing piped is an error inside a
   collection.** `--tag a --tag - --tag b` with an empty pipe used to resolve to
   `['a', 'b']`, dropping the occurrence the user typed. It now fails with
-  `REQUIRED_FLAG` / `REQUIRED_ARG` and the message
+  `MISSING_STDIN` and the message
   `No piped stdin for the '-' occurrence of flag --tag`. Occurrences of nothing
   but `-` are unchanged: they are the whole value, so they still fall through to
   env, config, prompt, and the default, exactly as an absent input does, and the

@@ -7,12 +7,12 @@ dispatches via `generateCompletion()`.
 
 | File                   | Lines | Purpose                                                  |
 | ---------------------- | ----: | -------------------------------------------------------- |
-| `index.ts`             |    88 | Barrel — `Shell` type, `SHELLS` constant, dispatch       |
-| `shells/shared.ts`     |   160 | `CommandNode`, `walkCommandTree`, escaping, `versionTag` |
-| `shells/bash.ts`       |   275 | `generateBashCompletion()` + all bash helpers            |
-| `shells/zsh.ts`        |   280 | `generateZshCompletion()` + all zsh helpers              |
-| `shells/fish.ts`       |   256 | `generateFishCompletion()` + fish path scanner helpers   |
-| `shells/powershell.ts` |   438 | `generatePowerShellCompletion()` + metadata helpers      |
+| `index.ts`             |   138 | Barrel — `Shell` type, `SHELLS` constant, dispatch       |
+| `shells/shared.ts`     |   327 | `CommandNode`, `walkCommandTree`, escaping, `versionTag` |
+| `shells/bash.ts`       |   466 | `generateBashCompletion()` + all bash helpers            |
+| `shells/zsh.ts`        |   388 | `generateZshCompletion()` + all zsh helpers              |
+| `shells/fish.ts`       |   266 | `generateFishCompletion()` + fish path scanner helpers   |
+| `shells/powershell.ts` |   447 | `generatePowerShellCompletion()` + metadata helpers      |
 
 ## PUBLIC API
 

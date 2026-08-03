@@ -31,6 +31,7 @@ import type {
   DeprecationWarning,
   ParseResult,
   PromptEngine,
+  ResolutionProvenanceRecord,
 } from '@kjanat/dreamcli';
 
 interface ResolverInvocation {
@@ -46,12 +47,17 @@ interface ResolveOptions {
   >;
   readonly config?: Readonly<Record<string, unknown>>;
   readonly prompter?: PromptEngine;
+  readonly stat?: (
+    path: string,
+  ) => Promise<'file' | 'directory' | null>;
+  readonly mkdir?: (path: string) => Promise<void>;
 }
 
 interface ResolveResult {
   readonly flags: Readonly<Record<string, unknown>>;
   readonly args: Readonly<Record<string, unknown>>;
   readonly deprecations: readonly DeprecationWarning[];
+  readonly provenance: ResolutionProvenanceRecord;
 }
 ```
 
@@ -86,16 +92,25 @@ Resolution also records which stage produced each value, keyed by input name.
 The record distinguishes the two ways stdin delivers bytes
 (`{ stage: 'cli', via: 'stdin', trigger: 'dash' }` versus
 `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`) and names the binding
-that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`). It
-is internal until the provenance surface lands.
+that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`).
+
+That record is public as `ResolutionProvenance`. It reaches a `resolve()` caller
+on `ResolveResult.provenance`, a handler as `sources`, and a `readFlags()`
+caller through `onSources`. Both records are built with a null prototype, so an
+input named `toString` reads back `undefined` rather than an inherited member.
+Only inputs that resolved a value have an entry. See
+[Value provenance](/guide/semantics#which-source-won).
 
 ## Diagnostic Expectations
 
 - env, config, prompt, and stdin failures carry source-aware detail payloads
+- every coercion failure carries `source` naming the stage that produced the value
+- a value from any source but argv is redacted in both the message and `details`
 - hard coercion errors stop later fallback for that same field
 - multiple validation failures are thrown as one aggregate error with per-error details
 - aggregate validation failures also include per-issue summaries with normalized input labels and source labels when the failing source is known
-- missing-value errors remain actionable via source-ordered suggestions
+- missing-value errors remain actionable via source-ordered suggestions, naming
+  only the stdin routes the input's `when` mode actually offers
 
 ## Redesign Boundaries
 

@@ -19,16 +19,16 @@ a source the projection omits is a source no stage can produce.
 
 | File             | Lines | Purpose                                                                       |
 | ---------------- | ----: | ----------------------------------------------------------------------------- |
-| `index.ts`       |   130 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
-| `stages.ts`      |   249 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
-| `flags.ts`       |   376 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
-| `args.ts`        |   275 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
-| `coerce.ts`      |  1162 | `coerceValue()` — unified raw value -> flag's declared kind                   |
+| `index.ts`       |   153 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
+| `stages.ts`      |   263 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
+| `flags.ts`       |   386 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
+| `args.ts`        |   276 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
+| `coerce.ts`      |  1182 | `coerceValue()` — unified raw value -> flag's declared kind                   |
 | `path-checks.ts` |   127 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
-| `errors.ts`      |   227 | Error aggregation + `throwAggregatedErrors()`                                 |
-| `contracts.ts`   |   198 | `ResolveOptions`, `ResolutionProvenance`, `resolverContract`                  |
-| `standard.ts`    |   254 | Standard Schema v1 validation pass over resolved values                       |
+| `errors.ts`      |   226 | Error aggregation + `throwAggregatedErrors()`                                 |
+| `contracts.ts`   |   182 | `ResolveOptions`, `ResolutionProvenanceRecord`, `resolverContract`            |
+| `standard.ts`    |   297 | Standard Schema v1 validation pass over resolved values                       |
 
 ## KEY FUNCTIONS
 
@@ -57,11 +57,21 @@ no interactive resolver and walk their bindings in one pass.
 
 ## COERCION PATTERN
 
-Single unified `coerceValue()` with `CoerceSource` discriminated union
+`coerceValue()` and `coerceArgValue()` take the `DecodedSourceBinding` the stage walked, which is
+where every per-source setting lives: `binding.split` decides how a collection's text decodes and
+`binding.trim` whether a single stdin value drops its terminator. `diagnosticSourceOf(binding)`
+turns it into the `CoerceSource` discriminated union
 (`{ kind: 'stdin' } | { kind: 'env'; envVar } | { kind: 'config'; configPath } | { kind: 'prompt' }`)
-parameterizing source-specific behavior: string leniency, boolean truthy/falsy sets, array
+that parameterizes the wording alone: string leniency, boolean truthy/falsy sets, array
 trim-on-split, and error message templates. `suggestBySource()` is the one place that maps a source
 to its phrasing, so a new source is a new field rather than a fourth ternary arm.
+
+No non-argv source echoes its value. Every message this file builds says `'<redacted>'` where the
+value would go and every `details` record omits it, on both surfaces: stdin, the environment, a
+config file, and a prompt answer all carry values a user may consider secret. `parse/index.ts` keeps
+quoting the token the user typed, which is already on their screen. `sourceDetails()` writes
+`source` on every coercion failure, which is what tells `errors.ts` a stage produced a value, as
+against a required input that merely declares an env var.
 
 Returns `CoerceResult` (`{ ok: true; value } | { ok: false; error: ValidationError }`).
 
@@ -87,9 +97,10 @@ Each spliced occurrence keeps the source it came from, `{ kind: 'cli' }` for a t
 `{ kind: 'stdin' }` for one the buffer supplied. `AggregationErrors` takes that source, so a
 duplicate-key message names `from stdin` only for a key the pipe carried and names nothing for a key
 the user typed. `foldEntries()` reports the index of the repeating pair, which is how the source is
-found without re-parsing. A `-` occurrence with no buffer is `dash-without-stdin`: an error when it
-sits beside typed occurrences, and absence when every occurrence is `-`, which keeps the later
-stages reachable.
+found without re-parsing. A `-` occurrence with no buffer is `dash-without-stdin`: a `MISSING_STDIN`
+error when it sits beside typed occurrences, and absence when every occurrence is `-`, which keeps
+the later stages reachable. A scalar `-` takes the second branch on its own, which is why a bare
+dash with nothing piped falls through to env rather than failing.
 
 `valueCoercionError()` owns the flag-facing half. It turns a `ValueFailure` into the message, code,
 details, and suggestion for one source. The value layer never spells a subject, so every
@@ -101,7 +112,7 @@ details, and suggestion for one source. The value layer never spells a subject, 
 aggregated `ValidationError` via `throwAggregatedErrors()`. Users see all validation messages at
 once.
 
-## TEST FILES (16, aspect-split)
+## TEST FILES (19, aspect-split)
 
 | File                              | Tests                                                        |
 | --------------------------------- | ------------------------------------------------------------ |
@@ -122,6 +133,7 @@ once.
 | `resolve-arg-tail.test.ts`        | Positional tail splicing + which source a duplicate names    |
 | `resolve-stdin-trim.test.ts`      | `.stdin({ trim: true })` across surfaces and entry points    |
 | `resolve-hand-built.test.ts`      | The projection a caller-built `ParseResult` resolves through |
+| `resolve-redaction.test.ts`       | Redaction per source, argv literal, `MISSING_STDIN`          |
 | `contracts.test.ts`               | Contract verification                                        |
 
 ## PROMPT — FLAG KIND COMPATIBILITY

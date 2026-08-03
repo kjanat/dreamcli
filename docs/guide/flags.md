@@ -3,7 +3,58 @@
 Flags are the richest primitive in `dreamcli`.
 Each flag declaration configures parsing, type inference, resolution, help text, and shell completions.
 
-## Flag Types
+## Five Axes
+
+A flag declaration decides five separate things. They compose freely, and every
+section on this page belongs to exactly one of them:
+
+| Axis                          | What it decides                                        | Declared with                                                                  |
+| ----------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [Value](#value)               | what one value is and what type it resolves to         | `flag.string()`, `flag.number()`, `flag.url()`, `flag.custom()`, and the rest   |
+| [Cardinality](#cardinality)   | how many values the flag carries and how they combine   | `flag.array()`, `flag.keyValue()`, `flag.count()`, `.split()`, `.unique()`      |
+| [Sources](#sources)           | where a value may come from and which one wins          | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`, `.required()`     |
+| [Syntax](#syntax)             | how the flag is spelled and repeated on the command line | the name, `.alias()`, `.negatable()`, `.duplicates()`, `.propagate()`          |
+| [Validation](#validation)     | what a resolved value has to satisfy                    | constraints, `.standard()`, `flag.path()` filesystem checks                     |
+
+The factory methods are facades over that decomposition, and they stay the way
+you write a CLI. The table is here to say which question each one answers.
+
+Three of the five axes are identical on the [argument](/guide/arguments)
+surface. Value and validation are the same set of kinds, options, parsers, and
+error codes. Sources are the same six stages in the same order. Cardinality
+differs in how the command line spells a collection, and syntax is the axis that
+is genuinely flag-only, which is what
+[the arg factory does not have](/guide/arguments#flag-only-surface) enumerates.
+
+Every axis at once:
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+flag
+  // value
+  .string()
+  // validation
+  .nonEmpty()
+  // cardinality is `one` here, which every scalar kind declares
+  // sources
+  .stdin()
+  .env('DEPLOY_REGION')
+  .config('deploy.region')
+  .prompt({ kind: 'input', message: 'Region?' })
+  .default('us')
+  // syntax
+  .alias('r')
+  .describe('Target region')
+  .deprecated('Use --target instead')
+  .propagate();
+```
+
+## Value {#flag-types}
+
+Ten kinds describe what one value is. Each one is a codec plus a resolved type,
+and each has an `arg` counterpart taking the same options and producing the same
+value.
 
 ### String
 
@@ -20,36 +71,7 @@ flagTypes.string;
 //          ^?
 ```
 
-#### String constraints
-
-`flag.string()` accepts optional string constraints, either as an options
-object or via chained methods (they compose — a later chained call overrides an
-earlier value, including one set in the options object):
-
-```ts
-flag.string({ nonEmpty: true, pattern: /^ghp_/ });
-flag.string().nonEmpty().pattern(/^ghp_/); // equivalent
-flag.string().minLength(3).maxLength(64);
-```
-
-| Option      | Meaning                                     | Default |
-| ----------- | ------------------------------------------- | ------- |
-| `nonEmpty`  | Reject the empty string `''`                | `false` |
-| `minLength` | Inclusive minimum length (UTF-16 units)     | none    |
-| `maxLength` | Inclusive maximum length (UTF-16 units)     | none    |
-| `pattern`   | RegExp the value must match                 | none    |
-
-Constraints are checked in order **nonEmpty → minLength → maxLength →
-pattern** and apply to every source — CLI, env, config, and prompt. On the
-first failure, CLI parsing throws `INVALID_VALUE` while env/config/prompt
-resolution reports `CONSTRAINT_VIOLATED` (both exit code `2`). Anchor patterns
-with `^`/`$` for full-string matching; length bounds must be non-negative
-integers and `minLength` must not exceed `maxLength` (violations throw where
-the flag is declared). String constraints are surfaced in the exported JSON
-Schema as `minLength` / `maxLength` / `pattern`.
-
-The same options and methods are available on
-[`arg.string()`](/guide/arguments#string-constraints) for positional arguments.
+`flag.string()` also accepts [string constraints](#string-constraints).
 
 ### Number
 
@@ -66,54 +88,7 @@ flagTypes.number;
 //         ^?
 ```
 
-#### Numeric constraints
-
-`flag.number()` accepts optional numeric constraints, either as an options
-object or via chained methods (they compose — a later chained call overrides an
-earlier value, including one set in the options object):
-
-```ts
-flag.number({ min: 0, max: 100, int: true });
-flag.number().int().min(0).max(100); // equivalent
-flag.number({ min: 0 }).max(100); // composes to { min: 0, max: 100 }
-```
-
-| Option   | Meaning                         | Default |
-| -------- | ------------------------------- | ------- |
-| `min`    | Inclusive lower bound           | none    |
-| `max`    | Inclusive upper bound           | none    |
-| `int`    | Require an integer              | `false` |
-| `finite` | Reject `Infinity` / `-Infinity` | `true`  |
-
-The resolved value type stays `number` — constraints are enforced at runtime
-and surfaced in the exported JSON Schema (`minimum` / `maximum`, and
-`type: "integer"` when `int` is set), not at the type level. `min` / `max` must
-be finite; passing `Infinity` / `-Infinity` / `NaN` as a bound throws when the
-flag is declared (omit the field for "no bound").
-
-::: warning Finite by default
-`flag.number()` now **rejects `Infinity` and `-Infinity`** (as well as `NaN`,
-which was always rejected). Pass `finite: false` (or `.finite(false)`) to accept
-non-finite values.
-:::
-
-Constraints are checked in order **finite → int → min → max**, and apply to
-every source — CLI, env, config, and prompt. On the first failure, CLI parsing
-throws `INVALID_VALUE` while env/config/prompt resolution reports
-`CONSTRAINT_VIOLATED` (both exit code `2`):
-
-| Input (`flag.number({ int: true, min: 0, max: 100 })`) | Result                               |
-| ------------------------------------------------------ | ------------------------------------ |
-| `42`                                                   | accepted                             |
-| `0` / `100`                                            | accepted (bounds are inclusive)      |
-| `NaN`                                                  | rejected — invalid number            |
-| `Infinity`                                             | rejected — `must be a finite number` |
-| `3.7`                                                  | rejected — `must be an integer`      |
-| `-1`                                                   | rejected — `must be >= 0`            |
-| `101`                                                  | rejected — `must be <= 100`          |
-
-The same options and methods are available on `arg.number()` for positional
-arguments.
+`flag.number()` also accepts [numeric constraints](#numeric-constraints).
 
 ### Boolean
 
@@ -144,6 +119,123 @@ declare const flagTypes: {
 flagTypes.enum;
 //         ^?
 ```
+
+### Custom
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const customFlag = flag.custom((v) => new URL(String(v)));
+
+declare const flagTypes: {
+  custom: InferFlag<typeof customFlag>;
+};
+// ---cut---
+flagTypes.custom;
+//         ^?
+```
+
+`flag.custom()` takes a parse function or a Standard Schema validator. See
+[Custom parsing](#custom-parsing).
+
+### URL
+
+Parses into a `URL`; invalid URLs are rejected with the flag named in the
+error. Optionally restrict protocols:
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const urlFlag = flag.url({ protocols: ['https'] });
+
+declare const flagTypes: {
+  url: InferFlag<typeof urlFlag>;
+};
+// ---cut---
+flagTypes.url;
+//        ^?
+```
+
+### Path
+
+The value stays a `string` (help shows `<path>`), with optional filesystem
+checks that run **after resolution**. See
+[Filesystem checks](#filesystem-checks).
+
+```ts
+flag.path(); // any string
+flag.path({ mustExist: true }); // rejects missing paths
+flag.path({ type: 'directory' }); // must exist and be a directory
+flag.path({ type: 'directory', mustExist: false }); // missing passes; existing must be a directory
+flag.path({ type: 'directory', create: true }); // created recursively when missing
+```
+
+`flag.path()` resolves as a `string`, so a value read from stdin keeps the
+buffer byte for byte, trailing line terminator included. `echo ./docs | mycli`
+reaches a `mustExist` check as `'./docs\n'` and fails. `.stdin({ trim: true })`
+drops that terminator, and `printf './docs'` works too.
+
+### Date
+
+Accepts strict ISO-8601 (`2026-07-10`, `2026-07-10T14:30:00Z`) and parses into
+a `Date`. Lenient `Date.parse` inputs (`'0'`, `'March 5'`) and
+calendar-invalid dates (`2026-02-31`) are rejected. Offset-less datetimes
+(`2026-07-10T14:30`) are treated as **UTC**, not local time, so `min` / `max`
+acceptance never depends on the machine's timezone. Optional inclusive
+`min` / `max` bounds:
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const dateFlag = flag.date({ min: new Date('2020-01-01') });
+
+declare const flagTypes: {
+  date: InferFlag<typeof dateFlag>;
+};
+// ---cut---
+flagTypes.date;
+//         ^?
+```
+
+### Duration
+
+Accepts `'30s'`, `'5m'`, `'1.5h'`, `'250ms'`, `'2d'`, compounds like
+`'1h30m'`, or a bare millisecond count, and resolves to **milliseconds**:
+
+```ts
+flag.duration().default(30_000);
+// --timeout 45s   → 45000
+// --timeout 1h30m → 5400000
+```
+
+### Bytes
+
+Accepts `'512mb'`, `'1.5gb'`, `'64kb'`, `'100b'` or a bare byte count, and
+resolves to **bytes**. Units are binary (`1kb` = 1024) and case-insensitive:
+
+```ts
+flag.bytes().default(10 * 1024 ** 2);
+// --max-size 512kb → 524288
+```
+
+::: tip Positional equivalents
+`arg.string()`, `arg.number()`, `arg.boolean()`, `arg.enum()`, `arg.custom()`,
+`arg.url()`, `arg.path()`, `arg.date()`, `arg.duration()`, and `arg.bytes()`
+take the same options and produce the same values. See
+[Purpose-built argument kinds](/guide/arguments#purpose-built-argument-kinds).
+:::
+
+## Cardinality
+
+How many values a flag carries is decided separately from what each value
+means. Four forms exist, and every source fills whichever one the flag declares:
+
+| Form    | Declared by      | Unset resolves to |
+| ------- | ---------------- | ----------------- |
+| one     | every value kind | `undefined`       |
+| list    | `flag.array()`   | `[]`              |
+| entries | `flag.keyValue()`| `{}`              |
+| count   | `flag.count()`   | `0`               |
 
 ### Array
 
@@ -179,14 +271,62 @@ flag.array(flag.number({ min: 1 })).env('PORTS').describe('Ports'); // ✓
 and `flag.bytes()` are element-eligible. `flag.count()`, `flag.keyValue()`, and
 a nested `flag.array()` are rejected in element position, also at compile time.
 
-### Collections
+### Count
 
-`flag.array()` and `flag.keyValue()` are the two collection kinds. Both are
-decided along the same axis: how many values the flag carries and how they
-combine. An array carries an ordered list, a key-value flag carries a record of
-entries, and both fill from every source the flag declares under one set of
-rules. `flag.count()` sits on the same axis, carrying an occurrence count rather
-than values.
+Resolves to how many times the flag appears, the classic verbosity pattern.
+`-vvv`, `-v -v -v`, and `--verbose --verbose --verbose` all yield `3`; absent
+yields `0`. An explicit value (`--verbose=2`, env, config) sets the count
+directly. Count flags take no value token and are not promptable:
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const countFlag = flag.count().alias('v');
+
+declare const flagTypes: {
+  count: InferFlag<typeof countFlag>;
+};
+// ---cut---
+flagTypes.count;
+//         ^?
+```
+
+### Key-Value
+
+Repeated `KEY=VALUE` occurrences merge into a `Record<string, string>`
+(docker/kubectl `--env` style):
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const kvFlag = flag.keyValue().alias('e');
+
+declare const flagTypes: {
+  env: InferFlag<typeof kvFlag>;
+};
+// ---cut---
+flagTypes.env;
+//         ^?
+```
+
+Env values carry comma-delimited pairs (`A=1,B=2`) by default, which means an
+env-sourced value cannot itself contain a comma. Change the env policy with
+`.split({ env: ';' })` or `.split({ env: 'json' })`, or use a config file, whose
+plain object is read natively. See [Collections](#collections) for the full
+per-source table, the duplicate-key policies, and reading entries from stdin.
+
+Array and key-value flags are the optional flag kinds that still resolve to a
+value when unset: arrays fall back to `[]`, key-value flags to `{}`.
+
+`arg.keyValue()` is the positional counterpart, and it takes the same kind of
+element builder. See
+[Key-value arguments](/guide/arguments#key-value-arguments).
+
+### Collections {#collections}
+
+`flag.array()` and `flag.keyValue()` are the two collection kinds. Both fill
+from every source the flag declares under one set of rules. `flag.count()` sits
+on the same axis, carrying an occurrence count rather than values.
 
 The sections below apply to `flag.array()` and `flag.keyValue()` alike.
 
@@ -273,9 +413,9 @@ $ mycli send --tag a --tag -
 ```
 
 A `-` the user typed beside other occurrences fails when nothing was piped,
-rather than shortening the collection behind their back. Occurrences of nothing
-but `-` are the whole value, so they fall through to the later sources the way
-an absent flag does.
+rather than shortening the collection behind their back. The code is
+`MISSING_STDIN`. Occurrences of nothing but `-` are the whole value, so they
+fall through to the later sources the way an absent flag does.
 
 A flag that declares no stdin binding treats `-` as an ordinary element, and the
 stream is never read:
@@ -306,7 +446,7 @@ command('run')
 //   →  flags.tag === ['{"A":"1"}'], flags.vars === { A: '1' }
 ```
 
-#### Key-value flags
+#### Key-value entries
 
 `flag.keyValue()` merges `KEY=VALUE` occurrences into a record, splitting each
 at the **first** `=`, so `--env A=b=c` yields `{ A: 'b=c' }`. Unset resolves to
@@ -338,361 +478,10 @@ Under `'error'`, the message names the key and the source that carried it:
 source. A key spliced in from a pipe reads `from stdin`. A JSON object cannot
 repeat a key, so the policy has nothing to decide for `.split({ env: 'json' })`.
 
-### Custom
+## Sources
 
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
-
-const customFlag = flag.custom((v) => new URL(String(v)));
-
-declare const flagTypes: {
-  custom: InferFlag<typeof customFlag>;
-};
-// ---cut---
-flagTypes.custom;
-//         ^?
-```
-
-### URL
-
-Parses into a `URL`; invalid URLs are rejected with the flag named in the
-error. Optionally restrict protocols:
-
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
-
-const urlFlag = flag.url({ protocols: ['https'] });
-
-declare const flagTypes: {
-  url: InferFlag<typeof urlFlag>;
-};
-// ---cut---
-flagTypes.url;
-//        ^?
-```
-
-### Path
-
-The value stays a `string` (help shows `<path>`), with optional filesystem
-checks that run **after resolution** through the runtime adapter, so CLI, env,
-config, prompted, and defaulted values are all validated:
-
-```ts
-flag.path(); // any string
-flag.path({ mustExist: true }); // rejects missing paths
-flag.path({ type: 'directory' }); // must exist and be a directory
-flag.path({ type: 'directory', mustExist: false }); // missing passes; existing must be a directory
-flag.path({ type: 'directory', create: true }); // created recursively when missing
-```
-
-`create` is only available with `type: 'directory'` (enforced at the type
-level) and still rejects an existing non-directory path.
-
-In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
-function via run options to enable the checks (plus `mkdir` for `create`);
-without them the checks are skipped and nothing is created.
-
-`flag.path()` resolves as a `string`, so a value read from stdin keeps the
-buffer byte for byte, trailing line terminator included. `echo ./docs | mycli`
-reaches a `mustExist` check as `'./docs\n'` and fails. `.stdin({ trim: true })`
-drops that terminator, and `printf './docs'` works too.
-
-### Date
-
-Accepts strict ISO-8601 (`2026-07-10`, `2026-07-10T14:30:00Z`) and parses into
-a `Date`. Lenient `Date.parse` inputs (`'0'`, `'March 5'`) and
-calendar-invalid dates (`2026-02-31`) are rejected. Offset-less datetimes
-(`2026-07-10T14:30`) are treated as **UTC**, not local time, so `min` / `max`
-acceptance never depends on the machine's timezone. Optional inclusive
-`min` / `max` bounds:
-
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
-
-const dateFlag = flag.date({ min: new Date('2020-01-01') });
-
-declare const flagTypes: {
-  date: InferFlag<typeof dateFlag>;
-};
-// ---cut---
-flagTypes.date;
-//         ^?
-```
-
-### Duration
-
-Accepts `'30s'`, `'5m'`, `'1.5h'`, `'250ms'`, `'2d'`, compounds like
-`'1h30m'`, or a bare millisecond count — and resolves to **milliseconds**:
-
-```ts
-flag.duration().default(30_000);
-// --timeout 45s   → 45000
-// --timeout 1h30m → 5400000
-```
-
-### Bytes
-
-Accepts `'512mb'`, `'1.5gb'`, `'64kb'`, `'100b'` or a bare byte count, and
-resolves to **bytes**. Units are binary (`1kb` = 1024) and case-insensitive:
-
-```ts
-flag.bytes().default(10 * 1024 ** 2);
-// --max-size 512kb → 524288
-```
-
-::: tip Positional equivalents
-`arg.url()`, `arg.path()`, `arg.date()`, `arg.duration()`, and `arg.bytes()`
-take the same options and produce the same values. See
-[Purpose-built argument kinds](/guide/arguments#purpose-built-argument-kinds).
-Of the two kinds below, `keyValue` has a positional counterpart in
-`arg.keyValue()` and `count` does not; `array` is served on the arg surface by
-`.variadic()`. See
-[What the arg factory does not have](/guide/arguments#flag-only-surface).
-:::
-
-### Count
-
-Resolves to how many times the flag appears — the classic verbosity pattern.
-`-vvv`, `-v -v -v`, and `--verbose --verbose --verbose` all yield `3`; absent
-yields `0`. An explicit value (`--verbose=2`, env, config) sets the count
-directly. Count flags take no value token and are not promptable:
-
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
-
-const countFlag = flag.count().alias('v');
-
-declare const flagTypes: {
-  count: InferFlag<typeof countFlag>;
-};
-// ---cut---
-flagTypes.count;
-//         ^?
-```
-
-### Key-Value
-
-Repeated `KEY=VALUE` occurrences merge into a `Record<string, string>`
-(docker/kubectl `--env` style):
-
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
-
-const kvFlag = flag.keyValue().alias('e');
-
-declare const flagTypes: {
-  env: InferFlag<typeof kvFlag>;
-};
-// ---cut---
-flagTypes.env;
-//         ^?
-```
-
-Env values carry comma-delimited pairs (`A=1,B=2`) by default, which means an
-env-sourced value cannot itself contain a comma. Change the env policy with
-`.split({ env: ';' })` or `.split({ env: 'json' })`, or use a config file, whose
-plain object is read natively. See [Collections](#collections) for the full
-per-source table, the duplicate-key policies, and reading entries from stdin.
-
-Array and key-value flags are the optional flag kinds that still resolve to a
-value when unset: arrays fall back to `[]`, key-value flags to `{}`.
-
-`arg.keyValue()` is the positional counterpart. See
-[Key-value arguments](/guide/arguments#key-value-arguments).
-
-For the exact parser rules around repeated flags, short-flag stacking, `--`
-separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics).
-
-## Flag Names
-
-The string you pass to `.flag(name, …)` is the flag's **canonical name**, and it is used in two
-places at once:
-
-- on the command line as `--name`;
-- as the key on the `flags` object inside your handler.
-
-The name you declare is the name you read — handler keys are never case-converted. Single-word
-names are valid identifiers, so dot access works (`flags.region`). Hyphenated names are not valid
-identifiers, so read them with bracket access (`flags['node-ipc']`).
-
-```ts twoslash
-import { command, flag } from '@kjanat/dreamcli';
-
-command('serve')
-  .flag(
-    'node-ipc',
-    flag.boolean().describe('Use the Node IPC transport'),
-  )
-  .flag('dry-run', flag.boolean())
-  .action(({ flags, out }) => {
-    // Hyphenated names are read with bracket access — there is no `flags.nodeIpc`.
-    if (flags['node-ipc']) out.log('ipc');
-    if (flags['dry-run']) out.log('dry run');
-  });
-```
-
-Reach for a hyphenated name when you want the conventional CLI spelling (`--node-ipc`,
-`--dry-run`); reach for a single-word or camelCase name (`--nodeIpc`) when ergonomic dot access
-matters more. Either way users can type both spellings — see
-[Spelling parity](#spelling-parity-kebab-camel) below.
-
-### Spelling Parity (kebab ↔ camel) {#spelling-parity-kebab-camel}
-
-On the command line, every flag name and long alias also accepts its kebab↔camel counterpart:
-a flag named `dry-run` matches both `--dry-run` and `--dryRun`, and a flag named `dryRun`
-matches both spellings too. The handler key is always the canonical name — parity is purely
-CLI-token sugar, and help, completions, and "did you mean" suggestions advertise only the
-declared spelling.
-
-Two escape hatches:
-
-- **Per pair, automatic** — if a command explicitly defines *both* spellings as separate flags
-  (`do-this` and `doThis`), parity is disabled for that pair and each spelling matches only its
-  own flag.
-- **Globally** — pass `flags: { caseParity: false }` to the `cli()` factory (or to
-  `cmd.run()` / `.execute()` options) to accept declared spellings only:
-
-```ts twoslash
-import { cli, command, flag } from '@kjanat/dreamcli';
-
-cli('mycli', { flags: { caseParity: false } })
-  .command(
-    command('build')
-      .flag('dry-run', flag.boolean())
-      .action(() => {}),
-  );
-// $ mycli build --dry-run   → ok
-// $ mycli build --dryRun    → Unknown flag --dryRun
-```
-
-Parity is not case-insensitivity: `--DRY-RUN` never matches.
-
-### Aliases Are CLI Tokens, Not Handler Keys
-
-`.alias()` adds an alternate **spelling on the command line**. It resolves back to the canonical
-name — it never becomes a second property on `flags`.
-
-```ts twoslash
-import { command, flag } from '@kjanat/dreamcli';
-
-command('serve')
-  // Accepts both `--skip-pass` and `--skipPass` on the CLI…
-  .flag('skip-pass', flag.boolean().alias('skipPass'))
-  .action(({ flags, out }) => {
-    // …but the handler has exactly one key: the canonical name.
-    if (flags['skip-pass']) out.log('skipping');
-  });
-```
-
-So typing `--skipPass` still arrives as `flags['skip-pass']`.
-
-## Modifiers
-
-Every flag type supports the same modifier chain:
-
-```ts twoslash
-import { flag } from '@kjanat/dreamcli';
-
-flag
-  .string()
-  // short alias: -r
-  .alias('r')
-  // help text
-  .describe('Target region')
-  // default value (narrows type)
-  .default('us')
-  // must resolve or error
-  .required()
-  // resolve from piped stdin
-  .stdin()
-  // resolve from env var
-  .env('DEPLOY_REGION')
-  // resolve from config file
-  .config('deploy.region')
-  // interactive fallback
-  .prompt({ kind: 'input', message: 'Region?' })
-  // deprecation warning
-  .deprecated('Use --target instead')
-  // inherit in subcommands
-  .propagate();
-```
-
-## Negatable Booleans
-
-`.negatable()` gives a boolean flag a negated spelling that sets it to `false` — the classic
-`--sandbox` / `--no-sandbox` pair as **one logical flag**:
-
-```ts twoslash
-import { command, flag } from '@kjanat/dreamcli';
-
-command('build')
-  .flag(
-    'sandbox',
-    flag.boolean().default(true).negatable().describe('Run the build sandboxed'),
-  )
-  .action(({ flags, out }) => {
-    if (!flags.sandbox) out.warn('sandbox disabled');
-  });
-// $ mycli build                → sandbox = true  (default)
-// $ mycli build --sandbox      → sandbox = true
-// $ mycli build --no-sandbox   → sandbox = false
-```
-
-Semantics:
-
-- Both spellings are the same flag: the **last CLI occurrence wins** across them, and they share
-  the flag's [duplicate policy](#duplicate-policy).
-- The negated spelling is presence-only — `--no-sandbox=true` is an error. Explicit values stay
-  on the positive spelling (`--sandbox=false`).
-- Help renders the pair as one entry: `--[no-]sandbox`.
-- Only CLI tokens are affected; env, config, prompt, and default resolution are unchanged.
-
-Customize the spelling with `alias` (rendered as its own form) or keep it parseable but
-unadvertised with `hidden`:
-
-```ts twoslash
-import { flag } from '@kjanat/dreamcli';
-
-flag.boolean().negatable({ alias: 'plain' }); // --color / --plain
-flag.boolean().negatable({ hidden: true }); // --no-… parses, help shows only the positive form
-```
-
-The negated spelling participates in schema-time collision validation — defining `no-sandbox` as
-its own flag next to a negatable `sandbox` is an error.
-
-## Duplicate Policy {#duplicate-policy}
-
-By default, repeating a singleton flag on the command line is last-write-wins
-(`--region us --region eu` → `'eu'`). For flags that are configuration knobs rather than
-mergeable inputs, `.duplicates()` makes repeats explicit:
-
-```ts twoslash
-import { command, flag } from '@kjanat/dreamcli';
-
-command('run')
-  .flag('spawn', flag.enum(['session', 'same-dir', 'worktree']).duplicates('error'))
-  .flag('capacity', flag.number().duplicates('first'))
-  .action(() => {});
-// $ mycli run --spawn session --spawn worktree
-// #   → Error: Flag --spawn may only be specified once   (code: DUPLICATE_FLAG)
-// $ mycli run --capacity 2 --capacity 9   → capacity = 2 (first wins)
-```
-
-- `'last'` — last occurrence wins (default, historic behavior).
-- `'first'` — first occurrence wins; later occurrences still consume their value token, they just
-  don't overwrite.
-- `'error'` — a second occurrence throws a `ParseError` with code `DUPLICATE_FLAG` and
-  `details: { flag, count, values }`.
-
-Occurrences are counted per **logical flag** — aliases, negated spellings, and
-[parity spellings](#spelling-parity-kebab-camel) all count toward the same flag. Only CLI tokens
-count: a flag set both on the CLI and via env/config follows the normal precedence chain and is
-never a duplicate. `.duplicates()` is unavailable on `array`, `count`, and `keyValue` flags,
-which inherently accumulate.
-
-## Resolution Chain
-
-Each flag resolves through an ordered pipeline. Every step is opt-in:
+Every flag resolves through the same ordered chain. Each step past the command
+line is opt-in, and the first source that provides a value wins:
 
 ```mermaid
 flowchart LR
@@ -703,11 +492,9 @@ flowchart LR
     D --> E[Default value]
 ```
 
-The first source that provides a value wins.
-Required flags that don't resolve produce a structured error before the action handler runs.
+Required flags that don't resolve produce a structured error before the action
+handler runs.
 Positional arguments walk the same order; see [Arguments](/guide/arguments).
-
-### Example
 
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
@@ -730,7 +517,72 @@ Resolution order:
 5. Interactive select prompt (TTY only)
 6. Default value `"us"`
 
-## STDIN-Backed Flags
+### Required vs Optional
+
+Presence is the last question the sources axis answers: what happens when the
+whole chain produces nothing.
+
+#### Optional
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const optionalFlag = flag.string();
+
+declare const requiredVsOptional: {
+  optional: InferFlag<typeof optionalFlag>;
+};
+// ---cut---
+requiredVsOptional.optional;
+//                    ^?
+```
+
+#### Defaulted
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const defaultedFlag = flag.string().default('hello');
+
+declare const requiredVsOptional: {
+  defaulted: InferFlag<typeof defaultedFlag>;
+};
+// ---cut---
+requiredVsOptional.defaulted;
+//                    ^?
+```
+
+#### Required
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const requiredFlag = flag.string().required();
+
+declare const requiredVsOptional: {
+  required: InferFlag<typeof requiredFlag>;
+};
+// ---cut---
+requiredVsOptional.required;
+//                    ^?
+```
+
+#### Boolean
+
+```ts twoslash
+import { flag, type InferFlag } from '@kjanat/dreamcli';
+
+const booleanFlag = flag.boolean();
+
+declare const requiredVsOptional: {
+  boolean: InferFlag<typeof booleanFlag>;
+};
+// ---cut---
+requiredVsOptional.boolean;
+//                  ^?
+```
+
+### STDIN-Backed Flags {#stdin-backed-flags}
 
 `.stdin()` lets a flag read its value from piped stdin. It is available on every
 kind but `count`, which counts occurrences rather than reading a value:
@@ -774,7 +626,7 @@ terminator a pipe appends before decoding, so `echo true` reaches
 It applies to a single value; a collection's terminators separate its elements
 and `.split({ stdin })` decides them.
 
-### Choosing when stdin is read
+#### Choosing when stdin is read
 
 `.stdin()` takes `{ when, consume, trim }`:
 
@@ -792,7 +644,11 @@ Stdin is read at most once per invocation, and only when one of these bindings
 would actually fire. A `when: 'dash'` flag the user never dashes never touches
 the stream.
 
-### Worked Transcripts
+Help names the binding beside the flag's other sources: `[stdin]` for the
+default, `[stdin: '-']` for `{ when: 'dash' }`, and `[stdin: when omitted]` for
+`{ when: 'missing' }`. See [Source annotations](/guide/help#source-annotations).
+
+#### Worked Transcripts
 
 Take one flag that reads stdin and an env var:
 
@@ -853,15 +709,22 @@ $ echo 'piped text' | BODY=env-value mycli send
 # flags.body === 'env-value'
 ```
 
-A required stdin-backed flag with nothing to read reports the stdin route in its
-suggestion:
+A required stdin-backed flag with nothing to read names the routes its binding
+actually offers:
 
 ```
+# flag.string().stdin().required()
 Missing required flag --body
+Suggestion: Provide --body <value> or pipe a value to stdin or pass --body -
+
+# flag.string().stdin({ when: 'dash' }).required()
+Suggestion: Provide --body <value> or pass --body - to read stdin
+
+# flag.string().stdin({ when: 'missing' }).required()
 Suggestion: Provide --body <value> or pipe a value to stdin
 ```
 
-### `.stdin()` Constraints {#stdin-constraints}
+#### `.stdin()` Constraints {#stdin-constraints}
 
 One command has one exclusive stdin consumer. Declaring a second stdin input of
 any kind, flag or argument, throws `DUPLICATE_STDIN_INPUT` at build time:
@@ -902,107 +765,322 @@ Flag schema field 'stdin' is not available on kind 'count'
 Suggestion: Drop 'stdin' or declare the flag as one of: string, number, boolean, enum, custom, array, keyValue
 ```
 
-## Required vs Optional
+### Which source won
 
-### Optional
-
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
-
-const optionalFlag = flag.string();
-
-declare const requiredVsOptional: {
-  optional: InferFlag<typeof optionalFlag>;
-};
-// ---cut---
-requiredVsOptional.optional;
-//                    ^?
-```
-
-### Defaulted
+A handler receives `sources` beside `flags` and `args`, keyed by the same names,
+holding the record the winning stage produced:
 
 ```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
+import { command, flag, wasExplicit } from '@kjanat/dreamcli';
 
-const defaultedFlag = flag.string().default('hello');
-
-declare const requiredVsOptional: {
-  defaulted: InferFlag<typeof defaultedFlag>;
-};
-// ---cut---
-requiredVsOptional.defaulted;
-//                    ^?
+command('build')
+  .flag('out', flag.string().env('OUT_DIR').default('dist'))
+  .action(({ flags, sources, out }) => {
+    if (wasExplicit(sources.flags.out)) out.info(`overriding with ${flags.out}`);
+    if (sources.flags.out?.stage === 'env') out.info(`from ${sources.flags.out.envVar}`);
+  });
 ```
 
-#### Defaults are validated where they are declared
+[Value provenance](/guide/semantics#which-source-won) has the full record table,
+the two stdin triggers, and worked examples for explicit-wins merges and
+`--explain` style diagnostics.
 
-A `.default()` value is already the typed value, so it is validated rather than
-decoded. String and number constraints, element and aggregate Standard Schema
-validators, and the shape the flag's cardinality requires all apply to it. A
-violation whose verdict is available synchronously throws `INVALID_DEFAULT`
-where the chain declares it:
+## Syntax
+
+The syntax axis is what a flag has and a positional argument does not: a name to
+spell, alternate spellings, a negated form, a rule for repeats, and inheritance
+into subcommands.
+
+### Flag Names
+
+The string you pass to `.flag(name, …)` is the flag's **canonical name**, and it is used in two
+places at once:
+
+- on the command line as `--name`;
+- as the key on the `flags` object inside your handler.
+
+The name you declare is the name you read; handler keys are never case-converted. Single-word
+names are valid identifiers, so dot access works (`flags.region`). Hyphenated names are not valid
+identifiers, so read them with bracket access (`flags['node-ipc']`).
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('serve')
+  .flag(
+    'node-ipc',
+    flag.boolean().describe('Use the Node IPC transport'),
+  )
+  .flag('dry-run', flag.boolean())
+  .action(({ flags, out }) => {
+    // Hyphenated names are read with bracket access. There is no `flags.nodeIpc`.
+    if (flags['node-ipc']) out.log('ipc');
+    if (flags['dry-run']) out.log('dry run');
+  });
+```
+
+Reach for a hyphenated name when you want the conventional CLI spelling (`--node-ipc`,
+`--dry-run`); reach for a single-word or camelCase name (`--nodeIpc`) when ergonomic dot access
+matters more. Either way users can type both spellings; see
+[Spelling parity](#spelling-parity-kebab-camel) below.
+
+### Spelling Parity (kebab ↔ camel) {#spelling-parity-kebab-camel}
+
+On the command line, every flag name and long alias also accepts its kebab↔camel counterpart:
+a flag named `dry-run` matches both `--dry-run` and `--dryRun`, and a flag named `dryRun`
+matches both spellings too. The handler key is always the canonical name; parity is purely
+CLI-token sugar, and help, completions, and "did you mean" suggestions advertise only the
+declared spelling.
+
+Two escape hatches:
+
+- **Per pair, automatic**: if a command explicitly defines *both* spellings as separate flags
+  (`do-this` and `doThis`), parity is disabled for that pair and each spelling matches only its
+  own flag.
+- **Globally**: pass `flags: { caseParity: false }` to the `cli()` factory (or to
+  `cmd.run()` / `.execute()` options) to accept declared spellings only:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('mycli', { flags: { caseParity: false } })
+  .command(
+    command('build')
+      .flag('dry-run', flag.boolean())
+      .action(() => {}),
+  );
+// $ mycli build --dry-run   → ok
+// $ mycli build --dryRun    → Unknown flag --dryRun
+```
+
+Parity is not case-insensitivity: `--DRY-RUN` never matches.
+
+### Aliases Are CLI Tokens, Not Handler Keys
+
+`.alias()` adds an alternate **spelling on the command line**. It resolves back to the canonical
+name; it never becomes a second property on `flags`.
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('serve')
+  // Accepts both `--skip-pass` and `--skipPass` on the CLI…
+  .flag('skip-pass', flag.boolean().alias('skipPass'))
+  .action(({ flags, out }) => {
+    // …but the handler has exactly one key: the canonical name.
+    if (flags['skip-pass']) out.log('skipping');
+  });
+```
+
+So typing `--skipPass` still arrives as `flags['skip-pass']`.
+
+### Negatable Booleans
+
+`.negatable()` gives a boolean flag a negated spelling that sets it to `false`, the classic
+`--sandbox` / `--no-sandbox` pair as **one logical flag**:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('build')
+  .flag(
+    'sandbox',
+    flag.boolean().default(true).negatable().describe('Run the build sandboxed'),
+  )
+  .action(({ flags, out }) => {
+    if (!flags.sandbox) out.warn('sandbox disabled');
+  });
+// $ mycli build                → sandbox = true  (default)
+// $ mycli build --sandbox      → sandbox = true
+// $ mycli build --no-sandbox   → sandbox = false
+```
+
+Semantics:
+
+- Both spellings are the same flag: the **last CLI occurrence wins** across them, and they share
+  the flag's [duplicate policy](#duplicate-policy).
+- The negated spelling is presence-only. `--no-sandbox=true` is an error. Explicit values stay
+  on the positive spelling (`--sandbox=false`).
+- Help renders the pair as one entry: `--[no-]sandbox`.
+- Only CLI tokens are affected; env, config, prompt, and default resolution are unchanged.
+
+Customize the spelling with `alias` (rendered as its own form) or keep it parseable but
+unadvertised with `hidden`:
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+flag.boolean().negatable({ alias: 'plain' }); // --color / --plain
+flag.boolean().negatable({ hidden: true }); // --no-… parses, help shows only the positive form
+```
+
+The negated spelling participates in schema-time collision validation. Defining `no-sandbox` as
+its own flag next to a negatable `sandbox` is an error.
+
+### Duplicate Policy {#duplicate-policy}
+
+By default, repeating a singleton flag on the command line is last-write-wins
+(`--region us --region eu` → `'eu'`). For flags that are configuration knobs rather than
+mergeable inputs, `.duplicates()` makes repeats explicit:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('run')
+  .flag('spawn', flag.enum(['session', 'same-dir', 'worktree']).duplicates('error'))
+  .flag('capacity', flag.number().duplicates('first'))
+  .action(() => {});
+// $ mycli run --spawn session --spawn worktree
+// #   → Error: Flag --spawn may only be specified once   (code: DUPLICATE_FLAG)
+// $ mycli run --capacity 2 --capacity 9   → capacity = 2 (first wins)
+```
+
+- `'last'` sets last occurrence wins (default, historic behavior).
+- `'first'` sets first occurrence wins; later occurrences still consume their value token, they just
+  don't overwrite.
+- `'error'` makes a second occurrence throw a `ParseError` with code `DUPLICATE_FLAG` and
+  `details: { flag, count, values }`.
+
+Occurrences are counted per **logical flag**. Aliases, negated spellings, and
+[parity spellings](#spelling-parity-kebab-camel) all count toward the same flag. Only CLI tokens
+count: a flag set both on the CLI and via env/config follows the normal precedence chain and is
+never a duplicate. `.duplicates()` is unavailable on `array`, `count`, and `keyValue` flags,
+which inherently accumulate.
+
+### Propagation
+
+Flags marked with `.propagate()` are inherited by all subcommands:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+const nested = command('start')
+  .flag('verbose', flag.boolean().alias('v').propagate())
+  .action(({ flags, out }) => {
+    if (flags.verbose) {
+      out.info('Verbose mode enabled');
+    }
+  });
+// ---cut-start---
+// ---cut-end---
+
+cli('mycli').command(
+  command('deploy')
+    .flag('verbose', flag.boolean().alias('v').propagate())
+    .command(nested),
+);
+```
+
+A child command that defines the same flag name masks the ancestor's propagated
+flag, and blocks it from reaching deeper descendants. See
+[Propagation and masking](/guide/semantics#propagation-and-masking).
+
+For the exact parser rules around repeated flags, short-flag stacking, `--`
+separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics).
+
+## Validation
+
+Constraints, Standard Schema validators, and filesystem checks all describe what
+a resolved value has to satisfy. They apply to every source, so a value typed on
+the command line, piped, exported, written in a config file, answered at a
+prompt, or declared as the default meets the same bar.
+
+### String constraints {#string-constraints}
+
+`flag.string()` accepts optional string constraints, either as an options
+object or via chained methods (they compose, and a later chained call overrides an
+earlier value, including one set in the options object):
 
 ```ts
-flag.string({ minLength: 3 }).default('ab');
-// Default value for a string flag is invalid: must be at least 3 characters
-
-flag.array(flag.number({ min: 0 })).default([-1]);
-// Default value for a array flag at 0 is invalid: must be >= 0
-
-flag.count().default(-1);
-// Default value for a count flag is invalid: expected a non-negative integer
+flag.string({ nonEmpty: true, pattern: /^ghp_/ });
+flag.string().nonEmpty().pattern(/^ghp_/); // equivalent
+flag.string().minLength(3).maxLength(64);
 ```
 
-Chain order does not change the verdict. A constraint or validator added after
-the default is checked against it too:
+| Option      | Meaning                                     | Default |
+| ----------- | ------------------------------------------- | ------- |
+| `nonEmpty`  | Reject the empty string `''`                | `false` |
+| `minLength` | Inclusive minimum length (UTF-16 units)     | none    |
+| `maxLength` | Inclusive maximum length (UTF-16 units)     | none    |
+| `pattern`   | RegExp the value must match                 | none    |
+
+Constraints are checked in order **nonEmpty → minLength → maxLength →
+pattern** and apply to every source: CLI, stdin, env, config, prompt, and the
+declared default. On the first failure, a CLI token throws `INVALID_VALUE` while
+every other source reports `CONSTRAINT_VIOLATED` (both exit code `2`). Anchor
+patterns with `^`/`$` for full-string matching; length bounds must be
+non-negative integers and `minLength` must not exceed `maxLength` (violations
+throw where the flag is declared). String constraints are surfaced in the
+exported JSON Schema as `minLength` / `maxLength` / `pattern`.
+
+The same options and methods are available on
+[`arg.string()`](/guide/arguments#string-constraints) for positional arguments.
+
+### Numeric constraints {#numeric-constraints}
+
+`flag.number()` accepts optional numeric constraints, either as an options
+object or via chained methods (they compose, and a later chained call overrides an
+earlier value, including one set in the options object):
 
 ```ts
-flag.string().default('ab').minLength(3); // same error as the first line above
+flag.number({ min: 0, max: 100, int: true });
+flag.number().int().min(0).max(100); // equivalent
+flag.number({ min: 0 }).max(100); // composes to { min: 0, max: 100 }
 ```
 
-A collection default takes the shape the flag resolves to: an array for
-`flag.array()`, a record for `flag.keyValue()`, a non-negative integer for
-`flag.count()`.
+| Option   | Meaning                         | Default |
+| -------- | ------------------------------- | ------- |
+| `min`    | Inclusive lower bound           | none    |
+| `max`    | Inclusive upper bound           | none    |
+| `int`    | Require an integer              | `false` |
+| `finite` | Reject `Infinity` / `-Infinity` | `true`  |
 
-Two checks stay at resolution time, where a default already went through them:
-a validator that returns a promise, and the `flag.path()` filesystem checks.
-`flag.path({ mustExist: true }).default('/nope')` therefore builds, and fails
-when the path is probed.
+The resolved value type stays `number`. Constraints are enforced at runtime
+and surfaced in the exported JSON Schema (`minimum` / `maximum`, and
+`type: "integer"` when `int` is set), not at the type level. `min` / `max` must
+be finite; passing `Infinity` / `-Infinity` / `NaN` as a bound throws when the
+flag is declared (omit the field for "no bound").
 
-Fix the default, or widen the declaration where the value was intended:
-`flag.number({ finite: false }).default(Number.POSITIVE_INFINITY)` holds.
+::: warning Finite by default
+`flag.number()` now **rejects `Infinity` and `-Infinity`** (as well as `NaN`,
+which was always rejected). Pass `finite: false` (or `.finite(false)`) to accept
+non-finite values.
+:::
 
-### Required
+Constraints are checked in order **finite → int → min → max**, and apply to
+every source:
 
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
+| Input (`flag.number({ int: true, min: 0, max: 100 })`) | Result                               |
+| ------------------------------------------------------ | ------------------------------------ |
+| `42`                                                   | accepted                             |
+| `0` / `100`                                            | accepted (bounds are inclusive)      |
+| `NaN`                                                  | rejected, invalid number             |
+| `Infinity`                                             | rejected, `must be a finite number`  |
+| `3.7`                                                  | rejected, `must be an integer`       |
+| `-1`                                                   | rejected, `must be >= 0`             |
+| `101`                                                  | rejected, `must be <= 100`           |
 
-const requiredFlag = flag.string().required();
+The same options and methods are available on `arg.number()` for positional
+arguments.
 
-declare const requiredVsOptional: {
-  required: InferFlag<typeof requiredFlag>;
-};
-// ---cut---
-requiredVsOptional.required;
-//                    ^?
-```
+### Filesystem checks {#filesystem-checks}
 
-### Boolean
+`flag.path()` checks run **after resolution** through the runtime adapter, so
+CLI, stdin, env, config, prompted, and defaulted values are all validated.
 
-```ts twoslash
-import { flag, type InferFlag } from '@kjanat/dreamcli';
+`create` is only available with `type: 'directory'` (enforced at the type
+level) and still rejects an existing non-directory path.
 
-const booleanFlag = flag.boolean();
+In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
+function via run options to enable the checks (plus `mkdir` for `create`);
+without them the checks are skipped and nothing is created.
 
-declare const requiredVsOptional: {
-  boolean: InferFlag<typeof booleanFlag>;
-};
-// ---cut---
-requiredVsOptional.boolean;
-//                  ^?
-```
+Failures carry `CONSTRAINT_VIOLATED`. An element builder puts the check on each
+element, so `flag.array(flag.path({ mustExist: true }))` probes every collected
+value and `flag.keyValue(flag.path({ mustExist: true }))` probes every entry
+value.
 
-## Custom Parsing
+### Custom parsing {#custom-parsing}
 
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
@@ -1017,9 +1095,10 @@ flag.custom((value) => {
 ```
 
 The parse function receives the raw string value and returns the parsed type.
-Thrown errors become validation errors with the flag name in context.
+Thrown errors become validation errors with the flag name in context, and the
+message your function threw is shown verbatim.
 
-### Standard Schema Validators
+### Standard Schema validators
 
 `flag.custom()` also accepts any [Standard Schema v1](https://standardschema.dev/schema)
 validator, including Zod, Valibot, and ArkType schemas:
@@ -1063,35 +1142,64 @@ aggregate failure names the flag:
 carries one value. An aggregate validator on a kind that does not aggregate
 throws `INVALID_SCHEMA`.
 
-## Propagation
+### Defaults are validated where they are declared
 
-Flags marked with `.propagate()` are inherited by all subcommands:
+A `.default()` value is already the typed value, so it is validated rather than
+decoded. String and number constraints, element and aggregate Standard Schema
+validators, and the shape the flag's cardinality requires all apply to it. A
+violation whose verdict is available synchronously throws `INVALID_DEFAULT`
+where the chain declares it:
 
-```ts twoslash
-import { cli, command, flag } from '@kjanat/dreamcli';
+```ts
+flag.string({ minLength: 3 }).default('ab');
+// Default value for a string flag is invalid: must be at least 3 characters
 
-const nested = command('start')
-  .flag('verbose', flag.boolean().alias('v').propagate())
-  .action(({ flags, out }) => {
-    if (flags.verbose) {
-      out.info('Verbose mode enabled');
-    }
-  });
-// ---cut-start---
-// ---cut-end---
+flag.array(flag.number({ min: 0 })).default([-1]);
+// Default value for a array flag at 0 is invalid: must be >= 0
 
-cli('mycli').command(
-  command('deploy')
-    .flag('verbose', flag.boolean().alias('v').propagate())
-    .command(nested),
-);
+flag.count().default(-1);
+// Default value for a count flag is invalid: expected a non-negative integer
 ```
+
+Chain order does not change the verdict. A constraint or validator added after
+the default is checked against it too:
+
+```ts
+flag.string().default('ab').minLength(3); // same error as the first line above
+```
+
+A collection default takes the shape the flag resolves to: an array for
+`flag.array()`, a record for `flag.keyValue()`, a non-negative integer for
+`flag.count()`.
+
+Two checks stay at resolution time, where a default already went through them:
+a validator that returns a promise, and the `flag.path()` filesystem checks.
+`flag.path({ mustExist: true }).default('/nope')` therefore builds, and fails
+when the path is probed.
+
+Fix the default, or widen the declaration where the value was intended:
+`flag.number({ finite: false }).default(Number.POSITIVE_INFINITY)` holds.
+
+### What a failing value prints
+
+A value that reached the framework from anywhere but argv is redacted in the
+diagnostic, on both surfaces and from every source:
+
+```bash
+$ API_TOKEN=sk-live-9f2 mycli deploy
+Invalid value '<redacted>' from env API_TOKEN for flag --token: must match /^ghp_/
+```
+
+A token the user typed is quoted in full, since it is already on their screen.
+[Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction) is the
+canonical contract: which fields survive, what `details` carries, and the one
+channel the framework cannot redact.
 
 ## What's Next?
 
-- [Arguments](/guide/arguments) — positional argument types
+- [Arguments](/guide/arguments), the same five axes on the positional surface
 - [What the arg factory does not have](/guide/arguments#flag-only-surface), the
   flag members bound to flag syntax
-- [Config Files](/guide/config) — config file resolution
-- [Interactive Prompts](/guide/prompts) — prompt integration
-- [CLI Semantics](/guide/semantics) — exact parser and precedence rules
+- [Config Files](/guide/config), config file resolution
+- [Interactive Prompts](/guide/prompts), prompt integration
+- [CLI Semantics](/guide/semantics), exact parser and precedence rules

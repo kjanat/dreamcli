@@ -919,7 +919,7 @@ describe('generateSchema — definition metadata', () => {
 						numberConstraints: { $ref: '#/$defs/numberConstraints' },
 						stringConstraints: { $ref: '#/$defs/stringConstraints' },
 						separator: { type: 'string', minLength: 1 },
-						unique: { type: 'boolean' },
+						unique: { const: true },
 						pathChecks: { $ref: '#/$defs/pathChecks' },
 						valueHint: { type: 'string' },
 					},
@@ -1104,7 +1104,11 @@ describe('generateSchema — definition metadata', () => {
 				stringConstraints: { nonEmpty: true, minLength: 2, maxLength: 12, pattern: /^v\d+$/ },
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
-			argEntry('vars', { kind: 'keyValue', duplicateKeys: 'error' }),
+			argEntry('vars', {
+				kind: 'keyValue',
+				duplicateKeys: 'error',
+				elementSchema: createArgSchema('number'),
+			}),
 			argEntry('piped', {
 				stdin: { when: 'dash-or-missing', consume: 'exclusive', trim: true },
 				configPath: 'release.piped',

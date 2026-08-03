@@ -150,7 +150,12 @@ export type {
 export { createTerminalPrompter, resolvePromptConfig } from './core/prompt/index.ts';
 export type { FlagMap, ReadFlagsOptions } from './core/read-flags/index.ts';
 export { readFlags } from './core/read-flags/index.ts';
-export type { DeprecationWarning, ResolveOptions, ResolveResult } from './core/resolve/index.ts';
+export type {
+	DeprecationWarning,
+	ResolutionProvenanceRecord,
+	ResolveOptions,
+	ResolveResult,
+} from './core/resolve/index.ts';
 export { resolve } from './core/resolve/index.ts';
 export type {
 	ActionHandler,
@@ -208,6 +213,7 @@ export type {
 	InferStandardInput,
 	InferStandardOutput,
 	InputPromptConfig,
+	InputSources,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
@@ -230,12 +236,14 @@ export type {
 	PromptConfigBase,
 	PromptKind,
 	PromptResult,
+	ResolutionProvenance,
 	ResolvedArgValue,
 	ResolvedValue,
 	RunResult,
 	SelectChoice,
 	SelectPromptConfig,
 	SourceSplitBinding,
+	SourcesOf,
 	SpinnerHandle,
 	SpinnerOptions,
 	SplitBinding,
@@ -284,4 +292,5 @@ export {
 	group,
 	middleware,
 	resolveExampleCommand,
+	wasExplicit,
 } from './core/schema/index.ts';

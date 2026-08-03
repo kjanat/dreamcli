@@ -8,9 +8,12 @@
  * dispatch on {@link flagCardinality} / {@link argCardinality} rather than on
  * the kind discriminator.
  *
- * Splitting is per source. {@link SplitBinding} carries one {@link SplitPolicy}
- * for CLI tokens, one for environment values, and one for the stdin buffer, so
- * a CLI separator no longer decides how an env var or a pipe decodes.
+ * Splitting is per source. {@link splitBindingOf} resolves one
+ * {@link SplitPolicy} for CLI tokens, one for environment values, and one for
+ * the stdin buffer, so a CLI separator no longer decides how an env var or a
+ * pipe decodes. A cardinality carries the CLI policy alone, which is the one
+ * the parse boundary needs; every other source reads its policy off its own
+ * {@link SourceBinding | source binding}.
  *
  * @module dreamcli/core/schema/cardinality
  * @internal
@@ -253,11 +256,11 @@ type DuplicateKeys = (typeof DUPLICATE_KEYS)[number];
  */
 type Cardinality =
 	| { readonly kind: 'one' }
-	| { readonly kind: 'many'; readonly unique: boolean; readonly splitting: SplitBinding }
+	| { readonly kind: 'many'; readonly unique: boolean; readonly cliSplit: SplitPolicy }
 	| {
 			readonly kind: 'entries';
 			readonly duplicateKeys: DuplicateKeys;
-			readonly splitting: SplitBinding;
+			readonly cliSplit: SplitPolicy;
 	  }
 	| { readonly kind: 'count' };
 
@@ -279,13 +282,13 @@ function flagCardinality(schema: FlagSchema): Cardinality {
 			return {
 				kind: 'many',
 				unique: schema.unique,
-				splitting: splitBindingOf(schema.separator, schema.split),
+				cliSplit: splitBindingOf(schema.separator, schema.split).cli,
 			};
 		case 'keyValue':
 			return {
 				kind: 'entries',
 				duplicateKeys: schema.duplicateKeys,
-				splitting: splitBindingOf(schema.separator, schema.split),
+				cliSplit: splitBindingOf(schema.separator, schema.split).cli,
 			};
 		case 'count':
 			return COUNT;
@@ -312,14 +315,14 @@ function argCardinality(schema: ArgSchema): Cardinality {
 		return {
 			kind: 'entries',
 			duplicateKeys: schema.duplicateKeys,
-			splitting: splitBindingOf(schema.separator, schema.split),
+			cliSplit: splitBindingOf(schema.separator, schema.split).cli,
 		};
 	}
 	if (schema.variadic) {
 		return {
 			kind: 'many',
 			unique: schema.unique,
-			splitting: splitBindingOf(schema.separator, schema.split),
+			cliSplit: splitBindingOf(schema.separator, schema.split).cli,
 		};
 	}
 	return ONE;
@@ -458,18 +461,6 @@ function parseJson(
 	} catch (error) {
 		return { ok: false, failure: { kind: 'json', error } };
 	}
-}
-
-/**
- * Drop the line terminator a pipe appends.
- *
- * @param text - The raw stdin buffer.
- * @returns The text without its single trailing terminator.
- */
-function stripTerminator(text: string): string {
-	if (text.endsWith('\r\n')) return text.slice(0, -2);
-	if (text.endsWith('\n') || text.endsWith('\r')) return text.slice(0, -1);
-	return text;
 }
 
 // --- Aggregation
@@ -674,6 +665,5 @@ export {
 	splitEntryPair,
 	splitLines,
 	splitManyText,
-	stripTerminator,
 	validateDefault,
 };

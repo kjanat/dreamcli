@@ -504,7 +504,7 @@ describe('string constraints e2e', () => {
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
 		expect(result.error?.message).toBe(
-			"Invalid value 'abc' from env DEPLOY_TOKEN for flag --token: must match /^ghp_/",
+			"Invalid value '<redacted>' from env DEPLOY_TOKEN for flag --token: must match /^ghp_/",
 		);
 	});
 

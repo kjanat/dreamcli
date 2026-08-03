@@ -378,6 +378,7 @@ describe('full command composition', () => {
 		> = {
 			args: { name: 'world' },
 			flags: { loud: true },
+			sources: { flags: { loud: { stage: 'cli' } }, args: { name: { stage: 'cli' } } },
 			ctx: {},
 			out: mockOut,
 			meta: { name: 'test', bin: 'test', version: undefined, command: 'greet' },

@@ -184,6 +184,57 @@ const definitionMetaSchemaDescriptions = {
 				enumValues: {
 					description: "Allowed literal values when `kind === 'enum'`.",
 				},
+				elementSchema: {
+					description:
+						"Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings.",
+				},
+				deprecated: {
+					description:
+						'Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated arg is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`.',
+				},
+			},
+		},
+		argElement: {
+			description:
+				"Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings.",
+			properties: {
+				kind: {
+					description: 'What kind of value this arg accepts.',
+				},
+				presence: {
+					description:
+						"Presence describes whether a positional arg is guaranteed to exist when the\naction handler runs:\n\n- `'required'`  — must be supplied; error if missing (default)\n- `'optional'`  — may be `undefined` if not supplied\n- `'defaulted'` — always present (falls back to default value)",
+				},
+				variadic: {
+					description: 'Whether this arg consumes all remaining positionals.',
+				},
+				stdin: {
+					description:
+						'Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding.',
+				},
+				defaultValue: {
+					description: 'Runtime default value (if any).',
+				},
+				description: {
+					description: 'Human-readable description for help text.',
+				},
+				envVar: {
+					description:
+						"Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind.",
+				},
+				configPath: {
+					description: "Dotted config path for config resolution (e.g. `'deploy.region'`).",
+				},
+				prompt: {
+					description: 'Interactive prompt configuration.',
+				},
+				enumValues: {
+					description: "Allowed literal values when `kind === 'enum'`.",
+				},
+				elementSchema: {
+					description:
+						"Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings.",
+				},
 				deprecated: {
 					description:
 						'Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated arg is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`.',

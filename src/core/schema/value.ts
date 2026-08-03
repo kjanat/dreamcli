@@ -331,9 +331,19 @@ function decodeValue(value: ValueSchema, raw: unknown, input: ValueInput): Value
  */
 function stdinDecodeInput(codec: ValueCodec, raw: unknown, input: ValueInput): unknown {
 	if (input !== 'stdin' || keepsStdinTerminator(codec) || typeof raw !== 'string') return raw;
-	if (raw.endsWith('\r\n')) return raw.slice(0, -2);
-	if (raw.endsWith('\n') || raw.endsWith('\r')) return raw.slice(0, -1);
-	return raw;
+	return stripTerminator(raw);
+}
+
+/**
+ * Drop the line terminator a pipe appends.
+ *
+ * @param text - The raw stdin buffer.
+ * @returns The text without its single trailing terminator.
+ */
+function stripTerminator(text: string): string {
+	if (text.endsWith('\r\n')) return text.slice(0, -2);
+	if (text.endsWith('\n') || text.endsWith('\r')) return text.slice(0, -1);
+	return text;
 }
 
 /**
@@ -626,6 +636,11 @@ function flagAggregateStandard(schema: FlagSchema): StandardSchemaV1 | undefined
 /**
  * Project an arg schema onto its value axis.
  *
+ * An entries arg projects onto the value of each ENTRY, so
+ * `arg.keyValue(arg.number())` reads its element schema's codec, constraints,
+ * validator, and path checks here. What the completed record must satisfy lives
+ * on the cardinality axis and is read through {@link argAggregateStandard}.
+ *
  * @param schema - The arg schema to read.
  * @returns The value axis of one value of the arg.
  */
@@ -645,8 +660,27 @@ function argValueSchema(schema: ArgSchema): ValueSchema {
 				schema.parseFn === undefined ? passthroughValue() : stringParsedValue(schema.parseFn),
 			);
 		case 'keyValue':
-			return scalarValue(schema, strictStringValue());
+			return argElementValue(schema);
 	}
+}
+
+/**
+ * Project an entries arg's element schema, or the implicit string element it
+ * declares none for.
+ *
+ * A validator on the arg itself is the element's when the element declares
+ * none, which is how a definition-built `{ kind: 'keyValue', standard }`
+ * validates each entry value.
+ *
+ * @param schema - The entries arg schema.
+ * @returns The value axis of one entry value.
+ */
+function argElementValue(schema: ArgSchema): ValueSchema {
+	const element =
+		schema.elementSchema === undefined ? strictStringValue() : argValueSchema(schema.elementSchema);
+	return element.standard === undefined && schema.standard !== undefined
+		? { ...element, standard: schema.standard }
+		: element;
 }
 
 /**
@@ -735,6 +769,7 @@ export {
 	strictStringValue,
 	stringParsedValue,
 	stringValue,
+	stripTerminator,
 	urlValue,
 	validateDecodedValue,
 	valueDefinitionFields,

@@ -183,8 +183,8 @@ describe('resolve', () => {
 					expect(err.code).toBe('TYPE_MISMATCH');
 					expect(err.details).toEqual({
 						flag: 'port',
+						source: 'config',
 						configPath: 'port',
-						value: 'not-a-number',
 						expected: 'number',
 					});
 					expect(err.suggest).toBe('Set port to a valid number in your config');
@@ -341,8 +341,8 @@ describe('resolve', () => {
 					expect(err.code).toBe('INVALID_ENUM');
 					expect(err.details).toEqual({
 						flag: 'region',
+						source: 'config',
 						configPath: 'deploy.region',
-						value: 'jp',
 						allowed: ['us', 'eu', 'ap'],
 					});
 					expect(err.suggest).toBe('Set deploy.region to one of: us, eu, ap');

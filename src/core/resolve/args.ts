@@ -10,8 +10,7 @@ import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import { argCardinality, dedupe } from '#internals/core/schema/cardinality.ts';
 import type { ArgSchema, CommandArgEntry } from '#internals/core/schema/index.ts';
-import type { PromptConfig } from '#internals/core/schema/prompt.ts';
-import type { SourceBinding } from '#internals/core/schema/source.ts';
+import type { PromptSourceBinding, SourceBinding } from '#internals/core/schema/source.ts';
 import { argCollectedNothing, sourceBindings } from '#internals/core/schema/source.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceArgValue, finishCliArgValue } from './coerce.ts';
@@ -172,12 +171,13 @@ function stageInput(
 		cli: argCollectedNothing(schema, parsedValue)
 			? { kind: 'absent' }
 			: readCliValue(present, parsedValue, bindings),
-		coerce: (source, raw) => coerceArgValue(name, source, raw, schema),
-		finishCli: (value, stdinData) => finishCliArgValue(name, schema, value, stdinData),
-		runPrompt: async (config) =>
+		coerce: (binding, raw) => coerceArgValue(name, binding, raw, schema),
+		finishCli: (value, stdinData, stdin) =>
+			finishCliArgValue(name, schema, value, stdinData, stdin),
+		runPrompt: async (binding) =>
 			prompter === undefined
 				? { ok: false, error: undefined }
-				: resolveArgPromptValue(name, schema, config, prompter),
+				: resolveArgPromptValue(name, schema, binding, prompter),
 	};
 }
 
@@ -191,9 +191,10 @@ function stageInput(
 async function resolveArgPromptValue(
 	argName: string,
 	schema: ArgSchema,
-	promptConfig: PromptConfig,
+	binding: PromptSourceBinding,
 	prompter: PromptEngine,
 ): Promise<PromptOutcome> {
+	const promptConfig = binding.prompt;
 	const allowed = COMPATIBLE_PROMPT_KINDS[schema.kind];
 	if (!allowed.includes(promptConfig.kind)) {
 		const first = allowed[0];
@@ -233,7 +234,7 @@ async function resolveArgPromptValue(
 		return { ok: false, error: undefined };
 	}
 
-	return coerceArgValue(argName, { kind: 'prompt' }, result.value, schema);
+	return coerceArgValue(argName, binding, result.value, schema);
 }
 
 function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {
