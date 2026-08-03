@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Multi-file module (split from monolithic index). 10 source files, ~2400 source lines.
+Multi-file module (split from monolithic index). 10 source files, ~2870 source lines.
 
 ## RESOLUTION ORDER
 
@@ -20,15 +20,15 @@ a source the projection omits is a source no stage can produce.
 | File             | Lines | Purpose                                                                       |
 | ---------------- | ----: | ----------------------------------------------------------------------------- |
 | `index.ts`       |   130 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
-| `stages.ts`      |   226 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
-| `flags.ts`       |   372 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
-| `args.ts`        |   281 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
-| `coerce.ts`      |   658 | `coerceValue()` — unified raw value -> flag's declared kind                   |
-| `path-checks.ts` |   108 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
+| `stages.ts`      |   249 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
+| `flags.ts`       |   376 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
+| `args.ts`        |   277 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
+| `coerce.ts`      |  1018 | `coerceValue()` — unified raw value -> flag's declared kind                   |
+| `path-checks.ts` |   127 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   227 | Error aggregation + `throwAggregatedErrors()`                                 |
 | `contracts.ts`   |   188 | `ResolveOptions`, `ResolutionProvenance`, `resolverContract`                  |
-| `standard.ts`    |   177 | Standard Schema v1 validation pass over resolved values                       |
+| `standard.ts`    |   254 | Standard Schema v1 validation pass over resolved values                       |
 
 ## KEY FUNCTIONS
 
@@ -78,6 +78,11 @@ occurrences in the order they were typed, and each `-` occurrence is replaced by
 buffer decodes to under the input's stdin policy. `StageInput.finishCli` is where `cliStage()` calls
 it, so a scalar is unaffected and a collection aggregates in one place.
 
+`spliceCliCollection()` reads what the parse result carries through `liftOccurrences()` in
+`parse/occurrences.ts`, so the splice, the `many` order, and the `entries` fold all consume one
+`Occurrence[]`. A value the parser did not leave as a list is an aggregate a caller built by hand:
+it lifts to a single `aggregated` occurrence and reaches the resolved value untouched.
+
 `valueCoercionError()` owns the flag-facing half. It turns a `ValueFailure` into the message, code,
 details, and suggestion for one source. The value layer never spells a subject, so every
 `--flag`-shaped string in the resolver comes from this file.
@@ -88,7 +93,7 @@ details, and suggestion for one source. The value layer never spells a subject, 
 aggregated `ValidationError` via `throwAggregatedErrors()`. Users see all validation messages at
 once.
 
-## TEST FILES (15, aspect-split)
+## TEST FILES (16, aspect-split)
 
 | File                              | Tests                                                        |
 | --------------------------------- | ------------------------------------------------------------ |
@@ -106,6 +111,7 @@ once.
 | `resolve-path-checks.test.ts`     | `flag.path()` / `arg.path()` filesystem checks               |
 | `resolve-standard-schema.test.ts` | Standard Schema v1 validation pass                           |
 | `resolve-cardinality.test.ts`     | Per-source aggregation matrix, splicing, element validation  |
+| `resolve-hand-built.test.ts`      | The projection a caller-built `ParseResult` resolves through |
 | `contracts.test.ts`               | Contract verification                                        |
 
 ## PROMPT — FLAG KIND COMPATIBILITY
@@ -129,7 +135,7 @@ an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` 
 
 ## GOTCHAS
 
-- Split from ~940-line monolithic index — `coerce.ts` (680 lines) is the largest piece
+- Split from ~940-line monolithic index — `coerce.ts` (1018 lines) is the largest piece
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
 - `DeprecationWarning` structs collected during resolution for deprecated flag/arg usage
