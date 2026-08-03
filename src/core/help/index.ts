@@ -361,7 +361,7 @@ function formatArgUsage(entry: CommandArgEntry): string {
 }
 
 /**
- * Format arg description with annotations.
+ * Format arg description with env/config/prompt/default/deprecated annotations.
  *
  * @param schema - The {@link ArgSchema} to describe.
  * @param theme - Theme applied to the metadata annotations (description stays plain).
@@ -380,6 +380,12 @@ function formatArgDescription(schema: ArgSchema, theme: HelpTheme): string {
 
 	if (schema.envVar !== undefined) {
 		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
+	}
+	if (schema.configPath !== undefined) {
+		parts.push(theme.annotation(`[config: ${schema.configPath}]`));
+	}
+	if (schema.prompt !== undefined) {
+		parts.push(theme.annotation('[prompt]'));
 	}
 
 	if (schema.presence === 'defaulted') {

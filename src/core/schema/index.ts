@@ -17,6 +17,7 @@ export type {
 	TableStream,
 } from './activity.ts';
 export type {
+	AllowedArgPromptConfig,
 	ArgConfig,
 	ArgDefinition,
 	ArgDefinitionBase,
@@ -32,6 +33,7 @@ export type {
 	InferArg,
 	InferArgs,
 	NumberArgDefinition,
+	PromptConfigByArgKind,
 	ResolvedArgValue,
 	StringArgDefinition,
 	WithArgPresence,
@@ -102,6 +104,10 @@ export type {
 	ResolvedValue,
 	SelectChoice,
 	SelectPromptConfig,
+	StdinBinding,
+	StdinConsume,
+	StdinOptions,
+	StdinWhen,
 	StringFlagDefinition,
 	UrlFlagOptions,
 	WithPresence,
@@ -114,6 +120,8 @@ export {
 	flag,
 	getFlagNegatedName,
 	PROMPT_KINDS,
+	STDIN_CONSUMES,
+	STDIN_WHENS,
 } from './flag.ts';
 export type {
 	ErasedMiddlewareHandler,

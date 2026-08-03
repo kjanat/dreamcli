@@ -26,6 +26,8 @@ import {
 	describeStringConstraintViolation,
 	stringConstraintDetails,
 } from '#internals/core/schema/index.ts';
+import type { StdinBinding } from '#internals/core/schema/stdin.ts';
+import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
 
@@ -340,6 +342,22 @@ function flagExpectsValue(schema: FlagSchema): boolean {
 // --- Value coercion
 
 /**
+ * Whether a token is the stdin sentinel for an input that reads on `-`.
+ *
+ * The sentinel names the source, not the value, so it passes through the parse
+ * boundary untouched and the resolver reads the buffer in its place. Without
+ * this a `-` handed to `flag.number().stdin()` would be rejected here as a
+ * malformed number before resolution ever saw it.
+ *
+ * @param raw - Raw token from argv.
+ * @param stdin - The input's stdin axis.
+ * @returns `true` when the token selects stdin.
+ */
+function isStdinSentinel(raw: string, stdin: StdinBinding | undefined): boolean {
+	return raw === '-' && stdin !== undefined && stdinReadsOnDash(stdin);
+}
+
+/**
  * Coerce a raw string to the flag's declared kind.
  *
  * Scalar kinds decode through the shared value layer; the collection kinds
@@ -357,6 +375,8 @@ function coerceFlagValue(
 	schema: FlagSchema,
 	displayName = `--${flagName}`,
 ): unknown {
+	if (isStdinSentinel(raw, schema.stdin)) return raw;
+
 	const value = flagValueSchema(schema);
 	if (value !== undefined) {
 		const decoded = decodeValue(value, raw, 'token');
@@ -505,6 +525,8 @@ function flagValueError(
  * @throws ParseError on type mismatch or custom parse failure
  */
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
+	if (isStdinSentinel(raw, schema.stdin)) return raw;
+
 	const decoded = decodeValue(argValueSchema(schema), raw, 'token');
 	if (decoded.ok) return decoded.value;
 	throw argValueError(argName, raw, decoded.failure);

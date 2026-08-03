@@ -34,8 +34,8 @@ cli('deploy').default(deploy).run();
 
 By the time `action` runs, `flags.region` is `"us" | "eu" | "ap"` — not `string | undefined`.
 
-The value is resolved through a documented chain: **CLI → env → config → interactive prompt →
-default**. Every step is opt-in. Every step preserves types.
+The value is resolved through a documented chain: **CLI → stdin → env → config → interactive
+prompt → default**. Every step is opt-in. Every step preserves types.
 
 ## Install
 

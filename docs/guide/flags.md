@@ -249,6 +249,11 @@ In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
 function via run options to enable the checks (plus `mkdir` for `create`);
 without them the checks are skipped and nothing is created.
 
+`flag.path()` resolves as a `string`, so a value read from stdin keeps the
+buffer byte for byte, trailing line terminator included. `echo ./docs | mycli`
+reaches a `mustExist` check as `'./docs\n'` and fails. Use `printf './docs'`
+when piping a path, or strip the terminator before the pipe.
+
 ### Date
 
 Accepts strict ISO-8601 (`2026-07-10`, `2026-07-10T14:30:00Z`) and parses into
@@ -448,6 +453,8 @@ flag
   .default('us')
   // must resolve or error
   .required()
+  // resolve from piped stdin
+  .stdin()
   // resolve from env var
   .env('DEPLOY_REGION')
   // resolve from config file
@@ -539,7 +546,8 @@ Each flag resolves through an ordered pipeline. Every step is opt-in:
 
 ```mermaid
 flowchart LR
-    A[CLI argv] --> B[Environment variable]
+    A[CLI argv] --> S[Piped stdin]
+    S --> B[Environment variable]
     B --> C[Config file]
     C --> D[Interactive prompt]
     D --> E[Default value]
@@ -547,6 +555,7 @@ flowchart LR
 
 The first source that provides a value wins.
 Required flags that don't resolve produce a structured error before the action handler runs.
+Positional arguments walk the same order; see [Arguments](/guide/arguments).
 
 ### Example
 
@@ -555,6 +564,7 @@ import { flag } from '@kjanat/dreamcli';
 
 flag
   .enum(['us', 'eu', 'ap'])
+  .stdin()
   .env('DEPLOY_REGION')
   .config('deploy.region')
   .prompt({ kind: 'select', message: 'Which region?' })
@@ -564,10 +574,159 @@ flag
 Resolution order:
 
 1. `--region eu` on the command line
-2. `DEPLOY_REGION=eu` in environment
-3. `deploy.region: "eu"` in config file
-4. Interactive select prompt (TTY only)
-5. Default value `"us"`
+2. Piped stdin, for a flag that declares `.stdin()`
+3. `DEPLOY_REGION=eu` in environment
+4. `deploy.region: "eu"` in config file
+5. Interactive select prompt (TTY only)
+6. Default value `"us"`
+
+## STDIN-Backed Flags
+
+`.stdin()` lets a flag read its value from piped stdin. It is available on
+`string`, `number`, `boolean`, `enum`, and `custom` flags; the collection kinds
+(`array`, `keyValue`, `count`) reject it with `INVALID_SCHEMA`.
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('send')
+  .flag('body', flag.string().stdin().describe('Message body'))
+  .action(({ flags }) => {
+    flags.body;
+    //     ^?
+  });
+```
+
+```bash
+echo hi | mycli send      # body = 'hi\n'
+mycli send --body -       # body reads stdin
+mycli send --body hello   # body = 'hello'
+```
+
+The stdin stage sits ahead of env, so a flag set in the environment still reads a
+pipe and the pipe wins. Passing the sentinel `-` selects stdin too, but keeps CLI
+precedence: the bytes come from the pipe and every later stage stays out of the
+way. When nothing was piped, both forms fall through to env, config, prompt, and
+the default.
+
+The whole buffer becomes the value. A string flag keeps it byte for byte, so
+`echo hi | mycli` gives `'hi\n'`; every other kind drops the single line
+terminator a pipe appends before decoding, so `echo true` reaches
+`flag.boolean()` as `true`.
+
+### Choosing when stdin is read
+
+`.stdin()` takes `{ when, consume }`:
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+flag.string().stdin(); // '-' or an absent flag reads stdin
+flag.string().stdin({ when: 'dash' }); // only an explicit '-'
+flag.string().stdin({ when: 'missing' }); // only an absent flag; '-' stays literal
+flag.string().stdin({ consume: 'broadcast' }); // shares the buffer with other inputs
+```
+
+Stdin is read at most once per invocation, and only when one of these bindings
+would actually fire. A `when: 'dash'` flag the user never dashes never touches
+the stream.
+
+### Worked Transcripts
+
+Take one flag that reads stdin and an env var:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('send')
+  .flag('body', flag.string().stdin().env('BODY').default('fallback'))
+  .action(({ flags }) => {
+    flags.body;
+    //     ^?
+  });
+```
+
+The explicit `-` form is CLI-sourced, so it outranks the env var:
+
+```bash
+$ echo 'piped text' | BODY=env-value mycli send --body -
+# flags.body === 'piped text\n'
+```
+
+Omitting the flag takes the stdin fallback stage, which still sits ahead of env:
+
+```bash
+$ echo 'piped text' | BODY=env-value mycli send
+# flags.body === 'piped text\n'
+```
+
+With nothing piped, both forms fall through to env, then to the default:
+
+```bash
+$ BODY=env-value mycli send --body -
+# flags.body === 'env-value'
+
+$ mycli send
+# flags.body === 'fallback'
+```
+
+Under `{ when: 'missing' }` a typed `-` is the literal string, not a selector:
+
+```ts
+flag.string().stdin({ when: 'missing' }).default('fallback');
+```
+
+```bash
+$ echo 'piped text' | mycli send --body -
+# flags.body === '-'
+```
+
+Under `{ when: 'dash' }` an omitted flag leaves the pipe unread, so env wins:
+
+```ts
+flag.string().stdin({ when: 'dash' }).env('BODY').default('fallback');
+```
+
+```bash
+$ echo 'piped text' | BODY=env-value mycli send
+# flags.body === 'env-value'
+```
+
+A required stdin-backed flag with nothing to read reports the stdin route in its
+suggestion:
+
+```
+Missing required flag --body
+Suggestion: Provide --body <value> or pipe a value to stdin
+```
+
+### `.stdin()` Constraints {#stdin-constraints}
+
+One command has one exclusive stdin consumer. Declaring a second stdin input of
+any kind, flag or argument, throws `DUPLICATE_STDIN_INPUT` at build time:
+
+```ts
+command('convert')
+  .flag('body', flag.string().stdin())
+  .arg('input', arg.string().stdin());
+```
+
+```
+Only one input may consume stdin exclusively; --body already consumes stdin
+Suggestion: Keep .stdin() on a single input per command, or declare every stdin input with { consume: 'broadcast' }
+```
+
+The message names the input declared first, and `details` carries the offending
+input under `flag` or `arg` and the existing one under `existingFlag` or
+`existingArg`. Pass `{ consume: 'broadcast' }` on every stdin input to share one
+buffer among them:
+
+```ts
+command('convert')
+  .flag('body', flag.string().stdin({ consume: 'broadcast' }))
+  .arg('input', arg.string().stdin({ consume: 'broadcast' }));
+// echo shared | mycli convert → flags.body === 'shared\n', args.input === 'shared\n'
+```
 
 ## Required vs Optional
 
@@ -662,7 +821,7 @@ const port = flag.custom(z.coerce.number().int().min(1).max(65_535));
 ```
 
 Standard Schema validation runs after source resolution, so the same sync or async validator
-handles CLI, env, config, prompt, and default values. Validation issues become
+handles CLI, stdin, env, config, prompt, and default values. Validation issues become
 `CONSTRAINT_VIOLATED` errors. When used as a `flag.array()` element, the validator runs once per
 resolved element.
 

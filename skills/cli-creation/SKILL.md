@@ -11,8 +11,11 @@ Create runnable DreamCLI starter CLIs and extend them with typed command
 patterns. This skill covers user-facing app code built **on** DreamCLI, not
 DreamCLI framework internals.
 
-Targets DreamCLI 3.x. Version 3 removed the DSL, made the default command the
-root surface, and added a large typed-flag surface; snippets below assume it.
+Targets DreamCLI 4.0. Version 3 removed the DSL, made the default command the
+root surface, and added a large typed-flag surface. Version 4 gave both
+factories the same sources, so `.stdin()`, `.env()`, `.config()`, and
+`.prompt()` are available on flags and positionals alike. Snippets below assume
+both.
 
 ## Quick Start
 
@@ -104,14 +107,14 @@ and `keyValue()`. Positionals also take `string()`, `number()`, `enum(...)`,
 form of `flag.array()`. Express validation declaratively
 with constraints (`{ int, min, max }`, `{ nonEmpty, pattern }`, chainable on
 both builders) or a Standard Schema passed to `flag.custom()` / `arg.custom()`,
-not with hand-written checks in the action. `arg` has no `keyValue()`,
-`.prompt()`, or `.config()`; parse those with `arg.custom()` or declare the
-value as a flag.
+not with hand-written checks in the action. `arg` has no `keyValue()`; parse
+that with `arg.custom()` or declare the value as a flag.
 
-**Sources.** Declare `.env()`, `.config()`, `.prompt()`, `.default()` on the flag
-and let resolution order (argv, env, config, prompt, default) do the work.
-Arguments take `.stdin()`, `.env()`, and `.default()`, resolved as
-argv, stdin, env, default.
+**Sources.** Both factories declare the same sources. Chain `.stdin()`,
+`.env()`, `.config()`, `.prompt()`, `.default()` on a flag or an argument and
+let one resolution order (argv, stdin, env, config, prompt, default) do the
+work. `.stdin()` takes `{ when, consume }`; one command has one exclusive stdin
+consumer unless every stdin input passes `{ consume: 'broadcast' }`.
 
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.
@@ -138,7 +141,7 @@ Assert output including trailing newlines.
 - Do not modify DreamCLI core internals for consumer-app requests.
 - Keep generated imports on `@kjanat/dreamcli` and `@kjanat/dreamcli/testkit`;
   never reach into `#internals/*` or `dist/`.
-- Preserve the typed resolution flow: argv, env, config, prompt, default.
+- Preserve the typed resolution flow: argv, stdin, env, config, prompt, default.
 - Keep stdout machine-clean: progress and status go to stderr via `out.status()`,
   never interleaved with `out.json()`.
 - `.default(cmd)` is the root surface and is not routable by name; add

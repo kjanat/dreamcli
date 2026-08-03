@@ -12,7 +12,10 @@
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { schemaBrand } from './brand.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
+import type { InputPromptConfig, PromptConfig, SelectPromptConfig } from './prompt.ts';
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
+import type { StdinBinding, StdinOptions } from './stdin.ts';
+import { normalizeStdinBinding } from './stdin.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
 	bytesValue,
@@ -103,6 +106,25 @@ type ResolvedArgValue<C extends ArgConfig> = C['variadic'] extends true
 		? C['valueType'] | undefined
 		: C['valueType'];
 
+/**
+ * Maps an {@linkcode ArgKind} to the prompt config types compatible with it,
+ * mirroring the flag table for the four kinds args have.
+ *
+ * - `'string'` → {@link InputPromptConfig} | {@link SelectPromptConfig}
+ * - `'number'` → {@link InputPromptConfig}
+ * - `'enum'`   → {@link SelectPromptConfig} | {@link InputPromptConfig}
+ * - `'custom'` → all prompt kinds ({@link PromptConfig})
+ */
+type PromptConfigByArgKind = {
+	readonly string: InputPromptConfig | SelectPromptConfig;
+	readonly number: InputPromptConfig;
+	readonly enum: SelectPromptConfig | InputPromptConfig;
+	readonly custom: PromptConfig;
+};
+
+/** Prompt configuration compatible with the kind carried by an {@link ArgConfig}. */
+type AllowedArgPromptConfig<C extends ArgConfig> = PromptConfigByArgKind[C['argKind']];
+
 /** Extract the resolved value type from an {@linkcode ArgBuilder}. */
 type InferArg<B> = B extends ArgBuilder<infer C extends ArgConfig> ? ResolvedArgValue<C> : never;
 
@@ -144,10 +166,10 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	/** Whether this arg consumes all remaining positionals. */
 	readonly variadic: boolean;
 	/**
-	 * Whether this arg may read from stdin during resolution.
-	 * @defaultValue `false`
+	 * Stdin binding set by `.stdin()` (`undefined` when the arg never reads
+	 * stdin). See {@link StdinBinding}.
 	 */
-	readonly stdinMode: boolean;
+	readonly stdin: StdinBinding | undefined;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
 	/** Human-readable description for help text. */
@@ -161,6 +183,18 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	 * @see {@link ArgBuilder.env} for the builder method.
 	 */
 	readonly envVar: string | undefined;
+	/**
+	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
+	 *
+	 * @see {@link ArgBuilder.config} for the builder method.
+	 */
+	readonly configPath: string | undefined;
+	/**
+	 * Interactive prompt configuration.
+	 *
+	 * @see {@link ArgBuilder.prompt} for the builder method.
+	 */
+	readonly prompt: PromptConfig | undefined;
 	/** Allowed literal values when `kind === 'enum'`. */
 	readonly enumValues: readonly string[] | undefined;
 	/**
@@ -223,7 +257,9 @@ type ArgSchemaFields = Omit<ArgSchema, typeof schemaBrand | 'kind'>;
 
 /** {@link ArgSchemaFields} with every field optional and undefined-accepting. */
 type ArgSchemaFieldOverrides = {
-	readonly [K in keyof ArgSchemaFields]?: ArgSchemaFields[K] | undefined;
+	readonly [K in keyof ArgSchemaFields]?: K extends 'stdin'
+		? StdinOptions | undefined
+		: ArgSchemaFields[K] | undefined;
 };
 
 /** Definition fields accepted by every arg kind. */
@@ -239,10 +275,10 @@ interface ArgDefinitionBase {
 	 */
 	readonly variadic?: boolean | undefined;
 	/**
-	 * Whether this arg may read from stdin during resolution.
-	 * @defaultValue `false`
+	 * Stdin binding. See {@link StdinOptions}.
+	 * @defaultValue `undefined`
 	 */
-	readonly stdinMode?: boolean | undefined;
+	readonly stdin?: StdinOptions | undefined;
 	/**
 	 * Runtime default value.
 	 * @defaultValue `undefined`
@@ -258,6 +294,16 @@ interface ArgDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly envVar?: string | undefined;
+	/**
+	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
+	 * @defaultValue `undefined`
+	 */
+	readonly configPath?: string | undefined;
+	/**
+	 * Interactive prompt configuration.
+	 * @defaultValue `undefined`
+	 */
+	readonly prompt?: PromptConfig | undefined;
 	/**
 	 * Help placeholder label (`'url'`, `'path'`, …).
 	 * @defaultValue `undefined`
@@ -391,15 +437,17 @@ function buildArgSchema<K extends ArgKind>(
 	kind: K,
 	overrides?: ArgSchemaFieldOverrides,
 ): ArgSchema<K> {
-	const { presence, variadic, stdinMode, ...rest } = overrides ?? {};
+	const { presence, variadic, stdin, ...rest } = overrides ?? {};
 	return {
 		kind,
 		presence: presence ?? 'required',
 		variadic: variadic ?? false,
-		stdinMode: stdinMode ?? false,
+		stdin: stdin === undefined ? undefined : normalizeStdinBinding(stdin),
 		defaultValue: undefined,
 		description: undefined,
 		envVar: undefined,
+		configPath: undefined,
+		prompt: undefined,
 		enumValues: undefined,
 		numberConstraints: undefined,
 		stringConstraints: undefined,
@@ -548,7 +596,7 @@ class ArgBuilder<C extends ArgConfig> {
 	/**
 	 * Mark the arg as required (this is the default for positional args).
 	 * Produces an error if no value resolves from any configured source
-	 * (CLI → stdin → env → default).
+	 * (CLI → stdin → env → config → prompt → default).
 	 *
 	 * @example
 	 * ```ts
@@ -603,7 +651,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 * The generic constraint `V extends C['valueType']` ensures the default
 	 * matches the arg's declared type.
 	 *
-	 * Resolution order when extra sources are configured: CLI → stdin → env → **default**.
+	 * Resolution order when extra sources are configured:
+	 * CLI → stdin → env → config → prompt → **default**.
 	 *
 	 * @param value - Fallback used when no CLI value or env var resolves.
 	 * @returns The builder (for chaining).
@@ -669,24 +718,36 @@ class ArgBuilder<C extends ArgConfig> {
 	}
 
 	/**
-	 * Allow this arg to resolve from stdin when CLI input is missing.
+	 * Let this arg read its value from piped stdin.
 	 *
-	 * Resolution order becomes: CLI value -> stdin -> env -> default.
-	 * Only one arg per command may enable stdin mode.
+	 * An explicit `-` in the arg's slot is CLI-sourced with bytes from stdin and
+	 * keeps CLI precedence. An absent positional takes the stdin fallback stage,
+	 * which sits between CLI and env, so an arg set in the environment still
+	 * reads stdin and stdin wins. The whole buffer becomes the value, byte for
+	 * byte for a string arg; every other kind drops the single line terminator a
+	 * pipe appends before decoding.
 	 *
+	 * One command may declare a single exclusive stdin consumer; pass
+	 * `{ consume: 'broadcast' }` on every input that should share the buffer.
+	 *
+	 * @param options - When to read stdin and how to share it.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
 	 * ```ts
 	 * arg.string().describe('Input text').stdin()
-	 * // $ echo "hello" | mycli transform   → input = 'hello' (from stdin)
+	 * // $ echo "hello" | mycli transform   → input = 'hello\n' (from stdin)
+	 * // $ mycli transform -                → input reads stdin
 	 * // $ mycli transform "hello"          → input = 'hello' (from CLI)
+	 *
+	 * arg.string().stdin({ when: 'dash' })
+	 * // only an explicit `-` reads stdin
 	 * ```
 	 */
-	stdin(): ArgBuilder<C> {
+	stdin(options?: StdinOptions): ArgBuilder<C> {
 		return new ArgBuilder({
 			...this.schema,
-			stdinMode: true,
+			stdin: normalizeStdinBinding(options),
 		});
 	}
 
@@ -695,12 +756,13 @@ class ArgBuilder<C extends ArgConfig> {
 	/**
 	 * Bind to an environment variable.
 	 *
-	 * When the arg is not provided on the CLI, the resolver checks this
-	 * env var before falling back to the default value. The env string is
-	 * coerced to the arg's declared kind (passthrough for strings, parsed
+	 * When the arg is not provided on the CLI or by stdin, the resolver checks
+	 * this env var before config, prompt, and the default value. The env string
+	 * is coerced to the arg's declared kind (passthrough for strings, parsed
 	 * for numbers, run through `parseFn` for custom args).
 	 *
-	 * Resolution order when extra sources are configured: **CLI → stdin → env → default**.
+	 * Resolution order when extra sources are configured:
+	 * **CLI → stdin → env → config → prompt → default**.
 	 *
 	 * Help output shows `[env: VAR]` next to the arg description.
 	 *
@@ -722,6 +784,55 @@ class ArgBuilder<C extends ArgConfig> {
 		return new ArgBuilder({
 			...this.schema,
 			envVar: varName,
+		});
+	}
+
+	/**
+	 * Bind to a dotted config path.
+	 *
+	 * The config value is read after CLI, stdin, and env, and is coerced to the
+	 * arg's declared kind the same way a flag's config value is.
+	 *
+	 * @param path - Dotted config key (e.g. `'deploy.region'`).
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().config('deploy.region').default('us-east-1')
+	 * // Config file: { "deploy": { "region": "eu-west-1" } }
+	 * // $ mycli deploy             → region = 'eu-west-1'
+	 * // $ mycli deploy ap-south-1  → CLI positional wins
+	 * ```
+	 */
+	config(path: string): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			configPath: path,
+		});
+	}
+
+	/**
+	 * Attach interactive prompt configuration.
+	 *
+	 * When CLI, stdin, env, and config all produce nothing, the prompt engine
+	 * uses this config to ask the user. In non-interactive contexts the prompt
+	 * is skipped and resolution falls through to the default or the missing-arg
+	 * error.
+	 *
+	 * @param config - {@link PromptConfig} describing the interactive prompt.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().prompt({ kind: 'input', message: 'Target:' })
+	 * // $ mycli deploy             → prompts "Target:"
+	 * // $ mycli deploy production  → skips the prompt
+	 * ```
+	 */
+	prompt(config: AllowedArgPromptConfig<C>): ArgBuilder<C> {
+		return new ArgBuilder({
+			...this.schema,
+			prompt: config,
 		});
 	}
 
@@ -950,10 +1061,11 @@ class ArgBuilder<C extends ArgConfig> {
  *
  * Each method returns an {@linkcode ArgBuilder} seeded with the correct {@linkcode ArgKind}
  * and initial type-level config. Chain modifiers (`.optional()`, `.env()`,
- * `.default()`, `.variadic()`, `.stdin()`, `.describe()`, `.deprecated()`) to refine.
+ * `.config()`, `.prompt()`, `.default()`, `.variadic()`, `.stdin()`,
+ * `.describe()`, `.deprecated()`) to refine.
  *
  * All args are **required** by default. Resolution order when extra
- * sources are configured: **CLI → stdin → env → default**.
+ * sources are configured: **CLI → stdin → env → config → prompt → default**.
  *
  * @example Overview of common kinds with common modifier patterns
  * ```ts
@@ -1408,7 +1520,9 @@ const arg: ArgFactory = {
 
 // --- Exports
 
+export type { StdinBinding, StdinConsume, StdinOptions, StdinWhen } from './stdin.ts';
 export type {
+	AllowedArgPromptConfig,
 	ArgConfig,
 	ArgDefinition,
 	ArgDefinitionBase,
@@ -1424,6 +1538,7 @@ export type {
 	InferArg,
 	InferArgs,
 	NumberArgDefinition,
+	PromptConfigByArgKind,
 	ResolvedArgValue,
 	StringArgDefinition,
 	WithArgPresence,

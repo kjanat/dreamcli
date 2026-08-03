@@ -193,12 +193,12 @@ generateSchema(myCli.schema, { includeHidden: false });
 Per command: `name`, `description`, `aliases`, `hidden`, `examples`,
 `flags`, `args`, nested `commands`.
 
-Per flag: `kind`, `presence`, `defaultValue`, `aliases`, `envVar`,
+Per flag: `kind`, `presence`, `defaultValue`, `aliases`, `stdin`, `envVar`,
 `configPath`, `description`, `enumValues`, `elementSchema`, `prompt`,
 `deprecated`, `propagate`.
 
-Per arg: `name`, `kind`, `presence`, `variadic`, `stdinMode`,
-`defaultValue`, `description`, `envVar`, `enumValues`, `deprecated`.
+Per arg: `name`, `kind`, `presence`, `variadic`, `stdin`, `defaultValue`,
+`description`, `envVar`, `configPath`, `enumValues`, `prompt`, `deprecated`.
 
 ### What's Omitted
 

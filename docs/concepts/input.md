@@ -129,28 +129,20 @@ When a value can come from multiple places, there's a natural priority.
 
 The first source that has a value wins.
 
-Flags:
+Flags and positional arguments share one order:
 
 ```text
-1. Command-line flag     (highest — you typed it explicitly)
-2. Environment variable  (set for this session/environment)
-3. Config file           (persistent settings)
-4. Interactive prompt    (ask the user)
-5. Default value         (fallback)
+1. Command line          (highest, you typed it explicitly)
+2. Piped stdin           (data another program sent in)
+3. Environment variable  (set for this session/environment)
+4. Config file           (persistent settings)
+5. Interactive prompt    (ask the user)
+6. Default value         (fallback)
 ```
 
-Positional arguments that opt into extra sources:
-
-Only positional arguments that call methods like `.stdin()` or `.env()` participate in this
-priority chain. Positional args without those opt-ins remain CLI-only and therefore stay
-required-or-optional based on their own declaration.
-
-```text
-1. Command-line argument token
-2. STDIN
-3. Environment variable
-4. Default value
-```
+Every step past the command line is opt-in. An input takes part in a step only when it declared
+that source, so a flag or argument with nothing declared stays command-line only and is
+required-or-optional based on its own declaration.
 
 ## What's Next?
 

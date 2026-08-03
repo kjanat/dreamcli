@@ -464,3 +464,56 @@ describe('argValueSchema', () => {
 		expect(decoded(argValueSchema(arg.bytes().schema), '1.5gb', 'token')).toBe(1_610_612_736);
 	});
 });
+
+// === the stdin input
+
+describe("the 'stdin' input", () => {
+	const values: readonly (readonly [string, ValueSchema])[] = [
+		['string', stringValue()],
+		['number', numberValue()],
+		['boolean', booleanValue()],
+		['enum', enumValue(['a', 'b'])],
+	];
+
+	it('accepts exactly what env accepts, for every scalar codec', () => {
+		const raws: readonly unknown[] = ['a', 'true', 'yes', 'y', '1', '0', '', 'b', 12, true, null];
+
+		for (const [, value] of values) {
+			for (const raw of raws) {
+				const viaStdin = decodeValue(value, raw, 'stdin');
+				const viaEnv = decodeValue(value, raw, 'env');
+				expect(viaStdin).toEqual(viaEnv);
+			}
+		}
+	});
+
+	it('hands the string codec the buffer byte for byte', () => {
+		expect(decoded(stringValue(), 'hello\n', 'stdin')).toBe('hello\n');
+		expect(decoded(stringValue(), 'a\r\nb\r\n', 'stdin')).toBe('a\r\nb\r\n');
+		expect(decoded(pathValue(), './out\n', 'stdin')).toBe('./out\n');
+	});
+
+	it('drops one trailing terminator before every other codec', () => {
+		expect(decoded(numberValue(), '42\n', 'stdin')).toBe(42);
+		expect(decoded(numberValue(), '42\r\n', 'stdin')).toBe(42);
+		expect(decoded(numberValue(), '42\r', 'stdin')).toBe(42);
+		expect(decoded(booleanValue(), 'true\n', 'stdin')).toBe(true);
+		expect(decoded(enumValue(['us', 'eu']), 'eu\n', 'stdin')).toBe('eu');
+		expect(decoded(durationValue(), '1h30m\n', 'stdin')).toBe(5_400_000);
+		expect(decoded(bytesValue(), '512mb\n', 'stdin')).toBe(536_870_912);
+	});
+
+	it('drops only the last terminator', () => {
+		expect(rejected(enumValue(['eu']), 'eu\n\n', 'stdin').kind).toBe('enum');
+	});
+
+	it('rejects the prompt-only boolean spellings', () => {
+		expect(rejected(booleanValue(), 'y', 'stdin').kind).toBe('type');
+		expect(rejected(booleanValue(), 'n\n', 'stdin').kind).toBe('type');
+	});
+
+	it('leaves a non-string raw untouched', () => {
+		expect(decoded(numberValue(), 42, 'stdin')).toBe(42);
+		expect(decoded(booleanValue(), true, 'stdin')).toBe(true);
+	});
+});

@@ -926,6 +926,10 @@ describe('generateSchema — definition metadata', () => {
 				kind: 'number',
 				numberConstraints: { min: 1, max: 5, int: true, finite: false },
 			}),
+			piped: flagDef({
+				kind: 'string',
+				stdin: { when: 'dash-or-missing', consume: 'exclusive' },
+			}),
 			source: flagDef({
 				kind: 'string',
 				stringConstraints: {
@@ -1056,7 +1060,11 @@ describe('generateSchema — definition metadata', () => {
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
 			argEntry('extras', { variadic: true }),
-			argEntry('piped', { stdinMode: true }),
+			argEntry('piped', {
+				stdin: { when: 'dash-or-missing', consume: 'exclusive' },
+				configPath: 'release.piped',
+				prompt: { kind: 'input', message: 'Piped?' },
+			}),
 			argEntry('parser', {
 				kind: 'custom',
 				parseFn: (value: string) => value,

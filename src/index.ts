@@ -121,6 +121,7 @@ export type {
 	JsonSchemaOptions,
 	PromptChoiceFragmentV1,
 	PromptDefinitionFragmentV1,
+	StdinBindingFragmentV1,
 } from './core/json-schema/index.ts';
 export {
 	definitionMetaSchema,
@@ -239,6 +240,10 @@ export type {
 	StandardSchemaV1Result,
 	StandardSchemaV1SuccessResult,
 	StandardSchemaV1Types,
+	StdinBinding,
+	StdinConsume,
+	StdinOptions,
+	StdinWhen,
 	StringArgDefinition,
 	StringConstraints,
 	StringConstraintViolation,

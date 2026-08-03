@@ -29,34 +29,36 @@ import type { CommandMeta, CommandSchema, Out } from './command.ts';
  */
 export interface RunOptions {
 	/**
-	 * Environment variables for flag resolution.
+	 * Environment variables for flag and arg resolution.
 	 *
-	 * Flags with `.env('VAR')` configured resolve from this record
-	 * when no CLI value is provided (CLI → env → config → prompt → default).
+	 * Inputs with `.env('VAR')` configured resolve from this record when CLI
+	 * and stdin produce nothing
+	 * (CLI → stdin → env → config → prompt → default).
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
 
 	/**
-	 * Configuration object for flag resolution.
+	 * Configuration object for flag and arg resolution.
 	 *
-	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
-	 * Config is plain JSON — file loading is the caller's responsibility.
+	 * Inputs with `.config('path')` configured resolve from this record when
+	 * CLI, stdin, and env produce nothing
+	 * (CLI → stdin → env → config → prompt → default).
+	 * Config is plain JSON, so file loading is the caller's responsibility.
 	 */
 	readonly config?: Readonly<Record<string, unknown>>;
 
 	/**
-	 * Full stdin contents for args configured with `.stdin()`.
+	 * Full stdin contents for flags and args configured with `.stdin()`.
 	 *
 	 * Lets tests inject piped input without a runtime adapter.
 	 */
 	readonly stdinData?: string | null;
 
 	/**
-	 * Prompt engine for interactive flag resolution.
+	 * Prompt engine for interactive flag and arg resolution.
 	 *
-	 * When provided, flags with `.prompt()` configured that have no value
-	 * after CLI/env/config resolution will be prompted interactively.
+	 * When provided, inputs with `.prompt()` configured that have no value
+	 * after CLI, stdin, env, and config resolution are prompted interactively.
 	 *
 	 * When absent (and `answers` is also absent), prompting is skipped
 	 * and resolution falls through to default/required.

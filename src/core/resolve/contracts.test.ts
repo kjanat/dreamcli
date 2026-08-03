@@ -49,14 +49,19 @@ describe('resolver contracts', () => {
 
 	describe('explicit facts', () => {
 		it('keeps precedence and error guarantees explicit', () => {
+			const order = ['cli', 'stdin', 'env', 'config', 'prompt', 'default'];
 			expect(resolverContract).toEqual({
-				flagPrecedence: ['cli', 'env', 'config', 'prompt', 'default'],
-				argPrecedence: ['cli', 'stdin', 'env', 'default'],
+				precedence: order,
+				flagPrecedence: order,
+				argPrecedence: order,
 				promptRunsAfterFlagConfig: true,
+				stdinFallbackRunsBeforeEnv: true,
+				dashIsCliSourced: true,
 				aggregatesValidationErrors: true,
 				aggregateDiagnosticsIncludePerIssueSummary: true,
 				hardCoercionErrorsStopFallback: true,
 				collectsDeprecationsFromExplicitSources: true,
+				recordsProvenancePerInput: true,
 			});
 		});
 	});
@@ -153,7 +158,7 @@ describe('resolver contracts', () => {
 				{
 					name: 'target',
 					schema: createArgSchema('string', {
-						stdinMode: true,
+						stdin: {},
 						envVar: 'TARGET',
 						presence: 'defaulted',
 						defaultValue: 'default-target',
@@ -253,7 +258,7 @@ describe('resolver contracts', () => {
 					{
 						name: 'count',
 						schema: createArgSchema('number', {
-							stdinMode: true,
+							stdin: {},
 							envVar: 'COUNT',
 							presence: 'defaulted',
 							defaultValue: 1,
@@ -289,7 +294,7 @@ describe('resolver contracts', () => {
 						name: 'target',
 						schema: createArgSchema('string', {
 							presence: 'required',
-							stdinMode: true,
+							stdin: {},
 							envVar: 'DEPLOY_TARGET',
 						}),
 					},

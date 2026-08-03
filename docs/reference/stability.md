@@ -213,8 +213,9 @@ kind-indexed maps
 `FlagDefinitionByKind` and `ArgDefinitionByKind`; the override forms
 `FlagDefinitionOverrides` and `ArgDefinitionOverrides`; the entry type
 `CommandArgEntryDefinition`; the values a definition embeds, `PathChecks`,
-`FlagNegation`, `CommandExample`, and its `ExampleCommand` field type; and the
-consumer input data types `PackageJsonData` and `PackageRepository`.
+`FlagNegation`, `StdinOptions`, `CommandExample`, and its `ExampleCommand` field
+type; and the consumer input data types `PackageJsonData` and
+`PackageRepository`.
 
 These have no brand, and structural construction is the point. They take the
 same additive contract as consumer input options. Optional fields may arrive in
@@ -222,7 +223,10 @@ a minor release, required fields only in a major.
 
 `PathChecks`, `FlagNegation`, and `CommandExample` are stored verbatim on the
 built schema, so the same type serves as consumer input and as a member of a
-sealed value. The input contract is the one that governs them. `PathChecks`
+sealed value. The input contract is the one that governs them. `StdinOptions`
+splits the two roles instead: a caller writes the partial form and the schema
+stores the fully populated `StdinBinding`, which takes the same input contract.
+`PathChecks`
 appears on both `StringFlagDefinition` and `StringArgDefinition`, alongside
 `StringConstraints` on each and `valueHint` on `FlagDefinitionBase` and
 `ArgDefinitionBase`.
@@ -328,8 +332,9 @@ The payload types the hooks receive are covered under
 
 The kind and mode unions `Verbosity`, `Shell`, `ArgKind`, `FlagKind`,
 `PromptKind`, `BuiltinName`, `BuiltinMode`, `ArgPresence`, `FlagPresence`,
-`DuplicatePolicy`, `Fallback`, `TableFormat`, `TableStream`, `ParseErrorCode`,
-`ValidationErrorCode`, and `Runtime` (from `@kjanat/dreamcli/runtime`).
+`DuplicatePolicy`, `StdinWhen`, `StdinConsume`, `Fallback`, `TableFormat`,
+`TableStream`, `ParseErrorCode`, `ValidationErrorCode`, and `Runtime` (from
+`@kjanat/dreamcli/runtime`).
 
 The discriminated results `ActivityEvent`, `Token`, `PromptResult`,
 `NumberConstraintViolation`, `StringConstraintViolation`, and
@@ -457,8 +462,9 @@ helper needs part of it, which keeps the helper honest about what it depends on.
 fragment types `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
 `ArgDefinitionFragmentV1`, `ExampleDefinitionFragmentV1`,
 `FlagNegationFragmentV1`, `FlagPathChecksFragmentV1`,
-`FlagStringConstraintsFragmentV1`, `PromptChoiceFragmentV1`, and
-`PromptDefinitionFragmentV1`; and the error envelope `CLIErrorJSON`.
+`FlagStringConstraintsFragmentV1`, `PromptChoiceFragmentV1`,
+`PromptDefinitionFragmentV1`, and `StdinBindingFragmentV1`; and the error
+envelope `CLIErrorJSON`.
 
 `FlagStringConstraintsFragmentV1` and `FlagPathChecksFragmentV1` are the value
 fragments of both `FlagDefinitionFragmentV1` and `ArgDefinitionFragmentV1`. Their

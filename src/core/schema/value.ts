@@ -48,8 +48,11 @@ import {
  *
  * `'token'` is a CLI argv token; the rest name the resolver stage that produced
  * the value. Codecs widen what they accept as the input gets further from argv.
+ * `'stdin'` accepts exactly what `'env'` accepts: both deliver a raw string a
+ * user typed outside argv, so neither gets the extra latitude a prompt answer
+ * or a typed config value gets.
  */
-type ValueInput = 'token' | 'env' | 'config' | 'prompt';
+type ValueInput = 'token' | 'stdin' | 'env' | 'config' | 'prompt';
 
 /** The primitive a codec could not read a raw value as. */
 type ValueTypeName = 'string' | 'number' | 'boolean';
@@ -186,9 +189,10 @@ const numberCodec: ValueCodec<number> = {
 /**
  * Reads a raw value as a boolean.
  *
- * An argv token spells the value out as `true`/`false` or `1`/`0`. Env, config,
- * and prompt inputs also accept `yes`/`no`, an already-boolean value, and an
- * empty string for `false`; a prompt answer additionally accepts `y`/`n`.
+ * An argv token spells the value out as `true`/`false` or `1`/`0`. Stdin, env,
+ * config, and prompt inputs also accept `yes`/`no`, an already-boolean value,
+ * and an empty string for `false`; a prompt answer additionally accepts
+ * `y`/`n`.
  */
 const booleanCodec: ValueCodec<boolean> = {
 	name: 'boolean',
@@ -295,10 +299,31 @@ function stringParsedCodec<P extends (raw: string) => unknown>(parseFn: P): Valu
  * @returns The decoded value, or the {@link ValueFailure} that rejected it.
  */
 function decodeValue(value: ValueSchema, raw: unknown, input: ValueInput): ValueResult<unknown> {
-	const decoded = value.codec.decode(raw, input);
+	const decoded = value.codec.decode(stdinDecodeInput(value.codec, raw, input), input);
 	if (!decoded.ok) return decoded;
 	const failure = checkValueConstraints(value.constraints, decoded.value);
 	return failure === undefined ? decoded : { ok: false, failure };
+}
+
+/**
+ * Drop the line terminator a pipe appends, for every codec that reads the text
+ * rather than keeping it.
+ *
+ * The stdin source hands over the buffer byte for byte, so `'hello\n'` stays
+ * `'hello\n'` under the string codec. Every other codec interprets the text,
+ * where a trailing terminator is framing rather than value: `'42\n'` is the
+ * number 42, `'true\n'` the boolean `true`, `'30s\n'` a duration.
+ *
+ * @param codec - The codec about to read the value.
+ * @param raw - The raw value the source produced.
+ * @param input - Which surface produced `raw`.
+ * @returns The value to decode.
+ */
+function stdinDecodeInput(codec: ValueCodec, raw: unknown, input: ValueInput): unknown {
+	if (input !== 'stdin' || codec.name === 'string' || typeof raw !== 'string') return raw;
+	if (raw.endsWith('\r\n')) return raw.slice(0, -2);
+	if (raw.endsWith('\n') || raw.endsWith('\r')) return raw.slice(0, -1);
+	return raw;
 }
 
 /**

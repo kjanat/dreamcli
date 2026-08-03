@@ -36,6 +36,7 @@ const spelledFlagFields: UnbrandedFlagSchema = {
 	presence: 'optional',
 	defaultValue: undefined,
 	aliases: [],
+	stdin: undefined,
 	envVar: undefined,
 	configPath: undefined,
 	description: undefined,
@@ -60,10 +61,12 @@ const spelledArgFields: UnbrandedArgSchema = {
 	kind: 'string',
 	presence: 'required',
 	variadic: false,
-	stdinMode: false,
+	stdin: undefined,
 	defaultValue: undefined,
 	description: undefined,
 	envVar: undefined,
+	configPath: undefined,
+	prompt: undefined,
 	enumValues: undefined,
 	numberConstraints: undefined,
 	stringConstraints: undefined,
@@ -433,13 +436,13 @@ describe('schema sealing', () => {
 						{
 							name: 'run',
 							args: [
-								{ name: 'first', schema: { kind: 'string', stdinMode: true } },
-								{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+								{ name: 'first', schema: { kind: 'string', stdin: {} } },
+								{ name: 'second', schema: { kind: 'string', stdin: {} } },
 							],
 						},
 					],
 				});
-			expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_ARG');
+			expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_INPUT');
 		});
 
 		it('builds identical flag schemas from the positional and object forms', () => {

@@ -578,7 +578,7 @@ describe('resolve', () => {
 
 		it('mentions stdin for missing required stdin-backed args', async () => {
 			const schema = makeSchema({
-				args: [{ name: 'target', schema: createArgSchema('string', { stdinMode: true }) }],
+				args: [{ name: 'target', schema: createArgSchema('string', { stdin: {} }) }],
 			});
 			const parsed = makeParsed({ args: {} });
 

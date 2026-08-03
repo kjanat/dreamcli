@@ -22,6 +22,7 @@ import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import type { BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
 import { builtinEnabled } from './builtins.ts';
@@ -158,7 +159,7 @@ interface RuntimeExecutionInputs {
 	readonly jsonMode: boolean;
 	/** Output verbosity level. */
 	readonly verbosity: Verbosity;
-	/** Pre-read stdin data if the invocation declared stdin-mode args. */
+	/** Pre-read stdin data if the invocation would select a stdin source. */
 	readonly stdinData?: string | null;
 	/** Prompt engine for interactive flag resolution; absent in non-TTY. */
 	readonly prompter?: PromptEngine;
@@ -263,7 +264,20 @@ function extractConfigFlag(argv: readonly string[]): {
 	return { configPath, filteredArgv };
 }
 
-/** Check whether a single command's args declare stdin-mode and argv leaves them unresolved. @internal */
+/**
+ * Check whether this invocation will actually select a stdin source.
+ *
+ * A `'dash'` binding is eligible when its token is `-`. A `'missing'` binding is
+ * eligible when argv left the input absent; env, config, prompt, and default do
+ * not suppress the read, because the stdin fallback outranks all four.
+ *
+ * @param schema - The matched command's merged schema.
+ * @param argv - The command's own argv slice.
+ * @param flagSettings - Parser behavior settings.
+ * @param builtins - Which built-in flags the root still owns.
+ * @returns `true` when at least one input would read stdin.
+ * @internal
+ */
 function commandInvocationNeedsStdin(
 	schema: CommandSchema,
 	argv: readonly string[],
@@ -276,12 +290,7 @@ function commandInvocationNeedsStdin(
 
 	try {
 		const parsed = parse(schema, argv, flagSettings);
-		return schema.args.some(({ name, schema: argSchema }) => {
-			// An arg named after an Object.prototype member would otherwise read
-			// that inherited method as a supplied positional.
-			const parsedValue = Object.hasOwn(parsed.args, name) ? parsed.args[name] : undefined;
-			return argSchema.stdinMode && (parsedValue === undefined || parsedValue === '-');
-		});
+		return invocationSelectsStdin(schema.flags, schema.args, parsed);
 	} catch (error: unknown) {
 		if (error instanceof ParseError) {
 			return false;

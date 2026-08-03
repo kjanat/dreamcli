@@ -34,6 +34,7 @@ import type {
 	PromptConfig,
 	PromptKind,
 	SelectChoice,
+	StdinBinding,
 	StringConstraints,
 } from '#internals/core/schema/index.ts';
 import { definitionMetaSchemaDescriptions } from './meta-descriptions.generated.ts';
@@ -158,6 +159,17 @@ type PromptDefinitionFragmentV1 = {
 	readonly max?: number;
 };
 
+/**
+ * Stdin binding of a flag or arg fragment.
+ *
+ * Both fields are always written, so a document states the trigger and the
+ * sharing mode without a reader having to know the builder's defaults.
+ */
+type StdinBindingFragmentV1 = {
+	readonly when: 'dash' | 'missing' | 'dash-or-missing';
+	readonly consume: 'exclusive' | 'broadcast';
+};
+
 /** Negated-spelling settings of a boolean flag fragment. */
 type FlagNegationFragmentV1 = {
 	readonly alias?: string;
@@ -196,6 +208,7 @@ type FlagDefinitionFragmentV1 = {
 	readonly presence: FlagPresence;
 	readonly defaultValue?: unknown;
 	readonly aliases?: readonly string[];
+	readonly stdin?: StdinBindingFragmentV1;
 	readonly envVar?: string;
 	readonly configPath?: string;
 	readonly description?: string;
@@ -224,15 +237,17 @@ type ArgDefinitionFragmentV1 = {
 	readonly kind: ArgKind;
 	readonly presence: ArgPresence;
 	readonly variadic?: true;
-	readonly stdinMode?: true;
+	readonly stdin?: StdinBindingFragmentV1;
 	readonly defaultValue?: unknown;
 	readonly description?: string;
 	readonly envVar?: string;
+	readonly configPath?: string;
 	readonly enumValues?: readonly string[];
 	readonly numberConstraints?: NumberConstraints;
 	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
 	readonly pathChecks?: FlagPathChecksFragmentV1;
 	readonly valueHint?: string;
+	readonly prompt?: PromptDefinitionFragmentV1;
 	readonly deprecated?: string | true;
 };
 
@@ -420,7 +435,7 @@ function serializeCommand(
 			: {}),
 		flags,
 		// Args — always present (positional order matters)
-		args: schema.args.map(serializeArgEntry),
+		args: schema.args.map((entry) => serializeArgEntry(entry, opts)),
 		// Subcommands — always present
 		commands: schema.commands
 			.filter((cmd) => opts.includeHidden || !cmd.hidden)
@@ -450,6 +465,7 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitio
 			? { defaultValue: schema.defaultValue }
 			: {}),
 		...(visibleAliases.length > 0 ? { aliases: [...visibleAliases] } : {}),
+		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.description !== undefined ? { description: schema.description } : {}),
@@ -522,9 +538,10 @@ function serializePathChecks(checks: PathChecks): FlagPathChecksFragmentV1 {
  * Serialize a {@link CommandArgEntry} into a plain object.
  *
  * @param entry - The positional arg entry (name + {@link ArgSchema}).
+ * @param opts - Resolved generation options (prompt inclusion).
  * @returns JSON-serializable object representing the arg.
  */
-function serializeArgEntry(entry: CommandArgEntry): ArgDefinitionFragmentV1 {
+function serializeArgEntry(entry: CommandArgEntry, opts: ResolvedOptions): ArgDefinitionFragmentV1 {
 	const { name, schema } = entry;
 	const stringConstraints = schema.stringConstraints;
 	const pathChecks = schema.pathChecks;
@@ -534,12 +551,13 @@ function serializeArgEntry(entry: CommandArgEntry): ArgDefinitionFragmentV1 {
 		kind: schema.kind,
 		presence: schema.presence,
 		...(schema.variadic ? { variadic: true } : {}),
-		...(schema.stdinMode ? { stdinMode: true } : {}),
+		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
 		...(schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)
 			? { defaultValue: schema.defaultValue }
 			: {}),
 		...(schema.description !== undefined ? { description: schema.description } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
+		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.numberConstraints !== undefined
 			? { numberConstraints: { ...schema.numberConstraints } }
@@ -549,8 +567,21 @@ function serializeArgEntry(entry: CommandArgEntry): ArgDefinitionFragmentV1 {
 			: {}),
 		...(pathChecks !== undefined ? { pathChecks: serializePathChecks(pathChecks) } : {}),
 		...(schema.valueHint !== undefined ? { valueHint: schema.valueHint } : {}),
+		...(opts.includePrompts && schema.prompt !== undefined
+			? { prompt: serializePrompt(schema.prompt) }
+			: {}),
 		...(schema.deprecated !== undefined ? { deprecated: schema.deprecated } : {}),
 	};
+}
+
+/**
+ * Serialize a {@link StdinBinding} into a plain object.
+ *
+ * @param stdin - The stdin axis to serialize.
+ * @returns JSON-serializable object naming the trigger and the sharing mode.
+ */
+function serializeStdin(stdin: StdinBinding): StdinBindingFragmentV1 {
+	return { when: stdin.when, consume: stdin.consume };
 }
 
 // --- Prompt serialization
@@ -1156,6 +1187,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					presence: { enum: ['optional', 'required', 'defaulted'] },
 					defaultValue: {},
 					aliases: { type: 'array', items: { type: 'string' } },
+					stdin: { $ref: '#/$defs/stdin' },
 					envVar: { type: 'string' },
 					configPath: { type: 'string' },
 					description: { type: 'string' },
@@ -1174,6 +1206,15 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					duplicates: { enum: ['last', 'first', 'error'] },
 				} satisfies Record<SerializedFlagField, Record<string, unknown>>,
 				required: ['kind', 'presence'],
+			},
+			stdin: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					when: { enum: ['dash', 'missing', 'dash-or-missing'] },
+					consume: { enum: ['exclusive', 'broadcast'] },
+				},
+				required: ['when', 'consume'],
 			},
 			negation: {
 				type: 'object',
@@ -1229,15 +1270,17 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					kind: { enum: ['string', 'number', 'enum', 'custom'] },
 					presence: { enum: ['required', 'optional', 'defaulted'] },
 					variadic: { const: true },
-					stdinMode: { const: true },
+					stdin: { $ref: '#/$defs/stdin' },
 					defaultValue: {},
 					description: { type: 'string' },
 					envVar: { type: 'string' },
+					configPath: { type: 'string' },
 					enumValues: { type: 'array', items: { type: 'string' } },
 					numberConstraints: { $ref: '#/$defs/numberConstraints' },
 					stringConstraints: { $ref: '#/$defs/stringConstraints' },
 					pathChecks: { $ref: '#/$defs/pathChecks' },
 					valueHint: { type: 'string' },
+					prompt: { $ref: '#/$defs/prompt' },
 					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
 				} satisfies Record<SerializedArgField, Record<string, unknown>>,
 				required: ['name', 'kind', 'presence'],
@@ -1299,5 +1342,6 @@ export type {
 	JsonSchemaOptions,
 	PromptChoiceFragmentV1,
 	PromptDefinitionFragmentV1,
+	StdinBindingFragmentV1,
 };
 export { definitionMetaSchema, generateCommandSchema, generateInputSchema, generateSchema };

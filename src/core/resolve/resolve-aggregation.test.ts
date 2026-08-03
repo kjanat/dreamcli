@@ -64,7 +64,7 @@ describe('resolve — aggregate diagnostics', () => {
 			args: [
 				{
 					name: 'count',
-					schema: createArgSchema('number', { stdinMode: true }),
+					schema: createArgSchema('number', { stdin: {} }),
 				},
 			],
 		});
@@ -123,7 +123,7 @@ describe('resolve — aggregate diagnostics', () => {
 					name: 'target',
 					schema: createArgSchema('string', {
 						presence: 'required',
-						stdinMode: true,
+						stdin: {},
 						envVar: 'DEPLOY_TARGET',
 					}),
 				},

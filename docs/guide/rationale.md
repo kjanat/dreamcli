@@ -56,15 +56,11 @@ The current supported precedence is:
 
 ```mermaid
 flowchart LR
-  subgraph Flags
-    direction LR
-    f1[CLI] -->|miss| f2[env] -->|miss| f3[config] -->|miss| f4[prompt] -->|miss| f5[default]
-  end
-  subgraph Args
-    direction LR
-    a1[CLI token] -->|miss| a2[stdin] -->|miss| a3[env] -->|miss| a4[default]
-  end
+  s1[CLI] -->|miss| s2[stdin] -->|miss| s3[env] -->|miss| s4[config] -->|miss| s5[prompt] -->|miss| s6[default]
 ```
+
+Flags and positional arguments walk this one order. Each stage is opt-in per
+input, so a source an input never declared is a source no stage can produce.
 
 Why this is built in:
 
