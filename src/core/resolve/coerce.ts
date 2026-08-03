@@ -7,6 +7,13 @@
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
+import type { Occurrence } from '#internals/core/parse/occurrences.ts';
+import {
+	entryPairsOf,
+	liftOccurrences,
+	occurrenceValue,
+	readAggregated,
+} from '#internals/core/parse/occurrences.ts';
 import type {
 	Cardinality,
 	SplitBinding,
@@ -281,7 +288,7 @@ function readEntryPairs(source: CoerceSource, raw: unknown, splitting: SplitBind
 	return { ok: true, pairs: split.parts };
 }
 
-/** Whether a value is the ordered pair list the parser produces for entries. */
+/** Whether a value is an ordered list of key/value pairs. */
 function isPairList(value: unknown): value is readonly (readonly [string, unknown])[] {
 	return (
 		Array.isArray(value) &&
@@ -919,7 +926,13 @@ function finishCliArgValue(
 	);
 }
 
-/** Replace every stdin sentinel among the occurrences with what stdin decodes to. */
+/**
+ * Replace every stdin sentinel among the occurrences with what stdin decodes to,
+ * then aggregate what is left.
+ *
+ * A value the parser did not leave as an occurrence list is the aggregate a
+ * caller built by hand, and it reaches the resolved value untouched.
+ */
 function spliceCliCollection(
 	cardinality: Extract<Cardinality, { kind: 'many' } | { kind: 'entries' }>,
 	value: unknown,
@@ -928,13 +941,17 @@ function spliceCliCollection(
 	decodeElement: (element: unknown) => CoerceResult,
 	errors: CollectionErrors,
 ): CliFinish {
-	if (!Array.isArray(value)) return { kind: 'value', value, viaStdin: false };
+	const occurrences = liftOccurrences(cardinality, value, readsOnDash);
+	const aggregated = readAggregated(occurrences);
+	if (aggregated !== undefined) {
+		return { kind: 'value', value: aggregated.value, viaStdin: false };
+	}
 
-	const spliced: unknown[] = [];
+	const spliced: Occurrence[] = [];
 	let sentinels = 0;
 	let viaStdin = false;
-	for (const occurrence of value) {
-		if (!readsOnDash || occurrence !== STDIN_SENTINEL) {
+	for (const occurrence of occurrences) {
+		if (occurrence.kind !== 'stdin') {
 			spliced.push(occurrence);
 			continue;
 		}
@@ -943,26 +960,27 @@ function spliceCliCollection(
 		const read = readStdinOccurrence(cardinality, stdinData, decodeElement, errors);
 		if (read.kind !== 'value') return read;
 		viaStdin = true;
-		spliced.push(...read.elements);
+		spliced.push(...read.occurrences);
 	}
 
-	if (sentinels === value.length && sentinels > 0 && typeof stdinData !== 'string') {
+	if (sentinels === occurrences.length && sentinels > 0 && typeof stdinData !== 'string') {
 		return { kind: 'absent' };
 	}
 
-	if (cardinality.kind === 'many') return { kind: 'value', value: spliced, viaStdin };
+	if (cardinality.kind === 'many') {
+		return { kind: 'value', value: spliced.map(occurrenceValue), viaStdin };
+	}
 
-	const pairs: (readonly [string, unknown])[] = [];
-	for (const entry of spliced) {
-		if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string') {
+	for (const occurrence of spliced) {
+		if (occurrence.kind !== 'entry') {
 			return {
 				kind: 'error',
-				error: errors({ kind: 'shape', expected: 'object' }, entry),
+				error: errors({ kind: 'shape', expected: 'object' }, occurrenceValue(occurrence)),
 			};
 		}
-		pairs.push([entry[0], entry[1]]);
 	}
-	const folded = foldEntries(pairs, cardinality.duplicateKeys);
+
+	const folded = foldEntries(entryPairsOf(spliced), cardinality.duplicateKeys);
 	if (!folded.ok) {
 		return {
 			kind: 'error',
@@ -972,38 +990,38 @@ function spliceCliCollection(
 	return { kind: 'value', value: folded.value, viaStdin };
 }
 
-/** Decode the stdin buffer into the elements one `-` occurrence stands for. */
+/** Decode the stdin buffer into the occurrences one `-` stands for. */
 function readStdinOccurrence(
 	cardinality: Extract<Cardinality, { kind: 'many' } | { kind: 'entries' }>,
 	stdinData: string,
 	decodeElement: (element: unknown) => CoerceResult,
 	errors: CollectionErrors,
 ):
-	| { readonly kind: 'value'; readonly elements: readonly unknown[] }
+	| { readonly kind: 'value'; readonly occurrences: readonly Occurrence[] }
 	| { readonly kind: 'error'; readonly error: ValidationError } {
 	const source: CoerceSource = { kind: 'stdin' };
 
 	if (cardinality.kind === 'many') {
 		const parts = readManyParts(source, stdinData, cardinality.splitting);
 		if (!parts.ok) return { kind: 'error', error: errors(parts.fault, stdinData) };
-		const elements: unknown[] = [];
+		const occurrences: Occurrence[] = [];
 		for (const part of parts.parts) {
 			const decoded = decodeElement(part);
 			if (!decoded.ok) return { kind: 'error', error: decoded.error };
-			elements.push(decoded.value);
+			occurrences.push({ kind: 'value', value: decoded.value });
 		}
-		return { kind: 'value', elements };
+		return { kind: 'value', occurrences };
 	}
 
 	const pairs = readEntryPairs(source, stdinData, cardinality.splitting);
 	if (!pairs.ok) return { kind: 'error', error: errors(pairs.fault, stdinData) };
-	const elements: unknown[] = [];
+	const occurrences: Occurrence[] = [];
 	for (const [key, raw] of pairs.pairs) {
 		const decoded = decodeElement(raw);
 		if (!decoded.ok) return { kind: 'error', error: decoded.error };
-		elements.push([key, decoded.value]);
+		occurrences.push({ kind: 'entry', key, value: decoded.value });
 	}
-	return { kind: 'value', elements };
+	return { kind: 'value', occurrences };
 }
 
 export type { CliFinish, CoerceResult };

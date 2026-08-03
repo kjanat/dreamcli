@@ -38,6 +38,15 @@ import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
+import type { Occurrence } from './occurrences.ts';
+import {
+	INCREMENT_OCCURRENCE,
+	NEGATED_OCCURRENCE,
+	occurrenceValue,
+	projectOccurrences,
+	STDIN_OCCURRENCE,
+	STDIN_SENTINEL,
+} from './occurrences.ts';
 
 // --- Tokenizer — schema-agnostic argv splitting
 
@@ -289,12 +298,46 @@ function buildFlagLookup(
 	return lookup;
 }
 
-// --- Duplicate-occurrence tracking
+// --- Occurrence tracking
 
-/** Mutable per-parse record of CLI occurrences for one logical flag. */
+/** One CLI occurrence of a logical flag, and what it contributes. */
+interface FlagOccurrence {
+	/** Whether the flag's duplicate policy governs this occurrence. */
+	readonly policed: boolean;
+	/** The value a duplicate diagnostic reports for it. */
+	readonly reported: unknown;
+	/** What the occurrence contributes, in the order it was typed. */
+	items: readonly Occurrence[];
+}
+
+/** Every CLI occurrence of one logical flag, in the order they were typed. */
 interface FlagOccurrences {
-	count: number;
-	readonly values: unknown[];
+	/** The schema the occurrences belong to. */
+	readonly schema: FlagSchema;
+	/** The occurrences, latest last. */
+	readonly occurrences: FlagOccurrence[];
+	/** How many of them the duplicate policy governs. */
+	counted: number;
+}
+
+/**
+ * The occurrence list of one logical flag, started on its first occurrence.
+ *
+ * @param occurrences - Per-parse accumulator keyed by canonical name
+ * @param name - Canonical flag name
+ * @param schema - Flag schema the occurrences belong to
+ * @returns The flag's list
+ */
+function occurrencesOf(
+	occurrences: Map<string, FlagOccurrences>,
+	name: string,
+	schema: FlagSchema,
+): FlagOccurrences {
+	const existing = occurrences.get(name);
+	if (existing !== undefined) return existing;
+	const started: FlagOccurrences = { schema, occurrences: [], counted: 0 };
+	occurrences.set(name, started);
+	return started;
 }
 
 /**
@@ -304,9 +347,9 @@ interface FlagOccurrences {
  * @param occurrences - Per-parse accumulator keyed by canonical name
  * @param name - Canonical flag name
  * @param schema - Flag schema (read for {@link FlagSchema.duplicates})
- * @param value - The occurrence's raw value (or the boolean it implies)
+ * @param reported - The occurrence's raw value (or the boolean it implies)
  * @param displayName - User-facing spelling for error messages
- * @returns `true` when the occurrence should be applied; `false` when the
+ * @returns The recorded occurrence, ready for its items; `undefined` when the
  *   `'first'` policy suppresses it (the token is still consumed)
  * @throws ParseError `DUPLICATE_FLAG` on a repeat under the `'error'` policy
  */
@@ -314,27 +357,66 @@ function recordFlagOccurrence(
 	occurrences: Map<string, FlagOccurrences>,
 	name: string,
 	schema: FlagSchema,
-	value: unknown,
+	reported: unknown,
 	displayName: string,
-): boolean {
-	const record = occurrences.get(name) ?? { count: 0, values: [] };
-	record.count += 1;
-	record.values.push(value);
-	occurrences.set(name, record);
+): FlagOccurrence | undefined {
+	const record = occurrencesOf(occurrences, name, schema);
+	const occurrence: FlagOccurrence = { policed: true, reported, items: [] };
+	record.occurrences.push(occurrence);
+	record.counted += 1;
 
-	if (record.count === 1) return true;
+	if (record.counted === 1) return occurrence;
 	if (schema.duplicates === 'error') {
 		throw new ParseError(`Flag --${name} may only be specified once`, {
 			code: 'DUPLICATE_FLAG',
 			details: {
 				flag: name,
 				input: displayName,
-				count: record.count,
-				values: [...record.values],
+				count: record.counted,
+				values: record.occurrences.filter((entry) => entry.policed).map((entry) => entry.reported),
 			},
 		});
 	}
-	return schema.duplicates !== 'first';
+	return schema.duplicates === 'first' ? undefined : occurrence;
+}
+
+/**
+ * Record one bare occurrence of a count flag.
+ *
+ * A bare `-v` raises the count rather than supplying a value, and the duplicate
+ * policy governs supplied values, so the increment stays outside it.
+ *
+ * @param occurrences - Per-parse accumulator keyed by canonical name
+ * @param name - Canonical flag name
+ * @param schema - Flag schema the occurrence belongs to
+ */
+function recordCountIncrement(
+	occurrences: Map<string, FlagOccurrences>,
+	name: string,
+	schema: FlagSchema,
+): void {
+	occurrencesOf(occurrences, name, schema).occurrences.push({
+		policed: false,
+		reported: undefined,
+		items: [INCREMENT_OCCURRENCE],
+	});
+}
+
+/**
+ * Project every flag's occurrences onto the values a parse result carries.
+ *
+ * @param occurrences - Per-parse accumulator keyed by canonical name
+ * @returns Flag values keyed by canonical name, in first-occurrence order
+ */
+function projectFlags(occurrences: ReadonlyMap<string, FlagOccurrences>): Record<string, unknown> {
+	const flags: Record<string, unknown> = {};
+	for (const [name, record] of occurrences) {
+		flags[name] = projectOccurrences(
+			flagCardinality(record.schema),
+			record.occurrences.flatMap((occurrence) => occurrence.items),
+		);
+	}
+	return flags;
 }
 
 /**
@@ -368,10 +450,6 @@ function isStdinSentinel(raw: string, stdin: StdinBinding | undefined): boolean 
 /**
  * Coerce one raw CLI token to what the flag's value axis declares.
  *
- * The cardinality axis decides what a token IS: one value, one element of a
- * collection, one entry of a record, or an explicit count. The value axis then
- * decides what that token means.
- *
  * @param flagName - Canonical flag name (for error messages)
  * @param raw - Raw string value from argv
  * @param schema - {@link FlagSchema} declaring the expected kind
@@ -385,16 +463,41 @@ function coerceFlagValue(
 	schema: FlagSchema,
 	displayName = `--${flagName}`,
 ): unknown {
-	if (isStdinSentinel(raw, schema.stdin)) return raw;
+	return occurrenceValue(flagTokenOccurrence(flagName, raw, schema, displayName));
+}
+
+/**
+ * Read one raw CLI token of a flag as the occurrence it contributes.
+ *
+ * The cardinality axis decides what a token IS: one value, one element of a
+ * collection, one entry of a record, or an explicit count. The value axis then
+ * decides what that token means. A `-` names the stdin source, so it holds its
+ * position without being decoded.
+ *
+ * @param flagName - Canonical flag name (for error messages)
+ * @param raw - Raw string value from argv
+ * @param schema - {@link FlagSchema} declaring the expected kind
+ * @param displayName - Spelling the user typed
+ * @returns The occurrence the token contributes
+ * @throws ParseError on type mismatch
+ */
+function flagTokenOccurrence(
+	flagName: string,
+	raw: string,
+	schema: FlagSchema,
+	displayName: string,
+): Occurrence {
+	if (isStdinSentinel(raw, schema.stdin)) return STDIN_OCCURRENCE;
 
 	const cardinality = flagCardinality(schema);
 	if (cardinality.kind === 'count') {
-		return coerceCountToken(flagName, raw, displayName);
+		return { kind: 'value', value: coerceCountToken(flagName, raw, displayName) };
 	}
 	if (cardinality.kind === 'entries') {
-		return coerceEntryToken(flagName, raw, schema, displayName);
+		const [key, value] = coerceEntryToken(flagName, raw, schema, displayName);
+		return { kind: 'entry', key, value };
 	}
-	return coerceElementToken(flagName, raw, schema, displayName);
+	return { kind: 'value', value: coerceElementToken(flagName, raw, schema, displayName) };
 }
 
 /** Decode one token through the flag's element value axis. */
@@ -556,16 +659,18 @@ function flagValueError(
 }
 
 /**
- * Coerce a raw string to the arg's declared kind.
+ * Read one raw positional token as the occurrence it contributes.
+ *
+ * A `-` names the stdin source, so it holds its position without being decoded.
  *
  * @param argName - Positional arg name (for error messages)
  * @param raw - Raw string value from argv
  * @param schema - {@link ArgSchema} declaring the expected kind
- * @returns Coerced value matching the schema's kind
+ * @returns The occurrence the token contributes
  * @throws ParseError on type mismatch or custom parse failure
  */
-function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
-	if (isStdinSentinel(raw, schema.stdin)) return raw;
+function argTokenOccurrence(argName: string, raw: string, schema: ArgSchema): Occurrence {
+	if (isStdinSentinel(raw, schema.stdin)) return STDIN_OCCURRENCE;
 
 	if (argCardinality(schema).kind === 'entries') {
 		const pair = splitEntryPair(raw);
@@ -575,10 +680,10 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 				details: { arg: argName, value: raw, expected: 'key=value' },
 			});
 		}
-		return [pair[0], decodeArgToken(argName, pair[1], schema)];
+		return { kind: 'entry', key: pair[0], value: decodeArgToken(argName, pair[1], schema) };
 	}
 
-	return decodeArgToken(argName, raw, schema);
+	return { kind: 'value', value: decodeArgToken(argName, raw, schema) };
 }
 
 /** Decode one token through the arg's element value axis. */
@@ -638,8 +743,7 @@ function parse(
 	const tokens = tokenize(argv);
 	const flagLookup = buildFlagLookup(schema.flags, options);
 
-	// Mutable accumulators — frozen in the result
-	const flags: Record<string, unknown> = {};
+	// Mutable accumulators — projected into the result
 	const positionals: string[] = [];
 	const occurrences = new Map<string, FlagOccurrences>();
 
@@ -660,18 +764,18 @@ function parse(
 		}
 
 		if (token.kind === 'long-flag') {
-			i = parseLongFlag(token, tokens, i, flagLookup, flags, occurrences);
+			i = parseLongFlag(token, tokens, i, flagLookup, occurrences);
 			continue;
 		}
 
 		// token.kind === 'short-flags'
-		i = parseShortFlags(token, tokens, i, flagLookup, flags, occurrences);
+		i = parseShortFlags(token, tokens, i, flagLookup, occurrences);
 	}
 
 	// Map positionals to named args
 	const args = mapPositionals(schema.args, positionals);
 
-	return { flags, args };
+	return { flags: projectFlags(occurrences), args };
 }
 
 // --- Long flag parsing
@@ -683,8 +787,7 @@ function parse(
  * @param tokens - Full token array (for lookahead)
  * @param startIdx - Current index of `token` in the array
  * @param flagLookup - Spelling → {@link FlagLookupEntry} map from {@link buildFlagLookup}
- * @param flags - Mutable accumulator for resolved flag values
- * @param occurrences - Per-parse duplicate-occurrence accumulator
+ * @param occurrences - Per-parse occurrence accumulator
  * @returns Next index to continue parsing from
  */
 function parseLongFlag(
@@ -692,7 +795,6 @@ function parseLongFlag(
 	tokens: readonly Token[],
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
-	flags: Record<string, unknown>,
 	occurrences: Map<string, FlagOccurrences>,
 ): number {
 	const entry = flagLookup.get(token.name);
@@ -719,32 +821,55 @@ function parseLongFlag(
 				details: { flag: canonicalName, input: token.name, value: token.value },
 			});
 		}
-		if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, false, displayName)) {
-			flags[canonicalName] = false;
-		}
+		const occurrence = recordFlagOccurrence(
+			occurrences,
+			canonicalName,
+			flagSchema,
+			false,
+			displayName,
+		);
+		if (occurrence !== undefined) occurrence.items = [NEGATED_OCCURRENCE];
 		return startIdx + 1;
 	}
 
 	if (!flagExpectsValue(flagSchema)) {
 		// Boolean or count flag — consumes no value token
 		if (token.value !== undefined) {
-			const coerced = coerceFlagValue(canonicalName, token.value, flagSchema, displayName);
-			if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, coerced, displayName)) {
-				flags[canonicalName] = coerced;
-			}
+			const item = flagTokenOccurrence(canonicalName, token.value, flagSchema, displayName);
+			const occurrence = recordFlagOccurrence(
+				occurrences,
+				canonicalName,
+				flagSchema,
+				occurrenceValue(item),
+				displayName,
+			);
+			if (occurrence !== undefined) occurrence.items = [item];
 		} else if (flagSchema.kind === 'count') {
-			const existing = flags[canonicalName];
-			flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
-		} else if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName)) {
-			flags[canonicalName] = true;
+			recordCountIncrement(occurrences, canonicalName, flagSchema);
+		} else {
+			const occurrence = recordFlagOccurrence(
+				occurrences,
+				canonicalName,
+				flagSchema,
+				true,
+				displayName,
+			);
+			if (occurrence !== undefined) occurrence.items = [{ kind: 'value', value: true }];
 		}
 		return startIdx + 1;
 	}
 
 	if (token.value !== undefined) {
 		// --flag=value (inline)
-		if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, token.value, displayName)) {
-			setFlagValue(flags, canonicalName, flagSchema, token.value);
+		const occurrence = recordFlagOccurrence(
+			occurrences,
+			canonicalName,
+			flagSchema,
+			token.value,
+			displayName,
+		);
+		if (occurrence !== undefined) {
+			occurrence.items = flagTokenOccurrences(canonicalName, flagSchema, token.value);
 		}
 		return startIdx + 1;
 	}
@@ -757,8 +882,20 @@ function parseLongFlag(
 			details: { flag: canonicalName, input: token.name, kind: flagSchema.kind },
 		});
 	}
-	if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName)) {
-		setFlagValue(flags, canonicalName, flagSchema, nextToken.value, displayName);
+	const occurrence = recordFlagOccurrence(
+		occurrences,
+		canonicalName,
+		flagSchema,
+		nextToken.value,
+		displayName,
+	);
+	if (occurrence !== undefined) {
+		occurrence.items = flagTokenOccurrences(
+			canonicalName,
+			flagSchema,
+			nextToken.value,
+			displayName,
+		);
 	}
 	return startIdx + 2;
 }
@@ -772,8 +909,7 @@ function parseLongFlag(
  * @param tokens - Full token array (for lookahead)
  * @param startIdx - Current index of `token` in the array
  * @param flagLookup - Spelling → {@link FlagLookupEntry} map from {@link buildFlagLookup}
- * @param flags - Mutable accumulator for resolved flag values
- * @param occurrences - Per-parse duplicate-occurrence accumulator
+ * @param occurrences - Per-parse occurrence accumulator
  * @returns Next index to continue parsing from
  */
 function parseShortFlags(
@@ -781,7 +917,6 @@ function parseShortFlags(
 	tokens: readonly Token[],
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
-	flags: Record<string, unknown>,
 	occurrences: Map<string, FlagOccurrences>,
 ): number {
 	const { chars } = token;
@@ -803,10 +938,16 @@ function parseShortFlags(
 		if (!flagExpectsValue(flagSchema)) {
 			// Boolean or count short flag — consumes no value
 			if (flagSchema.kind === 'count') {
-				const existing = flags[canonicalName];
-				flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
-			} else if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName)) {
-				flags[canonicalName] = true;
+				recordCountIncrement(occurrences, canonicalName, flagSchema);
+			} else {
+				const occurrence = recordFlagOccurrence(
+					occurrences,
+					canonicalName,
+					flagSchema,
+					true,
+					displayName,
+				);
+				if (occurrence !== undefined) occurrence.items = [{ kind: 'value', value: true }];
 			}
 			continue;
 		}
@@ -815,8 +956,20 @@ function parseShortFlags(
 			// Value-expecting flag in the middle of combined shorts:
 			// -oFile → -o with value "File" (rest of chars is the value)
 			const inlineValue = chars.slice(ci + 1);
-			if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, inlineValue, displayName)) {
-				setFlagValue(flags, canonicalName, flagSchema, inlineValue, displayName);
+			const occurrence = recordFlagOccurrence(
+				occurrences,
+				canonicalName,
+				flagSchema,
+				inlineValue,
+				displayName,
+			);
+			if (occurrence !== undefined) {
+				occurrence.items = flagTokenOccurrences(
+					canonicalName,
+					flagSchema,
+					inlineValue,
+					displayName,
+				);
 			}
 			break; // consumed all remaining chars
 		}
@@ -829,10 +982,20 @@ function parseShortFlags(
 				details: { flag: canonicalName, input: ch, kind: flagSchema.kind },
 			});
 		}
-		if (
-			recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName)
-		) {
-			setFlagValue(flags, canonicalName, flagSchema, nextToken.value, displayName);
+		const occurrence = recordFlagOccurrence(
+			occurrences,
+			canonicalName,
+			flagSchema,
+			nextToken.value,
+			displayName,
+		);
+		if (occurrence !== undefined) {
+			occurrence.items = flagTokenOccurrences(
+				canonicalName,
+				flagSchema,
+				nextToken.value,
+				displayName,
+			);
 		}
 		nextIdx++;
 	}
@@ -840,46 +1003,38 @@ function parseShortFlags(
 	return nextIdx;
 }
 
-// --- Flag value setter (handles collection accumulation)
+// --- Flag value tokens (one occurrence, one or more elements)
 
 /**
- * Set or accumulate a flag value.
+ * Read one value token of a flag as the occurrences it contributes.
  *
  * A collection keeps its CLI occurrences in the order they were typed, elements
  * for `many` and `[key, value]` pairs for `entries`. Aggregation happens during
  * resolution, where the stdin buffer an occurrence of `-` stands for is spliced
  * into that order.
  *
- * @param flags - Mutable accumulator for resolved flag values
  * @param name - Canonical flag name
  * @param schema - {@link FlagSchema} declaring the expected kind
  * @param rawValue - Raw string value from argv
  * @param displayName - Spelling the user typed
+ * @returns The occurrences the token contributes, in order
  */
-function setFlagValue(
-	flags: Record<string, unknown>,
+function flagTokenOccurrences(
 	name: string,
 	schema: FlagSchema,
 	rawValue: string,
 	displayName = `--${name}`,
-): void {
+): readonly Occurrence[] {
 	const cardinality = flagCardinality(schema);
 	if (!isCollection(cardinality)) {
-		flags[name] = coerceFlagValue(name, rawValue, schema, displayName);
-		return;
+		return [flagTokenOccurrence(name, rawValue, schema, displayName)];
 	}
 
 	// One occurrence may carry several elements (--tag a,b); each is coerced
 	// individually so errors name the offending element, not the whole token.
-	const coerced = splitCliToken(cardinality.splitting.cli, rawValue, schema).map((part) =>
-		coerceFlagValue(name, part, schema, displayName),
+	return splitCliToken(cardinality.splitting.cli, rawValue, schema).map((part) =>
+		flagTokenOccurrence(name, part, schema, displayName),
 	);
-	const existing = flags[name];
-	if (Array.isArray(existing)) {
-		existing.push(...coerced);
-	} else {
-		flags[name] = coerced;
-	}
 }
 
 /**
@@ -934,19 +1089,20 @@ function mapPositionals(
 				cardinality.kind === 'many' || cardinality.kind === 'entries'
 					? cardinality.splitting.cli
 					: WHOLE_TOKEN;
-			args[entry.name] = remaining.flatMap((raw) =>
+			const occurrences = remaining.flatMap((raw) =>
 				splitCliToken(policy, raw, { stdin: entry.schema.stdin }).map((part) =>
-					coerceArgValue(entry.name, part, entry.schema),
+					argTokenOccurrence(entry.name, part, entry.schema),
 				),
 			);
+			args[entry.name] = projectOccurrences(cardinality, occurrences);
 			posIdx = positionals.length;
 			break;
 		}
 
 		const rawPositional = positionals[posIdx];
 		if (rawPositional !== undefined) {
-			const coerced = coerceArgValue(entry.name, rawPositional, entry.schema);
-			args[entry.name] = cardinality.kind === 'entries' ? [coerced] : coerced;
+			const occurrence = argTokenOccurrence(entry.name, rawPositional, entry.schema);
+			args[entry.name] = projectOccurrences(cardinality, [occurrence]);
 			posIdx++;
 		}
 		// If no positional available, leave absent (resolution/validation handles defaults/required)

@@ -174,9 +174,10 @@ through `valueDefinitionFields()` in both factories; only steps 3 and 10–11 ap
    (duplicate signatures; keep both in sync)
 4. `value.ts` — add a codec and value constructor when the kind carries a value, then add
    `flagValueSchema()` / `argValueSchema()` handling. Collection kinds project their element value.
-5. `parse/index.ts` — `coerceFlagValue()` case for a collection kind, plus a `flagValueError()` /
+5. `parse/index.ts` — `flagTokenOccurrence()` case for a collection kind, plus a `flagValueError()` /
    `argValueError()` arm for any new `ValueFailure`; update `flagExpectsValue()` if the kind takes
-   no value token; `setFlagValue()` if occurrences accumulate (array/keyValue style)
+   no value token; `flagTokenOccurrences()` if one token carries several elements, and
+   `projectOccurrences()` in `parse/occurrences.ts` if the kind folds its occurrences its own way
 6. `resolve/coerce.ts` — `coerceValue()` case for a collection kind, plus a `valueCoercionError()`
    arm for any new `ValueFailure`
 7. `resolve/flags.ts` — `COMPATIBLE_PROMPT_KINDS` entry; unset-fallback branch in `resolveFlags()`

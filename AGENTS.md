@@ -23,7 +23,7 @@ src/
 │   ├── output/             # stdout/stderr/json/table/activity dispatch
 │   ├── completion/         # shell completion generators
 │   ├── json-schema/        # definition schema + input schema generation
-│   ├── parse/              # tokenizer + schema-aware raw parse
+│   ├── parse/              # tokenizer, schema-aware raw parse, occurrence model
 │   ├── prompt/             # terminal/test prompt engines
 │   ├── config/             # config discovery + package.json walk-up
 │   ├── help/               # schema-driven help formatter
@@ -44,23 +44,23 @@ specs/                      # planning/design docs
 
 ## WHERE TO LOOK
 
-| Task                                          | Location                        | Notes                                      |
-| --------------------------------------------- | ------------------------------- | ------------------------------------------ |
-| Add command, flag, arg, or middleware API     | `src/core/schema/`              | most public API work starts here           |
-| Fix argv parsing                              | `src/core/parse/`               | tokenizer + parser live in one file        |
-| Fix resolution precedence                     | `src/core/resolve/`             | argv -> env -> config -> prompt -> default |
-| Change help text formatting                   | `src/core/help/`                | width-aware text formatter                 |
-| Change config discovery or `manifest()`       | `src/core/config/`              | config loaders + package metadata walk-up  |
-| Change prompt UX or test prompts              | `src/core/prompt/`              | prompt engines and sentinels               |
-| Change JSON Schema output                     | `src/core/json-schema/`         | definition schema + input schema           |
-| Change output, spinner, or progress           | `src/core/output/`              | stdout/stderr and activity handles         |
-| Change shell completions                      | `src/core/completion/`          | per-shell generators                       |
-| Change CLI dispatch or plugins                | `src/core/cli/`                 | root help, dispatch, runtime preflight     |
-| Change runtime adapters                       | `src/runtime/`                  | Node, Bun, Deno, detect, support           |
-| Change docs data, routes, or site build       | `docs/.vitepress/`              | docs app internals                         |
-| Edit guide/concept prose                      | `docs/guide/`, `docs/concepts/` | hand-authored Markdown                     |
-| Change build, release, or project automation  | `scripts/`                      | operational scripts                        |
-| Change example-backed docs or consumer canary | `examples/`                     | docs source + `examples/gh` workspace      |
+| Task                                          | Location                        | Notes                                        |
+| --------------------------------------------- | ------------------------------- | -------------------------------------------- |
+| Add command, flag, arg, or middleware API     | `src/core/schema/`              | most public API work starts here             |
+| Fix argv parsing                              | `src/core/parse/`               | tokenizer + parser, and the occurrence model |
+| Fix resolution precedence                     | `src/core/resolve/`             | argv -> env -> config -> prompt -> default   |
+| Change help text formatting                   | `src/core/help/`                | width-aware text formatter                   |
+| Change config discovery or `manifest()`       | `src/core/config/`              | config loaders + package metadata walk-up    |
+| Change prompt UX or test prompts              | `src/core/prompt/`              | prompt engines and sentinels                 |
+| Change JSON Schema output                     | `src/core/json-schema/`         | definition schema + input schema             |
+| Change output, spinner, or progress           | `src/core/output/`              | stdout/stderr and activity handles           |
+| Change shell completions                      | `src/core/completion/`          | per-shell generators                         |
+| Change CLI dispatch or plugins                | `src/core/cli/`                 | root help, dispatch, runtime preflight       |
+| Change runtime adapters                       | `src/runtime/`                  | Node, Bun, Deno, detect, support             |
+| Change docs data, routes, or site build       | `docs/.vitepress/`              | docs app internals                           |
+| Edit guide/concept prose                      | `docs/guide/`, `docs/concepts/` | hand-authored Markdown                       |
+| Change build, release, or project automation  | `scripts/`                      | operational scripts                          |
+| Change example-backed docs or consumer canary | `examples/`                     | docs source + `examples/gh` workspace        |
 
 ## CONVENTIONS
 
