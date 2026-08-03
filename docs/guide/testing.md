@@ -43,7 +43,7 @@ await runCommand(deploy, ['production'], {
 });
 
 await runCommand(deploy, ['production'], {
-  // piped stdin for args configured with .stdin()
+  // piped stdin for flags and args configured with .stdin()
   stdinData: '<your input>',
   // simulate --json mode
   jsonMode: true,
@@ -60,7 +60,7 @@ await runCommand(deploy, ['production'], {
 | ----------- | ------------------------------------- | -------------------------------------------------- |
 | `env`       | `Record<string, string \| undefined>` | Environment variables                              |
 | `config`    | `Record<string, unknown>`             | Config file values                                 |
-| `stdinData` | `string \| null`                      | Data supplied to command stdin for `.stdin()` args |
+| `stdinData` | `string \| null`                      | Data supplied to command stdin for `.stdin()` inputs |
 | `answers`   | `unknown[]`                           | Prompt answers in order                            |
 | `prompter`  | `PromptEngine`                        | Custom prompt handler                              |
 | `jsonMode`  | `boolean`                             | Simulate `--json` mode                             |

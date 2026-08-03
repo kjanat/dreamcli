@@ -8,152 +8,120 @@
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
-import type { ErasedInteractiveResolver } from '#internals/core/schema/command.ts';
+import type {
+	ErasedInteractiveResolver,
+	InteractiveResult,
+} from '#internals/core/schema/command.ts';
 import type { FlagKind, FlagSchema } from '#internals/core/schema/flag.ts';
 import type { PromptConfig, PromptKind } from '#internals/core/schema/prompt.ts';
+import type { SourceBinding } from '#internals/core/schema/source.ts';
+import {
+	bindingsBeforePrompt,
+	bindingsFromPrompt,
+	sourceBindings,
+	withPromptBinding,
+} from '#internals/core/schema/source.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceValue } from './coerce.ts';
-import { resolveConfigPath } from './config.ts';
-import type { DeprecationWarning } from './contracts.ts';
+import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { validatePathChecks } from './path-checks.ts';
+import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
+import { readCliValue, runStages } from './stages.ts';
 
-type PromptResolveResult =
-	| { readonly ok: true; readonly value: unknown }
-	| { readonly ok: false; readonly error: ValidationError | undefined };
+/** External state and collectors one flag-resolution pass shares. */
+interface FlagResolutionOptions {
+	/** Environment variable snapshot. */
+	readonly env: Readonly<Record<string, string | undefined>>;
+	/** Parsed config file contents. */
+	readonly config: Readonly<Record<string, unknown>>;
+	/** Pre-read stdin content, or `null`/`undefined` when nothing was piped. */
+	readonly stdinData: string | null | undefined;
+	/** Interactive prompt engine, absent in non-TTY contexts. */
+	readonly prompter: PromptEngine | undefined;
+	/** Per-invocation prompt overrides declared by `.interactive()`. */
+	readonly interactive: ErasedInteractiveResolver | undefined;
+	/** Collector for notices produced by `.deprecated()` flags. */
+	readonly deprecations: DeprecationWarning[];
+	/** Filesystem probe for `flag.path()` checks. */
+	readonly stat: StatFn | undefined;
+	/** Directory creation for `flag.path()` `create` checks. */
+	readonly mkdir: MkdirFn | undefined;
+	/** Receiver for the stage that produced each resolved flag. */
+	readonly provenance: Record<string, ResolutionProvenance>;
+}
 
-/** Walk every declared flag through the resolution chain (cli -> env -> config -> prompt -> default), collecting deprecations and throwing aggregated errors. */
+/**
+ * Walk every declared flag through the resolution chain
+ * (cli -> stdin -> env -> config -> prompt -> default), collecting deprecations
+ * and throwing aggregated errors.
+ *
+ * The chain runs in two passes so `.interactive()` sees what the non-interactive
+ * sources produced before it decides which flags to prompt for.
+ *
+ * @param flagSchemas - Declared flags keyed by canonical name.
+ * @param parsedFlags - Values the parser read off argv.
+ * @param options - External state and collectors for this pass.
+ * @returns Fully resolved flag values keyed by flag name.
+ */
 async function resolveFlags(
 	flagSchemas: Readonly<Record<string, FlagSchema>>,
 	parsedFlags: Readonly<Record<string, unknown>>,
-	env: Readonly<Record<string, string | undefined>>,
-	config: Readonly<Record<string, unknown>>,
-	prompter: PromptEngine | undefined,
-	interactive: ErasedInteractiveResolver | undefined,
-	deprecations: DeprecationWarning[],
-	stat: StatFn | undefined,
-	mkdir: MkdirFn | undefined,
+	options: FlagResolutionOptions,
 ): Promise<Readonly<Record<string, unknown>>> {
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
 	const hardErrorFlags = new Set<string>();
+	const state: StageState = {
+		env: options.env,
+		config: options.config,
+		stdinData: options.stdinData,
+		canPrompt: options.prompter !== undefined,
+	};
 
 	for (const [name, schema] of Object.entries(flagSchemas)) {
-		const hasParsedValue = Object.hasOwn(parsedFlags, name);
-		const parsedValue = parsedFlags[name];
-
-		if (hasParsedValue && parsedValue !== undefined) {
-			if (schema.deprecated !== undefined) {
-				deprecations.push({ kind: 'flag', name, message: schema.deprecated });
-			}
-			resolved[name] = parsedValue;
-			continue;
-		}
-
-		if (schema.envVar !== undefined) {
-			const envValue = Object.hasOwn(env, schema.envVar) ? env[schema.envVar] : undefined;
-			if (envValue !== undefined) {
-				const coerced = coerceValue(name, { kind: 'env', envVar: schema.envVar }, envValue, schema);
-				if (coerced.ok) {
-					if (schema.deprecated !== undefined) {
-						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
-					}
-					resolved[name] = coerced.value;
-					continue;
-				}
-				errors.push(coerced.error);
-				hardErrorFlags.add(name);
-				continue;
-			}
-		}
-
-		if (schema.configPath !== undefined) {
-			const configValue = resolveConfigPath(config, schema.configPath);
-			if (configValue !== undefined) {
-				const coerced = coerceValue(
-					name,
-					{ kind: 'config', configPath: schema.configPath },
-					configValue,
-					schema,
-				);
-				if (coerced.ok) {
-					if (schema.deprecated !== undefined) {
-						deprecations.push({ kind: 'flag', name, message: schema.deprecated });
-					}
-					resolved[name] = coerced.value;
-					continue;
-				}
-				errors.push(coerced.error);
-				hardErrorFlags.add(name);
-			}
-		}
+		const bindings = sourceBindings(schema);
+		const outcome = await runStages(
+			bindingsBeforePrompt(bindings),
+			stageInput(name, schema, parsedFlags, bindings, options.prompter),
+			state,
+		);
+		record(name, schema, outcome, resolved, errors, hardErrorFlags, options);
 	}
 
 	const interactiveConfigs =
-		interactive !== undefined ? interactive({ flags: resolved }) : undefined;
+		options.interactive !== undefined ? options.interactive({ flags: resolved }) : undefined;
 
 	for (const [name, schema] of Object.entries(flagSchemas)) {
 		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
 			continue;
 		}
 
-		// A flag named after an Object.prototype member would otherwise read that
-		// inherited method as an override.
-		const interactiveConfig =
-			interactiveConfigs !== undefined && Object.hasOwn(interactiveConfigs, name)
-				? interactiveConfigs[name]
-				: undefined;
+		const bindings = withPromptBinding(
+			sourceBindings(schema),
+			effectivePromptConfig(name, schema, interactiveConfigs),
+		);
+		const outcome = await runStages(
+			bindingsFromPrompt(bindings),
+			stageInput(name, schema, parsedFlags, bindings, options.prompter),
+			state,
+		);
+		record(name, schema, outcome, resolved, errors, hardErrorFlags, options);
 
-		let effectivePromptConfig: PromptConfig | undefined;
-		// `interactiveConfig === false` explicitly disables prompts for this flag.
-		// Other falsy values mean "no override", so we fall back to `schema.prompt`.
-		if (
-			interactiveConfig !== undefined &&
-			interactiveConfig !== null &&
-			interactiveConfig !== false &&
-			interactiveConfig !== 0 &&
-			interactiveConfig !== ''
-		) {
-			effectivePromptConfig = interactiveConfig;
-		} else if (interactiveConfig === false) {
-			effectivePromptConfig = undefined;
-		} else {
-			effectivePromptConfig = schema.prompt;
-		}
-
-		if (effectivePromptConfig !== undefined && prompter !== undefined) {
-			const promptResult = await resolvePromptValueWithConfig(
-				name,
-				schema,
-				effectivePromptConfig,
-				prompter,
-			);
-			if (promptResult.ok) {
-				if (schema.deprecated !== undefined) {
-					deprecations.push({ kind: 'flag', name, message: schema.deprecated });
-				}
-				resolved[name] = promptResult.value;
-				continue;
-			}
-			if (promptResult.error !== undefined) {
-				errors.push(promptResult.error);
-				continue;
-			}
-		}
-
-		if (schema.defaultValue !== undefined) {
-			resolved[name] = schema.defaultValue;
+		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
 			continue;
 		}
 
 		if (schema.kind === 'array' && schema.presence !== 'required') {
 			resolved[name] = [];
+			options.provenance[name] = { stage: 'default' };
 			continue;
 		}
 
 		if (schema.kind === 'keyValue' && schema.presence !== 'required') {
 			resolved[name] = {};
+			options.provenance[name] = { stage: 'default' };
 			continue;
 		}
 
@@ -175,22 +143,25 @@ async function resolveFlags(
 	}
 
 	// Post-resolution pass — rules that apply to the final value regardless
-	// of which source produced it (CLI, env, config, prompt, or default).
+	// of which source produced it.
 	for (const [name, schema] of Object.entries(flagSchemas)) {
-		const value = resolved[name];
+		// A flag whose resolution threw has no entry here, and a flag named
+		// after an Object.prototype member would otherwise read that inherited
+		// method as its resolved value.
+		const value = Object.hasOwn(resolved, name) ? resolved[name] : undefined;
 		const checks = flagValueSchema(schema)?.pathChecks;
 
 		if (schema.kind === 'array' && schema.unique && Array.isArray(value)) {
 			resolved[name] = [...new Set(value)];
 		}
 
-		if (checks !== undefined && typeof value === 'string' && stat !== undefined) {
+		if (checks !== undefined && typeof value === 'string' && options.stat !== undefined) {
 			const violation = await validatePathChecks(
 				{ kind: 'flag', name },
 				value,
 				checks,
-				stat,
-				mkdir,
+				options.stat,
+				options.mkdir,
 			);
 			if (violation !== undefined) {
 				errors.push(violation);
@@ -203,6 +174,76 @@ async function resolveFlags(
 	}
 
 	return resolved;
+}
+
+/** Assemble what one flag contributes to its own resolution. */
+function stageInput(
+	name: string,
+	schema: FlagSchema,
+	parsedFlags: Readonly<Record<string, unknown>>,
+	bindings: readonly SourceBinding[],
+	prompter: PromptEngine | undefined,
+): StageInput {
+	// A flag named after an Object.prototype member would otherwise read that
+	// inherited method as a parsed value.
+	const present = Object.hasOwn(parsedFlags, name);
+	return {
+		cli: readCliValue(present, present ? parsedFlags[name] : undefined, bindings),
+		coerce: (source, raw) => coerceValue(name, source, raw, schema),
+		runPrompt: async (config) =>
+			prompter === undefined
+				? { ok: false, error: undefined }
+				: resolvePromptValueWithConfig(name, schema, config, prompter),
+	};
+}
+
+/** Apply one stage walk's outcome to the resolution state. */
+function record(
+	name: string,
+	schema: FlagSchema,
+	outcome: StageOutcome,
+	resolved: Record<string, unknown>,
+	errors: ValidationError[],
+	hardErrorFlags: Set<string>,
+	options: FlagResolutionOptions,
+): void {
+	if (outcome.kind === 'error') {
+		errors.push(outcome.error);
+		hardErrorFlags.add(name);
+		return;
+	}
+	if (outcome.kind === 'absent') return;
+
+	if (schema.deprecated !== undefined && outcome.provenance.stage !== 'default') {
+		options.deprecations.push({ kind: 'flag', name, message: schema.deprecated });
+	}
+	resolved[name] = outcome.value;
+	options.provenance[name] = outcome.provenance;
+}
+
+/**
+ * Pick the prompt config this invocation uses for a flag.
+ *
+ * `.interactive()` returning `false` disables the prompt outright; any other
+ * falsy value means "no override" and leaves the schema's own config in place.
+ */
+function effectivePromptConfig(
+	name: string,
+	schema: FlagSchema,
+	interactiveConfigs: InteractiveResult | undefined,
+): PromptConfig | undefined {
+	// A flag named after an Object.prototype member would otherwise read that
+	// inherited method as an override.
+	const override =
+		interactiveConfigs !== undefined && Object.hasOwn(interactiveConfigs, name)
+			? interactiveConfigs[name]
+			: undefined;
+
+	if (override === false) return undefined;
+	if (override === undefined || override === null || override === 0 || override === '') {
+		return schema.prompt;
+	}
+	return override;
 }
 
 /** Maps each flag kind to the prompt kinds that produce compatible values. */
@@ -267,7 +308,7 @@ async function resolvePromptValueWithConfig(
 	schema: FlagSchema,
 	promptConfig: PromptConfig,
 	prompter: PromptEngine,
-): Promise<PromptResolveResult> {
+): Promise<PromptOutcome> {
 	const mismatch = validatePromptFlagCompatibility(flagName, schema.kind, promptConfig.kind);
 	if (mismatch !== undefined) {
 		return { ok: false, error: mismatch };
@@ -306,6 +347,10 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	const takesValue = schema.kind !== 'boolean' && schema.kind !== 'count';
 	sources.push(`Provide --${name}${takesValue ? ' <value>' : ''}`);
 
+	if (schema.stdin !== undefined) {
+		sources.push(`pipe a value to stdin`);
+	}
+
 	if (schema.envVar !== undefined) {
 		sources.push(`set ${schema.envVar}`);
 	}
@@ -323,4 +368,5 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	return sources.length === 2 ? `${rest.join('')} or ${last}` : `${rest.join(', ')}, or ${last}`;
 }
 
+export type { FlagResolutionOptions };
 export { COMPATIBLE_PROMPT_KINDS, resolveFlags };

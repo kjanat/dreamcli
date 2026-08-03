@@ -210,6 +210,23 @@ describe('formatHelp', () => {
 			expect(help).toContain('[env: DEPLOY_TARGET]');
 		});
 
+		it('shows [config: PATH] and [prompt] for the arg sources L15 added', () => {
+			const cmd = command('deploy').arg(
+				'target',
+				arg
+					.string()
+					.env('DEPLOY_TARGET')
+					.config('deploy.target')
+					.prompt({ kind: 'input', message: 'Target?' })
+					.describe('Deploy target'),
+			);
+			const help = formatHelp(cmd.schema);
+
+			expect(help).toContain('[env: DEPLOY_TARGET]');
+			expect(help).toContain('[config: deploy.target]');
+			expect(help).toContain('[prompt]');
+		});
+
 		it('labels a sugar-factory arg by its own name, not its value hint', () => {
 			const cmd = command('convert')
 				.arg('input', arg.path({ mustExist: true }).describe('Source file'))

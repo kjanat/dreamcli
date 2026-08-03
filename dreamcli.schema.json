@@ -203,6 +203,10 @@
           },
           "description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`)."
         },
+        "stdin": {
+          "$ref": "#/$defs/stdin",
+          "description": "Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding."
+        },
         "envVar": {
           "type": "string",
           "description": "Environment variable name for v0.2+ resolution."
@@ -282,6 +286,32 @@
         "presence"
       ],
       "description": "The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics."
+    },
+    "stdin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "when": {
+          "enum": [
+            "dash",
+            "missing",
+            "dash-or-missing"
+          ],
+          "description": "When this input reads the stdin stream."
+        },
+        "consume": {
+          "enum": [
+            "exclusive",
+            "broadcast"
+          ],
+          "description": "Whether this input consumes the stream alone."
+        }
+      },
+      "required": [
+        "when",
+        "consume"
+      ],
+      "description": "The normalized stdin axis of a flag or an arg."
     },
     "negation": {
       "type": "object",
@@ -399,9 +429,9 @@
           "const": true,
           "description": "Whether this arg consumes all remaining positionals."
         },
-        "stdinMode": {
-          "const": true,
-          "description": "Whether this arg may read from stdin during resolution.\n\nDefault: `false`"
+        "stdin": {
+          "$ref": "#/$defs/stdin",
+          "description": "Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding."
         },
         "defaultValue": {
           "description": "Runtime default value (if any)."
@@ -413,6 +443,10 @@
         "envVar": {
           "type": "string",
           "description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind."
+        },
+        "configPath": {
+          "type": "string",
+          "description": "Dotted config path for config resolution (e.g. `'deploy.region'`)."
         },
         "enumValues": {
           "type": "array",
@@ -432,6 +466,10 @@
         },
         "valueHint": {
           "type": "string"
+        },
+        "prompt": {
+          "$ref": "#/$defs/prompt",
+          "description": "Interactive prompt configuration."
         },
         "deprecated": {
           "oneOf": [

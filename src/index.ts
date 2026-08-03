@@ -123,6 +123,7 @@ export type {
 	JsonSchemaOptions,
 	PromptChoiceFragmentV1,
 	PromptDefinitionFragmentV1,
+	StdinBindingFragmentV1,
 } from './core/json-schema/index.ts';
 export {
 	DEFINITION_SCHEMA_URL,
@@ -243,6 +244,10 @@ export type {
 	StandardSchemaV1Result,
 	StandardSchemaV1SuccessResult,
 	StandardSchemaV1Types,
+	StdinBinding,
+	StdinConsume,
+	StdinOptions,
+	StdinWhen,
 	StringArgDefinition,
 	StringConstraints,
 	StringConstraintViolation,

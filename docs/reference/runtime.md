@@ -38,7 +38,7 @@ const denoAdapter = createDenoAdapter(); // explicit Deno
 | `stdout`         | readonly | Stdout writer used by the output channel                                                  |
 | `stderr`         | readonly | Stderr writer used by the output channel                                                  |
 | `stdin`          | readonly | Line reader used for interactive prompts                                                  |
-| `readStdin()`    | method   | Read all piped stdin as a single string, or `null` when stdin is a TTY / no data is piped |
+| `readStdin()`    | method   | Read all piped stdin as a single string, or `null` when stdin is a TTY / no data is piped. Called only when a `.stdin()` flag or argument would select the stream |
 | `isTTY`          | readonly | Whether stdout is connected to a TTY                                                      |
 | `stdinIsTTY`     | readonly | Whether stdin is connected to a TTY                                                       |
 | `getTerminalSize()` | method | Read current stdout terminal dimensions, or `undefined` when unavailable                  |

@@ -5,8 +5,9 @@ It is a stability target for tests and refactors, not a public API guarantee.
 
 ## Responsibilities
 
-- apply flag precedence: `cli -> env -> config -> prompt -> default`
-- apply arg precedence: `cli -> stdin -> env -> default`
+- apply one precedence order to both surfaces:
+  `cli -> stdin -> env -> config -> prompt -> default`
+- read stdin only when resolution will select it
 - gate prompts after non-interactive sources have been checked
 - coerce and validate sourced values
 - collect deprecations from explicit sources
@@ -62,25 +63,31 @@ The intent is simple:
 
 ## Source And Precedence Facts
 
-`contracts.ts` also names the stable precedence orders:
+`schema/source.ts` names the one stable precedence order, and `contracts.ts`
+re-exports it:
 
 ```ts twoslash
-const FLAG_RESOLUTION_ORDER = [
+const RESOLUTION_ORDER = [
   'cli',
+  'stdin',
   'env',
   'config',
   'prompt',
   'default',
 ] as const;
-const ARG_RESOLUTION_ORDER = [
-  'cli',
-  'stdin',
-  'env',
-  'default',
-] as const;
 ```
 
-Those orders are the behavior future contract tests should target.
+Both surfaces walk it. An explicit `-` is CLI-sourced with bytes from stdin and
+keeps CLI precedence, so it lands on `cli`; the `stdin` stage is the implicit
+fallback an absent input takes before env. That order is the behavior contract
+tests target.
+
+Resolution also records which stage produced each value, keyed by input name.
+The record distinguishes the two ways stdin delivers bytes
+(`{ stage: 'cli', via: 'stdin', trigger: 'dash' }` versus
+`{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`) and names the binding
+that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`). It
+is internal until the provenance surface lands.
 
 ## Diagnostic Expectations
 
@@ -110,10 +117,12 @@ The current resolver now makes that decision explicit in `src/core/schema/value.
 
 That split is intentional.
 
-Flags still own `cli -> env -> config -> prompt -> default`.\
-Args still own `cli -> stdin -> env -> default`.
-
-Trying to force those flows through one broad property abstraction would hide real semantic differences instead of reducing maintenance cost. The shared model is only used where the overlap is real: coercion shape and shared kind metadata.
+Both surfaces own `cli -> stdin -> env -> config -> prompt -> default`. The
+source axis is shared because the sources themselves are the same set;
+`schema/source.ts` normalizes a flag or arg schema onto an ordered
+`SourceBinding` list, and `resolve/stages.ts` walks that order once for both.
+What stays per-surface is what genuinely differs: how a parsed CLI value reads,
+how a raw value coerces, and how diagnostics name the subject.
 
 ## Evidence
 

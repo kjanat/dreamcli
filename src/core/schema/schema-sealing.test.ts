@@ -36,6 +36,7 @@ const spelledFlagFields: UnbrandedFlagSchema = {
 	presence: 'optional',
 	defaultValue: undefined,
 	aliases: [],
+	stdin: undefined,
 	envVar: undefined,
 	configPath: undefined,
 	description: undefined,
@@ -60,10 +61,12 @@ const spelledArgFields: UnbrandedArgSchema = {
 	kind: 'string',
 	presence: 'required',
 	variadic: false,
-	stdinMode: false,
+	stdin: undefined,
 	defaultValue: undefined,
 	description: undefined,
 	envVar: undefined,
+	configPath: undefined,
+	prompt: undefined,
 	enumValues: undefined,
 	numberConstraints: undefined,
 	stringConstraints: undefined,
@@ -390,7 +393,7 @@ describe('schema sealing', () => {
 				schemaErrorCode(() =>
 					createCommandSchema({
 						name: 'copy',
-						args: [{ name: 'input', schema: { kind: 'string', stdinMode: true, variadic: true } }],
+						args: [{ name: 'input', schema: { kind: 'string', stdin: {}, variadic: true } }],
 					}),
 				),
 			).toBe('INVALID_BUILDER_STATE');
@@ -400,12 +403,12 @@ describe('schema sealing', () => {
 					createCommandSchema({
 						name: 'copy',
 						args: [
-							{ name: 'source', schema: { kind: 'string', stdinMode: true } },
-							{ name: 'dest', schema: { kind: 'string', stdinMode: true } },
+							{ name: 'source', schema: { kind: 'string', stdin: {} } },
+							{ name: 'dest', schema: { kind: 'string', stdin: {} } },
 						],
 					}),
 				),
-			).toBe('DUPLICATE_STDIN_ARG');
+			).toBe('DUPLICATE_STDIN_INPUT');
 		});
 
 		it('validates flag collisions across command definition trees', () => {
@@ -495,13 +498,13 @@ describe('schema sealing', () => {
 						{
 							name: 'run',
 							args: [
-								{ name: 'first', schema: { kind: 'string', stdinMode: true } },
-								{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+								{ name: 'first', schema: { kind: 'string', stdin: {} } },
+								{ name: 'second', schema: { kind: 'string', stdin: {} } },
 							],
 						},
 					],
 				});
-			expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_ARG');
+			expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_INPUT');
 		});
 
 		it('builds identical flag schemas from the positional and object forms', () => {

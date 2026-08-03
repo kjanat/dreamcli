@@ -24,7 +24,7 @@ Check:
 
 Fix:
 
-- provide the value through CLI, env, config, stdin-backed args, or a default;
+- provide the value through CLI, env, config, stdin-backed inputs, or a default;
 - in tests, inject answers through `runCommand()` instead of relying on terminal behavior.
 
 References: [Interactive Prompts](/guide/prompts), [CLI Semantics](/guide/semantics)
@@ -38,21 +38,19 @@ Symptom:
 
 Cause:
 
-- config only participates for flags wired with `.config(path)`;
-- config is lower priority than CLI and env for flags;
-- args do not read config at all.
+- config only participates for inputs wired with `.config(path)`;
+- config is lower priority than CLI, stdin, and env on both surfaces.
 
 Check:
 
 - the CLI is configured with `cli().config('<app-name>')`;
-- the specific flag uses the expected `.config('a.b.c')` path;
+- the specific flag or argument uses the expected `.config('a.b.c')` path;
 - a higher-priority source did not already win.
 
 Fix:
 
-- add or correct the flag's `.config()` path;
-- remove the higher-priority value while testing precedence;
-- use flags rather than args when config-backed input is part of the command design.
+- add or correct the input's `.config()` path;
+- remove the higher-priority value while testing precedence.
 
 References: [Config Files](/guide/config), [CLI Semantics](/guide/semantics)
 
@@ -73,27 +71,51 @@ Fix:
 
 References: [Config Files](/guide/config), [Limitations And Workarounds](/guide/limitations)
 
-## Piped Stdin Does Not Reach An Argument
+## Piped Stdin Does Not Reach An Input
 
 Symptom:
 
-- you pipe data into the command, but the argument stays empty or falls through to env/default.
+- you pipe data into the command, but the flag or argument stays empty or falls through to
+  env/default.
 
 Cause:
 
-- positional args use stdin only when that arg opted into `.stdin()`.
+- a flag or argument reads stdin only when it declared `.stdin()`;
+- a `{ when: 'dash' }` binding reads the stream only for an explicit `-`;
+- a `{ when: 'missing' }` binding treats a typed `-` as the literal string.
 
 Check:
 
-- the argument declaration includes `.stdin()`;
-- the CLI token did not already satisfy the argument first.
+- the declaration includes `.stdin()`;
+- the binding's `when` matches how the value is being passed;
+- the CLI token or `--flag value` did not already satisfy the input first.
 
 Fix:
 
-- opt the arg into `.stdin()` if piped data is part of the intended contract;
+- opt the input into `.stdin()` if piped data is part of the intended contract;
+- widen `when` to the default `'dash-or-missing'` to accept both forms;
 - otherwise pass the value explicitly on argv.
 
-References: [CLI Semantics](/guide/semantics), [Arguments](/guide/arguments)
+References: [CLI Semantics](/guide/semantics), [Arguments](/guide/arguments), [Flags](/guide/flags)
+
+## Two Inputs Both Want Stdin
+
+Symptom:
+
+- building the command throws `DUPLICATE_STDIN_INPUT` before any argv is read.
+
+Cause:
+
+- one command has one exclusive stdin consumer, and a second `.stdin()` input of either surface
+  claims a stream that is already spoken for.
+
+Fix:
+
+- keep `.stdin()` on a single input;
+- or declare every stdin input on that command with `{ consume: 'broadcast' }`, which hands the
+  same buffer to each of them.
+
+References: [Arguments](/guide/arguments#stdin-constraints), [Flags](/guide/flags#stdin-constraints)
 
 ## `--json` Changes The Output Shape
 

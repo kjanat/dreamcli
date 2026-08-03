@@ -16,7 +16,7 @@ Why:
 
 Workarounds:
 
-- provide the value through CLI flags, env vars, config, stdin-backed args, or defaults;
+- provide the value through CLI flags, env vars, config, stdin-backed inputs, or defaults;
 - in tests, inject prompt answers explicitly through the testkit instead of relying on TTY behavior.
 
 References: [Interactive Prompts](/guide/prompts), [CLI Semantics](/guide/semantics)

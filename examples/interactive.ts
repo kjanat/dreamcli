@@ -3,14 +3,15 @@
  * Interactive prompts with config file fallback.
  *
  * Demonstrates: per-flag `.prompt()`, `.env()`, `.config()`, and the full
- * resolution chain (CLI → env → config → prompt → default).
+ * resolution chain (CLI → stdin → env → config → prompt → default).
  *
  * The resolution chain means:
  *   1. Explicit CLI flag wins:      --region eu
- *   2. Then environment variable:   DEPLOY_REGION=eu
- *   3. Then config file value:      { "deploy": { "region": "eu" } }
- *   4. Then interactive prompt:     prompts user to select
- *   5. Then default value:          "us"
+ *   2. Then piped stdin:            only for an input declaring `.stdin()`
+ *   3. Then environment variable:   DEPLOY_REGION=eu
+ *   4. Then config file value:      { "deploy": { "region": "eu" } }
+ *   5. Then interactive prompt:     prompts user to select
+ *   6. Then default value:          "us"
  *
  * Usage:
  *   npx tsx examples/interactive.ts                    # prompts for everything

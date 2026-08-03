@@ -6,20 +6,22 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 
 | File                    | Lines | Purpose                                                                                                                     |
 | ----------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
-| `command.ts`            |  1828 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
-| `flag.ts`               |  2001 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
-| `arg.ts`                |  1432 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/url/path/date/duration/bytes/keyValue()`                              |
+| `command.ts`            |  1900 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
+| `flag.ts`               |  2077 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
+| `arg.ts`                |  1547 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/url/path/date/duration/bytes/keyValue()`                              |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing flag, arg, command, CLI, and config-settings schemas                      |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                                   |
 | `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                          |
+| `stdin.ts`              |   134 | `StdinBinding` / `StdinOptions` — the stdin axis both factories carry, plus its normalizer                                  |
+| `source.ts`             |   226 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
 | `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                                 |
 | `string-constraints.ts` |   172 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
 | `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                                           |
-| `value.ts`              |   572 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
+| `value.ts`              |   597 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
 | `value-parsers.ts`      |   329 | Value machinery behind the sugar factories on both `flag` and `arg` — parsers, path option types, `buildPathChecks()`       |
 | `run.ts`                |   241 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
-| `index.ts`              |   149 | Barrel — re-exports all public symbols                                                                                      |
+| `index.ts`              |   157 | Barrel — re-exports all public symbols                                                                                      |
 
 ## TYPE SYSTEM PATTERNS
 
@@ -71,12 +73,15 @@ Two directions, one function each way:
   satisfy it; `flag.enum()` and `arg.enum()` pass it directly.
 
 `decodeValue(value, raw, input)` is the one decoding entry point. `input` is `'token'` for an argv
-token and `'env'` / `'config'` / `'prompt'` for resolver stages, which is what lets one boolean
-implementation accept `true`/`1`/`false`/`0` from argv and also `yes`/`no`/`''`/`y`/`n` from the
-resolver. It runs the codec and then the constraints, and returns a `ValueFailure` describing the
+token and `'stdin'` / `'env'` / `'config'` / `'prompt'` for resolver stages, which is what lets one
+boolean implementation accept `true`/`1`/`false`/`0` from argv and also `yes`/`no`/`''`/`y`/`n` from
+the resolver. It runs the codec and then the constraints, and returns a `ValueFailure` describing the
 value problem alone. Naming the subject (`flag --x` versus `argument <x>`) belongs to the caller:
 `flagValueError()` / `argValueError()` in `parse/index.ts` and `valueCoercionError()` in
 `resolve/coerce.ts`.
+
+`'stdin'` accepts exactly what `'env'` accepts, and one trailing `\n`, `\r\n`, or `\r` is dropped
+before every codec except `string`, whose value is the bytes themselves.
 
 `validateDecodedValue(value, decoded)` applies the same constraints to a value that never came from
 a raw source. A declared default is already typed, so the default-validation pass validates it here
@@ -84,6 +89,28 @@ rather than adding a second dispatch over `stringConstraints` / `numberConstrain
 
 The public field shape of `FlagSchema` and `ArgSchema` is unchanged. Both still carry the flat
 fields, the definition document still serializes them, and `value.ts` is a view over them.
+
+## SOURCE AXIS (`source.ts`, `stdin.ts`)
+
+Both internal. `stdin.ts` owns the stdin axis a flag or arg stores:
+`StdinBinding = { when: 'dash' | 'missing' | 'dash-or-missing', consume: 'exclusive' | 'broadcast' }`,
+normalized from the partial `StdinOptions` a caller writes. `stdinReadsOnDash()` and
+`stdinReadsWhenMissing()` are the only two places that decide what a `when` means, so the parse
+boundary, the preflight eligibility check, and the resolver cannot drift on it.
+
+`source.ts` owns the rest of the axis:
+
+- `RESOLUTION_ORDER` is the one ordered stage list, `cli -> stdin -> env -> config -> prompt -> default`.
+- `sourceBindings(schema)` projects a flag or arg onto the `SourceBinding[]` it actually declares.
+  `resolve/stages.ts` walks that list, so a binding the projection omits is a source no stage can
+  produce, and a per-source setting has one place to live.
+- `bindingsBeforePrompt()` / `bindingsFromPrompt()` split it for the flag resolver's two passes, and
+  `withPromptBinding()` applies an `.interactive()` override to one invocation's list.
+- `invocationSelectsStdin()` answers whether reading the stream is warranted at all; both
+  `cli/runtime-preflight.ts` and `readFlags()` call it, so stdin is read at most once and only when a
+  stage would select it.
+- `stdinConsumers()` and `stdinConsumerReference()` back the `DUPLICATE_STDIN_INPUT` rule in
+  `command.ts`, which spans flags and args together.
 
 ## ADDING A FLAG TYPE
 
@@ -133,8 +160,12 @@ and is called with the raw value; an arg's takes `string`, so `argValueSchema()`
 non-string raw before calling it. Both store the caller's function verbatim on the schema.
 
 Flag-only by design: `boolean`, `count`, `negatable`, `alias`, `duplicates`, `separator`, `unique`,
-`propagate` (flag syntax), `array` (`.variadic()` serves it), and `keyValue` / `prompt` / `config`
-(resolution-chain features). Arg-only: `variadic`, `stdin`, and required-by-default presence.
+`propagate` (flag syntax), `array` (`.variadic()` serves it), and `keyValue`. Arg-only: `variadic`
+and required-by-default presence.
+
+The source axis is shared outright. `.stdin()`, `.env()`, `.config()`, `.prompt()`, and `.default()`
+are on both builders, and `source.ts` projects either schema onto the same ordered `SourceBinding`
+list. A new source belongs on both factories or on neither.
 
 `ArgSchema.valueHint` is carried and serialized but not rendered: help labels a positional by its
 own name, so `.arg('file', arg.path())` stays `<file>` rather than becoming `<path>`, which would
@@ -185,8 +216,10 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   `Object.create(base)`, where nothing is named `__proto__` and the inherited entries are the ones
   that would be lost. `readFlags()` carries its own copy of both checks, worded for a definitions
   record.
-- `buildCommandSchema()` runs `validateArgEntry()` over the accumulating arg list, so the
-  stdin/variadic invariants `.arg()` enforces also apply to a definition composed as data. It takes
+- `buildCommandSchema()` runs `validateArgEntry()` over the accumulating arg list and
+  `validateFlagStdinEntry()` over each flag, so the stdin/variadic invariants `.arg()` and `.flag()`
+  enforce also apply to a definition composed as data. Stdin exclusivity spans both surfaces, so
+  each check sees the flags and args registered so far. It takes
   the command name and puts it in `details` on all three errors, since a definition tree reaches
   those throws at any depth and the arg name alone does not say which command declared it.
 - Membership tests against a flag record use `Object.hasOwn()`, never `in`. `in` walks
@@ -198,24 +231,25 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   `toString`, which then reads as a supplied value. `resolveFlags()` in `resolve/` guards its `env`
   lookup and the interactive resolver's override record with `Object.hasOwn()` for that reason.
 
-## TEST FILES (17)
+## TEST FILES (18)
 
-| File                                | Tests                                                    |
-| ----------------------------------- | -------------------------------------------------------- |
-| `command.test.ts`                   | CommandBuilder API, schema, type inference               |
-| `schema-sealing.test.ts`            | Brand seal, spread propagation, factory normalization    |
-| `flag.test.ts`                      | FlagBuilder API, kinds, validation                       |
-| `flag-array-separator.test.ts`      | `.separator()` / `.unique()` parse + resolve             |
-| `flag-count-keyvalue.test.ts`       | `flag.count()` / `flag.keyValue()` end to end            |
-| `flag-negatable-duplicates.test.ts` | `.negatable()` spellings + `.duplicates()` policy        |
-| `flag-element-eligibility.test.ts`  | `flag.array()` element eligibility, type level           |
-| `standard.test.ts`                  | Standard Schema v1 types + `isStandardSchemaV1()`        |
-| `string-constraints.test.ts`        | String constraint validation + flag/arg builder chaining |
-| `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories        |
-| `value.test.ts`                     | Codecs, constraint routing, hint carriage, projections   |
-| `arg.test.ts`                       | ArgBuilder API, kinds, validation                        |
-| `arg-value-factories.test.ts`       | `arg.url/path/date/duration/bytes()` + arg constraints   |
-| `factory-parity.test.ts`            | Same value through `flag.*` and `arg.*`, same verdict    |
-| `middleware.test.ts`                | Middleware factory, context typing                       |
-| `prompt.test.ts`                    | Prompt config types                                      |
-| `derive.test.ts`                    | Type derivation tests                                    |
+| File                                | Tests                                                         |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `command.test.ts`                   | CommandBuilder API, schema, type inference                    |
+| `schema-sealing.test.ts`            | Brand seal, spread propagation, factory normalization         |
+| `flag.test.ts`                      | FlagBuilder API, kinds, validation                            |
+| `flag-array-separator.test.ts`      | `.separator()` / `.unique()` parse + resolve                  |
+| `flag-count-keyvalue.test.ts`       | `flag.count()` / `flag.keyValue()` end to end                 |
+| `flag-negatable-duplicates.test.ts` | `.negatable()` spellings + `.duplicates()` policy             |
+| `flag-element-eligibility.test.ts`  | `flag.array()` element eligibility, type level                |
+| `standard.test.ts`                  | Standard Schema v1 types + `isStandardSchemaV1()`             |
+| `string-constraints.test.ts`        | String constraint validation + flag/arg builder chaining      |
+| `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories             |
+| `value.test.ts`                     | Codecs, constraint routing, hint carriage, projections        |
+| `arg.test.ts`                       | ArgBuilder API, kinds, validation                             |
+| `arg-value-factories.test.ts`       | `arg.url/path/date/duration/bytes()` + arg constraints        |
+| `factory-parity.test.ts`            | Same value through `flag.*` and `arg.*`, same verdict         |
+| `middleware.test.ts`                | Middleware factory, context typing                            |
+| `prompt.test.ts`                    | Prompt config types                                           |
+| `stdin-exclusivity.test.ts`         | One exclusive stdin consumer per command + `sourceBindings()` |
+| `derive.test.ts`                    | Type derivation tests                                         |

@@ -32,6 +32,8 @@ type CoerceResult =
 
 function sourceLabel(source: CoerceSource): string {
 	switch (source.kind) {
+		case 'stdin':
+			return 'from stdin';
 		case 'env':
 			return `from env ${source.envVar}`;
 		case 'config':
@@ -43,12 +45,36 @@ function sourceLabel(source: CoerceSource): string {
 
 function sourceDetails(source: CoerceSource): Record<string, unknown> {
 	switch (source.kind) {
+		case 'stdin':
+			return { source: 'stdin' };
 		case 'env':
 			return { envVar: source.envVar };
 		case 'config':
 			return { configPath: source.configPath };
 		case 'prompt':
 			return { source: 'prompt' };
+	}
+}
+
+/** Where the caller must change the value, phrased for the source that produced it. */
+function suggestBySource(
+	source: CoerceSource,
+	parts: {
+		readonly stdin: string;
+		readonly env: (envVar: string) => string;
+		readonly config: (configPath: string) => string;
+		readonly prompt: string;
+	},
+): string {
+	switch (source.kind) {
+		case 'stdin':
+			return parts.stdin;
+		case 'env':
+			return parts.env(source.envVar);
+		case 'config':
+			return parts.config(source.configPath);
+		case 'prompt':
+			return parts.prompt;
 	}
 }
 
@@ -122,11 +148,12 @@ function coerceValue(
 					'array',
 					raw,
 					'Invalid array value',
-					source.kind === 'env'
-						? `Set ${source.envVar} to comma-separated values`
-						: source.kind === 'config'
-							? `Set ${source.configPath} to an array in your config`
-							: `Provide valid values for --${flagName}`,
+					suggestBySource(source, {
+						stdin: `Pipe comma-separated values to stdin for --${flagName}`,
+						env: (envVar) => `Set ${envVar} to comma-separated values`,
+						config: (configPath) => `Set ${configPath} to an array in your config`,
+						prompt: `Provide valid values for --${flagName}`,
+					}),
 				),
 			};
 		}
@@ -147,11 +174,12 @@ function coerceValue(
 					'count',
 					raw,
 					typeof raw === 'string' ? `Invalid count value '${raw}'` : 'Invalid count value',
-					source.kind === 'env'
-						? `Set ${source.envVar} to a non-negative integer`
-						: source.kind === 'config'
-							? `Set ${source.configPath} to a non-negative integer in your config`
-							: `Enter a non-negative integer for --${flagName}`,
+					suggestBySource(source, {
+						stdin: `Pipe a non-negative integer to stdin for --${flagName}`,
+						env: (envVar) => `Set ${envVar} to a non-negative integer`,
+						config: (configPath) => `Set ${configPath} to a non-negative integer in your config`,
+						prompt: `Enter a non-negative integer for --${flagName}`,
+					}),
 				),
 			};
 		}
@@ -178,11 +206,12 @@ function coerceValue(
 								'key=value',
 								raw,
 								`Invalid key-value pair '${pair}'`,
-								source.kind === 'env'
-									? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
-									: source.kind === 'config'
-										? `Set ${source.configPath} to an object with string values`
-										: `Use KEY=VALUE for --${flagName}`,
+								suggestBySource(source, {
+									stdin: `Pipe KEY=VALUE pairs to stdin for --${flagName}`,
+									env: (envVar) => `Set ${envVar} to comma-separated KEY=VALUE pairs`,
+									config: (configPath) => `Set ${configPath} to an object with string values`,
+									prompt: `Use KEY=VALUE for --${flagName}`,
+								}),
 							),
 						};
 					}
@@ -201,11 +230,12 @@ function coerceValue(
 					'key=value',
 					raw,
 					'Invalid key-value value',
-					source.kind === 'env'
-						? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
-						: source.kind === 'config'
-							? `Set ${source.configPath} to an object with string values`
-							: `Use KEY=VALUE for --${flagName}`,
+					suggestBySource(source, {
+						stdin: `Pipe KEY=VALUE pairs to stdin for --${flagName}`,
+						env: (envVar) => `Set ${envVar} to comma-separated KEY=VALUE pairs`,
+						config: (configPath) => `Set ${configPath} to an object with string values`,
+						prompt: `Use KEY=VALUE for --${flagName}`,
+					}),
 				),
 			};
 		}
@@ -242,7 +272,12 @@ function coerceValueSchema(
 	return { ok: false, error: valueCoercionError(name, source, raw, decoded.failure) };
 }
 
-/** Which value-layer input surface a resolver source speaks for. */
+/**
+ * Which value-layer input surface a resolver source speaks for.
+ *
+ * The stage names and the value-layer input names are the same set by
+ * construction, so this is the identity.
+ */
 function valueInputOf(source: CoerceSource): ValueInput {
 	return source.kind;
 }
@@ -265,12 +300,12 @@ function valueCoercionError(
 				{
 					code: 'INVALID_ENUM',
 					details: { flag: name, ...sourceDetails(source), value: raw, allowed },
-					suggest:
-						source.kind === 'env'
-							? `Set ${source.envVar} to one of: ${allowed.join(', ')}`
-							: source.kind === 'config'
-								? `Set ${source.configPath} to one of: ${allowed.join(', ')}`
-								: `Select one of: ${allowed.join(', ')}`,
+					suggest: suggestBySource(source, {
+						stdin: `Pipe one of: ${allowed.join(', ')}`,
+						env: (envVar) => `Set ${envVar} to one of: ${allowed.join(', ')}`,
+						config: (configPath) => `Set ${configPath} to one of: ${allowed.join(', ')}`,
+						prompt: `Select one of: ${allowed.join(', ')}`,
+					}),
 				},
 			);
 		}
@@ -287,12 +322,12 @@ function valueCoercionError(
 						expected: 'string',
 						...stringConstraintDetails(failure.violation),
 					},
-					suggest:
-						source.kind === 'env'
-							? `Set ${source.envVar} to a valid string`
-							: source.kind === 'config'
-								? `Set ${source.configPath} to a valid string in your config`
-								: `Enter a valid value for --${name}`,
+					suggest: suggestBySource(source, {
+						stdin: `Pipe a valid string to stdin for --${name}`,
+						env: (envVar) => `Set ${envVar} to a valid string`,
+						config: (configPath) => `Set ${configPath} to a valid string in your config`,
+						prompt: `Enter a valid value for --${name}`,
+					}),
 				},
 			);
 
@@ -309,33 +344,33 @@ function valueCoercionError(
 						constraint: failure.violation.kind,
 						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
 					},
-					suggest:
-						source.kind === 'env'
-							? `Set ${source.envVar} to a valid number`
-							: source.kind === 'config'
-								? `Set ${source.configPath} to a valid number in your config`
-								: `Enter a valid number for --${name}`,
+					suggest: suggestBySource(source, {
+						stdin: `Pipe a valid number to stdin for --${name}`,
+						env: (envVar) => `Set ${envVar} to a valid number`,
+						config: (configPath) => `Set ${configPath} to a valid number in your config`,
+						prompt: `Enter a valid number for --${name}`,
+					}),
 				},
 			);
 
 		case 'thrown': {
 			const message =
 				failure.error instanceof Error ? failure.error.message : String(failure.error);
-			const sourceRef =
-				source.kind === 'env'
-					? `env ${source.envVar}`
-					: source.kind === 'config'
-						? `config ${source.configPath}`
-						: 'prompt value';
+			const sourceRef = suggestBySource(source, {
+				stdin: 'stdin value',
+				env: (envVar) => `env ${envVar}`,
+				config: (configPath) => `config ${configPath}`,
+				prompt: 'prompt value',
+			});
 			return new ValidationError(`Failed to parse ${sourceRef} for flag --${name}: ${message}`, {
 				code: 'TYPE_MISMATCH',
 				details: { flag: name, ...sourceDetails(source), value: raw, expected: 'custom' },
-				suggest:
-					source.kind === 'env'
-						? `Set ${source.envVar} to a valid value for --${name}`
-						: source.kind === 'config'
-							? `Set ${source.configPath} to a valid value for --${name} in your config`
-							: `Enter a valid value for --${name}`,
+				suggest: suggestBySource(source, {
+					stdin: `Pipe a valid value to stdin for --${name}`,
+					env: (envVar) => `Set ${envVar} to a valid value for --${name}`,
+					config: (configPath) => `Set ${configPath} to a valid value for --${name} in your config`,
+					prompt: `Enter a valid value for --${name}`,
+				}),
 			});
 		}
 	}
@@ -356,9 +391,12 @@ function typeCoercionError(
 			'string',
 			raw,
 			'Invalid string value',
-			source.kind === 'config'
-				? `Set ${source.configPath} to a string in your config`
-				: `Enter a valid string for --${name}`,
+			suggestBySource(source, {
+				stdin: `Pipe a valid string to stdin for --${name}`,
+				env: (envVar) => `Set ${envVar} to a valid string`,
+				config: (configPath) => `Set ${configPath} to a string in your config`,
+				prompt: `Enter a valid string for --${name}`,
+			}),
 		);
 	}
 
@@ -370,11 +408,12 @@ function typeCoercionError(
 			'number',
 			raw,
 			invalidNumberSuffix(raw),
-			source.kind === 'env'
-				? `Set ${source.envVar} to a valid number`
-				: source.kind === 'config'
-					? `Set ${source.configPath} to a valid number in your config`
-					: `Enter a valid number for --${name}`,
+			suggestBySource(source, {
+				stdin: `Pipe a valid number to stdin for --${name}`,
+				env: (envVar) => `Set ${envVar} to a valid number`,
+				config: (configPath) => `Set ${configPath} to a valid number in your config`,
+				prompt: `Enter a valid number for --${name}`,
+			}),
 		);
 	}
 
@@ -385,11 +424,12 @@ function typeCoercionError(
 		'boolean',
 		raw,
 		typeof raw === 'string' ? `Invalid boolean value '${raw}'` : 'Invalid boolean value',
-		source.kind === 'env'
-			? `Set ${source.envVar} to true/false, 1/0, or yes/no`
-			: source.kind === 'config'
-				? `Set ${source.configPath} to true or false in your config`
-				: `Answer yes or no for --${name}`,
+		suggestBySource(source, {
+			stdin: `Pipe true/false, 1/0, or yes/no to stdin for --${name}`,
+			env: (envVar) => `Set ${envVar} to true/false, 1/0, or yes/no`,
+			config: (configPath) => `Set ${configPath} to true or false in your config`,
+			prompt: `Answer yes or no for --${name}`,
+		}),
 	);
 }
 
@@ -402,11 +442,11 @@ function invalidNumberSuffix(raw: unknown): string {
 type ArgStringSource = ArgDiagnosticSource;
 
 function argSourceLabel(source: ArgStringSource): string {
-	return source.kind === 'env' ? `from env ${source.envVar}` : 'from stdin';
+	return sourceLabel(source);
 }
 
 function argSourceDetails(source: ArgStringSource): Record<string, unknown> {
-	return source.kind === 'env' ? { envVar: source.envVar } : { source: 'stdin' };
+	return sourceDetails(source);
 }
 
 function buildArgCoercionSuggest(
@@ -414,19 +454,16 @@ function buildArgCoercionSuggest(
 	source: ArgStringSource,
 	expected: 'number' | 'string' | 'custom',
 ): string {
-	if (expected === 'custom') {
-		return source.kind === 'env'
-			? `Set ${source.envVar} to a valid value for <${argName}>`
-			: `Pipe a valid value to stdin for <${argName}>`;
-	}
-
-	return source.kind === 'env'
-		? `Set ${source.envVar} to a valid ${expected}`
-		: `Pipe a valid ${expected} to stdin for <${argName}>`;
-}
-
-function argSourceToCoerceSource(source: ArgStringSource): CoerceSource {
-	return source.kind === 'env' ? { kind: 'env', envVar: source.envVar } : { kind: 'prompt' };
+	const subject = expected === 'custom' ? 'value' : expected;
+	return suggestBySource(source, {
+		stdin: `Pipe a valid ${subject} to stdin for <${argName}>`,
+		env: (envVar) =>
+			expected === 'custom'
+				? `Set ${envVar} to a valid value for <${argName}>`
+				: `Set ${envVar} to a valid ${expected}`,
+		config: (configPath) => `Set ${configPath} to a valid ${subject} for <${argName}>`,
+		prompt: `Enter a valid ${subject} for <${argName}>`,
+	});
 }
 
 /**
@@ -557,27 +594,37 @@ function redactArgCoercionSuggest(
 			? error.details.allowed.filter((value): value is string => typeof value === 'string')
 			: [];
 		const allowedList = allowed.join(', ');
-		return source.kind === 'env'
-			? `Set ${source.envVar} to one of: ${allowedList}`
-			: `Provide one of: ${allowedList}`;
+		return suggestBySource(source, {
+			stdin: `Provide one of: ${allowedList}`,
+			env: (envVar) => `Set ${envVar} to one of: ${allowedList}`,
+			config: (configPath) => `Set ${configPath} to one of: ${allowedList}`,
+			prompt: `Provide one of: ${allowedList}`,
+		});
 	}
 
 	return undefined;
 }
 
-/** Coerce a string value from stdin/env into the type declared by an arg schema, redacting raw values in error diagnostics. */
-function coerceArgStringValue(
+/**
+ * Coerce a value from a non-CLI source into the type declared by an arg schema,
+ * redacting the raw value in error diagnostics.
+ *
+ * Every source outside argv may carry a secret a user piped, exported, or
+ * stored, so the arg surface reports the failure without echoing the value.
+ *
+ * @param argName - Name of the positional the value belongs to.
+ * @param source - Which stage produced the value.
+ * @param raw - The value that stage produced.
+ * @param schema - Runtime descriptor of the arg.
+ * @returns The coerced value, or a redacted {@link ValidationError}.
+ */
+function coerceArgValue(
 	argName: string,
 	source: ArgStringSource,
-	raw: string,
+	raw: unknown,
 	schema: ArgSchema,
 ): CoerceResult {
-	const coerced = coerceValueSchema(
-		argName,
-		argSourceToCoerceSource(source),
-		raw,
-		argValueSchema(schema),
-	);
+	const coerced = coerceValueSchema(argName, source, raw, argValueSchema(schema));
 	if (coerced.ok) {
 		return coerced;
 	}
@@ -605,4 +652,4 @@ function coerceArgStringValue(
 }
 
 export type { CoerceResult };
-export { coerceArgStringValue, coerceValue };
+export { coerceArgValue, coerceValue };

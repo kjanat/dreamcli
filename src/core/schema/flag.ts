@@ -20,6 +20,8 @@ import type {
 	SelectPromptConfig,
 } from './prompt.ts';
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
+import type { StdinBinding, StdinOptions } from './stdin.ts';
+import { normalizeStdinBinding } from './stdin.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
 	bytesValue,
@@ -259,6 +261,11 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	readonly defaultValue: unknown;
 	/** Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`). */
 	readonly aliases: readonly FlagAlias[];
+	/**
+	 * Stdin binding set by `.stdin()` (`undefined` when the flag never reads
+	 * stdin). See {@link StdinBinding}.
+	 */
+	readonly stdin: StdinBinding | undefined;
 	/** Environment variable name for v0.2+ resolution. */
 	readonly envVar: string | undefined;
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
@@ -370,7 +377,9 @@ type FlagSchemaFields = Omit<FlagSchema, typeof schemaBrand | 'kind'>;
 type FlagSchemaFieldOverrides = {
 	readonly [K in keyof FlagSchemaFields]?: K extends 'aliases'
 		? readonly (string | FlagAlias)[] | undefined
-		: FlagSchemaFields[K] | undefined;
+		: K extends 'stdin'
+			? StdinOptions | undefined
+			: FlagSchemaFields[K] | undefined;
 };
 
 /**
@@ -398,6 +407,11 @@ interface FlagDefinitionBase {
 	 * @defaultValue `[]`
 	 */
 	readonly aliases?: readonly (string | FlagAlias)[] | undefined;
+	/**
+	 * Stdin binding. See {@link StdinOptions}.
+	 * @defaultValue `undefined`
+	 */
+	readonly stdin?: StdinOptions | undefined;
 	/**
 	 * Environment variable name for env resolution.
 	 * @defaultValue `undefined`
@@ -643,6 +657,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'presence',
 	'defaultValue',
 	'aliases',
+	'stdin',
 	'envVar',
 	'configPath',
 	'description',
@@ -706,6 +721,15 @@ function normalizeFlagDefinitionFields(fields: FlagDefinitionFields): FlagSchema
 	return { ...rest, elementSchema: normalizeFlagElementSchema(elementSchema) };
 }
 
+/** Flag kinds whose value is a single scalar, and so can be read from stdin. */
+const STDIN_CAPABLE_FLAG_KINDS: readonly FlagKind[] = [
+	'string',
+	'number',
+	'boolean',
+	'enum',
+	'custom',
+];
+
 /**
  * Fields that are only meaningful on one {@link FlagKind}, mapped to that kind.
  */
@@ -762,6 +786,14 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 			suggest: `Drop 'duplicates'; kind '${kind}' accumulates every occurrence`,
 		});
 	}
+
+	if (fields.stdin !== undefined && !STDIN_CAPABLE_FLAG_KINDS.includes(kind)) {
+		throw new CLIError(`Flag schema field 'stdin' is not available on kind '${kind}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'stdin', allowedKinds: [...STDIN_CAPABLE_FLAG_KINDS] },
+			suggest: `Drop 'stdin' or declare the flag as one of: ${STDIN_CAPABLE_FLAG_KINDS.join(', ')}`,
+		});
+	}
 }
 
 /**
@@ -806,6 +838,7 @@ function buildFlagSchema<K extends FlagKind>(
 	const {
 		aliases: _ignoredAliases,
 		presence,
+		stdin,
 		unique,
 		propagate,
 		duplicates,
@@ -816,6 +849,7 @@ function buildFlagSchema<K extends FlagKind>(
 		kind,
 		presence: presence ?? 'optional',
 		defaultValue: undefined,
+		stdin: stdin === undefined ? undefined : normalizeStdinBinding(stdin),
 		envVar: undefined,
 		configPath: undefined,
 		description: undefined,
@@ -1030,6 +1064,9 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Bind to an environment variable (resolved in v0.2+).
 	 *
+	 * The env value is read after CLI and stdin, and before config, the prompt,
+	 * and the default: CLI → stdin → **env** → config → prompt → default.
+	 *
 	 * @param varName - Environment variable name (e.g. `'PORT'`).
 	 * @returns The builder (for chaining).
 	 *
@@ -1049,7 +1086,50 @@ class FlagBuilder<C extends FlagConfig> {
 	}
 
 	/**
+	 * Let this flag read its value from piped stdin.
+	 *
+	 * An explicit `--<name> -` is CLI-sourced with bytes from stdin and keeps
+	 * CLI precedence. An absent flag takes the stdin fallback stage, which sits
+	 * between CLI and env, so a flag set in the environment still reads stdin
+	 * and stdin wins. The whole buffer becomes the value, byte for byte for a
+	 * string flag; every other kind drops the single line terminator a pipe
+	 * appends before decoding.
+	 *
+	 * Available on `string`, `number`, `boolean`, `enum`, and `custom` flags.
+	 * One command may declare a single exclusive stdin consumer; pass
+	 * `{ consume: 'broadcast' }` on every input that should share the buffer.
+	 *
+	 * @param options - When to read stdin and how to share it.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().stdin().describe('Message body')
+	 * // $ echo hi | mycli send            → body = 'hi\n'
+	 * // $ mycli send --body -             → body reads stdin
+	 * // $ mycli send --body hello         → body = 'hello'
+	 *
+	 * flag.string().stdin({ when: 'dash' })
+	 * // only `--body -` reads stdin
+	 * ```
+	 */
+	stdin(
+		this: FlagBuilder<
+			C & { readonly flagKind: 'boolean' | 'string' | 'number' | 'enum' | 'custom' }
+		>,
+		options?: StdinOptions,
+	): FlagBuilder<WithoutElementEligibility<C>> {
+		return new FlagBuilder({
+			...this.schema,
+			stdin: normalizeStdinBinding(options),
+		});
+	}
+
+	/**
 	 * Bind to a dotted config path (resolved in v0.2+).
+	 *
+	 * The config value is read after CLI, stdin, and env, and before the prompt
+	 * and the default: CLI → stdin → env → **config** → prompt → default.
 	 *
 	 * @param path - Dotted config key (e.g. `'deploy.region'`).
 	 * @returns The builder (for chaining).
@@ -1087,7 +1167,7 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Attach interactive prompt configuration for v0.3+ resolution.
 	 *
-	 * When a flag value is not resolved from CLI, env, or config, the
+	 * When a flag value is not resolved from CLI, stdin, env, or config, the
 	 * prompt engine uses this config to interactively ask the user.
 	 * In non-interactive contexts (CI, piped stdin) prompts are skipped
 	 * and resolution falls through to default or required validation.
@@ -1975,6 +2055,8 @@ export type {
 	SelectPromptConfig,
 } from './prompt.ts';
 export { PROMPT_KINDS } from './prompt.ts';
+export type { StdinBinding, StdinConsume, StdinOptions, StdinWhen } from './stdin.ts';
+export { STDIN_CONSUMES, STDIN_WHENS } from './stdin.ts';
 export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
 export type {
 	DateFlagOptions,

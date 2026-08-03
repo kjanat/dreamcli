@@ -113,10 +113,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Each object key is the canonical flag name, and evaluation runs through the
   same command schema, parser, coercion, resolver, and validation a command
   uses. Aliases, negated spellings, duplicate policy, case parity, unknown-flag
-  rejection, collisions between names, aliases and negated forms, the CLI, env,
-  config, prompt, default precedence, constraints, Standard Schema validators,
-  and `flag.path()` checks all behave as they do inside `.action()`. `argv`,
-  `env`, `stat`, and `mkdir` fall back to the detected `RuntimeAdapter`, while
+  rejection, collisions between names, aliases and negated forms, the CLI,
+  stdin, env, config, prompt, default precedence, constraints, Standard Schema
+  validators, and `flag.path()` checks all behave as they do inside `.action()`.
+  `argv`, `env`, `stdinData`, `stat`, and `mkdir` fall back to the detected
+  `RuntimeAdapter`, while
   `config` and `prompter` stay caller-supplied, since standalone flag reading
   has no application name to discover a file from and opens no terminal session.
   `ReadFlagsOptions` extends `ResolveOptions` with `argv`, `adapter`, `parse`,
@@ -165,16 +166,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   argument accepts, and a rejection carries the same code and the same reason,
   differing in the subject: `for flag --x` versus `for argument <x>`.
 
-  String constraints are enforced on CLI parse (`INVALID_VALUE`) and on stdin
-  and env resolution (`CONSTRAINT_VIOLATED`), both exit code `2`; as with flags,
-  a `.default()` value is trusted as declared. `arg.path()` checks run after
-  resolution through the runtime adapter's `stat`/`mkdir`, the same seam
-  `flag.path()` uses, so a piped, env-sourced, or defaulted path is checked like
-  one typed on the command line. A variadic argument validates every value it
-  collects, path checks included. Argument values sourced from stdin or env stay
-  redacted in the message, as in
-  `Invalid value '<redacted>' from stdin for argument <x>`, so the flag and
-  argument messages are equivalent apart from their subjects.
+  String constraints are enforced on CLI parse (`INVALID_VALUE`) and on stdin,
+  env, config, and prompt resolution (`CONSTRAINT_VIOLATED`), both exit code
+  `2`; as with flags, a `.default()` value is trusted as declared. `arg.path()`
+  checks run after resolution through the runtime adapter's `stat`/`mkdir`, the
+  same seam `flag.path()` uses, so a piped, env-sourced, config-sourced,
+  prompted, or defaulted path is checked like one typed on the command line. A
+  variadic argument validates every value it collects, path checks included.
+  Argument values sourced from anywhere but argv stay redacted in the message,
+  as in `Invalid value '<redacted>' from stdin for argument <x>` and
+  `Invalid number value '<redacted>' from config deploy.port for argument <x>`,
+  so the flag and argument messages are equivalent apart from their subjects.
 
   `ArgSchema` and the arg definition types carry `stringConstraints`,
   `pathChecks`, and `valueHint`. The first two are string-kind gated the way the
@@ -194,11 +196,78 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `alias`, `duplicates`, `separator`, `unique`, and `propagate` are bound to
   flag syntax; `array` is served by `.variadic()`. `keyValue` merges repeated
   occurrences into one record, which a positional slot cannot express, and
-  `prompt` and `config` are resolution-chain sources an argument does not read.
-  For all three, `arg.custom()` with a Standard Schema validator is the
-  documented route.
+  `arg.custom()` with a Standard Schema validator is the documented route.
+  `.config()` and `.prompt()` are no longer among them: both surfaces now
+  declare the same sources, described in the unified source model entry below.
+
+- **A unified source model — every input reads every source** — flags and args
+  now declare the same sources and resolve through one ordered chain:
+  `CLI -> stdin -> env -> config -> prompt -> default`. `arg.config(path)` and
+  `arg.prompt(config)` join `arg.env()`, so a positional reads a dotted config
+  key and asks the user exactly as a flag does; the arg prompt table mirrors the
+  flag one (`PromptConfigByArgKind`, `AllowedArgPromptConfig`), and an
+  incompatible pairing throws `CONSTRAINT_VIOLATED` naming `<arg>`. Help
+  annotates a positional with `[config: PATH]` and `[prompt]` beside the
+  `[env: VAR]` it already showed.
+  `flag.string().stdin()` becomes legal on `string`, `number`, `boolean`,
+  `enum`, and `custom` flags, giving `echo hi | mycli send` and
+  `mycli send --body -` the meaning `arg.stdin()` already had. `.stdin()` takes
+  `{ when: 'dash' | 'missing' | 'dash-or-missing', consume: 'exclusive' |
+  'broadcast' }` on both surfaces, defaulting to `dash-or-missing` and
+  `exclusive`. `StdinBinding`, `StdinOptions`, `StdinWhen`, and `StdinConsume`
+  are exported from the package root, and `StdinBindingFragmentV1` names the
+  serialized form.
+
+  An explicit `-` is CLI-sourced with bytes from stdin and keeps CLI precedence;
+  an absent input takes the stdin fallback stage, which sits ahead of env, so a
+  flag set in the environment still reads a pipe and the pipe wins. The `-`
+  sentinel now survives the parse boundary for every kind, so
+  `flag.number().stdin()` accepts `--port -` where it used to reject `-` as a
+  malformed number. `readFlags()` carries the same contract and reads stdin only
+  through the adapter, only when a declared `.stdin()` flag would actually
+  select it; `runCommand()` feeds the identical path from its `stdinData`
+  option. Stdin is read at most once per invocation, and only when resolution
+  will select it: `when: 'dash'` reads on `-` alone, `when: 'missing'` reads on
+  an absent input alone, and env, config, prompt, and a default never suppress
+  the read.
+
+  One command has one exclusive stdin consumer. Declaring a second stdin input
+  of any kind, flag or arg, throws `DUPLICATE_STDIN_INPUT` on both construction
+  paths; `{ consume: 'broadcast' }` on every stdin input opts into sharing one
+  buffer among them. The definition document carries the binding as
+  `stdin: { when, consume }` on flags and args, with a `stdin` entry in the
+  meta-schema `$defs`, and the arg fragment gains `configPath` and `prompt`.
 
 ### Changed
+
+- **Breaking: `ArgSchema.stdinMode` is now `ArgSchema.stdin`** — the boolean
+  carried no room for the trigger and sharing modes the unified source model
+  needs, so it is replaced by `stdin: StdinBinding | undefined`. `.stdin()` is
+  unchanged for callers who pass no options and keeps its exact resolution
+  behavior. Code reading the schema directly reads `schema.stdin !== undefined`
+  where `schema.stdinMode` used to be, and a definition passed to
+  `createArgSchema()` or `createCommandSchema()` writes `stdin: {}` instead of
+  `stdinMode: true`. The definition document changes to match: the arg fragment
+  emits `stdin: { when, consume }` in place of `stdinMode: true`, at
+  `schemaVersion: 1`, which has not shipped.
+
+- **Breaking: `DUPLICATE_STDIN_ARG` is now `DUPLICATE_STDIN_INPUT`** — the rule
+  covers flags as well as args, and a flag-versus-flag conflict reporting an
+  arg-shaped code would be a lie. The message reads `Only one input may consume
+  stdin exclusively; <name> already consumes stdin`, naming the input that was
+  declared first. `details` names the offending input under `flag` or `arg` and
+  the existing one under `existingFlag` or `existingArg`.
+
+- **Breaking: stdin values reach non-string codecs without their trailing line
+  terminator** — the stdin source hands the whole buffer over byte for byte, so
+  `echo hi | mycli` still gives a `string` input `'hi\n'`. Every other codec
+  interprets the text, where a terminator a pipe appended is framing rather than
+  value, so one trailing `\n`, `\r\n`, or `\r` is dropped before decoding.
+  `echo true | mycli` now resolves a boolean input to `true`, `echo 1h30m` to a
+  duration, and `echo eu` to an enum member; all three used to fail. A number
+  input is unaffected, since `Number()` already ignored the terminator. Stdin
+  also stops borrowing the prompt widening table: it accepts exactly what an env
+  value accepts, so the prompt-only `y` and `n` boolean spellings are rejected.
 
 - **Breaking: `CLISchema.commands` and `CLISchema.defaultCommand` hold
   `CommandSchema`** — both used to hold `ErasedCommand` wrappers carrying the
@@ -242,7 +311,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--verbose` and `--version`, help listed `-v` on both, and `-v` set the
   second. The arg invariants moved with them, so a definition declaring one arg
   both variadic and stdin-backed throws `INVALID_BUILDER_STATE`, and a second
-  stdin-backed arg throws `DUPLICATE_STDIN_ARG`, matching `.arg()`. Those two
+  stdin-backed input throws `DUPLICATE_STDIN_INPUT`, matching `.arg()`. Those two
   built without complaint as well. Two stdin-backed args each resolved to the
   whole of stdin, and a variadic stdin-backed arg read nothing from stdin and
   failed as missing when argv supplied no positional. Every arg error names the

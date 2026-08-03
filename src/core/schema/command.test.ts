@@ -241,14 +241,14 @@ describe('.arg()', () => {
 		expect(b.schema.hasAction).toBe(false);
 	});
 
-	it('throws DUPLICATE_STDIN_ARG when a second stdin arg is registered', () => {
+	it('throws DUPLICATE_STDIN_INPUT when a second stdin arg is registered', () => {
 		try {
 			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin());
 			expect.unreachable('should have thrown');
 		} catch (error) {
 			expect(error).toBeInstanceOf(CLIError);
 			if (error instanceof CLIError) {
-				expect(error.code).toBe('DUPLICATE_STDIN_ARG');
+				expect(error.code).toBe('DUPLICATE_STDIN_INPUT');
 			}
 		}
 	});
@@ -1243,7 +1243,7 @@ describe('createCommandSchema() arg invariants', () => {
 		const build = () =>
 			createCommandSchema({
 				name: 'run',
-				args: [{ name: 'input', schema: { kind: 'string', variadic: true, stdinMode: true } }],
+				args: [{ name: 'input', schema: { kind: 'string', variadic: true, stdin: {} } }],
 			});
 		expect(schemaErrorCode(build)).toBe('INVALID_BUILDER_STATE');
 	});
@@ -1253,11 +1253,11 @@ describe('createCommandSchema() arg invariants', () => {
 			createCommandSchema({
 				name: 'run',
 				args: [
-					{ name: 'first', schema: { kind: 'string', stdinMode: true } },
-					{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+					{ name: 'first', schema: { kind: 'string', stdin: {} } },
+					{ name: 'second', schema: { kind: 'string', stdin: {} } },
 				],
 			});
-		expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_ARG');
+		expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_INPUT');
 	});
 
 	it('rejects the same pair declared on a nested subcommand', () => {
@@ -1268,13 +1268,13 @@ describe('createCommandSchema() arg invariants', () => {
 					{
 						name: 'migrate',
 						args: [
-							{ name: 'first', schema: { kind: 'string', stdinMode: true } },
-							{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+							{ name: 'first', schema: { kind: 'string', stdin: {} } },
+							{ name: 'second', schema: { kind: 'string', stdin: {} } },
 						],
 					},
 				],
 			});
-		expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_ARG');
+		expect(schemaErrorCode(build)).toBe('DUPLICATE_STDIN_INPUT');
 	});
 
 	it('accepts a single stdin-backed arg beside ordinary ones', () => {
@@ -1282,7 +1282,7 @@ describe('createCommandSchema() arg invariants', () => {
 			name: 'run',
 			args: [
 				{ name: 'target', schema: { kind: 'string' } },
-				{ name: 'input', schema: { kind: 'string', stdinMode: true } },
+				{ name: 'input', schema: { kind: 'string', stdin: {} } },
 			],
 		});
 		expect(schema.args.map((entry) => entry.name)).toEqual(['target', 'input']);
@@ -1301,8 +1301,8 @@ describe('createCommandSchema() arg error details', () => {
 							{
 								name: 'up',
 								args: [
-									{ name: 'first', schema: { kind: 'string', stdinMode: true } },
-									{ name: 'second', schema: { kind: 'string', stdinMode: true } },
+									{ name: 'first', schema: { kind: 'string', stdin: {} } },
+									{ name: 'second', schema: { kind: 'string', stdin: {} } },
 								],
 							},
 						],
@@ -1311,7 +1311,7 @@ describe('createCommandSchema() arg error details', () => {
 			}),
 		);
 
-		expect(thrown.code).toBe('DUPLICATE_STDIN_ARG');
+		expect(thrown.code).toBe('DUPLICATE_STDIN_INPUT');
 		expect(thrown.details).toEqual({ command: 'up', arg: 'second', existingArg: 'first' });
 	});
 
@@ -1322,7 +1322,7 @@ describe('createCommandSchema() arg error details', () => {
 				commands: [
 					{
 						name: 'migrate',
-						args: [{ name: 'input', schema: { kind: 'string', stdinMode: true, variadic: true } }],
+						args: [{ name: 'input', schema: { kind: 'string', stdin: {}, variadic: true } }],
 					},
 				],
 			}),
@@ -1332,7 +1332,7 @@ describe('createCommandSchema() arg error details', () => {
 		expect(thrown.details).toEqual({
 			command: 'migrate',
 			arg: 'input',
-			stdinMode: true,
+			stdin: { when: 'dash-or-missing', consume: 'exclusive' },
 			variadic: true,
 		});
 	});
@@ -1354,7 +1354,7 @@ describe('createCommandSchema() arg error details', () => {
 			command('copy').arg('source', arg.string().stdin()).arg('dest', arg.string().stdin()),
 		);
 
-		expect(thrown.code).toBe('DUPLICATE_STDIN_ARG');
+		expect(thrown.code).toBe('DUPLICATE_STDIN_INPUT');
 		expect(thrown.details).toEqual({ command: 'copy', arg: 'dest', existingArg: 'source' });
 	});
 });

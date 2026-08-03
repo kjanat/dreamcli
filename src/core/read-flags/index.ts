@@ -27,6 +27,7 @@ import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve
 import { resolve } from '#internals/core/resolve/index.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig, InferFlags } from '#internals/core/schema/flag.ts';
+import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 
@@ -318,13 +319,21 @@ async function readFlags<const F extends FlagMap>(
 		options?.parse,
 	);
 
+	// Stdin is read only when a declared `.stdin()` flag would actually select
+	// it, and only through the adapter, so a call that reaches no stdin source
+	// never touches the stream.
+	const stdinData =
+		options?.stdinData === undefined && invocationSelectsStdin(schema.flags, schema.args, parsed)
+			? await host().readStdin()
+			: options?.stdinData;
+
 	const resolved = await resolve(schema, parsed, {
 		env: options?.env ?? host().env,
 		stat: options?.stat ?? ((path: string) => host().stat(path)),
 		mkdir: options?.mkdir ?? ((path: string) => host().mkdir(path)),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
-		...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
+		...(stdinData !== undefined ? { stdinData } : {}),
 	});
 
 	for (const warning of resolved.deprecations) {

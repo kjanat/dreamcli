@@ -1,23 +1,53 @@
 # Pattern Cookbook
 
-Copy-ready snippets for DreamCLI 3.x. Every snippet type-checks against the
+Copy-ready snippets for DreamCLI 4.0. Every snippet type-checks against the
 published types.
 
 ## Values
 
-### Flag precedence chain
+### Precedence chain
 
 ```ts
 flag
 	.enum(['us', 'eu', 'ap'])
+	.stdin()
+	.env('DEPLOY_REGION')
+	.config('deploy.region')
+	.prompt({ kind: 'select', message: 'Which region?' })
+	.default('us');
+
+arg
+	.enum(['us', 'eu', 'ap'])
+	.stdin()
 	.env('DEPLOY_REGION')
 	.config('deploy.region')
 	.prompt({ kind: 'select', message: 'Which region?' })
 	.default('us');
 ```
 
-Resolution order is fixed: CLI argv, env, config, prompt, default. Declare the
-sources a value may come from; never merge them by hand in the action.
+Resolution order is fixed: CLI argv, stdin, env, config, prompt, default, and
+both flags and positionals walk it. Declare the sources a value may come from;
+never merge them by hand in the action.
+
+### Reading piped stdin
+
+```ts
+flag.string().stdin(); // `--body -` or an absent flag reads the pipe
+arg.string().stdin(); // `-` or an omitted slot reads the pipe
+flag.string().stdin({ when: 'dash' }); // only an explicit `-`
+arg.string().stdin({ when: 'missing' }); // only an omitted slot; `-` stays literal
+flag.string().stdin({ consume: 'broadcast' }); // shares the buffer with other inputs
+```
+
+Available on `string`, `number`, `boolean`, `enum`, and `custom` flags and on
+every arg kind; the collection kinds (`array`, `keyValue`, `count`) reject it
+with `INVALID_SCHEMA`. A `-` stays CLI-sourced and outranks every later stage;
+an absent input takes the stdin stage, which sits ahead of env. One command has
+one exclusive stdin consumer, and a second `.stdin()` input of either surface
+throws `DUPLICATE_STDIN_INPUT` unless every one of them passes
+`{ consume: 'broadcast' }`. A `string` input keeps the buffer byte for byte, so
+`echo hi | mycli` gives `'hi\n'`; every other kind drops one trailing line
+terminator before decoding.
 
 ### Rich flag types
 
@@ -54,9 +84,10 @@ by default; add `.optional()` or `.default()` to change that. `arg.path()` needs
 the same `stat`/`mkdir` injection as `flag.path()`, and a variadic path arg
 checks every value it collects.
 
-There is no `arg.array()` (use `.variadic()`), no `arg.boolean()`,
-`arg.count()`, or `arg.keyValue()`, and no `.prompt()` or `.config()` on an
-argument. Parse those with `arg.custom()`, or declare the value as a flag.
+There is no `arg.array()` (use `.variadic()`), and no `arg.boolean()`,
+`arg.count()`, or `arg.keyValue()`. Parse those with `arg.custom()`, or declare
+the value as a flag. `.stdin()`, `.env()`, `.config()`, and `.prompt()` are all
+available on an argument.
 
 ### Constraints instead of hand-written validation
 
@@ -300,6 +331,7 @@ captures stdout/stderr as arrays of written chunks — assert trailing newlines.
 await runCommand(deploy, ['--json'], {
 	env: { DEPLOY_REGION: 'eu' },
 	config: { deploy: { region: 'ap' } },
+	stdinData: 'piped\n', // bytes a `.stdin()` input reads; `null` for nothing piped
 	answers: ['production'], // queued prompt answers
 	stat: async (p) => (p === '/data' ? 'directory' : null),
 });
@@ -307,6 +339,8 @@ await runCommand(deploy, ['--json'], {
 
 Prompts are skipped in non-interactive contexts, so queue `answers` when a test
 exercises one. Without `stat`, `flag.path()` checks are skipped entirely.
+`stdinData` feeds `.stdin()` flags and args alike, so a test never has to spawn
+a pipe.
 
 ### Asserting JSON output
 

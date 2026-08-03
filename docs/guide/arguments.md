@@ -31,16 +31,16 @@ arg.string().minLength(3).maxLength(64);
 ```
 
 Constraints are checked in order **nonEmpty → minLength → maxLength →
-pattern** and apply to CLI, stdin, and env values. A `.default()` value is
-trusted as declared and is not re-checked. On the first failure, CLI parsing
-throws `INVALID_VALUE` while stdin and env resolution report
+pattern** and apply to CLI, stdin, env, config, and prompted values. A
+`.default()` value is trusted as declared and is not re-checked. On the first
+failure, CLI parsing throws `INVALID_VALUE` while every other source reports
 `CONSTRAINT_VIOLATED` (both exit code `2`). A variadic string argument checks
 every value it collects. See [String constraints](/guide/flags#string-constraints)
 for the option table, the declaration-time rules, and how the constraints reach
 the exported JSON Schema.
 
-Argument values that came from stdin or env are redacted in the error message,
-so the reason is reported without echoing a piped secret:
+Argument values that came from anywhere but argv are redacted in the error
+message, so the reason is reported without echoing a piped secret:
 
 ```ts
 command('auth').arg('token', arg.string().minLength(5).stdin());
@@ -51,8 +51,9 @@ $ printf 'ab' | mycli auth -
 # Invalid value '<redacted>' from stdin for argument <token>: must be at least 5 characters
 ```
 
-A value typed on the command line is quoted in full, matching the flag message
-byte for byte apart from the subject.
+The source is named in each message: `from env TOKEN`, `from config auth.token`,
+`from prompt`. A value typed on the command line is quoted in full, matching the
+flag message byte for byte apart from the subject.
 
 ### Number
 
@@ -95,8 +96,8 @@ argTypes.custom;
 
 `arg.custom()` also accepts any [Standard Schema v1](https://standardschema.dev/schema)
 validator. Its output type is inferred, sync and async validators are supported, and validation
-runs after CLI, env, stdin, or default resolution. A variadic custom argument validates each
-resolved element separately.
+runs after resolution, whichever of CLI, stdin, env, config, prompt, or the default supplied the
+value. A variadic custom argument validates each resolved element separately.
 
 ## Purpose-Built Argument Kinds
 
@@ -113,9 +114,9 @@ Reach for one of these before `arg.custom()` with a hand-written parser.
 | `arg.bytes()`    | `number`      | `'512mb'`, `'1.5gb'`, `'64kb'`, or a bare number |
 
 All five compose with `.optional()`, `.default()`, `.variadic()`, `.stdin()`,
-`.env()`, `.describe()`, and `.deprecated()`, under the same rules as any other
-argument, so `.variadic()` and `.stdin()` still cannot be combined. A variadic
-one validates each collected value separately.
+`.env()`, `.config()`, `.prompt()`, `.describe()`, and `.deprecated()`, under
+the same rules as any other argument, so `.variadic()` and `.stdin()` still
+cannot be combined. A variadic one validates each collected value separately.
 
 ### URL
 
@@ -138,8 +139,8 @@ argTypes.url;
 ### Path
 
 The value stays a `string`, with optional filesystem checks that run **after
-resolution** through the runtime adapter, so CLI, stdin, env, and defaulted
-values are all validated:
+resolution** through the runtime adapter, so CLI, stdin, env, config, prompted,
+and defaulted values are all validated:
 
 ```ts
 arg.path(); // any string
@@ -156,6 +157,18 @@ argument checks every value it collects, not just the first.
 In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
 function via run options to enable the checks (plus `mkdir` for `create`);
 without them the checks are skipped and nothing is created.
+
+`arg.path()` resolves as a `string`, so a value read from stdin keeps the buffer
+byte for byte, trailing line terminator included. `echo ./docs | mycli` reaches
+a `mustExist` check as `'./docs\n'` and fails:
+
+```
+Path './docs
+' for argument <p> does not exist
+```
+
+Use `printf './docs'` when piping a path, or strip the terminator before the
+pipe.
 
 Failures carry `CONSTRAINT_VIOLATED` and name the argument:
 
@@ -243,18 +256,18 @@ arg.path({ mustExist: true }).variadic(); // string[], every entry checked
 
 ### Not implemented
 
-`arg.keyValue()`, `.prompt()`, and `.config()` have no arg form today.
+`arg.keyValue()` has no arg form today.
 
 `flag.keyValue()` merges repeated `KEY=VALUE` occurrences into one
 `Record<string, string>`. A positional slot cannot express that merge, since
 each slot holds one value and a variadic argument holds a list rather than a
 record.
 
-`.prompt()` and `.config()` are resolution-chain sources. An argument resolves
-through `CLI → stdin → env → default` and does not read a config file or open an
-interactive prompt.
+`.prompt()` and `.config()` used to be on this list. Both surfaces now declare
+the same sources, so an argument reads a dotted config key and opens an
+interactive prompt exactly as a flag does.
 
-For all three, parse the value yourself with `arg.custom()`, optionally with a
+For `keyValue`, parse the value yourself with `arg.custom()`, optionally with a
 [Standard Schema v1](https://standardschema.dev/schema) validator doing the
 validation:
 
@@ -277,9 +290,9 @@ argTypes.pairs;
 //         ^?
 ```
 
-When a value genuinely has to come from a config file or a prompt, declare it as
-a flag and combine it with the positional in `.derive()`, which runs after
-resolution and before the action.
+A positional parsed this way still reads every source. Chain `.env()`,
+`.config()`, `.prompt()`, and `.default()` on the `arg.custom()` builder and the
+parse function runs on whichever source wins.
 
 ## Declaration
 
@@ -385,6 +398,71 @@ command('auth')
 
 If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
+## Config-Backed Arguments
+
+`.config()` binds an argument to a dotted key in the loaded config object:
+
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
+command('deploy')
+  .arg(
+    'target',
+    arg.string().config('deploy.target').default('local'),
+  )
+  .action(({ args }) => {
+    args.target;
+    //     ^?
+  });
+```
+
+```bash
+# config: { "deploy": { "target": "eu-west" } }
+mycli deploy             # target = 'eu-west'
+mycli deploy ap-south    # target = 'ap-south', the CLI token wins
+```
+
+The config value is coerced to the argument's declared kind the same way a
+flag's is, so `arg.duration().config('y.wait')` accepts both `"1h30m"` and
+`5000`. A value that fails coercion reports `CONSTRAINT_VIOLATED` with the raw
+value redacted.
+
+## Prompt-Backed Arguments
+
+`.prompt()` attaches an interactive prompt that runs when CLI, stdin, env, and
+config all produce nothing:
+
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
+command('deploy')
+  .arg(
+    'target',
+    arg.string().prompt({ kind: 'input', message: 'Target:' }),
+  )
+  .action(({ args }) => {
+    args.target;
+    //     ^?
+  });
+```
+
+```bash
+mycli deploy             # asks "Target:"
+mycli deploy production  # skips the prompt
+```
+
+The prompt kinds an argument accepts follow its kind, matching the flag table:
+`string` takes `input` or `select`, `number` takes `input`, `enum` takes
+`select` or `input`, and `custom` takes every kind. An incompatible pairing
+throws `CONSTRAINT_VIOLATED` naming the argument:
+
+```
+Prompt kind 'confirm' is not compatible with number argument <n>. Use 'input' instead
+```
+
+Prompts run only when a prompter is available. Without one the argument falls
+through to its default, or fails as missing.
+
 ## STDIN-Backed Arguments
 
 Arguments can also read from piped stdin with `.stdin()`:
@@ -403,20 +481,128 @@ command('format')
   });
 ```
 
-When the CLI value is omitted, dreamcli resolves arguments in this order:
-`CLI → stdin → env → default`. With `stdinData: 'hello'` in tests or piped input at runtime,
-`args.data === 'hello'`.
+Arguments and flags resolve through the same order:
+`CLI → stdin → env → config → prompt → default`. With `stdinData: 'hello'` in
+tests or piped input at runtime, `args.data === 'hello'`.
 
-Passing the literal sentinel `-` means “skip normal CLI resolution for this slot and read stdin
-instead”. Omitted positional input follows `CLI → stdin → env → default`, while `-` bypasses the
-CLI step and therefore resolves through `stdin → env → default`.
+The stdin stage sits ahead of env, so an argument set in the environment still
+reads a pipe and the pipe wins. Passing the literal sentinel `-` selects stdin
+too, but keeps CLI precedence: the bytes come from the pipe and every later
+stage stays out of the way. When nothing was piped, both forms fall through to
+env, config, prompt, and the default.
 
-### `.stdin()` Constraints
+The whole buffer becomes the value. A string argument keeps it byte for byte, so
+`echo hi | mycli` gives `'hi\n'`; every other kind drops the single line
+terminator a pipe appends before decoding, so `echo 30s` reaches
+`arg.duration()` as `30s`.
 
-Only one argument per command may call `.stdin()`, and stdin-backed arguments cannot also be
-variadic. If stdin is absent, resolution falls through to env/default and then to required vs
-optional behavior, so use `.optional()` when missing piped input should resolve to `undefined`
-instead of a validation error.
+### Choosing when stdin is read
+
+`.stdin()` takes `{ when, consume }`:
+
+```ts twoslash
+import { arg } from '@kjanat/dreamcli';
+
+arg.string().stdin(); // '-' or an omitted slot reads stdin
+arg.string().stdin({ when: 'dash' }); // only an explicit '-'
+arg.string().stdin({ when: 'missing' }); // only an omitted slot; '-' stays literal
+arg.string().stdin({ consume: 'broadcast' }); // shares the buffer with other inputs
+```
+
+Stdin is read at most once per invocation, and only when one of these bindings
+would actually fire. A `when: 'dash'` argument the user never dashes never
+touches the stream.
+
+### Worked Transcripts
+
+Take one command with a stdin-backed argument that also reads an env var:
+
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
+command('format')
+  .arg('data', arg.string().stdin().env('DATA').default('fallback'))
+  .action(({ args }) => {
+    args.data;
+    //     ^?
+  });
+```
+
+The explicit `-` form is CLI-sourced, so it outranks the env var:
+
+```bash
+$ echo 'piped text' | DATA=env-value mycli format -
+# args.data === 'piped text\n'
+```
+
+Omitting the slot takes the stdin fallback stage, which still sits ahead of env:
+
+```bash
+$ echo 'piped text' | DATA=env-value mycli format
+# args.data === 'piped text\n'
+```
+
+With nothing piped, both forms fall through to env, then to the default:
+
+```bash
+$ DATA=env-value mycli format -
+# args.data === 'env-value'
+
+$ mycli format
+# args.data === 'fallback'
+```
+
+Under `{ when: 'missing' }` a typed `-` is the literal string, not a selector:
+
+```ts
+arg.string().stdin({ when: 'missing' }).default('fallback');
+```
+
+```bash
+$ echo 'piped text' | mycli format -
+# args.data === '-'
+```
+
+### `.stdin()` Constraints {#stdin-constraints}
+
+One command has one exclusive stdin consumer. Declaring a second stdin input of
+any kind, flag or argument, throws `DUPLICATE_STDIN_INPUT` at build time:
+
+```ts
+command('convert')
+  .flag('body', flag.string().stdin())
+  .arg('input', arg.string().stdin());
+```
+
+```
+Only one input may consume stdin exclusively; --body already consumes stdin
+Suggestion: Keep .stdin() on a single input per command, or declare every stdin input with { consume: 'broadcast' }
+```
+
+The message names the input declared first, and `details` carries the offending
+input under `flag` or `arg` and the existing one under `existingFlag` or
+`existingArg`. Pass `{ consume: 'broadcast' }` on every stdin input to share one
+buffer among them:
+
+```ts
+command('convert')
+  .flag('body', flag.string().stdin({ consume: 'broadcast' }))
+  .arg('input', arg.string().stdin({ consume: 'broadcast' }));
+// echo shared | mycli convert → flags.body === 'shared\n', args.input === 'shared\n'
+```
+
+Stdin-backed arguments cannot also be variadic.
+
+If stdin is absent, resolution falls through to the later stages and then to
+required versus optional behavior, so use `.optional()` when missing piped input
+should resolve to `undefined` instead of a validation error. A required
+stdin-backed argument with nothing to read reports the stdin route in its
+suggestion:
+
+```
+Missing required argument <data>
+Suggestion: Provide a value for <data> or pipe a value to stdin or pass '-'
+```
 
 ## What's Next?
 

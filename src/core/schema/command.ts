@@ -26,6 +26,8 @@ import type { FlagBuilder, FlagConfig, FlagDefinition, FlagSchema, InferFlags } 
 import { createFlagSchema, getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
+import { stdinConsumerReference, stdinConsumers } from './source.ts';
+import type { StdinBinding } from './stdin.ts';
 
 // --- Context type utilities
 
@@ -712,8 +714,8 @@ function assertUsableArgKey(commandName: string, name: string): void {
  * @throws {@link CLIError} `INVALID_SCHEMA` when a name at any depth is empty
  *   or contains whitespace, a flag or arg is named `__proto__` at any depth,
  *   or a flag record at any depth has a replaced prototype.
- * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_ARG` when
- *   an arg breaks the stdin/variadic invariants.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_INPUT`
+ *   when an input breaks the stdin/variadic invariants.
  *
  * @internal
  */
@@ -732,13 +734,15 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 	const flags: Record<string, FlagSchema> = {};
 	for (const [name, value] of Object.entries(flagDefinitions)) {
 		assertUsableFlagKey(definition.name, name);
-		flags[name] = createFlagSchema(value);
+		const flagSchema = createFlagSchema(value);
+		validateFlagStdinEntry(definition.name, name, flagSchema, flags, []);
+		flags[name] = flagSchema;
 	}
 
 	const args: CommandArgEntry[] = [];
 	for (const entry of definition.args ?? []) {
 		const schema = createArgSchema(entry.schema);
-		validateArgEntry(definition.name, entry.name, schema, args);
+		validateArgEntry(definition.name, entry.name, schema, flags, args);
 		args.push({ name: entry.name, schema });
 	}
 
@@ -789,8 +793,8 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a flag shadows
  *   a spelling propagated from an ancestor command.
  * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when an arg is both
- *   variadic and stdin-backed, or
- *   `'DUPLICATE_STDIN_ARG'` when two args on one command are stdin-backed.
+ *   variadic and stdin-backed, or `'DUPLICATE_STDIN_INPUT'` when two inputs on
+ *   one command consume stdin and either is exclusive.
  *
  * @example
  * ```ts
@@ -815,11 +819,14 @@ function createCommandSchema(definition: CommandDefinition): CommandSchema {
  *   here at any depth, so every error carries it in `details`.
  * @param name - Arg name being registered.
  * @param schema - Runtime descriptor of the arg.
+ * @param flags - Already-registered flag schemas on this command.
  * @param args - Already-registered arg entries on this command.
  *
  * @throws {@link CLIError} `INVALID_SCHEMA` if the name is `__proto__`.
- * @throws {@link CLIError} `INVALID_BUILDER_STATE` if both `.stdin()` and `.variadic()` are set.
- * @throws {@link CLIError} `DUPLICATE_STDIN_ARG` if another arg already uses `.stdin()`.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` if both `.stdin()` and
+ *   `.variadic()` are set.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` if another input already
+ *   consumes stdin exclusively.
  *
  * @internal
  */
@@ -827,34 +834,93 @@ function validateArgEntry(
 	commandName: string,
 	name: string,
 	schema: ArgSchema,
+	flags: Readonly<Record<string, FlagSchema>>,
 	args: readonly CommandArgEntry[],
 ): void {
 	assertUsableArgKey(commandName, name);
-	if (schema.stdinMode && schema.variadic) {
+	if (schema.stdin !== undefined && schema.variadic) {
 		throw new CLIError(`Argument <${name}> cannot be both variadic and stdin-backed`, {
 			code: 'INVALID_BUILDER_STATE',
-			details: { command: commandName, arg: name, stdinMode: true, variadic: true },
+			details: { command: commandName, arg: name, stdin: { ...schema.stdin }, variadic: true },
 			suggest: 'Remove .stdin() or .variadic() from this argument',
 		});
 	}
 
-	if (!schema.stdinMode) {
-		return;
-	}
+	assertStdinExclusivity(commandName, { kind: 'arg', name, stdin: schema.stdin }, flags, args);
+}
 
-	const existing = args.find((entry) => entry.schema.stdinMode);
-	if (existing === undefined) {
-		return;
-	}
+/**
+ * Reject a second stdin consumer when either it or an existing one is exclusive.
+ *
+ * One command reads stdin once, so an exclusive consumer must be the only one.
+ * Several `{ consume: 'broadcast' }` inputs coexist and all receive the same
+ * buffer. The rule spans both surfaces, so a flag and an arg conflict with each
+ * other exactly as two args do.
+ *
+ * @param commandName - Command the input was declared on.
+ * @param candidate - The input being registered.
+ * @param flags - Already-registered flag schemas on this command.
+ * @param args - Already-registered arg entries on this command.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` on a conflict.
+ *
+ * @internal
+ */
+function assertStdinExclusivity(
+	commandName: string,
+	candidate: {
+		readonly kind: 'flag' | 'arg';
+		readonly name: string;
+		readonly stdin: StdinBinding | undefined;
+	},
+	flags: Readonly<Record<string, FlagSchema>>,
+	args: readonly CommandArgEntry[],
+): void {
+	const stdin = candidate.stdin;
+	if (stdin === undefined) return;
 
-	throw new CLIError(
-		`Only one stdin argument is allowed; <${existing.name}> is already stdin-backed`,
-		{
-			code: 'DUPLICATE_STDIN_ARG',
-			details: { command: commandName, arg: name, existingArg: existing.name },
-			suggest: 'Keep .stdin() on a single argument per command',
-		},
-	);
+	for (const existing of stdinConsumers(flags, args)) {
+		if (existing.kind === candidate.kind && existing.name === candidate.name) continue;
+		if (stdin.consume === 'broadcast' && existing.stdin.consume === 'broadcast') continue;
+
+		throw new CLIError(
+			`Only one input may consume stdin exclusively; ${stdinConsumerReference(existing)} already consumes stdin`,
+			{
+				code: 'DUPLICATE_STDIN_INPUT',
+				details: {
+					command: commandName,
+					...(candidate.kind === 'flag' ? { flag: candidate.name } : { arg: candidate.name }),
+					...(existing.kind === 'flag'
+						? { existingFlag: existing.name }
+						: { existingArg: existing.name }),
+				},
+				suggest:
+					"Keep .stdin() on a single input per command, or declare every stdin input with { consume: 'broadcast' }",
+			},
+		);
+	}
+}
+
+/**
+ * Validate a new flag against the stdin invariants before adding it.
+ *
+ * @param commandName - Command the flag was declared on.
+ * @param name - Flag name being registered.
+ * @param schema - Runtime descriptor of the flag.
+ * @param flags - Already-registered flag schemas on this command.
+ * @param args - Already-registered arg entries on this command.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` when another input already
+ *   consumes stdin exclusively.
+ *
+ * @internal
+ */
+function validateFlagStdinEntry(
+	commandName: string,
+	name: string,
+	schema: FlagSchema,
+	flags: Readonly<Record<string, FlagSchema>>,
+	args: readonly CommandArgEntry[],
+): void {
+	assertStdinExclusivity(commandName, { kind: 'flag', name, stdin: schema.stdin }, flags, args);
 }
 
 // --- Flag collision validation
@@ -1554,6 +1620,14 @@ class CommandBuilder<
 			});
 		}
 
+		validateFlagStdinEntry(
+			this.schema.name,
+			name,
+			builder.schema,
+			this.schema.flags,
+			this.schema.args,
+		);
+
 		const nextFlags = { ...this.schema.flags, [name]: builder.schema };
 		const nextSchema = { ...this.schema, flags: nextFlags, hasAction: false };
 		validateCommandFlagTree(nextSchema);
@@ -1611,14 +1685,14 @@ class CommandBuilder<
 	 *   which a plain record cannot carry.
 	 * @throws {@link CLIError} `INVALID_BUILDER_STATE` when the arg is both
 	 *   variadic and stdin-backed.
-	 * @throws {@link CLIError} `DUPLICATE_STDIN_ARG` when another arg on this
-	 *   command is already stdin-backed.
+	 * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` when another input on this
+	 *   command already consumes stdin exclusively.
 	 */
 	arg<N extends string, B extends ArgBuilder<ArgConfig>>(
 		name: N & Exclude<N, keyof A>,
 		builder: B,
 	): CommandBuilder<F, A & Record<N, B>, C> {
-		validateArgEntry(this.schema.name, name, builder.schema, this.schema.args);
+		validateArgEntry(this.schema.name, name, builder.schema, this.schema.flags, this.schema.args);
 		const entry: CommandArgEntry = { name, schema: builder.schema };
 		const nextArgs = [...this.schema.args, entry];
 		return new CommandBuilder(

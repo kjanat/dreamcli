@@ -78,14 +78,32 @@ written.
 
 ## Precedence
 
-CLI argv, then environment variable, then config, then interactive prompt, then
-default. Each stage is opt-in per flag and the first source that supplies a
-value wins.
+CLI argv, then piped stdin, then environment variable, then config, then
+interactive prompt, then default. Each stage is opt-in per flag and the first
+source that supplies a value wins.
+
+`stdin` behaves exactly as it does inside a command. A `.stdin()` flag reads the
+stream on `--flag -`, which stays CLI-sourced, and on an absent flag, which
+lands on the stdin stage ahead of env. The stream is read at most once per call,
+only through the adapter, and only when a declared binding would fire, so a
+record whose `when: 'dash'` flag was never dashed never touches it. Pass
+`stdinData` to supply the bytes yourself, including `null` for nothing piped.
 
 Two stages need something from the caller. `config` is a plain object passed in;
 nothing is read from disk. `prompter` is a prompt engine passed in; none is
 built. A `.prompt()` flag with no prompter falls through to its default, on a
 TTY as well as off one.
+
+```ts twoslash
+import { flag, readFlags } from '@kjanat/dreamcli';
+// ---cut---
+const values = await readFlags(
+  { body: flag.string().stdin().env('BODY').default('none') },
+  { argv: [], stdinData: 'piped\n', env: { BODY: 'env' } },
+);
+
+values.body; // 'piped\n'
+```
 
 ## Explicit Injection
 
@@ -136,19 +154,20 @@ expect(options).toEqual({
 
 ## Adapter Defaults
 
-| Fact               | Source when the caller omits it                                   |
-| ------------------ | ----------------------------------------------------------------- |
-| `argv`             | the adapter's argv past its binary and script entries             |
-| `env`              | the adapter's environment snapshot                                |
-| `stat` and `mkdir` | the adapter's filesystem primitives, used by `flag.path()` checks |
-| `config`           | nothing, so the config stage is skipped                           |
-| `prompter`         | nothing, so the prompt stage is skipped                           |
+| Fact               | Source when the caller omits it                                              |
+| ------------------ | ---------------------------------------------------------------------------- |
+| `argv`             | the adapter's argv past its binary and script entries                        |
+| `env`              | the adapter's environment snapshot                                           |
+| `stdinData`        | the adapter's `readStdin()`, called only when a `.stdin()` binding would fire |
+| `stat` and `mkdir` | the adapter's filesystem primitives, used by `flag.path()` checks            |
+| `config`           | nothing, so the config stage is skipped                                      |
+| `prompter`         | nothing, so the prompt stage is skipped                                      |
 
 The adapter is built the first time a fact the caller left out is needed, so a
-call given `argv` and `env` builds none at all unless a `flag.path()` check
-reaches for `stat` or `mkdir`. Pass `adapter` to pin the runtime instead of
-detecting one. `createAdapter()` detects Node, Bun, and Deno, so the defaults
-work on all three.
+call given `argv` and `env` builds none at all unless a `.stdin()` binding
+selects the stream or a `flag.path()` check reaches for `stat` or `mkdir`. Pass
+`adapter` to pin the runtime instead of detecting one. `createAdapter()` detects
+Node, Bun, and Deno, so the defaults work on all three.
 
 ## Built-In Help
 

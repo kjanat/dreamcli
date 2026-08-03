@@ -241,8 +241,8 @@ collision cost was the shared spelling. Help advertised `-v` on both flags and
 the parser answered it with `--version`.
 
 The arg invariants moved with them. One arg that is both variadic and
-stdin-backed throws `INVALID_BUILDER_STATE`, and a second stdin-backed arg on
-the same command throws `DUPLICATE_STDIN_ARG`, the errors `.arg()` has always
+stdin-backed throws `INVALID_BUILDER_STATE`, and a second stdin-backed input on
+the same command throws `DUPLICATE_STDIN_INPUT`, the errors `.arg()` has always
 raised. In 3.x a definition could declare either. Two stdin-backed args each
 resolved to the whole of stdin, and a variadic stdin-backed arg read nothing
 from stdin and failed as missing when argv supplied no positional.
@@ -438,6 +438,63 @@ help serializes through `generateSchema()`, so `$schema` still leads, carries
 the new URL, and `schemaVersion` follows it. Snapshot tests over that output
 need re-recording.
 
+### `ArgSchema.stdinMode` is now `ArgSchema.stdin`
+
+The boolean carried no room for the trigger and sharing modes the unified source
+model needs, so it is replaced by `stdin: StdinBinding | undefined`. `.stdin()`
+is unchanged for callers who pass no options, and keeps its exact resolution
+behavior.
+
+```ts
+// 3.x — reading a built schema
+if (schema.stdinMode) { /* … */ }
+
+// 4.0
+if (schema.stdin !== undefined) { /* … */ }
+```
+
+```ts
+// 3.x — a definition passed to createArgSchema() or createCommandSchema()
+createArgSchema('string', { stdinMode: true });
+
+// 4.0
+createArgSchema('string', { stdin: {} });
+createArgSchema('string', { stdin: { when: 'dash', consume: 'broadcast' } });
+```
+
+The definition document changes to match. An arg fragment emits
+`stdin: { when, consume }` where `stdinMode: true` used to appear, at
+`schemaVersion: 1`, which has not shipped. Tooling reading the fragment reads
+the object; tooling that only asked whether stdin was enabled checks for the
+key's presence.
+
+### `DUPLICATE_STDIN_ARG` is now `DUPLICATE_STDIN_INPUT`
+
+The one-exclusive-consumer rule now covers flags as well as args, so the code
+names an input rather than an argument. Error handling matching the old code
+matches the new one; the message reads `Only one input may consume stdin
+exclusively; <name> already consumes stdin`, naming the input that was declared
+first. `details` names the offending input under `flag` or `arg` and the
+existing one under `existingFlag` or `existingArg`.
+
+### Stdin values reach non-string codecs without their trailing terminator
+
+The stdin source hands the whole buffer over byte for byte, so a `string` input
+still receives `'hi\n'` from `echo hi | mycli`. Every other codec interprets the
+text, where a terminator a pipe appended is framing rather than value, so one
+trailing `\n`, `\r\n`, or `\r` is dropped before decoding.
+
+That makes three cases work which used to fail: `echo true | mycli` resolves a
+boolean input to `true`, `echo 1h30m` reaches `arg.duration()`, and `echo eu`
+reaches an enum input. A number input is unaffected, since `Number()` already
+ignored the terminator. Code that piped a value with a terminator to a custom
+parse function now sees it trimmed; pipe through a `string` input and split it
+yourself where the terminator was load-bearing.
+
+Stdin also stops borrowing the prompt widening table. It accepts exactly what an
+env value accepts, so the prompt-only `y` and `n` boolean spellings are
+rejected; write `true` / `false`, `1` / `0`, or `yes` / `no`.
+
 ## Behavioral Changes To Review
 
 - **Root `--json` and `--quiet` take an explicit value.** `--json=true`,
@@ -467,6 +524,10 @@ Adopt at your own pace; none of these are required:
 - **Verbosity in handler code**: `out.verbosity` and
   `resolveRenderContext().verbosity` expose the active level for custom
   rendering built inside or before a run.
+- **One source model for both surfaces**: `arg.config()` and `arg.prompt()` join
+  `arg.env()`, `flag.string().stdin()` becomes legal, and every input resolves
+  through `CLI -> stdin -> env -> config -> prompt -> default`. See
+  [Arguments](/guide/arguments#stdin-backed-arguments).
 - **Consumer-owned built-in flags**: `.builtins({ help: 'off' })`,
   `.builtins({ json: 'off' })`, or `.builtins({ quiet: 'off' })` hands a
   root-owned token to the commands, for a CLI whose `--json`, `-q`, or

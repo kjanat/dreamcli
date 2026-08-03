@@ -110,6 +110,10 @@ const definitionMetaSchemaDescriptions = {
 				aliases: {
 					description: "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
 				},
+				stdin: {
+					description:
+						'Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding.',
+				},
 				envVar: {
 					description: 'Environment variable name for v0.2+ resolution.',
 				},
@@ -146,6 +150,17 @@ const definitionMetaSchemaDescriptions = {
 				},
 			},
 		},
+		stdin: {
+			description: 'The normalized stdin axis of a flag or an arg.',
+			properties: {
+				when: {
+					description: 'When this input reads the stdin stream.',
+				},
+				consume: {
+					description: 'Whether this input consumes the stream alone.',
+				},
+			},
+		},
 		negation: {
 			description:
 				'Negation settings for a boolean flag (set by `.negatable()`).\n\nThe negated spelling and the positive form are two spellings of ONE\nlogical flag: they share duplicate policy, and the last CLI occurrence\nwins across both. The negated spelling is presence-only — `--no-foo=x`\nis rejected.',
@@ -177,9 +192,9 @@ const definitionMetaSchemaDescriptions = {
 				variadic: {
 					description: 'Whether this arg consumes all remaining positionals.',
 				},
-				stdinMode: {
+				stdin: {
 					description:
-						'Whether this arg may read from stdin during resolution.\n\nDefault: `false`',
+						'Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding.',
 				},
 				defaultValue: {
 					description: 'Runtime default value (if any).',
@@ -190,6 +205,12 @@ const definitionMetaSchemaDescriptions = {
 				envVar: {
 					description:
 						"Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind.",
+				},
+				configPath: {
+					description: "Dotted config path for config resolution (e.g. `'deploy.region'`).",
+				},
+				prompt: {
+					description: 'Interactive prompt configuration.',
 				},
 				enumValues: {
 					description: "Allowed literal values when `kind === 'enum'`.",

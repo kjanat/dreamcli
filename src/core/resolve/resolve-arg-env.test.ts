@@ -136,7 +136,7 @@ describe('resolve', () => {
 						schema: createArgSchema('string', {
 							envVar: 'DEPLOY_TARGET',
 							presence: 'required',
-							stdinMode: true,
+							stdin: {},
 						}),
 					},
 				],

@@ -8,13 +8,13 @@ overview.
 
 The tokenizer is schema-agnostic. It applies these rules before command-specific parsing starts:
 
-| Raw argv form  | Meaning                                                |
-| -------------- | ------------------------------------------------------ |
-| `--flag`       | long flag without an inline value                      |
-| `--flag=value` | long flag with an inline value                         |
-| `-abc`         | combined short flags                                   |
-| `--`           | end of options; everything after becomes positional    |
-| `-`            | positional token, commonly used as a stdin placeholder |
+| Raw argv form  | Meaning                                                                     |
+| -------------- | --------------------------------------------------------------------------- |
+| `--flag`       | long flag without an inline value                                           |
+| `--flag=value` | long flag with an inline value                                              |
+| `-abc`         | combined short flags                                                        |
+| `--`           | end of options; everything after becomes positional                         |
+| `-`            | stdin sentinel for an input declaring `.stdin()`, otherwise a plain positional |
 
 Examples:
 
@@ -96,7 +96,7 @@ Flags resolve in this order — the first source that provides a value wins:
 
 ```mermaid
 flowchart LR
-  CLI -->|miss| env -->|miss| config -->|miss| prompt -->|miss| default
+  CLI -->|miss| stdin -->|miss| env -->|miss| config -->|miss| prompt -->|miss| default
 ```
 
 Example:
@@ -106,6 +106,7 @@ import { flag } from '@kjanat/dreamcli';
 
 flag
   .enum(['us', 'eu', 'ap'])
+  .stdin()
   .env('DEPLOY_REGION')
   .config('deploy.region')
   .prompt({ kind: 'select', message: 'Region?' })
@@ -117,6 +118,7 @@ Outcomes:
 | Available sources                                 | Result |
 | ------------------------------------------------- | ------ |
 | `--region ap`, env=`eu`, config=`us`, prompt=`eu` | `ap`   |
+| piped stdin `eu`, env=`ap`                        | `eu`   |
 | env=`eu`, config=`ap`, prompt=`us`                | `eu`   |
 | config=`ap`, prompt=`us`                          | `ap`   |
 | prompt=`eu`                                       | `eu`   |
@@ -130,12 +132,13 @@ Notes:
 
 ### Positional arguments
 
-Positional arguments are CLI-only unless they opt into extra sources.\
-Only args that opt into `.stdin()` or `.env()` participate in those extra steps:
+Positional arguments walk the same order as flags, and are CLI-only unless they
+opt into extra sources. Only args that opt into `.stdin()`, `.env()`,
+`.config()`, or `.prompt()` participate in those extra steps:
 
 ```mermaid
 flowchart LR
-  CLI["CLI token"] -->|miss| stdin -->|miss| env -->|miss| default
+  CLI["CLI token"] -->|miss| stdin -->|miss| env -->|miss| config -->|miss| prompt -->|miss| default
 ```
 
 Example:
@@ -143,7 +146,7 @@ Example:
 ```ts twoslash
 import { arg } from '@kjanat/dreamcli';
 
-arg.string().stdin().env('DEPLOY_TARGET').default('local');
+arg.string().stdin().env('DEPLOY_TARGET').config('deploy.target').default('local');
 ```
 
 Outcomes:
@@ -152,14 +155,40 @@ Outcomes:
 | -------------------------------------- | --------- |
 | CLI token `prod`, stdin, env=`staging` | `prod`    |
 | piped stdin `prod`, env=`staging`      | `prod`    |
-| env=`staging`                          | `staging` |
+| env=`staging`, config=`eu`             | `staging` |
+| config=`eu`                            | `eu`      |
 | no value sources                       | `local`   |
+
+### Stdin
+
+An input reads stdin only when it declares `.stdin()`. The binding has two
+axes, `when` and `consume`, defaulting to `dash-or-missing` and `exclusive`.
+
+| `when`              | `-` typed            | Input omitted        |
+| ------------------- | -------------------- | -------------------- |
+| `'dash'`            | reads stdin          | falls through to env |
+| `'missing'`         | literal string `'-'` | reads stdin          |
+| `'dash-or-missing'` | reads stdin          | reads stdin          |
+
+A `-` that selects stdin resolves on the `cli` stage, so it outranks every later
+source. An omitted input resolves on the `stdin` stage, which sits between `cli`
+and `env`, so env, config, prompt, and a default never suppress the read. When
+nothing is piped, both forms produce no value and the walk continues.
+
+The stream is read at most once per invocation, and only when a declared binding
+would fire. Declaring a second exclusive stdin input on one command, flag or
+argument, throws `DUPLICATE_STDIN_INPUT` at build time; every stdin input on a
+command that passes `{ consume: 'broadcast' }` receives the same buffer.
+
+The whole buffer becomes the value. A `string` input keeps it byte for byte;
+every other kind drops one trailing `\n`, `\r\n`, or `\r` before decoding, and
+then accepts exactly what an env value accepts.
 
 ## Non-Interactive Behavior
 
 Prompting is conditional, not mandatory.
 
-- Prompts run only after CLI, env, and config resolution fail to provide a value.
+- Prompts run only after CLI, stdin, env, and config resolution fail to provide a value.
 - Prompts run only when a prompter is available.
 - In normal CLI execution, auto-prompting is enabled only when `stdinIsTTY` is `true`.
 - In non-interactive environments, prompt-backed values fall through to defaults or required-value
