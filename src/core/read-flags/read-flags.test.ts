@@ -428,6 +428,10 @@ describe('readFlags() prototype keys', () => {
 		const error = await thrownBy(() => readFlags(definitions, { argv: [], env: {} }));
 
 		expect(error instanceof CLIError && error.code).toBe('INVALID_SCHEMA');
+		expect(error instanceof CLIError && error.details).toEqual({ flag: '__proto__' });
+		expect(error instanceof CLIError && error.suggest).toBe(
+			'Rename the definition key, for example to "proto"',
+		);
 	});
 
 	it('rejects symbol and non-enumerable definition keys instead of dropping them', async () => {

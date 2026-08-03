@@ -7,23 +7,23 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 | File                    | Lines | Purpose                                                                                                                     |
 | ----------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
 | `command.ts`            |  1946 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
-| `flag.ts`               |  2410 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
-| `arg.ts`                |  2187 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/keyValue/url/path/date/duration/bytes()`                              |
+| `flag.ts`               |  2473 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
+| `arg.ts`                |  2240 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/keyValue/url/path/date/duration/bytes()`                              |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing flag, arg, command, CLI, and config-settings schemas                      |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                                   |
 | `middleware.ts`         |   180 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                          |
 | `stdin.ts`              |   156 | `StdinBinding` / `StdinOptions` — the stdin axis both factories carry, plus its normalizer                                  |
-| `cardinality.ts`        |   669 | Internal cardinality axis: `Cardinality`, split policies, aggregation rules, declared-default validation                    |
+| `cardinality.ts`        |   684 | Internal cardinality axis: `Cardinality`, split policies, aggregation rules, declared-default validation                    |
 | `source.ts`             |   321 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
 | `provenance.ts`         |    92 | Public provenance surface — `ResolutionProvenance`, `InputSources`, `SourcesOf`, `wasExplicit()`                            |
 | `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                                 |
 | `string-constraints.ts` |   172 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
 | `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                                           |
-| `value.ts`              |   777 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, `stripTerminator()`, both schema projections)           |
+| `value.ts`              |   778 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, `stripTerminator()`, both schema projections)           |
 | `value-parsers.ts`      |   329 | Value machinery behind the sugar factories on both `flag` and `arg` — parsers, path option types, `buildPathChecks()`       |
 | `run.ts`                |   243 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
-| `index.ts`              |   173 | Barrel — re-exports all public symbols                                                                                      |
+| `index.ts`              |   176 | Barrel — re-exports all public symbols                                                                                      |
 
 ## TYPE SYSTEM PATTERNS
 
@@ -133,6 +133,15 @@ promise is left to the resolution-time pass, as are filesystem checks.
 from `.default()`, and from every modifier that could invalidate an existing
 default (`nextFlag()` / `nextArg()`), so the verdict does not depend on the order
 the chain was written in.
+
+`nextFlag()` / `nextArg()` also run `assertValidFlagDefinition()` /
+`assertValidArgDefinition()`, the same check `createFlagSchema()` /
+`createArgSchema()` run. A modifier states its kinds to the compiler through a
+`this` constraint, which a JavaScript caller does not see, so without the runtime
+check a builder could produce a schema whose emitted definition document its own
+factory refuses. Every kind-sensitive modifier routes through these two helpers;
+a modifier that calls `new FlagBuilder(...)` or `new ArgBuilder(...)` directly is
+one whose field every kind carries.
 
 ## PROVENANCE (`provenance.ts`)
 
@@ -262,7 +271,9 @@ collapse two path args into the same placeholder.
 - `custom` → `PromptConfig` (all kinds — the `parseFn` is responsible for handling any prompt result)
 - `count` / `keyValue` → `never` (not promptable; `.prompt()` uncallable at compile time)
 
-Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `validatePromptFlagCompatibility()`).
+Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` +
+`validatePromptFlagCompatibility()`), and `resolve/args.ts` reads the same map for the positional
+surface through the shared `promptCompatibilityError()`.
 
 ## GOTCHAS
 

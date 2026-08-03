@@ -8,12 +8,18 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { isValidationError } from '#internals/core/errors/index.ts';
+import { parse } from '#internals/core/parse/index.ts';
+import type { ResolveOptions } from '#internals/core/resolve/index.ts';
+import { resolve } from '#internals/core/resolve/index.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { ArgBuilder, ArgConfig } from './arg.ts';
-import { arg } from './arg.ts';
-import { command } from './command.ts';
+import { arg, createArgSchema } from './arg.ts';
+import type { CommandSchema } from './command.ts';
+import { command, createCommandSchema } from './command.ts';
 import type { FlagBuilder, FlagConfig } from './flag.ts';
-import { flag } from './flag.ts';
+import { createFlagSchema, flag } from './flag.ts';
+import type { PromptConfig } from './prompt.ts';
 import type { StandardSchemaV1 } from './standard.ts';
 import type { ValueInput, ValueSchema } from './value.ts';
 import { argValueSchema, decodeValue, flagValueSchema, valueEnumValues } from './value.ts';
@@ -301,6 +307,290 @@ describe('flag.string() / arg.string() constraint parity', () => {
 			constraint: 'minLength',
 			bound: 5,
 		});
+	});
+});
+
+// === the same failures, read off a source the user did not type
+
+/**
+ * Normalize the subject out of an off-argv diagnostic.
+ *
+ * The reference appears in the message and in the suggestion alike, and the two
+ * surfaces spell it differently, so both spellings collapse onto one token.
+ */
+function withoutReference(text: string | undefined): string | undefined {
+	return text
+		?.replaceAll('flag --x', '<subject>')
+		.replaceAll('argument <x>', '<subject>')
+		.replaceAll('--x', '<subject>')
+		.replaceAll('<x>', '<subject>');
+}
+
+/** Report what resolving one schema did, with the subject normalized away. */
+async function sourcedVerdict(schema: CommandSchema, options: ResolveOptions): Promise<Verdict> {
+	const error = await resolve(schema, parse(schema, []), options).then(
+		() => undefined,
+		(thrown: unknown) => (isValidationError(thrown) ? thrown : undefined),
+	);
+	return {
+		accepted: error === undefined,
+		code: error?.code,
+		reason: withoutReference(error?.message),
+		value: undefined,
+	};
+}
+
+/** Resolve one flag from the environment and report the verdict. */
+async function flagEnvVerdict<C extends FlagConfig>(
+	builder: FlagBuilder<C>,
+	raw: string,
+): Promise<Verdict> {
+	const schema = createCommandSchema({ name: 'subject', flags: { x: builder.env('VAR').schema } });
+	return sourcedVerdict(schema, { env: { VAR: raw } });
+}
+
+/** Resolve one positional from the environment and report the verdict. */
+async function argEnvVerdict<C extends ArgConfig>(
+	builder: ArgBuilder<C>,
+	raw: string,
+): Promise<Verdict> {
+	const schema = createCommandSchema({
+		name: 'subject',
+		args: [{ name: 'x', schema: builder.env('VAR').schema }],
+	});
+	return sourcedVerdict(schema, { env: { VAR: raw } });
+}
+
+/** Resolve one flag from a config value of any shape and report the verdict. */
+async function flagConfigVerdict<C extends FlagConfig>(
+	builder: FlagBuilder<C>,
+	raw: unknown,
+): Promise<Verdict> {
+	const schema = createCommandSchema({ name: 'subject', flags: { x: builder.config('p').schema } });
+	return sourcedVerdict(schema, { config: { p: raw } });
+}
+
+/** Resolve one positional from a config value of any shape and report the verdict. */
+async function argConfigVerdict<C extends ArgConfig>(
+	builder: ArgBuilder<C>,
+	raw: unknown,
+): Promise<Verdict> {
+	const schema = createCommandSchema({
+		name: 'subject',
+		args: [{ name: 'x', schema: builder.config('p').schema }],
+	});
+	return sourcedVerdict(schema, { config: { p: raw } });
+}
+
+describe('an environment value fails the same way on both surfaces', () => {
+	const cases: ReadonlyArray<
+		readonly [string, () => FlagBuilder<FlagConfig>, () => ArgBuilder<ArgConfig>, string]
+	> = [
+		['a number', () => flag.number(), () => arg.number(), 'nope'],
+		['a boolean', () => flag.boolean(), () => arg.boolean(), 'nope'],
+		['an enum', () => flag.enum(['us', 'eu']), () => arg.enum(['us', 'eu']), 'mars'],
+		['a length bound', () => flag.string().minLength(9), () => arg.string().minLength(9), 'short'],
+		[
+			'a pattern',
+			() => flag.string().pattern(/^ghp_/),
+			() => arg.string().pattern(/^ghp_/),
+			'nope',
+		],
+		['a numeric bound', () => flag.number().min(1000), () => arg.number().min(1000), '5'],
+		['an integer', () => flag.number().int(), () => arg.number().int(), '1.5'],
+		['a url', () => flag.url(), () => arg.url(), 'nope'],
+		[
+			'a url protocol',
+			() => flag.url({ protocols: ['https'] }),
+			() => arg.url({ protocols: ['https'] }),
+			'http://example.com',
+		],
+		['a date', () => flag.date(), () => arg.date(), 'nope'],
+		['a duration', () => flag.duration(), () => arg.duration(), 'nope'],
+		['a size', () => flag.bytes(), () => arg.bytes(), 'nope'],
+		[
+			'a thrown message holding colons',
+			() =>
+				flag.custom(() => {
+					throw new Error('bad input: really bad');
+				}),
+			() =>
+				arg.custom(() => {
+					throw new Error('bad input: really bad');
+				}),
+			'anything',
+		],
+	];
+
+	for (const [label, flagBuilder, argBuilder, raw] of cases) {
+		it(`rejects ${label} with the same code and reason`, async () => {
+			const forFlag = await flagEnvVerdict(flagBuilder(), raw);
+			const forArg = await argEnvVerdict(argBuilder(), raw);
+
+			expect(forFlag.accepted).toBe(false);
+			expect(forArg.code).toBe(forFlag.code);
+			expect(forArg.reason).toBe(forFlag.reason);
+		});
+	}
+
+	it('rejects a config value no string codec can read with the same reason', async () => {
+		const forFlag = await flagConfigVerdict(flag.string(), {});
+		const forArg = await argConfigVerdict(arg.string(), {});
+
+		expect(forArg.code).toBe(forFlag.code);
+		expect(forArg.reason).toBe(forFlag.reason);
+		expect(forFlag.reason).toBe('Invalid string value from config p for <subject>');
+	});
+});
+
+// === a collection given the wrong shape
+
+describe('a config value of the wrong shape fails the same way on both surfaces', () => {
+	it('names the array a list wanted', async () => {
+		const forFlag = await flagConfigVerdict(flag.array(flag.string()), 5);
+		const forArg = await argConfigVerdict(arg.string().variadic(), 5);
+
+		expect(forArg.code).toBe(forFlag.code);
+		expect(forArg.reason).toBe(forFlag.reason);
+		expect(forFlag.reason).toBe('Invalid array value from config p for <subject>');
+	});
+
+	it('names the object a key-value input wanted', async () => {
+		const forFlag = await flagConfigVerdict(flag.keyValue(), 5);
+		const forArg = await argConfigVerdict(arg.keyValue(), 5);
+
+		expect(forArg.code).toBe(forFlag.code);
+		expect(forArg.reason).toBe(forFlag.reason);
+		expect(forFlag.reason).toBe('Invalid object value from config p for <subject>');
+	});
+
+	it('names the array a list wanted when the config value is an object', async () => {
+		const forFlag = await flagConfigVerdict(flag.array(flag.string()), { a: 1 });
+		const forArg = await argConfigVerdict(arg.string().variadic(), { a: 1 });
+
+		expect(forArg.reason).toBe(forFlag.reason);
+		expect(forFlag.reason).toBe('Invalid array value from config p for <subject>');
+	});
+
+	it('carries the same expected detail on both surfaces', async () => {
+		const flagSchema = createCommandSchema({
+			name: 'subject',
+			flags: { x: flag.keyValue().config('p').schema },
+		});
+		const argSchema = createCommandSchema({
+			name: 'subject',
+			args: [{ name: 'x', schema: arg.keyValue().config('p').schema }],
+		});
+		const options = { config: { p: 5 } };
+
+		const forFlag = await resolve(flagSchema, parse(flagSchema, []), options).catch(
+			(thrown: unknown) => thrown,
+		);
+		const forArg = await resolve(argSchema, parse(argSchema, []), options).catch(
+			(thrown: unknown) => thrown,
+		);
+
+		expect(isValidationError(forFlag) && forFlag.details).toEqual({
+			flag: 'x',
+			source: 'config',
+			configPath: 'p',
+			expected: 'object',
+		});
+		expect(isValidationError(forArg) && forArg.details).toEqual({
+			arg: 'x',
+			source: 'config',
+			configPath: 'p',
+			expected: 'object',
+		});
+	});
+});
+
+// === prompt kinds follow the cardinality, not the kind alone
+
+describe('an input that collects several values takes the same prompt on both surfaces', () => {
+	/** Resolve one input from a prompt answer and report the verdict. */
+	async function promptVerdict(
+		schema: CommandSchema,
+		answer: unknown,
+	): Promise<Verdict & { readonly resolved: unknown }> {
+		let resolved: unknown;
+		const prompter = { promptOne: () => Promise.resolve({ answered: true, value: answer }) };
+		const error = await resolve(schema, parse(schema, []), { prompter }).then(
+			(result) => {
+				resolved = result.flags.x ?? result.args.x;
+				return undefined;
+			},
+			(thrown: unknown) => (isValidationError(thrown) ? thrown : undefined),
+		);
+		return {
+			accepted: error === undefined,
+			code: error?.code,
+			reason: withoutReference(error?.message),
+			value: undefined,
+			resolved,
+		};
+	}
+
+	/** A command carrying one list flag with the given prompt config. */
+	function flagWith(prompt: PromptConfig): CommandSchema {
+		return createCommandSchema({
+			name: 'subject',
+			flags: {
+				x: createFlagSchema('array', { elementSchema: flag.string().schema, prompt }),
+			},
+		});
+	}
+
+	/** A command carrying one variadic positional with the given prompt config. */
+	function argWith(prompt: PromptConfig): CommandSchema {
+		return createCommandSchema({
+			name: 'subject',
+			args: [{ name: 'x', schema: createArgSchema('string', { variadic: true, prompt }) }],
+		});
+	}
+
+	it('takes a multiselect answer on both surfaces', async () => {
+		const prompt: PromptConfig = {
+			kind: 'multiselect',
+			message: 'Pick',
+			choices: [{ value: 'a' }, { value: 'b' }],
+		};
+		const forFlag = await promptVerdict(flagWith(prompt), ['a', 'b']);
+		const forArg = await promptVerdict(argWith(prompt), ['a', 'b']);
+
+		expect(forFlag.accepted).toBe(true);
+		expect(forArg.accepted).toBe(true);
+		expect(forArg.resolved).toEqual(forFlag.resolved);
+		expect(forArg.resolved).toEqual(['a', 'b']);
+	});
+
+	for (const kind of ['input', 'select', 'confirm'] as const) {
+		it(`rejects a ${kind} prompt with the same code and reason`, async () => {
+			const prompt: PromptConfig = { kind, message: 'Pick' };
+			const forFlag = await promptVerdict(flagWith(prompt), 'a');
+			const forArg = await promptVerdict(argWith(prompt), 'a');
+
+			expect(forFlag.accepted).toBe(false);
+			expect(forArg.code).toBe(forFlag.code);
+			expect(forArg.code).toBe('CONSTRAINT_VIOLATED');
+			expect(forFlag.reason).toBe(
+				`Prompt kind '${kind}' is not compatible with array <subject>. Use 'multiselect' instead`,
+			);
+			expect(forArg.reason).toBe(
+				`Prompt kind '${kind}' is not compatible with variadic string <subject>. Use 'multiselect' instead`,
+			);
+		});
+	}
+
+	it('rejects prompts on key-value definitions at both factory boundaries', () => {
+		const prompt: PromptConfig = { kind: 'input', message: 'Pick' };
+
+		expect(() => createFlagSchema('keyValue', { prompt })).toThrow(
+			"Flag schema field 'prompt' is not available on kind 'keyValue'",
+		);
+		expect(() => createArgSchema('keyValue', { prompt })).toThrow(
+			"Arg schema field 'prompt' is not available on kind 'keyValue'",
+		);
 	});
 });
 

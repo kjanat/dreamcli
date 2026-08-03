@@ -416,6 +416,27 @@ describe('generateSchema — definition metadata', () => {
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'region', 'defaultValue'], 'us');
 	});
 
+	it('includes a defaultValue a definition declared without the defaulted presence', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: { region: flagDef({ kind: 'string', defaultValue: 'us' }) },
+			args: [argEntry('target', { kind: 'string', defaultValue: 'prod' })],
+		});
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
+
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'region'], {
+			kind: 'string',
+			presence: 'optional',
+			defaultValue: 'us',
+		});
+		expect(result).toHaveProperty(['commands', 0, 'args', 0], {
+			name: 'target',
+			kind: 'string',
+			presence: 'required',
+			defaultValue: 'prod',
+		});
+	});
+
 	it('omits flag defaultValue when not serializable', () => {
 		const cmd = commandDef({
 			name: 'test',
@@ -1365,6 +1386,18 @@ describe('generateInputSchema — input validation', () => {
 		});
 		const result = generateInputSchema(cmd);
 		expect(result).toHaveProperty(['properties', 'target', 'description'], 'Deploy target');
+		expect(result).toHaveProperty(['properties', 'target', 'default'], 'prod');
+	});
+
+	it('includes a default a definition declared without the defaulted presence', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: { region: flagDef({ kind: 'string', defaultValue: 'us' }) },
+			args: [argEntry('target', { kind: 'string', defaultValue: 'prod' })],
+		});
+		const result = generateInputSchema(cmd);
+
+		expect(result).toHaveProperty(['properties', 'region', 'default'], 'us');
 		expect(result).toHaveProperty(['properties', 'target', 'default'], 'prod');
 	});
 

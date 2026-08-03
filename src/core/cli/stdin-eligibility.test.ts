@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
+import type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { cli } from './index.ts';
 
@@ -197,6 +198,94 @@ describe('flag stdin eligibility', () => {
 		await runQuietly(() => app.run({ adapter: host.adapter }));
 
 		expect(host.reads()).toBe(0);
+	});
+});
+
+// === L19 — the build-time rule is per command, so the invocation decides at run time
+
+describe('several commands declaring stdin', () => {
+	/** Read a flag the subcommand inherited, which its own generics do not name. */
+	function propagatedBody(flags: { readonly body?: string }): string | undefined {
+		return flags.body;
+	}
+
+	/** Read the provenance of that inherited flag. */
+	function propagatedBodySource(sources: {
+		readonly body?: ResolutionProvenance;
+	}): ResolutionProvenance | undefined {
+		return sources.body;
+	}
+
+	/** Two sibling commands, each the only stdin consumer of its own schema. */
+	function siblings(seen: unknown[]) {
+		return cli('mycli')
+			.command(
+				command('send')
+					.flag('body', flag.string().stdin())
+					.action(({ flags }) => {
+						seen.push({ send: flags.body });
+					}),
+			)
+			.command(
+				command('load')
+					.arg('input', arg.string().stdin())
+					.action(({ args }) => {
+						seen.push({ load: args.input });
+					}),
+			);
+	}
+
+	it('reads the pipe once, for the command actually dispatched', async () => {
+		const seen: unknown[] = [];
+		const host = countingAdapter({ argv: ['send'], stdinData: 'piped' });
+
+		await runQuietly(() => siblings(seen).run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([{ send: 'piped' }]);
+	});
+
+	it('reads the pipe once for the other sibling too', async () => {
+		const seen: unknown[] = [];
+		const host = countingAdapter({ argv: ['load'], stdinData: 'piped' });
+
+		await runQuietly(() => siblings(seen).run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([{ load: 'piped' }]);
+	});
+
+	it('hands one buffer to a propagated stdin flag and the subcommand own stdin arg', async () => {
+		const seen: unknown[] = [];
+		const app = cli('mycli').command(
+			command('db')
+				.flag('body', flag.string().stdin({ consume: 'broadcast' }).propagate())
+				.command(
+					command('migrate')
+						.arg('input', arg.string().stdin({ consume: 'broadcast' }))
+						.action(({ args, flags, sources }) => {
+							seen.push({
+								input: args.input,
+								body: propagatedBody(flags),
+								inputSource: sources.args.input,
+								bodySource: propagatedBodySource(sources.flags),
+							});
+						}),
+				),
+		);
+		const host = countingAdapter({ argv: ['db', 'migrate'], stdinData: 'piped' });
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([
+			{
+				input: 'piped',
+				body: 'piped',
+				inputSource: { stage: 'stdin', via: 'stdin', trigger: 'fallback' },
+				bodySource: { stage: 'stdin', via: 'stdin', trigger: 'fallback' },
+			},
+		]);
 	});
 });
 

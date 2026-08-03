@@ -9,16 +9,17 @@ import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import { argCardinality, dedupe } from '#internals/core/schema/cardinality.ts';
-import type { ArgSchema, CommandArgEntry } from '#internals/core/schema/index.ts';
+import type { ArgSchema, CommandArgEntry, PromptKind } from '#internals/core/schema/index.ts';
 import type { PromptSourceBinding, SourceBinding } from '#internals/core/schema/source.ts';
 import { argCollectedNothing, sourceBindings } from '#internals/core/schema/source.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceArgValue, finishCliArgValue } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
-import { COMPATIBLE_PROMPT_KINDS } from './flags.ts';
+import { COMPATIBLE_PROMPT_KINDS, promptCompatibilityError } from './flags.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { pathValuesOf, validatePathChecks } from './path-checks.ts';
+import { echoesValue } from './redaction.ts';
 import type { PromptOutcome, StageInput, StageState } from './stages.ts';
 import { readCliValue, runStages } from './stages.ts';
 
@@ -130,6 +131,9 @@ async function resolveArgs(
 			const checks = argValueSchema(schema).pathChecks;
 			if (checks === undefined) continue;
 
+			const echo = echoesValue(
+				Object.hasOwn(options.provenance, name) ? options.provenance[name] : undefined,
+			);
 			for (const value of pathValuesOf(
 				Object.hasOwn(resolved, name) ? resolved[name] : undefined,
 			)) {
@@ -139,6 +143,7 @@ async function resolveArgs(
 					checks,
 					options.stat,
 					options.mkdir,
+					echo,
 				);
 				if (violation !== undefined) {
 					errors.push(violation);
@@ -182,10 +187,31 @@ function stageInput(
 }
 
 /**
+ * The prompt kinds an arg accepts, read off its value and cardinality axes.
+ *
+ * An arg that collects several values takes the prompt a `flag.array()` takes,
+ * since the two aggregate the same way; every other arg takes what its kind
+ * takes on the flag surface.
+ *
+ * @param schema - The arg schema to read.
+ * @returns The compatible prompt kinds, and the word a diagnostic names the arg by.
+ */
+function argPromptCompatibility(schema: ArgSchema): {
+	readonly allowed: readonly PromptKind[];
+	readonly kindWord: string;
+} {
+	if (argCardinality(schema).kind === 'many') {
+		return { allowed: COMPATIBLE_PROMPT_KINDS.array, kindWord: `variadic ${schema.kind}` };
+	}
+	return { allowed: COMPATIBLE_PROMPT_KINDS[schema.kind], kindWord: schema.kind };
+}
+
+/**
  * Validate prompt/arg compatibility, run the prompt engine, and coerce the result.
  *
- * The compatibility table is the one flags use; every arg kind is also a flag
- * kind, so the two surfaces accept the same prompt kinds for the same value.
+ * The compatibility table is the one flags use, read through the value and
+ * cardinality axes, so the two surfaces accept the same prompt kinds for the
+ * same value.
  * @internal
  */
 async function resolveArgPromptValue(
@@ -195,23 +221,20 @@ async function resolveArgPromptValue(
 	prompter: PromptEngine,
 ): Promise<PromptOutcome> {
 	const promptConfig = binding.prompt;
-	const allowed = COMPATIBLE_PROMPT_KINDS[schema.kind];
+	const { allowed, kindWord } = argPromptCompatibility(schema);
 	if (!allowed.includes(promptConfig.kind)) {
-		const first = allowed[0];
 		return {
 			ok: false,
-			error: new ValidationError(
-				`Prompt kind '${promptConfig.kind}' is not compatible with ${schema.kind} argument <${argName}>. Use '${String(first)}' instead`,
+			error: promptCompatibilityError(
 				{
-					code: 'CONSTRAINT_VIOLATED',
-					details: {
-						arg: argName,
-						argKind: schema.kind,
-						promptKind: promptConfig.kind,
-						allowed,
-					},
-					suggest: `Change the prompt to { kind: '${String(first)}' } for <${argName}>`,
+					reference: `<${argName}>`,
+					singular: 'argument',
+					plural: 'arguments',
+					details: { arg: argName, argKind: schema.kind },
 				},
+				kindWord,
+				promptConfig.kind,
+				allowed,
 			),
 		};
 	}

@@ -181,14 +181,15 @@ const strictStringCodec: ValueCodec<string> = {
 	},
 };
 
-/** Reads a raw value as a number, rejecting `NaN` from every input. */
+/** Reads a raw value as a number, rejecting `NaN` and blank text from every input. */
 const numberCodec: ValueCodec<number> = {
 	name: 'number',
 	decode(raw) {
 		if (typeof raw === 'number') {
 			return Number.isNaN(raw) ? NUMBER_TYPE_FAILURE : { ok: true, value: raw };
 		}
-		if (typeof raw === 'string') {
+		// Number('') and Number(' ') are 0, which would read an empty pipe or env var as zero.
+		if (typeof raw === 'string' && raw.trim() !== '') {
 			const value = Number(raw);
 			if (!Number.isNaN(value)) return { ok: true, value };
 		}

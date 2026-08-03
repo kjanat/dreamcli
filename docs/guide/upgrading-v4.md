@@ -696,6 +696,19 @@ rather than to interpolate the value.
 Argv is unaffected. A token the user typed is already on their screen, so parse
 errors keep quoting it.
 
+The `flag.path()` and `arg.path()` filesystem checks follow the same rule, one
+pass later. A path an argv token carried is quoted in full; a path from stdin,
+an explicit `-`, the environment, a config file, a prompt, or a declared default
+reports `Path '<redacted>' for flag --key does not exist` and omits `value`:
+
+```
+# 3.x
+Path '/home/u/.ssh/id_rsa' for flag --key does not exist
+
+# 4.0, with KEY=/home/u/.ssh/id_rsa in the environment
+Path '<redacted>' for flag --key does not exist
+```
+
 Two adjustments. Tests asserting a value inside a resolution error message
 assert `'<redacted>'` instead. Code reading `error.details.value` reads the
 value from its own source, since the framework no longer copies it into a

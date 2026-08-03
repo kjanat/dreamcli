@@ -30,6 +30,7 @@ import {
 	flagValueSchema,
 } from '#internals/core/schema/value.ts';
 import type { ResolutionProvenanceRecord } from './contracts.ts';
+import { echoesValue } from './redaction.ts';
 
 /** Resolved values after the Standard Schema pass, plus any issues found. */
 interface StandardValidationResult {
@@ -60,21 +61,6 @@ function issuesMessage(label: string, issues: ReadonlyArray<StandardSchemaV1Issu
 		return path === undefined ? issue.message : `${path}: ${issue.message}`;
 	});
 	return `${label} failed validation: ${rendered.join('; ')}`;
-}
-
-/**
- * Whether a diagnostic may quote the value the user supplied.
- *
- * Only a token typed on the command line is already on the user's screen. Every
- * other stage, an explicit `-` included, carries bytes a user may consider
- * secret, so the same rule `coerce.ts` applies to its messages governs the
- * `value` this pass records.
- *
- * @param source - Where the value came from, or `undefined` when unrecorded.
- * @returns `true` when the value is safe to echo.
- */
-function echoesValue(source: ResolutionProvenance | undefined): boolean {
-	return source !== undefined && source.stage === 'cli' && !('via' in source);
 }
 
 /**

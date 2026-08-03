@@ -11,16 +11,16 @@ adapter factories, `ExitError`, detection. `createTestAdapter`/`TestAdapterOptio
 
 | File                 | Status      | Lines | Purpose                                                             |
 | -------------------- | ----------- | ----: | ------------------------------------------------------------------- |
-| `adapter.ts`         | **Active**  |   300 | `RuntimeAdapter` interface — process/env/IO abstraction             |
-| `auto.ts`            | **Active**  |   110 | `createAdapter()` — auto-detecting adapter factory                  |
-| `node.ts`            | **Active**  |   278 | `createNodeAdapter()` — Node.js impl (also used for Bun)            |
-| `deno.ts`            | **Active**  |   355 | `createDenoAdapter()` — Deno namespace implementation               |
-| `detect.ts`          | **Active**  |   102 | `detectRuntime()` — Bun/Deno/Node feature detection                 |
-| `paths.ts`           | `@internal` |    56 | XDG/platform path resolution utilities                              |
-| `support.ts`         | `@internal` |   119 | Runtime feature support detection                                   |
-| `test-helpers.ts`    | Test        |    40 | Test adapter helpers (Deno namespace mock, etc.)                    |
-| `node-builtins.d.ts` | Types       |    23 | `@internal` — ambient decls for `node:readline`, `node:fs/promises` |
-| `index.ts`           | Barrel      |    21 | Re-exports `RuntimeAdapter`, adapters, `ExitError`                  |
+| `adapter.ts`         | **Active**  |   398 | `RuntimeAdapter` interface — process/env/IO abstraction             |
+| `auto.ts`            | **Active**  |    87 | `createAdapter()` — auto-detecting adapter factory                  |
+| `node.ts`            | **Active**  |   373 | `createNodeAdapter()` — Node.js impl (also used for Bun)            |
+| `deno.ts`            | **Active**  |   446 | `createDenoAdapter()` — Deno namespace implementation               |
+| `detect.ts`          | **Active**  |   105 | `detectRuntime()` — Bun/Deno/Node feature detection                 |
+| `paths.ts`           | `@internal` |    64 | XDG/platform path resolution utilities                              |
+| `support.ts`         | `@internal` |    77 | Runtime feature support detection                                   |
+| `test-helpers.ts`    | Test        |    41 | Test adapter helpers (Deno namespace mock, etc.)                    |
+| `node-builtins.d.ts` | Types       |    27 | `@internal` — ambient decls for `node:readline`, `node:fs/promises` |
+| `index.ts`           | Barrel      |    20 | Re-exports `RuntimeAdapter`, adapters, `ExitError`                  |
 
 ## `RuntimeAdapter` INTERFACE
 
@@ -48,16 +48,16 @@ joinPath(...segments: string[]): string
 4. Wire auto-detection in `auto.ts`
 5. Re-export from `src/runtime.ts`
 
-## TEST FILES (5)
+## TEST FILES (6)
 
-| File              | Tests                                                     |
-| ----------------- | --------------------------------------------------------- |
-| `runtime.test.ts` | Node adapter, test adapter, `ExitError`, adapter contract |
-| `detect.test.ts`  | Runtime detection logic (globalThis feature probing)      |
-| `bun.test.ts`     | Bun adapter delegation                                    |
-| `deno.test.ts`    | Deno adapter (mock namespace, permission handling, stdin) |
-| `auto.test.ts`    | Auto-detecting adapter factory                            |
-| `support.test.ts` | Runtime feature support detection                         |
+| File                         | Tests                                                          |
+| ---------------------------- | -------------------------------------------------------------- |
+| `runtime.test.ts`            | Node adapter, test adapter, `ExitError`, adapter contract      |
+| `detect.test.ts`             | Runtime detection logic (globalThis feature probing)           |
+| `deno.test.ts`               | Deno adapter (mock namespace, permission handling, stdin)      |
+| `auto.test.ts`               | Auto-detecting adapter factory                                 |
+| `support.test.ts`            | Runtime feature support detection                              |
+| `adapter-resolution.test.ts` | One resolution driven through the Node, Bun, and Deno adapters |
 
 ## GOTCHAS
 

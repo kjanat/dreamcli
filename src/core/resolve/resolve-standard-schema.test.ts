@@ -30,6 +30,15 @@ const evenInt = standard<number>((value) => {
 	return { value: n };
 });
 
+/** Sync validator: accepts an odd integer, so the count factory's own default of 0 fails it. */
+const oddInt = standard<number>((value) => {
+	const n = Number(value);
+	if (!Number.isInteger(n) || n % 2 === 0) {
+		return { issues: [{ message: 'must be an odd integer' }] };
+	}
+	return { value: n };
+});
+
 /** Async validator: accepts a string longer than two chars. */
 const asyncName = standard<string>(async (value) => {
 	if (typeof value !== 'string' || value.length <= 2) {
@@ -139,6 +148,43 @@ describe('Standard Schema v1 interop — flags', () => {
 		const bad = await runCommand(cmd, ['--count', '2', '--count', '3']);
 		expect(bad.exitCode).toBe(2);
 		expect(bad.error?.message).toContain('--count[1] failed validation');
+	});
+
+	it('validates a count flag, whose scalar value carries the element validator', async () => {
+		const cmd = command('run')
+			.flag('verbose', flag.count().alias('v').standard(evenInt))
+			.action(({ flags, out }) => out.log(`verbose=${String(flags.verbose)}`));
+
+		const ok = await runCommand(cmd, ['-v', '-v']);
+		expect(ok.exitCode).toBe(0);
+		expect(ok.stdout[0]).toBe('verbose=2\n');
+
+		const bad = await runCommand(cmd, ['-v']);
+		expect(bad.exitCode).toBe(2);
+		expect(bad.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(bad.error?.message).toBe('--verbose failed validation: must be an even integer');
+	});
+
+	it('validates a count flag resolved from env', async () => {
+		const cmd = command('run')
+			.flag('verbose', flag.count().env('VERBOSE').standard(evenInt))
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, [], { env: { VERBOSE: '3' } });
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--verbose failed validation: must be an even integer');
+	});
+
+	it('validates a count flag left at the factory default', async () => {
+		const cmd = command('run')
+			.flag('verbose', flag.count().standard(oddInt))
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--verbose failed validation: must be an odd integer');
 	});
 });
 

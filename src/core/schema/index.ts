@@ -39,7 +39,9 @@ export type {
 	PromptConfigByArgKind,
 	ResolvedArgValue,
 	StringArgDefinition,
+	StringArgElementConfig,
 	WithArgPresence,
+	WithoutArgElementEligibility,
 	WithVariadic,
 } from './arg.ts';
 export { ARG_KINDS, ARG_PRESENCES, ArgBuilder, arg, createArgSchema } from './arg.ts';
@@ -115,6 +117,7 @@ export type {
 	StringElementConfig,
 	StringFlagDefinition,
 	UrlFlagOptions,
+	WithoutElementEligibility,
 	WithPresence,
 } from './flag.ts';
 export {

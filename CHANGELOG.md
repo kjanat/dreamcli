@@ -387,7 +387,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is already on the user's screen. Every coercion failure now also carries
   `source: 'env' | 'config' | 'stdin' | 'prompt'` in `details`, which is what
   labels an issue `[env API_TOKEN]` in an aggregate error and what now gives the
-  argument surface the same label the flag surface had.
+  argument surface the same label the flag surface had. The `flag.path()` and
+  `arg.path()` filesystem checks read the same rule, so a path a pipe, an
+  explicit `-`, the environment, a config file, a prompt, or a declared default
+  supplied reports `Path '<redacted>' for flag --key does not exist` and omits
+  `value` from `details`; a path typed on the command line is still quoted in
+  full. Every element of a collection of paths is checked and redacted
+  individually.
 
 - **Breaking: a positional declared after a variadic one is a build error.** A
   variadic argument consumes every remaining positional, so anything registered
@@ -500,6 +506,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   input is unaffected, since `Number()` already ignored the terminator. Stdin
   also stops borrowing the prompt widening table: it accepts exactly what an env
   value accepts, so the prompt-only `y` and `n` boolean spellings are rejected.
+
+- **Breaking: a number input rejects blank text instead of reading it as zero.**
+  `Number('')` and `Number('  ')` are both `0`, so `PORT= mycli serve`,
+  `printf '\n' | mycli serve`, and a config key holding `""` all resolved a
+  number input to `0` without a word. All three now fail with `TYPE_MISMATCH`
+  and the same `Invalid number value '<redacted>' from …` diagnostic any other
+  unreadable value gets, and `mycli serve --port ''` fails at the parse boundary
+  where it quotes the token. Whitespace around a real number is still ignored,
+  so `' 42 '` and `'42\n'` are unaffected. A `count` flag already guarded this;
+  the number codec now does too. Set the variable, or drop it and let the
+  default apply.
 
 - **Breaking: `CLISchema.commands` and `CLISchema.defaultCommand` hold
   `CommandSchema`** — both used to hold `ErasedCommand` wrappers carrying the
@@ -675,6 +692,161 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already defaults to `['package.json']`.
 
 ### Fixed
+
+- **A variadic argument could not take the prompt its flag twin takes.** The
+  argument prompt gate read the kind discriminator alone, so
+  `arg.string().variadic().prompt({ kind: 'multiselect' })` was rejected with
+  `Prompt kind 'multiselect' is not compatible with string argument <files>`
+  while `flag.array(flag.string()).prompt({ kind: 'multiselect' })` resolved,
+  and the scalar `input` and `select` kinds the flag surface rejects were
+  accepted, resolving a one-element array. The gate now reads the cardinality:
+  an argument that collects several values takes `multiselect`, and names itself
+  `variadic string argument <files>` when it reports a mismatch.
+  `AllowedArgPromptConfig<C>` follows the same rule, so the compiler agrees.
+
+- **A collection given a config value of the wrong shape said less on the
+  argument surface.** `flag.array(...).config('p')` over `{ p: 5 }` reported
+  `Invalid array value from config p for flag --tags`; the positional twin
+  reported `Invalid value '<redacted>' from config p for argument <tags>`,
+  naming neither the shape nor a value it actually held. Both surfaces now word
+  it `Invalid array value` / `Invalid object value`, so the byte-for-byte
+  wording rule in [Diagnostics and redaction](https://dreamcli.kjanat.dev/guide/semantics#diagnostics-and-redaction)
+  holds for the collection faults too.
+
+- **A builder could produce a schema its own factory refuses.** Each modifier
+  states the kinds it belongs to through a `this` constraint, which the compiler
+  enforces and a JavaScript caller does not see, so `flag.string().separator(',')`
+  built a string flag carrying a CLI delimiter and emitted a definition document
+  `createFlagSchema()` then rejected with `INVALID_SCHEMA`. Twelve modifiers on
+  the flag surface and eleven on the argument surface behaved this way. Every
+  builder modifier now runs the same check `createFlagSchema()` /
+  `createArgSchema()` run, so what a builder produces is always a definition the
+  framework reads back. A test calling such a modifier through `@ts-expect-error`
+  and expecting it to build needs `expect(...).toThrow()`.
+
+- **The normalization factories accepted a kind they have no arm for.**
+  `createFlagSchema('nope')` and `createArgSchema('count')` built a schema whose
+  discriminator is outside `FLAG_KINDS` / `ARG_KINDS`, which every exhaustive
+  `switch (schema.kind)` downstream falls through. The types forbid the call,
+  but a JavaScript caller reached it, and the keyValue prompt gate showed such a
+  schema can reach a shipped diagnostic. Both factories now throw
+  `INVALID_SCHEMA` with `Unknown flag kind 'nope'` / `Unknown arg kind 'count'`,
+  listing the allowed kinds in `details.allowed`, on the two-argument path, the
+  definition path, and a nested `elementSchema`.
+
+- **`flag.array()` with no element threw a raw `TypeError`.** The factory read
+  `.schema` off the element it was handed, so a JavaScript caller omitting it
+  got `Cannot read properties of undefined` instead of a framework error. It now
+  throws `INVALID_SCHEMA` with `flag.array() requires an element builder`.
+  `flag.keyValue()` and `arg.keyValue()`, whose element is optional, apply the
+  same check to an element that is supplied.
+
+- **A positional cut a parse function's message at its last colon.** Off argv,
+  the argument surface rebuilt the reason for a failure by scanning the message
+  the flag surface had already written, keeping only the text after the final
+  `": "`. Anything a parse function put before a colon was lost, and a reason
+  whose own tail held a colon was dropped whole: `arg.url({ protocols: ['https'] })`
+  reported `Invalid value '<redacted>' from env ENDPOINT for argument <endpoint>: https`,
+  and `arg.date()` reported no reason at all. `arg.duration()`, `arg.bytes()`,
+  and every `arg.custom()` whose error text carries a colon were affected the
+  same way. Each surface now words its own diagnostic from the value layer's
+  verdict, so the reason reaches the argument surface whole.
+
+  A parse-function failure off argv is also worded the way the flag surface and
+  the command line already word it, so `Failed to parse env ENDPOINT for
+  argument <endpoint>: URL protocol 'http' is not allowed. Allowed: https`
+  replaces the `Invalid value '<redacted>' …` opening, which announced a
+  redaction in the same sentence that printed the parse function's own text.
+  A test asserting the old opening for a non-argv `arg.url()`, `arg.date()`,
+  `arg.duration()`, `arg.bytes()`, or `arg.custom()` message needs the new one.
+
+- **A positional withheld what a type mismatch expected.** For a value no
+  boolean codec could read, the flag surface reported
+  `Invalid boolean value '<redacted>' …` and suggested
+  `Set VAR to true/false, 1/0, or yes/no`, while the argument surface reported
+  `Invalid value '<redacted>' …` and suggested only `Set VAR to a valid boolean`,
+  which is the question rather than the answer. A string a config object could
+  not fill carried no `expected` field and no suggestion at all on the argument
+  surface. Both now match the flag surface: the message names the type, the
+  details carry `expected`, and the suggestion names what the codec reads.
+
+- **An argument kind with no compatible prompt was told to use `undefined`.**
+  `createArgSchema({ kind: 'keyValue', prompt: … })` reached the prompt gate,
+  which took the first allowed prompt kind from an empty list and reported
+  `Prompt kind 'input' is not compatible with keyValue argument <vars>. Use
+  'undefined' instead` with `Change the prompt to { kind: 'undefined' }`. The
+  flag surface already had a branch for a kind that is not promptable at all;
+  both surfaces now share it and report
+  `keyValue arguments are not promptable` with `Remove the prompt config for <vars>`.
+
+- **A key-value input told the user to write an array.** A config value of the
+  wrong shape for `flag.keyValue()` or `arg.keyValue()` reported
+  `Invalid array value from config c for flag --vars` with `expected: 'array'`
+  and `Set c to an array in your config`, which is not what an entries input
+  accepts and, for a config value that already was an array, not even a change.
+  The fault now carries the shape the cardinality wants: an entries input reads
+  `Invalid object value …` with `expected: 'object'` and
+  `Set c to an object in your config` on the flag surface and
+  `Use KEY=VALUE for <vars>` on the argument surface. A list input is unchanged.
+
+- **Five types the stability page classified as public were exported from
+  nowhere.** `NodeProcess`, `DenoNamespace`, and `GlobalForDetect` are the host
+  objects `createNodeAdapter()`, `createDenoAdapter()`, and `detectRuntime()`
+  accept, and the page attributes all three to `@kjanat/dreamcli/runtime`, which
+  exported none of them; a caller injecting a host could not name the parameter
+  type. `StringArgElementConfig` and `WithoutArgElementEligibility` sat in the
+  same sentence as `StringElementConfig`, which the root entrypoint does export.
+  All five are now exported, along with the flag-side
+  `WithoutElementEligibility` its argument twin mirrors.
+
+- **A definition document, its input schema, and help all dropped a default the
+  schema still resolved.** `generateSchema()`, `generateInputSchema()`, and
+  `formatHelp()` each reported a default only for `presence: 'defaulted'`, but
+  resolution uses any `defaultValue` a schema carries, and
+  `createFlagSchema({ kind: 'string', defaultValue: 'dist' })` keeps
+  `presence: 'optional'`. A document emitted from such a schema decoded back to
+  a flag with no default, so a round trip through the format changed behavior;
+  the input schema omitted `default`, and help omitted `(default: dist)` for a
+  flag that does resolve one. All three now report the default whenever the
+  schema carries one, on both surfaces, whatever the presence.
+  Builder-authored schemas are unaffected, since `.default()` sets the
+  defaulted presence.
+
+  Help no longer calls such an input required either. A default binding always
+  produces a value, so neither `REQUIRED_FLAG` nor `REQUIRED_ARG` can fire for a
+  schema carrying a `defaultValue`, yet `flag.string().default('dist').required()`
+  rendered `[required]` and hid its own default while the positional twin
+  rendered `(default: prod)` and still demanded a token as `<target>`. A
+  `defaultValue` now suppresses the `[required]` marker and the angle brackets on
+  both surfaces; an input without one is unchanged.
+
+- **A duplicate key leaked its text from every non-argv source.** Under
+  `.duplicateKeys('error')`, `Duplicate key 'DB_PASSWORD' from env VARS for flag
+  --vars` quoted the key in the message, in `details.key`, and in `suggest`,
+  whatever source carried it. A key is half of a `KEY=VALUE` pair, so it is
+  value text from that source, and the same pair reported `Invalid key-value
+  pair '<redacted>'` when it failed to split instead. The key is now quoted only
+  for occurrences the user typed on the command line; stdin, env, config, and
+  prompt read `Duplicate key '<redacted>'`, carry no `key` in `details`, and
+  suggest `Set the repeated key once`. Both surfaces follow the rule.
+
+- **A flag reported a JSON shape fault in the wrong order.** `Invalid JSON
+  value, expected an object from env VARS for flag --vars` put the expectation
+  between the fault and the source that carried it. The flag surface now words
+  it as the argument surface already did: `Invalid JSON value from env VARS for
+  flag --vars, expected an object`.
+
+- **`ArgElementFragmentV1` was documented as public but exported from nowhere.**
+  `stability.md` classifies it with the other version 1 fragment types and
+  `schema-export.md` names it as the shape of an arg `elementSchema`, but the
+  type never reached `@kjanat/dreamcli`. It is exported now, alongside its
+  siblings.
+
+- **A default rejected on a vowel-initial kind read `a array`.** The
+  construction-time `INVALID_DEFAULT` message built its subject with a fixed
+  article, so `createFlagSchema('array', …)` and `createFlagSchema('enum', …)`
+  produced `Default value for a array flag` and `Default value for a enum flag`.
+  Both now read `an`.
 
 - **A duplicate key the user typed said it came from stdin.** Under
   `.duplicateKeys('error')`, a repeat among CLI occurrences was worded

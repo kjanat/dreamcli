@@ -219,7 +219,7 @@ describe('a duplicate key names the source that carried it', () => {
 					},
 				),
 			),
-		).toBe("Duplicate key 'A' from stdin for flag --value");
+		).toBe("Duplicate key '<redacted>' from stdin for flag --value");
 	});
 
 	it('names stdin for a spliced key in a positional tail', async () => {
@@ -229,7 +229,7 @@ describe('a duplicate key names the source that carried it', () => {
 					stdinData: 'A=2\n',
 				}),
 			),
-		).toBe("Duplicate key 'A' from stdin for argument <files>");
+		).toBe("Duplicate key '<redacted>' from stdin for argument <files>");
 	});
 
 	it('names the typed token when it is the one that repeats', async () => {
@@ -253,6 +253,6 @@ describe('a duplicate key names the source that carried it', () => {
 					env: { VARS: 'A=1,A=2' },
 				}),
 			),
-		).toBe("Duplicate key 'A' from env VARS for flag --value");
+		).toBe("Duplicate key '<redacted>' from env VARS for flag --value");
 	});
 });

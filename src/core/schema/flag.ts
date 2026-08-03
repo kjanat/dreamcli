@@ -16,6 +16,7 @@ import {
 	DUPLICATE_KEYS,
 	defaultViolationError,
 	flagCardinality,
+	indefiniteArticle,
 	isCollection,
 	normalizeSplitOptions,
 	normalizeSplitPolicy,
@@ -860,9 +861,13 @@ const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
  *
  * @param kind - Declared kind of the definition.
  * @param fields - Definition fields excluding the kind discriminator.
- * @throws {CLIError} With code `'INVALID_SCHEMA'` on a kind mismatch.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unknown kind or a kind
+ *   mismatch.
+ * @internal
  */
 function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields): void {
+	assertKnownFlagKind(kind);
+
 	for (const [field, requiredKinds] of KIND_SPECIFIC_FLAG_FIELDS) {
 		if (requiredKinds.includes(kind)) continue;
 		if (fields[field] === undefined) continue;
@@ -920,6 +925,27 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 	if (fields.stdin !== undefined) {
 		assertStdinCapableKind(kind);
 	}
+}
+
+/**
+ * Reject a discriminator outside {@link FLAG_KINDS}.
+ *
+ * The types admit only a declared kind, so this catches an untyped JavaScript
+ * caller before an unknown discriminator reaches an exhaustive `switch` that
+ * has no arm for it.
+ *
+ * @param kind - Declared kind of the definition.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unknown kind.
+ * @internal
+ */
+function assertKnownFlagKind(kind: FlagKind): void {
+	if (FLAG_KINDS.includes(kind)) return;
+
+	throw new CLIError(`Unknown flag kind '${String(kind)}'`, {
+		code: 'INVALID_SCHEMA',
+		details: { kind, allowed: [...FLAG_KINDS] },
+		suggest: `Use one of: ${FLAG_KINDS.join(', ')}`,
+	});
 }
 
 /**
@@ -1055,9 +1081,7 @@ function assertValidFlagDefault(name: string | undefined, schema: FlagSchema): v
 	);
 	if (violation === undefined) return;
 	throw defaultViolationError(
-		name === undefined
-			? `${schema.kind === 'enum' || schema.kind === 'array' ? 'an' : 'a'} ${schema.kind} flag`
-			: `flag --${name}`,
+		name === undefined ? `${indefiniteArticle(schema.kind)} ${schema.kind} flag` : `flag --${name}`,
 		{ kind: schema.kind, ...(name === undefined ? {} : { flag: name }) },
 		violation,
 	);
@@ -1629,6 +1653,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param value - Separator string (e.g. `','`).
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that carries a
+	 *   single value.
 	 *
 	 * @example
 	 * ```ts
@@ -1641,7 +1667,7 @@ class FlagBuilder<C extends FlagConfig> {
 		value: string,
 	): FlagBuilder<C> {
 		normalizeSplitPolicy('cli', value);
-		return new FlagBuilder({ ...this.schema, separator: value });
+		return nextFlag({ ...this.schema, separator: value });
 	}
 
 	/**
@@ -1660,7 +1686,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * @param options - Per-source split settings.
 	 * @returns The builder (for chaining).
 	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a format the source does
-	 *   not accept, or an empty delimiter.
+	 *   not accept, an empty delimiter, or a flag that carries a single value.
 	 *
 	 * @example
 	 * ```ts
@@ -1674,7 +1700,7 @@ class FlagBuilder<C extends FlagConfig> {
 		options: SplitOptions,
 	): FlagBuilder<C> {
 		const normalized = normalizeSplitOptions(options, this.schema.split);
-		return new FlagBuilder({
+		return nextFlag({
 			...this.schema,
 			...(normalized.setsSeparator ? { separator: normalized.separator } : {}),
 			split: normalized.split,
@@ -1690,19 +1716,21 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * @param policy - `'last'` (default), `'first'`, or `'error'`.
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that is not
+	 *   `keyValue`.
 	 *
 	 * @example
 	 * ```ts
 	 * flag.keyValue().duplicateKeys('error').env('VARS')
 	 * // $ VARS='A=1,A=2' mycli run
-	 * // #   → Duplicate key 'A' from env VARS for flag --env  (CONSTRAINT_VIOLATED)
+	 * // #   → Duplicate key '<redacted>' from env VARS for flag --env  (CONSTRAINT_VIOLATED)
 	 * ```
 	 */
 	duplicateKeys(
 		this: FlagBuilder<C & { readonly flagKind: 'keyValue' }>,
 		policy: DuplicateKeys,
 	): FlagBuilder<C> {
-		return new FlagBuilder({ ...this.schema, duplicateKeys: policy });
+		return nextFlag({ ...this.schema, duplicateKeys: policy });
 	}
 
 	/**
@@ -1737,6 +1765,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * @param value - Whether to deduplicate.
 	 * @defaultValue `true`
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that is not
+	 *   `array`.
 	 *
 	 * @example
 	 * ```ts
@@ -1745,7 +1775,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	unique(this: FlagBuilder<C & { readonly flagKind: 'array' }>, value = true): FlagBuilder<C> {
-		return new FlagBuilder({ ...this.schema, unique: value });
+		return nextFlag({ ...this.schema, unique: value });
 	}
 
 	// -- Boolean modifiers -----------------------------------------------------
@@ -1762,6 +1792,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * @param options - Optional custom spelling (`alias`, without `--`) and
 	 *   `hidden` to keep the negated spelling parseable but unadvertised.
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that is not
+	 *   `boolean`.
 	 *
 	 * @example
 	 * ```ts
@@ -1774,7 +1806,7 @@ class FlagBuilder<C extends FlagConfig> {
 		this: FlagBuilder<C & { readonly flagKind: 'boolean' }>,
 		options?: { alias?: string; hidden?: boolean },
 	): FlagBuilder<WithoutElementEligibility<C>> {
-		return new FlagBuilder({
+		return nextFlag({
 			...this.schema,
 			negation: { alias: options?.alias, hidden: options?.hidden ?? false },
 		});
@@ -1806,21 +1838,30 @@ class FlagBuilder<C extends FlagConfig> {
 		>,
 		policy: DuplicatePolicy,
 	): FlagBuilder<WithoutElementEligibility<C>> {
-		return new FlagBuilder({ ...this.schema, duplicates: policy });
+		return nextFlag({ ...this.schema, duplicates: policy });
 	}
 }
 
 /**
- * Continue a builder chain, rejecting a default the change just invalidated.
+ * Continue a builder chain, rejecting a schema the change just invalidated.
+ *
+ * The `this` constraint on each modifier states to the compiler which kinds
+ * carry the field it sets; this states the same rule to a caller who reaches
+ * the builder from JavaScript, with the error {@link createFlagSchema} already
+ * gives, so what a builder produces is always a definition the framework can
+ * read back.
  *
  * A constraint added after `.default()` still governs the default, so the
  * verdict is the same whichever order the chain was written in.
  *
  * @param schema - The schema the modifier produced.
  * @returns A builder over that schema.
- * @throws {CLIError} With code `'INVALID_DEFAULT'` when the default no longer holds.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the field does not belong
+ *   on the flag, or `'INVALID_DEFAULT'` when the default no longer holds.
+ * @internal
  */
 function nextFlag<C extends FlagConfig>(schema: FlagSchema): FlagBuilder<C> {
+	assertValidFlagDefinition(schema.kind, schema);
 	assertValidFlagDefault(undefined, schema);
 	return new FlagBuilder(schema);
 }
@@ -2260,6 +2301,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'array';
 		readonly elementEligible: false;
 	}> {
+		assertFlagElementBuilder('array', element);
 		return new FlagBuilder(createFlagSchema('array', { elementSchema: element.schema }));
 	},
 
@@ -2356,6 +2398,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'keyValue';
 		readonly elementEligible: false;
 	}> {
+		if (element !== undefined) assertFlagElementBuilder('keyValue', element);
 		return new FlagBuilder(
 			createFlagSchema('keyValue', {
 				valueHint: 'key=value',
@@ -2364,6 +2407,28 @@ const flag: FlagFactory = {
 		);
 	},
 };
+
+/**
+ * Reject a collection factory handed something other than a flag builder.
+ *
+ * The types demand one, so this catches an untyped JavaScript caller before the
+ * factory reads `.schema` off a value that has none.
+ *
+ * @param factory - Name of the factory being called.
+ * @param element - What the caller passed as the element.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when it is not a
+ *   {@link FlagBuilder}.
+ * @internal
+ */
+function assertFlagElementBuilder(factory: 'array' | 'keyValue', element: unknown): void {
+	if (element instanceof FlagBuilder) return;
+
+	throw new CLIError(`flag.${factory}() requires an element builder`, {
+		code: 'INVALID_SCHEMA',
+		details: { factory, field: 'element', received: typeof element },
+		suggest: `Pass an element builder, as in flag.${factory}(flag.string())`,
+	});
+}
 
 // --- Exports
 

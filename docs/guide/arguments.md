@@ -376,7 +376,15 @@ deduplicates a variadic array, and `.duplicateKeys()` decides a repeated key:
 arg.string().variadic().split({ cli: ',', env: 'json' });
 // mycli build a,b c   →  ['a', 'b', 'c']
 // FILES='["a","b"]'   →  ['a', 'b']
+
+arg.keyValue().separator(',');
+// mycli run A=1,B=2   →  { A: '1', B: '2' }
 ```
+
+The CLI delimiter applies to each token whatever the arity, so a non-variadic
+`arg.keyValue()` splits its single token the same way the variadic form splits
+each token of its tail, and the same way `flag.keyValue()` splits each
+occurrence.
 
 These four modifiers are collection modifiers, so they are available on an
 argument that aggregates. Each states the shape it needs. `.separator()` and
@@ -498,13 +506,16 @@ mycli deploy             # asks "Target:"
 mycli deploy production  # skips the prompt
 ```
 
-The prompt kinds an argument accepts follow its kind, matching the flag table:
-`string` takes `input` or `select`, `number` takes `input`, `enum` takes
-`select` or `input`, and `custom` takes every kind. An incompatible pairing
-throws `CONSTRAINT_VIOLATED` naming the argument:
+The prompt kinds an argument accepts follow its value and cardinality, matching
+the flag table: `string` takes `input` or `select`, `number` takes `input`,
+`enum` takes `select` or `input`, `custom` takes every kind, and a variadic
+argument takes `multiselect`, the kind `flag.array()` takes. `arg.keyValue()` is
+not promptable, as `flag.keyValue()` is not. An incompatible pairing throws
+`CONSTRAINT_VIOLATED` naming the argument:
 
 ```
 Prompt kind 'confirm' is not compatible with number argument <n>. Use 'input' instead
+Prompt kind 'input' is not compatible with variadic string argument <files>. Use 'multiselect' instead
 ```
 
 Prompts run only when a prompter is available. Without one the argument falls

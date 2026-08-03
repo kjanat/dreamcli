@@ -21,14 +21,15 @@ a source the projection omits is a source no stage can produce.
 | ---------------- | ----: | ----------------------------------------------------------------------------- |
 | `index.ts`       |   153 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
 | `stages.ts`      |   263 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
-| `flags.ts`       |   386 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
-| `args.ts`        |   276 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
-| `coerce.ts`      |  1191 | `coerceValue()` — unified raw value -> flag's declared kind                   |
-| `path-checks.ts` |   127 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
+| `flags.ts`       |   433 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
+| `args.ts`        |   299 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
+| `coerce.ts`      |  1175 | `coerceValue()` — unified raw value -> flag's declared kind                   |
+| `path-checks.ts` |   134 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
+| `redaction.ts`   |    29 | `echoesValue()` / `REDACTED` — the one rule for value text in diagnostics     |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   226 | Error aggregation + `throwAggregatedErrors()`                                 |
 | `contracts.ts`   |   182 | `ResolveOptions`, `ResolutionProvenanceRecord`, `resolverContract`            |
-| `standard.ts`    |   297 | Standard Schema v1 validation pass over resolved values                       |
+| `standard.ts`    |   283 | Standard Schema v1 validation pass over resolved values                       |
 
 ## KEY FUNCTIONS
 
@@ -39,10 +40,14 @@ a source the projection omits is a source no stage can produce.
 | `resolveFlags()`                    | `flags.ts`       | All flags: the shared stage walk, in two passes                     |
 | `resolveArgs()`                     | `args.ts`        | All args: the shared stage walk, then path checks                   |
 | `coerceValue()`                     | `coerce.ts`      | Unified raw value -> flag's declared kind (stdin/env/config/prompt) |
-| `coerceValueSchema()`               | `coerce.ts`      | Runs `decodeValue()` and names the subject on failure               |
+| `coerceValueSchema()`               | `coerce.ts`      | Runs `decodeValue()` and names the flag on failure                  |
+| `argValueCoercionError()`           | `coerce.ts`      | Words the same `ValueFailure` for the positional surface            |
 | `resolveConfigPath()`               | `config.ts`      | Dotted path lookup in config object                                 |
 | `validatePromptFlagCompatibility()` | `flags.ts`       | Prompt kind ↔ flag kind gate (before prompter invocation)           |
+| `argPromptCompatibility()`          | `args.ts`        | The same gate read through the arg's value and cardinality axes     |
+| `promptCompatibilityError()`        | `flags.ts`       | Words that gate's failure for whichever surface declared the prompt |
 | `validatePathChecks()`              | `path-checks.ts` | Post-resolution filesystem pass, flags and args alike               |
+| `echoesValue()`                     | `redaction.ts`   | Whether a recorded provenance permits quoting the value             |
 
 ## TWO-PASS ARCHITECTURE
 
@@ -73,6 +78,12 @@ quoting the token the user typed, which is already on their screen. `sourceDetai
 `source` on every coercion failure, which is what tells `errors.ts` a stage produced a value, as
 against a required input that merely declares an env var.
 
+`redaction.ts` owns the rule for the passes that run after coercion, where the raw source is gone
+and only the recorded `ResolutionProvenance` says where a value came from. `echoesValue(provenance)`
+is true for `{ stage: 'cli' }` alone, so an explicit `-` (`{ stage: 'cli', via: 'stdin' }`) and a
+declared default both redact. `standard.ts` and `path-checks.ts` read it; `coerce.ts` takes the
+`REDACTED` constant from the same module so one spelling reaches every surface.
+
 Returns `CoerceResult` (`{ ok: true; value } | { ok: false; error: ValidationError }`).
 
 What a value _means_ is not decided here. `coerceValue()` projects the flag through
@@ -96,7 +107,9 @@ it lifts to a single `aggregated` occurrence and reaches the resolved value unto
 Each spliced occurrence keeps the source it came from, `{ kind: 'cli' }` for a typed token and
 `{ kind: 'stdin' }` for one the buffer supplied. `AggregationErrors` takes that source, so a
 duplicate-key message names `from stdin` only for a key the pipe carried and names nothing for a key
-the user typed. `foldEntries()` reports the index of the repeating pair, which is how the source is
+the user typed. The same source decides how the key is quoted: `duplicateKeyReport()` prints it for
+a typed token and `'<redacted>'` for every other source, since a key is half of a `KEY=VALUE` pair
+and therefore value text. `foldEntries()` reports the index of the repeating pair, which is how the source is
 found without re-parsing. A `-` occurrence with no buffer is `dash-without-stdin`: a `MISSING_STDIN`
 error when it sits beside typed occurrences, and absence when every occurrence is `-`, which keeps
 the later stages reachable. A scalar `-` takes the second branch on its own, which is why a bare
@@ -136,9 +149,13 @@ once.
 | `resolve-redaction.test.ts`       | Redaction per source, argv literal, `MISSING_STDIN`          |
 | `contracts.test.ts`               | Contract verification                                        |
 
-## PROMPT — FLAG KIND COMPATIBILITY
+## PROMPT — INPUT KIND COMPATIBILITY
 
-`COMPATIBLE_PROMPT_KINDS` in `flags.ts` maps each `FlagKind` to allowed `PromptKind[]`:
+`COMPATIBLE_PROMPT_KINDS` in `flags.ts` maps each `FlagKind` to allowed `PromptKind[]`. Every
+`ArgKind` is also a `FlagKind`, so `argPromptCompatibility()` in `args.ts` reads the same map,
+through the cardinality: an arg whose `argCardinality()` is `many` takes the `array` row, since a
+variadic positional and a `flag.array()` aggregate the same way, and names itself `variadic <kind>`
+in the diagnostic. Every other arg takes its kind's row:
 
 | Flag kind | Allowed prompt kinds                      |
 | --------- | ----------------------------------------- |
@@ -152,12 +169,15 @@ once.
 | custom    | input, select, confirm, multiselect (all) |
 
 `validatePromptFlagCompatibility()` checks this map before `prompter.promptOne()` runs. Mismatches
-produce a `CONSTRAINT_VIOLATED` `ValidationError` with `details.flagKind`, `details.promptKind`, and
-an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` in `schema/flag.ts`.
+produce a `CONSTRAINT_VIOLATED` `ValidationError` with `details.flagKind` (`details.argKind` on the
+positional surface), `details.promptKind`, and an actionable `suggest`. Both surfaces word it through
+`promptCompatibilityError()`, which reports a kind with an empty allowed list as not promptable
+rather than naming a first allowed kind there is none of. This mirrors the compile-time
+`AllowedPromptConfig<C>` in `schema/flag.ts` and `AllowedArgPromptConfig<C>` in `schema/arg.ts`.
 
 ## GOTCHAS
 
-- Split from ~940-line monolithic index — `coerce.ts` (1179 lines) is the largest piece
+- Split from ~940-line monolithic index — `coerce.ts` (1177 lines) is the largest piece
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
 - `DeprecationWarning` structs collected during resolution for deprecated flag/arg usage

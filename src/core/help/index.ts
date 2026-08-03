@@ -293,10 +293,12 @@ function formatFlagDescription(schema: FlagSchema, theme: HelpTheme): string {
 		parts.push(theme.annotation('[prompt]'));
 	}
 
-	if (schema.presence === 'required') {
+	// A schema carrying a default resolves one whatever its presence says, so the
+	// required stage never reports it missing.
+	if (schema.presence === 'required' && schema.defaultValue === undefined) {
 		parts.push(theme.annotation('[required]'));
 	} else if (
-		schema.presence === 'defaulted' &&
+		(schema.presence === 'defaulted' || schema.defaultValue !== undefined) &&
 		schema.kind !== 'boolean' &&
 		schema.kind !== 'count'
 	) {
@@ -380,7 +382,9 @@ function formatArgUsage(entry: CommandArgEntry): string {
 	const label =
 		schema.kind === 'enum' && schema.enumValues !== undefined ? schema.enumValues.join('|') : name;
 	const variadicSuffix = schema.variadic ? '...' : '';
-	if (schema.presence === 'required') {
+	// A positional carrying a default resolves one whatever its presence says, so
+	// the usage line does not demand a token for it.
+	if (schema.presence === 'required' && schema.defaultValue === undefined) {
 		return `<${label}>${variadicSuffix}`;
 	}
 	return `[${label}]${variadicSuffix}`;
@@ -418,7 +422,7 @@ function formatArgDescription(schema: ArgSchema, theme: HelpTheme): string {
 		parts.push(theme.annotation('[prompt]'));
 	}
 
-	if (schema.presence === 'defaulted') {
+	if (schema.presence === 'defaulted' || schema.defaultValue !== undefined) {
 		parts.push(theme.defaultValue(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`));
 	}
 

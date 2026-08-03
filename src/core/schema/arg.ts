@@ -16,6 +16,7 @@ import {
 	argCardinality,
 	DUPLICATE_KEYS,
 	defaultViolationError,
+	indefiniteArticle,
 	isCollection,
 	normalizeSplitOptions,
 	normalizeSplitPolicy,
@@ -25,6 +26,7 @@ import { assertNumberConstraints, type NumberConstraints } from './number-constr
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
+	MultiselectPromptConfig,
 	PromptConfig,
 	SelectPromptConfig,
 } from './prompt.ts';
@@ -198,8 +200,17 @@ type PromptConfigByArgKind = {
 	readonly keyValue: never;
 };
 
-/** Prompt configuration compatible with the kind carried by an {@link ArgConfig}. */
-type AllowedArgPromptConfig<C extends ArgConfig> = PromptConfigByArgKind[C['argKind']];
+/**
+ * Prompt configuration compatible with an {@link ArgConfig}.
+ *
+ * A variadic arg collects several values, so it takes the multiselect a
+ * `flag.array()` takes; every other arg takes what its kind takes.
+ */
+type AllowedArgPromptConfig<C extends ArgConfig> = C['argKind'] extends 'keyValue'
+	? never
+	: C['variadic'] extends true
+		? MultiselectPromptConfig
+		: PromptConfigByArgKind[C['argKind']];
 
 /** Extract the resolved value type from an {@linkcode ArgBuilder}. */
 type InferArg<B> = B extends ArgBuilder<infer C extends ArgConfig> ? ResolvedArgValue<C> : never;
@@ -717,9 +728,12 @@ function normalizeArgDefinitionFields(fields: ArgDefinitionFields): ArgSchemaFie
  *
  * @param kind - Declared kind of the definition.
  * @param fields - Definition fields excluding the kind discriminator.
- * @throws {CLIError} With code `'INVALID_SCHEMA'` on a kind mismatch.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unknown kind or a kind
+ *   mismatch.
  */
 function assertValidArgDefinition(kind: ArgKind, fields: ArgDefinitionFields): void {
+	assertKnownArgKind(kind);
+
 	for (const [field, requiredKind] of KIND_SPECIFIC_ARG_FIELDS) {
 		if (kind === requiredKind) continue;
 		if (fields[field] === undefined) continue;
@@ -790,6 +804,26 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgDefinitionFields): v
 			suggest: "Add 'variadic: true' on a list kind, or drop 'unique'",
 		});
 	}
+}
+
+/**
+ * Reject a discriminator outside {@link ARG_KINDS}.
+ *
+ * The types admit only a declared kind, so this catches an untyped JavaScript
+ * caller before an unknown discriminator reaches an exhaustive `switch` that
+ * has no arm for it.
+ *
+ * @param kind - Declared kind of the definition.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unknown kind.
+ */
+function assertKnownArgKind(kind: ArgKind): void {
+	if (ARG_KINDS.includes(kind)) return;
+
+	throw new CLIError(`Unknown arg kind '${String(kind)}'`, {
+		code: 'INVALID_SCHEMA',
+		details: { kind, allowed: [...ARG_KINDS] },
+		suggest: `Use one of: ${ARG_KINDS.join(', ')}`,
+	});
 }
 
 /**
@@ -867,7 +901,9 @@ function assertValidArgDefault(name: string | undefined, schema: ArgSchema): voi
 	);
 	if (violation === undefined) return;
 	throw defaultViolationError(
-		name === undefined ? `a ${schema.kind} argument` : `argument <${name}>`,
+		name === undefined
+			? `${indefiniteArticle(schema.kind)} ${schema.kind} argument`
+			: `argument <${name}>`,
 		{ kind: schema.kind, ...(name === undefined ? {} : { arg: name }) },
 		violation,
 	);
@@ -1157,7 +1193,7 @@ class ArgBuilder<C extends ArgConfig> {
 		value: string,
 	): ArgBuilder<C> {
 		normalizeSplitPolicy('cli', value);
-		return nextCollectionArg({ ...this.schema, separator: value });
+		return nextArg({ ...this.schema, separator: value });
 	}
 
 	/**
@@ -1192,7 +1228,7 @@ class ArgBuilder<C extends ArgConfig> {
 		options: SplitOptions,
 	): ArgBuilder<C> {
 		const normalized = normalizeSplitOptions(options, this.schema.split);
-		return nextCollectionArg({
+		return nextArg({
 			...this.schema,
 			...(normalized.setsSeparator ? { separator: normalized.separator } : {}),
 			split: normalized.split,
@@ -1218,7 +1254,7 @@ class ArgBuilder<C extends ArgConfig> {
 		if (this.schema.kind === 'keyValue' || this.schema.variadic !== true) {
 			assertValidArgDefinition(this.schema.kind, { ...this.schema, unique: true });
 		}
-		return nextCollectionArg({ ...this.schema, unique: value });
+		return nextArg({ ...this.schema, unique: value });
 	}
 
 	/**
@@ -1233,14 +1269,14 @@ class ArgBuilder<C extends ArgConfig> {
 	 * ```ts
 	 * arg.keyValue().variadic().duplicateKeys('error').env('VARS')
 	 * // $ VARS='A=1,A=2' mycli run
-	 * // #   → Duplicate key 'A' from env VARS for argument <vars>  (CONSTRAINT_VIOLATED)
+	 * // #   → Duplicate key '<redacted>' from env VARS for argument <vars>  (CONSTRAINT_VIOLATED)
 	 * ```
 	 */
 	duplicateKeys(
 		this: ArgBuilder<C & { readonly argKind: 'keyValue' }>,
 		policy: DuplicateKeys,
 	): ArgBuilder<C> {
-		return nextCollectionArg({ ...this.schema, duplicateKeys: policy });
+		return nextArg({ ...this.schema, duplicateKeys: policy });
 	}
 
 	/**
@@ -1387,6 +1423,10 @@ class ArgBuilder<C extends ArgConfig> {
 	 * is skipped and resolution falls through to the default or the missing-arg
 	 * error.
 	 *
+	 * The compatible kinds follow the value and the cardinality: a variadic arg
+	 * takes the `multiselect` a `flag.array()` takes, and every other arg takes
+	 * what its kind takes on the flag surface.
+	 *
 	 * @param config - {@link PromptConfig} describing the interactive prompt.
 	 * @returns The builder (for chaining).
 	 *
@@ -1395,6 +1435,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 * arg.string().prompt({ kind: 'input', message: 'Target:' })
 	 * // $ mycli deploy             → prompts "Target:"
 	 * // $ mycli deploy production  → skips the prompt
+	 *
+	 * arg.string().variadic().prompt({ kind: 'multiselect', message: 'Targets:' })
 	 * ```
 	 */
 	prompt(config: AllowedArgPromptConfig<C>): ArgBuilder<WithoutArgElementEligibility<C>> {
@@ -1623,26 +1665,16 @@ class ArgBuilder<C extends ArgConfig> {
 }
 
 /**
- * Continue a builder chain, rejecting a default the change just invalidated.
+ * Continue a builder chain, rejecting a schema the change just invalidated.
+ *
+ * The `this` constraint on each modifier states to the compiler which kinds
+ * carry the field it sets; this states the same rule to a caller who reaches
+ * the builder from JavaScript, with the error {@link createArgSchema} already
+ * gives, so what a builder produces is always a definition the framework can
+ * read back.
  *
  * A constraint added after `.default()` still governs the default, so the
  * verdict is the same whichever order the chain was written in.
- *
- * @param schema - The schema the modifier produced.
- * @returns A builder over that schema.
- * @throws {CLIError} With code `'INVALID_DEFAULT'` when the default no longer holds.
- */
-function nextArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
-	assertValidArgDefault(undefined, schema);
-	return new ArgBuilder(schema);
-}
-
-/**
- * Continue a builder chain past a modifier only an arg that aggregates carries.
- *
- * The `this` constraints on those modifiers state the rule to the compiler; this
- * states it to a caller who reaches the builder from JavaScript, with the error
- * the definition path already gives.
  *
  * @param schema - The schema the modifier produced.
  * @returns A builder over that schema.
@@ -1650,9 +1682,10 @@ function nextArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
  *   on the arg, or `'INVALID_DEFAULT'` when the default no longer holds.
  * @internal
  */
-function nextCollectionArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
+function nextArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
 	assertValidArgDefinition(schema.kind, schema);
-	return nextArg(schema);
+	assertValidArgDefault(undefined, schema);
+	return new ArgBuilder(schema);
 }
 
 // --- Factory namespace
@@ -2138,6 +2171,7 @@ const arg: ArgFactory = {
 		readonly argKind: 'keyValue';
 		readonly elementEligible: false;
 	}> {
+		if (element !== undefined) assertArgElementBuilder('keyValue', element);
 		return new ArgBuilder(
 			createArgSchema('keyValue', {
 				valueHint: 'key=value',
@@ -2227,6 +2261,27 @@ const arg: ArgFactory = {
 		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(bytesValue())));
 	},
 };
+
+/**
+ * Reject a collection factory handed something other than an arg builder.
+ *
+ * The types demand one, so this catches an untyped JavaScript caller before the
+ * factory reads `.schema` off a value that has none.
+ *
+ * @param factory - Name of the factory being called.
+ * @param element - What the caller passed as the element.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when it is not an
+ *   {@link ArgBuilder}.
+ */
+function assertArgElementBuilder(factory: 'keyValue', element: unknown): void {
+	if (element instanceof ArgBuilder) return;
+
+	throw new CLIError(`arg.${factory}() requires an element builder`, {
+		code: 'INVALID_SCHEMA',
+		details: { factory, field: 'element', received: typeof element },
+		suggest: `Pass an element builder, as in arg.${factory}(arg.string())`,
+	});
+}
 
 // --- Exports
 

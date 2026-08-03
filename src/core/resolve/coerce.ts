@@ -27,7 +27,6 @@ import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { describeNumberConstraintViolation } from '#internals/core/schema/number-constraints.ts';
 import type { DecodedSourceBinding, StdinSourceBinding } from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
-import type { StringConstraintViolation } from '#internals/core/schema/string-constraints.ts';
 import {
 	describeStringConstraintViolation,
 	stringConstraintDetails,
@@ -50,6 +49,7 @@ import type {
 	FlagDiagnosticSource,
 	ResolutionDiagnosticSource,
 } from './contracts.ts';
+import { REDACTED } from './redaction.ts';
 
 type CoerceSource = FlagDiagnosticSource;
 
@@ -128,15 +128,6 @@ function coercionError(
 		suggest,
 	});
 }
-
-/**
- * The placeholder every non-literal-CLI source's value is reported as.
- *
- * Stdin, the environment, a config file, and a prompt answer all carry values a
- * user may consider secret, and a diagnostic is written to a terminal, a log,
- * and a CI transcript alike.
- */
-const REDACTED = '<redacted>';
 
 /**
  * Which source a binding's diagnostics name.
@@ -280,6 +271,32 @@ function sourceClause(source: ResolutionDiagnosticSource): string {
 /** The identification fields a source contributes to an aggregation error. */
 function aggregationSourceDetails(source: ResolutionDiagnosticSource): Record<string, unknown> {
 	return source.kind === 'cli' ? {} : sourceDetails(source);
+}
+
+/**
+ * How a duplicate key is quoted, and whether `details` carries it.
+ *
+ * A key is half of a `KEY=VALUE` pair, so it is value text from whatever source
+ * carried it. A token the user typed is quoted like every other argv value; a
+ * key that arrived from stdin, the environment, a config file, or a prompt takes
+ * the same redaction the pair itself takes when it fails to split.
+ *
+ * @param source - The source that carried the repeating pair.
+ * @param key - The key that repeated.
+ * @returns The quoted key for the message, and the detail fields it contributes.
+ */
+function duplicateKeyReport(
+	source: ResolutionDiagnosticSource,
+	key: string,
+): { readonly quoted: string; readonly details: Record<string, unknown> } {
+	return source.kind === 'cli'
+		? { quoted: `'${key}'`, details: { key } }
+		: { quoted: `'${REDACTED}'`, details: {} };
+}
+
+/** What a duplicate-key suggestion asks the caller to change. */
+function duplicateKeySubject(source: ResolutionDiagnosticSource, key: string): string {
+	return source.kind === 'cli' ? `'${key}'` : 'the repeated key';
 }
 
 /**
@@ -440,13 +457,13 @@ function flagCollectionErrors(flagName: string, source: CoerceSource): Collectio
 					`Provide valid JSON for --${flagName}`,
 				);
 			case 'json-shape':
-				return coercionError(
-					flagName,
-					source,
-					'TYPE_MISMATCH',
-					fault.expected,
-					`Invalid JSON value, expected an ${fault.expected}`,
-					`Provide a JSON ${fault.expected} for --${flagName}`,
+				return new ValidationError(
+					`Invalid JSON value ${sourceLabel(source)} for flag --${flagName}, expected an ${fault.expected}`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { flag: flagName, ...sourceDetails(source), expected: fault.expected },
+						suggest: `Provide a JSON ${fault.expected} for --${flagName}`,
+					},
 				);
 		}
 	};
@@ -477,12 +494,13 @@ function flagAggregationErrors(flagName: string): AggregationErrors {
 				},
 			);
 		}
+		const report = duplicateKeyReport(source, fault.key);
 		return new ValidationError(
-			`Duplicate key '${fault.key}' ${sourceClause(source)}for flag --${flagName}`,
+			`Duplicate key ${report.quoted} ${sourceClause(source)}for flag --${flagName}`,
 			{
 				code: 'CONSTRAINT_VIOLATED',
-				details: { flag: flagName, ...aggregationSourceDetails(source), key: fault.key },
-				suggest: `Set '${fault.key}' once for --${flagName}`,
+				details: { flag: flagName, ...aggregationSourceDetails(source), ...report.details },
+				suggest: `Set ${duplicateKeySubject(source, fault.key)} once for --${flagName}`,
 			},
 		);
 	};
@@ -494,11 +512,14 @@ function argCollectionErrors(argName: string, source: ArgStringSource): Collecti
 		switch (fault.kind) {
 			case 'shape':
 				return new ValidationError(
-					`Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`,
+					`Invalid ${fault.expected} value ${argSourceLabel(source)} for argument <${argName}>`,
 					{
 						code: 'TYPE_MISMATCH',
 						details: { arg: argName, ...argSourceDetails(source), expected: fault.expected },
-						suggest: `Provide values for <${argName}>`,
+						suggest:
+							fault.expected === 'object'
+								? `Use KEY=VALUE for <${argName}>`
+								: `Provide values for <${argName}>`,
 					},
 				);
 			case 'pair':
@@ -556,12 +577,13 @@ function argAggregationErrors(argName: string): AggregationErrors {
 				},
 			);
 		}
+		const report = duplicateKeyReport(source, fault.key);
 		return new ValidationError(
-			`Duplicate key '${fault.key}' ${sourceClause(source)}for argument <${argName}>`,
+			`Duplicate key ${report.quoted} ${sourceClause(source)}for argument <${argName}>`,
 			{
 				code: 'CONSTRAINT_VIOLATED',
-				details: { arg: argName, ...aggregationSourceDetails(source), key: fault.key },
-				suggest: `Set '${fault.key}' once for <${argName}>`,
+				details: { arg: argName, ...aggregationSourceDetails(source), ...report.details },
+				suggest: `Set ${duplicateKeySubject(source, fault.key)} once for <${argName}>`,
 			},
 		);
 	};
@@ -754,7 +776,7 @@ function argSourceDetails(source: ArgStringSource): Record<string, unknown> {
 function buildArgCoercionSuggest(
 	argName: string,
 	source: ArgStringSource,
-	expected: 'number' | 'string' | 'custom' | 'boolean',
+	expected: 'number' | 'string' | 'custom',
 ): string {
 	const subject = expected === 'custom' ? 'value' : expected;
 	return suggestBySource(source, {
@@ -768,143 +790,139 @@ function buildArgCoercionSuggest(
 	});
 }
 
+/** The spellings the boolean codec reads, named for the source that carried one. */
+function argBooleanSuggest(argName: string, source: ArgStringSource): string {
+	return suggestBySource(source, {
+		stdin: `Pipe true/false, 1/0, or yes/no to stdin for <${argName}>`,
+		env: (envVar) => `Set ${envVar} to true/false, 1/0, or yes/no`,
+		config: (configPath) => `Set ${configPath} to true or false in your config`,
+		prompt: `Answer yes or no for <${argName}>`,
+	});
+}
+
 /**
- * Rebuild the human-readable reason for a string-constraint failure from the
- * error's own details.
+ * Turn a value-layer failure into the positional surface's validation error.
  *
- * @param error - The coercion failure produced by {@link finalizeString}.
- * @returns The reason, or `undefined` when the failure was not a constraint
- *   violation.
+ * The failure states the reason, so this surface words its own diagnostic from
+ * it. Reading a reason back out of the message another surface wrote loses the
+ * part of it that follows a colon.
+ *
+ * @param argName - Name of the positional the value belongs to.
+ * @param source - The stage that carried the value.
+ * @param failure - What the value layer rejected.
+ * @returns The redacted error for this surface.
  */
-function stringConstraintReason(error: ValidationError): string | undefined {
-	const violation = toStringConstraintViolation(error);
-	return violation === undefined ? undefined : describeStringConstraintViolation(violation);
-}
-
-/** Narrow an error's details back into the violation {@link finalizeString} reported. */
-function toStringConstraintViolation(
-	error: ValidationError,
-): StringConstraintViolation | undefined {
-	if (error.code !== 'CONSTRAINT_VIOLATED') return undefined;
-	const constraint = error.details?.constraint;
-	if (constraint === 'nonEmpty') return { kind: 'nonEmpty' };
-	const bound = error.details?.bound;
-	if ((constraint === 'minLength' || constraint === 'maxLength') && typeof bound === 'number') {
-		return { kind: constraint, bound };
-	}
-	const pattern = error.details?.pattern;
-	if (constraint === 'pattern' && typeof pattern === 'string') {
-		return { kind: 'pattern', pattern };
-	}
-	return undefined;
-}
-
-function redactArgCoercionMessage(
+function argValueCoercionError(
 	argName: string,
 	source: ArgStringSource,
-	schema: ArgSchema,
-	error: ValidationError,
-): string {
-	switch (schema.kind) {
-		case 'number': {
-			const base = `Invalid number value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`;
-			// Only a constraint violation carries a schema-derived reason suffix
-			// (e.g. `: must be >= 0`), which is safe to keep. Any other failure
-			// (e.g. TYPE_MISMATCH) embeds the raw value in `error.message`, so
-			// extracting a trailing suffix there could leak user input.
-			if (error.code !== 'CONSTRAINT_VIOLATED') {
-				return base;
-			}
-			const match = /: ([^:]+)$/.exec(error.message);
-			const suffix = match?.[1];
-			return suffix !== undefined ? `${base}: ${suffix}` : base;
-		}
+	failure: ValueFailure,
+): ValidationError {
+	const subject = `${argSourceLabel(source)} for argument <${argName}>`;
+
+	switch (failure.kind) {
+		case 'type':
+			return argTypeCoercionError(argName, source, failure.expected);
+
 		case 'enum': {
-			const allowed = Array.isArray(error.details?.allowed)
-				? error.details.allowed.filter((value): value is string => typeof value === 'string')
-				: [];
-			return `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>. Allowed: ${allowed.join(', ')}`;
+			const allowed = failure.enumValues ?? [];
+			const allowedList = allowed.join(', ');
+			return new ValidationError(
+				`Invalid value '${REDACTED}' ${subject}. Allowed: ${allowedList}`,
+				{
+					code: 'INVALID_ENUM',
+					details: { arg: argName, ...argSourceDetails(source), allowed },
+					suggest: suggestBySource(source, {
+						stdin: `Provide one of: ${allowedList}`,
+						env: (envVar) => `Set ${envVar} to one of: ${allowedList}`,
+						config: (configPath) => `Set ${configPath} to one of: ${allowedList}`,
+						prompt: `Provide one of: ${allowedList}`,
+					}),
+				},
+			);
 		}
-		case 'custom': {
-			const match = /: ([^:]+)$/.exec(error.message);
-			const suffix = match?.[1];
-			return suffix !== undefined
-				? `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>: ${suffix}`
-				: `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`;
-		}
-		case 'string':
-		case 'boolean':
-		case 'keyValue': {
-			const base = `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`;
-			const reason = schema.kind === 'string' ? stringConstraintReason(error) : undefined;
-			return reason === undefined ? base : `${base}: ${reason}`;
+
+		case 'string-constraint':
+			return new ValidationError(
+				`Invalid value '${REDACTED}' ${subject}: ${describeStringConstraintViolation(failure.violation)}`,
+				{
+					code: 'CONSTRAINT_VIOLATED',
+					details: {
+						arg: argName,
+						...argSourceDetails(source),
+						expected: 'string',
+						...stringConstraintDetails(failure.violation),
+					},
+					suggest: buildArgCoercionSuggest(argName, source, 'string'),
+				},
+			);
+
+		case 'number-constraint':
+			return new ValidationError(
+				`Invalid number value '${REDACTED}' ${subject}: ${describeNumberConstraintViolation(failure.violation)}`,
+				{
+					code: 'CONSTRAINT_VIOLATED',
+					details: {
+						arg: argName,
+						...argSourceDetails(source),
+						expected: 'number',
+						constraint: failure.violation.kind,
+						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
+					},
+					suggest: buildArgCoercionSuggest(argName, source, 'number'),
+				},
+			);
+
+		case 'thrown': {
+			const message =
+				failure.error instanceof Error ? failure.error.message : String(failure.error);
+			const sourceRef = suggestBySource(source, {
+				stdin: 'stdin value',
+				env: (envVar) => `env ${envVar}`,
+				config: (configPath) => `config ${configPath}`,
+				prompt: 'prompt value',
+			});
+			return new ValidationError(
+				`Failed to parse ${sourceRef} for argument <${argName}>: ${message}`,
+				{
+					code: 'TYPE_MISMATCH',
+					details: { arg: argName, ...argSourceDetails(source), expected: 'custom' },
+					suggest: buildArgCoercionSuggest(argName, source, 'custom'),
+				},
+			);
 		}
 	}
 }
 
-function redactArgCoercionDetails(
+/** Build the error for a raw value the codec could not read as its primitive. */
+function argTypeCoercionError(
 	argName: string,
 	source: ArgStringSource,
-	schema: ArgSchema,
-	error: ValidationError,
-): Readonly<Record<string, unknown>> {
-	const stringViolation = schema.kind === 'string' ? toStringConstraintViolation(error) : undefined;
+	expected: ValueTypeName,
+): ValidationError {
+	const subject = `${argSourceLabel(source)} for argument <${argName}>`;
+	const details = { arg: argName, ...argSourceDetails(source), expected };
 
-	return {
-		arg: argName,
-		...argSourceDetails(source),
-		...(schema.kind === 'number' || schema.kind === 'custom' || schema.kind === 'boolean'
-			? { expected: schema.kind }
-			: {}),
-		...(stringViolation !== undefined
-			? { expected: 'string', ...stringConstraintDetails(stringViolation) }
-			: {}),
-		...(schema.kind === 'number' && typeof error.details?.constraint === 'string'
-			? { constraint: error.details.constraint }
-			: {}),
-		...(schema.kind === 'number' && typeof error.details?.bound === 'number'
-			? { bound: error.details.bound }
-			: {}),
-		...(schema.kind === 'enum' && Array.isArray(error.details?.allowed)
-			? {
-					allowed: error.details.allowed.filter(
-						(value): value is string => typeof value === 'string',
-					),
-				}
-			: {}),
-	};
-}
-
-function redactArgCoercionSuggest(
-	argName: string,
-	source: ArgStringSource,
-	schema: ArgSchema,
-	error: ValidationError,
-): string | undefined {
-	if (schema.kind === 'number' || schema.kind === 'custom' || schema.kind === 'boolean') {
-		return buildArgCoercionSuggest(argName, source, schema.kind);
-	}
-
-	if (schema.kind === 'string') {
-		return toStringConstraintViolation(error) === undefined
-			? undefined
-			: buildArgCoercionSuggest(argName, source, 'string');
-	}
-
-	if (schema.kind === 'enum') {
-		const allowed = Array.isArray(error.details?.allowed)
-			? error.details.allowed.filter((value): value is string => typeof value === 'string')
-			: [];
-		const allowedList = allowed.join(', ');
-		return suggestBySource(source, {
-			stdin: `Provide one of: ${allowedList}`,
-			env: (envVar) => `Set ${envVar} to one of: ${allowedList}`,
-			config: (configPath) => `Set ${configPath} to one of: ${allowedList}`,
-			prompt: `Provide one of: ${allowedList}`,
+	if (expected === 'string') {
+		return new ValidationError(`Invalid string value ${subject}`, {
+			code: 'TYPE_MISMATCH',
+			details,
+			suggest: buildArgCoercionSuggest(argName, source, 'string'),
 		});
 	}
 
-	return undefined;
+	if (expected === 'number') {
+		return new ValidationError(`Invalid number value '${REDACTED}' ${subject}`, {
+			code: 'TYPE_MISMATCH',
+			details,
+			suggest: buildArgCoercionSuggest(argName, source, 'number'),
+		});
+	}
+
+	return new ValidationError(`Invalid boolean value '${REDACTED}' ${subject}`, {
+		code: 'TYPE_MISMATCH',
+		details,
+		suggest: argBooleanSuggest(argName, source),
+	});
 }
 
 /**
@@ -950,6 +968,9 @@ function coerceArgValue(
 /**
  * Decode one arg value through the value layer, redacting the raw value in
  * diagnostics.
+ *
+ * An entries arg projects onto the value of one entry, so the failure a decode
+ * reports already describes the element rather than the record.
  */
 function coerceArgElement(
 	argName: string,
@@ -957,47 +978,10 @@ function coerceArgElement(
 	raw: unknown,
 	schema: ArgSchema,
 ): CoerceResult {
-	const coerced = coerceValueSchema(argName, source, raw, argValueSchema(schema));
-	if (coerced.ok) {
-		return coerced;
-	}
-
-	const element = redactionSubject(schema);
-	const suggest = redactArgCoercionSuggest(argName, source, element, coerced.error);
-	const options =
-		suggest === undefined
-			? {
-					code: coerced.error.code,
-					details: redactArgCoercionDetails(argName, source, element, coerced.error),
-				}
-			: {
-					code: coerced.error.code,
-					details: redactArgCoercionDetails(argName, source, element, coerced.error),
-					suggest,
-				};
-
-	return {
-		ok: false,
-		error: new ValidationError(
-			redactArgCoercionMessage(argName, source, element, coerced.error),
-			options,
-		),
-	};
-}
-
-/**
- * The schema whose kind words a redacted failure.
- *
- * An entries arg fails on one entry value, so its element schema is what the
- * message and details describe.
- *
- * @param schema - The arg being resolved.
- * @returns The element schema for an entries arg, or the schema itself.
- */
-function redactionSubject(schema: ArgSchema): ArgSchema {
-	return schema.kind === 'keyValue' && schema.elementSchema !== undefined
-		? schema.elementSchema
-		: schema;
+	const decoded = decodeValue(argValueSchema(schema), raw, valueInputOf(source));
+	return decoded.ok
+		? { ok: true, value: decoded.value }
+		: { ok: false, error: argValueCoercionError(argName, source, decoded.failure) };
 }
 
 // --- CLI occurrence finishing

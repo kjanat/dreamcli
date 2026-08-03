@@ -271,6 +271,106 @@ describe('sources beside the resolved values', () => {
 	});
 });
 
+// === L19 — the two explicitness readings on a real invocation
+
+describe('explicitness, both readings', () => {
+	/** Both answers for one invocation: the shipped predicate and the typed-it derivation. */
+	async function readings(
+		argv: readonly string[],
+		options?: RunOptions,
+	): Promise<{ readonly supplied: boolean; readonly typedIt: boolean }> {
+		let seen: { readonly supplied: boolean; readonly typedIt: boolean } | undefined;
+		const cmd = command('send')
+			.flag('body', flag.string().stdin().env('BODY').default('fallback'))
+			.action(({ sources }) => {
+				seen = {
+					supplied: wasExplicit(sources.flags.body),
+					typedIt: sources.flags.body?.stage === 'cli',
+				};
+			});
+
+		await runCommand(cmd, [...argv], options);
+		if (seen === undefined) throw new Error('the action never ran');
+		return seen;
+	}
+
+	it('agrees on a typed value', async () => {
+		expect(await readings(['--body', 'typed'])).toEqual({ supplied: true, typedIt: true });
+	});
+
+	it('agrees on an explicit dash, which keeps CLI precedence', async () => {
+		expect(await readings(['--body', '-'], { stdinData: 'piped' })).toEqual({
+			supplied: true,
+			typedIt: true,
+		});
+	});
+
+	it('parts on the stdin fallback, which supplied bytes nobody typed', async () => {
+		expect(await readings([], { stdinData: 'piped' })).toEqual({
+			supplied: true,
+			typedIt: false,
+		});
+	});
+
+	it('parts on an environment value', async () => {
+		expect(await readings([], { env: { BODY: 'from-env' } })).toEqual({
+			supplied: true,
+			typedIt: false,
+		});
+	});
+
+	it('agrees on the declared default', async () => {
+		expect(await readings([])).toEqual({ supplied: false, typedIt: false });
+	});
+});
+
+// === L19 — every handler position reads the same null-prototype record
+
+describe('a name no input declared', () => {
+	it('answers undefined inside middleware', async () => {
+		const seen: Record<string, unknown> = {};
+		const cmd = command('t')
+			.flag('region', flag.string().env('REGION'))
+			.middleware(
+				middleware(({ sources, next }) => {
+					const flags: Record<string, unknown> = sources.flags;
+					const args: Record<string, unknown> = sources.args;
+					seen.flag = flags.toString;
+					seen.arg = args.valueOf;
+					seen.constructor = flags.constructor;
+					seen.declared = flags.region;
+					return next({});
+				}),
+			)
+			.action(() => {});
+
+		await runCommand(cmd, [], { env: { REGION: 'eu' } });
+
+		expect(seen).toEqual({
+			flag: undefined,
+			arg: undefined,
+			constructor: undefined,
+			declared: { stage: 'env', envVar: 'REGION' },
+		});
+	});
+
+	it('answers undefined inside derive', async () => {
+		const seen: Record<string, unknown> = {};
+		const cmd = command('t')
+			.flag('region', flag.string())
+			.derive(({ sources }) => {
+				const flags: Record<string, unknown> = sources.flags;
+				seen.flag = flags.hasOwnProperty;
+				return {};
+			})
+			.action(() => {});
+
+		await runCommand(cmd, []);
+
+		expect(seen).toEqual({ flag: undefined });
+	});
+});
+
 describe('readFlags() provenance', () => {
 	it('hands the whole record to onSources', async () => {
 		const onSources = vi.fn();

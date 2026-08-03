@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { arg } from './arg.ts';
 import type {
 	AllowedPromptConfig,
 	ConfirmPromptConfig,
@@ -294,6 +295,13 @@ describe('FlagBuilder.prompt()', () => {
 		expect(f.schema.kind).toBe('array');
 		expect(f.schema.prompt?.kind).toBe('multiselect');
 		expectTypeOf<InferFlag<typeof f>>().toEqualTypeOf<string[]>();
+	});
+});
+
+describe('ArgBuilder.prompt()', () => {
+	it('rejects a multiselect prompt on a variadic key-value argument', () => {
+		const variables = arg.keyValue().variadic();
+		expectTypeOf<Parameters<typeof variables.prompt>[0]>().toBeNever();
 	});
 });
 

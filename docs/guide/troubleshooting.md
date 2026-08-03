@@ -273,7 +273,9 @@ Cause:
   variable or a pipe routinely carries a secret, and a diagnostic is written to
   a terminal, a log, and a CI transcript.
 - an explicit `-` counts as a stdin value, since the bytes came from the pipe
-  rather than from the token.
+  rather than from the token;
+- a declared default is redacted too, and so is a `flag.path()` / `arg.path()`
+  filesystem check on a path no argv token carried.
 
 Check:
 

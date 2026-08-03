@@ -540,9 +540,7 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitio
 	return {
 		kind: schema.kind,
 		presence: schema.presence,
-		...(schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)
-			? { defaultValue: schema.defaultValue }
-			: {}),
+		...(isJsonSerializable(schema.defaultValue) ? { defaultValue: schema.defaultValue } : {}),
 		...(visibleAliases.length > 0 ? { aliases: [...visibleAliases] } : {}),
 		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
@@ -643,9 +641,7 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFr
 		presence: schema.presence,
 		...(schema.variadic ? { variadic: true } : {}),
 		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
-		...(schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)
-			? { defaultValue: schema.defaultValue }
-			: {}),
+		...(isJsonSerializable(schema.defaultValue) ? { defaultValue: schema.defaultValue } : {}),
 		...(schema.description !== undefined ? { description: schema.description } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
@@ -1048,7 +1044,7 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 	if (schema.description !== undefined) {
 		result.description = schema.description;
 	}
-	if (schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)) {
+	if (isJsonSerializable(schema.defaultValue)) {
 		result.default = schema.defaultValue;
 	}
 	if (schema.deprecated !== undefined) {
@@ -1068,7 +1064,7 @@ function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 	if (schema.description !== undefined) {
 		result.description = schema.description;
 	}
-	if (schema.presence === 'defaulted' && isJsonSerializable(schema.defaultValue)) {
+	if (isJsonSerializable(schema.defaultValue)) {
 		result.default = schema.defaultValue;
 	}
 	if (schema.deprecated !== undefined) {

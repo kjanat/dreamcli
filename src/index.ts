@@ -270,6 +270,7 @@ export type {
 	StdinOptions,
 	StdinWhen,
 	StringArgDefinition,
+	StringArgElementConfig,
 	StringConstraints,
 	StringConstraintViolation,
 	StringElementConfig,
@@ -280,6 +281,8 @@ export type {
 	TableStream,
 	UrlFlagOptions,
 	WithArgPresence,
+	WithoutArgElementEligibility,
+	WithoutElementEligibility,
 	WithPresence,
 	WithVariadic,
 } from './core/schema/index.ts';

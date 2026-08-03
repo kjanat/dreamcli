@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { ValidationError } from '#internals/core/errors/index.ts';
 import { isValidationError } from '#internals/core/errors/index.ts';
+import type { ParseResult } from '#internals/core/parse/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import type { ArgConfig } from '#internals/core/schema/arg.ts';
@@ -7,7 +9,23 @@ import { ArgBuilder, arg, createArgSchema } from '#internals/core/schema/arg.ts'
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { flag } from '#internals/core/schema/flag.ts';
+import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
+
+/** Resolve a case that must fail, and hand back the failure. */
+async function failure(
+	schema: Parameters<typeof resolve>[0],
+	parsed: ParseResult,
+	options: ResolveOptions,
+): Promise<ValidationError> {
+	try {
+		await resolve(schema, parsed, options);
+	} catch (error) {
+		if (isValidationError(error)) return error;
+		throw error;
+	}
+	throw new Error('expected resolution to fail');
+}
 
 // === L15 — the unified source model
 
@@ -560,5 +578,66 @@ describe('provenance record', () => {
 		expect(result.provenance.flags.tags).toEqual({ stage: 'default' });
 		expect(result.provenance.flags.vars).toEqual({ stage: 'default' });
 		expect(result.provenance.args.rest).toEqual({ stage: 'default' });
+	});
+});
+
+// === blank text is not the number zero
+
+describe('a number input rejects blank text from every source', () => {
+	const blanks = ['', ' ', '\n', '\r\n', '\t'];
+
+	const sources: ReadonlyArray<readonly [string, (raw: string) => ResolveOptions]> = [
+		['stdin', (raw) => ({ stdinData: raw })],
+		['env', (raw) => ({ env: { VALUE: raw } })],
+		['config', (raw) => ({ config: { deploy: { value: raw } } })],
+		['prompt', (raw) => ({ prompter: createTestPrompter([raw]) })],
+	];
+
+	function numberFlag() {
+		return flag
+			.number()
+			.stdin()
+			.env('VALUE')
+			.config('deploy.value')
+			.prompt({ kind: 'input', message: 'Value' });
+	}
+
+	function numberArg() {
+		return arg.number().stdin().env('VALUE').config('deploy.value').optional();
+	}
+
+	for (const [name, options] of sources) {
+		// A blank `input` prompt answer falls through to the next stage rather than
+		// coercing, so the prompt source is covered by the flag surface alone.
+		if (name === 'prompt') continue;
+
+		it(`fails a flag on ${name}`, async () => {
+			for (const raw of blanks) {
+				const built = flagCase(numberFlag(), []);
+				const error = await failure(built.schema, built.parsed, options(raw));
+				expect(error.code).toBe('TYPE_MISMATCH');
+				expect(error.details?.expected).toBe('number');
+				expect(error.message).toContain("'<redacted>'");
+			}
+		});
+
+		it(`fails an arg on ${name}`, async () => {
+			for (const raw of blanks) {
+				const built = argCase(numberArg(), []);
+				const error = await failure(built.schema, built.parsed, options(raw));
+				expect(error.code).toBe('TYPE_MISMATCH');
+				expect(error.details?.expected).toBe('number');
+				expect(error.message).toContain("'<redacted>'");
+			}
+		});
+	}
+
+	it('still reads a number framed by whitespace', async () => {
+		const spaced = flagCase(numberFlag(), []);
+		expect(
+			(await resolve(spaced.schema, spaced.parsed, { env: { VALUE: ' 42 ' } })).flags.value,
+		).toBe(42);
+		const piped = flagCase(numberFlag(), []);
+		expect((await resolve(piped.schema, piped.parsed, { stdinData: '42\n' })).flags.value).toBe(42);
 	});
 });

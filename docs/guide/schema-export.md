@@ -220,6 +220,18 @@ adds `name` and `variadic`. An `elementSchema` on an arg is an
 `ArgElementFragmentV1`, which is the arg fragment without the `name` a position
 supplies.
 
+`defaultValue` is written whenever the schema carries one that survives JSON,
+whatever its `presence`. A definition may set a default without setting
+`presence: 'defaulted'`, and resolution uses it either way, so the document
+states it either way.
+
+An element fragment is the whole fragment shape, so it admits fields no element
+reader consumes: `stdin`, `envVar`, `configPath`, `prompt`, `defaultValue`, and
+`variadic` on an arg element. They are validated as any other field is, they
+survive the document, and they change nothing at resolution, which reads sources
+from the collection itself. Validation still applies in isolation, so
+`variadic: true` on an element makes that element's own default an array.
+
 ### What's Omitted
 
 Non-serializable runtime values are always excluded:

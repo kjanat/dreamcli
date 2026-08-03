@@ -7,6 +7,8 @@
 
 import { describe, expect, it, test } from 'vitest';
 import { isCLIError } from '#internals/core/errors/index.ts';
+import { parse } from '#internals/core/parse/index.ts';
+import { resolve } from '#internals/core/resolve/index.ts';
 import { arg, createArgSchema } from './arg.ts';
 import {
 	argCardinality,
@@ -18,7 +20,8 @@ import {
 	splitLines,
 	splitManyText,
 } from './cardinality.ts';
-import { createFlagSchema, flag } from './flag.ts';
+import { createCommandSchema } from './command.ts';
+import { createFlagSchema, type FlagSchema, flag } from './flag.ts';
 import type { StandardSchemaV1 } from './standard.ts';
 import { argValueSchema, flagValueSchema } from './value.ts';
 
@@ -350,6 +353,32 @@ describe('validated defaults, flags', () => {
 		expect(schemaError(() => createFlagSchema('count', { defaultValue: -1 })).message).toBe(
 			'Default value for a count flag is invalid: expected a non-negative integer',
 		);
+	});
+
+	it('leaves a count validator to resolution, since the factory declares the default', async () => {
+		const verbose = flag.count().standard({
+			'~standard': {
+				version: 1,
+				vendor: 'test',
+				validate: (value: unknown) =>
+					value === 2 ? { value } : { issues: [{ message: 'must be two' }] },
+			},
+		});
+		expect(verbose.schema.defaultValue).toBe(0);
+		expect(verbose.default(1).schema.defaultValue).toBe(1);
+
+		const resolveDefault = (flagSchema: FlagSchema) => {
+			const command = createCommandSchema({ name: 'test', flags: { verbose: flagSchema } });
+			return resolve(command, parse(command, []));
+		};
+		await expect(resolveDefault(verbose.schema)).rejects.toMatchObject({
+			code: 'CONSTRAINT_VIOLATED',
+			details: { issues: ['must be two'] },
+		});
+		await expect(resolveDefault(verbose.default(1).schema)).rejects.toMatchObject({
+			code: 'CONSTRAINT_VIOLATED',
+			details: { issues: ['must be two'] },
+		});
 	});
 
 	it('runs a synchronous element validator over a default', () => {
