@@ -14,6 +14,9 @@ import { arg } from './arg.ts';
 import { command } from './command.ts';
 import type { FlagBuilder, FlagConfig } from './flag.ts';
 import { flag } from './flag.ts';
+import type { StandardSchemaV1 } from './standard.ts';
+import type { ValueInput, ValueSchema } from './value.ts';
+import { argValueSchema, decodeValue, flagValueSchema, valueEnumValues } from './value.ts';
 
 /** What one factory did with one raw value. */
 interface Verdict {
@@ -326,5 +329,146 @@ describe('presence defaults', () => {
 		expect(arg.date().schema.valueHint).toBe(flag.date().schema.valueHint);
 		expect(arg.duration().schema.valueHint).toBe(flag.duration().schema.valueHint);
 		expect(arg.bytes().schema.valueHint).toBe(flag.bytes().schema.valueHint);
+	});
+});
+
+// === value projection
+
+/** The value axis with closure identity stripped, so two factories are comparable. */
+function valueShape(value: ValueSchema): Readonly<Record<string, unknown>> {
+	return {
+		codec: value.codec.name,
+		enumValues: valueEnumValues(value),
+		constraints: value.constraints,
+		standard: value.standard,
+		pathChecks: value.pathChecks,
+		valueHint: value.valueHint,
+	};
+}
+
+/** What one value schema did with one raw input, reduced to comparable data. */
+function decodeShape(value: ValueSchema, raw: unknown, input: ValueInput): unknown {
+	const result = decodeValue(value, raw, input);
+	if (result.ok) return { ok: true, value: result.value };
+	if (result.failure.kind === 'thrown') {
+		const error = result.failure.error;
+		return { ok: false, kind: 'thrown', message: error instanceof Error ? error.message : error };
+	}
+	return { ok: false, failure: result.failure };
+}
+
+/** Assert both factories project onto the same value and decode the same way. */
+function expectValueParity<F extends FlagConfig, A extends ArgConfig>(
+	flagBuilder: FlagBuilder<F>,
+	argBuilder: ArgBuilder<A>,
+	raws: readonly unknown[],
+): void {
+	const forFlag = flagValueSchema(flagBuilder.schema);
+	const forArg = argValueSchema(argBuilder.schema);
+	expect(forFlag).toBeDefined();
+	if (forFlag === undefined) return;
+
+	expect(valueShape(forArg)).toEqual(valueShape(forFlag));
+	for (const raw of raws) {
+		for (const input of ['token', 'env', 'config', 'prompt'] as const) {
+			expect(decodeShape(forArg, raw, input)).toEqual(decodeShape(forFlag, raw, input));
+		}
+	}
+}
+
+describe('value projection parity', () => {
+	it('projects string declarations onto one identical value', () => {
+		const constraints = { nonEmpty: true, minLength: 3, pattern: /^ghp_/ } as const;
+		expect(argValueSchema(arg.string(constraints).schema)).toEqual(
+			flagValueSchema(flag.string(constraints).schema),
+		);
+		expectValueParity(flag.string(constraints), arg.string(constraints), [
+			'ghp_valid',
+			'ab',
+			'',
+			42,
+		]);
+	});
+
+	it('projects number declarations onto one identical value', () => {
+		const constraints = { int: true, min: 0, max: 10 } as const;
+		expect(argValueSchema(arg.number(constraints).schema)).toEqual(
+			flagValueSchema(flag.number(constraints).schema),
+		);
+		expectValueParity(flag.number(constraints), arg.number(constraints), [
+			'5',
+			'3.7',
+			'11',
+			Number.NaN,
+		]);
+	});
+
+	it('projects enum declarations onto the same literals', () => {
+		const values = ['us', 'eu', 'ap'] as const;
+		expectValueParity(flag.enum(values), arg.enum(values), ['eu', 'nope', 7]);
+		expect(valueEnumValues(argValueSchema(arg.enum(values).schema))).toEqual([...values]);
+		expect(valueEnumValues(flagValueSchema(flag.enum(values).schema))).toEqual([...values]);
+	});
+
+	it('projects a Standard Schema declaration onto one identical value', () => {
+		const standard: StandardSchemaV1<unknown, string> = {
+			'~standard': {
+				version: 1,
+				vendor: 'parity',
+				validate: (value) =>
+					typeof value === 'string' ? { value } : { issues: [{ message: 'not a string' }] },
+			},
+		};
+		expect(argValueSchema(arg.custom(standard).schema)).toEqual(
+			flagValueSchema(flag.custom(standard).schema),
+		);
+		expectValueParity(flag.custom(standard), arg.custom(standard), ['x', 7]);
+	});
+
+	it('projects a custom parse function onto the same codec and the same verdict', () => {
+		const body = (raw: string): string => {
+			if (raw === 'boom') throw new Error(`bad: ${raw}`);
+			return `<${raw}>`;
+		};
+		const flagBuilder = flag.custom((raw: unknown) => body(String(raw)));
+		const argBuilder = arg.custom(body);
+		expectValueParity(flagBuilder, argBuilder, ['ok', 'boom', '']);
+	});
+
+	it('hands each surface its own parse function verbatim', () => {
+		const flagParse = (raw: unknown): string => String(raw);
+		const argParse = (raw: string): string => raw;
+		expect(flag.custom(flagParse).schema.parseFn).toBe(flagParse);
+		expect(arg.custom(argParse).schema.parseFn).toBe(argParse);
+	});
+
+	it('projects bounded date declarations onto one identical value', () => {
+		const options = {
+			min: new Date('2026-01-01T00:00:00Z'),
+			max: new Date('2026-12-31T00:00:00Z'),
+		};
+		expectValueParity(flag.date(options), arg.date(options), [
+			'2026-07-10',
+			'2025-12-31',
+			'2027-01-01',
+		]);
+	});
+
+	it('projects every sugar member onto the same value', () => {
+		expectValueParity(flag.url(), arg.url(), ['https://example.com/', 'not-a-url']);
+		expectValueParity(flag.url({ protocols: ['https'] }), arg.url({ protocols: ['https'] }), [
+			'http://example.com/',
+		]);
+		expectValueParity(flag.date(), arg.date(), ['2026-07-10', '2026-02-31', 'March 5']);
+		expectValueParity(flag.duration(), arg.duration(), ['1h30m', '1500', '5 parsecs']);
+		expectValueParity(flag.bytes(), arg.bytes(), ['512kb', '512 furlongs']);
+		expectValueParity(flag.path(), arg.path(), ['./out']);
+	});
+
+	it('projects path options onto the same checks and hint', () => {
+		const options = { type: 'directory', create: true } as const;
+		expect(argValueSchema(arg.path(options).schema)).toEqual(
+			flagValueSchema(flag.path(options).schema),
+		);
 	});
 });

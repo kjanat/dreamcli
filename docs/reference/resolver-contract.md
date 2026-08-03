@@ -101,10 +101,10 @@ This contract intentionally freezes behavior before deeper resolver work:
 
 ## Shared Property Model Decision
 
-The current resolver now makes that decision explicit in `src/core/resolve/property.ts`:
+The current resolver now makes that decision explicit in `src/core/schema/value.ts`:
 
-- the shared flag/arg property model is **coercion-only**
-- it only covers the overlapping kinds: `string`, `number`, `enum`, and `custom`
+- the shared flag/arg value model is **coercion-only**
+- it covers the overlapping kinds `string`, `number`, `boolean`, `enum`, and `custom`
 - it does **not** own precedence order, fallback order, prompt/stdin policy, or required-value validation
 
 That split is intentional.
@@ -117,7 +117,7 @@ Trying to force those flows through one broad property abstraction would hide re
 ## Evidence
 
 - Contract module: `src/core/resolve/contracts.ts`
-- Shared property model: `src/core/resolve/property.ts`
+- Shared value model: `src/core/schema/value.ts`
 - Current implementation: `src/core/resolve/index.ts`
 - Existing behavior tests: `src/core/resolve/*.test.ts`
 - RFC / PRD source: `specs/dreamcli-re-foundation.md`, `specs/dreamcli-re-foundation-prd.md`

@@ -7,6 +7,7 @@
 
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ArgSchema, CommandArgEntry } from '#internals/core/schema/index.ts';
+import { argValueSchema } from '#internals/core/schema/value.ts';
 import { coerceArgStringValue } from './coerce.ts';
 import type { DeprecationWarning } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
@@ -116,7 +117,7 @@ async function resolveArgs(
 
 	if (stat !== undefined) {
 		for (const { name, schema } of argEntries) {
-			const checks = schema.pathChecks;
+			const checks = argValueSchema(schema).pathChecks;
 			if (checks === undefined) continue;
 
 			for (const value of pathValuesOf(resolved[name])) {

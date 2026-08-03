@@ -15,15 +15,22 @@ import { assertNumberConstraints, type NumberConstraints } from './number-constr
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
-	buildPathChecks,
-	type DateFlagOptions,
-	type PathChecks,
-	type PathFlagOptions,
-	parseBytesValue,
-	parseDateValue,
-	parseDurationValue,
-	parseUrlValue,
-	type UrlFlagOptions,
+	bytesValue,
+	dateValue,
+	durationValue,
+	numberValue,
+	pathValue,
+	standardValue,
+	stringParsedValue,
+	stringValue,
+	urlValue,
+	valueDefinitionFields,
+} from './value.ts';
+import type {
+	DateFlagOptions,
+	PathChecks,
+	PathFlagOptions,
+	UrlFlagOptions,
 } from './value-parsers.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
@@ -1306,10 +1313,7 @@ const arg: ArgFactory = {
 			assertStringConstraints(constraints);
 		}
 		return new ArgBuilder(
-			createArgSchema(
-				'string',
-				constraints !== undefined ? { stringConstraints: constraints } : {},
-			),
+			createArgSchema('string', valueDefinitionFields(stringValue(constraints))),
 		);
 	},
 
@@ -1323,10 +1327,7 @@ const arg: ArgFactory = {
 			assertNumberConstraints(constraints);
 		}
 		return new ArgBuilder(
-			createArgSchema(
-				'number',
-				constraints !== undefined ? { numberConstraints: constraints } : {},
-			),
+			createArgSchema('number', valueDefinitionFields(numberValue(constraints))),
 		);
 	},
 
@@ -1350,9 +1351,13 @@ const arg: ArgFactory = {
 		readonly argKind: 'custom';
 	}> {
 		if (isStandardSchemaV1(parseFnOrSchema)) {
-			return new ArgBuilder(createArgSchema('custom', { standard: parseFnOrSchema }));
+			return new ArgBuilder(
+				createArgSchema('custom', valueDefinitionFields(standardValue(parseFnOrSchema))),
+			);
 		}
-		return new ArgBuilder(createArgSchema('custom', { parseFn: parseFnOrSchema }));
+		return new ArgBuilder(
+			createArgSchema('custom', valueDefinitionFields(stringParsedValue(parseFnOrSchema))),
+		);
 	},
 
 	url(options?: UrlFlagOptions): ArgBuilder<{
@@ -1361,12 +1366,7 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 		readonly argKind: 'custom';
 	}> {
-		return new ArgBuilder(
-			createArgSchema('custom', {
-				parseFn: (raw: string) => parseUrlValue(raw, options),
-				valueHint: 'url',
-			}),
-		);
+		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(urlValue(options))));
 	},
 
 	path(options?: PathFlagOptions): ArgBuilder<{
@@ -1375,9 +1375,7 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 		readonly argKind: 'string';
 	}> {
-		return new ArgBuilder(
-			createArgSchema('string', { pathChecks: buildPathChecks(options), valueHint: 'path' }),
-		);
+		return new ArgBuilder(createArgSchema('string', valueDefinitionFields(pathValue(options))));
 	},
 
 	date(options?: DateFlagOptions): ArgBuilder<{
@@ -1386,12 +1384,7 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 		readonly argKind: 'custom';
 	}> {
-		return new ArgBuilder(
-			createArgSchema('custom', {
-				parseFn: (raw: string) => parseDateValue(raw, options),
-				valueHint: 'date',
-			}),
-		);
+		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(dateValue(options))));
 	},
 
 	duration(): ArgBuilder<{
@@ -1400,9 +1393,7 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 		readonly argKind: 'custom';
 	}> {
-		return new ArgBuilder(
-			createArgSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
-		);
+		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(durationValue())));
 	},
 
 	bytes(): ArgBuilder<{
@@ -1411,9 +1402,7 @@ const arg: ArgFactory = {
 		readonly variadic: false;
 		readonly argKind: 'custom';
 	}> {
-		return new ArgBuilder(
-			createArgSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }),
-		);
+		return new ArgBuilder(createArgSchema('custom', valueDefinitionFields(bytesValue())));
 	},
 };
 

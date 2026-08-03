@@ -25,9 +25,9 @@ import {
 	describeNumberConstraintViolation,
 	describeStringConstraintViolation,
 	stringConstraintDetails,
-	validateNumberConstraints,
-	validateStringConstraints,
 } from '#internals/core/schema/index.ts';
+import type { ValueFailure } from '#internals/core/schema/value.ts';
+import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
 
 // --- Tokenizer — schema-agnostic argv splitting
 
@@ -342,6 +342,9 @@ function flagExpectsValue(schema: FlagSchema): boolean {
 /**
  * Coerce a raw string to the flag's declared kind.
  *
+ * Scalar kinds decode through the shared value layer; the collection kinds
+ * (`array`, `count`, `keyValue`) accumulate here, on the cardinality axis.
+ *
  * @param flagName - Canonical flag name (for error messages)
  * @param raw - Raw string value from argv
  * @param schema - {@link FlagSchema} declaring the expected kind
@@ -354,109 +357,20 @@ function coerceFlagValue(
 	schema: FlagSchema,
 	displayName = `--${flagName}`,
 ): unknown {
+	const value = flagValueSchema(schema);
+	if (value !== undefined) {
+		const decoded = decodeValue(value, raw, 'token');
+		if (decoded.ok) return decoded.value;
+		throw flagValueError(flagName, displayName, raw, decoded.failure);
+	}
+
 	switch (schema.kind) {
-		case 'string': {
-			const violation = validateStringConstraints(raw, schema.stringConstraints);
-			if (violation !== undefined) {
-				const reason = describeStringConstraintViolation(violation);
-				throw new ParseError(`Invalid value '${raw}' for flag ${displayName}: ${reason}`, {
-					code: 'INVALID_VALUE',
-					details: {
-						flag: flagName,
-						input: displayName,
-						value: raw,
-						expected: 'string',
-						...stringConstraintDetails(violation),
-					},
-				});
-			}
-			return raw;
-		}
-
-		case 'number': {
-			const n = Number(raw);
-			if (Number.isNaN(n)) {
-				throw new ParseError(`Invalid number value '${raw}' for flag ${displayName}`, {
-					code: 'INVALID_VALUE',
-					details: { flag: flagName, input: displayName, value: raw, expected: 'number' },
-				});
-			}
-			const violation = validateNumberConstraints(n, schema.numberConstraints);
-			if (violation !== undefined) {
-				const reason = describeNumberConstraintViolation(violation);
-				throw new ParseError(`Invalid number value '${raw}' for flag ${displayName}: ${reason}`, {
-					code: 'INVALID_VALUE',
-					details: {
-						flag: flagName,
-						input: displayName,
-						value: raw,
-						expected: 'number',
-						constraint: violation.kind,
-						...('bound' in violation ? { bound: violation.bound } : {}),
-					},
-				});
-			}
-			return n;
-		}
-
-		case 'boolean':
-			// Explicit boolean values: --flag=true / --flag=false
-			if (raw === 'true' || raw === '1') return true;
-			if (raw === 'false' || raw === '0') return false;
-			throw new ParseError(
-				`Invalid boolean value '${raw}' for flag ${displayName}. Use true/false or 1/0`,
-				{
-					code: 'INVALID_VALUE',
-					details: { flag: flagName, input: displayName, value: raw, expected: 'boolean' },
-				},
-			);
-
-		case 'enum': {
-			const allowed = schema.enumValues;
-			if (allowed === undefined) {
-				throw new ParseError(
-					`Enum flag --${flagName} is misconfigured: no allowed values declared`,
-					{
-						code: 'INVALID_SCHEMA',
-						details: { flag: flagName, kind: 'enum', missing: 'enumValues' },
-					},
-				);
-			}
-			if (!allowed.includes(raw)) {
-				throw new ParseError(
-					`Invalid value '${raw}' for flag ${displayName}. Allowed: ${allowed.join(', ')}`,
-					{
-						code: 'INVALID_VALUE',
-						details: { flag: flagName, input: displayName, value: raw, allowed },
-					},
-				);
-			}
-			return raw;
-		}
-
 		case 'array':
 			// Array element — coerce via element schema if present
 			if (schema.elementSchema) {
 				return coerceFlagValue(flagName, raw, schema.elementSchema);
 			}
 			return raw;
-
-		case 'custom': {
-			if (!schema.parseFn) {
-				return raw;
-			}
-			try {
-				return schema.parseFn(raw);
-			} catch (err) {
-				if (err instanceof ParseError) throw err;
-				const message = err instanceof Error ? err.message : String(err);
-				throw new ParseError(`Failed to parse flag ${displayName}: ${message}`, {
-					code: 'INVALID_VALUE',
-					details: { flag: flagName, input: displayName, value: raw },
-					cause: err,
-				});
-			}
-		}
 
 		case 'count': {
 			// Explicit count values: --verbose=2. Reject '' explicitly —
@@ -478,6 +392,107 @@ function coerceFlagValue(
 			// Split at the FIRST '=' so values may contain '=' themselves.
 			return parseKeyValuePair(flagName, raw, displayName);
 	}
+
+	throw new Error(`Unreachable flag coercion kind: ${schema.kind}`);
+}
+
+/**
+ * Name the flag a rejected value belonged to.
+ *
+ * @param flagName - Canonical flag name.
+ * @param displayName - Spelling the user typed.
+ * @param raw - Raw string value from argv.
+ * @param failure - What the value layer rejected.
+ * @returns The error to throw.
+ */
+function flagValueError(
+	flagName: string,
+	displayName: string,
+	raw: string,
+	failure: ValueFailure,
+): ParseError {
+	const subject = { flag: flagName, input: displayName, value: raw };
+
+	switch (failure.kind) {
+		case 'type':
+			if (failure.expected === 'number') {
+				return new ParseError(`Invalid number value '${raw}' for flag ${displayName}`, {
+					code: 'INVALID_VALUE',
+					details: { ...subject, expected: 'number' },
+				});
+			}
+			if (failure.expected === 'boolean') {
+				return new ParseError(
+					`Invalid boolean value '${raw}' for flag ${displayName}. Use true/false or 1/0`,
+					{
+						code: 'INVALID_VALUE',
+						details: { ...subject, expected: 'boolean' },
+					},
+				);
+			}
+			return new ParseError(`Invalid value '${raw}' for flag ${displayName}`, {
+				code: 'INVALID_VALUE',
+				details: { ...subject, expected: 'string' },
+			});
+
+		case 'enum': {
+			const allowed = failure.enumValues;
+			if (allowed === undefined) {
+				return new ParseError(
+					`Enum flag --${flagName} is misconfigured: no allowed values declared`,
+					{
+						code: 'INVALID_SCHEMA',
+						details: { flag: flagName, kind: 'enum', missing: 'enumValues' },
+					},
+				);
+			}
+			return new ParseError(
+				`Invalid value '${raw}' for flag ${displayName}. Allowed: ${allowed.join(', ')}`,
+				{
+					code: 'INVALID_VALUE',
+					details: { ...subject, allowed },
+				},
+			);
+		}
+
+		case 'string-constraint':
+			return new ParseError(
+				`Invalid value '${raw}' for flag ${displayName}: ${describeStringConstraintViolation(failure.violation)}`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						...subject,
+						expected: 'string',
+						...stringConstraintDetails(failure.violation),
+					},
+				},
+			);
+
+		case 'number-constraint':
+			return new ParseError(
+				`Invalid number value '${raw}' for flag ${displayName}: ${describeNumberConstraintViolation(failure.violation)}`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						...subject,
+						expected: 'number',
+						constraint: failure.violation.kind,
+						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
+					},
+				},
+			);
+
+		case 'thrown': {
+			if (failure.error instanceof ParseError) return failure.error;
+			const message =
+				failure.error instanceof Error ? failure.error.message : String(failure.error);
+			return new ParseError(`Failed to parse flag ${displayName}: ${message}`, {
+				code: 'INVALID_VALUE',
+				details: subject,
+				cause: failure.error,
+			});
+		}
+	}
 }
 
 /**
@@ -490,53 +505,48 @@ function coerceFlagValue(
  * @throws ParseError on type mismatch or custom parse failure
  */
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
-	switch (schema.kind) {
-		case 'string': {
-			const violation = validateStringConstraints(raw, schema.stringConstraints);
-			if (violation !== undefined) {
-				const reason = describeStringConstraintViolation(violation);
-				throw new ParseError(`Invalid value '${raw}' for argument <${argName}>: ${reason}`, {
-					code: 'INVALID_VALUE',
-					details: {
-						arg: argName,
-						value: raw,
-						expected: 'string',
-						...stringConstraintDetails(violation),
-					},
-				});
-			}
-			return raw;
-		}
+	const decoded = decodeValue(argValueSchema(schema), raw, 'token');
+	if (decoded.ok) return decoded.value;
+	throw argValueError(argName, raw, decoded.failure);
+}
 
-		case 'number': {
-			const n = Number(raw);
-			if (Number.isNaN(n)) {
-				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>`, {
+/**
+ * Name the positional argument a rejected value belonged to.
+ *
+ * @param argName - Positional arg name.
+ * @param raw - Raw string value from argv.
+ * @param failure - What the value layer rejected.
+ * @returns The error to throw.
+ */
+function argValueError(argName: string, raw: string, failure: ValueFailure): ParseError {
+	const subject = { arg: argName, value: raw };
+
+	switch (failure.kind) {
+		case 'type':
+			if (failure.expected === 'number') {
+				return new ParseError(`Invalid number value '${raw}' for argument <${argName}>`, {
 					code: 'INVALID_VALUE',
-					details: { arg: argName, value: raw, expected: 'number' },
+					details: { ...subject, expected: 'number' },
 				});
 			}
-			const violation = validateNumberConstraints(n, schema.numberConstraints);
-			if (violation !== undefined) {
-				const reason = describeNumberConstraintViolation(violation);
-				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>: ${reason}`, {
-					code: 'INVALID_VALUE',
-					details: {
-						arg: argName,
-						value: raw,
-						expected: 'number',
-						constraint: violation.kind,
-						...('bound' in violation ? { bound: violation.bound } : {}),
+			if (failure.expected === 'boolean') {
+				return new ParseError(
+					`Invalid boolean value '${raw}' for argument <${argName}>. Use true/false or 1/0`,
+					{
+						code: 'INVALID_VALUE',
+						details: { ...subject, expected: 'boolean' },
 					},
-				});
+				);
 			}
-			return n;
-		}
+			return new ParseError(`Invalid value '${raw}' for argument <${argName}>`, {
+				code: 'INVALID_VALUE',
+				details: { ...subject, expected: 'string' },
+			});
 
 		case 'enum': {
-			const allowed = schema.enumValues;
+			const allowed = failure.enumValues;
 			if (allowed === undefined) {
-				throw new ParseError(
+				return new ParseError(
 					`Enum argument <${argName}> is misconfigured: no allowed values declared`,
 					{
 						code: 'INVALID_SCHEMA',
@@ -544,33 +554,51 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
 					},
 				);
 			}
-			if (!allowed.includes(raw)) {
-				throw new ParseError(
-					`Invalid value '${raw}' for argument <${argName}>. Allowed: ${allowed.join(', ')}`,
-					{
-						code: 'INVALID_VALUE',
-						details: { arg: argName, value: raw, allowed },
-					},
-				);
-			}
-			return raw;
+			return new ParseError(
+				`Invalid value '${raw}' for argument <${argName}>. Allowed: ${allowed.join(', ')}`,
+				{
+					code: 'INVALID_VALUE',
+					details: { ...subject, allowed },
+				},
+			);
 		}
 
-		case 'custom': {
-			if (!schema.parseFn) {
-				return raw;
-			}
-			try {
-				return schema.parseFn(raw);
-			} catch (err) {
-				if (err instanceof ParseError) throw err;
-				const message = err instanceof Error ? err.message : String(err);
-				throw new ParseError(`Failed to parse argument <${argName}>: ${message}`, {
+		case 'string-constraint':
+			return new ParseError(
+				`Invalid value '${raw}' for argument <${argName}>: ${describeStringConstraintViolation(failure.violation)}`,
+				{
 					code: 'INVALID_VALUE',
-					details: { arg: argName, value: raw },
-					cause: err,
-				});
-			}
+					details: {
+						...subject,
+						expected: 'string',
+						...stringConstraintDetails(failure.violation),
+					},
+				},
+			);
+
+		case 'number-constraint':
+			return new ParseError(
+				`Invalid number value '${raw}' for argument <${argName}>: ${describeNumberConstraintViolation(failure.violation)}`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						...subject,
+						expected: 'number',
+						constraint: failure.violation.kind,
+						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
+					},
+				},
+			);
+
+		case 'thrown': {
+			if (failure.error instanceof ParseError) return failure.error;
+			const message =
+				failure.error instanceof Error ? failure.error.message : String(failure.error);
+			return new ParseError(`Failed to parse argument <${argName}>: ${message}`, {
+				code: 'INVALID_VALUE',
+				details: subject,
+				cause: failure.error,
+			});
 		}
 	}
 }

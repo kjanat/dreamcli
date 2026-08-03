@@ -17,6 +17,7 @@ import type {
 	StandardSchemaV1Issue,
 	StandardSchemaV1PathSegment,
 } from '#internals/core/schema/standard.ts';
+import { argValueSchema, flagValueSchema } from '#internals/core/schema/value.ts';
 
 /** Resolved values after the Standard Schema pass, plus any issues found. */
 interface StandardValidationResult {
@@ -110,8 +111,9 @@ async function applyStandardValidators(
 		if (value === undefined) {
 			continue;
 		}
+		const elementSchema = flagSchema.kind === 'array' ? flagSchema.elementSchema : undefined;
 		const elementValidator =
-			flagSchema.kind === 'array' ? flagSchema.elementSchema?.standard : undefined;
+			elementSchema === undefined ? undefined : flagValueSchema(elementSchema)?.standard;
 		if (elementValidator !== undefined && Array.isArray(value)) {
 			const nextValue: unknown[] = [];
 			for (const [index, element] of value.entries()) {
@@ -127,7 +129,7 @@ async function applyStandardValidators(
 			continue;
 		}
 
-		const validator = flagSchema.standard;
+		const validator = flagValueSchema(flagSchema)?.standard;
 		if (validator === undefined) {
 			continue;
 		}
@@ -141,7 +143,7 @@ async function applyStandardValidators(
 
 	const nextArgs: Record<string, unknown> = { ...args };
 	for (const entry of schema.args) {
-		const validator = entry.schema.standard;
+		const validator = argValueSchema(entry.schema).standard;
 		const value = resolvedValue(args, entry.name);
 		if (validator === undefined || value === undefined) {
 			continue;

@@ -7,18 +7,19 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 | File                    | Lines | Purpose                                                                                                                     |
 | ----------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
 | `command.ts`            |  1828 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
-| `flag.ts`               |  2012 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
-| `arg.ts`                |  1439 | `ArgBuilder` — `arg.string/number/enum/custom/url/path/date/duration/bytes()`                                               |
+| `flag.ts`               |  2001 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
+| `arg.ts`                |  1432 | `ArgBuilder` — `arg.string/number/enum/custom/url/path/date/duration/bytes()`                                               |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing `FlagSchema` / `ArgSchema` / `CommandSchema`                              |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                                   |
 | `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                          |
 | `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                                 |
-| `string-constraints.ts` |   173 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
+| `string-constraints.ts` |   172 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
 | `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                                           |
+| `value.ts`              |   572 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
 | `value-parsers.ts`      |   329 | Value machinery behind the sugar factories on both `flag` and `arg` — parsers, path option types, `buildPathChecks()`       |
-| `run.ts`                |   240 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
-| `index.ts`              |   148 | Barrel — re-exports all public symbols                                                                                      |
+| `run.ts`                |   241 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
+| `index.ts`              |   149 | Barrel — re-exports all public symbols                                                                                      |
 
 ## TYPE SYSTEM PATTERNS
 
@@ -45,10 +46,49 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
   `buildCommandSchema()` each carry one `as` cast at their return statement to attach the brand;
   these are the only casts in the three files.
 
+## VALUE LAYER (`value.ts`)
+
+`value.ts` is internal. It is not exported from `index.ts`, from `src/index.ts`, or from any public
+subpath, and importers reach it by direct file import (`#internals/core/schema/value.ts`).
+
+A `ValueSchema` holds `{ codec, constraints, standard, pathChecks, valueHint }`. The codec set is
+`string`, `number`, `boolean`, `enum`, and `custom`; the sugar members (`url`, `path`, `date`,
+`duration`, `bytes`) are a `custom` codec wrapping the matching function from `value-parsers.ts`
+plus a `valueHint`, and `path` is the `string` codec plus `pathChecks`. `array`, `count`, and
+`keyValue` carry no value schema; they live on the cardinality axis and `flagValueSchema()` returns
+`undefined` for them.
+
+Two directions, one function each way:
+
+- `flagValueSchema(schema)` / `argValueSchema(schema)` read the flat schema fields onto a
+  `ValueSchema`. Every parse and resolve site that decodes, coerces, or validates a value goes
+  through these instead of reading `stringConstraints`, `numberConstraints`, `enumValues`,
+  `parseFn`, `standard`, `pathChecks`, or `valueHint` off the schema.
+- `valueDefinitionFields(value)` flattens a `ValueSchema` back into the definition fields the
+  factories hand to `createFlagSchema()` / `createArgSchema()`. `enumValues` is absent from it,
+  since both enum definitions declare that field as required and an all-optional record cannot
+  satisfy it; `flag.enum()` and `arg.enum()` pass it directly.
+
+`decodeValue(value, raw, input)` is the one decoding entry point. `input` is `'token'` for an argv
+token and `'env'` / `'config'` / `'prompt'` for resolver stages, which is what lets one boolean
+implementation accept `true`/`1`/`false`/`0` from argv and also `yes`/`no`/`''`/`y`/`n` from the
+resolver. It runs the codec and then the constraints, and returns a `ValueFailure` describing the
+value problem alone. Naming the subject (`flag --x` versus `argument <x>`) belongs to the caller:
+`flagValueError()` / `argValueError()` in `parse/index.ts` and `valueCoercionError()` in
+`resolve/coerce.ts`.
+
+`validateDecodedValue(value, decoded)` applies the same constraints to a value that never came from
+a raw source. A declared default is already typed, so the L15/L16 defaults pass validates it here
+rather than adding a second dispatch over `stringConstraints` / `numberConstraints`.
+
+The public field shape of `FlagSchema` and `ArgSchema` is unchanged. Both still carry the flat
+fields, the definition document still serializes them, and `value.ts` is a view over them.
+
 ## ADDING A FLAG TYPE
 
-Two flavors. A **sugar factory** (like `flag.url/date/duration/bytes`) reuses `kind: 'custom'` with
-a `parseFn` from `value-parsers.ts` + a `valueHint` — only steps 3 and 10–11 apply. A **new kind**
+Two flavors. A **sugar factory** (like `flag.url/date/duration/bytes`) adds a value constructor in
+`value.ts` that wraps a `parseFn` from `value-parsers.ts` and sets a `valueHint`, then calls it
+through `valueDefinitionFields()` in both factories; only steps 3 and 10–11 apply. A **new kind**
 (like `count` / `keyValue`) touches every exhaustive `switch (schema.kind)` in the codebase:
 
 1. `flag.ts` — add to `FLAG_KINDS`, add a `PromptConfigByFlagKind` entry (`never` = not promptable),
@@ -59,10 +99,14 @@ a `parseFn` from `value-parsers.ts` + a `valueHint` — only steps 3 and 10–11
    exclusively
 3. `flag.ts` — add the factory to the `FlagFactory` interface **and** the `flag` object literal
    (duplicate signatures; keep both in sync)
-4. `parse/index.ts` — `coerceFlagValue()` case; update `flagExpectsValue()` if the kind takes no
-   value token; `setFlagValue()` if occurrences accumulate (array/keyValue style)
-5. `resolve/coerce.ts` — `coerceValue()` case (env/config/prompt sources)
-6. `resolve/property.ts` — `toSharedFlagPropertySchema()` switch arm
+4. `value.ts` — a codec plus a value constructor when the kind carries a value, and a
+   `flagBaseValue()` / `argBaseValue()` arm; a collection kind returns `undefined` from
+   `flagBaseValue()` instead
+5. `parse/index.ts` — `coerceFlagValue()` case for a collection kind, plus a `flagValueError()` /
+   `argValueError()` arm for any new `ValueFailure`; update `flagExpectsValue()` if the kind takes
+   no value token; `setFlagValue()` if occurrences accumulate (array/keyValue style)
+6. `resolve/coerce.ts` — `coerceValue()` case for a collection kind, plus a `valueCoercionError()`
+   arm for any new `ValueFailure`
 7. `resolve/flags.ts` — `COMPATIBLE_PROMPT_KINDS` entry; unset-fallback branch in `resolveFlags()`
    if the kind resolves to a value when absent (array → `[]`, keyValue → `{}`);
    `buildRequiredFlagSuggest()` if no value token
@@ -76,13 +120,17 @@ a `parseFn` from `value-parsers.ts` + a `valueHint` — only steps 3 and 10–11
 
 ## ARG / FLAG PARITY
 
-The value-level surface is shared. `arg.url/path/date/duration/bytes()` call the same functions in
-`value-parsers.ts` as their flag counterparts and set the same `valueHint`; `arg.path()` and
-`flag.path()` both normalize their options through `buildPathChecks()`. String constraints use one
-`stringConstraints` field on both schemas, one validator, and one error-detail fragment
-(`stringConstraintDetails()`), so a message differs only in the subject (`for flag --x` versus
-`for argument <x>`). `factory-parity.test.ts` asserts that, and a new value-level member belongs on
-both factories or on neither.
+The value-level surface is shared. `arg.url/path/date/duration/bytes()` call the same value
+constructors in `value.ts` as their flag counterparts, so both surfaces get the same codec, the same
+`valueHint`, and the same `pathChecks`. String constraints use one `stringConstraints` field on both
+schemas, one validator, and one error-detail fragment (`stringConstraintDetails()`), so a message
+differs only in the subject (`for flag --x` versus `for argument <x>`). `factory-parity.test.ts`
+asserts that at the message level and pins the two value projections against each other, and a new
+value-level member belongs on both factories or on neither.
+
+The one place the two projections differ is the `custom` parse function. A flag's takes `unknown`
+and is called with the raw value; an arg's takes `string`, so `argValueSchema()` stringifies a
+non-string raw before calling it. Both store the caller's function verbatim on the schema.
 
 Flag-only by design: `boolean`, `count`, `negatable`, `alias`, `duplicates`, `separator`, `unique`,
 `propagate` (flag syntax), `array` (`.variadic()` serves it), and `keyValue` / `prompt` / `config`
@@ -150,7 +198,7 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   `toString`, which then reads as a supplied value. `resolveFlags()` in `resolve/` guards its `env`
   lookup and the interactive resolver's override record with `Object.hasOwn()` for that reason.
 
-## TEST FILES (16)
+## TEST FILES (17)
 
 | File                                | Tests                                                    |
 | ----------------------------------- | -------------------------------------------------------- |
@@ -164,6 +212,7 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
 | `standard.test.ts`                  | Standard Schema v1 types + `isStandardSchemaV1()`        |
 | `string-constraints.test.ts`        | String constraint validation + flag/arg builder chaining |
 | `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories        |
+| `value.test.ts`                     | Codecs, constraint routing, hint carriage, projections   |
 | `arg.test.ts`                       | ArgBuilder API, kinds, validation                        |
 | `arg-value-factories.test.ts`       | `arg.url/path/date/duration/bytes()` + arg constraints   |
 | `factory-parity.test.ts`            | Same value through `flag.*` and `arg.*`, same verdict    |
