@@ -274,7 +274,7 @@ describe('validated defaults, flags', () => {
 
 	it('rejects a scalar default on a collection', () => {
 		const error = schemaError(() => createFlagSchema('array', { defaultValue: 'a' }));
-		expect(error.message).toBe('Default value for a array flag is invalid: expected an array');
+		expect(error.message).toBe('Default value for an array flag is invalid: expected an array');
 	});
 
 	it('validates every element of an array default', () => {
@@ -297,6 +297,19 @@ describe('validated defaults, flags', () => {
 		expect(schemaError(() => createFlagSchema('count', { defaultValue: -1 })).message).toBe(
 			'Default value for a count flag is invalid: expected a non-negative integer',
 		);
+	});
+
+	it('leaves a count validator to resolution, since the factory declares the default', () => {
+		const verbose = flag.count().standard({
+			'~standard': {
+				version: 1,
+				vendor: 'test',
+				validate: (value: unknown) =>
+					value === 2 ? { value } : { issues: [{ message: 'must be two' }] },
+			},
+		});
+		expect(verbose.schema.defaultValue).toBe(0);
+		expect(verbose.default(1).schema.defaultValue).toBe(1);
 	});
 
 	it('runs a synchronous element validator over a default', () => {
@@ -326,7 +339,7 @@ describe('validated defaults, flags', () => {
 			},
 		});
 		expect(schemaError(() => tags.default([])).message).toBe(
-			'Default value for a array flag is invalid: needs at least one tag',
+			'Default value for an array flag is invalid: needs at least one tag',
 		);
 	});
 

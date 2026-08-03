@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { ValidationError } from '#internals/core/errors/index.ts';
 import { isValidationError } from '#internals/core/errors/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
@@ -181,6 +182,27 @@ describe('many, config, prompt, and defaults', () => {
 		).toEqual([80, 443]);
 	});
 
+	it('takes a native config array past the split policy, delimiters and all', async () => {
+		expect(
+			await resolveFlag(flag.array(flag.string()).config('deploy.tags').split({ env: ',' }), [], {
+				config: { deploy: { tags: ['a,b', 'c'] } },
+			}),
+		).toEqual(['a,b', 'c']);
+	});
+
+	it('takes a native config array past a JSON policy too', async () => {
+		expect(
+			await resolveFlag(
+				flag
+					.array(flag.string())
+					.config('deploy.tags')
+					.split({ env: { format: 'json' } }),
+				[],
+				{ config: { deploy: { tags: ['[not json]'] } } },
+			),
+		).toEqual(['[not json]']);
+	});
+
 	it('splits a config string under the env policy', async () => {
 		expect(
 			await resolveFlag(flag.array(flag.string()).config('deploy.tags'), [], {
@@ -280,6 +302,33 @@ describe('entries, every source', () => {
 		expect(await resolveArg(arg.keyValue(), ['A=1'])).toEqual({ A: '1' });
 	});
 
+	it('splits one CLI token on the separator a non-variadic arg declares', async () => {
+		expect(await resolveArg(arg.keyValue().separator(','), ['A=1,B=2'])).toEqual({
+			A: '1',
+			B: '2',
+		});
+		expect(await resolveArg(arg.keyValue().split({ cli: ';' }), ['A=1;B=2'])).toEqual({
+			A: '1',
+			B: '2',
+		});
+	});
+
+	it('splits a CLI token the same way whichever surface and arity declares it', async () => {
+		const expected = { A: '1', B: '2' };
+
+		expect(await resolveFlag(flag.keyValue().separator(','), ['--value', 'A=1,B=2'])).toEqual(
+			expected,
+		);
+		expect(await resolveArg(arg.keyValue().separator(','), ['A=1,B=2'])).toEqual(expected);
+		expect(await resolveArg(arg.keyValue().variadic().separator(','), ['A=1,B=2'])).toEqual(
+			expected,
+		);
+	});
+
+	it('leaves a CLI token whole when the arg declares no separator', async () => {
+		expect(await resolveArg(arg.keyValue(), ['A=1,B=2'])).toEqual({ A: '1,B=2' });
+	});
+
 	it('splits env pairs on commas and at the first =', async () => {
 		expect(
 			await resolveFlag(flag.keyValue().env('VARS'), [], { env: { VARS: 'A=1,B=b=c' } }),
@@ -307,6 +356,14 @@ describe('entries, every source', () => {
 				config: { deploy: { vars: { A: '1' } } },
 			}),
 		).toEqual({ A: '1' });
+	});
+
+	it('takes a native config object past the split policy, separators and all', async () => {
+		expect(
+			await resolveFlag(flag.keyValue().config('deploy.vars').split({ env: ',' }), [], {
+				config: { deploy: { vars: { A: '1,2', B: 'x=y' } } },
+			}),
+		).toEqual({ A: '1,2', B: 'x=y' });
 	});
 
 	it('reads piped lines as pairs', async () => {
@@ -352,7 +409,7 @@ describe('entries, duplicate keys', () => {
 				env: { VARS: 'A=1,A=2' },
 			}),
 		);
-		expect(message).toContain("Duplicate key 'A'");
+		expect(message).toBe("Duplicate key '<redacted>' from env VARS for flag --value");
 	});
 });
 
@@ -414,7 +471,7 @@ describe('stdin splices into occurrence order', () => {
 				{ stdinData: 'A=2\n' },
 			),
 		);
-		expect(message).toContain("Duplicate key 'A'");
+		expect(message).toBe("Duplicate key '<redacted>' from stdin for flag --value");
 	});
 
 	it('decodes each spliced element through the element value axis', async () => {
@@ -782,6 +839,87 @@ describe('two `-` occurrences on one collection', () => {
 					},
 				),
 			),
-		).toMatch(/Duplicate key 'A'/);
+		).toBe("Duplicate key '<redacted>' from stdin for flag --value");
+	});
+});
+
+// === the shape a source value must have to fill a collection
+
+describe('a source value of the wrong shape names the shape the collection wants', () => {
+	/** Run a resolution expected to fail, returning the failure it reported. */
+	async function failure(run: () => Promise<unknown>): Promise<ValidationError> {
+		try {
+			await run();
+		} catch (error) {
+			if (isValidationError(error)) return error;
+			throw error;
+		}
+		throw new Error('expected resolution to fail');
+	}
+
+	it('asks a key-value flag for an object', async () => {
+		for (const raw of [5, [1, 2], true]) {
+			const error = await failure(() =>
+				resolveFlag(flag.keyValue().config('deploy.value'), [], {
+					config: { deploy: { value: raw } },
+				}),
+			);
+			expect(error.message).toBe('Invalid object value from config deploy.value for flag --value');
+			expect(error.details).toEqual({
+				flag: 'value',
+				source: 'config',
+				configPath: 'deploy.value',
+				expected: 'object',
+			});
+			expect(error.suggest).toBe('Set deploy.value to an object in your config');
+		}
+	});
+
+	it('asks a key-value arg for an object', async () => {
+		const error = await failure(() =>
+			resolveArg(arg.keyValue().config('deploy.value'), [], { config: { deploy: { value: 5 } } }),
+		);
+		expect(error.message).toBe(
+			'Invalid object value from config deploy.value for argument <value>',
+		);
+		expect(error.details).toEqual({
+			arg: 'value',
+			source: 'config',
+			configPath: 'deploy.value',
+			expected: 'object',
+		});
+		expect(error.suggest).toBe('Use KEY=VALUE for <value>');
+	});
+
+	it('still asks a list flag for an array', async () => {
+		const error = await failure(() =>
+			resolveFlag(flag.array(flag.string()).config('deploy.value'), [], {
+				config: { deploy: { value: 5 } },
+			}),
+		);
+		expect(error.message).toBe('Invalid array value from config deploy.value for flag --value');
+		expect(error.details).toEqual({
+			flag: 'value',
+			source: 'config',
+			configPath: 'deploy.value',
+			expected: 'array',
+		});
+		expect(error.suggest).toBe('Set deploy.value to an array in your config');
+	});
+
+	it('still asks a list arg for an array', async () => {
+		const error = await failure(() =>
+			resolveArg(arg.string().variadic().config('deploy.value'), [], {
+				config: { deploy: { value: 5 } },
+			}),
+		);
+		expect(error.message).toBe('Invalid array value from config deploy.value for argument <value>');
+		expect(error.details).toEqual({
+			arg: 'value',
+			source: 'config',
+			configPath: 'deploy.value',
+			expected: 'array',
+		});
+		expect(error.suggest).toBe('Provide values for <value>');
 	});
 });

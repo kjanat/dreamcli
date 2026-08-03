@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
@@ -123,7 +124,85 @@ describe('@kjanat/dreamcli', () => {
 	it('keeps public export JSDoc coverage complete', { timeout: 15_000 }, () => {
 		expect(collectPublicExportsWithoutJsDoc()).toEqual([]);
 	});
+
+	// A document leaves the process, so every fragment naming part of its shape
+	// is a type a consumer writes against. `stability.md` classifies them as one
+	// group, and one missing from the barrel is only visible at a consumer's
+	// import.
+	it('re-exports every version 1 fragment type from the barrel', () => {
+		const fragmentNames = (file: string): readonly string[] => {
+			const source = readFileSync(path.join(repoRoot, file), 'utf8');
+			return [...source.matchAll(/\b(\w+FragmentV1)\b/g)].map((match) => match[1] ?? '').sort();
+		};
+
+		const declared = new Set(fragmentNames('src/core/json-schema/index.ts'));
+		const reExported = new Set(fragmentNames('src/index.ts'));
+
+		expect([...declared].filter((name) => !reExported.has(name))).toEqual([]);
+	});
+
+	// `stability.md` classifies the exports of the four entrypoints, so a type it
+	// classifies and no entrypoint exports is a promise a consumer cannot keep.
+	// Its own "Internal surface" section is where a name is declared unreachable,
+	// so everything above that heading is a claim about the public surface.
+	it('exports every type stability.md classifies as public', () => {
+		const read = (file: string): string => readFileSync(path.join(repoRoot, file), 'utf8');
+
+		const exportedNames = (file: string): readonly string[] =>
+			[...read(file).matchAll(/export (?:type )?\{([^}]*)\}/gms)].flatMap((match) =>
+				(match[1] ?? '')
+					.split(',')
+					.map(
+						(part) =>
+							part
+								.trim()
+								.replace(/^type\s+/, '')
+								.split(/\s+as\s+/)
+								.pop() ?? '',
+					)
+					.filter((name) => name !== ''),
+			);
+
+		const entrypoints = new Set(
+			['src/index.ts', 'src/runtime.ts', 'src/testkit.ts', 'src/version.ts'].flatMap(exportedNames),
+		);
+
+		const doc = read('docs/reference/stability.md');
+		const publicSection = doc.slice(0, doc.indexOf('## Internal surface'));
+		const cited = new Set(
+			[...publicSection.matchAll(/`([A-Z][A-Za-z0-9]*)`/g)].map((match) => match[1] ?? ''),
+		);
+
+		const declared = collectDeclaredTypeNames();
+		const unreachable = [...cited]
+			.filter((name) => declared.has(name) && !entrypoints.has(name))
+			.sort();
+
+		expect(unreachable).toEqual([]);
+	});
 });
+
+/** Every type, interface, and class name `src/` declares, outside test files. */
+function collectDeclaredTypeNames(): ReadonlySet<string> {
+	const names = new Set<string>();
+	const visit = (directory: string): void => {
+		for (const entry of readdirSync(directory, { withFileTypes: true })) {
+			const child = path.join(directory, entry.name);
+			if (entry.isDirectory()) {
+				visit(child);
+				continue;
+			}
+			if (!entry.name.endsWith('.ts') || entry.name.endsWith('.test.ts')) continue;
+			for (const match of readFileSync(child, 'utf8').matchAll(
+				/^(?:export )?(?:declare )?(?:type|interface|class) ([A-Z][A-Za-z0-9]*)/gm,
+			)) {
+				names.add(match[1] ?? '');
+			}
+		}
+	};
+	visit(path.join(repoRoot, 'src'));
+	return names;
+}
 
 // === @kjanat/dreamcli/runtime
 

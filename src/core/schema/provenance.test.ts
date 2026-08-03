@@ -21,4 +21,21 @@ describe('wasExplicit()', () => {
 			expect(wasExplicit(source)).toBe(expected);
 		});
 	}
+
+	// === L19 — the two readings of explicitness, side by side
+
+	it('parts with the typed-it derivation only on the sources that supplied bytes', () => {
+		const typedIt = (source: ResolutionProvenance | undefined): boolean => source?.stage === 'cli';
+
+		expect(table.map(([, source]) => [wasExplicit(source), typedIt(source)])).toEqual([
+			[true, true],
+			[true, true],
+			[true, false],
+			[true, false],
+			[true, false],
+			[true, false],
+			[false, false],
+			[false, false],
+		]);
+	});
 });

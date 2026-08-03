@@ -14,7 +14,7 @@
  */
 
 import { ParseError } from '#internals/core/errors/index.ts';
-import type { SplitPolicy } from '#internals/core/schema/cardinality.ts';
+import type { Cardinality, SplitPolicy } from '#internals/core/schema/cardinality.ts';
 import {
 	argCardinality,
 	flagCardinality,
@@ -1119,6 +1119,21 @@ function splitCliToken(
 /** The CLI policy a single-value positional splits under: none at all. */
 const WHOLE_TOKEN: SplitPolicy = { format: 'whole' };
 
+/**
+ * The CLI split policy a cardinality carries.
+ *
+ * A scalar and a count have no elements to split into, so their tokens stay
+ * whole.
+ *
+ * @param cardinality - How the input's values combine.
+ * @returns The policy each of its CLI tokens splits under.
+ */
+function cliSplitOf(cardinality: Cardinality): SplitPolicy {
+	return cardinality.kind === 'many' || cardinality.kind === 'entries'
+		? cardinality.cliSplit
+		: WHOLE_TOKEN;
+}
+
 // --- Positional arg mapping
 
 /**
@@ -1138,13 +1153,10 @@ function mapPositionals(
 
 	for (const entry of argEntries) {
 		const cardinality = argCardinality(entry.schema);
+		const policy = cliSplitOf(cardinality);
 		if (entry.schema.variadic) {
 			// Variadic arg consumes all remaining positionals
 			const remaining = positionals.slice(posIdx);
-			const policy =
-				cardinality.kind === 'many' || cardinality.kind === 'entries'
-					? cardinality.cliSplit
-					: WHOLE_TOKEN;
 			const occurrences = remaining.flatMap((raw) =>
 				splitCliToken(policy, raw, { stdin: entry.schema.stdin }).map((part) =>
 					argTokenOccurrence(entry.name, part, entry.schema),
@@ -1157,8 +1169,10 @@ function mapPositionals(
 
 		const rawPositional = positionals[posIdx];
 		if (rawPositional !== undefined) {
-			const occurrence = argTokenOccurrence(entry.name, rawPositional, entry.schema);
-			args[entry.name] = projectOccurrences(cardinality, [occurrence]);
+			const occurrences = splitCliToken(policy, rawPositional, {
+				stdin: entry.schema.stdin,
+			}).map((part) => argTokenOccurrence(entry.name, part, entry.schema));
+			args[entry.name] = projectOccurrences(cardinality, occurrences);
 			posIdx++;
 		}
 		// If no positional available, leave absent (resolution/validation handles defaults/required)

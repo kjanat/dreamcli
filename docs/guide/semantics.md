@@ -133,25 +133,27 @@ and accepts `\n`, `\r\n`, and `\r`: `'a\nb\n'` gives `['a', 'b']` and
   `{ A: 'b=c' }`. A segment with no `=`, or an empty key, fails: `INVALID_VALUE`
   on a CLI token, `TYPE_MISMATCH` from every other source.
 - Entries fold under `.duplicateKeys()`: `'last'` (the default), `'first'`, or
-  `'error'`, which reports `CONSTRAINT_VIOLATED` naming the key and the source
-  that carried it. The policy applies to every source, not only to repeated CLI
+  `'error'`, which reports `CONSTRAINT_VIOLATED` naming the source that carried
+  the repeat. The policy applies to every source, not only to repeated CLI
   occurrences.
 - A count reads an explicit value (`--verbose=2`, env, config) as the count
   itself, and must be a non-negative integer.
 
 Under `'error'`, each occurrence keeps its own source through aggregation, so a
 collection filled from both the command line and a pipe names whichever one
-carried the repeat. Tokens the user typed name no source:
+carried the repeat. Tokens the user typed name no source. A key is half of a
+`KEY=VALUE` pair, so it takes the redaction rule below: quoted in full when the
+user typed it, `<redacted>` from every other source.
 
 ```bash
 $ mycli set --v A=1 --v A=2
 Duplicate key 'A' for flag --v
 
 $ printf 'A=2\n' | mycli set --v A=1 --v -
-Duplicate key 'A' from stdin for flag --v
+Duplicate key '<redacted>' from stdin for flag --v
 
 $ VARS='A=1,A=2' mycli set
-Duplicate key 'A' from env VARS for flag --env
+Duplicate key '<redacted>' from env VARS for flag --env
 ```
 
 The argument surface words it the same way, with `for argument <vars>` in place
@@ -252,6 +254,12 @@ The stream is read at most once per invocation, and only when a declared binding
 would fire. Declaring a second exclusive stdin input on one command, flag or
 argument, throws `DUPLICATE_STDIN_INPUT` at build time; every stdin input on a
 command that passes `{ consume: 'broadcast' }` receives the same buffer.
+
+That build-time rule covers one command's own inputs. Sibling commands may each
+declare their own exclusive consumer, and the invocation decides which one runs.
+A `.propagate()` stdin flag reaching a subcommand that also declares one is the
+one case where two exclusive consumers meet in a single invocation: the buffer
+is still read once and both receive it.
 
 For a scalar input, the whole buffer becomes the value. A `string` input keeps
 it byte for byte; every other scalar kind drops one trailing `\n`, `\r\n`, or
@@ -465,16 +473,22 @@ One rule governs every resolution diagnostic on both surfaces: a value the user
 typed on the command line is quoted in full, and a value from any other source
 is replaced with `<redacted>`.
 
-| Source | Message quotes             | `details.value` | Reason                                              |
-| ------ | -------------------------- | --------------- | --------------------------------------------------- |
-| argv   | the token, verbatim        | present         | it is already on the user's screen                  |
-| stdin  | `'<redacted>'`             | absent          | a pipe carries secrets                              |
-| env    | `'<redacted>'`             | absent          | an environment variable carries secrets             |
-| config | `'<redacted>'`             | absent          | a config file carries secrets                       |
-| prompt | `'<redacted>'`             | absent          | an answer may be a password                         |
+| Source  | Message quotes      | `details.value` | Reason                                  |
+| ------- | ------------------- | --------------- | --------------------------------------- |
+| argv    | the token, verbatim | present         | it is already on the user's screen      |
+| stdin   | `'<redacted>'`      | absent          | a pipe carries secrets                  |
+| env     | `'<redacted>'`      | absent          | an environment variable carries secrets |
+| config  | `'<redacted>'`      | absent          | a config file carries secrets           |
+| prompt  | `'<redacted>'`      | absent          | an answer may be a password             |
+| default | `'<redacted>'`      | absent          | a declared default may hold a secret    |
 
 An explicit `-` counts as a stdin value, not an argv one, because the bytes came
 from the pipe rather than from the token.
+
+The rule reaches every diagnostic resolution produces, including the ones a
+later pass writes: a Standard Schema issue and a `flag.path()` / `arg.path()`
+filesystem check both quote `<redacted>` and omit `details.value` unless an
+argv token carried the value.
 
 ```bash
 $ mycli deploy --token sk-live-9f2

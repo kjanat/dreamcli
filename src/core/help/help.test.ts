@@ -331,6 +331,44 @@ describe('formatHelp', () => {
 			expect(help).toContain('(default: 8080)');
 		});
 
+		it('shows a default a definition declared without the defaulted presence', () => {
+			const base = command('run');
+			const help = formatHelp({
+				...base.schema,
+				flags: { out: createFlagSchema('string', { defaultValue: 'dist' }) },
+				args: [{ name: 'target', schema: createArgSchema('string', { defaultValue: 'prod' }) }],
+			});
+
+			expect(help).toContain('(default: dist)');
+			expect(help).toContain('(default: prod)');
+		});
+
+		it('drops the required marker from an input a default always fills', () => {
+			const base = command('run');
+			const help = formatHelp({
+				...base.schema,
+				flags: {
+					out: createFlagSchema('string', { presence: 'required', defaultValue: 'dist' }),
+					mode: createFlagSchema('string', { presence: 'required' }),
+				},
+				args: [
+					{
+						name: 'target',
+						schema: createArgSchema('string', { presence: 'required', defaultValue: 'prod' }),
+					},
+					{ name: 'other', schema: createArgSchema('string', { presence: 'required' }) },
+				],
+			});
+
+			expect(help).toContain('(default: dist)');
+			expect(help).toContain('(default: prod)');
+			expect(help).toContain('[target]');
+			expect(help).toContain('<other>');
+			expect(help).not.toContain('<target>');
+			expect(help).toMatch(/--mode <string>\s+\[required\]/);
+			expect(help).not.toMatch(/--out <string>\s+\[required\]/);
+		});
+
 		it('renders nullish sentinels for defaulted flags', () => {
 			const base = command('run');
 			const nullHelp = formatHelp({

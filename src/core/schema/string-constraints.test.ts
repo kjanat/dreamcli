@@ -344,16 +344,15 @@ describe('flag.string() chained constraint methods', () => {
 		expect(base.schema.stringConstraints).toEqual({ minLength: 2 });
 	});
 
-	it('constraint methods are string-kind only at compile time', () => {
+	it('constraint methods are string-kind only, at compile time and construction time', () => {
 		// @ts-expect-error — .nonEmpty() is not available on number flags
-		flag.number().nonEmpty();
+		expect(() => flag.number().nonEmpty()).toThrow(/requires kind 'string'/);
 		// @ts-expect-error — .minLength() is not available on number flags
-		flag.number().minLength(1);
+		expect(() => flag.number().minLength(1)).toThrow(/requires kind 'string'/);
 		// @ts-expect-error — .maxLength() is not available on boolean flags
-		flag.boolean().maxLength(2);
+		expect(() => flag.boolean().maxLength(2)).toThrow(/requires kind 'string'/);
 		// @ts-expect-error — .pattern() is not available on enum flags
-		flag.enum(['a', 'b']).pattern(/^a/);
-		expect(true).toBe(true);
+		expect(() => flag.enum(['a', 'b']).pattern(/^a/)).toThrow(/requires kind 'string'/);
 	});
 });
 

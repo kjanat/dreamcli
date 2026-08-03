@@ -642,7 +642,8 @@ Class constructors follow the same rule as functions, with one exception.
 `InferFlag`, `InferFlags`, `InferArg`, `InferArgs`, `InferStandardInput`,
 `InferStandardOutput`, `ResolvedValue`, `ResolvedArgValue`, `ArgDefaultValue`,
 `WithPresence`, `WithArgPresence`, `WithVariadic`,
-`WithoutArgElementEligibility`, the builder state types `FlagConfig`,
+`WithoutElementEligibility`, `WithoutArgElementEligibility`, the builder state
+types `FlagConfig`,
 `ArgConfig`, `StringElementConfig`, and `StringArgElementConfig`, the element
 configs a collection factory assumes when given no element builder, and
 `FlagMap`, the record of flag builders `readFlags()` evaluates.

@@ -84,6 +84,54 @@ describe('resolve', () => {
 			expect(result.flags).toEqual({});
 		});
 
+		it('reads a config path named after an Object.prototype member', async () => {
+			const schema = makeSchema({
+				flags: {
+					own: createFlagSchema('string', { configPath: 'toString' }),
+					nested: createFlagSchema('string', { configPath: 'constructor.valueOf' }),
+				},
+			});
+			const options: ResolveOptions = {
+				config: JSON.parse('{"toString":"own","constructor":{"valueOf":"nested"}}'),
+			};
+
+			const result = await resolve(schema, makeParsed(), options);
+			expect(result.flags).toEqual({ own: 'own', nested: 'nested' });
+			expect(result.provenance.flags.own).toEqual({ stage: 'config', configPath: 'toString' });
+		});
+
+		it('answers nothing for a prototype member the config never set', async () => {
+			const schema = makeSchema({
+				flags: {
+					method: createFlagSchema('string', { configPath: 'toString', defaultValue: 'fallback' }),
+					deep: createFlagSchema('string', {
+						configPath: 'server.hasOwnProperty',
+						defaultValue: 'fallback',
+					}),
+				},
+			});
+			const options: ResolveOptions = { config: { server: {} } };
+
+			const result = await resolve(schema, makeParsed(), options);
+			expect(result.flags).toEqual({ method: 'fallback', deep: 'fallback' });
+		});
+
+		it('reads a __proto__ config key only as an own entry', async () => {
+			const schema = makeSchema({
+				flags: {
+					own: createFlagSchema('string', { configPath: '__proto__', defaultValue: 'fallback' }),
+				},
+			});
+
+			const inherited = await resolve(schema, makeParsed(), { config: { plain: 'value' } });
+			const carried = await resolve(schema, makeParsed(), {
+				config: JSON.parse('{"__proto__":"own"}'),
+			});
+
+			expect(inherited.flags).toEqual({ own: 'fallback' });
+			expect(carried.flags).toEqual({ own: 'own' });
+		});
+
 		it('coerces number to string from config', async () => {
 			const schema = makeSchema({
 				flags: {

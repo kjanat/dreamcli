@@ -179,6 +179,19 @@ describe('number codec', () => {
 		expect(rejected(numberValue(), {}, 'config')).toEqual({ kind: 'type', expected: 'number' });
 	});
 
+	it('rejects blank text from every input', () => {
+		for (const input of ['token', 'stdin', 'env', 'config', 'prompt'] as const) {
+			for (const raw of ['', ' ', '\t', '\n', '\r\n', '  \n ']) {
+				expect(rejected(numberValue(), raw, input)).toEqual({ kind: 'type', expected: 'number' });
+			}
+		}
+	});
+
+	it('keeps the surrounding whitespace of a real number readable', () => {
+		expect(decoded(numberValue(), ' 42 ', 'env')).toBe(42);
+		expect(decoded(numberValue(), '42\n', 'stdin')).toBe(42);
+	});
+
 	// --- constraints
 
 	it('rejects Infinity with no constraints declared', () => {

@@ -472,11 +472,12 @@ flag.keyValue().duplicateKeys('first').env('VARS');
 // VARS='A=1,A=2'     →  { A: '1' }
 ```
 
-Under `'error'`, the message names the key and the source that carried it:
-`Duplicate key 'A' from env VARS for flag --env` for the environment, and
-`Duplicate key 'A' for flag --v` for occurrences the user typed, which name no
-source. A key spliced in from a pipe reads `from stdin`. A JSON object cannot
-repeat a key, so the policy has nothing to decide for `.split({ env: 'json' })`.
+Under `'error'`, the message names the source that carried the repeat:
+`Duplicate key '<redacted>' from env VARS for flag --env` for the environment,
+and `Duplicate key 'A' for flag --v` for occurrences the user typed, which name
+no source and quote the key. A key spliced in from a pipe reads `from stdin`. A
+JSON object cannot repeat a key, so the policy has nothing to decide for
+`.split({ env: 'json' })`.
 
 ## Sources
 
@@ -1155,7 +1156,7 @@ flag.string({ minLength: 3 }).default('ab');
 // Default value for a string flag is invalid: must be at least 3 characters
 
 flag.array(flag.number({ min: 0 })).default([-1]);
-// Default value for a array flag at 0 is invalid: must be >= 0
+// Default value for an array flag at 0 is invalid: must be >= 0
 
 flag.count().default(-1);
 // Default value for a count flag is invalid: expected a non-negative integer
@@ -1172,10 +1173,13 @@ A collection default takes the shape the flag resolves to: an array for
 `flag.array()`, a record for `flag.keyValue()`, a non-negative integer for
 `flag.count()`.
 
-Two checks stay at resolution time, where a default already went through them:
-a validator that returns a promise, and the `flag.path()` filesystem checks.
-`flag.path({ mustExist: true }).default('/nope')` therefore builds, and fails
-when the path is probed.
+Three checks stay at resolution time, where a default already went through them:
+a validator that returns a promise, the `flag.path()` filesystem checks, and a
+validator on `flag.count()`, whose default of `0` the factory declares rather
+than the caller. `flag.path({ mustExist: true }).default('/nope')` therefore
+builds, and fails when the path is probed;
+`flag.count().standard(atLeastOne)` builds, and fails on an invocation that
+leaves the count at `0`.
 
 Fix the default, or widen the declaration where the value was intended:
 `flag.number({ finite: false }).default(Number.POSITIVE_INFINITY)` holds.

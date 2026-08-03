@@ -143,18 +143,18 @@ describe('arg sugar factories — type inference', () => {
 
 	it('gates string constraint methods to string-kind args', () => {
 		// @ts-expect-error — .nonEmpty() is not available on number args
-		arg.number().nonEmpty();
+		expect(() => arg.number().nonEmpty()).toThrow(/requires kind 'string'/);
 		// @ts-expect-error — .minLength() is not available on enum args
-		arg.enum(['a', 'b']).minLength(1);
+		expect(() => arg.enum(['a', 'b']).minLength(1)).toThrow(/requires kind 'string'/);
 		// @ts-expect-error — .maxLength() is not available on custom args
-		arg.url().maxLength(2);
+		expect(() => arg.url().maxLength(2)).toThrow(/requires kind 'string'/);
 		// @ts-expect-error — .pattern() is not available on date args
-		arg.date().pattern(/^a/);
+		expect(() => arg.date().pattern(/^a/)).toThrow(/requires kind 'string'/);
 	});
 
 	it('gates numeric constraint methods away from the new string kinds', () => {
 		// @ts-expect-error — .min() is not available on path args
-		arg.path().min(1);
+		expect(() => arg.path().min(1)).toThrow(/requires kind 'number'/);
 	});
 });
 
@@ -341,10 +341,11 @@ describe('arg constraints from stdin', () => {
 	it('rejects a malformed piped url', async () => {
 		const { schema, parsed } = parseCommandArg(arg.url().stdin(), []);
 
-		// A parse-function failure outside argv is TYPE_MISMATCH on both surfaces.
+		// A parse-function failure outside argv is TYPE_MISMATCH on both surfaces,
+		// and its message is the flag one with the subject swapped.
 		await expect(resolve(schema, parsed, { stdinData: 'nope' })).rejects.toMatchObject({
 			code: 'TYPE_MISMATCH',
-			message: "Invalid value '<redacted>' from stdin for argument <x>: Invalid URL 'nope'",
+			message: "Failed to parse stdin value for argument <x>: Invalid URL 'nope'",
 		});
 	});
 

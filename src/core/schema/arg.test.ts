@@ -76,12 +76,11 @@ describe('arg.number() chained constraint methods', () => {
 		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number | undefined>();
 	});
 
-	it('constraint methods are number-kind only at compile time', () => {
+	it('constraint methods are number-kind only, at compile time and construction time', () => {
 		// @ts-expect-error — .min() is not available on string args
-		arg.string().min(0);
+		expect(() => arg.string().min(0)).toThrow(/requires kind 'number'/);
 		// @ts-expect-error — .int() is not available on enum args
-		arg.enum(['a', 'b']).int();
-		expect(true).toBe(true);
+		expect(() => arg.enum(['a', 'b']).int()).toThrow(/requires kind 'number'/);
 	});
 });
 

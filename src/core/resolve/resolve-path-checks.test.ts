@@ -629,7 +629,9 @@ describe('runCommand — flag.path() end to end', () => {
 		});
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
-		expect(result.error?.message).toBe("Path '/env-missing.txt' for flag --file does not exist");
+		expect(result.error?.message).toBe("Path '<redacted>' for flag --file does not exist");
+		expect(result.error?.details).toEqual({ flag: 'file', constraint: 'mustExist' });
+		expect(result.error?.suggest).toBe('Provide an existing path for --file');
 		expect(probe.calls).toEqual(['/env-missing.txt']);
 	});
 
@@ -781,9 +783,8 @@ describe('runCommand — arg.path() end to end', () => {
 		});
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
-		expect(result.error?.message).toBe(
-			"Path '/env-missing.txt' for argument <file> does not exist",
-		);
+		expect(result.error?.message).toBe("Path '<redacted>' for argument <file> does not exist");
+		expect(result.error?.details).toEqual({ arg: 'file', constraint: 'mustExist' });
 		expect(probe.calls).toEqual(['/env-missing.txt']);
 	});
 
@@ -794,8 +795,13 @@ describe('runCommand — arg.path() end to end', () => {
 		const result = await runCommand(cmd, [], { stdinData: '/piped.txt', stat: probe.stat });
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.message).toBe(
-			"Path '/piped.txt' for argument <file> is a directory, expected a file",
+			"Path '<redacted>' for argument <file> is a directory, expected a file",
 		);
+		expect(result.error?.details).toEqual({
+			arg: 'file',
+			constraint: 'pathType',
+			expected: 'file',
+		});
 		expect(probe.calls).toEqual(['/piped.txt']);
 	});
 
@@ -805,7 +811,8 @@ describe('runCommand — arg.path() end to end', () => {
 
 		const result = await runCommand(cmd, [], { stat: probe.stat });
 		expect(result.exitCode).toBe(2);
-		expect(result.error?.message).toBe("Path '/fallback.txt' for argument <file> does not exist");
+		expect(result.error?.message).toBe("Path '<redacted>' for argument <file> does not exist");
+		expect(result.error?.details).toEqual({ arg: 'file', constraint: 'mustExist' });
 	});
 
 	// --- variadic

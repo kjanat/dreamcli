@@ -10,7 +10,7 @@ those two phases meet in.
 
 | File                        | Lines | Purpose                                                         |
 | --------------------------- | ----: | --------------------------------------------------------------- |
-| `index.ts`                  |  1272 | `tokenize()`, `parse()`, flag/arg token reading, lookup helpers |
+| `index.ts`                  |  1286 | `tokenize()`, `parse()`, flag/arg token reading, lookup helpers |
 | `occurrences.ts`            |   186 | `Occurrence`, `projectOccurrences()`, `liftOccurrences()`       |
 | `parse.test.ts`             |  1045 | parser contract, edge cases, regressions                        |
 | `parse-case-parity.test.ts` |   118 | kebab↔camel counterpart spellings                               |

@@ -547,6 +547,7 @@ function validateDefault(
 		case 'one':
 			return validateDefaultElement(element, undefined, value);
 		case 'count':
+			// `flag.count()` supplies its own default of 0.
 			return typeof value === 'number' && Number.isInteger(value) && value >= 0
 				? undefined
 				: { kind: 'shape', expected: 'count' };
@@ -593,6 +594,19 @@ function validateDefaultStandard(
 	if (result instanceof Promise) return undefined;
 	if (result.issues === undefined) return undefined;
 	return { kind: 'standard', at, value, issues: result.issues.map((issue) => issue.message) };
+}
+
+/** Vowel-initial kind names, for the article a message puts before one. */
+const VOWEL_INITIAL = /^[aeiou]/i;
+
+/**
+ * The English article that precedes a kind name.
+ *
+ * @param word - The kind name a message names an input by.
+ * @returns `'an'` before a vowel, `'a'` otherwise.
+ */
+function indefiniteArticle(word: string): string {
+	return VOWEL_INITIAL.test(word) ? 'an' : 'a';
 }
 
 /**
@@ -657,6 +671,7 @@ export {
 	defaultViolationError,
 	flagCardinality,
 	foldEntries,
+	indefiniteArticle,
 	isCollection,
 	normalizeSplitOptions,
 	SPLIT_FORMATS,

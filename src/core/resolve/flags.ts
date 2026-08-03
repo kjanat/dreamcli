@@ -28,6 +28,7 @@ import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { pathValuesOf, validatePathChecks } from './path-checks.ts';
+import { echoesValue } from './redaction.ts';
 import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
 import { readCliValue, runStages } from './stages.ts';
 
@@ -159,6 +160,9 @@ async function resolveFlags(
 
 		if (checks === undefined || options.stat === undefined) continue;
 
+		const echo = echoesValue(
+			Object.hasOwn(options.provenance, name) ? options.provenance[name] : undefined,
+		);
 		for (const path of pathValuesOf(Object.hasOwn(resolved, name) ? resolved[name] : undefined)) {
 			const violation = await validatePathChecks(
 				{ kind: 'flag', name },
@@ -166,6 +170,7 @@ async function resolveFlags(
 				checks,
 				options.stat,
 				options.mkdir,
+				echo,
 			);
 			if (violation !== undefined) {
 				errors.push(violation);
@@ -264,6 +269,57 @@ const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
 	keyValue: [],
 };
 
+/** How one surface spells the input a prompt-compatibility failure names. */
+interface PromptSubject {
+	/** How the input is written on the command line: `--out` or `<out>`. */
+	readonly reference: string;
+	/** What a diagnostic calls one of them: `flag` or `argument`. */
+	readonly singular: string;
+	/** What a diagnostic calls several: `flags` or `arguments`. */
+	readonly plural: string;
+	/** Identification fields the surface contributes to `details`. */
+	readonly details: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Word an incompatible prompt config for the surface that declared it.
+ *
+ * A kind with no compatible prompt at all is a different diagnostic from one
+ * whose prompt is merely the wrong sort, so the empty list gets its own message
+ * on both surfaces.
+ *
+ * @param subject - How the surface spells the input.
+ * @param kind - The input's declared kind.
+ * @param promptKind - The prompt kind the config asked for.
+ * @param allowed - The prompt kinds that kind accepts.
+ * @returns The error to report.
+ * @internal
+ */
+function promptCompatibilityError(
+	subject: PromptSubject,
+	kind: string,
+	promptKind: PromptKind,
+	allowed: readonly PromptKind[],
+): ValidationError {
+	const details = { ...subject.details, promptKind, allowed };
+	const headline = `Prompt kind '${promptKind}' is not compatible with ${kind} ${subject.singular} ${subject.reference}.`;
+	const first = allowed[0];
+
+	if (first === undefined) {
+		return new ValidationError(`${headline} ${kind} ${subject.plural} are not promptable`, {
+			code: 'CONSTRAINT_VIOLATED',
+			details,
+			suggest: `Remove the prompt config for ${subject.reference}`,
+		});
+	}
+
+	return new ValidationError(`${headline} Use '${first}' instead`, {
+		code: 'CONSTRAINT_VIOLATED',
+		details,
+		suggest: `Change the prompt to { kind: '${first}' } for ${subject.reference}`,
+	});
+}
+
 /**
  * Check whether a prompt kind is compatible with the flag's declared kind.
  *
@@ -279,25 +335,16 @@ function validatePromptFlagCompatibility(
 	const allowed = COMPATIBLE_PROMPT_KINDS[flagKind];
 	if (allowed.includes(promptKind)) return undefined;
 
-	const first = allowed[0];
-	if (first === undefined) {
-		return new ValidationError(
-			`Prompt kind '${promptKind}' is not compatible with ${flagKind} flag --${flagName}. ${flagKind} flags are not promptable`,
-			{
-				code: 'CONSTRAINT_VIOLATED',
-				details: { flag: flagName, flagKind, promptKind, allowed },
-				suggest: `Remove the prompt config for --${flagName}`,
-			},
-		);
-	}
-
-	return new ValidationError(
-		`Prompt kind '${promptKind}' is not compatible with ${flagKind} flag --${flagName}. Use '${first}' instead`,
+	return promptCompatibilityError(
 		{
-			code: 'CONSTRAINT_VIOLATED',
-			details: { flag: flagName, flagKind, promptKind, allowed },
-			suggest: `Change the prompt to { kind: '${first}' } for --${flagName}`,
+			reference: `--${flagName}`,
+			singular: 'flag',
+			plural: 'flags',
+			details: { flag: flagName, flagKind },
 		},
+		flagKind,
+		promptKind,
+		allowed,
 	);
 }
 
@@ -383,4 +430,4 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 }
 
 export type { FlagResolutionOptions };
-export { COMPATIBLE_PROMPT_KINDS, resolveFlags };
+export { COMPATIBLE_PROMPT_KINDS, promptCompatibilityError, resolveFlags };
