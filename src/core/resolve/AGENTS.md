@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Multi-file module (split from monolithic index). 10 source files, ~2199 source lines.
+Multi-file module (split from monolithic index). 9 source files, ~1930 source lines.
 
 ## RESOLUTION ORDER
 
@@ -16,15 +16,14 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 | File             | Lines | Purpose                                                                      |
 | ---------------- | ----: | ---------------------------------------------------------------------------- |
 | `index.ts`       |   124 | `resolve()` — orchestrates the chain, then the Standard Schema pass          |
-| `flags.ts`       |   321 | `resolveFlags()` — all flags: CLI -> env -> config -> prompt -> default      |
-| `args.ts`        |   185 | `resolveArgs()` — parsed -> stdin -> env -> default, then path checks        |
-| `coerce.ts`      |   680 | `coerceValue()` — unified raw value -> flag's declared kind                  |
+| `flags.ts`       |   326 | `resolveFlags()` — all flags: CLI -> env -> config -> prompt -> default      |
+| `args.ts`        |   184 | `resolveArgs()` — parsed -> stdin -> env -> default, then path checks        |
+| `coerce.ts`      |   611 | `coerceValue()` — unified raw value -> flag's declared kind                  |
 | `path-checks.ts` |   108 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                  |
 | `errors.ts`      |   227 | Error aggregation + `throwAggregatedErrors()`                                |
-| `property.ts`    |   106 | Property path resolution utilities                                           |
 | `contracts.ts`   |   147 | `ResolveOptions`, `CoerceResult`, `CoerceSource` types                       |
-| `standard.ts`    |   175 | Standard Schema v1 validation pass over resolved values                      |
+| `standard.ts`    |   177 | Standard Schema v1 validation pass over resolved values                      |
 
 ## KEY FUNCTIONS
 
@@ -34,6 +33,7 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 | `resolveFlags()`                    | `flags.ts`       | All flags: CLI -> env -> config -> prompt -> default          |
 | `resolveArgs()`                     | `args.ts`        | All args: CLI -> stdin -> env -> default, then path checks    |
 | `coerceValue()`                     | `coerce.ts`      | Unified raw value -> flag's declared kind (env/config/prompt) |
+| `coerceValueSchema()`               | `coerce.ts`      | Runs `decodeValue()` and names the subject on failure         |
 | `resolveConfigPath()`               | `config.ts`      | Dotted path lookup in config object                           |
 | `validatePromptFlagCompatibility()` | `flags.ts`       | Prompt kind ↔ flag kind gate (before prompter invocation)     |
 | `validatePathChecks()`              | `path-checks.ts` | Post-resolution filesystem pass, flags and args alike         |
@@ -55,13 +55,24 @@ message templates.
 
 Returns `CoerceResult` (`{ ok: true; value } | { ok: false; error: ValidationError }`).
 
+What a value _means_ is not decided here. `coerceValue()` projects the flag through
+`flagValueSchema()` and, when the kind carries a value, hands the raw value to `decodeValue()` in
+`schema/value.ts` with `source.kind` as the input surface. Only `array`, `count`, and `keyValue`
+still coerce in this file, because they aggregate rather than decode. `coerceArgStringValue()` does
+the same through `argValueSchema()`, then rewrites the message and details so a raw stdin or env
+value never reaches a diagnostic.
+
+`valueCoercionError()` owns the flag-facing half. It turns a `ValueFailure` into the message, code,
+details, and suggestion for one source. The value layer never spells a subject, so every
+`--flag`-shaped string in the resolver comes from this file.
+
 ## ERROR AGGREGATION
 
 `resolveFlags()` and `resolveArgs()` collect all errors into an array, then throw a single
 aggregated `ValidationError` via `throwAggregatedErrors()`. Users see all validation messages at
 once.
 
-## TEST FILES (14, aspect-split)
+## TEST FILES (13, aspect-split)
 
 | File                              | Tests                                          |
 | --------------------------------- | ---------------------------------------------- |
@@ -78,7 +89,6 @@ once.
 | `resolve-path-checks.test.ts`     | `flag.path()` / `arg.path()` filesystem checks |
 | `resolve-standard-schema.test.ts` | Standard Schema v1 validation pass             |
 | `contracts.test.ts`               | Contract verification                          |
-| `property.test.ts`                | Property path resolution                       |
 
 ## PROMPT — FLAG KIND COMPATIBILITY
 
@@ -114,6 +124,11 @@ an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` 
   `validatePathChecks()` in `path-checks.ts`, which takes the subject (`{ kind: 'flag' | 'arg', name }`)
   and produces messages that differ only there. Arg path checks run over every entry a variadic arg
   collected, since a variadic path arg resolves to an array.
+- Value-axis fields are read through the value layer, never off the schema. `flags.ts` gets its
+  `pathChecks` and its prompt choices from `flagValueSchema()` / `valueEnumValues()`, `args.ts` gets
+  its `pathChecks` from `argValueSchema()`, and `standard.ts` gets every validator (flag, array
+  element, and arg) the same way. L15 can change what carries those fields without touching these
+  files.
 - `applyStandardValidators()` in `standard.ts` guards the resolved records for the same reason, even
   though `index.ts` builds them. They are incomplete whenever a resolver threw: `resolve()` catches
   the aggregated `ValidationError`, leaves `flags` or `args` at `{}`, and runs the validation pass

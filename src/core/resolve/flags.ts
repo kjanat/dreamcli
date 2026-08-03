@@ -11,6 +11,7 @@ import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import type { ErasedInteractiveResolver } from '#internals/core/schema/command.ts';
 import type { FlagKind, FlagSchema } from '#internals/core/schema/flag.ts';
 import type { PromptConfig, PromptKind } from '#internals/core/schema/prompt.ts';
+import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceValue } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
 import type { DeprecationWarning } from './contracts.ts';
@@ -177,16 +178,17 @@ async function resolveFlags(
 	// of which source produced it (CLI, env, config, prompt, or default).
 	for (const [name, schema] of Object.entries(flagSchemas)) {
 		const value = resolved[name];
+		const checks = flagValueSchema(schema)?.pathChecks;
 
 		if (schema.kind === 'array' && schema.unique && Array.isArray(value)) {
 			resolved[name] = [...new Set(value)];
 		}
 
-		if (schema.pathChecks !== undefined && typeof value === 'string' && stat !== undefined) {
+		if (checks !== undefined && typeof value === 'string' && stat !== undefined) {
 			const violation = await validatePathChecks(
 				{ kind: 'flag', name },
 				value,
-				schema.pathChecks,
+				checks,
 				stat,
 				mkdir,
 			);
@@ -271,7 +273,10 @@ async function resolvePromptValueWithConfig(
 		return { ok: false, error: mismatch };
 	}
 
-	const resolvedConfig = resolvePromptConfig(promptConfig, schema.enumValues);
+	const resolvedConfig = resolvePromptConfig(
+		promptConfig,
+		valueEnumValues(flagValueSchema(schema)),
+	);
 	const result = await prompter.promptOne(resolvedConfig);
 
 	if (!result.answered) {

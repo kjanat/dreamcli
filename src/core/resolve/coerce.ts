@@ -8,23 +8,20 @@
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
-import type { NumberConstraints } from '#internals/core/schema/number-constraints.ts';
-import {
-	describeNumberConstraintViolation,
-	validateNumberConstraints,
-} from '#internals/core/schema/number-constraints.ts';
-import type {
-	StringConstraints,
-	StringConstraintViolation,
-} from '#internals/core/schema/string-constraints.ts';
+import { describeNumberConstraintViolation } from '#internals/core/schema/number-constraints.ts';
+import type { StringConstraintViolation } from '#internals/core/schema/string-constraints.ts';
 import {
 	describeStringConstraintViolation,
 	stringConstraintDetails,
-	validateStringConstraints,
 } from '#internals/core/schema/string-constraints.ts';
+import type {
+	ValueFailure,
+	ValueInput,
+	ValueSchema,
+	ValueTypeName,
+} from '#internals/core/schema/value.ts';
+import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
 import type { ArgDiagnosticSource, FlagDiagnosticSource } from './contracts.ts';
-import type { SharedPropertySchema } from './property.ts';
-import { toSharedArgPropertySchema, toSharedFlagPropertySchema } from './property.ts';
 
 type CoerceSource = FlagDiagnosticSource;
 
@@ -64,102 +61,12 @@ function coercionError(
 	messageSuffix: string,
 	suggest: string,
 	extraDetails?: Record<string, unknown>,
-): CoerceResult {
-	return {
-		ok: false,
-		error: new ValidationError(`${messageSuffix} ${sourceLabel(source)} for flag --${flagName}`, {
-			code,
-			details: { flag: flagName, ...sourceDetails(source), value: raw, expected, ...extraDetails },
-			suggest,
-		}),
-	};
-}
-
-/**
- * Apply numeric constraints to an already-parsed number. Shares the single
- * {@link validateNumberConstraints} check used by the parse path, so the two
- * boundaries cannot drift. On violation, returns a `CONSTRAINT_VIOLATED`
- * failure; the human-readable reason is also surfaced in `details.constraint`
- * (the violation kind) and the message suffix.
- */
-function finalizeNumber(
-	flagName: string,
-	source: CoerceSource,
-	raw: unknown,
-	value: number,
-	constraints: NumberConstraints | undefined,
-): CoerceResult {
-	const violation = validateNumberConstraints(value, constraints);
-	if (violation === undefined) {
-		return { ok: true, value };
-	}
-
-	const reason = describeNumberConstraintViolation(violation);
-	return {
-		ok: false,
-		error: new ValidationError(
-			`Invalid number value '${String(raw)}' ${sourceLabel(source)} for flag --${flagName}: ${reason}`,
-			{
-				code: 'CONSTRAINT_VIOLATED',
-				details: {
-					flag: flagName,
-					...sourceDetails(source),
-					value: raw,
-					expected: 'number',
-					constraint: violation.kind,
-					...('bound' in violation ? { bound: violation.bound } : {}),
-				},
-				suggest:
-					source.kind === 'env'
-						? `Set ${source.envVar} to a valid number`
-						: source.kind === 'config'
-							? `Set ${source.configPath} to a valid number in your config`
-							: `Enter a valid number for --${flagName}`,
-			},
-		),
-	};
-}
-
-/**
- * Apply string constraints to an already-string value. Shares the single
- * {@link validateStringConstraints} check used by the parse path, so the two
- * boundaries cannot drift. On violation, returns a `CONSTRAINT_VIOLATED`
- * failure mirroring {@link finalizeNumber}.
- */
-function finalizeString(
-	flagName: string,
-	source: CoerceSource,
-	value: string,
-	constraints: StringConstraints | undefined,
-): CoerceResult {
-	const violation = validateStringConstraints(value, constraints);
-	if (violation === undefined) {
-		return { ok: true, value };
-	}
-
-	const reason = describeStringConstraintViolation(violation);
-	return {
-		ok: false,
-		error: new ValidationError(
-			`Invalid value '${value}' ${sourceLabel(source)} for flag --${flagName}: ${reason}`,
-			{
-				code: 'CONSTRAINT_VIOLATED',
-				details: {
-					flag: flagName,
-					...sourceDetails(source),
-					value,
-					expected: 'string',
-					...stringConstraintDetails(violation),
-				},
-				suggest:
-					source.kind === 'env'
-						? `Set ${source.envVar} to a valid string`
-						: source.kind === 'config'
-							? `Set ${source.configPath} to a valid string in your config`
-							: `Enter a valid value for --${flagName}`,
-			},
-		),
-	};
+): ValidationError {
+	return new ValidationError(`${messageSuffix} ${sourceLabel(source)} for flag --${flagName}`, {
+		code,
+		details: { flag: flagName, ...sourceDetails(source), value: raw, expected, ...extraDetails },
+		suggest,
+	});
 }
 
 /** Coerce a raw value from env/config/prompt into the type declared by a flag schema. */
@@ -169,45 +76,12 @@ function coerceValue(
 	raw: unknown,
 	schema: FlagSchema,
 ): CoerceResult {
-	const sharedSchema = toSharedFlagPropertySchema(schema);
-	if (sharedSchema !== undefined) {
-		return coerceSharedPropertyValue(flagName, source, raw, sharedSchema);
+	const value = flagValueSchema(schema);
+	if (value !== undefined) {
+		return coerceValueSchema(flagName, source, raw, value);
 	}
 
 	switch (schema.kind) {
-		case 'boolean': {
-			if (typeof raw === 'boolean') return { ok: true, value: raw };
-			if (typeof raw === 'string') {
-				const lower = raw.toLowerCase();
-				const truthy =
-					lower === 'true' ||
-					lower === '1' ||
-					lower === 'yes' ||
-					(source.kind === 'prompt' && lower === 'y');
-				if (truthy) return { ok: true, value: true };
-				const falsy =
-					lower === 'false' ||
-					lower === '0' ||
-					lower === 'no' ||
-					lower === '' ||
-					(source.kind === 'prompt' && lower === 'n');
-				if (falsy) return { ok: true, value: false };
-			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'boolean',
-				raw,
-				typeof raw === 'string' ? `Invalid boolean value '${raw}'` : 'Invalid boolean value',
-				source.kind === 'env'
-					? `Set ${source.envVar} to true/false, 1/0, or yes/no`
-					: source.kind === 'config'
-						? `Set ${source.configPath} to true or false in your config`
-						: `Answer yes or no for --${flagName}`,
-			);
-		}
-
 		case 'array': {
 			if (Array.isArray(raw)) {
 				if (schema.elementSchema) {
@@ -239,19 +113,22 @@ function coerceValue(
 					value: source.kind === 'prompt' ? parts.map((part) => part.trim()) : parts,
 				};
 			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'array',
-				raw,
-				'Invalid array value',
-				source.kind === 'env'
-					? `Set ${source.envVar} to comma-separated values`
-					: source.kind === 'config'
-						? `Set ${source.configPath} to an array in your config`
-						: `Provide valid values for --${flagName}`,
-			);
+			return {
+				ok: false,
+				error: coercionError(
+					flagName,
+					source,
+					'TYPE_MISMATCH',
+					'array',
+					raw,
+					'Invalid array value',
+					source.kind === 'env'
+						? `Set ${source.envVar} to comma-separated values`
+						: source.kind === 'config'
+							? `Set ${source.configPath} to an array in your config`
+							: `Provide valid values for --${flagName}`,
+				),
+			};
 		}
 
 		case 'count': {
@@ -261,19 +138,22 @@ function coerceValue(
 			if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
 				return { ok: true, value };
 			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'count',
-				raw,
-				typeof raw === 'string' ? `Invalid count value '${raw}'` : 'Invalid count value',
-				source.kind === 'env'
-					? `Set ${source.envVar} to a non-negative integer`
-					: source.kind === 'config'
-						? `Set ${source.configPath} to a non-negative integer in your config`
-						: `Enter a non-negative integer for --${flagName}`,
-			);
+			return {
+				ok: false,
+				error: coercionError(
+					flagName,
+					source,
+					'TYPE_MISMATCH',
+					'count',
+					raw,
+					typeof raw === 'string' ? `Invalid count value '${raw}'` : 'Invalid count value',
+					source.kind === 'env'
+						? `Set ${source.envVar} to a non-negative integer`
+						: source.kind === 'config'
+							? `Set ${source.configPath} to a non-negative integer in your config`
+							: `Enter a non-negative integer for --${flagName}`,
+				),
+			};
 		}
 
 		case 'keyValue': {
@@ -289,19 +169,22 @@ function coerceValue(
 				for (const pair of raw.split(',').filter((segment) => segment.length > 0)) {
 					const eq = pair.indexOf('=');
 					if (eq <= 0) {
-						return coercionError(
-							flagName,
-							source,
-							'TYPE_MISMATCH',
-							'key=value',
-							raw,
-							`Invalid key-value pair '${pair}'`,
-							source.kind === 'env'
-								? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
-								: source.kind === 'config'
-									? `Set ${source.configPath} to an object with string values`
-									: `Use KEY=VALUE for --${flagName}`,
-						);
+						return {
+							ok: false,
+							error: coercionError(
+								flagName,
+								source,
+								'TYPE_MISMATCH',
+								'key=value',
+								raw,
+								`Invalid key-value pair '${pair}'`,
+								source.kind === 'env'
+									? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
+									: source.kind === 'config'
+										? `Set ${source.configPath} to an object with string values`
+										: `Use KEY=VALUE for --${flagName}`,
+							),
+						};
 					}
 					pairs.push([pair.slice(0, eq), pair.slice(eq + 1)]);
 				}
@@ -309,19 +192,22 @@ function coerceValue(
 				// stored verbatim, not routed to the prototype setter.
 				return { ok: true, value: Object.fromEntries(pairs) };
 			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'key=value',
-				raw,
-				'Invalid key-value value',
-				source.kind === 'env'
-					? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
-					: source.kind === 'config'
-						? `Set ${source.configPath} to an object with string values`
-						: `Use KEY=VALUE for --${flagName}`,
-			);
+			return {
+				ok: false,
+				error: coercionError(
+					flagName,
+					source,
+					'TYPE_MISMATCH',
+					'key=value',
+					raw,
+					'Invalid key-value value',
+					source.kind === 'env'
+						? `Set ${source.envVar} to comma-separated KEY=VALUE pairs`
+						: source.kind === 'config'
+							? `Set ${source.configPath} to an object with string values`
+							: `Use KEY=VALUE for --${flagName}`,
+				),
+			};
 		}
 	}
 
@@ -336,138 +222,181 @@ function isStringRecord(value: unknown): value is Readonly<Record<string, string
 	return Object.values(value).every((entry) => typeof entry === 'string');
 }
 
-function coerceSharedPropertyValue(
-	flagName: string,
+/**
+ * Decode a raw env/config/prompt value through the shared value layer and name
+ * the flag or arg that carried it on failure.
+ *
+ * The value layer decides what the value means; every message, code, detail
+ * field, and suggestion below belongs to this surface.
+ */
+function coerceValueSchema(
+	name: string,
 	source: CoerceSource,
 	raw: unknown,
-	schema: SharedPropertySchema,
+	value: ValueSchema,
 ): CoerceResult {
-	switch (schema.kind) {
-		case 'string': {
-			if (typeof raw === 'string') {
-				return finalizeString(flagName, source, raw, schema.stringConstraints);
-			}
-			if (source.kind === 'prompt') {
-				return finalizeString(flagName, source, String(raw), schema.stringConstraints);
-			}
-			if (source.kind === 'config' && (typeof raw === 'number' || typeof raw === 'boolean')) {
-				return finalizeString(flagName, source, String(raw), schema.stringConstraints);
-			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'string',
-				raw,
-				'Invalid string value',
-				source.kind === 'config'
-					? `Set ${source.configPath} to a string in your config`
-					: `Enter a valid string for --${flagName}`,
+	const decoded = decodeValue(value, raw, valueInputOf(source));
+	if (decoded.ok) {
+		return { ok: true, value: decoded.value };
+	}
+	return { ok: false, error: valueCoercionError(name, source, raw, decoded.failure) };
+}
+
+/** Which value-layer input surface a resolver source speaks for. */
+function valueInputOf(source: CoerceSource): ValueInput {
+	return source.kind;
+}
+
+/** Turn a value-layer failure into the resolver's validation error. */
+function valueCoercionError(
+	name: string,
+	source: CoerceSource,
+	raw: unknown,
+	failure: ValueFailure,
+): ValidationError {
+	switch (failure.kind) {
+		case 'type':
+			return typeCoercionError(name, source, raw, failure.expected);
+
+		case 'enum': {
+			const allowed = failure.enumValues ?? [];
+			return new ValidationError(
+				`Invalid value '${String(raw)}' ${sourceLabel(source)} for flag --${name}. Allowed: ${allowed.join(', ')}`,
+				{
+					code: 'INVALID_ENUM',
+					details: { flag: name, ...sourceDetails(source), value: raw, allowed },
+					suggest:
+						source.kind === 'env'
+							? `Set ${source.envVar} to one of: ${allowed.join(', ')}`
+							: source.kind === 'config'
+								? `Set ${source.configPath} to one of: ${allowed.join(', ')}`
+								: `Select one of: ${allowed.join(', ')}`,
+				},
 			);
 		}
 
-		case 'number': {
-			if (typeof raw === 'number') {
-				if (Number.isNaN(raw)) {
-					return coercionError(
-						flagName,
-						source,
-						'TYPE_MISMATCH',
-						'number',
-						raw,
-						'Invalid number value NaN',
+		case 'string-constraint':
+			return new ValidationError(
+				`Invalid value '${failure.value}' ${sourceLabel(source)} for flag --${name}: ${describeStringConstraintViolation(failure.violation)}`,
+				{
+					code: 'CONSTRAINT_VIOLATED',
+					details: {
+						flag: name,
+						...sourceDetails(source),
+						value: failure.value,
+						expected: 'string',
+						...stringConstraintDetails(failure.violation),
+					},
+					suggest:
+						source.kind === 'env'
+							? `Set ${source.envVar} to a valid string`
+							: source.kind === 'config'
+								? `Set ${source.configPath} to a valid string in your config`
+								: `Enter a valid value for --${name}`,
+				},
+			);
+
+		case 'number-constraint':
+			return new ValidationError(
+				`Invalid number value '${String(raw)}' ${sourceLabel(source)} for flag --${name}: ${describeNumberConstraintViolation(failure.violation)}`,
+				{
+					code: 'CONSTRAINT_VIOLATED',
+					details: {
+						flag: name,
+						...sourceDetails(source),
+						value: raw,
+						expected: 'number',
+						constraint: failure.violation.kind,
+						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
+					},
+					suggest:
 						source.kind === 'env'
 							? `Set ${source.envVar} to a valid number`
 							: source.kind === 'config'
 								? `Set ${source.configPath} to a valid number in your config`
-								: `Enter a valid number for --${flagName}`,
-					);
-				}
-				return finalizeNumber(flagName, source, raw, raw, schema.numberConstraints);
-			}
-			if (typeof raw === 'string') {
-				const value = Number(raw);
-				if (!Number.isNaN(value)) {
-					return finalizeNumber(flagName, source, raw, value, schema.numberConstraints);
-				}
-			}
-			return coercionError(
-				flagName,
-				source,
-				'TYPE_MISMATCH',
-				'number',
-				raw,
-				typeof raw === 'string' ? `Invalid number value '${raw}'` : 'Invalid number value',
-				source.kind === 'env'
-					? `Set ${source.envVar} to a valid number`
-					: source.kind === 'config'
-						? `Set ${source.configPath} to a valid number in your config`
-						: `Enter a valid number for --${flagName}`,
+								: `Enter a valid number for --${name}`,
+				},
 			);
-		}
 
-		case 'enum': {
-			const allowed = schema.enumValues ?? [];
-			if (typeof raw === 'string' && allowed.includes(raw)) {
-				return { ok: true, value: raw };
-			}
-			return {
-				ok: false,
-				error: new ValidationError(
-					`Invalid value '${String(raw)}' ${sourceLabel(source)} for flag --${flagName}. Allowed: ${allowed.join(', ')}`,
-					{
-						code: 'INVALID_ENUM',
-						details: { flag: flagName, ...sourceDetails(source), value: raw, allowed },
-						suggest:
-							source.kind === 'env'
-								? `Set ${source.envVar} to one of: ${allowed.join(', ')}`
-								: source.kind === 'config'
-									? `Set ${source.configPath} to one of: ${allowed.join(', ')}`
-									: `Select one of: ${allowed.join(', ')}`,
-					},
-				),
-			};
-		}
-
-		case 'custom': {
-			if (schema.parseFn === undefined) {
-				return { ok: true, value: raw };
-			}
-
-			try {
-				return { ok: true, value: schema.parseFn(raw) };
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				const sourceRef =
+		case 'thrown': {
+			const message =
+				failure.error instanceof Error ? failure.error.message : String(failure.error);
+			const sourceRef =
+				source.kind === 'env'
+					? `env ${source.envVar}`
+					: source.kind === 'config'
+						? `config ${source.configPath}`
+						: 'prompt value';
+			return new ValidationError(`Failed to parse ${sourceRef} for flag --${name}: ${message}`, {
+				code: 'TYPE_MISMATCH',
+				details: { flag: name, ...sourceDetails(source), value: raw, expected: 'custom' },
+				suggest:
 					source.kind === 'env'
-						? `env ${source.envVar}`
+						? `Set ${source.envVar} to a valid value for --${name}`
 						: source.kind === 'config'
-							? `config ${source.configPath}`
-							: 'prompt value';
-				return {
-					ok: false,
-					error: new ValidationError(
-						`Failed to parse ${sourceRef} for flag --${flagName}: ${message}`,
-						{
-							code: 'TYPE_MISMATCH',
-							details: {
-								flag: flagName,
-								...sourceDetails(source),
-								value: raw,
-								expected: 'custom',
-							},
-							suggest:
-								source.kind === 'env'
-									? `Set ${source.envVar} to a valid value for --${flagName}`
-									: source.kind === 'config'
-										? `Set ${source.configPath} to a valid value for --${flagName} in your config`
-										: `Enter a valid value for --${flagName}`,
-						},
-					),
-				};
-			}
+							? `Set ${source.configPath} to a valid value for --${name} in your config`
+							: `Enter a valid value for --${name}`,
+			});
 		}
 	}
+}
+
+/** Build the error for a raw value the codec could not read as its primitive. */
+function typeCoercionError(
+	name: string,
+	source: CoerceSource,
+	raw: unknown,
+	expected: ValueTypeName,
+): ValidationError {
+	if (expected === 'string') {
+		return coercionError(
+			name,
+			source,
+			'TYPE_MISMATCH',
+			'string',
+			raw,
+			'Invalid string value',
+			source.kind === 'config'
+				? `Set ${source.configPath} to a string in your config`
+				: `Enter a valid string for --${name}`,
+		);
+	}
+
+	if (expected === 'number') {
+		return coercionError(
+			name,
+			source,
+			'TYPE_MISMATCH',
+			'number',
+			raw,
+			invalidNumberSuffix(raw),
+			source.kind === 'env'
+				? `Set ${source.envVar} to a valid number`
+				: source.kind === 'config'
+					? `Set ${source.configPath} to a valid number in your config`
+					: `Enter a valid number for --${name}`,
+		);
+	}
+
+	return coercionError(
+		name,
+		source,
+		'TYPE_MISMATCH',
+		'boolean',
+		raw,
+		typeof raw === 'string' ? `Invalid boolean value '${raw}'` : 'Invalid boolean value',
+		source.kind === 'env'
+			? `Set ${source.envVar} to true/false, 1/0, or yes/no`
+			: source.kind === 'config'
+				? `Set ${source.configPath} to true or false in your config`
+				: `Answer yes or no for --${name}`,
+	);
+}
+
+/** Name the offending number without quoting a `NaN` as if it were user text. */
+function invalidNumberSuffix(raw: unknown): string {
+	if (typeof raw === 'number' && Number.isNaN(raw)) return 'Invalid number value NaN';
+	return typeof raw === 'string' ? `Invalid number value '${raw}'` : 'Invalid number value';
 }
 
 type ArgStringSource = ArgDiagnosticSource;
@@ -643,11 +572,11 @@ function coerceArgStringValue(
 	raw: string,
 	schema: ArgSchema,
 ): CoerceResult {
-	const coerced = coerceSharedPropertyValue(
+	const coerced = coerceValueSchema(
 		argName,
 		argSourceToCoerceSource(source),
 		raw,
-		toSharedArgPropertySchema(schema),
+		argValueSchema(schema),
 	);
 	if (coerced.ok) {
 		return coerced;

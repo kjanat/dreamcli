@@ -22,15 +22,22 @@ import type {
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
-	buildPathChecks,
-	type DateFlagOptions,
-	type PathChecks,
-	type PathFlagOptions,
-	parseBytesValue,
-	parseDateValue,
-	parseDurationValue,
-	parseUrlValue,
-	type UrlFlagOptions,
+	bytesValue,
+	customValue,
+	dateValue,
+	durationValue,
+	numberValue,
+	pathValue,
+	standardValue,
+	stringValue,
+	urlValue,
+	valueDefinitionFields,
+} from './value.ts';
+import type {
+	DateFlagOptions,
+	PathChecks,
+	PathFlagOptions,
+	UrlFlagOptions,
 } from './value-parsers.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
@@ -1800,10 +1807,7 @@ const flag: FlagFactory = {
 			assertStringConstraints(constraints);
 		}
 		return new FlagBuilder(
-			createFlagSchema(
-				'string',
-				constraints !== undefined ? { stringConstraints: constraints } : {},
-			),
+			createFlagSchema('string', valueDefinitionFields(stringValue(constraints))),
 		);
 	},
 
@@ -1818,10 +1822,7 @@ const flag: FlagFactory = {
 			assertNumberConstraints(constraints);
 		}
 		return new FlagBuilder(
-			createFlagSchema(
-				'number',
-				constraints !== undefined ? { numberConstraints: constraints } : {},
-			),
+			createFlagSchema('number', valueDefinitionFields(numberValue(constraints))),
 		);
 	},
 
@@ -1874,9 +1875,13 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		if (isStandardSchemaV1(parseFnOrSchema)) {
-			return new FlagBuilder(createFlagSchema('custom', { standard: parseFnOrSchema }));
+			return new FlagBuilder(
+				createFlagSchema('custom', valueDefinitionFields(standardValue(parseFnOrSchema))),
+			);
 		}
-		return new FlagBuilder(createFlagSchema('custom', { parseFn: parseFnOrSchema }));
+		return new FlagBuilder(
+			createFlagSchema('custom', valueDefinitionFields(customValue(parseFnOrSchema))),
+		);
 	},
 
 	url(options?: UrlFlagOptions): FlagBuilder<{
@@ -1886,12 +1891,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(
-			createFlagSchema('custom', {
-				parseFn: (raw: unknown) => parseUrlValue(raw, options),
-				valueHint: 'url',
-			}),
-		);
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(urlValue(options))));
 	},
 
 	path(options?: PathFlagOptions): FlagBuilder<{
@@ -1901,9 +1901,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'string';
 		readonly elementEligible: false;
 	}> {
-		return new FlagBuilder(
-			createFlagSchema('string', { pathChecks: buildPathChecks(options), valueHint: 'path' }),
-		);
+		return new FlagBuilder(createFlagSchema('string', valueDefinitionFields(pathValue(options))));
 	},
 
 	date(options?: DateFlagOptions): FlagBuilder<{
@@ -1913,12 +1911,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(
-			createFlagSchema('custom', {
-				parseFn: (raw: unknown) => parseDateValue(raw, options),
-				valueHint: 'date',
-			}),
-		);
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(dateValue(options))));
 	},
 
 	duration(): FlagBuilder<{
@@ -1928,9 +1921,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(
-			createFlagSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
-		);
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(durationValue())));
 	},
 
 	bytes(): FlagBuilder<{
@@ -1940,9 +1931,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(
-			createFlagSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }),
-		);
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(bytesValue())));
 	},
 
 	count(): FlagBuilder<{
