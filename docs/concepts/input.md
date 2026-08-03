@@ -144,6 +144,38 @@ Every step past the command line is opt-in. An input takes part in a step only w
 that source, so a flag or argument with nothing declared stays command-line only and is
 required-or-optional based on its own declaration.
 
+## One Value Or Many
+
+Some inputs hold one value. Others hold a list, or a set of key-value entries.
+That distinction is separate from the type of each value, and it changes what
+"the first source wins" means: a list-shaped input collects from the source that
+supplies it rather than picking a single winner.
+
+Every source can spell a list, but each one spells it differently, because each
+one is a different medium:
+
+```bash
+mycli deploy --tag a --tag b     # the command line repeats the flag
+TAGS=a,b mycli deploy            # an env var is one string, so it needs a separator
+printf 'a\nb\n' | mycli deploy   # a pipe is a stream, so lines are the natural unit
+```
+
+```json
+{ "tags": ["a", "b"] }
+```
+
+A config file has real arrays and objects, so it needs no separator at all.
+
+This is why a list-shaped input carries a decoding rule per source rather than
+one rule for all of them. A comma is the right default for an env var and the
+wrong one for a pipe. Guessing is worse than either: text that happens to look
+like JSON is not a promise that it is JSON, so a source parses JSON only when
+the declaration says it should.
+
+Key-value entries add one more question a list does not have: what a repeated
+key means. Whether the later entry wins, the earlier one does, or the repeat is
+an error is a decision the input declares once and every source obeys.
+
 ## What's Next?
 
 - [Output and TTY](/concepts/output) — how CLIs talk back to you

@@ -66,11 +66,17 @@ to its phrasing, so a new source is a new field rather than a fourth ternary arm
 Returns `CoerceResult` (`{ ok: true; value } | { ok: false; error: ValidationError }`).
 
 What a value _means_ is not decided here. `coerceValue()` projects the flag through
-`flagValueSchema()` and, when the kind carries a value, hands the raw value to `decodeValue()` in
-`schema/value.ts` with `source.kind` as the input surface. Only `array`, `count`, and `keyValue`
-still coerce in this file, because they aggregate rather than decode. `coerceArgValue()` does
-the same through `argValueSchema()`, then rewrites the message and details so a raw value from any
-non-CLI source never reaches a diagnostic.
+`flagValueSchema()` and hands each raw value to `decodeValue()` in `schema/value.ts` with
+`source.kind` as the input surface. How MANY values a source carries is the cardinality axis:
+`flagCardinality()` / `argCardinality()` pick the arm, `coerceCollection()` reads the source under
+its own split policy and aggregates it, and `count` keeps its own arm because its diagnostics name a
+count rather than a number. `coerceArgValue()` does the same through `argValueSchema()`, then
+rewrites the message and details so a raw value from any non-CLI source never reaches a diagnostic.
+
+`finishCliFlagValue()` / `finishCliArgValue()` finish a CLI-sourced collection: the parser leaves the
+occurrences in the order they were typed, and each `-` occurrence is replaced by what the stdin
+buffer decodes to under the input's stdin policy. `StageInput.finishCli` is where `cliStage()` calls
+it, so a scalar is unaffected and a collection aggregates in one place.
 
 `valueCoercionError()` owns the flag-facing half. It turns a `ValueFailure` into the message, code,
 details, and suggestion for one source. The value layer never spells a subject, so every
@@ -82,7 +88,7 @@ details, and suggestion for one source. The value layer never spells a subject, 
 aggregated `ValidationError` via `throwAggregatedErrors()`. Users see all validation messages at
 once.
 
-## TEST FILES (14, aspect-split)
+## TEST FILES (15, aspect-split)
 
 | File                              | Tests                                                        |
 | --------------------------------- | ------------------------------------------------------------ |
@@ -99,6 +105,7 @@ once.
 | `resolve-source-model.test.ts`    | Unified source model: precedence, stdin contract, provenance |
 | `resolve-path-checks.test.ts`     | `flag.path()` / `arg.path()` filesystem checks               |
 | `resolve-standard-schema.test.ts` | Standard Schema v1 validation pass                           |
+| `resolve-cardinality.test.ts`     | Per-source aggregation matrix, splicing, element validation  |
 | `contracts.test.ts`               | Contract verification                                        |
 
 ## PROMPT — FLAG KIND COMPATIBILITY
@@ -112,6 +119,8 @@ once.
 | number    | input                                     |
 | enum      | select, input                             |
 | array     | multiselect                               |
+| keyValue  | (not promptable)                          |
+| count     | (not promptable)                          |
 | custom    | input, select, confirm, multiselect (all) |
 
 `validatePromptFlagCompatibility()` checks this map before `prompter.promptOne()` runs. Mismatches
@@ -133,8 +142,9 @@ an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` 
   path segment.
 - `resolveArgs()` is async because `arg.path()` checks reach the adapter, same as flags. Both call
   `validatePathChecks()` in `path-checks.ts`, which takes the subject (`{ kind: 'flag' | 'arg', name }`)
-  and produces messages that differ only there. Arg path checks run over every entry a variadic arg
-  collected, since a variadic path arg resolves to an array.
+  and produces messages that differ only there. Path checks belong to the element, so `pathValuesOf()`
+  in `path-checks.ts` walks an array's string elements and a record's string values; both surfaces
+  use it.
 - Value-axis fields are read through the value layer, never off the schema. `flags.ts` gets its
   `pathChecks` and its prompt choices from `flagValueSchema()` / `valueEnumValues()`, `args.ts` gets
   its `pathChecks` from `argValueSchema()`, and `standard.ts` gets every validator (flag, array

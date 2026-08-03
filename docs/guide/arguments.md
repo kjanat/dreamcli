@@ -32,12 +32,15 @@ arg.string().minLength(3).maxLength(64);
 
 Constraints are checked in order **nonEmpty → minLength → maxLength →
 pattern** and apply to CLI, stdin, env, config, and prompted values. A
-`.default()` value is trusted as declared and is not re-checked. On the first
-failure, CLI parsing throws `INVALID_VALUE` while every other source reports
+`.default()` value is checked against them too, at the point the chain declares
+it, and a violation throws `INVALID_DEFAULT`. On the first failure of a resolved
+value, CLI parsing throws `INVALID_VALUE` while every other source reports
 `CONSTRAINT_VIOLATED` (both exit code `2`). A variadic string argument checks
 every value it collects. See [String constraints](/guide/flags#string-constraints)
 for the option table, the declaration-time rules, and how the constraints reach
-the exported JSON Schema.
+the exported JSON Schema, and
+[Defaults are validated](/guide/flags#defaults-are-validated-where-they-are-declared)
+for the full rule.
 
 Argument values that came from anywhere but argv are redacted in the error
 message, so the reason is reported without echoing a piped secret:
@@ -98,6 +101,11 @@ argTypes.custom;
 validator. Its output type is inferred, sync and async validators are supported, and validation
 runs after resolution, whichever of CLI, stdin, env, config, prompt, or the default supplied the
 value. A variadic custom argument validates each resolved element separately.
+
+A custom positional can declare every source. Chain `.env()`, `.config()`, and
+`.prompt()` on the `arg.custom()` builder and its parse function runs on
+whichever raw source wins. A value supplied by `.default()` is already typed and
+is not parsed again.
 
 ## Purpose-Built Argument Kinds
 
@@ -222,78 +230,136 @@ arg.bytes().default(10 * 1024 ** 2);
 // mycli split 512kb → 524288
 ```
 
+## Boolean Arguments
+
+`arg.boolean()` consumes an explicit token. A positional carries no presence
+semantics, so the value is spelled out:
+
+```ts
+arg.boolean(); // `mycli feature true` → true
+// `mycli feature nope` → Invalid boolean value 'nope' for argument <enabled>
+```
+
+Argv accepts `true`/`false` and `1`/`0`. Env, config, stdin, and prompt values
+also accept `yes`/`no` and an empty string, which a prompt or an exported
+variable is likely to carry. Help renders the slot by its own name:
+
+```
+Usage: feature [flags] <enabled>
+
+Arguments:
+  <enabled>  Whether the feature is on
+```
+
+## Key-Value Arguments {#key-value-arguments}
+
+`arg.keyValue()` consumes `KEY=VALUE` tokens and resolves to
+`Record<string, string>`, splitting each at the first `=`. The non-variadic form
+reads one token; the variadic form aggregates the whole tail into one record:
+
+```ts twoslash
+import { arg, type InferArg } from '@kjanat/dreamcli';
+
+const vars = arg.keyValue().variadic();
+
+declare const argTypes: { vars: InferArg<typeof vars> };
+// ---cut---
+argTypes.vars;
+//        ^?
+```
+
+```bash
+$ mycli render a=1 b=2 a=3
+# args.vars === { a: '3', b: '2' }
+```
+
+`.duplicateKeys()` decides what a repeated key means, on every source: `'last'`
+(the default), `'first'`, or `'error'`. The per-source table under
+[Collections](/guide/flags#collections) applies unchanged, so env values carry
+comma-delimited pairs until `.split({ env })` says otherwise, and a config value
+is read as a native object.
+
+Entry values are strings on the arg surface. `flag.keyValue()` takes an element
+builder for per-value codecs and checks; its positional counterpart does not.
+
+A non-variadic key-value argument can read stdin, where the whole buffer decodes
+into entries:
+
+```ts
+arg.keyValue().stdin();
+```
+
+```bash
+$ printf 'A=1\nB=2\n' | mycli run -
+# args.vars === { A: '1', B: '2' }
+```
+
 ## What The Arg Factory Does Not Have {#flag-only-surface}
 
-The value-level surface is the same on both factories. Everything below is
-missing from `arg` on purpose, and the reason differs per item.
+The value-level surface is the same on both factories, and both declare the same
+sources. What is left on `flag` alone is exactly what is bound to flag syntax:
+how a token is spelled or repeated on the command line. A positional slot has no
+name to spell and no repetition to police, so there is nothing for these to
+configure.
 
-### Bound to flag syntax
+| Flag member     | Why it has no arg equivalent                                                  |
+| --------------- | ----------------------------------------------------------------------------- |
+| `flag.count()`  | Counts how many times `-v` appears. A positional slot is matched by position.  |
+| `.negatable()`  | Synthesizes a `--no-x` spelling for an existing flag name.                     |
+| `.alias()`      | Adds a second CLI spelling for a flag name.                                    |
+| `.duplicates()` | Decides what a repeated `--x` means. A positional slot is filled once.         |
+| `.propagate()`  | Inherits a flag into subcommands. Positional slots belong to one signature.    |
 
-These describe how a token is spelled or repeated on the command line. A
-positional slot has no name to spell and no repetition to police, so there is
-nothing for them to configure.
-
-| Flag member                  | Why it has no arg equivalent                                                    |
-| ---------------------------- | ------------------------------------------------------------------------------- |
-| `flag.boolean()`             | A boolean flag carries no value token; a positional is nothing but a value token. |
-| `flag.count()`               | Counts how many times `-v` appears. A positional slot is matched by position.     |
-| `.negatable()`               | Synthesizes a `--no-x` spelling for an existing flag name.                        |
-| `.alias()`                   | Adds a second CLI spelling for a flag name.                                       |
-| `.duplicates()`              | Decides what a repeated `--x` means. A positional slot is filled once.            |
-| `.separator()` / `.unique()` | Split and deduplicate the values of an array flag.                                |
-| `.propagate()`               | Inherits a flag into subcommands. Positional slots belong to one signature.       |
-
-### Served by another member
-
-`flag.array()` has no `arg.array()`. Use `.variadic()`, which collects the
-remaining positional values into an array on any argument kind:
+One member is served by another spelling rather than missing. `flag.array()` has
+no `arg.array()`: use `.variadic()`, which collects the remaining positional
+values into an array on any argument kind.
 
 ```ts
 arg.string().variadic(); // string[]
 arg.url().variadic(); // URL[]
 arg.path({ mustExist: true }).variadic(); // string[], every entry checked
+arg.string().variadic().separator(',').unique(); // split each token, dedupe
 ```
 
-### Not implemented
+`.prompt()`, `.config()`, `arg.boolean()`, and `arg.keyValue()` were all on that
+list once. They are not any more.
 
-`arg.keyValue()` has no arg form today.
+## Collections
 
-`flag.keyValue()` merges repeated `KEY=VALUE` occurrences into one
-`Record<string, string>`. A positional slot cannot express that merge, since
-each slot holds one value and a variadic argument holds a list rather than a
-record.
+`.variadic()` and `arg.keyValue()` are the two aggregating forms, and both fill
+from every source the argument declares under the rules
+[Collections](/guide/flags#collections) sets out for flags. `.split()` sets how
+each source decodes, `.separator()` sets the CLI delimiter alone, `.unique()`
+deduplicates a variadic array, and `.duplicateKeys()` decides a repeated key:
 
-`.prompt()` and `.config()` used to be on this list. Both surfaces now declare
-the same sources, so an argument reads a dotted config key and opens an
-interactive prompt exactly as a flag does.
-
-For `keyValue`, parse the value yourself with `arg.custom()`, optionally with a
-[Standard Schema v1](https://standardschema.dev/schema) validator doing the
-validation:
-
-```ts twoslash
-import { arg, type InferArg } from '@kjanat/dreamcli';
-
-const pairs = arg.custom((raw: string): Record<string, string> =>
-  Object.fromEntries(
-    raw.split(',').map((pair) => {
-      const at = pair.indexOf('=');
-      if (at === -1) throw new Error(`Expected KEY=VALUE, got '${pair}'`);
-      return [pair.slice(0, at), pair.slice(at + 1)];
-    }),
-  )
-);
-
-declare const argTypes: { pairs: InferArg<typeof pairs> };
-// ---cut---
-argTypes.pairs;
-//         ^?
+```ts
+arg.string().variadic().split({ cli: ',', env: 'json' });
+// mycli build a,b c   →  ['a', 'b', 'c']
+// FILES='["a","b"]'   →  ['a', 'b']
 ```
 
-A positional parsed this way can still declare every source. Chain `.env()`,
-`.config()`, and `.prompt()` on the `arg.custom()` builder and the parse function
-runs on whichever raw source wins. A value supplied by `.default()` is already
-typed and is not parsed again.
+These four modifiers are collection modifiers. On an argument that aggregates
+nothing, `arg.string()` without `.variadic()`, they are accepted and stored but
+change nothing, since a single-value argument has no elements to split, dedupe,
+or fold.
+
+A variadic argument cannot also read stdin. `arg.keyValue()` can, in its
+non-variadic form.
+
+### Standard Schema on a collection argument
+
+`.standard()` reads the builder it is called on, so its position in the chain
+decides what it validates:
+
+```ts
+arg.string().standard(upperCase).variadic(); // each collected element
+arg.string().variadic().standard(atLeastOne); // the finished array
+```
+
+Before `.variadic()` the argument is still a single value, so the validator is
+the element's. After it, the argument aggregates, so the validator sees the
+completed array. An element failure names the position
+(`<files>[1] failed validation: …`); an aggregate failure names the argument.
 
 ## Declaration
 
@@ -493,9 +559,10 @@ stage stays out of the way. When nothing was piped, both forms fall through to
 env, config, prompt, and the default.
 
 The whole buffer becomes the value. A string argument keeps it byte for byte, so
-`echo hi | mycli` gives `'hi\n'`; every other kind drops the single line
+`echo hi | mycli` gives `'hi\n'`; every other scalar kind drops the single line
 terminator a pipe appends before decoding, so `echo 30s` reaches
-`arg.duration()` as `30s`.
+`arg.duration()` as `30s`. `arg.keyValue()` decodes the buffer into entries, one
+`KEY=VALUE` per line by default.
 
 ### Choosing when stdin is read
 
@@ -592,7 +659,16 @@ command('convert')
 // echo shared | mycli convert → flags.body === 'shared\n', args.input === 'shared\n'
 ```
 
-Stdin-backed arguments cannot also be variadic.
+Stdin-backed arguments cannot also be variadic. Declaring both throws
+`INVALID_BUILDER_STATE` when the argument is registered on a command:
+
+```
+Argument <files> cannot be both variadic and stdin-backed
+Suggestion: Remove .stdin() or .variadic() from this argument
+```
+
+`arg.keyValue()` aggregates without `.variadic()`, so its non-variadic form
+reads a whole record from the stream.
 
 If stdin is absent, resolution falls through to the later stages and then to
 required versus optional behavior, so use `.optional()` when missing piped input
@@ -608,6 +684,6 @@ Suggestion: Provide a value for <data> or pipe a value to stdin or pass '-'
 ## What's Next?
 
 - [Flags](/guide/flags) — flag types and resolution chain
-- [What the arg factory does not have](#flag-only-surface), the deliberate
-  differences between the two factories
+- [What the arg factory does not have](#flag-only-surface), the flag members
+  bound to flag syntax
 - [Output](/guide/output) — structured output channel

@@ -202,7 +202,15 @@ function invocationSelectsStdin(
 	return false;
 }
 
-/** Whether one input's stdin binding fires for the value argv left it. */
+/** The stdin selector, which names a source rather than a value. */
+const STDIN_SENTINEL = '-';
+
+/**
+ * Whether one input's stdin binding fires for the value argv left it.
+ *
+ * A collection keeps its occurrences in a list until resolution splices them,
+ * so a `-` among them selects stdin exactly as a lone `-` does for a scalar.
+ */
 function inputSelectsStdin(
 	stdin: StdinBinding | undefined,
 	present: boolean,
@@ -210,7 +218,8 @@ function inputSelectsStdin(
 ): boolean {
 	if (stdin === undefined) return false;
 	if (!present || value === undefined) return stdinReadsWhenMissing(stdin);
-	return value === '-' && stdinReadsOnDash(stdin);
+	if (!stdinReadsOnDash(stdin)) return false;
+	return Array.isArray(value) ? value.includes(STDIN_SENTINEL) : value === STDIN_SENTINEL;
 }
 
 export type { ParsedInputs, ResolutionStage, SourceBinding, StdinConsumer };

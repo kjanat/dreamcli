@@ -168,7 +168,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   String constraints are enforced on CLI parse (`INVALID_VALUE`) and on stdin,
   env, config, and prompt resolution (`CONSTRAINT_VIOLATED`), both exit code
-  `2`; as with flags, a `.default()` value is trusted as declared. `arg.path()`
+  `2`; as with flags, a `.default()` value is checked where it is declared and a
+  violation throws `INVALID_DEFAULT`. `arg.path()`
   checks run after resolution through the runtime adapter's `stat`/`mkdir`, the
   same seam `flag.path()` uses, so a piped, env-sourced, config-sourced,
   prompted, or defaulted path is checked like one typed on the command line. A
@@ -239,7 +240,107 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `stdin: { when, consume }` on flags and args, with a `stdin` entry in the
   meta-schema `$defs`, and the arg fragment gains `configPath` and `prompt`.
 
+- **Cardinality is its own axis, with per-source splitting.** How many values an
+  input carries (`one`, `many`, `entries`, `count`) is now decided separately
+  from what each value means, so every source fills a collection by the same
+  rules. `.split({ cli, env, stdin })` on `flag.array()`, `flag.keyValue()`, and
+  the arg builders sets each source's decoding independently: a delimiter or
+  `'whole'` for CLI tokens, a delimiter, `'whole'`, or `{ format: 'json' }` for
+  env values, and `'lines'`, `'whole'`, a delimiter, or `{ format: 'json' }` for
+  the stdin buffer. Defaults are whole CLI tokens (or the `.separator()`
+  delimiter), comma-delimited env values, and line-delimited stdin; a config
+  value stays a native array or object, and a config string decodes under the
+  env policy. JSON is never guessed. `SplitOptions`, `SplitSetting`,
+  `SplitPolicy`, `SplitBinding`, `SourceSplitBinding`, and `SplitFormat` are
+  exported from the package root, and the definition document carries `split` on
+  flag and arg fragments as `SourceSplitFragmentV1` / `SplitPolicyFragmentV1`.
+
+- **Collections read stdin, and `-` splices into occurrence order.**
+  `flag.array()` and `flag.keyValue()` accept `.stdin()`, and a `-` occurrence
+  stands for the whole stdin source at the position it holds:
+  `--tag before --tag - --tag after` over `a\nb\n` resolves to
+  `['before', 'a', 'b', 'after']`. An explicit `-` and the implicit fallback
+  decode identically, entries splice the same way, and the duplicate-key policy
+  applies across the whole spliced order. Broadcast consumers each decode the
+  one shared buffer under their own binding, so a line-split array flag and a
+  JSON key-value flag can read the same pipe.
+
+- **`.duplicateKeys()` on key-value inputs.** `'last'` (the default), `'first'`,
+  or `'error'` decides what a repeated key means, on every source rather than
+  only on repeated CLI occurrences. A repeat under `'error'` reports
+  `CONSTRAINT_VIOLATED` naming the key. `DuplicateKeys` is exported from the
+  package root and the policy is serialized as `duplicateKeys`.
+
+- **`arg.boolean()` and `arg.keyValue()`.** A positional carries no presence
+  semantics, so `arg.boolean()` consumes an explicit `true`/`false` (or `1`/`0`)
+  token through the shared boolean codec, widening to `yes`/`no` and an empty
+  string only for env, config, stdin, and prompt values. `arg.keyValue()`
+  consumes `KEY=VALUE` tokens and resolves to `Record<string, string>`, splitting
+  at the first `=`; the variadic form aggregates the whole tail into one record.
+  `BooleanArgDefinition` and `KeyValueArgDefinition` join the definition types,
+  and `ArgKind` gains `'boolean'` and `'keyValue'`.
+
+- **Element-level sugar inside collections.** Path checks and constraints belong
+  to the element, so `flag.array(flag.path({ mustExist: true }))` checks every
+  collected element and `flag.keyValue(flag.path())` checks every entry value.
+  `flag.keyValue()` takes an optional element builder, and `flag.path()` is now
+  element-eligible.
+
+- **`.standard()` on both builders, split into element and aggregate
+  validation.** A validator declared on an element builder
+  (`flag.array(flag.string().standard(s))`) validates each item or entry value;
+  one declared on a builder that already aggregates
+  (`flag.array(flag.string()).standard(s)`, `arg.string().variadic().standard(s)`)
+  validates the completed array or record after every element passed. Element
+  issues name the element (`--tag[1]`, `--vars.KEY`). Sync and async validators
+  are both awaited, and every source runs the same pipeline.
+
+- **`.unique()` and `.separator()` on args.** A variadic arg deduplicates with
+  the same `SameValueZero` semantics an array flag uses, and splits each
+  positional token on the CLI separator it declares.
+
 ### Changed
+
+- **Breaking: declared defaults are validated.** A `.default()` value is
+  already the typed value, so it is validated rather than decoded: the codec's
+  own domain, string and number constraints, element and aggregate Standard
+  Schema validators, the shape the cardinality requires, and the collection rules
+  all apply to it. Purely synchronous violations throw `INVALID_DEFAULT` where
+  the chain declares them, so `flag.string({ minLength: 3 }).default('ab')` and
+  `flag.number().default(Number.POSITIVE_INFINITY)` now fail at construction
+  instead of reaching a handler; a constraint added after the default
+  (`flag.string().default('ab').minLength(3)`) is checked too, as is a validator
+  (`.standard()`). On the definition path, where no compiler stands in the way,
+  the domain check also rejects a default of the wrong primitive type and an
+  `enum` default outside `enumValues`. Asynchronous
+  validators and `flag.path()` filesystem checks stay at resolution time, where
+  defaults already went through them. Code relying on a default that violates
+  its own declaration either fixes the default or widens the constraint
+  (`flag.number({ finite: false })` still accepts `Infinity`).
+
+- **Breaking: `.separator()` sets the CLI delimiter alone.** Env and config
+  string values used to inherit it, so `.separator('|')` silently changed how an
+  env var decoded. Each source now carries its own policy: env values split on
+  `','` unless `.split({ env })` says otherwise, and the stdin buffer splits on
+  line terminators. `.separator('|')` becomes `.split({ cli: '|', env: '|' })`
+  where the old coupling was intended.
+
+- **Breaking: `FlagSchema` and `ArgSchema` carry the cardinality axis.**
+  `FlagSchema` gains `split`, `duplicateKeys`, and `aggregateStandard`;
+  `ArgSchema` gains `separator`, `split`, `duplicateKeys`, `unique`, and
+  `aggregateStandard`. `elementSchema` and `separator` are valid on `keyValue`
+  as well as `array` flags, `standard` is valid on every kind, `aggregateStandard`
+  only on a kind that aggregates, and `stdin` is valid on the collection kinds.
+  Definition documents serialize the new fields additively at `schemaVersion: 1`,
+  which has not shipped, with `split` and `splitPolicy` entries in the
+  meta-schema `$defs`.
+
+- **Breaking: `.default()` on a variadic arg takes the array.** The type
+  parameter followed the element type, so the only value that compiled was a
+  single element, which is not what a variadic arg resolves to. It now follows
+  `ArgDefaultValue`, the value the arg actually produces:
+  `arg.string().variadic().default(['a', 'b'])`, and a record for
+  `arg.keyValue()`. `ArgDefaultValue` is exported from the package root.
 
 - **Breaking: `ArgSchema.stdinMode` is now `ArgSchema.stdin`** — the boolean
   carried no room for the trigger and sharing modes the unified source model

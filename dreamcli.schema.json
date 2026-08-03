@@ -234,11 +234,21 @@
         },
         "elementSchema": {
           "$ref": "#/$defs/flag",
-          "description": "Element schema when `kind === 'array'`."
+          "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`."
         },
         "separator": {
           "type": "string",
           "minLength": 1
+        },
+        "split": {
+          "$ref": "#/$defs/split"
+        },
+        "duplicateKeys": {
+          "enum": [
+            "first",
+            "last",
+            "error"
+          ]
         },
         "unique": {
           "type": "boolean"
@@ -312,6 +322,39 @@
         "consume"
       ],
       "description": "The normalized stdin axis of a flag or an arg."
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "$ref": "#/$defs/splitPolicy"
+        },
+        "stdin": {
+          "$ref": "#/$defs/splitPolicy"
+        }
+      }
+    },
+    "splitPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "enum": [
+            "whole",
+            "delimiter",
+            "lines",
+            "json"
+          ]
+        },
+        "delimiter": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "format"
+      ]
     },
     "negation": {
       "type": "object",
@@ -412,8 +455,10 @@
           "enum": [
             "string",
             "number",
+            "boolean",
             "enum",
-            "custom"
+            "custom",
+            "keyValue"
           ],
           "description": "What kind of value this arg accepts."
         },
@@ -466,6 +511,23 @@
         },
         "valueHint": {
           "type": "string"
+        },
+        "separator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "split": {
+          "$ref": "#/$defs/split"
+        },
+        "duplicateKeys": {
+          "enum": [
+            "first",
+            "last",
+            "error"
+          ]
+        },
+        "unique": {
+          "type": "boolean"
         },
         "prompt": {
           "$ref": "#/$defs/prompt",

@@ -7,8 +7,22 @@
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
+import type {
+	Cardinality,
+	SplitBinding,
+	SplitFailure,
+	SplitPolicy,
+} from '#internals/core/schema/cardinality.ts';
+import {
+	argCardinality,
+	flagCardinality,
+	foldEntries,
+	splitEntriesText,
+	splitManyText,
+} from '#internals/core/schema/cardinality.ts';
 import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { describeNumberConstraintViolation } from '#internals/core/schema/number-constraints.ts';
+import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { StringConstraintViolation } from '#internals/core/schema/string-constraints.ts';
 import {
 	describeStringConstraintViolation,
@@ -95,53 +109,197 @@ function coercionError(
 	});
 }
 
-/** Coerce a raw value from env/config/prompt into the type declared by a flag schema. */
+/**
+ * Coerce a raw value from stdin/env/config/prompt into what a flag declares.
+ *
+ * The cardinality axis decides how many values the source carries and how they
+ * combine; the value axis decides what each one means.
+ */
 function coerceValue(
 	flagName: string,
 	source: CoerceSource,
 	raw: unknown,
 	schema: FlagSchema,
 ): CoerceResult {
-	const value = flagValueSchema(schema);
-	if (value !== undefined) {
-		return coerceValueSchema(flagName, source, raw, value);
+	const cardinality = flagCardinality(schema);
+	if (cardinality.kind === 'count') {
+		return coerceCount(flagName, source, raw);
+	}
+	if (cardinality.kind === 'one') {
+		return coerceValueSchema(flagName, source, raw, flagValueSchema(schema));
+	}
+	return coerceCollection(
+		cardinality,
+		source,
+		raw,
+		(element) => coerceValueSchema(flagName, source, element, flagValueSchema(schema)),
+		flagCollectionErrors(flagName, source),
+	);
+}
+
+/** Read a raw value as a non-negative integer occurrence count. */
+function coerceCount(flagName: string, source: CoerceSource, raw: unknown): CoerceResult {
+	// Number('') is 0, which would silently accept an empty env var as a zero count.
+	const value = typeof raw === 'string' ? (raw.trim() === '' ? Number.NaN : Number(raw)) : raw;
+	if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+		return { ok: true, value };
+	}
+	return {
+		ok: false,
+		error: coercionError(
+			flagName,
+			source,
+			'TYPE_MISMATCH',
+			'count',
+			raw,
+			typeof raw === 'string' ? `Invalid count value '${raw}'` : 'Invalid count value',
+			suggestBySource(source, {
+				stdin: `Pipe a non-negative integer to stdin for --${flagName}`,
+				env: (envVar) => `Set ${envVar} to a non-negative integer`,
+				config: (configPath) => `Set ${configPath} to a non-negative integer in your config`,
+				prompt: `Enter a non-negative integer for --${flagName}`,
+			}),
+		),
+	};
+}
+
+// --- Collection coercion
+
+/** What a collection failure looks like before a surface words it. */
+type CollectionFault =
+	| { readonly kind: 'shape' }
+	| { readonly kind: 'pair'; readonly segment: string }
+	| { readonly kind: 'json'; readonly error: unknown }
+	| { readonly kind: 'json-shape'; readonly expected: 'array' | 'object' }
+	| { readonly kind: 'duplicate-key'; readonly key: string };
+
+/** How one surface words the faults a collection can produce. */
+type CollectionErrors = (fault: CollectionFault, raw: unknown) => ValidationError;
+
+/**
+ * Read a source value as a collection and aggregate it.
+ *
+ * @param cardinality - The `many` or `entries` axis being filled.
+ * @param source - Which stage produced the value.
+ * @param raw - The value that stage produced.
+ * @param decodeElement - Decodes one element through the value axis.
+ * @param errors - Words a fault for the surface being resolved.
+ * @returns The aggregated array or record, or the first failure.
+ */
+function coerceCollection(
+	cardinality: Extract<Cardinality, { kind: 'many' } | { kind: 'entries' }>,
+	source: CoerceSource,
+	raw: unknown,
+	decodeElement: (element: unknown) => CoerceResult,
+	errors: CollectionErrors,
+): CoerceResult {
+	if (cardinality.kind === 'many') {
+		const parts = readManyParts(source, raw, cardinality.splitting);
+		if (!parts.ok) return { ok: false, error: errors(parts.fault, raw) };
+		const coerced: unknown[] = [];
+		for (const part of parts.parts) {
+			const result = decodeElement(part);
+			if (!result.ok) return result;
+			coerced.push(result.value);
+		}
+		return { ok: true, value: coerced };
 	}
 
-	switch (schema.kind) {
-		case 'array': {
-			if (Array.isArray(raw)) {
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const element of raw) {
-						const result = coerceValue(flagName, source, element, schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
-				return { ok: true, value: raw };
-			}
-			if (typeof raw === 'string') {
-				if (raw === '') return { ok: true, value: [] };
-				const parts = raw.split(schema.separator ?? ',').filter((part) => part.length > 0);
-				if (schema.elementSchema) {
-					const coerced: unknown[] = [];
-					for (const part of parts) {
-						const element = source.kind === 'prompt' ? part.trim() : part;
-						const result = coerceValue(flagName, source, element, schema.elementSchema);
-						if (!result.ok) return result;
-						coerced.push(result.value);
-					}
-					return { ok: true, value: coerced };
-				}
-				return {
-					ok: true,
-					value: source.kind === 'prompt' ? parts.map((part) => part.trim()) : parts,
-				};
-			}
-			return {
-				ok: false,
-				error: coercionError(
+	const pairs = readEntryPairs(source, raw, cardinality.splitting);
+	if (!pairs.ok) return { ok: false, error: errors(pairs.fault, raw) };
+	const coerced: (readonly [string, unknown])[] = [];
+	for (const [key, value] of pairs.pairs) {
+		const result = decodeElement(value);
+		if (!result.ok) return result;
+		coerced.push([key, result.value]);
+	}
+	const folded = foldEntries(coerced, cardinality.duplicateKeys);
+	if (!folded.ok) {
+		return { ok: false, error: errors({ kind: 'duplicate-key', key: folded.duplicateKey }, raw) };
+	}
+	return { ok: true, value: folded.value };
+}
+
+/** Elements read off a source, or the fault that stopped the read. */
+type PartsResult =
+	| { readonly ok: true; readonly parts: readonly unknown[] }
+	| { readonly ok: false; readonly fault: CollectionFault };
+
+/** Pairs read off a source, or the fault that stopped the read. */
+type PairsResult =
+	| { readonly ok: true; readonly pairs: readonly (readonly [string, unknown])[] }
+	| { readonly ok: false; readonly fault: CollectionFault };
+
+/**
+ * Which split policy a source decodes text under.
+ *
+ * A config or prompt value is native when it is an array or an object; a string
+ * from either decodes under the env policy, which is the delimited form a user
+ * would have typed.
+ */
+function policyFor(source: CoerceSource, splitting: SplitBinding): SplitPolicy {
+	return source.kind === 'stdin' ? splitting.stdin : splitting.env;
+}
+
+/** Turn a split failure into the fault the surface words. */
+function splitFault(failure: SplitFailure): CollectionFault {
+	switch (failure.kind) {
+		case 'json':
+			return { kind: 'json', error: failure.error };
+		case 'json-shape':
+			return { kind: 'json-shape', expected: failure.expected };
+		case 'pair':
+			return { kind: 'pair', segment: failure.raw };
+	}
+}
+
+/** Read the elements a source carries for a `many` collection. */
+function readManyParts(source: CoerceSource, raw: unknown, splitting: SplitBinding): PartsResult {
+	if (Array.isArray(raw)) return { ok: true, parts: raw };
+	if (typeof raw !== 'string') return { ok: false, fault: { kind: 'shape' } };
+
+	const split = splitManyText(policyFor(source, splitting), raw);
+	if (!split.ok) return { ok: false, fault: splitFault(split.failure) };
+	return {
+		ok: true,
+		parts: source.kind === 'prompt' ? split.parts.map(trimStringPart) : split.parts,
+	};
+}
+
+/** Read the pairs a source carries for an `entries` collection. */
+function readEntryPairs(source: CoerceSource, raw: unknown, splitting: SplitBinding): PairsResult {
+	if (isPairList(raw)) return { ok: true, pairs: raw };
+	if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+		return { ok: true, pairs: Object.entries(raw) };
+	}
+	if (typeof raw !== 'string') return { ok: false, fault: { kind: 'shape' } };
+
+	const split = splitEntriesText(policyFor(source, splitting), raw);
+	if (!split.ok) return { ok: false, fault: splitFault(split.failure) };
+	return { ok: true, pairs: split.parts };
+}
+
+/** Whether a value is the ordered pair list the parser produces for entries. */
+function isPairList(value: unknown): value is readonly (readonly [string, unknown])[] {
+	return (
+		Array.isArray(value) &&
+		value.every(
+			(entry) => Array.isArray(entry) && entry.length === 2 && typeof entry[0] === 'string',
+		)
+	);
+}
+
+/** Trim a prompt-sourced element, leaving a non-string element untouched. */
+function trimStringPart(part: unknown): unknown {
+	return typeof part === 'string' ? part.trim() : part;
+}
+
+/** Word a collection fault for a flag. */
+function flagCollectionErrors(flagName: string, source: CoerceSource): CollectionErrors {
+	return (fault, raw) => {
+		switch (fault.kind) {
+			case 'shape':
+				return coercionError(
 					flagName,
 					source,
 					'TYPE_MISMATCH',
@@ -149,107 +307,116 @@ function coerceValue(
 					raw,
 					'Invalid array value',
 					suggestBySource(source, {
-						stdin: `Pipe comma-separated values to stdin for --${flagName}`,
+						stdin: `Pipe one value per line to stdin for --${flagName}`,
 						env: (envVar) => `Set ${envVar} to comma-separated values`,
 						config: (configPath) => `Set ${configPath} to an array in your config`,
 						prompt: `Provide valid values for --${flagName}`,
 					}),
-				),
-			};
-		}
-
-		case 'count': {
-			// Reject '' explicitly — Number('') is 0, which would silently
-			// accept an empty env var as a zero count.
-			const value = typeof raw === 'string' ? (raw.trim() === '' ? Number.NaN : Number(raw)) : raw;
-			if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
-				return { ok: true, value };
-			}
-			return {
-				ok: false,
-				error: coercionError(
-					flagName,
-					source,
-					'TYPE_MISMATCH',
-					'count',
-					raw,
-					typeof raw === 'string' ? `Invalid count value '${raw}'` : 'Invalid count value',
-					suggestBySource(source, {
-						stdin: `Pipe a non-negative integer to stdin for --${flagName}`,
-						env: (envVar) => `Set ${envVar} to a non-negative integer`,
-						config: (configPath) => `Set ${configPath} to a non-negative integer in your config`,
-						prompt: `Enter a non-negative integer for --${flagName}`,
-					}),
-				),
-			};
-		}
-
-		case 'keyValue': {
-			if (isStringRecord(raw)) {
-				return { ok: true, value: { ...raw } };
-			}
-			if (typeof raw === 'string') {
-				if (raw === '') return { ok: true, value: {} };
-				const pairs: [string, string][] = [];
-				// Empty segments are dropped (trailing-comma parity with array
-				// coercion). Values themselves cannot contain ',' via env —
-				// use CLI or config for those.
-				for (const pair of raw.split(',').filter((segment) => segment.length > 0)) {
-					const eq = pair.indexOf('=');
-					if (eq <= 0) {
-						return {
-							ok: false,
-							error: coercionError(
-								flagName,
-								source,
-								'TYPE_MISMATCH',
-								'key=value',
-								raw,
-								`Invalid key-value pair '${pair}'`,
-								suggestBySource(source, {
-									stdin: `Pipe KEY=VALUE pairs to stdin for --${flagName}`,
-									env: (envVar) => `Set ${envVar} to comma-separated KEY=VALUE pairs`,
-									config: (configPath) => `Set ${configPath} to an object with string values`,
-									prompt: `Use KEY=VALUE for --${flagName}`,
-								}),
-							),
-						};
-					}
-					pairs.push([pair.slice(0, eq), pair.slice(eq + 1)]);
-				}
-				// fromEntries defines own data properties — '__proto__' keys are
-				// stored verbatim, not routed to the prototype setter.
-				return { ok: true, value: Object.fromEntries(pairs) };
-			}
-			return {
-				ok: false,
-				error: coercionError(
+				);
+			case 'pair':
+				return coercionError(
 					flagName,
 					source,
 					'TYPE_MISMATCH',
 					'key=value',
 					raw,
-					'Invalid key-value value',
+					`Invalid key-value pair '${fault.segment}'`,
 					suggestBySource(source, {
 						stdin: `Pipe KEY=VALUE pairs to stdin for --${flagName}`,
 						env: (envVar) => `Set ${envVar} to comma-separated KEY=VALUE pairs`,
 						config: (configPath) => `Set ${configPath} to an object with string values`,
 						prompt: `Use KEY=VALUE for --${flagName}`,
 					}),
-				),
-			};
+				);
+			case 'json':
+				return coercionError(
+					flagName,
+					source,
+					'TYPE_MISMATCH',
+					'json',
+					raw,
+					`Invalid JSON value: ${jsonErrorMessage(fault.error)}`,
+					`Provide valid JSON for --${flagName}`,
+				);
+			case 'json-shape':
+				return coercionError(
+					flagName,
+					source,
+					'TYPE_MISMATCH',
+					fault.expected,
+					raw,
+					`Invalid JSON value, expected an ${fault.expected}`,
+					`Provide a JSON ${fault.expected} for --${flagName}`,
+				);
+			case 'duplicate-key':
+				return new ValidationError(
+					`Duplicate key '${fault.key}' ${sourceLabel(source)} for flag --${flagName}`,
+					{
+						code: 'CONSTRAINT_VIOLATED',
+						details: { flag: flagName, ...sourceDetails(source), key: fault.key },
+						suggest: `Set '${fault.key}' once for --${flagName}`,
+					},
+				);
 		}
-	}
-
-	throw new Error(`Unreachable flag coercion kind: ${schema.kind}`);
+	};
 }
 
-/** Narrow config-sourced objects to plain string-valued records. */
-function isStringRecord(value: unknown): value is Readonly<Record<string, string>> {
-	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-		return false;
-	}
-	return Object.values(value).every((entry) => typeof entry === 'string');
+/** Word a collection fault for a positional, without echoing the value. */
+function argCollectionErrors(argName: string, source: ArgStringSource): CollectionErrors {
+	return (fault) => {
+		switch (fault.kind) {
+			case 'shape':
+				return new ValidationError(
+					`Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { arg: argName, ...argSourceDetails(source), expected: 'array' },
+						suggest: `Provide values for <${argName}>`,
+					},
+				);
+			case 'pair':
+				return new ValidationError(
+					`Invalid key-value pair '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { arg: argName, ...argSourceDetails(source), expected: 'key=value' },
+						suggest: `Use KEY=VALUE for <${argName}>`,
+					},
+				);
+			case 'json':
+				return new ValidationError(
+					`Invalid JSON value ${argSourceLabel(source)} for argument <${argName}>`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { arg: argName, ...argSourceDetails(source), expected: 'json' },
+						suggest: `Provide valid JSON for <${argName}>`,
+					},
+				);
+			case 'json-shape':
+				return new ValidationError(
+					`Invalid JSON value ${argSourceLabel(source)} for argument <${argName}>, expected an ${fault.expected}`,
+					{
+						code: 'TYPE_MISMATCH',
+						details: { arg: argName, ...argSourceDetails(source), expected: fault.expected },
+						suggest: `Provide a JSON ${fault.expected} for <${argName}>`,
+					},
+				);
+			case 'duplicate-key':
+				return new ValidationError(
+					`Duplicate key '${fault.key}' ${argSourceLabel(source)} for argument <${argName}>`,
+					{
+						code: 'CONSTRAINT_VIOLATED',
+						details: { arg: argName, ...argSourceDetails(source), key: fault.key },
+						suggest: `Set '${fault.key}' once for <${argName}>`,
+					},
+				);
+		}
+	};
+}
+
+/** Name what JSON parsing rejected, without echoing the text. */
+function jsonErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -452,7 +619,7 @@ function argSourceDetails(source: ArgStringSource): Record<string, unknown> {
 function buildArgCoercionSuggest(
 	argName: string,
 	source: ArgStringSource,
-	expected: 'number' | 'string' | 'custom',
+	expected: 'number' | 'string' | 'custom' | 'boolean',
 ): string {
 	const subject = expected === 'custom' ? 'value' : expected;
 	return suggestBySource(source, {
@@ -530,14 +697,12 @@ function redactArgCoercionMessage(
 				? `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>: ${suffix}`
 				: `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
 		}
-		case 'string': {
+		case 'string':
+		case 'boolean':
+		case 'keyValue': {
 			const base = `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
-			const reason = stringConstraintReason(error);
+			const reason = schema.kind === 'string' ? stringConstraintReason(error) : undefined;
 			return reason === undefined ? base : `${base}: ${reason}`;
-		}
-		default: {
-			const exhaustive: never = schema.kind;
-			return exhaustive;
 		}
 	}
 }
@@ -553,7 +718,9 @@ function redactArgCoercionDetails(
 	return {
 		arg: argName,
 		...argSourceDetails(source),
-		...(schema.kind === 'number' || schema.kind === 'custom' ? { expected: schema.kind } : {}),
+		...(schema.kind === 'number' || schema.kind === 'custom' || schema.kind === 'boolean'
+			? { expected: schema.kind }
+			: {}),
 		...(stringViolation !== undefined
 			? { expected: 'string', ...stringConstraintDetails(stringViolation) }
 			: {}),
@@ -579,7 +746,7 @@ function redactArgCoercionSuggest(
 	schema: ArgSchema,
 	error: ValidationError,
 ): string | undefined {
-	if (schema.kind === 'number' || schema.kind === 'custom') {
+	if (schema.kind === 'number' || schema.kind === 'custom' || schema.kind === 'boolean') {
 		return buildArgCoercionSuggest(argName, source, schema.kind);
 	}
 
@@ -624,6 +791,29 @@ function coerceArgValue(
 	raw: unknown,
 	schema: ArgSchema,
 ): CoerceResult {
+	const cardinality = argCardinality(schema);
+	if (cardinality.kind === 'many' || cardinality.kind === 'entries') {
+		return coerceCollection(
+			cardinality,
+			source,
+			raw,
+			(element) => coerceArgElement(argName, source, element, schema),
+			argCollectionErrors(argName, source),
+		);
+	}
+	return coerceArgElement(argName, source, raw, schema);
+}
+
+/**
+ * Decode one arg value through the value layer, redacting the raw value in
+ * diagnostics.
+ */
+function coerceArgElement(
+	argName: string,
+	source: ArgStringSource,
+	raw: unknown,
+	schema: ArgSchema,
+): CoerceResult {
 	const coerced = coerceValueSchema(argName, source, raw, argValueSchema(schema));
 	if (coerced.ok) {
 		return coerced;
@@ -651,5 +841,165 @@ function coerceArgValue(
 	};
 }
 
-export type { CoerceResult };
-export { coerceArgValue, coerceValue };
+// --- CLI occurrence finishing
+
+/** The stdin selector, which names a source rather than a value. */
+const STDIN_SENTINEL = '-';
+
+/** What finishing a CLI-sourced value produced. */
+type CliFinish =
+	| { readonly kind: 'value'; readonly value: unknown; readonly viaStdin: boolean }
+	| { readonly kind: 'error'; readonly error: ValidationError }
+	| { readonly kind: 'absent' };
+
+/**
+ * Finish the CLI value of a flag, splicing stdin into occurrence order.
+ *
+ * A scalar keeps what the parser produced. A collection carries its occurrences
+ * in the order they were typed, and an occurrence of `-` stands for the whole
+ * stdin source at that position: what the buffer decodes to is spliced in
+ * there, so `--tag before --tag - --tag after` over `'a\nb\n'` resolves to
+ * `['before', 'a', 'b', 'after']`.
+ *
+ * @param flagName - Canonical flag name.
+ * @param schema - The flag being resolved.
+ * @param value - What the parser produced for it.
+ * @param stdinData - The pre-read stdin buffer, when one was read.
+ * @returns The finished value, a failure, or absence when only `-` was given
+ *   and nothing was piped.
+ */
+function finishCliFlagValue(
+	flagName: string,
+	schema: FlagSchema,
+	value: unknown,
+	stdinData: string | null | undefined,
+): CliFinish {
+	const cardinality = flagCardinality(schema);
+	if (cardinality.kind !== 'many' && cardinality.kind !== 'entries') {
+		return { kind: 'value', value, viaStdin: false };
+	}
+	return spliceCliCollection(
+		cardinality,
+		value,
+		stdinData,
+		schema.stdin !== undefined && stdinReadsOnDash(schema.stdin),
+		(element) => coerceValueSchema(flagName, { kind: 'stdin' }, element, flagValueSchema(schema)),
+		flagCollectionErrors(flagName, { kind: 'stdin' }),
+	);
+}
+
+/**
+ * Finish the CLI value of a positional, splicing stdin into occurrence order.
+ *
+ * @param argName - Positional arg name.
+ * @param schema - The arg being resolved.
+ * @param value - What the parser produced for it.
+ * @param stdinData - The pre-read stdin buffer, when one was read.
+ * @returns The finished value, a failure, or absence when only `-` was given
+ *   and nothing was piped.
+ */
+function finishCliArgValue(
+	argName: string,
+	schema: ArgSchema,
+	value: unknown,
+	stdinData: string | null | undefined,
+): CliFinish {
+	const cardinality = argCardinality(schema);
+	if (cardinality.kind !== 'many' && cardinality.kind !== 'entries') {
+		return { kind: 'value', value, viaStdin: false };
+	}
+	return spliceCliCollection(
+		cardinality,
+		value,
+		stdinData,
+		schema.stdin !== undefined && stdinReadsOnDash(schema.stdin),
+		(element) => coerceArgElement(argName, { kind: 'stdin' }, element, schema),
+		argCollectionErrors(argName, { kind: 'stdin' }),
+	);
+}
+
+/** Replace every stdin sentinel among the occurrences with what stdin decodes to. */
+function spliceCliCollection(
+	cardinality: Extract<Cardinality, { kind: 'many' } | { kind: 'entries' }>,
+	value: unknown,
+	stdinData: string | null | undefined,
+	readsOnDash: boolean,
+	decodeElement: (element: unknown) => CoerceResult,
+	errors: CollectionErrors,
+): CliFinish {
+	if (!Array.isArray(value)) return { kind: 'value', value, viaStdin: false };
+
+	const spliced: unknown[] = [];
+	let sentinels = 0;
+	let viaStdin = false;
+	for (const occurrence of value) {
+		if (!readsOnDash || occurrence !== STDIN_SENTINEL) {
+			spliced.push(occurrence);
+			continue;
+		}
+		sentinels += 1;
+		if (typeof stdinData !== 'string') continue;
+		const read = readStdinOccurrence(cardinality, stdinData, decodeElement, errors);
+		if (read.kind !== 'value') return read;
+		viaStdin = true;
+		spliced.push(...read.elements);
+	}
+
+	if (sentinels === value.length && sentinels > 0 && typeof stdinData !== 'string') {
+		return { kind: 'absent' };
+	}
+
+	if (cardinality.kind === 'many') return { kind: 'value', value: spliced, viaStdin };
+
+	const pairs: (readonly [string, unknown])[] = [];
+	for (const entry of spliced) {
+		if (Array.isArray(entry) && entry.length === 2 && typeof entry[0] === 'string') {
+			pairs.push([entry[0], entry[1]]);
+		}
+	}
+	const folded = foldEntries(pairs, cardinality.duplicateKeys);
+	if (!folded.ok) {
+		return {
+			kind: 'error',
+			error: errors({ kind: 'duplicate-key', key: folded.duplicateKey }, value),
+		};
+	}
+	return { kind: 'value', value: folded.value, viaStdin };
+}
+
+/** Decode the stdin buffer into the elements one `-` occurrence stands for. */
+function readStdinOccurrence(
+	cardinality: Extract<Cardinality, { kind: 'many' } | { kind: 'entries' }>,
+	stdinData: string,
+	decodeElement: (element: unknown) => CoerceResult,
+	errors: CollectionErrors,
+):
+	| { readonly kind: 'value'; readonly elements: readonly unknown[] }
+	| { readonly kind: 'error'; readonly error: ValidationError } {
+	const source: CoerceSource = { kind: 'stdin' };
+
+	if (cardinality.kind === 'many') {
+		const parts = readManyParts(source, stdinData, cardinality.splitting);
+		if (!parts.ok) return { kind: 'error', error: errors(parts.fault, stdinData) };
+		const elements: unknown[] = [];
+		for (const part of parts.parts) {
+			const decoded = decodeElement(part);
+			if (!decoded.ok) return { kind: 'error', error: decoded.error };
+			elements.push(decoded.value);
+		}
+		return { kind: 'value', elements };
+	}
+
+	const pairs = readEntryPairs(source, stdinData, cardinality.splitting);
+	if (!pairs.ok) return { kind: 'error', error: errors(pairs.fault, stdinData) };
+	const elements: unknown[] = [];
+	for (const [key, raw] of pairs.pairs) {
+		const decoded = decodeElement(raw);
+		if (!decoded.ok) return { kind: 'error', error: decoded.error };
+		elements.push([key, decoded.value]);
+	}
+	return { kind: 'value', elements };
+}
+
+export type { CliFinish, CoerceResult };
+export { coerceArgValue, coerceValue, finishCliArgValue, finishCliFlagValue };

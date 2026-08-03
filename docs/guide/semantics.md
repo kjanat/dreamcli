@@ -38,6 +38,8 @@ After `--`, both `--region` and `eu` are treated as positional values.
 
 - Scalar flags overwrite earlier values. The last occurrence wins.
 - Array flags accumulate in order.
+- Key-value flags fold their occurrences into one record.
+- Count flags total their occurrences.
 
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
@@ -46,6 +48,8 @@ flag.string(); // repeated -> last value wins
 flag.number(); // repeated -> last value wins
 flag.boolean(); // repeated -> true stays true unless an explicit false value is parsed
 flag.array(flag.string()); // repeated -> accumulates
+flag.keyValue(); // repeated -> folds into one record
+flag.count(); // repeated -> totals
 ```
 
 ```bash
@@ -88,6 +92,52 @@ Examples:
 
 Once a value-taking short flag consumes the remainder of the group, parsing of that group stops.
 
+## Aggregation And Splitting
+
+An input carries one value, an ordered list, a record of key-value entries, or
+an occurrence count. Which of the four it is decides how every source fills it,
+and it is decided separately from what each value means.
+
+| Form      | Declared by                                   | Unset resolves to |
+| --------- | --------------------------------------------- | ----------------- |
+| one       | every scalar kind                             | `undefined`       |
+| list      | `flag.array()`, `arg` with `.variadic()`      | `[]`              |
+| entries   | `flag.keyValue()`, `arg.keyValue()`           | `{}`              |
+| count     | `flag.count()`                                | `0`               |
+
+### Per-source split policies
+
+A source that carries text decodes it into elements under its own policy:
+
+| Source | Accepts                                       | Default                      |
+| ------ | --------------------------------------------- | ---------------------------- |
+| cli    | a delimiter, `'whole'`                        | `'whole'`, or `.separator()` |
+| env    | a delimiter, `'whole'`, `'json'`              | `','`                        |
+| stdin  | a delimiter, `'whole'`, `'lines'`, `'json'`   | `'lines'`                    |
+| config | a native array or object; a string uses `env` | native                       |
+
+`.split({ cli, env, stdin })` sets them; a call names only the sources it
+changes. `.separator()` writes the CLI policy on its own. A format a source does
+not accept throws `INVALID_SCHEMA` where the input is declared. JSON is parsed
+only where the policy says `'json'`, never guessed from the text.
+
+Line splitting treats a final terminator as framing rather than a new element,
+and accepts `\n`, `\r\n`, and `\r`: `'a\nb\n'` gives `['a', 'b']` and
+`'a\nb\n\n'` gives `['a', 'b', '']`. Delimiter splitting drops empty segments.
+
+### Aggregation rules
+
+- A list applies `.unique()` after every source has resolved, in first-seen
+  order with `SameValueZero` semantics.
+- Entries split each segment at the **first** `=`, so `A=b=c` is
+  `{ A: 'b=c' }`. A segment with no `=`, or an empty key, fails: `INVALID_VALUE`
+  on a CLI token, `TYPE_MISMATCH` from every other source.
+- Entries fold under `.duplicateKeys()`: `'last'` (the default), `'first'`, or
+  `'error'`, which reports `CONSTRAINT_VIOLATED` naming the key. The policy
+  applies to every source, not only to repeated CLI occurrences.
+- A count reads an explicit value (`--verbose=2`, env, config) as the count
+  itself, and must be a non-negative integer.
+
 ## Resolution Precedence
 
 ### Flags
@@ -126,8 +176,10 @@ Outcomes:
 
 Notes:
 
-- Array flags that are not required and have no explicit default resolve to `[]`.
-- Optional non-array flags resolve to `undefined` when no source provides a value.
+- An optional flag that aggregates resolves to its empty form when no source
+  provides a value: `[]` for an array, `{}` for a key-value flag, `0` for a
+  count.
+- Every other optional flag resolves to `undefined`.
 - Required flags fail after the full chain is exhausted.
 
 ### Positional arguments
@@ -181,9 +233,33 @@ would fire. Declaring a second exclusive stdin input on one command, flag or
 argument, throws `DUPLICATE_STDIN_INPUT` at build time; every stdin input on a
 command that passes `{ consume: 'broadcast' }` receives the same buffer.
 
-The whole buffer becomes the value. A `string` input keeps it byte for byte;
-every other kind drops one trailing `\n`, `\r\n`, or `\r` before decoding, and
-then accepts exactly what an env value accepts.
+For a scalar input, the whole buffer becomes the value. A `string` input keeps
+it byte for byte; every other scalar kind drops one trailing `\n`, `\r\n`, or
+`\r` before decoding, and then accepts exactly what an env value accepts. There
+is no option for this: the rule follows the codec, because a `string` is the one
+kind whose value is the text itself.
+
+For a collection, the buffer decodes into elements under the input's stdin
+policy, `'lines'` by default. A `-` occurrence stands for the whole stdin source
+at the position it holds, and the decoded elements are spliced in there:
+
+```bash
+$ printf 'a\nb\n' | mycli send --tag before --tag - --tag after
+# flags.tag === ['before', 'a', 'b', 'after']
+```
+
+Splicing rules:
+
+- A spliced read stays on the `cli` stage, so it outranks env, config, prompt,
+  and the default exactly as a scalar `-` does.
+- Entries splice into the same occurrence order and then fold under
+  `.duplicateKeys()`, so a piped key can be overridden by a later CLI one.
+- Two `-` occurrences splice the buffer twice. The buffer is read once and each
+  occurrence stands for all of it.
+- When every occurrence is `-` and nothing was piped, the input produces no CLI
+  value, so env, config, prompt, and the default stay reachable.
+- An input that declares no stdin binding treats `-` as an ordinary element and
+  never reads the stream.
 
 ## Non-Interactive Behavior
 

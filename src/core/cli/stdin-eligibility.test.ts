@@ -199,3 +199,78 @@ describe('flag stdin eligibility', () => {
 		expect(host.reads()).toBe(0);
 	});
 });
+
+// === L16: a collection's `-` occurrence is the same selector as a scalar's
+
+describe('collection stdin eligibility', () => {
+	it('reads stdin for a `-` occurrence among the occurrences of an array flag', async () => {
+		const seen: unknown[] = [];
+		const app = cli('mycli').default(
+			command('run')
+				.flag('tag', flag.array(flag.string()).stdin())
+				.action(({ flags }) => {
+					seen.push(flags.tag);
+				}),
+		);
+		const host = countingAdapter({
+			argv: ['--tag', 'before', '--tag', '-', '--tag', 'after'],
+			stdinData: 'a\nb\n',
+		});
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([['before', 'a', 'b', 'after']]);
+	});
+
+	it('reads stdin for a `-` occurrence of a keyValue flag', async () => {
+		const seen: unknown[] = [];
+		const app = cli('mycli').default(
+			command('run')
+				.flag('env', flag.keyValue().stdin())
+				.action(({ flags }) => {
+					seen.push(flags.env);
+				}),
+		);
+		const host = countingAdapter({ argv: ['--env', 'A=1', '--env', '-'], stdinData: 'B=2\n' });
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([{ A: '1', B: '2' }]);
+	});
+
+	it('reads stdin for a `-` token of a keyValue positional', async () => {
+		const seen: unknown[] = [];
+		const app = cli('mycli').default(
+			command('run')
+				.arg('vars', arg.keyValue().stdin())
+				.action(({ args }) => {
+					seen.push(args.vars);
+				}),
+		);
+		const host = countingAdapter({ argv: ['-'], stdinData: 'A=1\nB=2\n' });
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([{ A: '1', B: '2' }]);
+	});
+
+	it('does not read stdin for a literal `-` element on an array flag without a stdin binding', async () => {
+		const seen: unknown[] = [];
+		const app = cli('mycli').default(
+			command('run')
+				.flag('tag', flag.array(flag.string()))
+				.action(({ flags }) => {
+					seen.push(flags.tag);
+				}),
+		);
+		const host = countingAdapter({ argv: ['--tag', '-', '--tag', 'x'], stdinData: 'piped' });
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(0);
+		expect(seen).toEqual([['-', 'x']]);
+	});
+});

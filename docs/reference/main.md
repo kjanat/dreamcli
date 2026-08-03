@@ -277,15 +277,18 @@ says otherwise:
 | --------------------- | ------------------------------- |
 | `arg.string()`        | `string`                        |
 | `arg.number()`        | `number`                        |
+| `arg.boolean()`       | `boolean`                       |
 | `arg.enum(values)`    | Union of provided string values |
 | `arg.custom(parseFn)` | Return type                     |
+| `arg.keyValue()`      | `Record<string, string>`        |
 | `arg.url()`           | `URL`                           |
 | `arg.path()`          | `string`                        |
 | `arg.date()`          | `Date`                          |
 | `arg.duration()`      | `number` (ms)                   |
 | `arg.bytes()`         | `number`                        |
 
-`boolean`, `array`, `count`, and `keyValue` are flag-only. See
+`array` and `count` are flag-only. `.variadic()` is the arg form of
+`flag.array()`, and a count has no positional meaning. See
 [What the arg factory does not have](/guide/arguments#flag-only-surface).
 
 ### `middleware<Context>(handler)`

@@ -495,6 +495,73 @@ Stdin also stops borrowing the prompt widening table. It accepts exactly what an
 env value accepts, so the prompt-only `y` and `n` boolean spellings are
 rejected; write `true` / `false`, `1` / `0`, or `yes` / `no`.
 
+### Declared defaults are validated
+
+A `.default()` value is the typed value, so it is validated rather than decoded.
+String and number constraints, element and aggregate Standard Schema validators,
+the shape the cardinality requires, and the collection rules all apply to it.
+Purely synchronous violations throw `INVALID_DEFAULT` where the chain declares
+them:
+
+```ts
+flag.string({ minLength: 3 }).default('ab'); // throws INVALID_DEFAULT
+flag.number().default(Number.POSITIVE_INFINITY); // throws INVALID_DEFAULT
+arg.string().default('ab').minLength(3); // throws, whichever order you write
+```
+
+Fix the default, or widen the declaration where the value was intended:
+`flag.number({ finite: false }).default(Number.POSITIVE_INFINITY)` still holds.
+Asynchronous validators and `flag.path()` filesystem checks stay at resolution
+time, where defaults already went through them.
+
+Building a schema from a definition object skips the compiler, so the same pass
+also checks the value against the codec itself:
+
+```ts
+createFlagSchema({ kind: 'enum', enumValues: ['us', 'eu'], defaultValue: 'ap' });
+// throws INVALID_DEFAULT: expected one of: us, eu
+```
+
+### `.default()` on a variadic arg takes the array
+
+The type parameter followed the element type, so the only value that compiled
+was a single element. It now follows what the arg resolves to:
+
+```ts
+// 3.x: compiled, then resolved to the bare string
+arg.string().variadic().default('a');
+
+// 4.0: the array the arg produces
+arg.string().variadic().default(['a', 'b']);
+```
+
+### `.separator()` sets the CLI delimiter alone
+
+Env and config string values used to inherit the CLI separator, so
+`.separator('|')` silently changed how an env var decoded. Each source now
+carries its own policy: env values split on `','`, and the stdin buffer splits on
+line terminators.
+
+```ts
+// 3.x: one delimiter everywhere
+flag.array(flag.string()).separator('|').env('REGIONS');
+
+// 4.0: name each source you meant
+flag.array(flag.string()).split({ cli: '|', env: '|' }).env('REGIONS');
+```
+
+Code that only ever passed CLI tokens needs no change.
+
+### `FlagSchema` and `ArgSchema` carry the cardinality axis
+
+`FlagSchema` gains `split`, `duplicateKeys`, and `aggregateStandard`, and
+`ArgSchema` gains `separator`, `split`, `duplicateKeys`, `unique`, and
+`aggregateStandard`. Code that spells out a whole schema literal adds them;
+`createFlagSchema()` and `createArgSchema()` fill them in. `elementSchema` and
+`separator` are valid on `keyValue` as well as `array` flags, `standard` is valid
+on every kind, `aggregateStandard` only on a kind that aggregates, and `stdin` is
+valid on the collection kinds.
+
 ## Behavioral Changes To Review
 
 - **Root `--json` and `--quiet` take an explicit value.** `--json=true`,
@@ -528,6 +595,11 @@ Adopt at your own pace; none of these are required:
   `arg.env()`, `flag.string().stdin()` becomes legal, and every input resolves
   through `CLI -> stdin -> env -> config -> prompt -> default`. See
   [Arguments](/guide/arguments#stdin-backed-arguments).
+- **Cardinality as its own axis**: `.split({ cli, env, stdin })` gives each source
+  its own decoding, `.duplicateKeys()` decides what a repeated key means,
+  collections read stdin with `-` splicing into occurrence order, and
+  `arg.boolean()` and `arg.keyValue()` join the arg factories. See
+  [Flags](/guide/flags) and [Arguments](/guide/arguments).
 - **Consumer-owned built-in flags**: `.builtins({ help: 'off' })`,
   `.builtins({ json: 'off' })`, or `.builtins({ quiet: 'off' })` hands a
   root-owned token to the commands, for a CLI whose `--json`, `-q`, or

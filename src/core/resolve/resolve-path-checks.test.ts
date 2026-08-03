@@ -13,7 +13,7 @@ import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { command, createCommandSchema } from '#internals/core/schema/command.ts';
-import type { InferFlag } from '#internals/core/schema/flag.ts';
+import type { FlagBuilder, FlagConfig, InferFlag } from '#internals/core/schema/flag.ts';
 import { createFlagSchema, flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import { resolve } from './index.ts';
@@ -538,7 +538,7 @@ describe('resolve() — path checks', () => {
 // === runCommand — flag.path() end to end
 
 describe('runCommand — flag.path() end to end', () => {
-	function fileCommand(builder: ReturnType<typeof flag.path>) {
+	function fileCommand<C extends FlagConfig>(builder: FlagBuilder<C>) {
 		return command('read')
 			.flag('file', builder)
 			.action(({ flags, out }) => {

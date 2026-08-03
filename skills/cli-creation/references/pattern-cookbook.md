@@ -84,10 +84,12 @@ by default; add `.optional()` or `.default()` to change that. `arg.path()` needs
 the same `stat`/`mkdir` injection as `flag.path()`, and a variadic path arg
 checks every value it collects.
 
-There is no `arg.array()` (use `.variadic()`), and no `arg.boolean()`,
-`arg.count()`, or `arg.keyValue()`. Parse those with `arg.custom()`, or declare
-the value as a flag. `.stdin()`, `.env()`, `.config()`, and `.prompt()` are all
-available on an argument.
+There is no `arg.array()` (use `.variadic()`) and no `arg.count()`, which counts
+flag occurrences. `arg.boolean()` and `arg.keyValue()` do exist:
+`arg.boolean()` consumes an explicit `true`/`false` token, and
+`arg.keyValue()` consumes `KEY=VALUE` tokens into a record. `.stdin()`,
+`.env()`, `.config()`, and `.prompt()` are all available on an argument, and a
+variadic argument cannot also read stdin.
 
 ### Constraints instead of hand-written validation
 
@@ -101,8 +103,18 @@ arg.number().int().min(1); // chainable, same as flag
 
 Constraints are enforced on CLI parse (`INVALID_VALUE`) and on
 env/config/prompt/stdin resolution (`CONSTRAINT_VIOLATED`), both exit code 2.
-A `.default()` value is trusted as declared and is not re-checked. `finite`
-defaults to `true`, so `Infinity` is rejected unless you opt out.
+A `.default()` value is checked against them where the chain declares it, and a
+violation throws `INVALID_DEFAULT`, whichever order the chain is written in.
+`finite` defaults to `true`, so `Infinity` is rejected unless you opt out:
+
+```ts
+flag.string({ minLength: 3 }).default('ab'); // INVALID_DEFAULT
+flag.string().default('ab').minLength(3); // same verdict
+flag.number({ finite: false }).default(Number.POSITIVE_INFINITY); // fine
+```
+
+Asynchronous validators and `flag.path()` / `arg.path()` filesystem checks stay
+at resolution time, so a default goes through those when the command runs.
 
 ### Standard Schema validation
 
@@ -114,20 +126,48 @@ flag.custom(z.coerce.number().int().positive());
 
 Any Standard Schema v1 validator works (Zod, Valibot, ArkType) with the output
 type inferred. Validation runs after source resolution, so every source is
-checked identically; array flags validate per element.
+checked identically.
 
-### Array flags
+On a collection, where the validator sits decides what it sees:
+
+```ts
+flag.array(flag.string().standard(slug)); // each element: --tag[1] failed validation: …
+flag.array(flag.string()).standard(nonEmptyList); // the finished array
+arg.string().standard(slug).variadic(); // each element
+arg.string().variadic().standard(nonEmptyList); // the finished array
+```
+
+On an argument the position in the chain is what decides it, because
+`.variadic()` is what makes the argument aggregate.
+
+### Collections
 
 ```ts
 flag
 	.array(flag.enum(['us', 'eu', 'ap']))
 	.separator(',')
 	.unique();
+
+flag.keyValue().duplicateKeys('error'); // -e A=1 -e A=2 fails
+arg.keyValue().variadic(); // mycli render a=1 b=2 → { a: '1', b: '2' }
 ```
 
 `--region us,eu --region ap` and repetition both work. Put flag-level modifiers
-(`.env()`, `.default()`, …) on the array, never on the element — that is a
-compile error.
+(`.env()`, `.default()`) on the array, never on the element, which is a compile
+error.
+
+Each source decodes under its own policy, and a CLI separator is not inherited:
+
+```ts
+flag.array(flag.string()).split({ cli: ',', env: 'json', stdin: 'lines' }).env('TAGS').stdin();
+// --tag a,b            → ['a', 'b']
+// TAGS='["a","b"]'     → ['a', 'b']
+// printf 'a\nb\n' | …  → ['a', 'b']
+```
+
+Defaults without `.split()`: whole CLI tokens, comma-delimited env values,
+line-delimited stdin, native arrays and objects from config. A `-` occurrence
+splices the decoded buffer in at that position.
 
 ## Parser behavior
 

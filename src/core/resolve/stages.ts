@@ -14,7 +14,7 @@ import type { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptConfig } from '#internals/core/schema/prompt.ts';
 import type { SourceBinding } from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash, stdinReadsWhenMissing } from '#internals/core/schema/stdin.ts';
-import type { CoerceResult } from './coerce.ts';
+import type { CliFinish, CoerceResult } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
 import type { ResolutionDiagnosticSource, ResolutionProvenance } from './contracts.ts';
 
@@ -41,6 +41,11 @@ interface StageInput {
 	readonly cli: CliValue;
 	/** Decode a raw value from a non-CLI source into the input's declared type. */
 	readonly coerce: (source: ResolutionDiagnosticSource, raw: unknown) => CoerceResult;
+	/**
+	 * Aggregate what the parser produced, splicing the stdin buffer into the
+	 * position each `-` occurrence holds.
+	 */
+	readonly finishCli: (value: unknown, stdinData: string | null | undefined) => CliFinish;
 	/** Run the prompt engine for this input. */
 	readonly runPrompt: (config: PromptConfig) => Promise<PromptOutcome>;
 }
@@ -123,9 +128,27 @@ function cliStage(input: StageInput, state: StageState): StageOutcome {
 		});
 	}
 	if (input.cli.kind === 'value') {
-		return { kind: 'value', value: input.cli.value, provenance: { stage: 'cli' } };
+		const finished = input.finishCli(input.cli.value, state.stdinData);
+		if (finished.kind === 'absent') return ABSENT;
+		if (finished.kind === 'error') return { kind: 'error', error: finished.error };
+		return { kind: 'value', value: finished.value, provenance: cliProvenance(finished.viaStdin) };
 	}
 	return ABSENT;
+}
+
+/**
+ * Name where a finished CLI value came from.
+ *
+ * A collection that spliced the buffer at a `-` occurrence is CLI-sourced with
+ * some of its bytes from stdin, which is the record an explicit `-` produces
+ * for a scalar. A literal `-` an input without a stdin binding collected is a
+ * value like any other.
+ *
+ * @param viaStdin - Whether finishing the CLI value read the stdin buffer.
+ * @returns The provenance record for the CLI stage.
+ */
+function cliProvenance(viaStdin: boolean): ResolutionProvenance {
+	return viaStdin ? { stage: 'cli', via: 'stdin', trigger: 'dash' } : { stage: 'cli' };
 }
 
 /** The implicit stdin fallback, taken only by an input argv left absent. */

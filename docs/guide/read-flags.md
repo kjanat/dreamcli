@@ -73,6 +73,26 @@ parser, coercion, resolver, and validation a command runs. Aliases,
 rejection with suggestions, string and number constraints, Standard Schema
 validators, and `flag.path()` checks all behave as they do inside `.action()`.
 
+Collections behave the same way too. `flag.array()` and `flag.keyValue()`
+aggregate across occurrences and sources, `.split()` gives each source its own
+decoding, `.separator()` sets the CLI delimiter alone, `.unique()` and
+`.duplicateKeys()` apply to the finished value, and a `-` occurrence splices the
+stdin buffer into the position it holds:
+
+```ts twoslash
+import { flag, readFlags } from '@kjanat/dreamcli';
+// ---cut---
+const values = await readFlags(
+  { tag: flag.array(flag.string()).stdin() },
+  { argv: ['--tag', 'before', '--tag', '-'], stdinData: 'a\nb\n' },
+);
+
+values.tag; // ['before', 'a', 'b']
+```
+
+An array flag whose only source is an env var splits it on `','` by default,
+so `{ TAGS: 'x,y' }` reaches the record as `['x', 'y']`.
+
 [CLI Semantics](/guide/semantics) is the rule set, and it applies here as
 written.
 

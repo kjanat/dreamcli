@@ -24,6 +24,7 @@ import type {
 	CommandArgEntry,
 	CommandExample,
 	CommandSchema,
+	DuplicateKeys,
 	DuplicatePolicy,
 	ExampleMeta,
 	FlagKind,
@@ -34,6 +35,7 @@ import type {
 	PromptConfig,
 	PromptKind,
 	SelectChoice,
+	SourceSplitBinding,
 	StdinBinding,
 	StringConstraints,
 } from '#internals/core/schema/index.ts';
@@ -80,13 +82,14 @@ interface ResolvedOptions {
 	readonly includePrompts: boolean;
 }
 
+/** Fields carrying a runtime function, which no document can hold. */
+type UnserializableField = typeof schemaBrand | 'parseFn' | 'standard' | 'aggregateStandard';
+
 /** Flag fields that survive definition serialization. */
-type SerializedFlagField = Exclude<keyof FlagSchema, typeof schemaBrand | 'parseFn' | 'standard'>;
+type SerializedFlagField = Exclude<keyof FlagSchema, UnserializableField>;
 
 /** Arg fields that survive definition serialization, plus the entry's own name. */
-type SerializedArgField =
-	| 'name'
-	| Exclude<keyof ArgSchema, typeof schemaBrand | 'parseFn' | 'standard'>;
+type SerializedArgField = 'name' | Exclude<keyof ArgSchema, UnserializableField>;
 
 /**
  * Apply defaults to optional {@link JsonSchemaOptions}.
@@ -170,6 +173,28 @@ type StdinBindingFragmentV1 = {
 	readonly consume: 'exclusive' | 'broadcast';
 };
 
+/**
+ * How one source's text decodes into collection elements.
+ *
+ * A delimiter carries its own literal; every other format is named alone.
+ */
+type SplitPolicyFragmentV1 =
+	| { readonly format: 'whole' }
+	| { readonly format: 'delimiter'; readonly delimiter: string }
+	| { readonly format: 'lines' }
+	| { readonly format: 'json' };
+
+/**
+ * Non-CLI split policies of a collection fragment.
+ *
+ * The CLI delimiter is the fragment's own `separator`. A source absent here
+ * takes its default: comma-delimited for env, line-delimited for stdin.
+ */
+type SourceSplitFragmentV1 = {
+	readonly env?: SplitPolicyFragmentV1;
+	readonly stdin?: SplitPolicyFragmentV1;
+};
+
 /** Negated-spelling settings of a boolean flag fragment. */
 type FlagNegationFragmentV1 = {
 	readonly alias?: string;
@@ -217,6 +242,8 @@ type FlagDefinitionFragmentV1 = {
 	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
 	readonly elementSchema?: FlagDefinitionFragmentV1;
 	readonly separator?: string;
+	readonly split?: SourceSplitFragmentV1;
+	readonly duplicateKeys?: DuplicateKeys;
 	readonly unique?: true;
 	readonly pathChecks?: FlagPathChecksFragmentV1;
 	readonly valueHint?: string;
@@ -247,6 +274,10 @@ type ArgDefinitionFragmentV1 = {
 	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
 	readonly pathChecks?: FlagPathChecksFragmentV1;
 	readonly valueHint?: string;
+	readonly separator?: string;
+	readonly split?: SourceSplitFragmentV1;
+	readonly duplicateKeys?: DuplicateKeys;
+	readonly unique?: true;
 	readonly prompt?: PromptDefinitionFragmentV1;
 	readonly deprecated?: string | true;
 };
@@ -491,6 +522,8 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitio
 			? { elementSchema: serializeFlag(schema.elementSchema, opts) }
 			: {}),
 		...(schema.separator !== undefined ? { separator: schema.separator } : {}),
+		...(schema.split !== undefined ? { split: serializeSplit(schema.split) } : {}),
+		...(schema.duplicateKeys !== 'last' ? { duplicateKeys: schema.duplicateKeys } : {}),
 		...(schema.unique ? { unique: true } : {}),
 		...(pathChecks !== undefined ? { pathChecks: serializePathChecks(pathChecks) } : {}),
 		...(schema.valueHint !== undefined ? { valueHint: schema.valueHint } : {}),
@@ -579,10 +612,27 @@ function serializeArgEntry(entry: CommandArgEntry, opts: ResolvedOptions): ArgDe
 			: {}),
 		...(pathChecks !== undefined ? { pathChecks: serializePathChecks(pathChecks) } : {}),
 		...(schema.valueHint !== undefined ? { valueHint: schema.valueHint } : {}),
+		...(schema.separator !== undefined ? { separator: schema.separator } : {}),
+		...(schema.split !== undefined ? { split: serializeSplit(schema.split) } : {}),
+		...(schema.duplicateKeys !== 'last' ? { duplicateKeys: schema.duplicateKeys } : {}),
+		...(schema.unique ? { unique: true } : {}),
 		...(opts.includePrompts && schema.prompt !== undefined
 			? { prompt: serializePrompt(schema.prompt) }
 			: {}),
 		...(schema.deprecated !== undefined ? { deprecated: schema.deprecated } : {}),
+	};
+}
+
+/**
+ * Serialize the non-CLI split policies of a collection.
+ *
+ * @param split - The stored split binding.
+ * @returns JSON-serializable object naming only the sources it sets.
+ */
+function serializeSplit(split: SourceSplitBinding): SourceSplitFragmentV1 {
+	return {
+		...(split.env !== undefined ? { env: { ...split.env } } : {}),
+		...(split.stdin !== undefined ? { stdin: { ...split.stdin } } : {}),
 	};
 }
 
@@ -937,9 +987,8 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 
 function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 	const kind = argKindToType(schema);
-	const result: Record<string, unknown> = schema.variadic
-		? { type: 'array', items: kind }
-		: { ...kind };
+	const result: Record<string, unknown> =
+		schema.variadic && schema.kind !== 'keyValue' ? { type: 'array', items: kind } : { ...kind };
 
 	if (schema.description !== undefined) {
 		result.description = schema.description;
@@ -983,6 +1032,10 @@ function argKindToType(schema: ArgSchema): Record<string, unknown> {
 			}
 			return result;
 		}
+		case 'boolean':
+			return { type: 'boolean' };
+		case 'keyValue':
+			return { type: 'object', additionalProperties: { type: 'string' } };
 		case 'custom':
 			return {};
 	}
@@ -1203,6 +1256,8 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					stringConstraints: { $ref: '#/$defs/stringConstraints' },
 					elementSchema: { $ref: '#/$defs/flag' },
 					separator: { type: 'string', minLength: 1 },
+					split: { $ref: '#/$defs/split' },
+					duplicateKeys: { enum: ['first', 'last', 'error'] },
 					unique: { type: 'boolean' },
 					pathChecks: { $ref: '#/$defs/pathChecks' },
 					valueHint: { type: 'string' },
@@ -1220,8 +1275,25 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					when: { enum: ['dash', 'missing', 'dash-or-missing'] },
 					consume: { enum: ['exclusive', 'broadcast'] },
-				},
+				} satisfies Record<keyof StdinBindingFragmentV1, Record<string, unknown>>,
 				required: ['when', 'consume'],
+			},
+			split: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					env: { $ref: '#/$defs/splitPolicy' },
+					stdin: { $ref: '#/$defs/splitPolicy' },
+				} satisfies Record<keyof SourceSplitFragmentV1, Record<string, unknown>>,
+			},
+			splitPolicy: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					format: { enum: ['whole', 'delimiter', 'lines', 'json'] },
+					delimiter: { type: 'string', minLength: 1 },
+				},
+				required: ['format'],
 			},
 			negation: {
 				type: 'object',
@@ -1274,7 +1346,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				additionalProperties: false,
 				properties: {
 					name: { type: 'string' },
-					kind: { enum: ['string', 'number', 'enum', 'custom'] },
+					kind: { enum: ['string', 'number', 'boolean', 'enum', 'custom', 'keyValue'] },
 					presence: { enum: ['required', 'optional', 'defaulted'] },
 					variadic: { const: true },
 					stdin: { $ref: '#/$defs/stdin' },
@@ -1287,6 +1359,10 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					stringConstraints: { $ref: '#/$defs/stringConstraints' },
 					pathChecks: { $ref: '#/$defs/pathChecks' },
 					valueHint: { type: 'string' },
+					separator: { type: 'string', minLength: 1 },
+					split: { $ref: '#/$defs/split' },
+					duplicateKeys: { enum: ['first', 'last', 'error'] },
+					unique: { type: 'boolean' },
 					prompt: { $ref: '#/$defs/prompt' },
 					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
 				} satisfies Record<SerializedArgField, Record<string, unknown>>,
@@ -1349,6 +1425,8 @@ export type {
 	JsonSchemaOptions,
 	PromptChoiceFragmentV1,
 	PromptDefinitionFragmentV1,
+	SourceSplitFragmentV1,
+	SplitPolicyFragmentV1,
 	StdinBindingFragmentV1,
 };
 export {
