@@ -203,13 +203,13 @@ describe('createArgSchema — new fields', () => {
 		expect(() => arg.string().minLength(5).maxLength(2)).toThrow(RangeError);
 	});
 
-	it('rejects a sugar kind that is both variadic and stdin-backed, in either chain order', () => {
-		expect(() => command('c').arg('x', arg.url().variadic().stdin())).toThrow(
-			/cannot be both variadic and stdin-backed/,
-		);
-		expect(() => command('c').arg('x', arg.path().stdin().variadic())).toThrow(
-			/cannot be both variadic and stdin-backed/,
-		);
+	it('accepts a sugar kind that is both variadic and stdin-backed, in either chain order', () => {
+		expect(
+			command('c').arg('x', arg.url().variadic().stdin()).schema.args[0]?.schema,
+		).toMatchObject({ variadic: true, stdin: { when: 'dash-or-missing' } });
+		expect(
+			command('c').arg('x', arg.path().stdin().variadic()).schema.args[0]?.schema,
+		).toMatchObject({ variadic: true, stdin: { when: 'dash-or-missing' } });
 	});
 });
 

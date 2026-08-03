@@ -438,7 +438,11 @@ describe('arg.string() chained constraint methods', () => {
 		expectTypeOf<InferArg<typeof variadic>>().toEqualTypeOf<string[]>();
 
 		const piped = arg.string().stdin().nonEmpty();
-		expect(piped.schema.stdin).toEqual({ when: 'dash-or-missing', consume: 'exclusive' });
+		expect(piped.schema.stdin).toEqual({
+			when: 'dash-or-missing',
+			consume: 'exclusive',
+			trim: false,
+		});
 		expect(piped.schema.stringConstraints).toEqual({ nonEmpty: true });
 	});
 

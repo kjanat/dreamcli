@@ -9,6 +9,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A variadic argument reads stdin from its tail.** `.stdin()` and
+  `.variadic()` now compose. A `-` among the tail tokens stands for the whole
+  stdin source at that position, so
+  `printf 'x\ny\n' | mycli build a - b` collects `['a', 'x', 'y', 'b']`, and an
+  empty tail under a binding that covers a missing input takes the whole buffer.
+  `arg.keyValue().variadic().stdin()` aggregates entries across the typed tokens
+  and the pipe under its `.duplicateKeys()` policy. Each `-` stands for all of
+  the buffer, so two of them splice it twice, and the stream is still read at
+  most once per invocation. The preflight that decides whether to read stdin
+  counts an empty tail as an absent input, which is what makes
+  `printf 'x\ny\n' | mycli build` reach the fallback stage under `.run()`.
+
+- **`.stdin({ trim: true })` drops the terminator a pipe appends.** A `string`
+  input keeps the buffer byte for byte by default, which is the right answer for
+  message bodies and the wrong one for paths. `trim` drops one trailing `\n`,
+  `\r\n`, or `\r` from a single value before anything decodes or checks it, so
+  `echo ./dist | mycli clean` satisfies `arg.path({ mustExist: true })`. It
+  applies to both surfaces, to an explicit `-` and to the implicit fallback, and
+  to `readFlags()` and `runCommand()`. A `string` is the one kind that still
+  carries the terminator at that point; every other kind already drops it while
+  decoding and is unaffected, so no value ever loses two. A collection's
+  terminators separate its elements, so `.split({ stdin })` still decides those.
+  The binding serializes as `stdin.trim` in definition documents, alongside
+  `when` and `consume`.
+
 - **Stability policy and a 4.0 upgrade guide** — the
   [stability page](https://dreamcli.kjanat.dev/reference/stability) now places
   every export of the root, `/testkit`, `/runtime`, and `/version` entrypoints
@@ -286,6 +311,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Breaking: a positional declared after a variadic one is a build error.** A
+  variadic argument consumes every remaining positional, so anything registered
+  behind it could never be filled and a second variadic one had nothing left to
+  collect. Both silently produced an argument that stayed empty. `.arg()` and
+  `createCommandSchema()` now throw `INVALID_BUILDER_STATE`
+  (`Argument <target> comes after variadic argument <files>, which consumes
+  every remaining positional`), with the command under `command`, the offending
+  argument under `arg`, and the greedy one under `variadicArg`, so a definition
+  tree names the nested command that declared the pair. Move the variadic
+  argument last.
+
+- **Breaking: an explicit `-` with nothing piped is an error inside a
+  collection.** `--tag a --tag - --tag b` with an empty pipe used to resolve to
+  `['a', 'b']`, dropping the occurrence the user typed. It now fails with
+  `REQUIRED_FLAG` / `REQUIRED_ARG` and the message
+  `No piped stdin for the '-' occurrence of flag --tag`. Occurrences of nothing
+  but `-` are unchanged: they are the whole value, so they still fall through to
+  env, config, prompt, and the default, exactly as an absent input does, and the
+  implicit `when: 'missing'` fallback that simply does not fire stays silent. A
+  scalar `-` falls through for the same reason. Only a collection could be
+  silently shortened, so only a collection errors.
+
+- **Breaking: the arg collection modifiers require a collection.**
+  `createArgSchema('string', { unique: true })` and its siblings used to build,
+  storing a field nothing would read. They now state their requirement to the
+  compiler and throw `INVALID_SCHEMA` from `createArgSchema()`: `separator` and
+  `split` want a variadic argument or `arg.keyValue()`, `unique` a variadic
+  argument of a list kind, and `duplicateKeys` `arg.keyValue()`. The values a
+  schema already stores as its own default, `unique: false` and
+  `duplicateKeys: 'last'`, stay accepted on any kind, so a built `ArgSchema` fed
+  back through the factory round-trips. This mirrors the `array | keyValue`
+  restriction the flag surface already had. Drop the field, or add
+  `variadic: true` alongside it. The matching builder methods are new in 4.0, so
+  only definitions composed as data change.
+
+- **Breaking: `.stdin()` and `.variadic()` on one argument is now legal.** The
+  pairing threw `INVALID_BUILDER_STATE`; the tail-splicing entry under Added
+  describes what it does instead. Code that relied on the throw has nothing to
+  catch.
+
 - **Breaking: declared defaults are validated.** A `.default()` value is
   already the typed value, so it is validated rather than decoded: the codec's
   own domain, string and number constraints, element and aggregate Standard
@@ -396,12 +461,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   composed as data used to build without complaint and then answer the shared
   spelling with one flag only. Two flags both aliased `v` still parsed under
   `--verbose` and `--version`, help listed `-v` on both, and `-v` set the
-  second. The arg invariants moved with them, so a definition declaring one arg
-  both variadic and stdin-backed throws `INVALID_BUILDER_STATE`, and a second
+  second. The arg invariants moved with them, so a definition declaring a
+  positional after a variadic one throws `INVALID_BUILDER_STATE`, and a second
   stdin-backed input throws `DUPLICATE_STDIN_INPUT`, matching `.arg()`. Those two
   built without complaint as well. Two stdin-backed args each resolved to the
-  whole of stdin, and a variadic stdin-backed arg read nothing from stdin and
-  failed as missing when argv supplied no positional. Every arg error names the
+  whole of stdin, and a positional behind a variadic one silently never filled. Every arg error names the
   command in `details`, since a definition tree reaches them at any depth and
   the arg name alone does not say which command declared it. A flag or arg
   named `__proto__` now throws `INVALID_SCHEMA` from both the factory and the
@@ -530,6 +594,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already defaults to `['package.json']`.
 
 ### Fixed
+
+- **A duplicate key the user typed said it came from stdin.** Under
+  `.duplicateKeys('error')`, a repeat among CLI occurrences was worded
+  `Duplicate key 'A' from stdin for flag --v`, naming a source the value never
+  had, on a command with no pipe at all. CLI occurrences now name no source
+  (`Duplicate key 'A' for flag --v`), and a key a `-` occurrence spliced in
+  still reads `from stdin`. Each occurrence carries its own source through
+  aggregation, so a collection filled from both names whichever one carried the
+  repeat. `details` no longer claims `source: 'stdin'` for a typed token, and
+  the arg surface follows the same rule with `for argument <vars>`.
+
+- **`flag.count().stdin()` threw only on the definition path.** The builder
+  method is blocked by its `this` constraint at compile time and
+  `createFlagSchema('count', { stdin: {} })` throws `INVALID_SCHEMA`, but a
+  JavaScript caller reaching the builder got a count flag carrying a stdin
+  binding no stage would ever read. The builder now throws the same error, with
+  the same message and code. In 3.x neither path complained: `createSchema()`
+  stored `stdinMode: true` on a count flag and `.stdin()` did not exist on the
+  count builder at all.
 
 - **Flags named after `Object.prototype` members were rejected as duplicates** —
   `.flag('constructor')`, `.flag('toString')`, `.flag('valueOf')`, and every

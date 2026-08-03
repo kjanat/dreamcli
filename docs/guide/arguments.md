@@ -118,8 +118,8 @@ Reach for one of these before `arg.custom()` with a hand-written parser.
 
 All five compose with `.optional()`, `.default()`, `.variadic()`, `.stdin()`,
 `.env()`, `.config()`, `.prompt()`, `.describe()`, and `.deprecated()`, under
-the same rules as any other argument, so `.variadic()` and `.stdin()` still
-cannot be combined. A variadic one validates each collected value separately.
+the same rules as any other argument. A variadic one validates each collected
+value separately.
 
 ### URL
 
@@ -170,8 +170,8 @@ Path './docs
 ' for argument <p> does not exist
 ```
 
-Use `printf './docs'` when piping a path, or strip the terminator before the
-pipe.
+`.stdin({ trim: true })` drops that terminator, so `echo ./docs | mycli` reaches
+the check as `'./docs'`. `printf './docs'` works too.
 
 Failures carry `CONSTRAINT_VIOLATED` and name the argument:
 
@@ -277,15 +277,19 @@ is read as a native object.
 Entry values are strings on the arg surface. `flag.keyValue()` takes an element
 builder for per-value codecs and checks; its positional counterpart does not.
 
-A non-variadic key-value argument can read stdin, where the whole buffer decodes
-into entries:
+A key-value argument can read stdin, where the whole buffer decodes into
+entries, and its variadic form splices the buffer into the tail it collects:
 
 ```ts
 arg.keyValue().stdin();
+arg.keyValue().variadic().stdin();
 ```
 
 ```bash
 $ printf 'A=1\nB=2\n' | mycli run -
+# args.vars === { A: '1', B: '2' }
+
+$ printf 'B=2\n' | mycli run A=1 -
 # args.vars === { A: '1', B: '2' }
 ```
 
@@ -333,13 +337,32 @@ arg.string().variadic().split({ cli: ',', env: 'json' });
 // FILES='["a","b"]'   →  ['a', 'b']
 ```
 
-These four modifiers are collection modifiers. On an argument that aggregates
-nothing, `arg.string()` without `.variadic()`, they are accepted and stored but
-change nothing, since a single-value argument has no elements to split, dedupe,
-or fold.
+These four modifiers are collection modifiers, so they are available on an
+argument that aggregates. Each states the shape it needs. `.separator()` and
+`.split()` want a variadic argument or `arg.keyValue()`. `.unique()`
+deduplicates a list, so it wants a variadic argument of a list kind, and a
+key-value argument folds repeated keys through `.duplicateKeys()` instead, which
+in turn wants `arg.keyValue()`. The compiler refuses each one elsewhere, and the
+definition path throws `INVALID_SCHEMA` at build time:
 
-A variadic argument cannot also read stdin. `arg.keyValue()` can, in its
-non-variadic form.
+```ts
+arg.string().separator(','); // INVALID_SCHEMA
+createArgSchema('string', { unique: true }); // INVALID_SCHEMA
+createArgSchema('keyValue', { variadic: true, unique: true }); // INVALID_SCHEMA
+```
+
+```
+Arg schema field 'separator' requires a collection, received a non-variadic 'string' arg
+Suggestion: Add 'variadic: true', declare the arg as kind 'keyValue', or drop 'separator'
+```
+
+The values a schema already stores as its own default, `unique: false` and
+`duplicateKeys: 'last'`, are exempt on the definition path, so feeding a built
+`ArgSchema` back through `createArgSchema()` round-trips. Only the compiler
+rejects `.duplicateKeys('last')` on a string argument.
+
+A variadic argument reads stdin like any other, and
+[the positional tail](#stdin-tail) describes what a `-` among its tokens does.
 
 ### Standard Schema on a collection argument
 
@@ -416,7 +439,9 @@ requiredVsOptional.optional;
 
 ## Variadic Arguments
 
-The last argument can be variadic, collecting all remaining positional values:
+The last argument can be variadic, collecting all remaining positional values.
+It takes every remaining token, so it has to be the last one a command declares:
+another positional after it, variadic or not, throws `INVALID_BUILDER_STATE`.
 
 ```ts twoslash
 import { arg, command } from '@kjanat/dreamcli';
@@ -436,6 +461,25 @@ command('copy')
 $ mycli copy a.txt b.txt c.txt
 # args.files = ['a.txt', 'b.txt', 'c.txt']
 ```
+
+Anything registered behind a variadic argument could never be filled, so both
+construction paths refuse it:
+
+```ts
+command('copy').arg('files', arg.string().variadic()).arg('target', arg.string());
+```
+
+```
+Argument <target> comes after variadic argument <files>, which consumes every remaining positional
+Suggestion: Declare <target> before <files>, or drop .variadic() from <files>
+```
+
+A second variadic argument is the same error, since the first one leaves it
+nothing to collect. `details` carries the command in `command`, the argument
+that could never fill in `arg`, and the greedy one in `variadicArg`, so a
+definition tree names the nested command that declared the pair. Every earlier
+ordering still builds: required then optional then variadic, a lone variadic, a
+scalar followed by a `arg.keyValue().variadic()` tail.
 
 ## Environment-Backed Arguments
 
@@ -559,9 +603,24 @@ terminator a pipe appends before decoding, so `echo 30s` reaches
 `arg.duration()` as `30s`. `arg.keyValue()` decodes the buffer into entries, one
 `KEY=VALUE` per line by default.
 
+`{ trim: true }` drops that terminator for a string argument too, which is what
+a piped path wants:
+
+```ts
+arg.path({ mustExist: true }).stdin({ trim: true });
+```
+
+```bash
+$ echo ./dist | mycli clean
+# args.path === './dist', and the check runs against './dist'
+```
+
+Trimming applies to a single value. A collection's terminators separate its
+elements, so `.split({ stdin })` decides them and `trim` has nothing to do.
+
 ### Choosing when stdin is read
 
-`.stdin()` takes `{ when, consume }`:
+`.stdin()` takes `{ when, consume, trim }`:
 
 ```ts twoslash
 import { arg } from '@kjanat/dreamcli';
@@ -570,11 +629,74 @@ arg.string().stdin(); // '-' or an omitted slot reads stdin
 arg.string().stdin({ when: 'dash' }); // only an explicit '-'
 arg.string().stdin({ when: 'missing' }); // only an omitted slot; '-' stays literal
 arg.string().stdin({ consume: 'broadcast' }); // shares the buffer with other inputs
+arg.string().stdin({ trim: true }); // drops one trailing terminator
 ```
 
 Stdin is read at most once per invocation, and only when one of these bindings
 would actually fire. A `when: 'dash'` argument the user never dashes never
 touches the stream.
+
+### The positional tail {#stdin-tail}
+
+A variadic argument reads stdin too. A `-` among its tokens splices what the
+buffer decodes to into that position, and an empty tail under a binding that
+covers a missing input takes the whole buffer:
+
+```ts
+command('build').arg('files', arg.string().variadic().stdin());
+```
+
+```bash
+$ printf 'x\ny\n' | mycli build a - b
+# args.files === ['a', 'x', 'y', 'b']
+
+$ printf 'x\ny\n' | mycli build
+# args.files === ['x', 'y']
+```
+
+Each `-` stands for the whole source, so two of them splice the buffer twice and
+`mycli build - -` over `'x\n'` collects `['x', 'x']`. That is the same rule the
+flag surface follows for `--tag - --tag -`.
+
+`.split({ stdin })` decodes the tail, so a piped JSON array works the same way a
+piped list of lines does:
+
+```ts
+command('build').arg('files', arg.string().variadic().stdin().split({ stdin: 'json' }));
+```
+
+```bash
+$ echo '["p","q"]' | mycli build a - b
+# args.files === ['a', 'p', 'q', 'b']
+```
+
+A key-value tail aggregates the typed tokens and the pipe together, then folds
+repeated keys under `.duplicateKeys()`:
+
+```bash
+$ printf 'M=5\n' | mycli run A=1 - Z=9
+# args.vars === { A: '1', M: '5', Z: '9' }
+```
+
+Only a binding that covers a missing input reads an empty tail. Under
+`{ when: 'dash' }` an empty tail never selects stdin, so the stream stays
+untouched and a required argument reports itself missing.
+
+A `-` typed beside other tokens with nothing piped fails, because dropping it
+would silently shorten the tail:
+
+```
+No piped stdin for the '-' occurrence of argument <files>
+Suggestion: Pipe a value to stdin, or drop the '-' from <files>
+```
+
+A tail of nothing but `-` is the whole value, so with nothing piped it falls
+through to env, config, prompt, and the default, exactly as an omitted slot
+does.
+
+A stdin-enabled input cannot receive a literal `-` as its value: the token names
+the source before anything reads it as text. Pass the value another way, or use
+`{ when: 'missing' }`, which leaves `-` as the literal string.
 
 ### Worked Transcripts
 
@@ -654,16 +776,21 @@ command('convert')
 // echo shared | mycli convert → flags.body === 'shared\n', args.input === 'shared\n'
 ```
 
-Stdin-backed arguments cannot also be variadic. Declaring both throws
-`INVALID_BUILDER_STATE` when the argument is registered on a command:
+A variadic argument consumes every remaining positional, so it is the last one a
+command can declare. Registering another positional after it, variadic or not,
+throws `INVALID_BUILDER_STATE` on both construction paths:
+
+```ts
+command('copy').arg('files', arg.string().variadic()).arg('target', arg.string());
+```
 
 ```
-Argument <files> cannot be both variadic and stdin-backed
-Suggestion: Remove .stdin() or .variadic() from this argument
+Argument <target> comes after variadic argument <files>, which consumes every remaining positional
+Suggestion: Declare <target> before <files>, or drop .variadic() from <files>
 ```
 
-`arg.keyValue()` aggregates without `.variadic()`, so its non-variadic form
-reads a whole record from the stream.
+`details` carries the offending argument under `arg` and the greedy one under
+`variadicArg`.
 
 If stdin is absent, resolution falls through to the later stages and then to
 required versus optional behavior, so use `.optional()` when missing piped input

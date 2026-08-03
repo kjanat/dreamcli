@@ -165,12 +165,13 @@ type PromptDefinitionFragmentV1 = {
 /**
  * Stdin binding of a flag or arg fragment.
  *
- * Both fields are always written, so a document states the trigger and the
- * sharing mode without a reader having to know the builder's defaults.
+ * Every field is always written, so a document states the trigger, the sharing
+ * mode, and the trimming without a reader having to know the builder's defaults.
  */
 type StdinBindingFragmentV1 = {
 	readonly when: 'dash' | 'missing' | 'dash-or-missing';
 	readonly consume: 'exclusive' | 'broadcast';
+	readonly trim: boolean;
 };
 
 /**
@@ -628,10 +629,11 @@ function serializeSplit(split: SourceSplitBinding): SourceSplitFragmentV1 {
  * Serialize a {@link StdinBinding} into a plain object.
  *
  * @param stdin - The stdin axis to serialize.
- * @returns JSON-serializable object naming the trigger and the sharing mode.
+ * @returns JSON-serializable object naming the trigger, the sharing mode, and
+ *   the trimming.
  */
 function serializeStdin(stdin: StdinBinding): StdinBindingFragmentV1 {
-	return { when: stdin.when, consume: stdin.consume };
+	return { when: stdin.when, consume: stdin.consume, trim: stdin.trim };
 }
 
 // --- Prompt serialization
@@ -1268,8 +1270,9 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					when: { enum: ['dash', 'missing', 'dash-or-missing'] },
 					consume: { enum: ['exclusive', 'broadcast'] },
+					trim: { type: 'boolean' },
 				} satisfies Record<keyof StdinBindingFragmentV1, Record<string, unknown>>,
-				required: ['when', 'consume'],
+				required: ['when', 'consume', 'trim'],
 			},
 			split: {
 				type: 'object',

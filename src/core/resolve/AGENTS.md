@@ -22,12 +22,12 @@ a source the projection omits is a source no stage can produce.
 | `index.ts`       |   130 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
 | `stages.ts`      |   249 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
 | `flags.ts`       |   376 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
-| `args.ts`        |   277 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
-| `coerce.ts`      |  1018 | `coerceValue()` — unified raw value -> flag's declared kind                   |
+| `args.ts`        |   275 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
+| `coerce.ts`      |  1162 | `coerceValue()` — unified raw value -> flag's declared kind                   |
 | `path-checks.ts` |   127 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   227 | Error aggregation + `throwAggregatedErrors()`                                 |
-| `contracts.ts`   |   188 | `ResolveOptions`, `ResolutionProvenance`, `resolverContract`                  |
+| `contracts.ts`   |   198 | `ResolveOptions`, `ResolutionProvenance`, `resolverContract`                  |
 | `standard.ts`    |   254 | Standard Schema v1 validation pass over resolved values                       |
 
 ## KEY FUNCTIONS
@@ -83,6 +83,14 @@ it, so a scalar is unaffected and a collection aggregates in one place.
 `Occurrence[]`. A value the parser did not leave as a list is an aggregate a caller built by hand:
 it lifts to a single `aggregated` occurrence and reaches the resolved value untouched.
 
+Each spliced occurrence keeps the source it came from, `{ kind: 'cli' }` for a typed token and
+`{ kind: 'stdin' }` for one the buffer supplied. `AggregationErrors` takes that source, so a
+duplicate-key message names `from stdin` only for a key the pipe carried and names nothing for a key
+the user typed. `foldEntries()` reports the index of the repeating pair, which is how the source is
+found without re-parsing. A `-` occurrence with no buffer is `dash-without-stdin`: an error when it
+sits beside typed occurrences, and absence when every occurrence is `-`, which keeps the later
+stages reachable.
+
 `valueCoercionError()` owns the flag-facing half. It turns a `ValueFailure` into the message, code,
 details, and suggestion for one source. The value layer never spells a subject, so every
 `--flag`-shaped string in the resolver comes from this file.
@@ -111,6 +119,8 @@ once.
 | `resolve-path-checks.test.ts`     | `flag.path()` / `arg.path()` filesystem checks               |
 | `resolve-standard-schema.test.ts` | Standard Schema v1 validation pass                           |
 | `resolve-cardinality.test.ts`     | Per-source aggregation matrix, splicing, element validation  |
+| `resolve-arg-tail.test.ts`        | Positional tail splicing + which source a duplicate names    |
+| `resolve-stdin-trim.test.ts`      | `.stdin({ trim: true })` across surfaces and entry points    |
 | `resolve-hand-built.test.ts`      | The projection a caller-built `ParseResult` resolves through |
 | `contracts.test.ts`               | Contract verification                                        |
 

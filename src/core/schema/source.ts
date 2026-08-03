@@ -194,12 +194,28 @@ function invocationSelectsStdin(
 
 	for (const { name, schema } of args) {
 		const present = Object.hasOwn(parsed.args, name);
-		if (inputSelectsStdin(schema.stdin, present, present ? parsed.args[name] : undefined)) {
+		const value = present ? parsed.args[name] : undefined;
+		if (inputSelectsStdin(schema.stdin, present && !argCollectedNothing(schema, value), value)) {
 			return true;
 		}
 	}
 
 	return false;
+}
+
+/**
+ * Whether a variadic arg's parsed value means its tail collected nothing.
+ *
+ * A variadic arg always has a key in the parser's record, and an empty list is
+ * how it spells an empty tail, so an input that reads stdin when missing is
+ * still missing here.
+ *
+ * @param schema - The positional's schema.
+ * @param value - What the parser produced for it.
+ * @returns `true` when the tail took no token.
+ */
+function argCollectedNothing(schema: ArgSchema, value: unknown): boolean {
+	return schema.variadic && Array.isArray(value) && value.length === 0;
 }
 
 /** The stdin selector, which names a source rather than a value. */
@@ -224,6 +240,7 @@ function inputSelectsStdin(
 
 export type { ParsedInputs, ResolutionStage, SourceBinding, StdinConsumer };
 export {
+	argCollectedNothing,
 	bindingsBeforePrompt,
 	bindingsFromPrompt,
 	invocationSelectsStdin,

@@ -330,10 +330,20 @@ function decodeValue(value: ValueSchema, raw: unknown, input: ValueInput): Value
  * @returns The value to decode.
  */
 function stdinDecodeInput(codec: ValueCodec, raw: unknown, input: ValueInput): unknown {
-	if (input !== 'stdin' || codec.name === 'string' || typeof raw !== 'string') return raw;
+	if (input !== 'stdin' || keepsStdinTerminator(codec) || typeof raw !== 'string') return raw;
 	if (raw.endsWith('\r\n')) return raw.slice(0, -2);
 	if (raw.endsWith('\n') || raw.endsWith('\r')) return raw.slice(0, -1);
 	return raw;
+}
+
+/**
+ * Whether decoding leaves the line terminator a pipe appends on the value.
+ *
+ * @param codec - The codec about to read a stdin buffer.
+ * @returns `true` when the terminator survives decoding.
+ */
+function keepsStdinTerminator(codec: ValueCodec): boolean {
+	return codec.name === 'string';
 }
 
 /**
@@ -717,6 +727,7 @@ export {
 	enumValue,
 	flagAggregateStandard,
 	flagValueSchema,
+	keepsStdinTerminator,
 	numberValue,
 	passthroughValue,
 	pathValue,

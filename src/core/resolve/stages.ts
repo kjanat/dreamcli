@@ -16,7 +16,7 @@ import type { SourceBinding } from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash, stdinReadsWhenMissing } from '#internals/core/schema/stdin.ts';
 import type { CliFinish, CoerceResult } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
-import type { ResolutionDiagnosticSource, ResolutionProvenance } from './contracts.ts';
+import type { DecodedDiagnosticSource, ResolutionProvenance } from './contracts.ts';
 
 /** What the parser produced for one input in this invocation. */
 type CliValue =
@@ -40,7 +40,7 @@ interface StageInput {
 	/** What the parser produced for this input. */
 	readonly cli: CliValue;
 	/** Decode a raw value from a non-CLI source into the input's declared type. */
-	readonly coerce: (source: ResolutionDiagnosticSource, raw: unknown) => CoerceResult;
+	readonly coerce: (source: DecodedDiagnosticSource, raw: unknown) => CoerceResult;
 	/**
 	 * Aggregate what the parser produced, splicing the stdin buffer into the
 	 * position each `-` occurrence holds.
@@ -211,7 +211,7 @@ async function promptStage(
 /** Decode a raw value and attach the stage's provenance on success. */
 function coerced(
 	input: StageInput,
-	source: ResolutionDiagnosticSource,
+	source: DecodedDiagnosticSource,
 	raw: unknown,
 	provenance: ResolutionProvenance,
 ): StageOutcome {

@@ -84,17 +84,26 @@ describe('builder path', () => {
 			.arg('input', arg.string().stdin({ consume: 'broadcast' }))
 			.action(() => {}).schema;
 
-		expect(schema.flags.body?.stdin).toEqual({ when: 'dash-or-missing', consume: 'broadcast' });
+		expect(schema.flags.body?.stdin).toEqual({
+			when: 'dash-or-missing',
+			consume: 'broadcast',
+			trim: false,
+		});
 		expect(schema.args[0]?.schema.stdin).toEqual({
 			when: 'dash-or-missing',
 			consume: 'broadcast',
+			trim: false,
 		});
 	});
 
-	it('still rejects a variadic stdin arg', () => {
-		const error = schemaError(() => command('run').arg('input', arg.string().variadic().stdin()));
+	it('counts a variadic stdin arg as a stdin consumer', () => {
+		const error = schemaError(() =>
+			command('run')
+				.flag('body', flag.string().stdin())
+				.arg('files', arg.string().variadic().stdin()),
+		);
 
-		expect(error.code).toBe('INVALID_BUILDER_STATE');
+		expect(error.code).toBe('DUPLICATE_STDIN_INPUT');
 	});
 });
 

@@ -17,21 +17,30 @@ import { RESOLUTION_ORDER } from '#internals/core/schema/source.ts';
 /**
  * Source-aware diagnostic context for a resolution failure.
  *
- * CLI and default failures surface as missing-value or parse errors, so only
- * the stages that decode a foreign value need a payload here. Both surfaces
- * read the same set.
+ * `'cli'` covers the tokens the user typed, which a message names by the input
+ * alone; the other stages each carry what a message needs to point at the value
+ * they produced. Both surfaces read the same set.
  */
 type ResolutionDiagnosticSource =
+	| { readonly kind: 'cli' }
 	| { readonly kind: 'stdin' }
 	| { readonly kind: 'env'; readonly envVar: string }
 	| { readonly kind: 'config'; readonly configPath: string }
 	| { readonly kind: 'prompt' };
 
+/**
+ * The sources whose raw values a resolution stage decodes.
+ *
+ * A CLI token is decoded at the parse boundary, so it never reaches the
+ * coercion diagnostics these name.
+ */
+type DecodedDiagnosticSource = Exclude<ResolutionDiagnosticSource, { readonly kind: 'cli' }>;
+
 /** Source-aware diagnostic context for flag resolution failures. */
-type FlagDiagnosticSource = ResolutionDiagnosticSource;
+type FlagDiagnosticSource = DecodedDiagnosticSource;
 
 /** Source-aware diagnostic context for arg resolution failures. */
-type ArgDiagnosticSource = ResolutionDiagnosticSource;
+type ArgDiagnosticSource = DecodedDiagnosticSource;
 
 /**
  * Which stage produced a resolved value, and how.
@@ -175,6 +184,7 @@ const resolverContract = {
 
 export type {
 	ArgDiagnosticSource,
+	DecodedDiagnosticSource,
 	DeprecationWarning,
 	FlagDiagnosticSource,
 	ResolutionDiagnosticSource,

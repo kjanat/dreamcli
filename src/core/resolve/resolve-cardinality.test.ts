@@ -684,10 +684,43 @@ describe('collection provenance', () => {
 		});
 	});
 
-	it('names the CLI alone when a dash-enabled collection had nothing to splice', async () => {
+	it('names the CLI alone when every occurrence was typed', async () => {
 		expect(
-			await flagProvenance(flag.array(flag.string()).stdin(), ['--value', 'a', '--value', '-']),
+			await flagProvenance(flag.array(flag.string()).stdin(), ['--value', 'a', '--value', 'b']),
 		).toEqual({ stage: 'cli' });
+	});
+});
+
+// === an explicit dash with nothing piped
+
+describe("a '-' occurrence beside typed ones and no pipe", () => {
+	it('fails for a flag rather than dropping the occurrence', async () => {
+		const error = await resolutionError(() =>
+			resolveFlag(flag.array(flag.string()).stdin(), [
+				'--value',
+				'a',
+				'--value',
+				'-',
+				'--value',
+				'b',
+			]),
+		);
+		expect(error).toContain("No piped stdin for the '-' occurrence of flag --value");
+	});
+
+	it('fails for an entries flag the same way', async () => {
+		const error = await resolutionError(() =>
+			resolveFlag(flag.keyValue().stdin(), ['--value', 'A=1', '--value', '-']),
+		);
+		expect(error).toContain("No piped stdin for the '-' occurrence of flag --value");
+	});
+
+	it('still falls through when nothing but a dash was given', async () => {
+		expect(
+			await resolveFlag(flag.array(flag.string()).stdin().env('TAGS'), ['--value', '-'], {
+				env: { TAGS: 'from-env' },
+			}),
+		).toEqual(['from-env']);
 	});
 });
 

@@ -37,17 +37,35 @@ arg.string().stdin(); // `-` or an omitted slot reads the pipe
 flag.string().stdin({ when: 'dash' }); // only an explicit `-`
 arg.string().stdin({ when: 'missing' }); // only an omitted slot; `-` stays literal
 flag.string().stdin({ consume: 'broadcast' }); // shares the buffer with other inputs
+flag.string().stdin({ trim: true }); // drops one trailing line terminator
 ```
 
-Available on `string`, `number`, `boolean`, `enum`, and `custom` flags and on
-every arg kind; the collection kinds (`array`, `keyValue`, `count`) reject it
-with `INVALID_SCHEMA`. A `-` stays CLI-sourced and outranks every later stage;
-an absent input takes the stdin stage, which sits ahead of env. One command has
-one exclusive stdin consumer, and a second `.stdin()` input of either surface
-throws `DUPLICATE_STDIN_INPUT` unless every one of them passes
-`{ consume: 'broadcast' }`. A `string` input keeps the buffer byte for byte, so
-`echo hi | mycli` gives `'hi\n'`; every other kind drops one trailing line
-terminator before decoding.
+Available on every flag kind but `count`, which counts occurrences rather than
+reading a value and throws `INVALID_SCHEMA`, and on every arg kind. A `-` stays
+CLI-sourced and outranks every later stage; an absent input takes the stdin
+stage, which sits ahead of env. One command has one exclusive stdin consumer,
+and a second `.stdin()` input of either surface throws `DUPLICATE_STDIN_INPUT`
+unless every one of them passes `{ consume: 'broadcast' }`.
+
+A `string` input keeps the buffer byte for byte, so `echo hi | mycli` gives
+`'hi\n'`; every other kind drops one trailing line terminator before decoding.
+`{ trim: true }` drops it for a `string` too, which is what a piped path wants:
+
+```ts
+arg.path({ mustExist: true }).stdin({ trim: true });
+// echo ./dist | mycli clean → the check runs against './dist'
+```
+
+It applies to a single value. A collection's terminators separate its elements,
+so `.split({ stdin })` decides those.
+
+A collection reads the buffer as elements and splices them where a `-`
+occurrence sits. A `-` typed beside other occurrences with nothing piped fails
+with `REQUIRED_FLAG` or `REQUIRED_ARG`, rather than shortening the collection;
+occurrences of nothing but `-`, and a scalar `-`, fall through to the later
+sources instead. A stdin-enabled input can never receive a literal `-` as its
+value, since the token names the source; `{ when: 'missing' }` is the one
+binding that leaves it literal.
 
 ### Rich flag types
 
@@ -88,8 +106,14 @@ There is no `arg.array()` (use `.variadic()`) and no `arg.count()`, which counts
 flag occurrences. `arg.boolean()` and `arg.keyValue()` do exist:
 `arg.boolean()` consumes an explicit `true`/`false` token, and
 `arg.keyValue()` consumes `KEY=VALUE` tokens into a record. `.stdin()`,
-`.env()`, `.config()`, and `.prompt()` are all available on an argument, and a
-variadic argument cannot also read stdin.
+`.env()`, `.config()`, and `.prompt()` are all available on an argument,
+`.variadic()` included: a `-` among the tail tokens splices the decoded buffer
+in at that position, so `printf 'x\ny\n' | mycli build a - b` collects
+`['a', 'x', 'y', 'b']`, and an empty tail takes the whole buffer.
+
+A variadic argument is the last positional a command can declare. Registering
+another one behind it throws `INVALID_BUILDER_STATE` on both construction
+paths, since it could never be filled.
 
 ### Constraints instead of hand-written validation
 
@@ -155,6 +179,12 @@ arg.keyValue().variadic(); // mycli render a=1 b=2 → { a: '1', b: '2' }
 `--region us,eu --region ap` and repetition both work. Put flag-level modifiers
 (`.env()`, `.default()`) on the array, never on the element, which is a compile
 error.
+
+On the arg surface these four are collection modifiers, so each states the shape
+it needs and the compiler refuses it elsewhere. `.separator()` and `.split()`
+want a variadic argument or `arg.keyValue()`, `.unique()` a variadic argument of
+a list kind, and `.duplicateKeys()` `arg.keyValue()`. `createArgSchema()` throws
+`INVALID_SCHEMA` on the same combinations.
 
 Each source decodes under its own policy, and a CLI separator is not inherited:
 

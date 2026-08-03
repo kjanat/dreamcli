@@ -498,6 +498,9 @@ type ArgDefinition<K extends ArgKind = ArgKind> = ArgDefinitionByKind[K];
 /** Definition of an arg of kind `K` with the kind discriminator removed. */
 type ArgDefinitionOverrides<K extends ArgKind = ArgKind> = Omit<ArgDefinitionByKind[K], 'kind'>;
 
+/** Fields only an arg that aggregates can carry. */
+const COLLECTION_ARG_FIELDS: readonly (keyof ArgSchemaFields)[] = ['separator', 'split'];
+
 /**
  * Fields that are only meaningful on one {@link ArgKind}, mapped to that kind.
  */
@@ -543,7 +546,9 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgSchemaFieldOverrides
 		});
 	}
 
-	if (fields.aggregateStandard !== undefined && kind !== 'keyValue' && fields.variadic !== true) {
+	const aggregates = kind === 'keyValue' || fields.variadic === true;
+
+	if (fields.aggregateStandard !== undefined && !aggregates) {
 		throw new CLIError(
 			`Arg schema field 'aggregateStandard' requires a collection, received a non-variadic '${kind}' arg`,
 			{
@@ -552,6 +557,26 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgSchemaFieldOverrides
 				suggest: "Add 'variadic: true', declare the arg as kind 'keyValue', or use 'standard'",
 			},
 		);
+	}
+
+	for (const field of COLLECTION_ARG_FIELDS) {
+		if (fields[field] === undefined || aggregates) continue;
+		throw new CLIError(
+			`Arg schema field '${field}' requires a collection, received a non-variadic '${kind}' arg`,
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field },
+				suggest: `Add 'variadic: true', declare the arg as kind 'keyValue', or drop '${field}'`,
+			},
+		);
+	}
+
+	if (fields.unique === true && (kind === 'keyValue' || fields.variadic !== true)) {
+		throw new CLIError("Arg schema field 'unique' requires a variadic arg of a list kind", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'unique' },
+			suggest: "Add 'variadic: true' on a list kind, or drop 'unique'",
+		});
 	}
 }
 
@@ -871,7 +896,9 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Mark this arg as variadic — it consumes all remaining positional
 	 * arguments. The inferred type becomes `T[]`.
 	 *
-	 * A variadic arg must be the last positional in a command.
+	 * A variadic arg is the last positional a command can declare. Registering
+	 * another positional after it throws `INVALID_BUILDER_STATE` from `.arg()`
+	 * and from `createCommandSchema()`.
 	 *
 	 * @example
 	 * ```ts
@@ -892,9 +919,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * @returns The builder (for chaining).
 	 */
 	variadic(): ArgBuilder<WithVariadic<C>> {
-		const schema: ArgSchema = { ...this.schema, variadic: true };
-		assertValidArgDefault(undefined, schema);
-		return new ArgBuilder(schema);
+		return nextArg({ ...this.schema, variadic: true });
 	}
 
 	/**
@@ -904,17 +929,24 @@ class ArgBuilder<C extends ArgConfig> {
 	 * The separator is the CLI policy alone. Env values split on `','` and the
 	 * stdin buffer on line terminators unless `.split()` says otherwise.
 	 *
-	 * Only an arg that aggregates reads this. On a single-value arg it is stored
-	 * and never applied, because there are no elements to split into.
+	 * Available on an arg that aggregates, so call it after `.variadic()` or on
+	 * `arg.keyValue()`.
 	 *
 	 * @param value - Separator string (e.g. `','`).
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on an arg carrying a single
+	 *   value.
 	 */
-	separator(value: string): ArgBuilder<C> {
+	separator(
+		this:
+			| ArgBuilder<C & { readonly variadic: true }>
+			| ArgBuilder<C & { readonly argKind: 'keyValue' }>,
+		value: string,
+	): ArgBuilder<C> {
 		if (value.length === 0) {
 			throw new RangeError('arg separator must not be empty');
 		}
-		return new ArgBuilder({ ...this.schema, separator: value });
+		return nextCollectionArg({ ...this.schema, separator: value });
 	}
 
 	/**
@@ -927,13 +959,13 @@ class ArgBuilder<C extends ArgConfig> {
 	 * already had, or its default: whole CLI tokens, comma-delimited env values,
 	 * line-delimited stdin.
 	 *
-	 * Only an arg that aggregates reads this. `arg.keyValue()` is the one arg
-	 * that both aggregates and reads stdin, since a variadic arg may not.
+	 * Available on an arg that aggregates, so call it after `.variadic()` or on
+	 * `arg.keyValue()`.
 	 *
 	 * @param options - Per-source split settings.
 	 * @returns The builder (for chaining).
 	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a format the source does
-	 *   not accept, or an empty delimiter.
+	 *   not accept, an empty delimiter, or an arg carrying a single value.
 	 *
 	 * @example
 	 * ```ts
@@ -941,9 +973,14 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // FILES='["a.ts","b.ts"]' → ['a.ts', 'b.ts']
 	 * ```
 	 */
-	split(options: SplitOptions): ArgBuilder<C> {
+	split(
+		this:
+			| ArgBuilder<C & { readonly variadic: true }>
+			| ArgBuilder<C & { readonly argKind: 'keyValue' }>,
+		options: SplitOptions,
+	): ArgBuilder<C> {
 		const normalized = normalizeSplitOptions(options, this.schema.split);
-		return new ArgBuilder({
+		return nextCollectionArg({
 			...this.schema,
 			...(normalized.setsSeparator ? { separator: normalized.separator } : {}),
 			split: normalized.split,
@@ -954,15 +991,16 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Deduplicate the resolved values of a variadic arg, preserving first-seen
 	 * order. Applied after all sources resolve, using `SameValueZero` semantics.
 	 *
-	 * Only a variadic arg reads this. On a single-value arg it is stored and
-	 * never applied, because there is no list to deduplicate.
+	 * Available on a variadic arg of a list kind, so call it after `.variadic()`.
 	 *
 	 * @param value - Whether to deduplicate.
 	 * @defaultValue `true`
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on an arg that resolves to
+	 *   one value or to a record.
 	 */
-	unique(value = true): ArgBuilder<C> {
-		return new ArgBuilder({ ...this.schema, unique: value });
+	unique(this: ArgBuilder<C & { readonly variadic: true }>, value = true): ArgBuilder<C> {
+		return nextCollectionArg({ ...this.schema, unique: value });
 	}
 
 	/**
@@ -970,6 +1008,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 *
 	 * @param policy - `'last'` (default), `'first'`, or `'error'`.
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on an arg that is not
+	 *   `arg.keyValue()`.
 	 *
 	 * @example
 	 * ```ts
@@ -982,7 +1022,7 @@ class ArgBuilder<C extends ArgConfig> {
 		this: ArgBuilder<C & { readonly argKind: 'keyValue' }>,
 		policy: DuplicateKeys,
 	): ArgBuilder<C> {
-		return new ArgBuilder({ ...this.schema, duplicateKeys: policy });
+		return nextCollectionArg({ ...this.schema, duplicateKeys: policy });
 	}
 
 	/**
@@ -1007,12 +1047,10 @@ class ArgBuilder<C extends ArgConfig> {
 	 */
 	standard(schema: StandardSchemaV1): ArgBuilder<C> {
 		const aggregate = isCollection(argCardinality(this.schema));
-		const next: ArgSchema = {
+		return nextArg({
 			...this.schema,
 			...(aggregate ? { aggregateStandard: schema } : { standard: schema }),
-		};
-		assertValidArgDefault(undefined, next);
-		return new ArgBuilder(next);
+		});
 	}
 
 	/**
@@ -1023,12 +1061,23 @@ class ArgBuilder<C extends ArgConfig> {
 	 * which sits between CLI and env, so an arg set in the environment still
 	 * reads stdin and stdin wins. The whole buffer becomes the value, byte for
 	 * byte for a string arg; every other kind drops the single line terminator a
-	 * pipe appends before decoding.
+	 * pipe appends before decoding, and `{ trim: true }` drops it for a string
+	 * arg too.
+	 *
+	 * On an arg that aggregates, a `-` among the tail tokens splices what the
+	 * buffer decodes to into that position, so `mycli build a - b` over
+	 * `'x\ny\n'` collects `['a', 'x', 'y', 'b']`. Each `-` stands for the whole
+	 * source, so two of them splice the buffer twice. A `-` typed beside other
+	 * tokens with nothing piped fails with `REQUIRED_ARG`; a tail of nothing but
+	 * `-` falls through to the later sources.
+	 *
+	 * A stdin-enabled arg cannot receive a literal `-` as its value, since the
+	 * token names the source.
 	 *
 	 * One command may declare a single exclusive stdin consumer; pass
 	 * `{ consume: 'broadcast' }` on every input that should share the buffer.
 	 *
-	 * @param options - When to read stdin and how to share it.
+	 * @param options - When to read stdin, how to share it, and whether to trim.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
@@ -1040,6 +1089,9 @@ class ArgBuilder<C extends ArgConfig> {
 	 *
 	 * arg.string().stdin({ when: 'dash' })
 	 * // only an explicit `-` reads stdin
+	 *
+	 * arg.path({ mustExist: true }).stdin({ trim: true })
+	 * // $ echo ./dist | mycli clean        → path = './dist', checked on disk
 	 * ```
 	 */
 	stdin(options?: StdinOptions): ArgBuilder<C> {
@@ -1365,6 +1417,23 @@ class ArgBuilder<C extends ArgConfig> {
 function nextArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
 	assertValidArgDefault(undefined, schema);
 	return new ArgBuilder(schema);
+}
+
+/**
+ * Continue a builder chain past a modifier only an arg that aggregates carries.
+ *
+ * The `this` constraints on those modifiers state the rule to the compiler; this
+ * states it to a caller who reaches the builder from JavaScript, with the error
+ * the definition path already gives.
+ *
+ * @param schema - The schema the modifier produced.
+ * @returns A builder over that schema.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the field does not belong
+ *   on the arg, or `'INVALID_DEFAULT'` when the default no longer holds.
+ */
+function nextCollectionArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
+	assertValidArgDefinition(schema.kind, schema);
+	return nextArg(schema);
 }
 
 // --- Factory namespace

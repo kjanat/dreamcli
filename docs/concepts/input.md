@@ -103,6 +103,28 @@ curl -s https://api.example.com/data | jq '.items[]' | sort | head -5
 
 Four programs, connected by pipes, each doing one thing well.
 
+A pipe carries bytes, not slots, so a program that accepts several values needs
+a way to say *which* one the pipe fills. The convention is a bare `-`, and it
+holds the position the piped data takes:
+
+```bash
+mycli send --tag before --tag - --tag after
+```
+
+The `-` sits between two ordinary values, and what the pipe carried lands
+exactly there. The same token works in a positional slot. A program that reads
+one value can skip the `-` entirely and let an omitted slot mean the pipe.
+
+The cost of the convention is that a program reading the stream can no longer
+take a literal `-` as data, since the token is read as the source first.
+
+One more thing a pipe does that a command line does not: it appends a line
+terminator. `echo ./docs` sends `./docs\n`, not `./docs`. For a number or a
+date that terminator is framing and gets dropped, but for a string the text
+*is* the value, so the newline is part of it unless the program asks for it to
+be trimmed. This is the single most common surprise when a piped path fails a
+check that the same path typed by hand passes.
+
 ## Interactive Prompts
 
 Sometimes a CLI asks you questions:

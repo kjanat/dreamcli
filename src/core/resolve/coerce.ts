@@ -26,6 +26,7 @@ import {
 	foldEntries,
 	splitEntriesText,
 	splitManyText,
+	stripTerminator,
 } from '#internals/core/schema/cardinality.ts';
 import type {
 	ArgSchema,
@@ -37,6 +38,7 @@ import {
 	describeStringConstraintViolation,
 	stringConstraintDetails,
 } from '#internals/core/schema/index.ts';
+import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type {
 	ValueFailure,
@@ -44,8 +46,17 @@ import type {
 	ValueSchema,
 	ValueTypeName,
 } from '#internals/core/schema/value.ts';
-import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
-import type { ArgDiagnosticSource, FlagDiagnosticSource } from './contracts.ts';
+import {
+	argValueSchema,
+	decodeValue,
+	flagValueSchema,
+	keepsStdinTerminator,
+} from '#internals/core/schema/value.ts';
+import type {
+	ArgDiagnosticSource,
+	FlagDiagnosticSource,
+	ResolutionDiagnosticSource,
+} from './contracts.ts';
 
 type CoerceSource = FlagDiagnosticSource;
 
@@ -136,7 +147,13 @@ function coerceValue(
 		return coerceCount(flagName, source, raw);
 	}
 	if (cardinality.kind === 'one') {
-		return coerceValueSchema(flagName, source, raw, flagValueSchema(schema));
+		const value = flagValueSchema(schema);
+		return coerceValueSchema(
+			flagName,
+			source,
+			trimmedStdinValue(schema.stdin, source, raw, value),
+			value,
+		);
 	}
 	return coerceCollection(
 		cardinality,
@@ -144,7 +161,32 @@ function coerceValue(
 		raw,
 		(element) => coerceValueSchema(flagName, source, element, flagValueSchema(schema)),
 		flagCollectionErrors(flagName, source),
+		flagAggregationErrors(flagName),
 	);
+}
+
+/**
+ * Apply `.stdin({ trim: true })` to a single value read off the stream.
+ *
+ * Only the string codec keeps the terminator a pipe appends, and only a single
+ * value carries one: a collection's terminators frame its elements and the
+ * split policy consumes them. Every other codec drops it while decoding, so
+ * trimming there would take a second terminator off the value.
+ *
+ * @param stdin - The input's stdin axis.
+ * @param source - Which stage produced the value.
+ * @param raw - The value that stage produced.
+ * @param value - The value axis about to decode it.
+ * @returns The value to decode.
+ */
+function trimmedStdinValue(
+	stdin: StdinBinding | undefined,
+	source: CoerceSource,
+	raw: unknown,
+	value: ValueSchema,
+): unknown {
+	if (source.kind !== 'stdin' || stdin?.trim !== true || typeof raw !== 'string') return raw;
+	return keepsStdinTerminator(value.codec) ? stripTerminator(raw) : raw;
 }
 
 /** Read a raw value as a non-negative integer occurrence count. */
@@ -175,16 +217,47 @@ function coerceCount(flagName: string, source: CoerceSource, raw: unknown): Coer
 
 // --- Collection coercion
 
-/** What a collection failure looks like before a surface words it. */
+/** What reading one source's value as a collection rejected. */
 type CollectionFault =
 	| { readonly kind: 'shape' }
 	| { readonly kind: 'pair'; readonly segment: string }
 	| { readonly kind: 'json'; readonly error: unknown }
-	| { readonly kind: 'json-shape'; readonly expected: 'array' | 'object' }
-	| { readonly kind: 'duplicate-key'; readonly key: string };
+	| { readonly kind: 'json-shape'; readonly expected: 'array' | 'object' };
 
-/** How one surface words the faults a collection can produce. */
+/** How one surface words the faults reading a source can produce. */
 type CollectionErrors = (fault: CollectionFault, raw: unknown) => ValidationError;
+
+/**
+ * What combining a collection's decoded elements rejected.
+ *
+ * Elements reach aggregation from several sources at once, so each fault is
+ * worded for the source of the element that caused it.
+ */
+type AggregationFault =
+	| { readonly kind: 'duplicate-key'; readonly key: string }
+	| { readonly kind: 'dash-without-stdin' };
+
+/** How one surface words an aggregation fault for the source that carried it. */
+type AggregationErrors = (
+	fault: AggregationFault,
+	source: ResolutionDiagnosticSource,
+) => ValidationError;
+
+/**
+ * The clause naming where a value came from, empty for the tokens the user
+ * typed.
+ *
+ * @param source - The source that carried the value.
+ * @returns A trailing-spaced clause, or `''` for the CLI.
+ */
+function sourceClause(source: ResolutionDiagnosticSource): string {
+	return source.kind === 'cli' ? '' : `${sourceLabel(source)} `;
+}
+
+/** The identification fields a source contributes to an aggregation error. */
+function aggregationSourceDetails(source: ResolutionDiagnosticSource): Record<string, unknown> {
+	return source.kind === 'cli' ? {} : sourceDetails(source);
+}
 
 /**
  * Read a source value as a collection and aggregate it.
@@ -193,7 +266,8 @@ type CollectionErrors = (fault: CollectionFault, raw: unknown) => ValidationErro
  * @param source - Which stage produced the value.
  * @param raw - The value that stage produced.
  * @param decodeElement - Decodes one element through the value axis.
- * @param errors - Words a fault for the surface being resolved.
+ * @param errors - Words a read fault for the surface being resolved.
+ * @param aggregationErrors - Words an aggregation fault for the same surface.
  * @returns The aggregated array or record, or the first failure.
  */
 function coerceCollection(
@@ -202,6 +276,7 @@ function coerceCollection(
 	raw: unknown,
 	decodeElement: (element: unknown) => CoerceResult,
 	errors: CollectionErrors,
+	aggregationErrors: AggregationErrors,
 ): CoerceResult {
 	if (cardinality.kind === 'many') {
 		const parts = readManyParts(source, raw, cardinality.splitting);
@@ -225,7 +300,10 @@ function coerceCollection(
 	}
 	const folded = foldEntries(coerced, cardinality.duplicateKeys);
 	if (!folded.ok) {
-		return { ok: false, error: errors({ kind: 'duplicate-key', key: folded.duplicateKey }, raw) };
+		return {
+			ok: false,
+			error: aggregationErrors({ kind: 'duplicate-key', key: folded.duplicateKey }, source),
+		};
 	}
 	return { ok: true, value: folded.value };
 }
@@ -358,16 +436,28 @@ function flagCollectionErrors(flagName: string, source: CoerceSource): Collectio
 					`Invalid JSON value, expected an ${fault.expected}`,
 					`Provide a JSON ${fault.expected} for --${flagName}`,
 				);
-			case 'duplicate-key':
-				return new ValidationError(
-					`Duplicate key '${fault.key}' ${sourceLabel(source)} for flag --${flagName}`,
-					{
-						code: 'CONSTRAINT_VIOLATED',
-						details: { flag: flagName, ...sourceDetails(source), key: fault.key },
-						suggest: `Set '${fault.key}' once for --${flagName}`,
-					},
-				);
 		}
+	};
+}
+
+/** Word an aggregation fault for a flag, naming the source that carried it. */
+function flagAggregationErrors(flagName: string): AggregationErrors {
+	return (fault, source) => {
+		if (fault.kind === 'dash-without-stdin') {
+			return new ValidationError(`No piped stdin for the '-' occurrence of flag --${flagName}`, {
+				code: 'REQUIRED_FLAG',
+				details: { flag: flagName, source: 'stdin' },
+				suggest: `Pipe a value to stdin, or drop the '-' occurrence of --${flagName}`,
+			});
+		}
+		return new ValidationError(
+			`Duplicate key '${fault.key}' ${sourceClause(source)}for flag --${flagName}`,
+			{
+				code: 'CONSTRAINT_VIOLATED',
+				details: { flag: flagName, ...aggregationSourceDetails(source), key: fault.key },
+				suggest: `Set '${fault.key}' once for --${flagName}`,
+			},
+		);
 	};
 }
 
@@ -411,16 +501,28 @@ function argCollectionErrors(argName: string, source: ArgStringSource): Collecti
 						suggest: `Provide a JSON ${fault.expected} for <${argName}>`,
 					},
 				);
-			case 'duplicate-key':
-				return new ValidationError(
-					`Duplicate key '${fault.key}' ${argSourceLabel(source)} for argument <${argName}>`,
-					{
-						code: 'CONSTRAINT_VIOLATED',
-						details: { arg: argName, ...argSourceDetails(source), key: fault.key },
-						suggest: `Set '${fault.key}' once for <${argName}>`,
-					},
-				);
 		}
+	};
+}
+
+/** Word an aggregation fault for a positional, naming the source that carried it. */
+function argAggregationErrors(argName: string): AggregationErrors {
+	return (fault, source) => {
+		if (fault.kind === 'dash-without-stdin') {
+			return new ValidationError(`No piped stdin for the '-' occurrence of argument <${argName}>`, {
+				code: 'REQUIRED_ARG',
+				details: { arg: argName, source: 'stdin' },
+				suggest: `Pipe a value to stdin, or drop the '-' from <${argName}>`,
+			});
+		}
+		return new ValidationError(
+			`Duplicate key '${fault.key}' ${sourceClause(source)}for argument <${argName}>`,
+			{
+				code: 'CONSTRAINT_VIOLATED',
+				details: { arg: argName, ...aggregationSourceDetails(source), key: fault.key },
+				suggest: `Set '${fault.key}' once for <${argName}>`,
+			},
+		);
 	};
 }
 
@@ -809,9 +911,15 @@ function coerceArgValue(
 			raw,
 			(element) => coerceArgElement(argName, source, element, schema),
 			argCollectionErrors(argName, source),
+			argAggregationErrors(argName),
 		);
 	}
-	return coerceArgElement(argName, source, raw, schema);
+	return coerceArgElement(
+		argName,
+		source,
+		trimmedStdinValue(schema.stdin, source, raw, argValueSchema(schema)),
+		schema,
+	);
 }
 
 /**
@@ -892,6 +1000,7 @@ function finishCliFlagValue(
 		schema.stdin !== undefined && stdinReadsOnDash(schema.stdin),
 		(element) => coerceValueSchema(flagName, { kind: 'stdin' }, element, flagValueSchema(schema)),
 		flagCollectionErrors(flagName, { kind: 'stdin' }),
+		flagAggregationErrors(flagName),
 	);
 }
 
@@ -922,7 +1031,22 @@ function finishCliArgValue(
 		schema.stdin !== undefined && stdinReadsOnDash(schema.stdin),
 		(element) => coerceArgElement(argName, { kind: 'stdin' }, element, schema),
 		argCollectionErrors(argName, { kind: 'stdin' }),
+		argAggregationErrors(argName),
 	);
+}
+
+/** The tokens the user typed, as the source of an occurrence. */
+const CLI_SOURCE: ResolutionDiagnosticSource = { kind: 'cli' };
+
+/** The buffer a `-` stood for, as the source of an occurrence. */
+const STDIN_SOURCE: ResolutionDiagnosticSource = { kind: 'stdin' };
+
+/** One occurrence of a spliced collection, with where it came from. */
+interface SourcedOccurrence {
+	/** The occurrence itself. */
+	readonly occurrence: Occurrence;
+	/** The source that produced it. */
+	readonly source: ResolutionDiagnosticSource;
 }
 
 /**
@@ -930,7 +1054,9 @@ function finishCliArgValue(
  * then aggregate what is left.
  *
  * A value the parser did not leave as an occurrence list is the aggregate a
- * caller built by hand, and it reaches the resolved value untouched.
+ * caller built by hand, and it reaches the resolved value untouched. Each
+ * occurrence keeps the source it came from, so an aggregation failure names
+ * either the typed token or the pipe.
  */
 function spliceCliCollection(
 	cardinality: Extract<Cardinality, { kind: 'many' } | { kind: 'entries' }>,
@@ -939,6 +1065,7 @@ function spliceCliCollection(
 	readsOnDash: boolean,
 	decodeElement: (element: unknown) => CoerceResult,
 	errors: CollectionErrors,
+	aggregationErrors: AggregationErrors,
 ): CliFinish {
 	const occurrences = liftOccurrences(cardinality, value, readsOnDash);
 	const aggregated = readAggregated(occurrences);
@@ -946,12 +1073,12 @@ function spliceCliCollection(
 		return { kind: 'value', value: aggregated.value, viaStdin: false };
 	}
 
-	const spliced: Occurrence[] = [];
+	const spliced: SourcedOccurrence[] = [];
 	let sentinels = 0;
 	let viaStdin = false;
 	for (const occurrence of occurrences) {
 		if (occurrence.kind !== 'stdin') {
-			spliced.push(occurrence);
+			spliced.push({ occurrence, source: CLI_SOURCE });
 			continue;
 		}
 		sentinels += 1;
@@ -959,22 +1086,39 @@ function spliceCliCollection(
 		const read = readStdinOccurrence(cardinality, stdinData, decodeElement, errors);
 		if (read.kind !== 'value') return read;
 		viaStdin = true;
-		spliced.push(...read.occurrences);
+		for (const element of read.occurrences) {
+			spliced.push({ occurrence: element, source: STDIN_SOURCE });
+		}
 	}
 
-	if (sentinels === occurrences.length && sentinels > 0 && typeof stdinData !== 'string') {
-		return { kind: 'absent' };
+	if (sentinels > 0 && typeof stdinData !== 'string') {
+		if (sentinels === occurrences.length) return { kind: 'absent' };
+		return {
+			kind: 'error',
+			error: aggregationErrors({ kind: 'dash-without-stdin' }, CLI_SOURCE),
+		};
 	}
 
 	if (cardinality.kind === 'many') {
-		return { kind: 'value', value: spliced.map(occurrenceValue), viaStdin };
+		return {
+			kind: 'value',
+			value: spliced.map((entry) => occurrenceValue(entry.occurrence)),
+			viaStdin,
+		};
 	}
 
-	const folded = foldEntries(entryPairsOf(spliced), cardinality.duplicateKeys);
+	const entries = spliced.filter((entry) => entry.occurrence.kind === 'entry');
+	const folded = foldEntries(
+		entryPairsOf(entries.map((entry) => entry.occurrence)),
+		cardinality.duplicateKeys,
+	);
 	if (!folded.ok) {
 		return {
 			kind: 'error',
-			error: errors({ kind: 'duplicate-key', key: folded.duplicateKey }, value),
+			error: aggregationErrors(
+				{ kind: 'duplicate-key', key: folded.duplicateKey },
+				entries[folded.at]?.source ?? CLI_SOURCE,
+			),
 		};
 	}
 	return { kind: 'value', value: folded.value, viaStdin };

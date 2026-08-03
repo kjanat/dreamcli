@@ -86,4 +86,30 @@ describe('runCommand() stdin contract', () => {
 		expect(result.stdout.join('')).toContain('42');
 		expect(result.exitCode).toBe(0);
 	});
+
+	it('splices the buffer into a variadic positional tail', async () => {
+		const cmd = command('build')
+			.arg('files', arg.string().variadic().stdin())
+			.action(({ args, out }) => {
+				out.log(JSON.stringify(args.files));
+			});
+
+		const result = await runCommand(cmd, ['a', '-', 'b'], { stdinData: 'x\ny\n' });
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('["a","x","y","b"]');
+	});
+
+	it('reports a dash in the tail with nothing piped', async () => {
+		const cmd = command('build')
+			.arg('files', arg.string().variadic().stdin())
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['a', '-']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stderr.join('')).toContain(
+			"No piped stdin for the '-' occurrence of argument <files>",
+		);
+	});
 });

@@ -257,6 +257,53 @@ describe('collection stdin eligibility', () => {
 		expect(seen).toEqual([{ A: '1', B: '2' }]);
 	});
 
+	it('reads stdin for a `-` among the tail of a variadic positional', async () => {
+		const seen: unknown[] = [];
+		const app = cli('mycli').default(
+			command('run')
+				.arg('files', arg.string().variadic().stdin())
+				.action(({ args }) => {
+					seen.push(args.files);
+				}),
+		);
+		const host = countingAdapter({ argv: ['before', '-', 'after'], stdinData: 'a\nb\n' });
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([['before', 'a', 'b', 'after']]);
+	});
+
+	it('reads stdin once for an empty tail the binding covers', async () => {
+		const seen: unknown[] = [];
+		const app = cli('mycli').default(
+			command('run')
+				.arg('files', arg.string().variadic().stdin())
+				.action(({ args }) => {
+					seen.push(args.files);
+				}),
+		);
+		const host = countingAdapter({ argv: [], stdinData: 'a\nb\n' });
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(1);
+		expect(seen).toEqual([['a', 'b']]);
+	});
+
+	it('does not read stdin when the tail is fully typed', async () => {
+		const app = cli('mycli').default(
+			command('run')
+				.arg('files', arg.string().variadic().stdin())
+				.action(() => {}),
+		);
+		const host = countingAdapter({ argv: ['a', 'b'], stdinData: 'piped' });
+
+		await runQuietly(() => app.run({ adapter: host.adapter }));
+
+		expect(host.reads()).toBe(0);
+	});
+
 	it('does not read stdin for a literal `-` element on an array flag without a stdin binding', async () => {
 		const seen: unknown[] = [];
 		const app = cli('mycli').default(
