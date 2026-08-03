@@ -154,13 +154,22 @@ describe('definition path', () => {
 		expect(schema.flags.body?.stdin?.consume).toBe('broadcast');
 	});
 
-	it('rejects a stdin binding on a collection flag kind', () => {
+	it('accepts a stdin binding on a collection flag kind', () => {
+		const schema = createCommandSchema({
+			name: 'run',
+			flags: { tags: { kind: 'array', stdin: {} } },
+		});
+
+		expect(schema.flags.tags?.stdin?.when).toBe('dash-or-missing');
+	});
+
+	it('rejects a stdin binding on a count flag', () => {
 		const error = schemaError(() =>
-			createCommandSchema({ name: 'run', flags: { tags: { kind: 'array', stdin: {} } } }),
+			createCommandSchema({ name: 'run', flags: { verbose: { kind: 'count', stdin: {} } } }),
 		);
 
 		expect(error.code).toBe('INVALID_SCHEMA');
-		expect(error.message).toBe("Flag schema field 'stdin' is not available on kind 'array'");
+		expect(error.message).toBe("Flag schema field 'stdin' is not available on kind 'count'");
 	});
 
 	it('rejects an unknown stdin trigger mode', () => {

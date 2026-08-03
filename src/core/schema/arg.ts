@@ -11,13 +11,30 @@
 
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { schemaBrand } from './brand.ts';
+import type { DuplicateKeys, SourceSplitBinding, SplitOptions } from './cardinality.ts';
+import {
+	argCardinality,
+	DUPLICATE_KEYS,
+	defaultViolationError,
+	isCollection,
+	normalizeSplitOptions,
+	validateDefault,
+} from './cardinality.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
-import type { InputPromptConfig, PromptConfig, SelectPromptConfig } from './prompt.ts';
+import type {
+	ConfirmPromptConfig,
+	InputPromptConfig,
+	PromptConfig,
+	SelectPromptConfig,
+} from './prompt.ts';
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
 import type { StdinBinding, StdinOptions } from './stdin.ts';
 import { normalizeStdinBinding } from './stdin.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
+	argAggregateStandard,
+	argValueSchema,
+	booleanValue,
 	bytesValue,
 	dateValue,
 	durationValue,
@@ -95,31 +112,51 @@ type WithVariadic<C extends ArgConfig> = {
  * Advanced type helper: this powers {@link InferArg} and action-handler
  * inference. Most apps do not need to mention it explicitly.
  *
- * Variadic args always produce an array. Non-variadic:
+ * A `keyValue` arg always produces a record, variadic or not, because it
+ * aggregates entries rather than a list. Variadic args of every other kind
+ * produce an array. Non-variadic:
  * - `'optional'`  → `T | undefined`
  * - `'required'`  → `T`
  * - `'defaulted'` → `T`
  */
-type ResolvedArgValue<C extends ArgConfig> = C['variadic'] extends true
-	? C['valueType'][]
-	: C['presence'] extends 'optional'
-		? C['valueType'] | undefined
+type ResolvedArgValue<C extends ArgConfig> = C['argKind'] extends 'keyValue'
+	? C['valueType']
+	: C['variadic'] extends true
+		? C['valueType'][]
+		: C['presence'] extends 'optional'
+			? C['valueType'] | undefined
+			: C['valueType'];
+
+/**
+ * The value `.default()` accepts for an arg.
+ *
+ * A default stands in for what the arg resolves to, so an arg that aggregates
+ * takes the completed array or record and every other arg takes one value.
+ */
+type ArgDefaultValue<C extends ArgConfig> = C['argKind'] extends 'keyValue'
+	? C['valueType']
+	: C['variadic'] extends true
+		? readonly C['valueType'][]
 		: C['valueType'];
 
 /**
  * Maps an {@linkcode ArgKind} to the prompt config types compatible with it,
- * mirroring the flag table for the four kinds args have.
+ * mirroring the flag table for the kinds args have.
  *
- * - `'string'` → {@link InputPromptConfig} | {@link SelectPromptConfig}
- * - `'number'` → {@link InputPromptConfig}
- * - `'enum'`   → {@link SelectPromptConfig} | {@link InputPromptConfig}
- * - `'custom'` → all prompt kinds ({@link PromptConfig})
+ * - `'string'`  → {@link InputPromptConfig} | {@link SelectPromptConfig}
+ * - `'number'`  → {@link InputPromptConfig}
+ * - `'boolean'` → {@link ConfirmPromptConfig}
+ * - `'enum'`    → {@link SelectPromptConfig} | {@link InputPromptConfig}
+ * - `'custom'`  → all prompt kinds ({@link PromptConfig})
+ * - `'keyValue'` → `never` (not promptable)
  */
 type PromptConfigByArgKind = {
 	readonly string: InputPromptConfig | SelectPromptConfig;
 	readonly number: InputPromptConfig;
+	readonly boolean: ConfirmPromptConfig;
 	readonly enum: SelectPromptConfig | InputPromptConfig;
 	readonly custom: PromptConfig;
+	readonly keyValue: never;
 };
 
 /** Prompt configuration compatible with the kind carried by an {@link ArgConfig}. */
@@ -136,7 +173,7 @@ type InferArgs<T extends Record<string, ArgBuilder<ArgConfig>>> = {
 // --- Runtime schema data
 
 /** All arg kind discriminators as a runtime array. */
-const ARG_KINDS = ['string', 'number', 'enum', 'custom'] as const;
+const ARG_KINDS = ['string', 'number', 'boolean', 'enum', 'custom', 'keyValue'] as const;
 
 /** Discriminator for the kind of value an arg accepts. */
 type ArgKind = (typeof ARG_KINDS)[number];
@@ -208,8 +245,8 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	 * String constraints when `kind === 'string'` (`undefined` otherwise).
 	 *
 	 * Enforced at the parse and resolution boundaries, in fixed order:
-	 * nonEmpty → minLength → maxLength → pattern. A `defaultValue` reaches
-	 * neither boundary and is not checked.
+	 * nonEmpty → minLength → maxLength → pattern. A `defaultValue` is a typed
+	 * value, so it is validated against them when the schema is built.
 	 */
 	readonly stringConstraints: StringConstraints | undefined;
 	/**
@@ -231,14 +268,48 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: ArgParseFn<unknown> | undefined;
 	/**
-	 * Standard Schema v1 validator applied to the resolved value.
+	 * CLI value separator for a collection (`undefined` otherwise).
+	 *
+	 * When set, each positional token is split on this separator before element
+	 * coercion. Other sources decode through {@link ArgSchema.split}.
+	 */
+	readonly separator: string | undefined;
+	/**
+	 * Env and stdin split policies for a collection (`undefined` otherwise).
+	 *
+	 * A source the binding leaves out takes its default: comma-delimited for env,
+	 * line-delimited for stdin.
+	 */
+	readonly split: SourceSplitBinding | undefined;
+	/**
+	 * How a repeated key combines when `kind === 'keyValue'`.
+	 *
+	 * @defaultValue `'last'`
+	 */
+	readonly duplicateKeys: DuplicateKeys;
+	/**
+	 * Deduplicate the resolved values of a variadic arg.
+	 *
+	 * Applied after all sources resolve, preserving first-seen order. Uses
+	 * `SameValueZero` semantics (like `Set`).
+	 */
+	readonly unique: boolean;
+	/**
+	 * Standard Schema v1 validator applied to each resolved value.
 	 *
 	 * When set, the value from any source (CLI, env, stdin, default) is
 	 * validated after resolution via `~standard.validate`. Sync and async
 	 * validators are both awaited; issues surface as a `CONSTRAINT_VIOLATED`
-	 * {@link ValidationError}. Only meaningful when `kind === 'custom'`.
+	 * {@link ValidationError}. A variadic arg validates every element with it.
 	 */
 	readonly standard: StandardSchemaV1 | undefined;
+	/**
+	 * Standard Schema v1 validator applied to the completed collection.
+	 *
+	 * Set by `.standard()` on a builder that already aggregates, so the array or
+	 * record is validated as a whole after every element passed.
+	 */
+	readonly aggregateStandard: StandardSchemaV1 | undefined;
 	/**
 	 * Deprecation marker.
 	 *
@@ -310,6 +381,31 @@ interface ArgDefinitionBase {
 	 */
 	readonly valueHint?: string | undefined;
 	/**
+	 * CLI value separator each positional token is split on.
+	 * @defaultValue `undefined`
+	 */
+	readonly separator?: string | undefined;
+	/**
+	 * Env and stdin split policies.
+	 * @defaultValue `undefined`
+	 */
+	readonly split?: SourceSplitBinding | undefined;
+	/**
+	 * Deduplicate the resolved values of a variadic arg.
+	 * @defaultValue `false`
+	 */
+	readonly unique?: boolean | undefined;
+	/**
+	 * Standard Schema v1 validator applied to each resolved value.
+	 * @defaultValue `undefined`
+	 */
+	readonly standard?: StandardSchemaV1 | undefined;
+	/**
+	 * Standard Schema v1 validator applied to a completed collection.
+	 * @defaultValue `undefined`
+	 */
+	readonly aggregateStandard?: StandardSchemaV1 | undefined;
+	/**
 	 * Deprecation marker. `true` deprecates without a message, a string carries
 	 * the migration guidance.
 	 * @defaultValue `undefined`
@@ -361,11 +457,23 @@ interface CustomArgDefinition extends ArgDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly parseFn?: ArgParseFn<unknown> | undefined;
+}
+
+/** Definition of a `boolean` arg. */
+interface BooleanArgDefinition extends ArgDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'boolean';
+}
+
+/** Definition of a `keyValue` arg. */
+interface KeyValueArgDefinition extends ArgDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'keyValue';
 	/**
-	 * Standard Schema v1 validator applied to the resolved value.
-	 * @defaultValue `undefined`
+	 * How a repeated key combines. See {@link DuplicateKeys}.
+	 * @defaultValue `'last'`
 	 */
-	readonly standard?: StandardSchemaV1 | undefined;
+	readonly duplicateKeys?: DuplicateKeys | undefined;
 }
 
 /** Maps each {@link ArgKind} to its definition shape. */
@@ -374,10 +482,14 @@ interface ArgDefinitionByKind {
 	readonly string: StringArgDefinition;
 	/** Definition shape for `number` args. */
 	readonly number: NumberArgDefinition;
+	/** Definition shape for `boolean` args. */
+	readonly boolean: BooleanArgDefinition;
 	/** Definition shape for `enum` args. */
 	readonly enum: EnumArgDefinition;
 	/** Definition shape for `custom` args. */
 	readonly custom: CustomArgDefinition;
+	/** Definition shape for `keyValue` args. */
+	readonly keyValue: KeyValueArgDefinition;
 }
 
 /** Definition of an arg of kind `K`, including the kind discriminator. */
@@ -395,7 +507,7 @@ const KIND_SPECIFIC_ARG_FIELDS: readonly (readonly [keyof ArgSchemaFields, ArgKi
 	['stringConstraints', 'string'],
 	['pathChecks', 'string'],
 	['parseFn', 'custom'],
-	['standard', 'custom'],
+	['duplicateKeys', 'keyValue'],
 ];
 
 /**
@@ -412,12 +524,32 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgSchemaFieldOverrides
 	for (const [field, requiredKind] of KIND_SPECIFIC_ARG_FIELDS) {
 		if (kind === requiredKind) continue;
 		if (fields[field] === undefined) continue;
+		if (field === 'duplicateKeys' && fields[field] === 'last') continue;
 		throw new CLIError(
 			`Arg schema field '${field}' requires kind '${requiredKind}', received kind '${kind}'`,
 			{
 				code: 'INVALID_SCHEMA',
 				details: { kind, field, requiredKind },
 				suggest: `Drop '${field}' or declare the arg as kind '${requiredKind}'`,
+			},
+		);
+	}
+
+	if (fields.duplicateKeys !== undefined && !DUPLICATE_KEYS.includes(fields.duplicateKeys)) {
+		throw new CLIError(`Unknown duplicate-key policy '${String(fields.duplicateKeys)}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { duplicateKeys: fields.duplicateKeys, allowed: [...DUPLICATE_KEYS] },
+			suggest: `Use one of: ${DUPLICATE_KEYS.join(', ')}`,
+		});
+	}
+
+	if (fields.aggregateStandard !== undefined && kind !== 'keyValue' && fields.variadic !== true) {
+		throw new CLIError(
+			`Arg schema field 'aggregateStandard' requires a collection, received a non-variadic '${kind}' arg`,
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field: 'aggregateStandard' },
+				suggest: "Add 'variadic: true', declare the arg as kind 'keyValue', or use 'standard'",
 			},
 		);
 	}
@@ -437,7 +569,17 @@ function buildArgSchema<K extends ArgKind>(
 	kind: K,
 	overrides?: ArgSchemaFieldOverrides,
 ): ArgSchema<K> {
-	const { presence, variadic, stdin, ...rest } = overrides ?? {};
+	const schema = assembleArgSchema(kind, overrides);
+	assertValidArgDefault(undefined, schema);
+	return schema;
+}
+
+/** Merge the definition fields onto the defaults, without validating the result. */
+function assembleArgSchema<K extends ArgKind>(
+	kind: K,
+	overrides?: ArgSchemaFieldOverrides,
+): ArgSchema<K> {
+	const { presence, variadic, stdin, unique, duplicateKeys, ...rest } = overrides ?? {};
 	return {
 		kind,
 		presence: presence ?? 'required',
@@ -454,10 +596,43 @@ function buildArgSchema<K extends ArgKind>(
 		pathChecks: undefined,
 		valueHint: undefined,
 		parseFn: undefined,
+		separator: undefined,
+		split: undefined,
+		duplicateKeys: duplicateKeys ?? 'last',
+		unique: unique ?? false,
 		standard: undefined,
+		aggregateStandard: undefined,
 		deprecated: undefined,
 		...rest,
 	} as ArgSchema<K>;
+}
+
+/**
+ * Reject a declared default the arg could never hold.
+ *
+ * A default is a typed value, so it is validated rather than decoded: string
+ * and number constraints, element and aggregate Standard Schema verdicts
+ * available synchronously, and the shape the cardinality requires. Filesystem
+ * checks and asynchronous validators stay with the resolution-time pass.
+ *
+ * @param name - Positional arg name, when one is known.
+ * @param schema - The arg schema carrying the default.
+ * @throws {CLIError} With code `'INVALID_DEFAULT'` when the default is invalid.
+ */
+function assertValidArgDefault(name: string | undefined, schema: ArgSchema): void {
+	if (schema.defaultValue === undefined) return;
+	const violation = validateDefault(
+		argValueSchema(schema),
+		argCardinality(schema),
+		argAggregateStandard(schema),
+		schema.defaultValue,
+	);
+	if (violation === undefined) return;
+	throw defaultViolationError(
+		name === undefined ? `a ${schema.kind} argument` : `argument <${name}>`,
+		{ kind: schema.kind, ...(name === undefined ? {} : { arg: name }) },
+		violation,
+	);
 }
 
 /**
@@ -648,19 +823,23 @@ class ArgBuilder<C extends ArgConfig> {
 	 * Provide a default value. The arg becomes "always present" — handlers
 	 * will never see `undefined`.
 	 *
-	 * The generic constraint `V extends C['valueType']` ensures the default
-	 * matches the arg's declared type.
+	 * The generic constraint {@link ArgDefaultValue} ensures the default matches
+	 * what the arg resolves to: an array for a variadic arg, a record for a
+	 * `keyValue` one, and a single value otherwise.
 	 *
 	 * Resolution order when extra sources are configured:
 	 * CLI → stdin → env → config → prompt → **default**.
 	 *
 	 * @param value - Fallback used when no CLI value or env var resolves.
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_DEFAULT'` when the value is one the
+	 *   arg could never hold.
 	 *
 	 * @example
 	 * ```ts
 	 * arg.string().default('production')
 	 * arg.number().default(3000)
+	 * arg.string().variadic().default(['a', 'b'])
 	 *
 	 * // In a command — default kicks in when CLI and env are both absent:
 	 * command('deploy')
@@ -676,12 +855,14 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ mycli deploy production → 'production' (CLI)
 	 * ```
 	 */
-	default<V extends C['valueType']>(value: V): ArgBuilder<WithArgPresence<C, 'defaulted'>> {
-		return new ArgBuilder({
+	default<V extends ArgDefaultValue<C>>(value: V): ArgBuilder<WithArgPresence<C, 'defaulted'>> {
+		const schema: ArgSchema = {
 			...this.schema,
 			presence: 'defaulted',
 			defaultValue: value,
-		});
+		};
+		assertValidArgDefault(undefined, schema);
+		return new ArgBuilder(schema);
 	}
 
 	// -- Variadic modifier ---------------------------------------------------
@@ -711,10 +892,127 @@ class ArgBuilder<C extends ArgConfig> {
 	 * @returns The builder (for chaining).
 	 */
 	variadic(): ArgBuilder<WithVariadic<C>> {
+		const schema: ArgSchema = { ...this.schema, variadic: true };
+		assertValidArgDefault(undefined, schema);
+		return new ArgBuilder(schema);
+	}
+
+	/**
+	 * Split each positional token on a separator before element coercion, so
+	 * `mycli build a,b c` collects `['a', 'b', 'c']` into a variadic arg.
+	 *
+	 * The separator is the CLI policy alone. Env values split on `','` and the
+	 * stdin buffer on line terminators unless `.split()` says otherwise.
+	 *
+	 * Only an arg that aggregates reads this. On a single-value arg it is stored
+	 * and never applied, because there are no elements to split into.
+	 *
+	 * @param value - Separator string (e.g. `','`).
+	 * @returns The builder (for chaining).
+	 */
+	separator(value: string): ArgBuilder<C> {
+		if (value.length === 0) {
+			throw new RangeError('arg separator must not be empty');
+		}
+		return new ArgBuilder({ ...this.schema, separator: value });
+	}
+
+	/**
+	 * Set how each source decodes into elements.
+	 *
+	 * CLI tokens accept `'whole'` and a delimiter; env values also accept
+	 * `'json'`; the stdin buffer accepts every format, including `'lines'`. The
+	 * strings `'whole'`, `'lines'`, and `'json'` name their format, and every
+	 * other string is the delimiter to split on. A source left out keeps what it
+	 * already had, or its default: whole CLI tokens, comma-delimited env values,
+	 * line-delimited stdin.
+	 *
+	 * Only an arg that aggregates reads this. `arg.keyValue()` is the one arg
+	 * that both aggregates and reads stdin, since a variadic arg may not.
+	 *
+	 * @param options - Per-source split settings.
+	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a format the source does
+	 *   not accept, or an empty delimiter.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().variadic().split({ env: { format: 'json' } })
+	 * // FILES='["a.ts","b.ts"]' → ['a.ts', 'b.ts']
+	 * ```
+	 */
+	split(options: SplitOptions): ArgBuilder<C> {
+		const normalized = normalizeSplitOptions(options, this.schema.split);
 		return new ArgBuilder({
 			...this.schema,
-			variadic: true,
+			...(normalized.setsSeparator ? { separator: normalized.separator } : {}),
+			split: normalized.split,
 		});
+	}
+
+	/**
+	 * Deduplicate the resolved values of a variadic arg, preserving first-seen
+	 * order. Applied after all sources resolve, using `SameValueZero` semantics.
+	 *
+	 * Only a variadic arg reads this. On a single-value arg it is stored and
+	 * never applied, because there is no list to deduplicate.
+	 *
+	 * @param value - Whether to deduplicate.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 */
+	unique(value = true): ArgBuilder<C> {
+		return new ArgBuilder({ ...this.schema, unique: value });
+	}
+
+	/**
+	 * Set how a repeated key combines.
+	 *
+	 * @param policy - `'last'` (default), `'first'`, or `'error'`.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * arg.keyValue().variadic().duplicateKeys('error').env('VARS')
+	 * // $ VARS='A=1,A=2' mycli run
+	 * // #   → Duplicate key 'A' from env VARS for argument <vars>  (CONSTRAINT_VIOLATED)
+	 * ```
+	 */
+	duplicateKeys(
+		this: ArgBuilder<C & { readonly argKind: 'keyValue' }>,
+		policy: DuplicateKeys,
+	): ArgBuilder<C> {
+		return new ArgBuilder({ ...this.schema, duplicateKeys: policy });
+	}
+
+	/**
+	 * Validate the resolved value with a Standard Schema v1 validator.
+	 *
+	 * On a single-value builder the validator sees each value; on a builder that
+	 * already aggregates (`.variadic()` or `arg.keyValue()`) it sees the
+	 * completed array or record, after every element passed its own validator.
+	 *
+	 * The builder this is called on is what decides, so where the call sits
+	 * relative to `.variadic()` chooses between the two.
+	 *
+	 * @param schema - A Standard Schema v1 validator.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * import { z } from 'zod';
+	 * arg.string().standard(z.string().min(1)).variadic()   // each element
+	 * arg.string().variadic().standard(z.array(z.string())) // the whole array
+	 * ```
+	 */
+	standard(schema: StandardSchemaV1): ArgBuilder<C> {
+		const aggregate = isCollection(argCardinality(this.schema));
+		const next: ArgSchema = {
+			...this.schema,
+			...(aggregate ? { aggregateStandard: schema } : { standard: schema }),
+		};
+		assertValidArgDefault(undefined, next);
+		return new ArgBuilder(next);
 	}
 
 	/**
@@ -908,7 +1206,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * ```
 	 */
 	int(this: ArgBuilder<C & { readonly argKind: 'number' }>, value = true): ArgBuilder<C> {
-		return new ArgBuilder({
+		return nextArg({
 			...this.schema,
 			numberConstraints: { ...this.schema.numberConstraints, int: value },
 		});
@@ -931,7 +1229,7 @@ class ArgBuilder<C extends ArgConfig> {
 	min(this: ArgBuilder<C & { readonly argKind: 'number' }>, value: number): ArgBuilder<C> {
 		const numberConstraints = { ...this.schema.numberConstraints, min: value };
 		assertNumberConstraints(numberConstraints);
-		return new ArgBuilder({ ...this.schema, numberConstraints });
+		return nextArg({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -949,7 +1247,7 @@ class ArgBuilder<C extends ArgConfig> {
 	max(this: ArgBuilder<C & { readonly argKind: 'number' }>, value: number): ArgBuilder<C> {
 		const numberConstraints = { ...this.schema.numberConstraints, max: value };
 		assertNumberConstraints(numberConstraints);
-		return new ArgBuilder({ ...this.schema, numberConstraints });
+		return nextArg({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -967,7 +1265,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * ```
 	 */
 	finite(this: ArgBuilder<C & { readonly argKind: 'number' }>, allow = true): ArgBuilder<C> {
-		return new ArgBuilder({
+		return nextArg({
 			...this.schema,
 			numberConstraints: { ...this.schema.numberConstraints, finite: allow },
 		});
@@ -992,7 +1290,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * ```
 	 */
 	nonEmpty(this: ArgBuilder<C & { readonly argKind: 'string' }>, value = true): ArgBuilder<C> {
-		return new ArgBuilder({
+		return nextArg({
 			...this.schema,
 			stringConstraints: { ...this.schema.stringConstraints, nonEmpty: value },
 		});
@@ -1013,7 +1311,7 @@ class ArgBuilder<C extends ArgConfig> {
 	minLength(this: ArgBuilder<C & { readonly argKind: 'string' }>, value: number): ArgBuilder<C> {
 		const stringConstraints = { ...this.schema.stringConstraints, minLength: value };
 		assertStringConstraints(stringConstraints);
-		return new ArgBuilder({ ...this.schema, stringConstraints });
+		return nextArg({ ...this.schema, stringConstraints });
 	}
 
 	/**
@@ -1031,7 +1329,7 @@ class ArgBuilder<C extends ArgConfig> {
 	maxLength(this: ArgBuilder<C & { readonly argKind: 'string' }>, value: number): ArgBuilder<C> {
 		const stringConstraints = { ...this.schema.stringConstraints, maxLength: value };
 		assertStringConstraints(stringConstraints);
-		return new ArgBuilder({ ...this.schema, stringConstraints });
+		return nextArg({ ...this.schema, stringConstraints });
 	}
 
 	/**
@@ -1047,11 +1345,26 @@ class ArgBuilder<C extends ArgConfig> {
 	 * ```
 	 */
 	pattern(this: ArgBuilder<C & { readonly argKind: 'string' }>, value: RegExp): ArgBuilder<C> {
-		return new ArgBuilder({
+		return nextArg({
 			...this.schema,
 			stringConstraints: { ...this.schema.stringConstraints, pattern: value },
 		});
 	}
+}
+
+/**
+ * Continue a builder chain, rejecting a default the change just invalidated.
+ *
+ * A constraint added after `.default()` still governs the default, so the
+ * verdict is the same whichever order the chain was written in.
+ *
+ * @param schema - The schema the modifier produced.
+ * @returns A builder over that schema.
+ * @throws {CLIError} With code `'INVALID_DEFAULT'` when the default no longer holds.
+ */
+function nextArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
+	assertValidArgDefault(undefined, schema);
+	return new ArgBuilder(schema);
 }
 
 // --- Factory namespace
@@ -1104,9 +1417,9 @@ interface ArgFactory {
 	 *
 	 * Constraints are enforced at the parse and resolution boundaries, in
 	 * fixed order: nonEmpty → minLength → maxLength → pattern. A `.default()`
-	 * value reaches neither boundary and is not checked. They also compose via
-	 * chained methods (`.nonEmpty()`, `.minLength()`, `.maxLength()`,
-	 * `.pattern()`), which override values set here.
+	 * value is validated against them where the chain declares it. They also
+	 * compose via chained methods (`.nonEmpty()`, `.minLength()`,
+	 * `.maxLength()`, `.pattern()`), which override values set here.
 	 *
 	 * @param constraints - Optional string constraints.
 	 * @defaultValue `undefined` (no constraints)
@@ -1167,6 +1480,54 @@ interface ArgFactory {
 		readonly presence: 'required';
 		readonly variadic: false;
 		readonly argKind: 'number';
+	}>;
+
+	/**
+	 * Boolean positional argument. Required by default.
+	 *
+	 * A positional carries no presence semantics, so the token spells the value
+	 * out: `true`/`false` or `1`/`0` from argv, and also `yes`/`no` or an empty
+	 * string from env, config, stdin, and a prompt.
+	 *
+	 * @returns A required boolean {@link ArgBuilder}.
+	 *
+	 * @example
+	 * ```ts
+	 * command('feature')
+	 *   .arg('enabled', arg.boolean().describe('Whether the feature is on'))
+	 * // $ mycli feature true   → enabled = true
+	 * // $ mycli feature nope   → ParseError: Invalid boolean value 'nope'
+	 * ```
+	 */
+	boolean(): ArgBuilder<{
+		readonly valueType: boolean;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'boolean';
+	}>;
+
+	/**
+	 * Key-value positional argument. Required by default.
+	 *
+	 * Consumes `KEY=VALUE` tokens and resolves to a `Record<string, string>`,
+	 * split at the **first** `=`. The non-variadic form reads one token, the
+	 * variadic form aggregates the whole tail. Later occurrences of the same key
+	 * win, which `.duplicateKeys()` changes. Not promptable.
+	 *
+	 * @returns A required key-value {@link ArgBuilder}.
+	 *
+	 * @example
+	 * ```ts
+	 * command('run')
+	 *   .arg('vars', arg.keyValue().variadic().describe('Template variables'))
+	 * // $ mycli run A=1 B=2 → vars = { A: '1', B: '2' }
+	 * ```
+	 */
+	keyValue(): ArgBuilder<{
+		readonly valueType: Record<string, string>;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'keyValue';
 	}>;
 
 	/**
@@ -1386,10 +1747,12 @@ interface ArgFactory {
  * an {@linkcode ArgBuilder}, then chain modifiers and pass the result to
  * `command().arg(name, builder)`.
  *
- * Four base kinds are available:
+ * Six base kinds are available:
  * - `arg.string()` — raw string (most common)
  * - `arg.number()` — parsed to number, errors on NaN
+ * - `arg.boolean()` reads an explicit true/false token
  * - `arg.enum(values)` — constrained to listed literals
+ * - `arg.keyValue()` merges `KEY=VALUE` tokens into a record
  * - `arg.custom(fn)` — arbitrary parse function, infers return type
  *
  * Five sugar factories build on them, mirroring their flag counterparts:
@@ -1441,6 +1804,24 @@ const arg: ArgFactory = {
 		return new ArgBuilder(
 			createArgSchema('number', valueDefinitionFields(numberValue(constraints))),
 		);
+	},
+
+	boolean(): ArgBuilder<{
+		readonly valueType: boolean;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'boolean';
+	}> {
+		return new ArgBuilder(createArgSchema('boolean', valueDefinitionFields(booleanValue())));
+	},
+
+	keyValue(): ArgBuilder<{
+		readonly valueType: Record<string, string>;
+		readonly presence: 'required';
+		readonly variadic: false;
+		readonly argKind: 'keyValue';
+	}> {
+		return new ArgBuilder(createArgSchema('keyValue', { valueHint: 'key=value' }));
 	},
 
 	enum<const T extends readonly [string, ...string[]]>(
@@ -1520,10 +1901,20 @@ const arg: ArgFactory = {
 
 // --- Exports
 
+export type {
+	DuplicateKeys,
+	SourceSplitBinding,
+	SplitBinding,
+	SplitFormat,
+	SplitOptions,
+	SplitPolicy,
+	SplitSetting,
+} from './cardinality.ts';
 export type { StdinBinding, StdinConsume, StdinOptions, StdinWhen } from './stdin.ts';
 export type {
 	AllowedArgPromptConfig,
 	ArgConfig,
+	ArgDefaultValue,
 	ArgDefinition,
 	ArgDefinitionBase,
 	ArgDefinitionByKind,
@@ -1533,10 +1924,12 @@ export type {
 	ArgParseFn,
 	ArgPresence,
 	ArgSchema,
+	BooleanArgDefinition,
 	CustomArgDefinition,
 	EnumArgDefinition,
 	InferArg,
 	InferArgs,
+	KeyValueArgDefinition,
 	NumberArgDefinition,
 	PromptConfigByArgKind,
 	ResolvedArgValue,

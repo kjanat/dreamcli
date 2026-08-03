@@ -100,21 +100,38 @@ Paths are relative to the dreamcli repository root.
 ## Extend the Starter
 
 **Values.** Prefer a purpose-built kind over `flag.string()` / `arg.string()`
-plus parsing. Both factories carry `url()`, `path()`, `date()`, `duration()`,
-and `bytes()`; `flag` additionally carries `boolean()`, `array()`, `count()`,
-and `keyValue()`. Positionals also take `string()`, `number()`, `enum(...)`,
-`custom(...)`, with `.variadic()` for repeated positionals, which is the arg
-form of `flag.array()`. Express validation declaratively
-with constraints (`{ int, min, max }`, `{ nonEmpty, pattern }`, chainable on
-both builders) or a Standard Schema passed to `flag.custom()` / `arg.custom()`,
-not with hand-written checks in the action. `arg` has no `keyValue()`; parse
-that with `arg.custom()` or declare the value as a flag.
+plus parsing. Both factories carry `string()`, `number()`, `boolean()`,
+`enum(...)`, `custom(...)`, `keyValue()`, `url()`, `path()`, `date()`,
+`duration()`, and `bytes()`. `flag` additionally carries `array()` and
+`count()`; the arg form of `flag.array()` is `.variadic()`. Express validation
+declaratively with constraints (`{ int, min, max }`, `{ nonEmpty, pattern }`,
+chainable on both builders) or a Standard Schema passed to `.standard()` or to
+`flag.custom()` / `arg.custom()`, not with hand-written checks in the action.
+
+**Defaults.** A `.default()` value is validated where the chain declares it, so
+a default that violates its own constraints, validator, or collection shape
+throws `INVALID_DEFAULT` at build time. A collection default takes the shape the
+input resolves to: an array for `flag.array()` and a variadic arg, a record for
+`keyValue()`, a non-negative integer for `flag.count()`.
+
+**Collections.** `flag.array()`, `flag.keyValue()`, `arg.keyValue()`, and
+`.variadic()` aggregate from every source under one set of rules. Each source
+decodes under its own policy, set by `.split({ cli, env, stdin })`: whole CLI
+tokens by default, comma-delimited env values, line-delimited stdin, and native
+arrays and objects from config. `.separator()` sets the CLI policy alone and is
+no longer inherited by env or config. `.unique()` dedupes a list, and
+`.duplicateKeys('last' | 'first' | 'error')` decides a repeated key on every
+source. A validator on the element builder checks each element; one on the
+collection builder checks the finished value.
 
 **Sources.** Both factories declare the same sources. Chain `.stdin()`,
 `.env()`, `.config()`, `.prompt()`, `.default()` on a flag or an argument and
 let one resolution order (argv, stdin, env, config, prompt, default) do the
 work. `.stdin()` takes `{ when, consume }`; one command has one exclusive stdin
-consumer unless every stdin input passes `{ consume: 'broadcast' }`.
+consumer unless every stdin input passes `{ consume: 'broadcast' }`. A `-`
+occurrence on a collection splices the decoded buffer in at that position, so
+`--tag before --tag - --tag after` over `a\nb\n` gives
+`['before', 'a', 'b', 'after']`. A variadic argument cannot also read stdin.
 
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.

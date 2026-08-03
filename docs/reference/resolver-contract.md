@@ -111,7 +111,10 @@ This contract intentionally freezes behavior before deeper resolver work:
 The current resolver now makes that decision explicit in `src/core/schema/value.ts`:
 
 - the shared flag/arg value model is **coercion-only**
-- it covers the overlapping kinds `string`, `number`, `boolean`, `enum`, and `custom`
+- it covers the overlapping kinds `string`, `number`, `boolean`, `enum`, and
+  `custom`, and a collection reaches it through the value of its element
+- how many values a source carries belongs to `src/core/schema/cardinality.ts`,
+  which owns splitting, aggregation, and declared-default validation
 - it does **not** own precedence order, fallback order, prompt/stdin policy, or required-value validation
 
 That split is intentional.

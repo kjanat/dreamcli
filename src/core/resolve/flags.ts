@@ -8,6 +8,7 @@
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
+import { dedupe } from '#internals/core/schema/cardinality.ts';
 import type {
 	ErasedInteractiveResolver,
 	InteractiveResult,
@@ -22,11 +23,11 @@ import {
 	withPromptBinding,
 } from '#internals/core/schema/source.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
-import { coerceValue } from './coerce.ts';
+import { coerceValue, finishCliFlagValue } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
-import { validatePathChecks } from './path-checks.ts';
+import { pathValuesOf, validatePathChecks } from './path-checks.ts';
 import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
 import { readCliValue, runStages } from './stages.ts';
 
@@ -149,16 +150,18 @@ async function resolveFlags(
 		// after an Object.prototype member would otherwise read that inherited
 		// method as its resolved value.
 		const value = Object.hasOwn(resolved, name) ? resolved[name] : undefined;
-		const checks = flagValueSchema(schema)?.pathChecks;
+		const checks = flagValueSchema(schema).pathChecks;
 
 		if (schema.kind === 'array' && schema.unique && Array.isArray(value)) {
-			resolved[name] = [...new Set(value)];
+			resolved[name] = [...dedupe(value)];
 		}
 
-		if (checks !== undefined && typeof value === 'string' && options.stat !== undefined) {
+		if (checks === undefined || options.stat === undefined) continue;
+
+		for (const path of pathValuesOf(Object.hasOwn(resolved, name) ? resolved[name] : undefined)) {
 			const violation = await validatePathChecks(
 				{ kind: 'flag', name },
-				value,
+				path,
 				checks,
 				options.stat,
 				options.mkdir,
@@ -190,6 +193,7 @@ function stageInput(
 	return {
 		cli: readCliValue(present, present ? parsedFlags[name] : undefined, bindings),
 		coerce: (source, raw) => coerceValue(name, source, raw, schema),
+		finishCli: (value, stdinData) => finishCliFlagValue(name, schema, value, stdinData),
 		runPrompt: async (config) =>
 			prompter === undefined
 				? { ok: false, error: undefined }

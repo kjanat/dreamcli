@@ -208,13 +208,15 @@ Plain object types a consumer writes by hand or a code generator emits.
 `StringFlagDefinition`, `NumberFlagDefinition`, `BooleanFlagDefinition`,
 `EnumFlagDefinition`, `ArrayFlagDefinition`, `CustomFlagDefinition`,
 `CountFlagDefinition`, `KeyValueFlagDefinition`, `StringArgDefinition`,
-`NumberArgDefinition`, `EnumArgDefinition`, `CustomArgDefinition`; the
+`NumberArgDefinition`, `BooleanArgDefinition`, `EnumArgDefinition`,
+`CustomArgDefinition`, `KeyValueArgDefinition`; the
 kind-indexed maps
 `FlagDefinitionByKind` and `ArgDefinitionByKind`; the override forms
 `FlagDefinitionOverrides` and `ArgDefinitionOverrides`; the entry type
 `CommandArgEntryDefinition`; the values a definition embeds, `PathChecks`,
-`FlagNegation`, `StdinOptions`, `CommandExample`, and its `ExampleCommand` field
-type; and the consumer input data types `PackageJsonData` and
+`FlagNegation`, `StdinOptions`, `SplitOptions`, `SplitSetting`,
+`SourceSplitBinding`, `SplitBinding`, `CommandExample`, and its `ExampleCommand`
+field type; and the consumer input data types `PackageJsonData` and
 `PackageRepository`.
 
 These have no brand, and structural construction is the point. They take the
@@ -226,6 +228,9 @@ built schema, so the same type serves as consumer input and as a member of a
 sealed value. The input contract is the one that governs them. `StdinOptions`
 splits the two roles instead: a caller writes the partial form and the schema
 stores the fully populated `StdinBinding`, which takes the same input contract.
+`SplitOptions` splits them the same way: a caller writes the per-source settings
+and the schema stores the CLI delimiter on `separator` and the rest on
+`SourceSplitBinding`, which `SplitBinding` resolves with the defaults filled in.
 `PathChecks`
 appears on both `StringFlagDefinition` and `StringArgDefinition`, alongside
 `StringConstraints` on each and `valueHint` on `FlagDefinitionBase` and
@@ -332,12 +337,12 @@ The payload types the hooks receive are covered under
 
 The kind and mode unions `Verbosity`, `Shell`, `ArgKind`, `FlagKind`,
 `PromptKind`, `BuiltinName`, `BuiltinMode`, `ArgPresence`, `FlagPresence`,
-`DuplicatePolicy`, `StdinWhen`, `StdinConsume`, `Fallback`, `TableFormat`,
-`TableStream`, `ParseErrorCode`, `ValidationErrorCode`, and `Runtime` (from
-`@kjanat/dreamcli/runtime`).
+`DuplicatePolicy`, `DuplicateKeys`, `SplitFormat`, `StdinWhen`,
+`StdinConsume`, `Fallback`, `TableFormat`, `TableStream`, `ParseErrorCode`,
+`ValidationErrorCode`, and `Runtime` (from `@kjanat/dreamcli/runtime`).
 
 The discriminated results `ActivityEvent`, `Token`, `PromptResult`,
-`NumberConstraintViolation`, `StringConstraintViolation`, and
+`SplitPolicy`, `NumberConstraintViolation`, `StringConstraintViolation`, and
 `ConfigDiscoveryResult` with its members `ConfigFound` and `ConfigNotFound`.
 
 The runtime value forms `SHELLS` and `RUNTIMES` (the latter from
@@ -463,8 +468,8 @@ fragment types `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
 `ArgDefinitionFragmentV1`, `ExampleDefinitionFragmentV1`,
 `FlagNegationFragmentV1`, `FlagPathChecksFragmentV1`,
 `FlagStringConstraintsFragmentV1`, `PromptChoiceFragmentV1`,
-`PromptDefinitionFragmentV1`, and `StdinBindingFragmentV1`; and the error
-envelope `CLIErrorJSON`.
+`PromptDefinitionFragmentV1`, `SourceSplitFragmentV1`, `SplitPolicyFragmentV1`,
+and `StdinBindingFragmentV1`; and the error envelope `CLIErrorJSON`.
 
 `FlagStringConstraintsFragmentV1` and `FlagPathChecksFragmentV1` are the value
 fragments of both `FlagDefinitionFragmentV1` and `ArgDefinitionFragmentV1`. Their
@@ -555,8 +560,9 @@ The [API reference](/reference/api) lists their signatures.
 A new factory method on either is a new function and ships in a minor release.
 `FlagFactory` holds `string`, `number`, `boolean`, `enum`, `array`, `custom`,
 `url`, `path`, `date`, `duration`, `bytes`, `count`, and `keyValue`.
-`ArgFactory` holds `string`, `number`, `enum`, `custom`, `url`, `path`, `date`,
-`duration`, and `bytes`; the four it does not carry are documented under
+`ArgFactory` holds `string`, `number`, `boolean`, `enum`, `custom`, `keyValue`,
+`url`, `path`, `date`, `duration`, and `bytes`; the two it does not carry,
+`array` and `count`, are documented under
 [what the arg factory does not have](/guide/arguments#flag-only-surface).
 
 Builder modifier methods follow the same rule. `FlagBuilder` and `ArgBuilder`
@@ -579,9 +585,11 @@ Class constructors follow the same rule as functions, with one exception.
 ### Type-level operators
 
 `InferFlag`, `InferFlags`, `InferArg`, `InferArgs`, `InferStandardInput`,
-`InferStandardOutput`, `ResolvedValue`, `ResolvedArgValue`, `WithPresence`,
-`WithArgPresence`, `WithVariadic`, the builder state types `FlagConfig` and
-`ArgConfig`, and `FlagMap`, the record of flag builders `readFlags()` evaluates.
+`InferStandardOutput`, `ResolvedValue`, `ResolvedArgValue`, `ArgDefaultValue`,
+`WithPresence`, `WithArgPresence`, `WithVariadic`, the builder state types
+`FlagConfig`, `ArgConfig`, and `StringElementConfig`, the element config a
+collection factory assumes when given no element builder, and `FlagMap`, the
+record of flag builders `readFlags()` evaluates.
 
 These compute a type from another type. Most code reaches them through inference
 and never names one. `InferFlags<typeof flags>` in an extracted handler signature

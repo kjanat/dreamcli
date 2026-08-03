@@ -14,6 +14,12 @@
  */
 
 import { ParseError } from '#internals/core/errors/index.ts';
+import type { SplitPolicy } from '#internals/core/schema/cardinality.ts';
+import {
+	argCardinality,
+	flagCardinality,
+	splitEntryPair,
+} from '#internals/core/schema/cardinality.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
@@ -358,15 +364,17 @@ function isStdinSentinel(raw: string, stdin: StdinBinding | undefined): boolean 
 }
 
 /**
- * Coerce a raw string to the flag's declared kind.
+ * Coerce one raw CLI token to what the flag's value axis declares.
  *
- * Scalar kinds decode through the shared value layer; the collection kinds
- * (`array`, `count`, `keyValue`) accumulate here, on the cardinality axis.
+ * The cardinality axis decides what a token IS: one value, one element of a
+ * collection, one entry of a record, or an explicit count. The value axis then
+ * decides what that token means.
  *
  * @param flagName - Canonical flag name (for error messages)
  * @param raw - Raw string value from argv
  * @param schema - {@link FlagSchema} declaring the expected kind
- * @returns Coerced value matching the schema's kind
+ * @param displayName - Spelling the user typed
+ * @returns The coerced token: a value, an element, or a `[key, value]` pair
  * @throws ParseError on type mismatch
  */
 function coerceFlagValue(
@@ -377,43 +385,59 @@ function coerceFlagValue(
 ): unknown {
 	if (isStdinSentinel(raw, schema.stdin)) return raw;
 
-	const value = flagValueSchema(schema);
-	if (value !== undefined) {
-		const decoded = decodeValue(value, raw, 'token');
-		if (decoded.ok) return decoded.value;
-		throw flagValueError(flagName, displayName, raw, decoded.failure);
+	const cardinality = flagCardinality(schema);
+	if (cardinality.kind === 'count') {
+		return coerceCountToken(flagName, raw, displayName);
 	}
-
-	switch (schema.kind) {
-		case 'array':
-			// Array element — coerce via element schema if present
-			if (schema.elementSchema) {
-				return coerceFlagValue(flagName, raw, schema.elementSchema);
-			}
-			return raw;
-
-		case 'count': {
-			// Explicit count values: --verbose=2. Reject '' explicitly —
-			// Number('') is 0, which would silently accept `--verbose=`.
-			const n = raw.trim() === '' ? Number.NaN : Number(raw);
-			if (!Number.isInteger(n) || n < 0) {
-				throw new ParseError(
-					`Invalid count value '${raw}' for flag ${displayName}. Use a non-negative integer`,
-					{
-						code: 'INVALID_VALUE',
-						details: { flag: flagName, input: displayName, value: raw, expected: 'count' },
-					},
-				);
-			}
-			return n;
-		}
-
-		case 'keyValue':
-			// Split at the FIRST '=' so values may contain '=' themselves.
-			return parseKeyValuePair(flagName, raw, displayName);
+	if (cardinality.kind === 'entries') {
+		return coerceEntryToken(flagName, raw, schema, displayName);
 	}
+	return coerceElementToken(flagName, raw, schema, displayName);
+}
 
-	throw new Error(`Unreachable flag coercion kind: ${schema.kind}`);
+/** Decode one token through the flag's element value axis. */
+function coerceElementToken(
+	flagName: string,
+	raw: string,
+	schema: FlagSchema,
+	displayName: string,
+): unknown {
+	const decoded = decodeValue(flagValueSchema(schema), raw, 'token');
+	if (decoded.ok) return decoded.value;
+	throw flagValueError(flagName, displayName, raw, decoded.failure);
+}
+
+/** Read an explicit count token such as `--verbose=2`. */
+function coerceCountToken(flagName: string, raw: string, displayName: string): number {
+	// Number('') is 0, which would silently accept `--verbose=`.
+	const count = raw.trim() === '' ? Number.NaN : Number(raw);
+	if (!Number.isInteger(count) || count < 0) {
+		throw new ParseError(
+			`Invalid count value '${raw}' for flag ${displayName}. Use a non-negative integer`,
+			{
+				code: 'INVALID_VALUE',
+				details: { flag: flagName, input: displayName, value: raw, expected: 'count' },
+			},
+		);
+	}
+	return count;
+}
+
+/** Read one `KEY=VALUE` token and decode its value through the element value axis. */
+function coerceEntryToken(
+	flagName: string,
+	raw: string,
+	schema: FlagSchema,
+	displayName: string,
+): readonly [string, unknown] {
+	const pair = splitEntryPair(raw);
+	if (pair === undefined) {
+		throw new ParseError(`Invalid value '${raw}' for flag ${displayName}. Use KEY=VALUE`, {
+			code: 'INVALID_VALUE',
+			details: { flag: flagName, input: displayName, value: raw, expected: 'key=value' },
+		});
+	}
+	return [pair[0], coerceElementToken(flagName, pair[1], schema, displayName)];
 }
 
 /**
@@ -527,6 +551,22 @@ function flagValueError(
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
 	if (isStdinSentinel(raw, schema.stdin)) return raw;
 
+	if (schema.kind === 'keyValue') {
+		const pair = splitEntryPair(raw);
+		if (pair === undefined) {
+			throw new ParseError(`Invalid value '${raw}' for argument <${argName}>. Use KEY=VALUE`, {
+				code: 'INVALID_VALUE',
+				details: { arg: argName, value: raw, expected: 'key=value' },
+			});
+		}
+		return [pair[0], decodeArgToken(argName, pair[1], schema)];
+	}
+
+	return decodeArgToken(argName, raw, schema);
+}
+
+/** Decode one token through the arg's element value axis. */
+function decodeArgToken(argName: string, raw: string, schema: ArgSchema): unknown {
 	const decoded = decodeValue(argValueSchema(schema), raw, 'token');
 	if (decoded.ok) return decoded.value;
 	throw argValueError(argName, raw, decoded.failure);
@@ -856,15 +896,21 @@ function parseShortFlags(
 	return nextIdx;
 }
 
-// --- Flag value setter (handles array accumulation)
+// --- Flag value setter (handles collection accumulation)
 
 /**
- * Set or accumulate a flag value, handling array flags specially.
+ * Set or accumulate a flag value.
+ *
+ * A collection keeps its CLI occurrences in the order they were typed, elements
+ * for `many` and `[key, value]` pairs for `entries`. Aggregation happens during
+ * resolution, where the stdin buffer an occurrence of `-` stands for is spliced
+ * into that order.
  *
  * @param flags - Mutable accumulator for resolved flag values
  * @param name - Canonical flag name
  * @param schema - {@link FlagSchema} declaring the expected kind
  * @param rawValue - Raw string value from argv
+ * @param displayName - Spelling the user typed
  */
 function setFlagValue(
 	flags: Record<string, unknown>,
@@ -873,63 +919,50 @@ function setFlagValue(
 	rawValue: string,
 	displayName = `--${name}`,
 ): void {
-	if (schema.kind === 'array') {
-		// With a separator, one occurrence may carry several elements
-		// (--tag a,b); each element is coerced individually so errors name
-		// the offending element, not the whole token.
-		const parts = schema.separator !== undefined ? rawValue.split(schema.separator) : [rawValue];
-		const coercedParts = parts
-			.filter((part) => schema.separator === undefined || part.length > 0)
-			.map((part) => coerceFlagValue(name, part, schema, displayName));
-		const existing = flags[name];
-		if (Array.isArray(existing)) {
-			existing.push(...coercedParts);
-		} else {
-			flags[name] = coercedParts;
-		}
+	const cardinality = flagCardinality(schema);
+	if (cardinality.kind !== 'many' && cardinality.kind !== 'entries') {
+		flags[name] = coerceFlagValue(name, rawValue, schema, displayName);
 		return;
 	}
 
-	if (schema.kind === 'keyValue') {
-		const pair = parseKeyValuePair(name, rawValue, displayName);
-		const existing = flags[name];
-		// Object.fromEntries defines own data properties, so keys like
-		// '__proto__' are stored verbatim instead of being silently eaten by
-		// the prototype setter.
-		flags[name] = Object.fromEntries([
-			...(isPlainRecord(existing) ? Object.entries(existing) : []),
-			pair,
-		]);
-		return;
+	// One occurrence may carry several elements (--tag a,b); each is coerced
+	// individually so errors name the offending element, not the whole token.
+	const coerced = splitCliToken(cardinality.splitting.cli, rawValue, schema).map((part) =>
+		coerceFlagValue(name, part, schema, displayName),
+	);
+	const existing = flags[name];
+	if (Array.isArray(existing)) {
+		existing.push(...coerced);
+	} else {
+		flags[name] = coerced;
 	}
-
-	flags[name] = coerceFlagValue(name, rawValue, schema, displayName);
-}
-
-/** Narrow to a mutable string-record accumulator (keyValue flags only ever store these). */
-function isPlainRecord(value: unknown): value is Record<string, string> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
- * Split a `KEY=VALUE` token at the first `=`.
+ * Split one CLI token into the elements it carries.
  *
- * @throws ParseError when the token has no `=` or an empty key.
+ * The stdin sentinel names a source rather than a value, so it stays one
+ * element whatever the split policy says.
+ *
+ * @param policy - The CLI split policy.
+ * @param raw - The raw token.
+ * @param schema - The input's schema, read for its stdin axis.
+ * @returns The token's elements.
  */
-function parseKeyValuePair(
-	flagName: string,
+function splitCliToken(
+	policy: SplitPolicy,
 	raw: string,
-	displayName = `--${flagName}`,
-): readonly [string, string] {
-	const eq = raw.indexOf('=');
-	if (eq <= 0) {
-		throw new ParseError(`Invalid value '${raw}' for flag ${displayName}. Use KEY=VALUE`, {
-			code: 'INVALID_VALUE',
-			details: { flag: flagName, input: displayName, value: raw, expected: 'key=value' },
-		});
+	schema: { readonly stdin: StdinBinding | undefined },
+): readonly string[] {
+	if (isStdinSentinel(raw, schema.stdin)) return [raw];
+	if (policy.format === 'delimiter') {
+		return raw.split(policy.delimiter).filter((part) => part.length > 0);
 	}
-	return [raw.slice(0, eq), raw.slice(eq + 1)];
+	return [raw];
 }
+
+/** The CLI policy a single-value positional splits under: none at all. */
+const WHOLE_TOKEN: SplitPolicy = { format: 'whole' };
 
 // --- Positional arg mapping
 
@@ -949,17 +982,27 @@ function mapPositionals(
 	let posIdx = 0;
 
 	for (const entry of argEntries) {
+		const cardinality = argCardinality(entry.schema);
 		if (entry.schema.variadic) {
 			// Variadic arg consumes all remaining positionals
 			const remaining = positionals.slice(posIdx);
-			args[entry.name] = remaining.map((raw) => coerceArgValue(entry.name, raw, entry.schema));
+			const policy =
+				cardinality.kind === 'many' || cardinality.kind === 'entries'
+					? cardinality.splitting.cli
+					: WHOLE_TOKEN;
+			args[entry.name] = remaining.flatMap((raw) =>
+				splitCliToken(policy, raw, { stdin: entry.schema.stdin }).map((part) =>
+					coerceArgValue(entry.name, part, entry.schema),
+				),
+			);
 			posIdx = positionals.length;
 			break;
 		}
 
 		const rawPositional = positionals[posIdx];
 		if (rawPositional !== undefined) {
-			args[entry.name] = coerceArgValue(entry.name, rawPositional, entry.schema);
+			const coerced = coerceArgValue(entry.name, rawPositional, entry.schema);
+			args[entry.name] = cardinality.kind === 'entries' ? [coerced] : coerced;
 			posIdx++;
 		}
 		// If no positional available, leave absent (resolution/validation handles defaults/required)

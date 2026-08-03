@@ -93,7 +93,7 @@ const definitionMetaSchemaDescriptions = {
 					description: "Allowed literal values when `kind === 'enum'`.",
 				},
 				elementSchema: {
-					description: "Element schema when `kind === 'array'`.",
+					description: "Element schema when `kind === 'array'` or `kind === 'keyValue'`.",
 				},
 				prompt: {
 					description: 'Interactive prompt configuration for v0.3+ resolution.',

@@ -411,15 +411,28 @@ describe('generateSchema — definition metadata', () => {
 	});
 
 	it('omits non-finite numeric defaults from definition schema output', () => {
-		const cases = [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+		const cases = [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+		const numberConstraints = { finite: false };
 
 		for (const defaultValue of cases) {
 			const cmd = commandDef({
 				name: 'test',
 				flags: {
-					count: flagDef({ kind: 'number', presence: 'defaulted', defaultValue }),
+					count: flagDef({
+						kind: 'number',
+						presence: 'defaulted',
+						defaultValue,
+						numberConstraints,
+					}),
 				},
-				args: [argEntry('target', { kind: 'number', presence: 'defaulted', defaultValue })],
+				args: [
+					argEntry('target', {
+						kind: 'number',
+						presence: 'defaulted',
+						defaultValue,
+						numberConstraints,
+					}),
+				],
 			});
 			const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
@@ -668,7 +681,7 @@ describe('generateSchema — definition metadata', () => {
 		cycle['self'] = cycle;
 		const cmd = commandDef({
 			name: 'test',
-			flags: { meta: flagDef({ presence: 'defaulted', defaultValue: cycle }) },
+			flags: { meta: flagDef({ kind: 'custom', presence: 'defaulted', defaultValue: cycle }) },
 		});
 		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
@@ -680,7 +693,7 @@ describe('generateSchema — definition metadata', () => {
 		const graph = { primary: shared, secondary: shared };
 		const cmd = commandDef({
 			name: 'test',
-			flags: { meta: flagDef({ presence: 'defaulted', defaultValue: graph }) },
+			flags: { meta: flagDef({ kind: 'custom', presence: 'defaulted', defaultValue: graph }) },
 		});
 		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
@@ -702,7 +715,7 @@ describe('generateSchema — definition metadata', () => {
 		for (const defaultValue of cases) {
 			const cmd = commandDef({
 				name: 'test',
-				flags: { meta: flagDef({ presence: 'defaulted', defaultValue }) },
+				flags: { meta: flagDef({ kind: 'custom', presence: 'defaulted', defaultValue }) },
 			});
 			const result = generateSchema(minimalCLI({ commands: [cmd] }));
 
@@ -944,7 +957,12 @@ describe('generateSchema — definition metadata', () => {
 				kind: 'array',
 				elementSchema: flagDef({ kind: 'string' }),
 				separator: ',',
+				split: { env: { format: 'json' }, stdin: { format: 'lines' } },
 				unique: true,
+			}),
+			vars: flagDef({
+				kind: 'keyValue',
+				duplicateKeys: 'error',
 			}),
 			force: flagDef({
 				kind: 'boolean',
@@ -1059,7 +1077,13 @@ describe('generateSchema — definition metadata', () => {
 				stringConstraints: { nonEmpty: true, minLength: 2, maxLength: 12, pattern: /^v\d+$/ },
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
-			argEntry('extras', { variadic: true }),
+			argEntry('extras', {
+				variadic: true,
+				separator: ',',
+				split: { env: { format: 'json' }, stdin: { format: 'lines' } },
+				unique: true,
+			}),
+			argEntry('vars', { kind: 'keyValue', duplicateKeys: 'error' }),
 			argEntry('piped', {
 				stdin: { when: 'dash-or-missing', consume: 'exclusive' },
 				configPath: 'release.piped',
@@ -1097,8 +1121,8 @@ describe('generateSchema — definition metadata', () => {
 		}
 
 		expect([...serializedFields].sort()).toEqual(Object.keys(argMetaProperties).sort());
-		expect(expectRecord(args[5])).not.toHaveProperty('parseFn');
-		expect(expectRecord(args[5])).not.toHaveProperty('standard');
+		expect(expectRecord(args[6])).not.toHaveProperty('parseFn');
+		expect(expectRecord(args[6])).not.toHaveProperty('standard');
 	});
 });
 
@@ -1244,15 +1268,28 @@ describe('generateInputSchema — input validation', () => {
 	});
 
 	it('omits non-finite numeric defaults from input schema output', () => {
-		const cases = [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+		const cases = [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+		const numberConstraints = { finite: false };
 
 		for (const defaultValue of cases) {
 			const cmd = commandDef({
 				name: 'test',
 				flags: {
-					count: flagDef({ kind: 'number', presence: 'defaulted', defaultValue }),
+					count: flagDef({
+						kind: 'number',
+						presence: 'defaulted',
+						defaultValue,
+						numberConstraints,
+					}),
 				},
-				args: [argEntry('target', { kind: 'number', presence: 'defaulted', defaultValue })],
+				args: [
+					argEntry('target', {
+						kind: 'number',
+						presence: 'defaulted',
+						defaultValue,
+						numberConstraints,
+					}),
+				],
 			});
 			const result = generateInputSchema(cmd);
 

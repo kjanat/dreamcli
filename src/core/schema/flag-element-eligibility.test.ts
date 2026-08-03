@@ -25,6 +25,7 @@ describe('flag.array() element eligibility', () => {
 		flag.array(flag.date());
 		flag.array(flag.duration());
 		flag.array(flag.bytes());
+		flag.array(flag.path());
 	});
 
 	it('accepts element builders with value constraints (still element-meaningful)', () => {
@@ -73,8 +74,6 @@ describe('flag.array() element eligibility', () => {
 		flag.array(flag.count());
 		// @ts-expect-error — keyValue accumulates into a record, not an array
 		flag.array(flag.keyValue());
-		// @ts-expect-error — pathChecks are validated on the flag, never on elements
-		flag.array(flag.path());
 	});
 
 	it('flag-level modifiers still chain freely on the array itself', () => {

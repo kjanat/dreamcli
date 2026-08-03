@@ -14,11 +14,12 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 | `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                                          |
 | `stdin.ts`              |   134 | `StdinBinding` / `StdinOptions` — the stdin axis both factories carry, plus its normalizer                                  |
-| `source.ts`             |   226 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
+| `cardinality.ts`        |   674 | Internal cardinality axis: `Cardinality`, split policies, aggregation rules, declared-default validation                    |
+| `source.ts`             |   235 | Internal source axis — `RESOLUTION_ORDER`, `sourceBindings()`, stdin eligibility and exclusivity helpers                    |
 | `number-constraints.ts` |   153 | `NumberConstraints` + shared `validateNumberConstraints()` (parse & resolve both import it)                                 |
 | `string-constraints.ts` |   172 | `StringConstraints` + shared `validateStringConstraints()` / `stringConstraintDetails()` (parse & resolve both import them) |
 | `standard.ts`           |   143 | Vendored Standard Schema v1 types (no runtime dep) + `isStandardSchemaV1()` guard                                           |
-| `value.ts`              |   597 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
+| `value.ts`              |   731 | Internal value layer (`ValueSchema`, `ValueCodec`, `decodeValue()`, both schema projections)                                |
 | `value-parsers.ts`      |   329 | Value machinery behind the sugar factories on both `flag` and `arg` — parsers, path option types, `buildPathChecks()`       |
 | `run.ts`                |   241 | `RunOptions` / `RunResult` — execution options + structured result (re-exported by testkit)                                 |
 | `index.ts`              |   157 | Barrel — re-exports all public symbols                                                                                      |
@@ -56,9 +57,8 @@ subpath, and importers reach it by direct file import (`#internals/core/schema/v
 A `ValueSchema` holds `{ codec, constraints, standard, pathChecks, valueHint }`. The codec set is
 `string`, `number`, `boolean`, `enum`, and `custom`; the sugar members (`url`, `path`, `date`,
 `duration`, `bytes`) are a `custom` codec wrapping the matching function from `value-parsers.ts`
-plus a `valueHint`, and `path` is the `string` codec plus `pathChecks`. `array`, `count`, and
-`keyValue` carry no value schema; they live on the cardinality axis and `flagValueSchema()` returns
-`undefined` for them.
+plus a `valueHint`, and `path` is the `string` codec plus `pathChecks`. `array`, `count`, and `keyValue` ride the same carrier through
+their element value; the cardinality axis in `cardinality.ts` says how many of them there are.
 
 Two directions, one function each way:
 
@@ -71,6 +71,13 @@ Two directions, one function each way:
   since both enum definitions declare that field as required and an all-optional record cannot
   satisfy it; `flag.enum()` and `arg.enum()` pass it directly.
 
+`flagValueSchema()` is total. A collection projects onto the value of each ELEMENT (the element
+schema's codec, constraints, validator, and checks; an implicit passthrough for `array` and a strict
+string for `keyValue`), and what the completed collection must satisfy is read through
+`flagAggregateStandard()` / `argAggregateStandard()`. That is what makes `flag.array(flag.path())`
+check every element and `.standard()` mean element on an element builder and aggregate on a
+collection builder.
+
 `decodeValue(value, raw, input)` is the one decoding entry point. `input` is `'token'` for an argv
 token and `'stdin'` / `'env'` / `'config'` / `'prompt'` for resolver stages, which is what lets one
 boolean implementation accept `true`/`1`/`false`/`0` from argv and also `yes`/`no`/`''`/`y`/`n` from
@@ -82,12 +89,48 @@ value problem alone. Naming the subject (`flag --x` versus `argument <x>`) belon
 `'stdin'` accepts exactly what `'env'` accepts, and one trailing `\n`, `\r\n`, or `\r` is dropped
 before every codec except `string`, whose value is the bytes themselves.
 
-`validateDecodedValue(value, decoded)` applies the same constraints to a value that never came from
-a raw source. A declared default is already typed, so the L15/L16 defaults pass validates it here
-rather than adding a second dispatch over `stringConstraints` / `numberConstraints`.
+`validateDecodedValue(value, decoded)` checks a value that never came from a raw source against
+the codec's own output domain and then the constraints. A declared default is already typed, so the
+L15/L16 defaults pass validates it here rather than adding a second dispatch over
+`stringConstraints` / `numberConstraints`. The domain half is what rejects a `number` default on a
+`string` flag and an `enum` default outside `enumValues`; a `custom` codec has no domain, since its
+output is whatever its parse function returns.
 
 The public field shape of `FlagSchema` and `ArgSchema` is unchanged. Both still carry the flat
 fields, the definition document still serializes them, and `value.ts` is a view over them.
+
+## CARDINALITY AXIS (`cardinality.ts`)
+
+Internal, reached by direct file import. `Cardinality` is
+`one | many { unique, splitting } | entries { duplicateKeys, splitting } | count`.
+`flagCardinality(schema)` and `argCardinality(schema)` project either surface onto
+it: `array` is `many`, `keyValue` is `entries` (variadic or not, on args), `count`
+is its own arm, everything else is `one`. Parse and resolve dispatch on those
+projections, which is why neither carries an unreachable-kind throw any more.
+
+Splitting is per source. `SplitBinding` holds one `SplitPolicy` for CLI tokens,
+one for env values, and one for the stdin buffer; the carriers are the existing
+`separator` field (CLI delimiter) and the new `split` field (env and stdin), so
+`.separator(',')` and `.split({ cli: ',' })` write the same place and cannot
+drift. `ALLOWED_SPLIT_FORMATS` decides which formats a source accepts, and
+`splitBindingOf()` fills the defaults: whole CLI tokens, comma-delimited env
+values, line-delimited stdin. A config value is native; a config string decodes
+under the env policy.
+
+`splitLines()` owns the Decision 5 rule: a final terminator frames the last line,
+so the one empty element it produces is removed and genuine blank lines survive.
+`foldEntries()` owns the duplicate-key policy, and `dedupe()` the uniqueness rule;
+both run wherever the collection completes, so every source obeys them.
+
+`validateDefault(element, cardinality, aggregate, value)` is the declared-default
+pass. A default is a typed value, so it is validated rather than decoded:
+constraints through `validateDecodedValue()`, the shape the cardinality requires,
+and any Standard Schema verdict available synchronously. A validator returning a
+promise is left to the resolution-time pass, as are filesystem checks.
+`assertValidFlagDefault()` / `assertValidArgDefault()` call it from the factories,
+from `.default()`, and from every modifier that could invalidate an existing
+default (`nextFlag()` / `nextArg()`), so the verdict does not depend on the order
+the chain was written in.
 
 ## SOURCE AXIS (`source.ts`, `stdin.ts`)
 
@@ -107,7 +150,9 @@ boundary, the preflight eligibility check, and the resolver cannot drift on it.
   `withPromptBinding()` applies an `.interactive()` override to one invocation's list.
 - `invocationSelectsStdin()` answers whether reading the stream is warranted at all; both
   `cli/runtime-preflight.ts` and `readFlags()` call it, so stdin is read at most once and only when a
-  stage would select it.
+  stage would select it. A collection's occurrences reach it as a list, so it looks for the `-`
+  sentinel among them as well as for a lone `-`, which is what makes `--tag before --tag -` read the
+  stream at all.
 - `stdinConsumers()` and `stdinConsumerReference()` back the `DUPLICATE_STDIN_INPUT` rule in
   `command.ts`, which spans flags and args together.
 
@@ -159,9 +204,9 @@ The one place the two projections differ is the `custom` parse function. A flag'
 and is called with the raw value; an arg's takes `string`, so `argValueSchema()` stringifies a
 non-string raw before calling it. Both store the caller's function verbatim on the schema.
 
-Flag-only by design: `boolean`, `count`, `negatable`, `alias`, `duplicates`, `separator`, `unique`,
-`propagate` (flag syntax), `array` (`.variadic()` serves it), and `keyValue`. Arg-only: `variadic`
-and required-by-default presence.
+Flag-only by design: `count`, `negatable`, `alias`, `duplicates`, `propagate` (flag syntax), and
+`array` (`.variadic()` serves it). Arg-only: `variadic` and required-by-default presence. `boolean`,
+`keyValue`, `separator`, `unique`, `split`, `duplicateKeys`, and `standard` are on both surfaces.
 
 The source axis is shared outright. `.stdin()`, `.env()`, `.config()`, `.prompt()`, and `.default()`
 are on both builders, and `source.ts` projects either schema onto the same ordered `SourceBinding`
@@ -231,7 +276,7 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   `toString`, which then reads as a supplied value. `resolveFlags()` in `resolve/` guards its `env`
   lookup and the interactive resolver's override record with `Object.hasOwn()` for that reason.
 
-## TEST FILES (18)
+## TEST FILES (20)
 
 | File                                | Tests                                                         |
 | ----------------------------------- | ------------------------------------------------------------- |
@@ -246,6 +291,8 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
 | `string-constraints.test.ts`        | String constraint validation + flag/arg builder chaining      |
 | `value-parsers.test.ts`             | URL/date/duration/bytes parsers + sugar factories             |
 | `value.test.ts`                     | Codecs, constraint routing, hint carriage, projections        |
+| `cardinality.test.ts`               | Split policies, folding, projections, validated defaults      |
+| `arg-collection-kinds.test.ts`      | `arg.boolean()` / `arg.keyValue()` e2e + `readFlags()` parity |
 | `arg.test.ts`                       | ArgBuilder API, kinds, validation                             |
 | `arg-value-factories.test.ts`       | `arg.url/path/date/duration/bytes()` + arg constraints        |
 | `factory-parity.test.ts`            | Same value through `flag.*` and `arg.*`, same verdict         |

@@ -18,6 +18,7 @@ import {
 	decodeValue,
 	durationValue,
 	enumValue,
+	flagAggregateStandard,
 	flagValueSchema,
 	numberValue,
 	passthroughValue,
@@ -402,10 +403,27 @@ describe('validateDecodedValue', () => {
 		expect(validateDecodedValue(numberValue({ max: 10 }), 9)).toBeUndefined();
 	});
 
-	it('has nothing to say about a codec that declares no constraints', () => {
+	it('accepts a value inside a constraint-free codec own domain', () => {
 		expect(validateDecodedValue(booleanValue(), true)).toBeUndefined();
-		expect(validateDecodedValue(enumValue(['a']), 'z')).toBeUndefined();
+		expect(validateDecodedValue(enumValue(['a']), 'a')).toBeUndefined();
+	});
+
+	it('rejects a value outside the codec own domain', () => {
+		expect(validateDecodedValue(booleanValue(), 'yes')).toEqual({
+			kind: 'type',
+			expected: 'boolean',
+		});
+		expect(validateDecodedValue(stringValue(), 42)).toEqual({ kind: 'type', expected: 'string' });
+		expect(validateDecodedValue(numberValue(), '42')).toEqual({ kind: 'type', expected: 'number' });
+		expect(validateDecodedValue(enumValue(['a']), 'z')).toEqual({
+			kind: 'enum',
+			enumValues: ['a'],
+		});
+	});
+
+	it('has no domain to check for a custom codec, whose output is its own', () => {
 		expect(validateDecodedValue(urlValue(), new URL('https://example.com/'))).toBeUndefined();
+		expect(validateDecodedValue(passthroughValue(), { anything: true })).toBeUndefined();
 	});
 });
 
@@ -422,10 +440,21 @@ describe('flagValueSchema', () => {
 		expect(flagValueSchema(createFlagSchema('custom'))?.codec.name).toBe('custom');
 	});
 
-	it('leaves the collection kinds to the cardinality axis', () => {
-		expect(flagValueSchema(createFlagSchema('array'))).toBeUndefined();
-		expect(flagValueSchema(createFlagSchema('count'))).toBeUndefined();
-		expect(flagValueSchema(createFlagSchema('keyValue'))).toBeUndefined();
+	it('projects a collection onto the value of its element', () => {
+		expect(flagValueSchema(createFlagSchema('array')).codec.name).toBe('custom');
+		expect(flagValueSchema(createFlagSchema('keyValue')).codec.name).toBe('string');
+		expect(flagValueSchema(createFlagSchema('count')).codec.name).toBe('number');
+		expect(flagValueSchema(flag.array(flag.number({ min: 1 })).schema).constraints).toEqual({
+			kind: 'number',
+			numberConstraints: { min: 1 },
+		});
+		expect(flagValueSchema(flag.keyValue(flag.path()).schema).valueHint).toBe('path');
+	});
+
+	it('keeps a collection validator on the aggregate rather than the element', () => {
+		const schema = flag.array(flag.string()).standard(standardNumber).schema;
+		expect(flagValueSchema(schema).standard).toBeUndefined();
+		expect(flagAggregateStandard(schema)).toBe(standardNumber);
 	});
 
 	it('reads the flat fields back onto the value slots', () => {

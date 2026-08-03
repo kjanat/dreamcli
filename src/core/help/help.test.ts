@@ -168,7 +168,7 @@ describe('formatHelp', () => {
 				args: [
 					{
 						name: 'env',
-						schema: createArgSchema('string', {
+						schema: createArgSchema('custom', {
 							presence: 'defaulted',
 							defaultValue: null,
 							description: 'Environment',
@@ -336,7 +336,7 @@ describe('formatHelp', () => {
 			const nullHelp = formatHelp({
 				...base.schema,
 				flags: {
-					token: createFlagSchema('string', {
+					token: createFlagSchema('custom', {
 						presence: 'defaulted',
 						defaultValue: null,
 						description: 'Token',

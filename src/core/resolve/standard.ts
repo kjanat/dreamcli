@@ -11,13 +11,23 @@
  */
 
 import { ValidationError } from '#internals/core/errors/index.ts';
+import {
+	argCardinality,
+	flagCardinality,
+	isCollection,
+} from '#internals/core/schema/cardinality.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
 import type {
 	StandardSchemaV1,
 	StandardSchemaV1Issue,
 	StandardSchemaV1PathSegment,
 } from '#internals/core/schema/standard.ts';
-import { argValueSchema, flagValueSchema } from '#internals/core/schema/value.ts';
+import {
+	argAggregateStandard,
+	argValueSchema,
+	flagAggregateStandard,
+	flagValueSchema,
+} from '#internals/core/schema/value.ts';
 
 /** Resolved values after the Standard Schema pass, plus any issues found. */
 interface StandardValidationResult {
@@ -105,73 +115,140 @@ async function applyStandardValidators(
 	args: Readonly<Record<string, unknown>>,
 ): Promise<StandardValidationResult> {
 	const errors: ValidationError[] = [];
+
 	const nextFlags: Record<string, unknown> = { ...flags };
 	for (const [name, flagSchema] of Object.entries(schema.flags)) {
 		const value = resolvedValue(flags, name);
-		if (value === undefined) {
-			continue;
-		}
-		const elementSchema = flagSchema.kind === 'array' ? flagSchema.elementSchema : undefined;
-		const elementValidator =
-			elementSchema === undefined ? undefined : flagValueSchema(elementSchema)?.standard;
-		if (elementValidator !== undefined && Array.isArray(value)) {
-			const nextValue: unknown[] = [];
-			for (const [index, element] of value.entries()) {
-				const result = await validateValue(`--${name}[${index}]`, element, elementValidator);
-				if (result.ok) {
-					nextValue.push(result.value);
-				} else {
-					nextValue.push(element);
-					errors.push(result.error);
-				}
-			}
-			nextFlags[name] = nextValue;
-			continue;
-		}
-
-		const validator = flagValueSchema(flagSchema)?.standard;
-		if (validator === undefined) {
-			continue;
-		}
-		const result = await validateValue(`--${name}`, value, validator);
-		if (result.ok) {
-			nextFlags[name] = result.value;
-		} else {
-			errors.push(result.error);
-		}
+		if (value === undefined) continue;
+		const validated = await validateInput(
+			`--${name}`,
+			value,
+			isCollection(flagCardinality(flagSchema)),
+			flagValueSchema(flagSchema).standard,
+			flagAggregateStandard(flagSchema),
+			errors,
+		);
+		if (validated.changed) nextFlags[name] = validated.value;
 	}
 
 	const nextArgs: Record<string, unknown> = { ...args };
 	for (const entry of schema.args) {
-		const validator = argValueSchema(entry.schema).standard;
 		const value = resolvedValue(args, entry.name);
-		if (validator === undefined || value === undefined) {
-			continue;
-		}
-		if (entry.schema.variadic && Array.isArray(value)) {
-			const nextValue: unknown[] = [];
-			for (const [index, element] of value.entries()) {
-				const result = await validateValue(`<${entry.name}>[${index}]`, element, validator);
-				if (result.ok) {
-					nextValue.push(result.value);
-				} else {
-					nextValue.push(element);
-					errors.push(result.error);
-				}
-			}
-			nextArgs[entry.name] = nextValue;
-			continue;
-		}
+		if (value === undefined) continue;
+		const validated = await validateInput(
+			`<${entry.name}>`,
+			value,
+			isCollection(argCardinality(entry.schema)),
+			argValueSchema(entry.schema).standard,
+			argAggregateStandard(entry.schema),
+			errors,
+		);
+		if (validated.changed) nextArgs[entry.name] = validated.value;
+	}
 
-		const result = await validateValue(`<${entry.name}>`, value, validator);
+	return { flags: nextFlags, args: nextArgs, errors };
+}
+
+/**
+ * Run the element pass and then the aggregate pass over one resolved value.
+ *
+ * A collection validates every element before the completed array or record
+ * reaches the aggregate validator, so an element issue names the element.
+ *
+ * @param label - How the input is spelled in diagnostics.
+ * @param value - The resolved value.
+ * @param collection - Whether the input's cardinality aggregates values.
+ * @param element - Validator for each element, or for the value itself.
+ * @param aggregate - Validator for the completed collection.
+ * @param errors - Collector for the issues found.
+ * @returns The value to store, and whether validation replaced it.
+ */
+async function validateInput(
+	label: string,
+	value: unknown,
+	collection: boolean,
+	element: StandardSchemaV1 | undefined,
+	aggregate: StandardSchemaV1 | undefined,
+	errors: ValidationError[],
+): Promise<{ readonly changed: boolean; readonly value: unknown }> {
+	let current = value;
+	let changed = false;
+
+	if (element !== undefined) {
+		const validated = collection
+			? await validateElements(label, current, element, errors)
+			: await validateOne(label, current, element, errors);
+		current = validated.value;
+		changed = changed || validated.changed;
+	}
+
+	if (aggregate !== undefined) {
+		const result = await validateValue(label, current, aggregate);
 		if (result.ok) {
-			nextArgs[entry.name] = result.value;
+			current = result.value;
+			changed = true;
 		} else {
 			errors.push(result.error);
 		}
 	}
 
-	return { flags: nextFlags, args: nextArgs, errors };
+	return { changed, value: current };
+}
+
+/** Apply the element validator to a value, entry by entry when it is a collection. */
+async function validateElements(
+	label: string,
+	value: unknown,
+	validator: StandardSchemaV1,
+	errors: ValidationError[],
+): Promise<{ readonly changed: boolean; readonly value: unknown }> {
+	if (Array.isArray(value)) {
+		const next: unknown[] = [];
+		for (const [index, element] of value.entries()) {
+			const result = await validateValue(`${label}[${index}]`, element, validator);
+			if (result.ok) {
+				next.push(result.value);
+			} else {
+				next.push(element);
+				errors.push(result.error);
+			}
+		}
+		return { changed: true, value: next };
+	}
+
+	if (isPlainRecord(value)) {
+		// Object.fromEntries defines own data properties, so a '__proto__' key is
+		// rebuilt verbatim instead of reaching the prototype setter.
+		const next = new Map<string, unknown>();
+		for (const [key, entry] of Object.entries(value)) {
+			const result = await validateValue(`${label}.${key}`, entry, validator);
+			next.set(key, result.ok ? result.value : entry);
+			if (!result.ok) errors.push(result.error);
+		}
+		return { changed: true, value: Object.fromEntries(next) };
+	}
+
+	return validateOne(label, value, validator, errors);
+}
+
+/** Apply a validator to one value. */
+async function validateOne(
+	label: string,
+	value: unknown,
+	validator: StandardSchemaV1,
+	errors: ValidationError[],
+): Promise<{ readonly changed: boolean; readonly value: unknown }> {
+	const result = await validateValue(label, value, validator);
+	if (result.ok) return { changed: true, value: result.value };
+	errors.push(result.error);
+	return { changed: false, value };
+}
+
+/** Whether a resolved value is the record an entries collection produces. */
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+	const prototype: unknown = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
 }
 
 export { applyStandardValidators };

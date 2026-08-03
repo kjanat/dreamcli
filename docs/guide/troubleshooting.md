@@ -98,6 +98,77 @@ Fix:
 
 References: [CLI Semantics](/guide/semantics), [Arguments](/guide/arguments), [Flags](/guide/flags)
 
+## A Piped Value Carries A Trailing Newline
+
+Symptom:
+
+- a piped path fails a `mustExist` check that passes for the same path typed on
+  the command line, with the error text broken across two lines;
+- a piped string compares unequal to the value you expected.
+
+Cause:
+
+- there is no trim option. A `string` input keeps the stdin buffer byte for
+  byte, because for a string the text *is* the value, and truncating it would
+  discard data the caller may have meant. `flag.path()` and `arg.path()` resolve
+  as strings, so they keep it too.
+- every other scalar kind interprets the text rather than keeping it, so it
+  drops one trailing `\n`, `\r\n`, or `\r` before decoding. `echo 42` reaches
+  `flag.number()` as `42`, and `echo 30s` reaches `flag.duration()` as `30s`.
+
+Check:
+
+- the input's kind. Only `string` and the path kinds keep the terminator.
+- whether the producer appends a newline. `echo` does; `printf` without `\n`
+  does not.
+
+Fix:
+
+- pipe with `printf './docs'` instead of `echo ./docs`;
+- or strip the terminator upstream, for example `... | tr -d '\n' | mycli`;
+- or declare the input as a collection, where line splitting treats a final
+  terminator as framing and drops it.
+
+References: [CLI Semantics](/guide/semantics), [Flags](/guide/flags#path),
+[Arguments](/guide/arguments#path)
+
+## A Piped Collection Loses Or Duplicates Elements
+
+Symptom:
+
+- a `-` occurrence on an array or key-value input produces nothing, or produces
+  more elements than the pipe carried;
+- the pipe's elements land in the wrong position in the resolved list.
+
+Cause:
+
+- a `-` occurrence stands for the whole stdin source at the position it holds,
+  and the decoded elements are spliced in there. Two `-` occurrences therefore
+  splice the same buffer twice.
+- when every occurrence is `-` and nothing was piped, the input produces no CLI
+  value at all, so a later source or the default supplies the result.
+- an input that never declared `.stdin()` treats `-` as an ordinary element and
+  never reads the stream.
+- the buffer decodes under the *stdin* policy, `'lines'` by default, not under
+  the CLI separator.
+
+Check:
+
+- the declaration includes `.stdin()`, and its `when` accepts a dash;
+- how many `-` occurrences the invocation actually passes;
+- whether `.split({ stdin })` matches the shape being piped, for example
+  `'json'` for a piped JSON document.
+
+Fix:
+
+- pass `-` once for one splice;
+- set `.split({ stdin: 'json' })` or a delimiter when the pipe is not
+  line-oriented;
+- pass the values on argv when the pipe was not meant to be the source.
+
+References: [Collections](/guide/flags#collections),
+[CLI Semantics](/guide/semantics)
+
 ## Two Inputs Both Want Stdin
 
 Symptom:

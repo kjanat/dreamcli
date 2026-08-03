@@ -104,5 +104,24 @@ async function validatePathChecks(
 	return undefined;
 }
 
+/**
+ * List the path strings a resolved value carries.
+ *
+ * Path checks belong to the element, so a collection is checked entry by entry:
+ * an array yields its string elements and a record its string values. A value
+ * of another type belongs to another codec and is skipped.
+ *
+ * @param value - The resolved flag or arg value.
+ * @returns Every path string to check, possibly none.
+ */
+function pathValuesOf(value: unknown): readonly string[] {
+	if (typeof value === 'string') return [value];
+	if (Array.isArray(value)) return value.filter((entry) => typeof entry === 'string');
+	if (typeof value === 'object' && value !== null) {
+		return Object.values(value).filter((entry): entry is string => typeof entry === 'string');
+	}
+	return [];
+}
+
 export type { MkdirFn, PathCheckSubject, StatFn };
-export { validatePathChecks };
+export { pathValuesOf, validatePathChecks };

@@ -19,12 +19,14 @@
 import type { ArgSchema } from './arg.ts';
 import type { FlagSchema } from './flag.ts';
 import {
+	describeNumberConstraintViolation,
 	type NumberConstraints,
 	type NumberConstraintViolation,
 	validateNumberConstraints,
 } from './number-constraints.ts';
 import type { StandardSchemaV1 } from './standard.ts';
 import {
+	describeStringConstraintViolation,
 	type StringConstraints,
 	type StringConstraintViolation,
 	validateStringConstraints,
@@ -168,6 +170,14 @@ const stringCodec: ValueCodec<string> = {
 			return { ok: true, value: String(raw) };
 		}
 		return STRING_TYPE_FAILURE;
+	},
+};
+
+/** Reads a raw value as a string, rejecting every other type from every input. */
+const strictStringCodec: ValueCodec<string> = {
+	name: 'string',
+	decode(raw) {
+		return typeof raw === 'string' ? { ok: true, value: raw } : STRING_TYPE_FAILURE;
 	},
 };
 
@@ -327,18 +337,73 @@ function stdinDecodeInput(codec: ValueCodec, raw: unknown, input: ValueInput): u
 }
 
 /**
- * Apply the constraints a value schema carries to a value that skipped decoding.
+ * Check a value that skipped decoding against everything the codec would have
+ * produced and the constraints would have enforced.
  *
  * A declared default is already the typed value, so it is validated rather than
- * read from a raw source. Standard Schema and filesystem checks ride on the
- * value schema separately and stay with their own passes.
+ * read from a raw source: it must lie in the codec's own output domain, and it
+ * must satisfy the constraints. Standard Schema and filesystem checks ride on
+ * the value schema separately and stay with their own passes.
  *
- * @param value - The value axis declaring the constraints.
+ * @param value - The value axis declaring the codec and the constraints.
  * @param decoded - The already-typed value to check.
  * @returns The {@link ValueFailure} that rejected it, or `undefined` when it passes.
  */
 function validateDecodedValue(value: ValueSchema, decoded: unknown): ValueFailure | undefined {
-	return checkValueConstraints(value.constraints, decoded);
+	return (
+		checkValueDomain(value.codec, decoded) ?? checkValueConstraints(value.constraints, decoded)
+	);
+}
+
+/**
+ * Check that a value lies in the domain a codec produces.
+ *
+ * A `custom` codec's output is whatever its parse function returns, so it has
+ * no domain to check. `NaN` is left to the number constraints, which reject it
+ * with the reason a reader can act on.
+ *
+ * @param codec - The codec the value claims to belong to.
+ * @param value - The already-typed value to check.
+ * @returns The {@link ValueFailure} that rejected it, or `undefined` when it passes.
+ */
+function checkValueDomain(codec: ValueCodec, value: unknown): ValueFailure | undefined {
+	switch (codec.name) {
+		case 'string':
+			return typeof value === 'string' ? undefined : { kind: 'type', expected: 'string' };
+		case 'number':
+			return typeof value === 'number' ? undefined : { kind: 'type', expected: 'number' };
+		case 'boolean':
+			return typeof value === 'boolean' ? undefined : { kind: 'type', expected: 'boolean' };
+		case 'enum':
+			return typeof value === 'string' && codec.enumValues?.includes(value) === true
+				? undefined
+				: { kind: 'enum', enumValues: codec.enumValues };
+		case 'custom':
+			return undefined;
+	}
+}
+
+/**
+ * Describe a value failure in the words a message can carry.
+ *
+ * The subject the value belonged to is the caller's to name.
+ *
+ * @param failure - What the value layer rejected.
+ * @returns One clause stating the problem.
+ */
+function describeValueFailure(failure: ValueFailure): string {
+	switch (failure.kind) {
+		case 'type':
+			return `expected a ${failure.expected}`;
+		case 'enum':
+			return `expected one of: ${(failure.enumValues ?? []).join(', ')}`;
+		case 'string-constraint':
+			return describeStringConstraintViolation(failure.violation);
+		case 'number-constraint':
+			return describeNumberConstraintViolation(failure.violation);
+		case 'thrown':
+			return failure.error instanceof Error ? failure.error.message : String(failure.error);
+	}
 }
 
 /** Apply the constraints a value schema carries to an already-decoded value. */
@@ -381,6 +446,18 @@ function makeValue<T, P>(
 /** A string value, optionally constrained. */
 function stringValue(stringConstraints?: StringConstraints): ValueSchema<string> {
 	return makeValue(stringCodec, { constraints: { kind: 'string', stringConstraints } });
+}
+
+/**
+ * A string value that accepts nothing but a string, from every input.
+ *
+ * The implicit element of an entries collection, whose values are strings on
+ * every source rather than a config scalar a string codec would stringify.
+ */
+function strictStringValue(): ValueSchema<string> {
+	return makeValue(strictStringCodec, {
+		constraints: { kind: 'string', stringConstraints: undefined },
+	});
 }
 
 /** A number value, optionally constrained. Finiteness applies with or without constraints. */
@@ -493,13 +570,95 @@ function valueDefinitionFields<T, P>(value: ValueSchema<T, P>): ValueDefinitionF
 /**
  * Project a flag schema onto its value axis.
  *
+ * A collection projects onto the value of each ELEMENT, so `flag.array()` and
+ * `flag.keyValue()` read their element schema's codec, constraints, validator,
+ * and path checks here. What the completed collection must satisfy lives on the
+ * cardinality axis and is read through {@link flagAggregateStandard}.
+ *
  * @param schema - The flag schema to read.
- * @returns The value axis, or `undefined` for the collection kinds (`array`,
- *   `count`, `keyValue`), whose values live on the cardinality axis.
+ * @returns The value axis of one value of the flag.
  */
-function flagValueSchema(schema: FlagSchema): ValueSchema | undefined {
-	const base = flagBaseValue(schema);
-	if (base === undefined) return undefined;
+function flagValueSchema(schema: FlagSchema): ValueSchema {
+	switch (schema.kind) {
+		case 'string':
+			return scalarValue(schema, stringValue(schema.stringConstraints));
+		case 'number':
+			return scalarValue(schema, numberValue(schema.numberConstraints));
+		case 'boolean':
+			return scalarValue(schema, booleanValue());
+		case 'enum':
+			return scalarValue(schema, enumValue(schema.enumValues));
+		case 'custom':
+			return scalarValue(
+				schema,
+				schema.parseFn === undefined ? passthroughValue() : customValue(schema.parseFn),
+			);
+		case 'array':
+			return elementValue(schema, passthroughValue);
+		case 'keyValue':
+			return elementValue(schema, strictStringValue);
+		case 'count':
+			return numberValue({ int: true, min: 0 });
+	}
+}
+
+/**
+ * Standard Schema validator applied to a flag's completed collection.
+ *
+ * @param schema - The flag schema to read.
+ * @returns The aggregate validator, or `undefined` for a scalar flag, whose
+ *   validator is the element's.
+ */
+function flagAggregateStandard(schema: FlagSchema): StandardSchemaV1 | undefined {
+	return schema.aggregateStandard;
+}
+
+/**
+ * Project an arg schema onto its value axis.
+ *
+ * @param schema - The arg schema to read.
+ * @returns The value axis of one value of the arg.
+ */
+function argValueSchema(schema: ArgSchema): ValueSchema {
+	switch (schema.kind) {
+		case 'string':
+			return scalarValue(schema, stringValue(schema.stringConstraints));
+		case 'number':
+			return scalarValue(schema, numberValue(schema.numberConstraints));
+		case 'boolean':
+			return scalarValue(schema, booleanValue());
+		case 'enum':
+			return scalarValue(schema, enumValue(schema.enumValues));
+		case 'custom':
+			return scalarValue(
+				schema,
+				schema.parseFn === undefined ? passthroughValue() : stringParsedValue(schema.parseFn),
+			);
+		case 'keyValue':
+			return scalarValue(schema, strictStringValue());
+	}
+}
+
+/**
+ * Standard Schema validator applied to an arg's completed collection.
+ *
+ * @param schema - The arg schema to read.
+ * @returns The aggregate validator, or `undefined` when none was declared on
+ *   the collection itself.
+ */
+function argAggregateStandard(schema: ArgSchema): StandardSchemaV1 | undefined {
+	return schema.aggregateStandard;
+}
+
+/** Attach the element-level slots a schema carries alongside its codec. */
+function scalarValue(
+	schema: {
+		readonly standard: StandardSchemaV1 | undefined;
+		readonly pathChecks: PathChecks | undefined;
+		readonly valueHint: string | undefined;
+	},
+	base: ValueSchema,
+): ValueSchema {
 	return {
 		...base,
 		standard: schema.standard,
@@ -508,53 +667,24 @@ function flagValueSchema(schema: FlagSchema): ValueSchema | undefined {
 	};
 }
 
-/** Rebuild the value a flag kind was declared with, from the flat schema fields. */
-function flagBaseValue(schema: FlagSchema): ValueSchema | undefined {
-	switch (schema.kind) {
-		case 'string':
-			return stringValue(schema.stringConstraints);
-		case 'number':
-			return numberValue(schema.numberConstraints);
-		case 'boolean':
-			return booleanValue();
-		case 'enum':
-			return enumValue(schema.enumValues);
-		case 'custom':
-			return schema.parseFn === undefined ? passthroughValue() : customValue(schema.parseFn);
-		case 'array':
-		case 'count':
-		case 'keyValue':
-			return undefined;
-	}
-}
-
 /**
- * Project an arg schema onto its value axis.
+ * Project a collection's element schema, or the implicit element it declares
+ * none for.
  *
- * @param schema - The arg schema to read.
- * @returns The value axis. Every arg kind carries one.
+ * A validator on the collection itself is the element's when the element
+ * declares none, so a definition-built `{ kind: 'array', standard }` validates
+ * each element exactly as a variadic arg's own `standard` does.
+ *
+ * @param schema - The collection flag schema.
+ * @param implicit - The element value used when no element schema is declared.
+ * @returns The value axis of one element.
  */
-function argValueSchema(schema: ArgSchema): ValueSchema {
-	return {
-		...argBaseValue(schema),
-		standard: schema.standard,
-		pathChecks: schema.pathChecks,
-		valueHint: schema.valueHint,
-	};
-}
-
-/** Rebuild the value an arg kind was declared with, from the flat schema fields. */
-function argBaseValue(schema: ArgSchema): ValueSchema {
-	switch (schema.kind) {
-		case 'string':
-			return stringValue(schema.stringConstraints);
-		case 'number':
-			return numberValue(schema.numberConstraints);
-		case 'enum':
-			return enumValue(schema.enumValues);
-		case 'custom':
-			return schema.parseFn === undefined ? passthroughValue() : stringParsedValue(schema.parseFn);
-	}
+function elementValue(schema: FlagSchema, implicit: () => ValueSchema): ValueSchema {
+	const element =
+		schema.elementSchema === undefined ? implicit() : flagValueSchema(schema.elementSchema);
+	return element.standard === undefined && schema.standard !== undefined
+		? { ...element, standard: schema.standard }
+		: element;
 }
 
 /** The literals an enum value allows, or `undefined` for every other codec. */
@@ -575,19 +705,23 @@ export type {
 	ValueTypeName,
 };
 export {
+	argAggregateStandard,
 	argValueSchema,
 	booleanValue,
 	bytesValue,
 	customValue,
 	dateValue,
 	decodeValue,
+	describeValueFailure,
 	durationValue,
 	enumValue,
+	flagAggregateStandard,
 	flagValueSchema,
 	numberValue,
 	passthroughValue,
 	pathValue,
 	standardValue,
+	strictStringValue,
 	stringParsedValue,
 	stringValue,
 	urlValue,

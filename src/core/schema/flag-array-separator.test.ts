@@ -195,14 +195,14 @@ describe('.unique() — dedup preserving first-seen order', () => {
 // --- Env resolution — separator interaction
 
 describe('env values — separator handling', () => {
-	it('splits env strings on the configured separator', async () => {
+	it('splits env strings on the configured env delimiter', async () => {
 		let received: unknown;
 		const cmd = command('deploy')
 			.flag(
 				'region',
 				flag
 					.array(flag.enum(['us', 'eu', 'ap']))
-					.separator('|')
+					.split({ cli: '|', env: '|' })
 					.env('REGIONS'),
 			)
 			.action(({ flags }) => {
@@ -212,6 +212,19 @@ describe('env values — separator handling', () => {
 		const result = await runCommand(cmd, [], { env: { REGIONS: 'us|eu|us' } });
 		expect(result.exitCode).toBe(0);
 		expect(received).toEqual(['us', 'eu', 'us']);
+	});
+
+	it('leaves env splitting on commas when only the CLI separator is set', async () => {
+		let received: unknown;
+		const cmd = command('tags')
+			.flag('tag', flag.array(flag.string()).separator('|').env('TAGS'))
+			.action(({ flags }) => {
+				received = flags.tag;
+			});
+
+		const result = await runCommand(cmd, [], { env: { TAGS: 'a,b' } });
+		expect(result.exitCode).toBe(0);
+		expect(received).toEqual(['a', 'b']);
 	});
 
 	it('splits env strings on the default comma when no separator is configured', async () => {

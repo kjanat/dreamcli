@@ -8,17 +8,18 @@
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
+import { argCardinality, dedupe } from '#internals/core/schema/cardinality.ts';
 import type { ArgSchema, CommandArgEntry } from '#internals/core/schema/index.ts';
 import type { PromptConfig } from '#internals/core/schema/prompt.ts';
 import type { SourceBinding } from '#internals/core/schema/source.ts';
 import { sourceBindings } from '#internals/core/schema/source.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
-import { coerceArgValue } from './coerce.ts';
+import { coerceArgValue, finishCliArgValue } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import { COMPATIBLE_PROMPT_KINDS } from './flags.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
-import { validatePathChecks } from './path-checks.ts';
+import { pathValuesOf, validatePathChecks } from './path-checks.ts';
 import type { PromptOutcome, StageInput, StageState } from './stages.ts';
 import { readCliValue, runStages } from './stages.ts';
 
@@ -88,18 +89,19 @@ async function resolveArgs(
 			continue;
 		}
 
-		if (schema.variadic) {
+		const cardinality = argCardinality(schema);
+		if (cardinality.kind === 'many' || cardinality.kind === 'entries') {
 			if (schema.presence === 'required') {
 				errors.push(
 					new ValidationError(`Missing required argument <${name}>`, {
 						code: 'REQUIRED_ARG',
-						details: { arg: name, variadic: true },
-						suggest: buildRequiredArgSuggest(name, schema, true),
+						details: { arg: name, ...(schema.variadic ? { variadic: true } : {}) },
+						suggest: buildRequiredArgSuggest(name, schema, schema.variadic),
 					}),
 				);
 				continue;
 			}
-			resolved[name] = [];
+			resolved[name] = cardinality.kind === 'many' ? [] : {};
 			options.provenance[name] = { stage: 'default' };
 			continue;
 		}
@@ -118,12 +120,20 @@ async function resolveArgs(
 		resolved[name] = undefined;
 	}
 
+	for (const { name, schema } of argEntries) {
+		if (!schema.unique) continue;
+		const value = Object.hasOwn(resolved, name) ? resolved[name] : undefined;
+		if (Array.isArray(value)) resolved[name] = [...dedupe(value)];
+	}
+
 	if (options.stat !== undefined) {
 		for (const { name, schema } of argEntries) {
 			const checks = argValueSchema(schema).pathChecks;
 			if (checks === undefined) continue;
 
-			for (const value of pathValuesOf(resolved[name])) {
+			for (const value of pathValuesOf(
+				Object.hasOwn(resolved, name) ? resolved[name] : undefined,
+			)) {
 				const violation = await validatePathChecks(
 					{ kind: 'arg', name },
 					value,
@@ -165,6 +175,7 @@ function stageInput(
 	return {
 		cli: collectedNothing ? { kind: 'absent' } : readCliValue(present, parsedValue, bindings),
 		coerce: (source, raw) => coerceArgValue(name, source, raw, schema),
+		finishCli: (value, stdinData) => finishCliArgValue(name, schema, value, stdinData),
 		runPrompt: async (config) =>
 			prompter === undefined
 				? { ok: false, error: undefined }
@@ -225,21 +236,6 @@ async function resolveArgPromptValue(
 	}
 
 	return coerceArgValue(argName, { kind: 'prompt' }, result.value, schema);
-}
-
-/**
- * List the path strings a resolved arg value carries.
- *
- * A variadic path arg resolves to an array, and every entry it collected is
- * checked; a non-string value belongs to another kind and is skipped.
- *
- * @param value - The resolved arg value.
- * @returns Every path string to check, possibly none.
- */
-function pathValuesOf(value: unknown): readonly string[] {
-	if (typeof value === 'string') return [value];
-	if (Array.isArray(value)) return value.filter((entry) => typeof entry === 'string');
-	return [];
 }
 
 function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {

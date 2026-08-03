@@ -160,29 +160,74 @@ flagTypes.array;
 //         ^?
 ```
 
-Array flags resolve to `[]` when unset — they never resolve to `undefined`.
+Array flags resolve to `[]` when unset. They never resolve to `undefined`.
 
 The element builder describes the *value shape only*: kinds and their value
-constraints (`flag.number({ int: true, min: 0 })`, `.nonEmpty()`,
-`.pattern()`, enum values, custom `parseFn`). Flag-level settings —
-`.alias()`, `.env()`, `.default()`, `.prompt()`, `.describe()`, and friends —
-belong on the array itself and are a **compile error** in element position,
-since an element schema would silently ignore them:
+constraints (`flag.number({ int: true, min: 0 })`, `.nonEmpty()`, `.pattern()`,
+enum values, custom `parseFn`). Flag-level settings such as `.alias()`,
+`.env()`, `.default()`, `.prompt()`, and `.describe()` belong on the array
+itself and are a **compile error** in element position, since an element schema
+would silently ignore them:
 
 ```ts
 flag.array(flag.number({ min: 1 })).env('PORTS').describe('Ports'); // ✓
-// flag.array(flag.number().env('PORTS'))  ✗ compile error — env the array, not the element
+// flag.array(flag.number().env('PORTS'))  ✗ compile error: env the array, not the element
 ```
 
-`flag.path()`, `flag.count()`, `flag.keyValue()`, and nested `flag.array()`
-are not element-eligible either.
+`flag.string()`, `flag.number()`, `flag.boolean()`, `flag.enum()`,
+`flag.custom()`, `flag.path()`, `flag.url()`, `flag.date()`, `flag.duration()`,
+and `flag.bytes()` are element-eligible. `flag.count()`, `flag.keyValue()`, and
+a nested `flag.array()` are rejected in element position, also at compile time.
 
-#### Separators and deduplication
+### Collections
 
-By default each occurrence of an array flag contributes exactly one element
-(`--tag a --tag b`). With `.separator()`, each occurrence is also split, so
-CSV-style input works alongside repetition — and each element is coerced
-individually, so an error names the offending element, not the whole token:
+`flag.array()` and `flag.keyValue()` are the two collection kinds. Both are
+decided along the same axis: how many values the flag carries and how they
+combine. An array carries an ordered list, a key-value flag carries a record of
+entries, and both fill from every source the flag declares under one set of
+rules. `flag.count()` sits on the same axis, carrying an occurrence count rather
+than values.
+
+The sections below apply to `flag.array()` and `flag.keyValue()` alike.
+
+#### How each source spells a collection
+
+Each source decodes the text it carries under its own policy. `.split()` sets
+all three at once, and `.separator()` sets the CLI one on its own:
+
+```ts
+flag.array(flag.string()).split({ cli: ',', env: { format: 'json' }, stdin: 'lines' });
+// --tag a,b            →  ['a', 'b']
+// TAGS='["a","b"]'     →  ['a', 'b']
+// printf 'a\nb\n' | …  →  ['a', 'b']
+```
+
+| Source | Accepts                                       | Default                      |
+| ------ | --------------------------------------------- | ---------------------------- |
+| cli    | a delimiter, `'whole'`                        | `'whole'`, or `.separator()` |
+| env    | a delimiter, `'whole'`, `'json'`              | `','`                        |
+| stdin  | a delimiter, `'whole'`, `'lines'`, `'json'`   | `'lines'`                    |
+| config | a native array or object; a string uses `env` | native                       |
+
+The strings `'whole'`, `'lines'`, and `'json'` name their format. Every other
+string is the delimiter to split on, so `.split({ env: ';' })` splits env values
+on a semicolon. `{ format: 'json' }` and the bare `'json'` mean the same thing.
+A format a source does not accept throws `INVALID_SCHEMA` where the flag is
+declared, so `.split({ cli: 'json' })` is rejected at build time.
+
+Each `.split()` call sets only the sources it names, so
+`.split({ env: ';' }).split({ stdin: 'json' })` keeps both.
+
+JSON is never guessed. An env value parses as JSON only when the binding says
+so, which is why `TAGS='["a","b"]'` under the default comma policy resolves to
+the two literal segments `['["a"', '"b"]']`.
+
+#### Per-occurrence splitting on the command line
+
+By default each occurrence of a collection flag contributes exactly one element
+(`--tag a --tag b`). With a CLI delimiter, each occurrence is also split, so
+comma-separated input works alongside repetition. Each element is coerced on its
+own, so a failure names the offending element rather than the whole token:
 
 ```ts
 flag.array(flag.enum(['us', 'eu', 'ap'])).separator(',').unique();
@@ -190,10 +235,92 @@ flag.array(flag.enum(['us', 'eu', 'ap'])).separator(',').unique();
 // --region us,mars            →  Invalid value 'mars' for flag --region. Allowed: us, eu, ap
 ```
 
-`.unique()` deduplicates the final resolved array (first-seen order, `Set`
-semantics), regardless of which source produced the values. Env and config
-string values already split on `','` by default; `.separator()` changes that
-delimiter everywhere (e.g. `MYAPP_REGION=us|eu` with `.separator('|')`).
+`.separator(',')` and `.split({ cli: ',' })` write the same field, so pick
+either. `.unique()` deduplicates the final resolved array in first-seen order
+with `Set` semantics, whichever source produced the values. It is available on
+`flag.array()` only.
+
+::: warning A CLI separator is no longer inherited
+Through 3.x, `.separator('|')` also decided how an env or config string
+decoded. Each source now carries its own policy. Write
+`.split({ cli: '|', env: '|' })` where the old coupling was intended.
+:::
+
+#### Reading a collection from stdin
+
+`.stdin()` is available on both collection kinds. A `-` occurrence stands for
+the whole stdin source at the position it holds, and what the buffer decodes to
+under the stdin policy is spliced in there:
+
+```ts
+flag.array(flag.string()).stdin();
+```
+
+```bash
+$ printf 'a\nb\n' | mycli send --tag before --tag - --tag after
+# flags.tag === ['before', 'a', 'b', 'after']
+
+$ printf 'a\nb\n' | mycli send --tag - --tag z
+# flags.tag === ['a', 'b', 'z']
+
+$ mycli send --tag -
+# nothing piped: the flag produces no CLI value and env, config, prompt,
+# and the default stay reachable, so an undeclared source leaves []
+```
+
+A flag that declares no stdin binding treats `-` as an ordinary element, and the
+stream is never read:
+
+```bash
+$ printf 'piped' | mycli send --tag - --tag x   # flag.array(flag.string())
+# flags.tag === ['-', 'x']
+```
+
+An explicit `-` and the implicit fallback decode identically. A spliced read is
+CLI-sourced, so it still outranks env, config, prompt, and the default. Two `-`
+occurrences splice the buffer twice, since the whole buffer is what each one
+stands for.
+
+Broadcast consumers each decode the one shared buffer under their own binding,
+so a line-split array flag and a JSON key-value flag can read the same pipe:
+
+```ts
+command('run')
+  .flag('tag', flag.array(flag.string()).stdin({ consume: 'broadcast' }))
+  .flag('vars', flag.keyValue().split({ stdin: 'json' }).stdin({ consume: 'broadcast' }));
+// echo '{"A":"1"}' | mycli run
+//   →  flags.tag === ['{"A":"1"}'], flags.vars === { A: '1' }
+```
+
+#### Key-value flags
+
+`flag.keyValue()` merges `KEY=VALUE` occurrences into a record, splitting each
+at the **first** `=`, so `--env A=b=c` yields `{ A: 'b=c' }`. Unset resolves to
+`{}`. An element builder gives each entry value its own codec and checks:
+
+```ts
+flag.keyValue(flag.path({ mustExist: true }));
+// --v src=/etc/hosts  →  every entry value is checked on disk
+```
+
+`.duplicateKeys()` decides what a repeated key means, on every source rather
+than only across repeated CLI occurrences:
+
+| Policy    | Meaning                                     |
+| --------- | ------------------------------------------- |
+| `'last'`  | the later occurrence wins (the default)     |
+| `'first'` | the earlier occurrence wins                 |
+| `'error'` | a repeat fails with `CONSTRAINT_VIOLATED`   |
+
+```ts
+flag.keyValue().duplicateKeys('first').env('VARS');
+// -e A=1 -e A=2      →  { A: '1' }
+// VARS='A=1,A=2'     →  { A: '1' }
+```
+
+Under `'error'`, the message names the key and the source that carried it, as in
+`Duplicate key 'A' from env VARS for flag --env`. A JSON object cannot repeat a
+key, so the policy has nothing to decide for `.split({ env: 'json' })`.
 
 ### Custom
 
@@ -301,7 +428,9 @@ flag.bytes().default(10 * 1024 ** 2);
 `arg.url()`, `arg.path()`, `arg.date()`, `arg.duration()`, and `arg.bytes()`
 take the same options and produce the same values. See
 [Purpose-built argument kinds](/guide/arguments#purpose-built-argument-kinds).
-The kinds below have no arg equivalent; the reasons are listed under
+Of the two kinds below, `keyValue` has a positional counterpart in
+`arg.keyValue()` and `count` does not; `array` is served on the arg surface by
+`.variadic()`. See
 [What the arg factory does not have](/guide/arguments#flag-only-surface).
 :::
 
@@ -328,11 +457,7 @@ flagTypes.count;
 ### Key-Value
 
 Repeated `KEY=VALUE` occurrences merge into a `Record<string, string>`
-(docker/kubectl `--env` style). The value is split at the **first** `=`, so
-`--env A=b=c` yields `{ A: 'b=c' }`; later occurrences of the same key win.
-Unset resolves to `{}`. Env vars accept comma-separated pairs (`A=1,B=2`) —
-which means an env-sourced *value* cannot itself contain a comma; use the CLI
-or a config file (plain object) for those:
+(docker/kubectl `--env` style):
 
 ```ts twoslash
 import { flag, type InferFlag } from '@kjanat/dreamcli';
@@ -347,8 +472,17 @@ flagTypes.env;
 //         ^?
 ```
 
+Env values carry comma-delimited pairs (`A=1,B=2`) by default, which means an
+env-sourced value cannot itself contain a comma. Change the env policy with
+`.split({ env: ';' })` or `.split({ env: 'json' })`, or use a config file, whose
+plain object is read natively. See [Collections](#collections) for the full
+per-source table, the duplicate-key policies, and reading entries from stdin.
+
 Array and key-value flags are the optional flag kinds that still resolve to a
 value when unset: arrays fall back to `[]`, key-value flags to `{}`.
+
+`arg.keyValue()` is the positional counterpart. See
+[Key-value arguments](/guide/arguments#key-value-arguments).
 
 For the exact parser rules around repeated flags, short-flag stacking, `--`
 separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics).
@@ -582,9 +716,12 @@ Resolution order:
 
 ## STDIN-Backed Flags
 
-`.stdin()` lets a flag read its value from piped stdin. It is available on
-`string`, `number`, `boolean`, `enum`, and `custom` flags; the collection kinds
-(`array`, `keyValue`, `count`) reject it with `INVALID_SCHEMA`.
+`.stdin()` lets a flag read its value from piped stdin. It is available on every
+kind but `count`, which counts occurrences rather than reading a value:
+`flag.count().stdin()` does not compile, and the equivalent definition object
+throws `INVALID_SCHEMA`. A scalar takes the whole buffer; a collection decodes
+it into elements, one per line by default, and splices them where a `-`
+occurrence sits, which [Collections](#collections) covers in full.
 
 ```ts twoslash
 import { command, flag } from '@kjanat/dreamcli';
@@ -760,6 +897,44 @@ requiredVsOptional.defaulted;
 //                    ^?
 ```
 
+#### Defaults are validated where they are declared
+
+A `.default()` value is already the typed value, so it is validated rather than
+decoded. String and number constraints, element and aggregate Standard Schema
+validators, and the shape the flag's cardinality requires all apply to it. A
+violation whose verdict is available synchronously throws `INVALID_DEFAULT`
+where the chain declares it:
+
+```ts
+flag.string({ minLength: 3 }).default('ab');
+// Default value for a string flag is invalid: must be at least 3 characters
+
+flag.array(flag.number({ min: 0 })).default([-1]);
+// Default value for a array flag at 0 is invalid: must be >= 0
+
+flag.count().default(-1);
+// Default value for a count flag is invalid: expected a non-negative integer
+```
+
+Chain order does not change the verdict. A constraint or validator added after
+the default is checked against it too:
+
+```ts
+flag.string().default('ab').minLength(3); // same error as the first line above
+```
+
+A collection default takes the shape the flag resolves to: an array for
+`flag.array()`, a record for `flag.keyValue()`, a non-negative integer for
+`flag.count()`.
+
+Two checks stay at resolution time, where a default already went through them:
+a validator that returns a promise, and the `flag.path()` filesystem checks.
+`flag.path({ mustExist: true }).default('/nope')` therefore builds, and fails
+when the path is probed.
+
+Fix the default, or widen the declaration where the value was intended:
+`flag.number({ finite: false }).default(Number.POSITIVE_INFINITY)` holds.
+
 ### Required
 
 ```ts twoslash
@@ -822,8 +997,34 @@ const port = flag.custom(z.coerce.number().int().min(1).max(65_535));
 
 Standard Schema validation runs after source resolution, so the same sync or async validator
 handles CLI, stdin, env, config, prompt, and default values. Validation issues become
-`CONSTRAINT_VIOLATED` errors. When used as a `flag.array()` element, the validator runs once per
-resolved element.
+`CONSTRAINT_VIOLATED` errors.
+
+#### Element and aggregate validators
+
+On a collection, where the validator sits decides what it sees. A validator on
+the element builder runs once per resolved element or entry value. A validator
+on the collection builder runs once on the completed array or record, after
+every element has passed its own:
+
+```ts
+flag.array(flag.string().standard(upperCase)); // each element
+flag.array(flag.string()).standard(atLeastOne); // the finished array
+flag.keyValue(flag.string().standard(upperCase)); // each entry value
+flag.keyValue().standard(hasApiKey); // the finished record
+```
+
+The two produce different messages. An element failure names the position, an
+aggregate failure names the flag:
+
+```
+--tag[1] failed validation: must be upper case
+--vars.KEY failed validation: must be upper case
+--tag failed validation: at least one tag is required
+```
+
+`.standard()` on a scalar builder is the element validator, since a scalar
+carries one value. An aggregate validator on a kind that does not aggregate
+throws `INVALID_SCHEMA`.
 
 ## Propagation
 
@@ -853,7 +1054,7 @@ cli('mycli').command(
 
 - [Arguments](/guide/arguments) — positional argument types
 - [What the arg factory does not have](/guide/arguments#flag-only-surface), the
-  flag members with no arg equivalent
+  flag members bound to flag syntax
 - [Config Files](/guide/config) — config file resolution
 - [Interactive Prompts](/guide/prompts) — prompt integration
 - [CLI Semantics](/guide/semantics) — exact parser and precedence rules
