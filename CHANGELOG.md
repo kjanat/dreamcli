@@ -91,9 +91,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **`readFlags()` evaluates a record of flag builders outside a CLI**
   ([#107](https://github.com/kjanat/dreamcli/issues/107)). A build script or a
-  small tool that wants typed options without commands, handlers, output
-  channels, help, or process exit hands its flags straight to `readFlags()` and
-  awaits the resolved values, typed by `InferFlags`:
+  small tool that wants typed options without commands, handlers, or output
+  channels hands its flags straight to `readFlags()` and awaits the resolved
+  values, typed by `InferFlags`:
 
   ```ts
   const options = await readFlags({
@@ -116,15 +116,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `config` and `prompter` stay caller-supplied, since standalone flag reading
   has no application name to discover a file from and opens no terminal session.
   `ReadFlagsOptions` extends `ResolveOptions` with `argv`, `adapter`, `parse`,
-  and `onDeprecation`. The adapter is built on the first fact the caller left
+  `strict`, `help`, and `onDeprecation`. The adapter is built on the first fact
+  the caller left
   out, so a call given `argv` and `env` reads nothing from the host unless a
   `flag.path()` check needs the adapter's filesystem primitives. Failures throw
   `ParseError` and `ValidationError` instead of exiting, a colliding record or
   the definition key `__proto__` throws `CLIError` before argv is read, and
   `.deprecated()` notices reach `onDeprecation` rather than a warning stream,
-  since there is no output channel on this path. Root built-in spellings are not
-  reserved here either, so a record may declare `json`, `quiet`, or `help` as
-  ordinary flags. Positional arguments are not part of this API, and there is no
+  since there is no output channel on this path.
+
+  A pre-separator `--help` or `-h` prints generated help for the record to the
+  adapter's stdout and exits with code 0, with the script named from the
+  adapter's argv in the usage line. The built-in yields to a definition that
+  claims the `help` or `h` spelling through a name, alias, negated form, or
+  case-parity counterpart, and `help: 'off'` removes it entirely; `json` and
+  `quiet` are never reserved, so a record may declare them as ordinary flags.
+  `strict: false` drops undeclared argv content instead of rejecting it: unknown
+  long flags with their inline `=value`, unknown short-group characters,
+  positional arguments, and the `--` separator, while value tokens of declared
+  flags survive under the parser's own consumption rules and misuse of a
+  declared flag keeps its diagnostics.
+
+  Positional arguments are not part of this API, and there is no
   synchronous variant: prompts, async validators, and filesystem checks make the
   result a promise. `readFlags`, `ReadFlagsOptions`, and `FlagMap` are exported
   from the package root, and

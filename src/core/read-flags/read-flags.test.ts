@@ -12,7 +12,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import type { StandardSchemaV1 } from '#internals/core/schema/standard.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
-import { createTestAdapter } from '#internals/runtime/adapter.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import type { DenoNamespace } from '#internals/runtime/deno.ts';
 import { createDenoAdapter } from '#internals/runtime/deno.ts';
 import type { NodeProcess } from '#internals/runtime/node.ts';
@@ -784,17 +784,253 @@ describe('readFlags() root-owned spellings', () => {
 		expect(values.quiet).toBe(true);
 		expect(values.help).toBe('topics');
 	});
+});
 
-	it('does not render help for --help', async () => {
+// === Built-in help
+
+describe('readFlags() built-in help', () => {
+	it('renders help to stdout and exits 0 for --help', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', '/repo/build.ts', '--help'],
+			stdout: (line) => written.push(line),
+		});
+
+		const error = await thrownBy(() =>
+			readFlags({ watch: flag.boolean(), port: flag.number().alias('p') }, { adapter }),
+		);
+
+		expect(error).toBeInstanceOf(ExitError);
+		expect(error instanceof ExitError && error.code).toBe(0);
+		const text = written.join('');
+		expect(text).toContain('Usage: build.ts');
+		expect(text).not.toContain('standalone');
+		expect(text).toContain('--watch');
+		expect(text).toContain('-p, --port');
+	});
+
+	it('renders help for -h', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'build.ts', '-h'],
+			stdout: (line) => written.push(line),
+		});
+
+		const error = await thrownBy(() => readFlags({ watch: flag.boolean() }, { adapter }));
+
+		expect(error instanceof ExitError && error.code).toBe(0);
+		expect(written.join('')).toContain('--watch');
+	});
+
+	it('renders help ahead of flag validation', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'build.ts', '--port', 'nope', '--help'],
+			stdout: (line) => written.push(line),
+		});
+
+		const error = await thrownBy(() => readFlags({ port: flag.number() }, { adapter }));
+
+		expect(error instanceof ExitError && error.code).toBe(0);
+		expect(written.join('')).toContain('--port');
+	});
+
+	it('falls back to a generic script name without a script entry', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({ argv: [], stdout: (line) => written.push(line) });
+
+		const error = await thrownBy(() =>
+			readFlags({ watch: flag.boolean() }, { adapter, argv: ['--help'] }),
+		);
+
+		expect(error instanceof ExitError && error.code).toBe(0);
+		expect(written.join('')).toContain('Usage: script');
+	});
+
+	it('ignores --help after the separator', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'build.ts', '--', '--help'],
+			stdout: (line) => written.push(line),
+		});
+
+		const error = await thrownBy(() => readFlags({ watch: flag.boolean() }, { adapter }));
+
+		expect(isParseError(error) && error.code).toBe('UNEXPECTED_POSITIONAL');
+		expect(written).toEqual([]);
+	});
+
+	it("does not fire when set to 'off'", async () => {
 		const written: string[] = [];
 		const adapter = createTestAdapter({
 			argv: ['node', 'build.ts', '--help'],
 			stdout: (line) => written.push(line),
 		});
 
-		const error = await thrownBy(() => readFlags({ watch: flag.boolean() }, { adapter }));
+		const error = await thrownBy(() =>
+			readFlags({ watch: flag.boolean() }, { adapter, help: 'off' }),
+		);
 
 		expect(isParseError(error) && error.code).toBe('UNKNOWN_FLAG');
+		expect(written).toEqual([]);
+	});
+
+	it('yields to a definition named help', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'build.ts', '--help', 'topics'],
+			stdout: (line) => written.push(line),
+		});
+
+		const values = await readFlags({ help: flag.string() }, { adapter });
+
+		expect(values.help).toBe('topics');
+		expect(written).toEqual([]);
+	});
+
+	it('yields entirely when a definition claims only the h spelling', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'build.ts', '--help'],
+			stdout: (line) => written.push(line),
+		});
+
+		const error = await thrownBy(() =>
+			readFlags({ verbose: flag.count().alias('h') }, { adapter }),
+		);
+
+		expect(isParseError(error) && error.code).toBe('UNKNOWN_FLAG');
+		expect(written).toEqual([]);
+	});
+});
+
+// === Non-strict parsing
+
+describe('readFlags() strict false', () => {
+	it('drops unknown long flags and their inline values', async () => {
+		const values = await readFlags(
+			{ watch: flag.boolean() },
+			{ argv: ['--unknown', '--other=x', '--watch'], env: {}, strict: false },
+		);
+
+		expect(values.watch).toBe(true);
+	});
+
+	it('drops positional arguments', async () => {
+		const values = await readFlags(
+			{ watch: flag.boolean() },
+			{ argv: ['build', '--watch', 'extra'], env: {}, strict: false },
+		);
+
+		expect(values.watch).toBe(true);
+	});
+
+	it('keeps the value token of a declared flag', async () => {
+		const values = await readFlags(
+			{ name: flag.string() },
+			{ argv: ['--junk', '--name', 'booga', 'stray'], env: {}, strict: false },
+		);
+
+		expect(values.name).toBe('booga');
+	});
+
+	it('does not consume a value for an unknown flag', async () => {
+		const values = await readFlags(
+			{ name: flag.string() },
+			{ argv: ['--unknown', 'value', '--name', 'booga'], env: {}, strict: false },
+		);
+
+		expect(values.name).toBe('booga');
+	});
+
+	it('drops unknown characters inside a short group', async () => {
+		const values = await readFlags(
+			{ verbose: flag.count().alias('v') },
+			{ argv: ['-zvv'], env: {}, strict: false },
+		);
+
+		expect(values.verbose).toBe(2);
+	});
+
+	it('drops a short group with no declared characters', async () => {
+		const values = await readFlags(
+			{ watch: flag.boolean() },
+			{ argv: ['-z', '--watch'], env: {}, strict: false },
+		);
+
+		expect(values.watch).toBe(true);
+	});
+
+	it('keeps the value of a declared short flag after dropped characters', async () => {
+		const values = await readFlags(
+			{ name: flag.string().alias('n') },
+			{ argv: ['-zn', 'booga'], env: {}, strict: false },
+		);
+
+		expect(values.name).toBe('booga');
+	});
+
+	it('keeps the inline value of a declared short flag', async () => {
+		const values = await readFlags(
+			{ name: flag.string().alias('n') },
+			{ argv: ['-znbooga'], env: {}, strict: false },
+		);
+
+		expect(values.name).toBe('booga');
+	});
+
+	it('drops everything at and after the separator', async () => {
+		const values = await readFlags(
+			{ name: flag.string() },
+			{ argv: ['--name', 'booga', '--', 'literal', '--name'], env: {}, strict: false },
+		);
+
+		expect(values.name).toBe('booga');
+	});
+
+	it('still rejects a bad value on a declared flag', async () => {
+		const error = await thrownBy(() =>
+			readFlags(
+				{ port: flag.number() },
+				{ argv: ['--junk', '--port', 'abc'], env: {}, strict: false },
+			),
+		);
+
+		expect(isParseError(error) && error.code).toBe('INVALID_VALUE');
+	});
+
+	it('still rejects a missing value on a declared flag', async () => {
+		const error = await thrownBy(() =>
+			readFlags({ name: flag.string() }, { argv: ['--junk', '--name'], env: {}, strict: false }),
+		);
+
+		expect(isParseError(error) && error.code).toBe('MISSING_VALUE');
+	});
+
+	it('still enforces the duplicate policy of a declared flag', async () => {
+		const error = await thrownBy(() =>
+			readFlags(
+				{ region: flag.string().duplicates('error') },
+				{ argv: ['--region', 'us', '--junk', '--region', 'eu'], env: {}, strict: false },
+			),
+		);
+
+		expect(isParseError(error) && error.code).toBe('DUPLICATE_FLAG');
+	});
+
+	it('drops --help silently when the built-in is off', async () => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'build.ts', '--help', '--watch'],
+			stdout: (line) => written.push(line),
+		});
+
+		const values = await readFlags(
+			{ watch: flag.boolean() },
+			{ adapter, help: 'off', strict: false },
+		);
+
+		expect(values.watch).toBe(true);
 		expect(written).toEqual([]);
 	});
 });

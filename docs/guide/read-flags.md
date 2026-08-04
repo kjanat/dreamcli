@@ -1,8 +1,9 @@
 # Standalone Flag Evaluation
 
 `readFlags()` takes a record of flag builders, evaluates it, and returns the
-resolved values. There is no command, no dispatch, no output channel, no help
-text, and no process exit. The call returns typed values or throws.
+resolved values. There is no command and no dispatch. The call returns typed
+values or throws, with one exception: `--help` prints generated help and exits,
+unless the record claims the spelling or the built-in is turned off.
 
 ## Build Scripts
 
@@ -149,6 +150,56 @@ reaches for `stat` or `mkdir`. Pass `adapter` to pin the runtime instead of
 detecting one. `createAdapter()` detects Node, Bun, and Deno, so the defaults
 work on all three.
 
+## Built-In Help
+
+A `--help` or `-h` before the `--` separator prints generated help for the
+record to the adapter's stdout and exits with code 0:
+
+```bash
+$ bun build.ts --help
+Usage: build.ts [flags]
+
+Flags:
+  -w, --watch    Rebuild on change
+      --minify   (default: true)
+```
+
+The usage line names the script from the adapter's argv. Help renders ahead of
+parsing, so a malformed value elsewhere in argv never hides the text explaining
+the flags.
+
+The built-in yields in two ways. Declaring a flag that answers to `help` or `h`
+through its name, an alias, a negated spelling, or a case-parity counterpart
+takes both spellings over, and they parse as that flag's own. Passing
+`help: 'off'` removes the built-in, and an undeclared `--help` is an unknown
+flag again.
+
+## Non-Strict Parsing
+
+`strict: false` drops undeclared argv content instead of rejecting it, so a
+script can read its own flags out of an argv it shares with another consumer:
+
+```ts twoslash
+import { flag, readFlags } from '@kjanat/dreamcli';
+// ---cut---
+const values = await readFlags(
+  { watch: flag.boolean() },
+  { argv: ['build', '--watch', '--unknown'], env: {}, strict: false },
+);
+
+values.watch; // true
+```
+
+Dropped are unknown long flags together with their inline `=value`, unknown
+characters inside a short group, positional arguments, and the `--` separator,
+which can only introduce positionals here. The filter walks the parser's own
+value consumption, so `--name booga` keeps `booga` as the value of a declared
+`--name` while the token after an unknown flag is dropped as a positional.
+
+Leniency covers undeclared input only. Misuse of a declared flag throws in
+either mode: a missing value, a failed coercion, a violated constraint, and a
+repeat under `.duplicates('error')` all keep their diagnostics.
+
 ## Deprecation Notices
 
 `.deprecated()` produces one notice per flag that actually sourced a value, in
@@ -176,8 +227,9 @@ so a call without `onDeprecation` drops them.
 
 Parse failures throw `ParseError`, resolution and constraint failures throw
 `ValidationError`, and a record that collides on a name, an alias, or a negated
-spelling throws `CLIError` before argv is read. Nothing is written anywhere and
-`adapter.exit` is never called, so the script owns what happens next:
+spelling throws `CLIError` before argv is read. Failure never writes output and
+never calls `adapter.exit`; only the built-in help path exits, and it exits
+with 0. The script owns what happens next:
 
 ```ts twoslash
 import { flag, isCLIError, readFlags } from '@kjanat/dreamcli';
@@ -204,17 +256,19 @@ try {
 **No config discovery.** Standalone flag reading has no application name and no
 discovery policy to guess from, so `config` is whatever the caller passes.
 
-**No root built-in flags.** `--help`, `--json`, and `--quiet` are neither
-reserved nor answered, so a record may declare any of them as an ordinary flag.
-Against a record that does not declare it, `--help` is an unknown flag.
+**No output built-ins.** `--json` and `--quiet` are neither reserved nor
+answered, so a record may declare either as an ordinary flag. `help` and `h`
+are answered by the built-in help, and declaring either spelling takes them
+over without a reservation error.
 
 **No synchronous variant.** Prompts, Standard Schema validators, and filesystem
 checks are asynchronous. A synchronous variant would either carry different
 semantics or reject part of the flag DSL, and either one means a second
 implementation of what this reuses.
 
-**No dispatch, actions, middleware, output, help, or completions.** Those belong
-to a CLI. Reach for [`cli()`](/guide/commands) when the script grows into one.
+**No dispatch, actions, middleware, output channel, or completions.** Those
+belong to a CLI. Reach for [`cli()`](/guide/commands) when the script grows into
+one.
 
 ## Related Pages
 
