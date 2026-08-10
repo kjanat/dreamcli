@@ -664,21 +664,35 @@ interface CommandDefinition {
 }
 
 /**
- * Merge definition fields onto the {@link CommandSchema} defaults.
+ * Merge definition fields onto the {@link CommandSchema} defaults, recursively.
  *
- * @param definition - Command definition with defaults already validated.
+ * @param definition - Command definition to normalize.
  * @returns A fully populated {@link CommandSchema}.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when a name at any depth is empty
+ *   or contains whitespace.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_ARG` when
+ *   an arg breaks the stdin invariants.
  */
 function buildCommandSchema(definition: CommandDefinition): CommandSchema {
+	if (definition.name === '' || /\s/u.test(definition.name)) {
+		throw new CLIError('Command schema requires a non-empty name without whitespace', {
+			code: 'INVALID_SCHEMA',
+			details: { name: definition.name },
+			suggest: 'Pass a dispatch name such as { name: "deploy" }',
+		});
+	}
+
 	const flags: Record<string, FlagSchema> = {};
 	for (const [name, value] of Object.entries(definition.flags ?? {})) {
 		flags[name] = createFlagSchema(value);
 	}
 
-	const args: CommandArgEntry[] = (definition.args ?? []).map((entry) => ({
-		name: entry.name,
-		schema: createArgSchema(entry.schema),
-	}));
+	const args: CommandArgEntry[] = [];
+	for (const entry of definition.args ?? []) {
+		const schema = createArgSchema(entry.schema);
+		validateArgEntry(entry.name, schema, args);
+		args.push({ name: entry.name, schema });
+	}
 
 	const schema: Omit<CommandSchema, typeof schemaBrand> = {
 		name: definition.name,
@@ -691,7 +705,7 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		hasAction: definition.hasAction ?? false,
 		interactive: definition.interactive,
 		middleware: definition.middleware ?? [],
-		commands: (definition.commands ?? []).map((child) => createCommandSchema(child)),
+		commands: (definition.commands ?? []).map((child) => buildCommandSchema(child)),
 	};
 
 	return schema as CommandSchema;
@@ -709,7 +723,15 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  *
  * @param definition - Command name plus optional flags, args, and subcommands.
  * @returns A fully populated {@link CommandSchema}.
- * @throws {CLIError} With code `'INVALID_SCHEMA'` when the name is empty.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a name at any depth is
+ *   empty or contains whitespace.
+ * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two flags on one
+ *   command share a spelling.
+ * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a flag shadows
+ *   a spelling propagated from an ancestor command.
+ * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when an arg is both
+ *   variadic and stdin-backed, or
+ *   `'DUPLICATE_STDIN_ARG'` when two args on one command are stdin-backed.
  *
  * @example
  * ```ts
@@ -722,15 +744,9 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
  * ```
  */
 function createCommandSchema(definition: CommandDefinition): CommandSchema {
-	if (definition.name === '') {
-		throw new CLIError('Command schema requires a non-empty name', {
-			code: 'INVALID_SCHEMA',
-			details: { name: definition.name },
-			suggest: 'Pass a dispatch name such as { name: "deploy" }',
-		});
-	}
-
-	return buildCommandSchema(definition);
+	const schema = buildCommandSchema(definition);
+	validateCommandFlagTree(schema);
+	return schema;
 }
 
 /**

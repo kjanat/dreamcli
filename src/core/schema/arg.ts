@@ -281,6 +281,11 @@ type ArgDefinition<K extends ArgKind = ArgKind> = ArgDefinitionByKind[K];
 /** Definition of an arg of kind `K` with the kind discriminator removed. */
 type ArgDefinitionOverrides<K extends ArgKind = ArgKind> = Omit<ArgDefinitionByKind[K], 'kind'>;
 
+/** Positional factory arguments, requiring fields that the selected kind requires. */
+type ArgDefinitionArguments<K extends ArgKind> = K extends 'enum'
+	? [overrides: ArgDefinitionOverrides<K>]
+	: [overrides?: ArgDefinitionOverrides<K>];
+
 /**
  * Fields that are only meaningful on one {@link ArgKind}, mapped to that kind.
  */
@@ -313,6 +318,14 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgSchemaFieldOverrides
 				suggest: `Drop '${field}' or declare the arg as kind '${requiredKind}'`,
 			},
 		);
+	}
+
+	if (kind === 'enum' && fields.enumValues === undefined) {
+		throw new CLIError("Arg schema kind 'enum' requires field 'enumValues'", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'enumValues' },
+			suggest: "Pass the allowed values in 'enumValues'",
+		});
 	}
 }
 
@@ -375,7 +388,7 @@ function buildArgSchema<K extends ArgKind>(
  */
 function createArgSchema<K extends ArgKind>(
 	kind: K,
-	overrides?: ArgDefinitionOverrides<K>,
+	...args: ArgDefinitionArguments<K>
 ): ArgSchema<K>;
 /**
  * Create a raw {@link ArgSchema} object from a single definition object.

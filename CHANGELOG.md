@@ -16,11 +16,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Definition types and normalization factories for flags, args, and
   commands** — `createFlagSchema()` and `createCommandSchema()` join the
-  existing `createArgSchema()`. Each takes a plain definition object, or a kind
-  plus that kind's fields, and returns the normalized schema; feeding a built
-  schema back in produces a deep-equal schema, and a field belonging to another
-  kind throws `INVALID_SCHEMA`. `createCommandSchema()` normalizes nested flags,
-  args, and subcommands. Each level ships its definition types: `FlagDefinition`,
+  existing `createArgSchema()`. The flag and arg factories take a plain
+  definition object, or a kind plus that kind's fields;
+  `createCommandSchema()` takes a complete command definition object. Each
+  returns the normalized schema; feeding a built schema back in produces a
+  deep-equal schema, and a field belonging to another kind throws
+  `INVALID_SCHEMA`. `createCommandSchema()` normalizes nested flags, args, and
+  subcommands. Each level ships its definition types: `FlagDefinition`,
   `FlagDefinitionBase`, `FlagDefinitionByKind`, `FlagDefinitionOverrides`, and
   the per-kind members `StringFlagDefinition`, `NumberFlagDefinition`,
   `BooleanFlagDefinition`, `EnumFlagDefinition`, `ArrayFlagDefinition`,

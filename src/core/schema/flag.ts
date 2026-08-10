@@ -623,6 +623,11 @@ type FlagDefinition<K extends FlagKind = FlagKind> = FlagDefinitionByKind[K];
 /** Definition of a flag of kind `K` with the kind discriminator removed. */
 type FlagDefinitionOverrides<K extends FlagKind = FlagKind> = Omit<FlagDefinitionByKind[K], 'kind'>;
 
+/** Positional factory arguments, requiring fields that the selected kind requires. */
+type FlagDefinitionArguments<K extends FlagKind> = K extends 'enum'
+	? [overrides: FlagDefinitionOverrides<K>]
+	: [overrides?: FlagDefinitionOverrides<K>];
+
 /**
  * Normalise an alias input into a full {@link FlagAlias} object.
  *
@@ -798,6 +803,26 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 	if (kind !== 'array' && fields.unique === true) {
 		throw invalidFlagFieldError(kind, 'unique', 'array');
 	}
+
+	if (kind === 'enum' && fields.enumValues === undefined) {
+		throw new CLIError("Flag schema kind 'enum' requires field 'enumValues'", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'enumValues' },
+			suggest: "Pass the allowed values in 'enumValues'",
+		});
+	}
+
+	if (
+		(kind === 'array' || kind === 'count' || kind === 'keyValue') &&
+		fields.duplicates !== undefined &&
+		fields.duplicates !== 'last'
+	) {
+		throw new CLIError(`Flag schema field 'duplicates' is not supported on kind '${kind}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'duplicates' },
+			suggest: `Drop 'duplicates'; kind '${kind}' accumulates every occurrence`,
+		});
+	}
 }
 
 /**
@@ -903,7 +928,7 @@ function buildFlagSchema<K extends FlagKind>(
  */
 function createFlagSchema<K extends FlagKind>(
 	kind: K,
-	overrides?: FlagDefinitionOverrides<K>,
+	...args: FlagDefinitionArguments<K>
 ): FlagSchema<K>;
 /**
  * Create a raw {@link FlagSchema} object from a single definition object.

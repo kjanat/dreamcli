@@ -239,9 +239,71 @@ describe('schema sealing', () => {
 			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
 		});
 
+		it('requires enumValues for positional enum flag definitions', () => {
+			// @ts-expect-error enum flag definitions require enumValues
+			const build = () => createFlagSchema('enum');
+			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
+		it('requires enumValues for positional enum arg definitions', () => {
+			// @ts-expect-error enum arg definitions require enumValues
+			const build = () => createArgSchema('enum');
+			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
+		it('rejects duplicate policies on accumulating flag kinds', () => {
+			const build = () => createFlagSchema('array', { duplicates: 'error' });
+			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
 		it('rejects a command schema without a name', () => {
 			const build = () => createCommandSchema({ name: '' });
 			expect(schemaErrorCode(build)).toBe('INVALID_SCHEMA');
+		});
+
+		it('rejects command names containing whitespace at any depth', () => {
+			expect(schemaErrorCode(() => createCommandSchema({ name: '   ' }))).toBe('INVALID_SCHEMA');
+			expect(schemaErrorCode(() => createCommandSchema({ name: 'my command' }))).toBe(
+				'INVALID_SCHEMA',
+			);
+			expect(
+				schemaErrorCode(() =>
+					createCommandSchema({ name: 'root', commands: [{ name: 'nested command' }] }),
+				),
+			).toBe('INVALID_SCHEMA');
+		});
+
+		it('validates stdin invariants in command definitions', () => {
+			expect(
+				schemaErrorCode(() =>
+					createCommandSchema({
+						name: 'copy',
+						args: [{ name: 'input', schema: { kind: 'string', stdinMode: true, variadic: true } }],
+					}),
+				),
+			).toBe('INVALID_BUILDER_STATE');
+
+			expect(
+				schemaErrorCode(() =>
+					createCommandSchema({
+						name: 'copy',
+						args: [
+							{ name: 'source', schema: { kind: 'string', stdinMode: true } },
+							{ name: 'dest', schema: { kind: 'string', stdinMode: true } },
+						],
+					}),
+				),
+			).toBe('DUPLICATE_STDIN_ARG');
+		});
+
+		it('validates flag collisions across command definition trees', () => {
+			const build = () =>
+				createCommandSchema({
+					name: 'db',
+					flags: { verbose: { kind: 'boolean', aliases: ['v'], propagate: true } },
+					commands: [{ name: 'migrate', flags: { version: { kind: 'boolean', aliases: ['v'] } } }],
+				});
+			expect(schemaErrorCode(build)).toBe('PROPAGATED_FLAG_COLLISION');
 		});
 
 		it('builds identical flag schemas from the positional and object forms', () => {

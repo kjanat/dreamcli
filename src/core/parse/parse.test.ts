@@ -4,6 +4,7 @@ import type { ArgDefinitionOverrides, ArgSchema } from '#internals/core/schema/a
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
+import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { createSchema } from '#internals/core/schema/flag.ts';
 import { includesBeforeSeparator, parse, tokenize } from './index.ts';
 
@@ -578,9 +579,11 @@ describe('parse', () => {
 		});
 
 		it('malformed enum flag schema throws INVALID_SCHEMA', () => {
-			const schema = makeSchema({
-				flags: { region: createSchema('enum', { enumValues: undefined }) },
-			});
+			const malformed: FlagSchema = {
+				...createSchema('enum', { enumValues: ['us'] }),
+				enumValues: undefined,
+			};
+			const schema: CommandSchema = { ...makeSchema(), flags: { region: malformed } };
 			expect(() => parse(schema, ['--region', 'us'])).toThrow(ParseError);
 			try {
 				parse(schema, ['--region', 'us']);
@@ -612,9 +615,10 @@ describe('parse', () => {
 				...createArgSchema('enum', { enumValues: ['us'] }),
 				enumValues: undefined,
 			};
-			const schema = makeSchema({
+			const schema: CommandSchema = {
+				...makeSchema(),
 				args: [{ name: 'region', schema: malformed }],
-			});
+			};
 			expect(() => parse(schema, ['us'])).toThrow(ParseError);
 			try {
 				parse(schema, ['us']);
