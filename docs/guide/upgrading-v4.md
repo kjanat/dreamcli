@@ -242,8 +242,8 @@ the parser answered it with `--version`.
 
 The arg invariants moved with them. One arg that is both variadic and
 stdin-backed throws `INVALID_BUILDER_STATE`, and a second stdin-backed input on
-the same command throws `DUPLICATE_STDIN_INPUT`, the errors `.arg()` has always
-raised. In 3.x a definition could declare either. Two stdin-backed args each
+the same command throws `DUPLICATE_STDIN_INPUT` (renamed from v3's
+`DUPLICATE_STDIN_ARG`). In 3.x a definition could declare either. Two stdin-backed args each
 resolved to the whole of stdin, and a variadic stdin-backed arg read nothing
 from stdin and failed as missing when argv supplied no positional.
 

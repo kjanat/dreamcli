@@ -245,7 +245,7 @@ Every flag supports: `.default()`, `.required()`, `.alias()`, `.env()`, `.config
 Each flag resolves through an ordered pipeline. Every step is opt-in:
 
 ```text
-CLI argv  →  environment variable  →  config file  →  interactive prompt  →  default value
+CLI argv  →  piped stdin  →  environment variable  →  config file  →  interactive prompt  →  default value
 ```
 
 Required flags that don't resolve produce a structured error before the action handler runs. In

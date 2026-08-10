@@ -938,7 +938,7 @@ describe('generateSchema — definition metadata', () => {
 			}),
 			piped: flagDef({
 				kind: 'string',
-				stdin: { when: 'dash-or-missing', consume: 'exclusive' },
+				stdin: { when: 'dash', consume: 'broadcast' },
 			}),
 			source: flagDef({
 				kind: 'string',
@@ -1000,6 +1000,10 @@ describe('generateSchema — definition metadata', () => {
 		});
 		expect(expectRecord(flags.parser)).not.toHaveProperty('parseFn');
 		expect(expectRecord(flags.parser)).not.toHaveProperty('standard');
+		expect(expectRecord(flags.piped)).toHaveProperty('stdin', {
+			when: 'dash',
+			consume: 'broadcast',
+		});
 	});
 
 	it('serializes arg constraints, path checks, and value hints', () => {
@@ -1087,7 +1091,8 @@ describe('generateSchema — definition metadata', () => {
 				},
 			}),
 		];
-		const result = generateSchema(minimalCLI({ commands: [commandDef({ args: allFieldsArgs })] }));
+		const cli = minimalCLI({ commands: [commandDef({ args: allFieldsArgs })] });
+		const result = generateSchema(cli, { includePrompts: true });
 		const commands = expectRecord(result).commands;
 		if (!Array.isArray(commands)) {
 			throw new TypeError('expected commands');
@@ -1109,6 +1114,13 @@ describe('generateSchema — definition metadata', () => {
 		expect([...serializedFields].sort()).toEqual(Object.keys(argMetaProperties).sort());
 		expect(expectRecord(args[5])).not.toHaveProperty('parseFn');
 		expect(expectRecord(args[5])).not.toHaveProperty('standard');
+		expect(expectRecord(args[4])).toHaveProperty('prompt', {
+			kind: 'input',
+			message: 'Piped?',
+		});
+
+		const withoutPrompts = generateSchema(cli, { includePrompts: false });
+		expect(withoutPrompts).not.toHaveProperty(['commands', 0, 'args', 4, 'prompt']);
 	});
 });
 

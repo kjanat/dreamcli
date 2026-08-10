@@ -102,10 +102,6 @@ export type {
 	ResolvedValue,
 	SelectChoice,
 	SelectPromptConfig,
-	StdinBinding,
-	StdinConsume,
-	StdinOptions,
-	StdinWhen,
 	StringFlagDefinition,
 	UrlFlagOptions,
 	WithPresence,
@@ -118,8 +114,6 @@ export {
 	flag,
 	getFlagNegatedName,
 	PROMPT_KINDS,
-	STDIN_CONSUMES,
-	STDIN_WHENS,
 } from './flag.ts';
 export type {
 	Middleware,
@@ -146,6 +140,8 @@ export type {
 	StandardSchemaV1SuccessResult,
 	StandardSchemaV1Types,
 } from './standard.ts';
+export type { StdinBinding, StdinConsume, StdinOptions, StdinWhen } from './stdin.ts';
+export { STDIN_CONSUMES, STDIN_WHENS } from './stdin.ts';
 export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
 export {
 	describeStringConstraintViolation,

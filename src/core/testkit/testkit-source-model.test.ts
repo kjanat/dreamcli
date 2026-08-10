@@ -16,7 +16,7 @@ describe('runCommand() stdin contract', () => {
 
 		const result = await runCommand(cmd, [], { stdinData: 'piped\n' });
 
-		expect(result.stdout.join('')).toContain('"piped\\n"');
+		expect(result.stdout).toEqual(['"piped\\n"\n']);
 	});
 
 	it('puts the stdin fallback ahead of env for a flag', async () => {
@@ -31,7 +31,7 @@ describe('runCommand() stdin contract', () => {
 			env: { BODY: 'from-env' },
 		});
 
-		expect(result.stdout.join('')).toContain('piped');
+		expect(result.stdout).toEqual(['piped\n']);
 	});
 
 	it('keeps an explicit dash at CLI precedence for a flag', async () => {
@@ -46,10 +46,10 @@ describe('runCommand() stdin contract', () => {
 			env: { BODY: 'from-env' },
 		});
 
-		expect(result.stdout.join('')).toContain('piped');
+		expect(result.stdout).toEqual(['piped\n']);
 	});
 
-	it('resolves an arg from config and from a prompt', async () => {
+	it('resolves an arg from config', async () => {
 		const cmd = command('deploy')
 			.arg('target', arg.string().config('deploy.target').optional())
 			.action(({ args, out }) => {
@@ -58,7 +58,19 @@ describe('runCommand() stdin contract', () => {
 
 		const result = await runCommand(cmd, [], { config: { deploy: { target: 'eu' } } });
 
-		expect(result.stdout.join('')).toContain('eu');
+		expect(result.stdout).toEqual(['eu\n']);
+	});
+
+	it('resolves an arg from a prompt', async () => {
+		const cmd = command('deploy')
+			.arg('target', arg.string().prompt({ kind: 'input', message: 'Target?' }))
+			.action(({ args, out }) => {
+				out.log(args.target);
+			});
+
+		const result = await runCommand(cmd, [], { answers: ['eu'] });
+
+		expect(result.stdout).toEqual(['eu\n']);
 	});
 
 	it('broadcasts one buffer to a flag and an arg together', async () => {
@@ -71,19 +83,19 @@ describe('runCommand() stdin contract', () => {
 
 		const result = await runCommand(cmd, [], { stdinData: 'shared\n' });
 
-		expect(result.stdout.join('')).toContain('["shared\\n","shared\\n"]');
+		expect(result.stdout).toEqual(['["shared\\n","shared\\n"]\n']);
 	});
 
-	it('decodes a piped number arg without the trailing terminator', async () => {
-		const cmd = command('count')
-			.arg('total', arg.number().stdin())
+	it('decodes a piped enum arg without the trailing terminator', async () => {
+		const cmd = command('toggle')
+			.arg('value', arg.enum(['true']).stdin())
 			.action(({ args, out }) => {
-				out.log(String(args.total));
+				out.log(args.value);
 			});
 
-		const result = await runCommand(cmd, [], { stdinData: '42\n' });
+		const result = await runCommand(cmd, [], { stdinData: 'true\n' });
 
-		expect(result.stdout.join('')).toContain('42');
+		expect(result.stdout).toEqual(['true\n']);
 		expect(result.exitCode).toBe(0);
 	});
 });

@@ -229,6 +229,20 @@ describe('arg config and prompt sources', () => {
 		});
 	});
 
+	it('describes the dash-only stdin form for a missing flag', async () => {
+		const { schema, parsed } = flagCase(flag.string().stdin({ when: 'dash' }).required(), []);
+		await expect(resolve(schema, parsed, {})).rejects.toMatchObject({
+			suggest: "Provide --value <value> or pass '-' to read stdin",
+		});
+	});
+
+	it('describes the missing-only stdin form for a missing flag', async () => {
+		const { schema, parsed } = flagCase(flag.string().stdin({ when: 'missing' }).required(), []);
+		await expect(resolve(schema, parsed, {})).rejects.toMatchObject({
+			suggest: 'Provide --value <value> or pipe a value to stdin',
+		});
+	});
+
 	it('redacts a config value that fails arg coercion', async () => {
 		const { schema, parsed } = argCase(arg.number().config('deploy.port'), []);
 		const error = await resolve(schema, parsed, {

@@ -347,8 +347,12 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 	const takesValue = schema.kind !== 'boolean' && schema.kind !== 'count';
 	sources.push(`Provide --${name}${takesValue ? ' <value>' : ''}`);
 
-	if (schema.stdin !== undefined) {
+	if (schema.stdin?.when === 'dash') {
+		sources.push(`pass '-' to read stdin`);
+	} else if (schema.stdin?.when === 'missing') {
 		sources.push(`pipe a value to stdin`);
+	} else if (schema.stdin !== undefined) {
+		sources.push(`pipe a value to stdin or pass '-'`);
 	}
 
 	if (schema.envVar !== undefined) {

@@ -490,10 +490,10 @@ describe("the 'stdin' input", () => {
 	it('hands the string codec the buffer byte for byte', () => {
 		expect(decoded(stringValue(), 'hello\n', 'stdin')).toBe('hello\n');
 		expect(decoded(stringValue(), 'a\r\nb\r\n', 'stdin')).toBe('a\r\nb\r\n');
-		expect(decoded(pathValue(), './out\n', 'stdin')).toBe('./out\n');
 	});
 
-	it('drops one trailing terminator before every other codec', () => {
+	it('drops one trailing terminator before path and non-string codecs', () => {
+		expect(decoded(pathValue(), './out\n', 'stdin')).toBe('./out');
 		expect(decoded(numberValue(), '42\n', 'stdin')).toBe(42);
 		expect(decoded(numberValue(), '42\r\n', 'stdin')).toBe(42);
 		expect(decoded(numberValue(), '42\r', 'stdin')).toBe(42);

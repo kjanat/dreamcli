@@ -200,8 +200,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.config()` and `.prompt()` are no longer among them: both surfaces now
   declare the same sources, described in the unified source model entry below.
 
-- **A unified source model — every input reads every source** — flags and args
-  now declare the same sources and resolve through one ordered chain:
+- **A unified source model — every input uses the same source order** — flags and
+  args now declare sources from the same set and resolve declared sources through
+  one ordered chain:
   `CLI -> stdin -> env -> config -> prompt -> default`. `arg.config(path)` and
   `arg.prompt(config)` join `arg.env()`, so a positional reads a dotted config
   key and asks the user exactly as a flag does; the arg prompt table mirrors the

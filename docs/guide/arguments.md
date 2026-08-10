@@ -290,9 +290,10 @@ argTypes.pairs;
 //         ^?
 ```
 
-A positional parsed this way still reads every source. Chain `.env()`,
-`.config()`, `.prompt()`, and `.default()` on the `arg.custom()` builder and the
-parse function runs on whichever source wins.
+A positional parsed this way can still declare every source. Chain `.env()`,
+`.config()`, and `.prompt()` on the `arg.custom()` builder and the parse function
+runs on whichever raw source wins. A value supplied by `.default()` is already
+typed and is not parsed again.
 
 ## Declaration
 

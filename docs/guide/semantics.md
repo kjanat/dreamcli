@@ -171,9 +171,10 @@ axes, `when` and `consume`, defaulting to `dash-or-missing` and `exclusive`.
 | `'dash-or-missing'` | reads stdin          | reads stdin          |
 
 A `-` that selects stdin resolves on the `cli` stage, so it outranks every later
-source. An omitted input resolves on the `stdin` stage, which sits between `cli`
-and `env`, so env, config, prompt, and a default never suppress the read. When
-nothing is piped, both forms produce no value and the walk continues.
+source. An omitted input reads stdin only for `when: 'missing'` or
+`when: 'dash-or-missing'`. With `when: 'dash'`, omission falls through to env,
+config, prompt, and default. When nothing is piped, every stdin form produces no
+value and the walk continues.
 
 The stream is read at most once per invocation, and only when a declared binding
 would fire. Declaring a second exclusive stdin input on one command, flag or

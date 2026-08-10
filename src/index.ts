@@ -152,7 +152,12 @@ export type {
 export { createTerminalPrompter, resolvePromptConfig } from './core/prompt/index.ts';
 export type { FlagMap, ReadFlagsOptions } from './core/read-flags/index.ts';
 export { readFlags } from './core/read-flags/index.ts';
-export type { DeprecationWarning, ResolveOptions, ResolveResult } from './core/resolve/index.ts';
+export type {
+	DeprecationWarning,
+	ResolutionProvenance,
+	ResolveOptions,
+	ResolveResult,
+} from './core/resolve/index.ts';
 export { resolve } from './core/resolve/index.ts';
 export type {
 	ActionHandler,

@@ -13,7 +13,7 @@ One definition is expected to drive:
 
 - parsing;
 - type inference;
-- resolution from CLI, env, config, prompts, and defaults;
+- resolution from CLI, stdin, env, config, prompts, and defaults;
 - help and shell completions;
 - test harness overrides;
 - generated docs and reference surfaces.

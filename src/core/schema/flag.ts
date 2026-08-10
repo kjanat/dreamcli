@@ -722,13 +722,15 @@ function normalizeFlagDefinitionFields(fields: FlagDefinitionFields): FlagSchema
 }
 
 /** Flag kinds whose value is a single scalar, and so can be read from stdin. */
-const STDIN_CAPABLE_FLAG_KINDS: readonly FlagKind[] = [
+const STDIN_CAPABLE_FLAG_KINDS = [
 	'string',
 	'number',
 	'boolean',
 	'enum',
 	'custom',
-];
+] as const satisfies readonly FlagKind[];
+
+type StdinCapableFlagKind = (typeof STDIN_CAPABLE_FLAG_KINDS)[number];
 
 /**
  * Fields that are only meaningful on one {@link FlagKind}, mapped to that kind.
@@ -787,7 +789,7 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 		});
 	}
 
-	if (fields.stdin !== undefined && !STDIN_CAPABLE_FLAG_KINDS.includes(kind)) {
+	if (fields.stdin !== undefined && !STDIN_CAPABLE_FLAG_KINDS.some((allowed) => allowed === kind)) {
 		throw new CLIError(`Flag schema field 'stdin' is not available on kind '${kind}'`, {
 			code: 'INVALID_SCHEMA',
 			details: { kind, field: 'stdin', allowedKinds: [...STDIN_CAPABLE_FLAG_KINDS] },
@@ -1114,9 +1116,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	stdin(
-		this: FlagBuilder<
-			C & { readonly flagKind: 'boolean' | 'string' | 'number' | 'enum' | 'custom' }
-		>,
+		this: FlagBuilder<C & { readonly flagKind: StdinCapableFlagKind }>,
 		options?: StdinOptions,
 	): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({

@@ -231,8 +231,8 @@ flagTypes.url;
 ### Path
 
 The value stays a `string` (help shows `<path>`), with optional filesystem
-checks that run **after resolution** through the runtime adapter, so CLI, env,
-config, prompted, and defaulted values are all validated:
+checks that run **after resolution** through the runtime adapter, so CLI, stdin,
+env, config, prompted, and defaulted values are all validated:
 
 ```ts
 flag.path(); // any string
@@ -249,10 +249,9 @@ In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
 function via run options to enable the checks (plus `mkdir` for `create`);
 without them the checks are skipped and nothing is created.
 
-`flag.path()` resolves as a `string`, so a value read from stdin keeps the
-buffer byte for byte, trailing line terminator included. `echo ./docs | mycli`
-reaches a `mustExist` check as `'./docs\n'` and fails. Use `printf './docs'`
-when piping a path, or strip the terminator before the pipe.
+`flag.path()` trims one trailing line terminator from a value read from stdin,
+so `echo ./docs | mycli` reaches a `mustExist` check as `'./docs'`. A free-form
+`flag.string()` still preserves the stdin buffer byte for byte.
 
 ### Date
 

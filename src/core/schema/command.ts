@@ -1090,6 +1090,11 @@ function validateCommandFlagTree(
 	}
 	validateInheritedFlagCollisions(command.name, visibleInherited, command.flags);
 
+	const effectiveFlags = { ...visibleInherited, ...command.flags };
+	for (const [name, schema] of Object.entries(effectiveFlags)) {
+		validateFlagStdinEntry(command.name, name, schema, effectiveFlags, command.args);
+	}
+
 	const inheritedForChildren = buildInheritedFlagsForChildren(inheritedFlags, command.flags);
 	for (const child of command.commands) {
 		validateCommandFlagTree(child, inheritedForChildren);

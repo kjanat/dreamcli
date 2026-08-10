@@ -96,6 +96,25 @@ describe('builder path', () => {
 
 		expect(error.code).toBe('INVALID_BUILDER_STATE');
 	});
+
+	it('rejects a descendant arg beside a propagated stdin flag', () => {
+		const error = schemaError(() =>
+			command('root')
+				.flag('body', flag.string().stdin().propagate())
+				.command(command('child').arg('input', arg.string().stdin())),
+		);
+
+		expect(error.code).toBe('DUPLICATE_STDIN_INPUT');
+		expect(error.details).toMatchObject({ command: 'child' });
+	});
+
+	it('accepts broadcast stdin across a propagated flag and descendant arg', () => {
+		expect(() =>
+			command('root')
+				.flag('body', flag.string().stdin({ consume: 'broadcast' }).propagate())
+				.command(command('child').arg('input', arg.string().stdin({ consume: 'broadcast' }))),
+		).not.toThrow();
+	});
 });
 
 // --- definition construction path
@@ -152,6 +171,19 @@ describe('definition path', () => {
 		});
 
 		expect(schema.flags.body?.stdin?.consume).toBe('broadcast');
+	});
+
+	it('rejects a descendant flag beside a propagated stdin flag', () => {
+		const error = schemaError(() =>
+			createCommandSchema({
+				name: 'root',
+				flags: { body: { kind: 'string', stdin: {}, propagate: true } },
+				commands: [{ name: 'child', flags: { input: { kind: 'string', stdin: {} } } }],
+			}),
+		);
+
+		expect(error.code).toBe('DUPLICATE_STDIN_INPUT');
+		expect(error.details).toMatchObject({ command: 'child' });
 	});
 
 	it('rejects a stdin binding on a collection flag kind', () => {

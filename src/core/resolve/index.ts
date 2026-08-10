@@ -126,5 +126,5 @@ async function resolve(
 	};
 }
 
-export type { DeprecationWarning, ResolveOptions, ResolveResult };
+export type { DeprecationWarning, ResolutionProvenance, ResolveOptions, ResolveResult };
 export { resolve };
