@@ -15,7 +15,6 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: runner install --frozen schema:emit version:check
-      - uses: kjanat/install-dprint@v2
       - run: run -pk typecheck meta-descriptions:check lint format:check typecheck:gh
 
   test:
