@@ -418,9 +418,9 @@ Resolve flag values through the resolution chain.
 
 ### `readFlags(definitions, options?)`
 
-Evaluate a record of flag builders outside a CLI and return the resolved values, typed by
-`InferFlags`. Runs the same schema, parser, coercion, resolver, and validation a command runs, with
-no dispatch, output channel, help, or process exit. See
+Evaluate a record of flag builders outside a CLI and return a
+`Promise<InferFlags<F>>` of the resolved values. It runs the same schema, parser, coercion,
+resolver, and validation a command runs, with no dispatch, output channel, help, or process exit. See
 [Standalone Flag Evaluation](/guide/read-flags).
 
 - `definitions`: `FlagMap`, a record of `FlagBuilder` values keyed by canonical flag name

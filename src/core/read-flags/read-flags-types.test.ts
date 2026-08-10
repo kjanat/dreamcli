@@ -175,10 +175,11 @@ describe('readFlags() presence', () => {
 // === Call shape
 
 describe('readFlags() call shape', () => {
-	it('returns a promise of the resolved record', () => {
+	it('returns a promise of the resolved record', async () => {
 		const pending = readFlags({ watch: flag.boolean() }, empty);
 
 		expectTypeOf(pending).toEqualTypeOf<Promise<{ readonly watch: boolean }>>();
+		await pending;
 	});
 
 	it('accepts a definition record with no options', () => {

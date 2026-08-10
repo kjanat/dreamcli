@@ -261,6 +261,14 @@ async function readFlags<const F extends FlagMap>(
 	definitions: F,
 	options?: ReadFlagsOptions,
 ): Promise<InferFlags<F>> {
+	for (const key of Reflect.ownKeys(definitions)) {
+		if (typeof key !== 'string' || !Object.prototype.propertyIsEnumerable.call(definitions, key)) {
+			throw new CLIError('Flag definitions must use enumerable string keys', {
+				code: 'INVALID_SCHEMA',
+			});
+		}
+	}
+
 	const entries = Object.entries(definitions);
 	for (const [name] of entries) {
 		if (name === '__proto__') {

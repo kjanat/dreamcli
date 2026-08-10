@@ -427,6 +427,27 @@ describe('readFlags() prototype keys', () => {
 		expect(error instanceof CLIError && error.code).toBe('INVALID_SCHEMA');
 	});
 
+	it('rejects symbol and non-enumerable definition keys instead of dropping them', async () => {
+		const symbolDefinitions = { [Symbol('hidden')]: flag.string(), keep: flag.string() };
+		const symbolError = await thrownBy(() =>
+			readFlags(symbolDefinitions as never, { argv: [], env: {} }),
+		);
+
+		const nonEnumerableDefinitions = { keep: flag.string() };
+		Object.defineProperty(nonEnumerableDefinitions, 'hidden', {
+			value: flag.string(),
+			enumerable: false,
+		});
+		const nonEnumerableError = await thrownBy(() =>
+			readFlags(nonEnumerableDefinitions, { argv: [], env: {} }),
+		);
+
+		expect(symbolError instanceof CLIError && symbolError.code).toBe('INVALID_SCHEMA');
+		expect(nonEnumerableError instanceof CLIError && nonEnumerableError.code).toBe(
+			'INVALID_SCHEMA',
+		);
+	});
+
 	it('resolves other Object.prototype key names', async () => {
 		const values = await readFlags(
 			{ constructor: flag.string(), toString: flag.string(), valueOf: flag.string() },
@@ -755,6 +776,16 @@ describe('readFlags() adapter defaults', () => {
 
 		expect(values.watch).toBe(true);
 		expect(values.region).toBe('eu');
+	});
+
+	it('uses explicit argv and env without an injected adapter', async () => {
+		const values = await readFlags(
+			{ watch: flag.boolean(), path: flag.string().env('PATH') },
+			{ argv: ['--watch'], env: { PATH: '/injected/bin' } },
+		);
+
+		expect(values.watch).toBe(true);
+		expect(values.path).toBe('/injected/bin');
 	});
 
 	it('never exits the process on failure', async () => {
