@@ -39,7 +39,8 @@ type FlagDefOverrides = {
 
 /** Minimal FlagSchema with all required fields. */
 function flagSchema(overrides: FlagDefOverrides = {}): FlagSchema {
-	return createFlagSchema(overrides.kind ?? 'string', overrides);
+	const { kind = 'string', ...definition } = overrides;
+	return createFlagSchema(kind, definition);
 }
 
 /** Minimal CommandSchema with all required fields. */

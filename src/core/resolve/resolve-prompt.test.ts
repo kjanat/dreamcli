@@ -16,9 +16,8 @@ import {
 	type ReadFn,
 } from '#internals/core/prompt/index.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
-import { FLAG_KINDS } from '#internals/core/schema/flag.ts';
+import { createFlagSchema, FLAG_KINDS } from '#internals/core/schema/flag.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
-import { createFlagSchema } from '#internals/core/schema/index.ts';
 import { COMPATIBLE_PROMPT_KINDS } from './flags.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';

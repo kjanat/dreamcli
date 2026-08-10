@@ -26,7 +26,8 @@ type FlagDefOverrides = {
 
 /** Minimal FlagSchema with all required fields. */
 function flagDef(overrides: FlagDefOverrides = {}): FlagSchema {
-	return createFlagSchema(overrides.kind ?? 'string', overrides);
+	const { kind = 'string', ...definition } = overrides;
+	return createFlagSchema(kind, definition);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
