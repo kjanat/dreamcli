@@ -498,7 +498,14 @@ function generateInputSchema(
 
 	// CLISchema — collect all invocable commands into branches
 	const branches: Array<Record<string, unknown>> = [];
+	if (
+		schema.defaultCommand !== undefined &&
+		(opts.includeHidden || !schema.defaultCommand.hidden)
+	) {
+		collectInputBranches(schema.defaultCommand, '', branches, opts);
+	}
 	for (const cmd of schema.commands) {
+		if (cmd === schema.defaultCommand || cmd.name === schema.defaultCommand?.name) continue;
 		if (!opts.includeHidden && cmd.hidden) continue;
 		collectInputBranches(cmd, '', branches, opts);
 	}

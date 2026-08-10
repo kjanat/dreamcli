@@ -10,7 +10,8 @@ import type { CommandMeta } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
-import { CLIBuilder, cli, formatRootHelp } from './index.ts';
+import { CLIBuilder, cli } from './index.ts';
+import { formatRootHelp } from './root-help.ts';
 
 // --- Test commands
 

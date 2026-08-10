@@ -53,8 +53,6 @@ interface MiddlewareParams {
  *
  * At runtime, all middleware handlers have this signature. The phantom
  * `Output` type on {@linkcode Middleware} is erased.
- *
- * @internal
  */
 type ErasedMiddlewareHandler = (params: MiddlewareParams) => void | Promise<void>;
 
@@ -78,7 +76,6 @@ type MiddlewareHandler<Output extends Record<string, unknown>> = (params: {
 
 /**
  * Internal runtime representation of middleware.
- * @internal
  */
 interface MiddlewareImpl {
 	readonly _handler: ErasedMiddlewareHandler;

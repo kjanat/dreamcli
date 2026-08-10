@@ -44,13 +44,13 @@ interface SharedPropertyModelContract {
 }
 
 /** Runtime-accessible contract instance for property model tests. */
-const sharedPropertyModelContract = {
+const sharedPropertyModelContract: SharedPropertyModelContract = {
 	scope: 'coercion',
 	sharedKinds: SHARED_PROPERTY_MODEL_KINDS,
 	keepsFlagAndArgPrecedenceSeparate: true,
 	keepsFallbackRulesSeparate: true,
 	keepsRequiredValueRulesSeparate: true,
-} satisfies SharedPropertyModelContract;
+};
 
 /** Extract the shared coercion slice from a flag schema, or `undefined` for boolean/array (handled separately). */
 function toSharedFlagPropertySchema(schema: FlagSchema): SharedPropertySchema | undefined {

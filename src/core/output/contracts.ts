@@ -83,7 +83,7 @@ interface OutputContract {
 }
 
 /** Runtime-accessible copy of the frozen output-policy invariants. */
-const outputContract = {
+const outputContract: OutputContract = {
 	jsonReservesStdoutForStructuredData: true,
 	quietSuppressesInfo: true,
 	quietSuppressesRenderedActivity: true,
@@ -91,7 +91,7 @@ const outputContract = {
 	ttyActivityRequiresTTYAndNonJson: true,
 	spinnerCleanupUsesStop: true,
 	progressCleanupUsesDone: true,
-} satisfies OutputContract;
+};
 
 /** Build the stable output-policy snapshot for one channel instance. */
 function resolveOutputPolicy(options: ResolveOutputPolicyOptions): OutputPolicy {

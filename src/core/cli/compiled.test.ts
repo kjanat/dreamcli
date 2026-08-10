@@ -4,10 +4,11 @@
  * sibling route conflict detection.
  */
 import { describe, expect, it } from 'vitest';
+import { configFormat } from '#internals/core/config/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { compileCommand } from './compiled.ts';
-import { cli, compiledStateOf } from './index.ts';
+import { cli, compiledStateOf, createCLISchema, plugin } from './index.ts';
 
 // === Test helpers
 
@@ -65,19 +66,34 @@ describe('compileCommand', () => {
 	it('rejects two siblings claiming the same route', () => {
 		const group = command('db').command(leaf('migrate')).command(leaf('seed').alias('migrate'));
 
-		expect(() => compileCommand(group)).toThrow(CLIError);
+		let thrown: unknown;
 		try {
 			compileCommand(group);
 		} catch (error) {
-			expect(error).toBeInstanceOf(CLIError);
-			if (error instanceof CLIError) {
-				expect(error.code).toBe('DUPLICATE_COMMAND');
-			}
+			thrown = error;
 		}
+
+		expect(thrown).toBeInstanceOf(CLIError);
+		expect((thrown as CLIError).code).toBe('DUPLICATE_COMMAND');
+	});
+
+	it('reports a repeated alias as a self-collision', () => {
+		const group = command('db').command(leaf('migrate').alias('migrate'));
+
+		expect(() => compileCommand(group)).toThrow("Command 'migrate' reuses route 'migrate'");
 	});
 });
 
 describe('CLISchema and the compiled graph', () => {
+	it('rejects duplicate routes in plain definitions', () => {
+		expect(() =>
+			createCLISchema({
+				name: 'mytool',
+				commands: [{ name: 'deploy' }, { name: 'status', aliases: ['deploy'] }],
+			}),
+		).toThrow("Command route 'deploy' is already registered by 'deploy'");
+	});
+
 	it('registers the command schema object itself', () => {
 		const deploy = leaf('deploy');
 		const app = cli('mytool').command(deploy);
@@ -131,18 +147,26 @@ describe('CLISchema and the compiled graph', () => {
 	});
 
 	it('carries the compiled graph through every builder method', async () => {
-		const app = cli('mytool')
+		const initial = cli('mytool').command(leaf('deploy'));
+		const compiledDeploy = compiledStateOf(initial).commands[0];
+		const app = initial
 			.version('1.0.0')
 			.description('tool')
 			.links({ name: 'https://example.com' })
 			.help({ footer: false })
 			.config('mytool')
-			.command(leaf('deploy'))
+			.configLoader(configFormat(['yaml'], () => ({})))
+			.manifest({ version: '1.0.0' })
+			.packageJson()
+			.denoJson()
+			.completions()
+			.plugin(plugin({}))
 			.default(leaf('serve'));
 
 		const result = await app.execute(['deploy']);
 
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout.join('')).toContain('deploy');
+		expect(compiledStateOf(app).commands[0]).toBe(compiledDeploy);
 	});
 });

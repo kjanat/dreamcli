@@ -131,8 +131,6 @@ type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
  * At runtime, the resolver receives `{ flags: Record<string, unknown> }`
  * and returns `Record<string, PromptConfig | falsy>`. The phantom types
  * from `CommandBuilder<F, A>` are erased.
- *
- * @internal
  */
 type ErasedInteractiveResolver = (params: {
 	readonly flags: Readonly<Record<string, unknown>>;
@@ -412,8 +410,6 @@ type ActionHandler<
  *
  * Follows the same erasure pattern as {@link ErasedDeriveHandler} and
  * {@link ErasedMiddlewareHandler}.
- *
- * @internal
  */
 type ErasedActionHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
@@ -456,8 +452,6 @@ type DeriveHandler<
 
 /**
  * Type-erased derive handler stored on the command builder.
- *
- * @internal
  */
 type ErasedDeriveHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
@@ -473,8 +467,6 @@ type ErasedDeriveHandler = (params: {
 /**
  * Internal execution step union preserving registration order across
  * {@linkcode CommandBuilder.derive | derive()} and {@linkcode CommandBuilder.middleware | middleware()}.
- *
- * @internal
  */
 type ExecutionStep =
 	| {
@@ -948,7 +940,6 @@ function validateCommandFlagTree(
  * the shared executor, so TypeScript never has to resolve
  * {@linkcode CommandBuilder}'s full generic signature.
  *
- * @internal
  */
 interface RunnableCommand {
 	readonly schema: CommandSchema;
@@ -968,7 +959,6 @@ interface RunnableCommand {
  * assignable. The CLI layer's `compileCommand()` traverses these to build
  * the execution graph.
  *
- * @internal
  */
 type AnyCommandBuilder = CommandBuilder<
 	Record<string, FlagBuilder<FlagConfig>>,

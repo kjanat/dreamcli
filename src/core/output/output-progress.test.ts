@@ -15,13 +15,13 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { ActivityEvent } from '#internals/core/schema/activity.ts';
-import type { WriteFn } from './index.ts';
 import {
 	CaptureProgressHandle,
 	noopProgressHandle,
 	StaticProgressHandle,
 	TTYProgressHandle,
-} from './index.ts';
+} from './activity.ts';
+import type { WriteFn } from './index.ts';
 
 // --- Test helpers ---
 

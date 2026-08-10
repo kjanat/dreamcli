@@ -7,7 +7,6 @@
  * `cli/index.ts`.
  *
  * @module dreamcli/core/cli/compiled
- * @internal
  */
 
 import { CLIError } from '#internals/core/errors/index.ts';
@@ -23,8 +22,6 @@ import type { CLIPlugin } from './plugin.ts';
 
 /**
  * Executable form of one registered command.
- *
- * @internal
  */
 interface CompiledCommand {
 	/** The very {@linkcode CommandSchema} object the public schema tree holds. */
@@ -39,8 +36,6 @@ interface CompiledCommand {
 
 /**
  * Executable state of a CLI program.
- *
- * @internal
  */
 interface CompiledCLI {
 	/** Top-level commands in registration order. */
@@ -81,11 +76,16 @@ function assertNoSiblingRouteConflict(
 ): void {
 	const owner = routeOwners.get(route);
 	if (owner !== undefined) {
+		const selfCollision = owner === commandName;
 		throw new CLIError(
-			`Duplicate command route '${route}' under '${parentCommandName}' (${owner} and ${commandName})`,
+			selfCollision
+				? `Command '${commandName}' reuses route '${route}' under '${parentCommandName}'`
+				: `Duplicate command route '${route}' under '${parentCommandName}' (${owner} and ${commandName})`,
 			{
 				code: 'DUPLICATE_COMMAND',
-				suggest: 'Ensure sibling command names and aliases are unique',
+				suggest: selfCollision
+					? `Remove route '${route}' from the aliases of '${commandName}'`
+					: 'Ensure sibling command names and aliases are unique',
 			},
 		);
 	}

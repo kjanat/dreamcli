@@ -51,8 +51,6 @@ export type {
 	CommandSchema,
 	DeriveHandler,
 	DeriveParams,
-	ErasedDeriveHandler,
-	ErasedInteractiveResolver,
 	ExampleCommand,
 	ExampleMeta,
 	InteractiveParams,
@@ -119,7 +117,6 @@ export {
 	PROMPT_KINDS,
 } from './flag.ts';
 export type {
-	ErasedMiddlewareHandler,
 	Middleware,
 	MiddlewareHandler,
 	MiddlewareParams,
@@ -130,7 +127,7 @@ export {
 	describeNumberConstraintViolation,
 	validateNumberConstraints,
 } from './number-constraints.ts';
-export type { InternalRunOptions, RunOptions, RunResult } from './run.ts';
+export type { RunOptions, RunResult } from './run.ts';
 export type {
 	InferStandardInput,
 	InferStandardOutput,

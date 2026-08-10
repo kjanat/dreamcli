@@ -22,16 +22,7 @@ import type {
 	TableOptions,
 } from '#internals/core/schema/activity.ts';
 import { type Out, outBrand } from '#internals/core/schema/command.ts';
-import {
-	CaptureProgressHandle,
-	CaptureSpinnerHandle,
-	noopProgressHandle,
-	noopSpinnerHandle,
-	StaticProgressHandle,
-	StaticSpinnerHandle,
-	TTYProgressHandle,
-	TTYSpinnerHandle,
-} from './activity.ts';
+import { CaptureProgressHandle, CaptureSpinnerHandle } from './activity.ts';
 import { bindMethods } from './bind.ts';
 import type { OutputPolicy, Verbosity } from './contracts.ts';
 import {
@@ -778,20 +769,12 @@ function createCaptureOutput(
 export type { CapturedOutput, OutputOptions, Verbosity, WriteFn };
 export {
 	CaptureOutputChannel,
-	CaptureProgressHandle,
-	CaptureSpinnerHandle,
 	clearRequestedExitCode,
 	createCaptureOutput,
 	createOutput,
 	getRequestedExitCode,
-	noopProgressHandle,
-	noopSpinnerHandle,
 	OutputChannel,
 	resolveHyperlinkOverride,
-	StaticProgressHandle,
-	StaticSpinnerHandle,
 	setRequestedExitCode,
-	TTYProgressHandle,
-	TTYSpinnerHandle,
 	writeLine,
 };

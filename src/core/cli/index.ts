@@ -279,7 +279,6 @@ function rebuild(builder: CLIBuilder, schema: CLISchema): CLIBuilder {
  *
  * Stored in {@link CLISchema} when `.completions({ as: 'flag' })` is used.
  *
- * @internal
  */
 interface CompletionsFlagConfig {
 	/** Shell targets the flag accepts (mirrors {@link SHELLS}). */
@@ -641,7 +640,19 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 		});
 	}
 
-	return buildCLISchema(definition);
+	const schema = buildCLISchema(definition);
+	const registered: CommandSchema[] = [];
+	for (const commandSchema of schema.commands) {
+		assertNoTopLevelRouteConflict(registered, commandSchema);
+		registered.push(commandSchema);
+	}
+	const defaultIsRegisteredCommand =
+		definition.defaultCommand !== undefined &&
+		definition.commands?.includes(definition.defaultCommand) === true;
+	if (schema.defaultCommand !== undefined && !defaultIsRegisteredCommand) {
+		assertNoTopLevelRouteConflict(registered, schema.defaultCommand);
+	}
+	return schema;
 }
 
 // --- Options for execute/run
@@ -2186,7 +2197,6 @@ export {
 	cli,
 	compiledStateOf,
 	createCLISchema,
-	formatRootHelp,
 	isMainModule,
 	plugin,
 	resolveRenderContext,

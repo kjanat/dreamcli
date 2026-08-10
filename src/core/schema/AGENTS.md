@@ -9,7 +9,7 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 | `command.ts`            |  1751 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`               |
 | `flag.ts`               |  2101 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`  |
 | `arg.ts`                |  1102 | `ArgBuilder` — `arg.string()`, `.number()`, `.enum()`                                                         |
-| `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing `FlagSchema` / `ArgSchema` / `CommandSchema`                |
+| `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing flag, arg, command, CLI, and config-settings schemas        |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                     |
 | `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                  |
 | `prompt.ts`             |   171 | Prompt config types — `PromptConfig` discriminated union (4 kinds)                                            |
@@ -36,8 +36,9 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
   `.required()` / `.default()` chains. Never read at runtime — phantom only.
 - **Type erasure**: `eraseBuilder()` centralizes the `as unknown as` cast for heterogeneous
   subcommand storage in `_subcommands`. This is the justified `as` cast site.
-- **Schema seal**: `FlagSchema` / `ArgSchema` / `CommandSchema` carry `readonly [schemaBrand]` from
-  `brand.ts` as their first member. The symbol is `declare`-only, so no runtime key exists and
+- **Schema seal**: `FlagSchema`, `ArgSchema`, `CommandSchema`, `CLISchema`, and `ConfigSettings`
+  carry `readonly [schemaBrand]` from `brand.ts` as their first member. The symbol is `declare`-only,
+  so no runtime key exists and
   callers cannot spell it, which makes the factories the only construction path. `brand.ts` exports
   the symbol with `export type`, and every importer uses `import type` — a value import breaks the
   rolldown build with `MISSING_EXPORT`. `buildFlagSchema()`, `buildArgSchema()`, and

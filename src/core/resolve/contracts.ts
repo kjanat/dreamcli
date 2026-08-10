@@ -121,7 +121,7 @@ interface ResolverContract {
 }
 
 /** Runtime-accessible resolution contract — documents the resolver's invariants for tests and diagnostics. */
-const resolverContract = {
+const resolverContract: ResolverContract = {
 	flagPrecedence: FLAG_RESOLUTION_ORDER,
 	argPrecedence: ARG_RESOLUTION_ORDER,
 	promptRunsAfterFlagConfig: true,
@@ -129,7 +129,7 @@ const resolverContract = {
 	aggregateDiagnosticsIncludePerIssueSummary: true,
 	hardCoercionErrorsStopFallback: true,
 	collectsDeprecationsFromExplicitSources: true,
-} satisfies ResolverContract;
+};
 
 export type {
 	ArgDiagnosticSource,

@@ -8,7 +8,6 @@
  * normalization factories are the only construction path.
  *
  * @module dreamcli/core/schema/brand
- * @internal
  */
 
 declare const schemaBrand: unique symbol;

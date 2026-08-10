@@ -1073,6 +1073,20 @@ describe('generateInputSchema — input validation', () => {
 		expect(result).toHaveProperty(['oneOf', 1, 'required'], ['command']);
 	});
 
+	it('produces a flat schema for a sole default command', () => {
+		const deploy = commandDef({
+			name: 'deploy',
+			flags: { region: flagDef({ kind: 'string', presence: 'required' }) },
+		});
+		const cli = minimalCLI({ commands: [], defaultCommand: deploy });
+		const result = generateInputSchema(cli);
+
+		expect(result).not.toHaveProperty('oneOf');
+		expect(result).not.toHaveProperty(['properties', 'command']);
+		expect(result).toHaveProperty(['properties', 'region', 'type'], 'string');
+		expect(result).toHaveProperty('required', ['region']);
+	});
+
 	it('produces flat schema for single-command CLI', () => {
 		const deploy = commandDef({ name: 'deploy' });
 		const cli = minimalCLI({ commands: [deploy] });
