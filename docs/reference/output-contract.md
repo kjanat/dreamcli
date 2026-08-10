@@ -35,7 +35,7 @@ The intent is simple:
 
 - `jsonMode` reserves stdout for `json()` and JSON-form table output
 - `isTTY` enables decorative activity rendering only when JSON mode is off
-- `verbosity` suppresses informational text and activity, not warnings, errors, or structured output
+- `verbosity` suppresses `info()`, `status()`, and rendered spinner/progress activity; `log()` remains enabled
 
 ## Activity Policy
 

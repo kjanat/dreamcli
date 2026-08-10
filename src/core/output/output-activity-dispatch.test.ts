@@ -101,6 +101,14 @@ describe('OutputChannel.spinner() — mode dispatch', () => {
 		handle.succeed('done');
 		expect(stderr).toEqual([]);
 	});
+
+	it('quiet mode → noop for non-TTY static fallback', () => {
+		const { channel, stdout, stderr } = makeChannel({ isTTY: false, verbosity: 'quiet' });
+		const handle = channel.spinner('Loading', { fallback: 'static' });
+		handle.succeed('done');
+		expect(stdout).toEqual([]);
+		expect(stderr).toEqual([]);
+	});
 });
 
 // === OutputChannel — mode dispatch for progress()
@@ -143,6 +151,14 @@ describe('OutputChannel.progress() — mode dispatch', () => {
 		const { channel, stderr } = makeChannel({ isTTY: true, verbosity: 'quiet' });
 		const handle = channel.progress({ total: 10, label: 'Files', fallback: 'static' });
 		handle.done('done');
+		expect(stderr).toEqual([]);
+	});
+
+	it('quiet mode → noop for non-TTY static fallback', () => {
+		const { channel, stdout, stderr } = makeChannel({ isTTY: false, verbosity: 'quiet' });
+		const handle = channel.progress({ total: 10, label: 'Files', fallback: 'static' });
+		handle.done('done');
+		expect(stdout).toEqual([]);
 		expect(stderr).toEqual([]);
 	});
 });
@@ -364,6 +380,34 @@ describe('stopActive() — explicit cleanup', () => {
 // === createCaptureOutput — activity event capture
 
 describe('createCaptureOutput — activity capture', () => {
+	it('records spinner activity without text output in quiet mode', () => {
+		const [out, captured] = createCaptureOutput({ verbosity: 'quiet' });
+		const handle = out.spinner('Loading');
+		handle.update('Still loading');
+		handle.succeed('Done');
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr).toEqual([]);
+		expect(captured.activity).toEqual([
+			{ type: 'spinner:start', text: 'Loading' },
+			{ type: 'spinner:update', text: 'Still loading' },
+			{ type: 'spinner:succeed', text: 'Done' },
+		]);
+	});
+
+	it('records progress activity without text output in quiet mode', () => {
+		const [out, captured] = createCaptureOutput({ verbosity: 'quiet' });
+		const handle = out.progress({ total: 10, label: 'Files' });
+		handle.increment(3);
+		handle.done('Complete');
+		expect(captured.stdout).toEqual([]);
+		expect(captured.stderr).toEqual([]);
+		expect(captured.activity).toEqual([
+			{ type: 'progress:start', label: 'Files', total: 10 },
+			{ type: 'progress:increment', delta: 3 },
+			{ type: 'progress:done', text: 'Complete' },
+		]);
+	});
+
 	it('captures spinner lifecycle events', () => {
 		const [out, captured] = createCaptureOutput();
 		const handle = out.spinner('Loading');

@@ -142,7 +142,7 @@ The output channel automatically adjusts behavior:
 | -------- | ---------------------------------------------------- |
 | TTY      | Pretty formatting, spinners animate, colors          |
 | Piped    | Minimal stable output, spinners suppressed           |
-| `--quiet` | Informational text and activity suppressed           |
+| `--quiet` | `info()`, `status()`, and rendered spinner/progress activity suppressed; `log()` remains enabled |
 | `--json` | Structured JSON to stdout, everything else to stderr |
 
 One code path, correct output everywhere.

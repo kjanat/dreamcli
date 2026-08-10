@@ -41,6 +41,10 @@ describe('resolveRenderContext — verbosity', () => {
 	it('honors an explicit verbosity override when argv is not quiet', () => {
 		expect(resolveRenderContext([], { verbosity: 'quiet' }).verbosity).toBe('quiet');
 	});
+
+	it('lets a pre-separator quiet flag override explicit normal verbosity', () => {
+		expect(resolveRenderContext(['--quiet'], { verbosity: 'normal' }).verbosity).toBe('quiet');
+	});
 });
 
 // === TTY and color gate

@@ -100,6 +100,20 @@ describe('output contracts', () => {
 			});
 		});
 
+		it('suppresses static fallback activity in quiet mode without a TTY', () => {
+			const quietPolicy = { ...basePolicy, verbosity: 'quiet' as const };
+			expect(resolveSpinnerPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+			expect(resolveProgressPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+		});
+
 		it('uses done cleanup for progress handles', () => {
 			expect(resolveProgressPolicy({ ...basePolicy, isTTY: true }, 'silent')).toEqual({
 				mode: 'tty',
