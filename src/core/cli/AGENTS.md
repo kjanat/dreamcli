@@ -48,9 +48,10 @@ Nested dispatch: `group('db').command(migrate).command(seed)` -> `mycli db migra
 ## `executeCLI()`
 
 Module-level function taking the builder as its first parameter; `.execute()` and `.run()` both
-delegate to it. Handles 6 concerns sequentially: `--json` extraction, `--version`, `--help`,
-no-commands error, command map building, 3-way dispatch result (`unknown` / `needs-subcommand` /
-`match`).
+delegate to it. It detects root `--json` / `--quiet`, builds or adopts the output channel, resolves
+help options, then calls `planInvocation()` and renders the plan. `planner.ts` owns command map
+building and the no-commands error; `executeCLI()` renders the six plan kinds: `root-version`,
+`root-completions`, `root-help`, `dispatch-error`, `needs-subcommand`, and `match`.
 
 ## `--json` MODE
 
