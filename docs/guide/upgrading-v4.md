@@ -1,6 +1,6 @@
 # Upgrading From 3.x To 4.0
 
-This page covers moving an existing dreamcli 3.0 CLI to 4.0.0. Coming from 2.x,
+This page covers moving an existing dreamcli 3.x CLI to 4.0.0. Coming from 2.x,
 read [Upgrading From 2.x To 3.0](/guide/upgrading-v3) first. For adopting
 dreamcli from another framework, see
 [Migration And Adoption](/guide/migration).

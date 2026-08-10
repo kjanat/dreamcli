@@ -6,9 +6,10 @@ it carries. Version numbers follow [SemVer](https://semver.org).
 "Breaking" is not one rule. It depends on who constructs a value, who reads it,
 and whether the value crosses a serialization boundary. Adding a readonly member
 to [`Out`](#sealed-framework-values) is a minor release because only the
-framework constructs one. Adding the same member to
+framework constructs one. Adding a required member to
 [`RuntimeAdapter`](#implementer-ports) is a major release because consumers
-implement it. Adding a variant to [`Shell`](#closed-unions-and-discriminated-results)
+implement it; adding an optional member is a minor release. Adding a variant to
+[`Shell`](#closed-unions-and-discriminated-results)
 is a major release because consumers switch exhaustively over it, while adding
 one to [`ErrorCode`](#open-unions) is a patch because the union is open by
 construction.
@@ -440,7 +441,7 @@ fragment types `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
 These values leave the process. The package version does not govern their shape.
 `schemaVersion` does.
 
-Every standalone document carries `schemaVersion: 1`. Fragments carry no
+Every standalone definition document carries `schemaVersion: 1`. Fragments carry no
 `schemaVersion` and inherit the version of the document they sit in. A change
 that breaks a reader of version 1 increments the format to `schemaVersion: 2`
 and ships as `DefinitionDocumentV2` alongside `DefinitionDocumentV1`, whatever
