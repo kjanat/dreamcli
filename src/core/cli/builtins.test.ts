@@ -88,6 +88,13 @@ describe('builtins — normalization', () => {
 		expect(app.schema.builtins).toEqual({ help: 'off', json: 'off', quiet: 'on' });
 	});
 
+	it('treats an explicit undefined as an omitted incremental setting', () => {
+		const looselyTyped = { json: undefined, quiet: 'off' } as unknown as BuiltinsConfig;
+		const app = cli('mycli').builtins({ json: 'off' }).builtins(looselyTyped);
+
+		expect(app.schema.builtins).toEqual({ help: 'on', json: 'off', quiet: 'off' });
+	});
+
 	it('rejects a value that is neither mode on the definition path', () => {
 		const definition: CLIDefinition = {
 			name: 'mycli',
@@ -251,6 +258,13 @@ describe("builtins — help: 'off'", () => {
 		expect((await app.execute(['show', '-h', 'flags'])).stdout.join('')).toBe('help=flags\n');
 	});
 
+	it('does not let released help bypass an invalid root output flag', async () => {
+		const result = await helpOwningApp().execute(['show', '--help', 'flags', '--json=banana']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('INVALID_VALUE');
+	});
+
 	it('stops routing the bare help token', async () => {
 		const result = await helpOwningApp().execute(['help']);
 
@@ -364,5 +378,18 @@ describe('builtins — testkit runCommand', () => {
 		});
 
 		expect(result.stdout.join('')).toBe('help=topics\n');
+	});
+
+	it('bypasses an invalid root output value only while help is root-owned', async () => {
+		const cmd = echoFlag('target', flag.string());
+		const owned = await runCommand(cmd, ['--help', '--json=banana']);
+		expect(owned.exitCode).toBe(0);
+		expect(owned.error).toBeUndefined();
+
+		const released = await runCommand(cmd, ['--help', '--json=banana'], {
+			builtins: { help: 'off' },
+		});
+		expect(released.exitCode).toBe(2);
+		expect(released.error?.code).toBe('INVALID_VALUE');
 	});
 });

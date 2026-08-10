@@ -1063,7 +1063,12 @@ class CLIBuilder {
 	 * ```
 	 */
 	builtins(config: BuiltinsConfig): CLIBuilder {
-		const builtins = normalizeBuiltins({ ...this.schema.builtins, ...config });
+		const definedConfig: BuiltinsConfig = {
+			...(config.help !== undefined ? { help: config.help } : {}),
+			...(config.json !== undefined ? { json: config.json } : {}),
+			...(config.quiet !== undefined ? { quiet: config.quiet } : {}),
+		};
+		const builtins = normalizeBuiltins({ ...this.schema.builtins, ...definedConfig });
 		assertNoReservedFlagCollisions(
 			this.schema.version,
 			[this.schema.defaultCommand, ...this.schema.commands],

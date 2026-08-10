@@ -73,8 +73,6 @@ type BuiltinsDraft = Omit<Builtins, typeof schemaBrand>;
 
 /** Everything the framework needs to know about one built-in flag. @internal */
 interface BuiltinSpec {
-	/** Spelling error messages and help entries name the built-in by. */
-	readonly spelling: string;
 	/** Long spellings, the only forms that carry an inline `=value`. */
 	readonly long: readonly string[];
 	/** Short spellings, which have no inline-value form. */
@@ -90,24 +88,26 @@ interface BuiltinSpec {
  */
 const BUILTIN_SPECS: Readonly<Record<BuiltinName, BuiltinSpec>> = {
 	help: {
-		spelling: '--help',
 		long: ['--help'],
 		short: ['-h'],
 		description: 'Show this help message and exit',
 	},
 	json: {
-		spelling: '--json',
 		long: ['--json'],
 		short: [],
 		description: 'Emit machine-readable JSON output',
 	},
 	quiet: {
-		spelling: '--quiet',
 		long: ['--quiet'],
 		short: ['-q'],
 		description: 'Suppress informational output',
 	},
 };
+
+/** Spelling error messages and help entries name a built-in by. @internal */
+function builtinSpelling(name: BuiltinName): string {
+	return BUILTIN_SPECS[name].long[0] ?? BUILTIN_SPECS[name].short[0] ?? name;
+}
 
 /** Built-in names in the order root help advertises them. @internal */
 const BUILTIN_NAMES: readonly BuiltinName[] = ['help', 'json', 'quiet'];
@@ -202,6 +202,7 @@ export {
 	BUILTIN_SPECS,
 	builtinEnabled,
 	builtinFlagForms,
+	builtinSpelling,
 	builtinTokens,
 	DEFAULT_BUILTINS,
 	normalizeBuiltins,

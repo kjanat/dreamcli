@@ -386,8 +386,9 @@ Adopt at your own pace; none of these are required:
 - **Verbosity in handler code**: `out.verbosity` and
   `resolveRenderContext().verbosity` expose the active level for custom
   rendering built inside or before a run.
-- **Consumer-owned built-in flags**: `.builtins({ help | json | quiet: 'off' })`
-  hands a root-owned token to the commands, for a CLI whose `--json`, `-q`, or
+- **Consumer-owned built-in flags**: `.builtins({ help: 'off' })`,
+  `.builtins({ json: 'off' })`, or `.builtins({ quiet: 'off' })` hands a
+  root-owned token to the commands, for a CLI whose `--json`, `-q`, or
   `--help` means something of its own. See
   [Taking a built-in over](/guide/output#taking-a-built-in-over).
 

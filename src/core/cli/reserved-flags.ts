@@ -19,7 +19,7 @@ import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { BuiltinName, BuiltinsConfig } from './builtins.ts';
-import { BUILTIN_NAMES, BUILTIN_SPECS, builtinEnabled, builtinTokens } from './builtins.ts';
+import { BUILTIN_NAMES, builtinEnabled, builtinSpelling, builtinTokens } from './builtins.ts';
 
 /** What the root does with a token, and how a colliding command flag is fixed. @internal */
 interface ReservedFlag {
@@ -82,7 +82,7 @@ const VERSION_TOKENS: readonly string[] = ['version', 'V'];
 /**
  * The tokens a CLI's commands may not spell.
  *
- * Built by walking {@link BUILTIN_SPECS}, so the reserved set and the spellings
+ * Built from the shared built-in spelling table, so the reserved set and the spellings
  * the root actually reads cannot drift, and a released built-in is absent here
  * by construction.
  */
@@ -95,7 +95,7 @@ function reservedTokens(
 	for (const name of BUILTIN_NAMES) {
 		if (!builtinEnabled(builtins, name)) continue;
 		const entry: ReservedFlag = {
-			rootSpelling: BUILTIN_SPECS[name].spelling,
+			rootSpelling: builtinSpelling(name),
 			effect: BUILTIN_EFFECTS[name],
 			remedy: BUILTIN_REMEDIES[name],
 		};
