@@ -217,7 +217,7 @@ describe('formatHelp', () => {
 				.arg('endpoint', arg.url().optional().describe('Upload target'));
 			const help = formatHelp(cmd.schema);
 
-			expect(help).toContain('Usage: convert <input> <output> [endpoint]');
+			expect(help).toContain('Usage: convert <input> <output> [endpoint]\n');
 			expect(help).toContain('<input>');
 			expect(help).toContain('<output>');
 			expect(help).toContain('[endpoint]');

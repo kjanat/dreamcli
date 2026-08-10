@@ -7,20 +7,21 @@
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
-import type {
-	ArgSchema,
-	FlagSchema,
-	NumberConstraints,
-	StringConstraints,
-	StringConstraintViolation,
-} from '#internals/core/schema/index.ts';
+import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import type { NumberConstraints } from '#internals/core/schema/number-constraints.ts';
 import {
 	describeNumberConstraintViolation,
+	validateNumberConstraints,
+} from '#internals/core/schema/number-constraints.ts';
+import type {
+	StringConstraints,
+	StringConstraintViolation,
+} from '#internals/core/schema/string-constraints.ts';
+import {
 	describeStringConstraintViolation,
 	stringConstraintDetails,
-	validateNumberConstraints,
 	validateStringConstraints,
-} from '#internals/core/schema/index.ts';
+} from '#internals/core/schema/string-constraints.ts';
 import type { ArgDiagnosticSource, FlagDiagnosticSource } from './contracts.ts';
 import type { SharedPropertySchema } from './property.ts';
 import { toSharedArgPropertySchema, toSharedFlagPropertySchema } from './property.ts';

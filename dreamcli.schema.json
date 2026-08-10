@@ -363,7 +363,7 @@
           ]
         },
         "create": {
-          "type": "boolean"
+          "const": true
         }
       },
       "required": [

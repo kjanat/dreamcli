@@ -173,8 +173,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one typed on the command line. A variadic argument validates every value it
   collects, path checks included. Argument values sourced from stdin or env stay
   redacted in the message, as in
-  `Invalid value '<redacted>' from stdin for argument <x>`, so byte-for-byte
-  equality with the flag message holds for argv-sourced values.
+  `Invalid value '<redacted>' from stdin for argument <x>`, so the flag and
+  argument messages are equivalent apart from their subjects.
 
   `ArgSchema` and the arg definition types carry `stringConstraints`,
   `pathChecks`, and `valueHint`. The first two are string-kind gated the way the

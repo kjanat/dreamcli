@@ -518,6 +518,7 @@ function serializeStringConstraints(
  *
  * @param checks - The filesystem expectations to serialize.
  * @returns JSON-serializable object omitting the defaults.
+ * @internal
  */
 function serializePathChecks(checks: PathChecks): FlagPathChecksFragmentV1 {
 	return {
@@ -825,27 +826,28 @@ function getBranchCommandDiscriminator(branch: InputSchemaBranch): string | unde
 
 // --- Type mapping — flags → JSON Schema types
 
+/** Map shared string constraints to JSON Schema properties. @internal */
+function stringConstraintsToJsonSchemaProperties(
+	constraints: StringConstraints | undefined,
+): Record<string, unknown> {
+	const result: Record<string, unknown> = {};
+	const minLength =
+		constraints?.nonEmpty === true
+			? Math.max(constraints.minLength ?? 1, 1)
+			: constraints?.minLength;
+	if (minLength !== undefined) result.minLength = minLength;
+	if (constraints?.maxLength !== undefined) result.maxLength = constraints.maxLength;
+	if (constraints?.pattern !== undefined) result.pattern = constraints.pattern.source;
+	return result;
+}
+
 function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 	const result: Record<string, unknown> = {};
 
 	switch (schema.kind) {
 		case 'string': {
 			result.type = 'string';
-			const constraints = schema.stringConstraints;
-			// nonEmpty is expressible as minLength >= 1 in JSON Schema.
-			const minLength =
-				constraints?.nonEmpty === true
-					? Math.max(constraints.minLength ?? 1, 1)
-					: constraints?.minLength;
-			if (minLength !== undefined) {
-				result.minLength = minLength;
-			}
-			if (constraints?.maxLength !== undefined) {
-				result.maxLength = constraints.maxLength;
-			}
-			if (constraints?.pattern !== undefined) {
-				result.pattern = constraints.pattern.source;
-			}
+			Object.assign(result, stringConstraintsToJsonSchemaProperties(schema.stringConstraints));
 			break;
 		}
 		case 'number': {
@@ -925,23 +927,10 @@ function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 function argKindToType(schema: ArgSchema): Record<string, unknown> {
 	switch (schema.kind) {
 		case 'string': {
-			const result: Record<string, unknown> = { type: 'string' };
-			const constraints = schema.stringConstraints;
-			// nonEmpty is expressible as minLength >= 1 in JSON Schema.
-			const minLength =
-				constraints?.nonEmpty === true
-					? Math.max(constraints.minLength ?? 1, 1)
-					: constraints?.minLength;
-			if (minLength !== undefined) {
-				result.minLength = minLength;
-			}
-			if (constraints?.maxLength !== undefined) {
-				result.maxLength = constraints.maxLength;
-			}
-			if (constraints?.pattern !== undefined) {
-				result.pattern = constraints.pattern.source;
-			}
-			return result;
+			return {
+				type: 'string',
+				...stringConstraintsToJsonSchemaProperties(schema.stringConstraints),
+			};
 		}
 		case 'number': {
 			const constraints = schema.numberConstraints;
@@ -1235,7 +1224,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					mustExist: { type: 'boolean' },
 					type: { enum: ['file', 'directory'] },
-					create: { type: 'boolean' },
+					create: { const: true },
 				},
 				required: ['mustExist'],
 			},
