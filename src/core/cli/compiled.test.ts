@@ -157,8 +157,6 @@ describe('CLISchema and the compiled graph', () => {
 			.config('mytool')
 			.configLoader(configFormat(['yaml'], () => ({})))
 			.manifest({ version: '1.0.0' })
-			.packageJson()
-			.denoJson()
 			.completions()
 			.plugin(plugin({}))
 			.default(leaf('serve'));
