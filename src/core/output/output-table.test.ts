@@ -242,7 +242,7 @@ describe('table', () => {
 
 	// --- column keys naming an Object.prototype member
 
-	describe('column keys naming an Object.prototype member', () => {
+	describe('column keys — Object.prototype members', () => {
 		it('leaves the cell empty on a row that does not carry the key', () => {
 			const [out, captured] = createCaptureOutput();
 			out.table<Record<string, unknown>>(
@@ -253,7 +253,9 @@ describe('table', () => {
 					{ key: 'absent', header: 'Absent' },
 				],
 			);
-			const lines = captured.stdout.join('').split('\n');
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
 			expect(lines[2]?.trimEnd()).toBe('1   own');
 			expect(lines[3]?.trimEnd()).toBe('2');
 		});
@@ -273,7 +275,9 @@ describe('table', () => {
 						{ key: name, header: 'H' },
 					],
 				);
-				const lines = captured.stdout.join('').split('\n');
+				const output = captured.stdout.join('');
+				expect(output.endsWith('\n')).toBe(true);
+				const lines = output.split('\n');
 				expect(lines[2]?.trimEnd()).toBe('1');
 			}
 		});
@@ -293,7 +297,7 @@ describe('table', () => {
 
 	// --- column keys held by the row's own prototype chain
 
-	describe('column keys the row inherits from its own prototype', () => {
+	describe('column keys — inherited from the row prototype', () => {
 		class Server {
 			readonly [key: string]: unknown;
 			constructor(
@@ -314,7 +318,9 @@ describe('table', () => {
 					{ key: 'address', header: 'Address' },
 				],
 			);
-			const lines = captured.stdout.join('').split('\n');
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
 			expect(lines[2]?.trimEnd()).toBe('web-1  web-1:80');
 		});
 
@@ -342,7 +348,9 @@ describe('table', () => {
 					{ key: 'status', header: 'Status' },
 				],
 			);
-			const lines = captured.stdout.join('').split('\n');
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
 			expect(lines[2]?.trimEnd()).toBe('1   pending');
 		});
 
@@ -358,7 +366,9 @@ describe('table', () => {
 					{ key: 'toString', header: 'Label' },
 				],
 			);
-			const lines = captured.stdout.join('').split('\n');
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
 			expect(lines[2]?.trimEnd()).toBe('1');
 		});
 	});
