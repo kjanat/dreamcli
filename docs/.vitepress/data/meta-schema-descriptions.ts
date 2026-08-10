@@ -36,6 +36,7 @@ const ROOT_PROPERTY_TARGETS: Readonly<Record<string, NodeTarget>> = {
 
 const DEF_TARGETS: Readonly<Record<string, NodeTarget>> = {
 	command: { exportId: 'dreamcli:CommandSchema' },
+	commandDocument: { exportId: 'dreamcli:CommandDefinitionDocumentV1' },
 	flag: { exportId: 'dreamcli:FlagSchema' },
 	negation: { exportId: 'dreamcli:FlagNegation' },
 	arg: { exportId: 'dreamcli:ArgSchema' },
@@ -57,6 +58,20 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		flags: { exportId: 'dreamcli:CommandSchema', property: 'flags' },
 		args: { exportId: 'dreamcli:CommandSchema', property: 'args' },
 		commands: { exportId: 'dreamcli:CommandSchema', property: 'commands' },
+	},
+	commandDocument: {
+		schemaVersion: { exportId: 'dreamcli:DEFINITION_SCHEMA_VERSION' },
+		name: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'name' },
+		description: {
+			exportId: 'dreamcli:CommandDefinitionFragmentV1',
+			property: 'description',
+		},
+		aliases: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'aliases' },
+		hidden: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'hidden' },
+		examples: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'examples' },
+		flags: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'flags' },
+		args: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'args' },
+		commands: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'commands' },
 	},
 	flag: {
 		kind: { exportId: 'dreamcli:FlagSchema', property: 'kind' },

@@ -44,13 +44,17 @@ document — in VS Code:
   "json.schemas": [
     {
       "url": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json",
-      "fileMatch": ["*.definition.json"]
+      "fileMatch": ["cli-schema.json", "*.definition.json"]
     }
   ]
 }
 ```
 
 The schema is also importable as `@kjanat/dreamcli/schema`.
+
+Standalone documents from `generateCommandSchema()` validate against the dedicated
+`https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json#/$defs/commandDocument`
+entry point.
 
 Full example output:
 

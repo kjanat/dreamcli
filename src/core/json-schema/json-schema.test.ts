@@ -175,7 +175,16 @@ describe('generateSchema — definition metadata', () => {
 		expect(commandDocument).toHaveProperty(['properties', 'schemaVersion', 'const'], 1);
 
 		const doc: Record<string, unknown> = generateCommandSchema(
-			createCommandSchema({ name: 'deploy', hasAction: true }),
+			commandDef({
+				name: 'deploy',
+				description: 'Deploy the application',
+				aliases: ['ship'],
+				hidden: true,
+				examples: [{ command: 'deploy production', description: 'Deploy production' }],
+				flags: { force: flagDef({ kind: 'boolean' }) },
+				args: [argEntry('target')],
+				commands: [commandDef({ name: 'status' })],
+			}),
 		);
 		const allowed = new Set(Object.keys(expectRecord(commandDocument.properties)));
 		for (const key of Object.keys(doc)) {

@@ -121,6 +121,8 @@ export type {
 	PromptDefinitionFragmentV1,
 } from './core/json-schema/index.ts';
 export {
+	DEFINITION_SCHEMA_URL,
+	DEFINITION_SCHEMA_VERSION,
 	definitionMetaSchema,
 	generateCommandSchema,
 	generateInputSchema,

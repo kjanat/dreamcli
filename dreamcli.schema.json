@@ -108,46 +108,55 @@
       "additionalProperties": false,
       "properties": {
         "schemaVersion": {
-          "const": 1
+          "const": 1,
+          "description": "Version of the definition document format emitted by generateSchema\nand generateCommandSchema."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The command name used for dispatch."
         },
         "description": {
-          "type": "string"
+          "type": "string",
+          "description": "Human-readable description for help text."
         },
         "aliases": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Alternative names accepted for this command."
         },
         "hidden": {
-          "const": true
+          "const": true,
+          "description": "Whether the command is omitted from help listings."
         },
         "examples": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/example"
-          }
+          },
+          "description": "Usage examples attached to the command."
         },
         "flags": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/flag"
-          }
+          },
+          "description": "Named flag definitions keyed by flag name."
         },
         "args": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/arg"
-          }
+          },
+          "description": "Positional argument definitions in CLI order."
         },
         "commands": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/command"
-          }
+          },
+          "description": "Nested subcommand definitions."
         }
       },
       "required": [
@@ -156,7 +165,8 @@
         "flags",
         "args",
         "commands"
-      ]
+      ],
+      "description": "A single-command definition document, version 1.\n\nProduced by generateCommandSchema. Same shape as a\nCommandDefinitionFragmentV1 plus the `schemaVersion` every standalone\ndocument carries."
     },
     "flag": {
       "type": "object",

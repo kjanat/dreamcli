@@ -230,13 +230,21 @@ type ArgDefinitionFragmentV1 = {
  * they sit in. The standalone form is {@link CommandDefinitionDocumentV1}.
  */
 type CommandDefinitionFragmentV1 = {
+	/** The command name used for dispatch. */
 	readonly name: string;
+	/** Human-readable description for help text. */
 	readonly description?: string;
+	/** Alternative names accepted for this command. */
 	readonly aliases?: readonly string[];
+	/** Whether the command is omitted from help listings. */
 	readonly hidden?: true;
+	/** Usage examples attached to the command. */
 	readonly examples?: readonly ExampleDefinitionFragmentV1[];
+	/** Named flag definitions keyed by flag name. */
 	readonly flags: Readonly<Record<string, FlagDefinitionFragmentV1>>;
+	/** Positional argument definitions in CLI order. */
 	readonly args: readonly ArgDefinitionFragmentV1[];
+	/** Nested subcommand definitions. */
 	readonly commands: readonly CommandDefinitionFragmentV1[];
 };
 
@@ -264,6 +272,7 @@ type DefinitionDocumentV1 = {
  * document carries.
  */
 type CommandDefinitionDocumentV1 = CommandDefinitionFragmentV1 & {
+	/** Definition document format version. */
 	readonly schemaVersion: 1;
 };
 
@@ -366,6 +375,8 @@ function generateSchema(
  * @param meta - Program name/version for function-form examples; defaults to
  *   the command's own name with no version.
  * @returns A plain object suitable for `JSON.stringify()`.
+ * @remarks Validate standalone output against
+ *   `https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json#/$defs/commandDocument`.
  */
 function generateCommandSchema(
 	schema: CommandSchema,
@@ -1254,4 +1265,11 @@ export type {
 	PromptChoiceFragmentV1,
 	PromptDefinitionFragmentV1,
 };
-export { definitionMetaSchema, generateCommandSchema, generateInputSchema, generateSchema };
+export {
+	DEFINITION_SCHEMA_URL,
+	DEFINITION_SCHEMA_VERSION,
+	definitionMetaSchema,
+	generateCommandSchema,
+	generateInputSchema,
+	generateSchema,
+};

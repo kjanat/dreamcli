@@ -59,6 +59,40 @@ const definitionMetaSchemaDescriptions = {
 				},
 			},
 		},
+		commandDocument: {
+			description:
+				'A single-command definition document, version 1.\n\nProduced by generateCommandSchema. Same shape as a\nCommandDefinitionFragmentV1 plus the `schemaVersion` every standalone\ndocument carries.',
+			properties: {
+				schemaVersion: {
+					description:
+						'Version of the definition document format emitted by generateSchema\nand generateCommandSchema.',
+				},
+				name: {
+					description: 'The command name used for dispatch.',
+				},
+				description: {
+					description: 'Human-readable description for help text.',
+				},
+				aliases: {
+					description: 'Alternative names accepted for this command.',
+				},
+				hidden: {
+					description: 'Whether the command is omitted from help listings.',
+				},
+				examples: {
+					description: 'Usage examples attached to the command.',
+				},
+				flags: {
+					description: 'Named flag definitions keyed by flag name.',
+				},
+				args: {
+					description: 'Positional argument definitions in CLI order.',
+				},
+				commands: {
+					description: 'Nested subcommand definitions.',
+				},
+			},
+		},
 		flag: {
 			description:
 				"The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
