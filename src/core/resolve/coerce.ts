@@ -304,7 +304,7 @@ function valueCoercionError(
 					details: {
 						flag: name,
 						...sourceDetails(source),
-						value: raw,
+						value: failure.value,
 						expected: 'number',
 						constraint: failure.violation.kind,
 						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),

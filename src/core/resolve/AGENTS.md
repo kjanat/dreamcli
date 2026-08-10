@@ -18,7 +18,7 @@ Each source tried in order; first non-undefined wins. Missing required values wi
 | `index.ts`       |   124 | `resolve()` — orchestrates the chain, then the Standard Schema pass          |
 | `flags.ts`       |   326 | `resolveFlags()` — all flags: CLI -> env -> config -> prompt -> default      |
 | `args.ts`        |   184 | `resolveArgs()` — parsed -> stdin -> env -> default, then path checks        |
-| `coerce.ts`      |   611 | `coerceValue()` — unified raw value -> flag's declared kind                  |
+| `coerce.ts`      |   608 | `coerceValue()` — unified raw value -> flag's declared kind                  |
 | `path-checks.ts` |   108 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                  |
 | `errors.ts`      |   227 | Error aggregation + `throwAggregatedErrors()`                                |
@@ -109,7 +109,7 @@ an actionable `suggest`. This mirrors the compile-time `AllowedPromptConfig<C>` 
 
 ## GOTCHAS
 
-- Split from ~940-line monolithic index — `coerce.ts` (680 lines) is the largest piece
+- Split from ~940-line monolithic index — `coerce.ts` (608 lines) is the largest piece
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
 - `DeprecationWarning` structs collected during resolution for deprecated flag/arg usage

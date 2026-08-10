@@ -396,72 +396,67 @@ function coerceFlagValue(
 	throw new Error(`Unreachable flag coercion kind: ${schema.kind}`);
 }
 
-/**
- * Name the flag a rejected value belonged to.
- *
- * @param flagName - Canonical flag name.
- * @param displayName - Spelling the user typed.
- * @param raw - Raw string value from argv.
- * @param failure - What the value layer rejected.
- * @returns The error to throw.
- */
-function flagValueError(
-	flagName: string,
-	displayName: string,
+/** Subject-specific wording and details for a value parse failure. @internal */
+interface ValueErrorSubject {
+	readonly details: Readonly<Record<string, unknown>>;
+	readonly label: string;
+	readonly enumDetails: Readonly<Record<string, unknown>>;
+	readonly enumLabel: string;
+}
+
+/** Map a shared value-layer failure to a subject-specific parse error. @internal */
+function valueParseError(
+	subject: ValueErrorSubject,
 	raw: string,
 	failure: ValueFailure,
 ): ParseError {
-	const subject = { flag: flagName, input: displayName, value: raw };
-
+	const details = { ...subject.details, value: raw };
 	switch (failure.kind) {
 		case 'type':
 			if (failure.expected === 'number') {
-				return new ParseError(`Invalid number value '${raw}' for flag ${displayName}`, {
+				return new ParseError(`Invalid number value '${raw}' for ${subject.label}`, {
 					code: 'INVALID_VALUE',
-					details: { ...subject, expected: 'number' },
+					details: { ...details, expected: 'number' },
 				});
 			}
 			if (failure.expected === 'boolean') {
 				return new ParseError(
-					`Invalid boolean value '${raw}' for flag ${displayName}. Use true/false or 1/0`,
+					`Invalid boolean value '${raw}' for ${subject.label}. Use true/false or 1/0`,
 					{
 						code: 'INVALID_VALUE',
-						details: { ...subject, expected: 'boolean' },
+						details: { ...details, expected: 'boolean' },
 					},
 				);
 			}
-			return new ParseError(`Invalid value '${raw}' for flag ${displayName}`, {
+			return new ParseError(`Invalid value '${raw}' for ${subject.label}`, {
 				code: 'INVALID_VALUE',
-				details: { ...subject, expected: 'string' },
+				details: { ...details, expected: 'string' },
 			});
 
 		case 'enum': {
 			const allowed = failure.enumValues;
 			if (allowed === undefined) {
-				return new ParseError(
-					`Enum flag --${flagName} is misconfigured: no allowed values declared`,
-					{
-						code: 'INVALID_SCHEMA',
-						details: { flag: flagName, kind: 'enum', missing: 'enumValues' },
-					},
-				);
+				return new ParseError(`${subject.enumLabel} is misconfigured: no allowed values declared`, {
+					code: 'INVALID_SCHEMA',
+					details: subject.enumDetails,
+				});
 			}
 			return new ParseError(
-				`Invalid value '${raw}' for flag ${displayName}. Allowed: ${allowed.join(', ')}`,
+				`Invalid value '${raw}' for ${subject.label}. Allowed: ${allowed.join(', ')}`,
 				{
 					code: 'INVALID_VALUE',
-					details: { ...subject, allowed },
+					details: { ...details, allowed },
 				},
 			);
 		}
 
 		case 'string-constraint':
 			return new ParseError(
-				`Invalid value '${raw}' for flag ${displayName}: ${describeStringConstraintViolation(failure.violation)}`,
+				`Invalid value '${raw}' for ${subject.label}: ${describeStringConstraintViolation(failure.violation)}`,
 				{
 					code: 'INVALID_VALUE',
 					details: {
-						...subject,
+						...details,
 						expected: 'string',
 						...stringConstraintDetails(failure.violation),
 					},
@@ -470,11 +465,11 @@ function flagValueError(
 
 		case 'number-constraint':
 			return new ParseError(
-				`Invalid number value '${raw}' for flag ${displayName}: ${describeNumberConstraintViolation(failure.violation)}`,
+				`Invalid number value '${raw}' for ${subject.label}: ${describeNumberConstraintViolation(failure.violation)}`,
 				{
 					code: 'INVALID_VALUE',
 					details: {
-						...subject,
+						...details,
 						expected: 'number',
 						constraint: failure.violation.kind,
 						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
@@ -486,13 +481,32 @@ function flagValueError(
 			if (failure.error instanceof ParseError) return failure.error;
 			const message =
 				failure.error instanceof Error ? failure.error.message : String(failure.error);
-			return new ParseError(`Failed to parse flag ${displayName}: ${message}`, {
+			return new ParseError(`Failed to parse ${subject.label}: ${message}`, {
 				code: 'INVALID_VALUE',
-				details: subject,
+				details,
 				cause: failure.error,
 			});
 		}
 	}
+}
+
+/** Name the flag a rejected value belonged to. */
+function flagValueError(
+	flagName: string,
+	displayName: string,
+	raw: string,
+	failure: ValueFailure,
+): ParseError {
+	return valueParseError(
+		{
+			details: { flag: flagName, input: displayName },
+			label: `flag ${displayName}`,
+			enumDetails: { flag: flagName, kind: 'enum', missing: 'enumValues' },
+			enumLabel: `Enum flag --${flagName}`,
+		},
+		raw,
+		failure,
+	);
 }
 
 /**
@@ -519,88 +533,16 @@ function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknow
  * @returns The error to throw.
  */
 function argValueError(argName: string, raw: string, failure: ValueFailure): ParseError {
-	const subject = { arg: argName, value: raw };
-
-	switch (failure.kind) {
-		case 'type':
-			if (failure.expected === 'number') {
-				return new ParseError(`Invalid number value '${raw}' for argument <${argName}>`, {
-					code: 'INVALID_VALUE',
-					details: { ...subject, expected: 'number' },
-				});
-			}
-			if (failure.expected === 'boolean') {
-				return new ParseError(
-					`Invalid boolean value '${raw}' for argument <${argName}>. Use true/false or 1/0`,
-					{
-						code: 'INVALID_VALUE',
-						details: { ...subject, expected: 'boolean' },
-					},
-				);
-			}
-			return new ParseError(`Invalid value '${raw}' for argument <${argName}>`, {
-				code: 'INVALID_VALUE',
-				details: { ...subject, expected: 'string' },
-			});
-
-		case 'enum': {
-			const allowed = failure.enumValues;
-			if (allowed === undefined) {
-				return new ParseError(
-					`Enum argument <${argName}> is misconfigured: no allowed values declared`,
-					{
-						code: 'INVALID_SCHEMA',
-						details: { arg: argName, kind: 'enum', missing: 'enumValues' },
-					},
-				);
-			}
-			return new ParseError(
-				`Invalid value '${raw}' for argument <${argName}>. Allowed: ${allowed.join(', ')}`,
-				{
-					code: 'INVALID_VALUE',
-					details: { ...subject, allowed },
-				},
-			);
-		}
-
-		case 'string-constraint':
-			return new ParseError(
-				`Invalid value '${raw}' for argument <${argName}>: ${describeStringConstraintViolation(failure.violation)}`,
-				{
-					code: 'INVALID_VALUE',
-					details: {
-						...subject,
-						expected: 'string',
-						...stringConstraintDetails(failure.violation),
-					},
-				},
-			);
-
-		case 'number-constraint':
-			return new ParseError(
-				`Invalid number value '${raw}' for argument <${argName}>: ${describeNumberConstraintViolation(failure.violation)}`,
-				{
-					code: 'INVALID_VALUE',
-					details: {
-						...subject,
-						expected: 'number',
-						constraint: failure.violation.kind,
-						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
-					},
-				},
-			);
-
-		case 'thrown': {
-			if (failure.error instanceof ParseError) return failure.error;
-			const message =
-				failure.error instanceof Error ? failure.error.message : String(failure.error);
-			return new ParseError(`Failed to parse argument <${argName}>: ${message}`, {
-				code: 'INVALID_VALUE',
-				details: subject,
-				cause: failure.error,
-			});
-		}
-	}
+	return valueParseError(
+		{
+			details: { arg: argName },
+			label: `argument <${argName}>`,
+			enumDetails: { arg: argName, kind: 'enum', missing: 'enumValues' },
+			enumLabel: `Enum argument <${argName}>`,
+		},
+		raw,
+		failure,
+	);
 }
 
 // --- Parser — schema-aware token interpretation

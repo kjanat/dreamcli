@@ -53,6 +53,28 @@ describe('resolve', () => {
 			expect(result.flags).toEqual({ name: 'test-app' });
 		});
 
+		it('reports the decoded string in constraint error details', async () => {
+			const schema = makeSchema({
+				flags: {
+					name: createFlagSchema('string', {
+						configPath: 'name',
+						stringConstraints: { pattern: /^[a-z]+$/ },
+					}),
+				},
+			});
+
+			try {
+				await resolve(schema, makeParsed(), { config: { name: 8080 } });
+				expect.unreachable('should have thrown');
+			} catch (error) {
+				expect(isValidationError(error)).toBe(true);
+				if (isValidationError(error)) {
+					expect(error.code).toBe('CONSTRAINT_VIOLATED');
+					expect(error.details).toMatchObject({ value: '8080', expected: 'string' });
+				}
+			}
+		});
+
 		it('resolves deeply nested config path', async () => {
 			const schema = makeSchema({
 				flags: {
@@ -915,14 +937,19 @@ describe('resolve — config numeric constraints', () => {
 			},
 		});
 		try {
-			await resolve(schema, makeParsed(), { config: { retries: 10 } });
+			await resolve(schema, makeParsed(), { config: { retries: '10' } });
 			expect.unreachable('should have thrown');
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
 			if (isValidationError(err)) {
 				expect(err.code).toBe('CONSTRAINT_VIOLATED');
 				expect(err.message).toContain('must be <= 5');
-				expect(err.details).toMatchObject({ flag: 'retries', constraint: 'max' });
+				expect(err.details).toMatchObject({
+					flag: 'retries',
+					value: 10,
+					expected: 'number',
+					constraint: 'max',
+				});
 			}
 		}
 	});

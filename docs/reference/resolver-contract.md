@@ -104,7 +104,8 @@ This contract intentionally freezes behavior before deeper resolver work:
 The current resolver now makes that decision explicit in `src/core/schema/value.ts`:
 
 - the shared flag/arg value model is **coercion-only**
-- it covers the overlapping kinds `string`, `number`, `boolean`, `enum`, and `custom`
+- it supports `string`, `number`, `boolean`, `enum`, and `custom`
+- the flag/argument overlap excludes flag-only `boolean`
 - it does **not** own precedence order, fallback order, prompt/stdin policy, or required-value validation
 
 That split is intentional.
