@@ -137,6 +137,33 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.schema.version).toBe('5.5.5');
 	});
 
+	it('rejects version flag collisions activated by discovered metadata', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('version', flag.boolean())
+					.action(() => {}),
+			);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'info'],
+			readFile: async (path) => (path === '/test/package.json' ? '{"version":"5.5.5"}' : null),
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('config-error');
+		if (preflight.kind !== 'config-error') return;
+		expect(preflight.error.code).toBe('RESERVED_FLAG');
+		expect(preflight.error.details).toEqual({ command: 'info', flag: 'version' });
+	});
+
 	it('skips config discovery for completions invocations', async () => {
 		const readFile = vi.fn(async () => '{"deploy":{"region":"eu"}}');
 		const app = cli('myapp').config('myapp').completions();

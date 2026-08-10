@@ -114,6 +114,27 @@ describe('global --quiet with an explicit value', () => {
 		expect(lastWinsOn.stderr.join('')).toBe('');
 	});
 
+	it('lets a later valid value replace an earlier invalid value', async () => {
+		const app = cli('mycli').command(statusCommand());
+
+		const quiet = await app.execute(['gen', '--quiet=banana', '--quiet=true']);
+		expect(quiet.exitCode).toBe(0);
+		expect(quiet.stderr.join('')).toBe('');
+
+		const json = await app.execute(['gen', '--json=banana', '--json=false']);
+		expect(json.exitCode).toBe(0);
+		expect(json.error).toBeUndefined();
+	});
+
+	it('preserves an invalid value for a different root output flag', async () => {
+		const app = cli('mycli').command(statusCommand());
+		const result = await app.execute(['gen', '--quiet=banana', '--json=true']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('INVALID_VALUE');
+		expect(result.error?.details).toMatchObject({ flag: 'quiet', value: 'banana' });
+	});
+
 	it('rejects an invalid value with the parser boolean error', async () => {
 		const app = cli('mycli').command(statusCommand());
 		const result = await app.execute(['gen', '--quiet=banana']);

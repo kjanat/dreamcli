@@ -27,6 +27,7 @@ import type { CompiledCLI } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import { planInvocation } from './planner.ts';
+import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
 import {
 	readRootOutputFlags,
 	resolveRootJsonMode,
@@ -426,6 +427,15 @@ async function prepareRuntimePreflight(
 		options.inheritedName,
 		isCompletions,
 	);
+	try {
+		assertNoReservedFlagCollisions(schema.version, [
+			options.compiled.defaultCommand?.schema,
+			...options.compiled.commands.map((compiled) => compiled.schema),
+		]);
+	} catch (error: unknown) {
+		if (error instanceof CLIError) return { kind: 'config-error', error, jsonMode };
+		throw error;
+	}
 	const loadedConfig = await loadRuntimeConfig(
 		schema,
 		options.adapter,

@@ -11,7 +11,7 @@ It is a stability target for tests and refactors, not a public API guarantee.
 - merge propagated flags while honoring child shadowing
 - build the execution handoff for the matched command
 - normalize invocation argv for planner-owned global concerns like root `--json`, and reject an
-  invalid value for one of them once root help and version have had their turn
+  invalid value for one of them after handling root help and version requests
 
 ## Non-Responsibilities
 

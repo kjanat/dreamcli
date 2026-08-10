@@ -86,8 +86,8 @@ the same way could never be set, so declaring one throws `RESERVED_FLAG`.
 Naming a flag `quiet`, `json`, or `help`, aliasing one to `q` or `h`, or giving
 one a negated spelling like `.negatable({ alias: 'quiet' })` is rejected by
 `.command()`, `.default()`, and `createCLISchema()`, and `version`/`V` join
-that set once a version is configured. Rename the flag, or reach for
-`out.status()` when you wanted output that root `--quiet` suppresses.
+that set once a version is configured. Rename the flag, or use `out.status()`
+for status output that root `--quiet` suppresses.
 
 | Method   | Stream                      | Suppressed by quiet |
 | -------- | --------------------------- | ------------------- |

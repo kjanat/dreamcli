@@ -54,7 +54,7 @@ type RootOutputFlags = RootOutputFlagsOk | RootOutputFlagsFailed;
 type RootTokenMatch =
 	| { readonly kind: 'unrelated' }
 	| { readonly kind: 'flag'; readonly name: RootOutputFlagName; readonly selection: 'on' | 'off' }
-	| { readonly kind: 'invalid'; readonly error: ParseError };
+	| { readonly kind: 'invalid'; readonly name: RootOutputFlagName; readonly error: ParseError };
 
 /** The schema root `--json`/`--quiet` share with a command-level boolean flag. */
 const rootBooleanSchema = flag.boolean().schema;
@@ -90,7 +90,7 @@ function coerceRootValue(name: RootOutputFlagName, spelling: string, raw: string
 		const value = coerceFlagValue(name, raw, rootBooleanSchema, spelling);
 		return { kind: 'flag', name, selection: value === true ? 'on' : 'off' };
 	} catch (error: unknown) {
-		if (error instanceof ParseError) return { kind: 'invalid', error };
+		if (error instanceof ParseError) return { kind: 'invalid', name, error };
 		throw error;
 	}
 }
@@ -138,7 +138,7 @@ function readRootOutputFlags(argv: readonly string[]): RootOutputFlags {
 		quiet: 'absent',
 	};
 	const keptHead: string[] = [];
-	let error: ParseError | undefined;
+	const errors = new Map<RootOutputFlagName, ParseError>();
 	let stripped = false;
 
 	for (const token of head) {
@@ -149,10 +149,12 @@ function readRootOutputFlags(argv: readonly string[]): RootOutputFlags {
 		}
 		stripped = true;
 		if (match.kind === 'invalid') {
-			error ??= match.error;
+			errors.delete(match.name);
+			errors.set(match.name, match.error);
 			continue;
 		}
 		selections[match.name] = match.selection;
+		errors.delete(match.name);
 	}
 
 	const strippedArgv = !stripped
@@ -161,6 +163,7 @@ function readRootOutputFlags(argv: readonly string[]): RootOutputFlags {
 			? keptHead
 			: [...keptHead, ...argv.slice(separatorIndex)];
 	const resolved = { json: selections.json, quiet: selections.quiet, argv: strippedArgv };
+	const error = errors.values().next().value;
 
 	return error !== undefined ? { kind: 'failed', ...resolved, error } : { kind: 'ok', ...resolved };
 }
