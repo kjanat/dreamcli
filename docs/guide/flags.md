@@ -766,7 +766,7 @@ precedence: the bytes come from the pipe and every later stage stays out of the
 way. When nothing was piped, both forms fall through to env, config, prompt, and
 the default. A scalar `-` is the whole value, so dropping it loses nothing. That
 is where a scalar and a collection part: `--tag a --tag -` with nothing piped
-fails, because dropping the occurrence would shorten the list.
+fails because dropping the occurrence would shorten the list.
 
 The whole buffer becomes the value. Codecs that preserve text terminators keep
 it byte for byte, so `echo hi | mycli` gives a string flag `'hi\n'` and a path
