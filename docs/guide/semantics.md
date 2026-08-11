@@ -254,12 +254,12 @@ would fire. Declaring a second exclusive stdin input on one command, flag or
 argument, throws `DUPLICATE_STDIN_INPUT` at build time; every stdin input on a
 command that passes `{ consume: 'broadcast' }` receives the same buffer.
 
-For a scalar input, the whole buffer becomes the value. A `string` input keeps
-it byte for byte; every other scalar kind drops one trailing `\n`, `\r\n`, or
-`\r` before decoding, and then accepts exactly what an env value accepts. The
-rule follows the codec, because a `string` is the one kind whose value is the
-text itself. `{ trim: true }` drops that one terminator for a `string` too, and
-is what a piped path wants before a `mustExist` check runs.
+For a scalar input, the whole buffer becomes the value. Codecs that preserve
+text terminators keep it byte for byte; this includes strings and paths. Other
+codecs drop one trailing `\n`, `\r\n`, or `\r` before decoding, then accept
+exactly what an env value accepts. `{ trim: true }` drops that one terminator
+for a preserving codec and is what a piped path wants before a `mustExist`
+check runs.
 
 For a collection, the buffer decodes into elements under the input's stdin
 policy, `'lines'` by default. A `-` occurrence stands for the whole stdin source
@@ -290,7 +290,7 @@ Splicing rules:
   silently shortening the collection.
 - A scalar `-` with nothing piped falls through instead. It is the whole value,
   so dropping it loses nothing, and env, config, prompt, and the default stay
-  reachable. Only a collection can be shortened, so only a collection errors.
+  reachable. Only a collection can be shortened, so only a collection can error.
 - An input that declares no stdin binding treats `-` as an ordinary element and
   never reads the stream. An input that does declare one can never receive a
   literal `-` as a value, on either surface: the token names the source before

@@ -37,6 +37,8 @@ function collection(
 const MANY_COLLECTION = collection(MANY);
 const ENTRIES_COLLECTION = collection(ENTRIES);
 
+// === Projection
+
 describe('occurrenceValue', () => {
 	it('reads each kind as the value a parse result carries', () => {
 		expect(occurrenceValue({ kind: 'value', value: 42 })).toBe(42);
@@ -46,6 +48,8 @@ describe('occurrenceValue', () => {
 		expect(occurrenceValue({ kind: 'aggregated', value: { A: '1' } })).toEqual({ A: '1' });
 	});
 });
+
+// --- Scalar projection
 
 describe('projectOccurrences, one', () => {
 	it('keeps the last occurrence', () => {
@@ -75,6 +79,8 @@ describe('projectOccurrences, one', () => {
 	});
 });
 
+// --- Count projection
+
 describe('projectOccurrences, count', () => {
 	it('adds one per bare occurrence', () => {
 		expect(
@@ -94,6 +100,8 @@ describe('projectOccurrences, count', () => {
 		expect(projectOccurrences(COUNT, [])).toBeUndefined();
 	});
 });
+
+// --- Collection projection
 
 describe('projectOccurrences, collections', () => {
 	it('keeps every element in the order it was typed', () => {
@@ -123,6 +131,8 @@ describe('projectOccurrences, collections', () => {
 		expect(projectOccurrences(ENTRIES, [])).toEqual([]);
 	});
 });
+
+// === Lifting
 
 describe('liftOccurrences', () => {
 	it('round-trips what a projection produced', () => {
@@ -171,6 +181,8 @@ describe('liftOccurrences', () => {
 	});
 });
 
+// === Aggregation
+
 describe('readAggregated', () => {
 	it('names the aggregate a caller supplied', () => {
 		expect(readAggregated([{ kind: 'aggregated', value: 7 }])).toEqual({ value: 7 });
@@ -181,6 +193,8 @@ describe('readAggregated', () => {
 		expect(readAggregated([])).toBeUndefined();
 	});
 });
+
+// === Entry pairs
 
 describe('entryPairsOf', () => {
 	it('keeps every entry in order and drops the rest', () => {

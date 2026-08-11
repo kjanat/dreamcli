@@ -339,7 +339,8 @@ Under `'error'`, the message names the key and the source that carried it:
 `Duplicate key 'A' from env VARS for flag --env` for the environment, and
 `Duplicate key 'A' for flag --v` for occurrences the user typed, which name no
 source. A key spliced in from a pipe reads `from stdin`. A JSON object cannot
-repeat a key, so the policy has nothing to decide for `.split({ env: 'json' })`.
+preserve repeated member names through decoding, so `.duplicateKeys()` cannot
+reliably detect them for `.split({ env: 'json' })`.
 
 ### Custom
 
@@ -767,10 +768,10 @@ the default. A scalar `-` is the whole value, so dropping it loses nothing. That
 is where a scalar and a collection part: `--tag a --tag -` with nothing piped
 fails, because dropping the occurrence would shorten the list.
 
-The whole buffer becomes the value. A string flag keeps it byte for byte, so
-`echo hi | mycli` gives `'hi\n'`; every other kind drops the single line
-terminator a pipe appends before decoding, so `echo true` reaches
-`flag.boolean()` as `true`.
+The whole buffer becomes the value. Codecs that preserve text terminators keep
+it byte for byte, so `echo hi | mycli` gives a string flag `'hi\n'` and a path
+keeps the terminator too. Decoding codecs remove one framing terminator first,
+so `echo true` reaches `flag.boolean()` as `true`.
 
 `{ trim: true }` drops that terminator for a string flag too, so
 `echo ./dist | mycli clean --path -` reaches a `mustExist` check as `'./dist'`.
@@ -792,8 +793,8 @@ flag.string().stdin({ trim: true }); // drops one trailing terminator
 ```
 
 Stdin is read at most once per invocation, and only when one of these bindings
-would actually fire. A `when: 'dash'` flag the user never dashes never touches
-the stream.
+would actually fire. If the user does not provide `-`, a `when: 'dash'` flag
+does not read the stream.
 
 ### Worked Transcripts
 

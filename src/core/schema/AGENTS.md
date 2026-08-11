@@ -285,7 +285,7 @@ Runtime enforcement lives in `resolve/flags.ts` (`COMPATIBLE_PROMPT_KINDS` + `va
   `toString`, which then reads as a supplied value. `resolveFlags()` in `resolve/` guards its `env`
   lookup and the interactive resolver's override record with `Object.hasOwn()` for that reason.
 
-## TEST FILES (20)
+## TEST FILES (21)
 
 | File                                | Tests                                                         |
 | ----------------------------------- | ------------------------------------------------------------- |

@@ -89,6 +89,7 @@ describe('.unique() on an arg', () => {
 	});
 
 	it('is refused on a variadic keyValue arg, which folds keys instead', () => {
+		// @ts-expect-error .unique() is unavailable on a key-value arg
 		expect(schemaError(() => arg.keyValue().variadic().unique()).code).toBe('INVALID_SCHEMA');
 	});
 

@@ -84,10 +84,13 @@ describe('a caller-built list of occurrences', () => {
 		).resolves.toEqual({ A: '2' });
 	});
 
-	it('drops an element of an entries flag that is not a pair', async () => {
+	it('rejects an element of an entries flag that is not a pair', async () => {
 		await expect(
 			resolveGivenFlag(flag.keyValue(), [['A', '1'], 'junk', ['B', '2']]),
-		).resolves.toEqual({ A: '1', B: '2' });
+		).rejects.toMatchObject({
+			code: 'TYPE_MISMATCH',
+			details: { flag: 'value', expected: 'object' },
+		});
 	});
 
 	it('keeps a pair-shaped element of a many flag whole', async () => {

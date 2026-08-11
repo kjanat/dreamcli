@@ -1056,6 +1056,7 @@ describe('generateSchema — definition metadata', () => {
 		expect(expectRecord(flags.piped)).toHaveProperty('stdin', {
 			when: 'dash',
 			consume: 'broadcast',
+			trim: false,
 		});
 	});
 

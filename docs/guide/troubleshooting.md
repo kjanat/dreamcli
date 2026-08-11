@@ -106,19 +106,18 @@ Symptom:
 
 Cause:
 
-- a `string` input keeps the stdin buffer byte for byte by default, because for
-  a string the text *is* the value, and truncating it would discard data the
-  caller may have meant. `flag.path()` and `arg.path()` resolve as strings, so
-  they keep it too.
-- every other scalar kind interprets the text rather than keeping it, so it
-  drops one trailing `\n`, `\r\n`, or `\r` before decoding. `echo 42` reaches
-  `flag.number()` as `42`, and `echo 30s` reaches `flag.duration()` as `30s`.
+- codecs that preserve text terminators keep the stdin buffer byte for byte by
+  default. This includes strings and paths, so `flag.path()` and `arg.path()`
+  keep the terminator unless `{ trim: true }` is set.
+- other codecs interpret the text and drop one trailing `\n`, `\r\n`, or `\r`
+  before decoding. `echo 42` reaches `flag.number()` as `42`, and `echo 30s`
+  reaches `flag.duration()` as `30s`.
 
 Check:
 
 - whether the binding passed `{ trim: true }`;
-- the input's kind. Only `string` and the path kinds carry the terminator this
-  far, so `trim` changes nothing on the others.
+- the input's codec. String and path codecs carry the terminator this far, so
+  `trim` changes nothing on decoding codecs.
 - whether the producer appends a newline. `echo` does; `printf` without `\n`
   does not.
 

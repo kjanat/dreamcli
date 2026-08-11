@@ -437,6 +437,17 @@ describe('parse', () => {
 			expect(result.args.files).toEqual(['a.ts', 'b.ts', 'c.ts']);
 		});
 
+		it('splits a non-variadic key-value arg with its CLI separator', () => {
+			const schema = makeSchema({
+				args: [{ name: 'vars', schema: createArgSchema('keyValue', { separator: ',' }) }],
+			});
+			const result = parse(schema, ['A=1,B=2']);
+			expect(result.args.vars).toEqual([
+				['A', '1'],
+				['B', '2'],
+			]);
+		});
+
 		it('variadic arg with no remaining positionals produces empty array', () => {
 			const schema = makeSchema({
 				args: [

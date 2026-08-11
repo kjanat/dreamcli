@@ -123,8 +123,9 @@ no longer inherited by env or config. `.unique()` dedupes a list, and
 `.duplicateKeys('last' | 'first' | 'error')` decides a repeated key on every
 source, naming the source that carried it. A validator on the element builder
 checks each element; one on the collection builder checks the finished value.
-On the arg surface all four are collection modifiers: call them after
-`.variadic()` or on `arg.keyValue()`, or the compiler refuses them and
+On the arg surface, `.separator()` and `.split()` require `.variadic()` or
+`arg.keyValue()`, `.unique()` requires a variadic list, and `.duplicateKeys()`
+requires `arg.keyValue()`. The compiler refuses every other shape and
 `createArgSchema()` throws `INVALID_SCHEMA`.
 
 **Argument order.** A variadic argument takes every remaining positional, so it

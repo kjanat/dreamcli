@@ -500,7 +500,7 @@ the positional tail words it `for the '-' occurrence of argument <files>`.
 Two shapes are unchanged. Occurrences of nothing but `-` are the whole value, so
 with nothing piped they still fall through to env, config, prompt, and the
 default. So does a scalar `-`, since dropping it loses nothing. Only a
-collection could be silently shortened, so only a collection errors.
+collection could be silently shortened, so only a collection can error.
 
 A script that relied on the old drop has two ways forward: pipe a value, or stop
 passing `-` when there is nothing to read. A `{ when: 'missing' }` binding never

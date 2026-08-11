@@ -179,6 +179,9 @@ const ARG_KINDS = ['string', 'number', 'boolean', 'enum', 'custom', 'keyValue'] 
 /** Discriminator for the kind of value an arg accepts. */
 type ArgKind = (typeof ARG_KINDS)[number];
 
+/** Arg kinds whose variadic form resolves to a list. @internal */
+type ListArgKind = Exclude<ArgKind, 'keyValue'>;
+
 /** Custom parse function for `arg.custom()`. */
 type ArgParseFn<T> = (raw: string) => T;
 
@@ -1020,7 +1023,10 @@ class ArgBuilder<C extends ArgConfig> {
 	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on an arg that resolves to
 	 *   one value or to a record.
 	 */
-	unique(this: ArgBuilder<C & { readonly variadic: true }>, value = true): ArgBuilder<C> {
+	unique(
+		this: ArgBuilder<C & { readonly variadic: true; readonly argKind: ListArgKind }>,
+		value = true,
+	): ArgBuilder<C> {
 		return nextCollectionArg({ ...this.schema, unique: value });
 	}
 

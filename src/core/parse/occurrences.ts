@@ -14,9 +14,7 @@
  */
 
 import type { Cardinality } from '#internals/core/schema/cardinality.ts';
-
-/** The stdin selector, which names a source rather than a value. */
-const STDIN_SENTINEL = '-';
+import { STDIN_SENTINEL } from '#internals/core/schema/source.ts';
 
 /**
  * One occurrence of an input on the command line.

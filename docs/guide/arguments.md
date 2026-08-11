@@ -602,11 +602,11 @@ too, but keeps CLI precedence: the bytes come from the pipe and every later
 stage stays out of the way. When nothing was piped, both forms fall through to
 env, config, prompt, and the default.
 
-The whole buffer becomes the value. A string argument keeps it byte for byte, so
-`echo hi | mycli` gives `'hi\n'`; every other scalar kind drops the single line
-terminator a pipe appends before decoding, so `echo 30s` reaches
-`arg.duration()` as `30s`. `arg.keyValue()` decodes the buffer into entries, one
-`KEY=VALUE` per line by default.
+The whole buffer becomes the value. Codecs that preserve text terminators keep
+it byte for byte, so `echo hi | mycli` gives a string argument `'hi\n'` and a
+path keeps the terminator too. Other codecs remove one framing terminator before
+decoding, so `echo 30s` reaches `arg.duration()` as `30s`. `arg.keyValue()`
+decodes the buffer into entries, one `KEY=VALUE` per line by default.
 
 `{ trim: true }` drops that terminator for a string argument too, which is what
 a piped path wants:
@@ -638,8 +638,8 @@ arg.string().stdin({ trim: true }); // drops one trailing terminator
 ```
 
 Stdin is read at most once per invocation, and only when one of these bindings
-would actually fire. A `when: 'dash'` argument the user never dashes never
-touches the stream.
+would actually fire. If the user does not provide `-`, a `when: 'dash'`
+argument does not read the stream.
 
 ### The positional tail {#stdin-tail}
 

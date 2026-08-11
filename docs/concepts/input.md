@@ -115,8 +115,10 @@ The `-` sits between two ordinary values, and what the pipe carried lands
 exactly there. The same token works in a positional slot. A program that reads
 one value can skip the `-` entirely and let an omitted slot mean the pipe.
 
-The cost of the convention is that a program reading the stream can no longer
-take a literal `-` as data, since the token is read as the source first.
+The cost of a dash-consuming stdin binding is that it can no longer take a
+literal `-` as data, since the token is read as the source first. A binding with
+`{ when: 'missing' }` is the exception: it reads only an omitted input and leaves
+a typed `-` literal.
 
 One more thing a pipe does that a command line does not: it appends a line
 terminator. `echo ./docs` sends `./docs\n`, not `./docs`. For a number or a

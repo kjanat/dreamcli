@@ -33,7 +33,6 @@ import {
 	describeStringConstraintViolation,
 	stringConstraintDetails,
 } from '#internals/core/schema/index.ts';
-import { STDIN_SENTINEL } from '#internals/core/schema/source.ts';
 import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
@@ -307,7 +306,7 @@ interface FlagOccurrence {
 	/** The value a duplicate diagnostic reports for it. */
 	readonly reported: unknown;
 	/** What the occurrence contributes, in the order it was typed. */
-	items: readonly Occurrence[];
+	readonly items: readonly Occurrence[];
 }
 
 /** Every CLI occurrence of one logical flag, in the order they were typed. */
@@ -349,8 +348,8 @@ function occurrencesOf(
  * @param schema - Flag schema (read for {@link FlagSchema.duplicates})
  * @param reported - The occurrence's raw value (or the boolean it implies)
  * @param displayName - User-facing spelling for error messages
- * @returns The recorded occurrence, ready for its items; `undefined` when the
- *   `'first'` policy suppresses it (the token is still consumed)
+ * @param items - Lazily builds what the occurrence contributes when policy
+ *   keeps it
  * @throws ParseError `DUPLICATE_FLAG` on a repeat under the `'error'` policy
  */
 function recordFlagOccurrence(
@@ -359,25 +358,27 @@ function recordFlagOccurrence(
 	schema: FlagSchema,
 	reported: unknown,
 	displayName: string,
-): FlagOccurrence | undefined {
+	items: () => readonly Occurrence[],
+): void {
 	const record = occurrencesOf(occurrences, name, schema);
-	const occurrence: FlagOccurrence = { policed: true, reported, items: [] };
-	record.occurrences.push(occurrence);
 	record.counted += 1;
 
-	if (record.counted === 1) return occurrence;
-	if (schema.duplicates === 'error') {
+	if (record.counted > 1 && schema.duplicates === 'error') {
 		throw new ParseError(`Flag --${name} may only be specified once`, {
 			code: 'DUPLICATE_FLAG',
 			details: {
 				flag: name,
 				input: displayName,
 				count: record.counted,
-				values: record.occurrences.filter((entry) => entry.policed).map((entry) => entry.reported),
+				values: [
+					...record.occurrences.filter((entry) => entry.policed).map((entry) => entry.reported),
+					reported,
+				],
 			},
 		});
 	}
-	return schema.duplicates === 'first' ? undefined : occurrence;
+	if (record.counted > 1 && schema.duplicates === 'first') return;
+	record.occurrences.push({ policed: true, reported, items: items() });
 }
 
 /**
@@ -821,14 +822,9 @@ function parseLongFlag(
 				details: { flag: canonicalName, input: token.name, value: token.value },
 			});
 		}
-		const occurrence = recordFlagOccurrence(
-			occurrences,
-			canonicalName,
-			flagSchema,
-			false,
-			displayName,
-		);
-		if (occurrence !== undefined) occurrence.items = [NEGATED_OCCURRENCE];
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, false, displayName, () => [
+			NEGATED_OCCURRENCE,
+		]);
 		return startIdx + 1;
 	}
 
@@ -836,41 +832,30 @@ function parseLongFlag(
 		// Boolean or count flag — consumes no value token
 		if (token.value !== undefined) {
 			const item = flagTokenOccurrence(canonicalName, token.value, flagSchema, displayName);
-			const occurrence = recordFlagOccurrence(
+			recordFlagOccurrence(
 				occurrences,
 				canonicalName,
 				flagSchema,
 				occurrenceValue(item),
 				displayName,
+				() => [item],
 			);
-			if (occurrence !== undefined) occurrence.items = [item];
 		} else if (flagSchema.kind === 'count') {
 			recordCountIncrement(occurrences, canonicalName, flagSchema);
 		} else {
-			const occurrence = recordFlagOccurrence(
-				occurrences,
-				canonicalName,
-				flagSchema,
-				true,
-				displayName,
-			);
-			if (occurrence !== undefined) occurrence.items = [{ kind: 'value', value: true }];
+			recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName, () => [
+				{ kind: 'value', value: true },
+			]);
 		}
 		return startIdx + 1;
 	}
 
 	if (token.value !== undefined) {
 		// --flag=value (inline)
-		const occurrence = recordFlagOccurrence(
-			occurrences,
-			canonicalName,
-			flagSchema,
-			token.value,
-			displayName,
+		const inlineValue = token.value;
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, inlineValue, displayName, () =>
+			flagTokenOccurrences(canonicalName, flagSchema, inlineValue, displayName),
 		);
-		if (occurrence !== undefined) {
-			occurrence.items = flagTokenOccurrences(canonicalName, flagSchema, token.value);
-		}
 		return startIdx + 1;
 	}
 
@@ -882,21 +867,9 @@ function parseLongFlag(
 			details: { flag: canonicalName, input: token.name, kind: flagSchema.kind },
 		});
 	}
-	const occurrence = recordFlagOccurrence(
-		occurrences,
-		canonicalName,
-		flagSchema,
-		nextToken.value,
-		displayName,
+	recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName, () =>
+		flagTokenOccurrences(canonicalName, flagSchema, nextToken.value, displayName),
 	);
-	if (occurrence !== undefined) {
-		occurrence.items = flagTokenOccurrences(
-			canonicalName,
-			flagSchema,
-			nextToken.value,
-			displayName,
-		);
-	}
 	return startIdx + 2;
 }
 
@@ -940,14 +913,9 @@ function parseShortFlags(
 			if (flagSchema.kind === 'count') {
 				recordCountIncrement(occurrences, canonicalName, flagSchema);
 			} else {
-				const occurrence = recordFlagOccurrence(
-					occurrences,
-					canonicalName,
-					flagSchema,
-					true,
-					displayName,
-				);
-				if (occurrence !== undefined) occurrence.items = [{ kind: 'value', value: true }];
+				recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName, () => [
+					{ kind: 'value', value: true },
+				]);
 			}
 			continue;
 		}
@@ -956,21 +924,9 @@ function parseShortFlags(
 			// Value-expecting flag in the middle of combined shorts:
 			// -oFile → -o with value "File" (rest of chars is the value)
 			const inlineValue = chars.slice(ci + 1);
-			const occurrence = recordFlagOccurrence(
-				occurrences,
-				canonicalName,
-				flagSchema,
-				inlineValue,
-				displayName,
+			recordFlagOccurrence(occurrences, canonicalName, flagSchema, inlineValue, displayName, () =>
+				flagTokenOccurrences(canonicalName, flagSchema, inlineValue, displayName),
 			);
-			if (occurrence !== undefined) {
-				occurrence.items = flagTokenOccurrences(
-					canonicalName,
-					flagSchema,
-					inlineValue,
-					displayName,
-				);
-			}
 			break; // consumed all remaining chars
 		}
 
@@ -982,21 +938,9 @@ function parseShortFlags(
 				details: { flag: canonicalName, input: ch, kind: flagSchema.kind },
 			});
 		}
-		const occurrence = recordFlagOccurrence(
-			occurrences,
-			canonicalName,
-			flagSchema,
-			nextToken.value,
-			displayName,
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName, () =>
+			flagTokenOccurrences(canonicalName, flagSchema, nextToken.value, displayName),
 		);
-		if (occurrence !== undefined) {
-			occurrence.items = flagTokenOccurrences(
-				canonicalName,
-				flagSchema,
-				nextToken.value,
-				displayName,
-			);
-		}
 		nextIdx++;
 	}
 
@@ -1101,8 +1045,14 @@ function mapPositionals(
 
 		const rawPositional = positionals[posIdx];
 		if (rawPositional !== undefined) {
-			const occurrence = argTokenOccurrence(entry.name, rawPositional, entry.schema);
-			args[entry.name] = projectOccurrences(cardinality, [occurrence]);
+			const policy =
+				cardinality.kind === 'many' || cardinality.kind === 'entries'
+					? cardinality.splitting.cli
+					: WHOLE_TOKEN;
+			const occurrences = splitCliToken(policy, rawPositional, {
+				stdin: entry.schema.stdin,
+			}).map((part) => argTokenOccurrence(entry.name, part, entry.schema));
+			args[entry.name] = projectOccurrences(cardinality, occurrences);
 			posIdx++;
 		}
 		// If no positional available, leave absent (resolution/validation handles defaults/required)

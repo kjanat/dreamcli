@@ -1680,9 +1680,9 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Set how a repeated key combines.
 	 *
-	 * Applies to every source: repeated CLI occurrences, delimited env pairs, a
-	 * JSON object cannot repeat a key, and a spliced stdin read joins the same
-	 * occurrence order.
+	 * Applies to repeated CLI occurrences, delimited env pairs, and spliced stdin
+	 * reads in the same occurrence order. JSON decoding does not preserve
+	 * repeated object member names, so it cannot reliably expose them here.
 	 *
 	 * @param policy - `'last'` (default), `'first'`, or `'error'`.
 	 * @returns The builder (for chaining).

@@ -309,7 +309,7 @@ function stringParsedCodec<P extends (raw: string) => unknown>(parseFn: P): Valu
  * @returns The decoded value, or the {@link ValueFailure} that rejected it.
  */
 function decodeValue(value: ValueSchema, raw: unknown, input: ValueInput): ValueResult<unknown> {
-	const decoded = value.codec.decode(stdinDecodeInput(value.codec, raw, input), input);
+	const decoded = value.codec.decode(stdinDecodeInput(value, raw, input), input);
 	if (!decoded.ok) return decoded;
 	const failure = checkValueConstraints(value.constraints, decoded.value);
 	return failure === undefined ? decoded : { ok: false, failure };
@@ -324,13 +324,13 @@ function decodeValue(value: ValueSchema, raw: unknown, input: ValueInput): Value
  * where a trailing terminator is framing rather than value: `'42\n'` is the
  * number 42, `'true\n'` the boolean `true`, `'30s\n'` a duration.
  *
- * @param codec - The codec about to read the value.
+ * @param value - The value axis about to read the value.
  * @param raw - The raw value the source produced.
  * @param input - Which surface produced `raw`.
  * @returns The value to decode.
  */
-function stdinDecodeInput(codec: ValueCodec, raw: unknown, input: ValueInput): unknown {
-	if (input !== 'stdin' || keepsStdinTerminator(codec) || typeof raw !== 'string') return raw;
+function stdinDecodeInput(value: ValueSchema, raw: unknown, input: ValueInput): unknown {
+	if (input !== 'stdin' || keepsStdinTerminator(value) || typeof raw !== 'string') return raw;
 	if (raw.endsWith('\r\n')) return raw.slice(0, -2);
 	if (raw.endsWith('\n') || raw.endsWith('\r')) return raw.slice(0, -1);
 	return raw;
@@ -339,11 +339,11 @@ function stdinDecodeInput(codec: ValueCodec, raw: unknown, input: ValueInput): u
 /**
  * Whether decoding leaves the line terminator a pipe appends on the value.
  *
- * @param codec - The codec about to read a stdin buffer.
+ * @param value - The value axis about to read a stdin buffer.
  * @returns `true` when the terminator survives decoding.
  */
-function keepsStdinTerminator(codec: ValueCodec): boolean {
-	return codec.name === 'string';
+function keepsStdinTerminator(value: ValueSchema): boolean {
+	return value.codec.name === 'string';
 }
 
 /**

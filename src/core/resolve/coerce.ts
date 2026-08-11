@@ -31,7 +31,6 @@ import {
 } from '#internals/core/schema/cardinality.ts';
 import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { describeNumberConstraintViolation } from '#internals/core/schema/number-constraints.ts';
-import { STDIN_SENTINEL } from '#internals/core/schema/source.ts';
 import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { StringConstraintViolation } from '#internals/core/schema/string-constraints.ts';
@@ -185,7 +184,7 @@ function trimmedStdinValue(
 	value: ValueSchema,
 ): unknown {
 	if (source.kind !== 'stdin' || stdin?.trim !== true || typeof raw !== 'string') return raw;
-	return keepsStdinTerminator(value.codec) ? stripTerminator(raw) : raw;
+	return keepsStdinTerminator(value) ? stripTerminator(raw) : raw;
 }
 
 /** Read a raw value as a non-negative integer occurrence count. */
@@ -1113,10 +1112,7 @@ function spliceCliCollection(
 		if (entry.occurrence.kind !== 'entry') {
 			return {
 				kind: 'error',
-				error: errors(
-					{ kind: 'shape', expected: 'object' },
-					occurrenceValue(entry.occurrence),
-				),
+				error: errors({ kind: 'shape', expected: 'object' }, occurrenceValue(entry.occurrence)),
 			};
 		}
 		entries.push(entry);
