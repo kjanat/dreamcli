@@ -419,8 +419,6 @@ type ErasedActionHandler = (params: {
 /**
  * The provenance bag as the execution seam carries it, before a handler's own
  * flag and arg names type it.
- *
- * @internal
  */
 type ErasedInputSources = InputSources<
 	Readonly<Record<string, unknown>>,

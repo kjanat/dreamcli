@@ -249,6 +249,8 @@ rules DreamCLI cannot express declaratively, and its return value widens `ctx`.
 ### Explicit versus defaulted
 
 ```ts
+import { command, flag, wasExplicit } from '@kjanat/dreamcli';
+
 command('serve')
 	.flag('port', flag.number({ int: true }).env('PORT').default(3000))
 	.derive(({ flags, sources }) => {

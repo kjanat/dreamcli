@@ -2115,7 +2115,7 @@ describe('generateZshCompletion', () => {
 
 // === generateCompletion — dispatcher
 
-describe('source bindings reach no shell script', () => {
+describe('generateCompletion — source bindings reach no shell script', () => {
 	const piped = commandSchema({
 		name: 'send',
 		flags: {

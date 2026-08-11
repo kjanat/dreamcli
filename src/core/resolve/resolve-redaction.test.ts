@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { isValidationError, type ValidationError } from '#internals/core/errors/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -8,7 +8,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
-// === L18 — no non-argv source echoes its value into a diagnostic
+// === L18 — no non-literal-CLI source echoes its value into a diagnostic
 
 const SECRET = 'sk-live-secret';
 
@@ -27,7 +27,7 @@ async function failure(
 	throw new Error('expected resolution to fail');
 }
 
-/** A command with one number flag reachable from every non-argv source. */
+/** A command with one number flag reachable from every non-literal-CLI source. */
 function numberFlagCommand(): CommandSchema {
 	return createCommandSchema({
 		name: 'test',
@@ -42,15 +42,15 @@ function numberFlagCommand(): CommandSchema {
 	});
 }
 
-describe('flag diagnostics redact every non-argv source', () => {
-	const cases: ReadonlyArray<readonly [string, ResolveOptions]> = [
-		['stdin', { stdinData: SECRET }],
-		['env', { env: { PORT: SECRET } }],
-		['config', { config: { serve: { port: SECRET } } }],
-	];
+describe('flag diagnostics', () => {
+	describe('redact every non-literal CLI source', () => {
+		const cases: ReadonlyArray<readonly [string, ResolveOptions]> = [
+			['stdin', { stdinData: SECRET }],
+			['env', { env: { PORT: SECRET } }],
+			['config', { config: { serve: { port: SECRET } } }],
+		];
 
-	for (const [name, options] of cases) {
-		it(`keeps a ${name} value out of the message and the details`, async () => {
+		test.each(cases)('keeps a %s value out of the message and the details', async (_, options) => {
 			const error = await failure(numberFlagCommand(), [], options);
 
 			expect(error.message).toContain("'<redacted>'");
@@ -58,70 +58,72 @@ describe('flag diagnostics redact every non-argv source', () => {
 			expect(JSON.stringify(error.details)).not.toContain(SECRET);
 			expect(error.details).not.toHaveProperty('value');
 		});
-	}
 
-	it('keeps a prompt answer out of the message and the details', async () => {
-		const schema = createCommandSchema({
-			name: 'test',
-			flags: { port: flag.number().prompt({ kind: 'input', message: 'Port' }).schema },
+		it('keeps a prompt answer out of the message and the details', async () => {
+			const schema = createCommandSchema({
+				name: 'test',
+				flags: { port: flag.number().prompt({ kind: 'input', message: 'Port' }).schema },
+			});
+			const error = await failure(schema, [], {
+				prompter: { promptOne: async () => ({ answered: true, value: SECRET }) },
+			});
+
+			expect(error.message).toContain("'<redacted>'");
+			expect(error.message).not.toContain(SECRET);
+			expect(JSON.stringify(error.details)).not.toContain(SECRET);
 		});
-		const error = await failure(schema, [], {
-			prompter: { promptOne: async () => ({ answered: true, value: SECRET }) },
+
+		it('redacts an enum value and keeps the allowed list', async () => {
+			const schema = createCommandSchema({
+				name: 'test',
+				flags: { region: flag.enum(['us', 'eu']).env('REGION').schema },
+			});
+			const error = await failure(schema, [], { env: { REGION: SECRET } });
+
+			expect(error.message).toBe(
+				"Invalid value '<redacted>' from env REGION for flag --region. Allowed: us, eu",
+			);
+			expect(error.details).toEqual({
+				flag: 'region',
+				source: 'env',
+				envVar: 'REGION',
+				allowed: ['us', 'eu'],
+			});
 		});
 
-		expect(error.message).toContain("'<redacted>'");
-		expect(error.message).not.toContain(SECRET);
-		expect(JSON.stringify(error.details)).not.toContain(SECRET);
-	});
+		it('redacts a constraint violation and keeps the reason', async () => {
+			const schema = createCommandSchema({
+				name: 'test',
+				flags: { token: flag.string().pattern(/^ghp_/).env('TOKEN').schema },
+			});
+			const error = await failure(schema, [], { env: { TOKEN: SECRET } });
 
-	it('redacts an enum value and keeps the allowed list', async () => {
-		const schema = createCommandSchema({
-			name: 'test',
-			flags: { region: flag.enum(['us', 'eu']).env('REGION').schema },
+			expect(error.message).toBe(
+				"Invalid value '<redacted>' from env TOKEN for flag --token: must match /^ghp_/",
+			);
 		});
-		const error = await failure(schema, [], { env: { REGION: SECRET } });
 
-		expect(error.message).toBe(
-			"Invalid value '<redacted>' from env REGION for flag --region. Allowed: us, eu",
-		);
-		expect(error.details).toEqual({
-			flag: 'region',
-			source: 'env',
-			envVar: 'REGION',
-			allowed: ['us', 'eu'],
+		it('redacts an unreadable key-value pair', async () => {
+			const schema = createCommandSchema({
+				name: 'test',
+				flags: { env: flag.keyValue().env('VARS').schema },
+			});
+			const error = await failure(schema, [], { env: { VARS: SECRET } });
+
+			expect(error.message).toBe(
+				"Invalid key-value pair '<redacted>' from env VARS for flag --env",
+			);
 		});
-	});
 
-	it('redacts a constraint violation and keeps the reason', async () => {
-		const schema = createCommandSchema({
-			name: 'test',
-			flags: { token: flag.string().pattern(/^ghp_/).env('TOKEN').schema },
+		it('names JSON as unreadable without quoting the text', async () => {
+			const schema = createCommandSchema({
+				name: 'test',
+				flags: { tags: flag.array(flag.string()).split({ env: 'json' }).env('TAGS').schema },
+			});
+			const error = await failure(schema, [], { env: { TAGS: SECRET } });
+
+			expect(error.message).toBe('Invalid JSON value from env TAGS for flag --tags');
 		});
-		const error = await failure(schema, [], { env: { TOKEN: SECRET } });
-
-		expect(error.message).toBe(
-			"Invalid value '<redacted>' from env TOKEN for flag --token: must match /^ghp_/",
-		);
-	});
-
-	it('redacts an unreadable key-value pair', async () => {
-		const schema = createCommandSchema({
-			name: 'test',
-			flags: { env: flag.keyValue().env('VARS').schema },
-		});
-		const error = await failure(schema, [], { env: { VARS: SECRET } });
-
-		expect(error.message).toBe("Invalid key-value pair '<redacted>' from env VARS for flag --env");
-	});
-
-	it('names JSON as unreadable without quoting the text', async () => {
-		const schema = createCommandSchema({
-			name: 'test',
-			flags: { tags: flag.array(flag.string()).split({ env: 'json' }).env('TAGS').schema },
-		});
-		const error = await failure(schema, [], { env: { TAGS: SECRET } });
-
-		expect(error.message).toBe('Invalid JSON value from env TAGS for flag --tags');
 	});
 });
 

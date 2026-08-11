@@ -486,41 +486,13 @@
             "number",
             "boolean",
             "enum",
-            "custom",
-            "keyValue"
+            "custom"
           ],
           "description": "What kind of value this arg accepts."
         },
         "presence": {
-          "enum": [
-            "required",
-            "optional",
-            "defaulted"
-          ],
+          "const": "required",
           "description": "Presence describes whether a positional arg is guaranteed to exist when the\naction handler runs:\n\n- `'required'`  — must be supplied; error if missing (default)\n- `'optional'`  — may be `undefined` if not supplied\n- `'defaulted'` — always present (falls back to default value)"
-        },
-        "variadic": {
-          "const": true,
-          "description": "Whether this arg consumes all remaining positionals."
-        },
-        "stdin": {
-          "$ref": "#/$defs/stdin",
-          "description": "Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding."
-        },
-        "defaultValue": {
-          "description": "Runtime default value (if any)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for help text."
-        },
-        "envVar": {
-          "type": "string",
-          "description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind."
-        },
-        "configPath": {
-          "type": "string",
-          "description": "Dotted config path for config resolution (e.g. `'deploy.region'`)."
         },
         "enumValues": {
           "type": "array",
@@ -528,10 +500,6 @@
             "type": "string"
           },
           "description": "Allowed literal values when `kind === 'enum'`."
-        },
-        "elementSchema": {
-          "$ref": "#/$defs/argElement",
-          "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings."
         },
         "numberConstraints": {
           "$ref": "#/$defs/numberConstraints"
@@ -544,38 +512,6 @@
         },
         "valueHint": {
           "type": "string"
-        },
-        "separator": {
-          "type": "string",
-          "minLength": 1
-        },
-        "split": {
-          "$ref": "#/$defs/split"
-        },
-        "duplicateKeys": {
-          "enum": [
-            "first",
-            "last",
-            "error"
-          ]
-        },
-        "unique": {
-          "const": true
-        },
-        "prompt": {
-          "$ref": "#/$defs/prompt",
-          "description": "Interactive prompt configuration."
-        },
-        "deprecated": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "const": true
-            }
-          ],
-          "description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated arg is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`."
         }
       },
       "required": [

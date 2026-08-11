@@ -1175,6 +1175,18 @@ describe('generateSchema — definition metadata', () => {
 		}
 		const defs = expectRecord(definitionMetaSchema.$defs);
 		const argMetaProperties = expectRecord(expectRecord(defs.arg).properties);
+		const argElementMetaProperties = expectRecord(expectRecord(defs.argElement).properties);
+		expect(Object.keys(argElementMetaProperties).sort()).toEqual(
+			[
+				'kind',
+				'presence',
+				'enumValues',
+				'numberConstraints',
+				'stringConstraints',
+				'pathChecks',
+				'valueHint',
+			].sort(),
+		);
 		const serializedFields = new Set<string>();
 		for (const entry of args) {
 			for (const field of Object.keys(expectRecord(entry))) {

@@ -122,16 +122,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	argElement: {
 		kind: { exportId: 'dreamcli:ArgSchema', property: 'kind' },
 		presence: { exportId: 'dreamcli:ArgPresence' },
-		variadic: { exportId: 'dreamcli:ArgSchema', property: 'variadic' },
-		stdin: { exportId: 'dreamcli:ArgSchema', property: 'stdin' },
-		defaultValue: { exportId: 'dreamcli:ArgSchema', property: 'defaultValue' },
-		description: { exportId: 'dreamcli:ArgSchema', property: 'description' },
-		envVar: { exportId: 'dreamcli:ArgSchema', property: 'envVar' },
-		configPath: { exportId: 'dreamcli:ArgSchema', property: 'configPath' },
-		prompt: { exportId: 'dreamcli:ArgSchema', property: 'prompt' },
 		enumValues: { exportId: 'dreamcli:ArgSchema', property: 'enumValues' },
-		elementSchema: { exportId: 'dreamcli:ArgSchema', property: 'elementSchema' },
-		deprecated: { exportId: 'dreamcli:ArgSchema', property: 'deprecated' },
 	},
 	prompt: {
 		kind: { exportId: 'dreamcli:PromptKind' },

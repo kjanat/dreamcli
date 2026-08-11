@@ -270,14 +270,29 @@ type FlagDefinitionFragmentV1 = {
 };
 
 /**
- * The value half of a positional arg entry, without the name its position
- * carries.
+ * The supported value-axis fields of an entries arg's `elementSchema`.
  *
- * The shape an entries arg's `elementSchema` takes: an entry value has a kind,
- * a presence, and everything else a positional value can declare, but no name
- * of its own.
+ * Entry values have a codec, constraints, path checks, and a value hint. They
+ * do not independently declare sources, presence, metadata, collections, or
+ * another key-value layer.
  */
 type ArgElementFragmentV1 = {
+	readonly kind: Exclude<ArgKind, 'keyValue'>;
+	readonly presence: 'required';
+	readonly enumValues?: readonly string[];
+	readonly numberConstraints?: NumberConstraints;
+	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
+	readonly pathChecks?: FlagPathChecksFragmentV1;
+	readonly valueHint?: string;
+};
+
+/**
+ * A positional arg entry inside a definition document.
+ *
+ * Array order carries the CLI position.
+ */
+type ArgDefinitionFragmentV1 = {
+	readonly name: string;
 	readonly kind: ArgKind;
 	readonly presence: ArgPresence;
 	readonly variadic?: true;
@@ -300,14 +315,8 @@ type ArgElementFragmentV1 = {
 	readonly deprecated?: string | true;
 };
 
-/**
- * A positional arg entry inside a definition document.
- *
- * Array order carries the CLI position.
- */
-type ArgDefinitionFragmentV1 = ArgElementFragmentV1 & {
-	readonly name: string;
-};
+/** The value half of a named positional definition. @internal */
+type ArgValueFragmentV1 = Omit<ArgDefinitionFragmentV1, 'name'>;
 
 /**
  * A command nested inside a definition document.
@@ -624,7 +633,7 @@ function serializeArgEntry(entry: CommandArgEntry, opts: ResolvedOptions): ArgDe
  * @param opts - Resolved generation options (prompt inclusion).
  * @returns JSON-serializable object representing everything but the name.
  */
-function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgElementFragmentV1 {
+function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFragmentV1 {
 	const stringConstraints = schema.stringConstraints;
 	const pathChecks = schema.pathChecks;
 
@@ -641,7 +650,7 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgElement
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.elementSchema !== undefined
-			? { elementSchema: serializeArgValue(schema.elementSchema, opts) }
+			? { elementSchema: serializeArgElementValue(schema.elementSchema) }
 			: {}),
 		...(schema.numberConstraints !== undefined
 			? { numberConstraints: { ...schema.numberConstraints } }
@@ -659,6 +668,28 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgElement
 			? { prompt: serializePrompt(schema.prompt) }
 			: {}),
 		...(schema.deprecated !== undefined ? { deprecated: schema.deprecated } : {}),
+	};
+}
+
+/** Serialize only the value-axis fields an entry element supports. */
+function serializeArgElementValue(schema: ArgSchema): ArgElementFragmentV1 {
+	if (schema.kind === 'keyValue') {
+		throw new TypeError("Arg element schema kind 'keyValue' is not supported");
+	}
+	return {
+		kind: schema.kind,
+		presence: 'required',
+		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
+		...(schema.numberConstraints !== undefined
+			? { numberConstraints: { ...schema.numberConstraints } }
+			: {}),
+		...(schema.stringConstraints !== undefined
+			? { stringConstraints: serializeStringConstraints(schema.stringConstraints) }
+			: {}),
+		...(schema.pathChecks !== undefined
+			? { pathChecks: serializePathChecks(schema.pathChecks) }
+			: {}),
+		...(schema.valueHint !== undefined ? { valueHint: schema.valueHint } : {}),
 	};
 }
 
@@ -1235,8 +1266,7 @@ const commandFragmentProperties = {
 } as const satisfies FragmentProperties<CommandDefinitionFragmentV1>;
 
 /**
- * Arg-fragment property schemas shared by the named `arg` def and the unnamed
- * `argElement` def, so an entry value and a positional cannot drift.
+ * Property schemas carried by a named positional definition.
  */
 const argValueFragmentProperties = {
 	kind: { enum: ['string', 'number', 'boolean', 'enum', 'custom', 'keyValue'] },
@@ -1261,6 +1291,17 @@ const argValueFragmentProperties = {
 	deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
 } as const satisfies FragmentProperties<Omit<ArgDefinitionFragmentV1, 'name'>> &
 	Record<Exclude<SerializedArgField, 'name'>, Record<string, unknown>>;
+
+/** Property schemas supported by a key-value entry element. */
+const argElementFragmentProperties = {
+	kind: { enum: ['string', 'number', 'boolean', 'enum', 'custom'] },
+	presence: { const: 'required' },
+	enumValues: { type: 'array', items: { type: 'string' } },
+	numberConstraints: { $ref: '#/$defs/numberConstraints' },
+	stringConstraints: { $ref: '#/$defs/stringConstraints' },
+	pathChecks: { $ref: '#/$defs/pathChecks' },
+	valueHint: { type: 'string' },
+} as const satisfies FragmentProperties<ArgElementFragmentV1>;
 
 /**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
@@ -1433,7 +1474,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			argElement: {
 				type: 'object',
 				additionalProperties: false,
-				properties: argValueFragmentProperties,
+				properties: argElementFragmentProperties,
 				required: ['kind', 'presence'],
 			},
 			arg: {

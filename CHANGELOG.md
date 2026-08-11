@@ -367,7 +367,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Breaking: flag diagnostics redact the value of every non-argv source.** A
+- **Breaking: flag diagnostics redact every value resolved outside a literal
+  CLI value.** A
   stdin, environment, config, or prompt value that failed to coerce used to be
   printed and stored under `details.value` on the flag surface, while the
   argument surface already redacted it. Both surfaces now report
@@ -379,8 +380,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `CONSTRAINT_VIOLATED` failure follows
   the same rule: `details.value` is recorded only for a value typed on the
   command line, and omitted for one a pipe, an explicit `-`, the environment, a
-  config file, or a prompt supplied. Argv is untouched, since a token the user
-  typed is already on their screen. Every coercion failure now also carries
+  config file, or a prompt supplied. A literal CLI value is untouched, since it
+  is already on the user's screen. Every coercion failure now also carries
   `source: 'env' | 'config' | 'stdin' | 'prompt'` in `details`, which is what
   labels an issue `[env API_TOKEN]` in an aggregate error and what now gives the
   argument surface the same label the flag surface had.

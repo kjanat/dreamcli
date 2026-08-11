@@ -53,7 +53,7 @@ describe('resolve', () => {
 			expect(result.flags).toEqual({ name: 'test-app' });
 		});
 
-		it('reports the decoded string in constraint error details', async () => {
+		it('omits the config value from constraint error details', async () => {
 			const schema = makeSchema({
 				flags: {
 					name: createFlagSchema('string', {
@@ -70,7 +70,8 @@ describe('resolve', () => {
 				expect(isValidationError(error)).toBe(true);
 				if (isValidationError(error)) {
 					expect(error.code).toBe('CONSTRAINT_VIOLATED');
-					expect(error.details).toMatchObject({ value: '8080', expected: 'string' });
+					expect(error.details).toMatchObject({ expected: 'string' });
+					expect(error.details).not.toHaveProperty('value');
 				}
 			}
 		});
@@ -946,10 +947,10 @@ describe('resolve — config numeric constraints', () => {
 				expect(err.message).toContain('must be <= 5');
 				expect(err.details).toMatchObject({
 					flag: 'retries',
-					value: 10,
 					expected: 'number',
 					constraint: 'max',
 				});
+				expect(err.details).not.toHaveProperty('value');
 			}
 		}
 	});

@@ -130,7 +130,7 @@ function coercionError(
 }
 
 /**
- * The placeholder every non-argv source's value is reported as.
+ * The placeholder every non-literal-CLI source's value is reported as.
  *
  * Stdin, the environment, a config file, and a prompt answer all carry values a
  * user may consider secret, and a diagnostic is written to a terminal, a log,
@@ -249,9 +249,6 @@ type CollectionFault =
 /** How one surface words the faults reading a source can produce. */
 type CollectionErrors = (fault: CollectionFault) => ValidationError;
 
-/** How one CLI surface words a caller-built non-pair occurrence. */
-type CliCollectionShapeError = (raw: unknown) => ValidationError;
-
 /**
  * What combining a collection's decoded elements rejected.
  *
@@ -260,7 +257,8 @@ type CliCollectionShapeError = (raw: unknown) => ValidationError;
  */
 type AggregationFault =
 	| { readonly kind: 'duplicate-key'; readonly key: string }
-	| { readonly kind: 'dash-without-stdin' };
+	| { readonly kind: 'dash-without-stdin' }
+	| { readonly kind: 'shape'; readonly expected: 'array' | 'object' };
 
 /** How one surface words an aggregation fault for the source that carried it. */
 type AggregationErrors = (
@@ -464,6 +462,21 @@ function flagAggregationErrors(flagName: string): AggregationErrors {
 				suggest: `Pipe a value to stdin, or drop the '-' occurrence of --${flagName}`,
 			});
 		}
+		if (fault.kind === 'shape') {
+			const collectionLabel = fault.expected === 'array' ? 'values' : 'KEY=VALUE pairs';
+			return new ValidationError(
+				`Invalid ${fault.expected} value ${sourceClause(source)}for flag --${flagName}`,
+				{
+					code: 'TYPE_MISMATCH',
+					details: {
+						flag: flagName,
+						...aggregationSourceDetails(source),
+						expected: fault.expected,
+					},
+					suggest: `Provide ${collectionLabel} for --${flagName}`,
+				},
+			);
+		}
 		return new ValidationError(
 			`Duplicate key '${fault.key}' ${sourceClause(source)}for flag --${flagName}`,
 			{
@@ -473,16 +486,6 @@ function flagAggregationErrors(flagName: string): AggregationErrors {
 			},
 		);
 	};
-}
-
-/** Word a caller-built non-pair occurrence in a key-value flag's CLI slot. */
-function flagCliCollectionShapeError(flagName: string): CliCollectionShapeError {
-	return (raw) =>
-		new ValidationError(`Invalid object value for flag --${flagName}`, {
-			code: 'TYPE_MISMATCH',
-			details: { flag: flagName, source: 'cli', expected: 'object', value: raw },
-			suggest: `Use KEY=VALUE occurrences for --${flagName}`,
-		});
 }
 
 /** Word a collection fault for a positional, without echoing the value. */
@@ -539,6 +542,20 @@ function argAggregationErrors(argName: string): AggregationErrors {
 				suggest: `Pipe a value to stdin, or drop the '-' from <${argName}>`,
 			});
 		}
+		if (fault.kind === 'shape') {
+			return new ValidationError(
+				`Invalid ${fault.expected} value ${sourceClause(source)}for argument <${argName}>`,
+				{
+					code: 'TYPE_MISMATCH',
+					details: {
+						arg: argName,
+						...aggregationSourceDetails(source),
+						expected: fault.expected,
+					},
+					suggest: `Provide KEY=VALUE pairs for <${argName}>`,
+				},
+			);
+		}
 		return new ValidationError(
 			`Duplicate key '${fault.key}' ${sourceClause(source)}for argument <${argName}>`,
 			{
@@ -550,15 +567,6 @@ function argAggregationErrors(argName: string): AggregationErrors {
 	};
 }
 
-/** Word a caller-built non-pair occurrence in a key-value argument's CLI slot. */
-function argCliCollectionShapeError(argName: string): CliCollectionShapeError {
-	return (raw) =>
-		new ValidationError(`Invalid object value for argument <${argName}>`, {
-			code: 'TYPE_MISMATCH',
-			details: { arg: argName, source: 'cli', expected: 'object', value: raw },
-			suggest: `Use KEY=VALUE occurrences for <${argName}>`,
-		});
-}
 /**
  * Decode a raw env/config/prompt value through the shared value layer and name
  * the flag or arg that carried it on failure.
@@ -1035,7 +1043,6 @@ function finishCliFlagValue(
 		stdin,
 		(element) => coerceValueSchema(flagName, { kind: 'stdin' }, element, flagValueSchema(schema)),
 		flagCollectionErrors(flagName, { kind: 'stdin' }),
-		flagCliCollectionShapeError(flagName),
 		flagAggregationErrors(flagName),
 	);
 }
@@ -1069,7 +1076,6 @@ function finishCliArgValue(
 		stdin,
 		(element) => coerceArgElement(argName, { kind: 'stdin' }, element, schema),
 		argCollectionErrors(argName, { kind: 'stdin' }),
-		argCliCollectionShapeError(argName),
 		argAggregationErrors(argName),
 	);
 }
@@ -1104,7 +1110,6 @@ function spliceCliCollection(
 	stdin: StdinSourceBinding | undefined,
 	decodeElement: (element: unknown) => CoerceResult,
 	errors: CollectionErrors,
-	cliShapeError: CliCollectionShapeError,
 	aggregationErrors: AggregationErrors,
 ): CliFinish {
 	const occurrences = liftOccurrences(
@@ -1156,7 +1161,7 @@ function spliceCliCollection(
 		if (entry.occurrence.kind !== 'entry') {
 			return {
 				kind: 'error',
-				error: cliShapeError(occurrenceValue(entry.occurrence)),
+				error: aggregationErrors({ kind: 'shape', expected: 'object' }, entry.source),
 			};
 		}
 		entries.push(entry);

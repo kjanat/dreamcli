@@ -18,7 +18,7 @@ import type {
 	SourceBinding,
 	StdinSourceBinding,
 } from '#internals/core/schema/source.ts';
-import { stdinBindingOf, STDIN_SENTINEL } from '#internals/core/schema/source.ts';
+import { STDIN_SENTINEL, stdinBindingOf } from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash, stdinReadsWhenMissing } from '#internals/core/schema/stdin.ts';
 import type { CliFinish, CoerceResult } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';

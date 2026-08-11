@@ -232,7 +232,7 @@ describe('arg config and prompt sources', () => {
 	it('describes the dash-only stdin form for a missing flag', async () => {
 		const { schema, parsed } = flagCase(flag.string().stdin({ when: 'dash' }).required(), []);
 		await expect(resolve(schema, parsed, {})).rejects.toMatchObject({
-			suggest: "Provide --value <value> or pass '-' to read stdin",
+			suggest: 'Provide --value <value> or pass --value - to read stdin',
 		});
 	});
 

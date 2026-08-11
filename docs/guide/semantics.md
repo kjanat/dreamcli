@@ -302,6 +302,7 @@ $ mycli send --body -            # scalar, nothing piped
 $ mycli send --tag a --tag -     # collection, nothing piped
 # Error: No piped stdin for the '-' occurrence of flag --tag  (MISSING_STDIN)
 ```
+
 - An input that declares no stdin binding treats `-` as an ordinary element and
   never reads the stream. An input that does declare one can never receive a
   literal `-` as a value, on either surface: the token names the source before

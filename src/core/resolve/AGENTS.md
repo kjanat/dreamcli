@@ -23,7 +23,7 @@ a source the projection omits is a source no stage can produce.
 | `stages.ts`      |   263 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
 | `flags.ts`       |   386 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
 | `args.ts`        |   276 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
-| `coerce.ts`      |  1179 | `coerceValue()` — unified raw value -> flag's declared kind                   |
+| `coerce.ts`      |  1191 | `coerceValue()` — unified raw value -> flag's declared kind                   |
 | `path-checks.ts` |   127 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   226 | Error aggregation + `throwAggregatedErrors()`                                 |
@@ -66,7 +66,7 @@ that parameterizes the wording alone: string leniency, boolean truthy/falsy sets
 trim-on-split, and error message templates. `suggestBySource()` is the one place that maps a source
 to its phrasing, so a new source is a new field rather than a fourth ternary arm.
 
-No non-argv source echoes its value. Every message this file builds says `'<redacted>'` where the
+No non-literal-CLI source echoes its value. Every message this file builds says `'<redacted>'` where the
 value would go and every `details` record omits it, on both surfaces: stdin, the environment, a
 config file, and a prompt answer all carry values a user may consider secret. `parse/index.ts` keeps
 quoting the token the user typed, which is already on their screen. `sourceDetails()` writes

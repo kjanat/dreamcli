@@ -123,7 +123,7 @@ The built-in theme follows clap/cargo conventions:
 | `arg`           | positional tokens (`<file>`)                           | cyan             |
 | `placeholder`   | grammar tokens (`<string>`, `[flags]`)                 | dim              |
 | `defaultValue`  | `(default: …)`                                         | dim              |
-| `annotation`    | `[stdin]`, `[env: X]`, `[required]`, ` (default)`      | dim              |
+| `annotation`    | `[stdin]`, `[env: X]`, `[required]`, `(default)`       | dim              |
 | `deprecated`    | `[deprecated…]`                                        | yellow           |
 | `headerName`    | program name in the root header                        | bold             |
 | `headerVersion` | `vX.Y.Z` in the root header                            | dim              |

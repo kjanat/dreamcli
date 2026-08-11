@@ -470,8 +470,9 @@ mycli deploy ap-south    # target = 'ap-south', the CLI token wins
 
 The config value is coerced to the argument's declared kind the same way a
 flag's is, so `arg.duration().config('y.wait')` accepts both `"1h30m"` and
-`5000`. A value that fails coercion reports `CONSTRAINT_VIOLATED` with the raw
-value redacted.
+`5000`. A value that fails non-argv decoding reports `TYPE_MISMATCH`; an enum
+mismatch reports `INVALID_ENUM`, and a decoded value that violates a constraint
+reports `CONSTRAINT_VIOLATED`. The raw value is redacted in every case.
 
 ### Prompt-Backed Arguments
 
@@ -881,8 +882,9 @@ for the full rule.
 
 `arg.number()` takes the same numeric constraints as `flag.number()`: an
 options object or chained `.int()` / `.min()` / `.max()` / `.finite()` methods,
-which compose. `finite` defaults to `true`, so `Infinity` / `-Infinity` (and
-`NaN`) are rejected with error code `INVALID_VALUE` (exit `2`). See
+which compose. `finite` defaults to `true`. An argv failure uses
+`INVALID_VALUE`; a non-argv failure uses the code for the failing resolution
+stage (all exit `2`). See
 [Numeric constraints](/guide/flags#numeric-constraints) for the full table.
 
 ```ts

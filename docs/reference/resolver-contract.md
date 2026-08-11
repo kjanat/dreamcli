@@ -97,7 +97,8 @@ that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`).
 That record is public as `ResolutionProvenance`. It reaches a `resolve()` caller
 on `ResolveResult.provenance`, a handler as `sources`, and a `readFlags()`
 caller through `onSources`. Both records are built with a null prototype, so an
-input named `toString` reads back `undefined` rather than an inherited member.
+undeclared key named `toString` reads back `undefined` rather than an inherited
+member; a declared input with that name returns its own provenance when present.
 Only inputs that resolved a value have an entry. See
 [Value provenance](/guide/semantics#which-source-won).
 
@@ -105,7 +106,8 @@ Only inputs that resolved a value have an entry. See
 
 - env, config, prompt, and stdin failures carry source-aware detail payloads
 - every coercion failure carries `source` naming the stage that produced the value
-- a value from any source but argv is redacted in both the message and `details`
+- a value resolved outside a literal CLI value is redacted in both the message
+  and `details`, including stdin selected by an explicit `-`
 - hard coercion errors stop later fallback for that same field
 - multiple validation failures are thrown as one aggregate error with per-error details
 - aggregate validation failures also include per-issue summaries with normalized input labels and source labels when the failing source is known

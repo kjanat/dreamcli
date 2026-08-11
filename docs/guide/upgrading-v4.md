@@ -494,11 +494,11 @@ No piped stdin for the '-' occurrence of flag --tag
 Suggestion: Pipe a value to stdin, or drop the '-' occurrence of --tag
 ```
 
-The code is `MISSING_STDIN` on both surfaces, and the positional tail words it
-`for the '-' occurrence of argument <files>`. `details` carries `flag` or `arg`
-plus `source: 'stdin'`. Code matching `REQUIRED_FLAG` or `REQUIRED_ARG` to catch
-this case matches the dedicated code instead; those two keep their own meaning,
-a required input no source filled.
+The code is `MISSING_STDIN` on both surfaces, and the positional tail wording is
+`No piped stdin for the '-' occurrence of argument <files>`. `details` carries
+`flag` or `arg` plus `source: 'stdin'`. Code matching `REQUIRED_FLAG` or
+`REQUIRED_ARG` to catch this case matches the dedicated code instead; those two
+keep their own meaning, a required input no source filled.
 
 Two shapes are unchanged. Occurrences of nothing but `-` are the whole value, so
 with nothing piped they still fall through to env, config, prompt, and the
@@ -669,7 +669,7 @@ flag.array(flag.string()).split({ cli: '|', env: '|' }).env('REGIONS');
 
 Code that only ever passed CLI tokens needs no change.
 
-### Flag diagnostics redact values from every non-argv source
+### Flag diagnostics redact values resolved outside literal CLI input
 
 A flag whose stdin, environment, config, or prompt value failed to coerce used to
 print that value and carry it in `details.value`. The argument surface already

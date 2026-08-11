@@ -196,6 +196,8 @@ generateSchema(myCli.schema, { includeHidden: false });
 
 Version 1 froze with 4.0. Every field below is optional unless noted, and a
 field is written only when the schema carries something other than its default.
+`defaultValue` is presence-sensitive: an explicit `.default(...)` is written
+even when its value matches the kind's implicit unset value.
 
 Per command: `name` (always), `description`, `aliases`, `hidden`, `examples`,
 `flags` (always), `args` (always), nested `commands` (always).

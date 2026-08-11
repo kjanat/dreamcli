@@ -291,7 +291,7 @@ Fix:
   shown verbatim and the framework cannot redact it.
 
 References: [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction),
-[Upgrading to 4.0](/guide/upgrading-v4#flag-diagnostics-redact-values-from-every-non-argv-source)
+[Upgrading to 4.0](/guide/upgrading-v4#flag-diagnostics-redact-values-resolved-outside-literal-cli-input)
 
 ## A Defaulted Input Looks Like The User Supplied It
 

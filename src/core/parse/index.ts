@@ -1047,7 +1047,7 @@ function mapPositionals(
 		if (rawPositional !== undefined) {
 			const policy =
 				cardinality.kind === 'many' || cardinality.kind === 'entries'
-					? cardinality.splitting.cli
+					? cardinality.cliSplit
 					: WHOLE_TOKEN;
 			const occurrences = splitCliToken(policy, rawPositional, {
 				stdin: entry.schema.stdin,

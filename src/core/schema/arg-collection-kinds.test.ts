@@ -12,7 +12,7 @@ import { generateSchema } from '#internals/core/json-schema/index.ts';
 import { readFlags } from '#internals/core/read-flags/index.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import type { InferArg } from './arg.ts';
-import { arg } from './arg.ts';
+import { arg, createArgSchema } from './arg.ts';
 import { command } from './command.ts';
 import { flag } from './flag.ts';
 
@@ -211,7 +211,7 @@ describe('arg.keyValue()', () => {
 
 // === arg.keyValue(element)
 
-describe('arg.keyValue(element)', () => {
+describe('arg.keyValue(element) — element codec', () => {
 	function replicasCommand(onValue: (value: Record<string, number>) => void) {
 		return command('scale')
 			.arg('replicas', arg.keyValue(arg.number().int().min(0)).variadic())
@@ -225,6 +225,29 @@ describe('arg.keyValue(element)', () => {
 		const strings = arg.keyValue();
 		expectTypeOf<InferArg<typeof numbers>>().toEqualTypeOf<Record<string, number>>();
 		expectTypeOf<InferArg<typeof strings>>().toEqualTypeOf<Record<string, string>>();
+	});
+
+	it('rejects positional-only fields in a definition element', () => {
+		expect(() =>
+			createArgSchema('keyValue', {
+				elementSchema: { kind: 'string', envVar: 'VALUE' },
+			}),
+		).toThrowError(/element schema field 'envVar' is not supported/);
+		expect(() =>
+			createArgSchema('keyValue', {
+				elementSchema: { kind: 'keyValue' },
+			}),
+		).toThrowError(/element schema kind 'keyValue' is not supported/);
+	});
+
+	it('validates schema-shaped element inputs before preserving identity', () => {
+		const valid = arg.number().int().schema;
+		expect(createArgSchema('keyValue', { elementSchema: valid }).elementSchema).toBe(valid);
+
+		const invalid = { ...arg.string().schema, numberConstraints: { min: 1 } };
+		expect(() => createArgSchema('keyValue', { elementSchema: invalid })).toThrowError(
+			/field 'numberConstraints' requires kind 'number'/,
+		);
 	});
 
 	it('decodes each entry value through the element codec', async () => {

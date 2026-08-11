@@ -10,7 +10,7 @@ section on this page belongs to exactly one of them:
 
 | Axis                          | What it decides                                        | Declared with                                                                  |
 | ----------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| [Value](#value)               | what one value is and what type it resolves to         | `flag.string()`, `flag.number()`, `flag.url()`, `flag.custom()`, and the rest   |
+| [Value](#flag-types)          | what one value is and what type it resolves to         | `flag.string()`, `flag.number()`, `flag.url()`, `flag.custom()`, and the rest   |
 | [Cardinality](#cardinality)   | how many values the flag carries and how they combine   | `flag.array()`, `flag.keyValue()`, `flag.count()`, `.split()`, `.unique()`      |
 | [Sources](#sources)           | where a value may come from and which one wins          | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`, `.required()`     |
 | [Syntax](#syntax)             | how the flag is spelled and repeated on the command line | the name, `.alias()`, `.negatable()`, `.duplicates()`, `.propagate()`          |
@@ -1186,15 +1186,16 @@ Fix the default, or widen the declaration where the value was intended:
 
 ### What a failing value prints
 
-A value that reached the framework from anywhere but argv is redacted in the
-diagnostic, on both surfaces and from every source:
+A value resolved through stdin, env, config, or a prompt is redacted in the
+diagnostic, on both surfaces. This includes stdin selected by an explicit `-`;
+the diagnostic also omits `details.value`:
 
 ```bash
 $ API_TOKEN=sk-live-9f2 mycli deploy
 Invalid value '<redacted>' from env API_TOKEN for flag --token: must match /^ghp_/
 ```
 
-A token the user typed is quoted in full, since it is already on their screen.
+A literal CLI value is quoted in full, since it is already on the user's screen.
 [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction) is the
 canonical contract: which fields survive, what `details` carries, and the one
 channel the framework cannot redact.

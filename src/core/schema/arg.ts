@@ -616,7 +616,54 @@ const NORMALIZED_ARG_SCHEMA_KEYS: readonly (keyof ArgSchema)[] = [
  * @returns `true` when the value is already a built {@link ArgSchema}.
  */
 function isNormalizedArgSchema(element: ArgDefinition | ArgSchema): element is ArgSchema {
-	return NORMALIZED_ARG_SCHEMA_KEYS.every((key) => key in element);
+	return NORMALIZED_ARG_SCHEMA_KEYS.every((key) => Object.hasOwn(element, key));
+}
+
+/**
+ * Reject positional-only fields on a key-value entry's value schema.
+ *
+ * Entry values use only their codec, constraints, validator, path checks, and
+ * value hint. Sources, presence, collection settings, metadata, and another
+ * key-value layer would otherwise be accepted and silently ignored.
+ *
+ * @param schema - Normalized schema proposed as an entry value.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unsupported shape.
+ * @internal
+ */
+function assertValidArgElementSchema(schema: ArgSchema): void {
+	if (schema.kind === 'keyValue') {
+		throw new CLIError("Arg element schema kind 'keyValue' is not supported", {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field: 'kind' },
+			suggest: 'Use a scalar value kind for the key-value element',
+		});
+	}
+
+	const defaults: readonly (readonly [keyof ArgSchema, unknown])[] = [
+		['presence', 'required'],
+		['variadic', false],
+		['stdin', undefined],
+		['defaultValue', undefined],
+		['description', undefined],
+		['envVar', undefined],
+		['configPath', undefined],
+		['prompt', undefined],
+		['elementSchema', undefined],
+		['separator', undefined],
+		['split', undefined],
+		['duplicateKeys', 'last'],
+		['unique', false],
+		['aggregateStandard', undefined],
+		['deprecated', undefined],
+	];
+	for (const [field, allowed] of defaults) {
+		if (schema[field] === allowed) continue;
+		throw new CLIError(`Arg element schema field '${String(field)}' is not supported`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field },
+			suggest: `Drop '${String(field)}' from the key-value element`,
+		});
+	}
 }
 
 /**
@@ -631,11 +678,17 @@ function isNormalizedArgSchema(element: ArgDefinition | ArgSchema): element is A
  *   belongs to a different {@link ArgKind}.
  */
 function normalizeArgElementSchema(element: ArgDefinition | ArgSchema): ArgSchema {
-	if (isNormalizedArgSchema(element)) return element;
+	if (isNormalizedArgSchema(element)) {
+		assertValidArgDefinition(element.kind, element);
+		assertValidArgElementSchema(element);
+		return element;
+	}
 
 	const { kind, ...fields } = element;
 	assertValidArgDefinition(kind, fields);
-	return buildArgSchema(kind, normalizeArgDefinitionFields(fields));
+	const schema = buildArgSchema(kind, normalizeArgDefinitionFields(fields));
+	assertValidArgElementSchema(schema);
+	return schema;
 }
 
 /**

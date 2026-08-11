@@ -493,7 +493,7 @@ describe('resolve', () => {
 			const schema = makeSchema({
 				flags: {
 					port: createFlagSchema('number', { envVar: 'PORT' }),
-					token: createFlagSchema('string', { presence: 'required' }),
+					token: createFlagSchema('string', { presence: 'required', envVar: 'TOKEN' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -506,8 +506,17 @@ describe('resolve', () => {
 				expect(isValidationError(err)).toBe(true);
 				if (isValidationError(err)) {
 					expect(err.message).toContain('Multiple validation errors');
-					const details = err.details as { errors: unknown[]; count: number };
+					const details = err.details as {
+						issues: { readonly label: string; readonly sourceLabel?: string }[];
+						count: number;
+					};
 					expect(details.count).toBe(2);
+					expect(details.issues).toContainEqual(
+						expect.objectContaining({ label: 'flag --port', sourceLabel: 'env PORT' }),
+					);
+					const missing = details.issues.find((issue) => issue.label === 'flag --token');
+					expect(missing).toBeDefined();
+					expect(missing).not.toHaveProperty('sourceLabel');
 				}
 			}
 		});

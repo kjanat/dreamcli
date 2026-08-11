@@ -159,12 +159,12 @@ defaulted"; never drop `.default()` to detect that, since it also drops
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.
 
-**Diagnostics.** A value from any source but argv is redacted in validation
-messages and in `details`, so a piped or exported secret never reaches a
-terminal or a CI log. The framework cannot redact text your own code writes: a
-`flag.custom()` parse function's thrown message and a Standard Schema issue
-message are shown verbatim, so write them to describe the expectation rather
-than to interpolate the value.
+**Diagnostics.** Values resolved through stdin, env, config, or a prompt are
+redacted in validation messages and omit `details.value`; this includes stdin
+selected by an explicit `-`. Only a literal CLI value is shown. The framework
+cannot redact text your own code writes: a `flag.custom()` parse function's
+thrown message and a Standard Schema issue message are shown verbatim, so write
+them to describe the expectation rather than to interpolate the value.
 
 **Output.** `out.log()` for results, `out.status()` for progress notes (stderr,
 suppressed by `--quiet`), `out.table()` for lists, `out.json()` behind
