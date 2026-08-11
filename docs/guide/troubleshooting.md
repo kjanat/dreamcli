@@ -224,18 +224,19 @@ Fix:
 References: [Collections](/guide/flags#collections),
 [CLI Semantics](/guide/semantics#stdin)
 
-## A Stdin Input Will Not Accept `-` As A Value
+## A `-` Stdin Selector Is Not A Literal Value
 
 Symptom:
 
-- an input that reads stdin can never hold the one-character string `-`; the
-  token reads the stream, or fails because nothing was piped.
+- an input whose binding treats `-` as a stdin selector cannot hold the
+  one-character string `-`; the token reads the stream, or fails because nothing
+  was piped.
 
 Cause:
 
-- the token names the source before anything reads it as text, so on a
-  stdin-enabled input `-` is never data. This holds on both surfaces and for
-  both the scalar and the collection shapes.
+- with `when: 'dash'` or `when: 'dash-or-missing'`, the token names the source
+  before anything reads it as text, so `-` is not data. With `when: 'missing'`,
+  a typed `-` remains a literal value.
 
 Check:
 

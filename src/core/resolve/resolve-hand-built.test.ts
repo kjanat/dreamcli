@@ -46,6 +46,8 @@ async function resolveGivenArg(
 	return result.args.value;
 }
 
+// === caller-built occurrence lists
+
 describe('a caller-built list of occurrences', () => {
 	it('aggregates a many flag element by element', async () => {
 		await expect(resolveGivenFlag(flag.array(flag.string()), ['a', 'b'])).resolves.toEqual([
@@ -128,6 +130,8 @@ describe('a caller-built list of occurrences', () => {
 		).resolves.toEqual({ A: '2' });
 	});
 });
+
+// === caller-built aggregates
 
 describe('a caller-built aggregate', () => {
 	it('reaches the resolved value untouched for a many flag', async () => {

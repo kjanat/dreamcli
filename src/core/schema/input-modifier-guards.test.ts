@@ -93,6 +93,13 @@ describe('.unique() on an arg', () => {
 		expect(schemaError(() => arg.keyValue().variadic().unique()).code).toBe('INVALID_SCHEMA');
 	});
 
+	it('is refused with false on unsupported args too', () => {
+		// @ts-expect-error .unique() is not available on a single-value arg
+		expect(schemaError(() => arg.string().unique(false)).code).toBe('INVALID_SCHEMA');
+		// @ts-expect-error .unique() is unavailable on a key-value arg
+		expect(schemaError(() => arg.keyValue().variadic().unique(false)).code).toBe('INVALID_SCHEMA');
+	});
+
 	it('is refused on the definition path too', () => {
 		expect(schemaError(() => createArgSchema('string', { unique: true })).code).toBe(
 			'INVALID_SCHEMA',

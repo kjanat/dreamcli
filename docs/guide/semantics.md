@@ -245,9 +245,10 @@ axes, `when`, `consume`, and `trim`, defaulting to `dash-or-missing`,
 A `-` that selects stdin resolves on the `cli` stage, so it outranks every later
 source. An omitted input reads stdin only for `when: 'missing'` or
 `when: 'dash-or-missing'`. With `when: 'dash'`, omission falls through to env,
-config, prompt, and default. When nothing is piped, every stdin form produces no
-value and the walk continues, except for a `-` typed beside other occurrences of
-a collection, which fails instead.
+config, prompt, and default. When a selected stdin route has no piped data, it
+produces no value and the walk continues, except for a `-` typed beside other
+occurrences of a collection, which fails instead. With `when: 'missing'`, a
+typed `-` is literal and does not select stdin.
 
 The stream is read at most once per invocation, and only when a declared binding
 would fire. Declaring a second exclusive stdin input on one command, flag or

@@ -1027,6 +1027,9 @@ class ArgBuilder<C extends ArgConfig> {
 		this: ArgBuilder<C & { readonly variadic: true; readonly argKind: ListArgKind }>,
 		value = true,
 	): ArgBuilder<C> {
+		if (this.schema.kind === 'keyValue' || this.schema.variadic !== true) {
+			assertValidArgDefinition(this.schema.kind, { ...this.schema, unique: true });
+		}
 		return nextCollectionArg({ ...this.schema, unique: value });
 	}
 
