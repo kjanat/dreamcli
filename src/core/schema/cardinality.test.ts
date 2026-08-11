@@ -259,6 +259,18 @@ describe('.split() option validation', () => {
 		}
 	});
 
+	it('accepts every stdin format', () => {
+		for (const stdin of ['whole', 'lines', 'json'] as const) {
+			expect(
+				flag.array(flag.string()).split({ stdin: { format: stdin } }).schema.split?.stdin,
+			).toEqual({ format: stdin });
+		}
+	});
+});
+
+// === prompt availability by kind
+
+describe('prompt availability', () => {
 	it('rejects prompts on key-value argument definitions', () => {
 		const error = schemaError(() =>
 			createArgSchema('keyValue', { prompt: { kind: 'input', message: 'Variables?' } }),
@@ -273,14 +285,6 @@ describe('.split() option validation', () => {
 		);
 		expect(error.code).toBe('INVALID_SCHEMA');
 		expect(error.message).toBe(`Flag schema field 'prompt' is not available on kind '${kind}'`);
-	});
-
-	it('accepts every stdin format', () => {
-		for (const stdin of ['whole', 'lines', 'json'] as const) {
-			expect(
-				flag.array(flag.string()).split({ stdin: { format: stdin } }).schema.split?.stdin,
-			).toEqual({ format: stdin });
-		}
 	});
 });
 

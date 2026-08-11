@@ -102,30 +102,26 @@ References: [CLI Semantics](/guide/semantics), [Arguments](/guide/arguments), [F
 
 Symptom:
 
-- a piped path fails a `mustExist` check that passes for the same path typed on
-  the command line, with the error text broken across two lines;
 - a piped string compares unequal to the value you expected.
 
 Cause:
 
-- there is no trim option. A `string` input keeps the stdin buffer byte for
-  byte, because for a string the text *is* the value, and truncating it would
-  discard data the caller may have meant. `flag.path()` and `arg.path()` resolve
-  as strings, so they keep it too.
-- every other scalar kind interprets the text rather than keeping it, so it
-  drops one trailing `\n`, `\r\n`, or `\r` before decoding. `echo 42` reaches
-  `flag.number()` as `42`, and `echo 30s` reaches `flag.duration()` as `30s`.
+- there is no trim option. A `string` input keeps the stdin buffer byte for byte
+  because the text *is* the value, and truncating it would discard data the
+  caller may have meant.
+- every other scalar kind, including `path`, interprets the text and drops one
+  trailing `\n`, `\r\n`, or `\r` before decoding. `echo ./docs` reaches
+  `flag.path()` as `./docs`, and `echo 42` reaches `flag.number()` as `42`.
 
 Check:
 
-- the input's kind. Only `string` and the path kinds keep the terminator.
+- the input's kind. Only `string` keeps the terminator.
 - whether the producer appends a newline. `echo` does; `printf` without `\n`
   does not.
 
 Fix:
 
-- pipe with `printf './docs'` instead of `echo ./docs`;
-- or emit the value without a terminator, for example `printf '%s' './docs' | mycli`;
+- emit the string without a terminator, for example `printf '%s' 'value' | mycli`;
 - or declare the input as a collection, where line splitting treats a final
   terminator as framing and drops it.
 

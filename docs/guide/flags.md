@@ -160,7 +160,8 @@ flagTypes.array;
 //         ^?
 ```
 
-Array flags resolve to `[]` when unset. They never resolve to `undefined`.
+Optional array flags resolve to `[]` when no source or default provides a value.
+Required array flags fail when no value resolves.
 
 The element builder describes the *value shape only*: kinds and their value
 constraints (`flag.number({ int: true, min: 0 })`, `.nonEmpty()`, `.pattern()`,
@@ -295,8 +296,10 @@ command('run')
 #### Key-value flags
 
 `flag.keyValue()` merges `KEY=VALUE` occurrences into a record, splitting each
-at the **first** `=`, so `--env A=b=c` yields `{ A: 'b=c' }`. Unset resolves to
-`{}`. An element builder gives each entry value its own codec and checks:
+at the **first** `=`, so `--env A=b=c` yields `{ A: 'b=c' }`. Optional key-value
+flags resolve to `{}` when no source or default provides a value; required flags
+fail when no value resolves. An element builder gives each entry value its own
+codec and checks:
 
 ```ts
 flag.keyValue(flag.path({ mustExist: true }));

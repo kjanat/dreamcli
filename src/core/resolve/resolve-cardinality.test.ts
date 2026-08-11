@@ -724,9 +724,10 @@ describe('collection provenance', () => {
 	});
 
 	it('names the CLI alone when a dash-enabled collection had nothing to splice', async () => {
-		expect(
-			await flagProvenance(flag.array(flag.string()).stdin(), ['--value', 'a', '--value', '-']),
-		).toEqual({ stage: 'cli' });
+		const spec = flag.array(flag.string()).stdin();
+		const argv = ['--value', 'a', '--value', '-'];
+		expect(await resolveFlag(spec, argv)).toEqual(['a']);
+		expect(await flagProvenance(spec, argv)).toEqual({ stage: 'cli' });
 	});
 });
 

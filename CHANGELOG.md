@@ -320,10 +320,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Breaking: `.separator()` sets the CLI delimiter alone.** Env and config
   string values used to inherit it, so `.separator('|')` silently changed how an
-  env var decoded. Each source now carries its own policy: env values split on
-  `','` unless `.split({ env })` says otherwise, and the stdin buffer splits on
-  line terminators. `.separator('|')` becomes `.split({ cli: '|', env: '|' })`
-  where the old coupling was intended.
+  env var decoded. Env values split on `','` unless `.split({ env })` says
+  otherwise, and the stdin buffer splits on line terminators. Config arrays and
+  objects remain native; config strings use the env split policy.
+  `.separator('|')` becomes `.split({ cli: '|', env: '|' })` where the old
+  coupling was intended.
 
 - **Breaking: `FlagSchema` and `ArgSchema` carry the cardinality axis.**
   `FlagSchema` gains `split`, `duplicateKeys`, and `aggregateStandard`;
