@@ -278,6 +278,7 @@ type FlagDefinitionFragmentV1 = {
  */
 type ArgElementFragmentV1 = {
 	readonly kind: Exclude<ArgKind, 'keyValue'>;
+	/** Entry values are required once their containing key-value argument is present. */
 	readonly presence: 'required';
 	readonly enumValues?: readonly string[];
 	readonly numberConstraints?: NumberConstraints;

@@ -43,6 +43,7 @@ function numberFlagCommand(): CommandSchema {
 }
 
 describe('flag diagnostics', () => {
+	// These expectations track the provisional source-based policy pending explicit sensitivity.
 	describe('redact every non-literal CLI source', () => {
 		const cases: ReadonlyArray<readonly [string, ResolveOptions]> = [
 			['stdin', { stdinData: SECRET }],
@@ -191,8 +192,8 @@ describe('argv keeps its diagnostics literal', () => {
 	});
 });
 
-describe('arg diagnostics are unchanged', () => {
-	it('still redacts an env-sourced value', async () => {
+describe('arg diagnostics', () => {
+	it('redacts an env-sourced value and names its source', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
 			args: [{ name: 'port', schema: arg.number().env('PORT').schema }],

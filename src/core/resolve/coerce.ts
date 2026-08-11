@@ -494,7 +494,7 @@ function argCollectionErrors(argName: string, source: ArgStringSource): Collecti
 		switch (fault.kind) {
 			case 'shape':
 				return new ValidationError(
-					`Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`,
+					`Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`,
 					{
 						code: 'TYPE_MISMATCH',
 						details: { arg: argName, ...argSourceDetails(source), expected: fault.expected },
@@ -503,7 +503,7 @@ function argCollectionErrors(argName: string, source: ArgStringSource): Collecti
 				);
 			case 'pair':
 				return new ValidationError(
-					`Invalid key-value pair '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`,
+					`Invalid key-value pair '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`,
 					{
 						code: 'TYPE_MISMATCH',
 						details: { arg: argName, ...argSourceDetails(source), expected: 'key=value' },
@@ -807,7 +807,7 @@ function redactArgCoercionMessage(
 ): string {
 	switch (schema.kind) {
 		case 'number': {
-			const base = `Invalid number value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+			const base = `Invalid number value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`;
 			// Only a constraint violation carries a schema-derived reason suffix
 			// (e.g. `: must be >= 0`), which is safe to keep. Any other failure
 			// (e.g. TYPE_MISMATCH) embeds the raw value in `error.message`, so
@@ -823,19 +823,19 @@ function redactArgCoercionMessage(
 			const allowed = Array.isArray(error.details?.allowed)
 				? error.details.allowed.filter((value): value is string => typeof value === 'string')
 				: [];
-			return `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>. Allowed: ${allowed.join(', ')}`;
+			return `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>. Allowed: ${allowed.join(', ')}`;
 		}
 		case 'custom': {
 			const match = /: ([^:]+)$/.exec(error.message);
 			const suffix = match?.[1];
 			return suffix !== undefined
-				? `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>: ${suffix}`
-				: `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+				? `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>: ${suffix}`
+				: `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`;
 		}
 		case 'string':
 		case 'boolean':
 		case 'keyValue': {
-			const base = `Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`;
+			const base = `Invalid value '${REDACTED}' ${argSourceLabel(source)} for argument <${argName}>`;
 			const reason = schema.kind === 'string' ? stringConstraintReason(error) : undefined;
 			return reason === undefined ? base : `${base}: ${reason}`;
 		}

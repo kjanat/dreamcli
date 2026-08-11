@@ -104,7 +104,7 @@ fields, the definition document still serializes them, and `value.ts` is a view 
 ## CARDINALITY AXIS (`cardinality.ts`)
 
 Internal, reached by direct file import. `Cardinality` is
-`one | many { unique, splitting } | entries { duplicateKeys, splitting } | count`.
+`one | many { unique, cliSplit } | entries { duplicateKeys, cliSplit } | count`.
 `flagCardinality(schema)` and `argCardinality(schema)` project either surface onto
 it: `array` is `many`, `keyValue` is `entries` (variadic or not, on args), `count`
 is its own arm, everything else is `one`. Parse and resolve dispatch on those

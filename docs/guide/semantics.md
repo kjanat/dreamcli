@@ -466,7 +466,9 @@ definition document carries it.
 
 One rule governs every resolution diagnostic on both surfaces: a value the user
 typed on the command line is quoted in full, and a value from any other source
-is replaced with `<redacted>`.
+is replaced with `<redacted>`. This source-based rule is provisional;
+[#120](https://github.com/kjanat/dreamcli/issues/120) tracks replacing it with
+explicit sensitivity metadata.
 
 | Source | Message quotes             | `details.value` | Reason                                              |
 | ------ | -------------------------- | --------------- | --------------------------------------------------- |
@@ -476,7 +478,7 @@ is replaced with `<redacted>`.
 | config | `'<redacted>'`             | absent          | a config file carries secrets                       |
 | prompt | `'<redacted>'`             | absent          | an answer may be a password                         |
 
-An explicit `-` counts as a stdin value, not an argv one, because the bytes came
+An explicit `-` counts as a stdin value, not an argv one because the bytes came
 from the pipe rather than from the token.
 
 ```bash

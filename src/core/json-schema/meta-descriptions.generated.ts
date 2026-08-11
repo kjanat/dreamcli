@@ -237,7 +237,7 @@ const definitionMetaSchemaDescriptions = {
 				},
 				presence: {
 					description:
-						"Presence describes whether a positional arg is guaranteed to exist when the\naction handler runs:\n\n- `'required'`  — must be supplied; error if missing (default)\n- `'optional'`  — may be `undefined` if not supplied\n- `'defaulted'` — always present (falls back to default value)",
+						'Entry values are required once their containing key-value argument is present.',
 				},
 				enumValues: {
 					description: "Allowed literal values when `kind === 'enum'`.",

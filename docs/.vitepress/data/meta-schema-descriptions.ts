@@ -121,7 +121,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	},
 	argElement: {
 		kind: { exportId: 'dreamcli:ArgSchema', property: 'kind' },
-		presence: { exportId: 'dreamcli:ArgPresence' },
+		presence: { exportId: 'dreamcli:ArgElementFragmentV1', property: 'presence' },
 		enumValues: { exportId: 'dreamcli:ArgSchema', property: 'enumValues' },
 	},
 	prompt: {

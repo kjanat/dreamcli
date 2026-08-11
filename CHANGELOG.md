@@ -23,7 +23,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the same records for a direct `resolve()` caller, and `readFlags()` hands them
   to a new `onSources` receiver, typed against the definitions record.
   `ResolutionProvenance`, `ResolutionProvenanceRecord`, `InputSources`,
-  `SourcesOf`, and `wasExplicit` are exported from the package root.
+  `SourcesOf`, and `wasExplicit` are exported from the package root. The existing
+  `ResolutionProvenance` name continues to describe one input's winning stage;
+  `ResolutionProvenanceRecord` names the complete `ResolveResult.provenance`
+  object.
 
 - **`arg.keyValue()` takes an element builder**
   ([#87](https://github.com/kjanat/dreamcli/issues/87)). Entry values used to be

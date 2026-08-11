@@ -94,12 +94,14 @@ The record distinguishes the two ways stdin delivers bytes
 `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`) and names the binding
 that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`).
 
-That record is public as `ResolutionProvenance`. It reaches a `resolve()` caller
-on `ResolveResult.provenance`, a handler as `sources`, and a `readFlags()`
-caller through `onSources`. Both records are built with a null prototype, so an
-undeclared key named `toString` reads back `undefined` rather than an inherited
-member; a declared input with that name returns its own provenance when present.
-Only inputs that resolved a value have an entry. See
+One input's winning-stage record is public as `ResolutionProvenance`.
+`ResolutionProvenanceRecord` is the pair of flag and argument maps returned on
+`ResolveResult.provenance`; handlers receive the typed `InputSources` equivalent
+as `sources`, and `readFlags()` passes it through `onSources`. The maps are built
+with a null prototype, so an undeclared key named `toString` reads back
+`undefined` rather than an inherited member; a declared input with that name
+returns its own provenance when present. Only inputs that resolved a value have
+an entry. See
 [Value provenance](/guide/semantics#which-source-won).
 
 ## Diagnostic Expectations

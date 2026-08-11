@@ -759,7 +759,9 @@ Adopt at your own pace; none of these are required:
   `args`, carrying the stage that produced each value, and `wasExplicit()`
   answers explicit-versus-defaulted without dropping `.default()`. `resolve()`
   exposes the same records on `ResolveResult.provenance`, and `readFlags()`
-  through its `onSources` receiver. See
+  through its `onSources` receiver. `ResolutionProvenance` describes one input's
+  winning stage; use `ResolutionProvenanceRecord` for the complete
+  `ResolveResult.provenance` object. See
   [Which source won](/guide/semantics#which-source-won).
 - **Typed entry values on both surfaces**: `arg.keyValue(arg.number())` mirrors
   `flag.keyValue(flag.number())`, so `mycli scale web=3` resolves to

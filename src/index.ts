@@ -107,6 +107,7 @@ export type { HelpOptions, HelpTheme, HelpThemeFactory } from './core/help/index
 export { formatHelp, osc8, visibleWidth } from './core/help/index.ts';
 export type {
 	ArgDefinitionFragmentV1,
+	ArgElementFragmentV1,
 	CommandDefinitionDocument,
 	CommandDefinitionDocumentV1,
 	CommandDefinitionFragmentV1,
