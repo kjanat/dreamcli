@@ -74,7 +74,7 @@ rejection with suggestions, string and number constraints, Standard Schema
 validators, and `flag.path()` checks all behave as they do inside `.action()`.
 
 Collections behave the same way too. `flag.array()` and `flag.keyValue()`
-aggregate across occurrences and sources, `.split()` gives each source its own
+aggregate repeated occurrences within the selected source, `.split()` gives each source its own
 decoding, `.separator()` sets the CLI delimiter alone, `.unique()` and
 `.duplicateKeys()` apply to the finished value, and a `-` occurrence splices the
 stdin buffer into the position it holds:

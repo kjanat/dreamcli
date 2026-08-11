@@ -560,7 +560,7 @@ Code that only ever passed CLI tokens needs no change.
 `createFlagSchema()` and `createArgSchema()` fill them in. `elementSchema` and
 `separator` are valid on `keyValue` as well as `array` flags, `standard` is valid
 on every kind, `aggregateStandard` only on a kind that aggregates, and `stdin` is
-valid on the collection kinds.
+valid on scalar and collection kinds.
 
 ## Behavioral Changes To Review
 

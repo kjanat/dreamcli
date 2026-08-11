@@ -326,7 +326,9 @@ function argCardinality(schema: ArgSchema): Cardinality {
 }
 
 /** Whether a cardinality aggregates several values. */
-function isCollection(cardinality: Cardinality): boolean {
+function isCollection(
+	cardinality: Cardinality,
+): cardinality is Extract<Cardinality, { readonly kind: 'many' | 'entries' }> {
 	return cardinality.kind === 'many' || cardinality.kind === 'entries';
 }
 
@@ -353,7 +355,7 @@ type SplitResult<T> =
 function splitManyText(policy: SplitPolicy, text: string): SplitResult<unknown> {
 	switch (policy.format) {
 		case 'whole':
-			return { ok: true, parts: [text] };
+			return { ok: true, parts: text.length === 0 ? [] : [text] };
 		case 'delimiter':
 			return { ok: true, parts: splitDelimited(text, policy.delimiter) };
 		case 'lines':
@@ -458,18 +460,6 @@ function parseJson(
 	} catch (error) {
 		return { ok: false, failure: { kind: 'json', error } };
 	}
-}
-
-/**
- * Drop the line terminator a pipe appends.
- *
- * @param text - The raw stdin buffer.
- * @returns The text without its single trailing terminator.
- */
-function stripTerminator(text: string): string {
-	if (text.endsWith('\r\n')) return text.slice(0, -2);
-	if (text.endsWith('\n') || text.endsWith('\r')) return text.slice(0, -1);
-	return text;
 }
 
 // --- Aggregation
@@ -663,12 +653,12 @@ export {
 	foldEntries,
 	isCollection,
 	normalizeSplitOptions,
+	normalizeSplitPolicy,
 	SPLIT_FORMATS,
 	splitBindingOf,
 	splitEntriesText,
 	splitEntryPair,
 	splitLines,
 	splitManyText,
-	stripTerminator,
 	validateDefault,
 };

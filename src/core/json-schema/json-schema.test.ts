@@ -902,13 +902,21 @@ describe('generateSchema — definition metadata', () => {
 						numberConstraints: { $ref: '#/$defs/numberConstraints' },
 						stringConstraints: { $ref: '#/$defs/stringConstraints' },
 						separator: { type: 'string', minLength: 1 },
-						unique: { type: 'boolean' },
+						unique: { const: true },
 						pathChecks: { $ref: '#/$defs/pathChecks' },
 						valueHint: { type: 'string' },
 					},
 				},
 			},
 		});
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'splitPolicy', 'oneOf', 0, 'required'],
+			['format', 'delimiter'],
+		);
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'splitPolicy', 'oneOf', 1, 'not', 'required'],
+			['delimiter'],
+		);
 	});
 
 	it('points flags and args at the same constraint definitions', () => {
@@ -1136,9 +1144,14 @@ describe('generateSchema — definition metadata', () => {
 		}
 
 		expect([...serializedFields].sort()).toEqual(Object.keys(argMetaProperties).sort());
-		expect(expectRecord(args[6])).not.toHaveProperty('parseFn');
-		expect(expectRecord(args[6])).not.toHaveProperty('standard');
-		expect(expectRecord(args[5])).toHaveProperty('prompt', {
+		const argNamed = (name: string): Record<string, unknown> => {
+			const found = args.find((entry) => expectRecord(entry).name === name);
+			if (found === undefined) throw new TypeError(`expected argument ${name}`);
+			return expectRecord(found);
+		};
+		expect(argNamed('parser')).not.toHaveProperty('parseFn');
+		expect(argNamed('parser')).not.toHaveProperty('standard');
+		expect(argNamed('piped')).toHaveProperty('prompt', {
 			kind: 'input',
 			message: 'Piped?',
 		});
@@ -1199,6 +1212,7 @@ describe('generateInputSchema — input validation', () => {
 				b: flagDef({ kind: 'boolean' }),
 				e: flagDef({ kind: 'enum', enumValues: ['x', 'y'] }),
 				a: flagDef({ kind: 'array', elementSchema: flagDef({ kind: 'number' }) }),
+				k: flagDef({ kind: 'keyValue', elementSchema: flagDef({ kind: 'number' }) }),
 				c: flagDef({ kind: 'custom' }),
 			},
 		});
@@ -1210,6 +1224,10 @@ describe('generateInputSchema — input validation', () => {
 		expect(result).toHaveProperty(['properties', 'a'], {
 			type: 'array',
 			items: { type: 'number' },
+		});
+		expect(result).toHaveProperty(['properties', 'k'], {
+			type: 'object',
+			additionalProperties: { type: 'number' },
 		});
 		// custom → no type constraint
 		expect(result).not.toHaveProperty(['properties', 'c', 'type']);

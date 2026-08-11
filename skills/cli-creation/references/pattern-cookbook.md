@@ -88,8 +88,9 @@ There is no `arg.array()` (use `.variadic()`) and no `arg.count()`, which counts
 flag occurrences. `arg.boolean()` and `arg.keyValue()` do exist:
 `arg.boolean()` consumes an explicit `true`/`false` token, and
 `arg.keyValue()` consumes `KEY=VALUE` tokens into a record. `.stdin()`,
-`.env()`, `.config()`, and `.prompt()` are all available on an argument, and a
-variadic argument cannot also read stdin.
+`.env()`, and `.config()` are available on scalar and key-value arguments;
+prompts are unavailable on key-value arguments, and a variadic argument cannot
+also read stdin. Array and key-value flags can read stdin; count flags cannot.
 
 ### Constraints instead of hand-written validation
 

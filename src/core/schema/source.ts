@@ -228,6 +228,7 @@ export {
 	bindingsFromPrompt,
 	invocationSelectsStdin,
 	RESOLUTION_ORDER,
+	STDIN_SENTINEL,
 	sourceBindings,
 	stdinConsumerReference,
 	stdinConsumers,

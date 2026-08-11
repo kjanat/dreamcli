@@ -309,6 +309,15 @@ describe('entries, every source', () => {
 		).toEqual({ A: '1' });
 	});
 
+	it('names the expected object shape for a key-value source', async () => {
+		const message = await resolutionError(() =>
+			resolveFlag(flag.keyValue().config('deploy.vars'), [], {
+				config: { deploy: { vars: 1 } },
+			}),
+		);
+		expect(message).toContain('Invalid object value');
+	});
+
 	it('reads piped lines as pairs', async () => {
 		expect(await resolveFlag(flag.keyValue().stdin(), [], { stdinData: 'A=1\nB=2\n' })).toEqual({
 			A: '1',
@@ -574,6 +583,36 @@ describe('element and aggregate validation', () => {
 			resolveFlag(flag.array(flag.string()).standard(nonEmpty).separator(','), ['--value', 'a']),
 		);
 		expect(message).toContain('need two');
+	});
+
+	it('skips aggregate validation after an element fails', async () => {
+		let aggregateCalls = 0;
+		const aggregate: StandardSchemaV1 = {
+			'~standard': {
+				version: 1,
+				vendor: 'test',
+				validate: (value: unknown) => {
+					aggregateCalls += 1;
+					return { value };
+				},
+			},
+		};
+
+		const message = await resolutionError(() =>
+			resolveFlag(
+				flag.array(flag.string().standard(allowOnly(['a'], 'only a'))).standard(aggregate),
+				['--value', 'b'],
+			),
+		);
+		expect(message).toContain('only a');
+		expect(aggregateCalls).toBe(0);
+	});
+
+	it('validates the implicit count value with its scalar validator', async () => {
+		const message = await resolutionError(() =>
+			resolveFlag(flag.count().standard(allowOnly([1], 'count must be one')), []),
+		);
+		expect(message).toContain('count must be one');
 	});
 
 	it('validates each entry value and then the completed record', async () => {

@@ -451,6 +451,15 @@ describe('flagValueSchema', () => {
 		expect(flagValueSchema(flag.keyValue(flag.path()).schema).valueHint).toBe('path');
 	});
 
+	it('carries the element slots of a count flag', () => {
+		const schema = createFlagSchema('count', {
+			standard: standardNumber,
+			valueHint: 'level',
+		});
+		expect(flagValueSchema(schema).standard).toBe(standardNumber);
+		expect(flagValueSchema(schema).valueHint).toBe('level');
+	});
+
 	it('keeps a collection validator on the aggregate rather than the element', () => {
 		const schema = flag.array(flag.string()).standard(standardNumber).schema;
 		expect(flagValueSchema(schema).standard).toBeUndefined();

@@ -15,6 +15,7 @@
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import type { schemaBrand } from '#internals/core/schema/brand.ts';
+import { DUPLICATE_KEYS } from '#internals/core/schema/cardinality.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
@@ -966,7 +967,10 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 			break;
 		case 'keyValue':
 			result.type = 'object';
-			result.additionalProperties = { type: 'string' };
+			result.additionalProperties =
+				schema.elementSchema === undefined
+					? { type: 'string' }
+					: flagToJsonSchemaType(schema.elementSchema);
 			break;
 	}
 
@@ -1257,8 +1261,8 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					elementSchema: { $ref: '#/$defs/flag' },
 					separator: { type: 'string', minLength: 1 },
 					split: { $ref: '#/$defs/split' },
-					duplicateKeys: { enum: ['first', 'last', 'error'] },
-					unique: { type: 'boolean' },
+					duplicateKeys: { enum: [...DUPLICATE_KEYS] },
+					unique: { const: true },
 					pathChecks: { $ref: '#/$defs/pathChecks' },
 					valueHint: { type: 'string' },
 					prompt: { $ref: '#/$defs/prompt' },
@@ -1292,8 +1296,18 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					format: { enum: ['whole', 'delimiter', 'lines', 'json'] },
 					delimiter: { type: 'string', minLength: 1 },
-				},
+				} satisfies Record<'format' | 'delimiter', Record<string, unknown>>,
 				required: ['format'],
+				oneOf: [
+					{
+						properties: { format: { const: 'delimiter' } },
+						required: ['format', 'delimiter'],
+					},
+					{
+						properties: { format: { enum: ['whole', 'lines', 'json'] } },
+						not: { required: ['delimiter'] },
+					},
+				],
 			},
 			negation: {
 				type: 'object',
@@ -1361,8 +1375,8 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					valueHint: { type: 'string' },
 					separator: { type: 'string', minLength: 1 },
 					split: { $ref: '#/$defs/split' },
-					duplicateKeys: { enum: ['first', 'last', 'error'] },
-					unique: { type: 'boolean' },
+					duplicateKeys: { enum: [...DUPLICATE_KEYS] },
+					unique: { const: true },
 					prompt: { $ref: '#/$defs/prompt' },
 					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
 				} satisfies Record<SerializedArgField, Record<string, unknown>>,

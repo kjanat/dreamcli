@@ -173,6 +173,7 @@ async function validateInput(
 ): Promise<{ readonly changed: boolean; readonly value: unknown }> {
 	let current = value;
 	let changed = false;
+	const errorCount = errors.length;
 
 	if (element !== undefined) {
 		const validated = collection
@@ -182,7 +183,7 @@ async function validateInput(
 		changed = changed || validated.changed;
 	}
 
-	if (aggregate !== undefined) {
+	if (aggregate !== undefined && errors.length === errorCount) {
 		const result = await validateValue(label, current, aggregate);
 		if (result.ok) {
 			current = result.value;

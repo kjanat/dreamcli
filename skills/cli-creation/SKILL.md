@@ -127,11 +127,13 @@ collection builder checks the finished value.
 **Sources.** Both factories declare the same sources. Chain `.stdin()`,
 `.env()`, `.config()`, `.prompt()`, `.default()` on a flag or an argument and
 let one resolution order (argv, stdin, env, config, prompt, default) do the
-work. `.stdin()` takes `{ when, consume }`; one command has one exclusive stdin
+work. Count and key-value flags and key-value arguments are not promptable.
+`.stdin()` takes `{ when, consume }`; one command has one exclusive stdin
 consumer unless every stdin input passes `{ consume: 'broadcast' }`. A `-`
 occurrence on a collection splices the decoded buffer in at that position, so
 `--tag before --tag - --tag after` over `a\nb\n` gives
-`['before', 'a', 'b', 'after']`. A variadic argument cannot also read stdin.
+`['before', 'a', 'b', 'after']`. Stdin is available to scalar, array, and
+key-value inputs; count flags and variadic arguments cannot read it.
 
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.

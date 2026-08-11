@@ -314,7 +314,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the domain check also rejects a default of the wrong primitive type and an
   `enum` default outside `enumValues`. Asynchronous
   validators and `flag.path()` filesystem checks stay at resolution time, where
-  defaults already went through them. Code relying on a default that violates
+  command resolution awaits the validator or probes the path. Code relying on a default that violates
   its own declaration either fixes the default or widens the constraint
   (`flag.number({ finite: false })` still accepts `Infinity`).
 
@@ -330,7 +330,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ArgSchema` gains `separator`, `split`, `duplicateKeys`, `unique`, and
   `aggregateStandard`. `elementSchema` and `separator` are valid on `keyValue`
   as well as `array` flags, `standard` is valid on every kind, `aggregateStandard`
-  only on a kind that aggregates, and `stdin` is valid on the collection kinds.
+  only on a kind that aggregates, and `stdin` is valid on scalar and collection kinds.
   Definition documents serialize the new fields additively at `schemaVersion: 1`,
   which has not shipped, with `split` and `splitPolicy` entries in the
   meta-schema `$defs`.

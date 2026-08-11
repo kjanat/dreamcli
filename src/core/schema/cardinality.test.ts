@@ -58,6 +58,10 @@ describe('splitManyText()', () => {
 		expect(splitManyText({ format: 'whole' }, 'a,b')).toEqual({ ok: true, parts: ['a,b'] });
 	});
 
+	it('reads empty whole text as no elements', () => {
+		expect(splitManyText({ format: 'whole' }, '')).toEqual({ ok: true, parts: [] });
+	});
+
 	it('drops empty segments of delimited text', () => {
 		expect(splitManyText({ format: 'delimiter', delimiter: ',' }, 'a,,b,')).toEqual({
 			ok: true,
@@ -115,6 +119,13 @@ describe('splitEntriesText()', () => {
 		expect(splitEntriesText({ format: 'delimiter', delimiter: ',' }, 'A=1,nope')).toEqual({
 			ok: false,
 			failure: { kind: 'pair', raw: 'nope' },
+		});
+	});
+
+	it('reports a segment with an empty key', () => {
+		expect(splitEntriesText({ format: 'delimiter', delimiter: ',' }, '=1')).toEqual({
+			ok: false,
+			failure: { kind: 'pair', raw: '=1' },
 		});
 	});
 
@@ -237,6 +248,33 @@ describe('.split() option validation', () => {
 		expect(error.message).toBe('Split delimiter for env must not be empty');
 	});
 
+	it('rejects empty separators through the same schema error', () => {
+		for (const build of [
+			() => flag.array(flag.string()).separator(''),
+			() => arg.string().variadic().separator(''),
+		]) {
+			const error = schemaError(build);
+			expect(error.code).toBe('INVALID_SCHEMA');
+			expect(error.message).toBe('Split delimiter for cli must not be empty');
+		}
+	});
+
+	it('rejects prompts on key-value argument definitions', () => {
+		const error = schemaError(() =>
+			createArgSchema('keyValue', { prompt: { kind: 'input', message: 'Variables?' } }),
+		);
+		expect(error.code).toBe('INVALID_SCHEMA');
+		expect(error.message).toBe("Arg schema field 'prompt' is not available on kind 'keyValue'");
+	});
+
+	it.each(['count', 'keyValue'] as const)('rejects prompts on %s flag definitions', (kind) => {
+		const error = schemaError(() =>
+			createFlagSchema(kind, { prompt: { kind: 'input', message: 'Value?' } }),
+		);
+		expect(error.code).toBe('INVALID_SCHEMA');
+		expect(error.message).toBe(`Flag schema field 'prompt' is not available on kind '${kind}'`);
+	});
+
 	it('accepts every stdin format', () => {
 		for (const stdin of ['whole', 'lines', 'json'] as const) {
 			expect(
@@ -273,7 +311,7 @@ describe('validated defaults, flags', () => {
 
 	it('rejects a scalar default on a collection', () => {
 		const error = schemaError(() => createFlagSchema('array', { defaultValue: 'a' }));
-		expect(error.message).toBe('Default value for a array flag is invalid: expected an array');
+		expect(error.message).toBe('Default value for an array flag is invalid: expected an array');
 	});
 
 	it('validates every element of an array default', () => {
@@ -325,7 +363,7 @@ describe('validated defaults, flags', () => {
 			},
 		});
 		expect(schemaError(() => tags.default([])).message).toBe(
-			'Default value for a array flag is invalid: needs at least one tag',
+			'Default value for an array flag is invalid: needs at least one tag',
 		);
 	});
 
@@ -344,6 +382,11 @@ describe('validated defaults, flags', () => {
 		expect(schemaError(() => flag.string().default('ab').minLength(3)).code).toBe(
 			'INVALID_DEFAULT',
 		);
+	});
+});
+
+describe('validated defaults, args', () => {
+	it('rejects a default invalidated by a later constraint', () => {
 		expect(schemaError(() => arg.number().default(1.5).int()).code).toBe('INVALID_DEFAULT');
 	});
 
@@ -351,9 +394,7 @@ describe('validated defaults, flags', () => {
 		const error = schemaError(() => arg.string().default('a').variadic());
 		expect(error.message).toBe('Default value for a string argument is invalid: expected an array');
 	});
-});
 
-describe('validated defaults, args', () => {
 	it('rejects a default that violates a string constraint', () => {
 		const error = schemaError(() => arg.string({ pattern: /^v/ }).default('nope'));
 		expect(error.code).toBe('INVALID_DEFAULT');

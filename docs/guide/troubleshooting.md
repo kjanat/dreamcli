@@ -125,7 +125,7 @@ Check:
 Fix:
 
 - pipe with `printf './docs'` instead of `echo ./docs`;
-- or strip the terminator upstream, for example `... | tr -d '\n' | mycli`;
+- or emit the value without a terminator, for example `printf '%s' './docs' | mycli`;
 - or declare the input as a collection, where line splitting treats a final
   terminator as framing and drops it.
 

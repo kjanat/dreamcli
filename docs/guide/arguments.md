@@ -338,10 +338,10 @@ arg.string().variadic().split({ cli: ',', env: 'json' });
 // FILES='["a","b"]'   →  ['a', 'b']
 ```
 
-These four modifiers are collection modifiers. On an argument that aggregates
-nothing, `arg.string()` without `.variadic()`, they are accepted and stored but
-change nothing, since a single-value argument has no elements to split, dedupe,
-or fold.
+`.separator()`, `.split()`, and `.unique()` are collection modifiers. On an
+argument that aggregates nothing, such as `arg.string()` without `.variadic()`,
+they are accepted and stored but change nothing. `.duplicateKeys()` is available
+only on `arg.keyValue()`.
 
 A variadic argument cannot also read stdin. `arg.keyValue()` can, in its
 non-variadic form.

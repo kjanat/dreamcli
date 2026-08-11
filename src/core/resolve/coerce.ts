@@ -17,11 +17,13 @@ import {
 	argCardinality,
 	flagCardinality,
 	foldEntries,
+	isCollection,
 	splitEntriesText,
 	splitManyText,
 } from '#internals/core/schema/cardinality.ts';
 import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { describeNumberConstraintViolation } from '#internals/core/schema/number-constraints.ts';
+import { STDIN_SENTINEL } from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { StringConstraintViolation } from '#internals/core/schema/string-constraints.ts';
 import {
@@ -167,7 +169,7 @@ function coerceCount(flagName: string, source: CoerceSource, raw: unknown): Coer
 
 /** What a collection failure looks like before a surface words it. */
 type CollectionFault =
-	| { readonly kind: 'shape' }
+	| { readonly kind: 'shape'; readonly expected: 'array' | 'object' }
 	| { readonly kind: 'pair'; readonly segment: string }
 	| { readonly kind: 'json'; readonly error: unknown }
 	| { readonly kind: 'json-shape'; readonly expected: 'array' | 'object' }
@@ -256,7 +258,7 @@ function splitFault(failure: SplitFailure): CollectionFault {
 /** Read the elements a source carries for a `many` collection. */
 function readManyParts(source: CoerceSource, raw: unknown, splitting: SplitBinding): PartsResult {
 	if (Array.isArray(raw)) return { ok: true, parts: raw };
-	if (typeof raw !== 'string') return { ok: false, fault: { kind: 'shape' } };
+	if (typeof raw !== 'string') return { ok: false, fault: { kind: 'shape', expected: 'array' } };
 
 	const split = splitManyText(policyFor(source, splitting), raw);
 	if (!split.ok) return { ok: false, fault: splitFault(split.failure) };
@@ -272,7 +274,7 @@ function readEntryPairs(source: CoerceSource, raw: unknown, splitting: SplitBind
 	if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
 		return { ok: true, pairs: Object.entries(raw) };
 	}
-	if (typeof raw !== 'string') return { ok: false, fault: { kind: 'shape' } };
+	if (typeof raw !== 'string') return { ok: false, fault: { kind: 'shape', expected: 'object' } };
 
 	const split = splitEntriesText(policyFor(source, splitting), raw);
 	if (!split.ok) return { ok: false, fault: splitFault(split.failure) };
@@ -298,21 +300,23 @@ function trimStringPart(part: unknown): unknown {
 function flagCollectionErrors(flagName: string, source: CoerceSource): CollectionErrors {
 	return (fault, raw) => {
 		switch (fault.kind) {
-			case 'shape':
+			case 'shape': {
+				const collectionLabel = fault.expected === 'array' ? 'values' : 'KEY=VALUE pairs';
 				return coercionError(
 					flagName,
 					source,
 					'TYPE_MISMATCH',
-					'array',
+					fault.expected,
 					raw,
-					'Invalid array value',
+					`Invalid ${fault.expected} value`,
 					suggestBySource(source, {
-						stdin: `Pipe one value per line to stdin for --${flagName}`,
-						env: (envVar) => `Set ${envVar} to comma-separated values`,
-						config: (configPath) => `Set ${configPath} to an array in your config`,
-						prompt: `Provide valid values for --${flagName}`,
+						stdin: `Pipe ${collectionLabel} to stdin for --${flagName}`,
+						env: (envVar) => `Set ${envVar} to comma-separated ${collectionLabel}`,
+						config: (configPath) => `Set ${configPath} to an ${fault.expected} in your config`,
+						prompt: `Provide valid ${collectionLabel} for --${flagName}`,
 					}),
 				);
+			}
 			case 'pair':
 				return coercionError(
 					flagName,
@@ -370,7 +374,7 @@ function argCollectionErrors(argName: string, source: ArgStringSource): Collecti
 					`Invalid value '<redacted>' ${argSourceLabel(source)} for argument <${argName}>`,
 					{
 						code: 'TYPE_MISMATCH',
-						details: { arg: argName, ...argSourceDetails(source), expected: 'array' },
+						details: { arg: argName, ...argSourceDetails(source), expected: fault.expected },
 						suggest: `Provide values for <${argName}>`,
 					},
 				);
@@ -792,7 +796,7 @@ function coerceArgValue(
 	schema: ArgSchema,
 ): CoerceResult {
 	const cardinality = argCardinality(schema);
-	if (cardinality.kind === 'many' || cardinality.kind === 'entries') {
+	if (isCollection(cardinality)) {
 		return coerceCollection(
 			cardinality,
 			source,
@@ -843,9 +847,6 @@ function coerceArgElement(
 
 // --- CLI occurrence finishing
 
-/** The stdin selector, which names a source rather than a value. */
-const STDIN_SENTINEL = '-';
-
 /** What finishing a CLI-sourced value produced. */
 type CliFinish =
 	| { readonly kind: 'value'; readonly value: unknown; readonly viaStdin: boolean }
@@ -875,7 +876,7 @@ function finishCliFlagValue(
 	stdinData: string | null | undefined,
 ): CliFinish {
 	const cardinality = flagCardinality(schema);
-	if (cardinality.kind !== 'many' && cardinality.kind !== 'entries') {
+	if (!isCollection(cardinality)) {
 		return { kind: 'value', value, viaStdin: false };
 	}
 	return spliceCliCollection(
@@ -905,7 +906,7 @@ function finishCliArgValue(
 	stdinData: string | null | undefined,
 ): CliFinish {
 	const cardinality = argCardinality(schema);
-	if (cardinality.kind !== 'many' && cardinality.kind !== 'entries') {
+	if (!isCollection(cardinality)) {
 		return { kind: 'value', value, viaStdin: false };
 	}
 	return spliceCliCollection(
@@ -953,9 +954,13 @@ function spliceCliCollection(
 
 	const pairs: (readonly [string, unknown])[] = [];
 	for (const entry of spliced) {
-		if (Array.isArray(entry) && entry.length === 2 && typeof entry[0] === 'string') {
-			pairs.push([entry[0], entry[1]]);
+		if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string') {
+			return {
+				kind: 'error',
+				error: errors({ kind: 'shape', expected: 'object' }, entry),
+			};
 		}
+		pairs.push([entry[0], entry[1]]);
 	}
 	const folded = foldEntries(pairs, cardinality.duplicateKeys);
 	if (!folded.ok) {

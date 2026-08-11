@@ -313,7 +313,7 @@ than only across repeated CLI occurrences:
 | `'error'` | a repeat fails with `CONSTRAINT_VIOLATED`   |
 
 ```ts
-flag.keyValue().duplicateKeys('first').env('VARS');
+flag.keyValue().duplicateKeys('first').alias('e').env('VARS');
 // -e A=1 -e A=2      →  { A: '1' }
 // VARS='A=1,A=2'     →  { A: '1' }
 ```
@@ -909,7 +909,7 @@ flag.string({ minLength: 3 }).default('ab');
 // Default value for a string flag is invalid: must be at least 3 characters
 
 flag.array(flag.number({ min: 0 })).default([-1]);
-// Default value for a array flag at 0 is invalid: must be >= 0
+// Default value for an array flag at 0 is invalid: must be >= 0
 
 flag.count().default(-1);
 // Default value for a count flag is invalid: expected a non-negative integer
@@ -926,8 +926,8 @@ A collection default takes the shape the flag resolves to: an array for
 `flag.array()`, a record for `flag.keyValue()`, a non-negative integer for
 `flag.count()`.
 
-Two checks stay at resolution time, where a default already went through them:
-a validator that returns a promise, and the `flag.path()` filesystem checks.
+Two checks stay at resolution time: command resolution awaits a validator that
+returns a promise and probes the filesystem for `flag.path()` checks.
 `flag.path({ mustExist: true }).default('/nope')` therefore builds, and fails
 when the path is probed.
 

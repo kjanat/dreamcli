@@ -18,6 +18,7 @@ import {
 	flagCardinality,
 	isCollection,
 	normalizeSplitOptions,
+	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
@@ -904,6 +905,14 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 		});
 	}
 
+	if ((kind === 'count' || kind === 'keyValue') && fields.prompt !== undefined) {
+		throw new CLIError(`Flag schema field 'prompt' is not available on kind '${kind}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'prompt' },
+			suggest: `Drop 'prompt' from the ${kind} flag`,
+		});
+	}
+
 	if (fields.stdin !== undefined && !STDIN_CAPABLE_FLAG_KINDS.some((allowed) => allowed === kind)) {
 		throw new CLIError(`Flag schema field 'stdin' is not available on kind '${kind}'`, {
 			code: 'INVALID_SCHEMA',
@@ -1027,7 +1036,9 @@ function assertValidFlagDefault(name: string | undefined, schema: FlagSchema): v
 	);
 	if (violation === undefined) return;
 	throw defaultViolationError(
-		name === undefined ? `a ${schema.kind} flag` : `flag --${name}`,
+		name === undefined
+			? `${schema.kind === 'enum' || schema.kind === 'array' ? 'an' : 'a'} ${schema.kind} flag`
+			: `flag --${name}`,
 		{ kind: schema.kind, ...(name === undefined ? {} : { flag: name }) },
 		violation,
 	);
@@ -1597,9 +1608,7 @@ class FlagBuilder<C extends FlagConfig> {
 		this: FlagBuilder<C & { readonly flagKind: 'array' | 'keyValue' }>,
 		value: string,
 	): FlagBuilder<C> {
-		if (value.length === 0) {
-			throw new RangeError('array separator must not be empty');
-		}
+		normalizeSplitPolicy('cli', value);
 		return new FlagBuilder({ ...this.schema, separator: value });
 	}
 
@@ -1613,7 +1622,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * already had, or its default: whole CLI tokens (or the `.separator()`
 	 * delimiter), comma-delimited env values, line-delimited stdin. A config
 	 * value is a native array or object, and a config string decodes under the
-	 * env policy.
+	 * env policy. For stdin, `'whole'` passes the complete buffer to a string
+	 * element, including its final line terminator.
 	 *
 	 * @param options - Per-source split settings.
 	 * @returns The builder (for chaining).

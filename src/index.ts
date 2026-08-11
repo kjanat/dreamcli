@@ -287,10 +287,12 @@ export {
 	createArgSchema,
 	createCommandSchema,
 	createFlagSchema,
+	DUPLICATE_KEYS,
 	FlagBuilder,
 	flag,
 	getFlagNegatedName,
 	group,
 	middleware,
 	resolveExampleCommand,
+	SPLIT_FORMATS,
 } from './core/schema/index.ts';

@@ -18,6 +18,7 @@ import type { SplitPolicy } from '#internals/core/schema/cardinality.ts';
 import {
 	argCardinality,
 	flagCardinality,
+	isCollection,
 	splitEntryPair,
 } from '#internals/core/schema/cardinality.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
@@ -32,6 +33,7 @@ import {
 	describeStringConstraintViolation,
 	stringConstraintDetails,
 } from '#internals/core/schema/index.ts';
+import { STDIN_SENTINEL } from '#internals/core/schema/source.ts';
 import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
@@ -360,7 +362,7 @@ function flagExpectsValue(schema: FlagSchema): boolean {
  * @returns `true` when the token selects stdin.
  */
 function isStdinSentinel(raw: string, stdin: StdinBinding | undefined): boolean {
-	return raw === '-' && stdin !== undefined && stdinReadsOnDash(stdin);
+	return raw === STDIN_SENTINEL && stdin !== undefined && stdinReadsOnDash(stdin);
 }
 
 /**
@@ -565,7 +567,7 @@ function flagValueError(
 function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
 	if (isStdinSentinel(raw, schema.stdin)) return raw;
 
-	if (schema.kind === 'keyValue') {
+	if (argCardinality(schema).kind === 'entries') {
 		const pair = splitEntryPair(raw);
 		if (pair === undefined) {
 			throw new ParseError(`Invalid value '${raw}' for argument <${argName}>. Use KEY=VALUE`, {
@@ -862,7 +864,7 @@ function setFlagValue(
 	displayName = `--${name}`,
 ): void {
 	const cardinality = flagCardinality(schema);
-	if (cardinality.kind !== 'many' && cardinality.kind !== 'entries') {
+	if (!isCollection(cardinality)) {
 		flags[name] = coerceFlagValue(name, rawValue, schema, displayName);
 		return;
 	}

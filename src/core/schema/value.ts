@@ -604,7 +604,7 @@ function flagValueSchema(schema: FlagSchema): ValueSchema {
 		case 'keyValue':
 			return elementValue(schema, strictStringValue);
 		case 'count':
-			return numberValue({ int: true, min: 0 });
+			return scalarValue(schema, numberValue({ int: true, min: 0 }));
 	}
 }
 

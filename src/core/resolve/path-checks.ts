@@ -116,7 +116,9 @@ async function validatePathChecks(
  */
 function pathValuesOf(value: unknown): readonly string[] {
 	if (typeof value === 'string') return [value];
-	if (Array.isArray(value)) return value.filter((entry) => typeof entry === 'string');
+	if (Array.isArray(value)) {
+		return value.filter((entry): entry is string => typeof entry === 'string');
+	}
 	if (typeof value === 'object' && value !== null) {
 		return Object.values(value).filter((entry): entry is string => typeof entry === 'string');
 	}

@@ -18,6 +18,7 @@ import {
 	defaultViolationError,
 	isCollection,
 	normalizeSplitOptions,
+	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
@@ -566,6 +567,13 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgSchemaFieldOverrides
 			},
 		);
 	}
+	if (kind === 'keyValue' && fields.prompt !== undefined) {
+		throw new CLIError("Arg schema field 'prompt' is not available on kind 'keyValue'", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'prompt' },
+			suggest: "Drop 'prompt' from the keyValue argument",
+		});
+	}
 }
 
 /**
@@ -924,9 +932,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * @returns The builder (for chaining).
 	 */
 	separator(value: string): ArgBuilder<C> {
-		if (value.length === 0) {
-			throw new RangeError('arg separator must not be empty');
-		}
+		normalizeSplitPolicy('cli', value);
 		return new ArgBuilder({ ...this.schema, separator: value });
 	}
 
@@ -938,7 +944,8 @@ class ArgBuilder<C extends ArgConfig> {
 	 * strings `'whole'`, `'lines'`, and `'json'` name their format, and every
 	 * other string is the delimiter to split on. A source left out keeps what it
 	 * already had, or its default: whole CLI tokens, comma-delimited env values,
-	 * line-delimited stdin.
+	 * line-delimited stdin. For stdin, `'whole'` passes the complete buffer to a
+	 * string element, including its final line terminator.
 	 *
 	 * Only an arg that aggregates reads this. `arg.keyValue()` is the one arg
 	 * that both aggregates and reads stdin, since a variadic arg may not.

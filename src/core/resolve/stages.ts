@@ -13,6 +13,7 @@
 import type { ValidationError } from '#internals/core/errors/index.ts';
 import type { PromptConfig } from '#internals/core/schema/prompt.ts';
 import type { SourceBinding } from '#internals/core/schema/source.ts';
+import { STDIN_SENTINEL } from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash, stdinReadsWhenMissing } from '#internals/core/schema/stdin.ts';
 import type { CliFinish, CoerceResult } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
@@ -241,7 +242,7 @@ function readCliValue(
 	const readsOnDash = bindings.some(
 		(binding) => binding.stage === 'stdin' && stdinReadsOnDash(binding),
 	);
-	if (value === '-' && readsOnDash) return { kind: 'dash' };
+	if (value === STDIN_SENTINEL && readsOnDash) return { kind: 'dash' };
 	return { kind: 'value', value };
 }
 

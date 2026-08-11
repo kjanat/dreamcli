@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { CLIError } from '#internals/core/errors/index.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import { command } from './command.ts';
 import { flag } from './flag.ts';
@@ -24,8 +25,10 @@ describe('flag.array().separator() — builder schema', () => {
 		expect(f.schema.separator).toBe('::');
 	});
 
-	it('throws RangeError for an empty separator', () => {
-		expect(() => flag.array(flag.string()).separator('')).toThrow(RangeError);
+	it('throws INVALID_SCHEMA for an empty separator', () => {
+		expect(() => flag.array(flag.string()).separator('')).toThrow(
+			expect.objectContaining<Partial<CLIError>>({ code: 'INVALID_SCHEMA' }),
+		);
 	});
 
 	it('returns a new builder (immutable)', () => {

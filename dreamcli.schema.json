@@ -251,7 +251,7 @@
           ]
         },
         "unique": {
-          "type": "boolean"
+          "const": true
         },
         "pathChecks": {
           "$ref": "#/$defs/pathChecks"
@@ -354,6 +354,35 @@
       },
       "required": [
         "format"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "format": {
+              "const": "delimiter"
+            }
+          },
+          "required": [
+            "format",
+            "delimiter"
+          ]
+        },
+        {
+          "properties": {
+            "format": {
+              "enum": [
+                "whole",
+                "lines",
+                "json"
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "delimiter"
+            ]
+          }
+        }
       ]
     },
     "negation": {
@@ -527,7 +556,7 @@
           ]
         },
         "unique": {
-          "type": "boolean"
+          "const": true
         },
         "prompt": {
           "$ref": "#/$defs/prompt",
