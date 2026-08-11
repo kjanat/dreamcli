@@ -321,8 +321,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Breaking: `.separator()` sets the CLI delimiter alone.** Env and config
   string values used to inherit it, so `.separator('|')` silently changed how an
   env var decoded. Env values split on `','` unless `.split({ env })` says
-  otherwise, and the stdin buffer splits on line terminators. Config arrays and
-  objects remain native; config strings use the env split policy.
+  otherwise. The stdin buffer splits on line terminators by default;
+  `.split({ stdin })` can select `'whole'`, `'json'`, or a delimiter instead.
+  Config arrays and objects remain native; config strings use the env split policy.
   `.separator('|')` becomes `.split({ cli: '|', env: '|' })` where the old
   coupling was intended.
 
