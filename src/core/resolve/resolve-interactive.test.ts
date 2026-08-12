@@ -3,28 +3,19 @@ import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
 import type { CommandSchema, InteractiveParams } from '#internals/core/schema/command.ts';
-import { command } from '#internals/core/schema/command.ts';
+import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
-import { createSchema, flag } from '#internals/core/schema/flag.ts';
+import { createFlagSchema, flag } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
 // --- Helpers
 
 function makeSchema(overrides?: Partial<CommandSchema>): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
 		hasAction: true,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 function makeParsed(overrides?: Partial<ParseResult>): ParseResult {
@@ -114,7 +105,7 @@ describe('resolve with interactive resolver', () => {
 	it('interactive resolver prompt config overrides per-flag prompt', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu', 'ap'],
 					prompt: { kind: 'select', message: 'Per-flag message' },
 				}),
@@ -138,8 +129,8 @@ describe('resolve with interactive resolver', () => {
 
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', { enumValues: ['us', 'eu'] }),
-				force: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+				region: createFlagSchema('enum', { enumValues: ['us', 'eu'] }),
+				force: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 			},
 			interactive: ({ flags }) => {
 				receivedFlags.push({ ...flags });
@@ -165,8 +156,8 @@ describe('resolve with interactive resolver', () => {
 
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', { enumValues: ['us', 'eu'], envVar: 'REGION' }),
-				name: createSchema('string'),
+				region: createFlagSchema('enum', { enumValues: ['us', 'eu'], envVar: 'REGION' }),
+				name: createFlagSchema('string'),
 			},
 			interactive: ({ flags }) => {
 				receivedFlags.push({ ...flags });
@@ -190,11 +181,11 @@ describe('resolve with interactive resolver', () => {
 
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					configPath: 'deploy.region',
 				}),
-				name: createSchema('string'),
+				name: createFlagSchema('string'),
 			},
 			interactive: ({ flags }) => {
 				receivedFlags.push({ ...flags });
@@ -216,7 +207,7 @@ describe('resolve with interactive resolver', () => {
 	it('falsy return from interactive skips prompting for that flag', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					prompt: { kind: 'select', message: 'Per-flag prompt' },
 				}),
@@ -236,7 +227,7 @@ describe('resolve with interactive resolver', () => {
 	it('undefined return from interactive falls back to per-flag prompt', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					prompt: { kind: 'select', message: 'Per-flag prompt' },
 				}),
@@ -255,7 +246,7 @@ describe('resolve with interactive resolver', () => {
 	it('null return from interactive falls back to per-flag prompt', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					prompt: { kind: 'select', message: 'Per-flag prompt' },
 				}),
@@ -278,7 +269,7 @@ describe('resolve with interactive resolver', () => {
 
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					prompt: { kind: 'select', message: 'Per-flag' },
 				}),
@@ -298,11 +289,11 @@ describe('resolve with interactive resolver', () => {
 	it('mixes interactive, per-flag, and CLI sources', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', { enumValues: ['us', 'eu'] }),
-				name: createSchema('string', {
+				region: createFlagSchema('enum', { enumValues: ['us', 'eu'] }),
+				name: createFlagSchema('string', {
 					prompt: { kind: 'input', message: 'Per-flag name prompt' },
 				}),
-				force: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+				force: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 			},
 			interactive: ({ flags }) => ({
 				region: !flags.region && {
@@ -326,7 +317,7 @@ describe('resolve with interactive resolver', () => {
 	it('interactive prompt cancelled falls through to default', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					defaultValue: 'us',
 				}),
@@ -345,7 +336,7 @@ describe('resolve with interactive resolver', () => {
 	it('interactive prompt cancelled on required flag throws', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					presence: 'required',
 				}),
@@ -366,7 +357,7 @@ describe('resolve with interactive resolver', () => {
 
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					defaultValue: 'us',
 				}),
@@ -385,7 +376,7 @@ describe('resolve with interactive resolver', () => {
 	it('interactive resolver for confirm prompt', async () => {
 		const schema = makeSchema({
 			flags: {
-				proceed: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+				proceed: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 			},
 			interactive: () => ({
 				proceed: { kind: 'confirm' as const, message: 'Continue?' },
@@ -401,7 +392,7 @@ describe('resolve with interactive resolver', () => {
 	it('interactive resolver for input prompt with number coercion', async () => {
 		const schema = makeSchema({
 			flags: {
-				port: createSchema('number'),
+				port: createFlagSchema('number'),
 			},
 			interactive: () => ({
 				port: { kind: 'input' as const, message: 'Port number' },
@@ -417,8 +408,8 @@ describe('resolve with interactive resolver', () => {
 	it('interactive resolver for multiselect prompt', async () => {
 		const schema = makeSchema({
 			flags: {
-				features: createSchema('array', {
-					elementSchema: createSchema('string'),
+				features: createFlagSchema('array', {
+					elementSchema: createFlagSchema('string'),
 				}),
 			},
 			interactive: () => ({
@@ -439,7 +430,7 @@ describe('resolve with interactive resolver', () => {
 	it('without interactive resolver, per-flag prompts work normally', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					enumValues: ['us', 'eu'],
 					prompt: { kind: 'select', message: 'Select region' },
 				}),
@@ -456,7 +447,7 @@ describe('resolve with interactive resolver', () => {
 	it('env error prevents prompting for that flag', async () => {
 		const schema = makeSchema({
 			flags: {
-				port: createSchema('number', { envVar: 'PORT' }),
+				port: createFlagSchema('number', { envVar: 'PORT' }),
 			},
 			interactive: () => ({
 				port: { kind: 'input' as const, message: 'Port?' },
@@ -475,14 +466,14 @@ describe('resolve with interactive resolver', () => {
 	it('full chain: CLI > env > config > interactive > per-flag > default', async () => {
 		const schema = makeSchema({
 			flags: {
-				a: createSchema('string'), // CLI
-				b: createSchema('string', { envVar: 'B_VAR' }), // env
-				c: createSchema('string', { configPath: 'c.val' }), // config
-				d: createSchema('string'), // interactive
-				e: createSchema('string', {
+				a: createFlagSchema('string'), // CLI
+				b: createFlagSchema('string', { envVar: 'B_VAR' }), // env
+				c: createFlagSchema('string', { configPath: 'c.val' }), // config
+				d: createFlagSchema('string'), // interactive
+				e: createFlagSchema('string', {
 					prompt: { kind: 'input', message: 'Per-flag E' },
 				}), // per-flag prompt
-				f: createSchema('string', { defaultValue: 'default-f' }), // default
+				f: createFlagSchema('string', { defaultValue: 'default-f' }), // default
 			},
 			interactive: ({ flags }) => ({
 				d: !flags.d && { kind: 'input' as const, message: 'Interactive D' },
@@ -503,6 +494,30 @@ describe('resolve with interactive resolver', () => {
 		expect(result.flags.d).toBe('interactive-d');
 		expect(result.flags.e).toBe('per-flag-e');
 		expect(result.flags.f).toBe('default-f');
+	});
+
+	it('reads no override for a flag named after an Object.prototype member', async () => {
+		const schema = makeSchema({
+			flags: { toString: createFlagSchema('string', { defaultValue: 'fallback' }) },
+			interactive: () => ({}),
+		});
+
+		const prompter = createTestPrompter(['prompted']);
+		const result = await resolve(schema, makeParsed(), { prompter });
+
+		expect(result.flags['toString']).toBe('fallback');
+	});
+
+	it('still applies an override the resolver declares under such a name', async () => {
+		const schema = makeSchema({
+			flags: { valueOf: createFlagSchema('string', { defaultValue: 'fallback' }) },
+			interactive: () => ({ valueOf: { kind: 'input' as const, message: 'Value?' } }),
+		});
+
+		const prompter = createTestPrompter(['prompted']);
+		const result = await resolve(schema, makeParsed(), { prompter });
+
+		expect(result.flags['valueOf']).toBe('prompted');
 	});
 });
 

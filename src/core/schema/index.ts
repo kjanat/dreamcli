@@ -17,16 +17,31 @@ export type {
 	TableStream,
 } from './activity.ts';
 export type {
+	AllowedArgPromptConfig,
 	ArgConfig,
+	ArgDefaultValue,
+	ArgDefinition,
+	ArgDefinitionBase,
+	ArgDefinitionByKind,
+	ArgDefinitionOverrides,
 	ArgFactory,
 	ArgKind,
 	ArgParseFn,
 	ArgPresence,
 	ArgSchema,
+	BooleanArgDefinition,
+	CustomArgDefinition,
+	EnumArgDefinition,
 	InferArg,
 	InferArgs,
+	KeyValueArgDefinition,
+	NumberArgDefinition,
+	PromptConfigByArgKind,
 	ResolvedArgValue,
+	StringArgDefinition,
+	StringArgElementConfig,
 	WithArgPresence,
+	WithoutArgElementEligibility,
 	WithVariadic,
 } from './arg.ts';
 export { ARG_KINDS, ARG_PRESENCES, ArgBuilder, arg, createArgSchema } from './arg.ts';
@@ -35,15 +50,13 @@ export type {
 	ActionParams,
 	AnyCommandBuilder,
 	CommandArgEntry,
-	CommandConfig,
+	CommandArgEntryDefinition,
+	CommandDefinition,
 	CommandExample,
 	CommandMeta,
 	CommandSchema,
 	DeriveHandler,
 	DeriveParams,
-	ErasedCommand,
-	ErasedDeriveHandler,
-	ErasedInteractiveResolver,
 	ExampleCommand,
 	ExampleMeta,
 	InteractiveParams,
@@ -51,24 +64,41 @@ export type {
 	InteractiveResult,
 	Out,
 } from './command.ts';
-export { CommandBuilder, command, group, resolveExampleCommand } from './command.ts';
+export {
+	CommandBuilder,
+	command,
+	createCommandSchema,
+	group,
+	resolveExampleCommand,
+} from './command.ts';
 export type {
+	ArrayFlagDefinition,
+	BooleanFlagDefinition,
 	ConfirmPromptConfig,
+	CountFlagDefinition,
+	CustomFlagDefinition,
 	DateFlagOptions,
+	DuplicateKeys,
 	DuplicatePolicy,
+	EnumFlagDefinition,
 	FlagAlias,
 	FlagConfig,
+	FlagDefinition,
+	FlagDefinitionBase,
+	FlagDefinitionByKind,
+	FlagDefinitionOverrides,
 	FlagFactory,
 	FlagKind,
 	FlagNegation,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
-	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
 	InputPromptConfig,
+	KeyValueFlagDefinition,
 	MultiselectPromptConfig,
+	NumberFlagDefinition,
 	PathChecks,
 	PathFlagOptions,
 	PromptConfig,
@@ -78,20 +108,30 @@ export type {
 	ResolvedValue,
 	SelectChoice,
 	SelectPromptConfig,
+	SourceSplitBinding,
+	SplitBinding,
+	SplitFormat,
+	SplitOptions,
+	SplitPolicy,
+	SplitSetting,
+	StringElementConfig,
+	StringFlagDefinition,
 	UrlFlagOptions,
+	WithoutElementEligibility,
 	WithPresence,
 } from './flag.ts';
 export {
-	createSchema,
+	createFlagSchema,
+	DUPLICATE_KEYS,
 	FLAG_KINDS,
 	FLAG_PRESENCES,
 	FlagBuilder,
 	flag,
 	getFlagNegatedName,
 	PROMPT_KINDS,
+	SPLIT_FORMATS,
 } from './flag.ts';
 export type {
-	ErasedMiddlewareHandler,
 	Middleware,
 	MiddlewareHandler,
 	MiddlewareParams,
@@ -102,6 +142,8 @@ export {
 	describeNumberConstraintViolation,
 	validateNumberConstraints,
 } from './number-constraints.ts';
+export type { InputSources, ResolutionProvenance, SourcesOf } from './provenance.ts';
+export { wasExplicit } from './provenance.ts';
 export type { RunOptions, RunResult } from './run.ts';
 export type {
 	InferStandardInput,
@@ -116,8 +158,11 @@ export type {
 	StandardSchemaV1SuccessResult,
 	StandardSchemaV1Types,
 } from './standard.ts';
+export type { StdinBinding, StdinConsume, StdinOptions, StdinWhen } from './stdin.ts';
+export { STDIN_CONSUMES, STDIN_WHENS } from './stdin.ts';
 export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
 export {
 	describeStringConstraintViolation,
+	stringConstraintDetails,
 	validateStringConstraints,
 } from './string-constraints.ts';

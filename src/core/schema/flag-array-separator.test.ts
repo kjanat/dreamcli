@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { CLIError } from '#internals/core/errors/index.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import { command } from './command.ts';
 import { flag } from './flag.ts';
@@ -24,8 +25,10 @@ describe('flag.array().separator() — builder schema', () => {
 		expect(f.schema.separator).toBe('::');
 	});
 
-	it('throws RangeError for an empty separator', () => {
-		expect(() => flag.array(flag.string()).separator('')).toThrow(RangeError);
+	it('throws INVALID_SCHEMA for an empty separator', () => {
+		expect(() => flag.array(flag.string()).separator('')).toThrow(
+			expect.objectContaining<Partial<CLIError>>({ code: 'INVALID_SCHEMA' }),
+		);
 	});
 
 	it('returns a new builder (immutable)', () => {
@@ -195,14 +198,14 @@ describe('.unique() — dedup preserving first-seen order', () => {
 // --- Env resolution — separator interaction
 
 describe('env values — separator handling', () => {
-	it('splits env strings on the configured separator', async () => {
+	it('splits env strings on the configured env delimiter', async () => {
 		let received: unknown;
 		const cmd = command('deploy')
 			.flag(
 				'region',
 				flag
 					.array(flag.enum(['us', 'eu', 'ap']))
-					.separator('|')
+					.split({ cli: '|', env: '|' })
 					.env('REGIONS'),
 			)
 			.action(({ flags }) => {
@@ -212,6 +215,19 @@ describe('env values — separator handling', () => {
 		const result = await runCommand(cmd, [], { env: { REGIONS: 'us|eu|us' } });
 		expect(result.exitCode).toBe(0);
 		expect(received).toEqual(['us', 'eu', 'us']);
+	});
+
+	it('leaves env splitting on commas when only the CLI separator is set', async () => {
+		let received: unknown;
+		const cmd = command('tags')
+			.flag('tag', flag.array(flag.string()).separator('|').env('TAGS'))
+			.action(({ flags }) => {
+				received = flags.tag;
+			});
+
+		const result = await runCommand(cmd, [], { env: { TAGS: 'a,b' } });
+		expect(result.exitCode).toBe(0);
+		expect(received).toEqual(['a', 'b']);
 	});
 
 	it('splits env strings on the default comma when no separator is configured', async () => {

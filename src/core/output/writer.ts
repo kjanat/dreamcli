@@ -5,7 +5,6 @@
  * `activity.ts` (handle classes) can import it without a circular dependency.
  *
  * @module dreamcli/core/output/writer
- * @internal
  */
 
 // --- Writer abstraction

@@ -25,8 +25,8 @@ output.
 
 ## CONVENTIONS
 
-- Output must stay JSON-serializable; runtime handlers, middleware, and interactive functions are
-  omitted by design
+- Output must stay JSON-serializable; runtime handlers and interactive functions are omitted by
+  design
 - `includeHidden` and `includePrompts` are the public switches; preserve their semantics across
   both schema generators
 - `@internal` JSDoc tags matter: docs and meta-description tooling filter on them
@@ -41,5 +41,7 @@ output.
 
 ## NOTES
 
-- Definition schema URL points at `@kjanat/dreamcli/dreamcli.schema.json` on the CDN
+- Definition schema URL is the self-hosted, format-versioned
+  `https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`; the npm package copy and the
+  jsDelivr URL are mirrors of the same bytes
 - This module sits on the boundary between public API docs, config validation, and build artifacts

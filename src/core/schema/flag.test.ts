@@ -88,14 +88,13 @@ describe('flag.number() chained constraint methods', () => {
 		expect(base.schema.numberConstraints).toEqual({ min: 0 });
 	});
 
-	it('constraint methods are number-kind only at compile time', () => {
+	it('constraint methods are number-kind only, at compile time and construction time', () => {
 		// @ts-expect-error — .min() is not available on string flags
-		flag.string().min(0);
+		expect(() => flag.string().min(0)).toThrow(/requires kind 'number'/);
 		// @ts-expect-error — .int() is not available on boolean flags
-		flag.boolean().int();
+		expect(() => flag.boolean().int()).toThrow(/requires kind 'number'/);
 		// @ts-expect-error — .finite() is not available on enum flags
-		flag.enum(['a', 'b']).finite();
-		expect(true).toBe(true);
+		expect(() => flag.enum(['a', 'b']).finite()).toThrow(/requires kind 'number'/);
 	});
 });
 

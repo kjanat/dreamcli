@@ -1,33 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { collectPropagatedFlags } from './propagate.ts';
 
 // --- Helpers — build minimal CommandSchema for testing
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 function propagatedFlag(kind: 'string' | 'boolean' | 'number' = 'boolean') {
-	return createSchema(kind, { propagate: true });
+	return createFlagSchema(kind, { propagate: true });
 }
 
 function localFlag(kind: 'string' | 'boolean' | 'number' = 'boolean') {
-	return createSchema(kind, { propagate: false });
+	return createFlagSchema(kind, { propagate: false });
 }
 
 // === collectPropagatedFlags
@@ -128,21 +119,18 @@ describe('collectPropagatedFlags', () => {
 		});
 
 		it('intermediate ancestor shadows root ancestor', () => {
-			const rootVerbose = propagatedFlag('string');
-			const midVerbose = propagatedFlag('number');
-
 			const root = makeSchema({
 				name: 'cli',
-				flags: { verbose: rootVerbose },
+				flags: { verbose: propagatedFlag('string') },
 			});
 			const mid = makeSchema({
 				name: 'db',
-				flags: { verbose: midVerbose },
+				flags: { verbose: propagatedFlag('number') },
 			});
 			const leaf = makeSchema({ name: 'migrate' });
 
 			const result = collectPropagatedFlags([root, mid, leaf]);
-			expect(result['verbose']).toBe(midVerbose);
+			expect(result['verbose']).toBe(mid.flags['verbose']);
 		});
 
 		it('deep path (4 levels) accumulates correctly', () => {
@@ -242,22 +230,42 @@ describe('collectPropagatedFlags', () => {
 		});
 
 		it('intermediate propagated flags shadow root ones', () => {
-			const rootVerbose = propagatedFlag('string');
-			const midVerbose = propagatedFlag('number');
-
 			const root = makeSchema({
 				name: 'cli',
-				flags: { verbose: rootVerbose },
+				flags: { verbose: propagatedFlag('string') },
 			});
 			const mid = makeSchema({
 				name: 'db',
-				flags: { verbose: midVerbose },
+				flags: { verbose: propagatedFlag('number') },
 			});
 			const leaf = makeSchema({ name: 'migrate' });
 
 			const result = collectPropagatedFlags([root, mid, leaf]);
 			// mid's propagated verbose overwrites root's
-			expect(result['verbose']).toBe(midVerbose);
+			expect(result['verbose']).toBe(mid.flags['verbose']);
+		});
+
+		it('does not treat an Object.prototype member name as an intermediate override', () => {
+			const root = makeSchema({
+				name: 'cli',
+				flags: { ['valueOf']: propagatedFlag('string') },
+			});
+			const mid = makeSchema({ name: 'db' });
+			const leaf = makeSchema({ name: 'migrate' });
+
+			const result = collectPropagatedFlags([root, mid, leaf]);
+			expect(result['valueOf']).toBe(root.flags['valueOf']);
+		});
+
+		it('still shadows an Object.prototype member name the intermediate declares', () => {
+			const root = makeSchema({
+				name: 'cli',
+				flags: { ['valueOf']: propagatedFlag('string') },
+			});
+			const mid = makeSchema({ name: 'db', flags: { ['valueOf']: localFlag('number') } });
+			const leaf = makeSchema({ name: 'migrate' });
+
+			expect(Object.hasOwn(collectPropagatedFlags([root, mid, leaf]), 'valueOf')).toBe(false);
 		});
 	});
 
@@ -277,15 +285,14 @@ describe('collectPropagatedFlags', () => {
 		});
 
 		it('returned schemas are the same references as input', () => {
-			const verboseSchema = propagatedFlag();
 			const parent = makeSchema({
 				name: 'root',
-				flags: { verbose: verboseSchema },
+				flags: { verbose: propagatedFlag() },
 			});
 			const child = makeSchema({ name: 'deploy' });
 
 			const result = collectPropagatedFlags([parent, child]);
-			expect(result['verbose']).toBe(verboseSchema);
+			expect(result['verbose']).toBe(parent.flags['verbose']);
 		});
 	});
 });

@@ -8,6 +8,7 @@ permissions: { contents: read }
 concurrency: { group: "autofix-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   autofix:
+    if: github.event_name != 'pull_request' || github.event.pull_request.stack == null
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env: { RUNNER_PM: bun }
@@ -15,7 +16,6 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: runner install
-      - uses: kjanat/install-dprint@v2
       - run: run -s fmt:autofix lint:autofix
       # `dprint config update` queries every plugin registry and may download
       # and compile new plugin versions; 20s starves legitimate runs.

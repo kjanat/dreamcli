@@ -139,7 +139,7 @@ describe('createTestPrompter', () => {
 
 	it('satisfies PromptEngine interface', () => {
 		const prompter = createTestPrompter([]);
-		expectTypeOf(prompter).toMatchTypeOf<PromptEngine>();
+		expectTypeOf(prompter).toExtend<PromptEngine>();
 	});
 
 	it('ignores config parameter (uses queue only)', async () => {
@@ -658,7 +658,7 @@ describe('createTerminalPrompter', () => {
 				() => Promise.resolve(null),
 				() => {},
 			);
-			expectTypeOf(prompter).toMatchTypeOf<PromptEngine>();
+			expectTypeOf(prompter).toExtend<PromptEngine>();
 		});
 	});
 });
@@ -742,7 +742,7 @@ describe('resolvePromptConfig', () => {
 	it('returns correct type for resolved config', () => {
 		expectTypeOf(
 			resolvePromptConfig({ kind: 'confirm', message: 'q' }, undefined),
-		).toMatchTypeOf<ResolvedPromptConfig>();
+		).toExtend<ResolvedPromptConfig>();
 	});
 });
 
@@ -764,13 +764,13 @@ describe('type contracts', () => {
 	});
 
 	it('ResolvedSelectPromptConfig has non-empty choices', () => {
-		expectTypeOf<ResolvedSelectPromptConfig['choices']>().toMatchTypeOf<
+		expectTypeOf<ResolvedSelectPromptConfig['choices']>().toExtend<
 			readonly [{ value: string }, ...{ value: string }[]]
 		>();
 	});
 
 	it('ResolvedMultiselectPromptConfig has non-empty choices', () => {
-		expectTypeOf<ResolvedMultiselectPromptConfig['choices']>().toMatchTypeOf<
+		expectTypeOf<ResolvedMultiselectPromptConfig['choices']>().toExtend<
 			readonly [{ value: string }, ...{ value: string }[]]
 		>();
 	});

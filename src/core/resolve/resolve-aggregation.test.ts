@@ -3,24 +3,12 @@ import { isValidationError, type ValidationError } from '#internals/core/errors/
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+	return createCommandSchema({ name: 'test', ...overrides });
 }
 
 function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
@@ -70,13 +58,13 @@ describe('resolve — aggregate diagnostics', () => {
 	it('summarizes mixed flag and arg failures with per-issue labels', async () => {
 		const schema = makeSchema({
 			flags: {
-				port: createSchema('number', { envVar: 'PORT' }),
-				region: createSchema('string', { presence: 'required' }),
+				port: createFlagSchema('number', { envVar: 'PORT' }),
+				region: createFlagSchema('string', { presence: 'required' }),
 			},
 			args: [
 				{
 					name: 'count',
-					schema: createArgSchema('number', { stdinMode: true }),
+					schema: createArgSchema('number', { stdin: {} }),
 				},
 			],
 		});
@@ -88,7 +76,7 @@ describe('resolve — aggregate diagnostics', () => {
 
 		expect(error.message).toContain('Multiple validation errors (2 flags, 1 arg)');
 		expect(error.message).toContain(
-			"flag --port [env PORT]: Invalid number value 'bad-port' from env PORT for flag --port",
+			"flag --port [env PORT]: Invalid number value '<redacted>' from env PORT for flag --port",
 		);
 		expect(error.message).toContain('flag --region: Missing required flag --region');
 		expect(error.message).toContain(
@@ -102,7 +90,7 @@ describe('resolve — aggregate diagnostics', () => {
 				inputKind: 'flag',
 				name: 'port',
 				label: 'flag --port',
-				message: "Invalid number value 'bad-port' from env PORT for flag --port",
+				message: "Invalid number value '<redacted>' from env PORT for flag --port",
 				sourceKind: 'env',
 				sourceLabel: 'env PORT',
 			},
@@ -128,14 +116,14 @@ describe('resolve — aggregate diagnostics', () => {
 	it('keeps nested flag and arg aggregates flattened in summary details', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
+				token: createFlagSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
 			},
 			args: [
 				{
 					name: 'target',
 					schema: createArgSchema('string', {
 						presence: 'required',
-						stdinMode: true,
+						stdin: {},
 						envVar: 'DEPLOY_TARGET',
 					}),
 				},

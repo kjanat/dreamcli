@@ -5,8 +5,9 @@ It is a stability target for tests and refactors, not a public API guarantee.
 
 ## Responsibilities
 
-- apply flag precedence: `cli -> env -> config -> prompt -> default`
-- apply arg precedence: `cli -> stdin -> env -> default`
+- apply one precedence order to both surfaces:
+  `cli -> stdin -> env -> config -> prompt -> default`
+- read stdin only when resolution will select it
 - gate prompts after non-interactive sources have been checked
 - coerce and validate sourced values
 - collect deprecations from explicit sources
@@ -30,6 +31,7 @@ import type {
   DeprecationWarning,
   ParseResult,
   PromptEngine,
+  ResolutionProvenanceRecord,
 } from '@kjanat/dreamcli';
 
 interface ResolverInvocation {
@@ -45,12 +47,17 @@ interface ResolveOptions {
   >;
   readonly config?: Readonly<Record<string, unknown>>;
   readonly prompter?: PromptEngine;
+  readonly stat?: (
+    path: string,
+  ) => Promise<'file' | 'directory' | null>;
+  readonly mkdir?: (path: string) => Promise<void>;
 }
 
 interface ResolveResult {
   readonly flags: Readonly<Record<string, unknown>>;
   readonly args: Readonly<Record<string, unknown>>;
   readonly deprecations: readonly DeprecationWarning[];
+  readonly provenance: ResolutionProvenanceRecord;
 }
 ```
 
@@ -62,33 +69,52 @@ The intent is simple:
 
 ## Source And Precedence Facts
 
-`contracts.ts` also names the stable precedence orders:
+`schema/source.ts` names the one stable precedence order, and `contracts.ts`
+re-exports it:
 
 ```ts twoslash
-const FLAG_RESOLUTION_ORDER = [
+const RESOLUTION_ORDER = [
   'cli',
+  'stdin',
   'env',
   'config',
   'prompt',
   'default',
 ] as const;
-const ARG_RESOLUTION_ORDER = [
-  'cli',
-  'stdin',
-  'env',
-  'default',
-] as const;
 ```
 
-Those orders are the behavior future contract tests should target.
+Both surfaces walk it. An explicit `-` is CLI-sourced with bytes from stdin and
+keeps CLI precedence, so it lands on `cli`; the `stdin` stage is the implicit
+fallback an absent input takes before env. That order is the behavior contract
+tests target.
+
+Resolution also records which stage produced each value, keyed by input name.
+The record distinguishes the two ways stdin delivers bytes
+(`{ stage: 'cli', via: 'stdin', trigger: 'dash' }` versus
+`{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`) and names the binding
+that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`).
+
+One input's winning-stage record is public as `ResolutionProvenance`.
+`ResolutionProvenanceRecord` is the pair of flag and argument maps returned on
+`ResolveResult.provenance`; handlers receive the typed `InputSources` equivalent
+as `sources`, and `readFlags()` passes it through `onSources`. The maps are built
+with a null prototype, so an undeclared key named `toString` reads back
+`undefined` rather than an inherited member; a declared input with that name
+returns its own provenance when present. Only inputs that resolved a value have
+an entry. See
+[Value provenance](/guide/semantics#which-source-won).
 
 ## Diagnostic Expectations
 
 - env, config, prompt, and stdin failures carry source-aware detail payloads
+- every coercion failure carries `source` naming the stage that produced the value
+- a value resolved outside a literal CLI value is redacted in both the message
+  and `details`, including stdin selected by an explicit `-`
 - hard coercion errors stop later fallback for that same field
 - multiple validation failures are thrown as one aggregate error with per-error details
 - aggregate validation failures also include per-issue summaries with normalized input labels and source labels when the failing source is known
-- missing-value errors remain actionable via source-ordered suggestions
+- missing-value errors remain actionable via source-ordered suggestions, naming
+  only the stdin routes the input's `when` mode actually offers
 
 ## Redesign Boundaries
 
@@ -101,23 +127,28 @@ This contract intentionally freezes behavior before deeper resolver work:
 
 ## Shared Property Model Decision
 
-The current resolver now makes that decision explicit in `src/core/resolve/property.ts`:
+The current resolver now makes that decision explicit in `src/core/schema/value.ts`:
 
-- the shared flag/arg property model is **coercion-only**
-- it only covers the overlapping kinds: `string`, `number`, `enum`, and `custom`
+- the shared flag/arg value model is **coercion-only**
+- it covers the overlapping kinds `string`, `number`, `boolean`, `enum`, and
+  `custom`, and a collection reaches it through the value of its element
+- how many values a source carries belongs to `src/core/schema/cardinality.ts`,
+  which owns splitting, aggregation, and declared-default validation
 - it does **not** own precedence order, fallback order, prompt/stdin policy, or required-value validation
 
 That split is intentional.
 
-Flags still own `cli -> env -> config -> prompt -> default`.\
-Args still own `cli -> stdin -> env -> default`.
-
-Trying to force those flows through one broad property abstraction would hide real semantic differences instead of reducing maintenance cost. The shared model is only used where the overlap is real: coercion shape and shared kind metadata.
+Both surfaces own `cli -> stdin -> env -> config -> prompt -> default`. The
+source axis is shared because the sources themselves are the same set;
+`schema/source.ts` normalizes a flag or arg schema onto an ordered
+`SourceBinding` list, and `resolve/stages.ts` walks that order once for both.
+What stays per-surface is what genuinely differs: how a parsed CLI value reads,
+how a raw value coerces, and how diagnostics name the subject.
 
 ## Evidence
 
 - Contract module: `src/core/resolve/contracts.ts`
-- Shared property model: `src/core/resolve/property.ts`
+- Shared value model: `src/core/schema/value.ts`
 - Current implementation: `src/core/resolve/index.ts`
 - Existing behavior tests: `src/core/resolve/*.test.ts`
 - RFC / PRD source: `specs/dreamcli-re-foundation.md`, `specs/dreamcli-re-foundation-prd.md`

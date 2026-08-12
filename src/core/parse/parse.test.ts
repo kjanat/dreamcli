@@ -1,27 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { ParseError } from '#internals/core/errors/index.ts';
+import type { ArgDefinitionOverrides, ArgSchema } from '#internals/core/schema/arg.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
-import { includesBeforeSeparator, parse, tokenize } from './index.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import type { FlagDefinitionOverrides, FlagSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
+import { includesBeforeSeparator, parse, requestsHelp, tokenize } from './index.ts';
 
 // --- Helpers — build minimal CommandSchema for testing
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+	return createCommandSchema({ name: 'test', ...overrides });
 }
 
 // === Tokenizer
@@ -101,7 +91,7 @@ describe('parse', () => {
 		it('parses long boolean flag', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			const result = parse(schema, ['--verbose']);
@@ -111,7 +101,7 @@ describe('parse', () => {
 		it('parses long boolean flag with explicit =true', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			const result = parse(schema, ['--verbose=true']);
@@ -121,7 +111,7 @@ describe('parse', () => {
 		it('parses long boolean flag with explicit =false', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			const result = parse(schema, ['--verbose=false']);
@@ -130,7 +120,7 @@ describe('parse', () => {
 
 		it('parses long string flag with space-separated value', () => {
 			const schema = makeSchema({
-				flags: { name: createSchema('string') },
+				flags: { name: createFlagSchema('string') },
 			});
 			const result = parse(schema, ['--name', 'alice']);
 			expect(result.flags.name).toBe('alice');
@@ -138,7 +128,7 @@ describe('parse', () => {
 
 		it('parses long string flag with inline value', () => {
 			const schema = makeSchema({
-				flags: { name: createSchema('string') },
+				flags: { name: createFlagSchema('string') },
 			});
 			const result = parse(schema, ['--name=bob']);
 			expect(result.flags.name).toBe('bob');
@@ -146,7 +136,7 @@ describe('parse', () => {
 
 		it('parses long number flag', () => {
 			const schema = makeSchema({
-				flags: { port: createSchema('number') },
+				flags: { port: createFlagSchema('number') },
 			});
 			const result = parse(schema, ['--port', '3000']);
 			expect(result.flags.port).toBe(3000);
@@ -154,7 +144,7 @@ describe('parse', () => {
 
 		it('parses long number flag with inline value', () => {
 			const schema = makeSchema({
-				flags: { port: createSchema('number') },
+				flags: { port: createFlagSchema('number') },
 			});
 			const result = parse(schema, ['--port=8080']);
 			expect(result.flags.port).toBe(8080);
@@ -162,7 +152,7 @@ describe('parse', () => {
 
 		it('parses enum flag with valid value', () => {
 			const schema = makeSchema({
-				flags: { region: createSchema('enum', { enumValues: ['us', 'eu', 'ap'] }) },
+				flags: { region: createFlagSchema('enum', { enumValues: ['us', 'eu', 'ap'] }) },
 			});
 			const result = parse(schema, ['--region', 'eu']);
 			expect(result.flags.region).toBe('eu');
@@ -171,8 +161,8 @@ describe('parse', () => {
 		it('parses array flag — multiple occurrences accumulate', () => {
 			const schema = makeSchema({
 				flags: {
-					tag: createSchema('array', {
-						elementSchema: createSchema('string'),
+					tag: createFlagSchema('array', {
+						elementSchema: createFlagSchema('string'),
 					}),
 				},
 			});
@@ -183,8 +173,8 @@ describe('parse', () => {
 		it('parses array flag with number elements', () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('array', {
-						elementSchema: createSchema('number'),
+					port: createFlagSchema('array', {
+						elementSchema: createFlagSchema('number'),
 					}),
 				},
 			});
@@ -195,7 +185,7 @@ describe('parse', () => {
 		it('resolves flag by alias', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['v'],
@@ -209,7 +199,7 @@ describe('parse', () => {
 		it('resolves flag by long alias', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['verb'],
@@ -223,7 +213,7 @@ describe('parse', () => {
 		it('resolves hidden long alias to the canonical key', () => {
 			const schema = makeSchema({
 				flags: {
-					'skip-pass': createSchema('boolean', {
+					'skip-pass': createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: [{ name: 'skipPass', hidden: true }],
@@ -237,7 +227,7 @@ describe('parse', () => {
 		it('no flags supplied returns empty flags object', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			const result = parse(schema, []);
@@ -251,7 +241,7 @@ describe('parse', () => {
 		it('single short boolean flag', () => {
 			const schema = makeSchema({
 				flags: {
-					force: createSchema('boolean', {
+					force: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['f'],
@@ -265,17 +255,17 @@ describe('parse', () => {
 		it('combined short boolean flags -abc', () => {
 			const schema = makeSchema({
 				flags: {
-					all: createSchema('boolean', {
+					all: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['a'],
 					}),
-					brief: createSchema('boolean', {
+					brief: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['b'],
 					}),
-					color: createSchema('boolean', {
+					color: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['c'],
@@ -290,7 +280,7 @@ describe('parse', () => {
 
 		it('short flag with value as next arg', () => {
 			const schema = makeSchema({
-				flags: { output: createSchema('string', { aliases: ['o'] }) },
+				flags: { output: createFlagSchema('string', { aliases: ['o'] }) },
 			});
 			const result = parse(schema, ['-o', 'file.txt']);
 			expect(result.flags.output).toBe('file.txt');
@@ -298,7 +288,7 @@ describe('parse', () => {
 
 		it('short flag with inline value -oFile', () => {
 			const schema = makeSchema({
-				flags: { output: createSchema('string', { aliases: ['o'] }) },
+				flags: { output: createFlagSchema('string', { aliases: ['o'] }) },
 			});
 			const result = parse(schema, ['-ofile.txt']);
 			expect(result.flags.output).toBe('file.txt');
@@ -307,12 +297,12 @@ describe('parse', () => {
 		it('combined short flags where last consumes value', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['v'],
 					}),
-					output: createSchema('string', { aliases: ['o'] }),
+					output: createFlagSchema('string', { aliases: ['o'] }),
 				},
 			});
 			const result = parse(schema, ['-vo', 'out.txt']);
@@ -323,8 +313,8 @@ describe('parse', () => {
 		it('combined short flags where middle flag consumes rest as value', () => {
 			const schema = makeSchema({
 				flags: {
-					output: createSchema('string', { aliases: ['o'] }),
-					verbose: createSchema('boolean', {
+					output: createFlagSchema('string', { aliases: ['o'] }),
+					verbose: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['v'],
@@ -447,6 +437,17 @@ describe('parse', () => {
 			expect(result.args.files).toEqual(['a.ts', 'b.ts', 'c.ts']);
 		});
 
+		it('splits a non-variadic key-value arg with its CLI separator', () => {
+			const schema = makeSchema({
+				args: [{ name: 'vars', schema: createArgSchema('keyValue', { separator: ',' }) }],
+			});
+			const result = parse(schema, ['A=1,B=2']);
+			expect(result.args.vars).toEqual([
+				['A', '1'],
+				['B', '2'],
+			]);
+		});
+
 		it('variadic arg with no remaining positionals produces empty array', () => {
 			const schema = makeSchema({
 				args: [
@@ -474,12 +475,12 @@ describe('parse', () => {
 		it('flags and positionals interleaved', () => {
 			const schema = makeSchema({
 				flags: {
-					force: createSchema('boolean', {
+					force: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['f'],
 					}),
-					region: createSchema('string'),
+					region: createFlagSchema('string'),
 				},
 				args: [{ name: 'target', schema: createArgSchema('string') }],
 			});
@@ -492,7 +493,7 @@ describe('parse', () => {
 		it('separator (--) forces remaining as positionals', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 				args: [{ name: 'files', schema: createArgSchema('string', { variadic: true }) }],
 			});
@@ -525,7 +526,7 @@ describe('parse', () => {
 		it('unknown short flag in combined group throws', () => {
 			const schema = makeSchema({
 				flags: {
-					all: createSchema('boolean', {
+					all: createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: ['a'],
@@ -537,7 +538,7 @@ describe('parse', () => {
 
 		it('missing value for string flag throws MISSING_VALUE', () => {
 			const schema = makeSchema({
-				flags: { name: createSchema('string') },
+				flags: { name: createFlagSchema('string') },
 			});
 			expect(() => parse(schema, ['--name'])).toThrow(ParseError);
 			try {
@@ -550,7 +551,7 @@ describe('parse', () => {
 
 		it('missing value for short flag throws MISSING_VALUE', () => {
 			const schema = makeSchema({
-				flags: { output: createSchema('string', { aliases: ['o'] }) },
+				flags: { output: createFlagSchema('string', { aliases: ['o'] }) },
 			});
 			expect(() => parse(schema, ['-o'])).toThrow(ParseError);
 			try {
@@ -563,7 +564,7 @@ describe('parse', () => {
 
 		it('invalid number flag value throws INVALID_VALUE', () => {
 			const schema = makeSchema({
-				flags: { port: createSchema('number') },
+				flags: { port: createFlagSchema('number') },
 			});
 			expect(() => parse(schema, ['--port', 'abc'])).toThrow(ParseError);
 			try {
@@ -576,7 +577,7 @@ describe('parse', () => {
 
 		it('invalid enum flag value throws INVALID_VALUE', () => {
 			const schema = makeSchema({
-				flags: { region: createSchema('enum', { enumValues: ['us', 'eu'] }) },
+				flags: { region: createFlagSchema('enum', { enumValues: ['us', 'eu'] }) },
 			});
 			expect(() => parse(schema, ['--region', 'ap'])).toThrow(ParseError);
 			try {
@@ -589,9 +590,11 @@ describe('parse', () => {
 		});
 
 		it('malformed enum flag schema throws INVALID_SCHEMA', () => {
-			const schema = makeSchema({
-				flags: { region: createSchema('enum', { enumValues: undefined }) },
-			});
+			const malformed: FlagSchema = {
+				...createFlagSchema('enum', { enumValues: ['us'] }),
+				enumValues: undefined,
+			};
+			const schema: CommandSchema = { ...makeSchema(), flags: { region: malformed } };
 			expect(() => parse(schema, ['--region', 'us'])).toThrow(ParseError);
 			try {
 				parse(schema, ['--region', 'us']);
@@ -605,7 +608,7 @@ describe('parse', () => {
 		it('invalid boolean flag value throws INVALID_VALUE', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			expect(() => parse(schema, ['--verbose=maybe'])).toThrow(ParseError);
@@ -619,9 +622,14 @@ describe('parse', () => {
 		});
 
 		it('malformed enum arg schema throws INVALID_SCHEMA', () => {
-			const schema = makeSchema({
-				args: [{ name: 'region', schema: createArgSchema('enum', { enumValues: undefined }) }],
-			});
+			const malformed: ArgSchema = {
+				...createArgSchema('enum', { enumValues: ['us'] }),
+				enumValues: undefined,
+			};
+			const schema: CommandSchema = {
+				...makeSchema(),
+				args: [{ name: 'region', schema: malformed }],
+			};
 			expect(() => parse(schema, ['us'])).toThrow(ParseError);
 			try {
 				parse(schema, ['us']);
@@ -677,7 +685,7 @@ describe('parse', () => {
 		it('unknown flag includes "did you mean" suggestion for close match', () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			try {
@@ -692,7 +700,7 @@ describe('parse', () => {
 		it('unknown flag suggestions ignore hidden aliases', () => {
 			const schema = makeSchema({
 				flags: {
-					'skip-pass': createSchema('boolean', {
+					'skip-pass': createFlagSchema('boolean', {
 						presence: 'defaulted',
 						defaultValue: false,
 						aliases: [{ name: 'skipPass', hidden: true }],
@@ -726,7 +734,7 @@ describe('parse', () => {
 		it('custom flag invokes parseFn on the raw string', () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					}),
 				},
@@ -738,7 +746,7 @@ describe('parse', () => {
 		it('custom flag with inline value', () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					}),
 				},
@@ -750,7 +758,7 @@ describe('parse', () => {
 		it('custom flag parse failure throws INVALID_VALUE', () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('custom', {
+					port: createFlagSchema('custom', {
 						parseFn: (raw: unknown) => {
 							const n = Number(raw);
 							if (Number.isNaN(n) || n < 0 || n > 65535) throw new Error('Invalid port');
@@ -773,7 +781,7 @@ describe('parse', () => {
 		it('custom flag re-throws ParseError from parseFn as-is', () => {
 			const schema = makeSchema({
 				flags: {
-					value: createSchema('custom', {
+					value: createFlagSchema('custom', {
 						parseFn: () => {
 							throw new ParseError('Custom error', { code: 'INVALID_VALUE' });
 						},
@@ -791,7 +799,7 @@ describe('parse', () => {
 		it('custom flag with short alias', () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						aliases: ['x'],
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					}),
@@ -804,7 +812,7 @@ describe('parse', () => {
 		it('custom flag without parseFn returns raw string', () => {
 			const schema = makeSchema({
 				flags: {
-					value: createSchema('custom'),
+					value: createFlagSchema('custom'),
 				},
 			});
 			const result = parse(schema, ['--value', 'hello']);
@@ -814,7 +822,7 @@ describe('parse', () => {
 		it('invalid values echo the typed long alias in the message', () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', {
+					port: createFlagSchema('number', {
 						aliases: [{ name: 'listenPort', hidden: false }],
 					}),
 				},
@@ -831,7 +839,7 @@ describe('parse', () => {
 		it('missing values echo the typed hidden alias in the message', () => {
 			const schema = makeSchema({
 				flags: {
-					output: createSchema('string', {
+					output: createFlagSchema('string', {
 						aliases: [{ name: 'oldOutput', hidden: true }],
 					}),
 				},
@@ -852,8 +860,8 @@ describe('parse', () => {
 		it('flag value that looks like a flag (--name --other)', () => {
 			const schema = makeSchema({
 				flags: {
-					name: createSchema('string'),
-					other: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					name: createFlagSchema('string'),
+					other: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			// --name expects a value; --other is parsed as a separate token (not as value for --name)
@@ -863,7 +871,7 @@ describe('parse', () => {
 
 		it('empty string as flag value is allowed', () => {
 			const schema = makeSchema({
-				flags: { name: createSchema('string') },
+				flags: { name: createFlagSchema('string') },
 			});
 			const result = parse(schema, ['--name=']);
 			expect(result.flags.name).toBe('');
@@ -871,7 +879,7 @@ describe('parse', () => {
 
 		it('negative number as flag value', () => {
 			const schema = makeSchema({
-				flags: { offset: createSchema('number') },
+				flags: { offset: createFlagSchema('number') },
 			});
 			// -5 looks like a short flag; must use --offset=-5 or --offset -5 after --
 			// With inline value it works:
@@ -881,7 +889,7 @@ describe('parse', () => {
 
 		it('last flag overrides earlier occurrence', () => {
 			const schema = makeSchema({
-				flags: { region: createSchema('string') },
+				flags: { region: createFlagSchema('string') },
 			});
 			const result = parse(schema, ['--region', 'us', '--region', 'eu']);
 			expect(result.flags.region).toBe('eu');
@@ -890,7 +898,7 @@ describe('parse', () => {
 		it('boolean flag with 0/1 values', () => {
 			const schema = makeSchema({
 				flags: {
-					debug: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					debug: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			expect(parse(schema, ['--debug=1']).flags.debug).toBe(true);
@@ -931,11 +939,28 @@ describe('includesBeforeSeparator()', () => {
 	});
 });
 
+describe('requestsHelp()', () => {
+	it('accepts both help spellings before the -- separator', () => {
+		expect(requestsHelp(['deploy', '--help'])).toBe(true);
+		expect(requestsHelp(['deploy', '-h'])).toBe(true);
+	});
+
+	it('ignores a post-separator help literal', () => {
+		expect(requestsHelp(['deploy', '--', '--help'])).toBe(false);
+		expect(requestsHelp(['deploy', '--', '-h'])).toBe(false);
+	});
+
+	it('returns false without a help token', () => {
+		expect(requestsHelp(['deploy', '--force'])).toBe(false);
+		expect(requestsHelp([])).toBe(false);
+	});
+});
+
 // === Numeric constraints (parse boundary)
 
 describe('numeric constraints — flags', () => {
-	function numberFlagSchema(constraints?: Parameters<typeof createSchema>[1]) {
-		return makeSchema({ flags: { n: createSchema('number', constraints) } });
+	function numberFlagSchema(constraints?: FlagDefinitionOverrides<'number'>) {
+		return makeSchema({ flags: { n: createFlagSchema('number', constraints) } });
 	}
 
 	it('rejects Infinity by default (finite defaults true)', () => {
@@ -998,7 +1023,7 @@ describe('numeric constraints — flags', () => {
 });
 
 describe('numeric constraints — args', () => {
-	function numberArgSchema(constraints?: Parameters<typeof createArgSchema>[1]) {
+	function numberArgSchema(constraints?: ArgDefinitionOverrides<'number'>) {
 		return makeSchema({
 			args: [{ name: 'count', schema: createArgSchema('number', constraints) }],
 		});

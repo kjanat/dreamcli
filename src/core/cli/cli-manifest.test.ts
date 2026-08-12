@@ -1,14 +1,13 @@
 /**
- * Integration tests for package.json auto-discovery wired through CLIBuilder.run().
+ * Integration tests for manifest auto-discovery wired through CLIBuilder.run().
  *
- * Tests the .packageJson() builder method, auto-fill of version/description,
+ * Tests the .manifest() builder method, auto-fill of version/description,
  * name inference, precedence (explicit wins), and completions skip.
  */
 import { describe, expect, it } from 'vitest';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
-import type { ManifestSettings } from './index.ts';
 import { cli, isMainModule } from './index.ts';
 
 // === Test helpers
@@ -22,6 +21,9 @@ function infoCommand() {
 			out.json({ ok: true });
 		});
 }
+
+/** Deno-family manifest candidates, in discovery priority order. */
+const DENO_FILES: readonly string[] = ['deno.json', 'deno.jsonc', 'jsr.json'];
 
 /** Helper: run app via .run() with adapter, capture stdout/stderr. */
 async function runWithAdapter(
@@ -55,110 +57,22 @@ async function runWithAdapter(
 	return { stdout: stdoutLines, stderr: stderrLines, exitCode };
 }
 
-// === CLIBuilder.packageJson() — builder method
+// === CLIBuilder.manifest() — builder method
 
-describe('CLIBuilder.packageJson() — builder method', () => {
+describe('CLIBuilder.manifest() — builder method', () => {
 	it('returns a new CLIBuilder (immutability)', () => {
 		const a = cli('myapp');
-		const b = a.packageJson();
+		const b = a.manifest();
 		expect(a).not.toBe(b);
 		expect(a.schema.packageJsonSettings).toBeUndefined();
 		expect(b.schema.packageJsonSettings).toBeDefined();
 	});
 
-	it('stores default settings (inferName: false)', () => {
-		const app = cli('myapp').packageJson();
-		expect(app.schema.packageJsonSettings).toEqual({
-			inferName: false,
-			stripScope: true,
-			from: undefined,
-			files: ['package.json'],
-			data: undefined,
-		});
-	});
-
-	it('stores inferName: true', () => {
-		const app = cli('myapp').packageJson({ inferName: true });
-		expect(app.schema.packageJsonSettings).toEqual({
-			inferName: true,
-			stripScope: true,
-			from: undefined,
-			files: ['package.json'],
-			data: undefined,
-		});
-	});
-
-	it('packageJsonSettings is undefined when .packageJson() not called', () => {
+	it('packageJsonSettings is undefined when .manifest() not called', () => {
 		const app = cli('myapp');
 		expect(app.schema.packageJsonSettings).toBeUndefined();
 	});
 
-	it('stores from as a plain string path', () => {
-		const app = cli('myapp').packageJson({ from: '/anchor' });
-		expect(app.schema.packageJsonSettings).toEqual({
-			inferName: false,
-			stripScope: true,
-			from: '/anchor',
-			files: ['package.json'],
-			data: undefined,
-		});
-	});
-
-	it('normalizes a file: URL string in from', () => {
-		const app = cli('myapp').packageJson({ from: 'file:///anchor/cli.js' });
-		expect(app.schema.packageJsonSettings?.from).toBe('/anchor/cli.js');
-	});
-
-	it('normalizes a URL instance in from', () => {
-		const app = cli('myapp').packageJson({ from: new URL('file:///anchor/cli.js') });
-		expect(app.schema.packageJsonSettings?.from).toBe('/anchor/cli.js');
-	});
-
-	it('stores data and hardcodes inferName false / from undefined', () => {
-		const app = cli('myapp').packageJson({ version: '5.5.5' });
-		expect(app.schema.packageJsonSettings).toEqual({
-			inferName: false,
-			stripScope: true,
-			from: undefined,
-			files: ['package.json'],
-			data: { version: '5.5.5' },
-		});
-	});
-
-	it('empty object falls through to the settings overload (not data)', () => {
-		const app = cli('myapp').packageJson({});
-		expect(app.schema.packageJsonSettings).toEqual({
-			inferName: false,
-			stripScope: true,
-			from: undefined,
-			files: ['package.json'],
-			data: undefined,
-		});
-	});
-
-	it('routes name/bin objects to the data path', () => {
-		expect(cli('x').packageJson({ name: 'pkg' }).schema.packageJsonSettings?.data).toEqual({
-			name: 'pkg',
-		});
-		expect(
-			cli('x').packageJson({ bin: { tool: './c.js' } }).schema.packageJsonSettings?.data,
-		).toEqual({ bin: { tool: './c.js' } });
-	});
-
-	it('routes non-object / array inputs to the settings overload', () => {
-		// Defensive: the public overloads forbid these, but the runtime guard
-		// must not misclassify them as data (covers the null / Array.isArray paths).
-		const callPackageJson = (value: unknown): ReturnType<typeof cli> =>
-			(cli('x').packageJson as (v: unknown) => ReturnType<typeof cli>)(value);
-
-		expect(callPackageJson(null).schema.packageJsonSettings?.data).toBeUndefined();
-		expect(callPackageJson([1]).schema.packageJsonSettings?.data).toBeUndefined();
-	});
-});
-
-// === CLIBuilder.manifest() / .denoJson() — builder methods
-
-describe('CLIBuilder.manifest() — builder method', () => {
 	it('defaults files to package.json', () => {
 		const app = cli('myapp').manifest();
 		expect(app.schema.packageJsonSettings).toEqual({
@@ -187,13 +101,13 @@ describe('CLIBuilder.manifest() — builder method', () => {
 
 	it('inferName: true strips scope by default', () => {
 		const app = cli('myapp').manifest({ inferName: true });
-		expect(app.schema.packageJsonSettings).toMatchObject({ inferName: true, stripScope: true });
-	});
-
-	it('data overload merges version immediately', () => {
-		const app = cli('myapp').manifest({ version: '9.9.9' });
-		expect(app.schema.version).toBe('9.9.9');
-		expect(app.schema.packageJsonSettings?.data).toEqual({ version: '9.9.9' });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: true,
+			stripScope: true,
+			from: undefined,
+			files: ['package.json'],
+			data: undefined,
+		});
 	});
 
 	it('explicit inferName: false resolves to no inference, scope strip default', () => {
@@ -207,6 +121,59 @@ describe('CLIBuilder.manifest() — builder method', () => {
 		});
 	});
 
+	it('empty object falls through to the settings overload (not data)', () => {
+		const app = cli('myapp').manifest({});
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['package.json'],
+			data: undefined,
+		});
+	});
+
+	it('stores from as a plain string path', () => {
+		const app = cli('myapp').manifest({ from: '/anchor' });
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: '/anchor',
+			files: ['package.json'],
+			data: undefined,
+		});
+	});
+
+	it('normalizes a file: URL string in from', () => {
+		const app = cli('myapp').manifest({ from: 'file:///anchor/cli.js' });
+		expect(app.schema.packageJsonSettings?.from).toBe('/anchor/cli.js');
+	});
+
+	it('normalizes a URL instance in from', () => {
+		const app = cli('myapp').manifest({ from: new URL('file:///anchor/cli.js') });
+		expect(app.schema.packageJsonSettings?.from).toBe('/anchor/cli.js');
+	});
+
+	it('data overload merges version and hardcodes inferName false / from undefined', () => {
+		const app = cli('myapp').manifest({ version: '9.9.9' });
+		expect(app.schema.version).toBe('9.9.9');
+		expect(app.schema.packageJsonSettings).toEqual({
+			inferName: false,
+			stripScope: true,
+			from: undefined,
+			files: ['package.json'],
+			data: { version: '9.9.9' },
+		});
+	});
+
+	it('routes name/bin objects to the data overload', () => {
+		expect(cli('x').manifest({ name: 'pkg' }).schema.packageJsonSettings?.data).toEqual({
+			name: 'pkg',
+		});
+		expect(cli('x').manifest({ bin: { tool: './c.js' } }).schema.packageJsonSettings?.data).toEqual(
+			{ bin: { tool: './c.js' } },
+		);
+	});
+
 	it('routes homepage-only and repository-only objects to the data overload', () => {
 		// isPackageJsonData recognizes homepage/repository, so these are data, not settings.
 		expect(
@@ -216,31 +183,15 @@ describe('CLIBuilder.manifest() — builder method', () => {
 			cli('y').manifest({ repository: 'github:me/y' }).schema.packageJsonSettings?.data,
 		).toEqual({ repository: 'github:me/y' });
 	});
-});
 
-describe('CLIBuilder.denoJson() — builder method', () => {
-	it('stores deno.json, deno.jsonc, then jsr.json as candidate files', () => {
-		const app = cli('myapp').denoJson();
-		expect(app.schema.packageJsonSettings).toEqual({
-			inferName: false,
-			stripScope: true,
-			from: undefined,
-			files: ['deno.json', 'deno.jsonc', 'jsr.json'],
-			data: undefined,
-		});
-	});
+	it('routes non-object / array inputs to the settings overload', () => {
+		// Defensive: the public overloads forbid these, but the runtime guard
+		// must not misclassify them as data (covers the null / Array.isArray paths).
+		const callManifest = (value: unknown): ReturnType<typeof cli> =>
+			(cli('x').manifest as (v: unknown) => ReturnType<typeof cli>)(value);
 
-	it('normalizes from and honours inferName scope', () => {
-		const app = cli('myapp').denoJson({
-			from: 'file:///lib/cli.js',
-			inferName: { scope: 'keep' },
-		});
-		expect(app.schema.packageJsonSettings).toMatchObject({
-			from: '/lib/cli.js',
-			inferName: true,
-			stripScope: false,
-			files: ['deno.json', 'deno.jsonc', 'jsr.json'],
-		});
+		expect(callManifest(null).schema.packageJsonSettings?.data).toBeUndefined();
+		expect(callManifest([1]).schema.packageJsonSettings?.data).toBeUndefined();
 	});
 });
 
@@ -248,7 +199,7 @@ describe('CLIBuilder.denoJson() — builder method', () => {
 
 describe('CLIBuilder.run() — package.json version', () => {
 	it('fills version from package.json', async () => {
-		const app = cli('myapp').packageJson().command(infoCommand());
+		const app = cli('myapp').manifest().command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/package.json': '{"version":"3.2.1"}',
@@ -258,7 +209,7 @@ describe('CLIBuilder.run() — package.json version', () => {
 	});
 
 	it('explicit .version() wins over discovered', async () => {
-		const app = cli('myapp').packageJson().version('9.9.9').command(infoCommand());
+		const app = cli('myapp').manifest().version('9.9.9').command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/package.json': '{"version":"1.0.0"}',
@@ -268,7 +219,7 @@ describe('CLIBuilder.run() — package.json version', () => {
 	});
 
 	it('rejects --version when neither explicit nor discovered', async () => {
-		const app = cli('myapp').packageJson().command(infoCommand());
+		const app = cli('myapp').manifest().command(infoCommand());
 
 		const { exitCode, stderr } = await runWithAdapter(app, ['--version']);
 
@@ -278,11 +229,132 @@ describe('CLIBuilder.run() — package.json version', () => {
 	});
 });
 
-// === CLIBuilder.run() — deno.json / manifest discovery
+// === CLIBuilder.run() — discovered version collides with a command flag
 
-describe('CLIBuilder.run() — deno.json discovery', () => {
-	it('.denoJson() fills version from deno.json', async () => {
-		const app = cli('myapp').denoJson().command(infoCommand());
+describe('CLIBuilder.run() — discovered version reserved-flag collision', () => {
+	it('renders the collision to stderr and exits instead of rejecting', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('version', flag.boolean())
+					.action(({ out }) => {
+						out.json({ ok: true });
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app, ['info'], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toEqual([]);
+		expect(stderr).toEqual([
+			"Error: Command 'info' defines a '--version' flag, which is reserved by the root '--version' flag. The root intercepts that token before dispatch, so the command can never receive it\n",
+			'Suggestion: Rename the flag\n',
+		]);
+	});
+
+	it('serializes the collision to stdout in json mode', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('version', flag.boolean())
+					.action(({ out }) => {
+						out.json({ ok: true });
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app, ['info', '--json'], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stderr).toEqual([]);
+		expect(stdout.length).toBe(1);
+		expect(JSON.parse(stdout[0] ?? '')).toEqual({
+			error: {
+				name: 'CLIError',
+				code: 'RESERVED_FLAG',
+				message:
+					"Command 'info' defines a '--version' flag, which is reserved by the root '--version' flag. The root intercepts that token before dispatch, so the command can never receive it",
+				details: { command: 'info', flag: 'version' },
+				suggest: 'Rename the flag',
+				exitCode: 1,
+			},
+		});
+	});
+
+	it('runs the discovered-version command when nothing collides', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('versionTag', flag.string())
+					.action(({ out }) => {
+						out.json({ ok: true });
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app, ['info'], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stderr).toEqual([]);
+		expect(JSON.parse(stdout.join(''))).toEqual({ ok: true });
+	});
+
+	it('renders a collision on the default command', async () => {
+		const app = cli('myapp').default(
+			command('start')
+				.flag('version', flag.boolean())
+				.action(({ out }) => {
+					out.json({ ok: true });
+				}),
+		);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(app.manifest(), [], {
+			'/test/package.json': '{"version":"6.6.6"}',
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toEqual([]);
+		expect(stderr[0]).toContain("Command 'start' defines a '--version' flag");
+	});
+
+	it('leaves a released built-in alone when discovery supplies the version', async () => {
+		const app = cli('myapp')
+			.builtins({ json: 'off' })
+			.manifest()
+			.command(
+				command('validate')
+					.flag('json', flag.string())
+					.action(({ flags, out }) => {
+						out.log(flags.json ?? '');
+					}),
+			);
+
+		const { exitCode, stdout, stderr } = await runWithAdapter(
+			app,
+			['validate', '--json', 'doc.txt'],
+			{
+				'/test/package.json': '{"version":"6.6.6"}',
+			},
+		);
+
+		expect(exitCode).toBe(0);
+		expect(stderr).toEqual([]);
+		expect(stdout.join('')).toContain('doc.txt');
+	});
+});
+
+// === CLIBuilder.run() — deno-family manifest discovery
+
+describe('CLIBuilder.run() — deno-family manifest discovery', () => {
+	it('fills version from deno.json', async () => {
+		const app = cli('myapp').manifest({ files: DENO_FILES }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/deno.json': '{"name":"@scope/myapp","version":"4.5.6"}',
@@ -291,8 +363,8 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 		expect(stdout.join('')).toBe('4.5.6\n');
 	});
 
-	it('.denoJson() falls back to jsr.json when deno.json is absent', async () => {
-		const app = cli('myapp').denoJson().command(infoCommand());
+	it('falls back to jsr.json when deno.json is absent', async () => {
+		const app = cli('myapp').manifest({ files: DENO_FILES }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/jsr.json': '{"version":"7.8.9"}',
@@ -301,8 +373,8 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 		expect(stdout.join('')).toBe('7.8.9\n');
 	});
 
-	it('.denoJson() discovers a deno.jsonc file (with comments)', async () => {
-		const app = cli('myapp').denoJson().command(infoCommand());
+	it('discovers a deno.jsonc file (with comments)', async () => {
+		const app = cli('myapp').manifest({ files: DENO_FILES }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/deno.jsonc': '{\n  // pinned\n  "version": "6.6.6"\n}',
@@ -325,7 +397,7 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 
 	it('inferName keeps the scope when scope: "keep"', async () => {
 		const app = cli('placeholder')
-			.denoJson({ inferName: { scope: 'keep' } })
+			.manifest({ files: DENO_FILES, inferName: { scope: 'keep' } })
 			.command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
@@ -337,7 +409,9 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 	});
 
 	it('inferName strips the scope by default', async () => {
-		const app = cli('placeholder').denoJson({ inferName: true }).command(infoCommand());
+		const app = cli('placeholder')
+			.manifest({ files: DENO_FILES, inferName: true })
+			.command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/deno.json': '{"name":"@scope/realname","version":"1.0.0"}',
@@ -385,11 +459,11 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 		expect(stdout.join('')).toContain('@scope/right');
 	});
 
-	it('.denoJson() skips a config-only deno.json and uses jsr.json version', async () => {
-		// Headline Deno shape through the public preset: deno.json kept as a
-		// tasks/imports config file, publish metadata lives in jsr.json. The
-		// config-only deno.json must NOT shadow the sibling jsr.json.
-		const app = cli('myapp').denoJson().command(infoCommand());
+	it('skips a config-only deno.json and uses jsr.json version', async () => {
+		// Headline Deno shape: deno.json kept as a tasks/imports config file,
+		// publish metadata lives in jsr.json. The config-only deno.json must NOT
+		// shadow the sibling jsr.json.
+		const app = cli('myapp').manifest({ files: DENO_FILES }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/deno.json': '{"tasks":{"dev":"deno run main.ts"},"imports":{}}',
@@ -403,7 +477,9 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 		// deno.json carries a version but no `name` and no `bin`, so inferCliName
 		// returns undefined — the configured cli('placeholder') name must survive
 		// (not be clobbered with an empty/undefined value).
-		const app = cli('placeholder').denoJson({ inferName: true }).command(infoCommand());
+		const app = cli('placeholder')
+			.manifest({ files: DENO_FILES, inferName: true })
+			.command(infoCommand());
 
 		const files = { '/test/deno.json': '{"version":"1.0.0"}' };
 
@@ -419,7 +495,7 @@ describe('CLIBuilder.run() — deno.json discovery', () => {
 
 describe('CLIBuilder.run() — package.json description', () => {
 	it('fills description from package.json into help', async () => {
-		const app = cli('myapp').packageJson().command(infoCommand());
+		const app = cli('myapp').manifest().command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/package.json': '{"description":"My awesome CLI tool"}',
@@ -429,7 +505,7 @@ describe('CLIBuilder.run() — package.json description', () => {
 	});
 
 	it('explicit .description() wins over discovered', async () => {
-		const app = cli('myapp').packageJson().description('Explicit desc').command(infoCommand());
+		const app = cli('myapp').manifest().description('Explicit desc').command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/package.json': '{"description":"Package desc"}',
@@ -444,7 +520,7 @@ describe('CLIBuilder.run() — package.json description', () => {
 
 describe('CLIBuilder.run() — package.json name inference', () => {
 	it('infers name from bin key when inferName: true', async () => {
-		const app = cli('placeholder').packageJson({ inferName: true }).command(infoCommand());
+		const app = cli('placeholder').manifest({ inferName: true }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/package.json': JSON.stringify({
@@ -458,7 +534,7 @@ describe('CLIBuilder.run() — package.json name inference', () => {
 	});
 
 	it('infers name from package name (scope stripped) when no bin', async () => {
-		const app = cli('placeholder').packageJson({ inferName: true }).command(infoCommand());
+		const app = cli('placeholder').manifest({ inferName: true }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/package.json': '{"name":"@scope/my-tool"}',
@@ -467,8 +543,8 @@ describe('CLIBuilder.run() — package.json name inference', () => {
 		expect(stdout.join('')).toContain('my-tool');
 	});
 
-	it('does not infer name when inferName is false (default)', async () => {
-		const app = cli('myapp').packageJson().command(infoCommand());
+	it('does not infer name when inferName is omitted (default)', async () => {
+		const app = cli('myapp').manifest().command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/package.json': JSON.stringify({
@@ -502,7 +578,7 @@ describe('CLIBuilder.run() — package.json name inference', () => {
 
 describe('CLIBuilder.run() — package.json walk-up', () => {
 	it('walks up to find package.json in parent directory', async () => {
-		const app = cli('myapp').packageJson().command(infoCommand());
+		const app = cli('myapp').manifest().command(infoCommand());
 
 		const { stdout } = await runWithAdapter(
 			app,
@@ -523,7 +599,7 @@ describe('CLIBuilder.run() — walk-up past a metadata-less package.json', () =>
 		// leaf package.json — e.g. a monorepo root with only private/workspaces —
 		// no longer halts the walk-up. The nearest ancestor carrying real metadata
 		// wins, so its version surfaces where the old behavior resolved to {}.
-		const app = cli('myapp').packageJson().command(infoCommand());
+		const app = cli('myapp').manifest().command(infoCommand());
 
 		const { stdout } = await runWithAdapter(
 			app,
@@ -541,8 +617,8 @@ describe('CLIBuilder.run() — walk-up past a metadata-less package.json', () =>
 
 // === CLIBuilder.run() — no discovery when not opted in
 
-describe('CLIBuilder.run() — no discovery without .packageJson()', () => {
-	it('does not read package.json when .packageJson() not called', async () => {
+describe('CLIBuilder.run() — no discovery without .manifest()', () => {
+	it('does not read package.json when .manifest() not called', async () => {
 		let readCalled = false;
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({
@@ -567,7 +643,7 @@ describe('CLIBuilder.run() — no discovery without .packageJson()', () => {
 	});
 });
 
-// === CLIBuilder.run() — completions skip package.json
+// === CLIBuilder.run() — completions skip manifest discovery
 
 describe('CLIBuilder.run() — completions skip package.json', () => {
 	it('completions subcommand does not trigger package.json loading', async () => {
@@ -582,7 +658,7 @@ describe('CLIBuilder.run() — completions skip package.json', () => {
 			},
 		});
 
-		const app = cli('myapp').packageJson().command(infoCommand()).completions();
+		const app = cli('myapp').manifest().command(infoCommand()).completions();
 
 		try {
 			await app.run({ adapter });
@@ -599,7 +675,7 @@ describe('CLIBuilder.run() — completions skip package.json', () => {
 
 describe('CLIBuilder.run() — package.json error resilience', () => {
 	it('malformed package.json is silently ignored', async () => {
-		const app = cli('myapp').packageJson().version('1.0.0').command(infoCommand());
+		const app = cli('myapp').manifest().version('1.0.0').command(infoCommand());
 
 		const { stdout, exitCode } = await runWithAdapter(app, ['--version'], {
 			'/test/package.json': '{bad json',
@@ -610,7 +686,7 @@ describe('CLIBuilder.run() — package.json error resilience', () => {
 	});
 
 	it('no package.json found is silently ignored', async () => {
-		const app = cli('myapp').packageJson().command(infoCommand());
+		const app = cli('myapp').manifest().command(infoCommand());
 
 		const { exitCode } = await runWithAdapter(app, ['info']);
 
@@ -621,9 +697,9 @@ describe('CLIBuilder.run() — package.json error resilience', () => {
 // === CLIBuilder.run() — combined with .config()
 
 describe('CLIBuilder.run() — package.json combined with config', () => {
-	it('both .packageJson() and .config() work together', async () => {
+	it('both .manifest() and .config() work together', async () => {
 		const app = cli('myapp')
-			.packageJson()
+			.manifest()
 			.config('myapp')
 			.command(
 				command('deploy')
@@ -645,7 +721,7 @@ describe('CLIBuilder.run() — package.json combined with config', () => {
 	});
 
 	it('--version shows discovered version when combined with .config()', async () => {
-		const app = cli('myapp').packageJson().config('myapp').command(infoCommand());
+		const app = cli('myapp').manifest().config('myapp').command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/test/package.json': '{"version":"4.5.6"}',
@@ -655,11 +731,11 @@ describe('CLIBuilder.run() — package.json combined with config', () => {
 	});
 });
 
-// === CLIBuilder.packageJson({ from }) — anchored discovery in run()
+// === CLIBuilder.manifest({ from }) — anchored discovery in run()
 
-describe('CLIBuilder.packageJson({ from }) — anchored discovery', () => {
+describe('CLIBuilder.manifest({ from }) — anchored discovery', () => {
 	it('anchors discovery to the from directory, overriding cwd', async () => {
-		const app = cli('myapp').packageJson({ from: '/anchor' }).command(infoCommand());
+		const app = cli('myapp').manifest({ from: '/anchor' }).command(infoCommand());
 
 		// cwd is the default '/test'; the from anchor must win.
 		const { stdout } = await runWithAdapter(app, ['--version'], {
@@ -671,7 +747,7 @@ describe('CLIBuilder.packageJson({ from }) — anchored discovery', () => {
 	});
 
 	it('anchors discovery from a file: URL string (e.g. import.meta.url)', async () => {
-		const app = cli('myapp').packageJson({ from: 'file:///anchor/cli.js' }).command(infoCommand());
+		const app = cli('myapp').manifest({ from: 'file:///anchor/cli.js' }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/anchor/package.json': '{"version":"2.2.2"}',
@@ -682,7 +758,7 @@ describe('CLIBuilder.packageJson({ from }) — anchored discovery', () => {
 
 	it('anchors discovery from a URL instance', async () => {
 		const app = cli('myapp')
-			.packageJson({ from: new URL('file:///anchor/cli.js') })
+			.manifest({ from: new URL('file:///anchor/cli.js') })
 			.command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
@@ -694,7 +770,7 @@ describe('CLIBuilder.packageJson({ from }) — anchored discovery', () => {
 
 	it('anchors discovery from an import.meta object', async () => {
 		const meta: ImportMeta = { ...import.meta, url: 'file:///anchor/cli.js' };
-		const app = cli('myapp').packageJson({ from: meta }).command(infoCommand());
+		const app = cli('myapp').manifest({ from: meta }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--version'], {
 			'/anchor/package.json': '{"version":"3.3.3"}',
@@ -715,91 +791,11 @@ describe('isMainModule', () => {
 	});
 });
 
-// === CLIBuilder.packageJson(data) — pre-loaded data
+// === CLIBuilder.manifest() — settings vs data discrimination (end-to-end)
 
-describe('CLIBuilder.packageJson(data) — pre-loaded data', () => {
-	it('reports version from data via run() without touching the filesystem', async () => {
-		let readCalled = false;
-		const stdoutLines: string[] = [];
-		const adapter = createTestAdapter({
-			argv: ['node', 'test', '--version'],
-			stdout: (s) => stdoutLines.push(s),
-			readFile: async () => {
-				readCalled = true;
-				return null;
-			},
-		});
-
-		const app = cli('myapp').packageJson({ version: '6.0.0' }).command(infoCommand());
-
-		try {
-			await app.run({ adapter });
-		} catch (e: unknown) {
-			if (!(e instanceof ExitError)) throw e;
-		}
-
-		expect(readCalled).toBe(false);
-		expect(stdoutLines.join('')).toBe('6.0.0\n');
-	});
-
-	it('reports version from data via execute() — filesystem-free path', async () => {
-		const app = cli('myapp').packageJson({ version: '6.0.0' }).command(infoCommand());
-
-		const result = await app.execute(['--version']);
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout.join('')).toBe('6.0.0\n');
-	});
-
-	it('fills description from data into help via execute()', async () => {
-		const app = cli('myapp').packageJson({ description: 'Data desc' }).command(infoCommand());
-
-		const result = await app.execute(['--help']);
-
-		expect(result.stdout.join('')).toContain('Data desc');
-	});
-
-	it('explicit .version() before .packageJson(data) wins', async () => {
-		const app = cli('myapp')
-			.version('9.9.9')
-			.packageJson({ version: '1.1.1' })
-			.command(infoCommand());
-
-		const result = await app.execute(['--version']);
-
-		expect(result.stdout.join('')).toBe('9.9.9\n');
-	});
-
-	it('explicit .description() wins over data description', async () => {
-		const app = cli('myapp')
-			.description('Explicit desc')
-			.packageJson({ description: 'Data desc' })
-			.command(infoCommand());
-
-		const result = await app.execute(['--help']);
-
-		expect(result.stdout.join('')).toContain('Explicit desc');
-		expect(result.stdout.join('')).not.toContain('Data desc');
-	});
-
-	it('does NOT infer name from data even when name/bin present', async () => {
-		const app = cli('placeholder')
-			.packageJson({ name: '@scope/my-tool', bin: { 'my-tool': './dist/cli.js' } })
-			.command(infoCommand());
-
-		expect(app.schema.packageJsonSettings?.inferName).toBe(false);
-
-		const result = await app.execute(['--help']);
-		expect(result.stdout.join('')).toContain('placeholder');
-		expect(result.stdout.join('')).not.toContain('my-tool');
-	});
-});
-
-// === CLIBuilder.packageJson() — settings vs data discrimination (end-to-end)
-
-describe('CLIBuilder.packageJson() — settings vs data discrimination', () => {
+describe('CLIBuilder.manifest() — settings vs data discrimination', () => {
 	it('empty {} routes to settings: --version falls through as unknown flag', async () => {
-		const app = cli('myapp').packageJson({}).command(infoCommand());
+		const app = cli('myapp').manifest({}).command(infoCommand());
 
 		const { exitCode, stderr } = await runWithAdapter(app, ['--version']);
 
@@ -808,7 +804,7 @@ describe('CLIBuilder.packageJson() — settings vs data discrimination', () => {
 	});
 
 	it('{ inferName: true } routes to settings and still infers the name', async () => {
-		const app = cli('placeholder').packageJson({ inferName: true }).command(infoCommand());
+		const app = cli('placeholder').manifest({ inferName: true }).command(infoCommand());
 
 		const { stdout } = await runWithAdapter(app, ['--help'], {
 			'/test/package.json': '{"name":"@scope/inferred-tool"}',
@@ -816,28 +812,6 @@ describe('CLIBuilder.packageJson() — settings vs data discrimination', () => {
 
 		expect(stdout.join('')).toContain('inferred-tool');
 		expect(stdout.join('')).not.toContain('placeholder');
-	});
-
-	it('presets pin their file list even when a settings variable leaks `files`', () => {
-		// A ManifestSettings variable binds structurally to the data overload,
-		// slips past the Omit<…,'files'> compile guard, and would otherwise leak
-		// `files` into the settings branch at runtime. Presets must pin regardless.
-		const leakyDeno: ManifestSettings = { files: ['deno.json', 'jsr.json'] };
-		const leakyPkg: ManifestSettings = { files: ['package.json'] };
-
-		expect(cli('x').packageJson(leakyDeno).schema.packageJsonSettings?.files).toEqual([
-			'package.json',
-		]);
-		expect(cli('y').denoJson(leakyPkg).schema.packageJsonSettings?.files).toEqual([
-			'deno.json',
-			'deno.jsonc',
-			'jsr.json',
-		]);
-		// manifest() is NOT a preset — it honours an explicit files list.
-		expect(cli('z').manifest(leakyDeno).schema.packageJsonSettings?.files).toEqual([
-			'deno.json',
-			'jsr.json',
-		]);
 	});
 });
 
@@ -883,5 +857,37 @@ describe('CLIBuilder.manifest(data) — end-to-end', () => {
 		const result = await app.execute(['--help']);
 
 		expect(result.stdout.join('')).toContain('Manifest data desc');
+	});
+
+	it('explicit .version() before .manifest(data) wins', async () => {
+		const app = cli('myapp').version('9.9.9').manifest({ version: '1.1.1' }).command(infoCommand());
+
+		const result = await app.execute(['--version']);
+
+		expect(result.stdout.join('')).toBe('9.9.9\n');
+	});
+
+	it('explicit .description() wins over data description', async () => {
+		const app = cli('myapp')
+			.description('Explicit desc')
+			.manifest({ description: 'Data desc' })
+			.command(infoCommand());
+
+		const result = await app.execute(['--help']);
+
+		expect(result.stdout.join('')).toContain('Explicit desc');
+		expect(result.stdout.join('')).not.toContain('Data desc');
+	});
+
+	it('does NOT infer name from data even when name/bin present', async () => {
+		const app = cli('placeholder')
+			.manifest({ name: '@scope/my-tool', bin: { 'my-tool': './dist/cli.js' } })
+			.command(infoCommand());
+
+		expect(app.schema.packageJsonSettings?.inferName).toBe(false);
+
+		const result = await app.execute(['--help']);
+		expect(result.stdout.join('')).toContain('placeholder');
+		expect(result.stdout.join('')).not.toContain('my-tool');
 	});
 });

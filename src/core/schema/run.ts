@@ -2,12 +2,13 @@
  * Run result type — structured output from command execution.
  *
  * Lives in schema (not testkit) because it describes the execution contract
- * that `ErasedCommand._execute` returns. Both schema and testkit layers
- * reference it without dependency inversion.
+ * the shared executor returns. Both schema and testkit layers reference it
+ * without dependency inversion.
  *
  * @module dreamcli/core/schema/run
  */
 
+import type { BuiltinsConfig } from '#internals/core/cli/builtins.ts';
 import type { CLIPlugin } from '#internals/core/cli/plugin.ts';
 import type { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
@@ -28,34 +29,36 @@ import type { CommandMeta, CommandSchema, Out } from './command.ts';
  */
 export interface RunOptions {
 	/**
-	 * Environment variables for flag resolution.
+	 * Environment variables for flag and arg resolution.
 	 *
-	 * Flags with `.env('VAR')` configured resolve from this record
-	 * when no CLI value is provided (CLI → env → config → prompt → default).
+	 * Inputs with `.env('VAR')` configured resolve from this record when CLI
+	 * and stdin produce nothing
+	 * (CLI → stdin → env → config → prompt → default).
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
 
 	/**
-	 * Configuration object for flag resolution.
+	 * Configuration object for flag and arg resolution.
 	 *
-	 * Flags with `.config('path')` configured resolve from this record
-	 * when no CLI or env value is provided (CLI → env → config → prompt → default).
-	 * Config is plain JSON — file loading is the caller's responsibility.
+	 * Inputs with `.config('path')` configured resolve from this record when
+	 * CLI, stdin, and env produce nothing
+	 * (CLI → stdin → env → config → prompt → default).
+	 * Config is plain JSON, so file loading is the caller's responsibility.
 	 */
 	readonly config?: Readonly<Record<string, unknown>>;
 
 	/**
-	 * Full stdin contents for args configured with `.stdin()`.
+	 * Full stdin contents for flags and args configured with `.stdin()`.
 	 *
 	 * Lets tests inject piped input without a runtime adapter.
 	 */
 	readonly stdinData?: string | null;
 
 	/**
-	 * Prompt engine for interactive flag resolution.
+	 * Prompt engine for interactive flag and arg resolution.
 	 *
-	 * When provided, flags with `.prompt()` configured that have no value
-	 * after CLI/env/config resolution will be prompted interactively.
+	 * When provided, inputs with `.prompt()` configured that have no value
+	 * after CLI, stdin, env, and config resolution are prompted interactively.
 	 *
 	 * When absent (and `answers` is also absent), prompting is skipped
 	 * and resolution falls through to default/required.
@@ -76,8 +79,8 @@ export interface RunOptions {
 	readonly answers?: readonly TestAnswer[];
 
 	/**
-	 * Filesystem probe for `flag.path()` checks: reports what exists at a
-	 * path (`'file'`, `'directory'`, or `null` for nothing).
+	 * Filesystem probe for `flag.path()` and `arg.path()` checks: reports what
+	 * exists at a path (`'file'`, `'directory'`, or `null` for nothing).
 	 *
 	 * `CLIBuilder.run()` supplies the runtime adapter's probe automatically.
 	 * When absent (process-free `.execute()` / `runCommand()` without an
@@ -86,7 +89,8 @@ export interface RunOptions {
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 
 	/**
-	 * Recursive directory creation for `flag.path()` `create` checks.
+	 * Recursive directory creation for `flag.path()` and `arg.path()` `create`
+	 * checks.
 	 *
 	 * `CLIBuilder.run()` supplies the runtime adapter's implementation
 	 * automatically. When absent, missing paths are not created.
@@ -122,22 +126,6 @@ export interface RunOptions {
 	readonly isTTY?: boolean;
 
 	/**
-	 * Output channel override used by live CLI execution.
-	 *
-	 * @internal — `CLIBuilder.run()` passes a real output channel so activity renders to
-	 * the terminal instead of being captured.
-	 */
-	readonly out?: Out;
-
-	/**
-	 * Capture buffers override paired with `out`.
-	 *
-	 * @internal — when omitted, `runCommand()` creates empty buffers for the
-	 * returned {@linkcode RunResult} while writing directly to the provided `out`.
-	 */
-	readonly captured?: CapturedOutput;
-
-	/**
 	 * Help formatting options (width, binName).
 	 * Used when `--help` is detected.
 	 */
@@ -153,15 +141,38 @@ export interface RunOptions {
 	 * @defaultValue `{ caseParity: true }`
 	 */
 	readonly flags?: ParseOptions;
+}
+
+/**
+ * Execution options threaded between the CLI dispatch layer, the shared
+ * executor, and the testkit. Extends the public {@linkcode RunOptions} with
+ * fields the framework populates itself.
+ *
+ * @internal
+ */
+export interface InternalRunOptions extends RunOptions {
+	/**
+	 * Output channel override used by live CLI execution.
+	 *
+	 * `CLIBuilder.run()` passes a real output channel so activity renders to
+	 * the terminal instead of being captured.
+	 */
+	readonly out?: Out;
+
+	/**
+	 * Capture buffers override paired with `out`.
+	 *
+	 * When omitted, `runCommand()` creates empty buffers for the returned
+	 * {@linkcode RunResult} while writing directly to the provided `out`.
+	 */
+	readonly captured?: CapturedOutput;
 
 	/**
 	 * Command schema with propagated flags merged in.
 	 *
-	 * When provided, used for parsing and resolution instead of `cmd.schema`.
-	 * Set by the CLI dispatch layer after collecting propagated flags from
-	 * the command ancestry path.
-	 *
-	 * @internal — set by dispatch layer, not for public use.
+	 * When provided, `runCommandInternal()` uses it for parsing and resolution
+	 * instead of `cmd.schema`. CLI dispatch passes its merged schema straight to
+	 * the shared executor and leaves this field unset.
 	 */
 	readonly mergedSchema?: CommandSchema;
 
@@ -171,17 +182,19 @@ export interface RunOptions {
 	 * When provided (by CLI dispatch layer), handlers receive this as `meta`.
 	 * When absent (standalone `runCommand()`), a minimal meta is constructed
 	 * from the command's own schema.
-	 *
-	 * @internal — populated by CLI dispatch, not for public use.
 	 */
 	readonly meta?: CommandMeta;
 
-	/**
-	 * CLI plugins registered on the parent `CLIBuilder`.
-	 *
-	 * @internal — threaded through from CLI dispatch.
-	 */
+	/** CLI plugins registered on the parent `CLIBuilder`. */
 	readonly plugins?: readonly CLIPlugin[];
+
+	/**
+	 * Built-in flag state from the CLI schema.
+	 *
+	 * `help: 'off'` releases the command-level `--help`/`-h` short-circuit so a
+	 * command's own `help` flag parses. Absent means every built-in is on.
+	 */
+	readonly builtins?: BuiltinsConfig;
 }
 
 /**

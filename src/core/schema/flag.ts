@@ -9,6 +9,19 @@
  * @module dreamcli/core/schema/flag
  */
 
+import { CLIError } from '#internals/core/errors/index.ts';
+import type { schemaBrand } from './brand.ts';
+import type { DuplicateKeys, SourceSplitBinding, SplitOptions } from './cardinality.ts';
+import {
+	DUPLICATE_KEYS,
+	defaultViolationError,
+	flagCardinality,
+	indefiniteArticle,
+	isCollection,
+	normalizeSplitOptions,
+	normalizeSplitPolicy,
+	validateDefault,
+} from './cardinality.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
@@ -18,14 +31,28 @@ import type {
 	SelectPromptConfig,
 } from './prompt.ts';
 import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
+import type { StdinBinding, StdinOptions } from './stdin.ts';
+import { normalizeStdinBinding } from './stdin.ts';
 import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
 import {
-	type DateFlagOptions,
-	parseBytesValue,
-	parseDateValue,
-	parseDurationValue,
-	parseUrlValue,
-	type UrlFlagOptions,
+	bytesValue,
+	customValue,
+	dateValue,
+	durationValue,
+	flagAggregateStandard,
+	flagValueSchema,
+	numberValue,
+	pathValue,
+	standardValue,
+	stringValue,
+	urlValue,
+	valueDefinitionFields,
+} from './value.ts';
+import type {
+	DateFlagOptions,
+	PathChecks,
+	PathFlagOptions,
+	UrlFlagOptions,
 } from './value-parsers.ts';
 
 // --- Type-level configuration (phantom state tracked through the chain)
@@ -122,6 +149,23 @@ type ResolvedValue<C extends FlagConfig> = C['presence'] extends 'optional'
 		: C['valueType']
 	: C['valueType'];
 
+/**
+ * The element config a collection factory assumes when given no element
+ * builder: an unconstrained string.
+ */
+type StringElementConfig = {
+	/** Element value type. */
+	readonly valueType: string;
+	/** Elements carry no presence of their own. */
+	readonly presence: 'optional';
+	/** Elements carry no fallback of their own. */
+	readonly optionalFallback: 'undefined';
+	/** Element kind discriminator. */
+	readonly flagKind: 'string';
+	/** Elements are element-eligible by construction. */
+	readonly elementEligible: true;
+};
+
 /** Extract the resolved value type from a {@linkcode FlagBuilder}. */
 type InferFlag<B> = B extends FlagBuilder<infer C extends FlagConfig> ? ResolvedValue<C> : never;
 
@@ -189,67 +233,6 @@ type FlagParseFn<T> = (raw: unknown) => T;
 type CustomFlagValue<A> =
 	A extends FlagParseFn<infer T> ? T : A extends StandardSchemaV1 ? InferStandardOutput<A> : never;
 
-/** Options accepted by `flag.path()` for any-kind or file paths. */
-interface FilePathFlagOptions {
-	/**
-	 * Reject the value if nothing exists at the path.
-	 * @defaultValue `false` (`true` when `type` is set)
-	 */
-	readonly mustExist?: boolean;
-	/**
-	 * Require the path to be a file or a directory. Implies existence
-	 * unless `mustExist` is explicitly `false`, in which case a missing
-	 * path passes and only an existing path is type-checked.
-	 * @defaultValue `undefined` (any kind)
-	 */
-	readonly type?: 'file';
-	/** Directory creation is only available with `type: 'directory'`. */
-	readonly create?: never;
-}
-
-/** Options accepted by `flag.path()` for directory paths. */
-interface DirectoryPathFlagOptions {
-	/**
-	 * Reject the value if nothing exists at the path.
-	 * @defaultValue `false` (`true` when `type` is set)
-	 */
-	readonly mustExist?: boolean;
-	/**
-	 * Require the path to be a directory. Implies existence unless
-	 * `mustExist` is explicitly `false`, in which case a missing path
-	 * passes and only an existing path is type-checked.
-	 */
-	readonly type: 'directory';
-	/**
-	 * Create the directory (recursively) when nothing exists at the path.
-	 * An existing non-directory path still fails the type check.
-	 * @defaultValue `false`
-	 */
-	readonly create?: boolean;
-}
-
-/** Options accepted by `flag.path()`. */
-type PathFlagOptions = FilePathFlagOptions | DirectoryPathFlagOptions;
-
-/**
- * Filesystem expectations attached by `flag.path()`.
- *
- * Checked after resolution (not during parse) via the runtime adapter, so
- * `src/core` stays free of platform I/O and all sources (CLI, env, config)
- * are validated identically.
- */
-interface PathChecks {
-	/** Reject the value if nothing exists at the path. */
-	readonly mustExist: boolean;
-	/**
-	 * Require the existing path to be a file or a directory. Implies
-	 * existence when set, unless `mustExist` is `false`.
-	 */
-	readonly type: 'file' | 'directory' | undefined;
-	/** Create the directory (recursively) when nothing exists at the path. */
-	readonly create: boolean;
-}
-
 /** Runtime descriptor for a flag alias. */
 interface FlagAlias {
 	/** Alias name without `-` / `--` prefix. */
@@ -297,15 +280,22 @@ type DuplicatePolicy = 'last' | 'first' | 'error';
  * help generator, resolution chain) read this to understand the flag's shape
  * without touching generics.
  */
-interface FlagSchema {
+interface FlagSchema<K extends FlagKind = FlagKind> {
+	/** Type-only seal produced by {@link createFlagSchema}. */
+	readonly [schemaBrand]: 'flag';
 	/** What kind of value this flag accepts. */
-	readonly kind: FlagKind;
+	readonly kind: K;
 	/** Current presence state. */
 	readonly presence: FlagPresence;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
 	/** Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`). */
 	readonly aliases: readonly FlagAlias[];
+	/**
+	 * Stdin binding set by `.stdin()` (`undefined` when the flag never reads
+	 * stdin). See {@link StdinBinding}.
+	 */
+	readonly stdin: StdinBinding | undefined;
 	/** Environment variable name for v0.2+ resolution. */
 	readonly envVar: string | undefined;
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
@@ -328,16 +318,29 @@ interface FlagSchema {
 	 * nonEmpty → minLength → maxLength → pattern.
 	 */
 	readonly stringConstraints: StringConstraints | undefined;
-	/** Element schema when `kind === 'array'`. */
+	/** Element schema when `kind === 'array'` or `kind === 'keyValue'`. */
 	readonly elementSchema: FlagSchema | undefined;
 	/**
-	 * Value separator when `kind === 'array'` (`undefined` otherwise).
+	 * CLI value separator for a collection kind (`undefined` otherwise).
 	 *
 	 * When set, each CLI occurrence is split on this separator before element
-	 * coercion, so `--tag a,b --tag c` yields `['a', 'b', 'c']`. Env and
-	 * config string values use this separator too (default `','`).
+	 * coercion, so `--tag a,b --tag c` yields `['a', 'b', 'c']`. Other sources
+	 * decode through {@link FlagSchema.split}.
 	 */
 	readonly separator: string | undefined;
+	/**
+	 * Env and stdin split policies for a collection kind (`undefined` otherwise).
+	 *
+	 * A source the binding leaves out takes its default: comma-delimited for env,
+	 * line-delimited for stdin.
+	 */
+	readonly split: SourceSplitBinding | undefined;
+	/**
+	 * How a repeated key combines when `kind === 'keyValue'`.
+	 *
+	 * @defaultValue `'last'`
+	 */
+	readonly duplicateKeys: DuplicateKeys;
 	/**
 	 * Deduplicate resolved array values when `kind === 'array'`.
 	 *
@@ -364,14 +367,22 @@ interface FlagSchema {
 	/** Custom parse function (only when `kind === 'custom'`). */
 	readonly parseFn: FlagParseFn<unknown> | undefined;
 	/**
-	 * Standard Schema v1 validator applied to the resolved value.
+	 * Standard Schema v1 validator applied to each resolved value.
 	 *
 	 * When set, the value from any source (CLI, env, config, prompt, default)
 	 * is validated after resolution via `~standard.validate`. Sync and async
 	 * validators are both awaited; issues surface as a `CONSTRAINT_VIOLATED`
-	 * {@link ValidationError}. Only meaningful when `kind === 'custom'`.
+	 * {@link ValidationError}. On a collection this validates every element,
+	 * whether it rides here or on {@link FlagSchema.elementSchema}.
 	 */
 	readonly standard: StandardSchemaV1 | undefined;
+	/**
+	 * Standard Schema v1 validator applied to the completed collection.
+	 *
+	 * Set by `.standard()` on a collection builder, so the array or record the
+	 * aggregation produced is validated as a whole after every element passed.
+	 */
+	readonly aggregateStandard: StandardSchemaV1 | undefined;
 	/**
 	 * Deprecation marker.
 	 *
@@ -406,15 +417,250 @@ interface FlagSchema {
 	readonly duplicates: DuplicatePolicy;
 }
 
+/** Every {@link FlagSchema} field except the brand and the kind discriminator. */
+type FlagSchemaFields = Omit<FlagSchema, typeof schemaBrand | 'kind'>;
+
 /**
- * Low-level overrides accepted by {@link createSchema}.
+ * {@link FlagSchemaFields} with every field optional and undefined-accepting.
  *
- * `aliases` accepts both legacy string input and structured {@link FlagAlias}
- * objects so tests and internal fixtures can be migrated incrementally.
+ * `aliases` widens to the alias shapes a caller may supply.
  */
-type FlagSchemaOverrides = Omit<Partial<FlagSchema>, 'aliases'> & {
-	readonly aliases?: readonly (string | FlagAlias)[];
+type FlagSchemaFieldOverrides = {
+	readonly [K in keyof FlagSchemaFields]?: K extends 'aliases'
+		? readonly (string | FlagAlias)[] | undefined
+		: K extends 'stdin'
+			? StdinOptions | undefined
+			: FlagSchemaFields[K] | undefined;
 };
+
+/**
+ * {@link FlagSchemaFieldOverrides} with `elementSchema` widened to the shapes a
+ * definition may supply.
+ */
+type FlagDefinitionFields = Omit<FlagSchemaFieldOverrides, 'elementSchema'> & {
+	readonly elementSchema?: FlagDefinition | FlagSchema | undefined;
+};
+
+/** Definition fields accepted by every flag kind. */
+interface FlagDefinitionBase {
+	/**
+	 * Presence state.
+	 * @defaultValue `'optional'`
+	 */
+	readonly presence?: FlagPresence | undefined;
+	/**
+	 * Runtime default value.
+	 * @defaultValue `undefined`
+	 */
+	readonly defaultValue?: unknown;
+	/**
+	 * Short/long aliases as bare names or {@link FlagAlias} records.
+	 * @defaultValue `[]`
+	 */
+	readonly aliases?: readonly (string | FlagAlias)[] | undefined;
+	/**
+	 * Stdin binding. See {@link StdinOptions}.
+	 * @defaultValue `undefined`
+	 */
+	readonly stdin?: StdinOptions | undefined;
+	/**
+	 * Environment variable name for env resolution.
+	 * @defaultValue `undefined`
+	 */
+	readonly envVar?: string | undefined;
+	/**
+	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
+	 * @defaultValue `undefined`
+	 */
+	readonly configPath?: string | undefined;
+	/**
+	 * Human-readable description for help text.
+	 * @defaultValue `undefined`
+	 */
+	readonly description?: string | undefined;
+	/**
+	 * Help placeholder label (`'url'` renders as `<url>`).
+	 * @defaultValue `undefined`
+	 */
+	readonly valueHint?: string | undefined;
+	/**
+	 * Interactive prompt configuration.
+	 * @defaultValue `undefined`
+	 */
+	readonly prompt?: PromptConfig | undefined;
+	/**
+	 * Standard Schema v1 validator applied to each resolved value.
+	 * @defaultValue `undefined`
+	 */
+	readonly standard?: StandardSchemaV1 | undefined;
+	/**
+	 * Standard Schema v1 validator applied to a completed collection.
+	 * @defaultValue `undefined`
+	 */
+	readonly aggregateStandard?: StandardSchemaV1 | undefined;
+	/**
+	 * Deprecation marker. `true` deprecates without a message, a string carries
+	 * the migration guidance.
+	 * @defaultValue `undefined`
+	 */
+	readonly deprecated?: string | true | undefined;
+	/**
+	 * Whether the flag propagates to descendant commands.
+	 * @defaultValue `false`
+	 */
+	readonly propagate?: boolean | undefined;
+	/**
+	 * How repeated CLI occurrences combine. See {@link DuplicatePolicy}.
+	 * @defaultValue `'last'`
+	 */
+	readonly duplicates?: DuplicatePolicy | undefined;
+}
+
+/** Definition of a `string` flag. */
+interface StringFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'string';
+	/**
+	 * String constraints enforced at the parse and resolution boundaries.
+	 * @defaultValue `undefined`
+	 */
+	readonly stringConstraints?: StringConstraints | undefined;
+	/**
+	 * Filesystem checks applied after resolution.
+	 * @defaultValue `undefined`
+	 */
+	readonly pathChecks?: PathChecks | undefined;
+}
+
+/** Definition of a `number` flag. */
+interface NumberFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'number';
+	/**
+	 * Numeric constraints enforced at the parse and resolution boundaries.
+	 * @defaultValue `undefined`
+	 */
+	readonly numberConstraints?: NumberConstraints | undefined;
+}
+
+/** Definition of a `boolean` flag. */
+interface BooleanFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'boolean';
+	/**
+	 * Negated-spelling settings. See {@link FlagNegation}.
+	 * @defaultValue `undefined`
+	 */
+	readonly negation?: FlagNegation | undefined;
+}
+
+/** Definition of an `enum` flag. */
+interface EnumFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'enum';
+	/** Allowed literal values. */
+	readonly enumValues: readonly string[];
+}
+
+/** Definition of an `array` flag. */
+interface ArrayFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'array';
+	/**
+	 * Element definition or an already-built element schema.
+	 * @defaultValue `undefined`
+	 */
+	readonly elementSchema?: FlagDefinition | FlagSchema | undefined;
+	/**
+	 * Value separator each CLI occurrence is split on.
+	 * @defaultValue `undefined`
+	 */
+	readonly separator?: string | undefined;
+	/**
+	 * Env and stdin split policies.
+	 * @defaultValue `undefined`
+	 */
+	readonly split?: SourceSplitBinding | undefined;
+	/**
+	 * Deduplicate the resolved array, preserving first-seen order.
+	 * @defaultValue `false`
+	 */
+	readonly unique?: boolean | undefined;
+}
+
+/** Definition of a `custom` flag. */
+interface CustomFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'custom';
+	/**
+	 * Parse function applied to the raw value.
+	 * @defaultValue `undefined`
+	 */
+	readonly parseFn?: FlagParseFn<unknown> | undefined;
+}
+
+/** Definition of a `count` flag. */
+interface CountFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'count';
+}
+
+/** Definition of a `keyValue` flag. */
+interface KeyValueFlagDefinition extends FlagDefinitionBase {
+	/** Kind discriminator. */
+	readonly kind: 'keyValue';
+	/**
+	 * Element definition or an already-built element schema for each entry value.
+	 * @defaultValue `undefined`
+	 */
+	readonly elementSchema?: FlagDefinition | FlagSchema | undefined;
+	/**
+	 * Pair separator each CLI occurrence is split on.
+	 * @defaultValue `undefined`
+	 */
+	readonly separator?: string | undefined;
+	/**
+	 * Env and stdin split policies.
+	 * @defaultValue `undefined`
+	 */
+	readonly split?: SourceSplitBinding | undefined;
+	/**
+	 * How a repeated key combines. See {@link DuplicateKeys}.
+	 * @defaultValue `'last'`
+	 */
+	readonly duplicateKeys?: DuplicateKeys | undefined;
+}
+
+/** Maps each {@link FlagKind} to its definition shape. */
+interface FlagDefinitionByKind {
+	/** Definition shape for `string` flags. */
+	readonly string: StringFlagDefinition;
+	/** Definition shape for `number` flags. */
+	readonly number: NumberFlagDefinition;
+	/** Definition shape for `boolean` flags. */
+	readonly boolean: BooleanFlagDefinition;
+	/** Definition shape for `enum` flags. */
+	readonly enum: EnumFlagDefinition;
+	/** Definition shape for `array` flags. */
+	readonly array: ArrayFlagDefinition;
+	/** Definition shape for `custom` flags. */
+	readonly custom: CustomFlagDefinition;
+	/** Definition shape for `count` flags. */
+	readonly count: CountFlagDefinition;
+	/** Definition shape for `keyValue` flags. */
+	readonly keyValue: KeyValueFlagDefinition;
+}
+
+/** Definition of a flag of kind `K`, including the kind discriminator. */
+type FlagDefinition<K extends FlagKind = FlagKind> = FlagDefinitionByKind[K];
+
+/** Definition of a flag of kind `K` with the kind discriminator removed. */
+type FlagDefinitionOverrides<K extends FlagKind = FlagKind> = Omit<FlagDefinitionByKind[K], 'kind'>;
+
+/** Positional factory arguments, requiring fields that the selected kind requires. */
+type FlagDefinitionArguments<K extends FlagKind> = K extends 'enum'
+	? [overrides: FlagDefinitionOverrides<K>]
+	: [overrides?: FlagDefinitionOverrides<K>];
 
 /**
  * Normalise an alias input into a full {@link FlagAlias} object.
@@ -486,39 +732,356 @@ function getFlagNegatedName(name: string, schema: FlagSchema): string | undefine
 	return schema.negation.alias ?? `no-${name}`;
 }
 
+/** Every runtime key carried by a normalized {@link FlagSchema}. */
+const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
+	'kind',
+	'presence',
+	'defaultValue',
+	'aliases',
+	'stdin',
+	'envVar',
+	'configPath',
+	'description',
+	'enumValues',
+	'numberConstraints',
+	'stringConstraints',
+	'elementSchema',
+	'separator',
+	'split',
+	'duplicateKeys',
+	'unique',
+	'pathChecks',
+	'valueHint',
+	'prompt',
+	'parseFn',
+	'standard',
+	'aggregateStandard',
+	'deprecated',
+	'propagate',
+	'negation',
+	'duplicates',
+];
+
 /**
- * Create a raw {@link FlagSchema} object with sensible defaults.
+ * Whether an element input already carries every normalized schema key.
  *
- * Most consumers should prefer the higher-level {@link flag} factory,
- * which returns an immutable {@link FlagBuilder} with type inference and
- * safe modifier chaining. `createSchema()` is the low-level escape hatch
- * for advanced schema composition, tests, or custom factories that need to
- * work directly with the runtime descriptor.
+ * @param element - Element definition or schema.
+ * @returns `true` when the value is already a built {@link FlagSchema}.
+ */
+function isNormalizedFlagSchema(element: FlagDefinition | FlagSchema): element is FlagSchema {
+	return NORMALIZED_FLAG_SCHEMA_KEYS.every((key) => key in element);
+}
+
+/** Reject flag-level fields on a collection factory's element builder. */
+function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
+	if (COLLECTION_FLAG_KINDS.includes(schema.kind) || schema.kind === 'count') {
+		throw new CLIError(`Flag element schema kind '${schema.kind}' is not supported`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field: 'kind' },
+			suggest: 'Use a scalar value kind for the collection element',
+		});
+	}
+
+	const defaults: readonly (readonly [keyof FlagSchema, unknown])[] = [
+		['presence', schema.kind === 'boolean' ? 'defaulted' : 'optional'],
+		['defaultValue', schema.kind === 'boolean' ? false : undefined],
+		['stdin', undefined],
+		['envVar', undefined],
+		['configPath', undefined],
+		['description', undefined],
+		['elementSchema', undefined],
+		['separator', undefined],
+		['split', undefined],
+		['duplicateKeys', 'last'],
+		['unique', false],
+		['prompt', undefined],
+		['aggregateStandard', undefined],
+		['deprecated', undefined],
+		['propagate', false],
+		['negation', undefined],
+		['duplicates', 'last'],
+	];
+	for (const [field, allowed] of defaults) {
+		if (schema[field] === allowed) continue;
+		throw new CLIError(`Flag element schema field '${String(field)}' is not supported`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field },
+			suggest: `Drop '${String(field)}' from the collection element`,
+		});
+	}
+	if (schema.aliases.length !== 0) {
+		throw new CLIError("Flag element schema field 'aliases' is not supported", {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field: 'aliases' },
+			suggest: "Drop 'aliases' from the collection element",
+		});
+	}
+}
+
+/**
+ * Normalise an array flag's element input into a built {@link FlagSchema}.
  *
- * `overrides` are shallow-merged on top of the default shape, so callers are
- * responsible for keeping the resulting schema internally consistent.
+ * An already-built schema is returned unchanged, so repeated normalization
+ * preserves element identity.
+ *
+ * @param element - Element definition or schema.
+ * @returns The element as a fully populated {@link FlagSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link FlagKind}.
+ */
+function normalizeFlagElementSchema(element: FlagDefinition | FlagSchema): FlagSchema {
+	if (isNormalizedFlagSchema(element)) {
+		assertValidFlagDefinition(element.kind, element);
+		return element;
+	}
+
+	const { kind, ...fields } = element;
+	assertValidFlagDefinition(kind, fields);
+	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
+}
+
+/**
+ * Resolve a definition's nested `elementSchema` into a built {@link FlagSchema}.
+ *
+ * @param fields - Definition fields excluding the kind discriminator.
+ * @returns The same fields with `elementSchema` normalized.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a nested element field
+ *   belongs to a different {@link FlagKind}.
+ */
+function normalizeFlagDefinitionFields(fields: FlagDefinitionFields): FlagSchemaFieldOverrides {
+	const { elementSchema, ...rest } = fields;
+	if (elementSchema === undefined) return rest;
+	return { ...rest, elementSchema: normalizeFlagElementSchema(elementSchema) };
+}
+
+/** Flag kinds that can read from stdin: every scalar, plus the collections. */
+const STDIN_CAPABLE_FLAG_KINDS: readonly [
+	'string',
+	'number',
+	'boolean',
+	'enum',
+	'custom',
+	'array',
+	'keyValue',
+] = [
+	'string',
+	'number',
+	'boolean',
+	'enum',
+	'custom',
+	'array',
+	'keyValue',
+] as const satisfies readonly FlagKind[];
+
+type StdinCapableFlagKind = (typeof STDIN_CAPABLE_FLAG_KINDS)[number];
+
+/** The collection kinds, which carry an element schema and split policies. */
+const COLLECTION_FLAG_KINDS: readonly FlagKind[] = ['array', 'keyValue'];
+
+/**
+ * Fields that are only meaningful on some {@link FlagKind}s, mapped to them.
+ */
+const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
+	keyof FlagSchemaFields,
+	readonly FlagKind[],
+])[] = [
+	['enumValues', ['enum']],
+	['numberConstraints', ['number']],
+	['stringConstraints', ['string']],
+	['pathChecks', ['string']],
+	['elementSchema', COLLECTION_FLAG_KINDS],
+	['separator', COLLECTION_FLAG_KINDS],
+	['split', COLLECTION_FLAG_KINDS],
+	['aggregateStandard', COLLECTION_FLAG_KINDS],
+	['parseFn', ['custom']],
+	['negation', ['boolean']],
+];
+
+/**
+ * Reject a definition that carries a field belonging to another {@link FlagKind}.
+ *
+ * A field set to `undefined` counts as absent, `unique` counts as absent when
+ * `false`, and `duplicateKeys` counts as absent when `'last'`, so re-feeding a
+ * built {@link FlagSchema} back through {@link createFlagSchema} stays valid: a
+ * built schema always carries those defaults, whatever its kind. The compile-time
+ * `this` parameter on `.unique()` and `.duplicateKeys()` is what rejects
+ * `.duplicateKeys('last')` on a scalar, since the runtime cannot tell that call
+ * apart from a round-tripped default.
+ *
+ * @param kind - Declared kind of the definition.
+ * @param fields - Definition fields excluding the kind discriminator.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unknown kind or a kind
+ *   mismatch.
+ * @internal
+ */
+function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields): void {
+	assertKnownFlagKind(kind);
+
+	for (const [field, requiredKinds] of KIND_SPECIFIC_FLAG_FIELDS) {
+		if (requiredKinds.includes(kind)) continue;
+		if (fields[field] === undefined) continue;
+		throw invalidFlagFieldError(kind, field, requiredKinds);
+	}
+
+	if (kind !== 'array' && fields.unique === true) {
+		throw invalidFlagFieldError(kind, 'unique', ['array']);
+	}
+
+	if (
+		kind !== 'keyValue' &&
+		fields.duplicateKeys !== undefined &&
+		fields.duplicateKeys !== 'last'
+	) {
+		throw invalidFlagFieldError(kind, 'duplicateKeys', ['keyValue']);
+	}
+
+	if (fields.duplicateKeys !== undefined && !DUPLICATE_KEYS.includes(fields.duplicateKeys)) {
+		throw new CLIError(`Unknown duplicate-key policy '${String(fields.duplicateKeys)}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { duplicateKeys: fields.duplicateKeys, allowed: [...DUPLICATE_KEYS] },
+			suggest: `Use one of: ${DUPLICATE_KEYS.join(', ')}`,
+		});
+	}
+
+	if (kind === 'enum' && fields.enumValues === undefined) {
+		throw new CLIError("Flag schema kind 'enum' requires field 'enumValues'", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'enumValues' },
+			suggest: "Pass the allowed values in 'enumValues'",
+		});
+	}
+
+	if (
+		(kind === 'array' || kind === 'count' || kind === 'keyValue') &&
+		fields.duplicates !== undefined &&
+		fields.duplicates !== 'last'
+	) {
+		throw new CLIError(`Flag schema field 'duplicates' is not supported on kind '${kind}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'duplicates' },
+			suggest: `Drop 'duplicates'; kind '${kind}' accumulates every occurrence`,
+		});
+	}
+
+	if ((kind === 'count' || kind === 'keyValue') && fields.prompt !== undefined) {
+		throw new CLIError(`Flag schema field 'prompt' is not available on kind '${kind}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'prompt' },
+			suggest: `Drop 'prompt' from the ${kind} flag`,
+		});
+	}
+
+	if (fields.stdin !== undefined) {
+		assertStdinCapableKind(kind);
+	}
+}
+
+/**
+ * Reject a discriminator outside {@link FLAG_KINDS}.
+ *
+ * The types admit only a declared kind, so this catches an untyped JavaScript
+ * caller before an unknown discriminator reaches an exhaustive `switch` that
+ * has no arm for it.
+ *
+ * @param kind - Declared kind of the definition.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unknown kind.
+ * @internal
+ */
+function assertKnownFlagKind(kind: FlagKind): void {
+	if (FLAG_KINDS.includes(kind)) return;
+
+	throw new CLIError(`Unknown flag kind '${String(kind)}'`, {
+		code: 'INVALID_SCHEMA',
+		details: { kind, allowed: [...FLAG_KINDS] },
+		suggest: `Use one of: ${FLAG_KINDS.join(', ')}`,
+	});
+}
+
+/**
+ * Reject a stdin binding on a flag kind that has no value to read.
+ *
+ * A `count` flag carries occurrences rather than a value, so both construction
+ * paths refuse the binding with the same error.
+ *
+ * @param kind - Declared kind of the flag.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on a kind that cannot read stdin.
+ */
+function assertStdinCapableKind(kind: FlagKind): void {
+	if (STDIN_CAPABLE_FLAG_KINDS.some((allowed) => allowed === kind)) return;
+
+	throw new CLIError(`Flag schema field 'stdin' is not available on kind '${kind}'`, {
+		code: 'INVALID_SCHEMA',
+		details: { kind, field: 'stdin', allowedKinds: [...STDIN_CAPABLE_FLAG_KINDS] },
+		suggest: `Drop 'stdin' or declare the flag as one of: ${STDIN_CAPABLE_FLAG_KINDS.join(', ')}`,
+	});
+}
+
+/**
+ * Build the `'INVALID_SCHEMA'` error for a field used on the wrong kind.
+ *
+ * @param kind - Declared kind of the definition.
+ * @param field - Offending field name.
+ * @param requiredKind - Kind the field belongs to.
+ * @returns The error to throw.
+ */
+function invalidFlagFieldError(
+	kind: FlagKind,
+	field: keyof FlagSchemaFields,
+	requiredKinds: readonly FlagKind[],
+): CLIError {
+	const listed = requiredKinds.map((required) => `'${required}'`).join(' or ');
+	return new CLIError(
+		`Flag schema field '${field}' requires kind ${listed}, received kind '${kind}'`,
+		{
+			code: 'INVALID_SCHEMA',
+			details: { kind, field, requiredKinds: [...requiredKinds] },
+			suggest: `Drop '${field}' or declare the flag as kind ${listed}`,
+		},
+	);
+}
+
+/**
+ * Merge already-normalized schema fields onto the {@link FlagSchema} defaults.
+ *
+ * A field set to `undefined` falls back to its default for the fields
+ * {@link FlagSchema} declares as non-nullable.
  *
  * @param kind - Discriminator for the value type this flag accepts.
- * @param overrides - Partial {@link FlagSchema} fields merged onto defaults.
+ * @param overrides - Schema fields shallow-merged onto the defaults.
  * @returns A fully populated {@link FlagSchema}.
- *
- * @example
- * ```ts
- * const schema = createSchema('enum', {
- *   enumValues: ['us', 'eu', 'ap'],
- *   description: 'Deployment region',
- * });
- * ```
  */
-function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSchema {
+function buildFlagSchema<K extends FlagKind>(
+	kind: K,
+	overrides?: FlagSchemaFieldOverrides,
+): FlagSchema<K> {
+	const schema = assembleFlagSchema(kind, overrides);
+	assertValidFlagDefault(undefined, schema);
+	return schema;
+}
+
+/** Merge the normalized fields onto the defaults, without validating the result. */
+function assembleFlagSchema<K extends FlagKind>(
+	kind: K,
+	overrides?: FlagSchemaFieldOverrides,
+): FlagSchema<K> {
 	const aliases =
 		overrides?.aliases !== undefined ? normalizeFlagAliases(overrides.aliases) : ([] as const);
-	const { aliases: _ignoredAliases, ...rest } = overrides ?? {};
+	const {
+		aliases: _ignoredAliases,
+		presence,
+		stdin,
+		unique,
+		propagate,
+		duplicates,
+		duplicateKeys,
+		...rest
+	} = overrides ?? {};
 
 	return {
 		kind,
-		presence: 'optional',
+		presence: presence ?? 'optional',
 		defaultValue: undefined,
+		stdin: stdin === undefined ? undefined : normalizeStdinBinding(stdin),
 		envVar: undefined,
 		configPath: undefined,
 		description: undefined,
@@ -527,19 +1090,118 @@ function createSchema(kind: FlagKind, overrides?: FlagSchemaOverrides): FlagSche
 		stringConstraints: undefined,
 		elementSchema: undefined,
 		separator: undefined,
-		unique: false,
+		split: undefined,
+		duplicateKeys: duplicateKeys ?? 'last',
+		unique: unique ?? false,
 		pathChecks: undefined,
 		valueHint: undefined,
 		prompt: undefined,
 		parseFn: undefined,
 		standard: undefined,
+		aggregateStandard: undefined,
 		deprecated: undefined,
-		propagate: false,
+		propagate: propagate ?? false,
 		negation: undefined,
-		duplicates: 'last',
+		duplicates: duplicates ?? 'last',
 		...rest,
 		aliases,
-	};
+	} as FlagSchema<K>;
+}
+
+/**
+ * Reject a declared default the flag could never hold.
+ *
+ * A default is a typed value, so it is validated rather than decoded: string
+ * and number constraints, element and aggregate Standard Schema verdicts
+ * available synchronously, and the shape the cardinality requires. Filesystem
+ * checks and asynchronous validators stay with the resolution-time pass.
+ *
+ * @param name - Canonical flag name, when one is known.
+ * @param schema - The flag schema carrying the default.
+ * @throws {CLIError} With code `'INVALID_DEFAULT'` when the default is invalid.
+ */
+function assertValidFlagDefault(name: string | undefined, schema: FlagSchema): void {
+	if (schema.defaultValue === undefined) return;
+	const violation = validateDefault(
+		flagValueSchema(schema),
+		flagCardinality(schema),
+		flagAggregateStandard(schema),
+		schema.defaultValue,
+	);
+	if (violation === undefined) return;
+	throw defaultViolationError(
+		name === undefined ? `${indefiniteArticle(schema.kind)} ${schema.kind} flag` : `flag --${name}`,
+		{ kind: schema.kind, ...(name === undefined ? {} : { flag: name }) },
+		violation,
+	);
+}
+
+/**
+ * Create a raw {@link FlagSchema} object with sensible defaults.
+ *
+ * Most consumers should prefer the higher-level {@link flag} factory, which
+ * returns an immutable {@link FlagBuilder} with type inference and safe
+ * modifier chaining. `createFlagSchema()` is the low-level escape hatch for
+ * advanced schema composition, tests, or custom factories that need the plain
+ * runtime descriptor.
+ *
+ * Fields are shallow-merged on top of the default shape, so callers are
+ * responsible for keeping the resulting schema internally consistent.
+ *
+ * @param kind - Discriminator for the value type this flag accepts.
+ * @param overrides - Definition fields for `kind`, shallow-merged onto defaults.
+ * @returns A fully populated {@link FlagSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link FlagKind}.
+ *
+ * @example
+ * ```ts
+ * const schema = createFlagSchema('enum', {
+ *   enumValues: ['us', 'eu', 'ap'],
+ *   description: 'Deployment region',
+ * });
+ * ```
+ */
+function createFlagSchema<K extends FlagKind>(
+	kind: K,
+	...args: FlagDefinitionArguments<K>
+): FlagSchema<K>;
+/**
+ * Create a raw {@link FlagSchema} object from a single definition object.
+ *
+ * An already-built {@link FlagSchema} is accepted and re-normalized into a
+ * deep-equal schema.
+ *
+ * @param definition - Kind discriminator plus the fields valid for that kind.
+ * @returns A fully populated {@link FlagSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a field belongs to a
+ *   different {@link FlagKind}.
+ *
+ * @example
+ * ```ts
+ * const schema = createFlagSchema({
+ *   kind: 'array',
+ *   elementSchema: { kind: 'string' },
+ *   separator: ',',
+ * });
+ * ```
+ */
+function createFlagSchema<K extends FlagKind>(
+	definition: FlagDefinition<K> | FlagSchema<K>,
+): FlagSchema<K>;
+function createFlagSchema(
+	kindOrDefinition: FlagKind | FlagDefinition | FlagSchema,
+	overrides?: FlagDefinitionFields,
+): FlagSchema {
+	if (typeof kindOrDefinition === 'string') {
+		const fields = overrides ?? {};
+		assertValidFlagDefinition(kindOrDefinition, fields);
+		return buildFlagSchema(kindOrDefinition, normalizeFlagDefinitionFields(fields));
+	}
+
+	const { kind, ...fields } = kindOrDefinition;
+	assertValidFlagDefinition(kind, fields);
+	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
 }
 
 // --- FlagBuilder — immutable builder with type-level tracking
@@ -600,11 +1262,13 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	default<V extends C['valueType']>(value: V): FlagBuilder<WithPresence<C, 'defaulted'>> {
-		return new FlagBuilder({
+		const schema: FlagSchema = {
 			...this.schema,
 			presence: 'defaulted',
 			defaultValue: value,
-		});
+		};
+		assertValidFlagDefault(undefined, schema);
+		return new FlagBuilder(schema);
 	}
 
 	/**
@@ -665,6 +1329,9 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Bind to an environment variable (resolved in v0.2+).
 	 *
+	 * The env value is read after CLI and stdin, and before config, the prompt,
+	 * and the default: CLI → stdin → **env** → config → prompt → default.
+	 *
 	 * @param varName - Environment variable name (e.g. `'PORT'`).
 	 * @returns The builder (for chaining).
 	 *
@@ -684,7 +1351,66 @@ class FlagBuilder<C extends FlagConfig> {
 	}
 
 	/**
+	 * Let this flag read its value from piped stdin.
+	 *
+	 * An explicit `--<name> -` is CLI-sourced with bytes from stdin and keeps
+	 * CLI precedence. An absent flag takes the stdin fallback stage, which sits
+	 * between CLI and env, so a flag set in the environment still reads stdin
+	 * and stdin wins. The whole buffer becomes the value, byte for byte for a
+	 * string flag; every other kind drops the single line terminator a pipe
+	 * appends before decoding, and `{ trim: true }` drops it for a string flag
+	 * too.
+	 *
+	 * A collection reads the buffer as elements instead: `--tag -` splices what
+	 * stdin decodes into the position the `-` occupies, so
+	 * `--tag before --tag - --tag after` over `'a\nb\n'` resolves to
+	 * `['before', 'a', 'b', 'after']`. `.split({ stdin })` sets the decoding.
+	 * Each `-` stands for the whole source, so `--tag - --tag -` splices the
+	 * buffer twice. A `-` typed beside other occurrences with nothing piped fails
+	 * with `MISSING_STDIN`; occurrences of nothing but `-` fall through to the
+	 * later sources.
+	 *
+	 * A stdin-enabled flag cannot receive a literal `-` as its value, since the
+	 * token names the source.
+	 *
+	 * Available on every flag kind except `count`. One command may declare a
+	 * single exclusive stdin consumer; pass `{ consume: 'broadcast' }` on every
+	 * input that should share the buffer.
+	 *
+	 * @param options - When to read stdin, how to share it, and whether to trim.
+	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a `count` flag.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.string().stdin().describe('Message body')
+	 * // $ echo hi | mycli send            → body = 'hi\n'
+	 * // $ mycli send --body -             → body reads stdin
+	 * // $ mycli send --body hello         → body = 'hello'
+	 *
+	 * flag.string().stdin({ when: 'dash' })
+	 * // only `--body -` reads stdin
+	 *
+	 * flag.path({ mustExist: true }).stdin({ trim: true })
+	 * // $ echo ./dist | mycli clean       → path = './dist', checked on disk
+	 * ```
+	 */
+	stdin(
+		this: FlagBuilder<C & { readonly flagKind: StdinCapableFlagKind }>,
+		options?: StdinOptions,
+	): FlagBuilder<WithoutElementEligibility<C>> {
+		assertStdinCapableKind(this.schema.kind);
+		return new FlagBuilder({
+			...this.schema,
+			stdin: normalizeStdinBinding(options),
+		});
+	}
+
+	/**
 	 * Bind to a dotted config path (resolved in v0.2+).
+	 *
+	 * The config value is read after CLI, stdin, and env, and before the prompt
+	 * and the default: CLI → stdin → env → **config** → prompt → default.
 	 *
 	 * @param path - Dotted config key (e.g. `'deploy.region'`).
 	 * @returns The builder (for chaining).
@@ -722,7 +1448,7 @@ class FlagBuilder<C extends FlagConfig> {
 	/**
 	 * Attach interactive prompt configuration for v0.3+ resolution.
 	 *
-	 * When a flag value is not resolved from CLI, env, or config, the
+	 * When a flag value is not resolved from CLI, stdin, env, or config, the
 	 * prompt engine uses this config to interactively ask the user.
 	 * In non-interactive contexts (CI, piped stdin) prompts are skipped
 	 * and resolution falls through to default or required validation.
@@ -819,7 +1545,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	int(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value = true): FlagBuilder<C> {
-		return new FlagBuilder({
+		return nextFlag({
 			...this.schema,
 			numberConstraints: { ...this.schema.numberConstraints, int: value },
 		});
@@ -842,7 +1568,7 @@ class FlagBuilder<C extends FlagConfig> {
 	min(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value: number): FlagBuilder<C> {
 		const numberConstraints = { ...this.schema.numberConstraints, min: value };
 		assertNumberConstraints(numberConstraints);
-		return new FlagBuilder({ ...this.schema, numberConstraints });
+		return nextFlag({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -860,7 +1586,7 @@ class FlagBuilder<C extends FlagConfig> {
 	max(this: FlagBuilder<C & { readonly flagKind: 'number' }>, value: number): FlagBuilder<C> {
 		const numberConstraints = { ...this.schema.numberConstraints, max: value };
 		assertNumberConstraints(numberConstraints);
-		return new FlagBuilder({ ...this.schema, numberConstraints });
+		return nextFlag({ ...this.schema, numberConstraints });
 	}
 
 	/**
@@ -878,7 +1604,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	finite(this: FlagBuilder<C & { readonly flagKind: 'number' }>, allow = true): FlagBuilder<C> {
-		return new FlagBuilder({
+		return nextFlag({
 			...this.schema,
 			numberConstraints: { ...this.schema.numberConstraints, finite: allow },
 		});
@@ -903,7 +1629,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	nonEmpty(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value = true): FlagBuilder<C> {
-		return new FlagBuilder({
+		return nextFlag({
 			...this.schema,
 			stringConstraints: { ...this.schema.stringConstraints, nonEmpty: value },
 		});
@@ -924,7 +1650,7 @@ class FlagBuilder<C extends FlagConfig> {
 	minLength(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value: number): FlagBuilder<C> {
 		const stringConstraints = { ...this.schema.stringConstraints, minLength: value };
 		assertStringConstraints(stringConstraints);
-		return new FlagBuilder({ ...this.schema, stringConstraints });
+		return nextFlag({ ...this.schema, stringConstraints });
 	}
 
 	/**
@@ -942,7 +1668,7 @@ class FlagBuilder<C extends FlagConfig> {
 	maxLength(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value: number): FlagBuilder<C> {
 		const stringConstraints = { ...this.schema.stringConstraints, maxLength: value };
 		assertStringConstraints(stringConstraints);
-		return new FlagBuilder({ ...this.schema, stringConstraints });
+		return nextFlag({ ...this.schema, stringConstraints });
 	}
 
 	/**
@@ -958,24 +1684,26 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	pattern(this: FlagBuilder<C & { readonly flagKind: 'string' }>, value: RegExp): FlagBuilder<C> {
-		return new FlagBuilder({
+		return nextFlag({
 			...this.schema,
 			stringConstraints: { ...this.schema.stringConstraints, pattern: value },
 		});
 	}
 
-	// -- Array modifiers -------------------------------------------------------
+	// -- Collection modifiers --------------------------------------------------
 
 	/**
 	 * Split each CLI occurrence on a separator before element coercion, so
 	 * `--tag a,b --tag c` resolves to `['a', 'b', 'c']`. Elements are coerced
 	 * (and rejected) individually with the element schema's own error format.
 	 *
-	 * Env and config string values are split on the same separator (their
-	 * default split is `','` even without this modifier).
+	 * The separator is the CLI policy alone. Env values split on `','` and the
+	 * stdin buffer on line terminators unless `.split()` says otherwise.
 	 *
 	 * @param value - Separator string (e.g. `','`).
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that carries a
+	 *   single value.
 	 *
 	 * @example
 	 * ```ts
@@ -983,11 +1711,100 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // --region us,eu --region ap → ['us', 'eu', 'ap']
 	 * ```
 	 */
-	separator(this: FlagBuilder<C & { readonly flagKind: 'array' }>, value: string): FlagBuilder<C> {
-		if (value.length === 0) {
-			throw new RangeError('array separator must not be empty');
-		}
-		return new FlagBuilder({ ...this.schema, separator: value });
+	separator(
+		this: FlagBuilder<C & { readonly flagKind: 'array' | 'keyValue' }>,
+		value: string,
+	): FlagBuilder<C> {
+		normalizeSplitPolicy('cli', value);
+		return nextFlag({ ...this.schema, separator: value });
+	}
+
+	/**
+	 * Set how each source decodes into elements.
+	 *
+	 * CLI tokens accept `'whole'` and a delimiter; env values also accept
+	 * `'json'`; the stdin buffer accepts every format, including `'lines'`. The
+	 * strings `'whole'`, `'lines'`, and `'json'` name their format, and every
+	 * other string is the delimiter to split on. A source left out keeps what it
+	 * already had, or its default: whole CLI tokens (or the `.separator()`
+	 * delimiter), comma-delimited env values, line-delimited stdin. A config
+	 * value is a native array or object, and a config string decodes under the
+	 * env policy. For stdin, `'whole'` passes the complete buffer to a string
+	 * element, including its final line terminator.
+	 *
+	 * @param options - Per-source split settings.
+	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a format the source does
+	 *   not accept, an empty delimiter, or a flag that carries a single value.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.array(flag.string()).split({ cli: ',', env: { format: 'json' } }).env('TAGS')
+	 * // --tag a,b        → ['a', 'b']
+	 * // TAGS='["a","b"]' → ['a', 'b']
+	 * ```
+	 */
+	split(
+		this: FlagBuilder<C & { readonly flagKind: 'array' | 'keyValue' }>,
+		options: SplitOptions,
+	): FlagBuilder<C> {
+		const normalized = normalizeSplitOptions(options, this.schema.split);
+		return nextFlag({
+			...this.schema,
+			...(normalized.setsSeparator ? { separator: normalized.separator } : {}),
+			split: normalized.split,
+		});
+	}
+
+	/**
+	 * Set how a repeated key combines.
+	 *
+	 * Applies to repeated CLI occurrences, delimited env pairs, and spliced stdin
+	 * reads in the same occurrence order. JSON decoding does not preserve
+	 * repeated object member names, so it cannot reliably expose them here.
+	 *
+	 * @param policy - `'last'` (default), `'first'`, or `'error'`.
+	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that is not
+	 *   `keyValue`.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.keyValue().duplicateKeys('error').env('VARS')
+	 * // $ VARS='A=1,A=2' mycli run
+	 * // #   → Duplicate key '<redacted>' from env VARS for flag --env  (CONSTRAINT_VIOLATED)
+	 * ```
+	 */
+	duplicateKeys(
+		this: FlagBuilder<C & { readonly flagKind: 'keyValue' }>,
+		policy: DuplicateKeys,
+	): FlagBuilder<C> {
+		return nextFlag({ ...this.schema, duplicateKeys: policy });
+	}
+
+	/**
+	 * Validate the resolved value with a Standard Schema v1 validator.
+	 *
+	 * On a scalar builder the validator sees each value; on a collection builder
+	 * it sees the completed array or record, after every element passed its own
+	 * validator. `flag.array(flag.string().standard(s))` validates elements,
+	 * `flag.array(flag.string()).standard(s)` validates the array.
+	 *
+	 * @param schema - A Standard Schema v1 validator.
+	 * @returns The builder (for chaining).
+	 *
+	 * @example
+	 * ```ts
+	 * import { z } from 'zod';
+	 * flag.array(flag.string()).standard(z.array(z.string()).min(1))
+	 * ```
+	 */
+	standard(schema: StandardSchemaV1): FlagBuilder<C> {
+		const aggregate = isCollection(flagCardinality(this.schema));
+		return nextFlag({
+			...this.schema,
+			...(aggregate ? { aggregateStandard: schema } : { standard: schema }),
+		});
 	}
 
 	/**
@@ -997,6 +1814,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * @param value - Whether to deduplicate.
 	 * @defaultValue `true`
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that is not
+	 *   `array`.
 	 *
 	 * @example
 	 * ```ts
@@ -1005,7 +1824,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	unique(this: FlagBuilder<C & { readonly flagKind: 'array' }>, value = true): FlagBuilder<C> {
-		return new FlagBuilder({ ...this.schema, unique: value });
+		return nextFlag({ ...this.schema, unique: value });
 	}
 
 	// -- Boolean modifiers -----------------------------------------------------
@@ -1022,6 +1841,8 @@ class FlagBuilder<C extends FlagConfig> {
 	 * @param options - Optional custom spelling (`alias`, without `--`) and
 	 *   `hidden` to keep the negated spelling parseable but unadvertised.
 	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a flag that is not
+	 *   `boolean`.
 	 *
 	 * @example
 	 * ```ts
@@ -1034,7 +1855,7 @@ class FlagBuilder<C extends FlagConfig> {
 		this: FlagBuilder<C & { readonly flagKind: 'boolean' }>,
 		options?: { alias?: string; hidden?: boolean },
 	): FlagBuilder<WithoutElementEligibility<C>> {
-		return new FlagBuilder({
+		return nextFlag({
 			...this.schema,
 			negation: { alias: options?.alias, hidden: options?.hidden ?? false },
 		});
@@ -1066,8 +1887,32 @@ class FlagBuilder<C extends FlagConfig> {
 		>,
 		policy: DuplicatePolicy,
 	): FlagBuilder<WithoutElementEligibility<C>> {
-		return new FlagBuilder({ ...this.schema, duplicates: policy });
+		return nextFlag({ ...this.schema, duplicates: policy });
 	}
+}
+
+/**
+ * Continue a builder chain, rejecting a schema the change just invalidated.
+ *
+ * The `this` constraint on each modifier states to the compiler which kinds
+ * carry the field it sets; this states the same rule to a caller who reaches
+ * the builder from JavaScript, with the error {@link createFlagSchema} already
+ * gives, so what a builder produces is always a definition the framework can
+ * read back.
+ *
+ * A constraint added after `.default()` still governs the default, so the
+ * verdict is the same whichever order the chain was written in.
+ *
+ * @param schema - The schema the modifier produced.
+ * @returns A builder over that schema.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the field does not belong
+ *   on the flag, or `'INVALID_DEFAULT'` when the default no longer holds.
+ * @internal
+ */
+function nextFlag<C extends FlagConfig>(schema: FlagSchema): FlagBuilder<C> {
+	assertValidFlagDefinition(schema.kind, schema);
+	assertValidFlagDefault(undefined, schema);
+	return new FlagBuilder(schema);
 }
 
 // --- Factory namespace
@@ -1284,7 +2129,7 @@ interface FlagFactory {
 	/**
 	 * Path-valued flag. The value stays a `string`; optional filesystem
 	 * checks run **after resolution** through the runtime adapter, so CLI,
-	 * env, and config values are validated identically.
+	 * env, config, prompted, and defaulted values are all validated.
 	 *
 	 * @param options - Optional existence/type checks. `type` implies
 	 *   existence unless `mustExist` is explicitly `false`.
@@ -1306,7 +2151,7 @@ interface FlagFactory {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'string';
-		readonly elementEligible: false;
+		readonly elementEligible: true;
 	}>;
 
 	/**
@@ -1404,12 +2249,18 @@ interface FlagFactory {
 	 * Key-value flag — repeated `KEY=VALUE` occurrences merge into a
 	 * `Record<string, string>` (docker/kubectl `--env` style). The value is
 	 * split at the **first** `=`, so `--env A=b=c` yields `{ A: 'b=c' }`.
-	 * Later occurrences of the same key win. Absent resolves to `{}`.
+	 * Later occurrences of the same key win, which `.duplicateKeys()` changes.
+	 * Absent resolves to `{}`.
 	 *
-	 * Env vars accept separator-joined pairs (`A=1,B=2`); config files accept
-	 * a plain object. Not promptable.
+	 * Env vars accept comma-delimited pairs (`A=1,B=2`); config files accept a
+	 * plain object; `.split()` sets any of that per source. Not promptable.
 	 *
-	 * @returns A {@link FlagBuilder} for `Record<string, string>` values.
+	 * An element builder gives each entry value its own codec, constraints, and
+	 * checks, so `flag.keyValue(flag.path())` checks every value on disk.
+	 *
+	 * @param element - {@link FlagBuilder} describing the value of each entry.
+	 * @defaultValue an unconstrained string element
+	 * @returns A {@link FlagBuilder} for records of the element type.
 	 *
 	 * @example
 	 * ```ts
@@ -1417,8 +2268,10 @@ interface FlagFactory {
 	 * // $ mycli run -e A=1 -e B=2 → env = { A: '1', B: '2' }
 	 * ```
 	 */
-	keyValue(): FlagBuilder<{
-		readonly valueType: Record<string, string>;
+	keyValue<E extends FlagConfig & { readonly elementEligible: true } = StringElementConfig>(
+		element?: FlagBuilder<E>,
+	): FlagBuilder<{
+		readonly valueType: Record<string, E['valueType']>;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-object';
 		readonly flagKind: 'keyValue';
@@ -1442,7 +2295,7 @@ const flag: FlagFactory = {
 			assertStringConstraints(constraints);
 		}
 		return new FlagBuilder(
-			createSchema('string', constraints !== undefined ? { stringConstraints: constraints } : {}),
+			createFlagSchema('string', valueDefinitionFields(stringValue(constraints))),
 		);
 	},
 
@@ -1457,7 +2310,7 @@ const flag: FlagFactory = {
 			assertNumberConstraints(constraints);
 		}
 		return new FlagBuilder(
-			createSchema('number', constraints !== undefined ? { numberConstraints: constraints } : {}),
+			createFlagSchema('number', valueDefinitionFields(numberValue(constraints))),
 		);
 	},
 
@@ -1469,7 +2322,7 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		return new FlagBuilder(
-			createSchema('boolean', {
+			createFlagSchema('boolean', {
 				presence: 'defaulted',
 				defaultValue: false,
 			}),
@@ -1485,7 +2338,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'enum';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(createSchema('enum', { enumValues: values }));
+		return new FlagBuilder(createFlagSchema('enum', { enumValues: values }));
 	},
 
 	array<E extends FlagConfig & { readonly elementEligible: true }>(
@@ -1497,7 +2350,8 @@ const flag: FlagFactory = {
 		readonly flagKind: 'array';
 		readonly elementEligible: false;
 	}> {
-		return new FlagBuilder(createSchema('array', { elementSchema: element.schema }));
+		assertFlagElementBuilder('array', element);
+		return new FlagBuilder(createFlagSchema('array', { elementSchema: element.schema }));
 	},
 
 	custom<A extends FlagParseFn<unknown> | StandardSchemaV1>(
@@ -1510,9 +2364,13 @@ const flag: FlagFactory = {
 		readonly elementEligible: true;
 	}> {
 		if (isStandardSchemaV1(parseFnOrSchema)) {
-			return new FlagBuilder(createSchema('custom', { standard: parseFnOrSchema }));
+			return new FlagBuilder(
+				createFlagSchema('custom', valueDefinitionFields(standardValue(parseFnOrSchema))),
+			);
 		}
-		return new FlagBuilder(createSchema('custom', { parseFn: parseFnOrSchema }));
+		return new FlagBuilder(
+			createFlagSchema('custom', valueDefinitionFields(customValue(parseFnOrSchema))),
+		);
 	},
 
 	url(options?: UrlFlagOptions): FlagBuilder<{
@@ -1522,12 +2380,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(
-			createSchema('custom', {
-				parseFn: (raw: unknown) => parseUrlValue(raw, options),
-				valueHint: 'url',
-			}),
-		);
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(urlValue(options))));
 	},
 
 	path(options?: PathFlagOptions): FlagBuilder<{
@@ -1535,17 +2388,9 @@ const flag: FlagFactory = {
 		readonly presence: 'optional';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'string';
-		readonly elementEligible: false;
+		readonly elementEligible: true;
 	}> {
-		const pathChecks =
-			options?.mustExist === true || options?.type !== undefined
-				? {
-						mustExist: options.mustExist ?? true,
-						type: options.type,
-						create: options.type === 'directory' && options.create === true,
-					}
-				: undefined;
-		return new FlagBuilder(createSchema('string', { pathChecks, valueHint: 'path' }));
+		return new FlagBuilder(createFlagSchema('string', valueDefinitionFields(pathValue(options))));
 	},
 
 	date(options?: DateFlagOptions): FlagBuilder<{
@@ -1555,12 +2400,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(
-			createSchema('custom', {
-				parseFn: (raw: unknown) => parseDateValue(raw, options),
-				valueHint: 'date',
-			}),
-		);
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(dateValue(options))));
 	},
 
 	duration(): FlagBuilder<{
@@ -1570,9 +2410,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(
-			createSchema('custom', { parseFn: parseDurationValue, valueHint: 'duration' }),
-		);
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(durationValue())));
 	},
 
 	bytes(): FlagBuilder<{
@@ -1582,7 +2420,7 @@ const flag: FlagFactory = {
 		readonly flagKind: 'custom';
 		readonly elementEligible: true;
 	}> {
-		return new FlagBuilder(createSchema('custom', { parseFn: parseBytesValue, valueHint: 'size' }));
+		return new FlagBuilder(createFlagSchema('custom', valueDefinitionFields(bytesValue())));
 	},
 
 	count(): FlagBuilder<{
@@ -1593,26 +2431,69 @@ const flag: FlagFactory = {
 		readonly elementEligible: false;
 	}> {
 		return new FlagBuilder(
-			createSchema('count', {
+			createFlagSchema('count', {
 				presence: 'defaulted',
 				defaultValue: 0,
 			}),
 		);
 	},
 
-	keyValue(): FlagBuilder<{
-		readonly valueType: Record<string, string>;
+	keyValue<E extends FlagConfig & { readonly elementEligible: true } = StringElementConfig>(
+		element?: FlagBuilder<E>,
+	): FlagBuilder<{
+		readonly valueType: Record<string, E['valueType']>;
 		readonly presence: 'optional';
 		readonly optionalFallback: 'empty-object';
 		readonly flagKind: 'keyValue';
 		readonly elementEligible: false;
 	}> {
-		return new FlagBuilder(createSchema('keyValue', { valueHint: 'key=value' }));
+		if (element !== undefined) assertFlagElementBuilder('keyValue', element);
+		return new FlagBuilder(
+			createFlagSchema('keyValue', {
+				valueHint: 'key=value',
+				...(element !== undefined ? { elementSchema: element.schema } : {}),
+			}),
+		);
 	},
 };
 
+/**
+ * Reject a collection factory handed something other than a flag builder.
+ *
+ * The types demand one, so this catches an untyped JavaScript caller before the
+ * factory reads `.schema` off a value that has none.
+ *
+ * @param factory - Name of the factory being called.
+ * @param element - What the caller passed as the element.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when it is not a
+ *   {@link FlagBuilder}.
+ * @internal
+ */
+function assertFlagElementBuilder(factory: 'array' | 'keyValue', element: unknown): void {
+	if (element instanceof FlagBuilder) {
+		assertEligibleFlagElementBuilder(element.schema);
+		return;
+	}
+
+	throw new CLIError(`flag.${factory}() requires an element builder`, {
+		code: 'INVALID_SCHEMA',
+		details: { factory, field: 'element', received: typeof element },
+		suggest: `Pass an element builder, as in flag.${factory}(flag.string())`,
+	});
+}
+
 // --- Exports
 
+export type {
+	DuplicateKeys,
+	SourceSplitBinding,
+	SplitBinding,
+	SplitFormat,
+	SplitOptions,
+	SplitPolicy,
+	SplitSetting,
+} from './cardinality.ts';
+export { DUPLICATE_KEYS, SPLIT_FORMATS } from './cardinality.ts';
 // Re-export prompt types for consumers
 export type {
 	ConfirmPromptConfig,
@@ -1626,32 +2507,49 @@ export type {
 	SelectPromptConfig,
 } from './prompt.ts';
 export { PROMPT_KINDS } from './prompt.ts';
+export type { StdinBinding, StdinConsume, StdinOptions, StdinWhen } from './stdin.ts';
+export { STDIN_CONSUMES, STDIN_WHENS } from './stdin.ts';
 export type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
-export type { DateFlagOptions, UrlFlagOptions } from './value-parsers.ts';
+export type {
+	DateFlagOptions,
+	PathChecks,
+	PathFlagOptions,
+	UrlFlagOptions,
+} from './value-parsers.ts';
 export type {
 	AllowedPromptConfig,
+	ArrayFlagDefinition,
+	BooleanFlagDefinition,
+	CountFlagDefinition,
+	CustomFlagDefinition,
 	DuplicatePolicy,
+	EnumFlagDefinition,
 	FlagAlias,
 	FlagConfig,
+	FlagDefinition,
+	FlagDefinitionBase,
+	FlagDefinitionByKind,
+	FlagDefinitionOverrides,
 	FlagFactory,
 	FlagKind,
 	FlagNegation,
 	FlagParseFn,
 	FlagPresence,
 	FlagSchema,
-	FlagSchemaOverrides,
 	InferFlag,
 	InferFlags,
+	KeyValueFlagDefinition,
+	NumberFlagDefinition,
 	OptionalFallback,
-	PathChecks,
-	PathFlagOptions,
 	PromptConfigByFlagKind,
 	ResolvedValue,
+	StringElementConfig,
+	StringFlagDefinition,
 	WithoutElementEligibility,
 	WithPresence,
 };
 export {
-	createSchema,
+	createFlagSchema,
 	FLAG_KINDS,
 	FLAG_PRESENCES,
 	FlagBuilder,

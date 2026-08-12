@@ -72,7 +72,7 @@ describe('.completions()', () => {
 	describe('builder registration', () => {
 		it('registers a "completions" subcommand', () => {
 			const app = cli('mycli').completions();
-			const names = app.schema.commands.map((c) => c.schema.name);
+			const names = app.schema.commands.map((c) => c.name);
 			expect(names).toContain('completions');
 		});
 
@@ -86,7 +86,7 @@ describe('.completions()', () => {
 
 		it('preserves previously registered commands', () => {
 			const app = cli('mycli').command(deployCommand()).command(loginCommand()).completions();
-			const names = app.schema.commands.map((c) => c.schema.name);
+			const names = app.schema.commands.map((c) => c.name);
 			expect(names).toEqual(['deploy', 'login', 'completions']);
 		});
 	});

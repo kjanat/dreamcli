@@ -9,7 +9,7 @@
  * @module dreamcli/core/schema/flag-element-eligibility.test
  */
 
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it, test } from 'vitest';
 import { parse } from '#internals/core/parse/index.ts';
 import { command } from './command.ts';
 import { flag, type InferFlag } from './flag.ts';
@@ -25,6 +25,7 @@ describe('flag.array() element eligibility', () => {
 		flag.array(flag.date());
 		flag.array(flag.duration());
 		flag.array(flag.bytes());
+		flag.array(flag.path());
 	});
 
 	it('accepts element builders with value constraints (still element-meaningful)', () => {
@@ -41,40 +42,112 @@ describe('flag.array() element eligibility', () => {
 		);
 	});
 
-	it('rejects builders carrying flag-level settings elements would ignore', () => {
-		// @ts-expect-error — element aliases are never read
-		flag.array(flag.string().alias('s'));
-		// @ts-expect-error — element env bindings are never read
-		flag.array(flag.string().env('TAGS'));
-		// @ts-expect-error — element config paths are never read
-		flag.array(flag.string().config('deploy.tags'));
-		// @ts-expect-error — element defaults are never read (default the array)
-		flag.array(flag.string().default('x'));
-		// @ts-expect-error — element requiredness is never read (require the array)
-		flag.array(flag.string().required());
-		// @ts-expect-error — element descriptions are never read (describe the array)
-		flag.array(flag.string().describe('a tag'));
-		// @ts-expect-error — element prompts are never read
-		flag.array(flag.string().prompt({ kind: 'input', message: '?' }));
-		// @ts-expect-error — element deprecation is never read
-		flag.array(flag.string().deprecated('use --new'));
-		// @ts-expect-error — element propagation is never read
-		flag.array(flag.string().propagate());
-		// @ts-expect-error — element negation is never read
-		flag.array(flag.boolean().negatable());
-		// @ts-expect-error — element duplicate policy is never read
-		flag.array(flag.string().duplicates('error'));
+	test.each([
+		[
+			'aliases',
+			() => {
+				// @ts-expect-error — element aliases are never read
+				flag.array(flag.string().alias('s'));
+			},
+		],
+		[
+			'environment bindings',
+			() => {
+				// @ts-expect-error — element env bindings are never read
+				flag.array(flag.string().env('TAGS'));
+			},
+		],
+		[
+			'config paths',
+			() => {
+				// @ts-expect-error — element config paths are never read
+				flag.array(flag.string().config('deploy.tags'));
+			},
+		],
+		[
+			'defaults',
+			() => {
+				// @ts-expect-error — element defaults are never read (default the array)
+				flag.array(flag.string().default('x'));
+			},
+		],
+		[
+			'requiredness',
+			() => {
+				// @ts-expect-error — element requiredness is never read (require the array)
+				flag.array(flag.string().required());
+			},
+		],
+		[
+			'descriptions',
+			() => {
+				// @ts-expect-error — element descriptions are never read (describe the array)
+				flag.array(flag.string().describe('a tag'));
+			},
+		],
+		[
+			'prompts',
+			() => {
+				// @ts-expect-error — element prompts are never read
+				flag.array(flag.string().prompt({ kind: 'input', message: '?' }));
+			},
+		],
+		[
+			'deprecation',
+			() => {
+				// @ts-expect-error — element deprecation is never read
+				flag.array(flag.string().deprecated('use --new'));
+			},
+		],
+		[
+			'propagation',
+			() => {
+				// @ts-expect-error — element propagation is never read
+				flag.array(flag.string().propagate());
+			},
+		],
+		[
+			'negation',
+			() => {
+				// @ts-expect-error — element negation is never read
+				flag.array(flag.boolean().negatable());
+			},
+		],
+		[
+			'duplicate policies',
+			() => {
+				// @ts-expect-error — element duplicate policy is never read
+				flag.array(flag.string().duplicates('error'));
+			},
+		],
+	])('rejects builders carrying %s', (_field, build) => {
+		expect(build).toThrow(/Flag element schema field/);
 	});
 
-	it('rejects kinds that are not element-meaningful', () => {
-		// @ts-expect-error — nested arrays are unsupported
-		flag.array(flag.array(flag.string()));
-		// @ts-expect-error — count accumulates occurrences, not values
-		flag.array(flag.count());
-		// @ts-expect-error — keyValue accumulates into a record, not an array
-		flag.array(flag.keyValue());
-		// @ts-expect-error — pathChecks are validated on the flag, never on elements
-		flag.array(flag.path());
+	test.each([
+		[
+			'array',
+			() => {
+				// @ts-expect-error — nested arrays are unsupported
+				flag.array(flag.array(flag.string()));
+			},
+		],
+		[
+			'count',
+			() => {
+				// @ts-expect-error — count accumulates occurrences, not values
+				flag.array(flag.count());
+			},
+		],
+		[
+			'keyValue',
+			() => {
+				// @ts-expect-error — keyValue accumulates into a record, not an array
+				flag.array(flag.keyValue());
+			},
+		],
+	])('rejects %s elements', (_kind, build) => {
+		expect(build).toThrow(/Flag element schema kind/);
 	});
 
 	it('flag-level modifiers still chain freely on the array itself', () => {

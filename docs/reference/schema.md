@@ -6,7 +6,8 @@ It resolves to the same schema referenced by `generateSchema()` output, with a p
 - npm/package export (`package.json`): `./schema` -> `dreamcli.schema.json`
 - Deno/JSR export (`deno.json`): `./schema` -> `src/schema.ts` (which re-exports the same schema)
 
-Use it when you want local or offline validation of dreamcli definition metadata without depending on the CDN `$schema` URL.
+Its bytes are identical to the canonical hosted copy at
+`https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`, so use it when you want local or offline validation of dreamcli definition metadata without a network lookup.
 
 ## Importing The Schema
 
@@ -44,7 +45,7 @@ definition.$schema;
 schema.$id;
 ```
 
-`definition.$schema` points at the public schema URL, while the package export gives you the same definition locally from the installed package.
+`definition.$schema` points at the canonical hosted URL. Its `v1` segment is the definition format version, matching the document's `schemaVersion`. The package export gives you the same schema locally from the installed package.
 
 ## Related Pages
 

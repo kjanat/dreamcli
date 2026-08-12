@@ -1,13 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json",
+  "$id": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json",
   "title": "@kjanat/dreamcli definition schema",
-  "description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\\\nBuilt incrementally by CLIBuilder.",
+  "description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered command schemas.\\\nSealed by createCLISchema and rebuilt by each CLIBuilder step.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "$schema": {
-      "const": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json"
+      "const": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
     },
     "name": {
       "type": "string",
@@ -23,18 +26,19 @@
     },
     "defaultCommand": {
       "$ref": "#/$defs/command",
-      "description": "Default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method."
+      "description": "Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition."
     },
     "commands": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/command"
       },
-      "description": "Registered commands (type-erased for heterogeneous storage)."
+      "description": "Schemas of the registered commands, in registration order."
     }
   },
   "required": [
     "$schema",
+    "schemaVersion",
     "name",
     "commands"
   ],
@@ -97,7 +101,72 @@
         "args",
         "commands"
       ],
-      "description": "Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nmiddleware, and interactive resolver."
+      "description": "Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nand interactive resolver."
+    },
+    "commandDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1,
+          "description": "Version of the definition document format emitted by generateSchema\nand generateCommandSchema."
+        },
+        "name": {
+          "type": "string",
+          "description": "The command name used for dispatch."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description for help text."
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Alternative names accepted for this command."
+        },
+        "hidden": {
+          "const": true,
+          "description": "Whether the command is omitted from help listings."
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/example"
+          },
+          "description": "Usage examples attached to the command."
+        },
+        "flags": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/flag"
+          },
+          "description": "Named flag definitions keyed by flag name."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arg"
+          },
+          "description": "Positional argument definitions in CLI order."
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command"
+          },
+          "description": "Nested subcommand definitions."
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "name",
+        "flags",
+        "args",
+        "commands"
+      ],
+      "description": "A single-command definition document, version 1.\n\nProduced by generateCommandSchema. Same shape as a\nCommandDefinitionFragmentV1 plus the `schemaVersion` every standalone\ndocument carries."
     },
     "flag": {
       "type": "object",
@@ -134,6 +203,10 @@
           },
           "description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`)."
         },
+        "stdin": {
+          "$ref": "#/$defs/stdin",
+          "description": "Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding."
+        },
         "envVar": {
           "type": "string",
           "description": "Environment variable name for v0.2+ resolution."
@@ -154,87 +227,34 @@
           "description": "Allowed literal values when `kind === 'enum'`."
         },
         "numberConstraints": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "min": {
-              "type": "number"
-            },
-            "max": {
-              "type": "number"
-            },
-            "int": {
-              "type": "boolean"
-            },
-            "finite": {
-              "type": "boolean"
-            }
-          }
+          "$ref": "#/$defs/numberConstraints"
         },
         "stringConstraints": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "nonEmpty": {
-              "type": "boolean"
-            },
-            "minLength": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "maxLength": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "pattern": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "source": {
-                  "type": "string"
-                },
-                "flags": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "source",
-                "flags"
-              ]
-            }
-          }
+          "$ref": "#/$defs/stringConstraints"
         },
         "elementSchema": {
           "$ref": "#/$defs/flag",
-          "description": "Element schema when `kind === 'array'`."
+          "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`."
         },
         "separator": {
           "type": "string",
           "minLength": 1
         },
+        "split": {
+          "$ref": "#/$defs/split"
+        },
+        "duplicateKeys": {
+          "enum": [
+            "first",
+            "last",
+            "error"
+          ]
+        },
         "unique": {
-          "type": "boolean"
+          "const": true
         },
         "pathChecks": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "mustExist": {
-              "type": "boolean"
-            },
-            "type": {
-              "enum": [
-                "file",
-                "directory"
-              ]
-            },
-            "create": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "mustExist"
-          ]
+          "$ref": "#/$defs/pathChecks"
         },
         "valueHint": {
           "type": "string"
@@ -277,6 +297,98 @@
       ],
       "description": "The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics."
     },
+    "stdin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "when": {
+          "enum": [
+            "dash",
+            "missing",
+            "dash-or-missing"
+          ],
+          "description": "When this input reads the stdin stream."
+        },
+        "consume": {
+          "enum": [
+            "exclusive",
+            "broadcast"
+          ],
+          "description": "Whether this input consumes the stream alone."
+        },
+        "trim": {
+          "type": "boolean",
+          "description": "Whether one trailing line terminator is dropped from a single value."
+        }
+      },
+      "required": [
+        "when",
+        "consume"
+      ],
+      "description": "The normalized stdin axis of a flag or an arg."
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "$ref": "#/$defs/splitPolicy"
+        },
+        "stdin": {
+          "$ref": "#/$defs/splitPolicy"
+        }
+      }
+    },
+    "splitPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "enum": [
+            "whole",
+            "delimiter",
+            "lines",
+            "json"
+          ]
+        },
+        "delimiter": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "format"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "format": {
+              "const": "delimiter"
+            }
+          },
+          "required": [
+            "format",
+            "delimiter"
+          ]
+        },
+        {
+          "properties": {
+            "format": {
+              "enum": [
+                "whole",
+                "lines",
+                "json"
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "delimiter"
+            ]
+          }
+        }
+      ]
+    },
     "negation": {
       "type": "object",
       "additionalProperties": false,
@@ -292,6 +404,122 @@
       },
       "description": "Negation settings for a boolean flag (set by `.negatable()`).\n\nThe negated spelling and the positive form are two spellings of ONE\nlogical flag: they share duplicate policy, and the last CLI occurrence\nwins across both. The negated spelling is presence-only — `--no-foo=x`\nis rejected."
     },
+    "numberConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "int": {
+          "type": "boolean"
+        },
+        "finite": {
+          "type": "boolean"
+        }
+      }
+    },
+    "stringConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nonEmpty": {
+          "type": "boolean"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pattern": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "flags": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source",
+            "flags"
+          ]
+        }
+      }
+    },
+    "pathChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mustExist": {
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "file",
+            "directory"
+          ]
+        },
+        "create": {
+          "const": true
+        }
+      },
+      "required": [
+        "mustExist"
+      ]
+    },
+    "argElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "enum",
+            "custom"
+          ],
+          "description": "What kind of value this arg accepts."
+        },
+        "presence": {
+          "const": "required",
+          "description": "Entry values are required once their containing key-value argument is present."
+        },
+        "enumValues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Allowed literal values when `kind === 'enum'`."
+        },
+        "numberConstraints": {
+          "$ref": "#/$defs/numberConstraints"
+        },
+        "stringConstraints": {
+          "$ref": "#/$defs/stringConstraints"
+        },
+        "pathChecks": {
+          "$ref": "#/$defs/pathChecks"
+        },
+        "valueHint": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "presence"
+      ],
+      "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings."
+    },
     "arg": {
       "type": "object",
       "additionalProperties": false,
@@ -304,8 +532,10 @@
           "enum": [
             "string",
             "number",
+            "boolean",
             "enum",
-            "custom"
+            "custom",
+            "keyValue"
           ],
           "description": "What kind of value this arg accepts."
         },
@@ -321,9 +551,9 @@
           "const": true,
           "description": "Whether this arg consumes all remaining positionals."
         },
-        "stdinMode": {
-          "const": true,
-          "description": "Whether this arg may read from stdin during resolution.\n\nDefault: `false`"
+        "stdin": {
+          "$ref": "#/$defs/stdin",
+          "description": "Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding."
         },
         "defaultValue": {
           "description": "Runtime default value (if any)."
@@ -336,12 +566,53 @@
           "type": "string",
           "description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind."
         },
+        "configPath": {
+          "type": "string",
+          "description": "Dotted config path for config resolution (e.g. `'deploy.region'`)."
+        },
         "enumValues": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "description": "Allowed literal values when `kind === 'enum'`."
+        },
+        "elementSchema": {
+          "$ref": "#/$defs/argElement",
+          "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings."
+        },
+        "numberConstraints": {
+          "$ref": "#/$defs/numberConstraints"
+        },
+        "stringConstraints": {
+          "$ref": "#/$defs/stringConstraints"
+        },
+        "pathChecks": {
+          "$ref": "#/$defs/pathChecks"
+        },
+        "valueHint": {
+          "type": "string"
+        },
+        "separator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "split": {
+          "$ref": "#/$defs/split"
+        },
+        "duplicateKeys": {
+          "enum": [
+            "first",
+            "last",
+            "error"
+          ]
+        },
+        "unique": {
+          "const": true
+        },
+        "prompt": {
+          "$ref": "#/$defs/prompt",
+          "description": "Interactive prompt configuration."
         },
         "deprecated": {
           "oneOf": [
@@ -359,6 +630,25 @@
         "name",
         "kind",
         "presence"
+      ],
+      "anyOf": [
+        {
+          "not": {
+            "required": [
+              "elementSchema"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "keyValue"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
       ],
       "description": "The runtime descriptor stored inside every ArgBuilder. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics."
     },

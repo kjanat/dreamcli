@@ -10,7 +10,7 @@ import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter } from '#internals/runtime/index.ts';
-import { cli } from './index.ts';
+import { cli, compiledStateOf } from './index.ts';
 import { extractConfigFlag, prepareRuntimePreflight } from './runtime-preflight.ts';
 
 describe('runtime-preflight — extractConfigFlag', () => {
@@ -47,7 +47,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 	it('loads config and package metadata before execution', async () => {
 		const app = cli('fallback')
 			.config('myapp')
-			.packageJson({ inferName: true })
+			.manifest({ inferName: true })
 			.command(
 				command('deploy')
 					.flag('region', flag.string().config('deploy.region').default('us'))
@@ -75,6 +75,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: 'custom.js',
@@ -89,16 +90,17 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.filteredArgv).toEqual(['deploy']);
 	});
 
-	it('uses pre-loaded packageJson data and skips package.json discovery', async () => {
+	it('uses pre-loaded manifest data and skips package.json discovery', async () => {
 		const readFile = vi.fn(async () => null);
 		const app = cli('myapp')
-			.packageJson({ version: '4.4.4', description: 'pre-loaded' })
+			.manifest({ version: '4.4.4', description: 'pre-loaded' })
 			.command(command('info').action(() => {}));
 
 		const adapter = createTestAdapter({ argv: ['node', 'test', 'info'], readFile });
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -111,9 +113,9 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(readFile).not.toHaveBeenCalled();
 	});
 
-	it('honors packageJson from anchor when discovering metadata', async () => {
+	it('honors the manifest anchor when discovering metadata', async () => {
 		const app = cli('myapp')
-			.packageJson({ from: '/anchor' })
+			.manifest({ from: '/anchor' })
 			.command(command('info').action(() => {}));
 
 		const adapter = createTestAdapter({
@@ -124,6 +126,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -132,6 +135,62 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.kind).toBe('ready');
 		if (preflight.kind !== 'ready') return;
 		expect(preflight.schema.version).toBe('5.5.5');
+	});
+
+	it('reports a discovered version that shadows a command flag as a startup error', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('version', flag.boolean())
+					.action(() => {}),
+			);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'info'],
+			readFile: async (path) => (path === '/test/package.json' ? '{"version":"5.5.5"}' : null),
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+		expect(preflight.kind).toBe('startup-error');
+		if (preflight.kind !== 'startup-error') return;
+		expect(preflight.error.code).toBe('RESERVED_FLAG');
+		expect(preflight.error.message).toMatch(/reserved by the root '--version' flag/);
+		expect(preflight.error.suggest).toBe('Rename the flag');
+		expect(preflight.jsonMode).toBe(false);
+	});
+
+	it('leaves a discovered version alone when no command flag collides', async () => {
+		const app = cli('myapp')
+			.manifest()
+			.command(
+				command('info')
+					.flag('versionTag', flag.string())
+					.action(() => {}),
+			);
+
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'info'],
+			cwd: '/work',
+			readFile: async (path) => (path === '/work/package.json' ? '{"version":"6.6.6"}' : null),
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.schema.version).toBe('6.6.6');
 	});
 
 	it('skips config discovery for completions invocations', async () => {
@@ -144,6 +203,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -168,6 +228,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -176,6 +237,54 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.kind).toBe('ready');
 		if (preflight.kind !== 'ready') return;
 		expect(preflight.inputs.stdinData).toBe('piped data');
+	});
+
+	it('reads stdin for a stdin arg named after an Object.prototype member', async () => {
+		const app = cli('myapp').command(
+			command('echo')
+				.arg('toString', arg.string().stdin())
+				.action(() => {}),
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'echo'],
+			stdinData: 'piped data',
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.stdinData).toBe('piped data');
+	});
+
+	it('leaves stdin unread when such an arg already has a positional', async () => {
+		const app = cli('myapp').command(
+			command('echo')
+				.arg('toString', arg.string().stdin())
+				.action(() => {}),
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'echo', 'from-argv'],
+			stdinData: 'piped data',
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.stdinData).toBeUndefined();
 	});
 
 	it('does not read stdin for root help despite stdin-capable commands', async () => {
@@ -191,6 +300,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -218,12 +328,14 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const interactive = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter: interactiveAdapter,
 			options: undefined,
 			inheritedName: undefined,
 		});
 		const piped = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter: pipedAdapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -236,7 +348,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(piped.inputs.prompter).toBeUndefined();
 	});
 
-	it('returns config-error outcomes for CLI config failures', async () => {
+	it('returns startup-error outcomes for CLI config failures', async () => {
 		const app = cli('myapp')
 			.config('myapp')
 			.command(command('deploy').action(() => {}));
@@ -247,13 +359,14 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
 		});
 
-		expect(preflight.kind).toBe('config-error');
-		if (preflight.kind !== 'config-error') return;
+		expect(preflight.kind).toBe('startup-error');
+		if (preflight.kind !== 'startup-error') return;
 		expect(preflight.jsonMode).toBe(true);
 		expect(preflight.error.code).toBe('CONFIG_PARSE_ERROR');
 	});
@@ -270,6 +383,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -291,6 +405,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,
@@ -313,6 +428,7 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
+			compiled: compiledStateOf(app),
 			adapter,
 			options: undefined,
 			inheritedName: undefined,

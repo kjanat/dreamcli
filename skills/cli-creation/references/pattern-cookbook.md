@@ -1,23 +1,71 @@
 # Pattern Cookbook
 
-Copy-ready snippets for DreamCLI 3.x. Every snippet type-checks against the
+Copy-ready snippets for DreamCLI 4.0. Every snippet type-checks against the
 published types.
 
 ## Values
 
-### Flag precedence chain
+### Precedence chain
 
 ```ts
 flag
 	.enum(['us', 'eu', 'ap'])
+	.stdin()
+	.env('DEPLOY_REGION')
+	.config('deploy.region')
+	.prompt({ kind: 'select', message: 'Which region?' })
+	.default('us');
+
+arg
+	.enum(['us', 'eu', 'ap'])
+	.stdin()
 	.env('DEPLOY_REGION')
 	.config('deploy.region')
 	.prompt({ kind: 'select', message: 'Which region?' })
 	.default('us');
 ```
 
-Resolution order is fixed: CLI argv, env, config, prompt, default. Declare the
-sources a value may come from; never merge them by hand in the action.
+Resolution order is fixed: CLI argv, stdin, env, config, prompt, default, and
+both flags and positionals walk it. Declare the sources a value may come from;
+never merge them by hand in the action.
+
+### Reading piped stdin
+
+```ts
+flag.string().stdin(); // `--body -` or an absent flag reads the pipe
+arg.string().stdin(); // `-` or an omitted slot reads the pipe
+flag.string().stdin({ when: 'dash' }); // only an explicit `-`
+arg.string().stdin({ when: 'missing' }); // only an omitted slot; `-` stays literal
+flag.string().stdin({ consume: 'broadcast' }); // shares the buffer with other inputs
+flag.string().stdin({ trim: true }); // drops one trailing line terminator
+```
+
+Available on every flag kind but `count`, which counts occurrences rather than
+reading a value and throws `INVALID_SCHEMA`, and on every arg kind. A `-` stays
+CLI-sourced and outranks every later stage; an absent input takes the stdin
+stage, which sits ahead of env. One command has one exclusive stdin consumer,
+and a second `.stdin()` input of either surface throws `DUPLICATE_STDIN_INPUT`
+unless every one of them passes `{ consume: 'broadcast' }`.
+
+A `string` input keeps the buffer byte for byte, so `echo hi | mycli` gives
+`'hi\n'`; every other kind drops one trailing line terminator before decoding.
+`{ trim: true }` drops it for a `string` too, which is what a piped path wants:
+
+```ts
+arg.path({ mustExist: true }).stdin({ trim: true });
+// echo ./dist | mycli clean → the check runs against './dist'
+```
+
+It applies to a single value. A collection's terminators separate its elements,
+so `.split({ stdin })` decides those.
+
+A collection reads the buffer as elements and splices them where a `-`
+occurrence sits. A `-` typed beside other occurrences with nothing piped fails
+with `MISSING_STDIN`, rather than shortening the collection;
+occurrences of nothing but `-`, and a scalar `-`, fall through to the later
+sources instead. A stdin-enabled input can never receive a literal `-` as its
+value, since the token names the source; `{ when: 'missing' }` is the one
+binding that leaves it literal.
 
 ### Rich flag types
 
@@ -38,17 +86,62 @@ every source, feed help placeholders, and land in the exported JSON Schema.
 process-free execution pass `stat` (and `mkdir` for `create`) via run options,
 or the checks are skipped.
 
+### Rich arg types
+
+```ts
+arg.url({ protocols: ['https'] }); //  URL
+arg.path({ mustExist: true }); //  string, checked after resolution
+arg.date({ min: new Date('2020-01-01') }); //  Date, strict ISO-8601
+arg.duration(); //  number (ms)
+arg.bytes(); //  number
+arg.url().variadic(); //  URL[], each value validated
+```
+
+Same option objects, parsers, and error codes as the flag kinds above. Required
+by default; add `.optional()` or `.default()` to change that. `arg.path()` needs
+the same `stat`/`mkdir` injection as `flag.path()`, and a variadic path arg
+checks every value it collects.
+
+There is no `arg.array()` (use `.variadic()`) and no `arg.count()`, which counts
+flag occurrences. `arg.boolean()` and `arg.keyValue()` do exist:
+`arg.boolean()` consumes an explicit `true`/`false` token, and
+`arg.keyValue(element)` consumes `KEY=VALUE` tokens into a record, taking the
+same kind of element builder as `flag.keyValue(element)`. `.stdin()`,
+`.env()`, `.config()`, and `.prompt()` are all available on an argument,
+`.variadic()` included: a `-` among the tail tokens splices the decoded buffer
+in at that position, so `printf 'x\ny\n' | mycli build a - b` collects
+`['a', 'x', 'y', 'b']`, and an empty tail takes the whole buffer.
+Prompts are unavailable on key-value arguments, and count flags cannot read
+stdin.
+
+A variadic argument is the last positional a command can declare. Registering
+another one behind it throws `INVALID_BUILDER_STATE` on both construction
+paths, since it could never be filled.
+
 ### Constraints instead of hand-written validation
 
 ```ts
 flag.number({ int: true, min: 1, max: 65535 }); // port
 flag.string({ nonEmpty: true, pattern: /^[a-z][a-z0-9-]*$/ }); // slug
 flag.number().finite(false); // opt back into Infinity
+arg.string({ nonEmpty: true, pattern: /^[a-z][a-z0-9-]*$/ }); // same on positionals
+arg.number().int().min(1); // chainable, same as flag
 ```
 
-Constraints are enforced on CLI parse (`INVALID_VALUE`) and on env/config/prompt
-resolution (`CONSTRAINT_VIOLATED`), both exit code 2. `finite` defaults to
-`true`, so `Infinity` is rejected unless you opt out.
+Constraints are enforced on CLI parse (`INVALID_VALUE`) and on
+env/config/prompt/stdin resolution (`CONSTRAINT_VIOLATED`), both exit code 2.
+A `.default()` value is checked against them where the chain declares it, and a
+violation throws `INVALID_DEFAULT`, whichever order the chain is written in.
+`finite` defaults to `true`, so `Infinity` is rejected unless you opt out:
+
+```ts
+flag.string({ minLength: 3 }).default('ab'); // INVALID_DEFAULT
+flag.string().default('ab').minLength(3); // same verdict
+flag.number({ finite: false }).default(Number.POSITIVE_INFINITY); // fine
+```
+
+Asynchronous validators and `flag.path()` / `arg.path()` filesystem checks stay
+at resolution time, so a default goes through those when the command runs.
 
 ### Standard Schema validation
 
@@ -60,20 +153,55 @@ flag.custom(z.coerce.number().int().positive());
 
 Any Standard Schema v1 validator works (Zod, Valibot, ArkType) with the output
 type inferred. Validation runs after source resolution, so every source is
-checked identically; array flags validate per element.
+checked identically.
 
-### Array flags
+On a collection, where the validator sits decides what it sees:
+
+```ts
+flag.array(flag.string().standard(slug)); // each element: --tag[1] failed validation: …
+flag.array(flag.string()).standard(nonEmptyList); // the finished array
+arg.string().standard(slug).variadic(); // each element
+arg.string().variadic().standard(nonEmptyList); // the finished array
+```
+
+On an argument the position in the chain is what decides it, because
+`.variadic()` is what makes the argument aggregate.
+
+### Collections
 
 ```ts
 flag
 	.array(flag.enum(['us', 'eu', 'ap']))
 	.separator(',')
 	.unique();
+
+flag.keyValue().duplicateKeys('error'); // -e A=1 -e A=2 fails
+arg.keyValue().variadic(); // mycli render a=1 b=2 → { a: '1', b: '2' }
+arg.keyValue(arg.number().int()).variadic(); // mycli scale web=3 → { web: 3 }
 ```
 
 `--region us,eu --region ap` and repetition both work. Put flag-level modifiers
-(`.env()`, `.default()`, …) on the array, never on the element — that is a
-compile error.
+(`.env()`, `.default()`) on the array, never on the element, which is a compile
+error.
+
+On the arg surface these four are collection modifiers, so each states the shape
+it needs and the compiler refuses it elsewhere. `.separator()` and `.split()`
+want a variadic argument or `arg.keyValue()`, `.unique()` a variadic argument of
+a list kind, and `.duplicateKeys()` `arg.keyValue()`. `createArgSchema()` throws
+`INVALID_SCHEMA` on the same combinations.
+
+Each source decodes under its own policy, and a CLI separator is not inherited:
+
+```ts
+flag.array(flag.string()).split({ cli: ',', env: 'json', stdin: 'lines' }).env('TAGS').stdin();
+// --tag a,b            → ['a', 'b']
+// TAGS='["a","b"]'     → ['a', 'b']
+// printf 'a\nb\n' | …  → ['a', 'b']
+```
+
+Defaults without `.split()`: whole CLI tokens, comma-delimited env values,
+line-delimited stdin, native arrays and objects from config. A `-` occurrence
+splices the decoded buffer in at that position.
 
 ## Parser behavior
 
@@ -117,6 +245,33 @@ command('serve')
 
 `.derive()` runs after resolution and before the action. It is the home for
 rules DreamCLI cannot express declaratively, and its return value widens `ctx`.
+
+### Explicit versus defaulted
+
+```ts
+import { command, flag, wasExplicit } from '@kjanat/dreamcli';
+
+command('serve')
+	.flag('port', flag.number({ int: true }).env('PORT').default(3000))
+	.derive(({ flags, sources }) => {
+		if (flags.port !== undefined && sources.flags.port?.stage === 'env') {
+			// the environment supplied it, not the command line
+		}
+		return { overridden: wasExplicit(sources.flags.port) };
+	})
+	.action(({ ctx }) => {
+		ctx.overridden; // boolean
+	});
+```
+
+`sources` is keyed like `flags` and `args`, and each entry names the stage that
+produced the value: `cli`, `stdin`, `env` with its `envVar`, `config` with its
+`configPath`, `prompt`, or `default`. An explicit `-` reports
+`{ stage: 'cli', via: 'stdin', trigger: 'dash' }`, so a piped value is
+distinguishable from a typed one. `wasExplicit()` is the predicate for
+"anything but the default", which is what a mutually-exclusive rule or an
+explicit-wins merge needs. Never drop `.default()` to detect this: that also
+drops `defaultValue` from `--help --json` and the exported schema.
 
 ## Output
 
@@ -277,6 +432,7 @@ captures stdout/stderr as arrays of written chunks — assert trailing newlines.
 await runCommand(deploy, ['--json'], {
 	env: { DEPLOY_REGION: 'eu' },
 	config: { deploy: { region: 'ap' } },
+	stdinData: 'piped\n', // bytes a `.stdin()` input reads; `null` for nothing piped
 	answers: ['production'], // queued prompt answers
 	stat: async (p) => (p === '/data' ? 'directory' : null),
 });
@@ -284,6 +440,8 @@ await runCommand(deploy, ['--json'], {
 
 Prompts are skipped in non-interactive contexts, so queue `answers` when a test
 exercises one. Without `stat`, `flag.path()` checks are skipped entirely.
+`stdinData` feeds `.stdin()` flags and args alike, so a test never has to spawn
+a pipe.
 
 ### Asserting JSON output
 

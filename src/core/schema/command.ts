@@ -10,6 +10,7 @@
  */
 import type { Colors } from 'ansispeck';
 import { CLIError } from '#internals/core/errors/index.ts';
+import type { Verbosity } from '#internals/core/output/contracts.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
@@ -18,12 +19,16 @@ import type {
 	TableColumn,
 	TableOptions,
 } from './activity.ts';
-import type { ArgBuilder, ArgConfig, ArgSchema, InferArgs } from './arg.ts';
-import type { FlagBuilder, FlagConfig, FlagSchema, InferFlags } from './flag.ts';
-import { getFlagNegatedName } from './flag.ts';
+import type { ArgBuilder, ArgConfig, ArgDefinition, ArgSchema, InferArgs } from './arg.ts';
+import { createArgSchema } from './arg.ts';
+import type { schemaBrand } from './brand.ts';
+import type { FlagBuilder, FlagConfig, FlagDefinition, FlagSchema, InferFlags } from './flag.ts';
+import { createFlagSchema, getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
-import type { RunOptions, RunResult } from './run.ts';
+import type { InputSources } from './provenance.ts';
+import { stdinConsumerReference, stdinConsumers } from './source.ts';
+import type { StdinBinding } from './stdin.ts';
 
 // --- Context type utilities
 
@@ -50,21 +55,6 @@ type WidenContext<C extends Record<string, unknown>, Output extends Record<strin
  */
 type WidenDerivedContext<C extends Record<string, unknown>, Output> =
 	Awaited<Output> extends Record<string, unknown> ? WidenContext<C, Awaited<Output>> : C;
-
-// --- Type-level configuration (phantom state tracked through the chain)
-
-/**
- * Compile-time state carried through the command builder chain.
- *
- * `F` accumulates named flag builders; `A` accumulates named arg builders.
- * Both start empty (`{}`) and grow as `.flag()` / `.arg()` are called.
- */
-interface CommandConfig {
-	/** Accumulated flag builders keyed by flag name. */
-	readonly flags: Record<string, FlagBuilder<FlagConfig>>;
-	/** Accumulated arg builders keyed by arg name. */
-	readonly args: Record<string, ArgBuilder<ArgConfig>>;
-}
 
 // --- Interactive resolver types
 
@@ -129,8 +119,6 @@ type InteractiveResolver<F extends Record<string, FlagBuilder<FlagConfig>>> = (
  * At runtime, the resolver receives `{ flags: Record<string, unknown> }`
  * and returns `Record<string, PromptConfig | falsy>`. The phantom types
  * from `CommandBuilder<F, A>` are erased.
- *
- * @internal
  */
 type ErasedInteractiveResolver = (params: {
 	readonly flags: Readonly<Record<string, unknown>>;
@@ -139,13 +127,27 @@ type ErasedInteractiveResolver = (params: {
 // --- Handler types
 
 /**
+ * Seals {@linkcode Out} against structural construction outside the framework.
+ *
+ * @internal
+ */
+const outBrand: unique symbol = Symbol('dreamcli.out');
+
+/**
  * Output channel available inside action handlers.
  *
  * Provides structured methods for stdout/stderr, JSON output,
  * spinners, progress bars, and tables. The real implementation lives in
  * `src/core/output/`; this interface defines the shape that handlers consume.
+ *
+ * `Out` is a framework-created, non-exhaustive value: obtain instances from
+ * action parameters, `createOutput()`, or `createCaptureOutput()` — do not
+ * implement it. New readonly members may be added in minor releases.
  */
 interface Out {
+	/** Framework-construction seal. Obtain `Out` values from DreamCLI; do not implement this interface. */
+	readonly [outBrand]: never;
+
 	/** Write to stdout (normal output). */
 	log(message: string): void;
 	/** Informational (may be suppressed in quiet mode). */
@@ -186,6 +188,18 @@ interface Out {
 	 * expected.
 	 */
 	readonly jsonMode: boolean;
+
+	/**
+	 * Active output verbosity for this command execution.
+	 *
+	 * Root `--quiet`/`-q` resolves to `'quiet'`. Most handlers should emit
+	 * informational output through {@linkcode Out.info | info()},
+	 * {@linkcode Out.status | status()}, {@linkcode Out.spinner | spinner()},
+	 * or {@linkcode Out.progress | progress()} and let the channel suppress it
+	 * automatically. Read this property only when custom rendering or expensive
+	 * optional work genuinely depends on the active verbosity.
+	 */
+	readonly verbosity: Verbosity;
 
 	/**
 	 * Whether stdout is connected to a TTY (terminal).
@@ -262,8 +276,8 @@ interface Out {
 	/**
 	 * Create a spinner for indeterminate progress feedback.
 	 *
-	 * Returns a handle for lifecycle control. In non-TTY/jsonMode,
-	 * returns a no-op handle (or static fallback if configured).
+	 * Returns a no-op handle in quiet or JSON mode. Otherwise, non-TTY output
+	 * uses a no-op handle or the configured static fallback.
 	 *
 	 * @param text    - Initial spinner text.
 	 * @param options - Fallback strategy for non-TTY environments.
@@ -274,7 +288,7 @@ interface Out {
 	/**
 	 * Create a progress bar for measured work.
 	 *
-	 * Returns a handle for updating progress. Pass `total` for
+	 * Returns a no-op handle in quiet or JSON mode. Otherwise, pass `total` for
 	 * determinate mode (percentage bar); omit for indeterminate (pulsing).
 	 *
 	 * @param options - Progress configuration (total, label, fallback).
@@ -334,11 +348,12 @@ interface CommandMeta {
 /**
  * The bag of values received by an action handler.
  *
- * - `args`  — fully resolved positional arguments
- * - `flags` — fully resolved flags
- * - `ctx`   — derive/middleware-provided context
- * - `out`   — output channel
- * - `meta`  — CLI program metadata (name, bin, version, command)
+ * - `args`: fully resolved positional arguments
+ * - `flags`: fully resolved flags
+ * - `sources`: which stage produced each of those values
+ * - `ctx`: derive/middleware-provided context
+ * - `out`: output channel
+ * - `meta`: CLI program metadata (name, bin, version, command)
  *
  * The `C` parameter defaults to `Record<string, never>`, making `ctx`
  * property access a type error until derive or middleware extends it.
@@ -352,6 +367,13 @@ interface ActionParams<
 	readonly args: Readonly<InferArgs<A>>;
 	/** Fully resolved flag values, typed from `.flag()` definitions. */
 	readonly flags: Readonly<InferFlags<F>>;
+	/**
+	 * Where each resolved value came from, keyed like `flags` and `args`.
+	 *
+	 * An input that resolved no value has no record. {@link wasExplicit} answers
+	 * the explicit-versus-defaulted question; read `stage` for the rest.
+	 */
+	readonly sources: InputSources<F, A>;
 	/** Middleware/derive-provided context, typed from `.middleware()` and `.derive()` chains. */
 	readonly ctx: Readonly<C>;
 	/** Structured output channel for stdout, stderr, JSON, tables, and spinners. */
@@ -384,23 +406,31 @@ type ActionHandler<
  *
  * Follows the same erasure pattern as {@link ErasedDeriveHandler} and
  * {@link ErasedMiddlewareHandler}.
- *
- * @internal
  */
 type ErasedActionHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
+	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	readonly meta: CommandMeta;
 }) => void | Promise<void>;
 
 /**
+ * The provenance bag as the execution seam carries it, before a handler's own
+ * flag and arg names type it.
+ */
+type ErasedInputSources = InputSources<
+	Readonly<Record<string, unknown>>,
+	Readonly<Record<string, unknown>>
+>;
+
+/**
  * The bag of values received by a derive handler.
  *
  * Identical to {@link ActionParams}: derives run after full resolution and
- * before the action handler, with typed args/flags/current context plus `out`
- * and `meta`.
+ * before the action handler, with typed args, flags, provenance, and current
+ * context plus `out` and `meta`.
  */
 type DeriveParams<
 	F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -428,12 +458,11 @@ type DeriveHandler<
 
 /**
  * Type-erased derive handler stored on the command builder.
- *
- * @internal
  */
 type ErasedDeriveHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
+	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	readonly meta: CommandMeta;
@@ -445,8 +474,6 @@ type ErasedDeriveHandler = (params: {
 /**
  * Internal execution step union preserving registration order across
  * {@linkcode CommandBuilder.derive | derive()} and {@linkcode CommandBuilder.middleware | middleware()}.
- *
- * @internal
  */
 type ExecutionStep =
 	| {
@@ -498,9 +525,11 @@ function resolveExampleCommand(command: ExampleCommand, meta: ExampleMeta): stri
  *
  * Consumers (parser, help generator, CLI dispatcher) read this to
  * understand the command's shape — flags, args, aliases, subcommands,
- * middleware, and interactive resolver.
+ * and interactive resolver.
  */
 interface CommandSchema {
+	/** Type-only seal produced by {@link createCommandSchema}. */
+	readonly [schemaBrand]: 'command';
 	/** The command name (used for dispatch, e.g. `'deploy'`). */
 	readonly name: string;
 	/** Human-readable description for help text. */
@@ -529,15 +558,6 @@ interface CommandSchema {
 	 */
 	readonly interactive: ErasedInteractiveResolver | undefined;
 	/**
-	 * Middleware handlers to run before the action handler.
-	 *
-	 * Executed in registration order — first middleware registered runs
-	 * first and calls `next()` to proceed to subsequent middleware,
-	 * ending with the action handler. Context accumulates via intersection
-	 * at the type level and via object spread at runtime.
-	 */
-	readonly middleware: readonly ErasedMiddlewareHandler[];
-	/**
 	 * Nested subcommand schemas (for help rendering and completion).
 	 *
 	 * Pure data — no execution closures. Populated by `.command()` on
@@ -560,43 +580,389 @@ interface CommandArgEntry {
 }
 
 /**
- * Validate a new arg entry against invariants before adding it to the command.
+ * A named positional argument entry accepted by {@link createCommandSchema}.
  *
- * @param name - Arg name being registered.
- * @param schema - Runtime descriptor of the arg.
- * @param args - Already-registered arg entries on this command.
+ * The schema may be an {@link ArgDefinition} or an already-built {@link ArgSchema}.
+ */
+interface CommandArgEntryDefinition {
+	/** User-facing argument name (shown in help as `<name>`). */
+	readonly name: string;
+	/** Arg definition or an already-built schema. */
+	readonly schema: ArgDefinition | ArgSchema;
+}
+
+/**
+ * Input shape accepted by {@link createCommandSchema}.
  *
- * @throws {@link CLIError} `INVALID_BUILDER_STATE` if both `.stdin()` and `.variadic()` are set.
- * @throws {@link CLIError} `DUPLICATE_STDIN_ARG` if another arg already uses `.stdin()`.
+ * Every field except `name` is optional. Flags, args, and subcommands accept
+ * either definitions or already-built schemas.
+ */
+interface CommandDefinition {
+	/** The command name used for dispatch. */
+	readonly name: string;
+	/**
+	 * Human-readable description for help text.
+	 * @defaultValue `undefined`
+	 */
+	readonly description?: string | undefined;
+	/**
+	 * Alternative names for this command.
+	 * @defaultValue `[]`
+	 */
+	readonly aliases?: readonly string[] | undefined;
+	/**
+	 * Whether this command is hidden from help listings.
+	 * @defaultValue `false`
+	 */
+	readonly hidden?: boolean | undefined;
+	/**
+	 * Usage examples for help text.
+	 * @defaultValue `[]`
+	 */
+	readonly examples?: readonly CommandExample[] | undefined;
+	/**
+	 * Flag definitions or built schemas, keyed by flag name.
+	 * @defaultValue `{}`
+	 */
+	readonly flags?: Readonly<Record<string, FlagDefinition | FlagSchema>> | undefined;
+	/**
+	 * Ordered positional arg entries.
+	 * @defaultValue `[]`
+	 */
+	readonly args?: readonly CommandArgEntryDefinition[] | undefined;
+	/**
+	 * Whether an action handler has been registered.
+	 * @defaultValue `false`
+	 */
+	readonly hasAction?: boolean | undefined;
+	/**
+	 * Command-level interactive resolver.
+	 * @defaultValue `undefined`
+	 */
+	readonly interactive?: ErasedInteractiveResolver | undefined;
+	/**
+	 * Nested subcommand definitions or built schemas.
+	 * @defaultValue `[]`
+	 */
+	readonly commands?: readonly (CommandDefinition | CommandSchema)[] | undefined;
+}
+
+/**
+ * Reject a flag name a plain record cannot carry.
+ *
+ * Assigning `__proto__` on an object literal sets the prototype instead of an
+ * entry, so both construction paths refuse the key rather than let the flag
+ * vanish.
+ *
+ * @param commandName - Command the flag was declared on, for the error details.
+ * @param name - Proposed flag name.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`.
  *
  * @internal
  */
-function validateArgEntry(name: string, schema: ArgSchema, args: readonly CommandArgEntry[]): void {
-	if (schema.stdinMode && schema.variadic) {
-		throw new CLIError(`Argument <${name}> cannot be both variadic and stdin-backed`, {
-			code: 'INVALID_BUILDER_STATE',
-			details: { arg: name, stdinMode: true, variadic: true },
-			suggest: 'Remove .stdin() or .variadic() from this argument',
+function assertUsableFlagKey(commandName: string, name: string): void {
+	if (name !== '__proto__') return;
+
+	throw new CLIError("Flag name '__proto__' is not usable as a flag", {
+		code: 'INVALID_SCHEMA',
+		details: { command: commandName, flag: '__proto__' },
+		suggest: 'Rename the flag, for example to "proto"',
+	});
+}
+
+/**
+ * Reject a flag record whose entries a name check cannot reach.
+ *
+ * Only own enumerable keys are read. An object literal routes a bare
+ * `__proto__` key to the prototype setter, and a record built over another
+ * object hides its inherited entries, so in both cases a declared flag is
+ * already gone by the time {@link assertUsableFlagKey} sees a name. The
+ * replaced prototype is the evidence common to both. `Object.prototype` and
+ * `null` (an `Object.create(null)` record) carry no entries of their own and
+ * pass.
+ *
+ * @param commandName - Command the flags were declared on, for the error details.
+ * @param flags - Flag record as the caller supplied it.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when the record's prototype is
+ *   replaced.
+ *
+ * @internal
+ */
+function assertUsableFlagRecord(commandName: string, flags: object): void {
+	const prototype: unknown = Object.getPrototypeOf(flags);
+	if (prototype === Object.prototype || prototype === null) return;
+
+	throw new CLIError(
+		`Command '${commandName}' flag record has a replaced prototype. A '__proto__' key sets the prototype instead of adding a flag, and an inherited flag is never read`,
+		{
+			code: 'INVALID_SCHEMA',
+			details: { command: commandName },
+			suggest:
+				"Pass a plain object with no '__proto__' key, or a record built with Object.create(null)",
+		},
+	);
+}
+
+/**
+ * Reject an arg name a plain record cannot carry.
+ *
+ * Resolved args reach the handler as a record keyed by arg name, and the parser
+ * accumulates positionals into one, so `__proto__` would swallow the value the
+ * user typed and hand the handler the prototype instead.
+ *
+ * @param commandName - Command the arg was declared on, for the error details.
+ * @param name - Proposed arg name.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`.
+ *
+ * @internal
+ */
+function assertUsableArgKey(commandName: string, name: string): void {
+	if (name !== '__proto__') return;
+
+	throw new CLIError(`Argument name '${name}' is not usable as an argument`, {
+		code: 'INVALID_SCHEMA',
+		details: { command: commandName, arg: name },
+		suggest: 'Rename the argument, for example to "proto"',
+	});
+}
+
+/**
+ * Merge definition fields onto the {@link CommandSchema} defaults, recursively.
+ *
+ * @param definition - Command definition to normalize.
+ * @returns A fully populated {@link CommandSchema}.
+ * @throws {@link CLIError} `INVALID_SCHEMA` when a name at any depth is empty
+ *   or contains whitespace, a flag or arg is named `__proto__` at any depth,
+ *   or a flag record at any depth has a replaced prototype.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` or `DUPLICATE_STDIN_INPUT` when
+ *   an input breaks the positional-order or stdin invariants.
+ *
+ * @internal
+ */
+function buildCommandSchema(definition: CommandDefinition): CommandSchema {
+	if (definition.name === '' || /\s/u.test(definition.name)) {
+		throw new CLIError('Command schema requires a non-empty name without whitespace', {
+			code: 'INVALID_SCHEMA',
+			details: { name: definition.name },
+			suggest: 'Pass a dispatch name such as { name: "deploy" }',
 		});
 	}
 
-	if (!schema.stdinMode) {
-		return;
+	const flagDefinitions = definition.flags ?? {};
+	assertUsableFlagRecord(definition.name, flagDefinitions);
+
+	const flags: Record<string, FlagSchema> = {};
+	for (const [name, value] of Object.entries(flagDefinitions)) {
+		assertUsableFlagKey(definition.name, name);
+		const flagSchema = createFlagSchema(value);
+		validateFlagStdinEntry(definition.name, name, flagSchema, flags, []);
+		flags[name] = flagSchema;
 	}
 
-	const existing = args.find((entry) => entry.schema.stdinMode);
-	if (existing === undefined) {
-		return;
+	const args: CommandArgEntry[] = [];
+	for (const entry of definition.args ?? []) {
+		const schema = createArgSchema(entry.schema);
+		validateArgEntry(definition.name, entry.name, schema, flags, args);
+		args.push({ name: entry.name, schema });
 	}
+
+	const schema: Omit<CommandSchema, typeof schemaBrand> = {
+		name: definition.name,
+		description: definition.description,
+		aliases: definition.aliases ?? [],
+		hidden: definition.hidden ?? false,
+		examples: definition.examples ?? [],
+		flags,
+		args,
+		hasAction: definition.hasAction ?? false,
+		interactive: definition.interactive,
+		commands: (definition.commands ?? []).map((child) => buildCommandSchema(child)),
+	};
+
+	return schema as CommandSchema;
+}
+
+/**
+ * Create a {@link CommandSchema} from a plain definition object.
+ *
+ * Most consumers should prefer {@link command | command()}, which returns a
+ * {@link CommandBuilder} with type inference. `createCommandSchema()` is the
+ * low-level escape hatch for tooling that composes schemas as data.
+ *
+ * Flags, args, and subcommands are normalized recursively, so an already-built
+ * schema fed back in produces a deep-equal schema.
+ *
+ * Flag spellings are checked across the whole tree, so a definition whose names,
+ * aliases, or negated spellings collide with each other or with a propagated
+ * ancestor flag is rejected here. Both flags still parse under their canonical
+ * names, so what a collision costs is the shared spelling. Help advertises it on
+ * both flags and the parser answers it with one of them.
+ * Args go through the same invariants {@link CommandBuilder.arg} enforces.
+ * These are the checks the {@link CommandBuilder} applies as flags, args, and
+ * subcommands are registered.
+ *
+ * @param definition - Command name plus optional flags, args, and subcommands.
+ * @returns A fully populated {@link CommandSchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when a name at any depth is
+ *   empty or contains whitespace, a flag or arg at any depth is named
+ *   `__proto__`, which JavaScript cannot carry as a plain record key, or a flag
+ *   record at any depth has a
+ *   replaced prototype, which hides the entries a name check would read.
+ * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two flags on one
+ *   command share a spelling.
+ * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a flag shadows
+ *   a spelling propagated from an ancestor command.
+ * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when a positional comes
+ *   after a variadic one, or `'DUPLICATE_STDIN_INPUT'` when two inputs on one
+ *   command consume stdin and either is exclusive.
+ *
+ * @example
+ * ```ts
+ * const schema = createCommandSchema({
+ *   name: 'deploy',
+ *   description: 'Ship the build',
+ *   flags: { force: { kind: 'boolean' } },
+ *   args: [{ name: 'target', schema: { kind: 'string' } }],
+ * });
+ * ```
+ */
+function createCommandSchema(definition: CommandDefinition): CommandSchema {
+	const schema = buildCommandSchema(definition);
+	validateCommandFlagTree(schema);
+	return schema;
+}
+
+/**
+ * Validate a new arg entry against invariants before adding it to the command.
+ *
+ * @param commandName - Command the arg was declared on. A definition tree reaches
+ *   here at any depth, so every error carries it in `details`.
+ * @param name - Arg name being registered.
+ * @param schema - Runtime descriptor of the arg.
+ * @param flags - Already-registered flag schemas on this command.
+ * @param args - Already-registered arg entries on this command.
+ *
+ * @throws {@link CLIError} `INVALID_SCHEMA` if the name is `__proto__`.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` if an earlier arg is variadic.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` if another input already consumes stdin exclusively.
+ *
+ * @internal
+ */
+function validateArgEntry(
+	commandName: string,
+	name: string,
+	schema: ArgSchema,
+	flags: Readonly<Record<string, FlagSchema>>,
+	args: readonly CommandArgEntry[],
+): void {
+	assertUsableArgKey(commandName, name);
+	assertVariadicIsLast(commandName, name, args);
+	assertStdinExclusivity(commandName, { kind: 'arg', name, stdin: schema.stdin }, flags, args);
+}
+
+/**
+ * Reject a positional declared after one that consumes the whole tail.
+ *
+ * A variadic arg takes every remaining positional, so anything registered after
+ * it can never be filled, and a second variadic arg has nothing left to collect.
+ *
+ * @param commandName - Command the arg was declared on.
+ * @param name - Arg name being registered.
+ * @param args - Already-registered arg entries on this command.
+ * @throws {@link CLIError} `INVALID_BUILDER_STATE` when an earlier arg is variadic.
+ *
+ * @internal
+ */
+function assertVariadicIsLast(
+	commandName: string,
+	name: string,
+	args: readonly CommandArgEntry[],
+): void {
+	const greedy = args.find((entry) => entry.schema.variadic);
+	if (greedy === undefined) return;
 
 	throw new CLIError(
-		`Only one stdin argument is allowed; <${existing.name}> is already stdin-backed`,
+		`Argument <${name}> comes after variadic argument <${greedy.name}>, which consumes every remaining positional`,
 		{
-			code: 'DUPLICATE_STDIN_ARG',
-			details: { arg: name, existingArg: existing.name },
-			suggest: 'Keep .stdin() on a single argument per command',
+			code: 'INVALID_BUILDER_STATE',
+			details: { command: commandName, arg: name, variadicArg: greedy.name },
+			suggest: `Declare <${name}> before <${greedy.name}>, or drop .variadic() from <${greedy.name}>`,
 		},
 	);
+}
+
+/**
+ * Reject a second stdin consumer when either it or an existing one is exclusive.
+ *
+ * One command reads stdin once, so an exclusive consumer must be the only one.
+ * Several `{ consume: 'broadcast' }` inputs coexist and all receive the same
+ * buffer. The rule spans both surfaces, so a flag and an arg conflict with each
+ * other exactly as two args do.
+ *
+ * @param commandName - Command the input was declared on.
+ * @param candidate - The input being registered.
+ * @param flags - Already-registered flag schemas on this command.
+ * @param args - Already-registered arg entries on this command.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` on a conflict.
+ *
+ * @internal
+ */
+function assertStdinExclusivity(
+	commandName: string,
+	candidate: {
+		readonly kind: 'flag' | 'arg';
+		readonly name: string;
+		readonly stdin: StdinBinding | undefined;
+	},
+	flags: Readonly<Record<string, FlagSchema>>,
+	args: readonly CommandArgEntry[],
+): void {
+	const stdin = candidate.stdin;
+	if (stdin === undefined) return;
+
+	for (const existing of stdinConsumers(flags, args)) {
+		if (existing.kind === candidate.kind && existing.name === candidate.name) continue;
+		if (stdin.consume === 'broadcast' && existing.stdin.consume === 'broadcast') continue;
+
+		throw new CLIError(
+			`Only one input may consume stdin exclusively; ${stdinConsumerReference(existing)} already consumes stdin`,
+			{
+				code: 'DUPLICATE_STDIN_INPUT',
+				details: {
+					command: commandName,
+					...(candidate.kind === 'flag' ? { flag: candidate.name } : { arg: candidate.name }),
+					...(existing.kind === 'flag'
+						? { existingFlag: existing.name }
+						: { existingArg: existing.name }),
+				},
+				suggest:
+					"Keep .stdin() on a single input per command, or declare every stdin input with { consume: 'broadcast' }",
+			},
+		);
+	}
+}
+
+/**
+ * Validate a new flag against the stdin invariants before adding it.
+ *
+ * @param commandName - Command the flag was declared on.
+ * @param name - Flag name being registered.
+ * @param schema - Runtime descriptor of the flag.
+ * @param flags - Already-registered flag schemas on this command.
+ * @param args - Already-registered arg entries on this command.
+ * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` when another input already
+ *   consumes stdin exclusively.
+ *
+ * @internal
+ */
+function validateFlagStdinEntry(
+	commandName: string,
+	name: string,
+	schema: FlagSchema,
+	flags: Readonly<Record<string, FlagSchema>>,
+	args: readonly CommandArgEntry[],
+): void {
+	assertStdinExclusivity(commandName, { kind: 'flag', name, stdin: schema.stdin }, flags, args);
 }
 
 // --- Flag collision validation
@@ -745,6 +1111,15 @@ function buildInheritedFlagsForChildren(
 	return next;
 }
 
+/**
+ * Reject a command whose flags collide on any spelling, walking subcommands.
+ *
+ * @param command - Command schema to validate.
+ * @param inheritedFlags - Propagated ancestor flags visible at this level.
+ * @throws {@link CLIError} `FLAG_NAME_COLLISION` or `PROPAGATED_FLAG_COLLISION`.
+ *
+ * @internal
+ */
 function validateCommandFlagTree(
 	command: CommandSchema,
 	inheritedFlags: Readonly<Record<string, FlagSchema>> = {},
@@ -757,62 +1132,28 @@ function validateCommandFlagTree(
 	}
 	validateInheritedFlagCollisions(command.name, visibleInherited, command.flags);
 
+	const effectiveFlags = { ...visibleInherited, ...command.flags };
+	for (const [name, schema] of Object.entries(effectiveFlags)) {
+		validateFlagStdinEntry(command.name, name, schema, effectiveFlags, command.args);
+	}
+
 	const inheritedForChildren = buildInheritedFlagsForChildren(inheritedFlags, command.flags);
 	for (const child of command.commands) {
 		validateCommandFlagTree(child, inheritedForChildren);
 	}
 }
 
-// --- Type-erased command interface (shared between schema and CLI layers)
+// --- Runnable command shape (testkit entry point)
 
 /**
- * A type-erased command entry for heterogeneous command storage.
- *
- * Advanced/internal bridge type: most consumers should work with
- * {@link CommandBuilder} and never reference `ErasedCommand` directly.
- *
- * Commands registered via `CLIBuilder.command()` have heterogeneous `F`, `A`,
- * and `C` type parameters. At the dispatch level we only need the runtime
- * schema (for name/alias matching and help) and the ability to delegate to
- * `runCommand()`. This interface captures exactly that contract.
- *
- * The `_execute` function closes over the original typed {@linkcode CommandBuilder},
- * preserving full type safety inside the closure while presenting a
- * uniform interface to the dispatcher.
- *
- * Defined here (rather than in the CLI layer) so both {@linkcode CommandBuilder} and
- * `CLIBuilder` can reference it without circular imports.
- *
- * @internal
- */
-interface ErasedCommand {
-	/** Runtime schema for name matching and help rendering. */
-	readonly schema: CommandSchema;
-	/**
-	 * Nested subcommands (name/alias → erased child).
-	 *
-	 * Built recursively by `eraseCommand()` in the CLI layer.
-	 * Empty map for leaf commands. The dispatch layer uses this for
-	 * recursive command tree traversal.
-	 *
-	 * @internal
-	 */
-	readonly subcommands: ReadonlyMap<string, ErasedCommand>;
-	/** Original command builder captured at the type-erasure boundary. */
-	readonly _command?: AnyCommandBuilder;
-	/** Execute this command against argv. Closes over the typed CommandBuilder. */
-	readonly _execute: (argv: readonly string[], options?: RunOptions) => Promise<RunResult>;
-}
-
-/**
- * Structural subset of {@linkcode CommandBuilder} consumed by the execution pipeline.
+ * Structural subset of {@linkcode CommandBuilder} accepted by `runCommand()`.
  *
  * Avoids generic type parameters so any `CommandBuilder<F, A, C>` satisfies
  * this interface structurally — no variance constraints, no inference needed.
- * Used by `runCommand()` and the shared executor to accept commands without
- * requiring TypeScript to resolve {@linkcode CommandBuilder}'s full generic signature.
+ * The testkit reads `handler` and `_executionSteps` off it and hands them to
+ * the shared executor, so TypeScript never has to resolve
+ * {@linkcode CommandBuilder}'s full generic signature.
  *
- * @internal
  */
 interface RunnableCommand {
 	readonly schema: CommandSchema;
@@ -829,10 +1170,9 @@ interface RunnableCommand {
  * custom tooling that mirrors the framework's type-erasure boundary.
  *
  * Uses widest possible generic bounds so any `CommandBuilder<F, A, C>` is
- * assignable. The CLI layer's `eraseCommand()` traverses these to build
- * the execution tree.
+ * assignable. The CLI layer's `compileCommand()` traverses these to build
+ * the execution graph.
  *
- * @internal
  */
 type AnyCommandBuilder = CommandBuilder<
 	Record<string, FlagBuilder<FlagConfig>>,
@@ -900,17 +1240,15 @@ class CommandBuilder<
 	 * @internal Nested sub-command builders (type-erased for heterogeneous storage).
 	 *
 	 * Stored separately from `schema.commands` because builders carry action
-	 * handlers and phantom types needed by `eraseCommand()` in the CLI layer.
+	 * handlers and phantom types needed by `compileCommand()` in the CLI layer.
 	 * `schema.commands` holds pure `CommandSchema[]` for help/completion.
 	 */
 	readonly _subcommands: readonly AnyCommandBuilder[];
 
 	/**
-	 * @internal Execution steps in registration order.
+	 * @internal Derive and middleware steps in registration order.
 	 *
-	 * Distinct from `schema.middleware`: middleware handlers remain in schema
-	 * for backward compatibility, while derives stay command-local and builder-
-	 * scoped so future shared/global middleware can compose cleanly.
+	 * The executor builds the handler chain from this list.
 	 */
 	readonly _executionSteps: readonly ExecutionStep[];
 
@@ -1111,7 +1449,6 @@ class CommandBuilder<
 		return new CommandBuilder(
 			{
 				...this.schema,
-				middleware: [...this.schema.middleware, m._handler],
 				hasAction: false,
 			},
 			// Handler intentionally dropped — C changed, invalidating handler signature.
@@ -1309,17 +1646,34 @@ class CommandBuilder<
 	 * ```
 	 *
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`,
+	 *   which a plain record cannot carry.
+	 * @throws {@link CLIError} `FLAG_NAME_COLLISION` when the command already
+	 *   declares this name, or the new flag's spellings collide with another
+	 *   flag's.
+	 * @throws {@link CLIError} `PROPAGATED_FLAG_COLLISION` when a spelling
+	 *   collides with one propagated to a registered subcommand.
 	 */
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
 		name: N & Exclude<N, keyof F>,
 		builder: B,
 	): CommandBuilder<F & Record<N, B>, A, C> {
-		if (name in this.schema.flags) {
+		assertUsableFlagKey(this.schema.name, name);
+
+		if (Object.hasOwn(this.schema.flags, name)) {
 			throw new CLIError(`Command '${this.schema.name}' already defines flag --${name}`, {
 				code: 'FLAG_NAME_COLLISION',
 				details: { command: this.schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
 			});
 		}
+
+		validateFlagStdinEntry(
+			this.schema.name,
+			name,
+			builder.schema,
+			this.schema.flags,
+			this.schema.args,
+		);
 
 		const nextFlags = { ...this.schema.flags, [name]: builder.schema };
 		const nextSchema = { ...this.schema, flags: nextFlags, hasAction: false };
@@ -1374,12 +1728,18 @@ class CommandBuilder<
 	 * ```
 	 *
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `INVALID_SCHEMA` when the name is `__proto__`,
+	 *   which a plain record cannot carry.
+	 * @throws {@link CLIError} `INVALID_BUILDER_STATE` when an earlier arg on this
+	 *   command is variadic, so this one could never be filled.
+	 * @throws {@link CLIError} `DUPLICATE_STDIN_INPUT` when another input on this
+	 *   command already consumes stdin exclusively.
 	 */
 	arg<N extends string, B extends ArgBuilder<ArgConfig>>(
 		name: N & Exclude<N, keyof A>,
 		builder: B,
 	): CommandBuilder<F, A & Record<N, B>, C> {
-		validateArgEntry(name, builder.schema, this.schema.args);
+		validateArgEntry(this.schema.name, name, builder.schema, this.schema.flags, this.schema.args);
 		const entry: CommandArgEntry = { name, schema: builder.schema };
 		const nextArgs = [...this.schema.args, entry];
 		return new CommandBuilder(
@@ -1398,7 +1758,7 @@ class CommandBuilder<
 	 * Register a nested subcommand on this command.
 	 *
 	 * The subcommand's builder is stored in `_subcommands` for the CLI layer's
-	 * `eraseCommand()` to traverse when building the execution tree. The
+	 * `compileCommand()` to traverse when building the execution graph. The
 	 * subcommand's `CommandSchema` is also appended to `schema.commands` for
 	 * help rendering and completion generation.
 	 *
@@ -1416,6 +1776,9 @@ class CommandBuilder<
 	 *
 	 * @param sub - Child {@link CommandBuilder} to nest under this command.
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `PROPAGATED_FLAG_COLLISION` when a spelling this
+	 *   command propagates collides with one the subcommand, or any of its own
+	 *   descendants, declares.
 	 */
 	command<
 		F2 extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1516,19 +1879,7 @@ class CommandBuilder<
  * @returns A fresh {@link CommandBuilder} with empty flags, args, and context.
  */
 function command(name: string): CommandBuilder {
-	return new CommandBuilder({
-		name,
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-	});
+	return new CommandBuilder(createCommandSchema({ name }));
 }
 
 /**
@@ -1564,18 +1915,20 @@ export type {
 	ActionParams,
 	AnyCommandBuilder,
 	CommandArgEntry,
-	CommandConfig,
+	CommandArgEntryDefinition,
+	CommandDefinition,
 	CommandExample,
 	CommandMeta,
 	CommandSchema,
 	DeriveHandler,
 	DeriveParams,
 	ErasedActionHandler,
-	ErasedCommand,
 	ErasedDeriveHandler,
+	ErasedInputSources,
 	ErasedInteractiveResolver,
 	ExampleCommand,
 	ExampleMeta,
+	ExecutionStep,
 	InteractiveParams,
 	InteractiveResolver,
 	InteractiveResult,
@@ -1584,4 +1937,4 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export { CommandBuilder, command, group, resolveExampleCommand };
+export { CommandBuilder, command, createCommandSchema, group, outBrand, resolveExampleCommand };

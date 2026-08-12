@@ -30,6 +30,15 @@ const evenInt = standard<number>((value) => {
 	return { value: n };
 });
 
+/** Sync validator: accepts an odd integer, so the count factory's own default of 0 fails it. */
+const oddInt = standard<number>((value) => {
+	const n = Number(value);
+	if (!Number.isInteger(n) || n % 2 === 0) {
+		return { issues: [{ message: 'must be an odd integer' }] };
+	}
+	return { value: n };
+});
+
 /** Async validator: accepts a string longer than two chars. */
 const asyncName = standard<string>(async (value) => {
 	if (typeof value !== 'string' || value.length <= 2) {
@@ -106,6 +115,27 @@ describe('Standard Schema v1 interop — flags', () => {
 		expect(bad.error?.message).toContain('must be longer than two characters');
 	});
 
+	it('collects thrown and rejected validator failures', async () => {
+		const throws = standard(() => {
+			throw new Error('sync validator failed');
+		});
+		const rejects = standard(async () => {
+			throw new Error('async validator failed');
+		});
+		const cmd = command('run')
+			.flag('first', flag.custom(throws))
+			.flag('second', flag.custom(rejects))
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, ['--first', 'one', '--second', 'two']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.message).toContain('sync validator failed');
+		expect(result.error?.message).toContain('async validator failed');
+		expect(result.error?.details).toMatchObject({ count: 2 });
+	});
+
 	it('validates and transforms Standard Schema array elements', async () => {
 		const cmd = command('run')
 			.flag('count', flag.array(flag.custom(evenInt)))
@@ -118,6 +148,43 @@ describe('Standard Schema v1 interop — flags', () => {
 		const bad = await runCommand(cmd, ['--count', '2', '--count', '3']);
 		expect(bad.exitCode).toBe(2);
 		expect(bad.error?.message).toContain('--count[1] failed validation');
+	});
+
+	it('validates a count flag, whose scalar value carries the element validator', async () => {
+		const cmd = command('run')
+			.flag('verbose', flag.count().alias('v').standard(evenInt))
+			.action(({ flags, out }) => out.log(`verbose=${String(flags.verbose)}`));
+
+		const ok = await runCommand(cmd, ['-v', '-v']);
+		expect(ok.exitCode).toBe(0);
+		expect(ok.stdout[0]).toBe('verbose=2\n');
+
+		const bad = await runCommand(cmd, ['-v']);
+		expect(bad.exitCode).toBe(2);
+		expect(bad.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(bad.error?.message).toBe('--verbose failed validation: must be an even integer');
+	});
+
+	it('validates a count flag resolved from env', async () => {
+		const cmd = command('run')
+			.flag('verbose', flag.count().env('VERBOSE').standard(evenInt))
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, [], { env: { VERBOSE: '3' } });
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--verbose failed validation: must be an even integer');
+	});
+
+	it('validates a count flag left at the factory default', async () => {
+		const cmd = command('run')
+			.flag('verbose', flag.count().standard(oddInt))
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--verbose failed validation: must be an odd integer');
 	});
 });
 
@@ -166,6 +233,49 @@ describe('Standard Schema v1 interop — args', () => {
 		const bad = await runCommand(cmd, ['2', '3']);
 		expect(bad.exitCode).toBe(2);
 		expect(bad.error?.message).toContain('<n>[1] failed validation');
+	});
+});
+
+// === Names that an Object.prototype member also carries
+
+describe('Standard Schema v1 interop — Object.prototype member names', () => {
+	it('skips a validator on an unresolved flag named after a prototype member', async () => {
+		const cmd = command('run')
+			.flag('toString', flag.custom(asyncName))
+			.flag('needed', flag.string().required())
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('REQUIRED_FLAG');
+		expect(result.error?.message).toBe('Missing required flag --needed');
+	});
+
+	it('skips a validator on an unresolved arg named after a prototype member', async () => {
+		const cmd = command('run')
+			.arg('needed', arg.string())
+			.arg('valueOf', arg.custom(asyncName).optional())
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, []);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('REQUIRED_ARG');
+		expect(result.error?.message).toBe('Missing required argument <needed>');
+	});
+
+	it('still validates such a flag once a value resolves', async () => {
+		const cmd = command('run')
+			.flag('toString', flag.custom(asyncName))
+			.action(({ out }) => out.log('ok'));
+
+		const bad = await runCommand(cmd, ['--toString', 'no']);
+		expect(bad.exitCode).toBe(2);
+		expect(bad.error?.message).toContain('--toString failed validation');
+
+		const ok = await runCommand(cmd, ['--toString', 'yes']);
+		expect(ok.exitCode).toBe(0);
 	});
 });
 

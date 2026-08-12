@@ -11,8 +11,11 @@ Create runnable DreamCLI starter CLIs and extend them with typed command
 patterns. This skill covers user-facing app code built **on** DreamCLI, not
 DreamCLI framework internals.
 
-Targets DreamCLI 3.x. Version 3 removed the DSL, made the default command the
-root surface, and added a large typed-flag surface; snippets below assume it.
+Targets DreamCLI 4.0. Version 3 removed the DSL, made the default command the
+root surface, and added a large typed-flag surface. Version 4 gave both
+factories the same sources, so `.stdin()`, `.env()`, `.config()`, and
+`.prompt()` are available on flags and positionals alike. Snippets below assume
+both.
 
 ## Quick Start
 
@@ -96,19 +99,72 @@ Paths are relative to the dreamcli repository root.
 
 ## Extend the Starter
 
-**Values.** Add typed args with `arg.string()`, `arg.number()`, `arg.enum(...)`,
-`arg.custom(...)`; `.variadic()` for repeated positionals. Prefer a purpose-built
-flag kind over `flag.string()` plus parsing: `flag.url()`, `flag.path()`,
-`flag.date()`, `flag.duration()`, `flag.bytes()`, `flag.count()`,
-`flag.keyValue()`. Express validation declaratively with constraints
-(`{ int, min, max }`, `{ nonEmpty, pattern }`) or a Standard Schema passed to
-`flag.custom()`, not with hand-written checks in the action.
+**Values.** Prefer a purpose-built kind over `flag.string()` / `arg.string()`
+plus parsing. Both factories carry `string()`, `number()`, `boolean()`,
+`enum(...)`, `custom(...)`, `keyValue()`, `url()`, `path()`, `date()`,
+`duration()`, and `bytes()`. `flag` additionally carries `array()` and
+`count()`; the arg form of `flag.array()` is `.variadic()`. Express validation
+declaratively with constraints (`{ int, min, max }`, `{ nonEmpty, pattern }`,
+chainable on both builders) or a Standard Schema passed to `.standard()` or to
+`flag.custom()` / `arg.custom()`, not with hand-written checks in the action.
 
-**Sources.** Declare `.env()`, `.config()`, `.prompt()`, `.default()` on the flag
-and let resolution order (argv, env, config, prompt, default) do the work.
+**Defaults.** A `.default()` value is validated where the chain declares it, so
+a default that violates its own constraints, validator, or collection shape
+throws `INVALID_DEFAULT` at build time. A collection default takes the shape the
+input resolves to: an array for `flag.array()` and a variadic arg, a record for
+`keyValue()`, a non-negative integer for `flag.count()`.
+
+**Collections.** `flag.array()`, `flag.keyValue()`, `arg.keyValue()`, and
+`.variadic()` aggregate from every source under one set of rules. Each source
+decodes under its own policy, set by `.split({ cli, env, stdin })`: whole CLI
+tokens by default, comma-delimited env values, line-delimited stdin, and native
+arrays and objects from config. `.separator()` sets the CLI policy alone and is
+no longer inherited by env or config. `.unique()` dedupes a list, and
+`.duplicateKeys('last' | 'first' | 'error')` decides a repeated key on every
+source, naming the source that carried it. A validator on the element builder
+checks each element; one on the collection builder checks the finished value.
+On the arg surface, `.separator()` and `.split()` require `.variadic()` or
+`arg.keyValue()`, `.unique()` requires a variadic list, and `.duplicateKeys()`
+requires `arg.keyValue()`. The compiler refuses every other shape and
+`createArgSchema()` throws `INVALID_SCHEMA`.
+
+**Argument order.** A variadic argument takes every remaining positional, so it
+is the last one a command can declare. Anything registered behind it throws
+`INVALID_BUILDER_STATE`.
+
+**Sources.** Both factories declare the same sources. Chain `.stdin()`,
+`.env()`, `.config()`, `.prompt()`, `.default()` on a flag or an argument and
+let one resolution order (argv, stdin, env, config, prompt, default) do the
+work. Count and key-value flags and key-value arguments are not promptable.
+`.stdin()` takes `{ when, consume, trim }`; one command has one exclusive
+stdin consumer unless every stdin input passes `{ consume: 'broadcast' }`. A `-`
+occurrence on a collection splices the decoded buffer in at that position, so
+`--tag before --tag - --tag after` over `a\nb\n` gives
+`['before', 'a', 'b', 'after']`, and a variadic argument reads its tail the same
+way. A `-` typed beside other occurrences with nothing piped fails with
+`MISSING_STDIN`; a lone `-`, and a scalar `-`, fall through instead.
+`{ trim: true }` drops one trailing line terminator from a single value, which
+is what `arg.path({ mustExist: true }).stdin({ trim: true })` wants. Help names
+each binding: `[stdin]`, `[stdin: '-']`, or `[stdin: when omitted]`. Stdin is
+available to scalar, array, key-value, and variadic inputs; count flags cannot
+read it, and key-value arguments cannot prompt.
+
+**Provenance.** A handler receives `sources` beside `flags` and `args`, keyed
+the same way, holding the stage that produced each value (`cli`, `stdin`, `env`
+with its `envVar`, `config` with its `configPath`, `prompt`, `default`).
+`wasExplicit(sources.flags.x)` is the predicate for "supplied rather than
+defaulted"; never drop `.default()` to detect that, since it also drops
+`defaultValue` from the exported schema.
 
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.
+
+**Diagnostics.** Values resolved through stdin, env, config, or a prompt are
+redacted in validation messages and omit `details.value`; this includes stdin
+selected by an explicit `-`. Only a literal CLI value is shown. The framework
+cannot redact text your own code writes: a `flag.custom()` parse function's
+thrown message and a Standard Schema issue message are shown verbatim, so write
+them to describe the expectation rather than to interpolate the value.
 
 **Output.** `out.log()` for results, `out.status()` for progress notes (stderr,
 suppressed by `--quiet`), `out.table()` for lists, `out.json()` behind
@@ -116,8 +172,8 @@ suppressed by `--quiet`), `out.table()` for lists, `out.json()` behind
 command must report normally but exit non-zero.
 
 **Testing.** `runCommand()` from `@kjanat/dreamcli/testkit`, with `answers` for
-prompts and `stat`/`mkdir` when `flag.path()` checks must run. Assert output
-including trailing newlines.
+prompts and `stat`/`mkdir` when `flag.path()` or `arg.path()` checks must run.
+Assert output including trailing newlines.
 
 ## Resource Map
 
@@ -132,7 +188,7 @@ including trailing newlines.
 - Do not modify DreamCLI core internals for consumer-app requests.
 - Keep generated imports on `@kjanat/dreamcli` and `@kjanat/dreamcli/testkit`;
   never reach into `#internals/*` or `dist/`.
-- Preserve the typed resolution flow: argv, env, config, prompt, default.
+- Preserve the typed resolution flow: argv, stdin, env, config, prompt, default.
 - Keep stdout machine-clean: progress and status go to stderr via `out.status()`,
   never interleaved with `out.json()`.
 - `.default(cmd)` is the root surface and is not routable by name; add

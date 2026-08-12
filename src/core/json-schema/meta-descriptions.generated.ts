@@ -7,7 +7,7 @@
 const definitionMetaSchemaDescriptions = {
 	root: {
 		description:
-			'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered commands.\\\nBuilt incrementally by CLIBuilder.',
+			'Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered command schemas.\\\nSealed by createCLISchema and rebuilt by each CLIBuilder step.',
 		properties: {
 			name: {
 				description: 'Program name (used in help text, usage lines, and completion scripts).',
@@ -20,17 +20,17 @@ const definitionMetaSchemaDescriptions = {
 			},
 			defaultCommand: {
 				description:
-					'Default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method.',
+					'Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition.',
 			},
 			commands: {
-				description: 'Registered commands (type-erased for heterogeneous storage).',
+				description: 'Schemas of the registered commands, in registration order.',
 			},
 		},
 	},
 	defs: {
 		command: {
 			description:
-				"Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nmiddleware, and interactive resolver.",
+				"Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nand interactive resolver.",
 			properties: {
 				name: {
 					description: "The command name (used for dispatch, e.g. `'deploy'`).",
@@ -59,6 +59,40 @@ const definitionMetaSchemaDescriptions = {
 				},
 			},
 		},
+		commandDocument: {
+			description:
+				'A single-command definition document, version 1.\n\nProduced by generateCommandSchema. Same shape as a\nCommandDefinitionFragmentV1 plus the `schemaVersion` every standalone\ndocument carries.',
+			properties: {
+				schemaVersion: {
+					description:
+						'Version of the definition document format emitted by generateSchema\nand generateCommandSchema.',
+				},
+				name: {
+					description: 'The command name used for dispatch.',
+				},
+				description: {
+					description: 'Human-readable description for help text.',
+				},
+				aliases: {
+					description: 'Alternative names accepted for this command.',
+				},
+				hidden: {
+					description: 'Whether the command is omitted from help listings.',
+				},
+				examples: {
+					description: 'Usage examples attached to the command.',
+				},
+				flags: {
+					description: 'Named flag definitions keyed by flag name.',
+				},
+				args: {
+					description: 'Positional argument definitions in CLI order.',
+				},
+				commands: {
+					description: 'Nested subcommand definitions.',
+				},
+			},
+		},
 		flag: {
 			description:
 				"The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
@@ -76,6 +110,10 @@ const definitionMetaSchemaDescriptions = {
 				aliases: {
 					description: "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
 				},
+				stdin: {
+					description:
+						'Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding.',
+				},
 				envVar: {
 					description: 'Environment variable name for v0.2+ resolution.',
 				},
@@ -89,7 +127,7 @@ const definitionMetaSchemaDescriptions = {
 					description: "Allowed literal values when `kind === 'enum'`.",
 				},
 				elementSchema: {
-					description: "Element schema when `kind === 'array'`.",
+					description: "Element schema when `kind === 'array'` or `kind === 'keyValue'`.",
 				},
 				prompt: {
 					description: 'Interactive prompt configuration for v0.3+ resolution.',
@@ -109,6 +147,20 @@ const definitionMetaSchemaDescriptions = {
 				duplicates: {
 					description:
 						"How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`",
+				},
+			},
+		},
+		stdin: {
+			description: 'The normalized stdin axis of a flag or an arg.',
+			properties: {
+				when: {
+					description: 'When this input reads the stdin stream.',
+				},
+				consume: {
+					description: 'Whether this input consumes the stream alone.',
+				},
+				trim: {
+					description: 'Whether one trailing line terminator is dropped from a single value.',
 				},
 			},
 		},
@@ -143,9 +195,9 @@ const definitionMetaSchemaDescriptions = {
 				variadic: {
 					description: 'Whether this arg consumes all remaining positionals.',
 				},
-				stdinMode: {
+				stdin: {
 					description:
-						'Whether this arg may read from stdin during resolution.\n\nDefault: `false`',
+						'Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding.',
 				},
 				defaultValue: {
 					description: 'Runtime default value (if any).',
@@ -157,12 +209,38 @@ const definitionMetaSchemaDescriptions = {
 					description:
 						"Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind.",
 				},
+				configPath: {
+					description: "Dotted config path for config resolution (e.g. `'deploy.region'`).",
+				},
+				prompt: {
+					description: 'Interactive prompt configuration.',
+				},
 				enumValues: {
 					description: "Allowed literal values when `kind === 'enum'`.",
+				},
+				elementSchema: {
+					description:
+						"Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings.",
 				},
 				deprecated: {
 					description:
 						'Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated arg is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`.',
+				},
+			},
+		},
+		argElement: {
+			description:
+				"Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings.",
+			properties: {
+				kind: {
+					description: 'What kind of value this arg accepts.',
+				},
+				presence: {
+					description:
+						'Entry values are required once their containing key-value argument is present.',
+				},
+				enumValues: {
+					description: "Allowed literal values when `kind === 'enum'`.",
 				},
 			},
 		},

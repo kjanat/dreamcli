@@ -2,27 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { isValidationError, ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
 // --- Helpers
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+	return createCommandSchema({ name: 'test', ...overrides });
 }
 
 function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
@@ -42,7 +30,7 @@ describe('resolve', () => {
 		it('resolves string flag from env when CLI absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', { envVar: 'DEPLOY_REGION' }),
+					region: createFlagSchema('string', { envVar: 'DEPLOY_REGION' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -55,7 +43,7 @@ describe('resolve', () => {
 		it('CLI value takes precedence over env', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', { envVar: 'DEPLOY_REGION' }),
+					region: createFlagSchema('string', { envVar: 'DEPLOY_REGION' }),
 				},
 			});
 			const parsed = makeParsed({ flags: { region: 'us' } });
@@ -68,7 +56,7 @@ describe('resolve', () => {
 		it('env takes precedence over default', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'DEPLOY_REGION',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -85,7 +73,7 @@ describe('resolve', () => {
 		it('falls through to default when env var not set', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'DEPLOY_REGION',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -102,7 +90,7 @@ describe('resolve', () => {
 		it('ignores env when flag has no envVar declared', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
+					region: createFlagSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -119,7 +107,7 @@ describe('resolve', () => {
 		it('coerces env string to number', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { envVar: 'PORT' }),
+					port: createFlagSchema('number', { envVar: 'PORT' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -132,7 +120,7 @@ describe('resolve', () => {
 		it('coerces env float string to number', async () => {
 			const schema = makeSchema({
 				flags: {
-					threshold: createSchema('number', { envVar: 'THRESHOLD' }),
+					threshold: createFlagSchema('number', { envVar: 'THRESHOLD' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -145,7 +133,7 @@ describe('resolve', () => {
 		it('throws ValidationError for non-numeric env value', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { envVar: 'PORT' }),
+					port: createFlagSchema('number', { envVar: 'PORT' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -157,7 +145,7 @@ describe('resolve', () => {
 		it('env number error has TYPE_MISMATCH code and details', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { envVar: 'PORT' }),
+					port: createFlagSchema('number', { envVar: 'PORT' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -172,8 +160,8 @@ describe('resolve', () => {
 					expect(err.code).toBe('TYPE_MISMATCH');
 					expect(err.details).toEqual({
 						flag: 'port',
+						source: 'env',
 						envVar: 'PORT',
-						value: 'abc',
 						expected: 'number',
 					});
 					expect(err.suggest).toBe('Set PORT to a valid number');
@@ -205,7 +193,7 @@ describe('resolve', () => {
 			it(`coerces env '${input}' to ${String(expected)}`, async () => {
 				const schema = makeSchema({
 					flags: {
-						verbose: createSchema('boolean', {
+						verbose: createFlagSchema('boolean', {
 							envVar: 'VERBOSE',
 							presence: 'defaulted',
 							defaultValue: false,
@@ -223,7 +211,7 @@ describe('resolve', () => {
 		it('throws ValidationError for invalid boolean env value', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', {
+					verbose: createFlagSchema('boolean', {
 						envVar: 'VERBOSE',
 						presence: 'defaulted',
 						defaultValue: false,
@@ -252,7 +240,7 @@ describe('resolve', () => {
 		it('resolves valid enum value from env', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu', 'ap'] }),
+					region: createFlagSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu', 'ap'] }),
 				},
 			});
 			const parsed = makeParsed();
@@ -265,7 +253,7 @@ describe('resolve', () => {
 		it('throws ValidationError for invalid enum env value', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu', 'ap'] }),
+					region: createFlagSchema('enum', { envVar: 'REGION', enumValues: ['us', 'eu', 'ap'] }),
 				},
 			});
 			const parsed = makeParsed();
@@ -280,8 +268,8 @@ describe('resolve', () => {
 					expect(err.code).toBe('INVALID_ENUM');
 					expect(err.details).toEqual({
 						flag: 'region',
+						source: 'env',
 						envVar: 'REGION',
-						value: 'jp',
 						allowed: ['us', 'eu', 'ap'],
 					});
 					expect(err.suggest).toBe('Set REGION to one of: us, eu, ap');
@@ -296,7 +284,7 @@ describe('resolve', () => {
 		it('resolves comma-separated env value to string array', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { envVar: 'TAGS' }),
+					tags: createFlagSchema('array', { envVar: 'TAGS' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -309,7 +297,7 @@ describe('resolve', () => {
 		it('resolves empty env string to empty array', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { envVar: 'TAGS' }),
+					tags: createFlagSchema('array', { envVar: 'TAGS' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -322,7 +310,7 @@ describe('resolve', () => {
 		it('resolves single-element env array', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { envVar: 'TAGS' }),
+					tags: createFlagSchema('array', { envVar: 'TAGS' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -335,9 +323,9 @@ describe('resolve', () => {
 		it('coerces array elements via element schema (number)', async () => {
 			const schema = makeSchema({
 				flags: {
-					ports: createSchema('array', {
+					ports: createFlagSchema('array', {
 						envVar: 'PORTS',
-						elementSchema: createSchema('number'),
+						elementSchema: createFlagSchema('number'),
 					}),
 				},
 			});
@@ -351,9 +339,9 @@ describe('resolve', () => {
 		it('throws for invalid array element value', async () => {
 			const schema = makeSchema({
 				flags: {
-					ports: createSchema('array', {
+					ports: createFlagSchema('array', {
 						envVar: 'PORTS',
-						elementSchema: createSchema('number'),
+						elementSchema: createFlagSchema('number'),
 					}),
 				},
 			});
@@ -378,7 +366,7 @@ describe('resolve', () => {
 		it('env value satisfies required flag', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required', envVar: 'TOKEN' }),
+					token: createFlagSchema('string', { presence: 'required', envVar: 'TOKEN' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -391,7 +379,7 @@ describe('resolve', () => {
 		it('still throws when required flag has envVar but env is not set', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required', envVar: 'TOKEN' }),
+					token: createFlagSchema('string', { presence: 'required', envVar: 'TOKEN' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -407,7 +395,7 @@ describe('resolve', () => {
 		it('works without options (v0.1 behavior)', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
 				},
 			});
 			const parsed = makeParsed();
@@ -419,7 +407,7 @@ describe('resolve', () => {
 		it('works with empty options', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
 				},
 			});
 			const parsed = makeParsed();
@@ -431,7 +419,7 @@ describe('resolve', () => {
 		it('works with no env key in options', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
 				},
 			});
 			const parsed = makeParsed();
@@ -449,7 +437,7 @@ describe('resolve', () => {
 		it('CLI > env > default: CLI wins', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'REGION',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -466,7 +454,7 @@ describe('resolve', () => {
 		it('CLI > env > default: env wins when CLI absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'REGION',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -483,7 +471,7 @@ describe('resolve', () => {
 		it('CLI > env > default: default wins when both CLI and env absent', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', {
+					region: createFlagSchema('string', {
 						envVar: 'REGION',
 						presence: 'defaulted',
 						defaultValue: 'us',
@@ -504,8 +492,8 @@ describe('resolve', () => {
 		it('aggregates env coercion error with missing required error', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { envVar: 'PORT' }),
-					token: createSchema('string', { presence: 'required' }),
+					port: createFlagSchema('number', { envVar: 'PORT' }),
+					token: createFlagSchema('string', { presence: 'required', envVar: 'TOKEN' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -518,8 +506,17 @@ describe('resolve', () => {
 				expect(isValidationError(err)).toBe(true);
 				if (isValidationError(err)) {
 					expect(err.message).toContain('Multiple validation errors');
-					const details = err.details as { errors: unknown[]; count: number };
+					const details = err.details as {
+						issues: { readonly label: string; readonly sourceLabel?: string }[];
+						count: number;
+					};
 					expect(details.count).toBe(2);
+					expect(details.issues).toContainEqual(
+						expect.objectContaining({ label: 'flag --port', sourceLabel: 'env PORT' }),
+					);
+					const missing = details.issues.find((issue) => issue.label === 'flag --token');
+					expect(missing).toBeDefined();
+					expect(missing).not.toHaveProperty('sourceLabel');
 				}
 			}
 		});
@@ -531,7 +528,7 @@ describe('resolve', () => {
 		it('resolves custom flag from env via parseFn', async () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						envVar: 'HEX_VALUE',
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					}),
@@ -547,7 +544,7 @@ describe('resolve', () => {
 		it('env custom flag parse failure produces validation error', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('custom', {
+					port: createFlagSchema('custom', {
 						envVar: 'PORT',
 						parseFn: (raw: unknown) => {
 							const n = Number(raw);
@@ -575,7 +572,7 @@ describe('resolve', () => {
 		it('custom flag without parseFn passes raw env string through', async () => {
 			const schema = makeSchema({
 				flags: {
-					value: createSchema('custom', { envVar: 'VALUE' }),
+					value: createFlagSchema('custom', { envVar: 'VALUE' }),
 				},
 			});
 			const parsed = makeParsed();
@@ -592,23 +589,23 @@ describe('resolve', () => {
 		it('resolves complex multi-flag command with mixed sources', async () => {
 			const schema = makeSchema({
 				flags: {
-					host: createSchema('string', {
+					host: createFlagSchema('string', {
 						envVar: 'HOST',
 						presence: 'defaulted',
 						defaultValue: 'localhost',
 					}),
-					port: createSchema('number', { envVar: 'PORT' }),
-					verbose: createSchema('boolean', {
+					port: createFlagSchema('number', { envVar: 'PORT' }),
+					verbose: createFlagSchema('boolean', {
 						envVar: 'VERBOSE',
 						presence: 'defaulted',
 						defaultValue: false,
 					}),
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						envVar: 'REGION',
 						enumValues: ['us', 'eu', 'ap'],
 					}),
-					tags: createSchema('array', { envVar: 'TAGS' }),
-					output: createSchema('string'), // no env, optional
+					tags: createFlagSchema('array', { envVar: 'TAGS' }),
+					output: createFlagSchema('string'), // no env, optional
 				},
 			});
 			const parsed = makeParsed({ flags: { host: '0.0.0.0' } }); // CLI overrides host
@@ -639,7 +636,7 @@ describe('resolve', () => {
 describe('resolve — env numeric constraints', () => {
 	it('rejects Infinity by default (finite)', async () => {
 		const schema = makeSchema({
-			flags: { count: createSchema('number', { envVar: 'COUNT' }) },
+			flags: { count: createFlagSchema('number', { envVar: 'COUNT' }) },
 		});
 		try {
 			await resolve(schema, makeParsed(), { env: { COUNT: 'Infinity' } });
@@ -657,7 +654,10 @@ describe('resolve — env numeric constraints', () => {
 	it('{ finite: false } allows Infinity from env', async () => {
 		const schema = makeSchema({
 			flags: {
-				count: createSchema('number', { envVar: 'COUNT', numberConstraints: { finite: false } }),
+				count: createFlagSchema('number', {
+					envVar: 'COUNT',
+					numberConstraints: { finite: false },
+				}),
 			},
 		});
 		const result = await resolve(schema, makeParsed(), { env: { COUNT: 'Infinity' } });
@@ -667,7 +667,7 @@ describe('resolve — env numeric constraints', () => {
 	it('{ int: true } rejects non-integer env value', async () => {
 		const schema = makeSchema({
 			flags: {
-				count: createSchema('number', { envVar: 'COUNT', numberConstraints: { int: true } }),
+				count: createFlagSchema('number', { envVar: 'COUNT', numberConstraints: { int: true } }),
 			},
 		});
 		await expect(resolve(schema, makeParsed(), { env: { COUNT: '3.7' } })).rejects.toThrow(
@@ -678,7 +678,7 @@ describe('resolve — env numeric constraints', () => {
 	it('{ min: 0, max: 100 } enforces inclusive bounds from env', async () => {
 		const schema = makeSchema({
 			flags: {
-				count: createSchema('number', {
+				count: createFlagSchema('number', {
 					envVar: 'COUNT',
 					numberConstraints: { min: 0, max: 100 },
 				}),
@@ -697,7 +697,7 @@ describe('resolve — env numeric constraints', () => {
 	it('includes the violated bound in env-path details (matches parse)', async () => {
 		const schema = makeSchema({
 			flags: {
-				count: createSchema('number', { envVar: 'COUNT', numberConstraints: { max: 100 } }),
+				count: createFlagSchema('number', { envVar: 'COUNT', numberConstraints: { max: 100 } }),
 			},
 		});
 		try {
@@ -709,5 +709,29 @@ describe('resolve — env numeric constraints', () => {
 				expect(err.details).toMatchObject({ flag: 'count', constraint: 'max', bound: 100 });
 			}
 		}
+	});
+});
+
+// === Env lookup reads own keys only
+
+describe('resolve — env variable named after an Object.prototype member', () => {
+	it('treats an absent variable as absent', async () => {
+		const schema = makeSchema({
+			flags: { x: createFlagSchema('string', { envVar: 'toString', defaultValue: 'fallback' }) },
+		});
+
+		const result = await resolve(schema, makeParsed(), { env: {} });
+
+		expect(result.flags).toEqual({ x: 'fallback' });
+	});
+
+	it('still reads the variable when the caller sets it', async () => {
+		const schema = makeSchema({
+			flags: { x: createFlagSchema('string', { envVar: 'toString' }) },
+		});
+
+		const result = await resolve(schema, makeParsed(), { env: { toString: 'set' } });
+
+		expect(result.flags).toEqual({ x: 'set' });
 	});
 });

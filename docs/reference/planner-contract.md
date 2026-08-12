@@ -10,7 +10,8 @@ It is a stability target for tests and refactors, not a public API guarantee.
 - apply default-command fallback
 - merge propagated flags while honoring child shadowing
 - build the execution handoff for the matched command
-- normalize invocation argv for planner-owned global concerns like root `--json`
+- normalize invocation argv for planner-owned global concerns like root `--json`, and reject an
+  invalid value for one of them after handling root help and version requests
 
 ## Non-Responsibilities
 
@@ -66,11 +67,11 @@ import type {
   HelpOptions,
 } from '@kjanat/dreamcli';
 
-type ErasedCommand = Record<string, unknown>;
+type CompiledCommand = Record<string, unknown>;
 type OutputPolicy = Record<string, unknown>;
 
 interface CommandExecutionPlan {
-  readonly command: ErasedCommand;
+  readonly command: CompiledCommand;
   readonly mergedSchema: CommandSchema;
   readonly argv: readonly string[];
   readonly meta: CommandMeta;
@@ -84,7 +85,7 @@ Field meaning:
 
 | Field          | Meaning                                                             |
 | -------------- | ------------------------------------------------------------------- |
-| `command`      | matched leaf command to execute                                     |
+| `command`      | compiled node of the matched leaf command: handler, steps, subcommands |
 | `mergedSchema` | leaf schema after propagated ancestor flags are merged and shadowed |
 | `argv`         | remaining argv after command-name dispatch                          |
 | `meta`         | CLI metadata passed into middleware and actions                     |

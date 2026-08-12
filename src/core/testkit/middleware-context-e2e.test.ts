@@ -149,7 +149,7 @@ describe('typed ctx in action handlers', () => {
 			.middleware(traceMiddleware)
 			.action(({ ctx }) => {
 				// Compile-time: ctx should have user, traceId, startTime
-				expectTypeOf(ctx.user).toMatchTypeOf<User>();
+				expectTypeOf(ctx.user).toExtend<User>();
 				expectTypeOf(ctx.traceId).toBeString();
 				expectTypeOf(ctx.startTime).toBeNumber();
 			});
@@ -165,8 +165,8 @@ describe('typed ctx in action handlers', () => {
 		command('test')
 			.middleware(authMiddleware)
 			.action(({ ctx }) => {
-				expectTypeOf(ctx.user).toMatchTypeOf<User>();
-				expectTypeOf(ctx.user.role).toMatchTypeOf<'admin' | 'user'>();
+				expectTypeOf(ctx.user).toExtend<User>();
+				expectTypeOf(ctx.user.role).toExtend<'admin' | 'user'>();
 			});
 	});
 
@@ -181,7 +181,7 @@ describe('typed ctx in action handlers', () => {
 				expectTypeOf(args.name).toBeString();
 				expectTypeOf(flags.force).toBeBoolean();
 				expectTypeOf(flags.count).toBeNumber();
-				expectTypeOf(ctx.user).toMatchTypeOf<User>();
+				expectTypeOf(ctx.user).toExtend<User>();
 				expectTypeOf(ctx.traceId).toBeString();
 			});
 	});

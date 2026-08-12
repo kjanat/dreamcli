@@ -1,10 +1,9 @@
 /**
- * Resolution chain: CLI -> env -> config -> prompt -> default.
+ * Resolution chain: CLI -> stdin -> env -> config -> prompt -> default.
  *
- * v0.1 implemented: **CLI parsed value -> default value**.
- * v0.2 adds: **env variable resolution** and **config object resolution**
- *   between CLI and default.
- * v0.3 adds: **prompt resolution** between config and default.
+ * Flags and args walk the same ordered stages. An explicit `-` is CLI-sourced
+ * with bytes from stdin and keeps CLI precedence; the `stdin` stage is the
+ * implicit fallback an absent input takes before the environment.
  *
  * The resolver takes raw {@linkcode ParseResult} (from the parser) and a
  * {@linkcode CommandSchema}, applies the resolution chain, and validates
@@ -19,7 +18,13 @@ import { isValidationError, type ValidationError } from '#internals/core/errors/
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
 import { resolveArgs } from './args.ts';
-import type { DeprecationWarning, ResolveOptions, ResolveResult } from './contracts.ts';
+import type {
+	DeprecationWarning,
+	ResolutionProvenance,
+	ResolutionProvenanceRecord,
+	ResolveOptions,
+	ResolveResult,
+} from './contracts.ts';
 import { collectValidationErrors, isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import { resolveFlags } from './flags.ts';
 import { applyStandardValidators } from './standard.ts';
@@ -34,10 +39,11 @@ import { applyStandardValidators } from './standard.ts';
  *
  * Resolution order:
  * 1. CLI parsed value (from {@linkcode ParseResult})
- * 2. Env variable (from {@linkcode ResolveOptions.env}, if flag declares `envVar`)
- * 3. Config value (from {@linkcode ResolveOptions.config}, if flag declares `configPath`)
- * 4. Prompt (from {@linkcode ResolveOptions.prompter}, if flag declares `prompt`)
- * 5. Default value (from schema)
+ * 2. Stdin (from {@linkcode ResolveOptions.stdinData}, if the input declares `stdin`)
+ * 3. Env variable (from {@linkcode ResolveOptions.env}, if the input declares `envVar`)
+ * 4. Config value (from {@linkcode ResolveOptions.config}, if the input declares `configPath`)
+ * 5. Prompt (from {@linkcode ResolveOptions.prompter}, if the input declares `prompt`)
+ * 6. Default value (from schema)
  *
  * After resolution, validates that all required flags and args have
  * a value. Collects **all** validation errors before throwing, so the
@@ -63,27 +69,28 @@ async function resolve(
 	parsed: ParseResult,
 	options?: ResolveOptions,
 ): Promise<ResolveResult> {
-	const stdinData = options?.stdinData;
-	const env = options?.env ?? {};
-	const config = options?.config ?? {};
-	const prompter = options?.prompter;
 	const deprecations: DeprecationWarning[] = [];
+	const flagProvenance = provenanceRecord();
+	const argProvenance = provenanceRecord();
+	const shared = {
+		env: options?.env ?? {},
+		config: options?.config ?? {},
+		stdinData: options?.stdinData,
+		prompter: options?.prompter,
+		deprecations,
+		stat: options?.stat,
+		mkdir: options?.mkdir,
+	};
 	let flags: Readonly<Record<string, unknown>> = {};
 	let args: Readonly<Record<string, unknown>> = {};
 	const errors: ValidationError[] = [];
 
 	try {
-		flags = await resolveFlags(
-			schema.flags,
-			parsed.flags,
-			env,
-			config,
-			prompter,
-			schema.interactive,
-			deprecations,
-			options?.stat,
-			options?.mkdir,
-		);
+		flags = await resolveFlags(schema.flags, parsed.flags, {
+			...shared,
+			interactive: schema.interactive,
+			provenance: flagProvenance,
+		});
 	} catch (error) {
 		if (!isValidationError(error)) {
 			throw error;
@@ -92,7 +99,10 @@ async function resolve(
 	}
 
 	try {
-		args = resolveArgs(schema.args, parsed.args, stdinData, env, deprecations);
+		args = await resolveArgs(schema.args, parsed.args, {
+			...shared,
+			provenance: argProvenance,
+		});
 	} catch (error) {
 		if (!isValidationError(error)) {
 			throw error;
@@ -100,7 +110,10 @@ async function resolve(
 		errors.push(...collectValidationErrors(error));
 	}
 
-	const validated = await applyStandardValidators(schema, flags, args);
+	const validated = await applyStandardValidators(schema, flags, args, {
+		flags: flagProvenance,
+		args: argProvenance,
+	});
 	flags = validated.flags;
 	args = validated.args;
 	errors.push(...validated.errors);
@@ -109,8 +122,32 @@ async function resolve(
 		throwAggregatedErrors(errors);
 	}
 
-	return { flags, args, deprecations };
+	return {
+		flags,
+		args,
+		deprecations,
+		provenance: { flags: flagProvenance, args: argProvenance },
+	};
 }
 
-export type { DeprecationWarning, ResolveOptions, ResolveResult };
+/**
+ * An empty per-surface provenance record.
+ *
+ * A handler reads this record by input name, and an input that resolved nothing
+ * must read back as `undefined`. A prototype would answer a name such as
+ * `toString` with an inherited method instead.
+ *
+ * @returns A record with no prototype.
+ */
+function provenanceRecord(): Record<string, ResolutionProvenance> {
+	return Object.create(null) as Record<string, ResolutionProvenance>;
+}
+
+export type {
+	DeprecationWarning,
+	ResolutionProvenance,
+	ResolutionProvenanceRecord,
+	ResolveOptions,
+	ResolveResult,
+};
 export { resolve };

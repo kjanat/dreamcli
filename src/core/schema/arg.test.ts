@@ -76,12 +76,11 @@ describe('arg.number() chained constraint methods', () => {
 		expectTypeOf<InferArg<typeof a>>().toEqualTypeOf<number | undefined>();
 	});
 
-	it('constraint methods are number-kind only at compile time', () => {
+	it('constraint methods are number-kind only, at compile time and construction time', () => {
 		// @ts-expect-error — .min() is not available on string args
-		arg.string().min(0);
+		expect(() => arg.string().min(0)).toThrow(/requires kind 'number'/);
 		// @ts-expect-error — .int() is not available on enum args
-		arg.enum(['a', 'b']).int();
-		expect(true).toBe(true);
+		expect(() => arg.enum(['a', 'b']).int()).toThrow(/requires kind 'number'/);
 	});
 });
 
@@ -216,9 +215,18 @@ describe('.variadic()', () => {
 });
 
 describe('.stdin()', () => {
-	it('sets stdinMode to true', () => {
+	it('binds stdin to dash-or-missing exclusive untrimmed by default', () => {
 		const a = arg.string().stdin();
-		expect(a.schema.stdinMode).toBe(true);
+		expect(a.schema.stdin).toEqual({
+			when: 'dash-or-missing',
+			consume: 'exclusive',
+			trim: false,
+		});
+	});
+
+	it('carries an explicit trigger, consumption mode, and trimming', () => {
+		const a = arg.string().stdin({ when: 'dash', consume: 'broadcast', trim: true });
+		expect(a.schema.stdin).toEqual({ when: 'dash', consume: 'broadcast', trim: true });
 	});
 
 	it('preserves type inference', () => {
@@ -229,8 +237,12 @@ describe('.stdin()', () => {
 	it('does not mutate original', () => {
 		const base = arg.string();
 		const stdinArg = base.stdin();
-		expect(base.schema.stdinMode).toBe(false);
-		expect(stdinArg.schema.stdinMode).toBe(true);
+		expect(base.schema.stdin).toBeUndefined();
+		expect(stdinArg.schema.stdin).toEqual({
+			when: 'dash-or-missing',
+			consume: 'exclusive',
+			trim: false,
+		});
 	});
 });
 
@@ -324,7 +336,7 @@ describe('schema defaults', () => {
 		expect(s.kind).toBe('string');
 		expect(s.presence).toBe('required');
 		expect(s.variadic).toBe(false);
-		expect(s.stdinMode).toBe(false);
+		expect(s.stdin).toBeUndefined();
 		expect(s.defaultValue).toBeUndefined();
 		expect(s.description).toBeUndefined();
 		expect(s.enumValues).toBeUndefined();

@@ -14,6 +14,13 @@
  */
 
 import { ParseError } from '#internals/core/errors/index.ts';
+import type { Cardinality, SplitPolicy } from '#internals/core/schema/cardinality.ts';
+import {
+	argCardinality,
+	flagCardinality,
+	isCollection,
+	splitEntryPair,
+} from '#internals/core/schema/cardinality.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
@@ -24,9 +31,21 @@ import type {
 import {
 	describeNumberConstraintViolation,
 	describeStringConstraintViolation,
-	validateNumberConstraints,
-	validateStringConstraints,
+	stringConstraintDetails,
 } from '#internals/core/schema/index.ts';
+import type { StdinBinding } from '#internals/core/schema/stdin.ts';
+import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
+import type { ValueFailure } from '#internals/core/schema/value.ts';
+import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
+import type { Occurrence } from './occurrences.ts';
+import {
+	INCREMENT_OCCURRENCE,
+	NEGATED_OCCURRENCE,
+	occurrenceValue,
+	projectOccurrences,
+	STDIN_OCCURRENCE,
+	STDIN_SENTINEL,
+} from './occurrences.ts';
 
 // --- Tokenizer — schema-agnostic argv splitting
 
@@ -125,6 +144,20 @@ function includesBeforeSeparator(argv: readonly string[], token: string): boolea
 		if (arg === token) return true;
 	}
 	return false;
+}
+
+/**
+ * Whether argv asks for help before the `--` end-of-options separator.
+ *
+ * Help renders ahead of flag validation everywhere: a command short-circuits to
+ * its help text before `parse()` runs, and the root does the same before
+ * dispatch, so a malformed flag value never hides the text explaining the flags.
+ *
+ * @param argv - Raw argument strings.
+ * @returns `true` if `--help` or `-h` occurs before any `--` separator.
+ */
+function requestsHelp(argv: readonly string[]): boolean {
+	return includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h');
 }
 
 /**
@@ -264,12 +297,46 @@ function buildFlagLookup(
 	return lookup;
 }
 
-// --- Duplicate-occurrence tracking
+// --- Occurrence tracking
 
-/** Mutable per-parse record of CLI occurrences for one logical flag. */
+/** One CLI occurrence of a logical flag, and what it contributes. */
+interface FlagOccurrence {
+	/** Whether the flag's duplicate policy governs this occurrence. */
+	readonly policed: boolean;
+	/** The value a duplicate diagnostic reports for it. */
+	readonly reported: unknown;
+	/** What the occurrence contributes, in the order it was typed. */
+	readonly items: readonly Occurrence[];
+}
+
+/** Every CLI occurrence of one logical flag, in the order they were typed. */
 interface FlagOccurrences {
-	count: number;
-	readonly values: unknown[];
+	/** The schema the occurrences belong to. */
+	readonly schema: FlagSchema;
+	/** The occurrences, latest last. */
+	readonly occurrences: FlagOccurrence[];
+	/** How many of them the duplicate policy governs. */
+	counted: number;
+}
+
+/**
+ * The occurrence list of one logical flag, started on its first occurrence.
+ *
+ * @param occurrences - Per-parse accumulator keyed by canonical name
+ * @param name - Canonical flag name
+ * @param schema - Flag schema the occurrences belong to
+ * @returns The flag's list
+ */
+function occurrencesOf(
+	occurrences: Map<string, FlagOccurrences>,
+	name: string,
+	schema: FlagSchema,
+): FlagOccurrences {
+	const existing = occurrences.get(name);
+	if (existing !== undefined) return existing;
+	const started: FlagOccurrences = { schema, occurrences: [], counted: 0 };
+	occurrences.set(name, started);
+	return started;
 }
 
 /**
@@ -279,37 +346,78 @@ interface FlagOccurrences {
  * @param occurrences - Per-parse accumulator keyed by canonical name
  * @param name - Canonical flag name
  * @param schema - Flag schema (read for {@link FlagSchema.duplicates})
- * @param value - The occurrence's raw value (or the boolean it implies)
+ * @param reported - The occurrence's raw value (or the boolean it implies)
  * @param displayName - User-facing spelling for error messages
- * @returns `true` when the occurrence should be applied; `false` when the
- *   `'first'` policy suppresses it (the token is still consumed)
+ * @param items - Lazily builds what the occurrence contributes when policy
+ *   keeps it
  * @throws ParseError `DUPLICATE_FLAG` on a repeat under the `'error'` policy
  */
 function recordFlagOccurrence(
 	occurrences: Map<string, FlagOccurrences>,
 	name: string,
 	schema: FlagSchema,
-	value: unknown,
+	reported: unknown,
 	displayName: string,
-): boolean {
-	const record = occurrences.get(name) ?? { count: 0, values: [] };
-	record.count += 1;
-	record.values.push(value);
-	occurrences.set(name, record);
+	items: () => readonly Occurrence[],
+): void {
+	const record = occurrencesOf(occurrences, name, schema);
+	record.counted += 1;
 
-	if (record.count === 1) return true;
-	if (schema.duplicates === 'error') {
+	if (record.counted > 1 && schema.duplicates === 'error') {
 		throw new ParseError(`Flag --${name} may only be specified once`, {
 			code: 'DUPLICATE_FLAG',
 			details: {
 				flag: name,
 				input: displayName,
-				count: record.count,
-				values: [...record.values],
+				count: record.counted,
+				values: [
+					...record.occurrences.filter((entry) => entry.policed).map((entry) => entry.reported),
+					reported,
+				],
 			},
 		});
 	}
-	return schema.duplicates !== 'first';
+	if (record.counted > 1 && schema.duplicates === 'first') return;
+	record.occurrences.push({ policed: true, reported, items: items() });
+}
+
+/**
+ * Record one bare occurrence of a count flag.
+ *
+ * A bare `-v` raises the count rather than supplying a value, and the duplicate
+ * policy governs supplied values, so the increment stays outside it.
+ *
+ * @param occurrences - Per-parse accumulator keyed by canonical name
+ * @param name - Canonical flag name
+ * @param schema - Flag schema the occurrence belongs to
+ */
+function recordCountIncrement(
+	occurrences: Map<string, FlagOccurrences>,
+	name: string,
+	schema: FlagSchema,
+): void {
+	occurrencesOf(occurrences, name, schema).occurrences.push({
+		policed: false,
+		reported: undefined,
+		items: [INCREMENT_OCCURRENCE],
+	});
+}
+
+/**
+ * Project every flag's occurrences onto the values a parse result carries.
+ *
+ * @param occurrences - Per-parse accumulator keyed by canonical name
+ * @returns Flag values keyed by canonical name, in first-occurrence order
+ */
+function projectFlags(occurrences: ReadonlyMap<string, FlagOccurrences>): Record<string, unknown> {
+	const flags: Record<string, unknown> = {};
+	for (const [name, record] of occurrences) {
+		flags[name] = projectOccurrences(
+			flagCardinality(record.schema),
+			record.occurrences.flatMap((occurrence) => occurrence.items),
+		);
+	}
+	return flags;
 }
 
 /**
@@ -325,12 +433,29 @@ function flagExpectsValue(schema: FlagSchema): boolean {
 // --- Value coercion
 
 /**
- * Coerce a raw string to the flag's declared kind.
+ * Whether a token is the stdin sentinel for an input that reads on `-`.
+ *
+ * The sentinel names the source, not the value, so it passes through the parse
+ * boundary untouched and the resolver reads the buffer in its place. Without
+ * this a `-` handed to `flag.number().stdin()` would be rejected here as a
+ * malformed number before resolution ever saw it.
+ *
+ * @param raw - Raw token from argv.
+ * @param stdin - The input's stdin axis.
+ * @returns `true` when the token selects stdin.
+ */
+function isStdinSentinel(raw: string, stdin: StdinBinding | undefined): boolean {
+	return raw === STDIN_SENTINEL && stdin !== undefined && stdinReadsOnDash(stdin);
+}
+
+/**
+ * Coerce one raw CLI token to what the flag's value axis declares.
  *
  * @param flagName - Canonical flag name (for error messages)
  * @param raw - Raw string value from argv
  * @param schema - {@link FlagSchema} declaring the expected kind
- * @returns Coerced value matching the schema's kind
+ * @param displayName - Spelling the user typed
+ * @returns The coerced token: a value, an element, or a `[key, value]` pair
  * @throws ParseError on type mismatch
  */
 function coerceFlagValue(
@@ -339,213 +464,255 @@ function coerceFlagValue(
 	schema: FlagSchema,
 	displayName = `--${flagName}`,
 ): unknown {
-	switch (schema.kind) {
-		case 'string': {
-			const violation = validateStringConstraints(raw, schema.stringConstraints);
-			if (violation !== undefined) {
-				const reason = describeStringConstraintViolation(violation);
-				throw new ParseError(`Invalid value '${raw}' for flag ${displayName}: ${reason}`, {
-					code: 'INVALID_VALUE',
-					details: {
-						flag: flagName,
-						input: displayName,
-						value: raw,
-						expected: 'string',
-						constraint: violation.kind,
-						...('bound' in violation ? { bound: violation.bound } : {}),
-						...('pattern' in violation ? { pattern: violation.pattern } : {}),
-					},
-				});
-			}
-			return raw;
-		}
-
-		case 'number': {
-			const n = Number(raw);
-			if (Number.isNaN(n)) {
-				throw new ParseError(`Invalid number value '${raw}' for flag ${displayName}`, {
-					code: 'INVALID_VALUE',
-					details: { flag: flagName, input: displayName, value: raw, expected: 'number' },
-				});
-			}
-			const violation = validateNumberConstraints(n, schema.numberConstraints);
-			if (violation !== undefined) {
-				const reason = describeNumberConstraintViolation(violation);
-				throw new ParseError(`Invalid number value '${raw}' for flag ${displayName}: ${reason}`, {
-					code: 'INVALID_VALUE',
-					details: {
-						flag: flagName,
-						input: displayName,
-						value: raw,
-						expected: 'number',
-						constraint: violation.kind,
-						...('bound' in violation ? { bound: violation.bound } : {}),
-					},
-				});
-			}
-			return n;
-		}
-
-		case 'boolean':
-			// Explicit boolean values: --flag=true / --flag=false
-			if (raw === 'true' || raw === '1') return true;
-			if (raw === 'false' || raw === '0') return false;
-			throw new ParseError(
-				`Invalid boolean value '${raw}' for flag ${displayName}. Use true/false or 1/0`,
-				{
-					code: 'INVALID_VALUE',
-					details: { flag: flagName, input: displayName, value: raw, expected: 'boolean' },
-				},
-			);
-
-		case 'enum': {
-			const allowed = schema.enumValues;
-			if (allowed === undefined) {
-				throw new ParseError(
-					`Enum flag --${flagName} is misconfigured: no allowed values declared`,
-					{
-						code: 'INVALID_SCHEMA',
-						details: { flag: flagName, kind: 'enum', missing: 'enumValues' },
-					},
-				);
-			}
-			if (!allowed.includes(raw)) {
-				throw new ParseError(
-					`Invalid value '${raw}' for flag ${displayName}. Allowed: ${allowed.join(', ')}`,
-					{
-						code: 'INVALID_VALUE',
-						details: { flag: flagName, input: displayName, value: raw, allowed },
-					},
-				);
-			}
-			return raw;
-		}
-
-		case 'array':
-			// Array element — coerce via element schema if present
-			if (schema.elementSchema) {
-				return coerceFlagValue(flagName, raw, schema.elementSchema);
-			}
-			return raw;
-
-		case 'custom': {
-			if (!schema.parseFn) {
-				return raw;
-			}
-			try {
-				return schema.parseFn(raw);
-			} catch (err) {
-				if (err instanceof ParseError) throw err;
-				const message = err instanceof Error ? err.message : String(err);
-				throw new ParseError(`Failed to parse flag ${displayName}: ${message}`, {
-					code: 'INVALID_VALUE',
-					details: { flag: flagName, input: displayName, value: raw },
-					cause: err,
-				});
-			}
-		}
-
-		case 'count': {
-			// Explicit count values: --verbose=2. Reject '' explicitly —
-			// Number('') is 0, which would silently accept `--verbose=`.
-			const n = raw.trim() === '' ? Number.NaN : Number(raw);
-			if (!Number.isInteger(n) || n < 0) {
-				throw new ParseError(
-					`Invalid count value '${raw}' for flag ${displayName}. Use a non-negative integer`,
-					{
-						code: 'INVALID_VALUE',
-						details: { flag: flagName, input: displayName, value: raw, expected: 'count' },
-					},
-				);
-			}
-			return n;
-		}
-
-		case 'keyValue':
-			// Split at the FIRST '=' so values may contain '=' themselves.
-			return parseKeyValuePair(flagName, raw, displayName);
-	}
+	return occurrenceValue(flagTokenOccurrence(flagName, raw, schema, displayName));
 }
 
 /**
- * Coerce a raw string to the arg's declared kind.
+ * Read one raw CLI token of a flag as the occurrence it contributes.
+ *
+ * The cardinality axis decides what a token IS: one value, one element of a
+ * collection, one entry of a record, or an explicit count. The value axis then
+ * decides what that token means. A `-` names the stdin source, so it holds its
+ * position without being decoded.
+ *
+ * @param flagName - Canonical flag name (for error messages)
+ * @param raw - Raw string value from argv
+ * @param schema - {@link FlagSchema} declaring the expected kind
+ * @param displayName - Spelling the user typed
+ * @returns The occurrence the token contributes
+ * @throws ParseError on type mismatch
+ */
+function flagTokenOccurrence(
+	flagName: string,
+	raw: string,
+	schema: FlagSchema,
+	displayName: string,
+): Occurrence {
+	if (isStdinSentinel(raw, schema.stdin)) return STDIN_OCCURRENCE;
+
+	const cardinality = flagCardinality(schema);
+	if (cardinality.kind === 'count') {
+		return { kind: 'value', value: coerceCountToken(flagName, raw, displayName) };
+	}
+	if (cardinality.kind === 'entries') {
+		const [key, value] = coerceEntryToken(flagName, raw, schema, displayName);
+		return { kind: 'entry', key, value };
+	}
+	return { kind: 'value', value: coerceElementToken(flagName, raw, schema, displayName) };
+}
+
+/** Decode one token through the flag's element value axis. */
+function coerceElementToken(
+	flagName: string,
+	raw: string,
+	schema: FlagSchema,
+	displayName: string,
+): unknown {
+	const decoded = decodeValue(flagValueSchema(schema), raw, 'token');
+	if (decoded.ok) return decoded.value;
+	throw flagValueError(flagName, displayName, raw, decoded.failure);
+}
+
+/** Read an explicit count token such as `--verbose=2`. */
+function coerceCountToken(flagName: string, raw: string, displayName: string): number {
+	// Number('') is 0, which would silently accept `--verbose=`.
+	const count = raw.trim() === '' ? Number.NaN : Number(raw);
+	if (!Number.isInteger(count) || count < 0) {
+		throw new ParseError(
+			`Invalid count value '${raw}' for flag ${displayName}. Use a non-negative integer`,
+			{
+				code: 'INVALID_VALUE',
+				details: { flag: flagName, input: displayName, value: raw, expected: 'count' },
+			},
+		);
+	}
+	return count;
+}
+
+/** Read one `KEY=VALUE` token and decode its value through the element value axis. */
+function coerceEntryToken(
+	flagName: string,
+	raw: string,
+	schema: FlagSchema,
+	displayName: string,
+): readonly [string, unknown] {
+	const pair = splitEntryPair(raw);
+	if (pair === undefined) {
+		throw new ParseError(`Invalid value '${raw}' for flag ${displayName}. Use KEY=VALUE`, {
+			code: 'INVALID_VALUE',
+			details: { flag: flagName, input: displayName, value: raw, expected: 'key=value' },
+		});
+	}
+	return [pair[0], coerceElementToken(flagName, pair[1], schema, displayName)];
+}
+
+/** Subject-specific wording and details for a value parse failure. @internal */
+interface ValueErrorSubject {
+	readonly details: Readonly<Record<string, unknown>>;
+	readonly label: string;
+	readonly enumDetails: Readonly<Record<string, unknown>>;
+	readonly enumLabel: string;
+}
+
+/** Map a shared value-layer failure to a subject-specific parse error. @internal */
+function valueParseError(
+	subject: ValueErrorSubject,
+	raw: string,
+	failure: ValueFailure,
+): ParseError {
+	const details = { ...subject.details, value: raw };
+	switch (failure.kind) {
+		case 'type':
+			if (failure.expected === 'number') {
+				return new ParseError(`Invalid number value '${raw}' for ${subject.label}`, {
+					code: 'INVALID_VALUE',
+					details: { ...details, expected: 'number' },
+				});
+			}
+			if (failure.expected === 'boolean') {
+				return new ParseError(
+					`Invalid boolean value '${raw}' for ${subject.label}. Use true/false or 1/0`,
+					{
+						code: 'INVALID_VALUE',
+						details: { ...details, expected: 'boolean' },
+					},
+				);
+			}
+			return new ParseError(`Invalid value '${raw}' for ${subject.label}`, {
+				code: 'INVALID_VALUE',
+				details: { ...details, expected: 'string' },
+			});
+
+		case 'enum': {
+			const allowed = failure.enumValues;
+			if (allowed === undefined) {
+				return new ParseError(`${subject.enumLabel} is misconfigured: no allowed values declared`, {
+					code: 'INVALID_SCHEMA',
+					details: subject.enumDetails,
+				});
+			}
+			return new ParseError(
+				`Invalid value '${raw}' for ${subject.label}. Allowed: ${allowed.join(', ')}`,
+				{
+					code: 'INVALID_VALUE',
+					details: { ...details, allowed },
+				},
+			);
+		}
+
+		case 'string-constraint':
+			return new ParseError(
+				`Invalid value '${raw}' for ${subject.label}: ${describeStringConstraintViolation(failure.violation)}`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						...details,
+						expected: 'string',
+						...stringConstraintDetails(failure.violation),
+					},
+				},
+			);
+
+		case 'number-constraint':
+			return new ParseError(
+				`Invalid number value '${raw}' for ${subject.label}: ${describeNumberConstraintViolation(failure.violation)}`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						...details,
+						expected: 'number',
+						constraint: failure.violation.kind,
+						...('bound' in failure.violation ? { bound: failure.violation.bound } : {}),
+					},
+				},
+			);
+
+		case 'thrown': {
+			if (failure.error instanceof ParseError) return failure.error;
+			const message =
+				failure.error instanceof Error ? failure.error.message : String(failure.error);
+			return new ParseError(`Failed to parse ${subject.label}: ${message}`, {
+				code: 'INVALID_VALUE',
+				details,
+				cause: failure.error,
+			});
+		}
+	}
+}
+
+/** Name the flag a rejected value belonged to. */
+function flagValueError(
+	flagName: string,
+	displayName: string,
+	raw: string,
+	failure: ValueFailure,
+): ParseError {
+	return valueParseError(
+		{
+			details: { flag: flagName, input: displayName },
+			label: `flag ${displayName}`,
+			enumDetails: { flag: flagName, kind: 'enum', missing: 'enumValues' },
+			enumLabel: `Enum flag --${flagName}`,
+		},
+		raw,
+		failure,
+	);
+}
+
+/**
+ * Read one raw positional token as the occurrence it contributes.
+ *
+ * A `-` names the stdin source, so it holds its position without being decoded.
  *
  * @param argName - Positional arg name (for error messages)
  * @param raw - Raw string value from argv
  * @param schema - {@link ArgSchema} declaring the expected kind
- * @returns Coerced value matching the schema's kind
+ * @returns The occurrence the token contributes
  * @throws ParseError on type mismatch or custom parse failure
  */
-function coerceArgValue(argName: string, raw: string, schema: ArgSchema): unknown {
-	switch (schema.kind) {
-		case 'string':
-			return raw;
+function argTokenOccurrence(argName: string, raw: string, schema: ArgSchema): Occurrence {
+	if (isStdinSentinel(raw, schema.stdin)) return STDIN_OCCURRENCE;
 
-		case 'number': {
-			const n = Number(raw);
-			if (Number.isNaN(n)) {
-				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>`, {
-					code: 'INVALID_VALUE',
-					details: { arg: argName, value: raw, expected: 'number' },
-				});
-			}
-			const violation = validateNumberConstraints(n, schema.numberConstraints);
-			if (violation !== undefined) {
-				const reason = describeNumberConstraintViolation(violation);
-				throw new ParseError(`Invalid number value '${raw}' for argument <${argName}>: ${reason}`, {
-					code: 'INVALID_VALUE',
-					details: {
-						arg: argName,
-						value: raw,
-						expected: 'number',
-						constraint: violation.kind,
-						...('bound' in violation ? { bound: violation.bound } : {}),
-					},
-				});
-			}
-			return n;
+	if (argCardinality(schema).kind === 'entries') {
+		const pair = splitEntryPair(raw);
+		if (pair === undefined) {
+			throw new ParseError(`Invalid value '${raw}' for argument <${argName}>. Use KEY=VALUE`, {
+				code: 'INVALID_VALUE',
+				details: { arg: argName, value: raw, expected: 'key=value' },
+			});
 		}
-
-		case 'enum': {
-			const allowed = schema.enumValues;
-			if (allowed === undefined) {
-				throw new ParseError(
-					`Enum argument <${argName}> is misconfigured: no allowed values declared`,
-					{
-						code: 'INVALID_SCHEMA',
-						details: { arg: argName, kind: 'enum', missing: 'enumValues' },
-					},
-				);
-			}
-			if (!allowed.includes(raw)) {
-				throw new ParseError(
-					`Invalid value '${raw}' for argument <${argName}>. Allowed: ${allowed.join(', ')}`,
-					{
-						code: 'INVALID_VALUE',
-						details: { arg: argName, value: raw, allowed },
-					},
-				);
-			}
-			return raw;
-		}
-
-		case 'custom': {
-			if (!schema.parseFn) {
-				return raw;
-			}
-			try {
-				return schema.parseFn(raw);
-			} catch (err) {
-				if (err instanceof ParseError) throw err;
-				const message = err instanceof Error ? err.message : String(err);
-				throw new ParseError(`Failed to parse argument <${argName}>: ${message}`, {
-					code: 'INVALID_VALUE',
-					details: { arg: argName, value: raw },
-					cause: err,
-				});
-			}
-		}
+		return { kind: 'entry', key: pair[0], value: decodeArgToken(argName, pair[1], schema) };
 	}
+
+	return { kind: 'value', value: decodeArgToken(argName, raw, schema) };
+}
+
+/** Decode one token through the arg's element value axis. */
+function decodeArgToken(argName: string, raw: string, schema: ArgSchema): unknown {
+	const decoded = decodeValue(argValueSchema(schema), raw, 'token');
+	if (decoded.ok) return decoded.value;
+	throw argValueError(argName, raw, decoded.failure);
+}
+
+/**
+ * Name the positional argument a rejected value belonged to.
+ *
+ * @param argName - Positional arg name.
+ * @param raw - Raw string value from argv.
+ * @param failure - What the value layer rejected.
+ * @returns The error to throw.
+ */
+function argValueError(argName: string, raw: string, failure: ValueFailure): ParseError {
+	return valueParseError(
+		{
+			details: { arg: argName },
+			label: `argument <${argName}>`,
+			enumDetails: { arg: argName, kind: 'enum', missing: 'enumValues' },
+			enumLabel: `Enum argument <${argName}>`,
+		},
+		raw,
+		failure,
+	);
 }
 
 // --- Parser — schema-aware token interpretation
@@ -577,8 +744,7 @@ function parse(
 	const tokens = tokenize(argv);
 	const flagLookup = buildFlagLookup(schema.flags, options);
 
-	// Mutable accumulators — frozen in the result
-	const flags: Record<string, unknown> = {};
+	// Mutable accumulators — projected into the result
 	const positionals: string[] = [];
 	const occurrences = new Map<string, FlagOccurrences>();
 
@@ -599,18 +765,18 @@ function parse(
 		}
 
 		if (token.kind === 'long-flag') {
-			i = parseLongFlag(token, tokens, i, flagLookup, flags, occurrences);
+			i = parseLongFlag(token, tokens, i, flagLookup, occurrences);
 			continue;
 		}
 
 		// token.kind === 'short-flags'
-		i = parseShortFlags(token, tokens, i, flagLookup, flags, occurrences);
+		i = parseShortFlags(token, tokens, i, flagLookup, occurrences);
 	}
 
 	// Map positionals to named args
 	const args = mapPositionals(schema.args, positionals);
 
-	return { flags, args };
+	return { flags: projectFlags(occurrences), args };
 }
 
 // --- Long flag parsing
@@ -622,8 +788,7 @@ function parse(
  * @param tokens - Full token array (for lookahead)
  * @param startIdx - Current index of `token` in the array
  * @param flagLookup - Spelling → {@link FlagLookupEntry} map from {@link buildFlagLookup}
- * @param flags - Mutable accumulator for resolved flag values
- * @param occurrences - Per-parse duplicate-occurrence accumulator
+ * @param occurrences - Per-parse occurrence accumulator
  * @returns Next index to continue parsing from
  */
 function parseLongFlag(
@@ -631,7 +796,6 @@ function parseLongFlag(
 	tokens: readonly Token[],
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
-	flags: Record<string, unknown>,
 	occurrences: Map<string, FlagOccurrences>,
 ): number {
 	const entry = flagLookup.get(token.name);
@@ -658,33 +822,40 @@ function parseLongFlag(
 				details: { flag: canonicalName, input: token.name, value: token.value },
 			});
 		}
-		if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, false, displayName)) {
-			flags[canonicalName] = false;
-		}
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, false, displayName, () => [
+			NEGATED_OCCURRENCE,
+		]);
 		return startIdx + 1;
 	}
 
 	if (!flagExpectsValue(flagSchema)) {
 		// Boolean or count flag — consumes no value token
 		if (token.value !== undefined) {
-			const coerced = coerceFlagValue(canonicalName, token.value, flagSchema, displayName);
-			if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, coerced, displayName)) {
-				flags[canonicalName] = coerced;
-			}
+			const item = flagTokenOccurrence(canonicalName, token.value, flagSchema, displayName);
+			recordFlagOccurrence(
+				occurrences,
+				canonicalName,
+				flagSchema,
+				occurrenceValue(item),
+				displayName,
+				() => [item],
+			);
 		} else if (flagSchema.kind === 'count') {
-			const existing = flags[canonicalName];
-			flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
-		} else if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName)) {
-			flags[canonicalName] = true;
+			recordCountIncrement(occurrences, canonicalName, flagSchema);
+		} else {
+			recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName, () => [
+				{ kind: 'value', value: true },
+			]);
 		}
 		return startIdx + 1;
 	}
 
 	if (token.value !== undefined) {
 		// --flag=value (inline)
-		if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, token.value, displayName)) {
-			setFlagValue(flags, canonicalName, flagSchema, token.value);
-		}
+		const inlineValue = token.value;
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, inlineValue, displayName, () =>
+			flagTokenOccurrences(canonicalName, flagSchema, inlineValue, displayName),
+		);
 		return startIdx + 1;
 	}
 
@@ -696,9 +867,9 @@ function parseLongFlag(
 			details: { flag: canonicalName, input: token.name, kind: flagSchema.kind },
 		});
 	}
-	if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName)) {
-		setFlagValue(flags, canonicalName, flagSchema, nextToken.value, displayName);
-	}
+	recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName, () =>
+		flagTokenOccurrences(canonicalName, flagSchema, nextToken.value, displayName),
+	);
 	return startIdx + 2;
 }
 
@@ -711,8 +882,7 @@ function parseLongFlag(
  * @param tokens - Full token array (for lookahead)
  * @param startIdx - Current index of `token` in the array
  * @param flagLookup - Spelling → {@link FlagLookupEntry} map from {@link buildFlagLookup}
- * @param flags - Mutable accumulator for resolved flag values
- * @param occurrences - Per-parse duplicate-occurrence accumulator
+ * @param occurrences - Per-parse occurrence accumulator
  * @returns Next index to continue parsing from
  */
 function parseShortFlags(
@@ -720,7 +890,6 @@ function parseShortFlags(
 	tokens: readonly Token[],
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
-	flags: Record<string, unknown>,
 	occurrences: Map<string, FlagOccurrences>,
 ): number {
 	const { chars } = token;
@@ -742,10 +911,11 @@ function parseShortFlags(
 		if (!flagExpectsValue(flagSchema)) {
 			// Boolean or count short flag — consumes no value
 			if (flagSchema.kind === 'count') {
-				const existing = flags[canonicalName];
-				flags[canonicalName] = (typeof existing === 'number' ? existing : 0) + 1;
-			} else if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName)) {
-				flags[canonicalName] = true;
+				recordCountIncrement(occurrences, canonicalName, flagSchema);
+			} else {
+				recordFlagOccurrence(occurrences, canonicalName, flagSchema, true, displayName, () => [
+					{ kind: 'value', value: true },
+				]);
 			}
 			continue;
 		}
@@ -754,9 +924,9 @@ function parseShortFlags(
 			// Value-expecting flag in the middle of combined shorts:
 			// -oFile → -o with value "File" (rest of chars is the value)
 			const inlineValue = chars.slice(ci + 1);
-			if (recordFlagOccurrence(occurrences, canonicalName, flagSchema, inlineValue, displayName)) {
-				setFlagValue(flags, canonicalName, flagSchema, inlineValue, displayName);
-			}
+			recordFlagOccurrence(occurrences, canonicalName, flagSchema, inlineValue, displayName, () =>
+				flagTokenOccurrences(canonicalName, flagSchema, inlineValue, displayName),
+			);
 			break; // consumed all remaining chars
 		}
 
@@ -768,90 +938,88 @@ function parseShortFlags(
 				details: { flag: canonicalName, input: ch, kind: flagSchema.kind },
 			});
 		}
-		if (
-			recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName)
-		) {
-			setFlagValue(flags, canonicalName, flagSchema, nextToken.value, displayName);
-		}
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName, () =>
+			flagTokenOccurrences(canonicalName, flagSchema, nextToken.value, displayName),
+		);
 		nextIdx++;
 	}
 
 	return nextIdx;
 }
 
-// --- Flag value setter (handles array accumulation)
+// --- Flag value tokens (one occurrence, one or more elements)
 
 /**
- * Set or accumulate a flag value, handling array flags specially.
+ * Read one value token of a flag as the occurrences it contributes.
  *
- * @param flags - Mutable accumulator for resolved flag values
+ * A collection keeps its CLI occurrences in the order they were typed, elements
+ * for `many` and `[key, value]` pairs for `entries`. Aggregation happens during
+ * resolution, where the stdin buffer an occurrence of `-` stands for is spliced
+ * into that order.
+ *
  * @param name - Canonical flag name
  * @param schema - {@link FlagSchema} declaring the expected kind
  * @param rawValue - Raw string value from argv
+ * @param displayName - Spelling the user typed
+ * @returns The occurrences the token contributes, in order
  */
-function setFlagValue(
-	flags: Record<string, unknown>,
+function flagTokenOccurrences(
 	name: string,
 	schema: FlagSchema,
 	rawValue: string,
 	displayName = `--${name}`,
-): void {
-	if (schema.kind === 'array') {
-		// With a separator, one occurrence may carry several elements
-		// (--tag a,b); each element is coerced individually so errors name
-		// the offending element, not the whole token.
-		const parts = schema.separator !== undefined ? rawValue.split(schema.separator) : [rawValue];
-		const coercedParts = parts
-			.filter((part) => schema.separator === undefined || part.length > 0)
-			.map((part) => coerceFlagValue(name, part, schema, displayName));
-		const existing = flags[name];
-		if (Array.isArray(existing)) {
-			existing.push(...coercedParts);
-		} else {
-			flags[name] = coercedParts;
-		}
-		return;
+): readonly Occurrence[] {
+	const cardinality = flagCardinality(schema);
+	if (!isCollection(cardinality)) {
+		return [flagTokenOccurrence(name, rawValue, schema, displayName)];
 	}
 
-	if (schema.kind === 'keyValue') {
-		const pair = parseKeyValuePair(name, rawValue, displayName);
-		const existing = flags[name];
-		// Object.fromEntries defines own data properties, so keys like
-		// '__proto__' are stored verbatim instead of being silently eaten by
-		// the prototype setter.
-		flags[name] = Object.fromEntries([
-			...(isPlainRecord(existing) ? Object.entries(existing) : []),
-			pair,
-		]);
-		return;
-	}
-
-	flags[name] = coerceFlagValue(name, rawValue, schema, displayName);
-}
-
-/** Narrow to a mutable string-record accumulator (keyValue flags only ever store these). */
-function isPlainRecord(value: unknown): value is Record<string, string> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
+	// One occurrence may carry several elements (--tag a,b); each is coerced
+	// individually so errors name the offending element, not the whole token.
+	return splitCliToken(cardinality.cliSplit, rawValue, schema).map((part) =>
+		flagTokenOccurrence(name, part, schema, displayName),
+	);
 }
 
 /**
- * Split a `KEY=VALUE` token at the first `=`.
+ * Split one CLI token into the elements it carries.
  *
- * @throws ParseError when the token has no `=` or an empty key.
+ * The stdin sentinel names a source rather than a value, so it stays one
+ * element whatever the split policy says.
+ *
+ * @param policy - The CLI split policy.
+ * @param raw - The raw token.
+ * @param schema - The input's schema, read for its stdin axis.
+ * @returns The token's elements.
  */
-function parseKeyValuePair(
-	flagName: string,
+function splitCliToken(
+	policy: SplitPolicy,
 	raw: string,
-	displayName = `--${flagName}`,
-): readonly [string, string] {
-	const eq = raw.indexOf('=');
-	if (eq <= 0) {
-		throw new ParseError(`Invalid value '${raw}' for flag ${displayName}. Use KEY=VALUE`, {
-			code: 'INVALID_VALUE',
-			details: { flag: flagName, input: displayName, value: raw, expected: 'key=value' },
-		});
+	schema: { readonly stdin: StdinBinding | undefined },
+): readonly string[] {
+	if (isStdinSentinel(raw, schema.stdin)) return [raw];
+	if (policy.format === 'delimiter') {
+		return raw.split(policy.delimiter).filter((part) => part.length > 0);
 	}
-	return [raw.slice(0, eq), raw.slice(eq + 1)];
+	return [raw];
+}
+
+/** The CLI policy a single-value positional splits under: none at all. */
+const WHOLE_TOKEN: SplitPolicy = { format: 'whole' };
+
+/**
+ * The CLI split policy a cardinality carries.
+ *
+ * A scalar and a count have no elements to split into, so their tokens stay
+ * whole.
+ *
+ * @param cardinality - How the input's values combine.
+ * @returns The policy each of its CLI tokens splits under.
+ */
+function cliSplitOf(cardinality: Cardinality): SplitPolicy {
+	return cardinality.kind === 'many' || cardinality.kind === 'entries'
+		? cardinality.cliSplit
+		: WHOLE_TOKEN;
 }
 
 // --- Positional arg mapping
@@ -872,17 +1040,27 @@ function mapPositionals(
 	let posIdx = 0;
 
 	for (const entry of argEntries) {
+		const cardinality = argCardinality(entry.schema);
+		const policy = cliSplitOf(cardinality);
 		if (entry.schema.variadic) {
 			// Variadic arg consumes all remaining positionals
 			const remaining = positionals.slice(posIdx);
-			args[entry.name] = remaining.map((raw) => coerceArgValue(entry.name, raw, entry.schema));
+			const occurrences = remaining.flatMap((raw) =>
+				splitCliToken(policy, raw, { stdin: entry.schema.stdin }).map((part) =>
+					argTokenOccurrence(entry.name, part, entry.schema),
+				),
+			);
+			args[entry.name] = projectOccurrences(cardinality, occurrences);
 			posIdx = positionals.length;
 			break;
 		}
 
 		const rawPositional = positionals[posIdx];
 		if (rawPositional !== undefined) {
-			args[entry.name] = coerceArgValue(entry.name, rawPositional, entry.schema);
+			const occurrences = splitCliToken(policy, rawPositional, {
+				stdin: entry.schema.stdin,
+			}).map((part) => argTokenOccurrence(entry.name, part, entry.schema));
+			args[entry.name] = projectOccurrences(cardinality, occurrences);
 			posIdx++;
 		}
 		// If no positional available, leave absent (resolution/validation handles defaults/required)
@@ -985,10 +1163,12 @@ export type { FlagLookupEntry, ParseOptions, ParseResult, Token };
 export {
 	buildFlagLookup,
 	camelToKebab,
+	coerceFlagValue,
 	flagExpectsValue,
 	includesBeforeSeparator,
 	kebabToCamel,
 	parse,
+	requestsHelp,
 	stripBeforeSeparator,
 	tokenize,
 };

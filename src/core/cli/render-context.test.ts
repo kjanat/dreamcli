@@ -20,6 +20,83 @@ describe('resolveRenderContext — jsonMode', () => {
 	it('honors an explicit jsonMode override', () => {
 		expect(resolveRenderContext([], { jsonMode: true }).jsonMode).toBe(true);
 	});
+
+	it('reads an explicit --json value (#85)', () => {
+		expect(resolveRenderContext(['--json=true']).jsonMode).toBe(true);
+		expect(resolveRenderContext(['--json=1']).jsonMode).toBe(true);
+		expect(resolveRenderContext(['--json=false']).jsonMode).toBe(false);
+		expect(resolveRenderContext(['--json=0']).jsonMode).toBe(false);
+	});
+
+	it('lets an explicit --json=false win over the jsonMode override', () => {
+		expect(resolveRenderContext(['--json=false'], { jsonMode: true }).jsonMode).toBe(false);
+	});
+
+	it('ignores a post-separator --json=true literal', () => {
+		expect(resolveRenderContext(['deploy', '--', '--json=true']).jsonMode).toBe(false);
+	});
+
+	it('takes the last --json occurrence', () => {
+		expect(resolveRenderContext(['--json', '--json=false']).jsonMode).toBe(false);
+		expect(resolveRenderContext(['--json=false', '--json']).jsonMode).toBe(true);
+	});
+
+	it('falls back to the defaults when a value is invalid', () => {
+		const ctx = resolveRenderContext(['--json=banana']);
+		expect(ctx.jsonMode).toBe(false);
+		expect(ctx.verbosity).toBe('normal');
+	});
+});
+
+// === Verbosity detection
+
+describe('resolveRenderContext — verbosity', () => {
+	it('defaults to normal verbosity', () => {
+		expect(resolveRenderContext([]).verbosity).toBe('normal');
+	});
+
+	it('detects pre-separator --quiet and -q', () => {
+		expect(resolveRenderContext(['deploy', '--quiet']).verbosity).toBe('quiet');
+		expect(resolveRenderContext(['-q', 'deploy']).verbosity).toBe('quiet');
+	});
+
+	it('ignores a post-separator --quiet literal', () => {
+		expect(resolveRenderContext(['deploy', '--', '--quiet']).verbosity).toBe('normal');
+	});
+
+	it('honors an explicit verbosity override when argv is not quiet', () => {
+		expect(resolveRenderContext([], { verbosity: 'quiet' }).verbosity).toBe('quiet');
+	});
+
+	it('lets a pre-separator quiet flag override explicit normal verbosity', () => {
+		expect(resolveRenderContext(['--quiet'], { verbosity: 'normal' }).verbosity).toBe('quiet');
+	});
+
+	it('reads an explicit --quiet value (#85)', () => {
+		expect(resolveRenderContext(['--quiet=true']).verbosity).toBe('quiet');
+		expect(resolveRenderContext(['--quiet=1']).verbosity).toBe('quiet');
+		expect(resolveRenderContext(['--quiet=false']).verbosity).toBe('normal');
+		expect(resolveRenderContext(['--quiet=0']).verbosity).toBe('normal');
+	});
+
+	it('lets an explicit --quiet=false win over the verbosity override', () => {
+		expect(resolveRenderContext(['--quiet=false'], { verbosity: 'quiet' }).verbosity).toBe(
+			'normal',
+		);
+	});
+
+	it('does not read -q=true, which is not a short-flag value form', () => {
+		expect(resolveRenderContext(['-q=true']).verbosity).toBe('normal');
+	});
+
+	it('ignores a post-separator --quiet=true literal', () => {
+		expect(resolveRenderContext(['deploy', '--', '--quiet=true']).verbosity).toBe('normal');
+	});
+
+	it('takes the last --quiet occurrence', () => {
+		expect(resolveRenderContext(['--quiet', '--quiet=false']).verbosity).toBe('normal');
+		expect(resolveRenderContext(['--quiet=false', '-q']).verbosity).toBe('quiet');
+	});
 });
 
 // === TTY and color gate

@@ -7,6 +7,932 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Handlers can see where each value came from**
+  ([#90](https://github.com/kjanat/dreamcli/issues/90)). `ActionParams`,
+  `DeriveParams`, and `MiddlewareParams` gain `sources`, keyed like `flags` and
+  `args`, holding the full record resolution already produced:
+  `{ stage: 'cli' }`, `{ stage: 'cli', via: 'stdin', trigger: 'dash' }`,
+  `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`,
+  `{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`,
+  `{ stage: 'prompt' }`, or `{ stage: 'default' }`. An input that resolved no
+  value has no record. `wasExplicit(record)` derives the explicit-versus-defaulted
+  question from it without dropping `.default()`, which would also drop
+  `defaultValue` from the definition document. `ResolveResult.provenance` carries
+  the same records for a direct `resolve()` caller, and `readFlags()` hands them
+  to a new `onSources` receiver, typed against the definitions record.
+  `ResolutionProvenance`, `ResolutionProvenanceRecord`, `InputSources`,
+  `SourcesOf`, and `wasExplicit` are exported from the package root. The existing
+  `ResolutionProvenance` name continues to describe one input's winning stage;
+  `ResolutionProvenanceRecord` names the complete `ResolveResult.provenance`
+  object.
+
+- **`arg.keyValue()` takes an element builder**
+  ([#87](https://github.com/kjanat/dreamcli/issues/87)). Entry values used to be
+  strings on the positional surface while `flag.keyValue(element)` gave them a
+  codec. `arg.keyValue(arg.number().int().min(0))` now resolves
+  `mycli scale web=3` to `{ web: 3 }`, with the element's constraints, path
+  checks, and Standard Schema validator applied to every entry, from every
+  source. The element is guarded the same way flags guard theirs: `ArgConfig`
+  gains `elementEligible`, so a builder already described as a positional
+  (`.optional()`, `.env()`, `.stdin()`, `.describe()`, …) is refused in element
+  position at compile time. `ArgSchema` gains `elementSchema`, which serializes
+  into definition documents under the new `ArgElementFragmentV1` shape and the
+  `$defs.argElement` meta-schema definition.
+
+- **Help names the stdin source.** An input that declares `.stdin()` renders
+  `[stdin]` beside the existing `[env: X]`, `[config: y]`, and `[prompt]`
+  annotations, on the flag table and the argument table alike. The narrower
+  triggers say which one applies: `[stdin: '-']` for `{ when: 'dash' }` and
+  `[stdin: when omitted]` for `{ when: 'missing' }`. Completion scripts are
+  unchanged; they carry the plain description.
+
+- **A dedicated error code for a dash with nothing piped.**
+  `ValidationErrorCode` gains `MISSING_STDIN`, which replaces the borrowed
+  `REQUIRED_FLAG` / `REQUIRED_ARG` on the one failure that is neither: a `-`
+  typed beside other occurrences of a collection when the stream is empty. Those
+  two keep their own meaning, a required input no source filled.
+
+- **A variadic argument reads stdin from its tail.** `.stdin()` and
+  `.variadic()` now compose. A `-` among the tail tokens stands for the whole
+  stdin source at that position, so
+  `printf 'x\ny\n' | mycli build a - b` collects `['a', 'x', 'y', 'b']`, and an
+  empty tail under a binding that covers a missing input takes the whole buffer.
+  `arg.keyValue().variadic().stdin()` aggregates entries across the typed tokens
+  and the pipe under its `.duplicateKeys()` policy. Each `-` stands for all of
+  the buffer, so two of them splice it twice, and the stream is still read at
+  most once per invocation. The preflight that decides whether to read stdin
+  counts an empty tail as an absent input, which is what makes
+  `printf 'x\ny\n' | mycli build` reach the fallback stage under `.run()`.
+
+- **`.stdin({ trim: true })` drops the terminator a pipe appends.** Codecs that
+  preserve text terminators, including `string` and `path`, keep the buffer byte
+  for byte by default. `trim` drops one trailing `\n`, `\r\n`, or `\r` from a
+  single value before anything decodes or checks it, so
+  `echo ./dist | mycli clean` satisfies `arg.path({ mustExist: true })`. It
+  applies to both surfaces, to an explicit `-` and to the implicit fallback, and
+  to `readFlags()` and `runCommand()`. Other decoding codecs already remove one
+  framing terminator and are unaffected, so no value ever loses two. A collection's
+  terminators separate its elements, so `.split({ stdin })` still decides those.
+  The binding serializes as `stdin.trim` in definition documents, alongside
+  `when` and `consume`.
+
+- **Stability policy and a 4.0 upgrade guide** — the
+  [stability page](https://dreamcli.kjanat.dev/reference/stability) now places
+  every export of the root, `/testkit`, `/runtime`, and `/version` entrypoints
+  in one of thirteen categories, each with the rules it carries into a minor
+  release: sealed framework values, consumer input options, transparent input
+  definitions, implementer ports, externally governed protocols, structural
+  consumer configuration, closed unions and discriminated results, open unions,
+  framework-produced callback payloads, closed constructible DTOs, serialized
+  formats, classes and functions, and internal surface.
+  [Upgrading From 3.x To 4.0](https://dreamcli.kjanat.dev/guide/upgrading-v4)
+  walks the breaking changes below with before and after code.
+
+- **Definition types and normalization factories for flags, args, commands, and
+  the CLI** — `createFlagSchema()`, `createCommandSchema()`, and
+  `createCLISchema()` join the existing `createArgSchema()`. The flag and arg
+  factories take a plain definition object, or a kind plus that kind's fields;
+  the command and CLI factories take complete definition objects. Each returns
+  the normalized schema; feeding a built schema back in produces a deep-equal
+  schema, and a field belonging to another kind throws `INVALID_SCHEMA`.
+  `createCommandSchema()` normalizes nested flags, args, and subcommands, and
+  `createCLISchema()` normalizes commands and config settings for a description
+  of a program with no execution graph attached. Each level ships its definition
+  types: `FlagDefinition`,
+  `FlagDefinitionBase`, `FlagDefinitionByKind`, `FlagDefinitionOverrides`, and
+  the per-kind members `StringFlagDefinition`, `NumberFlagDefinition`,
+  `BooleanFlagDefinition`, `EnumFlagDefinition`, `ArrayFlagDefinition`,
+  `CustomFlagDefinition`, `CountFlagDefinition`, `KeyValueFlagDefinition`;
+  `ArgDefinition`, `ArgDefinitionBase`, `ArgDefinitionByKind`,
+  `ArgDefinitionOverrides`, `StringArgDefinition`, `NumberArgDefinition`,
+  `EnumArgDefinition`, `CustomArgDefinition`; `CommandDefinition` with
+  `CommandArgEntryDefinition`; and `CLIDefinition` with
+  `ConfigSettingsDefinition`. All of them are exported from the package root.
+
+- **`.builtins()` takes `--help`, `--json`, or `--quiet` over to the commands**
+  ([#86](https://github.com/kjanat/dreamcli/issues/86)). A CLI whose `--json`
+  names the document it operates on, whose `-q` means something domain-specific,
+  or whose `--help` is a routable topic browser can now claim the token.
+  `cli('mycli').builtins({ json: 'off' })` releases every spelling that built-in
+  answers to. The root stops reading and stripping it from argv, root help stops
+  listing it under `Global options:`, the `RESERVED_FLAG` guard stops reserving
+  it, and a command may declare it as an ordinary flag that parses and reaches
+  the handler. Releasing `help` also disables command-level `--help`/`-h`, the
+  bare `help` token, the `--help` footer hint, the
+  `Run '<bin> --help' for available commands` suggestion on dispatch errors, and
+  the synthetic `--help` in generated completion scripts. `version` and
+  `completions` have no entry, since `.version()` and `.completions()` are
+  opt-in and a CLI declines those by omission. Every built-in defaults to
+  `'on'`, repeated calls merge with the last mode per built-in winning, and
+  `RunOptions.jsonMode` / `RunOptions.verbosity` keep working regardless, since
+  only argv-driven activation is disabled. The state is normalized onto
+  `CLISchema.builtins` by both `.builtins()` and the `builtins` field of
+  `createCLISchema()`, an invalid mode throws `INVALID_SCHEMA`, and
+  `BuiltinsConfig`, `Builtins`, `BuiltinName`, and `BuiltinMode` are exported
+  from the package root. `runCommand()` from `/testkit` takes the same
+  `builtins` option so a command owning a released flag can be tested; its
+  options type is now `RunCommandOptions`. The `RESERVED_FLAG` error offers
+  `.builtins({ <name>: 'off' })` alongside renaming, and a version discovered by
+  `.manifest()` filesystem walking now runs the same guard at `.run()` time
+  instead of silently shadowing a command's `version` flag. That startup failure
+  is reported the way every other `.run()` startup failure is: the message and
+  its suggestion go to stderr, `--json` puts the serialized error on stdout, and
+  the process exits with the error's exit code rather than rejecting the
+  `.run()` promise.
+
+- **Definition format v1 — versioned, typed documents** — `generateSchema()`
+  and `generateCommandSchema()` now emit `schemaVersion: 1`, so a consumer can
+  tell which format it is reading before parsing the rest. Both return typed
+  documents instead of `Record<string, unknown>`: `DefinitionDocumentV1` for a
+  whole CLI, `CommandDefinitionDocumentV1` for a single command, with
+  `DefinitionDocument` and `CommandDefinitionDocument` aliasing the current
+  version. Documents are distinct from the fragments nested inside them.
+  `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
+  `ArgDefinitionFragmentV1`, `ExampleDefinitionFragmentV1`,
+  `PromptDefinitionFragmentV1`, `PromptChoiceFragmentV1`,
+  `FlagNegationFragmentV1`, `FlagStringConstraintsFragmentV1`, and
+  `FlagPathChecksFragmentV1` carry no `schemaVersion` and take the version of
+  the document they sit in. `generateInputSchema()` is standard JSON Schema and
+  stays outside the family, typed as `InputSchemaDocument` with
+  `InputSchemaBranch` and `InputSchemaProperty`. Every one of these is exported
+  from the package root, and the returned documents remain assignable to
+  `Record<string, unknown>`. `--help` in `--json` mode serializes through
+  `generateCommandSchema()`, so that output gains `schemaVersion: 1` as its
+  first key.
+
+- **`readFlags()` evaluates a record of flag builders outside a CLI**
+  ([#107](https://github.com/kjanat/dreamcli/issues/107)). A build script or a
+  small tool that wants typed options without commands, handlers, or output
+  channels hands its flags straight to `readFlags()` and awaits the resolved
+  values, typed by `InferFlags`:
+
+  ```ts
+  const options = await readFlags({
+  	watch: flag.boolean().alias('w').env('WATCH'),
+  	minify: flag.boolean().env('MINIFY').default(true),
+  	target: flag.enum(['node', 'browser']).env('TARGET').default('node'),
+  });
+
+  options.watch; // boolean
+  options.target; // 'node' | 'browser'
+  ```
+
+  Each object key is the canonical flag name, and evaluation runs through the
+  same command schema, parser, coercion, resolver, and validation a command
+  uses. Aliases, negated spellings, duplicate policy, case parity, unknown-flag
+  rejection, collisions between names, aliases and negated forms, the CLI,
+  stdin, env, config, prompt, default precedence, constraints, Standard Schema
+  validators, and `flag.path()` checks all behave as they do inside `.action()`.
+  `argv`, `env`, `stdinData`, `stat`, and `mkdir` fall back to the detected
+  `RuntimeAdapter`, while
+  `config` and `prompter` stay caller-supplied, since standalone flag reading
+  has no application name to discover a file from and opens no terminal session.
+  `ReadFlagsOptions` extends `ResolveOptions` with `argv`, `adapter`, `parse`,
+  `strict`, `help`, and `onDeprecation`. The adapter is built on the first fact
+  the caller left
+  out, so a call given `argv` and `env` reads nothing from the host unless a
+  `flag.path()` check needs the adapter's filesystem primitives. Failures throw
+  `ParseError` and `ValidationError` instead of exiting, a colliding record, the
+  definition key `__proto__`, and a record whose prototype is replaced (an
+  object-literal `__proto__` key, or `Object.create(base)`, whose inherited
+  definitions are never read) each throw `CLIError` before argv is read, and
+  `.deprecated()` notices reach `onDeprecation` rather than a warning stream,
+  since there is no output channel on this path.
+
+  A pre-separator `--help` or `-h` prints generated help for the record to the
+  adapter's stdout and exits with code 0, with the script named from the
+  adapter's argv in the usage line. The built-in yields to a definition that
+  claims the `help` or `h` spelling through a name, alias, negated form, or
+  case-parity counterpart, and `help: 'off'` removes it entirely; `json` and
+  `quiet` are never reserved, so a record may declare them as ordinary flags.
+  `strict: false` drops undeclared argv content instead of rejecting it: unknown
+  long flags with their inline `=value`, unknown short-group characters,
+  positional arguments, and the `--` separator, while value tokens of declared
+  flags survive under the parser's own consumption rules and misuse of a
+  declared flag keeps its diagnostics.
+
+  Positional arguments are not part of this API, and there is no
+  synchronous variant: prompts, async validators, and filesystem checks make the
+  result a promise. `readFlags`, `ReadFlagsOptions`, and `FlagMap` are exported
+  from the package root, and
+  [Standalone Flag Evaluation](https://dreamcli.kjanat.dev/guide/read-flags)
+  walks the API with the build-script case it was added for.
+
+- **Purpose-built positional argument kinds and string constraints**
+  ([#87](https://github.com/kjanat/dreamcli/issues/87)). A base URL, an input
+  file, or a cutoff date reads naturally as a positional, and until now the only
+  route was `arg.custom()` re-implementing what `flag.url()` already did.
+  `arg.url(options?)`, `arg.path(options?)`, `arg.date(options?)`,
+  `arg.duration()`, and `arg.bytes()` mirror their flag counterparts: same value
+  types, same option objects (`UrlFlagOptions`, `PathFlagOptions`,
+  `DateFlagOptions`), same parsers. `arg.string()` takes a `StringConstraints`
+  object, and string-kind `ArgBuilder`s carry `.nonEmpty()`, `.minLength()`,
+  `.maxLength()`, and `.pattern()` alongside the numeric `.int()`, `.min()`,
+  `.max()`, and `.finite()` they already had. Both factories run the same parse
+  functions and the same constraint validator, so a value a flag accepts an
+  argument accepts, and a rejection carries the same code and the same reason,
+  differing in the subject: `for flag --x` versus `for argument <x>`.
+
+  String constraints are enforced on CLI parse (`INVALID_VALUE`) and on stdin,
+  env, config, and prompt resolution (`CONSTRAINT_VIOLATED`), both exit code
+  `2`; as with flags, a `.default()` value is checked where it is declared and a
+  violation throws `INVALID_DEFAULT`. `arg.path()`
+  checks run after resolution through the runtime adapter's `stat`/`mkdir`, the
+  same seam `flag.path()` uses, so a piped, env-sourced, config-sourced,
+  prompted, or defaulted path is checked like one typed on the command line. A
+  variadic argument validates every value it collects, path checks included.
+  Argument values sourced from anywhere but argv stay redacted in the message,
+  as in `Invalid value '<redacted>' from stdin for argument <x>` and
+  `Invalid number value '<redacted>' from config deploy.port for argument <x>`,
+  so the flag and argument messages are equivalent apart from their subjects.
+
+  `ArgSchema` and the arg definition types carry `stringConstraints`,
+  `pathChecks`, and `valueHint`. The first two are string-kind gated the way the
+  flag schema gates them. Args serialize `numberConstraints`,
+  `stringConstraints`, `pathChecks`, and `valueHint` into the definition
+  document, which previously emitted none of them, and `generateInputSchema()`
+  now surfaces arg string constraints as `minLength` / `maxLength` / `pattern`.
+  The meta-schema hoists the `numberConstraints`, `stringConstraints`, and
+  `pathChecks` fragments into `$defs` so the flag and arg definitions reference
+  one copy. All of it is additive at `schemaVersion: 1`. Help still renders a
+  positional by its own name rather than its `valueHint`, so
+  `mycli copy <src> <dst>` does not collapse into `<path> <path>`.
+
+  The flag-only surface stays flag-only, and
+  [the arguments guide](https://dreamcli.kjanat.dev/guide/arguments#flag-only-surface)
+  lists it with the reason for each entry. `boolean`, `count`, `negatable`,
+  `alias`, `duplicates`, `separator`, `unique`, and `propagate` are bound to
+  flag syntax; `array` is served by `.variadic()`. `keyValue` merges repeated
+  occurrences into one record, which a positional slot cannot express, and
+  `arg.custom()` with a Standard Schema validator is the documented route.
+  `.config()` and `.prompt()` are no longer among them: both surfaces now
+  declare the same sources, described in the unified source model entry below.
+
+- **A unified source model — every input uses the same source order** — flags and
+  args now declare sources from the same set and resolve declared sources through
+  one ordered chain:
+  `CLI -> stdin -> env -> config -> prompt -> default`. `arg.config(path)` and
+  `arg.prompt(config)` join `arg.env()`, so a positional reads a dotted config
+  key and asks the user exactly as a flag does; the arg prompt table mirrors the
+  flag one (`PromptConfigByArgKind`, `AllowedArgPromptConfig`), and an
+  incompatible pairing throws `CONSTRAINT_VIOLATED` naming `<arg>`. Help
+  annotates a positional with `[config: PATH]` and `[prompt]` beside the
+  `[env: VAR]` it already showed.
+  `flag.string().stdin()` becomes legal on `string`, `number`, `boolean`,
+  `enum`, and `custom` flags, giving `echo hi | mycli send` and
+  `mycli send --body -` the meaning `arg.stdin()` already had. `.stdin()` takes
+  `{ when: 'dash' | 'missing' | 'dash-or-missing', consume: 'exclusive' |
+  'broadcast' }` on both surfaces, defaulting to `dash-or-missing` and
+  `exclusive`. `StdinBinding`, `StdinOptions`, `StdinWhen`, and `StdinConsume`
+  are exported from the package root, and `StdinBindingFragmentV1` names the
+  serialized form.
+
+  An explicit `-` is CLI-sourced with bytes from stdin and keeps CLI precedence;
+  an absent input takes the stdin fallback stage, which sits ahead of env, so a
+  flag set in the environment still reads a pipe and the pipe wins. The `-`
+  sentinel now survives the parse boundary for every kind, so
+  `flag.number().stdin()` accepts `--port -` where it used to reject `-` as a
+  malformed number. `readFlags()` carries the same contract and reads stdin only
+  through the adapter, only when a declared `.stdin()` flag would actually
+  select it; `runCommand()` feeds the identical path from its `stdinData`
+  option. Stdin is read at most once per invocation, and only when resolution
+  will select it: `when: 'dash'` reads on `-` alone, `when: 'missing'` reads on
+  an absent input alone, and env, config, prompt, and a default never suppress
+  the read.
+
+  One command has one exclusive stdin consumer. Declaring a second stdin input
+  of any kind, flag or arg, throws `DUPLICATE_STDIN_INPUT` on both construction
+  paths; `{ consume: 'broadcast' }` on every stdin input opts into sharing one
+  buffer among them. The definition document carries the binding as
+  `stdin: { when, consume }` on flags and args, with a `stdin` entry in the
+  meta-schema `$defs`, and the arg fragment gains `configPath` and `prompt`.
+
+- **Cardinality is its own axis, with per-source splitting.** How many values an
+  input carries (`one`, `many`, `entries`, `count`) is now decided separately
+  from what each value means, so every source fills a collection by the same
+  rules. `.split({ cli, env, stdin })` on `flag.array()`, `flag.keyValue()`, and
+  the arg builders sets each source's decoding independently: a delimiter or
+  `'whole'` for CLI tokens, a delimiter, `'whole'`, or `{ format: 'json' }` for
+  env values, and `'lines'`, `'whole'`, a delimiter, or `{ format: 'json' }` for
+  the stdin buffer. Defaults are whole CLI tokens (or the `.separator()`
+  delimiter), comma-delimited env values, and line-delimited stdin; a config
+  value stays a native array or object, and a config string decodes under the
+  env policy. JSON is never guessed. `SplitOptions`, `SplitSetting`,
+  `SplitPolicy`, `SplitBinding`, `SourceSplitBinding`, and `SplitFormat` are
+  exported from the package root, and the definition document carries `split` on
+  flag and arg fragments as `SourceSplitFragmentV1` / `SplitPolicyFragmentV1`.
+
+- **Collections read stdin, and `-` splices into occurrence order.**
+  `flag.array()` and `flag.keyValue()` accept `.stdin()`, and a `-` occurrence
+  stands for the whole stdin source at the position it holds:
+  `--tag before --tag - --tag after` over `a\nb\n` resolves to
+  `['before', 'a', 'b', 'after']`. An explicit `-` and the implicit fallback
+  decode identically, entries splice the same way, and the duplicate-key policy
+  applies across the whole spliced order. Broadcast consumers each decode the
+  one shared buffer under their own binding, so a line-split array flag and a
+  JSON key-value flag can read the same pipe.
+
+- **`.duplicateKeys()` on key-value inputs.** `'last'` (the default), `'first'`,
+  or `'error'` decides what a repeated key means, on every source rather than
+  only on repeated CLI occurrences. A repeat under `'error'` reports
+  `CONSTRAINT_VIOLATED` naming the key. `DuplicateKeys` is exported from the
+  package root and the policy is serialized as `duplicateKeys`.
+
+- **`arg.boolean()` and `arg.keyValue()`.** A positional carries no presence
+  semantics, so `arg.boolean()` consumes an explicit `true`/`false` (or `1`/`0`)
+  token through the shared boolean codec, widening to `yes`/`no` and an empty
+  string only for env, config, stdin, and prompt values. `arg.keyValue()`
+  consumes `KEY=VALUE` tokens and resolves to `Record<string, string>`, splitting
+  at the first `=`; the variadic form aggregates the whole tail into one record.
+  `BooleanArgDefinition` and `KeyValueArgDefinition` join the definition types,
+  and `ArgKind` gains `'boolean'` and `'keyValue'`.
+
+- **Element-level sugar inside collections.** Path checks and constraints belong
+  to the element, so `flag.array(flag.path({ mustExist: true }))` checks every
+  collected element and `flag.keyValue(flag.path())` checks every entry value.
+  `flag.keyValue()` takes an optional element builder, and `flag.path()` is now
+  element-eligible.
+
+- **`.standard()` on both builders, split into element and aggregate
+  validation.** A validator declared on an element builder
+  (`flag.array(flag.string().standard(s))`) validates each item or entry value;
+  one declared on a builder that already aggregates
+  (`flag.array(flag.string()).standard(s)`, `arg.string().variadic().standard(s)`)
+  validates the completed array or record after every element passed. Element
+  issues name the element (`--tag[1]`, `--vars.KEY`). Sync and async validators
+  are both awaited, and every source runs the same pipeline.
+
+- **`.unique()` and `.separator()` on args.** A variadic arg deduplicates with
+  the same `SameValueZero` semantics an array flag uses, and splits each
+  positional token on the CLI separator it declares.
+
+### Changed
+
+- **Breaking: flag diagnostics redact every value resolved outside a literal
+  CLI value.** A
+  stdin, environment, config, or prompt value that failed to coerce used to be
+  printed and stored under `details.value` on the flag surface, while the
+  argument surface already redacted it. Both surfaces now report
+  `Invalid value '<redacted>' from env API_TOKEN for flag --token: must match
+  /^ghp_/` and omit `value` from `details`. Everything that identifies the
+  failure stays: the input name, the source, the expected type, the constraint
+  that failed with its bound or pattern, the allowed enum values, and a custom
+  parse function's own message. A Standard Schema validator's
+  `CONSTRAINT_VIOLATED` failure follows
+  the same rule: `details.value` is recorded only for a value typed on the
+  command line, and omitted for one a pipe, an explicit `-`, the environment, a
+  config file, or a prompt supplied. A literal CLI value is untouched, since it
+  is already on the user's screen. Every coercion failure now also carries
+  `source: 'env' | 'config' | 'stdin' | 'prompt'` in `details`, which is what
+  labels an issue `[env API_TOKEN]` in an aggregate error and what now gives the
+  argument surface the same label the flag surface had. The `flag.path()` and
+  `arg.path()` filesystem checks read the same rule, so a path a pipe, an
+  explicit `-`, the environment, a config file, a prompt, or a declared default
+  supplied reports `Path '<redacted>' for flag --key does not exist` and omits
+  `value` from `details`; a path typed on the command line is still quoted in
+  full. Every element of a collection of paths is checked and redacted
+  individually.
+
+- **Breaking: a positional declared after a variadic one is a build error.** A
+  variadic argument consumes every remaining positional, so anything registered
+  behind it could never be filled and a second variadic one had nothing left to
+  collect. Both silently produced an argument that stayed empty. `.arg()` and
+  `createCommandSchema()` now throw `INVALID_BUILDER_STATE`
+  (`Argument <target> comes after variadic argument <files>, which consumes
+  every remaining positional`), with the command under `command`, the offending
+  argument under `arg`, and the greedy one under `variadicArg`, so a definition
+  tree names the nested command that declared the pair. Move the variadic
+  argument last.
+
+- **Breaking: an explicit `-` with nothing piped is an error inside a
+  collection.** `--tag a --tag - --tag b` with an empty pipe used to resolve to
+  `['a', 'b']`, dropping the occurrence the user typed. It now fails with
+  `MISSING_STDIN` and the message
+  `No piped stdin for the '-' occurrence of flag --tag`. Occurrences of nothing
+  but `-` are unchanged: they are the whole value, so they still fall through to
+  env, config, prompt, and the default, exactly as an absent input does, and the
+  implicit `when: 'missing'` fallback that simply does not fire stays silent. A
+  scalar `-` falls through for the same reason. Only a collection could be
+  silently shortened, so only a collection errors.
+
+- **Breaking: the arg collection modifiers require a collection.**
+  `createArgSchema('string', { unique: true })` and its siblings used to build,
+  storing a field nothing would read. They now state their requirement to the
+  compiler and throw `INVALID_SCHEMA` from `createArgSchema()`: `separator` and
+  `split` want a variadic argument or `arg.keyValue()`, `unique` a variadic
+  argument of a list kind, and `duplicateKeys` `arg.keyValue()`. The values a
+  schema already stores as its own default, `unique: false` and
+  `duplicateKeys: 'last'`, stay accepted on any kind, so a built `ArgSchema` fed
+  back through the factory round-trips. This mirrors the `array | keyValue`
+  restriction the flag surface already had. Drop the field, or add
+  `variadic: true` alongside it. The matching builder methods are new in 4.0, so
+  only definitions composed as data change.
+
+- **Breaking: `.stdin()` and `.variadic()` on one argument is now legal.** The
+  pairing threw `INVALID_BUILDER_STATE`; the tail-splicing entry under Added
+  describes what it does instead. Code that relied on the throw has nothing to
+  catch.
+
+- **Breaking: declared defaults are validated.** A `.default()` value is
+  already the typed value, so it is validated rather than decoded: the codec's
+  own domain, string and number constraints, element and aggregate Standard
+  Schema validators, the shape the cardinality requires, and the collection rules
+  all apply to it. Purely synchronous violations throw `INVALID_DEFAULT` where
+  the chain declares them, so `flag.string({ minLength: 3 }).default('ab')` and
+  `flag.number().default(Number.POSITIVE_INFINITY)` now fail at construction
+  instead of reaching a handler; a constraint added after the default
+  (`flag.string().default('ab').minLength(3)`) is checked too, as is a validator
+  (`.standard()`). On the definition path, where no compiler stands in the way,
+  the domain check also rejects a default of the wrong primitive type and an
+  `enum` default outside `enumValues`. Asynchronous
+  validators and `flag.path()` filesystem checks stay at resolution time, where
+  command resolution awaits the validator or probes the path. Code relying on a default that violates
+  its own declaration either fixes the default or widens the constraint
+  (`flag.number({ finite: false })` still accepts `Infinity`).
+
+- **Breaking: `.separator()` sets the CLI delimiter alone.** Env and config
+  string values used to inherit it, so `.separator('|')` silently changed how an
+  env var decoded. Env values split on `','` unless `.split({ env })` says
+  otherwise. The stdin buffer splits on line terminators by default;
+  `.split({ stdin })` can select `'whole'`, `'json'`, or a delimiter instead.
+  Config arrays and objects remain native; config strings use the env split policy.
+  `.separator('|')` becomes `.split({ cli: '|', env: '|' })` where the old
+  coupling was intended.
+
+- **Breaking: `FlagSchema` and `ArgSchema` carry the cardinality axis.**
+  `FlagSchema` gains `split`, `duplicateKeys`, and `aggregateStandard`;
+  `ArgSchema` gains `separator`, `split`, `duplicateKeys`, `unique`, and
+  `aggregateStandard`. `elementSchema` and `separator` are valid on `keyValue`
+  as well as `array` flags, `standard` is valid on every kind, `aggregateStandard`
+  only on a kind that aggregates, and `stdin` is valid on scalar and collection kinds.
+  Definition documents serialize the new fields additively at `schemaVersion: 1`,
+  which has not shipped, with `split` and `splitPolicy` entries in the
+  meta-schema `$defs`.
+
+- **Breaking: `.default()` on a variadic arg takes the array.** The type
+  parameter followed the element type, so the only value that compiled was a
+  single element, which is not what a variadic arg resolves to. It now follows
+  `ArgDefaultValue`, the value the arg actually produces:
+  `arg.string().variadic().default(['a', 'b'])`, and a record for
+  `arg.keyValue()`. `ArgDefaultValue` is exported from the package root.
+
+- **Breaking: `ArgSchema.stdinMode` is now `ArgSchema.stdin`** — the boolean
+  carried no room for the trigger and sharing modes the unified source model
+  needs, so it is replaced by `stdin: StdinBinding | undefined`. `.stdin()` is
+  unchanged for callers who pass no options and keeps its exact resolution
+  behavior. Code reading the schema directly reads `schema.stdin !== undefined`
+  where `schema.stdinMode` used to be, and a definition passed to
+  `createArgSchema()` or `createCommandSchema()` writes `stdin: {}` instead of
+  `stdinMode: true`. The definition document changes to match: the arg fragment
+  emits `stdin: { when, consume }` in place of `stdinMode: true`, at
+  `schemaVersion: 1`, which has not shipped.
+
+- **Breaking: `DUPLICATE_STDIN_ARG` is now `DUPLICATE_STDIN_INPUT`** — the rule
+  covers flags as well as args, and a flag-versus-flag conflict reporting an
+  arg-shaped code would be a lie. The message reads `Only one input may consume
+  stdin exclusively; <name> already consumes stdin`, naming the input that was
+  declared first. `details` names the offending input under `flag` or `arg` and
+  the existing one under `existingFlag` or `existingArg`.
+
+- **Breaking: stdin values reach non-string codecs without their trailing line
+  terminator** — the stdin source hands the whole buffer over byte for byte, so
+  `echo hi | mycli` still gives a `string` input `'hi\n'`. Every other codec
+  interprets the text, where a terminator a pipe appended is framing rather than
+  value, so one trailing `\n`, `\r\n`, or `\r` is dropped before decoding.
+  `echo true | mycli` now resolves a boolean input to `true`, `echo 1h30m` to a
+  duration, and `echo eu` to an enum member; all three used to fail. A number
+  input is unaffected, since `Number()` already ignored the terminator. Stdin
+  also stops borrowing the prompt widening table: it accepts exactly what an env
+  value accepts, so the prompt-only `y` and `n` boolean spellings are rejected.
+
+- **Breaking: a number input rejects blank text instead of reading it as zero.**
+  `Number('')` and `Number('  ')` are both `0`, so `PORT= mycli serve`,
+  `printf '\n' | mycli serve`, and a config key holding `""` all resolved a
+  number input to `0` without a word. All three now fail with `TYPE_MISMATCH`
+  and the same `Invalid number value '<redacted>' from …` diagnostic any other
+  unreadable value gets, and `mycli serve --port ''` fails at the parse boundary
+  where it quotes the token. Whitespace around a real number is still ignored,
+  so `' 42 '` and `'42\n'` are unaffected. A `count` flag already guarded this;
+  the number codec now does too. Set the variable, or drop it and let the
+  default apply.
+
+- **Breaking: `CLISchema.commands` and `CLISchema.defaultCommand` hold
+  `CommandSchema`** — both used to hold `ErasedCommand` wrappers carrying the
+  action handler and an `_execute` function. The execution graph now lives
+  beside the schema instead of inside it, so `app.schema.commands[0]` is the
+  command schema itself: read `app.schema.commands[0].name` where
+  `app.schema.commands[0].schema.name` used to be needed. `ErasedCommand` is
+  gone.
+
+- **Breaking: `CLISchema.plugins` removed** — plugins are execution state, not
+  a description of the program, and `.plugin()` no longer writes to the schema.
+  Registration, order, and hook behavior are unchanged.
+
+- **Breaking: `CLIBuilder` is factory-only** — its constructor is private, so
+  `new CLIBuilder(schema)` no longer compiles. Call `cli(name)` or
+  `cli({ ... })`; every builder method still returns a new builder.
+
+- **Breaking: `CommandSchema.middleware` removed** — the executor builds the
+  handler chain from the builder's ordered execution steps, so registration
+  order, handler identity, and runtime behavior are unchanged.
+  `CommandDefinition` no longer accepts a `middleware` key, and
+  `createCommandSchema()` no longer emits one.
+
+- **Breaking: `FlagSchema`, `ArgSchema`, and `CommandSchema` are sealed** — all
+  three carry a private brand, so an object literal assembled by hand no longer
+  type-checks where a schema is expected. Call `createFlagSchema()`,
+  `createArgSchema()`, or `createCommandSchema()` with a definition object to
+  obtain one; spreading a built schema keeps the brand, so
+  `{ ...schema, description }` still type-checks. `createSchema()` was renamed
+  to `createFlagSchema()`, which validates its fields against the kind and
+  normalizes a nested `elementSchema`.
+
+- **Breaking: `createCommandSchema()` validates what the builder validates** — a
+  definition whose flags share a name, an alias, or a negated spelling on one
+  command now throws `FLAG_NAME_COLLISION`, and a flag spelled the same way as
+  one propagated from an ancestor command throws `PROPAGATED_FLAG_COLLISION`.
+  The whole tree is checked, nested subcommands included. Commands built with
+  `command()` already refused these at `.flag()` and `.command()`; a definition
+  composed as data used to build without complaint and then answer the shared
+  spelling with one flag only. Two flags both aliased `v` still parsed under
+  `--verbose` and `--version`, help listed `-v` on both, and `-v` set the
+  second. The arg invariants moved with them, so a definition declaring a
+  positional after a variadic one throws `INVALID_BUILDER_STATE`, and a second
+  stdin-backed input throws `DUPLICATE_STDIN_INPUT`, matching `.arg()`.
+  Previously, both combinations built without complaint. Two stdin-backed args
+  each resolved to the
+  whole of stdin, and a positional behind a variadic one silently never filled. Every arg error names the
+  command in `details`, since a definition tree reaches them at any depth and
+  the arg name alone does not say which command declared it. A flag or arg
+  named `__proto__` now throws `INVALID_SCHEMA` from both the factory and the
+  builder, the check `readFlags()` already applied to its definitions record.
+  The factory and `.arg()` used to accept the key, which sets a prototype rather
+  than an entry, so the flag or the value the user typed disappeared; `.flag()`
+  used to report `FLAG_NAME_COLLISION` against a flag the command never
+  declared. A flag record whose prototype is replaced throws `INVALID_SCHEMA`
+  too, since only its own keys are read: an object-literal `__proto__` key lands
+  there, and so does `Object.create(base)`, whose inherited flags the factory
+  silently dropped. `createCLISchema()` normalizes its commands through the same
+  factory and inherits every check, and `readFlags()` reports the same errors it
+  always did.
+
+- **Breaking: `CLISchema` and `ConfigSettings` are sealed** — both carry a
+  private brand, so an object literal assembled by hand no longer type-checks
+  where either is expected. Call `cli()` for an executable program or
+  `createCLISchema()` for a description; spreading a built schema keeps the
+  brand, so `{ ...app.schema, name }` still type-checks. `createCLISchema()`
+  throws `INVALID_SCHEMA` on an empty name, which `cli('')` now does too.
+
+- **Breaking: `createArgSchema()` validates its fields against the kind** — the
+  second parameter is now `ArgDefinitionOverrides<K>` rather than
+  `Partial<ArgSchema>`, so `enumValues` on a `string` arg (and the other
+  kind-scoped fields) stops compiling and throws `INVALID_SCHEMA` at runtime.
+  `enumValues` is required on an `enum` arg. A single definition object
+  (`createArgSchema({ kind: 'enum', enumValues })`) is accepted as well.
+
+- **Breaking: `Out` gained a required `verbosity` member** — action handlers
+  can read `out.verbosity`, and `resolveRenderContext()` exposes the same
+  `verbosity` decision for custom content built before `.run()` (including
+  `--`-aware `--quiet`/`-q` detection). A hand-rolled `Out` object literal
+  stops compiling until it declares one; migrate to a real channel from the
+  testkit and spy on it instead:
+
+  ```ts
+  const [out] = createCaptureOutput();
+  vi.spyOn(out, 'info');
+  ```
+
+  Do not spread a channel (`{ ...out, info: vi.fn() }`) — its methods are
+  non-enumerable bound copies, so the spread result has none of them.
+
+- **Breaking: `Out` and `RenderContext` are sealed** — both interfaces now
+  carry a private brand, so implementing or structurally constructing them
+  outside the framework no longer type-checks. They are framework-created,
+  non-exhaustive values: obtain instances from action parameters,
+  `createOutput()`, `createCaptureOutput()`, or `resolveRenderContext()`, and
+  expect new readonly members in minor releases. Helpers that only need a
+  subset can accept `Pick<Out, 'info' | 'status'>`-style capability types.
+
+- **Breaking: internal execution fields left `RunOptions` and
+  `CLIRunOptions`** — `out`, `captured`, `mergedSchema`, `meta`, and `plugins`
+  were framework-populated fields marked `@internal` yet shipped on the public
+  option types. They now live on unexported internal execution options; code
+  passing them to `runCommand()` or `.execute()` stops compiling. Inject
+  writers via `createCaptureOutput()` options or `OutputOptions.stdout`/
+  `stderr` instead of replacing the channel wholesale.
+
+- **Breaking: `.execute()` takes `CLIExecuteOptions`**. The new root export
+  carries the process-free option surface and has no `adapter` member; passing
+  one to `.execute()` stops compiling. `CLIRunOptions` now extends
+  `CLIExecuteOptions` with `adapter`, and `.run()` remains the only method that
+  accepts it.
+
+- **Breaking: `CommandConfig` and the root `AnyCommandBuilder` export removed**.
+  `CommandConfig` described the builder's type-level accumulator shape but no
+  signature referenced it. `AnyCommandBuilder` is `@internal` erasure machinery
+  that appears only on `CommandBuilder`'s underscore members, so the package
+  root no longer exports the name.
+
+- **Breaking: the canonical `$schema`/`$id` for definition documents is
+  self-hosted and format-versioned** —
+  `https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json` replaces the
+  jsDelivr URL in `generateSchema()` output and in `definitionMetaSchema.$id`.
+  The `v1` segment tracks the definition format, so it stays valid for every
+  package release that emits `schemaVersion: 1`, and it is permanent once
+  published. The `@kjanat/dreamcli/schema` subpath and the jsDelivr URL keep
+  serving the same bytes as mirrors. Documents pinned to the old URL still
+  validate against a local copy but no longer match the meta-schema's `$schema`
+  constant.
+
+- **Breaking: a command flag spelled like a root-owned flag now throws
+  `RESERVED_FLAG` at build time**
+  ([#84](https://github.com/kjanat/dreamcli/issues/84)). The root removes
+  `--json` and `--quiet`/`-q` from argv before dispatch, intercepts
+  `--version`/`-V` once a version is configured, and renders help for
+  `--help`/`-h` before a command's flags are parsed. A command declaring one of
+  those spellings used to build, run, and render help while its flag stayed
+  permanently at its default value. `.command()`, `.default()`, `.version()`,
+  `.manifest(data)`, and `createCLISchema()` now reject it with `CLIError` code
+  `RESERVED_FLAG`, checking each flag's canonical name, its aliases (hidden ones
+  included), and its custom negated spelling (`.negatable({ alias: 'quiet' })`)
+  through the whole nested subcommand tree. The error names the colliding flag
+  and the root flag that shadows it, and suggests renaming, or `out.status()`
+  for output that root `--quiet` suppresses. Near misses such as
+  `jsonOutput` or `quietMode` stay legal, the default `--no-<name>` spelling
+  never collides, and `version`/`V` stay available to a CLI that declares no
+  version.
+
+- **`--completions` collision detection now covers negated spellings and the
+  definition path.** `.negatable({ alias: 'completions' })` and a
+  `createCLISchema()` definition carrying `completionsFlag` both used to build a
+  CLI whose command flag the planner intercepted. Both now throw `CLIError` code
+  `RESERVED_FLAG`, matching what `.completions({ as: 'flag' })` already rejected
+  on the builder.
+
+### Removed
+
+- **Breaking: `.packageJson()`** — deprecated since 2.5. Use `.manifest()`,
+  which defaults to `files: ['package.json']` and accepts the same pre-loaded
+  data object.
+
+- **Breaking: `.denoJson()`** — deprecated since 2.5. Use
+  `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
+
+- **Breaking: `ManifestPresetSettings`** — the settings type of the two removed
+  presets. Use `ManifestSettings`, which adds `files`.
+
+- **Breaking: `PackageJsonSettings`** — the deprecated alias for
+  `ResolvedManifestSettings`, the shape stored in
+  `CLISchema.packageJsonSettings`. The schema field itself is unchanged.
+
+- **Breaking: `discoverPackageJson()`** — deprecated since 2.5. Use
+  `discoverManifest(adapter, { startDir, files: ['package.json'] })`; `files`
+  already defaults to `['package.json']`.
+
+### Fixed
+
+- **A variadic argument could not take the prompt its flag twin takes.** The
+  argument prompt gate read the kind discriminator alone, so
+  `arg.string().variadic().prompt({ kind: 'multiselect' })` was rejected with
+  `Prompt kind 'multiselect' is not compatible with string argument <files>`
+  while `flag.array(flag.string()).prompt({ kind: 'multiselect' })` resolved,
+  and the scalar `input` and `select` kinds the flag surface rejects were
+  accepted, resolving a one-element array. The gate now reads the cardinality:
+  an argument that collects several values takes `multiselect`, and names itself
+  `variadic string argument <files>` when it reports a mismatch.
+  `AllowedArgPromptConfig<C>` follows the same rule, so the compiler agrees.
+
+- **A collection given a config value of the wrong shape said less on the
+  argument surface.** `flag.array(...).config('p')` over `{ p: 5 }` reported
+  `Invalid array value from config p for flag --tags`; the positional twin
+  reported `Invalid value '<redacted>' from config p for argument <tags>`,
+  naming neither the shape nor a value it actually held. Both surfaces now word
+  it `Invalid array value` / `Invalid object value`, so the byte-for-byte
+  wording rule in [Diagnostics and redaction](https://dreamcli.kjanat.dev/guide/semantics#diagnostics-and-redaction)
+  holds for the collection faults too.
+
+- **A builder could produce a schema its own factory refuses.** Each modifier
+  states the kinds it belongs to through a `this` constraint, which the compiler
+  enforces and a JavaScript caller does not see, so `flag.string().separator(',')`
+  built a string flag carrying a CLI delimiter and emitted a definition document
+  `createFlagSchema()` then rejected with `INVALID_SCHEMA`. Twelve modifiers on
+  the flag surface and eleven on the argument surface behaved this way. Every
+  builder modifier now runs the same check `createFlagSchema()` /
+  `createArgSchema()` run, so what a builder produces is always a definition the
+  framework reads back. A test calling such a modifier through `@ts-expect-error`
+  and expecting it to build needs `expect(...).toThrow()`.
+
+- **The normalization factories accepted a kind they have no arm for.**
+  `createFlagSchema('nope')` and `createArgSchema('count')` built a schema whose
+  discriminator is outside `FLAG_KINDS` / `ARG_KINDS`, which every exhaustive
+  `switch (schema.kind)` downstream falls through. The types forbid the call,
+  but a JavaScript caller reached it, and the keyValue prompt gate showed such a
+  schema can reach a shipped diagnostic. Both factories now throw
+  `INVALID_SCHEMA` with `Unknown flag kind 'nope'` / `Unknown arg kind 'count'`,
+  listing the allowed kinds in `details.allowed`, on the two-argument path, the
+  definition path, and a nested `elementSchema`.
+
+- **`flag.array()` with no element threw a raw `TypeError`.** The factory read
+  `.schema` off the element it was handed, so a JavaScript caller omitting it
+  got `Cannot read properties of undefined` instead of a framework error. It now
+  throws `INVALID_SCHEMA` with `flag.array() requires an element builder`.
+  `flag.keyValue()` and `arg.keyValue()`, whose element is optional, apply the
+  same check to an element that is supplied.
+
+- **A positional cut a parse function's message at its last colon.** Off argv,
+  the argument surface rebuilt the reason for a failure by scanning the message
+  the flag surface had already written, keeping only the text after the final
+  `": "`. Anything a parse function put before a colon was lost, and a reason
+  whose own tail held a colon was dropped whole: `arg.url({ protocols: ['https'] })`
+  reported `Invalid value '<redacted>' from env ENDPOINT for argument <endpoint>: https`,
+  and `arg.date()` reported no reason at all. `arg.duration()`, `arg.bytes()`,
+  and every `arg.custom()` whose error text carries a colon were affected the
+  same way. Each surface now words its own diagnostic from the value layer's
+  verdict, so the reason reaches the argument surface whole.
+
+  A parse-function failure off argv is also worded the way the flag surface and
+  the command line already word it, so `Failed to parse env ENDPOINT for
+  argument <endpoint>: URL protocol 'http' is not allowed. Allowed: https`
+  replaces the `Invalid value '<redacted>' …` opening, which announced a
+  redaction in the same sentence that printed the parse function's own text.
+  A test asserting the old opening for a non-argv `arg.url()`, `arg.date()`,
+  `arg.duration()`, `arg.bytes()`, or `arg.custom()` message needs the new one.
+
+- **A positional withheld what a type mismatch expected.** For a value no
+  boolean codec could read, the flag surface reported
+  `Invalid boolean value '<redacted>' …` and suggested
+  `Set VAR to true/false, 1/0, or yes/no`, while the argument surface reported
+  `Invalid value '<redacted>' …` and suggested only `Set VAR to a valid boolean`,
+  which is the question rather than the answer. A string a config object could
+  not fill carried no `expected` field and no suggestion at all on the argument
+  surface. Both now match the flag surface: the message names the type, the
+  details carry `expected`, and the suggestion names what the codec reads.
+
+- **An argument kind with no compatible prompt was told to use `undefined`.**
+  `createArgSchema({ kind: 'keyValue', prompt: … })` reached the prompt gate,
+  which took the first allowed prompt kind from an empty list and reported
+  `Prompt kind 'input' is not compatible with keyValue argument <vars>. Use
+  'undefined' instead` with `Change the prompt to { kind: 'undefined' }`. The
+  flag surface already had a branch for a kind that is not promptable at all;
+  both surfaces now share it and report
+  `keyValue arguments are not promptable` with `Remove the prompt config for <vars>`.
+
+- **A key-value input told the user to write an array.** A config value of the
+  wrong shape for `flag.keyValue()` or `arg.keyValue()` reported
+  `Invalid array value from config c for flag --vars` with `expected: 'array'`
+  and `Set c to an array in your config`, which is not what an entries input
+  accepts and, for a config value that already was an array, not even a change.
+  The fault now carries the shape the cardinality wants: an entries input reads
+  `Invalid object value …` with `expected: 'object'` and
+  `Set c to an object in your config` on the flag surface and
+  `Use KEY=VALUE for <vars>` on the argument surface. A list input is unchanged.
+
+- **Five types the stability page classified as public were exported from
+  nowhere.** `NodeProcess`, `DenoNamespace`, and `GlobalForDetect` are the host
+  objects `createNodeAdapter()`, `createDenoAdapter()`, and `detectRuntime()`
+  accept, and the page attributes all three to `@kjanat/dreamcli/runtime`, which
+  exported none of them; a caller injecting a host could not name the parameter
+  type. `StringArgElementConfig` and `WithoutArgElementEligibility` sat in the
+  same sentence as `StringElementConfig`, which the root entrypoint does export.
+  All five are now exported, along with the flag-side
+  `WithoutElementEligibility` its argument twin mirrors.
+
+- **A definition document, its input schema, and help all dropped a default the
+  schema still resolved.** `generateSchema()`, `generateInputSchema()`, and
+  `formatHelp()` each reported a default only for `presence: 'defaulted'`, but
+  resolution uses any `defaultValue` a schema carries, and
+  `createFlagSchema({ kind: 'string', defaultValue: 'dist' })` keeps
+  `presence: 'optional'`. A document emitted from such a schema decoded back to
+  a flag with no default, so a round trip through the format changed behavior;
+  the input schema omitted `default`, and help omitted `(default: dist)` for a
+  flag that does resolve one. All three now report the default whenever the
+  schema carries one, on both surfaces, whatever the presence.
+  Builder-authored schemas are unaffected, since `.default()` sets the
+  defaulted presence.
+
+  Help no longer calls such an input required either. A default binding always
+  produces a value, so neither `REQUIRED_FLAG` nor `REQUIRED_ARG` can fire for a
+  schema carrying a `defaultValue`, yet `flag.string().default('dist').required()`
+  rendered `[required]` and hid its own default while the positional twin
+  rendered `(default: prod)` and still demanded a token as `<target>`. A
+  `defaultValue` now suppresses the `[required]` marker and the angle brackets on
+  both surfaces; an input without one is unchanged.
+
+- **A duplicate key leaked its text from every non-argv source.** Under
+  `.duplicateKeys('error')`, `Duplicate key 'DB_PASSWORD' from env VARS for flag
+  --vars` quoted the key in the message, in `details.key`, and in `suggest`,
+  whatever source carried it. A key is half of a `KEY=VALUE` pair, so it is
+  value text from that source, and the same pair reported `Invalid key-value
+  pair '<redacted>'` when it failed to split instead. The key is now quoted only
+  for occurrences the user typed on the command line; stdin, env, config, and
+  prompt read `Duplicate key '<redacted>'`, carry no `key` in `details`, and
+  suggest `Set the repeated key once`. Both surfaces follow the rule.
+
+- **A flag reported a JSON shape fault in the wrong order.** `Invalid JSON
+  value, expected an object from env VARS for flag --vars` put the expectation
+  between the fault and the source that carried it. The flag surface now words
+  it as the argument surface already did: `Invalid JSON value from env VARS for
+  flag --vars, expected an object`.
+
+- **`ArgElementFragmentV1` was documented as public but exported from nowhere.**
+  `stability.md` classifies it with the other version 1 fragment types and
+  `schema-export.md` names it as the shape of an arg `elementSchema`, but the
+  type never reached `@kjanat/dreamcli`. It is exported now, alongside its
+  siblings.
+
+- **A default rejected on a vowel-initial kind read `a array`.** The
+  construction-time `INVALID_DEFAULT` message built its subject with a fixed
+  article, so `createFlagSchema('array', …)` and `createFlagSchema('enum', …)`
+  produced `Default value for a array flag` and `Default value for a enum flag`.
+  Both now read `an`.
+
+- **A duplicate key the user typed said it came from stdin.** Under
+  `.duplicateKeys('error')`, a repeat among CLI occurrences was worded
+  `Duplicate key 'A' from stdin for flag --v`, naming a source the value never
+  had, on a command with no pipe at all. CLI occurrences now name no source
+  (`Duplicate key 'A' for flag --v`), and a key a `-` occurrence spliced in
+  still reads `from stdin`. Each occurrence carries its own source through
+  aggregation, so a collection filled from both names whichever one carried the
+  repeat. `details` no longer claims `source: 'stdin'` for a typed token, and
+  the arg surface follows the same rule with `for argument <vars>`.
+
+- **`flag.count().stdin()` threw only on the definition path.** The builder
+  method is blocked by its `this` constraint at compile time and
+  `createFlagSchema('count', { stdin: {} })` throws `INVALID_SCHEMA`, but a
+  JavaScript caller reaching the builder got a count flag carrying a stdin
+  binding no stage would ever read. The builder now throws the same error, with
+  the same message and code. In 3.x neither path complained: `createSchema()`
+  stored `stdinMode: true` on a count flag and `.stdin()` did not exist on the
+  count builder at all.
+
+- **Flags named after `Object.prototype` members were rejected as duplicates** —
+  `.flag('constructor')`, `.flag('toString')`, `.flag('valueOf')`, and every
+  other `Object.prototype` member name failed with a `FLAG_NAME_COLLISION`
+  claiming the command already declared the flag, on commands that declared no
+  flags at all. `collectPropagatedFlags()` read its descendant records the same
+  way, so a propagated flag with one of those names would have stopped at every
+  intermediate subcommand, and `resolveFlags()` read an `.interactive()`
+  resolver's override record the same way, so the inherited method reached the
+  prompt gate as a config and failed the command with `CONSTRAINT_VIOLATED`.
+  `.flag()` refused the name first, so no 3.x CLI ever got that far. Every one of
+  those reads now tests own keys only, so all eleven of those names behave like
+  any other and `createCommandSchema()` accepts the schemas `command()` produces.
+  `__proto__` is the one `Object.prototype` name still rejected, with
+  `INVALID_SCHEMA` on both construction paths, listed under Changed above.
+
+- **An env var named after an `Object.prototype` member always read as set** —
+  `.env('toString')` on a flag, or on an arg, looked the name up on the env
+  record without checking own keys, so an unset variable resolved to the
+  inherited method and failed coercion instead of falling through to config,
+  prompt, or default. Both lookups now test own keys.
+
+- **`.run()` never read stdin for an arg named after an `Object.prototype`
+  member** — the precheck that decides whether to read stdin looked the arg name
+  up on the parsed positionals without checking own keys, so an arg such as
+  `.arg('toString', arg.string().stdin())` looked already supplied. `.run()`
+  skipped the read and the command failed with `Missing required argument`
+  however much was piped to it. The lookup now tests own keys. `.execute()` and
+  the testkit take `stdinData` from the caller and were never affected.
+
+- **`out.table()` printed a native method for a column key named after an
+  `Object.prototype` member** — a column keyed `toString`, `constructor`, or any
+  other member name read the row with a bare lookup, so a row that carried no
+  such key rendered `[Function: toString]` in place of the empty cell every
+  other missing key produces. Dynamic rows typed as `Record<string, unknown>`
+  are the reachable case, including columns inferred from a first row that does
+  carry the key. Both the text renderer and the JSON projection now treat a key
+  that only `Object.prototype` carries as absent. A key held anywhere earlier in
+  the row's prototype chain still renders, so a class getter and an
+  `Object.create(defaults)` fallback reach the table as before.
+
+- **A Standard Schema validator ran against a native method on a failed
+  resolution** — when a required flag or arg was missing, `resolve()` still ran
+  the Standard Schema pass before rethrowing, over a values record the failed
+  resolver had left empty. The pass read each declared name without checking own
+  keys, so a flag or arg named after an `Object.prototype` member handed its
+  `flag.custom()` / `arg.custom()` validator the inherited method. The user saw a
+  second, invented `CONSTRAINT_VIOLATED` beside the real error. The pass now
+  tests own keys.
+
+- **Quiet mode leaked spinner and progress output** — activity handles now
+  resolve to no-ops under quiet verbosity, including interactive TTYs and
+  explicit static fallbacks. Consumers can route informational rows through
+  `out.info()` and rely on DreamCLI to suppress the complete presentation
+  layer without reading private output policy state.
+
+- **`--json=true` and `--quiet=true` failed as unknown flags**
+  ([#85](https://github.com/kjanat/dreamcli/issues/85)). Both root flags now
+  take a value the way `flag.boolean()` does. `true` and `1` enable, `false`
+  and `0` disable, the last occurrence wins, and an invalid literal fails with
+  the parser's `INVALID_VALUE` error and exit code 2 instead of `Unknown flag`.
+  `--help`, `-h`, and `--version` still render ahead of that error, so a
+  mistyped value never hides the text that documents the flag. Short `-q` keeps
+  its presence-only form, matching short boolean flags at the command level.
+  `runCommand()` from `/testkit` reads the same layer, and tokens after `--`
+  still reach the command untouched.
+
 ## [3.0.1] - 2026-07-21
 
 No library code changed; this release ships agent-facing material that was

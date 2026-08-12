@@ -1,6 +1,6 @@
 /*
   Link: </reference/main>; rel="service-doc"; type="text/html"; title="API reference"
-  Link: </dreamcli.schema.json>; rel="describedby"; type="application/json"; title="CLI definition schema"
+  Link: </schemas/definition/v1.schema.json>; rel="describedby"; type="application/json"; title="CLI definition schema"
   Link: </sitemap.xml>; rel="sitemap"; type="application/xml"
   Link: </AGENTS>; rel="author"; type="text/html"; title="Agent guide"
 

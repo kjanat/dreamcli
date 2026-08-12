@@ -21,17 +21,8 @@ import type {
 	TableColumn,
 	TableOptions,
 } from '#internals/core/schema/activity.ts';
-import type { Out } from '#internals/core/schema/command.ts';
-import {
-	CaptureProgressHandle,
-	CaptureSpinnerHandle,
-	noopProgressHandle,
-	noopSpinnerHandle,
-	StaticProgressHandle,
-	StaticSpinnerHandle,
-	TTYProgressHandle,
-	TTYSpinnerHandle,
-} from './activity.ts';
+import { type Out, outBrand } from '#internals/core/schema/command.ts';
+import { CaptureProgressHandle, CaptureSpinnerHandle } from './activity.ts';
 import { bindMethods } from './bind.ts';
 import type { OutputPolicy, Verbosity } from './contracts.ts';
 import {
@@ -222,6 +213,8 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
  * @internal
  */
 class OutputChannel implements Out {
+	declare readonly [outBrand]: never;
+
 	/** @internal Resolved configuration. */
 	readonly options: ResolvedOutputOptions;
 
@@ -230,6 +223,9 @@ class OutputChannel implements Out {
 
 	/** Whether JSON output mode is active. */
 	readonly jsonMode: boolean;
+
+	/** Active verbosity level for informational output and activity rendering. */
+	readonly verbosity: Verbosity;
 
 	/**
 	 * Whether stdout is connected to a TTY.
@@ -260,6 +256,7 @@ class OutputChannel implements Out {
 		this.options = options;
 		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
+		this.verbosity = this.policy.verbosity;
 		this.isTTY = options.isTTY;
 		this.color = createColors(options.color);
 		this.isHyperlinkSupported = options.isHyperlinkSupported;
@@ -398,7 +395,7 @@ class OutputChannel implements Out {
 	 * Create a spinner handle.
 	 *
 	 * Mode dispatch:
-	 * - `jsonMode` → noop (structured output only, spinners suppressed)
+	 * - quiet or `jsonMode` → noop (informational activity suppressed)
 	 * - `isTTY` → animated TTY spinner (braille frames, ANSI overwrite)
 	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
 	 * - `!isTTY && fallback: 'silent'` (default) → noop
@@ -429,7 +426,7 @@ class OutputChannel implements Out {
 	 * Create a progress handle.
 	 *
 	 * Mode dispatch:
-	 * - `jsonMode` → noop (structured output only, progress suppressed)
+	 * - quiet or `jsonMode` → noop (informational activity suppressed)
 	 * - `isTTY` → animated TTY progress bar (determinate or indeterminate)
 	 * - `!isTTY && fallback: 'static'` → plain text at lifecycle boundaries
 	 * - `!isTTY && fallback: 'silent'` (default) → noop
@@ -554,6 +551,37 @@ function resolveTableArgs<T extends Record<string, unknown>>(
 }
 
 /**
+ * Find the object along a row's prototype chain that carries a key.
+ *
+ * @param row - Source data row.
+ * @param key - Column key to locate.
+ * @returns The owning object, or `null` when nothing in the chain carries it.
+ */
+function cellKeyHolder(row: object, key: string): object | null {
+	for (let holder: object | null = row; holder !== null; holder = Object.getPrototypeOf(holder)) {
+		if (Object.hasOwn(holder, key)) return holder;
+	}
+	return null;
+}
+
+/**
+ * Read one cell out of a row.
+ *
+ * `Object.prototype` answers a lookup for a column key such as `toString` on
+ * every row, so a key it alone carries reads as absent. A key held anywhere
+ * earlier in the chain is the row's own data, which is where a class getter or
+ * an `Object.create(defaults)` fallback lives.
+ *
+ * @param row - Source data row.
+ * @param key - Column key to read.
+ * @returns The cell value, or `undefined` when only `Object.prototype` carries the key.
+ */
+function cellValue<T extends Record<string, unknown>>(row: T, key: keyof T & string): unknown {
+	const holder = cellKeyHolder(row, key);
+	return holder === null || holder === Object.prototype ? undefined : row[key];
+}
+
+/**
  * Keep only the keys listed in `columns`, preserving column order.
  *
  * @param rows - Source data rows.
@@ -564,7 +592,7 @@ function projectTableRows<T extends Record<string, unknown>>(
 	rows: readonly T[],
 	columns: readonly TableColumn<T>[],
 ): Record<string, unknown>[] {
-	return rows.map((row) => Object.fromEntries(columns.map((c) => [c.key, row[c.key]])));
+	return rows.map((row) => Object.fromEntries(columns.map((c) => [c.key, cellValue(row, c.key)])));
 }
 
 /**
@@ -640,7 +668,9 @@ function formatTable<T extends Record<string, unknown>>(
 	const headers = columns.map((c) => c.header ?? c.key);
 
 	// Convert all cells to strings
-	const cellGrid: string[][] = rows.map((row) => columns.map((c) => cellToString(row[c.key])));
+	const cellGrid: string[][] = rows.map((row) =>
+		columns.map((c) => cellToString(cellValue(row, c.key))),
+	);
 
 	// Compute column widths
 	const widths: number[] = headers.map((h, i) => {
@@ -772,20 +802,12 @@ function createCaptureOutput(
 export type { CapturedOutput, OutputOptions, Verbosity, WriteFn };
 export {
 	CaptureOutputChannel,
-	CaptureProgressHandle,
-	CaptureSpinnerHandle,
 	clearRequestedExitCode,
 	createCaptureOutput,
 	createOutput,
 	getRequestedExitCode,
-	noopProgressHandle,
-	noopSpinnerHandle,
 	OutputChannel,
 	resolveHyperlinkOverride,
-	StaticProgressHandle,
-	StaticSpinnerHandle,
 	setRequestedExitCode,
-	TTYProgressHandle,
-	TTYSpinnerHandle,
 	writeLine,
 };

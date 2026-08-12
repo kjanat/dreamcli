@@ -27,22 +27,41 @@ writeFileSync(
 );
 ```
 
-Output includes a `$schema` URL pointing at the CDN-hosted definition
-schema. For offline or CI-friendly setups, use the local copy instead:
+Output includes a `$schema` URL pointing at
+`https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`. The `v1` in
+that path is the definition format version, the same one the document reports
+as `schemaVersion`. Every release that emits `schemaVersion: 1` resolves to it.
+
+Two mirrors carry the same bytes: the copy inside the installed package, and
+`https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json` on the npm
+CDN. Emitted documents always carry the canonical URL in `$schema`, and the
+meta-schema pins that exact value. For offline or CI-friendly validation, map
+the canonical URL to the local copy in your tooling instead of rewriting the
+document — in VS Code:
 
 ```json
 {
-  "$schema": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json"
+  "json.schemas": [
+    {
+      "url": "./node_modules/@kjanat/dreamcli/dreamcli.schema.json",
+      "fileMatch": ["cli-schema.json", "*.definition.json"]
+    }
+  ]
 }
 ```
 
 The schema is also importable as `@kjanat/dreamcli/schema`.
 
+Standalone documents from `generateCommandSchema()` validate against the dedicated
+`https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json#/$defs/commandDocument`
+entry point.
+
 Full example output:
 
 ```json
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/@kjanat/dreamcli/dreamcli.schema.json",
+  "$schema": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json",
+  "schemaVersion": 1,
   "name": "mycli",
   "version": "1.0.0",
   "commands": [
@@ -175,26 +194,59 @@ generateSchema(myCli.schema, { includeHidden: false });
 
 ### Definition Metadata
 
-Per command: `name`, `description`, `aliases`, `hidden`, `examples`,
-`flags`, `args`, nested `commands`.
+Version 1 froze with 4.0. Every field below is optional unless noted, and a
+field is written only when the schema carries something other than its default.
+`defaultValue` is presence-sensitive: an explicit `.default(...)` is written
+even when its value matches the kind's implicit unset value.
 
-Per flag: `kind`, `presence`, `defaultValue`, `aliases`, `envVar`,
-`configPath`, `description`, `enumValues`, `elementSchema`, `prompt`,
-`deprecated`, `propagate`.
+Per command: `name` (always), `description`, `aliases`, `hidden`, `examples`,
+`flags` (always), `args` (always), nested `commands` (always).
 
-Per arg: `name`, `kind`, `presence`, `variadic`, `stdinMode`,
-`defaultValue`, `description`, `envVar`, `enumValues`, `deprecated`.
+Per flag: `kind` and `presence` (both always), `defaultValue`, `aliases`,
+`stdin`, `envVar`, `configPath`, `description`, `enumValues`,
+`numberConstraints`, `stringConstraints`, `elementSchema`, `separator`,
+`split`, `duplicateKeys`, `unique`, `pathChecks`, `valueHint`, `prompt`,
+`deprecated`, `propagate`, `negation`, `duplicates`.
+
+Per arg: `name`, `kind`, and `presence` (all three always), `variadic`,
+`stdin`, `defaultValue`, `description`, `envVar`, `configPath`, `enumValues`,
+`elementSchema`, `numberConstraints`, `stringConstraints`, `pathChecks`,
+`valueHint`, `separator`, `split`, `duplicateKeys`, `unique`, `prompt`,
+`deprecated`.
+
+The arg surface carries every flag field except the five bound to flag syntax
+(`aliases`, `propagate`, `negation`, `duplicates`, and the `count` kind), and
+adds `name` and `variadic`. An `elementSchema` on an arg is an
+`ArgElementFragmentV1`, which is the arg fragment without the `name` a position
+supplies.
+
+`defaultValue` is written whenever the schema carries one that survives JSON,
+whatever its `presence`. A definition may set a default without setting
+`presence: 'defaulted'`, and resolution uses it either way, so the document
+states it either way.
+
+An element fragment is the whole fragment shape, so it admits fields no element
+reader consumes: `stdin`, `envVar`, `configPath`, `prompt`, `defaultValue`, and
+`variadic` on an arg element. They are validated as any other field is, they
+survive the document, and they change nothing at resolution, which reads sources
+from the collection itself. Validation still applies in isolation, so
+`variadic: true` on an element makes that element's own default an array.
 
 ### What's Omitted
 
 Non-serializable runtime values are always excluded:
 
 - Parse functions (`parseFn`)
+- Standard Schema validators
 - Middleware handlers
 - Interactive resolvers
 - Action handlers
 
+Value provenance is excluded too, and for a different reason: it describes what
+one invocation did rather than what the schema declares. See
+[Value provenance](/guide/semantics#which-source-won).
+
 ## What's Next?
 
-- [Shell Completions](/guide/completions) — another schema-driven export
-- [Config Files](/guide/config) — validate config with input schemas
+- [Shell Completions](/guide/completions), another schema-driven export
+- [Config Files](/guide/config), validate config with input schemas

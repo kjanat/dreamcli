@@ -4,25 +4,16 @@ import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { resolverContract } from './contracts.ts';
 import { resolve } from './index.ts';
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
+	return createCommandSchema({
 		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
 		...overrides,
-	};
+	});
 }
 
 function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
@@ -58,14 +49,19 @@ describe('resolver contracts', () => {
 
 	describe('explicit facts', () => {
 		it('keeps precedence and error guarantees explicit', () => {
+			const order = ['cli', 'stdin', 'env', 'config', 'prompt', 'default'];
 			expect(resolverContract).toEqual({
-				flagPrecedence: ['cli', 'env', 'config', 'prompt', 'default'],
-				argPrecedence: ['cli', 'stdin', 'env', 'default'],
+				precedence: order,
+				flagPrecedence: order,
+				argPrecedence: order,
 				promptRunsAfterFlagConfig: true,
+				stdinFallbackRunsBeforeEnv: true,
+				dashIsCliSourced: true,
 				aggregatesValidationErrors: true,
 				aggregateDiagnosticsIncludePerIssueSummary: true,
 				hardCoercionErrorsStopFallback: true,
 				collectsDeprecationsFromExplicitSources: true,
+				recordsProvenancePerInput: true,
 			});
 		});
 	});
@@ -75,7 +71,7 @@ describe('resolver contracts', () => {
 	describe('flag precedence matrix', () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('string', {
+				region: createFlagSchema('string', {
 					envVar: 'REGION',
 					configPath: 'deploy.region',
 					prompt: { kind: 'input', message: 'Region' },
@@ -162,7 +158,7 @@ describe('resolver contracts', () => {
 				{
 					name: 'target',
 					schema: createArgSchema('string', {
-						stdinMode: true,
+						stdin: {},
 						envVar: 'TARGET',
 						presence: 'defaulted',
 						defaultValue: 'default-target',
@@ -231,7 +227,7 @@ describe('resolver contracts', () => {
 		it('prefers env flag errors over later sources', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', {
+					port: createFlagSchema('number', {
 						envVar: 'PORT',
 						configPath: 'deploy.port',
 						prompt: { kind: 'input', message: 'Port' },
@@ -250,8 +246,8 @@ describe('resolver contracts', () => {
 			expect(error.code).toBe('TYPE_MISMATCH');
 			expect(error.details).toEqual({
 				flag: 'port',
+				source: 'env',
 				envVar: 'PORT',
-				value: 'bad-port',
 				expected: 'number',
 			});
 		});
@@ -262,7 +258,7 @@ describe('resolver contracts', () => {
 					{
 						name: 'count',
 						schema: createArgSchema('number', {
-							stdinMode: true,
+							stdin: {},
 							envVar: 'COUNT',
 							presence: 'defaulted',
 							defaultValue: 1,
@@ -291,14 +287,14 @@ describe('resolver contracts', () => {
 		it('aggregates independent flag and arg failures', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
+					token: createFlagSchema('string', { presence: 'required', envVar: 'API_TOKEN' }),
 				},
 				args: [
 					{
 						name: 'target',
 						schema: createArgSchema('string', {
 							presence: 'required',
-							stdinMode: true,
+							stdin: {},
 							envVar: 'DEPLOY_TARGET',
 						}),
 					},

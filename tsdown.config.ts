@@ -26,6 +26,9 @@ export default defineConfig({
 		entry: ['**', '!src/**/*{.test,test-helpers}.ts'],
 		newContext: true,
 		resolver: 'oxc',
+		oxc: {
+			stripInternal: true,
+		},
 	},
 	clean: true,
 	platform: 'node',

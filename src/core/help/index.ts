@@ -19,6 +19,7 @@ import type {
 	CommandSchema,
 	ExampleMeta,
 	FlagSchema,
+	StdinBinding,
 } from '#internals/core/schema/index.ts';
 import { padEnd, visibleWidth, wrapText } from './ansi.ts';
 import type { HelpTheme, HelpThemeFactory } from './theme.ts';
@@ -238,7 +239,29 @@ function formatValueHint(schema: FlagSchema): string {
 }
 
 /**
- * Build description with env/config/prompt/default/required/deprecated annotations.
+ * Name what selects the stdin stream for an input, in the `[env: X]` style.
+ *
+ * `[stdin]` covers the default trigger, where both an explicit `-` and an
+ * absent input read the stream. The narrower triggers say which one applies, so
+ * a reader knows whether typing `-` is required.
+ *
+ * @param stdin - The input's stdin axis.
+ * @returns The annotation to render beside the description.
+ */
+function formatStdinAnnotation(stdin: StdinBinding): string {
+	switch (stdin.when) {
+		case 'dash':
+			return "[stdin: '-']";
+		case 'missing':
+			return '[stdin: when omitted]';
+		case 'dash-or-missing':
+			return '[stdin]';
+	}
+}
+
+/**
+ * Build description with stdin/env/config/prompt/default/required/deprecated
+ * annotations.
  *
  * @param schema - The {@link FlagSchema} to describe.
  * @param theme - Theme applied to the metadata annotations (description stays plain).
@@ -257,6 +280,9 @@ function formatFlagDescription(schema: FlagSchema, theme: HelpTheme): string {
 	}
 
 	// Resolution source annotations — show users where values can come from
+	if (schema.stdin !== undefined) {
+		parts.push(theme.annotation(formatStdinAnnotation(schema.stdin)));
+	}
 	if (schema.envVar !== undefined) {
 		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
 	}
@@ -267,10 +293,12 @@ function formatFlagDescription(schema: FlagSchema, theme: HelpTheme): string {
 		parts.push(theme.annotation('[prompt]'));
 	}
 
-	if (schema.presence === 'required') {
+	// A schema carrying a default resolves one whatever its presence says, so the
+	// required stage never reports it missing.
+	if (schema.presence === 'required' && schema.defaultValue === undefined) {
 		parts.push(theme.annotation('[required]'));
 	} else if (
-		schema.presence === 'defaulted' &&
+		(schema.presence === 'defaulted' || schema.defaultValue !== undefined) &&
 		schema.kind !== 'boolean' &&
 		schema.kind !== 'count'
 	) {
@@ -354,14 +382,17 @@ function formatArgUsage(entry: CommandArgEntry): string {
 	const label =
 		schema.kind === 'enum' && schema.enumValues !== undefined ? schema.enumValues.join('|') : name;
 	const variadicSuffix = schema.variadic ? '...' : '';
-	if (schema.presence === 'required') {
+	// A positional carrying a default resolves one whatever its presence says, so
+	// the usage line does not demand a token for it.
+	if (schema.presence === 'required' && schema.defaultValue === undefined) {
 		return `<${label}>${variadicSuffix}`;
 	}
 	return `[${label}]${variadicSuffix}`;
 }
 
 /**
- * Format arg description with annotations.
+ * Format arg description with stdin/env/config/prompt/default/deprecated
+ * annotations.
  *
  * @param schema - The {@link ArgSchema} to describe.
  * @param theme - Theme applied to the metadata annotations (description stays plain).
@@ -378,11 +409,20 @@ function formatArgDescription(schema: ArgSchema, theme: HelpTheme): string {
 		parts.push(theme.deprecated(formatDeprecated(schema.deprecated)));
 	}
 
+	if (schema.stdin !== undefined) {
+		parts.push(theme.annotation(formatStdinAnnotation(schema.stdin)));
+	}
 	if (schema.envVar !== undefined) {
 		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
 	}
+	if (schema.configPath !== undefined) {
+		parts.push(theme.annotation(`[config: ${schema.configPath}]`));
+	}
+	if (schema.prompt !== undefined) {
+		parts.push(theme.annotation('[prompt]'));
+	}
 
-	if (schema.presence === 'defaulted') {
+	if (schema.presence === 'defaulted' || schema.defaultValue !== undefined) {
 		parts.push(theme.defaultValue(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`));
 	}
 

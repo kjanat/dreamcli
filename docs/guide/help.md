@@ -4,6 +4,35 @@ Help text is generated from your schemas — usage line, arguments, flags,
 subcommands, and examples all render automatically for `--help`, `-h`,
 `help <command>`, and root help.
 
+Those three tokens belong to the root, so a command cannot declare a `help`
+flag or an `h` alias. A CLI that needs the token for itself releases it with
+`.builtins({ help: 'off' })`. See
+[Taking a built-in over](/guide/output#taking-a-built-in-over).
+
+## Source Annotations
+
+Every source an input declares is named beside its description, on the flag table
+and the argument table alike:
+
+| Annotation              | Declared by                       |
+| ----------------------- | --------------------------------- |
+| `[stdin]`               | `.stdin()`                        |
+| `[stdin: '-']`          | `.stdin({ when: 'dash' })`        |
+| `[stdin: when omitted]` | `.stdin({ when: 'missing' })`     |
+| `[env: NAME]`           | `.env('NAME')`                    |
+| `[config: a.b]`         | `.config('a.b')`                  |
+| `[prompt]`              | `.prompt(...)`                    |
+
+They render in resolution order, after the description and any `[deprecated]`
+marker, and before `[required]` or `(default: …)`:
+
+```
+Flags:
+  --body <string>  Message body [stdin] [env: BODY] [required]
+```
+
+Shell completions carry the plain description, never these annotations.
+
 ## Configuring Help
 
 `.help()` sets builder-level defaults; the same fields can be overridden per
@@ -94,7 +123,7 @@ The built-in theme follows clap/cargo conventions:
 | `arg`           | positional tokens (`<file>`)                           | cyan             |
 | `placeholder`   | grammar tokens (`<string>`, `[flags]`)                 | dim              |
 | `defaultValue`  | `(default: …)`                                         | dim              |
-| `annotation`    | `[env: X]`, `[required]`, ` (default)`                 | dim              |
+| `annotation`    | `[stdin]`, `[env: X]`, `[required]`, `(default)`       | dim              |
 | `deprecated`    | `[deprecated…]`                                        | yellow           |
 | `headerName`    | program name in the root header                        | bold             |
 | `headerVersion` | `vX.Y.Z` in the root header                            | dim              |

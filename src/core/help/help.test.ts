@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { arg, createArgSchema } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
-import { createSchema, flag } from '#internals/core/schema/flag.ts';
+import { createFlagSchema, flag } from '#internals/core/schema/flag.ts';
 
 import { formatHelp } from './index.ts';
 
@@ -168,7 +168,7 @@ describe('formatHelp', () => {
 				args: [
 					{
 						name: 'env',
-						schema: createArgSchema('string', {
+						schema: createArgSchema('custom', {
 							presence: 'defaulted',
 							defaultValue: null,
 							description: 'Environment',
@@ -208,6 +208,38 @@ describe('formatHelp', () => {
 			);
 			const help = formatHelp(cmd.schema);
 			expect(help).toContain('[env: DEPLOY_TARGET]');
+		});
+
+		it('shows [config: PATH] and [prompt] for the arg sources L15 added', () => {
+			const cmd = command('deploy').arg(
+				'target',
+				arg
+					.string()
+					.env('DEPLOY_TARGET')
+					.config('deploy.target')
+					.prompt({ kind: 'input', message: 'Target?' })
+					.describe('Deploy target'),
+			);
+			const help = formatHelp(cmd.schema);
+
+			expect(help).toContain('[env: DEPLOY_TARGET]');
+			expect(help).toContain('[config: deploy.target]');
+			expect(help).toContain('[prompt]');
+		});
+
+		it('labels a sugar-factory arg by its own name, not its value hint', () => {
+			const cmd = command('convert')
+				.arg('input', arg.path({ mustExist: true }).describe('Source file'))
+				.arg('output', arg.path().describe('Destination file'))
+				.arg('endpoint', arg.url().optional().describe('Upload target'));
+			const help = formatHelp(cmd.schema);
+
+			expect(help).toContain('Usage: convert <input> <output> [endpoint]\n');
+			expect(help).toContain('<input>');
+			expect(help).toContain('<output>');
+			expect(help).toContain('[endpoint]');
+			expect(help).not.toContain('<path>');
+			expect(help).not.toContain('<url>');
 		});
 	});
 
@@ -299,12 +331,50 @@ describe('formatHelp', () => {
 			expect(help).toContain('(default: 8080)');
 		});
 
+		it('shows a default a definition declared without the defaulted presence', () => {
+			const base = command('run');
+			const help = formatHelp({
+				...base.schema,
+				flags: { out: createFlagSchema('string', { defaultValue: 'dist' }) },
+				args: [{ name: 'target', schema: createArgSchema('string', { defaultValue: 'prod' }) }],
+			});
+
+			expect(help).toContain('(default: dist)');
+			expect(help).toContain('(default: prod)');
+		});
+
+		it('drops the required marker from an input a default always fills', () => {
+			const base = command('run');
+			const help = formatHelp({
+				...base.schema,
+				flags: {
+					out: createFlagSchema('string', { presence: 'required', defaultValue: 'dist' }),
+					mode: createFlagSchema('string', { presence: 'required' }),
+				},
+				args: [
+					{
+						name: 'target',
+						schema: createArgSchema('string', { presence: 'required', defaultValue: 'prod' }),
+					},
+					{ name: 'other', schema: createArgSchema('string', { presence: 'required' }) },
+				],
+			});
+
+			expect(help).toContain('(default: dist)');
+			expect(help).toContain('(default: prod)');
+			expect(help).toContain('[target]');
+			expect(help).toContain('<other>');
+			expect(help).not.toContain('<target>');
+			expect(help).toMatch(/--mode <string>\s+\[required\]/);
+			expect(help).not.toMatch(/--out <string>\s+\[required\]/);
+		});
+
 		it('renders nullish sentinels for defaulted flags', () => {
 			const base = command('run');
 			const nullHelp = formatHelp({
 				...base.schema,
 				flags: {
-					token: createSchema('string', {
+					token: createFlagSchema('custom', {
 						presence: 'defaulted',
 						defaultValue: null,
 						description: 'Token',
@@ -314,7 +384,7 @@ describe('formatHelp', () => {
 			const undefinedHelp = formatHelp({
 				...base.schema,
 				flags: {
-					token: createSchema('string', {
+					token: createFlagSchema('string', {
 						presence: 'defaulted',
 						defaultValue: undefined,
 						description: 'Token',
@@ -484,6 +554,66 @@ describe('formatHelp', () => {
 			expect(line).toContain('[env: PORT]');
 			expect(line).toContain('[config: server.port]');
 			expect(line).toContain('(default: 3000)');
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Stdin source annotations
+	// -----------------------------------------------------------------------
+
+	describe('stdin annotations', () => {
+		const triggers: ReadonlyArray<readonly [string, string]> = [
+			['dash-or-missing', '[stdin]'],
+			['dash', "[stdin: '-']"],
+			['missing', '[stdin: when omitted]'],
+		];
+
+		for (const [when, annotation] of triggers) {
+			it(`shows ${annotation} for a '${when}' flag`, () => {
+				const cmd = command('send').flag(
+					'body',
+					flag
+						.string()
+						.stdin({ when: when === 'dash' ? 'dash' : when === 'missing' ? 'missing' : undefined })
+						.describe('Message body'),
+				);
+
+				expect(formatHelp(cmd.schema, { width: 120 })).toContain(annotation);
+			});
+
+			it(`shows ${annotation} for a '${when}' arg`, () => {
+				const cmd = command('send').arg(
+					'body',
+					arg
+						.string()
+						.stdin({ when: when === 'dash' ? 'dash' : when === 'missing' ? 'missing' : undefined })
+						.describe('Message body'),
+				);
+
+				expect(formatHelp(cmd.schema, { width: 120 })).toContain(annotation);
+			});
+		}
+
+		it('places [stdin] before [env:] on both surfaces', () => {
+			const cmd = command('send')
+				.flag(
+					'body',
+					flag.string().stdin({ consume: 'broadcast' }).env('BODY').describe('Message body'),
+				)
+				.arg(
+					'target',
+					arg.string().stdin({ consume: 'broadcast' }).env('TARGET').describe('Where to send'),
+				);
+			const help = formatHelp(cmd.schema, { width: 120 });
+
+			expect(help.indexOf('[stdin]')).toBeLessThan(help.indexOf('[env: TARGET]'));
+			expect(help.lastIndexOf('[stdin]')).toBeLessThan(help.indexOf('[env: BODY]'));
+		});
+
+		it('shows no stdin annotation for an input that never reads the stream', () => {
+			const cmd = command('send').flag('body', flag.string().env('BODY'));
+
+			expect(formatHelp(cmd.schema)).not.toContain('[stdin');
 		});
 	});
 

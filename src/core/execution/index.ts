@@ -8,6 +8,7 @@
  * @internal
  */
 
+import { builtinEnabled } from '#internals/core/cli/builtins.ts';
 import type {
 	BeforeParseParams,
 	CLIPlugin,
@@ -18,25 +19,45 @@ import { formatHelp } from '#internals/core/help/index.ts';
 import { generateCommandSchema } from '#internals/core/json-schema/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
-import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
+import { parse, requestsHelp } from '#internals/core/parse/index.ts';
 import { createTestPrompter } from '#internals/core/prompt/index.ts';
-import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
+import type {
+	DeprecationWarning,
+	ResolveOptions,
+	ResolveResult,
+} from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
 import type {
 	CommandMeta,
 	CommandSchema,
+	ErasedActionHandler,
+	ErasedInputSources,
+	ExecutionStep,
 	Out,
-	RunnableCommand,
 } from '#internals/core/schema/command.ts';
-import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
+import type { InternalRunOptions, RunResult } from '#internals/core/schema/run.ts';
+
+/**
+ * The executable half of a command: what to run, and what wraps it.
+ *
+ * The schema travels on the request instead, already merged with propagated
+ * ancestor flags.
+ * @internal
+ */
+interface ExecutableCommand {
+	/** Action handler, `undefined` when the command declares none. */
+	readonly handler: ErasedActionHandler | undefined;
+	/** Derive and middleware steps in registration order. */
+	readonly steps: readonly ExecutionStep[];
+}
 
 /**
  * Explicit executor input for a single command invocation.
  * @internal
  */
 interface CommandExecutionRequest {
-	/** The command instance whose handler will be invoked. */
-	readonly command: RunnableCommand;
+	/** The handler and execution steps to run. */
+	readonly command: ExecutableCommand;
 	/** Raw argument tokens to parse (excluding the program name). */
 	readonly argv: readonly string[];
 	/** Output channel for handler and error rendering. */
@@ -46,7 +67,7 @@ interface CommandExecutionRequest {
 	/** Runtime metadata (binary name, version) propagated to the handler. */
 	readonly meta: CommandMeta;
 	/** Optional overrides for env, config, prompter, plugins, and JSON mode. */
-	readonly options?: RunOptions;
+	readonly options?: InternalRunOptions;
 }
 
 /**
@@ -72,7 +93,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 	clearRequestedExitCode(out);
 
 	try {
-		if (includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h')) {
+		if (builtinEnabled(options?.builtins, 'help') && requestsHelp(argv)) {
 			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
 			// `out` may predate it, so the channel flag alone is not authoritative.
@@ -99,9 +120,9 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 		const handler = command.handler;
 		if (handler === undefined) {
-			const error = new CLIError(`Command '${command.schema.name}' has no action handler`, {
+			const error = new CLIError(`Command '${schema.name}' has no action handler`, {
 				code: 'NO_ACTION',
-				suggest: `Add an .action() handler to the '${command.schema.name}' command`,
+				suggest: `Add an .action() handler to the '${schema.name}' command`,
 			});
 			out.error(error.message);
 			return { exitCode: 1, error };
@@ -144,7 +165,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		}
 
 		await runResolvedHooks(options?.plugins, 'beforeAction', resolvedParams);
-		await executeWithExecutionSteps(command, handler, resolved.flags, resolved.args, out, meta);
+		await executeWithExecutionSteps(command, handler, resolved, out, meta);
 		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return { exitCode: getRequestedExitCode(out) ?? 0, error: undefined };
@@ -204,19 +225,20 @@ async function runResolvedHooks(
 }
 
 async function executeWithExecutionSteps(
-	command: RunnableCommand,
-	handler: NonNullable<RunnableCommand['handler']>,
-	flags: Readonly<Record<string, unknown>>,
-	args: Readonly<Record<string, unknown>>,
+	command: ExecutableCommand,
+	handler: NonNullable<ExecutableCommand['handler']>,
+	resolved: ResolveResult,
 	out: Out,
 	meta: CommandMeta,
 ): Promise<void> {
-	const steps = command._executionSteps;
+	const steps = command.steps;
+	const { args, flags } = resolved;
+	const sources: ErasedInputSources = resolved.provenance;
 
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 
 	let chain: ChainFn = async (ctx) => {
-		await handler({ flags, args, ctx, out, meta });
+		await handler({ flags, args, sources, ctx, out, meta });
 	};
 
 	for (let i = steps.length - 1; i >= 0; i--) {
@@ -226,7 +248,7 @@ async function executeWithExecutionSteps(
 		switch (step.kind) {
 			case 'derive':
 				chain = async (ctx) => {
-					const additions = await step.handler({ args, flags, ctx, out, meta });
+					const additions = await step.handler({ args, flags, sources, ctx, out, meta });
 					if (additions === undefined) {
 						await downstream(ctx);
 						return;
@@ -246,6 +268,7 @@ async function executeWithExecutionSteps(
 					await step.handler({
 						args,
 						flags,
+						sources,
 						ctx,
 						out,
 						meta,
@@ -283,5 +306,5 @@ function formatDeprecation(deprecation: DeprecationWarning): string {
 		: `Warning: ${entity} is deprecated`;
 }
 
-export type { CommandExecutionRequest, CommandExecutionResult };
+export type { CommandExecutionRequest, CommandExecutionResult, ExecutableCommand };
 export { buildRunResult, executeCommand };

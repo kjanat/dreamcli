@@ -15,7 +15,7 @@ import {
 describe('createOutput', () => {
 	it('returns an object satisfying the Out interface', () => {
 		const out = createOutput();
-		expectTypeOf(out).toMatchTypeOf<Out>();
+		expectTypeOf(out).toExtend<Out>();
 		expect(typeof out.log).toBe('function');
 		expect(typeof out.info).toBe('function');
 		expect(typeof out.warn).toBe('function');
@@ -169,7 +169,13 @@ describe('verbosity', () => {
 	it('defaults to normal verbosity', () => {
 		const [out, captured] = createCaptureOutput();
 		out.info('visible');
+		expect(out.verbosity).toBe('normal');
 		expect(captured.stdout).toEqual(['visible\n']);
+	});
+
+	it('exposes quiet verbosity on the public output channel', () => {
+		const out = createOutput({ verbosity: 'quiet' });
+		expect(out.verbosity).toBe('quiet');
 	});
 });
 
@@ -285,8 +291,8 @@ describe('createCaptureOutput', () => {
 		expect(Array.isArray(result)).toBe(true);
 		expect(result).toHaveLength(2);
 		const [out, captured] = result;
-		expectTypeOf(out).toMatchTypeOf<Out>();
-		expectTypeOf(captured).toMatchTypeOf<CapturedOutput>();
+		expectTypeOf(out).toExtend<Out>();
+		expectTypeOf(captured).toExtend<CapturedOutput>();
 	});
 
 	it('captures stdout and stderr separately', () => {
@@ -579,7 +585,7 @@ describe('jsonMode', () => {
 describe('out.color', () => {
 	it('is exposed on every channel and typed as Colors', () => {
 		const out = createOutput();
-		expectTypeOf(out.color).toMatchTypeOf<Colors>();
+		expectTypeOf(out.color).toExtend<Colors>();
 		expect(typeof out.color.red).toBe('function');
 		expect(typeof out.color.bold).toBe('function');
 	});

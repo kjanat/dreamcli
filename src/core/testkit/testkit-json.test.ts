@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { cli } from '#internals/core/cli/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
@@ -332,6 +333,122 @@ describe('runCommand', () => {
 			// JSON mode redirects `log` to stderr; `status` stays suppressed.
 			expect(result.stdout).toEqual([]);
 			expect(result.stderr).toEqual(['result\n']);
+		});
+	});
+
+	// --- Root flags with an explicit value (#85)
+
+	describe('root-flag layer — explicit values (#85)', () => {
+		/** Command emitting one status line (quiet-suppressible) and one log line. */
+		function noisyCommand() {
+			return command('noisy').action(({ out }) => {
+				out.log('result');
+				out.status('working');
+			});
+		}
+
+		/** The same command run through real CLI dispatch, for parity assertions. */
+		async function throughCli(argv: readonly string[]) {
+			return cli('mycli').default(noisyCommand()).execute(argv);
+		}
+
+		it('--quiet=true suppresses status, --quiet=false keeps it', async () => {
+			const quiet = await runCommand(noisyCommand(), ['--quiet=true']);
+			expect(quiet.exitCode).toBe(0);
+			expect(quiet.stdout).toEqual(['result\n']);
+			expect(quiet.stderr).toEqual([]);
+
+			const loud = await runCommand(noisyCommand(), ['--quiet=false']);
+			expect(loud.stdout).toEqual(['result\n']);
+			expect(loud.stderr).toEqual(['working\n']);
+		});
+
+		it('--json=true redirects log to stderr, --json=false does not', async () => {
+			const json = await runCommand(noisyCommand(), ['--json=true']);
+			expect(json.stdout).toEqual([]);
+			expect(json.stderr).toEqual(['result\n', 'working\n']);
+
+			const human = await runCommand(noisyCommand(), ['--json=false']);
+			expect(human.stdout).toEqual(['result\n']);
+			expect(human.stderr).toEqual(['working\n']);
+		});
+
+		it('takes the last occurrence of a repeated flag', async () => {
+			const result = await runCommand(noisyCommand(), ['--quiet', '--quiet=false']);
+
+			expect(result.stderr).toEqual(['working\n']);
+		});
+
+		it('combines --json=true with --quiet=false', async () => {
+			const result = await runCommand(noisyCommand(), ['--json=true', '--quiet=false']);
+
+			expect(result.stdout).toEqual([]);
+			expect(result.stderr).toEqual(['result\n', 'working\n']);
+		});
+
+		it('leaves a post-separator --json=true for the command', async () => {
+			const cmd = command('echo')
+				.arg('value', arg.string())
+				.action(({ args, out }) => {
+					out.log(args.value);
+				});
+
+			const result = await runCommand(cmd, ['--', '--json=true']);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['--json=true\n']);
+		});
+
+		it('rejects an invalid value exactly as CLI dispatch does', async () => {
+			const harness = await runCommand(noisyCommand(), ['--quiet=banana']);
+			const dispatched = await throughCli(['--quiet=banana']);
+
+			expect(harness.exitCode).toBe(2);
+			expect(harness.error?.code).toBe('INVALID_VALUE');
+			expect(harness.stderr).toEqual([
+				"Invalid boolean value 'banana' for flag --quiet. Use true/false or 1/0\n",
+			]);
+			expect(harness.exitCode).toBe(dispatched.exitCode);
+			expect(harness.stdout).toEqual(dispatched.stdout);
+			expect(harness.stderr).toEqual(dispatched.stderr);
+		});
+
+		it('renders an invalid value as JSON when --json is also set', async () => {
+			const harness = await runCommand(noisyCommand(), ['--json', '--quiet=banana']);
+			const dispatched = await throughCli(['--json', '--quiet=banana']);
+
+			expect(harness.exitCode).toBe(2);
+			expect(harness.stdout.length).toBe(1);
+			const parsed = JSON.parse(harness.stdout[0] ?? '');
+			expect(parsed.error.code).toBe('INVALID_VALUE');
+			expect(parsed.error.details).toEqual({
+				flag: 'quiet',
+				input: '--quiet',
+				value: 'banana',
+				expected: 'boolean',
+			});
+			expect(harness.stdout).toEqual(dispatched.stdout);
+			expect(harness.stderr).toEqual(dispatched.stderr);
+		});
+
+		it('renders --help ahead of an invalid value, as CLI dispatch does', async () => {
+			const harness = await runCommand(noisyCommand(), ['--help', '--quiet=banana']);
+			const dispatched = await throughCli(['--help', '--quiet=banana']);
+
+			expect(harness.exitCode).toBe(0);
+			expect(harness.stdout.join('')).toContain('Usage: noisy');
+			expect(harness.exitCode).toBe(dispatched.exitCode);
+			expect(harness.stderr).toEqual(dispatched.stderr);
+		});
+
+		it('leaves -q=true to the command, as CLI dispatch does', async () => {
+			const harness = await runCommand(noisyCommand(), ['-q=true']);
+			const dispatched = await throughCli(['-q=true']);
+
+			expect(harness.exitCode).toBe(2);
+			expect(harness.error?.code).toBe('UNKNOWN_FLAG');
+			expect(harness.exitCode).toBe(dispatched.exitCode);
+			expect(harness.stderr).toEqual(dispatched.stderr);
 		});
 	});
 });

@@ -88,9 +88,10 @@ describe('CommandBuilder.derive()', () => {
 	// --- runtime
 
 	describe('runtime', () => {
-		it('does not add handlers to schema.middleware', () => {
+		it('records a derive execution step, not a middleware one', () => {
 			const cmd = command('deploy').derive(() => ({ token: 'abc' }));
-			expect(cmd.schema.middleware).toEqual([]);
+			expect(cmd._executionSteps).toHaveLength(1);
+			expect(cmd._executionSteps[0]?.kind).toBe('derive');
 		});
 
 		it('drops handler when derive added', () => {

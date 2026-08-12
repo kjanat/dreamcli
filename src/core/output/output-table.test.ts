@@ -239,4 +239,137 @@ describe('table', () => {
 			expect(captured.stdout).toEqual(['[{"a":1}]\n']);
 		});
 	});
+
+	// --- column keys naming an Object.prototype member
+
+	describe('column keys — Object.prototype members', () => {
+		it('leaves the cell empty on a row that does not carry the key', () => {
+			const [out, captured] = createCaptureOutput();
+			out.table<Record<string, unknown>>(
+				[{ id: 1, toString: 'own' }, { id: 2 }],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'toString', header: 'Label' },
+					{ key: 'absent', header: 'Absent' },
+				],
+			);
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
+			expect(lines[2]?.trimEnd()).toBe('1   own');
+			expect(lines[3]?.trimEnd()).toBe('2');
+		});
+
+		it('renders every Object.prototype member name as an empty cell', () => {
+			const names = Object.getOwnPropertyNames(Object.prototype).filter(
+				(name) => name !== '__proto__',
+			);
+			expect(names).toHaveLength(11);
+
+			for (const name of names) {
+				const [out, captured] = createCaptureOutput();
+				out.table<Record<string, unknown>>(
+					[{ id: 1 }],
+					[
+						{ key: 'id', header: 'ID' },
+						{ key: name, header: 'H' },
+					],
+				);
+				const output = captured.stdout.join('');
+				expect(output.endsWith('\n')).toBe(true);
+				const lines = output.split('\n');
+				expect(lines[2]?.trimEnd()).toBe('1');
+			}
+		});
+
+		it('omits the key from the JSON projection on a row that lacks it', () => {
+			const [out, captured] = createCaptureOutput({ jsonMode: true });
+			out.table<Record<string, unknown>>(
+				[{ id: 1, toString: 'own' }, { id: 2 }],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'toString', header: 'Label' },
+				],
+			);
+			expect(captured.stdout).toEqual(['[{"id":1,"toString":"own"},{"id":2}]\n']);
+		});
+	});
+
+	// --- column keys held by the row's own prototype chain
+
+	describe('column keys — inherited from the row prototype', () => {
+		class Server {
+			readonly [key: string]: unknown;
+			constructor(
+				readonly host: string,
+				readonly port: number,
+			) {}
+			get address(): string {
+				return `${this.host}:${this.port}`;
+			}
+		}
+
+		it('renders a class getter', () => {
+			const [out, captured] = createCaptureOutput();
+			out.table(
+				[new Server('web-1', 80)],
+				[
+					{ key: 'host', header: 'Host' },
+					{ key: 'address', header: 'Address' },
+				],
+			);
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
+			expect(lines[2]?.trimEnd()).toBe('web-1  web-1:80');
+		});
+
+		it('keeps the class getter in the JSON projection', () => {
+			const [out, captured] = createCaptureOutput({ jsonMode: true });
+			out.table(
+				[new Server('web-1', 80)],
+				[
+					{ key: 'host', header: 'Host' },
+					{ key: 'address', header: 'Address' },
+				],
+			);
+			expect(captured.stdout).toEqual(['[{"host":"web-1","address":"web-1:80"}]\n']);
+		});
+
+		it('renders a value inherited from an Object.create() base', () => {
+			const [out, captured] = createCaptureOutput();
+			const row: Record<string, unknown> = Object.create({ status: 'pending' });
+			row['id'] = 1;
+
+			out.table<Record<string, unknown>>(
+				[row],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'status', header: 'Status' },
+				],
+			);
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
+			expect(lines[2]?.trimEnd()).toBe('1   pending');
+		});
+
+		it('still blanks an Object.prototype member on such a row', () => {
+			const [out, captured] = createCaptureOutput();
+			const row: Record<string, unknown> = Object.create({ status: 'pending' });
+			row['id'] = 1;
+
+			out.table<Record<string, unknown>>(
+				[row],
+				[
+					{ key: 'id', header: 'ID' },
+					{ key: 'toString', header: 'Label' },
+				],
+			);
+			const output = captured.stdout.join('');
+			expect(output.endsWith('\n')).toBe(true);
+			const lines = output.split('\n');
+			expect(lines[2]?.trimEnd()).toBe('1');
+		});
+	});
 });

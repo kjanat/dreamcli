@@ -9,9 +9,11 @@
  * @internal
  */
 
+import type { BuiltinsConfig } from '#internals/core/cli/builtins.ts';
+import { builtinEnabled } from '#internals/core/cli/builtins.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
-import { getFlagNegatedName } from '#internals/core/schema/flag.ts';
+import { createFlagSchema, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
@@ -101,11 +103,15 @@ interface RootCompletionSurface {
  * @internal
  */
 interface RootCompletionSchemaLike {
-	readonly commands: ReadonlyArray<{
-		readonly schema: CommandSchema;
-	}>;
-	readonly defaultCommand: { readonly schema: CommandSchema } | undefined;
+	readonly commands: readonly CommandSchema[];
+	readonly defaultCommand: CommandSchema | undefined;
 	readonly version: string | undefined;
+	/**
+	 * Built-in flag state. `help: 'off'` drops the synthetic root `--help` so a
+	 * command's own `help` flag is the only one completed. Optional so
+	 * hand-built schema-like objects keep every built-in.
+	 */
+	readonly builtins?: BuiltinsConfig | undefined;
 }
 
 /**
@@ -118,7 +124,10 @@ function resolveRootCompletionSurface(
 	rootMode: CompletionOptions['rootMode'] = 'subcommands',
 ): RootCompletionSurface {
 	const rootSurface = resolveRootSurface(schema);
-	const rootFlags = createRootFlags(schema.version !== undefined);
+	const rootFlags = createRootFlags(
+		builtinEnabled(schema.builtins, 'help'),
+		schema.version !== undefined,
+	);
 	const defaultFlags = rootSurface.visibleDefaultCommand?.flags ?? {};
 	// Default flags surface at the root either always (`surface`) or only when
 	// the default is the sole surface (`subcommands`).
@@ -153,13 +162,17 @@ function resolveRootCompletionSurface(
 /**
  * Build the synthetic root-level flags (`--help`, optionally `--version`).
  *
+ * @param hasHelp - Whether the root still owns `--help`.
  * @param hasVersion - Whether to include a `--version` flag.
  * @returns A record of root flag schemas.
  * @internal
  */
-function createRootFlags(hasVersion: boolean): Readonly<Record<string, FlagSchema>> {
+function createRootFlags(
+	hasHelp: boolean,
+	hasVersion: boolean,
+): Readonly<Record<string, FlagSchema>> {
 	return {
-		help: createSyntheticRootFlag('Show help text'),
+		...(hasHelp ? { help: createSyntheticRootFlag('Show help text') } : {}),
 		...(hasVersion ? { version: createSyntheticRootFlag('Show version') } : {}),
 	};
 }
@@ -172,30 +185,7 @@ function createRootFlags(hasVersion: boolean): Readonly<Record<string, FlagSchem
  * @internal
  */
 function createSyntheticRootFlag(description: string): FlagSchema {
-	return {
-		kind: 'boolean',
-		presence: 'optional',
-		defaultValue: undefined,
-		aliases: [],
-		envVar: undefined,
-		configPath: undefined,
-		description,
-		enumValues: undefined,
-		numberConstraints: undefined,
-		stringConstraints: undefined,
-		elementSchema: undefined,
-		separator: undefined,
-		unique: false,
-		pathChecks: undefined,
-		valueHint: undefined,
-		prompt: undefined,
-		parseFn: undefined,
-		standard: undefined,
-		deprecated: undefined,
-		propagate: false,
-		negation: undefined,
-		duplicates: 'last',
-	};
+	return createFlagSchema('boolean', { description });
 }
 
 // --- Command tree walking — shared infrastructure

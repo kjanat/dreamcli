@@ -86,6 +86,34 @@ describe('output contracts', () => {
 			});
 		});
 
+		it('suppresses all spinner and progress activity in quiet mode', () => {
+			const quietPolicy = { ...basePolicy, isTTY: true, verbosity: 'quiet' as const };
+			expect(resolveSpinnerPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+			expect(resolveProgressPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+		});
+
+		it('suppresses static fallback activity in quiet mode without a TTY', () => {
+			const quietPolicy = { ...basePolicy, verbosity: 'quiet' as const };
+			expect(resolveSpinnerPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+			expect(resolveProgressPolicy(quietPolicy, 'static')).toEqual({
+				mode: 'noop',
+				stream: 'stderr',
+				cleanup: 'none',
+			});
+		});
+
 		it('uses done cleanup for progress handles', () => {
 			expect(resolveProgressPolicy({ ...basePolicy, isTTY: true }, 'silent')).toEqual({
 				mode: 'tty',
@@ -107,7 +135,7 @@ describe('output contracts', () => {
 		});
 
 		it('activity policy remains renderer-agnostic metadata', () => {
-			expectTypeOf<ActivityPolicy>().toMatchTypeOf<{
+			expectTypeOf<ActivityPolicy>().toExtend<{
 				readonly mode: 'noop' | 'static' | 'tty';
 				readonly stream: 'stderr';
 				readonly cleanup: 'none' | 'stop' | 'done';
@@ -118,6 +146,7 @@ describe('output contracts', () => {
 			expect(outputContract).toEqual({
 				jsonReservesStdoutForStructuredData: true,
 				quietSuppressesInfo: true,
+				quietSuppressesRenderedActivity: true,
 				activityUsesStderrOutsideCapture: true,
 				ttyActivityRequiresTTYAndNonJson: true,
 				spinnerCleanupUsesStop: true,

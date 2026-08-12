@@ -2,26 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { isValidationError, type ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
 // --- Helpers
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+	return createCommandSchema({ name: 'test', ...overrides });
 }
 
 function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
@@ -60,7 +48,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('suggests only --flag when no env or config configured', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', { presence: 'required' }),
+				token: createFlagSchema('string', { presence: 'required' }),
 			},
 		});
 		const err = await catchValidationError(schema, makeParsed());
@@ -70,7 +58,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('suggests only --flag for boolean (no <value> hint)', async () => {
 		const schema = makeSchema({
 			flags: {
-				confirm: createSchema('boolean', { presence: 'required' }),
+				confirm: createFlagSchema('boolean', { presence: 'required' }),
 			},
 		});
 		const err = await catchValidationError(schema, makeParsed());
@@ -82,7 +70,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('suggests --flag or env when envVar configured', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', {
+				token: createFlagSchema('string', {
 					presence: 'required',
 					envVar: 'API_TOKEN',
 				}),
@@ -97,7 +85,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('suggests --flag or config when configPath configured', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					presence: 'required',
 					enumValues: ['us', 'eu', 'ap'],
 					configPath: 'deploy.region',
@@ -113,7 +101,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('suggests all three sources when env and config configured', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					presence: 'required',
 					enumValues: ['us', 'eu', 'ap'],
 					envVar: 'DEPLOY_REGION',
@@ -130,7 +118,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('boolean with env and config lists all sources', async () => {
 		const schema = makeSchema({
 			flags: {
-				dryRun: createSchema('boolean', {
+				dryRun: createFlagSchema('boolean', {
 					presence: 'required',
 					envVar: 'DRY_RUN',
 					configPath: 'ci.dryRun',
@@ -146,7 +134,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('includes envVar in details when configured', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', {
+				token: createFlagSchema('string', {
 					presence: 'required',
 					envVar: 'API_TOKEN',
 				}),
@@ -163,7 +151,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('includes configPath in details when configured', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('string', {
+				region: createFlagSchema('string', {
 					presence: 'required',
 					configPath: 'deploy.region',
 				}),
@@ -180,7 +168,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('includes both envVar and configPath in details', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('string', {
+				region: createFlagSchema('string', {
 					presence: 'required',
 					envVar: 'DEPLOY_REGION',
 					configPath: 'deploy.region',
@@ -199,7 +187,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('omits envVar and configPath from details when not configured', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', { presence: 'required' }),
+				token: createFlagSchema('string', { presence: 'required' }),
 			},
 		});
 		const err = await catchValidationError(schema, makeParsed());
@@ -213,11 +201,11 @@ describe('resolve — required flag actionable hints', () => {
 	it('aggregated error preserves per-flag suggest with sources', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', {
+				token: createFlagSchema('string', {
 					presence: 'required',
 					envVar: 'API_TOKEN',
 				}),
-				region: createSchema('enum', {
+				region: createFlagSchema('enum', {
 					presence: 'required',
 					enumValues: ['us', 'eu'],
 					envVar: 'DEPLOY_REGION',
@@ -251,7 +239,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('throws with sources when env record provided but var is missing', async () => {
 		const schema = makeSchema({
 			flags: {
-				token: createSchema('string', {
+				token: createFlagSchema('string', {
 					presence: 'required',
 					envVar: 'API_TOKEN',
 				}),
@@ -265,7 +253,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('throws with sources when config provided but path is missing', async () => {
 		const schema = makeSchema({
 			flags: {
-				region: createSchema('string', {
+				region: createFlagSchema('string', {
 					presence: 'required',
 					configPath: 'deploy.region',
 				}),
@@ -283,7 +271,7 @@ describe('resolve — required flag actionable hints', () => {
 	it('number flag required error includes env/config sources', async () => {
 		const schema = makeSchema({
 			flags: {
-				port: createSchema('number', {
+				port: createFlagSchema('number', {
 					presence: 'required',
 					envVar: 'PORT',
 					configPath: 'server.port',

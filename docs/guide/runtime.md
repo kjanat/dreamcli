@@ -24,7 +24,7 @@ Instead, a `RuntimeAdapter` provides:
 - `env` — environment variables
 - `cwd` — current working directory
 - `stdin` — line reader for interactive prompts
-- `readStdin` — full piped stdin reader for `.stdin()` arguments
+- `readStdin` — full piped stdin reader for `.stdin()` flags and arguments
 - `exit` — process exit
 - `isTTY` — terminal detection
 - `stdinIsTTY` — interactive stdin detection

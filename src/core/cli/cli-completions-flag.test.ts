@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
-import { cli } from './index.ts';
+import { cli, createCLISchema } from './index.ts';
 
 // === Helpers
 
@@ -35,7 +35,7 @@ describe(".completions({ as: 'flag' })", () => {
 		it('does not register a completions subcommand', () => {
 			const app = appWithFlag();
 
-			expect(app.schema.commands.some((c) => c.schema.name === 'completions')).toBe(false);
+			expect(app.schema.commands.some((c) => c.name === 'completions')).toBe(false);
 			expect(app.schema.completionsFlag).toBeDefined();
 			expect(app.schema.completionsFlag?.shells).toEqual(['bash', 'zsh', 'fish', 'powershell']);
 		});
@@ -43,7 +43,7 @@ describe(".completions({ as: 'flag' })", () => {
 		it('still registers the completions subcommand for the default surface', () => {
 			const app = cli('recipe-lsp').completions().default(lspCommand());
 
-			expect(app.schema.commands.some((c) => c.schema.name === 'completions')).toBe(true);
+			expect(app.schema.commands.some((c) => c.name === 'completions')).toBe(true);
 			expect(app.schema.completionsFlag).toBeUndefined();
 		});
 
@@ -76,6 +76,24 @@ describe(".completions({ as: 'flag' })", () => {
 				.action(() => {});
 
 			expect(() => cli('x').completions({ as: 'flag' }).default(colliding)).toThrow(/reserved/);
+		});
+
+		it('rejects a --completions negated-spelling collision', () => {
+			const colliding = command('serve')
+				.flag('bare', flag.boolean().default(true).negatable({ alias: 'completions' }))
+				.action(() => {});
+
+			expect(() => cli('x').completions({ as: 'flag' }).default(colliding)).toThrow(/reserved/);
+		});
+
+		it('rejects a --completions collision built through createCLISchema', () => {
+			expect(() =>
+				createCLISchema({
+					name: 'x',
+					completionsFlag: { shells: ['bash'], options: undefined },
+					commands: [{ name: 'serve', flags: { completions: { kind: 'boolean' } } }],
+				}),
+			).toThrow(/reserved/);
 		});
 
 		it('allows a --completions flag in subcommand mode', () => {

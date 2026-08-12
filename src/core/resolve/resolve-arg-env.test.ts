@@ -3,26 +3,14 @@ import { isValidationError, type ValidationError } from '#internals/core/errors/
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
 // --- Helpers
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+	return createCommandSchema({ name: 'test', ...overrides });
 }
 
 function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
@@ -148,7 +136,7 @@ describe('resolve', () => {
 						schema: createArgSchema('string', {
 							envVar: 'DEPLOY_TARGET',
 							presence: 'required',
-							stdinMode: true,
+							stdin: {},
 						}),
 					},
 				],
@@ -200,6 +188,7 @@ describe('resolve', () => {
 				expect(err.code).toBe('TYPE_MISMATCH');
 				expect(err.details).toEqual({
 					arg: 'port',
+					source: 'env',
 					envVar: 'PORT',
 					expected: 'number',
 				});
@@ -259,6 +248,7 @@ describe('resolve', () => {
 				expect(err.code).toBe('INVALID_ENUM');
 				expect(err.details).toEqual({
 					arg: 'region',
+					source: 'env',
 					envVar: 'REGION',
 					allowed: ['us', 'eu'],
 				});
@@ -329,6 +319,7 @@ describe('resolve', () => {
 				expect(err.code).toBe('TYPE_MISMATCH');
 				expect(err.details).toEqual({
 					arg: 'color',
+					source: 'env',
 					envVar: 'COLOR',
 					expected: 'custom',
 				});
@@ -486,5 +477,29 @@ describe('resolve — arg env numeric constraints', () => {
 				expect(err.message).not.toContain('leaked-secret');
 			}
 		}
+	});
+});
+
+// === Env lookup reads own keys only
+
+describe('resolve — arg env variable named after an Object.prototype member', () => {
+	it('treats an absent variable as absent', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { envVar: 'valueOf' }) }],
+		});
+
+		await expect(resolve(schema, makeParsed(), { env: {} })).rejects.toThrow(
+			'Missing required argument <target>',
+		);
+	});
+
+	it('still reads the variable when the caller sets it', async () => {
+		const schema = makeSchema({
+			args: [{ name: 'target', schema: createArgSchema('string', { envVar: 'valueOf' }) }],
+		});
+
+		const result = await resolve(schema, makeParsed(), { env: { valueOf: 'set' } });
+
+		expect(result.args).toEqual({ target: 'set' });
 	});
 });

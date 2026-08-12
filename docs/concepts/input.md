@@ -103,6 +103,30 @@ curl -s https://api.example.com/data | jq '.items[]' | sort | head -5
 
 Four programs, connected by pipes, each doing one thing well.
 
+A pipe carries bytes, not slots, so a program that accepts several values needs
+a way to say *which* one the pipe fills. The convention is a bare `-`, and it
+holds the position the piped data takes:
+
+```bash
+mycli send --tag before --tag - --tag after
+```
+
+The `-` sits between two ordinary values, and what the pipe carried lands
+exactly there. The same token works in a positional slot. A program that reads
+one value can skip the `-` entirely and let an omitted slot mean the pipe.
+
+The cost of a dash-consuming stdin binding is that it can no longer take a
+literal `-` as data, since the token is read as the source first. A binding with
+`{ when: 'missing' }` is the exception: it reads only an omitted input and leaves
+a typed `-` literal.
+
+One more thing a pipe does that a command line does not: it appends a line
+terminator. `echo ./docs` sends `./docs\n`, not `./docs`. For a number or a
+date that terminator is framing and gets dropped, but for a string the text
+*is* the value, so the newline is part of it unless the program asks for it to
+be trimmed. This is the single most common surprise when a piped path fails a
+check that the same path typed by hand passes.
+
 ## Interactive Prompts
 
 Sometimes a CLI asks you questions:
@@ -129,31 +153,80 @@ When a value can come from multiple places, there's a natural priority.
 
 The first source that has a value wins.
 
-Flags:
+Flags and positional arguments share one order:
 
 ```text
-1. Command-line flag     (highest — you typed it explicitly)
-2. Environment variable  (set for this session/environment)
-3. Config file           (persistent settings)
-4. Interactive prompt    (ask the user)
-5. Default value         (fallback)
+1. Command line          (highest, you typed it explicitly)
+2. Piped stdin           (data another program sent in)
+3. Environment variable  (set for this session/environment)
+4. Config file           (persistent settings)
+5. Interactive prompt    (ask the user)
+6. Default value         (fallback)
 ```
 
-Positional arguments that opt into extra sources:
+Every step past the command line is opt-in. An input takes part in a step only when it declared
+that source, so a flag or argument with nothing declared stays command-line only and is
+required-or-optional based on its own declaration.
 
-Only positional arguments that call methods like `.stdin()` or `.env()` participate in this
-priority chain. Positional args without those opt-ins remain CLI-only and therefore stay
-required-or-optional based on their own declaration.
+## Which Source Won
 
-```text
-1. Command-line argument token
-2. STDIN
-3. Environment variable
-4. Default value
+Picking a winner answers one question and hides another. The program ends up
+with a value, and it no longer knows whether a person chose that value or the
+program fell back to its own last resort. Those are different facts, and a
+surprising number of decisions need the second one:
+
+- a rule that two options may not both be given has to know which ones were
+  given, not which ones ended up set;
+- a warning that "this option has no effect in this mode" is only honest if the
+  user actually passed it;
+- a tool layering its own settings over a project file must not let its own
+  fallback outrank the file.
+
+Comparing the resolved value against the fallback does not answer it. It fails
+in exactly the case the check exists for, a user deliberately passing the value
+that happens to equal the fallback. Removing the fallback to make absence
+observable is worse: the fallback is real documentation, and it disappears from
+help and from any schema the program exports.
+
+So the resolution chain records which step produced each value, and hands that
+record along beside the values themselves. A program can then ask which source
+won, or just ask the coarser question, was this supplied at all.
+
+## One Value Or Many
+
+Some inputs hold one value. Others hold a list, or a set of key-value entries.
+That distinction is separate from the type of each value, and it changes what
+"the first source wins" means: a list-shaped input collects from the source that
+supplies it rather than picking a single winner.
+
+Every source can spell a list, but each one spells it differently, because each
+one is a different medium:
+
+```bash
+mycli deploy --tag a --tag b     # the command line repeats the flag
+TAGS=a,b mycli deploy            # an env var is one string, so it needs a separator
+printf 'a\nb\n' | mycli deploy   # a pipe is a stream, so lines are the natural unit
 ```
+
+```json
+{ "tags": ["a", "b"] }
+```
+
+A config file has real arrays and objects, so it needs no separator at all.
+
+This is why a list-shaped input carries a decoding rule per source rather than
+one rule for all of them. A comma is the right default for an env var and the
+wrong one for a pipe. Guessing is worse than either: text that happens to look
+like JSON is not a promise that it is JSON, so a source parses JSON only when
+the declaration says it should.
+
+Key-value entries add one more question a list does not have: what a repeated
+key means. Whether the later entry wins, the earlier one does, or the repeat is
+an error is a decision the input declares once and every source obeys.
 
 ## What's Next?
 
 - [Output and TTY](/concepts/output) — how CLIs talk back to you
 - [Exit Codes](/concepts/exit-codes) — how CLIs signal success or failure
 - [Flags guide](/guide/flags) — implementing flags with env var and config resolution in dreamcli
+- [Value provenance](/guide/semantics#which-source-won) — how dreamcli reports which source won

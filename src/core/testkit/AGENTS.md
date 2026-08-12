@@ -25,19 +25,21 @@ injected execution options, and return captured output.
 | `isTTY`     | boolean — simulate TTY                            |
 | `help`      | `HelpOptions` — help formatting (width, binName)  |
 
-## TEST FILES (9)
+## TEST FILES (11)
 
-| File                             | Tests                                         |
-| -------------------------------- | --------------------------------------------- |
-| `testkit.test.ts`                | Core `runCommand()` behavior                  |
-| `testkit-json.test.ts`           | JSON mode output                              |
-| `testkit-tty.test.ts`            | TTY detection + behavior                      |
-| `testkit-prompt.test.ts`         | Prompt resolution via answers                 |
-| `testkit-nesting.test.ts`        | Nested command dispatch via testkit           |
-| `testkit-stdin.test.ts`          | Stdin-based input testing                     |
-| `output-e2e.test.ts`             | Full pipeline: output modes x verbosity x CLI |
-| `middleware-context-e2e.test.ts` | Middleware composition + context typing       |
-| `executor-contract.test.ts`      | Executor contract verification                |
+| File                             | Tests                                             |
+| -------------------------------- | ------------------------------------------------- |
+| `testkit.test.ts`                | Core `runCommand()` behavior                      |
+| `testkit-json.test.ts`           | JSON mode output                                  |
+| `testkit-tty.test.ts`            | TTY detection + behavior                          |
+| `testkit-prompt.test.ts`         | Prompt resolution via answers                     |
+| `testkit-nesting.test.ts`        | Nested command dispatch via testkit               |
+| `testkit-stdin.test.ts`          | Stdin-based input testing                         |
+| `testkit-source-model.test.ts`   | The shared source chain end to end, both surfaces |
+| `sources-e2e.test.ts`            | The `sources` bag a handler receives, per stage   |
+| `output-e2e.test.ts`             | Full pipeline: output modes x verbosity x CLI     |
+| `middleware-context-e2e.test.ts` | Middleware composition + context typing           |
+| `executor-contract.test.ts`      | Executor contract verification                    |
 
 ## ASSERTIONS
 
@@ -49,7 +51,8 @@ injected execution options, and return captured output.
 
 ## GOTCHAS
 
-- `mergedSchema` field on `RunOptions` is `@internal` — used by CLI dispatch layer only
+- `mergedSchema` field on `RunOptions` is `@internal` — read by `runCommandInternal()` for callers
+  that emulate dispatch; CLI dispatch hands its merged schema to `executeCommand()` directly
 - `CaptureOutputChannel` (from output/) wired here for output + activity capture
 - Execution pipeline shared with CLI via `execution/index.ts` (@internal)
 - Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)

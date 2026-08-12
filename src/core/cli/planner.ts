@@ -20,17 +20,24 @@ import {
 	buildFlagLookup,
 	flagExpectsValue,
 	includesBeforeSeparator,
+	requestsHelp,
 } from '#internals/core/parse/index.ts';
-import type { CommandMeta, CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
+import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
+import type { BuiltinsConfig } from './builtins.ts';
+import { builtinEnabled } from './builtins.ts';
+import type { CompiledCLI, CompiledCommand } from './compiled.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { collectPropagatedFlags } from './propagate.ts';
+import { readRootOutputFlags } from './root-output-flags.ts';
 
 /**
- * Structural subset of CLISchema used by the planner.
+ * Descriptive subset of CLISchema used by the planner.
  *
  * Decouples invocation planning from the full CLIBuilder surface so the
  * planner can be tested and reasoned about without constructing a real CLI.
+ * The executable half of a program reaches the planner separately, as the
+ * {@linkcode CompiledCLI} passed alongside this schema.
  * @internal
  */
 interface PlannerSchemaLike {
@@ -38,10 +45,6 @@ interface PlannerSchemaLike {
 	readonly name: string;
 	/** Declared version string; `undefined` disables `--version` interception. */
 	readonly version: string | undefined;
-	/** Registered top-level commands available for dispatch. */
-	readonly commands: readonly ErasedCommand[];
-	/** Fallback command when no subcommand token matches. */
-	readonly defaultCommand: ErasedCommand | undefined;
 	/** Whether the default command is also exposed as a named top-level route. */
 	readonly defaultCommandRouted: boolean;
 	/**
@@ -53,8 +56,11 @@ interface PlannerSchemaLike {
 		| undefined;
 	/** Flag-parsing behavior settings (case parity) applied to flag lookups. */
 	readonly flagSettings?: ParseOptions | undefined;
-	/** Plugins forwarded into every matched execution plan. */
-	readonly plugins: readonly CLIPlugin[];
+	/**
+	 * Built-in flag state. `help: 'off'` stops root `--help`/`-h` interception
+	 * and bare `help` routing, and `json`/`quiet` stop being read out of argv.
+	 */
+	readonly builtins: BuiltinsConfig | undefined;
 }
 
 /** Root-level help interception outcome. */
@@ -122,8 +128,8 @@ type DispatchOutcome =
  * propagated ancestor flags are collected and child definitions shadow them.
  */
 interface CommandExecutionPlan {
-	/** Type-erased command instance that owns the handler. */
-	readonly command: ErasedCommand;
+	/** Compiled command node that owns the handler and execution steps. */
+	readonly command: CompiledCommand;
 	/** Command schema with propagated ancestor flags merged in. */
 	readonly mergedSchema: CommandSchema;
 	/** Remaining argv tokens after command dispatch consumed the command path. */
@@ -139,7 +145,7 @@ interface CommandExecutionPlan {
 }
 
 interface BuildCommandExecutionPlanOptions {
-	readonly command: ErasedCommand;
+	readonly command: CompiledCommand;
 	readonly commandPath: readonly CommandSchema[];
 	readonly argv: readonly string[];
 	readonly meta: CommandMeta;
@@ -158,7 +164,7 @@ interface NeedsSubcommandOutcome {
 	/** Discriminant — group command matched but no leaf subcommand was selected. */
 	readonly kind: 'needs-subcommand';
 	/** The group command that was matched. */
-	readonly command: ErasedCommand;
+	readonly command: CompiledCommand;
 	/** Full ancestor path from root to this group, used for propagated flag collection. */
 	readonly commandPath: readonly CommandSchema[];
 	/** Help options scoped to the group command's bin path. */
@@ -172,6 +178,8 @@ type InvocationPlan = DispatchOutcome | NeedsSubcommandOutcome;
 interface PlanInvocationOptions {
 	/** CLI schema subset driving dispatch decisions. */
 	readonly schema: PlannerSchemaLike;
+	/** Compiled execution graph the dispatch walk resolves commands from. */
+	readonly compiled: CompiledCLI;
 	/** Raw argv tokens (typically `adapter.argv.slice(2)`). */
 	readonly argv: readonly string[];
 	/** Root-level help configuration for rendering. */
@@ -195,11 +203,11 @@ function buildMeta(
 
 /** Build a name+alias lookup map for top-level commands. @internal */
 function buildRootCommandMap(
-	commands: readonly ErasedCommand[],
-): ReadonlyMap<string, ErasedCommand> {
-	const rootCommands = new Map<string, ErasedCommand>();
+	commands: readonly CompiledCommand[],
+): ReadonlyMap<string, CompiledCommand> {
+	const rootCommands = new Map<string, CompiledCommand>();
 
-	const addRoute = (route: string, command: ErasedCommand): void => {
+	const addRoute = (route: string, command: CompiledCommand): void => {
 		const existing = rootCommands.get(route);
 		if (existing !== undefined) {
 			throw new CLIError(
@@ -230,7 +238,7 @@ function buildRootCommandMap(
  * dispatch semantics and the future planner contract.
  */
 function mergeCommandSchema(
-	command: ErasedCommand,
+	command: CompiledCommand,
 	commandPath: readonly CommandSchema[],
 ): CommandSchema {
 	const propagated = collectPropagatedFlags(commandPath);
@@ -260,12 +268,10 @@ function buildCommandExecutionPlan(
 }
 
 function buildPlannerMatchOutcome(
-	schema: PlannerSchemaLike,
-	command: ErasedCommand,
+	options: PlanInvocationOptions,
+	command: CompiledCommand,
 	commandPath: readonly CommandSchema[],
 	argv: readonly string[],
-	help: HelpOptions,
-	output: OutputPolicy,
 ): PlannerMatchOutcome {
 	return {
 		kind: 'match',
@@ -273,15 +279,15 @@ function buildPlannerMatchOutcome(
 			command,
 			commandPath,
 			argv,
-			meta: buildMeta(schema, help, command.schema.name),
-			plugins: schema.plugins,
-			output,
-			help,
+			meta: buildMeta(options.schema, options.help, command.schema.name),
+			plugins: options.compiled.plugins,
+			output: options.output,
+			help: options.help,
 		}),
 	};
 }
 
-function canDelegateUnknownRootToDefault(command: ErasedCommand, input: string): boolean {
+function canDelegateUnknownRootToDefault(command: CompiledCommand, input: string): boolean {
 	return input === '' || command.schema.args.length > 0;
 }
 
@@ -331,7 +337,8 @@ interface RootHeadScan {
 	 * Mirrors the global reach of `--version` (#29): a help flag preceded only by
 	 * flags (no subcommand token) is a *root* help request. A help flag that
 	 * follows a subcommand token is left to that command's executor, so
-	 * `app sub --help` still renders the subcommand's help.
+	 * `app sub --help` still renders the subcommand's help. Always `false` once
+	 * the CLI releases `help` to its commands.
 	 */
 	readonly helpBeforeCommand: boolean;
 	/** First command-dispatch (positional) token, or `undefined` when the head is all flags. */
@@ -353,12 +360,13 @@ interface RootHeadScan {
 function scanRootHead(
 	head: readonly string[],
 	valueFlags: ReturnType<typeof buildFlagLookup> | undefined,
+	helpOwned: boolean,
 ): RootHeadScan {
 	for (let index = 0; index < head.length; index++) {
 		const token = head[index];
 		if (token === undefined) continue;
 
-		if (token === '--help' || token === '-h') {
+		if (helpOwned && (token === '--help' || token === '-h')) {
 			return { helpBeforeCommand: true, firstCommandToken: undefined, commandTokenIndex: -1 };
 		}
 
@@ -386,6 +394,23 @@ function scanRootHead(
 	}
 
 	return { helpBeforeCommand: false, firstCommandToken: undefined, commandTokenIndex: -1 };
+}
+
+/**
+ * Build the `Run '<scope> --help'` hint carried by a dispatch failure.
+ *
+ * A CLI that released `help` through `.builtins({ help: 'off' })` rejects the
+ * token, so the hint is dropped rather than pointing at a flag the program
+ * answers with `Unknown flag --help`.
+ *
+ * @param scopePath - Binary name plus any ancestor command names.
+ * @param helpOwned - Whether the root still owns `--help`.
+ * @returns The `suggest` field, or an empty object.
+ *
+ * @internal
+ */
+function helpHint(scopePath: string, helpOwned: boolean): { readonly suggest?: string } {
+	return helpOwned ? { suggest: `Run '${scopePath} --help' for available commands` } : {};
 }
 
 /**
@@ -444,9 +469,6 @@ function planCompletionsFlag(
 	return undefined;
 }
 
-/** Root-level output flags stripped before dispatch (never part of a command schema). */
-const ROOT_OUTPUT_FLAGS = new Set(['--json', '--quiet', '-q']);
-
 /**
  * Decide what to do with an argv invocation before any command executes.
  *
@@ -456,20 +478,13 @@ const ROOT_OUTPUT_FLAGS = new Set(['--json', '--quiet', '-q']);
  * @internal
  */
 function planInvocation(options: PlanInvocationOptions): InvocationPlan {
-	// `--json` and `--quiet`/`-q` are root-level flags, not part of any command
-	// schema, so they are stripped before dispatch/parse — but only before the
-	// `--` separator, so a literal positional (after `--`) survives and reaches
-	// the command (#28). The output mode/verbosity themselves are detected
-	// separately in `.execute()`.
-	const separatorIndex = options.argv.indexOf('--');
-	const head = separatorIndex === -1 ? options.argv : options.argv.slice(0, separatorIndex);
-	const tail = separatorIndex === -1 ? [] : options.argv.slice(separatorIndex);
-	const filteredHead = head.some((arg) => ROOT_OUTPUT_FLAGS.has(arg))
-		? head.filter((arg) => !ROOT_OUTPUT_FLAGS.has(arg))
-		: head;
-	const filteredArgv = separatorIndex === -1 ? filteredHead : [...filteredHead, ...tail];
+	const helpOwned = builtinEnabled(options.schema.builtins, 'help');
+	const rootOutputFlags = readRootOutputFlags(options.argv, options.schema.builtins);
+	const filteredArgv = rootOutputFlags.argv;
+	const separatorIndex = filteredArgv.indexOf('--');
+	const filteredHead = separatorIndex === -1 ? filteredArgv : filteredArgv.slice(0, separatorIndex);
 
-	const defaultCommand = options.schema.defaultCommand;
+	const defaultCommand = options.compiled.defaultCommand;
 	// At the root, a default command's flags govern value-flag arity so a
 	// space-separated value (`mycli --region eu`) is not misread as a command
 	// name — both for root interception below and dispatch (see #25).
@@ -502,7 +517,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	// A help flag *after* a subcommand token is left to that command's executor,
 	// keeping `app sub --help` scoped to the subcommand (version stays global by
 	// design — there is no per-command version).
-	const headScan = scanRootHead(filteredHead, rootValueFlags);
+	const headScan = scanRootHead(filteredHead, rootValueFlags, helpOwned);
 	if (headScan.helpBeforeCommand) {
 		return {
 			kind: 'root-help',
@@ -512,8 +527,8 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 
 	// Bare `help` token: a root help request (or `<command> --help` forwarding)
 	// when it is the first command token and no real `help` command is registered.
-	if (headScan.firstCommandToken === 'help') {
-		const hasRealHelpCommand = options.schema.commands.some(
+	if (helpOwned && headScan.firstCommandToken === 'help') {
+		const hasRealHelpCommand = options.compiled.commands.some(
 			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
 		);
 		if (!hasRealHelpCommand) {
@@ -532,9 +547,13 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		}
 	}
 
+	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv))) {
+		return { kind: 'dispatch-error', error: rootOutputFlags.error };
+	}
+
 	// A CLI with no commands and no default is misconfigured: report NO_ACTION
 	// even for a bare invocation, rather than masking it with empty root help.
-	if (options.schema.commands.length === 0 && defaultCommand === undefined) {
+	if (options.compiled.commands.length === 0 && defaultCommand === undefined) {
 		return {
 			kind: 'dispatch-error',
 			error: new CLIError('No commands registered', {
@@ -557,8 +576,8 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	// root route map here rather than duplicating it into `commands`.
 	const rootCommands =
 		defaultCommand !== undefined && options.schema.defaultCommandRouted
-			? [...options.schema.commands, defaultCommand]
-			: options.schema.commands;
+			? [...options.compiled.commands, defaultCommand]
+			: options.compiled.commands;
 
 	const result = dispatch(
 		filteredArgv,
@@ -578,12 +597,10 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 					canDelegateUnknownRootToDefault(defaultCommand, result.input)
 				) {
 					return buildPlannerMatchOutcome(
-						options.schema,
+						options,
 						defaultCommand,
 						[defaultCommand.schema],
 						filteredArgv,
-						options.help,
-						options.output,
 					);
 				}
 
@@ -597,7 +614,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 						kind: 'dispatch-error',
 						error: new ParseError(`Unknown flag ${unknownFlag}`, {
 							code: 'UNKNOWN_FLAG',
-							suggest: `Run '${options.schema.name} --help' for available commands`,
+							...helpHint(options.schema.name, helpOwned),
 						}),
 					};
 				}
@@ -616,7 +633,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 					kind: 'dispatch-error',
 					error: new ParseError(`Unknown flag ${unknownFlag}`, {
 						code: 'UNKNOWN_FLAG',
-						suggest: `Run '${options.schema.name} --help' for available commands`,
+						...helpHint(options.schema.name, helpOwned),
 					}),
 				};
 			}
@@ -631,10 +648,9 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 				kind: 'dispatch-error',
 				error: new ParseError(`Unknown command: ${result.input}`, {
 					code: 'UNKNOWN_COMMAND',
-					suggest:
-						suggestion !== undefined
-							? `Did you mean '${suggestion}'?`
-							: `Run '${scopePath} --help' for available commands`,
+					...(suggestion !== undefined
+						? { suggest: `Did you mean '${suggestion}'?` }
+						: helpHint(scopePath, helpOwned)),
 				}),
 			};
 		}
@@ -654,12 +670,10 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 
 		case 'match':
 			return buildPlannerMatchOutcome(
-				options.schema,
+				options,
 				result.command,
 				result.commandPath,
 				result.remainingArgv,
-				options.help,
-				options.output,
 			);
 	}
 }

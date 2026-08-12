@@ -18,15 +18,24 @@ import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import { includesBeforeSeparator, parse } from '#internals/core/parse/index.ts';
+import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
-import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import type { BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
+import { builtinEnabled } from './builtins.ts';
+import type { CompiledCLI } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import { planInvocation } from './planner.ts';
-import type { CLIPlugin } from './plugin.ts';
+import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
+import {
+	readRootOutputFlags,
+	resolveRootJsonMode,
+	resolveRootVerbosity,
+} from './root-output-flags.ts';
 
 /** Config discovery settings extracted from CLISchema for preflight use. @internal */
 interface RuntimeConfigSettings {
@@ -58,10 +67,12 @@ interface RuntimeManifestSettings {
 }
 
 /**
- * Structural subset of CLISchema used by runtime preflight.
+ * Descriptive subset of CLISchema used by runtime preflight.
  *
  * Decouples adapter-driven sourcing (config, package.json, stdin) from the
- * full CLIBuilder surface so preflight can be tested independently.
+ * full CLIBuilder surface so preflight can be tested independently. Preflight
+ * rewrites fields of this shape and hands the result back; the executable half
+ * of the program travels beside it as a {@linkcode CompiledCLI}.
  * @internal
  */
 interface RuntimePreflightSchemaLike {
@@ -73,10 +84,6 @@ interface RuntimePreflightSchemaLike {
 	readonly version: string | undefined;
 	/** Declared description; `undefined` allows package.json inference. */
 	readonly description: string | undefined;
-	/** Registered top-level commands for dispatch planning during stdin detection. */
-	readonly commands: readonly ErasedCommand[];
-	/** Fallback command when no subcommand token matches. */
-	readonly defaultCommand: ErasedCommand | undefined;
 	/** Whether the default command is also exposed as a named top-level route. */
 	readonly defaultCommandRouted: boolean;
 	/** Config file discovery settings; `undefined` disables config loading. */
@@ -104,8 +111,8 @@ interface RuntimePreflightSchemaLike {
 		| undefined;
 	/** Flag-parsing behavior settings (e.g. case parity). */
 	readonly flagSettings: ParseOptions | undefined;
-	/** Plugins forwarded into the execution pipeline. */
-	readonly plugins: readonly CLIPlugin[];
+	/** Which built-in flags the root still owns; a released one is left in argv. */
+	readonly builtins: BuiltinsDraft;
 }
 
 /**
@@ -152,7 +159,7 @@ interface RuntimeExecutionInputs {
 	readonly jsonMode: boolean;
 	/** Output verbosity level. */
 	readonly verbosity: Verbosity;
-	/** Pre-read stdin data if the invocation declared stdin-mode args. */
+	/** Pre-read stdin data if the invocation would select a stdin source. */
 	readonly stdinData?: string | null;
 	/** Prompt engine for interactive flag resolution; absent in non-TTY. */
 	readonly prompter?: PromptEngine;
@@ -176,23 +183,25 @@ interface ReadyRuntimePreflight {
 	readonly inputs: RuntimeExecutionInputs;
 }
 
-/** Preflight failed during config file discovery/loading. @internal */
-interface RuntimeConfigErrorPreflight {
-	/** Discriminant — config loading produced a structured error. */
-	readonly kind: 'config-error';
-	/** The config discovery/parse error to render. */
+/** Preflight failed before the CLI could start. @internal */
+interface RuntimeStartupErrorPreflight {
+	/** Discriminant — a startup step produced a structured error. */
+	readonly kind: 'startup-error';
+	/** The startup error to render. */
 	readonly error: CLIError;
 	/** Whether JSON output was requested (needed to choose error rendering). */
 	readonly jsonMode: boolean;
 }
 
-/** Discriminated union of preflight outcomes — either ready or config-error. @internal */
-type RuntimePreflightResult = ReadyRuntimePreflight | RuntimeConfigErrorPreflight;
+/** Discriminated union of preflight outcomes — either ready or startup-error. @internal */
+type RuntimePreflightResult = ReadyRuntimePreflight | RuntimeStartupErrorPreflight;
 
 /** Options bag for {@linkcode prepareRuntimePreflight}. @internal */
 interface PrepareRuntimePreflightOptions {
 	/** CLI schema subset driving preflight decisions. */
 	readonly schema: RuntimePreflightSchemaLike;
+	/** Compiled execution graph, forwarded to the planner for stdin detection. */
+	readonly compiled: CompiledCLI;
 	/** Runtime adapter providing argv, env, stdin, and filesystem access. */
 	readonly adapter: RuntimeAdapter;
 	/** Caller-supplied overrides; `undefined` means auto-detect everything. */
@@ -255,22 +264,33 @@ function extractConfigFlag(argv: readonly string[]): {
 	return { configPath, filteredArgv };
 }
 
-/** Check whether a single command's args declare stdin-mode and argv leaves them unresolved. @internal */
+/**
+ * Check whether this invocation will actually select a stdin source.
+ *
+ * A `'dash'` binding is eligible when its token is `-`. A `'missing'` binding is
+ * eligible when argv left the input absent; env, config, prompt, and default do
+ * not suppress the read, because the stdin fallback outranks all four.
+ *
+ * @param schema - The matched command's merged schema.
+ * @param argv - The command's own argv slice.
+ * @param flagSettings - Parser behavior settings.
+ * @param builtins - Which built-in flags the root still owns.
+ * @returns `true` when at least one input would read stdin.
+ * @internal
+ */
 function commandInvocationNeedsStdin(
 	schema: CommandSchema,
 	argv: readonly string[],
 	flagSettings?: ParseOptions,
+	builtins?: BuiltinsConfig,
 ): boolean {
-	if (argv.includes('--help') || argv.includes('-h')) {
+	if (builtinEnabled(builtins, 'help') && (argv.includes('--help') || argv.includes('-h'))) {
 		return false;
 	}
 
 	try {
 		const parsed = parse(schema, argv, flagSettings);
-		return schema.args.some(({ name, schema: argSchema }) => {
-			const parsedValue = parsed.args[name];
-			return argSchema.stdinMode && (parsedValue === undefined || parsedValue === '-');
-		});
+		return invocationSelectsStdin(schema.flags, schema.args, parsed);
 	} catch (error: unknown) {
 		if (error instanceof ParseError) {
 			return false;
@@ -282,10 +302,12 @@ function commandInvocationNeedsStdin(
 /** Plan the invocation and check whether the matched command needs stdin data. @internal */
 function invocationNeedsStdin(
 	schema: RuntimePreflightSchemaLike,
+	compiled: CompiledCLI,
 	argv: readonly string[],
 ): boolean {
 	const plan = planInvocation({
 		schema,
+		compiled,
 		argv,
 		help: { binName: schema.name },
 		output: PRECHECK_OUTPUT,
@@ -297,6 +319,7 @@ function invocationNeedsStdin(
 				plan.plan.mergedSchema,
 				plan.plan.argv,
 				schema.flagSettings,
+				schema.builtins,
 			);
 		case 'dispatch-error':
 		case 'needs-subcommand':
@@ -309,6 +332,7 @@ function invocationNeedsStdin(
 
 function isCompletionsInvocation(
 	schema: RuntimePreflightSchemaLike,
+	compiled: CompiledCLI,
 	argv: readonly string[],
 ): boolean {
 	if (!schema.hasBuiltInCompletions) {
@@ -317,6 +341,7 @@ function isCompletionsInvocation(
 
 	const plan = planInvocation({
 		schema,
+		compiled,
 		argv,
 		help: { binName: schema.name },
 		output: PRECHECK_OUTPUT,
@@ -366,6 +391,45 @@ async function applyPackageJsonDiscovery(
 	return inheritedName !== undefined ? { ...packageSchema, name: inheritedName } : packageSchema;
 }
 
+/**
+ * Re-run the `RESERVED_FLAG` guard when discovery supplied the version.
+ *
+ * `.manifest()` reads a version off the filesystem at `.run()` time, past every
+ * build-time check, so a command flag spelling `--version` or `-V` as a name, an
+ * alias, or a negated spelling would become unreachable without ever being
+ * rejected. Running the same guard here fails the startup with the identical
+ * error the build paths raise (#86), rendered like every other startup failure
+ * rather than thrown at the caller.
+ *
+ * @param discovered - Schema after manifest discovery merged its metadata in.
+ * @param declared - Schema as the builder had it before discovery.
+ * @param compiled - Compiled graph carrying every registered command schema.
+ * @returns The `RESERVED_FLAG` error for the first collision, or `undefined`.
+ *
+ * @internal
+ */
+function discoveredVersionCollision(
+	discovered: RuntimePreflightSchemaLike,
+	declared: RuntimePreflightSchemaLike,
+	compiled: CompiledCLI,
+): CLIError | undefined {
+	if (discovered.version === declared.version) return undefined;
+
+	try {
+		assertNoReservedFlagCollisions(
+			discovered.version,
+			[compiled.defaultCommand?.schema, ...compiled.commands.map((command) => command.schema)],
+			discovered.builtins,
+		);
+		return undefined;
+	} catch (error: unknown) {
+		if (error instanceof CLIError) {
+			return error;
+		}
+		throw error;
+	}
+}
+
 async function loadRuntimeConfig(
 	schema: RuntimePreflightSchemaLike,
 	adapter: RuntimeAdapter,
@@ -409,19 +473,25 @@ async function prepareRuntimePreflight(
 		options.schema.configSettings !== undefined
 			? extractConfigFlag(rawArgv)
 			: { configPath: undefined, filteredArgv: rawArgv };
-	// Only pre-separator occurrences count; a literal after `--` is a
-	// positional for the command (#28).
-	const hasJsonFlag = includesBeforeSeparator(filteredArgv, '--json');
-	const jsonMode = hasJsonFlag || options.options?.jsonMode === true;
-	const hasQuietFlag =
-		includesBeforeSeparator(filteredArgv, '--quiet') || includesBeforeSeparator(filteredArgv, '-q');
-	const isCompletions = isCompletionsInvocation(options.schema, filteredArgv);
+	const rootOutputFlags = readRootOutputFlags(filteredArgv, options.schema.builtins);
+	const jsonMode = resolveRootJsonMode(rootOutputFlags, options.options?.jsonMode);
+	const verbosity = resolveRootVerbosity(rootOutputFlags, options.options?.verbosity) ?? 'normal';
+	const isCompletions = isCompletionsInvocation(options.schema, options.compiled, filteredArgv);
 	const schema = await applyPackageJsonDiscovery(
 		options.schema,
 		options.adapter,
 		options.inheritedName,
 		isCompletions,
 	);
+	const versionCollision = discoveredVersionCollision(schema, options.schema, options.compiled);
+
+	if (versionCollision !== undefined) {
+		return {
+			kind: 'startup-error',
+			error: versionCollision,
+			jsonMode,
+		};
+	}
 	const loadedConfig = await loadRuntimeConfig(
 		schema,
 		options.adapter,
@@ -432,7 +502,7 @@ async function prepareRuntimePreflight(
 
 	if (loadedConfig instanceof CLIError) {
 		return {
-			kind: 'config-error',
+			kind: 'startup-error',
 			error: loadedConfig,
 			jsonMode,
 		};
@@ -443,7 +513,8 @@ async function prepareRuntimePreflight(
 			? createTerminalPrompter(options.adapter.stdin, options.adapter.stderr)
 			: undefined;
 	const stdinData =
-		options.options?.stdinData === undefined && invocationNeedsStdin(schema, filteredArgv)
+		options.options?.stdinData === undefined &&
+		invocationNeedsStdin(schema, options.compiled, filteredArgv)
 			? await options.adapter.readStdin()
 			: options.options?.stdinData;
 
@@ -455,7 +526,7 @@ async function prepareRuntimePreflight(
 			env: options.options?.env ?? options.adapter.env,
 			isTTY: options.options?.isTTY ?? options.adapter.isTTY,
 			jsonMode,
-			verbosity: hasQuietFlag ? 'quiet' : (options.options?.verbosity ?? 'normal'),
+			verbosity,
 			stat: options.options?.stat ?? options.adapter.stat,
 			mkdir: options.options?.mkdir ?? options.adapter.mkdir,
 			...(stdinData !== undefined ? { stdinData } : {}),

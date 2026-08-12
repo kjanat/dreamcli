@@ -3,26 +3,14 @@ import { isValidationError, ValidationError } from '#internals/core/errors/index
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import { resolve } from './index.ts';
 
 // --- Helpers — build minimal schemas and parse results
 
 function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: false,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+	return createCommandSchema({ name: 'test', ...overrides });
 }
 
 function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
@@ -44,8 +32,8 @@ describe('resolve', () => {
 		it('passes through CLI-provided flag values', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number'),
-					host: createSchema('string'),
+					port: createFlagSchema('number'),
+					host: createFlagSchema('string'),
 				},
 			});
 			const parsed = makeParsed({ flags: { port: 8080, host: 'localhost' } });
@@ -57,7 +45,7 @@ describe('resolve', () => {
 		it('passes through boolean flag set to true', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			const parsed = makeParsed({ flags: { verbose: true } });
@@ -69,7 +57,7 @@ describe('resolve', () => {
 		it('passes through enum flag value', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', { enumValues: ['us', 'eu', 'ap'] }),
+					region: createFlagSchema('enum', { enumValues: ['us', 'eu', 'ap'] }),
 				},
 			});
 			const parsed = makeParsed({ flags: { region: 'eu' } });
@@ -81,7 +69,7 @@ describe('resolve', () => {
 		it('passes through array flag values', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array'),
+					tags: createFlagSchema('array'),
 				},
 			});
 			const parsed = makeParsed({ flags: { tags: ['v1', 'v2'] } });
@@ -93,7 +81,7 @@ describe('resolve', () => {
 		it('treats own undefined parsed flag as missing and applies default', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
+					region: createFlagSchema('string', { presence: 'defaulted', defaultValue: 'us' }),
 				},
 			});
 			const parsed = makeParsed({ flags: { region: undefined } });
@@ -105,7 +93,7 @@ describe('resolve', () => {
 		it('treats own undefined parsed required flag as missing', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required' }),
+					token: createFlagSchema('string', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed({ flags: { token: undefined } });
@@ -116,7 +104,7 @@ describe('resolve', () => {
 		it('ignores prototype-inherited parsed flag values', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required' }),
+					token: createFlagSchema('string', { presence: 'required' }),
 				},
 			});
 			const protoFlags: Record<string, unknown> = {};
@@ -133,7 +121,7 @@ describe('resolve', () => {
 		it('applies schema default when flag not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -145,7 +133,7 @@ describe('resolve', () => {
 		it('applies boolean default (false) when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -157,7 +145,7 @@ describe('resolve', () => {
 		it('applies string default when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					format: createSchema('string', { presence: 'defaulted', defaultValue: 'json' }),
+					format: createFlagSchema('string', { presence: 'defaulted', defaultValue: 'json' }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -169,7 +157,7 @@ describe('resolve', () => {
 		it('applies enum default when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					region: createSchema('enum', {
+					region: createFlagSchema('enum', {
 						presence: 'defaulted',
 						defaultValue: 'us',
 						enumValues: ['us', 'eu'],
@@ -185,7 +173,7 @@ describe('resolve', () => {
 		it('CLI value takes precedence over default', async () => {
 			const schema = makeSchema({
 				flags: {
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
 				},
 			});
 			const parsed = makeParsed({ flags: { port: 9090 } });
@@ -199,7 +187,7 @@ describe('resolve', () => {
 		it('array flag defaults to empty array when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array'),
+					tags: createFlagSchema('array'),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -211,7 +199,7 @@ describe('resolve', () => {
 		it('array flag uses explicit default when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { presence: 'defaulted', defaultValue: ['default'] }),
+					tags: createFlagSchema('array', { presence: 'defaulted', defaultValue: ['default'] }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -225,7 +213,7 @@ describe('resolve', () => {
 		it('optional flag resolves to undefined when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					output: createSchema('string'), // default presence: 'optional'
+					output: createFlagSchema('string'), // default presence: 'optional'
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -237,7 +225,7 @@ describe('resolve', () => {
 		it('optional flag key exists in result even when undefined', async () => {
 			const schema = makeSchema({
 				flags: {
-					output: createSchema('string'),
+					output: createFlagSchema('string'),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -251,7 +239,7 @@ describe('resolve', () => {
 		it('throws ValidationError for missing required flag', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required' }),
+					token: createFlagSchema('string', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -262,7 +250,7 @@ describe('resolve', () => {
 		it('required flag error has REQUIRED_FLAG code', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required' }),
+					token: createFlagSchema('string', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -283,7 +271,7 @@ describe('resolve', () => {
 		it('required array flag errors when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					tags: createSchema('array', { presence: 'required' }),
+					tags: createFlagSchema('array', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -304,7 +292,7 @@ describe('resolve', () => {
 		it('required boolean flag suggest omits <value>', async () => {
 			const schema = makeSchema({
 				flags: {
-					confirm: createSchema('boolean', { presence: 'required' }),
+					confirm: createFlagSchema('boolean', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -322,8 +310,8 @@ describe('resolve', () => {
 		it('aggregates multiple missing required flags', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required' }),
-					region: createSchema('enum', {
+					token: createFlagSchema('string', { presence: 'required' }),
+					region: createFlagSchema('enum', {
 						presence: 'required',
 						enumValues: ['us', 'eu'],
 					}),
@@ -349,7 +337,7 @@ describe('resolve', () => {
 		it('required flag passes when CLI provides value', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required' }),
+					token: createFlagSchema('string', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed({ flags: { token: 'abc123' } });
@@ -363,10 +351,10 @@ describe('resolve', () => {
 		it('resolves mix of provided, defaulted, optional, and required flags', async () => {
 			const schema = makeSchema({
 				flags: {
-					host: createSchema('string', { presence: 'defaulted', defaultValue: 'localhost' }),
-					port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
-					verbose: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
-					output: createSchema('string'), // optional
+					host: createFlagSchema('string', { presence: 'defaulted', defaultValue: 'localhost' }),
+					port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }),
+					verbose: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					output: createFlagSchema('string'), // optional
 				},
 			});
 			const parsed = makeParsed({ flags: { port: 8080, verbose: true } });
@@ -387,7 +375,7 @@ describe('resolve', () => {
 		it('passes through CLI-provided custom flag value', async () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					}),
 				},
@@ -402,7 +390,7 @@ describe('resolve', () => {
 		it('applies default for optional custom flag when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 						presence: 'defaulted',
 						defaultValue: 0,
@@ -418,7 +406,7 @@ describe('resolve', () => {
 		it('required custom flag throws when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 						presence: 'required',
 					}),
@@ -432,7 +420,7 @@ describe('resolve', () => {
 		it('optional custom flag resolves to undefined when not provided', async () => {
 			const schema = makeSchema({
 				flags: {
-					hex: createSchema('custom', {
+					hex: createFlagSchema('custom', {
 						parseFn: (raw: unknown) => Number.parseInt(String(raw), 16),
 					}),
 				},
@@ -590,7 +578,7 @@ describe('resolve', () => {
 
 		it('mentions stdin for missing required stdin-backed args', async () => {
 			const schema = makeSchema({
-				args: [{ name: 'target', schema: createArgSchema('string', { stdinMode: true }) }],
+				args: [{ name: 'target', schema: createArgSchema('string', { stdin: {} }) }],
 			});
 			const parsed = makeParsed({ args: {} });
 
@@ -720,8 +708,8 @@ describe('resolve', () => {
 		it('resolves both flags and args together', async () => {
 			const schema = makeSchema({
 				flags: {
-					force: createSchema('boolean', { presence: 'defaulted', defaultValue: false }),
-					region: createSchema('enum', {
+					force: createFlagSchema('boolean', { presence: 'defaulted', defaultValue: false }),
+					region: createFlagSchema('enum', {
 						presence: 'defaulted',
 						defaultValue: 'us',
 						enumValues: ['us', 'eu'],
@@ -742,7 +730,7 @@ describe('resolve', () => {
 		it('throws for missing required flag but not missing optional arg', async () => {
 			const schema = makeSchema({
 				flags: {
-					token: createSchema('string', { presence: 'required' }),
+					token: createFlagSchema('string', { presence: 'required' }),
 				},
 				args: [
 					{
@@ -774,7 +762,7 @@ describe('resolve', () => {
 
 		it('result objects are readonly (frozen shape)', async () => {
 			const schema = makeSchema({
-				flags: { port: createSchema('number', { presence: 'defaulted', defaultValue: 3000 }) },
+				flags: { port: createFlagSchema('number', { presence: 'defaulted', defaultValue: 3000 }) },
 				args: [{ name: 'target', schema: createArgSchema('string') }],
 			});
 			const parsed = makeParsed({
@@ -795,7 +783,7 @@ describe('resolve', () => {
 	describe('error details', () => {
 		it('single missing flag throws directly (not aggregated)', async () => {
 			const schema = makeSchema({
-				flags: { token: createSchema('string', { presence: 'required' }) },
+				flags: { token: createFlagSchema('string', { presence: 'required' }) },
 			});
 			const parsed = makeParsed({ flags: {} });
 
@@ -830,9 +818,9 @@ describe('resolve', () => {
 		it('aggregated error includes all individual errors in details', async () => {
 			const schema = makeSchema({
 				flags: {
-					a: createSchema('string', { presence: 'required' }),
-					b: createSchema('number', { presence: 'required' }),
-					c: createSchema('string', { presence: 'required' }),
+					a: createFlagSchema('string', { presence: 'required' }),
+					b: createFlagSchema('number', { presence: 'required' }),
+					c: createFlagSchema('string', { presence: 'required' }),
 				},
 			});
 			const parsed = makeParsed({ flags: {} });
@@ -852,7 +840,7 @@ describe('resolve', () => {
 		it('preserves flag and arg phase errors', async () => {
 			// Flag errors throw first (flag resolution runs before arg resolution)
 			const schema = makeSchema({
-				flags: { token: createSchema('string', { presence: 'required' }) },
+				flags: { token: createFlagSchema('string', { presence: 'required' }) },
 				args: [{ name: 'file', schema: createArgSchema('string') }],
 			});
 			const parsed = makeParsed({ flags: {}, args: {} });
@@ -875,7 +863,7 @@ describe('resolve', () => {
 		describe('flags', () => {
 			it('collects deprecations from CLI input', async () => {
 				const schema = makeSchema({
-					flags: { old: createSchema('string', { deprecated: true }) },
+					flags: { old: createFlagSchema('string', { deprecated: true }) },
 				});
 				const parsed = makeParsed({ flags: { old: 'value' } });
 				const result = await resolve(schema, parsed);
@@ -885,7 +873,7 @@ describe('resolve', () => {
 
 			it('includes the message', async () => {
 				const schema = makeSchema({
-					flags: { old: createSchema('string', { deprecated: 'use --new instead' }) },
+					flags: { old: createFlagSchema('string', { deprecated: 'use --new instead' }) },
 				});
 				const parsed = makeParsed({ flags: { old: 'value' } });
 				const result = await resolve(schema, parsed);
@@ -898,7 +886,7 @@ describe('resolve', () => {
 
 			it('skips deprecated flags that are not provided', async () => {
 				const schema = makeSchema({
-					flags: { old: createSchema('string', { deprecated: true }) },
+					flags: { old: createFlagSchema('string', { deprecated: true }) },
 				});
 				const parsed = makeParsed({ flags: {} });
 				const result = await resolve(schema, parsed);
@@ -907,7 +895,7 @@ describe('resolve', () => {
 
 			it('skips non-deprecated flags', async () => {
 				const schema = makeSchema({
-					flags: { active: createSchema('string') },
+					flags: { active: createFlagSchema('string') },
 				});
 				const parsed = makeParsed({ flags: { active: 'value' } });
 				const result = await resolve(schema, parsed);
@@ -916,7 +904,7 @@ describe('resolve', () => {
 
 			it('collects deprecations from env', async () => {
 				const schema = makeSchema({
-					flags: { old: createSchema('string', { deprecated: true, envVar: 'OLD_VAR' }) },
+					flags: { old: createFlagSchema('string', { deprecated: true, envVar: 'OLD_VAR' }) },
 				});
 				const parsed = makeParsed({ flags: {} });
 				const result = await resolve(schema, parsed, { env: { OLD_VAR: 'value' } });
@@ -926,7 +914,7 @@ describe('resolve', () => {
 
 			it('collects deprecations from config', async () => {
 				const schema = makeSchema({
-					flags: { old: createSchema('string', { deprecated: true, configPath: 'old' }) },
+					flags: { old: createFlagSchema('string', { deprecated: true, configPath: 'old' }) },
 				});
 				const parsed = makeParsed({ flags: {} });
 				const result = await resolve(schema, parsed, { config: { old: 'value' } });
@@ -937,7 +925,7 @@ describe('resolve', () => {
 			it('skips deprecated flags that fall through to defaults', async () => {
 				const schema = makeSchema({
 					flags: {
-						old: createSchema('string', {
+						old: createFlagSchema('string', {
 							deprecated: true,
 							presence: 'defaulted',
 							defaultValue: 'x',
@@ -998,8 +986,8 @@ describe('resolve', () => {
 			it('collects them for multiple deprecated flags', async () => {
 				const schema = makeSchema({
 					flags: {
-						old1: createSchema('string', { deprecated: true }),
-						old2: createSchema('number', { deprecated: 'removed in v2' }),
+						old1: createFlagSchema('string', { deprecated: true }),
+						old2: createFlagSchema('number', { deprecated: 'removed in v2' }),
 					},
 				});
 				const parsed = makeParsed({ flags: { old1: 'a', old2: 42 } });
@@ -1015,7 +1003,7 @@ describe('resolve', () => {
 
 			it('collects them for deprecated flags and args together', async () => {
 				const schema = makeSchema({
-					flags: { old: createSchema('string', { deprecated: true }) },
+					flags: { old: createFlagSchema('string', { deprecated: true }) },
 					args: [{ name: 'target', schema: createArgSchema('string', { deprecated: true }) }],
 				});
 				const parsed = makeParsed({ flags: { old: 'x' }, args: { target: 'prod' } });
@@ -1027,7 +1015,7 @@ describe('resolve', () => {
 		describe('resolution', () => {
 			it('still resolves deprecated flags', async () => {
 				const schema = makeSchema({
-					flags: { old: createSchema('string', { deprecated: true }) },
+					flags: { old: createFlagSchema('string', { deprecated: true }) },
 				});
 				const parsed = makeParsed({ flags: { old: 'value' } });
 				const result = await resolve(schema, parsed);

@@ -70,6 +70,8 @@ interface OutputContract {
 	readonly jsonReservesStdoutForStructuredData: true;
 	/** Quiet verbosity suppresses `info()` messages entirely. */
 	readonly quietSuppressesInfo: true;
+	/** Quiet verbosity suppresses rendered spinner/progress output; capture still records lifecycle events. */
+	readonly quietSuppressesRenderedActivity: true;
 	/** Spinner/progress writes go to stderr so stdout stays parseable. */
 	readonly activityUsesStderrOutsideCapture: true;
 	/** Animated TTY spinners require both a real terminal and non-JSON mode. */
@@ -81,14 +83,15 @@ interface OutputContract {
 }
 
 /** Runtime-accessible copy of the frozen output-policy invariants. */
-const outputContract = {
+const outputContract: OutputContract = {
 	jsonReservesStdoutForStructuredData: true,
 	quietSuppressesInfo: true,
+	quietSuppressesRenderedActivity: true,
 	activityUsesStderrOutsideCapture: true,
 	ttyActivityRequiresTTYAndNonJson: true,
 	spinnerCleanupUsesStop: true,
 	progressCleanupUsesDone: true,
-} satisfies OutputContract;
+};
 
 /** Build the stable output-policy snapshot for one channel instance. */
 function resolveOutputPolicy(options: ResolveOutputPolicyOptions): OutputPolicy {
@@ -136,7 +139,7 @@ function resolveActivityRenderMode(
 	policy: OutputPolicy,
 	fallback: Fallback,
 ): ActivityPolicy['mode'] {
-	if (policy.jsonMode) {
+	if (policy.jsonMode || policy.verbosity === 'quiet') {
 		return 'noop';
 	}
 

@@ -19,9 +19,9 @@ import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shi
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
 
-// `src/schema.ts` statically imports `../dreamcli.schema.json`, a gitignored
-// build artifact. TypeDoc (run by `*.paths.ts` dynamic-route loaders and
-// `*.data.ts` data loaders) typechecks that import, so the schema must exist
+// `src/schema.ts` statically imports `../dreamcli.schema.json`, a tracked file
+// regenerated from source. TypeDoc (run by `*.paths.ts` dynamic-route loaders
+// and `*.data.ts` data loaders) typechecks that import, so the schema must exist
 // before route/data resolution. VitePress bundles those loaders in a transient
 // esbuild step that bypasses this Vite config's plugins, so the source-artifacts
 // plugin's `buildStart` hook fires too late. Emitting here at config
@@ -194,6 +194,7 @@ export default defineConfig({
 						},
 						{ text: 'Migration And Adoption', link: '/guide/migration' },
 						{ text: 'Upgrading From 2.x', link: '/guide/upgrading-v3' },
+						{ text: 'Upgrading From 3.x', link: '/guide/upgrading-v4' },
 						{ text: 'Troubleshooting', link: '/guide/troubleshooting' },
 						{ text: 'Middleware', link: '/guide/middleware' },
 						{ text: 'Config Files', link: '/guide/config' },
@@ -202,6 +203,10 @@ export default defineConfig({
 						{ text: 'Shell Completions', link: '/guide/completions' },
 						{ text: 'Interactive Prompts', link: '/guide/prompts' },
 						{ text: 'Runtime Support', link: '/guide/runtime' },
+						{
+							text: 'Standalone Flag Evaluation',
+							link: '/guide/read-flags',
+						},
 					],
 				},
 				{
@@ -237,6 +242,7 @@ export default defineConfig({
 							link: '/reference/resolver-contract',
 						},
 						{ text: 'Output Contract', link: '/reference/output-contract' },
+						{ text: 'Stability Policy', link: '/reference/stability' },
 						{
 							text: 'Example Hover',
 							link: '/reference/example-hover-prototype',

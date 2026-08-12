@@ -8,7 +8,7 @@
  * ```ts
  * import schema from '@kjanat/dreamcli/schema';
  *
- * console.log(schema.$id); // "dreamcli.schema.json"
+ * console.log(schema.$id); // "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json"
  * ```
  *
  * @ignore

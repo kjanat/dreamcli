@@ -8,13 +8,13 @@ overview.
 
 The tokenizer is schema-agnostic. It applies these rules before command-specific parsing starts:
 
-| Raw argv form  | Meaning                                                |
-| -------------- | ------------------------------------------------------ |
-| `--flag`       | long flag without an inline value                      |
-| `--flag=value` | long flag with an inline value                         |
-| `-abc`         | combined short flags                                   |
-| `--`           | end of options; everything after becomes positional    |
-| `-`            | positional token, commonly used as a stdin placeholder |
+| Raw argv form  | Meaning                                                                     |
+| -------------- | --------------------------------------------------------------------------- |
+| `--flag`       | long flag without an inline value                                           |
+| `--flag=value` | long flag with an inline value                                              |
+| `-abc`         | combined short flags                                                        |
+| `--`           | end of options; everything after becomes positional                         |
+| `-`            | stdin sentinel for an input declaring `.stdin()`, otherwise a plain positional |
 
 Examples:
 
@@ -38,6 +38,8 @@ After `--`, both `--region` and `eu` are treated as positional values.
 
 - Scalar flags overwrite earlier values. The last occurrence wins.
 - Array flags accumulate in order.
+- Key-value flags fold their occurrences into one record.
+- Count flags total their occurrences.
 
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
@@ -46,6 +48,8 @@ flag.string(); // repeated -> last value wins
 flag.number(); // repeated -> last value wins
 flag.boolean(); // repeated -> true stays true unless an explicit false value is parsed
 flag.array(flag.string()); // repeated -> accumulates
+flag.keyValue(); // repeated -> folds into one record
+flag.count(); // repeated -> totals
 ```
 
 ```bash
@@ -69,7 +73,7 @@ Resolves to:
 - Short booleans are presence-based. `-v` means `true`.
 
 dreamcli does **not** implement special negated-boolean syntax automatically.
-If you want `--no-confirm`, register that exact spelling as the flag name or as an alias.
+Call `.negatable()` on the boolean to accept `--no-confirm` alongside `--confirm`; see [Negatable Booleans](/guide/flags#negatable-booleans).
 
 ### Short-flag stacking
 
@@ -88,15 +92,82 @@ Examples:
 
 Once a value-taking short flag consumes the remainder of the group, parsing of that group stops.
 
+## Aggregation And Splitting
+
+An input carries one value, an ordered list, a record of key-value entries, or
+an occurrence count. Which of the four it is decides how every source fills it,
+and it is decided separately from what each value means.
+
+| Form      | Declared by                                   | Unset resolves to |
+| --------- | --------------------------------------------- | ----------------- |
+| one       | every scalar kind                             | `undefined`       |
+| list      | `flag.array()`, `arg` with `.variadic()`      | `[]`              |
+| entries   | `flag.keyValue()`, `arg.keyValue()`           | `{}`              |
+| count     | `flag.count()`                                | `0`               |
+
+### Per-source split policies
+
+A source that carries text decodes it into elements under its own policy:
+
+| Source | Accepts                                       | Default                      |
+| ------ | --------------------------------------------- | ---------------------------- |
+| cli    | a delimiter, `'whole'`                        | `'whole'`, or `.separator()` |
+| env    | a delimiter, `'whole'`, `'json'`              | `','`                        |
+| stdin  | a delimiter, `'whole'`, `'lines'`, `'json'`   | `'lines'`                    |
+| config | a native array or object; a string uses `env` | native                       |
+
+`.split({ cli, env, stdin })` sets them; a call names only the sources it
+changes. `.separator()` writes the CLI policy on its own. A format a source does
+not accept throws `INVALID_SCHEMA` where the input is declared. JSON is parsed
+only where the policy says `'json'`, never guessed from the text.
+
+Line splitting treats a final terminator as framing rather than a new element,
+and accepts `\n`, `\r\n`, and `\r`: `'a\nb\n'` gives `['a', 'b']` and
+`'a\nb\n\n'` gives `['a', 'b', '']`. Delimiter splitting drops empty segments.
+
+### Aggregation rules
+
+- A list applies `.unique()` after every source has resolved, in first-seen
+  order with `SameValueZero` semantics.
+- Entries split each segment at the **first** `=`, so `A=b=c` is
+  `{ A: 'b=c' }`. A segment with no `=`, or an empty key, fails: `INVALID_VALUE`
+  on a CLI token, `TYPE_MISMATCH` from every other source.
+- Entries fold under `.duplicateKeys()`: `'last'` (the default), `'first'`, or
+  `'error'`, which reports `CONSTRAINT_VIOLATED` naming the source that carried
+  the repeat. The policy applies to every source, not only to repeated CLI
+  occurrences.
+- A count reads an explicit value (`--verbose=2`, env, config) as the count
+  itself, and must be a non-negative integer.
+
+Under `'error'`, each occurrence keeps its own source through aggregation, so a
+collection filled from both the command line and a pipe names whichever one
+carried the repeat. Tokens the user typed name no source. A key is half of a
+`KEY=VALUE` pair, so it takes the redaction rule below: quoted in full when the
+user typed it, `<redacted>` from every other source.
+
+```bash
+$ mycli set --v A=1 --v A=2
+Duplicate key 'A' for flag --v
+
+$ printf 'A=2\n' | mycli set --v A=1 --v -
+Duplicate key '<redacted>' from stdin for flag --v
+
+$ VARS='A=1,A=2' mycli set
+Duplicate key '<redacted>' from env VARS for flag --v
+```
+
+The argument surface words it the same way, with `for argument <vars>` in place
+of `for flag --v`.
+
 ## Resolution Precedence
 
 ### Flags
 
-Flags resolve in this order — the first source that provides a value wins:
+Flags resolve in this order, and the first source that provides a value wins:
 
 ```mermaid
 flowchart LR
-  CLI -->|miss| env -->|miss| config -->|miss| prompt -->|miss| default
+  CLI -->|miss| stdin -->|miss| env -->|miss| config -->|miss| prompt -->|miss| default
 ```
 
 Example:
@@ -106,6 +177,7 @@ import { flag } from '@kjanat/dreamcli';
 
 flag
   .enum(['us', 'eu', 'ap'])
+  .stdin()
   .env('DEPLOY_REGION')
   .config('deploy.region')
   .prompt({ kind: 'select', message: 'Region?' })
@@ -117,6 +189,7 @@ Outcomes:
 | Available sources                                 | Result |
 | ------------------------------------------------- | ------ |
 | `--region ap`, env=`eu`, config=`us`, prompt=`eu` | `ap`   |
+| piped stdin `eu`, env=`ap`                        | `eu`   |
 | env=`eu`, config=`ap`, prompt=`us`                | `eu`   |
 | config=`ap`, prompt=`us`                          | `ap`   |
 | prompt=`eu`                                       | `eu`   |
@@ -124,18 +197,21 @@ Outcomes:
 
 Notes:
 
-- Array flags that are not required and have no explicit default resolve to `[]`.
-- Optional non-array flags resolve to `undefined` when no source provides a value.
+- An optional flag that aggregates resolves to its empty form when no source
+  provides a value: `[]` for an array, `{}` for a key-value flag, `0` for a
+  count.
+- Every other optional flag resolves to `undefined`.
 - Required flags fail after the full chain is exhausted.
 
 ### Positional arguments
 
-Positional arguments are CLI-only unless they opt into extra sources.\
-Only args that opt into `.stdin()` or `.env()` participate in those extra steps:
+Positional arguments walk the same order as flags, and are CLI-only unless they
+opt into extra sources. Only args that opt into `.stdin()`, `.env()`,
+`.config()`, or `.prompt()` participate in those extra steps:
 
 ```mermaid
 flowchart LR
-  CLI["CLI token"] -->|miss| stdin -->|miss| env -->|miss| default
+  CLI["CLI token"] -->|miss| stdin -->|miss| env -->|miss| config -->|miss| prompt -->|miss| default
 ```
 
 Example:
@@ -143,7 +219,7 @@ Example:
 ```ts twoslash
 import { arg } from '@kjanat/dreamcli';
 
-arg.string().stdin().env('DEPLOY_TARGET').default('local');
+arg.string().stdin().env('DEPLOY_TARGET').config('deploy.target').default('local');
 ```
 
 Outcomes:
@@ -152,14 +228,340 @@ Outcomes:
 | -------------------------------------- | --------- |
 | CLI token `prod`, stdin, env=`staging` | `prod`    |
 | piped stdin `prod`, env=`staging`      | `prod`    |
-| env=`staging`                          | `staging` |
+| env=`staging`, config=`eu`             | `staging` |
+| config=`eu`                            | `eu`      |
 | no value sources                       | `local`   |
+
+### Stdin
+
+An input reads stdin only when it declares `.stdin()`. The binding has three
+axes, `when`, `consume`, and `trim`, defaulting to `dash-or-missing`,
+`exclusive`, and `false`.
+
+| `when`              | `-` typed            | Input omitted        |
+| ------------------- | -------------------- | -------------------- |
+| `'dash'`            | reads stdin          | falls through to env |
+| `'missing'`         | literal string `'-'` | reads stdin          |
+| `'dash-or-missing'` | reads stdin          | reads stdin          |
+
+A `-` that selects stdin resolves on the `cli` stage, so it outranks every later
+source. An omitted input reads stdin only for `when: 'missing'` or
+`when: 'dash-or-missing'`. With `when: 'dash'`, omission falls through to env,
+config, prompt, and default. When a selected stdin route has no piped data, it
+produces no value and the walk continues, except for a `-` typed beside other
+occurrences of a collection, which fails instead. With `when: 'missing'`, a
+typed `-` is literal and does not select stdin.
+
+The stream is read at most once per invocation, and only when a declared binding
+would fire. Declaring a second exclusive stdin input on one command, flag or
+argument, throws `DUPLICATE_STDIN_INPUT` at build time; every stdin input on a
+command that passes `{ consume: 'broadcast' }` receives the same buffer.
+
+That build-time rule covers one command's own inputs. Sibling commands may each
+declare their own exclusive consumer, and the invocation decides which one runs.
+A `.propagate()` stdin flag reaching a subcommand that also declares one is the
+one case where two exclusive consumers meet in a single invocation: the buffer
+is still read once and both receive it.
+
+For a scalar input, the whole buffer becomes the value. Codecs that preserve
+text terminators keep it byte for byte; this includes strings and paths. Other
+codecs drop one trailing `\n`, `\r\n`, or `\r` before decoding, then accept
+exactly what an env value accepts. `{ trim: true }` drops that one terminator
+for a preserving codec and is what a piped path wants before a `mustExist`
+check runs.
+
+For a collection, the buffer decodes into elements under the input's stdin
+policy, `'lines'` by default. A `-` occurrence stands for the whole stdin source
+at the position it holds, and the decoded elements are spliced in there. A
+variadic argument reads its tail the same way:
+
+```bash
+$ printf 'a\nb\n' | mycli send --tag before --tag - --tag after
+# flags.tag === ['before', 'a', 'b', 'after']
+
+$ printf 'a\nb\n' | mycli build x - y
+# args.files === ['x', 'a', 'b', 'y']
+```
+
+Splicing rules:
+
+- A spliced read stays on the `cli` stage, so it outranks env, config, prompt,
+  and the default exactly as a scalar `-` does.
+- Entries splice into the same occurrence order and then fold under
+  `.duplicateKeys()`, so a piped key can be overridden by a later CLI one.
+- Two `-` occurrences splice the buffer twice. The buffer is read once and each
+  occurrence stands for all of it, so `--tag - --tag -` over `'a\n'` resolves to
+  `['a', 'a']` and `mycli build - -` over `'x\n'` to `['x', 'x']`.
+- When every occurrence is `-` and nothing was piped, the input produces no CLI
+  value, so env, config, prompt, and the default stay reachable.
+- A `-` typed beside other occurrences with nothing piped fails with
+  `MISSING_STDIN`, rather than dropping the occurrence and silently shortening
+  the collection.
+- A scalar `-` with nothing piped is silent by design. It is the whole value, so
+  dropping it loses nothing, and env, config, prompt, and the default stay
+  reachable. Only a collection can be shortened by a dropped occurrence, so only
+  a collection can error. The same asymmetry holds for a collection whose every
+  occurrence is `-`: nothing is left to shorten, so the walk continues.
+
+```bash
+$ mycli send --body -            # scalar, nothing piped
+# body resolves from env, config, prompt, or its default
+
+$ mycli send --tag a --tag -     # collection, nothing piped
+# Error: No piped stdin for the '-' occurrence of flag --tag  (MISSING_STDIN)
+```
+
+- An input that declares no stdin binding treats `-` as an ordinary element and
+  never reads the stream. An input that does declare one can never receive a
+  literal `-` as a value, on either surface: the token names the source before
+  anything reads it as text. `{ when: 'missing' }` is the one binding that
+  leaves a typed `-` literal.
+
+## Value Provenance {#which-source-won}
+
+Every resolved value records which stage produced it. A handler receives those
+records as `sources`, beside `flags` and `args` and keyed by the same names:
+
+```ts twoslash
+import { command, flag, wasExplicit } from '@kjanat/dreamcli';
+
+command('build')
+  .flag('out', flag.string().env('OUT_DIR').default('dist'))
+  .action(({ flags, sources, out }) => {
+    if (wasExplicit(sources.flags.out)) out.info(`overriding with ${flags.out}`);
+    if (sources.flags.out?.stage === 'env') out.info(`from ${sources.flags.out.envVar}`);
+  });
+```
+
+### The records
+
+Seven records exist, one per stage plus the two ways stdin delivers bytes. An
+input that resolved no value has no record at all, so a name is present in
+`flags` and absent in `sources.flags`:
+
+| Record                                                  | What happened                             | Trigger                             |
+| ------------------------------------------------------- | ----------------------------------------- | ----------------------------------- |
+| `{ stage: 'cli' }`                                      | a token the user typed                    | `--out dist`, or a positional token |
+| `{ stage: 'cli', via: 'stdin', trigger: 'dash' }`       | an explicit `-` read the stream           | `--body -`, or a positional `-`     |
+| `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }` | an omitted input read the stream          | the input was not typed at all      |
+| `{ stage: 'env', envVar }`                              | the named environment variable            | `.env('BODY')`                      |
+| `{ stage: 'config', configPath }`                       | the named config path                     | `.config('send.body')`              |
+| `{ stage: 'prompt' }`                                   | an answered prompt                        | `.prompt({ … })`                    |
+| `{ stage: 'default' }`                                  | the declared default                      | `.default('dist')`                  |
+| absent                                                  | nothing produced a value                  | an optional input no source filled  |
+
+Both stdin records carry `via: 'stdin'`, and they differ on `stage` because
+they differ on precedence. A typed `-` is CLI-ranked and outranks env, config,
+prompt, and the default. An omitted input takes the `stdin` stage, which sits
+between `cli` and `env`. Ask about `stage` for precedence and about `via` for
+whether the bytes came from a pipe.
+
+The records are the same on both surfaces. `sources.args.target` narrows
+exactly as `sources.flags.body` does.
+
+### `wasExplicit()`
+
+```ts twoslash
+import { wasExplicit } from '@kjanat/dreamcli';
+// ---cut---
+wasExplicit(undefined); // false
+wasExplicit({ stage: 'default' }); // false
+wasExplicit({ stage: 'cli' }); // true
+wasExplicit({ stage: 'stdin', via: 'stdin', trigger: 'fallback' }); // true
+wasExplicit({ stage: 'env', envVar: 'OUT_DIR' }); // true
+```
+
+It answers "did a source other than the default produce this value". Every
+stage but `'default'` counts as supplied, including the stdin fallback, since
+bytes did arrive. For the narrower question "did the user type it on this
+command line", read `stage === 'cli'` instead.
+
+`wasExplicit()` exists so that explicit-versus-defaulted never requires dropping
+`.default()`, which would also drop `defaultValue` from the definition document
+and the `(default: …)` suffix from help.
+
+### Explicit-wins merges
+
+A CLI that layers its own values over a project manifest needs to know which
+values the user supplied, so a default never outranks the manifest:
+
+```ts twoslash
+import { command, flag, wasExplicit } from '@kjanat/dreamcli';
+
+declare function readManifest(): { readonly outDir?: string; readonly minify?: boolean };
+// ---cut---
+command('build')
+  .flag('out', flag.string().default('dist'))
+  .flag('minify', flag.boolean().default(false))
+  .derive(({ flags, sources }) => {
+    const manifest = readManifest();
+    return {
+      outDir: wasExplicit(sources.flags.out) ? flags.out : manifest.outDir ?? flags.out,
+      minify: wasExplicit(sources.flags.minify) ? flags.minify : manifest.minify ?? flags.minify,
+    };
+  })
+  .action(({ ctx, out }) => out.info(`building into ${ctx.outDir}`));
+```
+
+Comparing against the default value would fail in exactly the case the check
+exists for, a user passing a value that happens to equal the default.
+
+### Diagnostics that name the stage
+
+An `--explain` mode wants the label rather than the boolean:
+
+```ts twoslash
+import { type ResolutionProvenance, command, flag } from '@kjanat/dreamcli';
+
+function describe(source: ResolutionProvenance | undefined): string {
+  if (source === undefined) return 'unset';
+  switch (source.stage) {
+    case 'cli':
+      return 'via' in source ? "the '-' you typed, read from stdin" : 'the command line';
+    case 'stdin':
+      return 'piped stdin';
+    case 'env':
+      return `the environment variable ${source.envVar}`;
+    case 'config':
+      return `the config key ${source.configPath}`;
+    case 'prompt':
+      return 'your prompt answer';
+    case 'default':
+      return 'the declared default';
+    default:
+      return source satisfies never;
+  }
+}
+
+command('deploy')
+  .flag('region', flag.string().env('REGION').config('deploy.region').default('us'))
+  .flag('explain', flag.boolean())
+  .action(({ flags, sources, out }) => {
+    if (flags.explain) out.info(`region came from ${describe(sources.flags.region)}`);
+  });
+```
+
+`ResolutionProvenance` is a closed union, so the `satisfies never` default arm
+makes a future stage a compile error rather than a silent fallthrough.
+
+### Other entry points
+
+`resolve()` returns the same records on `ResolveResult.provenance`, keyed by
+plain strings because it takes a `CommandSchema` rather than typed builders.
+`readFlags()` hands them to its `onSources` receiver, typed against the
+definitions record the caller passed:
+
+```ts twoslash
+import { flag, readFlags, wasExplicit } from '@kjanat/dreamcli';
+// ---cut---
+await readFlags(
+  { out: flag.string().env('OUT_DIR').default('dist') },
+  {
+    argv: [],
+    env: { OUT_DIR: 'build' },
+    onSources: (sources) => {
+      wasExplicit(sources.out); // true
+      sources.out?.stage; // 'env'
+    },
+  },
+);
+```
+
+Provenance describes what one invocation did, not what a schema declares, so no
+definition document carries it.
+
+## Diagnostics and Redaction
+
+One rule governs every resolution diagnostic on both surfaces: a value the user
+typed on the command line is quoted in full, and raw input from any other source
+is not shown. Diagnostics that otherwise quote the value replace it with
+`<redacted>`; JSON collection failures omit it entirely. This source-based rule
+is provisional;
+[#120](https://github.com/kjanat/dreamcli/issues/120) tracks replacing it with
+explicit sensitivity metadata.
+
+| Source  | Message quotes      | `details.value` | Reason                                  |
+| ------- | ------------------- | --------------- | --------------------------------------- |
+| argv    | the token, verbatim | present         | it is already on the user's screen      |
+| stdin   | `'<redacted>'`      | absent          | a pipe carries secrets                  |
+| env     | `'<redacted>'`      | absent          | an environment variable carries secrets |
+| config  | `'<redacted>'`      | absent          | a config file carries secrets           |
+| prompt  | `'<redacted>'`      | absent          | an answer may be a password             |
+| default | `'<redacted>'`      | absent          | a declared default may hold a secret    |
+
+An explicit `-` counts as a stdin value, not an argv one because the bytes came
+from the pipe rather than from the token.
+
+The rule reaches every diagnostic resolution produces, including the ones a
+later pass writes: a Standard Schema issue and a `flag.path()` / `arg.path()`
+filesystem check both quote `<redacted>` and omit `details.value` unless an
+argv token carried the value.
+
+```bash
+$ mycli deploy --token sk-live-9f2
+Invalid value 'sk-live-9f2' for flag --token: must be at least 9 characters
+
+$ API_TOKEN=sk-live-9f2 mycli deploy
+Invalid value '<redacted>' from env API_TOKEN for flag --token: must be at least 9 characters
+
+$ printf 'sk-live-9f2' | mycli deploy --token -
+Invalid value '<redacted>' from stdin for flag --token: must be at least 9 characters
+```
+
+The argument surface words the same failures with `for argument <token>` in
+place of `for flag --token`, and is otherwise byte for byte identical.
+
+Everything that identifies the failure survives redaction. `details` carries the
+input name under `flag` or `arg`, the winning source under `source`, the
+`envVar` or `configPath` that named it, the `expected` type, the `constraint`
+that failed with its `bound` or `pattern`, and the `allowed` enum values:
+
+```json
+{
+  "flag": "token",
+  "source": "env",
+  "envVar": "API_TOKEN",
+  "expected": "string",
+  "constraint": "minLength",
+  "bound": 9
+}
+```
+
+That `source` field is also what labels an issue inside an aggregate error:
+
+```
+Multiple validation errors (1 flag, 1 arg):
+  - flag --token [env API_TOKEN]: Invalid value '<redacted>' from env API_TOKEN for flag --token: must be at least 9 characters
+  - argument <count> [env COUNT]: Invalid number value '<redacted>' from env COUNT for argument <count>
+```
+
+A Standard Schema failure follows the same rule. Its `details` always carries
+`issues`, and carries `value` only for a value typed on the command line.
+
+Codes differ by source too, because a CLI token fails at the parse boundary and
+every other source fails during resolution. A malformed argv token throws
+`INVALID_VALUE`; the same text from env, config, stdin, or a prompt throws
+`TYPE_MISMATCH` when it does not decode, `INVALID_ENUM` when it is outside an
+enum, and `CONSTRAINT_VIOLATED` when it decodes but violates a constraint.
+
+One channel the framework cannot redact: the text your own code writes. A
+`flag.custom()` parse function's thrown message and a Standard Schema issue
+message are shown verbatim, so a parse function that interpolates its input
+publishes that input from every source:
+
+```ts
+flag.custom((v) => {
+  throw new Error(`bad input ${v}`); // reaches the diagnostic verbatim
+});
+```
+
+Write those messages so they describe the expectation rather than the value.
 
 ## Non-Interactive Behavior
 
 Prompting is conditional, not mandatory.
 
-- Prompts run only after CLI, env, and config resolution fail to provide a value.
+- Prompts run only after CLI, stdin, env, and config resolution fail to provide a value.
 - Prompts run only when a prompter is available.
 - In normal CLI execution, auto-prompting is enabled only when `stdinIsTTY` is `true`.
 - In non-interactive environments, prompt-backed values fall through to defaults or required-value

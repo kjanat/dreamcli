@@ -1,7 +1,9 @@
 # Migration And Adoption
 
 This page is for serious evaluators and adopters deciding whether to move an existing CLI onto
-dreamcli. Already on dreamcli 2.x? See [Upgrading From 2.x To 3.0](/guide/upgrading-v3) instead.
+dreamcli. Already on dreamcli 2.x? See [Upgrading From 2.x To 3.0](/guide/upgrading-v3) instead, then
+[Upgrading From 3.x To 4.0](/guide/upgrading-v4). Already on 3.x? Go straight to the
+[4.0 guide](/guide/upgrading-v4).
 
 Use it after [Getting Started](/guide/getting-started) and [Why dreamcli](/guide/why): those pages
 explain the shape of the framework; this page explains when switching is worth it and how to do it

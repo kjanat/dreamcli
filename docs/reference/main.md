@@ -33,6 +33,7 @@ import {
   parse,
   tokenize,
   resolve,
+  readFlags,
 } from '@kjanat/dreamcli';
 ```
 
@@ -93,9 +94,9 @@ cli('mycli')
 Source the CLI's `version` and `description` (and optionally its name) from a manifest file —
 `package.json`, `deno.json`, or `jsr.json`. There are two complementary forms.
 
-> `.packageJson()` and `.denoJson()` are **deprecated** thin presets over `.manifest()` (pinning
-> `files` to `['package.json']` and `['deno.json', 'deno.jsonc', 'jsr.json']` respectively). Prefer
-> `.manifest()`.
+> `.packageJson()` and `.denoJson()` were **removed in v4**. Use `.manifest()`: it defaults to
+> `files: ['package.json']`, and `.denoJson()` becomes
+> `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
 
 **Discovery (`settings`) form.** During `.run()`, dreamcli walks up from the current working
 directory and reads the nearest manifest among `files` (default `['package.json']`); the nearest
@@ -248,25 +249,47 @@ cli('mycli').plugin(tracePlugin).command(deploy);
 
 Flag factory with typed builders:
 
-| Factory                | Type                           | Default |
-| ---------------------- | ------------------------------ | ------- |
-| `flag.string()`        | `string \| undefined`          | —       |
-| `flag.number()`        | `number \| undefined`          | —       |
-| `flag.boolean()`       | `boolean`                      | `false` |
-| `flag.enum(values)`    | Union of values \| `undefined` | —       |
-| `flag.array(inner)`    | `T[]`                          | `[]`    |
-| `flag.custom(parseFn)` | Return type \| `undefined`     | —       |
+| Factory                | Type                            | Default |
+| ---------------------- | ------------------------------- | ------- |
+| `flag.string()`        | `string \| undefined`           | none    |
+| `flag.number()`        | `number \| undefined`           | none    |
+| `flag.boolean()`       | `boolean`                       | `false` |
+| `flag.enum(values)`    | Union of values \| `undefined`  | none    |
+| `flag.array(inner)`    | `T[]`                           | `[]`    |
+| `flag.custom(parseFn)` | Return type \| `undefined`      | none    |
+| `flag.url()`           | `URL \| undefined`              | none    |
+| `flag.path()`          | `string \| undefined`           | none    |
+| `flag.date()`          | `Date \| undefined`             | none    |
+| `flag.duration()`      | `number \| undefined` (ms)      | none    |
+| `flag.bytes()`         | `number \| undefined`           | none    |
+| `flag.count()`         | `number`                        | `0`     |
+| `flag.keyValue()`      | `Record<string, string>`        | `{}`    |
+
+See [Flags](/guide/flags#flag-types) for the option objects and constraints each
+kind accepts.
 
 ### `arg`
 
-Argument factory:
+Argument factory. Every kind is required unless `.optional()` or `.default()`
+says otherwise:
 
 | Factory               | Type                            |
 | --------------------- | ------------------------------- |
 | `arg.string()`        | `string`                        |
 | `arg.number()`        | `number`                        |
+| `arg.boolean()`       | `boolean`                       |
 | `arg.enum(values)`    | Union of provided string values |
 | `arg.custom(parseFn)` | Return type                     |
+| `arg.keyValue()`      | `Record<string, string>`        |
+| `arg.url()`           | `URL`                           |
+| `arg.path()`          | `string`                        |
+| `arg.date()`          | `Date`                          |
+| `arg.duration()`      | `number` (ms)                   |
+| `arg.bytes()`         | `number`                        |
+
+`array` and `count` are flag-only. `.variadic()` is the arg form of
+`flag.array()`, and a count has no positional meaning. See
+[What the arg factory does not have](/guide/arguments#flag-only-surface).
 
 ### `middleware<Context>(handler)`
 
@@ -414,6 +437,31 @@ Parse argv against a command schema, returning `ParseResult`.
 ### `resolve(schema, parseResult, options)`
 
 Resolve flag values through the resolution chain.
+
+### `readFlags(definitions, options?)`
+
+Evaluate a record of flag builders outside a CLI and return a
+`Promise<InferFlags<F>>` of the resolved values. It runs the same schema, parser, coercion,
+resolver, and validation a command runs, with no dispatch, output channel, help, or process exit. See
+[Standalone Flag Evaluation](/guide/read-flags).
+
+- `definitions`: `FlagMap`, a record of `FlagBuilder` values keyed by canonical flag name
+- `options`: `ReadFlagsOptions`, which extends `ResolveOptions` with `argv`, `adapter`, `parse`, and
+  `onDeprecation`
+
+```ts twoslash
+import { flag, readFlags } from '@kjanat/dreamcli';
+
+const options = await readFlags(
+  {
+    watch: flag.boolean().alias('w').env('WATCH'),
+    target: flag
+      .enum(['node', 'browser'])
+      .default('node'),
+  },
+  { argv: ['-w'], env: {} },
+);
+```
 
 ## Schema Export
 
@@ -564,7 +612,7 @@ const own = await discoverManifest(adapter, {
 });
 ```
 
-> `discoverPackageJson(adapter, startDir?)` is a **deprecated** alias that delegates to
+> `discoverPackageJson(adapter, startDir?)` was **removed in v4**. Use
 > `discoverManifest(adapter, { startDir, files: ['package.json'] })`.
 
 ### `inferCliName(pkg, options?)`

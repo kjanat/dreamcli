@@ -32,48 +32,55 @@ import {
 	resolveHyperlinkOverride,
 } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import { includesBeforeSeparator } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
+import type { schemaBrand } from '#internals/core/schema/brand.ts';
 import type {
-	AnyCommandBuilder,
 	CommandBuilder,
+	CommandDefinition,
 	CommandMeta,
 	CommandSchema,
-	ErasedCommand,
 	Out,
 } from '#internals/core/schema/command.ts';
-import { command } from '#internals/core/schema/command.ts';
+import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
-import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
-import type { RunOptions, RunResult } from '#internals/core/schema/run.ts';
-import { runCommand } from '#internals/core/testkit/index.ts';
+import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
+import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
+import type { Builtins, BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
+import { normalizeBuiltins } from './builtins.ts';
+import type { CompiledCLI } from './compiled.ts';
+import { assertNoSiblingRouteConflict, commandRoutes, compileCommand } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import type { OutputPolicy } from './planner.ts';
 import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
+import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
 import { formatRootHelp } from './root-help.ts';
+import {
+	readRootOutputFlags,
+	resolveRootJsonMode,
+	resolveRootVerbosity,
+} from './root-output-flags.ts';
 import { prepareRuntimePreflight } from './runtime-preflight.ts';
-
-// --- Type-erased command — erasure function (interface now in schema/command.ts)
 
 /** Long-flag name reserved by `.completions({ as: 'flag' })`; the planner intercepts it before dispatch. */
 const COMPLETIONS_FLAG_NAME = 'completions';
 
 /**
  * Whether a command — or any of its nested subcommands — declares a flag that
- * collides with the eager `--completions` flag, by canonical name or long alias.
+ * collides with the eager `--completions` flag, by canonical name, long alias,
+ * or negated spelling.
  *
  * @internal
  */
 function commandReservesCompletionsFlag(schema: CommandSchema): boolean {
 	if (Object.hasOwn(schema.flags, COMPLETIONS_FLAG_NAME)) return true;
-	for (const flagSchema of Object.values(schema.flags)) {
+	for (const [flagName, flagSchema] of Object.entries(schema.flags)) {
 		if (
 			getFlagAliasNames(flagSchema, { kind: 'long', includeHidden: true }).includes(
 				COMPLETIONS_FLAG_NAME,
@@ -81,6 +88,7 @@ function commandReservesCompletionsFlag(schema: CommandSchema): boolean {
 		) {
 			return true;
 		}
+		if (getFlagNegatedName(flagName, flagSchema) === COMPLETIONS_FLAG_NAME) return true;
 	}
 	return schema.commands.some(commandReservesCompletionsFlag);
 }
@@ -104,41 +112,17 @@ function assertNoCompletionsFlagCollision(schema: CommandSchema): void {
 	}
 }
 
-function commandRoutes(schema: CommandSchema): readonly string[] {
-	return [schema.name, ...schema.aliases];
-}
-
-function assertNoSiblingRouteConflict(
-	parentCommandName: string,
-	routeOwners: Map<string, string>,
-	route: string,
-	commandName: string,
-): void {
-	const owner = routeOwners.get(route);
-	if (owner !== undefined) {
-		throw new CLIError(
-			`Duplicate command route '${route}' under '${parentCommandName}' (${owner} and ${commandName})`,
-			{
-				code: 'DUPLICATE_COMMAND',
-				suggest: 'Ensure sibling command names and aliases are unique',
-			},
-		);
-	}
-
-	routeOwners.set(route, commandName);
-}
-
 function assertNoTopLevelRouteConflict(
-	commands: readonly ErasedCommand[],
+	commands: readonly CommandSchema[],
 	incoming: CommandSchema,
-	defaultCommand?: ErasedCommand | undefined,
+	defaultCommand?: CommandSchema | undefined,
 ): void {
 	const routeOwners = new Map<string, string>();
 
 	const existing = defaultCommand !== undefined ? [...commands, defaultCommand] : commands;
-	for (const command of existing) {
-		for (const route of commandRoutes(command.schema)) {
-			assertNoSiblingRouteConflict('root', routeOwners, route, command.schema.name);
+	for (const registered of existing) {
+		for (const route of commandRoutes(registered)) {
+			assertNoSiblingRouteConflict('root', routeOwners, route, registered.name);
 		}
 	}
 
@@ -158,56 +142,17 @@ function assertNoTopLevelRouteConflict(
 	}
 }
 
-/**
- * Erase a typed  {@linkcode CommandBuilder} into an {@linkcode ErasedCommand}, recursively
- * building the subcommand tree.
- *
- * The closure captures the fully-typed builder, so  {@linkcode runCommand()} receives
- * the original `CommandBuilder<F, A>` — no type assertions needed.\
- * Subcommands are recursively erased and indexed by name and alias for
- * O(1) lookup during dispatch.
- *
- * @internal
- */
-function eraseCommand<
-	F extends Record<string, FlagBuilder<FlagConfig>>,
-	A extends Record<string, ArgBuilder<ArgConfig>>,
-	C extends Record<string, unknown>,
->(cmd: CommandBuilder<F, A, C>): ErasedCommand {
-	// Recursively erase subcommands, keyed by name and alias.
-	const subcommands = new Map<string, ErasedCommand>();
-	const routeOwners = new Map<string, string>();
-	for (const sub of cmd._subcommands) {
-		const routes = commandRoutes(sub.schema);
-		for (const route of routes) {
-			assertNoSiblingRouteConflict(cmd.schema.name, routeOwners, route, sub.schema.name);
-		}
-
-		const erased = eraseCommand(sub);
-		for (const route of routes) {
-			subcommands.set(route, erased);
-		}
-	}
-
-	return {
-		schema: cmd.schema,
-		subcommands,
-		_command: cmd as unknown as AnyCommandBuilder,
-		_execute(argv, options) {
-			return runCommand(cmd, argv, options);
-		},
-	};
-}
-
 // --- CLI schema — runtime descriptor for the CLI program
 
 /**
  * Runtime descriptor for the CLI program.
  *
- * Stores the program name, version, description, and registered commands.\
- * Built incrementally by {@linkcode CLIBuilder}.
+ * Stores the program name, version, description, and registered command schemas.\
+ * Sealed by {@linkcode createCLISchema} and rebuilt by each {@linkcode CLIBuilder} step.
  */
 interface CLISchema {
+	/** Type-only seal produced by {@link createCLISchema}. */
+	readonly [schemaBrand]: 'cli';
 	/** Program name (used in help text, usage lines, and completion scripts). */
 	readonly name: string;
 	/**
@@ -220,18 +165,19 @@ interface CLISchema {
 	readonly version: string | undefined;
 	/** Program description (shown in root help). */
 	readonly description: string | undefined;
-	/** Registered commands (type-erased for heterogeneous storage). */
-	readonly commands: readonly ErasedCommand[];
+	/** Schemas of the registered commands, in registration order. */
+	readonly commands: readonly CommandSchema[];
 	/**
-	 * Default command dispatched when no subcommand matches.
+	 * Schema of the default command dispatched when no subcommand matches.
 	 *
 	 * When set, the CLI root behaves like a hybrid command group: subcommands
 	 * dispatch by name as usual, but empty argv or flags-only argv falls
 	 * through to this command instead of showing root help.
 	 *
-	 * Set via the {@linkcode CLIBuilder.default | .default()} builder method.
+	 * Set via the {@linkcode CLIBuilder.default | .default()} builder method
+	 * or the `defaultCommand` field of {@link CLIDefinition}.
 	 */
-	readonly defaultCommand: ErasedCommand | undefined;
+	readonly defaultCommand: CommandSchema | undefined;
 	/**
 	 * Whether the default command is also exposed as a named top-level route.
 	 *
@@ -254,9 +200,7 @@ interface CLISchema {
 	 * nearest manifest (`package.json`, `deno.json`, `jsr.json`, …) and merges
 	 * metadata before dispatch.
 	 *
-	 * Set via the {@linkcode CLIBuilder.manifest | .manifest()} builder method
-	 * (or the {@linkcode CLIBuilder.packageJson | .packageJson()} /
-	 * {@linkcode CLIBuilder.denoJson | .denoJson()} presets).
+	 * Set via the {@linkcode CLIBuilder.manifest | .manifest()} builder method.
 	 */
 	readonly packageJsonSettings: ResolvedManifestSettings | undefined;
 	/**
@@ -292,8 +236,58 @@ interface CLISchema {
 	 * Set via the `cli(name, { flags })` / `cli({ flags })` factory forms.
 	 */
 	readonly flagSettings: ParseOptions | undefined;
-	/** Registered CLI plugins. */
-	readonly plugins: readonly CLIPlugin[];
+	/**
+	 * Which built-in flags the root still owns.
+	 *
+	 * Every built-in starts `'on'`. Set via the
+	 * {@linkcode CLIBuilder.builtins | .builtins()} builder method or the
+	 * `builtins` field of {@link CLIDefinition}; a built-in set to `'off'`
+	 * releases its tokens to the commands.
+	 */
+	readonly builtins: Builtins;
+}
+
+/**
+ * Compiled execution graph per builder instance.
+ *
+ * Keyed weakly so handlers and execution steps stay off the public schema and
+ * out of the emitted declarations.
+ *
+ * @internal
+ */
+const compiledStates = new WeakMap<CLIBuilder, CompiledCLI>();
+
+/**
+ * Read the compiled state seeded by {@linkcode CLIBuilder._from}.
+ *
+ * @param builder - Builder to look up.
+ * @returns Its compiled execution graph.
+ * @throws {@linkcode CLIError} `INVALID_BUILDER_STATE` when the builder was not created by `cli()`.
+ *
+ * @internal
+ */
+function compiledStateOf(builder: CLIBuilder): CompiledCLI {
+	const compiled = compiledStates.get(builder);
+	if (compiled === undefined) {
+		throw new CLIError('CLI builder carries no compiled command graph', {
+			code: 'INVALID_BUILDER_STATE',
+			suggest: 'Create CLI builders with cli()',
+		});
+	}
+	return compiled;
+}
+
+/**
+ * Build the next builder in a chain, carrying the current compiled state.
+ *
+ * @param builder - Builder the chained call was made on.
+ * @param schema - Schema for the new builder.
+ * @returns The new builder.
+ *
+ * @internal
+ */
+function rebuild(builder: CLIBuilder, schema: CLISchema): CLIBuilder {
+	return CLIBuilder._from(schema, compiledStateOf(builder));
 }
 
 /**
@@ -301,7 +295,6 @@ interface CLISchema {
  *
  * Stored in {@link CLISchema} when `.completions({ as: 'flag' })` is used.
  *
- * @internal
  */
 interface CompletionsFlagConfig {
 	/** Shell targets the flag accepts (mirrors {@link SHELLS}). */
@@ -380,6 +373,8 @@ interface HelpConfig {
  * {@link discoverConfig} before dispatching to a command.
  */
 interface ConfigSettings {
+	/** Type-only seal produced by {@link createCLISchema}. */
+	readonly [schemaBrand]: 'config';
 	/**
 	 * Application name used to build config search paths.
 	 *
@@ -403,10 +398,9 @@ interface ConfigSettings {
  *
  * Note: the schema FIELD name (`packageJsonSettings`) keeps its `packageJson`
  * prefix for backward compatibility — renaming it would break consumers reading
- * `app.schema.packageJsonSettings`. The type itself is now generically named
- * (it holds discovery config for any manifest — `package.json`, `deno.json`,
- * `jsr.json`); the legacy {@link PackageJsonSettings} alias remains exported for
- * backward compatibility.
+ * `app.schema.packageJsonSettings`. The type itself is generically named (it
+ * holds discovery config for any manifest — `package.json`, `deno.json`,
+ * `jsr.json`).
  */
 interface ResolvedManifestSettings {
 	/**
@@ -440,7 +434,7 @@ interface ResolvedManifestSettings {
 	readonly from: string | undefined;
 	/**
 	 * Candidate manifest filenames, in per-directory priority order
-	 * (e.g. `['deno.json', 'deno.jsonc', 'jsr.json']` for `.denoJson()`).
+	 * (e.g. `['deno.json', 'deno.jsonc', 'jsr.json']` for a Deno CLI).
 	 */
 	readonly files: readonly string[];
 	/**
@@ -456,32 +450,285 @@ interface ResolvedManifestSettings {
 	readonly data: PackageJsonData | undefined;
 }
 
+// --- CLI definition — input shape accepted by createCLISchema
+
 /**
- * Resolved manifest discovery settings stored in {@link CLISchema}.
+ * Input shape for {@link CLISchema.configSettings}, accepted by
+ * {@link createCLISchema}.
  *
- * @deprecated Renamed to {@link ResolvedManifestSettings}. The stored shape
- *   holds generic manifest discovery config (`package.json`, `deno.json`,
- *   `jsr.json`), not just `package.json`; the misleading name is kept only for
- *   backward compatibility.
+ * Mirrors {@link ConfigSettings} with `loaders` optional.
  */
-type PackageJsonSettings = ResolvedManifestSettings;
+interface ConfigSettingsDefinition {
+	/** Application name used to build config search paths. */
+	readonly appName: string;
+	/**
+	 * Additional format loaders beyond the built-in JSON loader.
+	 * @defaultValue `undefined`
+	 */
+	readonly loaders?: readonly FormatLoader[] | undefined;
+}
+
+/**
+ * Input shape accepted by {@link createCLISchema}.
+ *
+ * Every field except `name` is optional. Commands accept either
+ * {@link CommandDefinition | definitions} or already-built
+ * {@link CommandSchema | schemas}. Plugins are execution state and have no
+ * definition field.
+ */
+interface CLIDefinition {
+	/** Program name used in help text, usage lines, and completion scripts. */
+	readonly name: string;
+	/**
+	 * Whether `.run()` should replace `name` with the invoked program name.
+	 * @defaultValue `false`
+	 */
+	readonly inheritName?: boolean | undefined;
+	/**
+	 * Program version shown by `--version`.
+	 * @defaultValue `undefined`
+	 */
+	readonly version?: string | undefined;
+	/**
+	 * Program description shown in root help.
+	 * @defaultValue `undefined`
+	 */
+	readonly description?: string | undefined;
+	/**
+	 * Whether the default command is also exposed as a named top-level route.
+	 * @defaultValue `false`
+	 */
+	readonly defaultCommandRouted?: boolean | undefined;
+	/**
+	 * Config discovery settings, as a definition or an already-built value.
+	 * @defaultValue `undefined`
+	 */
+	readonly configSettings?: ConfigSettingsDefinition | ConfigSettings | undefined;
+	/**
+	 * Manifest auto-discovery settings.
+	 * @defaultValue `undefined`
+	 */
+	readonly packageJsonSettings?: ResolvedManifestSettings | undefined;
+	/**
+	 * OSC 8 hyperlink targets for the root-help header.
+	 * @defaultValue `undefined`
+	 */
+	readonly helpLinks?: HelpLinks | undefined;
+	/**
+	 * Whether built-in `.completions()` registration is active.
+	 * @defaultValue `false`
+	 */
+	readonly hasBuiltInCompletions?: boolean | undefined;
+	/**
+	 * Eager `--completions <shell>` flag configuration.
+	 * @defaultValue `undefined`
+	 */
+	readonly completionsFlag?: CompletionsFlagConfig | undefined;
+	/**
+	 * Consumer-configured root-help defaults.
+	 * @defaultValue `undefined`
+	 */
+	readonly helpConfig?: HelpConfig | undefined;
+	/**
+	 * Flag-parsing behavior settings.
+	 * @defaultValue `undefined`
+	 */
+	readonly flagSettings?: ParseOptions | undefined;
+	/**
+	 * Which built-in flags the root keeps.
+	 * @defaultValue every built-in `'on'`
+	 */
+	readonly builtins?: BuiltinsConfig | undefined;
+	/**
+	 * Registered command definitions or built schemas, in registration order.
+	 * @defaultValue `[]`
+	 */
+	readonly commands?: readonly (CommandDefinition | CommandSchema)[] | undefined;
+	/**
+	 * Default command dispatched when no subcommand matches.
+	 * @defaultValue `undefined`
+	 */
+	readonly defaultCommand?: CommandDefinition | CommandSchema | undefined;
+}
+
+/**
+ * {@link ConfigSettings} before the type-only seal is applied.
+ *
+ * @internal
+ */
+type ConfigSettingsDraft = Omit<ConfigSettings, typeof schemaBrand>;
+
+/**
+ * {@link CLISchema} before the type-only seals are applied, at the CLI level
+ * and on the nested config settings.
+ *
+ * @internal
+ */
+type CLISchemaDraft = Omit<CLISchema, typeof schemaBrand | 'configSettings' | 'builtins'> & {
+	readonly configSettings: ConfigSettingsDraft | undefined;
+	readonly builtins: BuiltinsDraft;
+};
+
+/**
+ * Apply the type-only seal to a fully populated CLI schema draft.
+ *
+ * The brand has no runtime value, so this is the single construction path for
+ * {@link CLISchema}, {@link ConfigSettings}, and {@link Builtins} values in
+ * this module.
+ *
+ * @param draft - Draft carrying every schema field.
+ * @returns The sealed schema.
+ *
+ * @internal
+ */
+function sealCLISchema(draft: CLISchemaDraft): CLISchema {
+	return draft as CLISchema;
+}
+
+/**
+ * Merge definition fields onto the {@link CLISchema} defaults.
+ *
+ * @param definition - CLI definition with the name already validated.
+ * @returns A fully populated {@link CLISchema}.
+ *
+ * @internal
+ */
+function buildCLISchema(definition: CLIDefinition): CLISchema {
+	const configSettings = definition.configSettings;
+	return sealCLISchema({
+		name: definition.name,
+		inheritName: definition.inheritName ?? false,
+		version: definition.version,
+		description: definition.description,
+		commands: (definition.commands ?? []).map((child) => createCommandSchema(child)),
+		defaultCommand:
+			definition.defaultCommand !== undefined
+				? createCommandSchema(definition.defaultCommand)
+				: undefined,
+		defaultCommandRouted: definition.defaultCommandRouted ?? false,
+		configSettings:
+			configSettings !== undefined
+				? { appName: configSettings.appName, loaders: configSettings.loaders }
+				: undefined,
+		packageJsonSettings: definition.packageJsonSettings,
+		helpLinks: definition.helpLinks,
+		hasBuiltInCompletions: definition.hasBuiltInCompletions ?? false,
+		completionsFlag: definition.completionsFlag,
+		helpConfig: definition.helpConfig,
+		flagSettings: definition.flagSettings,
+		builtins: normalizeBuiltins(definition.builtins),
+	});
+}
+
+/**
+ * Create a {@link CLISchema} from a plain definition object.
+ *
+ * Most consumers should prefer {@link cli | cli()}, which returns a
+ * {@link CLIBuilder} carrying the execution graph. `createCLISchema()` builds a
+ * description only: it normalizes commands recursively through
+ * {@link createCommandSchema}, so handlers and execution steps are not part of
+ * the result and the schema cannot be executed.
+ *
+ * Feeding a built schema back in produces a deep-equal schema.
+ *
+ * @param definition - Program name plus optional metadata and commands.
+ * @returns A fully populated {@link CLISchema}.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when the program name is
+ *   empty, a `builtins` entry is neither `'on'` nor `'off'`, a command name at
+ *   any depth is empty, a flag or arg at any depth is named `__proto__`, or a
+ *   flag record at any depth has a replaced prototype.
+ * @throws {CLIError} With code `'FLAG_NAME_COLLISION'` when two flags on one
+ *   command share a spelling, at any depth of the command tree.
+ * @throws {CLIError} With code `'PROPAGATED_FLAG_COLLISION'` when a command flag
+ *   shadows a spelling propagated from an ancestor command.
+ * @throws {CLIError} With code `'INVALID_BUILDER_STATE'` when a positional comes
+ *   after a variadic one, or `'DUPLICATE_STDIN_INPUT'` when two inputs on one
+ *   command consume stdin and either is exclusive.
+ * @throws {CLIError} With code `'RESERVED_FLAG'` when a command spells a flag
+ *   the same way as a root-owned flag (`--json`, `--quiet`/`-q`, `--help`/`-h`,
+ *   `--version`/`-V` once `version` is set, and `--completions` once
+ *   `completionsFlag` is set), by name, alias, or negated spelling. A built-in
+ *   set to `'off'` in `builtins` is not reserved.
+ *
+ * @example
+ * ```ts
+ * const schema = createCLISchema({
+ *   name: 'mycli',
+ *   version: '1.0.0',
+ *   commands: [{ name: 'deploy', flags: { force: { kind: 'boolean' } } }],
+ * });
+ * ```
+ */
+function createCLISchema(definition: CLIDefinition): CLISchema {
+	if (definition.name === '') {
+		throw new CLIError('CLI schema requires a non-empty name', {
+			code: 'INVALID_SCHEMA',
+			details: { name: definition.name },
+			suggest: 'Pass a program name such as { name: "mycli" }',
+		});
+	}
+
+	const schema = buildCLISchema(definition);
+	const registered: CommandSchema[] = [];
+	for (const commandSchema of schema.commands) {
+		assertNoTopLevelRouteConflict(registered, commandSchema);
+		registered.push(commandSchema);
+	}
+	const defaultIsRegisteredCommand =
+		definition.defaultCommand !== undefined &&
+		definition.commands?.includes(definition.defaultCommand) === true;
+	if (schema.defaultCommand !== undefined && !defaultIsRegisteredCommand) {
+		assertNoTopLevelRouteConflict(registered, schema.defaultCommand);
+	}
+	const allCommands = [schema.defaultCommand, ...schema.commands];
+	assertNoReservedFlagCollisions(schema.version, allCommands, schema.builtins);
+	if (schema.completionsFlag !== undefined) {
+		for (const cmd of allCommands) {
+			if (cmd !== undefined) assertNoCompletionsFlagCollision(cmd);
+		}
+	}
+	return schema;
+}
 
 // --- Options for execute/run
 
 /**
- * Options for {@linkcode CLIBuilder.execute | .execute()} and {@linkcode CLIBuilder.run | .run()}.
+ * Options for {@linkcode CLIBuilder.execute | .execute()}, the process-free
+ * execution surface.
  *
- * Derives from {@linkcode RunOptions} while excluding command-execution internals
- * (`meta`, `mergedSchema`) and adding the CLI-level runtime adapter.
+ * Derives from {@linkcode RunOptions} with every input injected explicitly.
  */
-interface CLIRunOptions extends Omit<RunOptions, 'meta' | 'mergedSchema'> {
+interface CLIExecuteOptions extends RunOptions {}
+
+/**
+ * Options for {@linkcode CLIBuilder.run | .run()}.
+ *
+ * Derives from {@linkcode CLIExecuteOptions}, adding the CLI-level runtime adapter.
+ */
+interface CLIRunOptions extends CLIExecuteOptions {
 	/**
 	 * Runtime adapter providing platform-specific I/O, argv, env, etc.
 	 *
-	 * When provided to `.run()`, replaces the default Node adapter.
-	 * Ignored by `.execute()` (which is process-free by design).
+	 * Replaces the default Node adapter.
 	 */
 	readonly adapter?: RuntimeAdapter;
+}
+
+/**
+ * CLI execution options extended with the fields `.run()` and dispatch
+ * populate themselves.
+ *
+ * @internal
+ */
+interface InternalCLIExecuteOptions extends CLIExecuteOptions {
+	/** Output channel override so activity renders to the terminal. */
+	readonly out?: Out;
+	/** Capture buffers override paired with `out`. */
+	readonly captured?: CapturedOutput;
+	/** CLI plugins registered on the builder. */
+	readonly plugins?: readonly CLIPlugin[];
+	/** Built-in flag state from the schema, threaded to the command executor. */
+	readonly builtins?: BuiltinsConfig;
 }
 
 // --- Render context
@@ -499,11 +746,20 @@ interface RenderContextOptions {
 	 */
 	readonly isTTY?: boolean;
 	/**
-	 * Force JSON mode on regardless of argv.
+	 * JSON mode when argv carries no root `--json`. An explicit `--json=false`
+	 * in argv wins over this.
 	 *
 	 * @defaultValue detected from a pre-separator `--json` in `argv`
 	 */
 	readonly jsonMode?: boolean;
+	/**
+	 * Output verbosity when argv carries no root `--quiet`/`-q`. An explicit
+	 * `--quiet=false` in argv wins over this.
+	 *
+	 * @defaultValue detected from a pre-separator `--quiet`/`-q` in `argv`,
+	 *   otherwise `'normal'`
+	 */
+	readonly verbosity?: Verbosity;
 	/**
 	 * Explicitly enable or disable colors, winning over the auto-gate.
 	 *
@@ -517,15 +773,39 @@ interface RenderContextOptions {
 	 * @defaultValue `{}`
 	 */
 	readonly env?: Readonly<Record<string, string | undefined>>;
+	/**
+	 * Which built-in flags the CLI still owns, matching its
+	 * {@linkcode CLIBuilder.builtins | .builtins()} call. A built-in set to
+	 * `'off'` is not read out of `argv` here either.
+	 *
+	 * @defaultValue every built-in `'on'`
+	 */
+	readonly builtins?: BuiltinsConfig;
 }
+
+/**
+ * Seals {@linkcode RenderContext} against structural construction outside the
+ * framework.
+ *
+ * @internal
+ */
+const renderContextBrand: unique symbol = Symbol('dreamcli.renderContext');
 
 /**
  * The output decisions the framework will make for a given argv, resolved
  * before `.run()`.
+ *
+ * `RenderContext` is a framework-created, non-exhaustive value: obtain
+ * instances from {@linkcode resolveRenderContext} — do not implement it. New
+ * readonly members may be added in minor releases.
  */
 interface RenderContext {
+	/** Framework-construction seal. Obtain values from `resolveRenderContext()`; do not implement this interface. */
+	readonly [renderContextBrand]: never;
 	/** Whether a pre-separator `--json` puts the run in JSON mode. */
 	readonly jsonMode: boolean;
+	/** Active verbosity after pre-separator `--quiet`/`-q` detection. */
+	readonly verbosity: Verbosity;
 	/** The TTY status the output channel will carry. */
 	readonly isTTY: boolean;
 	/**
@@ -536,6 +816,29 @@ interface RenderContext {
 	readonly color: Colors;
 	/** Whether OSC 8 hyperlinks should be emitted (see `out.isHyperlinkSupported`). */
 	readonly isHyperlinkSupported: boolean;
+}
+
+/**
+ * Concrete {@linkcode RenderContext} carrying the resolved output decisions.
+ *
+ * @internal
+ */
+class ResolvedRenderContext implements RenderContext {
+	declare readonly [renderContextBrand]: never;
+
+	readonly jsonMode: boolean;
+	readonly verbosity: Verbosity;
+	readonly isTTY: boolean;
+	readonly color: Colors;
+	readonly isHyperlinkSupported: boolean;
+
+	constructor(out: Out) {
+		this.jsonMode = out.jsonMode;
+		this.verbosity = out.verbosity;
+		this.isTTY = out.isTTY;
+		this.color = out.color;
+		this.isHyperlinkSupported = out.isHyperlinkSupported;
+	}
 }
 
 /**
@@ -567,19 +870,17 @@ function resolveRenderContext(
 	argv: readonly string[],
 	options?: RenderContextOptions,
 ): RenderContext {
-	const jsonMode = includesBeforeSeparator(argv, '--json') || options?.jsonMode === true;
+	const rootOutputFlags = readRootOutputFlags(argv, options?.builtins);
+	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
+	const verbosity = resolveRootVerbosity(rootOutputFlags, options?.verbosity) ?? 'normal';
 	const out = createOutput({
 		jsonMode,
 		isTTY: options?.isTTY ?? false,
+		verbosity,
 		...(options?.color !== undefined ? { color: options.color } : {}),
 		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
 	});
-	return {
-		jsonMode: out.jsonMode,
-		isTTY: out.isTTY,
-		color: out.color,
-		isHyperlinkSupported: out.isHyperlinkSupported,
-	};
+	return new ResolvedRenderContext(out);
 }
 
 // --- Command run options builder
@@ -596,25 +897,26 @@ function hyperlinksOption(override: boolean | undefined): { hyperlinks?: boolean
 }
 
 /**
- * Build {@linkcode RunOptions} from {@linkcode CLIRunOptions}, conditionally spreading each
+ * Build {@linkcode RunOptions} from {@linkcode CLIExecuteOptions}, conditionally spreading each
  * field to satisfy `exactOptionalPropertyTypes`.
  *
  * @param options - CLI-level run options (may be `undefined` for defaults).
  * @param helpOptions - Help formatting options forwarded to commands.
  * @param meta - Optional command metadata (omitted for root-level dispatch).
- * @returns Options record ready for {@linkcode ErasedCommand._execute | ErasedCommand._execute()}.
+ * @returns Options record ready for the shared executor.
  *
  * @internal
  */
 function buildCommandRunOptions(
-	options: CLIRunOptions | undefined,
+	options: InternalCLIExecuteOptions | undefined,
 	helpOptions: HelpOptions,
 	meta?: CommandMeta,
-): RunOptions {
+): InternalRunOptions {
 	return {
 		help: helpOptions,
 		...(meta !== undefined ? { meta } : {}),
 		...(options?.plugins !== undefined ? { plugins: options.plugins } : {}),
+		...(options?.builtins !== undefined ? { builtins: options.builtins } : {}),
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
@@ -688,9 +990,23 @@ class CLIBuilder {
 	/** @internal Runtime schema descriptor. */
 	readonly schema: CLISchema;
 
-	/** Build a CLIBuilder from a pre-constructed schema descriptor. */
-	constructor(schema: CLISchema) {
+	private constructor(schema: CLISchema) {
 		this.schema = schema;
+	}
+
+	/**
+	 * Build a CLI builder around a schema and its compiled execution graph.
+	 *
+	 * @param schema - Runtime schema descriptor.
+	 * @param compiled - Compiled commands, default command, and plugins.
+	 * @returns The builder, with its compiled state registered.
+	 *
+	 * @internal
+	 */
+	static _from(schema: CLISchema, compiled: CompiledCLI): CLIBuilder {
+		const builder = new CLIBuilder(schema);
+		compiledStates.set(builder, compiled);
+		return builder;
 	}
 
 	// -- Metadata modifiers --------------------------------------------------
@@ -698,11 +1014,76 @@ class CLIBuilder {
 	/**
 	 * Set the program version (shown by `--version`).
 	 *
+	 * Declaring a version also reserves `--version`/`-V` on every registered
+	 * command, so this rejects a command that already declares either spelling.
+	 *
 	 * @param v - Semantic version string.
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command spells
+	 *   `--version` or `-V` as a flag name, an alias, or a negated spelling.
 	 */
 	version(v: string): CLIBuilder {
-		return new CLIBuilder({ ...this.schema, version: v });
+		assertNoReservedFlagCollisions(
+			v,
+			[this.schema.defaultCommand, ...this.schema.commands],
+			this.schema.builtins,
+		);
+		return rebuild(this, { ...this.schema, version: v });
+	}
+
+	/**
+	 * Choose which built-in flags the root keeps.
+	 *
+	 * `--help`/`-h`, `--json`, and `--quiet`/`-q` are root-owned by default and
+	 * never reach a command handler. Setting one to `'off'` releases every
+	 * spelling it answers to: the root stops reading it out of argv, root help
+	 * stops advertising it under `Global options:`, and a command may declare it
+	 * as an ordinary flag. `RunOptions.jsonMode` and `RunOptions.verbosity`
+	 * keep working either way, since only argv-driven activation is disabled.
+	 *
+	 * `version` and `completions` are absent by design, since `.version()` and
+	 * `.completions()` are opt-in and a CLI declines those by omission.
+	 *
+	 * Call multiple times to set built-ins incrementally; the last mode given for
+	 * a built-in wins. Turning one back `'on'` re-checks every registered command
+	 * for a collision. Call this **before** registering the commands that declare
+	 * a released flag, since `.command()` rejects the flag while the root still
+	 * owns the token.
+	 *
+	 * @param config - Built-in modes to apply over the current state.
+	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `INVALID_SCHEMA` when a value is neither `'on'` nor `'off'`.
+	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command already
+	 *   declares a flag spelled like a built-in this call keeps or restores.
+	 * @see {@link BuiltinsConfig} for the accepted keys and modes.
+	 * @see https://dreamcli.kjanat.dev/guide/output#taking-a-built-in-over
+	 *
+	 * @example
+	 * ```ts
+	 * // `--json` names the document the command validates.
+	 * cli('schematool')
+	 *   .builtins({ json: 'off' })
+	 *   .default(
+	 *     command('validate')
+	 *       .flag('json', flag.string().describe('Document to validate'))
+	 *       .action(({ flags, out }) => out.log(flags.json)),
+	 *   )
+	 *   .run();
+	 * ```
+	 */
+	builtins(config: BuiltinsConfig): CLIBuilder {
+		const definedConfig: BuiltinsConfig = {
+			...(config.help !== undefined ? { help: config.help } : {}),
+			...(config.json !== undefined ? { json: config.json } : {}),
+			...(config.quiet !== undefined ? { quiet: config.quiet } : {}),
+		};
+		const builtins = normalizeBuiltins({ ...this.schema.builtins, ...definedConfig });
+		assertNoReservedFlagCollisions(
+			this.schema.version,
+			[this.schema.defaultCommand, ...this.schema.commands],
+			builtins,
+		);
+		return rebuild(this, sealCLISchema({ ...this.schema, builtins }));
 	}
 
 	/**
@@ -712,7 +1093,7 @@ class CLIBuilder {
 	 * @returns The builder (for chaining).
 	 */
 	description(text: string): CLIBuilder {
-		return new CLIBuilder({ ...this.schema, description: text });
+		return rebuild(this, { ...this.schema, description: text });
 	}
 
 	/**
@@ -754,7 +1135,7 @@ class CLIBuilder {
 	 * ```
 	 */
 	links(links?: { readonly name?: string | URL; readonly version?: string | URL }): CLIBuilder {
-		return new CLIBuilder({
+		return rebuild(this, {
 			...this.schema,
 			helpLinks: {
 				name: toUrlString(links?.name),
@@ -782,7 +1163,7 @@ class CLIBuilder {
 	 * ```
 	 */
 	help(config: HelpConfig): CLIBuilder {
-		return new CLIBuilder({
+		return rebuild(this, {
 			...this.schema,
 			helpConfig: { ...this.schema.helpConfig, ...config },
 		});
@@ -816,13 +1197,16 @@ class CLIBuilder {
 	 * @returns The builder (for chaining).
 	 */
 	config(appName: string, loaders?: readonly FormatLoader[]): CLIBuilder {
-		return new CLIBuilder({
-			...this.schema,
-			configSettings: {
-				appName,
-				loaders,
-			},
-		});
+		return rebuild(
+			this,
+			sealCLISchema({
+				...this.schema,
+				configSettings: {
+					appName,
+					loaders,
+				},
+			}),
+		);
 	}
 
 	/**
@@ -869,13 +1253,16 @@ class CLIBuilder {
 			});
 		}
 		const existing = this.schema.configSettings.loaders ?? [];
-		return new CLIBuilder({
-			...this.schema,
-			configSettings: {
-				...this.schema.configSettings,
-				loaders: [...existing, loader],
-			},
-		});
+		return rebuild(
+			this,
+			sealCLISchema({
+				...this.schema,
+				configSettings: {
+					...this.schema.configSettings,
+					loaders: [...existing, loader],
+				},
+			}),
+		);
 	}
 
 	/**
@@ -897,6 +1284,9 @@ class CLIBuilder {
 	 * or a settings-shaped object falls through to the settings overload.
 	 *
 	 * @param data - Pre-loaded manifest metadata.
+	 * @throws {@link CLIError} `RESERVED_FLAG` when the data carries a version and
+	 *   a registered command spells `--version` or `-V` as a flag name, an alias,
+	 *   or a negated spelling.
 	 *
 	 * @example
 	 * ```ts
@@ -925,6 +1315,13 @@ class CLIBuilder {
 	 *
 	 * Has no effect in `.execute()` (filesystem-free) — use the data overload.
 	 *
+	 * A discovered version lands at `.run()` time, past every build-time check, so
+	 * the `RESERVED_FLAG` guard re-runs there. A registered command that spells
+	 * `--version` or `-V` as a flag name, an alias, or a negated spelling then fails
+	 * startup, writing the error and its suggestion to stderr (a JSON error envelope
+	 * on stdout under `--json`) and exiting with the error's exit code instead of
+	 * throwing.
+	 *
 	 * @param settings - Optional settings:
 	 *   - `files`: candidate manifest filenames in priority order
 	 *     (default `['package.json']`).
@@ -951,60 +1348,13 @@ class CLIBuilder {
 	 */
 	manifest(settings?: ManifestSettings): CLIBuilder;
 	manifest(input?: PackageJsonData | ManifestSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, false));
-	}
-
-	/**
-	 * Discover metadata from `package.json` (preset for {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use {@link CLIBuilder.manifest} — `.manifest()` defaults to
-	 *   `package.json` and also supports `deno.json` / `jsr.json` via `files`.
-	 *
-	 * @param data - Pre-loaded `package.json` metadata.
-	 */
-	packageJson(data: PackageJsonData): CLIBuilder;
-	/**
-	 * Discover metadata from `package.json` (preset for {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use {@link CLIBuilder.manifest}.
-	 *
-	 * @param settings - `inferName` / `from` (see {@link CLIBuilder.manifest}).
-	 */
-	packageJson(settings?: ManifestPresetSettings): CLIBuilder;
-	packageJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES, true));
-	}
-
-	/**
-	 * Discover metadata from `deno.json`, `deno.jsonc`, then `jsr.json` (preset for
-	 * {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
-	 *
-	 * @param data - Pre-loaded `deno.json` / `jsr.json` metadata.
-	 */
-	denoJson(data: PackageJsonData): CLIBuilder;
-	/**
-	 * Discover metadata from `deno.json`, `deno.jsonc`, then `jsr.json` (preset for
-	 * {@link CLIBuilder.manifest}).
-	 *
-	 * @deprecated Use `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'] })`.
-	 *
-	 * @param settings - `inferName` / `from` (see {@link CLIBuilder.manifest}).
-	 *   `deno.json` / `jsr.json` have no `bin` field, so `inferName` resolves
-	 *   from `name`; pass `{ scope: 'keep' }` to retain a leading `@scope/`.
-	 *
-	 * @example
-	 * ```ts
-	 * cli('mycli')
-	 *   .denoJson({ from: import.meta.url })
-	 *   .command(deploy)
-	 *   .run();
-	 * ```
-	 */
-	denoJson(settings?: ManifestPresetSettings): CLIBuilder;
-	denoJson(input?: PackageJsonData | ManifestPresetSettings): CLIBuilder {
-		return new CLIBuilder(buildManifestSchema(this.schema, input, DENO_MANIFEST_FILES, true));
+		const next = buildManifestSchema(this.schema, input, DEFAULT_MANIFEST_FILES);
+		assertNoReservedFlagCollisions(
+			next.version,
+			[next.defaultCommand, ...next.commands],
+			next.builtins,
+		);
+		return rebuild(this, next);
 	}
 
 	// -- Command registration ------------------------------------------------
@@ -1012,12 +1362,17 @@ class CLIBuilder {
 	/**
 	 * Register a command with the CLI program.
 	 *
-	 * The command's type parameters are erased for heterogeneous storage.
-	 * Type safety is preserved inside the closure that delegates to
-	 * {@linkcode runCommand | runCommand()}.
+	 * The command's schema joins {@link CLISchema.commands}; its handler and
+	 * subcommand tree are compiled into the builder's execution graph.
 	 *
 	 * @param cmd - {@link CommandBuilder} to register.
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
+	 *   nested subcommands, spells a root-owned flag (`--json`, `--quiet`/`-q`,
+	 *   `--help`/`-h`, and `--version`/`-V` once
+	 *   {@link CLIBuilder.version | .version()} is set) as a flag name, an alias,
+	 *   or a negated spelling. A built-in released through
+	 *   {@link CLIBuilder.builtins | .builtins()} is not reserved.
 	 */
 	command<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1025,14 +1380,22 @@ class CLIBuilder {
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema, this.schema.defaultCommand);
+		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema], this.schema.builtins);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
 
-		return new CLIBuilder({
-			...this.schema,
-			commands: [...this.schema.commands, eraseCommand(cmd)],
-		});
+		const compiled = compiledStateOf(this);
+		return CLIBuilder._from(
+			{
+				...this.schema,
+				commands: [...this.schema.commands, cmd.schema],
+			},
+			{
+				...compiled,
+				commands: [...compiled.commands, compileCommand(cmd)],
+			},
+		);
 	}
 
 	/**
@@ -1083,6 +1446,12 @@ class CLIBuilder {
 	 * @param options - Default-command options. `{ route: true }` also exposes
 	 *   the command under its own name (see {@link DefaultCommandOptions}).
 	 * @returns The builder (for chaining).
+	 * @throws {@link CLIError} `RESERVED_FLAG` when the command, or one of its
+	 *   nested subcommands, spells a root-owned flag (`--json`, `--quiet`/`-q`,
+	 *   `--help`/`-h`, and `--version`/`-V` once
+	 *   {@link CLIBuilder.version | .version()} is set) as a flag name, an alias,
+	 *   or a negated spelling. A built-in released through
+	 *   {@link CLIBuilder.builtins | .builtins()} is not reserved.
 	 */
 	default<
 		F extends Record<string, FlagBuilder<FlagConfig>>,
@@ -1097,16 +1466,23 @@ class CLIBuilder {
 		}
 
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
+		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema], this.schema.builtins);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
 
-		const erased = eraseCommand(cmd);
-		return new CLIBuilder({
-			...this.schema,
-			defaultCommand: erased,
-			defaultCommandRouted: options?.route ?? false,
-		});
+		const compiled = compiledStateOf(this);
+		return CLIBuilder._from(
+			{
+				...this.schema,
+				defaultCommand: cmd.schema,
+				defaultCommandRouted: options?.route ?? false,
+			},
+			{
+				...compiled,
+				defaultCommand: compileCommand(cmd),
+			},
+		);
 	}
 
 	/**
@@ -1120,9 +1496,10 @@ class CLIBuilder {
 	 * @see {@link plugin} to construct plugin definitions.
 	 */
 	plugin(definition: CLIPlugin): CLIBuilder {
-		return new CLIBuilder({
-			...this.schema,
-			plugins: [...this.schema.plugins, definition],
+		const compiled = compiledStateOf(this);
+		return CLIBuilder._from(this.schema, {
+			...compiled,
+			plugins: [...compiled.plugins, definition],
 		});
 	}
 
@@ -1177,12 +1554,12 @@ class CLIBuilder {
 			// The planner intercepts `--completions` before dispatch, so no command
 			// may already reserve that flag name.
 			if (this.schema.defaultCommand !== undefined) {
-				assertNoCompletionsFlagCollision(this.schema.defaultCommand.schema);
+				assertNoCompletionsFlagCollision(this.schema.defaultCommand);
 			}
 			for (const registered of this.schema.commands) {
-				assertNoCompletionsFlagCollision(registered.schema);
+				assertNoCompletionsFlagCollision(registered);
 			}
-			return new CLIBuilder({
+			return rebuild(this, {
 				...this.schema,
 				hasBuiltInCompletions: true,
 				completionsFlag: { shells: SHELLS, options },
@@ -1225,7 +1602,7 @@ class CLIBuilder {
 			});
 
 		const withCompletions = this.command(cmd);
-		return new CLIBuilder({
+		return rebuild(withCompletions, {
 			...withCompletions.schema,
 			hasBuiltInCompletions: true,
 		});
@@ -1244,173 +1621,8 @@ class CLIBuilder {
 	 * @param options - Injectable runtime state.
 	 * @returns Structured result with exit code and captured output.
 	 */
-	async execute(argv: readonly string[], options?: CLIRunOptions): Promise<RunResult> {
-		// -- Detect global --json / --quiet before building output ----------------
-		// Only occurrences before the `--` separator count; a literal positional
-		// (after `--`) must reach the command unchanged (#28).
-		const hasJsonFlag = includesBeforeSeparator(argv, '--json');
-		const jsonMode = hasJsonFlag || options?.jsonMode === true;
-		const hasQuietFlag =
-			includesBeforeSeparator(argv, '--quiet') || includesBeforeSeparator(argv, '-q');
-		const verbosity: Verbosity | undefined = hasQuietFlag ? 'quiet' : options?.verbosity;
-
-		const captureOptions = {
-			...(verbosity !== undefined ? { verbosity } : {}),
-			...(jsonMode ? { jsonMode } : {}),
-			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
-			...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
-		};
-		let out: Out;
-		let captured: CapturedOutput;
-		if (options?.out !== undefined) {
-			out = options.out;
-			captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
-		} else {
-			[out, captured] = createCaptureOutput(
-				Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
-			);
-		}
-		clearRequestedExitCode(out);
-
-		// Resolve help options — builder-level `.help()` config under runtime
-		// `options.help` (runtime wins), then default binName to the CLI program
-		// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
-		// FORCE_HYPERLINKS honored, else TTY), and colors to the output
-		// channel's gated palette (escapes never leak into piped output).
-		const resolvedVersion = options?.help?.version ?? this.schema.version;
-		const helpOptions: HelpOptions = {
-			...this.schema.helpConfig,
-			...options?.help,
-			binName: options?.help?.binName ?? this.schema.name,
-			hyperlinks:
-				options?.help?.hyperlinks ?? this.schema.helpConfig?.hyperlinks ?? out.isHyperlinkSupported,
-			colors: options?.help?.colors ?? out.color,
-			...(resolvedVersion !== undefined ? { version: resolvedVersion } : {}),
-		};
-
-		// -- Shared options for command execution ----------------------------------
-		const flagSettings = options?.flags ?? this.schema.flagSettings;
-		const effectiveOptions: CLIRunOptions = {
-			...options,
-			plugins: this.schema.plugins,
-			...(jsonMode ? { jsonMode } : {}),
-			...(verbosity !== undefined ? { verbosity } : {}),
-			...(flagSettings !== undefined ? { flags: flagSettings } : {}),
-		};
-		const output: OutputPolicy = {
-			jsonMode,
-			isTTY: out.isTTY,
-			verbosity: verbosity ?? 'normal',
-		};
-		// The planner scans flag arity during dispatch, so it must see the same
-		// merged flag settings (runtime override wins) that command parsing uses.
-		const planSchema =
-			options?.flags !== undefined ? { ...this.schema, flagSettings } : this.schema;
-		const planned = planInvocation({
-			schema: planSchema,
-			argv,
-			help: helpOptions,
-			output,
-		});
-
-		switch (planned.kind) {
-			case 'root-version':
-				out.log(planned.version);
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-
-			case 'root-completions': {
-				const shell = planned.shell ?? detectShell(options?.env ?? {});
-				if (shell === undefined) {
-					const error = new CLIError('Could not detect shell', {
-						code: 'MISSING_VALUE',
-						suggest: `Pass one explicitly, e.g. '${helpOptions.binName} --completions zsh'`,
-					});
-					if (jsonMode) {
-						out.json({ error: error.toJSON() });
-					} else {
-						out.error(error.message);
-						out.error(`Suggestion: ${error.suggest}`);
-					}
-					return buildRunResult({ exitCode: error.exitCode, error }, captured);
-				}
-				const completionSchema =
-					helpOptions.binName === undefined || helpOptions.binName === this.schema.name
-						? this.schema
-						: { ...this.schema, name: helpOptions.binName };
-				const script = generateCompletion(completionSchema, shell, planned.options);
-				if (jsonMode) {
-					out.json({ shell, script });
-				} else {
-					out.log(script);
-				}
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-			}
-
-			case 'root-help': {
-				if (jsonMode) {
-					out.json(
-						generateSchema(this.schema, undefined, {
-							name: planned.help.binName ?? this.schema.name,
-							version: planned.help.version ?? this.schema.version,
-						}),
-					);
-				} else {
-					const helpText = formatRootHelp(resolveHelpLinksSchema(this.schema), planned.help);
-					out.log(helpText);
-				}
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-			}
-
-			case 'dispatch-error': {
-				if (jsonMode) {
-					out.json({ error: planned.error.toJSON() });
-				} else {
-					out.error(planned.error.message);
-					if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
-						out.error(`Suggestion: ${planned.error.suggest}`);
-					}
-				}
-				return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
-			}
-
-			case 'needs-subcommand': {
-				if (jsonMode) {
-					out.json(
-						generateCommandSchema(planned.command.schema, undefined, {
-							name: planned.help.binName ?? planned.command.schema.name,
-							version: planned.help.version,
-						}),
-					);
-				} else {
-					const helpText = formatHelp(planned.command.schema, planned.help);
-					out.log(helpText);
-				}
-				return buildRunResult({ exitCode: 0, error: undefined }, captured);
-			}
-
-			case 'match': {
-				const commandRunOptions = buildCommandRunOptions(
-					effectiveOptions,
-					planned.plan.help ?? helpOptions,
-					planned.plan.meta,
-				);
-				if (planned.plan.command._command === undefined) {
-					return planned.plan.command._execute(planned.plan.argv, {
-						...commandRunOptions,
-						mergedSchema: planned.plan.mergedSchema,
-					});
-				}
-				const result = await executeCommand({
-					command: planned.plan.command._command,
-					argv: planned.plan.argv,
-					out,
-					schema: planned.plan.mergedSchema,
-					meta: planned.plan.meta,
-					options: commandRunOptions,
-				});
-				return buildRunResult(result, captured);
-			}
-		}
+	async execute(argv: readonly string[], options?: CLIExecuteOptions): Promise<RunResult> {
+		return executeCLI(this, argv, options);
 	}
 
 	/**
@@ -1433,14 +1645,16 @@ class CLIBuilder {
 		const adapter = options?.adapter ?? createAdapter();
 		const inheritedName = this.schema.inheritName ? inferInvocationName(adapter.argv) : undefined;
 
+		const compiled = compiledStateOf(this);
 		const preflight = await prepareRuntimePreflight({
 			schema: this.schema,
+			compiled,
 			adapter,
 			options,
 			inheritedName,
 		});
 
-		if (preflight.kind === 'config-error') {
+		if (preflight.kind === 'startup-error') {
 			if (preflight.jsonMode) {
 				adapter.stdout(`${JSON.stringify({ error: preflight.error.toJSON() })}\n`);
 			} else {
@@ -1453,7 +1667,9 @@ class CLIBuilder {
 		}
 
 		const effectiveBuilder =
-			preflight.schema === this.schema ? this : new CLIBuilder(preflight.schema);
+			preflight.schema === this.schema
+				? this
+				: rebuild(this, sealCLISchema({ ...this.schema, ...preflight.schema }));
 		const terminalSize = adapter.getTerminalSize();
 		const runtimeHelpWidth =
 			options?.help?.width === undefined && preflight.schema.helpConfig?.width === undefined
@@ -1463,7 +1679,7 @@ class CLIBuilder {
 			runtimeHelpWidth !== undefined
 				? { ...options?.help, width: runtimeHelpWidth }
 				: options?.help;
-		const executeOptions: CLIRunOptions = {
+		const executeOptions: InternalCLIExecuteOptions = {
 			...options,
 			...preflight.inputs,
 			...(runtimeHelpOptions !== undefined ? { help: runtimeHelpOptions } : {}),
@@ -1478,7 +1694,7 @@ class CLIBuilder {
 				...hyperlinksOption(resolveHyperlinkOverride(adapter.env, adapter.argv)),
 			}),
 		};
-		const result = await effectiveBuilder.execute(preflight.filteredArgv, executeOptions);
+		const result = await executeCLI(effectiveBuilder, preflight.filteredArgv, executeOptions);
 
 		// Write captured output to real streams via adapter
 		for (const line of result.stdout) {
@@ -1491,6 +1707,192 @@ class CLIBuilder {
 		return adapter.exit(result.exitCode);
 	}
 }
+
+/**
+ * Execution body shared by {@linkcode CLIBuilder.execute} and {@linkcode CLIBuilder.run},
+ * accepting the framework-populated output channel and plugin fields.
+ *
+ * @param builder - Builder supplying the schema and compiled command graph.
+ * @param argv - Raw argv tokens (NOT including the binary/script path).
+ * @param options - Injectable runtime state plus framework-populated fields.
+ * @returns Structured result with exit code and captured output.
+ *
+ * @internal
+ */
+async function executeCLI(
+	builder: CLIBuilder,
+	argv: readonly string[],
+	options?: InternalCLIExecuteOptions,
+): Promise<RunResult> {
+	// -- Detect global --json / --quiet before building output ----------------
+	const rootOutputFlags = readRootOutputFlags(argv, builder.schema.builtins);
+	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
+	const verbosity: Verbosity | undefined = resolveRootVerbosity(
+		rootOutputFlags,
+		options?.verbosity,
+	);
+
+	const captureOptions = {
+		...(verbosity !== undefined ? { verbosity } : {}),
+		...(jsonMode ? { jsonMode } : {}),
+		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
+	};
+	let out: Out;
+	let captured: CapturedOutput;
+	if (options?.out !== undefined) {
+		out = options.out;
+		captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
+	} else {
+		[out, captured] = createCaptureOutput(
+			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,
+		);
+	}
+	clearRequestedExitCode(out);
+
+	// Resolve help options — builder-level `.help()` config under runtime
+	// `options.help` (runtime wins), then default binName to the CLI program
+	// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
+	// FORCE_HYPERLINKS honored, else TTY), and colors to the output
+	// channel's gated palette (escapes never leak into piped output).
+	const resolvedVersion = options?.help?.version ?? builder.schema.version;
+	const helpOptions: HelpOptions = {
+		...builder.schema.helpConfig,
+		...options?.help,
+		binName: options?.help?.binName ?? builder.schema.name,
+		hyperlinks:
+			options?.help?.hyperlinks ??
+			builder.schema.helpConfig?.hyperlinks ??
+			out.isHyperlinkSupported,
+		colors: options?.help?.colors ?? out.color,
+		...(resolvedVersion !== undefined ? { version: resolvedVersion } : {}),
+	};
+
+	// -- Shared options for command execution ----------------------------------
+	const compiled = compiledStateOf(builder);
+	const flagSettings = options?.flags ?? builder.schema.flagSettings;
+	const effectiveOptions: InternalCLIExecuteOptions = {
+		...options,
+		plugins: compiled.plugins,
+		builtins: builder.schema.builtins,
+		...(jsonMode ? { jsonMode } : {}),
+		...(verbosity !== undefined ? { verbosity } : {}),
+		...(flagSettings !== undefined ? { flags: flagSettings } : {}),
+	};
+	const output: OutputPolicy = {
+		jsonMode,
+		isTTY: out.isTTY,
+		verbosity: verbosity ?? 'normal',
+	};
+	// The planner scans flag arity during dispatch, so it must see the same
+	// merged flag settings (runtime override wins) that command parsing uses.
+	const planSchema =
+		options?.flags !== undefined ? { ...builder.schema, flagSettings } : builder.schema;
+	const planned = planInvocation({
+		schema: planSchema,
+		compiled,
+		argv,
+		help: helpOptions,
+		output,
+	});
+
+	switch (planned.kind) {
+		case 'root-version':
+			out.log(planned.version);
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+
+		case 'root-completions': {
+			const shell = planned.shell ?? detectShell(options?.env ?? {});
+			if (shell === undefined) {
+				const error = new CLIError('Could not detect shell', {
+					code: 'MISSING_VALUE',
+					suggest: `Pass one explicitly, e.g. '${helpOptions.binName} --completions zsh'`,
+				});
+				if (jsonMode) {
+					out.json({ error: error.toJSON() });
+				} else {
+					out.error(error.message);
+					out.error(`Suggestion: ${error.suggest}`);
+				}
+				return buildRunResult({ exitCode: error.exitCode, error }, captured);
+			}
+			const completionSchema =
+				helpOptions.binName === undefined || helpOptions.binName === builder.schema.name
+					? builder.schema
+					: { ...builder.schema, name: helpOptions.binName };
+			const script = generateCompletion(completionSchema, shell, planned.options);
+			if (jsonMode) {
+				out.json({ shell, script });
+			} else {
+				out.log(script);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'root-help': {
+			if (jsonMode) {
+				out.json(
+					generateSchema(builder.schema, undefined, {
+						name: planned.help.binName ?? builder.schema.name,
+						version: planned.help.version ?? builder.schema.version,
+					}),
+				);
+			} else {
+				const helpText = formatRootHelp(resolveHelpLinksSchema(builder.schema), planned.help);
+				out.log(helpText);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'dispatch-error': {
+			if (jsonMode) {
+				out.json({ error: planned.error.toJSON() });
+			} else {
+				out.error(planned.error.message);
+				if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
+					out.error(`Suggestion: ${planned.error.suggest}`);
+				}
+			}
+			return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
+		}
+
+		case 'needs-subcommand': {
+			if (jsonMode) {
+				out.json(
+					generateCommandSchema(planned.command.schema, undefined, {
+						name: planned.help.binName ?? planned.command.schema.name,
+						version: planned.help.version,
+					}),
+				);
+			} else {
+				const helpText = formatHelp(planned.command.schema, planned.help);
+				out.log(helpText);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'match': {
+			const commandRunOptions = buildCommandRunOptions(
+				effectiveOptions,
+				planned.plan.help ?? helpOptions,
+				planned.plan.meta,
+			);
+			const result = await executeCommand({
+				command: {
+					handler: planned.plan.command.handler,
+					steps: planned.plan.command.steps,
+				},
+				argv: planned.plan.argv,
+				out,
+				schema: planned.plan.mergedSchema,
+				meta: planned.plan.meta,
+				options: commandRunOptions,
+			});
+			return buildRunResult(result, captured);
+		}
+	}
+}
+
 const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);
 
 /**
@@ -1563,12 +1965,12 @@ function toUrlString(value: string | URL | undefined): string | undefined {
 }
 
 /**
- * Resolve derived help links against pre-loaded package.json data.
+ * Resolve derived help links against pre-loaded manifest data.
  *
- * `.run()` resolves links during runtime preflight (where discovered
- * package.json metadata lives); this covers the filesystem-free
- * `.execute()` path, where only the `.packageJson(data)` overload can
- * contribute. Idempotent — already-resolved fields pass through unchanged.
+ * `.run()` resolves links during runtime preflight (where discovered manifest
+ * metadata lives); this covers the filesystem-free `.execute()` path, where
+ * only the `.manifest(data)` overload can contribute. Idempotent —
+ * already-resolved fields pass through unchanged.
  *
  * @internal
  */
@@ -1582,11 +1984,8 @@ function resolveHelpLinksSchema(schema: CLISchema): CLISchema {
 
 // --- manifest discovery settings
 
-/** Default manifest filenames for `.manifest()` / `.packageJson()`. @internal */
+/** Default manifest filenames for `.manifest()`. @internal */
 const DEFAULT_MANIFEST_FILES: readonly string[] = ['package.json'];
-
-/** Manifest filenames for the `.denoJson()` preset, in priority order. @internal */
-const DENO_MANIFEST_FILES: readonly string[] = ['deno.json', 'deno.jsonc', 'jsr.json'];
 
 /**
  * CLI-name inference control for {@link ManifestSettings.inferName}.
@@ -1623,14 +2022,6 @@ interface ManifestSettings {
 }
 
 /**
- * Discovery settings for the `.packageJson()` / `.denoJson()` presets (no `files`).
- *
- * @deprecated Both presets are deprecated; use {@link ManifestSettings} with
- *   {@link CLIBuilder.manifest}.
- */
-type ManifestPresetSettings = Omit<ManifestSettings, 'files'>;
-
-/**
  * Normalise an {@link InferNameOption} into the flat `{ inferName, stripScope }`
  * pair stored in {@link ResolvedManifestSettings}.
  *
@@ -1646,12 +2037,11 @@ function normalizeInferName(option: InferNameOption | undefined): {
 }
 
 /**
- * Build the next {@link CLISchema} for a manifest builder method.
+ * Build the next {@link CLISchema} for {@link CLIBuilder.manifest}.
  *
- * Shared by {@link CLIBuilder.manifest}, {@link CLIBuilder.packageJson}, and
- * {@link CLIBuilder.denoJson}. The data overload (detected via field shape)
- * merges `version`/`description` immediately so `.execute()` sees them; the
- * settings overload stores discovery config for runtime preflight.
+ * The data overload (detected via field shape) merges `version`/`description`
+ * immediately so `.execute()` sees them; the settings overload stores discovery
+ * config for runtime preflight.
  *
  * @internal
  */
@@ -1659,7 +2049,6 @@ function buildManifestSchema(
 	schema: CLISchema,
 	input: PackageJsonData | ManifestSettings | undefined,
 	defaultFiles: readonly string[],
-	pinFiles: boolean,
 ): CLISchema {
 	if (isPackageJsonData(input)) {
 		// Merge data into schema immediately so `.execute()` (which skips runtime
@@ -1683,10 +2072,7 @@ function buildManifestSchema(
 		};
 	}
 	const { inferName, stripScope } = normalizeInferName(input?.inferName);
-	// Presets (`pinFiles`) always use their fixed list: the `Omit<…,'files'>` guard
-	// only stops fresh literals at compile time, so a `ManifestSettings`-typed
-	// variable could otherwise leak `files` through the data-overload dispatch gap.
-	const files = pinFiles ? defaultFiles : (input?.files ?? defaultFiles);
+	const files = input?.files ?? defaultFiles;
 	return {
 		...schema,
 		packageJsonSettings: {
@@ -1699,7 +2085,7 @@ function buildManifestSchema(
 	};
 }
 
-// --- packageJson.from normalisation
+// --- manifest.from normalisation
 
 /**
  * Coerce a {@link ResolvedManifestSettings.from | `manifest.from`} input
@@ -1738,7 +2124,7 @@ function normalizeFromSetting(from: string | URL | ImportMeta | undefined): stri
 
 /**
  * Predicate distinguishing the {@link PackageJsonData | data} overload of
- * `.packageJson()` from the settings overload at runtime.
+ * `.manifest()` from the settings overload at runtime.
  *
  * A value is treated as `PackageJsonData` when it's a plain object that
  * carries at least one recognised field (`name`, `version`, `description`,
@@ -1842,21 +2228,9 @@ function cli(
 	const name = options.name ?? 'cli';
 	const inheritName = options.inherit ?? false;
 
-	return new CLIBuilder({
-		name,
-		inheritName,
-		version: undefined,
-		description: undefined,
+	return CLIBuilder._from(createCLISchema({ name, inheritName, flagSettings: options.flags }), {
 		commands: [],
 		defaultCommand: undefined,
-		defaultCommandRouted: false,
-		configSettings: undefined,
-		packageJsonSettings: undefined,
-		helpLinks: undefined,
-		hasBuiltInCompletions: false,
-		completionsFlag: undefined,
-		helpConfig: undefined,
-		flagSettings: options.flags,
 		plugins: [],
 	});
 }
@@ -1884,6 +2258,7 @@ function isMainModule(meta: ImportMeta): boolean {
 
 // --- Exports
 
+export type { BuiltinMode, BuiltinName, Builtins, BuiltinsConfig } from './builtins.ts';
 export type { HelpLinks } from './help-links.ts';
 export type {
 	BeforeParseParams,
@@ -1893,19 +2268,29 @@ export type {
 	ResolvedCommandParams,
 } from './plugin.ts';
 export type {
+	CLIDefinition,
+	CLIExecuteOptions,
 	CLIOptions,
 	CLIRunOptions,
 	CLISchema,
 	CompletionsFlagConfig,
 	ConfigSettings,
+	ConfigSettingsDefinition,
 	DefaultCommandOptions,
 	HelpConfig,
 	InferNameOption,
-	ManifestPresetSettings,
 	ManifestSettings,
-	PackageJsonSettings,
 	RenderContext,
 	RenderContextOptions,
 	ResolvedManifestSettings,
 };
-export { CLIBuilder, cli, formatRootHelp, isMainModule, plugin, resolveRenderContext };
+export {
+	CLIBuilder,
+	cli,
+	compiledStateOf,
+	createCLISchema,
+	executeCLI,
+	isMainModule,
+	plugin,
+	resolveRenderContext,
+};

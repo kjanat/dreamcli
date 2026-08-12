@@ -1,19 +1,14 @@
 /**
- * Unit tests for package.json auto-discovery and CLI name inference.
+ * Unit tests for manifest auto-discovery and CLI name inference.
  *
- * Tests the discoverPackageJson() walk-up, field extraction, edge cases
+ * Tests the discoverManifest() walk-up, field extraction, edge cases
  * (malformed JSON, missing fields, non-object roots), and inferCliName()
  * resolution order (bin → name → undefined).
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { isCLIError } from '#internals/core/errors/index.ts';
 import type { PackageJsonAdapter } from './package-json.ts';
-import {
-	discoverManifest,
-	discoverPackageJson,
-	inferCliName,
-	packageRepositoryUrl,
-} from './package-json.ts';
+import { discoverManifest, inferCliName, packageRepositoryUrl } from './package-json.ts';
 
 // === Test helpers
 
@@ -28,24 +23,12 @@ function createAdapter(
 	};
 }
 
-// === discoverPackageJson
+// === discoverManifest — default package.json discovery
 
-describe('discoverPackageJson', () => {
+describe('discoverManifest — package.json defaults', () => {
 	// --- walk-up resolution
 
 	describe('walk-up resolution', () => {
-		it('finds package.json in cwd', async () => {
-			const adapter = createAdapter({
-				'/projects/myapp/package.json': '{"name":"myapp","version":"1.0.0"}',
-			});
-
-			const result = await discoverPackageJson(adapter);
-			expect(result).toEqual({
-				name: 'myapp',
-				version: '1.0.0',
-			});
-		});
-
 		it('walks up to parent directory', async () => {
 			const adapter = createAdapter(
 				{
@@ -54,7 +37,7 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp/src',
 			);
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toEqual({
 				name: 'root',
 				version: '2.0.0',
@@ -70,14 +53,14 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp/src',
 			);
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.name).toBe('inner');
 		});
 
 		it('returns null when no package.json found', async () => {
 			const adapter = createAdapter({});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 
@@ -89,7 +72,7 @@ describe('discoverPackageJson', () => {
 				'/a/b/c/d',
 			);
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.name).toBe('root-pkg');
 		});
 	});
@@ -106,20 +89,8 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp',
 			);
 
-			const result = await discoverPackageJson(adapter, '/anchor');
+			const result = await discoverManifest(adapter, { startDir: '/anchor' });
 			expect(result).toEqual({ name: 'anchored', version: '7.0.0' });
-		});
-
-		it('walks up from a startDir deeper than the package.json', async () => {
-			const adapter = createAdapter(
-				{
-					'/anchor/package.json': '{"version":"3.0.0"}',
-				},
-				'/somewhere/else',
-			);
-
-			const result = await discoverPackageJson(adapter, '/anchor/dist/sub');
-			expect(result?.version).toBe('3.0.0');
 		});
 
 		it('treats a file-like startDir as a directory first, then walks up', async () => {
@@ -135,7 +106,7 @@ describe('discoverPackageJson', () => {
 
 			// A file path (e.g. fileURLToPath(import.meta.url)) is probed as a
 			// directory first (no hit), then the walk-up reaches the real parent.
-			const result = await discoverPackageJson(adapter, '/pkg/dist/cli.js');
+			const result = await discoverManifest(adapter, { startDir: '/pkg/dist/cli.js' });
 			expect(result?.version).toBe('9.9.9');
 			expect(probed).toEqual([
 				'/pkg/dist/cli.js/package.json',
@@ -144,12 +115,12 @@ describe('discoverPackageJson', () => {
 			]);
 		});
 
-		it('falls back to adapter.cwd when startDir is undefined', async () => {
+		it('falls back to adapter.cwd when startDir is omitted', async () => {
 			const adapter = createAdapter({
 				'/projects/myapp/package.json': '{"version":"1.2.3"}',
 			});
 
-			const result = await discoverPackageJson(adapter, undefined);
+			const result = await discoverManifest(adapter, {});
 			expect(result?.version).toBe('1.2.3');
 		});
 
@@ -158,7 +129,7 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp/package.json': '{"version":"1.2.3"}',
 			});
 
-			const result = await discoverPackageJson(adapter, '/no/such/dir');
+			const result = await discoverManifest(adapter, { startDir: '/no/such/dir' });
 			expect(result).toBeNull();
 		});
 	});
@@ -176,7 +147,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toEqual({
 				name: '@scope/myapp',
 				version: '3.2.1',
@@ -193,7 +164,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.bin).toBe('./dist/cli.js');
 		});
 
@@ -204,7 +175,7 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp/package.json': '{}',
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 
@@ -217,7 +188,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.name).toBeUndefined();
 			expect(result?.version).toBeUndefined();
 			expect(result?.description).toBeUndefined();
@@ -231,7 +202,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.bin).toBeUndefined();
 		});
 
@@ -243,7 +214,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.bin).toBeUndefined();
 		});
 
@@ -255,7 +226,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.homepage).toBe('https://myapp.dev');
 			expect(result?.repository).toBe('github:me/myapp');
 		});
@@ -271,7 +242,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.repository).toEqual({
 				type: 'git',
 				url: 'git+https://github.com/me/myapp.git',
@@ -287,7 +258,7 @@ describe('discoverPackageJson', () => {
 				}),
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.homepage).toBeUndefined();
 			expect(result?.repository).toBeUndefined();
 		});
@@ -296,21 +267,12 @@ describe('discoverPackageJson', () => {
 	// --- error resilience
 
 	describe('error resilience', () => {
-		it('returns null for malformed JSON', async () => {
-			const adapter = createAdapter({
-				'/projects/myapp/package.json': '{bad json',
-			});
-
-			const result = await discoverPackageJson(adapter);
-			expect(result).toBeNull();
-		});
-
 		it('returns null for array root', async () => {
 			const adapter = createAdapter({
 				'/projects/myapp/package.json': '[1,2,3]',
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 
@@ -319,7 +281,7 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp/package.json': '"just a string"',
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 
@@ -328,7 +290,7 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp/package.json': 'null',
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 
@@ -337,7 +299,7 @@ describe('discoverPackageJson', () => {
 				'/projects/myapp/package.json': '42',
 			});
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 
@@ -347,7 +309,7 @@ describe('discoverPackageJson', () => {
 				readFile: () => Promise.reject(new Error('EACCES: permission denied')),
 			};
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 
@@ -367,7 +329,7 @@ describe('discoverPackageJson', () => {
 				},
 			};
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).not.toBeNull();
 			expect(result?.name).toBe('myapp');
 			expect(calls).toBeGreaterThanOrEqual(2);
@@ -385,14 +347,14 @@ describe('discoverPackageJson', () => {
 				'C:\\Users\\dev\\projects\\myapp',
 			);
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result?.name).toBe('win-app');
 		});
 
 		it('terminates at Windows drive root', async () => {
 			const adapter = createAdapter({}, 'C:\\Users\\dev');
 
-			const result = await discoverPackageJson(adapter);
+			const result = await discoverManifest(adapter);
 			expect(result).toBeNull();
 		});
 	});
@@ -552,7 +514,7 @@ describe('packageRepositoryUrl — repository field normalization', () => {
 // === discoverManifest — generalized multi-file discovery
 
 describe('discoverManifest', () => {
-	it('defaults to package.json (parity with discoverPackageJson)', async () => {
+	it('defaults to package.json when no files are given', async () => {
 		const adapter = createAdapter({
 			'/projects/myapp/package.json': '{"name":"myapp","version":"1.0.0"}',
 		});

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
@@ -21,7 +22,12 @@ function hasJsDoc(node: ts.Node): boolean {
 	return ts.getJSDocCommentsAndTags(node).length > 0;
 }
 
-function collectPublicExportsWithoutJsDoc(): readonly string[] {
+interface TypeScriptProject {
+	readonly program: ts.Program;
+	readonly checker: ts.TypeChecker;
+}
+
+function createTypeScriptProject(): TypeScriptProject {
 	const configPath = ts.findConfigFile(
 		repoRoot,
 		(fileName) => ts.sys.fileExists(fileName),
@@ -49,28 +55,43 @@ function collectPublicExportsWithoutJsDoc(): readonly string[] {
 		rootNames: parsedConfig.fileNames,
 		options: parsedConfig.options,
 	});
-	const checker = program.getTypeChecker();
+	return { program, checker: program.getTypeChecker() };
+}
+
+const typescriptProject = createTypeScriptProject();
+
+function sourceFile(file: string): ts.SourceFile {
+	const found = typescriptProject.program.getSourceFile(path.join(repoRoot, file));
+	if (found === undefined) throw new Error(`Expected source file for ${file}`);
+	return found;
+}
+
+function moduleExports(file: string): readonly ts.Symbol[] {
+	const moduleSymbol = typescriptProject.checker.getSymbolAtLocation(sourceFile(file));
+	if (moduleSymbol === undefined) throw new Error(`Expected module symbol for ${file}`);
+	return typescriptProject.checker.getExportsOfModule(moduleSymbol);
+}
+
+function targetSymbol(symbol: ts.Symbol): ts.Symbol {
+	return symbol.flags & ts.SymbolFlags.Alias
+		? typescriptProject.checker.getAliasedSymbol(symbol)
+		: symbol;
+}
+
+function isInternalExport(symbol: ts.Symbol): boolean {
+	return (targetSymbol(symbol).getDeclarations() ?? []).some((declaration) =>
+		ts.getJSDocTags(getDocTarget(declaration)).some((tag) => tag.tagName.text === 'internal'),
+	);
+}
+
+function collectPublicExportsWithoutJsDoc(): readonly string[] {
+	const { checker } = typescriptProject;
 	const missing = new Set<string>();
 	const seen = new Set<string>();
 
 	for (const entryPoint of publicEntryPoints) {
-		const sourceFile = program.getSourceFile(path.join(repoRoot, entryPoint));
-
-		if (sourceFile === undefined) {
-			throw new Error(`Expected source file for ${entryPoint}`);
-		}
-
-		const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
-
-		if (moduleSymbol === undefined) {
-			throw new Error(`Expected module symbol for ${entryPoint}`);
-		}
-
-		for (const exportedSymbol of checker.getExportsOfModule(moduleSymbol)) {
-			const symbol =
-				exportedSymbol.flags & ts.SymbolFlags.Alias
-					? checker.getAliasedSymbol(exportedSymbol)
-					: exportedSymbol;
+		for (const exportedSymbol of moduleExports(entryPoint)) {
+			const symbol = targetSymbol(exportedSymbol);
 			const key = checker.getFullyQualifiedName(symbol);
 
 			if (seen.has(key)) {
@@ -123,7 +144,76 @@ describe('@kjanat/dreamcli', () => {
 	it('keeps public export JSDoc coverage complete', { timeout: 15_000 }, () => {
 		expect(collectPublicExportsWithoutJsDoc()).toEqual([]);
 	});
+
+	// A document leaves the process, so every fragment naming part of its shape
+	// is a type a consumer writes against. `stability.md` classifies them as one
+	// group, and one missing from the barrel is only visible at a consumer's
+	// import.
+	it('re-exports every version 1 fragment type from the barrel', () => {
+		const declared = new Set(
+			moduleExports('src/core/json-schema/index.ts')
+				.filter((symbol) => symbol.getName().endsWith('FragmentV1') && !isInternalExport(symbol))
+				.map((symbol) => symbol.getName()),
+		);
+		const reExported = new Set(moduleExports('src/index.ts').map((symbol) => symbol.getName()));
+
+		expect([...declared].filter((name) => !reExported.has(name))).toEqual([]);
+	});
+
+	// `stability.md` classifies the exports of the four entrypoints, so a type it
+	// classifies and no entrypoint exports is a promise a consumer cannot keep.
+	// Its own "Internal surface" section is where a name is declared unreachable,
+	// so everything above that heading is a claim about the public surface.
+	it('exports every type stability.md classifies as public', () => {
+		const read = (file: string): string => readFileSync(path.join(repoRoot, file), 'utf8');
+
+		const entrypoints = new Set(
+			['src/index.ts', 'src/runtime.ts', 'src/testkit.ts', 'src/version.ts'].flatMap((file) =>
+				moduleExports(file).map((symbol) => symbol.getName()),
+			),
+		);
+
+		const doc = read('docs/reference/stability.md');
+		const publicSection = doc.slice(0, doc.indexOf('## Internal surface'));
+		const cited = new Set(
+			[...publicSection.matchAll(/`([A-Z][A-Za-z0-9]*)`/g)].map((match) => match[1] ?? ''),
+		);
+
+		const declared = collectDeclaredTypeNames();
+		const unreachable = [...cited]
+			.filter((name) => declared.has(name) && !entrypoints.has(name))
+			.sort();
+
+		expect(unreachable).toEqual([]);
+	});
 });
+
+/** Every type, interface, and class name `src/` declares, outside test files. */
+function collectDeclaredTypeNames(): ReadonlySet<string> {
+	const names = new Set<string>();
+	const sourceRoot = path.join(repoRoot, 'src');
+
+	for (const file of typescriptProject.program.getSourceFiles()) {
+		if (!file.fileName.startsWith(sourceRoot) || file.fileName.includes('.test.')) continue;
+
+		const visit = (node: ts.Node): void => {
+			if (
+				(ts.isTypeAliasDeclaration(node) ||
+					ts.isInterfaceDeclaration(node) ||
+					ts.isClassDeclaration(node)) &&
+				node.name !== undefined
+			) {
+				const symbol = typescriptProject.checker.getSymbolAtLocation(node.name);
+				if (symbol !== undefined) names.add(symbol.getName());
+			}
+			ts.forEachChild(node, visit);
+		};
+
+		visit(file);
+	}
+
+	return names;
+}
 
 // === @kjanat/dreamcli/runtime
 

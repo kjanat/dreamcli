@@ -11,34 +11,37 @@
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
-
-/** Ordered flag resolution stages owned by the resolver. */
-const FLAG_RESOLUTION_ORDER = ['cli', 'env', 'config', 'prompt', 'default'] as const;
-
-/** Ordered arg resolution stages owned by the resolver. */
-const ARG_RESOLUTION_ORDER = ['cli', 'stdin', 'env', 'default'] as const;
-
-/** Stable flag-source labels for precedence and diagnostics. */
-type FlagResolutionStage = (typeof FLAG_RESOLUTION_ORDER)[number];
-
-/** Stable arg-source labels for precedence and diagnostics. */
-type ArgResolutionStage = (typeof ARG_RESOLUTION_ORDER)[number];
+import type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
+import type { ResolutionStage } from '#internals/core/schema/source.ts';
+import { RESOLUTION_ORDER } from '#internals/core/schema/source.ts';
 
 /**
- * Source-aware diagnostic context for flag resolution failures.
+ * Source-aware diagnostic context for a resolution failure.
  *
- * CLI/default failures currently surface as missing-value validation errors,
- * so only env/config/prompt need explicit source payloads here.
+ * `'cli'` covers the tokens the user typed, which a message names by the input
+ * alone; the other stages each carry what a message needs to point at the value
+ * they produced. Both surfaces read the same set.
  */
-type FlagDiagnosticSource =
+type ResolutionDiagnosticSource =
+	| { readonly kind: 'cli' }
+	| { readonly kind: 'stdin' }
 	| { readonly kind: 'env'; readonly envVar: string }
 	| { readonly kind: 'config'; readonly configPath: string }
 	| { readonly kind: 'prompt' };
 
+/**
+ * The sources whose raw values a resolution stage decodes.
+ *
+ * A CLI token is decoded at the parse boundary, so it never reaches the
+ * coercion diagnostics these name.
+ */
+type DecodedDiagnosticSource = Exclude<ResolutionDiagnosticSource, { readonly kind: 'cli' }>;
+
+/** Source-aware diagnostic context for flag resolution failures. */
+type FlagDiagnosticSource = DecodedDiagnosticSource;
+
 /** Source-aware diagnostic context for arg resolution failures. */
-type ArgDiagnosticSource =
-	| { readonly kind: 'env'; readonly envVar: string }
-	| { readonly kind: 'stdin' };
+type ArgDiagnosticSource = DecodedDiagnosticSource;
 
 /**
  * External state the resolver may consult after parsing.
@@ -56,13 +59,15 @@ interface ResolveOptions {
 	/** Interactive prompt engine; absent in non-TTY / CI contexts. */
 	readonly prompter?: PromptEngine;
 	/**
-	 * Filesystem probe for `flag.path()` checks: what exists at the path, or
-	 * `null` when nothing does. When absent, path checks are skipped.
+	 * Filesystem probe for `flag.path()` and `arg.path()` checks: what exists
+	 * at the path, or `null` when nothing does. When absent, path checks are
+	 * skipped.
 	 */
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 	/**
-	 * Recursive directory creation for `flag.path()` `create` checks. When
-	 * absent, missing paths are not created and existence rules apply as-is.
+	 * Recursive directory creation for `flag.path()` and `arg.path()` `create`
+	 * checks. When absent, missing paths are not created and existence rules
+	 * apply as-is.
 	 */
 	readonly mkdir?: (path: string) => Promise<void>;
 }
@@ -77,6 +82,19 @@ interface DeprecationWarning {
 	readonly message: string | true;
 }
 
+/**
+ * Which stage produced each resolved value of one command.
+ *
+ * The erased form of {@link InputSources}: same records, keyed by plain strings
+ * because `resolve()` takes a `CommandSchema` rather than typed builders.
+ */
+interface ResolutionProvenanceRecord {
+	/** Provenance of every declared flag, keyed by flag name. */
+	readonly flags: Readonly<Record<string, ResolutionProvenance>>;
+	/** Provenance of every declared arg, keyed by arg name. */
+	readonly args: Readonly<Record<string, ResolutionProvenance>>;
+}
+
 /** Fully resolved command input handed to the executor layer. */
 interface ResolveResult {
 	/** Fully resolved flag values keyed by flag name. */
@@ -85,6 +103,11 @@ interface ResolveResult {
 	readonly args: Readonly<Record<string, unknown>>;
 	/** Deprecation notices collected during resolution (may be empty). */
 	readonly deprecations: readonly DeprecationWarning[];
+	/**
+	 * Which stage produced each value. Present only for inputs that resolved a
+	 * value, so an unset optional input has no entry.
+	 */
+	readonly provenance: ResolutionProvenanceRecord;
 }
 
 /** Explicit invocation boundary between parser output and resolved values. */
@@ -104,42 +127,56 @@ interface ResolverInvocation {
  * extraction and diagnostic redesign work lands.
  */
 interface ResolverContract {
-	/** Ordered stages for flag resolution: cli -> env -> config -> prompt -> default. */
-	readonly flagPrecedence: readonly FlagResolutionStage[];
-	/** Ordered stages for arg resolution: cli -> stdin -> env -> default. */
-	readonly argPrecedence: readonly ArgResolutionStage[];
+	/** Ordered stages both surfaces walk: cli -> stdin -> env -> config -> prompt -> default. */
+	readonly precedence: readonly ResolutionStage[];
+	/** Flags and args resolve through the same ordered stages. */
+	readonly flagPrecedence: readonly ResolutionStage[];
+	/** Flags and args resolve through the same ordered stages. */
+	readonly argPrecedence: readonly ResolutionStage[];
 	/** Prompt stage runs only after env and config have been attempted. */
 	readonly promptRunsAfterFlagConfig: true;
+	/** The implicit stdin fallback runs before env, so stdin outranks the environment. */
+	readonly stdinFallbackRunsBeforeEnv: true;
+	/** An explicit `-` is CLI-sourced with bytes from stdin and keeps CLI precedence. */
+	readonly dashIsCliSourced: true;
 	/** All validation errors are collected before throwing a single aggregate. */
 	readonly aggregatesValidationErrors: true;
 	/** Aggregate error details include per-issue structured summaries. */
 	readonly aggregateDiagnosticsIncludePerIssueSummary: true;
-	/** A coercion failure at env/config stops fallback to later stages for that flag. */
+	/** A coercion failure at any sourced stage stops fallback to later stages for that input. */
 	readonly hardCoercionErrorsStopFallback: true;
 	/** Deprecation warnings are emitted only when a value was actually sourced. */
 	readonly collectsDeprecationsFromExplicitSources: true;
+	/** Every resolved value records the stage that produced it. */
+	readonly recordsProvenancePerInput: true;
 }
 
 /** Runtime-accessible resolution contract — documents the resolver's invariants for tests and diagnostics. */
-const resolverContract = {
-	flagPrecedence: FLAG_RESOLUTION_ORDER,
-	argPrecedence: ARG_RESOLUTION_ORDER,
+const resolverContract: ResolverContract = {
+	precedence: RESOLUTION_ORDER,
+	flagPrecedence: RESOLUTION_ORDER,
+	argPrecedence: RESOLUTION_ORDER,
 	promptRunsAfterFlagConfig: true,
+	stdinFallbackRunsBeforeEnv: true,
+	dashIsCliSourced: true,
 	aggregatesValidationErrors: true,
 	aggregateDiagnosticsIncludePerIssueSummary: true,
 	hardCoercionErrorsStopFallback: true,
 	collectsDeprecationsFromExplicitSources: true,
-} satisfies ResolverContract;
+	recordsProvenancePerInput: true,
+};
 
+export type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
 export type {
 	ArgDiagnosticSource,
-	ArgResolutionStage,
+	DecodedDiagnosticSource,
 	DeprecationWarning,
 	FlagDiagnosticSource,
-	FlagResolutionStage,
+	ResolutionDiagnosticSource,
+	ResolutionProvenanceRecord,
 	ResolveOptions,
 	ResolveResult,
 	ResolverContract,
 	ResolverInvocation,
 };
-export { ARG_RESOLUTION_ORDER, FLAG_RESOLUTION_ORDER, resolverContract };
+export { RESOLUTION_ORDER, resolverContract };

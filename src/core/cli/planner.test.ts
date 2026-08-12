@@ -6,64 +6,23 @@ import { describe, expect, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
-import { createArgSchema } from '#internals/core/schema/arg.ts';
-import type { CommandSchema, ErasedCommand } from '#internals/core/schema/command.ts';
-import { createSchema } from '#internals/core/schema/flag.ts';
+import { arg } from '#internals/core/schema/arg.ts';
+import { command } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import type { CompiledCommand } from './compiled.ts';
+import { compileCommand } from './compiled.ts';
 import { mergeCommandSchema, planInvocation } from './planner.ts';
 
 // === Helpers
 
-function commandSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
-	return {
-		name: 'test',
-		description: undefined,
-		aliases: [],
-		hidden: false,
-		examples: [],
-		flags: {},
-		args: [],
-		hasAction: true,
-		interactive: undefined,
-		middleware: [],
-		commands: [],
-		...overrides,
-	};
+/** Leaf command builder carrying a handler. */
+function leafBuilder(name: string) {
+	return command(name).action(() => {});
 }
 
-function erased(
-	schema: CommandSchema,
-	subcommands: ReadonlyMap<string, ErasedCommand> = new Map(),
-): ErasedCommand {
-	return {
-		schema,
-		subcommands,
-		async _execute() {
-			const stdout: string[] = [];
-			const stderr: string[] = [];
-			return {
-				stdout,
-				stderr,
-				activity: [],
-				exitCode: 0,
-				error: undefined,
-			};
-		},
-	};
-}
-
-function commandMap(...commands: readonly ErasedCommand[]): ReadonlyMap<string, ErasedCommand> {
-	const map = new Map<string, ErasedCommand>();
-	for (const cmd of commands) {
-		map.set(cmd.schema.name, cmd);
-		for (const alias of cmd.schema.aliases) {
-			map.set(alias, cmd);
-		}
-	}
-	return map;
-}
-
-function flagSchema(kind: 'string' | 'boolean' | 'number', propagate: boolean) {
-	return createSchema(kind, { propagate });
+/** Compiled graph node for a leaf command carrying a handler. */
+function leaf(name: string): CompiledCommand {
+	return compileCommand(leafBuilder(name));
 }
 
 const help: HelpOptions = {
@@ -77,20 +36,19 @@ const output: OutputPolicy = {
 };
 
 function planFor(
-	commands: readonly ErasedCommand[],
+	commands: readonly CompiledCommand[],
 	argv: readonly string[],
-	defaultCommand?: ErasedCommand,
+	defaultCommand?: CompiledCommand,
 ) {
 	return planInvocation({
 		schema: {
 			name: 'dream',
 			version: '1.2.3',
-			commands,
-			defaultCommand,
 			defaultCommandRouted: false,
 			completionsFlag: undefined,
-			plugins: [],
+			builtins: undefined,
 		},
+		compiled: { commands, defaultCommand, plugins: [] },
 		argv,
 		help,
 		output,
@@ -101,7 +59,7 @@ function planFor(
 
 describe('planInvocation() — root interception', () => {
 	it('treats --json before --version as root version output', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const deploy = leaf('deploy');
 
 		const result = planFor([deploy], ['--json', '--version']);
 
@@ -109,7 +67,7 @@ describe('planInvocation() — root interception', () => {
 	});
 
 	it('treats --json before root --help as root help output', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const deploy = leaf('deploy');
 
 		const result = planFor([deploy], ['--json', '--help']);
 
@@ -117,7 +75,7 @@ describe('planInvocation() — root interception', () => {
 	});
 
 	it('keeps subcommand help in the match plan', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const deploy = leaf('deploy');
 
 		const result = planFor([deploy], ['--json', 'deploy', '--help']);
 
@@ -129,7 +87,7 @@ describe('planInvocation() — root interception', () => {
 	});
 
 	it('rewrites virtual help before planning the command match', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const deploy = leaf('deploy');
 
 		const result = planFor([deploy], ['help', 'deploy', '--json', '--force']);
 
@@ -141,11 +99,113 @@ describe('planInvocation() — root interception', () => {
 	});
 });
 
+// === Root output flags with an explicit value (#85)
+
+describe('planInvocation() — root output flag values (#85)', () => {
+	it('strips the =value form of --json and --quiet', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--json=true', '--quiet=false', 'deploy', '--force']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['--force']);
+		}
+	});
+
+	it('leaves -q=true for the command, matching short-flag parsing', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['deploy', '-q=true']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['-q=true']);
+		}
+	});
+
+	it('leaves the tail after -- untouched', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--json=true', 'deploy', '--', '--quiet=true']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['--', '--quiet=true']);
+		}
+	});
+
+	it('reports an invalid boolean value as a dispatch error', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--quiet=banana', 'deploy']);
+
+		expect(result.kind).toBe('dispatch-error');
+		if (result.kind === 'dispatch-error') {
+			expect(result.error.code).toBe('INVALID_VALUE');
+			expect(result.error.exitCode).toBe(2);
+			expect(result.error.message).toBe(
+				"Invalid boolean value 'banana' for flag --quiet. Use true/false or 1/0",
+			);
+			expect(result.error.details).toEqual({
+				flag: 'quiet',
+				input: '--quiet',
+				value: 'banana',
+				expected: 'boolean',
+			});
+		}
+	});
+
+	it('errors on an invalid value even when argv is otherwise empty', () => {
+		const deploy = leaf('deploy');
+
+		expect(planFor([deploy], ['--json=banana']).kind).toBe('dispatch-error');
+	});
+
+	it('renders --version ahead of an invalid value', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['--version', '--quiet=banana']);
+
+		expect(result.kind).toBe('root-version');
+	});
+
+	it('renders root --help ahead of an invalid value', () => {
+		const deploy = leaf('deploy');
+
+		expect(planFor([deploy], ['--help', '--json=banana']).kind).toBe('root-help');
+		expect(planFor([deploy], ['-h', '--json=banana']).kind).toBe('root-help');
+	});
+
+	it('leaves a command --help ahead of an invalid value to the command', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['deploy', '--help', '--quiet=banana']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.argv).toEqual(['--help']);
+		}
+	});
+
+	it('reports the invalid value when the help token is a post-separator literal', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['deploy', '--quiet=banana', '--', '--help']);
+
+		expect(result.kind).toBe('dispatch-error');
+	});
+});
+
 // === Consistent --help / --version positional reach (#29)
 
 describe('planInvocation() — consistent help/version reach (#29)', () => {
-	function defaultWithVerbose(): ErasedCommand {
-		return erased(commandSchema({ name: 'app', flags: { verbose: flagSchema('boolean', false) } }));
+	function defaultWithVerbose(): CompiledCommand {
+		return compileCommand(
+			command('app')
+				.flag('verbose', flag.boolean())
+				.action(() => {}),
+		);
 	}
 
 	it('intercepts root help when only flags precede --help', () => {
@@ -165,14 +225,14 @@ describe('planInvocation() — consistent help/version reach (#29)', () => {
 	});
 
 	it('intercepts root help for a bare --help', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const deploy = leaf('deploy');
 
 		expect(planFor([deploy], ['--help'])).toEqual({ kind: 'root-help', help });
 		expect(planFor([deploy], ['-h'])).toEqual({ kind: 'root-help', help });
 	});
 
 	it('keeps --help after a subcommand token scoped to that subcommand', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const deploy = leaf('deploy');
 
 		const result = planFor([deploy], ['deploy', '--help']);
 
@@ -184,11 +244,10 @@ describe('planInvocation() — consistent help/version reach (#29)', () => {
 	});
 
 	it('respects the -- separator: a literal --help after -- is not root help', () => {
-		const deploy = erased(
-			commandSchema({
-				name: 'app',
-				args: [{ name: 'rest', schema: createArgSchema('string') }],
-			}),
+		const deploy = compileCommand(
+			command('app')
+				.arg('rest', arg.string())
+				.action(() => {}),
 		);
 
 		const result = planFor([], ['--', '--help'], deploy);
@@ -201,10 +260,8 @@ describe('planInvocation() — consistent help/version reach (#29)', () => {
 	});
 
 	it('treats a bare help token after flags as a root help request', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const app = erased(
-			commandSchema({ name: 'app', flags: { verbose: flagSchema('boolean', false) } }),
-		);
+		const deploy = leaf('deploy');
+		const app = defaultWithVerbose();
 
 		const result = planFor([deploy], ['--verbose', 'help'], app);
 
@@ -216,13 +273,12 @@ describe('planInvocation() — consistent help/version reach (#29)', () => {
 
 describe('planInvocation() — default command behavior', () => {
 	it('delegates unknown root argv to defaults with positional args', () => {
-		const deploy = erased(
-			commandSchema({
-				name: 'deploy',
-				args: [{ name: 'target', schema: createArgSchema('string') }],
-			}),
+		const deploy = compileCommand(
+			command('deploy')
+				.arg('target', arg.string())
+				.action(() => {}),
 		);
-		const status = erased(commandSchema({ name: 'status' }));
+		const status = leaf('status');
 
 		const result = planFor([deploy, status], ['production', '--force'], deploy);
 
@@ -235,8 +291,8 @@ describe('planInvocation() — default command behavior', () => {
 	});
 
 	it('rejects unknown root argv for defaults without positional args', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const status = erased(commandSchema({ name: 'status' }));
+		const deploy = leaf('deploy');
+		const status = leaf('status');
 
 		const result = planFor([deploy, status], ['production'], deploy);
 
@@ -249,8 +305,8 @@ describe('planInvocation() — default command behavior', () => {
 	});
 
 	it('reports unknown flags before unknown positional values for no-arg defaults', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const status = erased(commandSchema({ name: 'status' }));
+		const deploy = leaf('deploy');
+		const status = leaf('status');
 
 		const result = planFor([deploy, status], ['--bogus', 'production'], deploy);
 
@@ -263,8 +319,8 @@ describe('planInvocation() — default command behavior', () => {
 	});
 
 	it('keeps typo suggestions as dispatch errors', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const status = erased(commandSchema({ name: 'status' }));
+		const deploy = leaf('deploy');
+		const status = leaf('status');
 
 		const result = planFor([deploy, status], ['depliy'], deploy);
 
@@ -280,8 +336,12 @@ describe('planInvocation() — default command behavior', () => {
 
 describe('planInvocation() — dispatch outcomes', () => {
 	it('throws when root command routes collide', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
-		const status = erased(commandSchema({ name: 'status', aliases: ['deploy'] }));
+		const deploy = leaf('deploy');
+		const status = compileCommand(
+			command('status')
+				.alias('deploy')
+				.action(() => {}),
+		);
 
 		try {
 			planFor([deploy, status], ['deploy']);
@@ -296,8 +356,7 @@ describe('planInvocation() — dispatch outcomes', () => {
 	});
 
 	it('returns scoped help context when a group needs a subcommand', () => {
-		const migrate = erased(commandSchema({ name: 'migrate' }));
-		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
+		const db = compileCommand(command('db').command(leafBuilder('migrate')));
 
 		const result = planFor([db], ['db']);
 
@@ -309,8 +368,7 @@ describe('planInvocation() — dispatch outcomes', () => {
 	});
 
 	it('returns nested unknown-command errors with a scoped help suggestion', () => {
-		const migrate = erased(commandSchema({ name: 'migrate' }));
-		const db = erased(commandSchema({ name: 'db', hasAction: false }), commandMap(migrate));
+		const db = compileCommand(command('db').command(leafBuilder('migrate')));
 
 		const result = planFor([db], ['db', 'bogus']);
 
@@ -322,7 +380,7 @@ describe('planInvocation() — dispatch outcomes', () => {
 	});
 
 	it('returns unknown-flag errors when only flags are present', () => {
-		const deploy = erased(commandSchema({ name: 'deploy' }));
+		const deploy = leaf('deploy');
 
 		const result = planFor([deploy], ['--bogus']);
 
@@ -338,20 +396,13 @@ describe('planInvocation() — dispatch outcomes', () => {
 
 describe('planner contract — propagated flag masking', () => {
 	it('masks inherited flags when the leaf defines the same name', () => {
-		const root = commandSchema({
-			name: 'dream',
-			flags: {
-				verbose: flagSchema('boolean', true),
-				format: flagSchema('string', true),
-			},
-		});
-		const deploy = erased(
-			commandSchema({
-				name: 'deploy',
-				flags: {
-					verbose: flagSchema('string', false),
-				},
-			}),
+		const root = command('dream')
+			.flag('verbose', flag.boolean().propagate())
+			.flag('format', flag.string().propagate()).schema;
+		const deploy = compileCommand(
+			command('deploy')
+				.flag('verbose', flag.string())
+				.action(() => {}),
 		);
 
 		const merged = mergeCommandSchema(deploy, [root, deploy.schema]);
@@ -361,14 +412,8 @@ describe('planner contract — propagated flag masking', () => {
 	});
 
 	it('carries merged propagated flags into the match plan', () => {
-		const migrate = erased(commandSchema({ name: 'migrate' }));
-		const db = erased(
-			commandSchema({
-				name: 'db',
-				hasAction: false,
-				flags: { verbose: flagSchema('boolean', true) },
-			}),
-			commandMap(migrate),
+		const db = compileCommand(
+			command('db').flag('verbose', flag.boolean().propagate()).command(leafBuilder('migrate')),
 		);
 
 		const result = planFor([db], ['db', 'migrate']);
