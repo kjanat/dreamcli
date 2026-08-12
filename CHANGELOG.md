@@ -543,8 +543,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--verbose` and `--version`, help listed `-v` on both, and `-v` set the
   second. The arg invariants moved with them, so a definition declaring a
   positional after a variadic one throws `INVALID_BUILDER_STATE`, and a second
-  stdin-backed input throws `DUPLICATE_STDIN_INPUT`, matching `.arg()`. Those two
-  built without complaint as well. Two stdin-backed args each resolved to the
+  stdin-backed input throws `DUPLICATE_STDIN_INPUT`, matching `.arg()`.
+  Previously, both combinations built without complaint. Two stdin-backed args
+  each resolved to the
   whole of stdin, and a positional behind a variadic one silently never filled. Every arg error names the
   command in `details`, since a definition tree reaches them at any depth and
   the arg name alone does not say which command declared it. A flag or arg

@@ -683,9 +683,11 @@ Invalid value 'sk-live-9f2' from env API_TOKEN for flag --token: must match /^gh
 Invalid value '<redacted>' from env API_TOKEN for flag --token: must match /^ghp_/
 ```
 
-Every message this affects says `'<redacted>'` where the value was, and
-`details` no longer carries a `value` key. What identifies the failure stays:
-the flag name, the source (`source`, plus `envVar` or `configPath`), the
+Messages that previously quoted the raw value now say `'<redacted>'`, and
+`details` no longer carries a `value` key. JSON collection failures omit the raw
+input instead, while retaining source-based messages such as
+`Invalid JSON value from env TAGS for flag --tags`. What identifies the failure
+stays: the flag name, the source (`source`, plus `envVar` or `configPath`), the
 expected type, the constraint that failed with its bound or pattern, and the
 allowed enum values. A custom parse function's own error message is still shown,
 since your code wrote it, so write those messages to describe the expectation

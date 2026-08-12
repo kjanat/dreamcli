@@ -1186,9 +1186,11 @@ Fix the default, or widen the declaration where the value was intended:
 
 ### What a failing value prints
 
-A value resolved through stdin, env, config, or a prompt is redacted in the
-diagnostic, on both surfaces. This includes stdin selected by an explicit `-`;
-the diagnostic also omits `details.value`:
+Under the current provisional policy, a value resolved through stdin, env,
+config, or a prompt is redacted in the diagnostic, on both surfaces. This
+includes stdin selected by an explicit `-`; the diagnostic also omits
+`details.value`. Diagnostics that previously quoted the raw value use
+`<redacted>`, while JSON collection failures omit the raw input entirely:
 
 ```bash
 $ API_TOKEN=sk-live-9f2 mycli deploy
@@ -1198,7 +1200,9 @@ Invalid value '<redacted>' from env API_TOKEN for flag --token: must match /^ghp
 A literal CLI value is quoted in full, since it is already on the user's screen.
 [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction) is the
 canonical contract: which fields survive, what `details` carries, and the one
-channel the framework cannot redact.
+channel the framework cannot redact. This source-based rule is temporary;
+[#120](https://github.com/kjanat/dreamcli/issues/120) tracks replacing it with
+explicit sensitivity metadata.
 
 ## What's Next?
 

@@ -465,8 +465,10 @@ definition document carries it.
 ## Diagnostics and Redaction
 
 One rule governs every resolution diagnostic on both surfaces: a value the user
-typed on the command line is quoted in full, and a value from any other source
-is replaced with `<redacted>`. This source-based rule is provisional;
+typed on the command line is quoted in full, and raw input from any other source
+is not shown. Diagnostics that otherwise quote the value replace it with
+`<redacted>`; JSON collection failures omit it entirely. This source-based rule
+is provisional;
 [#120](https://github.com/kjanat/dreamcli/issues/120) tracks replacing it with
 explicit sensitivity metadata.
 
