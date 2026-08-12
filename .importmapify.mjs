@@ -12,7 +12,7 @@ export default defineConfig({
 	},
 	scopes: {
 		'./tests/': {
-			'dreamcli/testkit': 'jsr:@kjanat/dreamcli@^3/testkit',
+			'dreamcli/testkit': `jsr:@kjanat/dreamcli@^${pkg.version}/testkit`,
 		},
 	},
 	extensions: ['ts'],
