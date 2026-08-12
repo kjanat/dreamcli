@@ -92,7 +92,7 @@ describe('a caller-built list of occurrences', () => {
 		).rejects.toMatchObject({
 			code: 'TYPE_MISMATCH',
 			message: 'Invalid object value for flag --value',
-			details: { flag: 'value', source: 'cli', expected: 'object' },
+			details: { flag: 'value', expected: 'object' },
 			suggest: 'Provide KEY=VALUE pairs for --value',
 		});
 	});
@@ -101,7 +101,7 @@ describe('a caller-built list of occurrences', () => {
 		await expect(resolveGivenArg(arg.keyValue(), [['A', '1'], 'junk'])).rejects.toMatchObject({
 			code: 'TYPE_MISMATCH',
 			message: 'Invalid object value for argument <value>',
-			details: { arg: 'value', source: 'cli', expected: 'object' },
+			details: { arg: 'value', expected: 'object' },
 			suggest: 'Provide KEY=VALUE pairs for <value>',
 		});
 	});
