@@ -7,6 +7,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Release checklist
+
+- [ ] Set the intended version in `package.json` and `deno.json`, add the dated
+      changelog section, and update every comparison link.
+- [ ] Update first-party DreamCLI pins in documentation and import-map
+      configuration; do not rewrite versions that belong to transitive lockfile
+      metadata.
+- [ ] Run `runner run -s schema:emit version:check ci smoke`.
+- [ ] Pack with `bun pm pack --quiet --ignore-scripts` and inspect the tarball's
+      files and version.
+- [ ] Confirm generators and formatters leave no unexpected worktree changes.
+- [ ] Commit and push the release preparation, then verify the target commit is
+      signed, `master` matches the remote, and every required check is green.
+- [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR
+      do not already contain that version before publishing the GitHub release.
+
 ### Added
 
 - **Handlers can see where each value came from**
