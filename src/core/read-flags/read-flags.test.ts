@@ -501,7 +501,8 @@ describe('readFlags() command parity', () => {
 		try {
 			return { flags: { ...(await readFlags(definitions, { argv, env: {} })) }, code: undefined };
 		} catch (error: unknown) {
-			return { flags: undefined, code: error instanceof CLIError ? error.code : undefined };
+			if (!(error instanceof CLIError)) throw error;
+			return { flags: undefined, code: error.code };
 		}
 	}
 
