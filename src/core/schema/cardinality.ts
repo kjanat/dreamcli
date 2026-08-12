@@ -150,11 +150,32 @@ function splitPolicyFromString(setting: string): SplitPolicy {
  *   not accept, or an empty delimiter.
  */
 function normalizeSplitPolicy(source: keyof SplitOptions, setting: SplitSetting): SplitPolicy {
-	const policy: SplitPolicy =
-		typeof setting === 'string' ? splitPolicyFromString(setting) : setting;
+	if (typeof setting === 'string') {
+		return normalizeSplitPolicyObject(source, splitPolicyFromString(setting));
+	}
+	if (typeof setting !== 'object' || setting === null) {
+		throw new CLIError(`Split policy for ${source} must be a string or object`, {
+			code: 'INVALID_SCHEMA',
+			details: { source, received: setting === null ? 'null' : typeof setting },
+			suggest: 'Pass a format name, delimiter string, or split-policy object',
+		});
+	}
+	return normalizeSplitPolicyObject(source, setting);
+}
+
+/** Validate and normalize an object-form split policy from a typed or JavaScript caller. */
+function normalizeSplitPolicyObject(source: keyof SplitOptions, setting: object): SplitPolicy {
+	const policy = setting as { readonly format?: unknown; readonly delimiter?: unknown };
+	if (typeof policy.format !== 'string') {
+		throw new CLIError(`Split policy for ${source} requires a string format`, {
+			code: 'INVALID_SCHEMA',
+			details: { source, field: 'format', received: typeof policy.format },
+			suggest: 'Pass a supported split format',
+		});
+	}
 	const allowed = ALLOWED_SPLIT_FORMATS[source];
 
-	if (!allowed.includes(policy.format)) {
+	if (!allowed.includes(policy.format as SplitFormat)) {
 		throw new CLIError(`Split format '${String(policy.format)}' is not available for ${source}`, {
 			code: 'INVALID_SCHEMA',
 			details: { source, format: policy.format, allowed: [...allowed] },
@@ -162,7 +183,18 @@ function normalizeSplitPolicy(source: keyof SplitOptions, setting: SplitSetting)
 		});
 	}
 
-	if (policy.format === 'delimiter' && policy.delimiter.length === 0) {
+	if (policy.format !== 'delimiter')
+		return { format: policy.format as Exclude<SplitFormat, 'delimiter'> };
+
+	if (typeof policy.delimiter !== 'string') {
+		throw new CLIError(`Split delimiter for ${source} must be a string`, {
+			code: 'INVALID_SCHEMA',
+			details: { source, format: policy.format, received: typeof policy.delimiter },
+			suggest: "Pass a delimiter string, for example ','",
+		});
+	}
+
+	if (policy.delimiter.length === 0) {
 		throw new CLIError(`Split delimiter for ${source} must not be empty`, {
 			code: 'INVALID_SCHEMA',
 			details: { source, format: policy.format },
@@ -170,7 +202,7 @@ function normalizeSplitPolicy(source: keyof SplitOptions, setting: SplitSetting)
 		});
 	}
 
-	return policy;
+	return { format: 'delimiter', delimiter: policy.delimiter };
 }
 
 /** One source's split setting, split into the CLI carrier and the rest. */

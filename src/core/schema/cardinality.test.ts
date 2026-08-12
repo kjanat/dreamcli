@@ -5,7 +5,7 @@
  * @module dreamcli/core/schema/cardinality.test
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { isCLIError } from '#internals/core/errors/index.ts';
 import { arg, createArgSchema } from './arg.ts';
 import {
@@ -246,6 +246,17 @@ describe('.split() option validation', () => {
 	it('rejects an empty delimiter', () => {
 		const error = schemaError(() => flag.array(flag.string()).split({ env: '' }));
 		expect(error.message).toBe('Split delimiter for env must not be empty');
+	});
+
+	test.each([
+		['null', null],
+		['missing format', {}],
+		['non-string format', { format: 1 }],
+		['missing delimiter', { format: 'delimiter' }],
+		['non-string delimiter', { format: 'delimiter', delimiter: 1 }],
+	] as const)('rejects a malformed %s policy', (_, policy) => {
+		const error = schemaError(() => flag.array(flag.string()).split({ env: policy as never }));
+		expect(error.code).toBe('INVALID_SCHEMA');
 	});
 
 	it('rejects empty separators through the same schema error', () => {
