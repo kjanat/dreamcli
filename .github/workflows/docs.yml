@@ -1,5 +1,5 @@
 name: Docs
-run-name: "Docs ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event_name }}-${{ github.run_number }} by ${{ github.actor }}"
+run-name: "${{ github.workflow }} ${{ github.ref_name }} ${{ github.event_name }} #${{ github.run_number }} by ${{ github.actor }}"
 
 on:
   push:
