@@ -330,7 +330,10 @@ function withoutReference(text: string | undefined): string | undefined {
 async function sourcedVerdict(schema: CommandSchema, options: ResolveOptions): Promise<Verdict> {
 	const error = await resolve(schema, parse(schema, []), options).then(
 		() => undefined,
-		(thrown: unknown) => (isValidationError(thrown) ? thrown : undefined),
+		(thrown: unknown) => {
+			if (!isValidationError(thrown)) throw thrown;
+			return thrown;
+		},
 	);
 	return {
 		accepted: error === undefined,

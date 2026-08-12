@@ -266,6 +266,18 @@ describe('flag.array() requires an element builder', () => {
 	it('builds normally with a real element builder', () => {
 		expect(flag.array(flag.number()).schema.elementSchema?.kind).toBe('number');
 	});
+
+	it('rejects nested collection builders at run time', () => {
+		const error = schemaError(() => flag.array(flag.array(flag.string()) as never));
+		expect(error.code).toBe('INVALID_SCHEMA');
+		expect(error.message).toBe("Flag element schema kind 'array' is not supported");
+	});
+
+	it('rejects source-configured builders at run time', () => {
+		const error = schemaError(() => flag.array(flag.string().env('VALUE') as never));
+		expect(error.code).toBe('INVALID_SCHEMA');
+		expect(error.message).toBe("Flag element schema field 'envVar' is not supported");
+	});
 });
 
 describe('the keyValue factories keep their element optional', () => {

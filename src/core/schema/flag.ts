@@ -772,6 +772,52 @@ function isNormalizedFlagSchema(element: FlagDefinition | FlagSchema): element i
 	return NORMALIZED_FLAG_SCHEMA_KEYS.every((key) => key in element);
 }
 
+/** Reject flag-level fields on a collection element's value schema. */
+function assertValidFlagElementSchema(schema: FlagSchema): void {
+	if (COLLECTION_FLAG_KINDS.includes(schema.kind) || schema.kind === 'count') {
+		throw new CLIError(`Flag element schema kind '${schema.kind}' is not supported`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field: 'kind' },
+			suggest: 'Use a scalar value kind for the collection element',
+		});
+	}
+
+	const defaults: readonly (readonly [keyof FlagSchema, unknown])[] = [
+		['presence', 'optional'],
+		['defaultValue', undefined],
+		['stdin', undefined],
+		['envVar', undefined],
+		['configPath', undefined],
+		['description', undefined],
+		['elementSchema', undefined],
+		['separator', undefined],
+		['split', undefined],
+		['duplicateKeys', 'last'],
+		['unique', false],
+		['prompt', undefined],
+		['aggregateStandard', undefined],
+		['deprecated', undefined],
+		['propagate', false],
+		['negation', undefined],
+		['duplicates', 'last'],
+	];
+	for (const [field, allowed] of defaults) {
+		if (schema[field] === allowed) continue;
+		throw new CLIError(`Flag element schema field '${String(field)}' is not supported`, {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field },
+			suggest: `Drop '${String(field)}' from the collection element`,
+		});
+	}
+	if (schema.aliases.length !== 0) {
+		throw new CLIError("Flag element schema field 'aliases' is not supported", {
+			code: 'INVALID_SCHEMA',
+			details: { kind: schema.kind, field: 'aliases' },
+			suggest: "Drop 'aliases' from the collection element",
+		});
+	}
+}
+
 /**
  * Normalise an array flag's element input into a built {@link FlagSchema}.
  *
@@ -784,11 +830,17 @@ function isNormalizedFlagSchema(element: FlagDefinition | FlagSchema): element i
  *   different {@link FlagKind}.
  */
 function normalizeFlagElementSchema(element: FlagDefinition | FlagSchema): FlagSchema {
-	if (isNormalizedFlagSchema(element)) return element;
+	if (isNormalizedFlagSchema(element)) {
+		assertValidFlagDefinition(element.kind, element);
+		assertValidFlagElementSchema(element);
+		return element;
+	}
 
 	const { kind, ...fields } = element;
 	assertValidFlagDefinition(kind, fields);
-	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
+	const schema = buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
+	assertValidFlagElementSchema(schema);
+	return schema;
 }
 
 /**
@@ -2421,7 +2473,10 @@ const flag: FlagFactory = {
  * @internal
  */
 function assertFlagElementBuilder(factory: 'array' | 'keyValue', element: unknown): void {
-	if (element instanceof FlagBuilder) return;
+	if (element instanceof FlagBuilder) {
+		assertValidFlagElementSchema(element.schema);
+		return;
+	}
 
 	throw new CLIError(`flag.${factory}() requires an element builder`, {
 		code: 'INVALID_SCHEMA',

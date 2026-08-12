@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Multi-file module (split from monolithic index). 10 source files, ~2870 source lines.
+Multi-file module (split from monolithic index). 11 source files, ~3240 source lines.
 
 ## RESOLUTION ORDER
 
@@ -20,16 +20,16 @@ a source the projection omits is a source no stage can produce.
 | File             | Lines | Purpose                                                                       |
 | ---------------- | ----: | ----------------------------------------------------------------------------- |
 | `index.ts`       |   153 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
-| `stages.ts`      |   263 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
+| `stages.ts`      |   265 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
 | `flags.ts`       |   433 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
 | `args.ts`        |   299 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
-| `coerce.ts`      |  1175 | `coerceValue()` — unified raw value -> flag's declared kind                   |
-| `path-checks.ts` |   134 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
+| `coerce.ts`      |  1206 | `coerceValue()` — unified raw value -> flag's declared kind                   |
+| `path-checks.ts` |   136 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
 | `redaction.ts`   |    29 | `echoesValue()` / `REDACTED` — the one rule for value text in diagnostics     |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   226 | Error aggregation + `throwAggregatedErrors()`                                 |
 | `contracts.ts`   |   182 | `ResolveOptions`, `ResolutionProvenanceRecord`, `resolverContract`            |
-| `standard.ts`    |   283 | Standard Schema v1 validation pass over resolved values                       |
+| `standard.ts`    |   284 | Standard Schema v1 validation pass over resolved values                       |
 
 ## KEY FUNCTIONS
 
@@ -177,7 +177,7 @@ rather than naming a first allowed kind there is none of. This mirrors the compi
 
 ## GOTCHAS
 
-- Split from ~940-line monolithic index — `coerce.ts` (1177 lines) is the largest piece
+- Split from ~940-line monolithic index — `coerce.ts` (1206 lines) is the largest piece
 - `ResolveOptions` injects everything: env, config, prompter, answers — never touches `process`
 - Imports `schema/prompt.ts` directly (not through barrel) — circular dep avoidance
 - `DeprecationWarning` structs collected during resolution for deprecated flag/arg usage
