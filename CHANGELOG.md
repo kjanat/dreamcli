@@ -2393,7 +2393,12 @@ sections that follow. Upgrading from 2.x is covered by the new
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.17...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/kjanat/dreamcli/compare/v3.0.0...v3.0.1
+[3.0.0]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.20...v3.0.0
+[3.0.0-rc.20]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.19...v3.0.0-rc.20
+[3.0.0-rc.19]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.18...v3.0.0-rc.19
+[3.0.0-rc.18]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.17...v3.0.0-rc.18
 [3.0.0-rc.17]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.16...v3.0.0-rc.17
 [3.0.0-rc.16]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.15...v3.0.0-rc.16
 [3.0.0-rc.15]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.14...v3.0.0-rc.15
