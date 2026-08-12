@@ -901,8 +901,9 @@ command('build')
 
 Semantics:
 
-- Both spellings are the same flag: the **last CLI occurrence wins** across them, and they share
-  the flag's [duplicate policy](#duplicate-policy).
+- Both spellings are the same flag. Under the default `.duplicates('last')`
+  policy, the last CLI occurrence wins across them. `.duplicates('first')` and
+  `.duplicates('error')` likewise apply across both spellings.
 - The negated spelling is presence-only. `--no-sandbox=true` is an error. Explicit values stay
   on the positive spelling (`--sandbox=false`).
 - Help renders the pair as one entry: `--[no-]sandbox`.
@@ -984,10 +985,10 @@ separator handling, and `--no-*` spellings, see [CLI Semantics](/guide/semantics
 
 ## Validation
 
-Constraints, Standard Schema validators, and filesystem checks all describe what
-a resolved value has to satisfy. They apply to every source, so a value typed on
-the command line, piped, exported, written in a config file, answered at a
-prompt, or declared as the default meets the same bar.
+Constraints and Standard Schema validators describe what a resolved value has to
+satisfy. Filesystem checks do the same when execution supplies a `stat`
+capability; process-free `.execute()` and `runCommand()` calls without one skip
+those checks. The rules cover every value source, including defaults.
 
 ### String constraints {#string-constraints}
 
@@ -1115,8 +1116,10 @@ const port = flag.custom(z.coerce.number().int().min(1).max(65_535));
 // inferred type: number | undefined
 ```
 
-Standard Schema validation runs after source resolution, so the same sync or async validator
-handles CLI, stdin, env, config, prompt, and default values. Validation issues become
+Source values run through Standard Schema validation after resolution. A
+caller-declared default runs through a synchronous validator when it is
+declared; asynchronous validators, filesystem checks, and `flag.count()`
+validation remain deferred until resolution. Validation issues become
 `CONSTRAINT_VIOLATED` errors.
 
 #### Element and aggregate validators
@@ -1176,10 +1179,12 @@ A collection default takes the shape the flag resolves to: an array for
 `flag.array()`, a record for `flag.keyValue()`, a non-negative integer for
 `flag.count()`.
 
-Two checks stay at resolution time, where a default already went through them:
-a validator that returns a promise, and the `flag.path()` filesystem checks.
-`flag.path({ mustExist: true }).default('/nope')` therefore builds, and fails
-when the path is probed.
+Three checks stay deferred until resolution: a validator that returns a promise,
+the `flag.path()` filesystem checks, and a validator on `flag.count()`, whose
+default of `0` the factory declares rather than the caller.
+`flag.path({ mustExist: true }).default('/nope')` therefore builds and fails when
+the path is probed; `flag.count().standard(atLeastOne)` builds and fails on an
+invocation that leaves the count at `0`.
 
 Fix the default, or widen the declaration where the value was intended:
 `flag.number({ finite: false }).default(Number.POSITIVE_INFINITY)` holds.
