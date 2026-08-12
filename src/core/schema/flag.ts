@@ -722,7 +722,7 @@ function normalizeFlagDefinitionFields(fields: FlagDefinitionFields): FlagSchema
 }
 
 /** Flag kinds whose value is a single scalar, and so can be read from stdin. */
-const STDIN_CAPABLE_FLAG_KINDS = [
+const STDIN_CAPABLE_FLAG_KINDS: readonly ['string', 'number', 'boolean', 'enum', 'custom'] = [
 	'string',
 	'number',
 	'boolean',
