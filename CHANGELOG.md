@@ -21,15 +21,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   counts an empty tail as an absent input, which is what makes
   `printf 'x\ny\n' | mycli build` reach the fallback stage under `.run()`.
 
-- **`.stdin({ trim: true })` drops the terminator a pipe appends.** A `string`
-  input keeps the buffer byte for byte by default, which is the right answer for
-  message bodies and the wrong one for paths. `trim` drops one trailing `\n`,
-  `\r\n`, or `\r` from a single value before anything decodes or checks it, so
+- **`.stdin({ trim: true })` drops the terminator a pipe appends.** Codecs that
+  preserve text terminators, including `string` and `path`, keep the buffer byte
+  for byte by default. `trim` drops one trailing `\n`, `\r\n`, or `\r` from a
+  single value before anything decodes or checks it, so
   `echo ./dist | mycli clean` satisfies `arg.path({ mustExist: true })`. It
   applies to both surfaces, to an explicit `-` and to the implicit fallback, and
-  to `readFlags()` and `runCommand()`. A `string` is the one kind that still
-  carries the terminator at that point; every other kind already drops it while
-  decoding and is unaffected, so no value ever loses two. A collection's
+  to `readFlags()` and `runCommand()`. Other decoding codecs already remove one
+  framing terminator and are unaffected, so no value ever loses two. A collection's
   terminators separate its elements, so `.split({ stdin })` still decides those.
   The binding serializes as `stdin.trim` in definition documents, alongside
   `when` and `consume`.
