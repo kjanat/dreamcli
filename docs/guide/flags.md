@@ -470,13 +470,13 @@ than only across repeated CLI occurrences:
 | `'error'` | a repeat fails with `CONSTRAINT_VIOLATED`   |
 
 ```ts
-flag.keyValue().duplicateKeys('first').alias('e').env('VARS');
+command('deploy').flag('v', flag.keyValue().duplicateKeys('first').alias('e').env('VARS'));
 // -e A=1 -e A=2      →  { A: '1' }
 // VARS='A=1,A=2'     →  { A: '1' }
 ```
 
 Under `'error'`, the message names the source that carried the repeat:
-`Duplicate key '<redacted>' from env VARS for flag --env` for the environment,
+`Duplicate key '<redacted>' from env VARS for flag --v` for the environment,
 and `Duplicate key 'A' for flag --v` for occurrences the user typed, which name
 no source and quote the key. A key spliced in from a pipe reads `from stdin`.
 JSON decoding does not preserve repeated object member names, so
