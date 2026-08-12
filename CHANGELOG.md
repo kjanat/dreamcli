@@ -23,6 +23,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR
       do not already contain that version before publishing the GitHub release.
 
+## [4.0.0-rc.1] - 2026-08-12
+
 ### Added
 
 - **Handlers can see where each value came from**
@@ -2393,7 +2395,8 @@ sections that follow. Upgrading from 2.x is covered by the new
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...HEAD
+[4.0.0-rc.1]: https://github.com/kjanat/dreamcli/compare/v3.0.1...v4.0.0-rc.1
 [3.0.1]: https://github.com/kjanat/dreamcli/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.20...v3.0.0
 [3.0.0-rc.20]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.19...v3.0.0-rc.20
