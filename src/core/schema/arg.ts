@@ -936,7 +936,7 @@ function assertValidArgDefault(name: string | undefined, schema: ArgSchema): voi
  */
 function createArgSchema<K extends ArgKind>(
 	kind: K,
-	...args: ArgDefinitionArguments<K>
+	...overrides: ArgDefinitionArguments<K>
 ): ArgSchema<K>;
 /**
  * Create a raw {@link ArgSchema} object from a single definition object.

@@ -1164,7 +1164,7 @@ function assertValidFlagDefault(name: string | undefined, schema: FlagSchema): v
  */
 function createFlagSchema<K extends FlagKind>(
 	kind: K,
-	...args: FlagDefinitionArguments<K>
+	...overrides: FlagDefinitionArguments<K>
 ): FlagSchema<K>;
 /**
  * Create a raw {@link FlagSchema} object from a single definition object.
