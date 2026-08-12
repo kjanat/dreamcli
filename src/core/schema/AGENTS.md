@@ -8,7 +8,7 @@ Multi-file module in `core/`. All others (except resolve, output, completion) us
 | ----------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
 | `command.ts`            |  1828 | `CommandBuilder<F, A, C>` — fluent builder + `Out` interface + schema + `createCommandSchema()`                             |
 | `flag.ts`               |  2001 | `FlagBuilder` — `flag.string/number/boolean/enum/array/custom/url/path/date/duration/bytes/count/keyValue()`                |
-| `arg.ts`                |  1432 | `ArgBuilder` — `arg.string/number/enum/custom/url/path/date/duration/bytes()`                                               |
+| `arg.ts`                |  1432 | `ArgBuilder` — `arg.string/number/boolean/enum/custom/url/path/date/duration/bytes/keyValue()`                              |
 | `brand.ts`              |    19 | `schemaBrand` — type-only `unique symbol` sealing flag, arg, command, CLI, and config-settings schemas                      |
 | `activity.ts`           |   240 | Activity types — `SpinnerHandle`, `ProgressHandle`, `ActivityEvent`, etc.                                                   |
 | `middleware.ts`         |   171 | `middleware<Output>(handler)` factory — phantom-branded `Middleware<Output>`                                                |
@@ -79,7 +79,7 @@ value problem alone. Naming the subject (`flag --x` versus `argument <x>`) belon
 `resolve/coerce.ts`.
 
 `validateDecodedValue(value, decoded)` applies the same constraints to a value that never came from
-a raw source. A declared default is already typed, so the L15/L16 defaults pass validates it here
+a raw source. A declared default is already typed, so the default-validation pass validates it here
 rather than adding a second dispatch over `stringConstraints` / `numberConstraints`.
 
 The public field shape of `FlagSchema` and `ArgSchema` is unchanged. Both still carry the flat
@@ -100,9 +100,8 @@ through `valueDefinitionFields()` in both factories; only steps 3 and 10–11 ap
    exclusively
 3. `flag.ts` — add the factory to the `FlagFactory` interface **and** the `flag` object literal
    (duplicate signatures; keep both in sync)
-4. `value.ts` — a codec plus a value constructor when the kind carries a value, and a
-   `flagBaseValue()` / `argBaseValue()` arm; a collection kind returns `undefined` from
-   `flagBaseValue()` instead
+4. `value.ts` — add a codec and value constructor when the kind carries a value, then add
+   `flagValueSchema()` / `argValueSchema()` handling. Collection kinds project their element value.
 5. `parse/index.ts` — `coerceFlagValue()` case for a collection kind, plus a `flagValueError()` /
    `argValueError()` arm for any new `ValueFailure`; update `flagExpectsValue()` if the kind takes
    no value token; `setFlagValue()` if occurrences accumulate (array/keyValue style)
