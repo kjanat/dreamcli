@@ -310,7 +310,7 @@ export default defineConfig({
 			transformerJSDocTags({ symbolRoutes }),
 			shikiClasses,
 		],
-		languages: ['js', 'jsx', 'ts', 'tsx'],
+		languages: ['bash', 'js', 'jsx', 'json', 'ts', 'tsx'],
 	},
 	vite: {
 		plugins: dreamcliDocsPlugin(),
