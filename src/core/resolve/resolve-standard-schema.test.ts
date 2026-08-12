@@ -106,6 +106,27 @@ describe('Standard Schema v1 interop — flags', () => {
 		expect(bad.error?.message).toContain('must be longer than two characters');
 	});
 
+	it('collects thrown and rejected validator failures', async () => {
+		const throws = standard(() => {
+			throw new Error('sync validator failed');
+		});
+		const rejects = standard(async () => {
+			throw new Error('async validator failed');
+		});
+		const cmd = command('run')
+			.flag('first', flag.custom(throws))
+			.flag('second', flag.custom(rejects))
+			.action(({ out }) => out.log('unreachable'));
+
+		const result = await runCommand(cmd, ['--first', 'one', '--second', 'two']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.message).toContain('sync validator failed');
+		expect(result.error?.message).toContain('async validator failed');
+		expect(result.error?.details).toMatchObject({ count: 2 });
+	});
+
 	it('validates and transforms Standard Schema array elements', async () => {
 		const cmd = command('run')
 			.flag('count', flag.array(flag.custom(evenInt)))

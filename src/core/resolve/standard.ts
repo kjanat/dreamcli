@@ -69,7 +69,20 @@ async function validateValue(
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError }
 > {
-	const result = await validator['~standard'].validate(value);
+	let result: StandardSchemaV1.Result<unknown>;
+	try {
+		result = await validator['~standard'].validate(value);
+	} catch (cause) {
+		const message = cause instanceof Error ? cause.message : String(cause);
+		return {
+			ok: false,
+			error: new ValidationError(`${label} validator threw: ${message}`, {
+				code: 'CONSTRAINT_VIOLATED',
+				details: { value, cause: message },
+				suggest: `Fix the validator for ${label}, or provide a value it can process`,
+			}),
+		};
+	}
 	if (result.issues !== undefined) {
 		return {
 			ok: false,
