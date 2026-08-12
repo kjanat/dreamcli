@@ -66,6 +66,7 @@
 	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
 	"nodeModulesDir": "manual",
 	"preferPackageJson": false,
+	"lock": false,
 	"exclude": ["**/*.test.ts", "*.ts", "*cache/", "coverage/", "dist/", "scripts/", "**/*.tpl"],
 	"minimumDependencyAge": {
 		"exclude": [
