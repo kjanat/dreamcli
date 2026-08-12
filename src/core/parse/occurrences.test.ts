@@ -45,6 +45,7 @@ describe('occurrenceValue', () => {
 		expect(occurrenceValue({ kind: 'entry', key: 'A', value: '1' })).toEqual(['A', '1']);
 		expect(occurrenceValue(STDIN_OCCURRENCE)).toBe('-');
 		expect(occurrenceValue(NEGATED_OCCURRENCE)).toBe(false);
+		expect(occurrenceValue(INCREMENT_OCCURRENCE)).toBe(1);
 		expect(occurrenceValue({ kind: 'aggregated', value: { A: '1' } })).toEqual({ A: '1' });
 	});
 });
@@ -191,6 +192,15 @@ describe('readAggregated', () => {
 	it('names nothing for occurrences the parser produced', () => {
 		expect(readAggregated([{ kind: 'value', value: 7 }])).toBeUndefined();
 		expect(readAggregated([])).toBeUndefined();
+	});
+
+	it('names nothing when an aggregate sits beside another occurrence', () => {
+		expect(
+			readAggregated([
+				{ kind: 'aggregated', value: 7 },
+				{ kind: 'value', value: 8 },
+			]),
+		).toBeUndefined();
 	});
 });
 

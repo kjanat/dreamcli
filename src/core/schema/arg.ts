@@ -1460,6 +1460,7 @@ function nextArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
  * @returns A builder over that schema.
  * @throws {CLIError} With code `'INVALID_SCHEMA'` when the field does not belong
  *   on the arg, or `'INVALID_DEFAULT'` when the default no longer holds.
+ * @internal
  */
 function nextCollectionArg<C extends ArgConfig>(schema: ArgSchema): ArgBuilder<C> {
 	assertValidArgDefinition(schema.kind, schema);

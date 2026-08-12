@@ -109,7 +109,7 @@ describe('runCommand() stdin contract', () => {
 		const result = await runCommand(cmd, ['a', '-', 'b'], { stdinData: 'x\ny\n' });
 
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout.join('')).toContain('["a","x","y","b"]');
+		expect(result.stdout.join('')).toContain('["a","x","y","b"]\n');
 	});
 
 	it('reports a dash in the tail with nothing piped', async () => {
@@ -121,7 +121,7 @@ describe('runCommand() stdin contract', () => {
 
 		expect(result.exitCode).toBe(2);
 		expect(result.stderr.join('')).toContain(
-			"No piped stdin for the '-' occurrence of argument <files>",
+			"No piped stdin for the '-' occurrence of argument <files>\n",
 		);
 	});
 });

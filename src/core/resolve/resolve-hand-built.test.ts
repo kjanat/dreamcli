@@ -91,7 +91,16 @@ describe('a caller-built list of occurrences', () => {
 			resolveGivenFlag(flag.keyValue(), [['A', '1'], 'junk', ['B', '2']]),
 		).rejects.toMatchObject({
 			code: 'TYPE_MISMATCH',
-			details: { flag: 'value', expected: 'object' },
+			message: 'Invalid object value for flag --value',
+			details: { flag: 'value', source: 'cli', expected: 'object', value: 'junk' },
+		});
+	});
+
+	it('rejects a non-pair argument occurrence as CLI input', async () => {
+		await expect(resolveGivenArg(arg.keyValue(), [['A', '1'], 'junk'])).rejects.toMatchObject({
+			code: 'TYPE_MISMATCH',
+			message: 'Invalid object value for argument <value>',
+			details: { arg: 'value', source: 'cli', expected: 'object', value: 'junk' },
 		});
 	});
 

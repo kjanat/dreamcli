@@ -225,6 +225,9 @@ type CollectionFault =
 /** How one surface words the faults reading a source can produce. */
 type CollectionErrors = (fault: CollectionFault, raw: unknown) => ValidationError;
 
+/** How one CLI surface words a caller-built non-pair occurrence. */
+type CliCollectionShapeError = (raw: unknown) => ValidationError;
+
 /**
  * What combining a collection's decoded elements rejected.
  *
@@ -461,6 +464,16 @@ function flagAggregationErrors(flagName: string): AggregationErrors {
 	};
 }
 
+/** Word a caller-built non-pair occurrence in a key-value flag's CLI slot. */
+function flagCliCollectionShapeError(flagName: string): CliCollectionShapeError {
+	return (raw) =>
+		new ValidationError(`Invalid object value for flag --${flagName}`, {
+			code: 'TYPE_MISMATCH',
+			details: { flag: flagName, source: 'cli', expected: 'object', value: raw },
+			suggest: `Use KEY=VALUE occurrences for --${flagName}`,
+		});
+}
+
 /** Word a collection fault for a positional, without echoing the value. */
 function argCollectionErrors(argName: string, source: ArgStringSource): CollectionErrors {
 	return (fault) => {
@@ -524,6 +537,16 @@ function argAggregationErrors(argName: string): AggregationErrors {
 			},
 		);
 	};
+}
+
+/** Word a caller-built non-pair occurrence in a key-value argument's CLI slot. */
+function argCliCollectionShapeError(argName: string): CliCollectionShapeError {
+	return (raw) =>
+		new ValidationError(`Invalid object value for argument <${argName}>`, {
+			code: 'TYPE_MISMATCH',
+			details: { arg: argName, source: 'cli', expected: 'object', value: raw },
+			suggest: `Use KEY=VALUE occurrences for <${argName}>`,
+		});
 }
 
 /** Name what JSON parsing rejected, without echoing the text. */
@@ -1000,6 +1023,7 @@ function finishCliFlagValue(
 		schema.stdin !== undefined && stdinReadsOnDash(schema.stdin),
 		(element) => coerceValueSchema(flagName, { kind: 'stdin' }, element, flagValueSchema(schema)),
 		flagCollectionErrors(flagName, { kind: 'stdin' }),
+		flagCliCollectionShapeError(flagName),
 		flagAggregationErrors(flagName),
 	);
 }
@@ -1031,6 +1055,7 @@ function finishCliArgValue(
 		schema.stdin !== undefined && stdinReadsOnDash(schema.stdin),
 		(element) => coerceArgElement(argName, { kind: 'stdin' }, element, schema),
 		argCollectionErrors(argName, { kind: 'stdin' }),
+		argCliCollectionShapeError(argName),
 		argAggregationErrors(argName),
 	);
 }
@@ -1065,6 +1090,7 @@ function spliceCliCollection(
 	readsOnDash: boolean,
 	decodeElement: (element: unknown) => CoerceResult,
 	errors: CollectionErrors,
+	cliShapeError: CliCollectionShapeError,
 	aggregationErrors: AggregationErrors,
 ): CliFinish {
 	const occurrences = liftOccurrences(cardinality, value, readsOnDash);
@@ -1112,7 +1138,7 @@ function spliceCliCollection(
 		if (entry.occurrence.kind !== 'entry') {
 			return {
 				kind: 'error',
-				error: errors({ kind: 'shape', expected: 'object' }, occurrenceValue(entry.occurrence)),
+				error: cliShapeError(occurrenceValue(entry.occurrence)),
 			};
 		}
 		entries.push(entry);

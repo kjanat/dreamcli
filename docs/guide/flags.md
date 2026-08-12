@@ -291,10 +291,10 @@ CLI-sourced, so it still outranks env, config, prompt, and the default. Two `-`
 occurrences splice the buffer twice, since the whole buffer is what each one
 stands for: `--tag - --tag -` over `'a\n'` resolves to `['a', 'a']`.
 
-A stdin-enabled input never receives a literal `-` as a value, on either
-surface. The token names the source before anything reads it as text, so a
-program that must accept `-` as data either drops the binding or declares
-`{ when: 'missing' }`, which leaves `-` literal.
+A binding where `-` selects stdin never receives that token as a literal value,
+on either surface. The token names the source before anything reads it as text.
+A binding with `{ when: 'missing' }` remains stdin-enabled but leaves `-`
+literal.
 
 Broadcast consumers each decode the one shared buffer under their own binding,
 so a line-split array flag and a JSON key-value flag can read the same pipe:
