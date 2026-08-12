@@ -1487,6 +1487,10 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				} satisfies FragmentProperties<ArgDefinitionFragmentV1> &
 					Record<SerializedArgField, Record<string, unknown>>,
 				required: ['name', 'kind', 'presence'],
+				anyOf: [
+					{ not: { required: ['elementSchema'] } },
+					{ properties: { kind: { const: 'keyValue' } }, required: ['kind'] },
+				],
 			},
 			prompt: {
 				type: 'object',

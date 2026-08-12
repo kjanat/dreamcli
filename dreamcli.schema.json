@@ -631,6 +631,25 @@
         "kind",
         "presence"
       ],
+      "anyOf": [
+        {
+          "not": {
+            "required": [
+              "elementSchema"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "keyValue"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ],
       "description": "The runtime descriptor stored inside every ArgBuilder. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics."
     },
     "prompt": {

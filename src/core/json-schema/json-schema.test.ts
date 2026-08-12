@@ -970,6 +970,16 @@ describe('generateSchema — definition metadata', () => {
 		);
 	});
 
+	it('restricts arg element schemas to key-value definitions in the meta-schema', () => {
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'arg', 'anyOf'],
+			[
+				{ not: { required: ['elementSchema'] } },
+				{ properties: { kind: { const: 'keyValue' } }, required: ['kind'] },
+			],
+		);
+	});
+
 	it('keeps serialized FlagSchema fields exhaustive against the meta-schema', () => {
 		const allFieldsFlags: Readonly<Record<string, FlagSchema>> = {
 			region: flagDef({
