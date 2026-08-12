@@ -157,6 +157,13 @@ describe('generateSchema — definition metadata', () => {
 		]);
 	});
 
+	it('keeps trim optional in v1 stdin fragments', () => {
+		expect(definitionMetaSchema).toHaveProperty(
+			['$defs', 'stdin', 'required'],
+			['when', 'consume'],
+		);
+	});
+
 	it('accepts standalone command documents via a dedicated def', () => {
 		const defs = expectRecord(definitionMetaSchema.$defs);
 		const command = expectRecord(defs.command);

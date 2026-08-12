@@ -323,8 +323,7 @@
       },
       "required": [
         "when",
-        "consume",
-        "trim"
+        "consume"
       ],
       "description": "The normalized stdin axis of a flag or an arg."
     },

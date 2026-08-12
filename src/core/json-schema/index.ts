@@ -1283,7 +1283,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					consume: { enum: ['exclusive', 'broadcast'] },
 					trim: { type: 'boolean' },
 				} satisfies Record<keyof StdinBindingFragmentV1, Record<string, unknown>>,
-				required: ['when', 'consume', 'trim'],
+				required: ['when', 'consume'],
 			},
 			split: {
 				type: 'object',
