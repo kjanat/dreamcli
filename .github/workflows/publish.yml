@@ -33,7 +33,7 @@ jobs:
       - run: runner install --frozen
       - run: run -s schema:emit version:check ci smoke
       - id: pack
-        run: tarball="$(bun pm pack --quiet --ignore-scripts)"; echo "tarball=${tarball}" >> "${GITHUB_OUTPUT}"
+        run: tarball="$(bun pm pack --quiet --ignore-scripts)"; echo "tarball=${tarball//$'\n'/}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with: { name: tarball, path: "${{ steps.pack.outputs.tarball }}", retention-days: 1 }
 
