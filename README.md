@@ -41,12 +41,16 @@ prompt → default**. Every step is opt-in. Every step preserves types.
 
 ```bash
 npm install @kjanat/dreamcli
+# Or alias the package for imports from 'dreamcli' and 'dreamcli/testkit':
+npm install dreamcli@npm:@kjanat/dreamcli
 ```
 
 <details><summary>bun/deno</summary>
 
 ```bash
 bun add @kjanat/dreamcli
+# Or use the same import alias with Bun:
+bun add dreamcli@npm:@kjanat/dreamcli
 ```
 
 ```bash
