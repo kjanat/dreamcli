@@ -772,8 +772,8 @@ function isNormalizedFlagSchema(element: FlagDefinition | FlagSchema): element i
 	return NORMALIZED_FLAG_SCHEMA_KEYS.every((key) => key in element);
 }
 
-/** Reject flag-level fields on a collection element's value schema. */
-function assertValidFlagElementSchema(schema: FlagSchema): void {
+/** Reject flag-level fields on a collection factory's element builder. */
+function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 	if (COLLECTION_FLAG_KINDS.includes(schema.kind) || schema.kind === 'count') {
 		throw new CLIError(`Flag element schema kind '${schema.kind}' is not supported`, {
 			code: 'INVALID_SCHEMA',
@@ -783,8 +783,8 @@ function assertValidFlagElementSchema(schema: FlagSchema): void {
 	}
 
 	const defaults: readonly (readonly [keyof FlagSchema, unknown])[] = [
-		['presence', 'optional'],
-		['defaultValue', undefined],
+		['presence', schema.kind === 'boolean' ? 'defaulted' : 'optional'],
+		['defaultValue', schema.kind === 'boolean' ? false : undefined],
 		['stdin', undefined],
 		['envVar', undefined],
 		['configPath', undefined],
@@ -832,15 +832,12 @@ function assertValidFlagElementSchema(schema: FlagSchema): void {
 function normalizeFlagElementSchema(element: FlagDefinition | FlagSchema): FlagSchema {
 	if (isNormalizedFlagSchema(element)) {
 		assertValidFlagDefinition(element.kind, element);
-		assertValidFlagElementSchema(element);
 		return element;
 	}
 
 	const { kind, ...fields } = element;
 	assertValidFlagDefinition(kind, fields);
-	const schema = buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
-	assertValidFlagElementSchema(schema);
-	return schema;
+	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
 }
 
 /**
@@ -2474,7 +2471,7 @@ const flag: FlagFactory = {
  */
 function assertFlagElementBuilder(factory: 'array' | 'keyValue', element: unknown): void {
 	if (element instanceof FlagBuilder) {
-		assertValidFlagElementSchema(element.schema);
+		assertEligibleFlagElementBuilder(element.schema);
 		return;
 	}
 
