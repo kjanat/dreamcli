@@ -10,6 +10,7 @@
  */
 
 import { CLIError } from '#internals/core/errors/index.ts';
+import type { HelpDescription } from '#internals/core/help/theme.ts';
 import type { schemaBrand } from './brand.ts';
 import type { DuplicateKeys, SourceSplitBinding, SplitOptions } from './cardinality.ts';
 import {
@@ -301,7 +302,7 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
 	readonly configPath: string | undefined;
 	/** Human-readable description for help text. */
-	readonly description: string | undefined;
+	readonly description: HelpDescription | undefined;
 	/** Allowed literal values when `kind === 'enum'`. */
 	readonly enumValues: readonly string[] | undefined;
 	/**
@@ -477,7 +478,7 @@ interface FlagDefinitionBase {
 	 * Human-readable description for help text.
 	 * @defaultValue `undefined`
 	 */
-	readonly description?: string | undefined;
+	readonly description?: HelpDescription | undefined;
 	/**
 	 * Help placeholder label (`'url'` renders as `<url>`).
 	 * @defaultValue `undefined`
@@ -1438,7 +1439,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * @param description - Text displayed next to the flag in `--help`.
 	 * @returns The builder (for chaining).
 	 */
-	describe(description: string): FlagBuilder<WithoutElementEligibility<C>> {
+	describe(description: HelpDescription): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
 			description,

@@ -95,6 +95,28 @@ describe('root help theming', () => {
 		expect(output).not.toContain(on.cyan('deploy'));
 	});
 
+	it('threads .help({ descriptionTheme }) into function-form descriptions', async () => {
+		const themed = cli('mycli')
+			.command(
+				command('deploy')
+					.flag(
+						'output',
+						flag.string().describe((theme) => `Relative to ${theme.flag('--out-dir')}`),
+					)
+					.action(() => {}),
+			)
+			.help({
+				theme: (c) => ({ flag: c.red }),
+				descriptionTheme: (c) => ({ flag: c.blue }),
+			});
+		const [out, captured] = createCaptureOutput({ color: true });
+		await executeCLI(themed, ['deploy', '--help'], { out, captured });
+		const output = captured.stdout.join('');
+
+		expect(output).toContain(on.red('--output'));
+		expect(output).toContain(`Relative to ${on.blue('--out-dir')}`);
+	});
+
 	it('.help({ theme }) leaks nothing without forced color', async () => {
 		const result = await app()
 			.help({ theme: (c) => ({ command: c.green }) })

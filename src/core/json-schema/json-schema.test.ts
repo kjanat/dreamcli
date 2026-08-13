@@ -298,6 +298,29 @@ describe('generateSchema — definition metadata', () => {
 		expect(result).toHaveProperty(['commands', 0, 'examples'], [{ command: 'mycli@2.0.0 deploy' }]);
 	});
 
+	it('resolves function-form input descriptions with the plain theme', () => {
+		const cmd = commandDef({
+			name: 'deploy',
+			flags: {
+				output: flagDef({
+					description: (theme) => `Relative to ${theme.flag('--out-dir')}`,
+				}),
+			},
+			args: [
+				argEntry('target', {
+					description: (theme) => `Deploy ${theme.arg('<target>')}`,
+				}),
+			],
+		});
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
+
+		expect(result).toHaveProperty(
+			['commands', 0, 'flags', 'output', 'description'],
+			'Relative to --out-dir',
+		);
+		expect(result).toHaveProperty(['commands', 0, 'args', 0, 'description'], 'Deploy <target>');
+	});
+
 	// -------------------------------------------------------------------
 	// Flag serialization
 	// -------------------------------------------------------------------

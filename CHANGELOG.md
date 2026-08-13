@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Let `flag.*().describe()` and `arg.*().describe()` accept a function that
+  receives the resolved help theme, keeping semantic highlighting inside prose
+  on the framework's color gate. Add `.help({ descriptionTheme })` for scoped
+  role overrides that merge over the global theme
+  ([#93](https://github.com/kjanat/dreamcli/issues/93)).
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated

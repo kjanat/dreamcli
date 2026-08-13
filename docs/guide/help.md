@@ -129,8 +129,25 @@ The built-in theme follows clap/cargo conventions:
 | `headerVersion` | `vX.Y.Z` in the root header                            | dim              |
 | `examplePrompt` | the `$` marker in `Examples:`                          | dim              |
 
-Descriptions stay unstyled for readability. Example commands are highlighted
-per token with the existing roles — the leading binary via `usageBin` (bold)
+Literal descriptions stay unstyled for readability. Function-form flag and
+argument descriptions receive the resolved theme at render time, so references
+inside prose use the same semantic roles and the same color gate as the table:
+
+```ts twoslash
+import { arg, command, flag } from '@kjanat/dreamcli';
+
+command('deploy')
+  .arg('target', arg.string().describe((t) => `Deploy ${t.arg('<target>')}`))
+  .flag(
+    'output',
+    flag.string().describe(
+      (t) => `Filename relative to ${t.flag('--out-dir')}`,
+    ),
+  );
+```
+
+Example commands are highlighted per token with the existing roles — the
+leading binary via `usageBin` (bold)
 and flag tokens (`-x`, `--long`) via `flag` (cyan), values plain. Tokenizing is
 quote-aware, so `--scope './a b'` stays one token, and the highlighting respects
 the color gate: with color off the command is byte-identical to its plain form.
@@ -155,6 +172,26 @@ cli('mycli')
   });
 ```
 
+Use `descriptionTheme` for a role override that applies only inside
+function-form descriptions. It merges over the global theme role by role, so
+unspecified roles still inherit the global choice:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('mycli')
+  .command(
+    command('deploy').flag(
+      'output',
+      flag.string().describe((t) => `Relative to ${t.flag('--out-dir')}`),
+    ),
+  )
+  .help({
+    theme: (c) => ({ flag: c.cyan }),
+    descriptionTheme: (c) => ({ flag: c.blue }),
+  });
+```
+
 Two guarantees make themes safe to write:
 
 - The palette's formatters are identity functions when color is off, so you can
@@ -162,8 +199,9 @@ Two guarantees make themes safe to write:
 - The factory itself is **never invoked** when color is off — even a formatter
   that emits raw escape codes cannot leak them into piped output.
 
-One constraint: roles that appear inside wrap-eligible description text
-(`defaultValue`, `annotation`, `deprecated`) should stick to foreground colors
+One constraint: roles used inside wrap-eligible description text (including
+`flag`, `arg`, `placeholder`, `defaultValue`, `annotation`, and `deprecated`)
+should stick to foreground colors
 and `dim`. A styled span can cross a soft-wrap boundary — colors carry
 invisibly across the continuation indent, but `underline`, `inverse`, and
 background styles would visibly paint it.

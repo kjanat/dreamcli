@@ -10,6 +10,7 @@
  */
 
 import { CLIError } from '#internals/core/errors/index.ts';
+import type { HelpDescription } from '#internals/core/help/theme.ts';
 import type { schemaBrand } from './brand.ts';
 import type { DuplicateKeys, SourceSplitBinding, SplitOptions } from './cardinality.ts';
 import {
@@ -263,7 +264,7 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
 	/** Human-readable description for help text. */
-	readonly description: string | undefined;
+	readonly description: HelpDescription | undefined;
 	/**
 	 * Environment variable name for env resolution.
 	 *
@@ -427,7 +428,7 @@ interface ArgDefinitionBase {
 	 * Human-readable description for help text.
 	 * @defaultValue `undefined`
 	 */
-	readonly description?: string | undefined;
+	readonly description?: HelpDescription | undefined;
 	/**
 	 * Environment variable name for env resolution.
 	 * @defaultValue `undefined`
@@ -1463,7 +1464,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * //   <target>  Deploy target
 	 * ```
 	 */
-	describe(description: string): ArgBuilder<WithoutArgElementEligibility<C>> {
+	describe(description: HelpDescription): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
 			description,

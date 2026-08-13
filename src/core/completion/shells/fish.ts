@@ -13,6 +13,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
@@ -202,7 +203,9 @@ function appendFishFlagCompletions(
 		if (negated !== undefined) {
 			parts.push(`-l ${quoteShellArg(negated)}`);
 		}
-		parts.push(`-d ${quoteShellArg(schema.description ?? name)}`);
+		parts.push(
+			`-d ${quoteShellArg(schema.description === undefined ? name : resolvePlainHelpDescription(schema.description))}`,
+		);
 
 		if (flagExpectsValue(schema)) {
 			parts.push('-r', '-f');

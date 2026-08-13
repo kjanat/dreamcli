@@ -13,6 +13,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
@@ -183,7 +184,9 @@ function appendPowerShellPathEntry(
 		lines.push(`\t\t\t\tForms = ${formatPowerShellArray(forms)}`);
 		lines.push(`\t\t\t\tParseForms = ${formatPowerShellArray(parseForms)}`);
 		lines.push(`\t\t\t\tRequiresValue = ${flagExpectsValue(schema) ? '$true' : '$false'}`);
-		lines.push(`\t\t\t\tDescription = ${quotePowerShellString(schema.description ?? name)}`);
+		lines.push(
+			`\t\t\t\tDescription = ${quotePowerShellString(schema.description === undefined ? name : resolvePlainHelpDescription(schema.description))}`,
+		);
 		lines.push(`\t\t\t\tEnumValues = ${formatPowerShellArray(schema.enumValues ?? [])}`);
 		lines.push('\t\t\t}');
 	}

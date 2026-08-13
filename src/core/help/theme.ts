@@ -52,6 +52,12 @@ interface HelpTheme {
 }
 
 /**
+ * Help description text, either literal or resolved against the effective
+ * description theme at render time.
+ */
+type HelpDescription = string | ((theme: HelpTheme) => string);
+
+/**
  * User theme customization: receives the gated palette and returns role
  * overrides merged over the default theme.
  *
@@ -108,7 +114,41 @@ function resolveHelpTheme(
 	return { ...defaultHelpTheme(palette), ...theme(palette) };
 }
 
+/**
+ * Merge a scoped theme factory over an already-resolved help theme.
+ *
+ * The scoped factory follows the same color gate as the global factory and is
+ * never invoked when the palette is disabled.
+ *
+ * @internal
+ */
+function extendHelpTheme(
+	theme: HelpTheme,
+	colors: Colors | undefined,
+	override: HelpThemeFactory | undefined,
+): HelpTheme {
+	const palette = colors ?? createColors(false);
+	const enabled = palette.bold('x') !== 'x';
+	return enabled && override !== undefined ? { ...theme, ...override(palette) } : theme;
+}
+
+/** Resolve literal or function-form help description text. @internal */
+function resolveHelpDescription(description: HelpDescription, theme: HelpTheme): string {
+	return typeof description === 'function' ? description(theme) : description;
+}
+
+/** Resolve a help description with identity formatters for non-TTY output. @internal */
+function resolvePlainHelpDescription(description: HelpDescription): string {
+	return resolveHelpDescription(description, defaultHelpTheme(createColors(false)));
+}
+
 // --- Exports
 
-export type { HelpTheme, HelpThemeFactory };
-export { defaultHelpTheme, resolveHelpTheme };
+export type { HelpDescription, HelpTheme, HelpThemeFactory };
+export {
+	defaultHelpTheme,
+	extendHelpTheme,
+	resolveHelpDescription,
+	resolveHelpTheme,
+	resolvePlainHelpDescription,
+};
