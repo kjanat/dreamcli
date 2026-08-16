@@ -7,14 +7,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
-
-- **Published testkit declarations accept command builders again**
-  (https://github.com/kjanat/dreamcli/issues/122). `runCommand()` now exposes a declaration-safe
-  generic `CommandBuilder` parameter while keeping its execution pipeline type-erased internally.
-  Package builds also compile the public testing example against the emitted declarations so
-  internal-member stripping cannot silently break this contract again.
-
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated
@@ -30,6 +22,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
       signed, `master` matches the remote, and every required check is green.
 - [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR
       do not already contain that version before publishing the GitHub release.
+
+## [4.0.0-rc.2] - 2026-08-17
+
+### Fixed
+
+- **Published testkit declarations accept command builders again**
+  (https://github.com/kjanat/dreamcli/issues/122). `runCommand()` now exposes a declaration-safe
+  generic `CommandBuilder` parameter while keeping its execution pipeline type-erased internally.
+  Package builds also compile the public testing example against the emitted declarations so
+  internal-member stripping cannot silently break this contract again.
 
 ## [4.0.0-rc.1] - 2026-08-12
 
@@ -2403,7 +2405,8 @@ sections that follow. Upgrading from 2.x is covered by the new
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.2...HEAD
+[4.0.0-rc.2]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...v4.0.0-rc.2
 [4.0.0-rc.1]: https://github.com/kjanat/dreamcli/compare/v3.0.1...v4.0.0-rc.1
 [3.0.1]: https://github.com/kjanat/dreamcli/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.20...v3.0.0
