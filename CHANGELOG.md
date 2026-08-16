@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Published testkit declarations accept command builders again**
+  (https://github.com/kjanat/dreamcli/issues/122). `runCommand()` now exposes a declaration-safe
+  generic `CommandBuilder` parameter while keeping its execution pipeline type-erased internally.
+  Package builds also compile the public testing example against the emitted declarations so
+  internal-member stripping cannot silently break this contract again.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated

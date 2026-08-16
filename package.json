@@ -65,7 +65,7 @@
 	],
 	"workspaces": ["./examples/*", "./docs"],
 	"scripts": {
-		"bd": "run build",
+		"bd": "run -s build typecheck:dist",
 		"build": "bun --bun tsdown",
 		"build:watch": "run build --watch",
 		"ci": "run -pk typecheck lint format:check meta-descriptions:check test docs:build bd",
@@ -103,7 +103,8 @@
 		"test:gh": "run --dir examples/gh test",
 		"test:node": "npx -y vitest run",
 		"test:watch": "vitest",
-		"typecheck": "bunx @typescript/native --noEmit",
+		"typecheck": "run -q @typescript/native --noEmit",
+		"typecheck:dist": "run -q @typescript/native --ignoreConfig --noEmit --module preserve --moduleResolution bundler --target ESNext --types bun,node,vitest --skipLibCheck examples/testing.ts",
 		"typecheck:gh": "run --dir examples/gh typecheck",
 		"upgrade": "bun update --latest && bun --cwd docs add -D vitepress@next",
 		"version:check": "bun scripts/check-version-sync.ts"
@@ -124,13 +125,13 @@
 		"importmapify": "1.7.0",
 		"knip": "^6.32.2",
 		"publint": "^0.3.23",
-		"runner-run": "0.25.0",
+		"runner-run": "0.25.1",
 		"tsdown": "^0.22.14",
 		"typescript": "catalog:",
 		"vitest": "catalog:",
 		"yaml": "^2.9.0"
 	},
-	"packageManager": "bun@1.3.14",
+	"packageManager": "bun@1.4.0",
 	"engines": {
 		"bun": ">=1.3",
 		"deno": ">=2.6.0",
@@ -139,6 +140,7 @@
 	"devEngines": {
 		"packageManager": {
 			"name": "bun",
+			"version": "^1.4",
 			"onFail": "warn"
 		},
 		"runtime": {

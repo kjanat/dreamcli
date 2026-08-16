@@ -1154,6 +1154,7 @@ function validateCommandFlagTree(
  * the shared executor, so TypeScript never has to resolve
  * {@linkcode CommandBuilder}'s full generic signature.
  *
+ * @internal
  */
 interface RunnableCommand {
 	readonly schema: CommandSchema;
