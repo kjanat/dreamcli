@@ -25,7 +25,14 @@ import { buildRunResult, executeCommand } from '#internals/core/execution/index.
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { requestsHelp } from '#internals/core/parse/index.ts';
-import type { CommandMeta, Out, RunnableCommand } from '#internals/core/schema/command.ts';
+import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
+import type {
+	CommandBuilder,
+	CommandMeta,
+	Out,
+	RunnableCommand,
+} from '#internals/core/schema/command.ts';
+import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
 
 // RunOptions and RunResult are defined in schema/run.ts so the execution
@@ -82,8 +89,12 @@ interface RunCommandOptions extends RunOptions {
  * @param options - Injectable runtime state
  * @returns Structured run result with exit code and captured output
  */
-async function runCommand(
-	cmd: RunnableCommand,
+async function runCommand<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	A extends Record<string, ArgBuilder<ArgConfig>>,
+	C extends Record<string, unknown> = Record<string, never>,
+>(
+	cmd: CommandBuilder<F, A, C>,
 	argv: readonly string[],
 	options?: RunCommandOptions,
 ): Promise<RunResult> {

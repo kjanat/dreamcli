@@ -66,4 +66,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: runner install --frozen build
+      - run: runner install --frozen bd
