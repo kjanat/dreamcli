@@ -157,6 +157,29 @@ describe('root help — explicit links', () => {
 		expect(result.stdout.join('')).not.toContain(ESC);
 	});
 
+	it('help.hyperlinks: true overrides NO_HYPERLINKS', async () => {
+		const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+		const result = await app.execute(['--help'], {
+			env: { NO_HYPERLINKS: '1' },
+			help: { hyperlinks: true },
+		});
+
+		expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
+	});
+
+	it('help.hyperlinks: false overrides FORCE_HYPERLINKS', async () => {
+		const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+		const result = await app.execute(['--help'], {
+			env: { FORCE_HYPERLINKS: '1' },
+			help: { hyperlinks: false },
+			isTTY: true,
+		});
+
+		expect(result.stdout.join('')).not.toContain(ESC);
+	});
+
 	describe('environment overrides', () => {
 		it('NO_HYPERLINKS suppresses header links on a TTY', async () => {
 			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
@@ -191,6 +214,27 @@ describe('root help — explicit links', () => {
 			const result = await app.execute(['--help', '--hyperlinks']);
 
 			expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
+		});
+
+		it('--hyperlinks overrides NO_HYPERLINKS', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help', '--hyperlinks'], {
+				env: { NO_HYPERLINKS: '1' },
+			});
+
+			expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
+		});
+
+		it('--no-hyperlinks overrides FORCE_HYPERLINKS', async () => {
+			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
+
+			const result = await app.execute(['--help', '--no-hyperlinks'], {
+				isTTY: true,
+				env: { FORCE_HYPERLINKS: '1' },
+			});
+
+			expect(result.stdout.join('')).not.toContain(ESC);
 		});
 	});
 

@@ -160,8 +160,8 @@ function clearRequestedExitCode(out: Out): void {
 }
 
 /**
- * Forced hyperlink decision from `NO_HYPERLINKS`/`FORCE_HYPERLINKS` and the
- * `--no-hyperlinks`/`--hyperlinks` argv flags; `undefined` when unset.
+ * Forced hyperlink decision from the `--no-hyperlinks`/`--hyperlinks` argv
+ * flags, then `NO_HYPERLINKS`, then `FORCE_HYPERLINKS`; `undefined` when unset.
  *
  * Pure over its inputs — callers pass the adapter's `env`/`argv` so the
  * output layer never touches `process` directly.
@@ -174,8 +174,10 @@ function resolveHyperlinkOverride(
 ): boolean | undefined {
 	const separator = argv.indexOf('--');
 	const flags = separator === -1 ? argv : argv.slice(0, separator);
-	if (env.NO_HYPERLINKS || flags.includes('--no-hyperlinks')) return false;
-	if (env.FORCE_HYPERLINKS || flags.includes('--hyperlinks')) return true;
+	if (flags.includes('--no-hyperlinks')) return false;
+	if (flags.includes('--hyperlinks')) return true;
+	if (env.NO_HYPERLINKS) return false;
+	if (env.FORCE_HYPERLINKS) return true;
 	return undefined;
 }
 

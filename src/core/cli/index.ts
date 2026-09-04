@@ -1752,8 +1752,8 @@ async function executeCLI(
 
 	// Resolve help options — builder-level `.help()` config under runtime
 	// `options.help` (runtime wins), then default binName to the CLI program
-	// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
-	// FORCE_HYPERLINKS honored, else TTY), and colors to the output
+	// name, hyperlinks to the channel's resolved support (explicit flags, then
+	// NO_HYPERLINKS, FORCE_HYPERLINKS, and TTY), and colors to the output
 	// channel's gated palette (escapes never leak into piped output).
 	const resolvedVersion = options?.help?.version ?? builder.schema.version;
 	const helpOptions: HelpOptions = {

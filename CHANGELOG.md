@@ -14,6 +14,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.default(command)` now exposes its flags only at the root instead of also suggesting a command
   name that cannot be invoked. Defaults registered with `.default(command, { route: true })`
   remain available by name in Bash, Zsh, Fish, and PowerShell completions.
+- **Explicit hyperlink flags override environment defaults**
+  ([#126](https://github.com/kjanat/dreamcli/issues/126)). `--hyperlinks` now overrides
+  `NO_HYPERLINKS`, while `--no-hyperlinks` overrides `FORCE_HYPERLINKS`. Without an explicit flag,
+  `NO_HYPERLINKS` still wins over `FORCE_HYPERLINKS`.
 
 ### Release checklist
 
