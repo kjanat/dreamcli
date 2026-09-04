@@ -34,6 +34,7 @@ async function runWithAdapter(
 	app: ReturnType<typeof cli>,
 	argv: readonly string[],
 	options?: {
+		readonly env?: Readonly<Record<string, string | undefined>>;
 		readonly files?: Readonly<Record<string, string>>;
 		readonly isTTY?: boolean;
 	},
@@ -47,6 +48,7 @@ async function runWithAdapter(
 		stdout: (s) => stdoutLines.push(s),
 		stderr: (s) => stderrLines.push(s),
 		readFile: async (path: string) => options?.files?.[path] ?? null,
+		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
 	});
 
@@ -137,8 +139,9 @@ describe('root help — explicit links', () => {
 		const result = await app.execute(['--help']);
 
 		const output = result.stdout.join('');
+		expect(result.exitCode).toBe(0);
+		expect(output).toContain('Usage: mytool');
 		expect(output).not.toContain(ESC);
-		expect(output).toContain('mytool v1.0.0');
 	});
 
 	it('help.hyperlinks option forces links without TTY', async () => {
@@ -154,7 +157,10 @@ describe('root help — explicit links', () => {
 
 		const result = await app.execute(['--help'], { isTTY: true, help: { hyperlinks: false } });
 
-		expect(result.stdout.join('')).not.toContain(ESC);
+		const output = result.stdout.join('');
+		expect(result.exitCode).toBe(0);
+		expect(output).toContain('Usage: mytool');
+		expect(output).not.toContain(ESC);
 	});
 
 	it('help.hyperlinks: true overrides NO_HYPERLINKS', async () => {
@@ -177,7 +183,46 @@ describe('root help — explicit links', () => {
 			isTTY: true,
 		});
 
-		expect(result.stdout.join('')).not.toContain(ESC);
+		const output = result.stdout.join('');
+		expect(result.exitCode).toBe(0);
+		expect(output).toContain('Usage: mytool');
+		expect(output).not.toContain(ESC);
+	});
+
+	it('runtime help hyperlink override is exposed to handlers', async () => {
+		let supported: boolean | undefined;
+		const app = cli('mytool').command(
+			command('inspect').action(({ out }) => {
+				supported = out.isHyperlinkSupported;
+			}),
+		);
+
+		const result = await app.execute(['inspect'], {
+			env: { NO_HYPERLINKS: '1' },
+			help: { hyperlinks: true },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(supported).toBe(true);
+	});
+
+	it('builder help hyperlink override is exposed to handlers in .run()', async () => {
+		let supported: boolean | undefined;
+		const app = cli('mytool')
+			.help({ hyperlinks: false })
+			.command(
+				command('inspect').action(({ out }) => {
+					supported = out.isHyperlinkSupported;
+				}),
+			);
+
+		const result = await runWithAdapter(app, ['inspect'], {
+			env: { FORCE_HYPERLINKS: '1' },
+			isTTY: true,
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(supported).toBe(false);
 	});
 
 	describe('environment overrides', () => {
@@ -189,7 +234,10 @@ describe('root help — explicit links', () => {
 				env: { NO_HYPERLINKS: '1' },
 			});
 
-			expect(result.stdout.join('')).not.toContain(ESC);
+			const output = result.stdout.join('');
+			expect(result.exitCode).toBe(0);
+			expect(output).toContain('Usage: mytool');
+			expect(output).not.toContain(ESC);
 		});
 
 		it('FORCE_HYPERLINKS emits header links without a TTY', async () => {
@@ -205,7 +253,10 @@ describe('root help — explicit links', () => {
 
 			const result = await app.execute(['--help', '--no-hyperlinks'], { isTTY: true });
 
-			expect(result.stdout.join('')).not.toContain(ESC);
+			const output = result.stdout.join('');
+			expect(result.exitCode).toBe(0);
+			expect(output).toContain('Usage: mytool');
+			expect(output).not.toContain(ESC);
 		});
 
 		it('--hyperlinks in argv emits header links without a TTY', async () => {
@@ -234,7 +285,10 @@ describe('root help — explicit links', () => {
 				env: { FORCE_HYPERLINKS: '1' },
 			});
 
-			expect(result.stdout.join('')).not.toContain(ESC);
+			const output = result.stdout.join('');
+			expect(result.exitCode).toBe(0);
+			expect(output).toContain('Usage: mytool');
+			expect(output).not.toContain(ESC);
 		});
 	});
 
@@ -343,8 +397,9 @@ describe('root help — links derived from .manifest(data)', () => {
 		const result = await app.execute(['--help'], { isTTY: true });
 
 		const output = result.stdout.join('');
+		expect(result.exitCode).toBe(0);
+		expect(output).toContain('Usage: mytool');
 		expect(output).not.toContain(ESC);
-		expect(output).toContain('mytool v1.0.0');
 	});
 });
 
