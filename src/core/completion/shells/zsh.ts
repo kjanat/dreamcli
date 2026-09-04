@@ -154,8 +154,11 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 		lines.push('\t\t\t;;');
 		lines.push('\tesac');
 	} else {
-		// --- No subcommands: just global flags ---
-		const globalFlags = buildZshFlagSpecsFromFlags(rootSurface.rootFlags);
+		// --- No subcommands: root and default-surface flags ---
+		const globalFlags = buildZshFlagSpecsFromFlags({
+			...rootSurface.rootFlags,
+			...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
+		});
 		lines.push('\t_arguments \\');
 		for (let i = 0; i < globalFlags.length; i++) {
 			const trailing = i < globalFlags.length - 1 ? ' \\' : '';

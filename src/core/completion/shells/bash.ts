@@ -179,7 +179,10 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push(`\t# Root-level completions: visible root surface`);
 		lines.push(`\tCOMPREPLY=($(compgen -W '${completionWords}' -- "$cur"))`);
 	} else {
-		const globalFlags = collectFlagWords(rootSurface.rootFlags);
+		const globalFlags = collectFlagWords({
+			...rootSurface.rootFlags,
+			...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
+		});
 		lines.push(`\tCOMPREPLY=($(compgen -W '${globalFlags}' -- "$cur"))`);
 	}
 

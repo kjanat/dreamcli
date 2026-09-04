@@ -175,7 +175,7 @@ describe('completion contract — shipped surface', () => {
 				const rootWords = extractBashRootWords(result.stdout.join(''));
 
 				expect(result.exitCode).toBe(0);
-				expect(rootWords).toEqual(['serve', 'status', '--help']);
+				expect(rootWords).toEqual(['status', '--help']);
 			});
 
 			it('surfaces default flags in surface mode', async () => {
@@ -204,7 +204,7 @@ describe('completion contract — shipped surface', () => {
 				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
 				expect(result.exitCode).toBe(0);
-				expect(rootFunction).toContain("'serve:Start the server'");
+				expect(rootFunction).not.toContain("'serve:Start the server'");
 				expect(rootFunction).toContain("'status:Show current status'");
 				expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 			});
@@ -238,7 +238,7 @@ describe('completion contract — shipped surface', () => {
 				).join('\n');
 
 				expect(result.exitCode).toBe(0);
-				expect(rootLines).toContain('-a serve');
+				expect(rootLines).not.toContain('-a serve');
 				expect(rootLines).toContain('-a status');
 				expect(rootLines).not.toContain('-l port');
 			});

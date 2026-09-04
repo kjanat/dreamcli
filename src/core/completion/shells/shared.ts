@@ -105,6 +105,7 @@ interface RootCompletionSurface {
 interface RootCompletionSchemaLike {
 	readonly commands: readonly CommandSchema[];
 	readonly defaultCommand: CommandSchema | undefined;
+	readonly defaultCommandRouted?: boolean | undefined;
 	readonly version: string | undefined;
 	/**
 	 * Built-in flag state. `help: 'off'` drops the synthetic root `--help` so a
@@ -136,19 +137,20 @@ function resolveRootCompletionSurface(
 			? rootSurface.hasVisibleDefault
 			: rootSurface.hasVisibleDefault && !rootSurface.hasVisibleSubcommands;
 
-	// Generated completion scripts keep treating the default command as part of
-	// the root surface (a walkable node carrying its own flags/args), regardless
-	// of whether it is registered under `commands` — since v0.3 `.default()` keeps
-	// it only in `defaultCommand`. Re-add it here so the per-shell generators,
-	// which build their dispatch machinery from this list, behave unchanged.
+	// A surface-only default is invoked at the root and is not a named route, so
+	// completion must not advertise its name as a subcommand. A routed default is
+	// re-added because `.default(cmd, { route: true })` keeps the command identity
+	// in `defaultCommand` rather than duplicating it in `commands`.
 	const defaultCommand = rootSurface.visibleDefaultCommand;
 	const alreadyListed =
 		defaultCommand !== undefined &&
 		rootSurface.visibleCommands.some((c) => c.name === defaultCommand.name);
 	const visibleCommands =
-		defaultCommand !== undefined && !alreadyListed
+		rootSurface.defaultRouted && defaultCommand !== undefined && !alreadyListed
 			? [defaultCommand, ...rootSurface.visibleCommands]
-			: rootSurface.visibleCommands;
+			: rootSurface.defaultRouted
+				? rootSurface.visibleCommands
+				: rootSurface.visibleSubcommands;
 
 	return {
 		visibleCommands,
