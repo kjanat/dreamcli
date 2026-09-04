@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Completion scripts no longer offer surface-only defaults as named commands**
+  ([#127](https://github.com/kjanat/dreamcli/pull/127)). A command registered with
+  `.default(command)` now exposes its flags only at the root instead of also suggesting a command
+  name that cannot be invoked. Defaults registered with `.default(command, { route: true })`
+  remain available by name in Bash, Zsh, Fish, and PowerShell completions.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated
