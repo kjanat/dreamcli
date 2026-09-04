@@ -12,8 +12,17 @@
 		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts", "*.ts.tpl"]
 	},
 	"markdown": {
+		"codeBlock.useTabs": false,
 		"textWrap": "maintain",
-		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+		"associations": ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"],
+		"overrides": [
+			{
+				"files": ["CHANGELOG.md"],
+				"lineWidth": 9999,
+				"textWrap": "never",
+				"codeBlock.useTabs": false
+			}
+		]
 	},
 	"markup": {
 		"html.void.selfClosing": false,
