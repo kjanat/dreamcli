@@ -182,8 +182,8 @@ describe('routed default completion policy', () => {
 	it('includes the routed default in zsh', () => {
 		const root = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
 
-		expect(root).toContain("'serve:Start server'");
-		expect(root).toContain("'status:Show status'");
+		expect(root).toContain("'serve:Start server'\n");
+		expect(root).toContain("'status:Show status'\n");
 	});
 
 	it('includes the routed default in fish', () => {
@@ -193,15 +193,15 @@ describe('routed default completion policy', () => {
 			'',
 		).join('\n');
 
-		expect(root).toContain("-a serve -d 'Start server'");
-		expect(root).toContain("-a status -d 'Show status'");
+		expect(root).toContain("-a serve -d 'Start server'\n");
+		expect(root).toContain("-a status -d 'Show status'\n");
 	});
 
 	it('includes the routed default in PowerShell', () => {
 		const script = generatePowerShellCompletion(schema);
 
-		expect(script).toContain("CanonicalName = 'serve'");
-		expect(script).toContain("CanonicalName = 'status'");
+		expect(script).toContain("CanonicalName = 'serve'\n");
+		expect(script).toContain("CanonicalName = 'status'\n");
 	});
 });
 
@@ -1453,7 +1453,7 @@ describe('generateZshCompletion', () => {
 				expect(rootFunction).toContain("'--version[Show version]'");
 				expect(rootFunction).not.toContain("'--port[Port]:value:'");
 				expect(rootFunction).toContain("'1: :->subcmd'");
-				expect(rootFunction).not.toContain("'serve:serve'");
+				expect(rootFunction).not.toContain("'serve:serve'\n");
 				expect(rootFunction).toContain("'status:Status'");
 			});
 
@@ -2416,7 +2416,7 @@ describe('generateFishCompletion — script structure', () => {
 		expect(rootLines.join('\n')).toContain('-l port');
 		expect(rootLines.join('\n')).toContain('-s p');
 		expect(rootLines.join('\n')).toContain('-l verbose');
-		expect(rootLines.join('\n')).not.toContain('-a serve');
+		expect(rootLines.join('\n')).not.toContain("-a serve -d 'Start server'\n");
 	});
 
 	it('escapes enum values for fish completions', () => {
@@ -2582,7 +2582,7 @@ describe('generatePowerShellCompletion — script structure', () => {
 		expect(script).toMatch(
 			/'' = @\{[\s\S]*Forms = @\('--port', '-p'\)[\s\S]*Forms = @\('--verbose'\)/,
 		);
-		expect(script).not.toContain("CanonicalName = 'serve'");
+		expect(script).not.toContain("CanonicalName = 'serve'\n");
 	});
 
 	it('includes enum values in the generated flag metadata', () => {

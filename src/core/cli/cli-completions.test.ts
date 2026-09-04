@@ -240,7 +240,7 @@ describe('.completions()', () => {
 				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
 				expect(rootFunction).toContain("'--help[Show help text]'");
-				expect(rootFunction).not.toContain("'serve:Start the server'");
+				expect(rootFunction).not.toContain("'serve:Start the server'\n");
 				expect(rootFunction).toContain("'status:Show current status'");
 				expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 			});

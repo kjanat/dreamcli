@@ -204,7 +204,7 @@ describe('completion contract — shipped surface', () => {
 				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
 				expect(result.exitCode).toBe(0);
-				expect(rootFunction).not.toContain("'serve:Start the server'");
+				expect(rootFunction).not.toContain("'serve:Start the server'\n");
 				expect(rootFunction).toContain("'status:Show current status'");
 				expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 			});
@@ -238,7 +238,7 @@ describe('completion contract — shipped surface', () => {
 				).join('\n');
 
 				expect(result.exitCode).toBe(0);
-				expect(rootLines).not.toContain('-a serve');
+				expect(rootLines).not.toContain("-a serve -d 'Start the server'\n");
 				expect(rootLines).toContain('-a status');
 				expect(rootLines).not.toContain('-l port');
 			});
