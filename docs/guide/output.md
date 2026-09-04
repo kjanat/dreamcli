@@ -283,8 +283,9 @@ if (!ctx.jsonMode && ctx.verbosity !== 'quiet') console.error(banner);
 
 The returned `color` is the same gated palette the channel will expose as
 `out.color` (`ctx.color.isColorSupported` is the boolean form), and
-`ctx.isHyperlinkSupported` honors `NO_HYPERLINKS`/`FORCE_HYPERLINKS` the same
-way the help header does.
+`ctx.isHyperlinkSupported` uses the same precedence as the help header: explicit
+`--no-hyperlinks` / `--hyperlinks` flags, then `NO_HYPERLINKS`, then
+`FORCE_HYPERLINKS`, and finally TTY detection.
 
 For just the `--`-aware flag reads, the primitives are also exported:
 `includesBeforeSeparator(argv, '--json')` and its strip counterpart

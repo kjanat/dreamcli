@@ -53,8 +53,8 @@ cli('mycli')
     // Pin the line width (defaults to the terminal width, falling back to 80)
     width: 100,
     // OSC 8 hyperlinks in the header. Defaults to the channel's resolved
-    // support: NO_HYPERLINKS/FORCE_HYPERLINKS (and --no-hyperlinks/--hyperlinks)
-    // are honored, otherwise TTY detection.
+    // support: explicit --no-hyperlinks/--hyperlinks flags, then
+    // NO_HYPERLINKS, FORCE_HYPERLINKS, and finally TTY detection.
     hyperlinks: true,
     // Order of the Flags: table — 'alphabetical' (default) or 'declaration'
     flagOrder: 'declaration',
@@ -98,10 +98,10 @@ Both are also accepted per call via `execute(argv, { help })` / `run({ help })`.
 ### Header hyperlinks
 
 The root-help header can wrap the program name and version in OSC 8 terminal
-hyperlinks (pointing at the repository and release tag). Emission follows the
-standard hyperlink signals: `NO_HYPERLINKS` / `--no-hyperlinks` force them off,
-`FORCE_HYPERLINKS` / `--hyperlinks` force them on, otherwise the header links
-only on a TTY. The same resolved decision is exposed to handlers as
+hyperlinks (pointing at the repository and release tag). Explicit
+`--no-hyperlinks` / `--hyperlinks` flags take precedence, followed by
+`NO_HYPERLINKS`, then `FORCE_HYPERLINKS`, and finally TTY detection. When both
+environment variables are set, `NO_HYPERLINKS` wins. The same resolved decision is exposed to handlers as
 `out.isHyperlinkSupported`, so code rendering its own `out.color.link(...)`
 output can gate on it and keep escapes out of piped or opted-out contexts.
 

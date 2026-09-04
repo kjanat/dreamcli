@@ -234,8 +234,8 @@ interface Out {
 	/**
 	 * Whether OSC 8 terminal hyperlinks should be emitted.
 	 *
-	 * Honors `NO_HYPERLINKS`/`FORCE_HYPERLINKS` and the
-	 * `--no-hyperlinks`/`--hyperlinks` argv flags, falling back to `isTTY`.
+	 * Honors explicit `--no-hyperlinks`/`--hyperlinks` argv flags first, then
+	 * `NO_HYPERLINKS`, then `FORCE_HYPERLINKS`, falling back to `isTTY`.
 	 * Handlers rendering their own `out.color.link(...)` output can gate on
 	 * this to keep OSC 8 escapes out of piped or opted-out contexts.
 	 */
@@ -1154,6 +1154,7 @@ function validateCommandFlagTree(
  * the shared executor, so TypeScript never has to resolve
  * {@linkcode CommandBuilder}'s full generic signature.
  *
+ * @internal
  */
 interface RunnableCommand {
 	readonly schema: CommandSchema;

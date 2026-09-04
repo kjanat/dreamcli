@@ -52,7 +52,7 @@ deno doc --filter=CLIBuilder jsr:@kjanat/dreamcli 2>/dev/null # one symbol
 `2>/dev/null` matters: deno writes download and type-check progress to stderr,
 which otherwise swamps the documentation output.
 
-Pin a version with `jsr:@kjanat/dreamcli@4.0.0-rc.1` when the project is not on
+Pin a version with `jsr:@kjanat/dreamcli@4.0.0-rc.2` when the project is not on
 latest. `--filter` takes a declaration name; it prints nothing for a name that
 does not exist, which is itself a useful signal.
 

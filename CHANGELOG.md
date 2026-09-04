@@ -12,8 +12,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Let `flag.*().describe()` and `arg.*().describe()` accept a function that
   receives the resolved help theme, keeping semantic highlighting inside prose
   on the framework's color gate. Add `.help({ descriptionTheme })` for scoped
-  role overrides that merge over the global theme
-  ([#93](https://github.com/kjanat/dreamcli/issues/93)).
+  role overrides that merge over the global theme (https://github.com/kjanat/dreamcli/issues/93).
+
+### Fixed
+
+- **Completion scripts no longer offer surface-only defaults as named commands**
+  ([#127](https://github.com/kjanat/dreamcli/pull/127)). A command registered with
+  `.default(command)` now exposes its flags only at the root instead of also suggesting a command
+  name that cannot be invoked. Defaults registered with `.default(command, { route: true })`
+  remain available by name in Bash, Zsh, Fish, and PowerShell completions.
+- **Explicit hyperlink flags override environment defaults** (https://github.com/kjanat/dreamcli/issues/126).
+  `--hyperlinks` now overrides `NO_HYPERLINKS`, while `--no-hyperlinks` overrides
+  `FORCE_HYPERLINKS`. Without an explicit flag, `NO_HYPERLINKS` still wins over `FORCE_HYPERLINKS`.
 
 ### Release checklist
 
@@ -30,6 +40,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
       signed, `master` matches the remote, and every required check is green.
 - [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR
       do not already contain that version before publishing the GitHub release.
+
+## [4.0.0-rc.2] - 2026-08-17
+
+### Fixed
+
+- **Published testkit declarations accept command builders again**
+  (https://github.com/kjanat/dreamcli/issues/122). `runCommand()` now exposes a declaration-safe
+  generic `CommandBuilder` parameter while keeping its execution pipeline type-erased internally.
+  Package builds also compile the public testing example against the emitted declarations so
+  internal-member stripping cannot silently break this contract again.
 
 ## [4.0.0-rc.1] - 2026-08-12
 
@@ -2403,7 +2423,8 @@ sections that follow. Upgrading from 2.x is covered by the new
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.2...HEAD
+[4.0.0-rc.2]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...v4.0.0-rc.2
 [4.0.0-rc.1]: https://github.com/kjanat/dreamcli/compare/v3.0.1...v4.0.0-rc.1
 [3.0.1]: https://github.com/kjanat/dreamcli/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/kjanat/dreamcli/compare/v3.0.0-rc.20...v3.0.0
