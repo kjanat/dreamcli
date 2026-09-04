@@ -896,6 +896,18 @@ function hyperlinksOption(override: boolean | undefined): { hyperlinks?: boolean
 	return override !== undefined ? { hyperlinks: override } : {};
 }
 
+/** Resolve the hyperlink decision shared by help rendering and the output channel. @internal */
+function resolveEffectiveHyperlinkOverride(
+	runtimeHelp: HelpOptions | undefined,
+	configuredHelp: HelpConfig | undefined,
+	env: Readonly<Record<string, string | undefined>>,
+	argv: readonly string[],
+): boolean | undefined {
+	return (
+		runtimeHelp?.hyperlinks ?? configuredHelp?.hyperlinks ?? resolveHyperlinkOverride(env, argv)
+	);
+}
+
 /**
  * Build {@linkcode RunOptions} from {@linkcode CLIExecuteOptions}, conditionally spreading each
  * field to satisfy `exactOptionalPropertyTypes`.
@@ -1679,6 +1691,12 @@ class CLIBuilder {
 			runtimeHelpWidth !== undefined
 				? { ...options?.help, width: runtimeHelpWidth }
 				: options?.help;
+		const hyperlinkOverride = resolveEffectiveHyperlinkOverride(
+			runtimeHelpOptions,
+			effectiveBuilder.schema.helpConfig,
+			adapter.env,
+			adapter.argv,
+		);
 		const executeOptions: InternalCLIExecuteOptions = {
 			...options,
 			...preflight.inputs,
@@ -1691,7 +1709,7 @@ class CLIBuilder {
 				...(preflight.inputs.verbosity !== 'normal'
 					? { verbosity: preflight.inputs.verbosity }
 					: {}),
-				...hyperlinksOption(resolveHyperlinkOverride(adapter.env, adapter.argv)),
+				...hyperlinksOption(hyperlinkOverride),
 			}),
 		};
 		const result = await executeCLI(effectiveBuilder, preflight.filteredArgv, executeOptions);
@@ -1731,12 +1749,18 @@ async function executeCLI(
 		rootOutputFlags,
 		options?.verbosity,
 	);
+	const hyperlinkOverride = resolveEffectiveHyperlinkOverride(
+		options?.help,
+		builder.schema.helpConfig,
+		options?.env ?? {},
+		argv,
+	);
 
 	const captureOptions = {
 		...(verbosity !== undefined ? { verbosity } : {}),
 		...(jsonMode ? { jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
-		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
+		...hyperlinksOption(hyperlinkOverride),
 	};
 	let out: Out;
 	let captured: CapturedOutput;
@@ -1752,18 +1776,15 @@ async function executeCLI(
 
 	// Resolve help options — builder-level `.help()` config under runtime
 	// `options.help` (runtime wins), then default binName to the CLI program
-	// name, hyperlinks to the channel's resolved support (NO_HYPERLINKS/
-	// FORCE_HYPERLINKS honored, else TTY), and colors to the output
+	// name, hyperlinks to the channel's resolved support (explicit flags, then
+	// NO_HYPERLINKS, FORCE_HYPERLINKS, and TTY), and colors to the output
 	// channel's gated palette (escapes never leak into piped output).
 	const resolvedVersion = options?.help?.version ?? builder.schema.version;
 	const helpOptions: HelpOptions = {
 		...builder.schema.helpConfig,
 		...options?.help,
 		binName: options?.help?.binName ?? builder.schema.name,
-		hyperlinks:
-			options?.help?.hyperlinks ??
-			builder.schema.helpConfig?.hyperlinks ??
-			out.isHyperlinkSupported,
+		hyperlinks: out.isHyperlinkSupported,
 		colors: options?.help?.colors ?? out.color,
 		...(resolvedVersion !== undefined ? { version: resolvedVersion } : {}),
 	};

@@ -269,8 +269,20 @@ describe('resolveHyperlinkOverride', () => {
 		expect(resolveHyperlinkOverride({}, ['--hyperlinks'])).toBe(true);
 	});
 
-	it('off wins when both off and on are present', () => {
+	it('--hyperlinks overrides NO_HYPERLINKS', () => {
+		expect(resolveHyperlinkOverride({ NO_HYPERLINKS: '1' }, ['--hyperlinks'])).toBe(true);
+	});
+
+	it('--no-hyperlinks overrides FORCE_HYPERLINKS', () => {
+		expect(resolveHyperlinkOverride({ FORCE_HYPERLINKS: '1' }, ['--no-hyperlinks'])).toBe(false);
+	});
+
+	it('NO_HYPERLINKS wins when both environment variables are present', () => {
 		expect(resolveHyperlinkOverride({ NO_HYPERLINKS: '1', FORCE_HYPERLINKS: '1' }, [])).toBe(false);
+	});
+
+	it('--no-hyperlinks wins when both flags are present', () => {
+		expect(resolveHyperlinkOverride({}, ['--hyperlinks', '--no-hyperlinks'])).toBe(false);
 	});
 
 	it('ignores flag tokens after the `--` separator', () => {

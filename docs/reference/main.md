@@ -202,9 +202,11 @@ if (isMainModule(import.meta)) {
 
 Make the root-help header clickable with [OSC 8
 hyperlinks](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda). The program name and
-version on the first line of root `--help` output become links in supporting terminals. Escapes are
-only emitted when stdout is a TTY (override with the `help.hyperlinks` run option), and only on the
-header line — usage lines, the `--help` hint, the commands table, and completion scripts stay plain.
+version on the first line of root `--help` output become links in supporting terminals. The
+`help.hyperlinks` run option is the direct programmatic override. Otherwise explicit
+`--no-hyperlinks` / `--hyperlinks` flags take precedence, followed by `NO_HYPERLINKS`, then
+`FORCE_HYPERLINKS`, and finally TTY detection. Escapes remain confined to the header line — usage
+lines, the `--help` hint, the commands table, and completion scripts stay plain.
 
 URLs not provided are derived from manifest metadata when `.manifest()` is active (both the
 discovery and pre-loaded data forms): the name links to the normalized `repository` URL (falling back
