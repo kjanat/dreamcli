@@ -170,7 +170,7 @@ describe('.completions()', () => {
 				const result = await app.execute(['completions', 'bash']);
 				const rootWords = extractBashRootWords(result.stdout.join(''));
 
-				expect(rootWords).toEqual(['serve', 'status', '--help']);
+				expect(rootWords).toEqual(['status', '--help']);
 			});
 
 			it('surfaces default flags in surface mode', async () => {
@@ -192,7 +192,7 @@ describe('.completions()', () => {
 				const result = await app.execute(['completions', 'bash']);
 				const rootWords = extractBashRootWords(result.stdout.join(''));
 
-				expect(rootWords).toContain('serve');
+				expect(rootWords).not.toContain('serve');
 				expect(rootWords).toContain('--help');
 				expect(rootWords).toContain('--port');
 				expect(rootWords).toContain('-p');
@@ -240,7 +240,7 @@ describe('.completions()', () => {
 				const rootFunction = extractZshRootFunction(result.stdout.join(''), '_mycli');
 
 				expect(rootFunction).toContain("'--help[Show help text]'");
-				expect(rootFunction).toContain("'serve:Start the server'");
+				expect(rootFunction).not.toContain("'serve:Start the server'\n");
 				expect(rootFunction).toContain("'status:Show current status'");
 				expect(rootFunction).not.toContain("'(-p --port)'{-p,--port}'[Port]:value:'");
 			});

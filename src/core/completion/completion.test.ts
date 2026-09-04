@@ -161,6 +161,50 @@ describe('CompletionOptions — type contract', () => {
 	});
 });
 
+describe('routed default completion policy', () => {
+	const serve = commandSchema({ name: 'serve', description: 'Start server' });
+	const status = commandSchema({ name: 'status', description: 'Show status' });
+	const schema = minimalSchema({
+		commands: [status],
+		defaultCommand: serve,
+		defaultCommandRouted: true,
+	});
+
+	it('includes the routed default in bash', () => {
+		expect(extractBashRootWords(generateBashCompletion(schema))).toEqual([
+			'serve',
+			'status',
+			'--help',
+			'--version',
+		]);
+	});
+
+	it('includes the routed default in zsh', () => {
+		const root = extractZshRootFunction(generateZshCompletion(schema), '_testcli');
+
+		expect(root).toContain("'serve:Start server'\n");
+		expect(root).toContain("'status:Show status'\n");
+	});
+
+	it('includes the routed default in fish', () => {
+		const root = extractFishCompletionLines(
+			generateFishCompletion(schema),
+			'__testcli_completions_path_is',
+			'',
+		).join('\n');
+
+		expect(root).toContain("-a serve -d 'Start server'\n");
+		expect(root).toContain("-a status -d 'Show status'\n");
+	});
+
+	it('includes the routed default in PowerShell', () => {
+		const script = generatePowerShellCompletion(schema);
+
+		expect(script).toContain("CanonicalName = 'serve'\n");
+		expect(script).toContain("CanonicalName = 'status'\n");
+	});
+});
+
 // === generateBashCompletion
 
 describe('generateBashCompletion', () => {
@@ -329,7 +373,7 @@ describe('generateBashCompletion', () => {
 
 				const rootWords = extractBashRootWords(generateBashCompletion(schema));
 
-				expect(rootWords).toEqual(['serve', 'status', '--help', '--version']);
+				expect(rootWords).toEqual(['status', '--help', '--version']);
 			});
 
 			it('surface default flags in surface mode', () => {
@@ -362,7 +406,7 @@ describe('generateBashCompletion', () => {
 					generateBashCompletion(schema, { rootMode: 'surface' }),
 				);
 
-				expect(rootWords).toContain('serve');
+				expect(rootWords).not.toContain('serve');
 				expect(rootWords).toContain('status');
 				expect(rootWords).toContain('--help');
 				expect(rootWords).toContain('--version');
@@ -388,7 +432,7 @@ describe('generateBashCompletion', () => {
 
 				const rootWords = extractBashRootWords(generateBashCompletion(schema));
 
-				expect(rootWords).toEqual(['serve', '--help', '--version', '--port', '-p']);
+				expect(rootWords).toEqual(['--help', '--version', '--port', '-p']);
 			});
 		});
 	});
@@ -1409,7 +1453,7 @@ describe('generateZshCompletion', () => {
 				expect(rootFunction).toContain("'--version[Show version]'");
 				expect(rootFunction).not.toContain("'--port[Port]:value:'");
 				expect(rootFunction).toContain("'1: :->subcmd'");
-				expect(rootFunction).toContain("'serve:serve'");
+				expect(rootFunction).not.toContain("'serve:serve'\n");
 				expect(rootFunction).toContain("'status:Status'");
 			});
 
@@ -2372,6 +2416,7 @@ describe('generateFishCompletion — script structure', () => {
 		expect(rootLines.join('\n')).toContain('-l port');
 		expect(rootLines.join('\n')).toContain('-s p');
 		expect(rootLines.join('\n')).toContain('-l verbose');
+		expect(rootLines.join('\n')).not.toContain("-a serve -d 'Start server'\n");
 	});
 
 	it('escapes enum values for fish completions', () => {
@@ -2537,6 +2582,7 @@ describe('generatePowerShellCompletion — script structure', () => {
 		expect(script).toMatch(
 			/'' = @\{[\s\S]*Forms = @\('--port', '-p'\)[\s\S]*Forms = @\('--verbose'\)/,
 		);
+		expect(script).not.toContain("CanonicalName = 'serve'\n");
 	});
 
 	it('includes enum values in the generated flag metadata', () => {
