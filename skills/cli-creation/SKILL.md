@@ -44,7 +44,7 @@ regardless of whether the project installed from npm or JSR:
 
 ```bash
 deno doc jsr:@kjanat/dreamcli 2>/dev/null                    # full public API (~4k lines)
-deno doc jsr:@kjanat/dreamcli/testkit 2>/dev/null            # subpath: testkit, runtime, schema, version
+deno doc jsr:@kjanat/dreamcli/testkit 2>/dev/null            # subpaths: testkit, runtime, completion, json-schema, config, prompt, schema, version
 deno doc --json jsr:@kjanat/dreamcli 2>/dev/null             # machine-readable, for scripted lookups
 deno doc --filter=CLIBuilder jsr:@kjanat/dreamcli 2>/dev/null # one symbol
 ```

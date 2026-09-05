@@ -9,12 +9,8 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
-import {
-	createTerminalPrompter,
-	createTestPrompter,
-	PROMPT_CANCEL,
-	type ReadFn,
-} from '#internals/core/prompt/index.ts';
+import { createTestPrompter, PROMPT_CANCEL, type ReadFn } from '#internals/core/prompt/index.ts';
+import { createTerminalPrompter } from '#internals/core/prompt/terminal.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createFlagSchema, FLAG_KINDS } from '#internals/core/schema/flag.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';

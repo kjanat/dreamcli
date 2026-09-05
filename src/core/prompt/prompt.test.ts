@@ -9,12 +9,8 @@ import type {
 	TestAnswer,
 	TestPrompterOptions,
 } from './index.ts';
-import {
-	createTerminalPrompter,
-	createTestPrompter,
-	PROMPT_CANCEL,
-	resolvePromptConfig,
-} from './index.ts';
+import { createTestPrompter, PROMPT_CANCEL, resolvePromptConfig } from './index.ts';
+import { createTerminalPrompter } from './terminal.ts';
 
 // --- Helpers
 

@@ -8,7 +8,7 @@
 import { writeFile } from 'node:fs/promises';
 import { normalize } from 'node:path';
 import { exit } from 'node:process';
-import { definitionMetaSchema } from '@kjanat/dreamcli';
+import { definitionMetaSchema } from '@kjanat/dreamcli/json-schema';
 
 const outFile = normalize(`${import.meta.dirname}/../dreamcli.schema.json`);
 

@@ -476,9 +476,10 @@ export type {
 	PackageJsonAdapter,
 	PackageJsonData,
 	PackageRepository,
-	PackageRepositoryUrlOptions,
 } from './package-json.ts';
-export { discoverManifest, inferCliName, packageRepositoryUrl } from './package-json.ts';
+export { discoverManifest, inferCliName } from './package-json.ts';
+export type { PackageRepositoryUrlOptions } from './repository-url.ts';
+export { packageRepositoryUrl } from './repository-url.ts';
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,

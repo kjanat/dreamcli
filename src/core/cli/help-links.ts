@@ -11,7 +11,7 @@
  */
 
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
-import { packageRepositoryUrl } from '#internals/core/config/package-json.ts';
+import { packageRepositoryUrl } from '#internals/core/config/repository-url.ts';
 
 /**
  * OSC 8 hyperlink targets for the root-help header.

@@ -8,7 +8,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { isCLIError } from '#internals/core/errors/index.ts';
 import type { PackageJsonAdapter } from './package-json.ts';
-import { discoverManifest, inferCliName, packageRepositoryUrl } from './package-json.ts';
+import { discoverManifest, inferCliName } from './package-json.ts';
+import { packageRepositoryUrl } from './repository-url.ts';
 
 // === Test helpers
 

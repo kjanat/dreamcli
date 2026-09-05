@@ -11,16 +11,13 @@
 
 import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
-import { discoverConfig } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
-import { discoverManifest, inferCliName } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
-import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
@@ -360,6 +357,9 @@ async function applyPackageJsonDiscovery(
 	const packageSchema =
 		packageJsonSettings !== undefined && !isCompletions
 			? await (async (): Promise<RuntimePreflightSchemaLike> => {
+					const { discoverManifest, inferCliName } = await import(
+						'#internals/core/config/package-json.ts'
+					);
 					// Pre-loaded data short-circuits filesystem discovery entirely.
 					const pkg =
 						packageJsonSettings.data ??
@@ -442,6 +442,7 @@ async function loadRuntimeConfig(
 	}
 
 	try {
+		const { discoverConfig } = await import('#internals/core/config/index.ts');
 		const result = await discoverConfig(schema.configSettings.appName, adapter, {
 			...(configPath !== undefined ? { configPath } : {}),
 			...(schema.configSettings.loaders !== undefined
@@ -455,6 +456,11 @@ async function loadRuntimeConfig(
 		}
 		throw error;
 	}
+}
+
+async function loadTerminalPrompter(adapter: RuntimeAdapter): Promise<PromptEngine> {
+	const { createTerminalPrompter } = await import('#internals/core/prompt/terminal.ts');
+	return createTerminalPrompter(adapter.stdin, adapter.stderr);
 }
 
 /**
@@ -510,7 +516,7 @@ async function prepareRuntimePreflight(
 
 	const autoPrompter =
 		options.options?.prompter === undefined && options.adapter.stdinIsTTY
-			? createTerminalPrompter(options.adapter.stdin, options.adapter.stderr)
+			? await loadTerminalPrompter(options.adapter)
 			: undefined;
 	const stdinData =
 		options.options?.stdinData === undefined &&

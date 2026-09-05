@@ -543,7 +543,8 @@ the package major happens to be at that time. Additive changes that a version 1
 reader can ignore stay at version 1.
 
 ```ts twoslash
-import { createCLISchema, generateSchema } from '@kjanat/dreamcli';
+import { createCLISchema } from '@kjanat/dreamcli';
+import { generateSchema } from '@kjanat/dreamcli/json-schema';
 // ---cut---
 const document = generateSchema(createCLISchema({ name: 'mycli', version: '1.0.0' }));
 
@@ -596,14 +597,16 @@ Exported functions, by area:
   `resolveRenderContext`, `resolvePromptConfig`, `includesBeforeSeparator`,
   `stripBeforeSeparator`, `getFlagNegatedName`, `resolveExampleCommand`,
   `wasExplicit`.
-- Serialization: `generateSchema`, `generateCommandSchema`, `generateInputSchema`.
-- Discovery: `discoverConfig`, `discoverManifest`, `inferCliName`,
-  `buildConfigSearchPaths`, `configFormat`, `packageRepositoryUrl`.
-- Output and terminal: `createOutput`, `createTerminalPrompter`, `osc8`,
-  `visibleWidth`.
-- Completion generation: `generateCompletion`, `generateBashCompletion`,
-  `generateZshCompletion`, `generateFishCompletion`,
-  `generatePowerShellCompletion`.
+- Serialization, from `@kjanat/dreamcli/json-schema`: `generateSchema`,
+  `generateCommandSchema`, `generateInputSchema`, `definitionMetaSchema`.
+- Discovery, from `@kjanat/dreamcli/config`: `discoverConfig`,
+  `discoverManifest`, `inferCliName`, `buildConfigSearchPaths`, `configFormat`,
+  `packageRepositoryUrl`.
+- Output and terminal: `createOutput`, `osc8`, `visibleWidth`, and from
+  `@kjanat/dreamcli/prompt` `createTerminalPrompter`.
+- Completion generation, from `@kjanat/dreamcli/completion`:
+  `generateCompletion`, `generateBashCompletion`, `generateZshCompletion`,
+  `generateFishCompletion`, `generatePowerShellCompletion`.
 - Error narrowing: `isCLIError`, `isParseError`, `isValidationError`.
 - Host integration: `isMainModule`, and from `@kjanat/dreamcli/runtime`
   `createAdapter`, `createNodeAdapter`, `createDenoAdapter`, `detectRuntime`.

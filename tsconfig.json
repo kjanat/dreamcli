@@ -8,7 +8,6 @@
 		"allowImportingTsExtensions": true,
 		"resolveJsonModule": true,
 		"types": ["bun", "node", "deno", "vitest"],
-
 		"strict": true,
 		"noUnusedLocals": true,
 		"noEmit": true,
@@ -22,13 +21,16 @@
 		"noUnusedParameters": true,
 		"noImplicitOverride": true,
 		"forceConsistentCasingInFileNames": true,
-
 		"paths": {
 			"@kjanat/dreamcli": ["./src/index.ts"],
 			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
 			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"],
 			"@kjanat/dreamcli/schema": ["./src/schema.ts"],
-			"@kjanat/dreamcli/package.json": ["./package.json"]
+			"@kjanat/dreamcli/package.json": ["./package.json"],
+			"@kjanat/dreamcli/completion": ["./src/completion.ts"],
+			"@kjanat/dreamcli/config": ["./src/config.ts"],
+			"@kjanat/dreamcli/json-schema": ["./src/json-schema.ts"],
+			"@kjanat/dreamcli/prompt": ["./src/prompt.ts"]
 		}
 	},
 	"exclude": ["**/dist", "**/node_modules", "**/*.tpl"]

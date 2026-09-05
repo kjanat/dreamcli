@@ -1,13 +1,16 @@
 # completion — Shell completion script generation
 
-Split into per-shell generators under `shells/`. Barrel `index.ts` re-exports public API and
-dispatches via `generateCompletion()`.
+Split into per-shell generators under `shells/`. `shell.ts` holds the shell targets and token
+handling the CLI builder and planner need on the hot path; `index.ts` re-exports it and adds the
+generators. The builder loads `index.ts` with a dynamic import, and consumers reach it through the
+`@kjanat/dreamcli/completion` subpath.
 
 ## FILES
 
 | File                   | Lines | Purpose                                                  |
 | ---------------------- | ----: | -------------------------------------------------------- |
-| `index.ts`             |   138 | Barrel — `Shell` type, `SHELLS` constant, dispatch       |
+| `shell.ts`             |    80 | `Shell` type, `SHELLS`, `normalizeShell`, `detectShell`  |
+| `index.ts`             |    60 | Generators plus `generateCompletion()` dispatch          |
 | `shells/shared.ts`     |   327 | `CommandNode`, `walkCommandTree`, escaping, `versionTag` |
 | `shells/bash.ts`       |   466 | `generateBashCompletion()` + all bash helpers            |
 | `shells/zsh.ts`        |   388 | `generateZshCompletion()` + all zsh helpers              |
@@ -23,9 +26,9 @@ dispatches via `generateCompletion()`.
 | `generateZshCompletion()`        | `index.ts`    | Zsh completion script from command tree          |
 | `generateFishCompletion()`       | `index.ts`    | Fish completion script from command tree         |
 | `generatePowerShellCompletion()` | `index.ts`    | PowerShell completion script from command tree   |
-| `SHELLS`                         | `index.ts`    | `readonly ['bash', 'zsh', 'fish', 'powershell']` |
-| `CompletionOptions`              | `index.ts`    | Options type (re-exported from `shared.ts`)      |
-| `Shell`                          | `index.ts`    | Union type of supported shells                   |
+| `SHELLS`                         | `shell.ts`    | `readonly ['bash', 'zsh', 'fish', 'powershell']` |
+| `CompletionOptions`              | `shell.ts`    | Options type (re-exported from `shared.ts`)      |
+| `Shell`                          | `shell.ts`    | Union type of supported shells                   |
 
 ## ARCHITECTURE
 
@@ -42,7 +45,9 @@ Handles nested command groups: `mycli db migrate` generates completions for each
   — needs `collectPropagatedFlags()` for flag inheritance in nested commands
 - `biome-ignore noTemplateCurlyInString` in `shells/bash.ts` — emitting bash `${words[i]}` syntax
 - Fish and PowerShell generators are fully implemented and tested
-- `CompletionOptions` lives in `shells/shared.ts`, re-exported through `index.ts`
+- `CompletionOptions` lives in `shells/shared.ts`, re-exported through `shell.ts` and `index.ts`
+- Nothing on the hot path may import `index.ts` or `shells/*` statically; `cli/index.ts` and
+  `cli/planner.ts` import `shell.ts` and reach the generators with `await import(...)`
 
 ## TEST FILES (2)
 

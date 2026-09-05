@@ -16,7 +16,6 @@ import type {
 } from '#internals/core/cli/plugin.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
-import { generateCommandSchema } from '#internals/core/json-schema/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
 import { parse, requestsHelp } from '#internals/core/parse/index.ts';
@@ -98,6 +97,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
 			// `out` may predate it, so the channel flag alone is not authoritative.
 			if (out.jsonMode || options?.jsonMode === true) {
+				const { generateCommandSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
 					generateCommandSchema(schema, undefined, {
 						name: options?.help?.binName ?? schema.name,

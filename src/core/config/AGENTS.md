@@ -7,12 +7,13 @@ user config discovery and `manifest()` metadata inference.
 
 ## FILES
 
-| File                   | Purpose                                             |
-| ---------------------- | --------------------------------------------------- |
-| `index.ts`             | config search paths, loaders, parsing, discovery    |
-| `package-json.ts`      | nearest `package.json` walk-up + CLI name inference |
-| `config.test.ts`       | discovery and load behavior                         |
-| `package-json.test.ts` | metadata inference                                  |
+| File                   | Purpose                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `index.ts`             | config search paths, loaders, parsing, discovery               |
+| `package-json.ts`      | nearest `package.json` walk-up + CLI name inference            |
+| `repository-url.ts`    | `packageRepositoryUrl()`; stays on the hot path for `.links()` |
+| `config.test.ts`       | discovery and load behavior                                    |
+| `package-json.test.ts` | metadata inference                                             |
 
 ## WHERE TO LOOK
 
@@ -36,6 +37,8 @@ user config discovery and `manifest()` metadata inference.
 - Do not import `node:path` or `process.cwd()` into core config code
 - Do not skip plain-object validation at the discovery boundary
 - Do not couple config discovery to command schema or resolve precedence logic
+- Do not import `index.ts` or `package-json.ts` statically from `cli/`; `runtime-preflight.ts`
+  loads them with `await import(...)` and consumers use `@kjanat/dreamcli/config`
 
 ## NOTES
 

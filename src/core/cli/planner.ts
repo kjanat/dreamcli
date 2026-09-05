@@ -10,8 +10,8 @@
  * @internal
  */
 
-import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
-import { normalizeShell } from '#internals/core/completion/index.ts';
+import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
+import { normalizeShell } from '#internals/core/completion/shell.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';

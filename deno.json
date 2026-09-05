@@ -35,7 +35,11 @@
 		"./runtime": "./src/runtime.ts",
 		"./testkit": "./src/testkit.ts",
 		"./schema": "./src/schema.ts",
-		"./version": "./src/version.ts"
+		"./version": "./src/version.ts",
+		"./completion": "./src/completion.ts",
+		"./config": "./src/config.ts",
+		"./json-schema": "./src/json-schema.ts",
+		"./prompt": "./src/prompt.ts"
 	},
 	"compilerOptions": {
 		"strict": true,
@@ -46,7 +50,11 @@
 			"@kjanat/dreamcli/testkit": ["./src/testkit.ts"],
 			"@kjanat/dreamcli/schema": ["./src/schema.ts"],
 			"@kjanat/dreamcli/version": ["./src/version.ts"],
-			"@kjanat/dreamcli/package.json": ["./package.json"]
+			"@kjanat/dreamcli/package.json": ["./package.json"],
+			"@kjanat/dreamcli/completion": ["./src/completion.ts"],
+			"@kjanat/dreamcli/config": ["./src/config.ts"],
+			"@kjanat/dreamcli/json-schema": ["./src/json-schema.ts"],
+			"@kjanat/dreamcli/prompt": ["./src/prompt.ts"]
 		}
 	},
 	"publish": {
@@ -54,8 +62,14 @@
 		"exclude": ["src/**/*.test.ts", "src/**/*test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"lib": ["deno.ns", "deno.shared_globals"],
-	"fmt": { "exclude": ["**"] },
-	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
+	"fmt": {
+		"exclude": ["**"]
+	},
+	"lint": {
+		"rules": {
+			"exclude": ["ban-types", "require-await"]
+		}
+	},
 	"nodeModulesDir": "manual",
 	"preferPackageJson": false,
 	"lock": false,

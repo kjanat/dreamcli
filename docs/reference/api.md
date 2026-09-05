@@ -9,6 +9,10 @@ const detailPageHrefByEntrypoint: Readonly<Record<string, string>> = {
 	'@kjanat/dreamcli': '/reference/main',
 	'@kjanat/dreamcli/testkit': '/reference/testkit',
 	'@kjanat/dreamcli/runtime': '/reference/runtime',
+	'@kjanat/dreamcli/completion': '/reference/completion',
+	'@kjanat/dreamcli/json-schema': '/reference/json-schema',
+	'@kjanat/dreamcli/config': '/reference/config',
+	'@kjanat/dreamcli/prompt': '/reference/prompt',
 };
 
 function symbolHref(entrypoint: string, name: string): string {
@@ -31,12 +35,16 @@ and `examples/**` during docs build.
 
 ## Choose an Import
 
-| Import                     | Use it for                                                                             | Start here                                       |
-| -------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `@kjanat/dreamcli`         | schema builders, CLI assembly, parsing, resolution, errors, completions, schema export | [`@kjanat/dreamcli`](/reference/main)            |
-| `@kjanat/dreamcli/testkit` | command tests, output capture, scripted prompts, test adapters                         | [`@kjanat/dreamcli/testkit`](/reference/testkit) |
-| `@kjanat/dreamcli/runtime` | runtime detection, explicit adapters, runtime-only helpers                             | [`@kjanat/dreamcli/runtime`](/reference/runtime) |
-| `@kjanat/dreamcli/schema`  | generated CLI definition meta-schema (export mapping differs by package target)        | [`@kjanat/dreamcli/schema`](/reference/schema)   |
+| Import                         | Use it for                                                                      | Start here                                               |
+| ------------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `@kjanat/dreamcli`             | schema builders, CLI assembly, parsing, resolution, errors, help                | [`@kjanat/dreamcli`](/reference/main)                    |
+| `@kjanat/dreamcli/testkit`     | command tests, output capture, scripted prompts, test adapters                  | [`@kjanat/dreamcli/testkit`](/reference/testkit)         |
+| `@kjanat/dreamcli/runtime`     | runtime detection, explicit adapters, runtime-only helpers                      | [`@kjanat/dreamcli/runtime`](/reference/runtime)         |
+| `@kjanat/dreamcli/completion`  | shell completion script generators                                              | [`@kjanat/dreamcli/completion`](/reference/completion)   |
+| `@kjanat/dreamcli/json-schema` | definition documents, input JSON Schema, the meta-schema value                  | [`@kjanat/dreamcli/json-schema`](/reference/json-schema) |
+| `@kjanat/dreamcli/config`      | config file and manifest discovery, custom config formats                       | [`@kjanat/dreamcli/config`](/reference/config)           |
+| `@kjanat/dreamcli/prompt`      | the terminal prompt engine and prompt config resolution                         | [`@kjanat/dreamcli/prompt`](/reference/prompt)           |
+| `@kjanat/dreamcli/schema`      | generated CLI definition meta-schema (export mapping differs by package target) | [`@kjanat/dreamcli/schema`](/reference/schema)           |
 
 ## Generated Index
 
@@ -87,3 +95,7 @@ and `examples/**` during docs build.
 - [`@kjanat/dreamcli`](/reference/main) — main package API
 - [`@kjanat/dreamcli/testkit`](/reference/testkit) — testing utilities
 - [`@kjanat/dreamcli/runtime`](/reference/runtime) — runtime adapters
+- [`@kjanat/dreamcli/completion`](/reference/completion) — completion script generators
+- [`@kjanat/dreamcli/json-schema`](/reference/json-schema) — definition and input schema generation
+- [`@kjanat/dreamcli/config`](/reference/config) — config and manifest discovery
+- [`@kjanat/dreamcli/prompt`](/reference/prompt) — prompt engines

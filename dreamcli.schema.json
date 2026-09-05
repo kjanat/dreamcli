@@ -109,7 +109,7 @@
       "properties": {
         "schemaVersion": {
           "const": 1,
-          "description": "Version of the definition document format emitted by generateSchema\nand generateCommandSchema."
+          "description": "Version of the definition document format emitted by `generateSchema()`\nand `generateCommandSchema()`."
         },
         "name": {
           "type": "string",

@@ -7,12 +7,17 @@
  * - {@link flag} and {@link arg} to describe inputs
  *
  * This root entrypoint also re-exports lower-level building blocks such as
- * parsing, resolution, config discovery, and help formatting. Those are useful
- * for advanced integrations, custom tooling, or focused tests, but they are
- * not the typical starting point for application code.
+ * parsing, resolution, and help formatting. Those are useful for advanced
+ * integrations, custom tooling, or focused tests, but they are not the
+ * typical starting point for application code.
  *
- * Test utilities (runCommand, createCaptureOutput, createTestPrompter, etc.)
- * are available from `@kjanat/dreamcli/testkit`. Runtime adapters (createAdapter,
+ * Optional features live on their own subpaths and the builder loads them on
+ * demand: completion scripts (`@kjanat/dreamcli/completion`), definition and
+ * input schemas (`@kjanat/dreamcli/json-schema`), config and manifest
+ * discovery (`@kjanat/dreamcli/config`), and the terminal prompter
+ * (`@kjanat/dreamcli/prompt`). Test utilities (runCommand,
+ * createCaptureOutput, createTestPrompter, etc.) are available from
+ * `@kjanat/dreamcli/testkit`. Runtime adapters (createAdapter,
  * RuntimeAdapter, etc.) are available from `@kjanat/dreamcli/runtime`.
  *
  * @module @kjanat/dreamcli
@@ -56,15 +61,8 @@ export {
 	plugin,
 	resolveRenderContext,
 } from './core/cli/index.ts';
-export type { CompletionOptions, Shell } from './core/completion/index.ts';
-export {
-	generateBashCompletion,
-	generateCompletion,
-	generateFishCompletion,
-	generatePowerShellCompletion,
-	generateZshCompletion,
-	SHELLS,
-} from './core/completion/index.ts';
+export type { CompletionOptions, Shell } from './core/completion/shell.ts';
+export { SHELLS } from './core/completion/shell.ts';
 export type {
 	ConfigAdapter,
 	ConfigDiscoveryOptions,
@@ -77,14 +75,6 @@ export type {
 	PackageJsonData,
 	PackageRepository,
 	PackageRepositoryUrlOptions,
-} from './core/config/index.ts';
-export {
-	buildConfigSearchPaths,
-	configFormat,
-	discoverConfig,
-	discoverManifest,
-	inferCliName,
-	packageRepositoryUrl,
 } from './core/config/index.ts';
 export type {
 	CLIErrorJSON,
@@ -110,6 +100,10 @@ export type {
 	HelpThemeFactory,
 } from './core/help/index.ts';
 export { formatHelp, osc8, visibleWidth } from './core/help/index.ts';
+export {
+	DEFINITION_SCHEMA_URL,
+	DEFINITION_SCHEMA_VERSION,
+} from './core/json-schema/constants.ts';
 export type {
 	ArgDefinitionFragmentV1,
 	ArgElementFragmentV1,
@@ -134,14 +128,6 @@ export type {
 	SplitPolicyFragmentV1,
 	StdinBindingFragmentV1,
 } from './core/json-schema/index.ts';
-export {
-	DEFINITION_SCHEMA_URL,
-	DEFINITION_SCHEMA_VERSION,
-	definitionMetaSchema,
-	generateCommandSchema,
-	generateInputSchema,
-	generateSchema,
-} from './core/json-schema/index.ts';
 export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.ts';
 export { createOutput } from './core/output/index.ts';
 export type { ParseOptions, ParseResult, Token } from './core/parse/index.ts';
@@ -158,7 +144,7 @@ export type {
 	ResolvedPromptConfig,
 	ResolvedSelectPromptConfig,
 } from './core/prompt/index.ts';
-export { createTerminalPrompter, resolvePromptConfig } from './core/prompt/index.ts';
+export { resolvePromptConfig } from './core/prompt/index.ts';
 export type { FlagMap, ReadFlagsOptions } from './core/read-flags/index.ts';
 export { readFlags } from './core/read-flags/index.ts';
 export type {

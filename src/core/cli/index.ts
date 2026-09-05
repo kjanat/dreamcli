@@ -10,20 +10,14 @@
  */
 
 import type { Colors } from 'ansispeck';
-import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
-import {
-	detectShell,
-	generateCompletion,
-	normalizeShell,
-	SHELLS,
-} from '#internals/core/completion/index.ts';
+import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
+import { detectShell, normalizeShell, SHELLS } from '#internals/core/completion/shell.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
-import { generateCommandSchema, generateSchema } from '#internals/core/json-schema/index.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import {
 	clearRequestedExitCode,
@@ -1609,9 +1603,10 @@ class CLIBuilder {
 					.env('SHELL')
 					.describe(`Target shell (${SHELLS.join(', ')})`),
 			)
-			.action(({ args, meta, out }) => {
+			.action(async ({ args, meta, out }) => {
 				const completionSchema =
 					meta.bin === cliSchema.name ? cliSchema : { ...cliSchema, name: meta.bin };
+				const { generateCompletion } = await import('#internals/core/completion/index.ts');
 				const script = generateCompletion(completionSchema, args.shell, completionOptions);
 				if (out.jsonMode) {
 					out.json({ shell: args.shell, script });
@@ -1848,6 +1843,7 @@ async function executeCLI(
 				helpOptions.binName === undefined || helpOptions.binName === builder.schema.name
 					? builder.schema
 					: { ...builder.schema, name: helpOptions.binName };
+			const { generateCompletion } = await import('#internals/core/completion/index.ts');
 			const script = generateCompletion(completionSchema, shell, planned.options);
 			if (jsonMode) {
 				out.json({ shell, script });
@@ -1859,6 +1855,7 @@ async function executeCLI(
 
 		case 'root-help': {
 			if (jsonMode) {
+				const { generateSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
 					generateSchema(builder.schema, undefined, {
 						name: planned.help.binName ?? builder.schema.name,
@@ -1886,6 +1883,7 @@ async function executeCLI(
 
 		case 'needs-subcommand': {
 			if (jsonMode) {
+				const { generateCommandSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
 					generateCommandSchema(planned.command.schema, undefined, {
 						name: planned.help.binName ?? planned.command.schema.name,

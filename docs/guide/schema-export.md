@@ -12,11 +12,8 @@ commands, flags, args, types, constraints, env bindings, prompts, and more.
 
 ```ts twoslash
 import { writeFileSync } from 'node:fs';
-import {
-  cli,
-  command,
-  generateSchema,
-} from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+import { generateSchema } from '@kjanat/dreamcli/json-schema';
 
 const myCli = cli('mycli').command(command('deploy'));
 
@@ -97,11 +94,8 @@ validates CLI input as a JSON object — useful for config file validation.
 
 ```ts twoslash
 import { writeFileSync } from 'node:fs';
-import {
-  cli,
-  command,
-  generateInputSchema,
-} from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+import { generateInputSchema } from '@kjanat/dreamcli/json-schema';
 
 const myCli = cli('mycli').command(command('deploy'));
 
@@ -148,12 +142,11 @@ private defaults.
 
 ```ts twoslash
 import { cli } from '@kjanat/dreamcli';
+import { command, flag } from '@kjanat/dreamcli';
 import {
-  command,
-  flag,
-  generateSchema,
   generateInputSchema,
-} from '@kjanat/dreamcli';
+  generateSchema,
+} from '@kjanat/dreamcli/json-schema';
 
 const myCli = cli('mycli');
 
@@ -183,11 +176,8 @@ Both functions accept `JsonSchemaOptions`:
 | `includePrompts` | `true`  | Include prompt config on flags (definition only) |
 
 ```ts twoslash
-import {
-  cli,
-  command,
-  generateSchema,
-} from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+import { generateSchema } from '@kjanat/dreamcli/json-schema';
 
 const myCli = cli('mycli').command(command('deploy'));
 

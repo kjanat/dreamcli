@@ -404,11 +404,8 @@ cli('mycli').command(command('deploy')).completions({ as: 'flag' }).run();
 For programmatic integrations, call the generator directly:
 
 ```ts
-import {
-  cli,
-  command,
-  generateCompletion,
-} from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli/completion';
 
 const myCli = cli('mycli').command(command('deploy'));
 
@@ -430,7 +427,8 @@ command('deploy').flag(
 Searches XDG-standard paths automatically. JSON built-in, plugin hook for YAML/TOML:
 
 ```ts
-import { cli, configFormat } from '@kjanat/dreamcli';
+import { cli } from '@kjanat/dreamcli';
+import { configFormat } from '@kjanat/dreamcli/config';
 import { parse as parseYAML } from 'yaml';
 
 cli('mycli')

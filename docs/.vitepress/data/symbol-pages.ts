@@ -617,6 +617,14 @@ function toEntrypointReference(entrypoint: string): string {
 	switch (entrypoint) {
 		case '@kjanat/dreamcli':
 			return '/reference/main';
+		case '@kjanat/dreamcli/completion':
+			return '/reference/completion';
+		case '@kjanat/dreamcli/config':
+			return '/reference/config';
+		case '@kjanat/dreamcli/json-schema':
+			return '/reference/json-schema';
+		case '@kjanat/dreamcli/prompt':
+			return '/reference/prompt';
 		case '@kjanat/dreamcli/runtime':
 			return '/reference/runtime';
 		case '@kjanat/dreamcli/testkit':

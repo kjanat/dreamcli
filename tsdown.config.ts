@@ -8,10 +8,30 @@ import { defineConfig } from 'tsdown';
 
 export const entries = {
 	index: 'src/index.ts',
+	completion: 'src/completion.ts',
+	config: 'src/config.ts',
+	'json-schema': 'src/json-schema.ts',
+	prompt: 'src/prompt.ts',
 	runtime: 'src/runtime.ts',
 	testkit: 'src/testkit.ts',
 	version: 'src/version.ts',
 } satisfies UserConfig['entry'];
+
+const LAZY_MODULES = [
+	/\/src\/core\/completion\/(index|shells\/[^/]+)\.ts$/,
+	/\/src\/core\/json-schema\/(index|meta-descriptions\.generated)\.ts$/,
+	/\/src\/core\/config\/(index|package-json)\.ts$/,
+	/\/src\/core\/prompt\/terminal\.ts$/,
+	/\/src\/version\.ts$/,
+];
+
+function isCoreModule(id: string): boolean {
+	return (
+		/\/src\/(core|runtime)\/.+\.ts$|\/src\/strings\.ts$/.test(id) &&
+		!id.endsWith('.d.ts') &&
+		!LAZY_MODULES.some((pattern) => pattern.test(id))
+	);
+}
 
 export default defineConfig({
 	define: {
@@ -52,6 +72,11 @@ export default defineConfig({
 		compress: true,
 		mangle: { toplevel: false },
 		codegen: { removeWhitespace: true },
+	},
+	outputOptions: {
+		codeSplitting: {
+			groups: [{ name: 'core', test: isCoreModule }],
+		},
 	},
 	publint: { enabled: 'local-only', level: 'suggestion', strict: true },
 	attw: {

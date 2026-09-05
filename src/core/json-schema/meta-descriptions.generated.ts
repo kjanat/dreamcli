@@ -65,7 +65,7 @@ const definitionMetaSchemaDescriptions = {
 			properties: {
 				schemaVersion: {
 					description:
-						'Version of the definition document format emitted by generateSchema\nand generateCommandSchema.',
+						'Version of the definition document format emitted by `generateSchema()`\nand `generateCommandSchema()`.',
 				},
 				name: {
 					description: 'The command name used for dispatch.',

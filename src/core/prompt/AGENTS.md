@@ -8,10 +8,11 @@ resolve layer.
 
 ## FILES
 
-| File             | Purpose                                                            |
-| ---------------- | ------------------------------------------------------------------ |
-| `index.ts`       | `PromptEngine`, resolved prompt types, terminal and test prompters |
-| `prompt.test.ts` | terminal behavior, test sentinel, resolved prompt guarantees       |
+| File             | Purpose                                                                    |
+| ---------------- | -------------------------------------------------------------------------- |
+| `index.ts`       | `PromptEngine`, resolved prompt types, test prompter, config resolution    |
+| `terminal.ts`    | `createTerminalPrompter()`; loaded on demand by `cli/runtime-preflight.ts` |
+| `prompt.test.ts` | terminal behavior, test sentinel, resolved prompt guarantees               |
 
 ## WHERE TO LOOK
 
@@ -37,6 +38,8 @@ resolve layer.
 - Do not wire runtime stdin or stdout directly into callers; use injected `ReadFn` and `WriteFn`
 - Do not add raw mode or terminal-specific state here unless all runtimes can support it cleanly
 - Do not move non-TTY gating into the prompt engine; CLI and resolve decide when prompts are allowed
+- Do not re-export `terminal.ts` from `index.ts`; the resolver imports `index.ts` statically and the
+  terminal engine must stay off that path. Consumers use `@kjanat/dreamcli/prompt`
 
 ## NOTES
 
