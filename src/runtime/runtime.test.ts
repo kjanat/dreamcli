@@ -713,7 +713,7 @@ describe('RuntimeAdapter interface — contracts', () => {
 			});
 
 			// Provide explicit prompter — should take precedence
-			const { createTestPrompter } = await import('#internals/core/prompt/index.ts');
+			const { createTestPrompter } = await import('#internals/core/prompt/test-prompter.ts');
 			const explicitPrompter = createTestPrompter(['ExplicitAnswer']);
 
 			const app = cli('mycli').command(cmd);

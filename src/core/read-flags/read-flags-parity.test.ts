@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
-import { createTestPrompter } from '#internals/core/prompt/index.ts';
+import { createTestPrompter } from '#internals/core/prompt/test-prompter.ts';
 import type { DeprecationWarning } from '#internals/core/resolve/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';

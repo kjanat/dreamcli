@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { CLIExecuteOptions, CLIRunOptions } from '#internals/core/cli/index.ts';
 import { cli } from '#internals/core/cli/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
-import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/index.ts';
+import { createTestPrompter, PROMPT_CANCEL } from '#internals/core/prompt/test-prompter.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';

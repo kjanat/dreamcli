@@ -9,7 +9,7 @@
  * @internal
  */
 
-import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
+import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
@@ -350,6 +350,25 @@ function isCompletionsInvocation(
 	);
 }
 
+async function discoverManifestData(
+	adapter: RuntimeAdapter,
+	settings: RuntimeManifestSettings,
+): Promise<PackageJsonData | null> {
+	const { discoverManifest } = await import('#internals/core/config/package-json.ts');
+	return discoverManifest(adapter, {
+		...(settings.from !== undefined ? { startDir: settings.from } : {}),
+		files: settings.files,
+	});
+}
+
+async function inferManifestCliName(
+	pkg: PackageJsonData,
+	stripScope: boolean,
+): Promise<string | undefined> {
+	const { inferCliName } = await import('#internals/core/config/package-json.ts');
+	return inferCliName(pkg, { stripScope });
+}
+
 async function applyPackageJsonDiscovery(
 	schema: RuntimePreflightSchemaLike,
 	adapter: RuntimeAdapter,
@@ -360,22 +379,12 @@ async function applyPackageJsonDiscovery(
 	const packageSchema =
 		packageJsonSettings !== undefined && !isCompletions
 			? await (async (): Promise<RuntimePreflightSchemaLike> => {
-					const { discoverManifest, inferCliName } = await import(
-						'#internals/core/config/package-json.ts'
-					);
-					// Pre-loaded data short-circuits filesystem discovery entirely.
 					const pkg =
-						packageJsonSettings.data ??
-						(await discoverManifest(adapter, {
-							...(packageJsonSettings.from !== undefined
-								? { startDir: packageJsonSettings.from }
-								: {}),
-							files: packageJsonSettings.files,
-						}));
+						packageJsonSettings.data ?? (await discoverManifestData(adapter, packageJsonSettings));
 					if (pkg === null) return schema;
 
 					const inferredName = packageJsonSettings.inferName
-						? inferCliName(pkg, { stripScope: packageJsonSettings.stripScope })
+						? await inferManifestCliName(pkg, packageJsonSettings.stripScope)
 						: undefined;
 					return {
 						...schema,

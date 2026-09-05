@@ -19,7 +19,8 @@ import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
 import { parse, requestsHelp } from '#internals/core/parse/index.ts';
-import { createTestPrompter } from '#internals/core/prompt/index.ts';
+import type { PromptEngine } from '#internals/core/prompt/index.ts';
+import type { TestAnswer } from '#internals/core/prompt/test-prompter.ts';
 import type {
 	DeprecationWarning,
 	ResolveOptions,
@@ -137,9 +138,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 		const parsed = parse(schema, argv, options?.flags);
 
-		const effectivePrompter =
-			options?.prompter ??
-			(options?.answers !== undefined ? createTestPrompter(options.answers) : undefined);
+		const effectivePrompter = options?.prompter ?? (await scriptedPrompter(options?.answers));
 		const resolveOptions: ResolveOptions = {
 			...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
 			...(options?.env !== undefined ? { env: options.env } : {}),
@@ -200,6 +199,14 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 }
 
 type ResolvedHookName = Exclude<keyof CLIPlugin['hooks'], 'beforeParse'>;
+
+async function scriptedPrompter(
+	answers: readonly TestAnswer[] | undefined,
+): Promise<PromptEngine | undefined> {
+	if (answers === undefined) return undefined;
+	const { createTestPrompter } = await import('#internals/core/prompt/test-prompter.ts');
+	return createTestPrompter(answers);
+}
 
 async function runBeforeParseHooks(
 	plugins: readonly CLIPlugin[] | undefined,

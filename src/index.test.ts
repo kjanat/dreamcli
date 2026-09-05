@@ -12,6 +12,7 @@ const publicEntryPoints = [
 	'src/prompt.ts',
 	'src/runtime.ts',
 	'src/testkit.ts',
+	'src/version.ts',
 ];
 
 function getDocTarget(declaration: ts.Declaration): ts.Node {
@@ -176,9 +177,7 @@ describe('@kjanat/dreamcli', () => {
 		const read = (file: string): string => readFileSync(path.join(repoRoot, file), 'utf8');
 
 		const entrypoints = new Set(
-			[...publicEntryPoints, 'src/version.ts'].flatMap((file) =>
-				moduleExports(file).map((symbol) => symbol.getName()),
-			),
+			publicEntryPoints.flatMap((file) => moduleExports(file).map((symbol) => symbol.getName())),
 		);
 
 		const doc = read('docs/reference/stability.md');
@@ -263,6 +262,13 @@ describe('@kjanat/dreamcli/testkit — module loads', () => {
 	});
 });
 
+const ROOT_KEPT: ReadonlySet<string> = new Set([
+	'SHELLS',
+	'DEFINITION_SCHEMA_URL',
+	'DEFINITION_SCHEMA_VERSION',
+	'resolvePromptConfig',
+]);
+
 describe('optional feature subpaths', () => {
 	it('completion exports the generators and shell targets', async () => {
 		const mod = await import('#dreamcli/completion');
@@ -307,16 +313,14 @@ describe('optional feature subpaths', () => {
 
 	it('root entry does not carry the optional feature implementations', async () => {
 		const mod = await import('#dreamcli');
-		for (const name of [
-			'generateCompletion',
-			'generateSchema',
-			'generateCommandSchema',
-			'generateInputSchema',
-			'definitionMetaSchema',
-			'discoverConfig',
-			'discoverManifest',
-			'createTerminalPrompter',
-		]) {
+		const moved = [
+			...Object.keys(await import('#dreamcli/completion')),
+			...Object.keys(await import('#dreamcli/config')),
+			...Object.keys(await import('#dreamcli/json-schema')),
+			...Object.keys(await import('#dreamcli/prompt')),
+		].filter((name) => !ROOT_KEPT.has(name));
+		expect(moved).toHaveLength(16);
+		for (const name of moved) {
 			expect(mod).not.toHaveProperty(name);
 		}
 	});

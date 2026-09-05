@@ -16,7 +16,8 @@ import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts'
 // Type-only: erased at compile time, so the parse → schema module edge does
 // not become a runtime import cycle.
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import type { PromptEngine, TestAnswer } from '#internals/core/prompt/index.ts';
+import type { PromptEngine } from '#internals/core/prompt/index.ts';
+import type { TestAnswer } from '#internals/core/prompt/test-prompter.ts';
 import type { ActivityEvent } from './activity.ts';
 import type { CommandMeta, CommandSchema, Out } from './command.ts';
 
