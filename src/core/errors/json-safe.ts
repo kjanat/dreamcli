@@ -9,7 +9,12 @@
 /** Marker for a value that has no JSON projection. */
 const OMIT: unique symbol = Symbol('omit');
 
-/** Project one value, or report that it has no JSON representation. */
+/**
+ * Project one value, or report that it has no JSON representation.
+ *
+ * A throwing getter, `toJSON()`, or Proxy trap counts as no representation,
+ * so `JSON.stringify` on the result cannot throw where this did not.
+ */
 function project(value: unknown, ancestors: WeakSet<object>): unknown {
 	switch (typeof value) {
 		case 'string':
@@ -28,18 +33,16 @@ function project(value: unknown, ancestors: WeakSet<object>): unknown {
 	if (value === null) return null;
 	if (ancestors.has(value)) return OMIT;
 
-	const toJSON: unknown = Reflect.get(value, 'toJSON');
-	if (typeof toJSON === 'function') {
-		let replaced: unknown;
-		try {
-			replaced = Reflect.apply(toJSON, value, []);
-		} catch {
-			return OMIT;
+	try {
+		const toJSON: unknown = Reflect.get(value, 'toJSON');
+		if (typeof toJSON === 'function') {
+			const replaced: unknown = Reflect.apply(toJSON, value, []);
+			return replaced === value ? projectStructure(value, ancestors) : project(replaced, ancestors);
 		}
-		return replaced === value ? projectStructure(value, ancestors) : project(replaced, ancestors);
+		return projectStructure(value, ancestors);
+	} catch {
+		return OMIT;
 	}
-
-	return projectStructure(value, ancestors);
 }
 
 /** Project an array or plain object entry by entry. */

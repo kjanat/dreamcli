@@ -120,6 +120,35 @@ describe('CLIError', () => {
 			expect(err.toJSON().details).toEqual({ when: when.toISOString(), custom: '7' });
 		});
 
+		it('omits a value whose toJSON getter throws', () => {
+			const hostile = Object.defineProperty({}, 'toJSON', {
+				get: () => {
+					throw new Error('nope');
+				},
+				enumerable: false,
+			});
+			const err = new CLIError('x', {
+				code: 'UNKNOWN_FLAG',
+				details: { hostile, kept: 1 },
+			});
+			expect(err.toJSON().details).toEqual({ kept: 1 });
+		});
+
+		it('omits a Proxy whose traps throw and keeps its siblings', () => {
+			const throwing = () => {
+				throw new Error('trapped');
+			};
+			const getTrap = new Proxy({}, { get: throwing });
+			const keysTrap = new Proxy({}, { ownKeys: throwing });
+			const err = new CLIError('x', {
+				code: 'UNKNOWN_FLAG',
+				details: { value: { getTrap, keysTrap, label: 'root' }, issues: ['rejected'] },
+			});
+			const json = err.toJSON();
+			expect(json.details).toEqual({ value: { label: 'root' }, issues: ['rejected'] });
+			expect(() => JSON.stringify(json)).not.toThrow();
+		});
+
 		it('omits a value whose toJSON() throws', () => {
 			const err = new CLIError('x', {
 				code: 'UNKNOWN_FLAG',
