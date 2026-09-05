@@ -7,6 +7,14 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { arg } from '#internals/core/schema/arg.ts';
+
+const terminalModuleLoads = vi.hoisted(() => ({ count: 0 }));
+
+vi.mock('#internals/core/prompt/terminal.ts', async (importOriginal) => {
+	terminalModuleLoads.count += 1;
+	return importOriginal();
+});
+
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter } from '#internals/runtime/index.ts';
@@ -346,6 +354,74 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		if (interactive.kind !== 'ready' || piped.kind !== 'ready') return;
 		expect(interactive.inputs.prompter).toBeDefined();
 		expect(piped.inputs.prompter).toBeUndefined();
+	});
+
+	// The two cases below share one module registry, so the load count only
+	// moves once and they must run in this order.
+	it('does not load the terminal prompter for an interactive run that never prompts', async () => {
+		const app = cli('myapp').command(
+			command('deploy')
+				.flag('region', flag.string().prompt({ kind: 'input', message: 'Region?' }))
+				.action(() => {}),
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy', '--region', 'eu'],
+			stdinIsTTY: true,
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.prompter).toBeDefined();
+		expect(terminalModuleLoads.count).toBe(0);
+	});
+
+	it('loads the terminal prompter the first time a prompt is presented', async () => {
+		const app = cli('myapp').command(
+			command('deploy')
+				.flag('region', flag.string().prompt({ kind: 'input', message: 'Region?' }))
+				.action(() => {}),
+		);
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy'],
+			stdinIsTTY: true,
+			stdin: async () => 'eu',
+			stderr: (text) => {
+				written.push(text);
+			},
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(terminalModuleLoads.count).toBe(0);
+
+		const result = await preflight.inputs.prompter?.promptOne({
+			kind: 'input',
+			message: 'Region?',
+		});
+
+		expect(result).toEqual({ answered: true, value: 'eu' });
+		expect(terminalModuleLoads.count).toBe(1);
+		expect(written.join('')).toContain('Region?');
+
+		await preflight.inputs.prompter?.promptOne({ kind: 'input', message: 'Again?' });
+		expect(terminalModuleLoads.count).toBe(1);
 	});
 
 	it('returns startup-error outcomes for CLI config failures', async () => {

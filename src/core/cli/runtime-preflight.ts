@@ -458,9 +458,16 @@ async function loadRuntimeConfig(
 	}
 }
 
-async function loadTerminalPrompter(adapter: RuntimeAdapter): Promise<PromptEngine> {
-	const { createTerminalPrompter } = await import('#internals/core/prompt/terminal.ts');
-	return createTerminalPrompter(adapter.stdin, adapter.stderr);
+function createLazyTerminalPrompter(adapter: RuntimeAdapter): PromptEngine {
+	let engine: Promise<PromptEngine> | undefined;
+	return {
+		async promptOne(config) {
+			engine ??= import('#internals/core/prompt/terminal.ts').then(({ createTerminalPrompter }) =>
+				createTerminalPrompter(adapter.stdin, adapter.stderr),
+			);
+			return (await engine).promptOne(config);
+		},
+	};
 }
 
 /**
@@ -516,7 +523,7 @@ async function prepareRuntimePreflight(
 
 	const autoPrompter =
 		options.options?.prompter === undefined && options.adapter.stdinIsTTY
-			? await loadTerminalPrompter(options.adapter)
+			? createLazyTerminalPrompter(options.adapter)
 			: undefined;
 	const stdinData =
 		options.options?.stdinData === undefined &&
