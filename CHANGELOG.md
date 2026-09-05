@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Smaller npm package, faster startup** (https://github.com/kjanat/dreamcli/issues/130).\
   The unpacked package shrinks from 1.5 MB to about 0.7 MB. Runtime JavaScript is bundled into the four public entrypoints plus shared chunks and minified with module-level names kept, so stack traces still name framework functions. Emitted JavaScript no longer carries a copy of the API documentation; the declaration files keep it. Declarations are generated for the public entrypoints only. The tarball no longer ships `examples/` or `CHANGELOG.md`; both remain in the repository and the docs site. `package.json` declares `sideEffects: false` so bundlers drop unused framework modules. `runner run package:check` enforces size and hot-path budgets and runs as part of `runner run bd`.
 
+### Fixed
+
+- **Completion script headers name the program version** (https://github.com/kjanat/dreamcli/issues/131).\
+  The first comment line of every generated script now reads `<name> v<version>` when the CLI declares a version, so an installed script records which release of the program it completes, alongside the existing DreamCLI build tag.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.
