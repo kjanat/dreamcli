@@ -14,6 +14,7 @@ export type {
 	ConfigDiscoveryResult,
 	ConfigFound,
 	ConfigNotFound,
+	ConfigSearchPathOptions,
 	FormatLoader,
 	ManifestDiscoveryOptions,
 	PackageJsonAdapter,

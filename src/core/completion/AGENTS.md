@@ -7,28 +7,28 @@ generators. The builder loads `index.ts` with a dynamic import, and consumers re
 
 ## FILES
 
-| File                   | Lines | Purpose                                                  |
-| ---------------------- | ----: | -------------------------------------------------------- |
-| `shell.ts`             |    80 | `Shell` type, `SHELLS`, `normalizeShell`, `detectShell`  |
-| `index.ts`             |    60 | Generators plus `generateCompletion()` dispatch          |
-| `shells/shared.ts`     |   327 | `CommandNode`, `walkCommandTree`, escaping, `versionTag` |
-| `shells/bash.ts`       |   466 | `generateBashCompletion()` + all bash helpers            |
-| `shells/zsh.ts`        |   388 | `generateZshCompletion()` + all zsh helpers              |
-| `shells/fish.ts`       |   266 | `generateFishCompletion()` + fish path scanner helpers   |
-| `shells/powershell.ts` |   447 | `generatePowerShellCompletion()` + metadata helpers      |
+| File                   | Purpose                                                  |
+| ---------------------- | -------------------------------------------------------- |
+| `shell.ts`             | `Shell` type, `SHELLS`, `normalizeShell`, `detectShell`  |
+| `index.ts`             | Generators plus `generateCompletion()` dispatch          |
+| `shells/shared.ts`     | `CommandNode`, `walkCommandTree`, escaping, `programTag` |
+| `shells/bash.ts`       | `generateBashCompletion()` + all bash helpers            |
+| `shells/zsh.ts`        | `generateZshCompletion()` + all zsh helpers              |
+| `shells/fish.ts`       | `generateFishCompletion()` + fish path scanner helpers   |
+| `shells/powershell.ts` | `generatePowerShellCompletion()` + metadata helpers      |
 
 ## PUBLIC API
 
-| Symbol                           | Exported from | Role                                             |
-| -------------------------------- | ------------- | ------------------------------------------------ |
-| `generateCompletion()`           | `index.ts`    | Shell-agnostic dispatch -> per-shell generators  |
-| `generateBashCompletion()`       | `index.ts`    | Bash completion script from command tree         |
-| `generateZshCompletion()`        | `index.ts`    | Zsh completion script from command tree          |
-| `generateFishCompletion()`       | `index.ts`    | Fish completion script from command tree         |
-| `generatePowerShellCompletion()` | `index.ts`    | PowerShell completion script from command tree   |
-| `SHELLS`                         | `shell.ts`    | `readonly ['bash', 'zsh', 'fish', 'powershell']` |
-| `CompletionOptions`              | `shell.ts`    | Options type (re-exported from `shared.ts`)      |
-| `Shell`                          | `shell.ts`    | Union type of supported shells                   |
+| Symbol                           | Exported from | Role                                                                                                             |
+| -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `generateCompletion()`           | `index.ts`    | Shell-agnostic dispatch -> per-shell generators                                                                  |
+| `generateBashCompletion()`       | `index.ts`    | Bash completion script from command tree                                                                         |
+| `generateZshCompletion()`        | `index.ts`    | Zsh completion script from command tree                                                                          |
+| `generateFishCompletion()`       | `index.ts`    | Fish completion script from command tree                                                                         |
+| `generatePowerShellCompletion()` | `index.ts`    | PowerShell completion script from command tree                                                                   |
+| `SHELLS`                         | `shell.ts`    | `readonly ['bash', 'zsh', 'fish', 'powershell']`                                                                 |
+| `CompletionOptions`              | `shell.ts`    | Generator options (re-exported from `shared.ts`); `as` lives on `cli/index.ts`'s `CompletionRegistrationOptions` |
+| `Shell`                          | `shell.ts`    | Union type of supported shells                                                                                   |
 
 ## ARCHITECTURE
 

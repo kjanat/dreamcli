@@ -285,6 +285,34 @@ function rebuild(builder: CLIBuilder, schema: CLISchema): CLIBuilder {
 }
 
 /**
+ * Options for {@link CLIBuilder.completions}: the generator options plus where
+ * the built-in completion is exposed.
+ */
+interface CompletionRegistrationOptions extends CompletionOptions {
+	/**
+	 * Where the built-in shell completion is exposed.
+	 *
+	 * - `'command'` registers a `completions` subcommand (the default).
+	 * - `'flag'` exposes an eager `--completions <shell>` flag on the CLI root
+	 *   instead, keeping the root free of a `completions` subcommand.
+	 *
+	 * @defaultValue `'command'`
+	 */
+	readonly as?: 'command' | 'flag';
+}
+
+/** The generator half of {@link CompletionRegistrationOptions}. @internal */
+function completionGeneratorOptions(
+	options: CompletionRegistrationOptions | undefined,
+): CompletionOptions | undefined {
+	if (options === undefined) return undefined;
+	return {
+		...(options.functionPrefix !== undefined ? { functionPrefix: options.functionPrefix } : {}),
+		...(options.rootMode !== undefined ? { rootMode: options.rootMode } : {}),
+	};
+}
+
+/**
  * Configuration for the eager `--completions <shell>` flag.
  *
  * Stored in {@link CLISchema} when `.completions({ as: 'flag' })` is used.
@@ -1551,7 +1579,7 @@ class CLIBuilder {
 	 *   .run();
 	 * ```
 	 */
-	completions(options?: CompletionOptions): CLIBuilder {
+	completions(options?: CompletionRegistrationOptions): CLIBuilder {
 		if (this.schema.hasBuiltInCompletions) {
 			throw new CLIError('.completions() has already been called', {
 				code: 'DUPLICATE_COMMAND',
@@ -1575,7 +1603,7 @@ class CLIBuilder {
 			return rebuild(this, {
 				...this.schema,
 				hasBuiltInCompletions: true,
-				completionsFlag: { shells: SHELLS, options },
+				completionsFlag: { shells: SHELLS, options: completionGeneratorOptions(options) },
 			});
 		}
 
@@ -1583,7 +1611,7 @@ class CLIBuilder {
 		// The completions command itself is deliberately excluded from the
 		// generated script (it would be noise in shell completions).
 		const cliSchema = this.schema;
-		const completionOptions = options;
+		const completionOptions = completionGeneratorOptions(options);
 
 		const cmd = command('completions')
 			.alias('completion')
@@ -2299,6 +2327,7 @@ export type {
 	CLIOptions,
 	CLIRunOptions,
 	CLISchema,
+	CompletionRegistrationOptions,
 	CompletionsFlagConfig,
 	ConfigSettings,
 	ConfigSettingsDefinition,

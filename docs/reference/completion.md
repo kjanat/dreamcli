@@ -15,7 +15,13 @@ import {
 import type { CompletionOptions, Shell } from '@kjanat/dreamcli/completion';
 ```
 
-`Shell`, `CompletionOptions`, and `SHELLS` are also exported from the root entry.
+`Shell`, `CompletionOptions`, and `SHELLS` are also exported from the root entry. Importing
+`SHELLS` from this subpath also evaluates the generators, so take the root copy when the shell
+list is all you need.
+
+`CompletionOptions` is the generator half of what `.completions()` accepts; the builder's own
+`CompletionRegistrationOptions` adds `as: 'command' | 'flag'`, which the generators have no use
+for.
 
 
 ## `generateCompletion(schema, shell, options?)`

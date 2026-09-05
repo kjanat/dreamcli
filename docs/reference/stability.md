@@ -150,12 +150,13 @@ Option objects the caller constructs and passes in.
 Program and execution options: `CLIOptions`, `CLIExecuteOptions`, `CLIRunOptions`,
 `RunOptions` and `RunCommandOptions` (both from `@kjanat/dreamcli/testkit`),
 `DefaultCommandOptions`, `ManifestSettings` with its name-inference value type
-`InferNameOption`, `ManifestDiscoveryOptions`, `ConfigDiscoveryOptions`, and
-`PackageRepositoryUrlOptions`.
+`InferNameOption`, `ManifestDiscoveryOptions`, `ConfigDiscoveryOptions`,
+`ConfigSearchPathOptions`, and `PackageRepositoryUrlOptions`.
 
 Pipeline and rendering options: `ParseOptions`, `ResolveOptions`,
 `ReadFlagsOptions`, `OutputOptions`, `RenderContextOptions`, `HelpOptions`,
-`HelpTheme`, `CompletionOptions`, and `JsonSchemaOptions`.
+`HelpTheme`, `CompletionOptions`, `CompletionRegistrationOptions`, and
+`JsonSchemaOptions`.
 
 Per-call output options: `SpinnerOptions`, `ProgressOptions`, `TableOptions`, and
 `TableColumn`.
@@ -598,7 +599,7 @@ Exported functions, by area:
   `stripBeforeSeparator`, `getFlagNegatedName`, `resolveExampleCommand`,
   `wasExplicit`.
 - Serialization, from `@kjanat/dreamcli/json-schema`: `generateSchema`,
-  `generateCommandSchema`, `generateInputSchema`, `definitionMetaSchema`.
+  `generateCommandSchema`, `generateInputSchema`.
 - Discovery, from `@kjanat/dreamcli/config`: `discoverConfig`,
   `discoverManifest`, `inferCliName`, `buildConfigSearchPaths`, `configFormat`,
   `packageRepositoryUrl`.
@@ -675,6 +676,11 @@ is a major.
 `@kjanat/dreamcli/version`, identify the framework build for diagnostics and bug
 reports. They are typed `string` and their values change every release. They are
 unrelated to the app version configured through `cli().version(...)`.
+
+`definitionMetaSchema`, from `@kjanat/dreamcli/json-schema`, is the definition
+meta-schema document as a value; `DEFINITION_SCHEMA_URL` and
+`DEFINITION_SCHEMA_VERSION` name the hosted copy and the format version it
+describes. `SHELLS` is the tuple of supported completion targets.
 
 ## Internal surface
 
