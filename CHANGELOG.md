@@ -6,17 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
-
-- Let `flag.*().describe()` and `arg.*().describe()` accept a function that receives the resolved help theme, keeping semantic highlighting inside prose on the framework's color gate. Add `.help({ descriptionTheme })` for scoped role overrides that merge over the global theme (https://github.com/kjanat/dreamcli/issues/93).
-
-### Fixed
-
-- **Completion scripts no longer offer surface-only defaults as named commands** (https://github.com/kjanat/dreamcli/pull/127).\
-  A command registered with `.default(command)` now exposes its flags only at the root instead of also suggesting a command name that cannot be invoked. Defaults registered with `.default(command, { route: true })` remain available by name in Bash, Zsh, Fish, and PowerShell completions.
-- **Explicit hyperlink flags override environment defaults** (https://github.com/kjanat/dreamcli/issues/126).\
-  `--hyperlinks` now overrides `NO_HYPERLINKS`, while `--no-hyperlinks` overrides `FORCE_HYPERLINKS`. Without an explicit flag, `NO_HYPERLINKS` still wins over `FORCE_HYPERLINKS`.
-
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.
@@ -26,6 +15,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Confirm generators and formatters leave no unexpected worktree changes.
 - [ ] Commit and push the release preparation, then verify the target commit is signed, `master` matches the remote, and every required check is green.
 - [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before publishing the GitHub release.
+
+## [4.0.0-rc.3] - 2026-09-05
+
+### Added
+
+- Let `flag.*().describe()` and `arg.*().describe()` accept a function that receives the resolved help theme, keeping semantic highlighting inside prose on the framework's color gate. Add `.help({ descriptionTheme })` for scoped role overrides that merge over the global theme (https://github.com/kjanat/dreamcli/issues/93).
+
+### Fixed
+
+- **Published archives exclude generated workspace dependencies and Python bytecode.**\
+  npm tarballs no longer include nested `node_modules` trees or `__pycache__` files from packaged examples and skills.
+- **Completion scripts no longer offer surface-only defaults as named commands** (https://github.com/kjanat/dreamcli/pull/127).\
+  A command registered with `.default(command)` now exposes its flags only at the root instead of also suggesting a command name that cannot be invoked. Defaults registered with `.default(command, { route: true })` remain available by name in Bash, Zsh, Fish, and PowerShell completions.
+- **Explicit hyperlink flags override environment defaults** (https://github.com/kjanat/dreamcli/issues/126).\
+  `--hyperlinks` now overrides `NO_HYPERLINKS`, while `--no-hyperlinks` overrides `FORCE_HYPERLINKS`. Without an explicit flag, `NO_HYPERLINKS` still wins over `FORCE_HYPERLINKS`.
 
 ## [4.0.0-rc.2] - 2026-08-17
 
@@ -1061,7 +1065,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.2...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.3...HEAD
+[4.0.0-rc.3]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.2...v4.0.0-rc.3
 [4.0.0-rc.2]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...v4.0.0-rc.2
 [4.0.0-rc.1]: https://github.com/kjanat/dreamcli/compare/v3.0.1...v4.0.0-rc.1
 [3.0.1]: https://github.com/kjanat/dreamcli/compare/v3.0.0...v3.0.1

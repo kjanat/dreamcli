@@ -1,6 +1,6 @@
 {
 	"name": "@kjanat/dreamcli",
-	"version": "4.0.0-rc.2",
+	"version": "4.0.0-rc.3",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"keywords": [
 		"dreamcli",
@@ -61,6 +61,9 @@
 		"examples",
 		"skills",
 		"!**/.cache",
+		"!**/node_modules",
+		"!**/__pycache__",
+		"!**/*.pyc",
 		"!**/AGENTS.md"
 	],
 	"workspaces": ["./examples/*", "./docs"],
