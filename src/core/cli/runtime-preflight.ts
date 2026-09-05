@@ -344,7 +344,10 @@ function isCompletionsInvocation(
 		output: PRECHECK_OUTPUT,
 	});
 
-	return plan.kind === 'match' && plan.plan.command.schema.name === 'completions';
+	return (
+		plan.kind === 'root-completions' ||
+		(plan.kind === 'match' && plan.plan.command.schema.name === 'completions')
+	);
 }
 
 async function applyPackageJsonDiscovery(

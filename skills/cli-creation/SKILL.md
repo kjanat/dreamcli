@@ -159,12 +159,15 @@ defaulted"; never drop `.default()` to detect that, since it also drops
 **Cross-flag rules.** Put them in `.derive()`, which runs after resolution and
 before the action, and return derived state to widen `ctx`.
 
-**Diagnostics.** Values resolved through stdin, env, config, or a prompt are
-redacted in validation messages and omit `details.value`; this includes stdin
-selected by an explicit `-`. Only a literal CLI value is shown. The framework
-cannot redact text your own code writes: a `flag.custom()` parse function's
-thrown message and a Standard Schema issue message are shown verbatim, so write
-them to describe the expectation rather than to interpolate the value.
+**Diagnostics.** Sensitivity, not source, controls disclosure. Mark every
+credential-bearing input `.sensitive()`; that redacts the value in messages and
+omits `details.value` whether it came from argv, stdin, env, config, a prompt,
+or a default. A non-sensitive value may be shown from any of those sources, so
+`flag.string().env('API_TOKEN')` without `.sensitive()` prints the token in a
+validation failure. The framework cannot redact text your own code writes: a
+`flag.custom()` parse function's thrown message and a Standard Schema issue
+message are shown verbatim, so write them to describe the expectation rather
+than to interpolate the value.
 
 **Output.** `out.log()` for results, `out.status()` for progress notes (stderr,
 suppressed by `--quiet`), `out.table()` for lists, `out.json()` behind
@@ -186,8 +189,9 @@ Assert output including trailing newlines.
 ## Guardrails
 
 - Do not modify DreamCLI core internals for consumer-app requests.
-- Keep generated imports on `@kjanat/dreamcli` and `@kjanat/dreamcli/testkit`;
-  never reach into `#internals/*` or `dist/`.
+- Keep generated imports on the documented package entrypoints: `@kjanat/dreamcli`
+  and its `/testkit`, `/runtime`, `/completion`, `/config`, `/json-schema`, and
+  `/prompt` subpaths; never reach into `#internals/*` or `dist/`.
 - Preserve the typed resolution flow: argv, stdin, env, config, prompt, default.
 - Keep stdout machine-clean: progress and status go to stderr via `out.status()`,
   never interleaved with `out.json()`.

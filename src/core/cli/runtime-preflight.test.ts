@@ -223,6 +223,31 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(readFile).not.toHaveBeenCalled();
 	});
 
+	it('skips config and manifest discovery for the eager --completions flag', async () => {
+		const readFile = vi.fn(async () => '{not valid json');
+		const app = cli('myapp')
+			.config('myapp')
+			.manifest({ inferName: true })
+			.completions({ as: 'flag' });
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', '--completions', 'bash'],
+			readFile,
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.config).toBeUndefined();
+		expect(readFile).not.toHaveBeenCalled();
+	});
+
 	it('reads stdin only when the planned invocation needs stdin', async () => {
 		const app = cli('myapp').command(
 			command('echo')

@@ -14,12 +14,14 @@ interface Budget {
 	readonly unpackedBytes: number;
 	readonly runtimeJsBytes: number;
 	readonly hotPathBytes: number;
+	readonly hotPathModules: number;
 }
 
 const BUDGET: Budget = {
 	unpackedBytes: 750_000,
 	runtimeJsBytes: 350_000,
 	hotPathBytes: 300_000,
+	hotPathModules: 3,
 };
 
 const HOT_PATH_ENTRIES = ['package/dist/index.mjs'];
@@ -177,7 +179,7 @@ function main(): number {
 		[
 			'hot path',
 			`${kb(metrics.hotPathBytes)} in ${metrics.hotPathModules} modules`,
-			`< ${kb(BUDGET.hotPathBytes)}`,
+			`< ${kb(BUDGET.hotPathBytes)}, <= ${BUDGET.hotPathModules} modules`,
 		],
 		['forbidden', String(forbidden.length), '0'],
 	];
@@ -191,6 +193,9 @@ function main(): number {
 	if (metrics.runtimeJsBytes >= BUDGET.runtimeJsBytes) violations.push('runtime js over budget');
 	if (metrics.jsDocComments > 0) violations.push('runtime js carries jsdoc comments');
 	if (metrics.hotPathBytes >= BUDGET.hotPathBytes) violations.push('hot path bytes over budget');
+	if (metrics.hotPathModules > BUDGET.hotPathModules) {
+		violations.push('hot path module count over budget');
+	}
 	for (const entry of forbidden) violations.push(`forbidden file published: ${entry.path}`);
 
 	for (const violation of violations) console.error(`budget: ${violation}`);
