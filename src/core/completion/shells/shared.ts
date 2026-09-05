@@ -11,6 +11,7 @@
 
 import type { BuiltinsConfig } from '#internals/core/cli/builtins.ts';
 import { builtinEnabled } from '#internals/core/cli/builtins.ts';
+import type { CLISchema } from '#internals/core/cli/index.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import { createFlagSchema, getFlagNegatedName } from '#internals/core/schema/flag.ts';
@@ -31,6 +32,16 @@ function versionTag(): string {
 	if (DREAMCLI_VERSION === 'dev') return '@kjanat/dreamcli';
 	const rev = DREAMCLI_REVISION !== 'dev' ? ` (${DREAMCLI_REVISION})` : '';
 	return `@kjanat/dreamcli v${DREAMCLI_VERSION}${rev}`;
+}
+
+/**
+ * Format the program name and version for generated completion script
+ * headers, e.g. `"mycli v1.2.0"`, or just the name when no version is set.
+ *
+ * @internal
+ */
+function programTag(schema: CLISchema): string {
+	return schema.version === undefined ? schema.name : `${schema.name} v${schema.version}`;
 }
 
 // --- CompletionOptions — generator configuration
@@ -321,6 +332,7 @@ function quoteShellArg(value: string): string {
 export type { CommandNode, CompletionOptions, RootCompletionSurface };
 export {
 	getVisibleNegatedName,
+	programTag,
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
