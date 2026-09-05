@@ -35,6 +35,7 @@
 		"#dreamcli/prompt": "./src/prompt.ts",
 		"#dreamcli/runtime": "./src/runtime.ts",
 		"#dreamcli/testkit": "./src/testkit.ts",
+		"#dreamcli/version": "./src/version.ts",
 		"#internals/*": "./src/*",
 		"#schema": "./dreamcli.schema.json",
 		"#package.json": "./package.json"
@@ -87,7 +88,7 @@
 	],
 	"workspaces": ["./examples/*", "./docs"],
 	"scripts": {
-		"bd": "run -s build typecheck:dist package:check",
+		"bd": "run -s build typecheck:dist package:check lazy:check",
 		"build": "bun --bun tsdown",
 		"build:watch": "run build --watch",
 		"ci": "run -pk typecheck lint format:check meta-descriptions:check test docs:build bd",
@@ -111,6 +112,7 @@
 		"gh-project:start": "bun gh-project start",
 		"gh-project:sync": "bun gh-project sync",
 		"knip": "knip",
+		"lazy:check": "bun scripts/check-lazy-loading.ts",
 		"lint": "biome check",
 		"lint:autofix": "biome check --skip-parse-errors --no-errors-on-unmatched --changed --write",
 		"lint:fix": "biome check --fix",

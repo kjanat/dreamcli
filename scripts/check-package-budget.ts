@@ -11,20 +11,27 @@ interface TarEntry {
 }
 
 interface Budget {
+	readonly tarballBytes: number;
 	readonly unpackedBytes: number;
+	readonly files: number;
 	readonly runtimeJsBytes: number;
+	readonly declarationBytes: number;
 	readonly hotPathBytes: number;
 	readonly hotPathModules: number;
 }
 
 const BUDGET: Budget = {
+	tarballBytes: 200_000,
 	unpackedBytes: 750_000,
+	files: 60,
 	runtimeJsBytes: 350_000,
+	declarationBytes: 400_000,
 	hotPathBytes: 300_000,
-	hotPathModules: 3,
+	hotPathModules: 2,
 };
 
 const HOT_PATH_ENTRIES = ['package/dist/index.mjs'];
+const HOT_PATH_EXTERNALS = ['ansispeck'];
 const FORBIDDEN_PREFIXES = ['package/examples/', 'package/CHANGELOG.md'];
 
 function readOctal(header: Buffer, offset: number, length: number): number {
@@ -94,32 +101,49 @@ function countJsDocComments(entries: readonly TarEntry[]): number {
 	return count;
 }
 
-function staticImports(transpiler: Bun.Transpiler, from: string, code: Buffer): string[] {
-	const targets: string[] = [];
-	for (const item of transpiler.scanImports(code)) {
-		if (item.kind !== 'import-statement') continue;
-		if (!item.path.startsWith('.')) continue;
-		targets.push(posix.normalize(posix.join(dirname(from), item.path)));
-	}
-	return targets;
+interface StaticImports {
+	readonly local: readonly string[];
+	readonly external: readonly string[];
 }
 
-function hotPath(entries: readonly TarEntry[], roots: readonly string[]): TarEntry[] {
+function staticImports(transpiler: Bun.Transpiler, from: string, code: Buffer): StaticImports {
+	const local: string[] = [];
+	const external: string[] = [];
+	for (const item of transpiler.scanImports(code)) {
+		if (item.kind !== 'import-statement') continue;
+		if (item.path.startsWith('.')) {
+			local.push(posix.normalize(posix.join(dirname(from), item.path)));
+		} else if (!item.path.startsWith('node:')) {
+			external.push(item.path);
+		}
+	}
+	return { local, external };
+}
+
+interface HotPath {
+	readonly modules: readonly TarEntry[];
+	readonly externals: readonly string[];
+}
+
+function hotPath(entries: readonly TarEntry[], roots: readonly string[]): HotPath {
 	const byPath = new Map(entries.map((entry) => [entry.path, entry]));
 	const transpiler = new Bun.Transpiler({ loader: 'js' });
 	const seen = new Set<string>();
+	const externals = new Set<string>();
 	const queue = [...roots];
-	const reached: TarEntry[] = [];
+	const modules: TarEntry[] = [];
 	while (queue.length > 0) {
 		const path = queue.shift();
 		if (path === undefined || seen.has(path)) continue;
 		seen.add(path);
 		const entry = byPath.get(path);
 		if (entry === undefined) throw new Error(`hot path root or import is missing: ${path}`);
-		reached.push(entry);
-		queue.push(...staticImports(transpiler, path, entry.body));
+		modules.push(entry);
+		const imports = staticImports(transpiler, path, entry.body);
+		queue.push(...imports.local);
+		for (const external of imports.external) externals.add(external);
 	}
-	return reached;
+	return { modules, externals: [...externals].sort() };
 }
 
 function kb(bytes: number): string {
@@ -134,8 +158,11 @@ function main(): number {
 	const tarballPath = explicit ?? packed?.path;
 	if (tarballPath === undefined) throw new Error('no tarball to inspect');
 	let entries: TarEntry[];
+	let tarballBytes: number;
 	try {
-		entries = parseTar(gunzipSync(readFileSync(tarballPath)));
+		const tarball = readFileSync(tarballPath);
+		tarballBytes = tarball.byteLength;
+		entries = parseTar(gunzipSync(tarball));
 	} finally {
 		packed?.cleanup();
 	}
@@ -150,7 +177,11 @@ function main(): number {
 		FORBIDDEN_PREFIXES.some((prefix) => entry.path.startsWith(prefix)),
 	);
 	const reached = hotPath(entries, HOT_PATH_ENTRIES);
+	const unexpectedExternals = reached.externals.filter(
+		(name) => !HOT_PATH_EXTERNALS.includes(name),
+	);
 	const metrics = {
+		tarballBytes,
 		files: entries.length,
 		unpackedBytes: sumBytes(entries),
 		runtimeJsBytes: sumBytes(js),
@@ -158,12 +189,13 @@ function main(): number {
 		declarationBytes: sumBytes(dts),
 		declarationModules: dts.length,
 		jsDocComments: countJsDocComments(js),
-		hotPathBytes: sumBytes(reached),
-		hotPathModules: reached.length,
+		hotPathBytes: sumBytes(reached.modules),
+		hotPathModules: reached.modules.length,
 	};
 
 	const rows: readonly (readonly [string, string, string])[] = [
-		['files', String(metrics.files), ''],
+		['tarball', kb(metrics.tarballBytes), `< ${kb(BUDGET.tarballBytes)}`],
+		['files', String(metrics.files), `<= ${BUDGET.files}`],
 		['unpacked', kb(metrics.unpackedBytes), `< ${kb(BUDGET.unpackedBytes)}`],
 		[
 			'runtime js',
@@ -173,14 +205,15 @@ function main(): number {
 		[
 			'declarations',
 			`${kb(metrics.declarationBytes)} in ${metrics.declarationModules} modules`,
-			'',
+			`< ${kb(BUDGET.declarationBytes)}`,
 		],
 		['jsdoc in js', String(metrics.jsDocComments), '0'],
 		[
-			'hot path',
+			'hot path (dist)',
 			`${kb(metrics.hotPathBytes)} in ${metrics.hotPathModules} modules`,
 			`< ${kb(BUDGET.hotPathBytes)}, <= ${BUDGET.hotPathModules} modules`,
 		],
+		['hot path externals', reached.externals.join(', '), HOT_PATH_EXTERNALS.join(', ')],
 		['forbidden', String(forbidden.length), '0'],
 	];
 	const width = Math.max(...rows.map(([label]) => label.length));
@@ -189,12 +222,20 @@ function main(): number {
 	}
 
 	const violations: string[] = [];
+	if (metrics.tarballBytes >= BUDGET.tarballBytes) violations.push('tarball size over budget');
+	if (metrics.files > BUDGET.files) violations.push('file count over budget');
 	if (metrics.unpackedBytes >= BUDGET.unpackedBytes) violations.push('unpacked size over budget');
 	if (metrics.runtimeJsBytes >= BUDGET.runtimeJsBytes) violations.push('runtime js over budget');
+	if (metrics.declarationBytes >= BUDGET.declarationBytes) {
+		violations.push('declarations over budget');
+	}
 	if (metrics.jsDocComments > 0) violations.push('runtime js carries jsdoc comments');
 	if (metrics.hotPathBytes >= BUDGET.hotPathBytes) violations.push('hot path bytes over budget');
 	if (metrics.hotPathModules > BUDGET.hotPathModules) {
 		violations.push('hot path module count over budget');
+	}
+	for (const name of unexpectedExternals) {
+		violations.push(`hot path imports an undeclared runtime dependency: ${name}`);
 	}
 	for (const entry of forbidden) violations.push(`forbidden file published: ${entry.path}`);
 
