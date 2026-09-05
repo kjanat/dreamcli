@@ -8,12 +8,12 @@ output.
 
 ## FILES
 
-| File                             | Purpose                                                                     |
-| -------------------------------- | --------------------------------------------------------------------------- |
-| `index.ts`                       | `generateSchema()`, `generateInputSchema()`, serialization helpers          |
-| `constants.ts`                   | `DEFINITION_SCHEMA_URL`, `DEFINITION_SCHEMA_VERSION`; root re-exports these |
-| `meta-descriptions.generated.ts` | generated descriptions injected into the definition meta-schema             |
-| `json-schema.test.ts`            | behavior contract for both outputs                                          |
+| File                             | Purpose                                                                                                               |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`                       | `generateSchema()`, `generateCommandSchema()`, `generateInputSchema()`, `definitionMetaSchema`, serialization helpers |
+| `constants.ts`                   | `DEFINITION_SCHEMA_URL`, `DEFINITION_SCHEMA_VERSION`; root re-exports these                                           |
+| `meta-descriptions.generated.ts` | generated descriptions injected into the definition meta-schema                                                       |
+| `json-schema.test.ts`            | behavior contract for both outputs                                                                                    |
 
 ## WHERE TO LOOK
 
@@ -34,7 +34,8 @@ output.
 - Build-time schema description data comes from docs data modules, not hand-maintained constants
 - Consumers import the generators from `@kjanat/dreamcli/json-schema`; the root entry re-exports
   only the types and `constants.ts`. `cli/index.ts` and `execution/index.ts` reach `index.ts` with
-  `await import(...)` so `--help --json` is the only path that loads it
+  `await import(...)`, so `--help --json` is the only CLI runtime path that loads it; the subpath
+  entry and `scripts/emit-definition-schema.ts` import it statically
 
 ## ANTI-PATTERNS
 

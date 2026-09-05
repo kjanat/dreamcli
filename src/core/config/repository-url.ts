@@ -1,5 +1,5 @@
 /**
- * Repository locator normalization for `package.json` metadata.
+ * Repository locator normalization for manifest metadata.
  *
  * @module dreamcli/core/config/repository-url
  */
@@ -79,8 +79,8 @@ function packageRepositoryUrl(
 	if (url === undefined && options?.require === true) {
 		throw new CLIError(
 			pkg.repository === undefined
-				? "package.json has no 'repository' field"
-				: `package.json 'repository' is not a recognisable locator: ${JSON.stringify(pkg.repository)}`,
+				? "manifest has no 'repository' field"
+				: `manifest 'repository' is not a recognisable locator: ${JSON.stringify(pkg.repository)}`,
 			{
 				code: 'INVALID_REPOSITORY',
 				suggest:
@@ -132,8 +132,6 @@ function resolveRepositoryUrl(pkg: PackageJsonData): string | undefined {
 		return undefined;
 	}
 }
-
-// --- inferCliName
 
 // --- Exports
 

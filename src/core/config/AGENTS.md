@@ -1,4 +1,4 @@
-# config — Config discovery + package.json metadata walk-up
+# config — Config discovery + manifest metadata walk-up
 
 ## OVERVIEW
 
@@ -7,13 +7,14 @@ user config discovery and `manifest()` metadata inference.
 
 ## FILES
 
-| File                   | Purpose                                                        |
-| ---------------------- | -------------------------------------------------------------- |
-| `index.ts`             | config search paths, loaders, parsing, discovery               |
-| `package-json.ts`      | nearest `package.json` walk-up + CLI name inference            |
-| `repository-url.ts`    | `packageRepositoryUrl()`; stays on the hot path for `.links()` |
-| `config.test.ts`       | discovery and load behavior                                    |
-| `package-json.test.ts` | metadata inference                                             |
+| File                     | Purpose                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `index.ts`               | config search paths, loaders, parsing, discovery                                               |
+| `package-json.ts`        | nearest-manifest walk-up (`package.json`, `deno.json`, `jsr.json`, JSONC) + CLI name inference |
+| `repository-url.ts`      | `packageRepositoryUrl()`; stays on the hot path for `.links()`                                 |
+| `config.test.ts`         | discovery and load behavior                                                                    |
+| `package-json.test.ts`   | manifest walk-up and metadata inference                                                        |
+| `repository-url.test.ts` | repository locator normalization and `{ require: true }`                                       |
 
 ## WHERE TO LOOK
 
@@ -29,7 +30,7 @@ user config discovery and `manifest()` metadata inference.
 - All I/O flows through a narrow `RuntimeAdapter` surface; keep it testable with virtual filesystems
 - Config roots must be plain objects even if a loader can parse other JSON or YAML values
 - JSON is always built in and ordered first in search-path and loader resolution
-- `package-json.ts` is a convenience feature: malformed or missing package metadata returns `null`,
+- `package-json.ts` is a convenience feature: malformed or missing manifest metadata returns `null`,
   not a hard failure
 
 ## ANTI-PATTERNS
@@ -38,7 +39,8 @@ user config discovery and `manifest()` metadata inference.
 - Do not skip plain-object validation at the discovery boundary
 - Do not couple config discovery to command schema or resolve precedence logic
 - Do not import `index.ts` or `package-json.ts` statically from `cli/`; `runtime-preflight.ts`
-  loads them with `await import(...)` and consumers use `@kjanat/dreamcli/config`
+  loads them with `await import(...)`, and only when discovery actually runs (pre-loaded
+  `.manifest(data)` never loads `package-json.ts`). Consumers use `@kjanat/dreamcli/config`
 
 ## NOTES
 

@@ -1,9 +1,11 @@
 /**
- * Package.json auto-discovery via directory walk-up.
+ * Manifest auto-discovery via directory walk-up.
  *
- * Walks up from `adapter.cwd` to find the nearest `package.json`, parses
- * it, and extracts metadata (name, version, description, bin). All I/O
- * flows through the adapter — fully testable with virtual filesystems.
+ * Walks up from `adapter.cwd` (or an explicit anchor) to find the nearest
+ * manifest from a caller-chosen filename list (`package.json` by default,
+ * `deno.json` / `jsr.json` for Deno projects), parses it as JSON or JSONC, and
+ * extracts metadata (name, version, description, bin, homepage, repository).
+ * All I/O flows through the adapter — fully testable with virtual filesystems.
  *
  * @module dreamcli/core/config/package-json
  */
@@ -33,9 +35,9 @@ interface PackageRepository {
 }
 
 /**
- * Subset of package.json fields relevant to CLI metadata.
+ * Subset of manifest fields relevant to CLI metadata.
  *
- * All fields are optional — a valid package.json may omit any of them.
+ * All fields are optional — a valid manifest may omit any of them.
  */
 interface PackageJsonData {
 	/** Package name (e.g. `@scope/mycli`). */
@@ -53,7 +55,7 @@ interface PackageJsonData {
 }
 
 /**
- * The subset of {@link RuntimeAdapter} needed for package.json discovery.
+ * The subset of {@link RuntimeAdapter} needed for manifest discovery.
  *
  * Using a narrow pick keeps the function easy to test and makes the
  * dependency explicit.
@@ -183,7 +185,7 @@ function manifestHasMetadata(data: PackageJsonData): boolean {
  *
  * @example
  * ```ts
- * import { discoverManifest } from '@kjanat/dreamcli';
+ * import { discoverManifest } from '@kjanat/dreamcli/config';
  *
  * const meta = await discoverManifest(adapter, { files: ['deno.json', 'jsr.json'] });
  * if (meta !== null) {
@@ -412,7 +414,7 @@ function parseRepositoryField(value: unknown): string | PackageRepository | unde
  *
  * @example
  * ```ts
- * import { inferCliName } from '@kjanat/dreamcli';
+ * import { inferCliName } from '@kjanat/dreamcli/config';
  *
  * inferCliName({ bin: { mycli: './dist/cli.js' } });        // 'mycli'
  * inferCliName({ name: '@scope/mycli' });                   // 'mycli'
