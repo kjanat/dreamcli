@@ -1,9 +1,9 @@
 /**
  * The fields supported by collection element schemas.
  *
- * Array flag elements retain the full flag fragment. Key-value arg elements
- * retain only value fields; positional sources and allocation settings are
- * rejected instead of being accepted and ignored.
+ * Array flag elements retain the legacy flag fragment except input privacy and
+ * default-presentation metadata. Key-value arg elements retain only value
+ * fields; input settings are rejected instead of being accepted and ignored.
  *
  * @module dreamcli/core/schema/element-fragment-fields.test
  */
@@ -32,6 +32,30 @@ const FLAG_ELEMENT_SOURCES = {
 } as const;
 
 describe('a flag element definition', () => {
+	it('rejects input-level sensitivity metadata', () => {
+		expect(() =>
+			createFlagSchema('array', { elementSchema: { kind: 'string', sensitive: true } }),
+		).toThrow(
+			expect.objectContaining<Partial<CLIError>>({
+				code: 'INVALID_SCHEMA',
+				details: { kind: 'string', field: 'sensitive' },
+			}),
+		);
+	});
+
+	it('rejects input-level default presentation metadata', () => {
+		expect(() =>
+			createFlagSchema('array', {
+				elementSchema: { kind: 'string', defaultDescription: false },
+			}),
+		).toThrow(
+			expect.objectContaining<Partial<CLIError>>({
+				code: 'INVALID_SCHEMA',
+				details: { kind: 'string', field: 'defaultDescription' },
+			}),
+		);
+	});
+
 	it('builds with every source field set', () => {
 		const schema = createFlagSchema('array', {
 			elementSchema: { kind: 'string', ...FLAG_ELEMENT_SOURCES },
@@ -127,6 +151,8 @@ describe('an arg element definition', () => {
 			['variadic', { variadic: true }],
 			['stdin', { stdin: {} }],
 			['defaultValue', { defaultValue: 'element-default' }],
+			['defaultDescription', { defaultDescription: false }],
+			['sensitive', { sensitive: true }],
 			['description', { description: 'an element' }],
 			['envVar', { envVar: 'ELEMENT_ENV' }],
 			['configPath', { configPath: 'element.path' }],

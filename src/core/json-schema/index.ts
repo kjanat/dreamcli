@@ -238,13 +238,8 @@ type FlagPathChecksFragmentV1 = {
 	readonly create?: true;
 };
 
-/**
- * A flag entry inside a definition document.
- *
- * Optional fields appear only when the flag sets them; `defaultValue` appears
- * only when the value survives a JSON round-trip.
- */
-type FlagDefinitionFragmentV1 = {
+/** A collection flag's element fragment, excluding input-level metadata. */
+type FlagElementFragmentV1 = {
 	readonly kind: FlagKind;
 	readonly presence: FlagPresence;
 	readonly defaultValue?: unknown;
@@ -256,7 +251,7 @@ type FlagDefinitionFragmentV1 = {
 	readonly enumValues?: readonly string[];
 	readonly numberConstraints?: NumberConstraints;
 	readonly stringConstraints?: FlagStringConstraintsFragmentV1;
-	readonly elementSchema?: FlagDefinitionFragmentV1;
+	readonly elementSchema?: FlagElementFragmentV1;
 	readonly separator?: string;
 	readonly split?: SourceSplitFragmentV1;
 	readonly duplicateKeys?: DuplicateKeys;
@@ -268,6 +263,17 @@ type FlagDefinitionFragmentV1 = {
 	readonly propagate?: true;
 	readonly negation?: FlagNegationFragmentV1;
 	readonly duplicates?: DuplicatePolicy;
+};
+
+/**
+ * A flag entry inside a definition document.
+ *
+ * Optional fields appear only when the flag sets them; `defaultValue` appears
+ * only for non-sensitive inputs when the value survives a JSON round-trip.
+ */
+type FlagDefinitionFragmentV1 = FlagElementFragmentV1 & {
+	readonly defaultDescription?: string | false;
+	readonly sensitive?: true;
 };
 
 /**
@@ -300,6 +306,8 @@ type ArgDefinitionFragmentV1 = {
 	readonly variadic?: true;
 	readonly stdin?: StdinBindingFragmentV1;
 	readonly defaultValue?: unknown;
+	readonly defaultDescription?: string | false;
+	readonly sensitive?: true;
 	readonly description?: string;
 	readonly envVar?: string;
 	readonly configPath?: string;
@@ -536,16 +544,27 @@ function serializeCommand(
  * @param opts - Resolved generation options (prompt inclusion).
  * @returns JSON-serializable object representing the flag.
  */
-function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitionFragmentV1 {
+function serializeFlag(
+	schema: FlagSchema,
+	opts: ResolvedOptions,
+	omitDefaults = false,
+): FlagDefinitionFragmentV1 {
 	const visibleAliases = getFlagAliasNames(schema);
 	const stringConstraints = schema.stringConstraints;
 	const pathChecks = schema.pathChecks;
 	const negation = schema.negation;
+	const defaultsAreSensitive = omitDefaults || schema.sensitive;
 
 	return {
 		kind: schema.kind,
 		presence: schema.presence,
-		...(isJsonSerializable(schema.defaultValue) ? { defaultValue: schema.defaultValue } : {}),
+		...(!defaultsAreSensitive && isJsonSerializable(schema.defaultValue)
+			? { defaultValue: schema.defaultValue }
+			: {}),
+		...(schema.defaultDescription !== undefined
+			? { defaultDescription: schema.defaultDescription }
+			: {}),
+		...(schema.sensitive ? { sensitive: true } : {}),
 		...(visibleAliases.length > 0 ? { aliases: [...visibleAliases] } : {}),
 		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
@@ -561,7 +580,7 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitio
 			? { stringConstraints: serializeStringConstraints(stringConstraints) }
 			: {}),
 		...(schema.elementSchema !== undefined
-			? { elementSchema: serializeFlag(schema.elementSchema, opts) }
+			? { elementSchema: serializeFlag(schema.elementSchema, opts, defaultsAreSensitive) }
 			: {}),
 		...(schema.separator !== undefined ? { separator: schema.separator } : {}),
 		...(schema.split !== undefined ? { split: serializeSplit(schema.split) } : {}),
@@ -648,7 +667,13 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFr
 		presence: schema.presence,
 		...(schema.variadic ? { variadic: true } : {}),
 		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
-		...(isJsonSerializable(schema.defaultValue) ? { defaultValue: schema.defaultValue } : {}),
+		...(!schema.sensitive && isJsonSerializable(schema.defaultValue)
+			? { defaultValue: schema.defaultValue }
+			: {}),
+		...(schema.defaultDescription !== undefined
+			? { defaultDescription: schema.defaultDescription }
+			: {}),
+		...(schema.sensitive ? { sensitive: true } : {}),
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
@@ -999,8 +1024,9 @@ function stringConstraintsToJsonSchemaProperties(
 	return result;
 }
 
-function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
+function flagToJsonSchemaType(schema: FlagSchema, omitDefaults = false): Record<string, unknown> {
 	const result: Record<string, unknown> = {};
+	const defaultsAreSensitive = omitDefaults || schema.sensitive;
 
 	switch (schema.kind) {
 		case 'string': {
@@ -1031,7 +1057,7 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 		case 'array':
 			result.type = 'array';
 			if (schema.elementSchema !== undefined) {
-				result.items = flagToJsonSchemaType(schema.elementSchema);
+				result.items = flagToJsonSchemaType(schema.elementSchema, defaultsAreSensitive);
 			}
 			break;
 		case 'custom':
@@ -1046,14 +1072,17 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 			result.additionalProperties =
 				schema.elementSchema === undefined
 					? { type: 'string' }
-					: flagToJsonSchemaType(schema.elementSchema);
+					: flagToJsonSchemaType(schema.elementSchema, defaultsAreSensitive);
 			break;
 	}
 
 	if (schema.description !== undefined) {
 		result.description = resolvePlainHelpDescription(schema.description);
 	}
-	if (isJsonSerializable(schema.defaultValue)) {
+	if (schema.sensitive) {
+		result.writeOnly = true;
+	}
+	if (!defaultsAreSensitive && isJsonSerializable(schema.defaultValue)) {
 		result.default = schema.defaultValue;
 	}
 	if (schema.deprecated !== undefined) {
@@ -1073,7 +1102,10 @@ function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 	if (schema.description !== undefined) {
 		result.description = resolvePlainHelpDescription(schema.description);
 	}
-	if (isJsonSerializable(schema.defaultValue)) {
+	if (schema.sensitive) {
+		result.writeOnly = true;
+	}
+	if (!schema.sensitive && isJsonSerializable(schema.defaultValue)) {
 		result.default = schema.defaultValue;
 	}
 	if (schema.deprecated !== undefined) {
@@ -1280,6 +1312,8 @@ const argValueFragmentProperties = {
 	variadic: { const: true },
 	stdin: { $ref: '#/$defs/stdin' },
 	defaultValue: {},
+	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
+	sensitive: { const: true },
 	description: { type: 'string' },
 	envVar: { type: 'string' },
 	configPath: { type: 'string' },
@@ -1308,6 +1342,43 @@ const argElementFragmentProperties = {
 	pathChecks: { $ref: '#/$defs/pathChecks' },
 	valueHint: { type: 'string' },
 } as const satisfies FragmentProperties<ArgElementFragmentV1>;
+
+/** Property schemas supported by a collection flag element. */
+const flagElementFragmentProperties = {
+	kind: {
+		enum: ['string', 'number', 'boolean', 'enum', 'array', 'custom', 'count', 'keyValue'],
+	},
+	presence: { enum: ['optional', 'required', 'defaulted'] },
+	defaultValue: {},
+	aliases: { type: 'array', items: { type: 'string' } },
+	stdin: { $ref: '#/$defs/stdin' },
+	envVar: { type: 'string' },
+	configPath: { type: 'string' },
+	description: { type: 'string' },
+	enumValues: { type: 'array', items: { type: 'string' } },
+	numberConstraints: { $ref: '#/$defs/numberConstraints' },
+	stringConstraints: { $ref: '#/$defs/stringConstraints' },
+	elementSchema: { $ref: '#/$defs/flagElement' },
+	separator: { type: 'string', minLength: 1 },
+	split: { $ref: '#/$defs/split' },
+	duplicateKeys: { enum: [...DUPLICATE_KEYS] },
+	unique: { const: true },
+	pathChecks: { $ref: '#/$defs/pathChecks' },
+	valueHint: { type: 'string' },
+	prompt: { $ref: '#/$defs/prompt' },
+	deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
+	propagate: { const: true },
+	negation: { $ref: '#/$defs/negation' },
+	duplicates: { enum: ['last', 'first', 'error'] },
+} as const satisfies FragmentProperties<FlagElementFragmentV1>;
+
+/** Property schemas supported by a top-level flag definition. */
+const flagFragmentProperties = {
+	...flagElementFragmentProperties,
+	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
+	sensitive: { const: true },
+} as const satisfies FragmentProperties<FlagDefinitionFragmentV1> &
+	Record<SerializedFlagField, Record<string, unknown>>;
 
 /**
  * JSON Schema (draft 2020-12) that validates the output of {@link generateSchema}.
@@ -1364,34 +1435,13 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			flag: {
 				type: 'object',
 				additionalProperties: false,
-				properties: {
-					kind: {
-						enum: ['string', 'number', 'boolean', 'enum', 'array', 'custom', 'count', 'keyValue'],
-					},
-					presence: { enum: ['optional', 'required', 'defaulted'] },
-					defaultValue: {},
-					aliases: { type: 'array', items: { type: 'string' } },
-					stdin: { $ref: '#/$defs/stdin' },
-					envVar: { type: 'string' },
-					configPath: { type: 'string' },
-					description: { type: 'string' },
-					enumValues: { type: 'array', items: { type: 'string' } },
-					numberConstraints: { $ref: '#/$defs/numberConstraints' },
-					stringConstraints: { $ref: '#/$defs/stringConstraints' },
-					elementSchema: { $ref: '#/$defs/flag' },
-					separator: { type: 'string', minLength: 1 },
-					split: { $ref: '#/$defs/split' },
-					duplicateKeys: { enum: [...DUPLICATE_KEYS] },
-					unique: { const: true },
-					pathChecks: { $ref: '#/$defs/pathChecks' },
-					valueHint: { type: 'string' },
-					prompt: { $ref: '#/$defs/prompt' },
-					deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
-					propagate: { const: true },
-					negation: { $ref: '#/$defs/negation' },
-					duplicates: { enum: ['last', 'first', 'error'] },
-				} satisfies FragmentProperties<FlagDefinitionFragmentV1> &
-					Record<SerializedFlagField, Record<string, unknown>>,
+				properties: flagFragmentProperties,
+				required: ['kind', 'presence'],
+			},
+			flagElement: {
+				type: 'object',
+				additionalProperties: false,
+				properties: flagElementFragmentProperties,
 				required: ['kind', 'presence'],
 			},
 			stdin: {
@@ -1546,6 +1596,7 @@ export type {
 	DefinitionDocumentV1,
 	ExampleDefinitionFragmentV1,
 	FlagDefinitionFragmentV1,
+	FlagElementFragmentV1,
 	FlagNegationFragmentV1,
 	FlagPathChecksFragmentV1,
 	FlagStringConstraintsFragmentV1,

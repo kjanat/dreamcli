@@ -273,7 +273,7 @@ describe('arg.keyValue(element) — element codec', () => {
 		expect(result.error?.message).toContain('must be >= 0');
 	});
 
-	it('applies the element constraints to an env-sourced entry, redacted', async () => {
+	it('applies the element constraints to an env-sourced entry', async () => {
 		const cmd = command('scale')
 			.arg('replicas', arg.keyValue(arg.number().int()).variadic().env('REPLICAS'))
 			.action(() => {});
@@ -282,7 +282,7 @@ describe('arg.keyValue(element) — element codec', () => {
 
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
-		expect(result.error?.message).toContain("'<redacted>'");
+		expect(result.error?.message).toContain("'1.5'");
 		expect(result.error?.message).toContain('must be an integer');
 	});
 

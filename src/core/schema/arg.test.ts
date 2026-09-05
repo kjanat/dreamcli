@@ -29,6 +29,8 @@ describe('arg.string() — creates and modifies string args', () => {
 		expect(a.schema.presence).toBe('required');
 		expect(a.schema.variadic).toBe(false);
 		expect(a.schema.defaultValue).toBeUndefined();
+		expect(a.schema.defaultDescription).toBeUndefined();
+		expect(a.schema.sensitive).toBe(false);
 	});
 });
 
@@ -199,6 +201,52 @@ describe('.default()', () => {
 		expect(a.schema.presence).toBe('defaulted');
 		expect(a.schema.defaultValue).toBe(80);
 	});
+
+	it('stores a custom description or explicit help suppression', () => {
+		expect(arg.string().default('secret', { description: 'from keychain' }).schema).toMatchObject({
+			defaultValue: 'secret',
+			defaultDescription: 'from keychain',
+		});
+		expect(arg.string().default('secret', { description: false }).schema.defaultDescription).toBe(
+			false,
+		);
+	});
+
+	it('omitted options reset a prior custom description without mutating it', () => {
+		const described = arg.string().default('first', { description: 'initial value' });
+		const reset = described.default('second');
+
+		expect(described.schema.defaultDescription).toBe('initial value');
+		expect(reset.schema.defaultDescription).toBeUndefined();
+		expect(reset.schema.defaultValue).toBe('second');
+	});
+});
+
+describe('.sensitive()', () => {
+	it('defaults to true and supports an explicit false', () => {
+		expect(arg.string().sensitive().schema.sensitive).toBe(true);
+		expect(arg.string().sensitive(false).schema.sensitive).toBe(false);
+	});
+
+	it('removes key-value element eligibility even when set to false', () => {
+		const element = arg.string().sensitive(false);
+		expectTypeOf<typeof element._config.elementEligible>().toEqualTypeOf<false>();
+	});
+
+	it('rejects sensitive element builders at runtime too', () => {
+		expect(() => {
+			// @ts-expect-error element sensitivity belongs to the key-value input
+			arg.keyValue(arg.string().sensitive());
+		}).toThrow(/Arg element schema field 'sensitive' is not supported/);
+	});
+
+	it('does not mutate the source builder', () => {
+		const base = arg.string();
+		const sensitive = base.sensitive();
+
+		expect(base.schema.sensitive).toBe(false);
+		expect(sensitive.schema.sensitive).toBe(true);
+	});
 });
 
 describe('.variadic()', () => {
@@ -346,6 +394,8 @@ describe('schema defaults', () => {
 		expect(s.variadic).toBe(false);
 		expect(s.stdin).toBeUndefined();
 		expect(s.defaultValue).toBeUndefined();
+		expect(s.defaultDescription).toBeUndefined();
+		expect(s.sensitive).toBe(false);
 		expect(s.description).toBeUndefined();
 		expect(s.enumValues).toBeUndefined();
 		expect(s.parseFn).toBeUndefined();

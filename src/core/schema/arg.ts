@@ -23,6 +23,7 @@ import {
 	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
+import type { DefaultValueOptions } from './flag.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
@@ -263,6 +264,13 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	readonly stdin: StdinBinding | undefined;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
+	/**
+	 * Human-readable replacement for the default value in help, or `false` to
+	 * omit the default annotation.
+	 */
+	readonly defaultDescription: string | false | undefined;
+	/** Whether values from this input must be kept out of user-facing projections. */
+	readonly sensitive: boolean;
 	/** Human-readable description for help text. */
 	readonly description: HelpDescription | undefined;
 	/**
@@ -424,6 +432,17 @@ interface ArgDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly defaultValue?: unknown;
+	/**
+	 * Human-readable replacement for the default value in help, or `false` to
+	 * omit the default annotation.
+	 * @defaultValue `undefined`
+	 */
+	readonly defaultDescription?: string | false | undefined;
+	/**
+	 * Whether values from this input must be kept out of user-facing projections.
+	 * @defaultValue `false`
+	 */
+	readonly sensitive?: boolean | undefined;
 	/**
 	 * Human-readable description for help text.
 	 * @defaultValue `undefined`
@@ -601,6 +620,8 @@ const NORMALIZED_ARG_SCHEMA_KEYS: readonly (keyof ArgSchema)[] = [
 	'variadic',
 	'stdin',
 	'defaultValue',
+	'defaultDescription',
+	'sensitive',
 	'description',
 	'envVar',
 	'configPath',
@@ -652,6 +673,8 @@ function assertValidArgElementSchema(schema: ArgSchema): void {
 	}
 
 	const defaults: readonly (readonly [keyof ArgSchema, unknown])[] = [
+		['sensitive', false],
+		['defaultDescription', undefined],
 		['presence', 'required'],
 		['variadic', false],
 		['stdin', undefined],
@@ -851,13 +874,15 @@ function assembleArgSchema<K extends ArgKind>(
 	kind: K,
 	overrides?: ArgSchemaFieldOverrides,
 ): ArgSchema<K> {
-	const { presence, variadic, stdin, unique, duplicateKeys, ...rest } = overrides ?? {};
+	const { presence, variadic, stdin, unique, sensitive, duplicateKeys, ...rest } = overrides ?? {};
 	return {
 		kind,
 		presence: presence ?? 'required',
 		variadic: variadic ?? false,
 		stdin: stdin === undefined ? undefined : normalizeStdinBinding(stdin),
 		defaultValue: undefined,
+		defaultDescription: undefined,
+		sensitive: sensitive ?? false,
 		description: undefined,
 		envVar: undefined,
 		configPath: undefined,
@@ -1106,6 +1131,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 * CLI → stdin → env → config → prompt → **default**.
 	 *
 	 * @param value - Fallback used when no CLI value or env var resolves.
+	 * @param options - Optional help presentation for the default.
 	 * @returns The builder (for chaining).
 	 * @throws {CLIError} With code `'INVALID_DEFAULT'` when the value is one the
 	 *   arg could never hold.
@@ -1130,11 +1156,15 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // $ mycli deploy production → 'production' (CLI)
 	 * ```
 	 */
-	default<V extends ArgDefaultValue<C>>(value: V): ArgBuilder<WithArgPresence<C, 'defaulted'>> {
+	default<V extends ArgDefaultValue<C>>(
+		value: V,
+		options?: DefaultValueOptions,
+	): ArgBuilder<WithArgPresence<C, 'defaulted'>> {
 		const schema: ArgSchema = {
 			...this.schema,
 			presence: 'defaulted',
 			defaultValue: value,
+			defaultDescription: options?.description,
 		};
 		assertValidArgDefault(undefined, schema);
 		return new ArgBuilder(schema);
@@ -1448,6 +1478,23 @@ class ArgBuilder<C extends ArgConfig> {
 	}
 
 	// -- Metadata modifiers --------------------------------------------------
+
+	/**
+	 * Mark this input's values as sensitive.
+	 *
+	 * Sensitive defaults are omitted from definition and input JSON Schemas and
+	 * from automatic help text. A custom default description remains safe to show.
+	 *
+	 * @param value - Whether this input is sensitive.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 */
+	sensitive(value = true): ArgBuilder<WithoutArgElementEligibility<C>> {
+		return new ArgBuilder({
+			...this.schema,
+			sensitive: value,
+		});
+	}
 
 	/**
 	 * Human-readable description shown in help output.

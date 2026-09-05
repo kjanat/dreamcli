@@ -19,7 +19,6 @@ import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import { COMPATIBLE_PROMPT_KINDS, promptCompatibilityError } from './flags.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { pathValuesOf, validatePathChecks } from './path-checks.ts';
-import { echoesValue } from './redaction.ts';
 import type { PromptOutcome, StageInput, StageState } from './stages.ts';
 import { readCliValue, runStages } from './stages.ts';
 
@@ -131,9 +130,6 @@ async function resolveArgs(
 			const checks = argValueSchema(schema).pathChecks;
 			if (checks === undefined) continue;
 
-			const echo = echoesValue(
-				Object.hasOwn(options.provenance, name) ? options.provenance[name] : undefined,
-			);
 			for (const value of pathValuesOf(
 				Object.hasOwn(resolved, name) ? resolved[name] : undefined,
 			)) {
@@ -143,7 +139,7 @@ async function resolveArgs(
 					checks,
 					options.stat,
 					options.mkdir,
-					echo,
+					schema.sensitive,
 				);
 				if (violation !== undefined) {
 					errors.push(violation);

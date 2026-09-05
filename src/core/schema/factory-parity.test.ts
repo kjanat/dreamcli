@@ -113,7 +113,7 @@ describe('flag.url() / arg.url() parity', () => {
 		const verdict = await expectParity(flag.url(), arg.url(), 'not-a-url');
 		expect(verdict.accepted).toBe(false);
 		expect(verdict.code).toBe('INVALID_VALUE');
-		expect(verdict.reason).toBe("Failed to parse <subject>: Invalid URL 'not-a-url'");
+		expect(verdict.reason).toBe("Failed to parse <subject> value 'not-a-url': Invalid URL");
 	});
 
 	it('rejects a disallowed protocol with the same reason', async () => {
@@ -121,7 +121,7 @@ describe('flag.url() / arg.url() parity', () => {
 		const verdict = await expectParity(flag.url(options), arg.url(options), 'http://example.com/');
 		expect(verdict.accepted).toBe(false);
 		expect(verdict.reason).toBe(
-			"Failed to parse <subject>: URL protocol 'http' is not allowed. Allowed: https",
+			"Failed to parse <subject> value 'http://example.com/': URL protocol is not allowed. Allowed: https",
 		);
 	});
 });
@@ -139,13 +139,13 @@ describe('flag.date() / arg.date() parity', () => {
 		const verdict = await expectParity(flag.date(), arg.date(), 'March 5');
 		expect(verdict.accepted).toBe(false);
 		expect(verdict.code).toBe('INVALID_VALUE');
-		expect(verdict.reason).toContain("Invalid date 'March 5'");
+		expect(verdict.reason).toContain("value 'March 5': Invalid date: expected ISO-8601");
 	});
 
 	it('rejects a calendar-invalid date with the same reason', async () => {
 		const verdict = await expectParity(flag.date(), arg.date(), '2026-02-31');
 		expect(verdict.reason).toBe(
-			"Failed to parse <subject>: Invalid date '2026-02-31': not a real calendar date",
+			"Failed to parse <subject> value '2026-02-31': Invalid date: not a real calendar date",
 		);
 	});
 
@@ -154,7 +154,7 @@ describe('flag.date() / arg.date() parity', () => {
 		const verdict = await expectParity(flag.date(options), arg.date(options), '2025-06-01');
 		expect(verdict.accepted).toBe(false);
 		expect(verdict.reason).toBe(
-			"Failed to parse <subject>: Date '2025-06-01' is before the earliest allowed 2026-01-01T00:00:00.000Z",
+			"Failed to parse <subject> value '2025-06-01': Date is before the earliest allowed 2026-01-01T00:00:00.000Z",
 		);
 	});
 });
@@ -176,7 +176,7 @@ describe('flag.duration() / arg.duration() parity', () => {
 		const verdict = await expectParity(flag.duration(), arg.duration(), '5 parsecs');
 		expect(verdict.accepted).toBe(false);
 		expect(verdict.reason).toBe(
-			"Failed to parse <subject>: Invalid duration '5 parsecs': expected e.g. 30s, 5m, 1h30m, or 250ms",
+			"Failed to parse <subject> value '5 parsecs': Invalid duration: expected e.g. 30s, 5m, 1h30m, or 250ms",
 		);
 	});
 });
@@ -193,7 +193,7 @@ describe('flag.bytes() / arg.bytes() parity', () => {
 		const verdict = await expectParity(flag.bytes(), arg.bytes(), '512 furlongs');
 		expect(verdict.accepted).toBe(false);
 		expect(verdict.reason).toBe(
-			"Failed to parse <subject>: Invalid size '512 furlongs': expected e.g. 512mb, 1.5gb, or 64kb",
+			"Failed to parse <subject> value '512 furlongs': Invalid size: expected e.g. 512mb, 1.5gb, or 64kb",
 		);
 	});
 });
@@ -442,7 +442,7 @@ describe('an environment value fails the same way on both surfaces', () => {
 
 		expect(forArg.code).toBe(forFlag.code);
 		expect(forArg.reason).toBe(forFlag.reason);
-		expect(forFlag.reason).toBe('Invalid string value from config p for <subject>');
+		expect(forFlag.reason).toBe("Invalid string value '{}' from config p for <subject>");
 	});
 });
 
@@ -455,7 +455,7 @@ describe('a config value of the wrong shape fails the same way on both surfaces'
 
 		expect(forArg.code).toBe(forFlag.code);
 		expect(forArg.reason).toBe(forFlag.reason);
-		expect(forFlag.reason).toBe('Invalid array value from config p for <subject>');
+		expect(forFlag.reason).toBe("Invalid array value '5' from config p for <subject>");
 	});
 
 	it('names the object a key-value input wanted', async () => {
@@ -464,7 +464,7 @@ describe('a config value of the wrong shape fails the same way on both surfaces'
 
 		expect(forArg.code).toBe(forFlag.code);
 		expect(forArg.reason).toBe(forFlag.reason);
-		expect(forFlag.reason).toBe('Invalid object value from config p for <subject>');
+		expect(forFlag.reason).toBe("Invalid object value '5' from config p for <subject>");
 	});
 
 	it('names the array a list wanted when the config value is an object', async () => {
@@ -472,7 +472,7 @@ describe('a config value of the wrong shape fails the same way on both surfaces'
 		const forArg = await argConfigVerdict(arg.string().variadic(), { a: 1 });
 
 		expect(forArg.reason).toBe(forFlag.reason);
-		expect(forFlag.reason).toBe('Invalid array value from config p for <subject>');
+		expect(forFlag.reason).toBe('Invalid array value \'{"a":1}\' from config p for <subject>');
 	});
 
 	it('carries the same expected detail on both surfaces', async () => {
@@ -497,12 +497,14 @@ describe('a config value of the wrong shape fails the same way on both surfaces'
 			flag: 'x',
 			source: 'config',
 			configPath: 'p',
+			value: 5,
 			expected: 'object',
 		});
 		expect(isValidationError(forArg) && forArg.details).toEqual({
 			arg: 'x',
 			source: 'config',
 			configPath: 'p',
+			value: 5,
 			expected: 'object',
 		});
 	});

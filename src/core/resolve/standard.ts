@@ -10,6 +10,7 @@
  * @module dreamcli/core/resolve/standard
  */
 
+import { diagnosticValue } from '#internals/core/errors/diagnostic-value.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import {
 	argCardinality,
@@ -17,7 +18,6 @@ import {
 	isCollection,
 } from '#internals/core/schema/cardinality.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
-import type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
 import type {
 	StandardSchemaV1,
 	StandardSchemaV1Issue,
@@ -29,8 +29,6 @@ import {
 	flagAggregateStandard,
 	flagValueSchema,
 } from '#internals/core/schema/value.ts';
-import type { ResolutionProvenanceRecord } from './contracts.ts';
-import { echoesValue } from './redaction.ts';
 
 /** Resolved values after the Standard Schema pass, plus any issues found. */
 interface StandardValidationResult {
@@ -42,39 +40,30 @@ interface StandardValidationResult {
 /** Render an issue path (e.g. `['a', 0]` → `a.0`), or `undefined` when empty. */
 function formatIssuePath(
 	path: ReadonlyArray<PropertyKey | StandardSchemaV1PathSegment> | undefined,
+	sensitive: boolean,
 ): string | undefined {
-	if (path === undefined || path.length === 0) {
+	if (sensitive || path === undefined || path.length === 0) {
 		return undefined;
 	}
 	return path
 		.map((segment) => {
 			const key = typeof segment === 'object' ? segment.key : segment;
-			return typeof key === 'symbol' ? key.toString() : String(key);
+			return typeof key === 'number' ? String(key) : diagnosticValue(false, key).text;
 		})
 		.join('.');
 }
 
 /** Build a `CONSTRAINT_VIOLATED` message from a validator's issues. */
-function issuesMessage(label: string, issues: ReadonlyArray<StandardSchemaV1Issue>): string {
+function issuesMessage(
+	label: string,
+	issues: ReadonlyArray<StandardSchemaV1Issue>,
+	sensitive: boolean,
+): string {
 	const rendered = issues.map((issue) => {
-		const path = formatIssuePath(issue.path);
+		const path = formatIssuePath(issue.path, sensitive);
 		return path === undefined ? issue.message : `${path}: ${issue.message}`;
 	});
 	return `${label} failed validation: ${rendered.join('; ')}`;
-}
-
-/**
- * Read one input's provenance by name.
- *
- * @param record - Provenance of one surface, keyed by input name.
- * @param name - Flag or arg name to read.
- * @returns The record, or `undefined` when that input resolved nothing.
- */
-function provenanceOf(
-	record: Readonly<Record<string, ResolutionProvenance>>,
-	name: string,
-): ResolutionProvenance | undefined {
-	return Object.hasOwn(record, name) ? record[name] : undefined;
 }
 
 /** Await a validator against a single value, mapping failure to a typed error. */
@@ -82,7 +71,7 @@ async function validateValue(
 	label: string,
 	value: unknown,
 	validator: StandardSchemaV1,
-	echo: boolean,
+	sensitive: boolean,
 ): Promise<
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError }
@@ -91,23 +80,26 @@ async function validateValue(
 	try {
 		result = await validator['~standard'].validate(value);
 	} catch (cause) {
+		// Validator-authored text is an explicit trust boundary and stays verbatim.
 		const message = cause instanceof Error ? cause.message : String(cause);
+		const report = diagnosticValue(sensitive, value);
 		return {
 			ok: false,
 			error: new ValidationError(`${label} validator threw: ${message}`, {
 				code: 'CONSTRAINT_VIOLATED',
-				details: { value, cause: message },
+				...(report.kind === 'visible' ? { details: { value: report.value, cause: message } } : {}),
 				suggest: `Fix the validator for ${label}, or provide a value it can process`,
 			}),
 		};
 	}
 	if (result.issues !== undefined) {
+		const report = diagnosticValue(sensitive, value);
 		return {
 			ok: false,
-			error: new ValidationError(issuesMessage(label, result.issues), {
+			error: new ValidationError(issuesMessage(label, result.issues, sensitive), {
 				code: 'CONSTRAINT_VIOLATED',
 				details: {
-					...(echo ? { value } : {}),
+					...(report.kind === 'visible' ? { value: report.value } : {}),
 					issues: result.issues.map((issue) => issue.message),
 				},
 				suggest: `Provide a value for ${label} that satisfies its validator`,
@@ -140,7 +132,6 @@ function resolvedValue(values: Readonly<Record<string, unknown>>, name: string):
  * @param schema - The command schema carrying per-flag/arg validators.
  * @param flags - Resolved flag values, keyed by flag name.
  * @param args - Resolved arg values, keyed by arg name.
- * @param provenance - Which stage produced each value, read for redaction.
  * @returns The (possibly transformed) values and any constraint violations.
  * @internal
  */
@@ -148,7 +139,6 @@ async function applyStandardValidators(
 	schema: CommandSchema,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
-	provenance: ResolutionProvenanceRecord,
 ): Promise<StandardValidationResult> {
 	const errors: ValidationError[] = [];
 
@@ -163,7 +153,7 @@ async function applyStandardValidators(
 			flagValueSchema(flagSchema).standard,
 			flagAggregateStandard(flagSchema),
 			errors,
-			echoesValue(provenanceOf(provenance.flags, name)),
+			flagSchema.sensitive,
 		);
 		if (validated.changed) nextFlags[name] = validated.value;
 	}
@@ -179,7 +169,7 @@ async function applyStandardValidators(
 			argValueSchema(entry.schema).standard,
 			argAggregateStandard(entry.schema),
 			errors,
-			echoesValue(provenanceOf(provenance.args, entry.name)),
+			entry.schema.sensitive,
 		);
 		if (validated.changed) nextArgs[entry.name] = validated.value;
 	}
@@ -199,7 +189,7 @@ async function applyStandardValidators(
  * @param element - Validator for each element, or for the value itself.
  * @param aggregate - Validator for the completed collection.
  * @param errors - Collector for the issues found.
- * @param echo - Whether a diagnostic may record the value.
+ * @param sensitive - Whether the owning input hides framework-controlled value data.
  * @returns The value to store, and whether validation replaced it.
  */
 async function validateInput(
@@ -209,7 +199,7 @@ async function validateInput(
 	element: StandardSchemaV1 | undefined,
 	aggregate: StandardSchemaV1 | undefined,
 	errors: ValidationError[],
-	echo: boolean,
+	sensitive: boolean,
 ): Promise<{ readonly changed: boolean; readonly value: unknown }> {
 	let current = value;
 	let changed = false;
@@ -217,14 +207,14 @@ async function validateInput(
 
 	if (element !== undefined) {
 		const validated = collection
-			? await validateElements(label, current, element, errors, echo)
-			: await validateOne(label, current, element, errors, echo);
+			? await validateElements(label, current, element, errors, sensitive)
+			: await validateOne(label, current, element, errors, sensitive);
 		current = validated.value;
 		changed = changed || validated.changed;
 	}
 
 	if (aggregate !== undefined && errors.length === errorCount) {
-		const result = await validateValue(label, current, aggregate, echo);
+		const result = await validateValue(label, current, aggregate, sensitive);
 		if (result.ok) {
 			current = result.value;
 			changed = true;
@@ -242,12 +232,12 @@ async function validateElements(
 	value: unknown,
 	validator: StandardSchemaV1,
 	errors: ValidationError[],
-	echo: boolean,
+	sensitive: boolean,
 ): Promise<{ readonly changed: boolean; readonly value: unknown }> {
 	if (Array.isArray(value)) {
 		const next: unknown[] = [];
 		for (const [index, element] of value.entries()) {
-			const result = await validateValue(`${label}[${index}]`, element, validator, echo);
+			const result = await validateValue(`${label}[${index}]`, element, validator, sensitive);
 			if (result.ok) {
 				next.push(result.value);
 			} else {
@@ -263,14 +253,15 @@ async function validateElements(
 		// rebuilt verbatim instead of reaching the prototype setter.
 		const next = new Map<string, unknown>();
 		for (const [key, entry] of Object.entries(value)) {
-			const result = await validateValue(`${label}.${key}`, entry, validator, echo);
+			const entryLabel = sensitive ? label : `${label}.${diagnosticValue(false, key).text}`;
+			const result = await validateValue(entryLabel, entry, validator, sensitive);
 			next.set(key, result.ok ? result.value : entry);
 			if (!result.ok) errors.push(result.error);
 		}
 		return { changed: true, value: Object.fromEntries(next) };
 	}
 
-	return validateOne(label, value, validator, errors, echo);
+	return validateOne(label, value, validator, errors, sensitive);
 }
 
 /** Apply a validator to one value. */
@@ -279,9 +270,9 @@ async function validateOne(
 	value: unknown,
 	validator: StandardSchemaV1,
 	errors: ValidationError[],
-	echo: boolean,
+	sensitive: boolean,
 ): Promise<{ readonly changed: boolean; readonly value: unknown }> {
-	const result = await validateValue(label, value, validator, echo);
+	const result = await validateValue(label, value, validator, sensitive);
 	if (result.ok) return { changed: true, value: result.value };
 	errors.push(result.error);
 	return { changed: false, value };

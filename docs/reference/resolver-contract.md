@@ -108,8 +108,10 @@ an entry. See
 
 - env, config, prompt, and stdin failures carry source-aware detail payloads
 - every coercion failure carries `source` naming the stage that produced the value
-- a value resolved outside a literal CLI value is redacted in both the message
-  and `details`, including stdin selected by an explicit `-`
+- diagnostic visibility depends only on the owning schema's `sensitive` field,
+  never the winning source
+- non-sensitive failures report raw values from every source; sensitive failures
+  omit raw-derived values, keys, paths, and causes
 - hard coercion errors stop later fallback for that same field
 - multiple validation failures are thrown as one aggregate error with per-error details
 - aggregate validation failures also include per-issue summaries with normalized input labels and source labels when the failing source is known

@@ -234,6 +234,15 @@ type FlagParseFn<T> = (raw: unknown) => T;
 type CustomFlagValue<A> =
 	A extends FlagParseFn<infer T> ? T : A extends StandardSchemaV1 ? InferStandardOutput<A> : never;
 
+/** Options controlling how a declared default appears in help output. */
+interface DefaultValueOptions {
+	/**
+	 * Human-readable default text, or `false` to hide the default from help.
+	 * `undefined` uses the default value's automatic rendering when it is safe.
+	 */
+	readonly description?: string | false;
+}
+
 /** Runtime descriptor for a flag alias. */
 interface FlagAlias {
 	/** Alias name without `-` / `--` prefix. */
@@ -290,6 +299,13 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	readonly presence: FlagPresence;
 	/** Runtime default value (if any). */
 	readonly defaultValue: unknown;
+	/**
+	 * Human-readable replacement for the default value in help, or `false` to
+	 * omit the default annotation.
+	 */
+	readonly defaultDescription: string | false | undefined;
+	/** Whether values from this input must be kept out of user-facing projections. */
+	readonly sensitive: boolean;
 	/** Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`). */
 	readonly aliases: readonly FlagAlias[];
 	/**
@@ -454,6 +470,17 @@ interface FlagDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly defaultValue?: unknown;
+	/**
+	 * Human-readable replacement for the default value in help, or `false` to
+	 * omit the default annotation.
+	 * @defaultValue `undefined`
+	 */
+	readonly defaultDescription?: string | false | undefined;
+	/**
+	 * Whether values from this input must be kept out of user-facing projections.
+	 * @defaultValue `false`
+	 */
+	readonly sensitive?: boolean | undefined;
 	/**
 	 * Short/long aliases as bare names or {@link FlagAlias} records.
 	 * @defaultValue `[]`
@@ -738,6 +765,8 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'kind',
 	'presence',
 	'defaultValue',
+	'defaultDescription',
+	'sensitive',
 	'aliases',
 	'stdin',
 	'envVar',
@@ -784,6 +813,8 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 	}
 
 	const defaults: readonly (readonly [keyof FlagSchema, unknown])[] = [
+		['sensitive', false],
+		['defaultDescription', undefined],
 		['presence', schema.kind === 'boolean' ? 'defaulted' : 'optional'],
 		['defaultValue', schema.kind === 'boolean' ? false : undefined],
 		['stdin', undefined],
@@ -819,6 +850,22 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 	}
 }
 
+/** Reject input-level default presentation metadata on a flag element definition. */
+function assertValidFlagElementSchema(schema: FlagSchema): void {
+	const unsupportedField = schema.sensitive
+		? 'sensitive'
+		: schema.defaultDescription !== undefined
+			? 'defaultDescription'
+			: undefined;
+	if (unsupportedField === undefined) return;
+
+	throw new CLIError(`Flag element schema field '${unsupportedField}' is not supported`, {
+		code: 'INVALID_SCHEMA',
+		details: { kind: schema.kind, field: unsupportedField },
+		suggest: `Drop '${unsupportedField}' from the collection element`,
+	});
+}
+
 /**
  * Normalise an array flag's element input into a built {@link FlagSchema}.
  *
@@ -833,12 +880,15 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 function normalizeFlagElementSchema(element: FlagDefinition | FlagSchema): FlagSchema {
 	if (isNormalizedFlagSchema(element)) {
 		assertValidFlagDefinition(element.kind, element);
+		assertValidFlagElementSchema(element);
 		return element;
 	}
 
 	const { kind, ...fields } = element;
 	assertValidFlagDefinition(kind, fields);
-	return buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
+	const schema = buildFlagSchema(kind, normalizeFlagDefinitionFields(fields));
+	assertValidFlagElementSchema(schema);
+	return schema;
 }
 
 /**
@@ -1072,6 +1122,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		presence,
 		stdin,
 		unique,
+		sensitive,
 		propagate,
 		duplicates,
 		duplicateKeys,
@@ -1082,6 +1133,8 @@ function assembleFlagSchema<K extends FlagKind>(
 		kind,
 		presence: presence ?? 'optional',
 		defaultValue: undefined,
+		defaultDescription: undefined,
+		sensitive: sensitive ?? false,
 		stdin: stdin === undefined ? undefined : normalizeStdinBinding(stdin),
 		envVar: undefined,
 		configPath: undefined,
@@ -1252,6 +1305,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * matches the flag's declared type.
 	 *
 	 * @param value - Fallback value used when no source provides one.
+	 * @param options - Optional help presentation for the default.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
@@ -1262,11 +1316,15 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli serve --port 443 → port = 443
 	 * ```
 	 */
-	default<V extends C['valueType']>(value: V): FlagBuilder<WithPresence<C, 'defaulted'>> {
+	default<V extends C['valueType']>(
+		value: V,
+		options?: DefaultValueOptions,
+	): FlagBuilder<WithPresence<C, 'defaulted'>> {
 		const schema: FlagSchema = {
 			...this.schema,
 			presence: 'defaulted',
 			defaultValue: value,
+			defaultDescription: options?.description,
 		};
 		assertValidFlagDefault(undefined, schema);
 		return new FlagBuilder(schema);
@@ -1296,6 +1354,23 @@ class FlagBuilder<C extends FlagConfig> {
 	}
 
 	// -- Metadata modifiers --------------------------------------------------
+
+	/**
+	 * Mark this input's values as sensitive.
+	 *
+	 * Sensitive defaults are omitted from definition and input JSON Schemas and
+	 * from automatic help text. A custom default description remains safe to show.
+	 *
+	 * @param value - Whether this input is sensitive.
+	 * @defaultValue `true`
+	 * @returns The builder (for chaining).
+	 */
+	sensitive(value = true): FlagBuilder<WithoutElementEligibility<C>> {
+		return new FlagBuilder({
+			...this.schema,
+			sensitive: value,
+		});
+	}
 
 	/**
 	 * Add a short or long alias (e.g. `'f'` for `--force`, `'verbose'` as an
@@ -2523,6 +2598,7 @@ export type {
 	BooleanFlagDefinition,
 	CountFlagDefinition,
 	CustomFlagDefinition,
+	DefaultValueOptions,
 	DuplicatePolicy,
 	EnumFlagDefinition,
 	FlagAlias,

@@ -88,6 +88,57 @@ describe('Standard Schema v1 interop — flags', () => {
 		const bad = await runCommand(cmd, [], { env: { COUNT: '7' } });
 		expect(bad.exitCode).toBe(2);
 		expect(bad.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(bad.error?.details).toEqual({
+			value: '7',
+			issues: ['must be an even integer'],
+		});
+	});
+
+	it('omits a sensitive value and validator issue path', async () => {
+		const rejectsAtSecretPath = standard(() => ({
+			issues: [{ message: 'rejected', path: ['private-segment'] }],
+		}));
+		const cmd = command('run')
+			.flag('token', flag.custom(rejectsAtSecretPath).sensitive())
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--token', 'private-value']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--token failed validation: rejected');
+		expect(result.error?.details).toEqual({ issues: ['rejected'] });
+		expect(JSON.stringify(result.error)).not.toContain('private-value');
+		expect(JSON.stringify(result.error)).not.toContain('private-segment');
+	});
+
+	it('omits a sensitive record key from the element label', async () => {
+		const cmd = command('run')
+			.flag(
+				'vars',
+				flag
+					.keyValue(flag.custom(standard(() => ({ issues: [{ message: 'rejected' }] }))))
+					.sensitive(),
+			)
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--vars', 'private-key=value']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--vars failed validation: rejected');
+		expect(JSON.stringify(result.error)).not.toContain('private-key');
+	});
+
+	it('keeps a sensitive collection index because it is framework metadata', async () => {
+		const cmd = command('run')
+			.flag('values', flag.array(flag.custom(evenInt)).sensitive())
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--values', '3']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--values[0] failed validation: must be an even integer');
+		expect(result.error?.details).toEqual({ issues: ['must be an even integer'] });
+		expect(JSON.stringify(result.error)).not.toContain('3');
 	});
 
 	it('skips validation for an absent optional flag', async () => {

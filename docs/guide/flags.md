@@ -3,9 +3,9 @@
 Flags are the richest primitive in `dreamcli`.
 Each flag declaration configures parsing, type inference, resolution, help text, and shell completions.
 
-## Five Axes
+## Six Axes
 
-A flag declaration decides five separate things. They compose freely, and every
+A flag declaration decides six separate things. They compose freely, and every
 section on this page belongs to exactly one of them:
 
 | Axis                          | What it decides                                        | Declared with                                                                  |
@@ -15,15 +15,16 @@ section on this page belongs to exactly one of them:
 | [Sources](#sources)           | where a value may come from and which one wins          | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`, `.required()`     |
 | [Syntax](#syntax)             | how the flag is spelled and repeated on the command line | the name, `.alias()`, `.negatable()`, `.duplicates()`, `.propagate()`          |
 | [Validation](#validation)     | what a resolved value has to satisfy                    | constraints, `.standard()`, `flag.path()` filesystem checks                     |
+| [Diagnostics](#diagnostics)   | whether diagnostics and help may display the value       | `.sensitive()`                                                                  |
 
 The factory methods are facades over that decomposition, and they stay the way
 you write a CLI. The table is here to say which question each one answers.
 
-Three of the five axes are identical on the [argument](/guide/arguments)
-surface. Value and validation are the same set of kinds, options, parsers, and
-error codes. Sources are the same six stages in the same order. Cardinality
-differs in how the command line spells a collection, and syntax is the axis that
-is genuinely flag-only, which is what
+Four of the six axes are identical on the [argument](/guide/arguments) surface.
+Value and validation are the same set of kinds, options, parsers, and error
+codes. Sources are the same six stages in the same order. Diagnostics use the
+same sensitivity rule. Cardinality differs in how the command line spells a
+collection, and syntax is the axis that is genuinely flag-only, which is what
 [the arg factory does not have](/guide/arguments#flag-only-surface) enumerates.
 
 Every axis at once:
@@ -43,6 +44,8 @@ flag
   .config('deploy.region')
   .prompt({ kind: 'input', message: 'Region?' })
   .default('us')
+  // diagnostics
+  .sensitive()
   // syntax
   .alias('r')
   .describe('Target region')
@@ -475,10 +478,12 @@ command('deploy').flag('v', flag.keyValue().duplicateKeys('first').alias('e').en
 // VARS='A=1,A=2'     →  { A: '1' }
 ```
 
-Under `'error'`, the message names the source that carried the repeat:
-`Duplicate key '<redacted>' from env VARS for flag --v` for the environment,
-and `Duplicate key 'A' for flag --v` for occurrences the user typed, which name
-no source and quote the key. A key spliced in from a pipe reads `from stdin`.
+Under `'error'`, the message names the source that carried the repeat and quotes
+the key unless the input is sensitive: `Duplicate key 'A' from env VARS for
+flag --v` for the environment and `Duplicate key 'A' for flag --v` for
+occurrences the user typed. A key spliced in from a pipe reads `from stdin`.
+`flag.keyValue().sensitive()` reports `Duplicate key '<redacted>'` from every
+source instead.
 JSON decoding does not preserve repeated object member names, so
 `.duplicateKeys()` cannot reliably detect them for `.split({ env: 'json' })`.
 
@@ -1189,29 +1194,41 @@ invocation that leaves the count at `0`.
 Fix the default, or widen the declaration where the value was intended:
 `flag.number({ finite: false }).default(Number.POSITIVE_INFINITY)` holds.
 
-### What a failing value prints
+## Diagnostics
 
-Under the current provisional policy, a value resolved through stdin, env,
-config, or a prompt is redacted in the diagnostic, on both surfaces. This
-includes stdin selected by an explicit `-`; the diagnostic also omits
-`details.value`. Diagnostics that previously quoted the raw value use
-`<redacted>`, while JSON collection failures omit the raw input entirely:
+By default, a failing value is quoted and stored in `details.value` regardless
+of whether it came from argv, stdin, env, config, a prompt, or a default. Mark an
+input with `.sensitive()` when framework diagnostics must not retain or display
+its values:
+
+```ts
+flag.string().pattern(/^ghp_/).env('API_TOKEN').sensitive();
+```
+
+Sensitive diagnostics use `<redacted>` and omit raw-derived fields such as
+values, collection keys, validator path segments, filesystem paths, and adapter
+causes. The input name, source, expected type, constraint, and allowed enum
+values remain available:
 
 ```bash
 $ API_TOKEN=sk-live-9f2 mycli deploy
 Invalid value '<redacted>' from env API_TOKEN for flag --token: must match /^ghp_/
 ```
 
-A literal CLI value is quoted in full, since it is already on the user's screen.
+Help also omits the automatic `(default: value)` annotation for a sensitive
+input. A safe explicit description still renders:
+
+```ts
+flag.string().default('stored-token', { description: 'from keychain' }).sensitive();
+```
+
 [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction) is the
-canonical contract: which fields survive, what `details` carries, and the one
-channel the framework cannot redact. This source-based rule is temporary;
-[#120](https://github.com/kjanat/dreamcli/issues/120) tracks replacing it with
-explicit sensitivity metadata.
+canonical contract, including the developer-authored parser and validator text
+that remains verbatim.
 
 ## What's Next?
 
-- [Arguments](/guide/arguments), the same five axes on the positional surface
+- [Arguments](/guide/arguments), the same six axes on the positional surface
 - [What the arg factory does not have](/guide/arguments#flag-only-surface), the
   flag members bound to flag syntax
 - [Config Files](/guide/config), config file resolution

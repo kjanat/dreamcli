@@ -3,10 +3,9 @@
  * (`url()`, `path()`, `date()`, `duration()`, `bytes()`).
  *
  * Each parser converts a raw CLI/env/config/stdin value into a typed value and
- * throws a plain `Error` with a human-readable reason on invalid input. The
- * parse and resolve pipelines wrap thrown errors with the subject's context
- * (`Failed to parse flag --x: <reason>`, `Failed to parse argument <x>: …`),
- * so parsers only describe the value problem itself.
+ * throws a plain `Error` with a raw-free reason on invalid input. The parse and
+ * resolve pipelines own value display and redaction, then add the subject's
+ * context. Developer-authored custom parser messages remain verbatim.
  *
  * The option types keep their `Flag` prefix from the release that introduced
  * them on the flag factory alone. They describe the value, not flag syntax,
@@ -64,13 +63,11 @@ function parseDateValue(raw: unknown, options?: DateFlagOptions): Date {
 		return validateDateBounds(raw, options);
 	}
 	if (typeof raw !== 'string') {
-		throw new Error(`Invalid date '${String(raw)}': expected an ISO-8601 string`);
+		throw new Error('Invalid date: expected an ISO-8601 string');
 	}
 	const match = ISO_DATE_PATTERN.exec(raw);
 	if (match === null) {
-		throw new Error(
-			`Invalid date '${raw}': expected ISO-8601 (e.g. 2026-07-10 or 2026-07-10T14:30:00Z)`,
-		);
+		throw new Error('Invalid date: expected ISO-8601 (e.g. 2026-07-10 or 2026-07-10T14:30:00Z)');
 	}
 	// Validate calendar components structurally (new Date('2026-02-31')
 	// silently rolls over to March 2, and timezone offsets shift the
@@ -81,19 +78,19 @@ function parseDateValue(raw: unknown, options?: DateFlagOptions): Date {
 	const month = Number(monthPart);
 	const day = Number(dayPart);
 	if (month < 1 || month > 12) {
-		throw new Error(`Invalid date '${raw}': month must be 01-12`);
+		throw new Error('Invalid date: month must be 01-12');
 	}
 	if (day < 1 || day > daysInMonth(year, month)) {
-		throw new Error(`Invalid date '${raw}': not a real calendar date`);
+		throw new Error('Invalid date: not a real calendar date');
 	}
 	if (hourPart !== undefined && Number(hourPart) > 23) {
-		throw new Error(`Invalid date '${raw}': hours must be 00-23`);
+		throw new Error('Invalid date: hours must be 00-23');
 	}
 	if (minutePart !== undefined && Number(minutePart) > 59) {
-		throw new Error(`Invalid date '${raw}': minutes must be 00-59`);
+		throw new Error('Invalid date: minutes must be 00-59');
 	}
 	if (secondPart !== undefined && Number(secondPart) > 59) {
-		throw new Error(`Invalid date '${raw}': seconds must be 00-59`);
+		throw new Error('Invalid date: seconds must be 00-59');
 	}
 	// Offset-less datetimes ('2026-07-10T14:30') are treated as UTC, not
 	// local time — otherwise min/max acceptance would depend on the machine's
@@ -102,9 +99,9 @@ function parseDateValue(raw: unknown, options?: DateFlagOptions): Date {
 	const hasOffset = match[8] !== undefined;
 	const parsed = new Date(hasTime && !hasOffset ? `${raw}Z` : raw);
 	if (Number.isNaN(parsed.getTime())) {
-		throw new Error(`Invalid date '${raw}'`);
+		throw new Error('Invalid date');
 	}
-	return validateDateBounds(parsed, options, raw);
+	return validateDateBounds(parsed, options);
 }
 
 /** Number of days in a month (1-12), accounting for leap years. */
@@ -114,15 +111,15 @@ function daysInMonth(year: number, month: number): number {
 }
 
 /** Enforce inclusive date bounds, throwing a human-readable error on violation. */
-function validateDateBounds(value: Date, options?: DateFlagOptions, raw?: string): Date {
-	const display = raw ?? value.toISOString();
+function validateDateBounds(value: Date, options?: DateFlagOptions): Date {
+	if (Number.isNaN(value.getTime())) {
+		throw new Error('Invalid date');
+	}
 	if (options?.min !== undefined && value.getTime() < options.min.getTime()) {
-		throw new Error(
-			`Date '${display}' is before the earliest allowed ${options.min.toISOString()}`,
-		);
+		throw new Error(`Date is before the earliest allowed ${options.min.toISOString()}`);
 	}
 	if (options?.max !== undefined && value.getTime() > options.max.getTime()) {
-		throw new Error(`Date '${display}' is after the latest allowed ${options.max.toISOString()}`);
+		throw new Error(`Date is after the latest allowed ${options.max.toISOString()}`);
 	}
 	return value;
 }
@@ -137,20 +134,18 @@ function validateDateBounds(value: Date, options?: DateFlagOptions, raw?: string
  */
 function parseUrlValue(raw: unknown, options?: UrlFlagOptions): URL {
 	if (typeof raw !== 'string' && !(raw instanceof URL)) {
-		throw new Error(`Invalid URL '${String(raw)}': expected a URL string`);
+		throw new Error('Invalid URL: expected a URL string');
 	}
 	let parsed: URL;
 	try {
 		parsed = raw instanceof URL ? raw : new URL(raw);
 	} catch {
-		throw new Error(`Invalid URL '${String(raw)}'`);
+		throw new Error('Invalid URL');
 	}
 	if (options?.protocols !== undefined) {
 		const protocol = parsed.protocol.replace(/:$/, '');
 		if (!options.protocols.includes(protocol)) {
-			throw new Error(
-				`URL protocol '${protocol}' is not allowed. Allowed: ${options.protocols.join(', ')}`,
-			);
+			throw new Error(`URL protocol is not allowed. Allowed: ${options.protocols.join(', ')}`);
 		}
 	}
 	return parsed;
@@ -177,12 +172,12 @@ const DURATION_UNITS: Readonly<Record<string, number>> = {
 function parseDurationValue(raw: unknown): number {
 	if (typeof raw === 'number') {
 		if (!Number.isFinite(raw) || raw < 0) {
-			throw new Error(`Invalid duration '${String(raw)}': must be a non-negative number`);
+			throw new Error('Invalid duration: must be a non-negative number');
 		}
 		return raw;
 	}
 	if (typeof raw !== 'string' || raw.length === 0) {
-		throw new Error(`Invalid duration '${String(raw)}': expected e.g. 30s, 5m, 1h30m, or 250ms`);
+		throw new Error('Invalid duration: expected e.g. 30s, 5m, 1h30m, or 250ms');
 	}
 	if (/^\d+(?:\.\d+)?$/.test(raw)) {
 		return Number(raw);
@@ -198,7 +193,7 @@ function parseDurationValue(raw: unknown): number {
 		consumed += text.length;
 	}
 	if (consumed !== raw.length || consumed === 0) {
-		throw new Error(`Invalid duration '${raw}': expected e.g. 30s, 5m, 1h30m, or 250ms`);
+		throw new Error('Invalid duration: expected e.g. 30s, 5m, 1h30m, or 250ms');
 	}
 	return total;
 }
@@ -224,21 +219,21 @@ const BYTE_UNITS: Readonly<Record<string, number>> = {
 function parseBytesValue(raw: unknown): number {
 	if (typeof raw === 'number') {
 		if (!Number.isFinite(raw) || raw < 0) {
-			throw new Error(`Invalid size '${String(raw)}': must be a non-negative number`);
+			throw new Error('Invalid size: must be a non-negative number');
 		}
 		return raw;
 	}
 	if (typeof raw !== 'string' || raw.length === 0) {
-		throw new Error(`Invalid size '${String(raw)}': expected e.g. 512mb, 1.5gb, or 64kb`);
+		throw new Error('Invalid size: expected e.g. 512mb, 1.5gb, or 64kb');
 	}
 	const match = /^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb|tb)?$/i.exec(raw);
 	if (match === null || match[1] === undefined) {
-		throw new Error(`Invalid size '${raw}': expected e.g. 512mb, 1.5gb, or 64kb`);
+		throw new Error('Invalid size: expected e.g. 512mb, 1.5gb, or 64kb');
 	}
 	const unit = (match[2] ?? 'b').toLowerCase();
 	const scale = BYTE_UNITS[unit];
 	if (scale === undefined) {
-		throw new Error(`Invalid size '${raw}': unknown unit '${match[2] ?? ''}'`);
+		throw new Error('Invalid size: unknown unit');
 	}
 	return Math.round(Number(match[1]) * scale);
 }

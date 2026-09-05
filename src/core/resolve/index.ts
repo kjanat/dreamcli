@@ -110,10 +110,7 @@ async function resolve(
 		errors.push(...collectValidationErrors(error));
 	}
 
-	const validated = await applyStandardValidators(schema, flags, args, {
-		flags: flagProvenance,
-		args: argProvenance,
-	});
+	const validated = await applyStandardValidators(schema, flags, args);
 	flags = validated.flags;
 	args = validated.args;
 	errors.push(...validated.errors);

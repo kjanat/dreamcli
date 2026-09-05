@@ -669,52 +669,42 @@ flag.array(flag.string()).split({ cli: '|', env: '|' }).env('REGIONS');
 
 Code that only ever passed CLI tokens needs no change.
 
-### Flag diagnostics redact values resolved outside literal CLI input
+### Diagnostic secrecy is explicit
 
-A flag whose stdin, environment, config, or prompt value failed to coerce used to
-print that value and carry it in `details.value`. The argument surface already
-redacted it. Both surfaces now redact:
+4.0 uses one sensitivity rule on flags and arguments. A rejected value is shown
+from argv, stdin, env, config, a prompt, or a default unless the input is marked
+`.sensitive()`:
+
+```ts
+flag.string().pattern(/^ghp_/).env('API_TOKEN').sensitive();
+arg.string().env('API_TOKEN').sensitive();
+```
 
 ```
-# 3.x
-Invalid value 'sk-live-9f2' from env API_TOKEN for flag --token: must match /^ghp_/
-
-# 4.0
 Invalid value '<redacted>' from env API_TOKEN for flag --token: must match /^ghp_/
 ```
 
-Messages that previously quoted the raw value now say `'<redacted>'`, and
-`details` no longer carries a `value` key. JSON collection failures omit the raw
-input instead, while retaining source-based messages such as
-`Invalid JSON value from env TAGS for flag --tags`. What identifies the failure
-stays: the flag name, the source (`source`, plus `envVar` or `configPath`), the
-expected type, the constraint that failed with its bound or pattern, and the
-allowed enum values. A custom parse function's own error message is still shown,
-since your code wrote it, so write those messages to describe the expectation
-rather than to interpolate the value.
+Audit every secret-bearing input during migration. Without `.sensitive()`, the
+message and `details.value` contain the rejected value even when it came from an
+environment variable, config file, pipe, prompt, or explicit `-`. This changes
+the old argument behavior and the blanket redaction used by 4.0 prereleases.
 
-Argv is unaffected. A token the user typed is already on their screen, so parse
-errors keep quoting it.
+Sensitive diagnostics omit raw-derived values, collection keys, Standard Schema
+paths and record keys, filesystem paths, and path-bearing adapter causes. They
+retain the input name, source (`source`, plus `envVar` or `configPath`), expected
+type, constraint metadata, and allowed enum values. Framework-computed collection
+indices remain useful without exposing the value.
 
-The `flag.path()` and `arg.path()` filesystem checks follow the same rule, one
-pass later. A path an argv token carried is quoted in full; a path from stdin,
-an explicit `-`, the environment, a config file, a prompt, or a declared default
-reports `Path '<redacted>' for flag --key does not exist` and omits `value`:
+Custom parser and Standard Schema messages remain verbatim because application
+code authored them. Do not interpolate an input into those messages when the
+schema is sensitive. Built-in URL, date, duration, and byte parsers use raw-free
+reasons.
 
-```
-# 3.x
-Path '/home/u/.ssh/id_rsa' for flag --key does not exist
-
-# 4.0, with KEY=/home/u/.ssh/id_rsa in the environment
-Path '<redacted>' for flag --key does not exist
-```
-
-Two adjustments. Tests asserting a value inside a resolution error message
-assert `'<redacted>'` instead. Code reading `error.details.value` reads the
-value from its own source, since the framework no longer copies it into a
-diagnostic. A related detail: every coercion failure now carries
-`source: 'env' | 'config' | 'stdin' | 'prompt'`, which is what the aggregate
-error uses to label an issue `[env API_TOKEN]`.
+`FlagSchema` and `ArgSchema` now carry the normalized `sensitive: boolean` field,
+and definition documents serialize it. Sensitive defaults are omitted from
+automatic help annotations; pass a safe description to
+`.default(value, { description: 'from keychain' })` when help should explain the
+source without printing the value.
 
 ### `FlagSchema` and `ArgSchema` carry the cardinality axis
 

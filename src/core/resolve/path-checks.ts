@@ -10,9 +10,9 @@
  * @internal
  */
 
+import { diagnosticValue } from '#internals/core/errors/diagnostic-value.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { PathChecks } from '#internals/core/schema/index.ts';
-import { REDACTED } from './redaction.ts';
 
 /**
  * Filesystem probe injected by the caller for path checks.
@@ -52,9 +52,7 @@ function subjectDetails(subject: PathCheckSubject): Readonly<Record<string, stri
  * @param checks - Expectations declared by `flag.path()` / `arg.path()`.
  * @param stat - Filesystem probe.
  * @param mkdir - Recursive directory creation, when the caller supplies one.
- * @param echo - Whether the source permits quoting the path, per
- *   `redaction.ts`. A path from stdin, env, config, prompt, or a default is
- *   quoted as `<redacted>` and omitted from `details`.
+ * @param sensitive - Whether the owning schema marks the path as sensitive.
  * @returns `undefined` when the path satisfies the checks, or a
  *   {@link ValidationError} with code `'CONSTRAINT_VIOLATED'` otherwise.
  */
@@ -64,46 +62,79 @@ async function validatePathChecks(
 	checks: PathChecks,
 	stat: StatFn,
 	mkdir: MkdirFn | undefined,
-	echo: boolean,
+	sensitive: boolean,
 ): Promise<ValidationError | undefined> {
 	const label = subjectLabel(subject);
 	const reference = subjectReference(subject);
 	const details = subjectDetails(subject);
-	const quoted = echo ? value : REDACTED;
-	const reported = echo ? { value } : {};
+	const report = diagnosticValue(sensitive, value);
 
-	const found = await stat(value);
+	let found: 'file' | 'directory' | null;
+	try {
+		found = await stat(value);
+	} catch (error) {
+		if (report.kind === 'redacted') {
+			return new ValidationError(`Failed to inspect path '${report.text}' for ${label}`, {
+				code: 'CONSTRAINT_VIOLATED',
+				details: { ...details, constraint: 'stat' },
+				suggest: `Provide an accessible path for ${reference}`,
+			});
+		}
+		const cause = error instanceof Error ? error.message : String(error);
+		return new ValidationError(`Failed to inspect path '${report.text}' for ${label}: ${cause}`, {
+			code: 'CONSTRAINT_VIOLATED',
+			details: { ...details, value: report.value, constraint: 'stat', cause },
+			suggest: `Provide an accessible path for ${reference}`,
+			cause: error,
+		});
+	}
 	if (found === null) {
 		if (checks.create && mkdir !== undefined) {
 			try {
 				await mkdir(value);
 				return undefined;
 			} catch (error) {
+				if (report.kind === 'redacted') {
+					return new ValidationError(`Failed to create directory '${report.text}' for ${label}`, {
+						code: 'CONSTRAINT_VIOLATED',
+						details: { ...details, constraint: 'create' },
+						suggest: `Provide a creatable or existing directory path for ${reference}`,
+					});
+				}
+				const cause = error instanceof Error ? error.message : String(error);
 				return new ValidationError(
-					`Failed to create directory '${quoted}' for ${label}: ${
-						error instanceof Error ? error.message : String(error)
-					}`,
+					`Failed to create directory '${report.text}' for ${label}: ${cause}`,
 					{
 						code: 'CONSTRAINT_VIOLATED',
-						details: { ...details, ...reported, constraint: 'create' },
+						details: { ...details, value: report.value, constraint: 'create', cause },
 						suggest: `Provide a creatable or existing directory path for ${reference}`,
+						cause: error,
 					},
 				);
 			}
 		}
 		if (!checks.mustExist) return undefined;
-		return new ValidationError(`Path '${quoted}' for ${label} does not exist`, {
+		return new ValidationError(`Path '${report.text}' for ${label} does not exist`, {
 			code: 'CONSTRAINT_VIOLATED',
-			details: { ...details, ...reported, constraint: 'mustExist' },
+			details: {
+				...details,
+				...(report.kind === 'visible' ? { value: report.value } : {}),
+				constraint: 'mustExist',
+			},
 			suggest: `Provide an existing path for ${reference}`,
 		});
 	}
 	if (checks.type !== undefined && found !== checks.type) {
 		return new ValidationError(
-			`Path '${quoted}' for ${label} is a ${found}, expected a ${checks.type}`,
+			`Path '${report.text}' for ${label} is a ${found}, expected a ${checks.type}`,
 			{
 				code: 'CONSTRAINT_VIOLATED',
-				details: { ...details, ...reported, constraint: 'pathType', expected: checks.type },
+				details: {
+					...details,
+					...(report.kind === 'visible' ? { value: report.value } : {}),
+					constraint: 'pathType',
+					expected: checks.type,
+				},
 				suggest: `Provide a ${checks.type} path for ${reference}`,
 			},
 		);

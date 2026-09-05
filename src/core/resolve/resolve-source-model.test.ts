@@ -261,14 +261,15 @@ describe('arg config and prompt sources', () => {
 		});
 	});
 
-	it('redacts a config value that fails arg coercion', async () => {
+	it('shows a non-sensitive config value that fails arg coercion', async () => {
 		const { schema, parsed } = argCase(arg.number().config('deploy.port'), []);
 		const error = await resolve(schema, parsed, {
 			config: { deploy: { port: 'not-a-number' } },
 		}).catch((thrown: unknown) => thrown);
 		expect(isValidationError(error)).toBe(true);
 		expect(error).toMatchObject({
-			message: "Invalid number value '<redacted>' from config deploy.port for argument <value>",
+			message: "Invalid number value 'not-a-number' from config deploy.port for argument <value>",
+			details: { value: 'not-a-number' },
 		});
 	});
 });
@@ -500,8 +501,8 @@ describe('stdin decoding', () => {
 	it('names stdin in a flag coercion failure', async () => {
 		const { schema, parsed } = flagCase(flag.number().stdin(), []);
 		await expect(resolve(schema, parsed, { stdinData: 'nope' })).rejects.toMatchObject({
-			message: "Invalid number value '<redacted>' from stdin for flag --value",
-			details: { flag: 'value', source: 'stdin', expected: 'number' },
+			message: "Invalid number value 'nope' from stdin for flag --value",
+			details: { flag: 'value', source: 'stdin', value: 'nope', expected: 'number' },
 		});
 	});
 });
@@ -617,7 +618,8 @@ describe('a number input rejects blank text from every source', () => {
 				const error = await failure(built.schema, built.parsed, options(raw));
 				expect(error.code).toBe('TYPE_MISMATCH');
 				expect(error.details?.expected).toBe('number');
-				expect(error.message).toContain("'<redacted>'");
+				expect(error.details?.value).toBe(raw);
+				expect(error.message).not.toContain('<redacted>');
 			}
 		});
 
@@ -627,7 +629,8 @@ describe('a number input rejects blank text from every source', () => {
 				const error = await failure(built.schema, built.parsed, options(raw));
 				expect(error.code).toBe('TYPE_MISMATCH');
 				expect(error.details?.expected).toBe('number');
-				expect(error.message).toContain("'<redacted>'");
+				expect(error.details?.value).toBe(raw);
+				expect(error.message).not.toContain('<redacted>');
 			}
 		});
 	}

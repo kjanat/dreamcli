@@ -1,6 +1,6 @@
 # resolve — Flag/arg value resolution chain
 
-Multi-file module (split from monolithic index). 11 source files, ~3240 source lines.
+Multi-file module (split from monolithic index). 10 source files, ~3400 source lines.
 
 ## RESOLUTION ORDER
 
@@ -19,17 +19,16 @@ a source the projection omits is a source no stage can produce.
 
 | File             | Lines | Purpose                                                                       |
 | ---------------- | ----: | ----------------------------------------------------------------------------- |
-| `index.ts`       |   153 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
+| `index.ts`       |   150 | `resolve()` — orchestrates the chain, then the Standard Schema pass           |
 | `stages.ts`      |   265 | `runStages()` — one `SourceBinding` per stage, shared by both surfaces        |
-| `flags.ts`       |   433 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
-| `args.ts`        |   299 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
-| `coerce.ts`      |  1206 | `coerceValue()` — unified raw value -> flag's declared kind                   |
-| `path-checks.ts` |   136 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
-| `redaction.ts`   |    29 | `echoesValue()` / `REDACTED` — the one rule for value text in diagnostics     |
+| `flags.ts`       |   429 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
+| `args.ts`        |   295 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
+| `coerce.ts`      |  1372 | `coerceValue()` — unified raw value -> flag's declared kind                   |
+| `path-checks.ts` |   167 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   226 | Error aggregation + `throwAggregatedErrors()`                                 |
 | `contracts.ts`   |   182 | `ResolveOptions`, `ResolutionProvenanceRecord`, `resolverContract`            |
-| `standard.ts`    |   284 | Standard Schema v1 validation pass over resolved values                       |
+| `standard.ts`    |   288 | Standard Schema v1 validation pass over resolved values                       |
 
 ## KEY FUNCTIONS
 
@@ -47,7 +46,6 @@ a source the projection omits is a source no stage can produce.
 | `argPromptCompatibility()`          | `args.ts`        | The same gate read through the arg's value and cardinality axes     |
 | `promptCompatibilityError()`        | `flags.ts`       | Words that gate's failure for whichever surface declared the prompt |
 | `validatePathChecks()`              | `path-checks.ts` | Post-resolution filesystem pass, flags and args alike               |
-| `echoesValue()`                     | `redaction.ts`   | Whether a recorded provenance permits quoting the value             |
 
 ## TWO-PASS ARCHITECTURE
 
@@ -71,18 +69,15 @@ that parameterizes the wording alone: string leniency, boolean truthy/falsy sets
 trim-on-split, and error message templates. `suggestBySource()` is the one place that maps a source
 to its phrasing, so a new source is a new field rather than a fourth ternary arm.
 
-No non-literal-CLI source echoes its value. Every message this file builds says `'<redacted>'` where the
-value would go and every `details` record omits it, on both surfaces: stdin, the environment, a
-config file, and a prompt answer all carry values a user may consider secret. `parse/index.ts` keeps
-quoting the token the user typed, which is already on their screen. `sourceDetails()` writes
-`source` on every coercion failure, which is what tells `errors.ts` a stage produced a value, as
-against a required input that merely declares an env var.
+Diagnostic visibility depends only on the owning flag or arg schema's normalized `sensitive`
+field. Every source is visible by default, including explicit-dash stdin and defaults. Sensitive
+inputs use `diagnosticValue()` from `core/errors/diagnostic-value.ts`; its redacted branch contains
+no raw value, so messages, details, keys, paths, and adapter causes cannot recover it. Source
+metadata remains present. Developer-authored custom parser and Standard Schema messages stay
+verbatim at their explicit trust boundary.
 
-`redaction.ts` owns the rule for the passes that run after coercion, where the raw source is gone
-and only the recorded `ResolutionProvenance` says where a value came from. `echoesValue(provenance)`
-is true for `{ stage: 'cli' }` alone, so an explicit `-` (`{ stage: 'cli', via: 'stdin' }`) and a
-declared default both redact. `standard.ts` and `path-checks.ts` read it; `coerce.ts` takes the
-`REDACTED` constant from the same module so one spelling reaches every surface.
+`coerce.ts`, `standard.ts`, and `path-checks.ts` receive schema sensitivity directly. Provenance
+still explains which stage won, but never decides secrecy.
 
 Returns `CoerceResult` (`{ ok: true; value } | { ok: false; error: ValidationError }`).
 
@@ -107,17 +102,16 @@ it lifts to a single `aggregated` occurrence and reaches the resolved value unto
 Each spliced occurrence keeps the source it came from, `{ kind: 'cli' }` for a typed token and
 `{ kind: 'stdin' }` for one the buffer supplied. `AggregationErrors` takes that source, so a
 duplicate-key message names `from stdin` only for a key the pipe carried and names nothing for a key
-the user typed. The same source decides how the key is quoted: `duplicateKeyReport()` prints it for
-a typed token and `'<redacted>'` for every other source, since a key is half of a `KEY=VALUE` pair
-and therefore value text. `foldEntries()` reports the index of the repeating pair, which is how the source is
-found without re-parsing. A `-` occurrence with no buffer is `dash-without-stdin`: a `MISSING_STDIN`
-error when it sits beside typed occurrences, and absence when every occurrence is `-`, which keeps
-the later stages reachable. A scalar `-` takes the second branch on its own, which is why a bare
-dash with nothing piped falls through to env rather than failing.
+the user typed. `duplicateKeyReport()` quotes the key unless the owning schema is sensitive.
+`foldEntries()` reports the index of the repeating pair, which is how the source is found without
+re-parsing. A `-` occurrence with no buffer is `dash-without-stdin`: a `MISSING_STDIN` error when it
+sits beside typed occurrences, and absence when every occurrence is `-`, which keeps the later
+stages reachable. A scalar `-` takes the second branch on its own, which is why a bare dash with
+nothing piped falls through to env rather than failing.
 
 `valueCoercionError()` owns the flag-facing half. It turns a `ValueFailure` into the message, code,
-details, and suggestion for one source. The value layer never spells a subject, so every
-`--flag`-shaped string in the resolver comes from this file.
+details, and suggestion for one source under the schema's sensitivity policy. The value layer never
+spells a subject, so every `--flag`-shaped string in the resolver comes from this file.
 
 ## ERROR AGGREGATION
 
@@ -146,7 +140,7 @@ once.
 | `resolve-arg-tail.test.ts`        | Positional tail splicing + which source a duplicate names    |
 | `resolve-stdin-trim.test.ts`      | `.stdin({ trim: true })` across surfaces and entry points    |
 | `resolve-hand-built.test.ts`      | The projection a caller-built `ParseResult` resolves through |
-| `resolve-redaction.test.ts`       | Redaction per source, argv literal, `MISSING_STDIN`          |
+| `resolve-redaction.test.ts`       | Sensitivity across sources, structures, validators, paths    |
 | `contracts.test.ts`               | Contract verification                                        |
 
 ## PROMPT — INPUT KIND COMPATIBILITY

@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { isValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -91,8 +92,8 @@ describe('a caller-built list of occurrences', () => {
 			resolveGivenFlag(flag.keyValue(), [['A', '1'], 'junk', ['B', '2']]),
 		).rejects.toMatchObject({
 			code: 'TYPE_MISMATCH',
-			message: 'Invalid object value for flag --value',
-			details: { flag: 'value', expected: 'object' },
+			message: "Invalid object value 'junk' for flag --value",
+			details: { flag: 'value', value: 'junk', expected: 'object' },
 			suggest: 'Provide KEY=VALUE pairs for --value',
 		});
 	});
@@ -100,10 +101,24 @@ describe('a caller-built list of occurrences', () => {
 	it('rejects a non-pair argument occurrence as CLI input', async () => {
 		await expect(resolveGivenArg(arg.keyValue(), [['A', '1'], 'junk'])).rejects.toMatchObject({
 			code: 'TYPE_MISMATCH',
-			message: 'Invalid object value for argument <value>',
-			details: { arg: 'value', expected: 'object' },
+			message: "Invalid object value 'junk' for argument <value>",
+			details: { arg: 'value', value: 'junk', expected: 'object' },
 			suggest: 'Provide KEY=VALUE pairs for <value>',
 		});
+	});
+
+	it('redacts a malformed hand-built occurrence when the input is sensitive', async () => {
+		const error = await resolveGivenFlag(flag.keyValue().sensitive(), [
+			['A', '1'],
+			'private-hand-built-value',
+		]).catch((thrown: unknown) => thrown);
+
+		expect(isValidationError(error)).toBe(true);
+		expect(error).toMatchObject({
+			message: "Invalid object value '<redacted>' for flag --value",
+			details: { flag: 'value', expected: 'object' },
+		});
+		expect(JSON.stringify(error)).not.toContain('private-hand-built-value');
 	});
 
 	it('keeps a pair-shaped element of a many flag whole', async () => {

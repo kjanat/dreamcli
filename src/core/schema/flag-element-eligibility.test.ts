@@ -72,6 +72,13 @@ describe('flag.array() element eligibility', () => {
 			},
 		],
 		[
+			'sensitivity',
+			() => {
+				// @ts-expect-error — element sensitivity belongs to the collection input
+				flag.array(flag.string().sensitive());
+			},
+		],
+		[
 			'requiredness',
 			() => {
 				// @ts-expect-error — element requiredness is never read (require the array)
@@ -122,6 +129,12 @@ describe('flag.array() element eligibility', () => {
 		],
 	])('rejects builders carrying %s', (_field, build) => {
 		expect(build).toThrow(/Flag element schema field/);
+	});
+
+	it('marks .sensitive(false) as input-level at compile time too', () => {
+		const element = flag.string().sensitive(false);
+		expectTypeOf<typeof element._config.elementEligible>().toEqualTypeOf<false>();
+		expect(element.schema.sensitive).toBe(false);
 	});
 
 	test.each([

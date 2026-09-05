@@ -190,6 +190,7 @@ describe('resolve', () => {
 					arg: 'port',
 					source: 'env',
 					envVar: 'PORT',
+					value: 'abc',
 					expected: 'number',
 				});
 				expect(err.suggest).toBe('Set PORT to a valid number');
@@ -250,6 +251,7 @@ describe('resolve', () => {
 					arg: 'region',
 					source: 'env',
 					envVar: 'REGION',
+					value: 'ap',
 					allowed: ['us', 'eu'],
 				});
 				expect(err.suggest).toBe('Set REGION to one of: us, eu');
@@ -321,6 +323,7 @@ describe('resolve', () => {
 					arg: 'color',
 					source: 'env',
 					envVar: 'COLOR',
+					value: 'zzz',
 					expected: 'custom',
 				});
 			}
@@ -413,10 +416,10 @@ describe('resolve', () => {
 	});
 });
 
-// === Numeric constraints (arg env coerce path; raw value redacted, reason kept)
+// === Numeric constraints (arg env coerce path)
 
 describe('resolve — arg env numeric constraints', () => {
-	it('enforces constraints and redacts the raw value while keeping the reason', async () => {
+	it('enforces constraints and reports the raw value with the reason', async () => {
 		const schema = makeSchema({
 			args: [
 				{
@@ -435,10 +438,15 @@ describe('resolve — arg env numeric constraints', () => {
 			expect(isValidationError(err)).toBe(true);
 			if (isValidationError(err)) {
 				expect(err.code).toBe('CONSTRAINT_VIOLATED');
-				expect(err.message).toContain('<redacted>');
-				expect(err.message).not.toContain('150');
+				expect(err.message).toContain("'150'");
+				expect(err.message).not.toContain('<redacted>');
 				expect(err.message).toContain('must be <= 100');
-				expect(err.details).toMatchObject({ arg: 'count', constraint: 'max', bound: 100 });
+				expect(err.details).toMatchObject({
+					arg: 'count',
+					value: '150',
+					constraint: 'max',
+					bound: 100,
+				});
 			}
 		}
 	});
@@ -452,10 +460,7 @@ describe('resolve — arg env numeric constraints', () => {
 		);
 	});
 
-	it('redacts a colon-delimited raw env value without leaking the trailing fragment', async () => {
-		// Non-numeric input → TYPE_MISMATCH (not a constraint violation). The raw
-		// value embeds `: `, which a naive suffix extraction would leak past the
-		// `<redacted>` placeholder. Redaction must drop it entirely.
+	it('keeps a colon-delimited raw env value intact', async () => {
 		const schema = makeSchema({
 			args: [
 				{
@@ -473,8 +478,8 @@ describe('resolve — arg env numeric constraints', () => {
 		} catch (err) {
 			expect(isValidationError(err)).toBe(true);
 			if (isValidationError(err)) {
-				expect(err.message).toContain('<redacted>');
-				expect(err.message).not.toContain('leaked-secret');
+				expect(err.message).toContain("'nope: leaked-secret'");
+				expect(err.details).toHaveProperty('value', 'nope: leaked-secret');
 			}
 		}
 	});

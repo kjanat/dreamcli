@@ -2,7 +2,7 @@
  * Tests for JSON Schema generation — definition metadata and input validation.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { createCLISchema } from '#internals/core/cli/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
@@ -15,6 +15,7 @@ import type {
 	FlagKind,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
+import type { FlagElementFragmentV1 } from './index.ts';
 import {
 	definitionMetaSchema,
 	generateCommandSchema,
@@ -437,6 +438,120 @@ describe('generateSchema — definition metadata', () => {
 		});
 		const result = generateSchema(minimalCLI({ commands: [cmd] }));
 		expect(result).toHaveProperty(['commands', 0, 'flags', 'region', 'defaultValue'], 'us');
+	});
+
+	it('emits default presentation metadata while withholding sensitive defaults', () => {
+		const cmd = commandDef({
+			name: 'test',
+			flags: {
+				token: flagDef({
+					kind: 'string',
+					presence: 'defaulted',
+					defaultValue: 'flag-secret',
+					defaultDescription: 'from keychain',
+					sensitive: true,
+				}),
+				output: flagDef({
+					kind: 'string',
+					presence: 'defaulted',
+					defaultValue: 'dist',
+					defaultDescription: false,
+					sensitive: false,
+				}),
+			},
+			args: [
+				argEntry('credential', {
+					presence: 'defaulted',
+					defaultValue: 'arg-secret',
+					defaultDescription: 'from agent',
+					sensitive: true,
+				}),
+				argEntry('target', {
+					presence: 'defaulted',
+					defaultValue: 'production',
+					defaultDescription: false,
+				}),
+			],
+		});
+		const result = generateSchema(minimalCLI({ commands: [cmd] }));
+
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'token'], {
+			kind: 'string',
+			presence: 'defaulted',
+			defaultDescription: 'from keychain',
+			sensitive: true,
+		});
+		expect(result).toHaveProperty(['commands', 0, 'flags', 'output'], {
+			kind: 'string',
+			presence: 'defaulted',
+			defaultValue: 'dist',
+			defaultDescription: false,
+		});
+		expect(result).toHaveProperty(['commands', 0, 'args', 0], {
+			name: 'credential',
+			kind: 'string',
+			presence: 'defaulted',
+			defaultDescription: 'from agent',
+			sensitive: true,
+		});
+		expect(result).toHaveProperty(['commands', 0, 'args', 1], {
+			name: 'target',
+			kind: 'string',
+			presence: 'defaulted',
+			defaultValue: 'production',
+			defaultDescription: false,
+		});
+	});
+
+	it('does not inspect a sensitive default for serializability', () => {
+		let reads = 0;
+		const defaultValue = Object.defineProperty({}, 'secret', {
+			enumerable: true,
+			get: () => {
+				reads += 1;
+				throw new Error('sensitive default was inspected');
+			},
+		});
+		const cmd = commandDef({
+			flags: {
+				secret: flagDef({ kind: 'custom', defaultValue, sensitive: true }),
+			},
+			args: [argEntry('secret', { kind: 'custom', defaultValue, sensitive: true })],
+		});
+
+		expect(() => generateCommandSchema(cmd)).not.toThrow();
+		expect(() => generateInputSchema(cmd)).not.toThrow();
+		expect(reads).toBe(0);
+	});
+
+	it('suppresses nested element defaults under sensitive collections', () => {
+		const cmd = commandDef({
+			flags: {
+				tags: flagDef({
+					kind: 'array',
+					defaultValue: ['parent-secret'],
+					elementSchema: { kind: 'string', defaultValue: 'element-secret' },
+					sensitive: true,
+				}),
+				vars: flagDef({
+					kind: 'keyValue',
+					defaultValue: { TOKEN: 'parent-secret' },
+					elementSchema: { kind: 'string', defaultValue: 'entry-secret' },
+					sensitive: true,
+				}),
+			},
+		});
+		const definition = generateCommandSchema(cmd);
+		const input = generateInputSchema(cmd);
+
+		expect(definition).not.toHaveProperty(['flags', 'tags', 'defaultValue']);
+		expect(definition).not.toHaveProperty(['flags', 'tags', 'elementSchema', 'defaultValue']);
+		expect(definition).not.toHaveProperty(['flags', 'vars', 'defaultValue']);
+		expect(definition).not.toHaveProperty(['flags', 'vars', 'elementSchema', 'defaultValue']);
+		expect(input).not.toHaveProperty(['properties', 'tags', 'default']);
+		expect(input).not.toHaveProperty(['properties', 'tags', 'items', 'default']);
+		expect(input).not.toHaveProperty(['properties', 'vars', 'default']);
+		expect(input).not.toHaveProperty(['properties', 'vars', 'additionalProperties', 'default']);
 	});
 
 	it('includes a defaultValue a definition declared without the defaulted presence', () => {
@@ -909,6 +1024,33 @@ describe('generateSchema — definition metadata', () => {
 			['$defs', 'example', 'properties', 'command', 'description'],
 			"The command invocation (e.g. `'deploy production --force'`).",
 		);
+		expect(definitionMetaSchema).toHaveProperty([
+			'$defs',
+			'flag',
+			'properties',
+			'sensitive',
+			'description',
+		]);
+		expect(definitionMetaSchema).toHaveProperty([
+			'$defs',
+			'arg',
+			'properties',
+			'defaultDescription',
+			'description',
+		]);
+	});
+
+	it('describes default presentation and sensitivity in the V1 meta-schema', () => {
+		for (const input of ['flag', 'arg']) {
+			expect(definitionMetaSchema).toHaveProperty(
+				['$defs', input, 'properties', 'defaultDescription', 'oneOf'],
+				[{ type: 'string' }, { const: false }],
+			);
+			expect(definitionMetaSchema).toHaveProperty(
+				['$defs', input, 'properties', 'sensitive', 'const'],
+				true,
+			);
+		}
 	});
 
 	it('describes flag negation and duplicate policy in the meta-schema', () => {
@@ -1024,12 +1166,31 @@ describe('generateSchema — definition metadata', () => {
 		);
 	});
 
+	it('excludes input-level metadata from flag element fragment types', () => {
+		const sensitiveElement: FlagElementFragmentV1 = {
+			kind: 'string',
+			presence: 'optional',
+			// @ts-expect-error — sensitivity belongs to the containing input
+			sensitive: true,
+		};
+		const describedDefaultElement: FlagElementFragmentV1 = {
+			kind: 'string',
+			presence: 'optional',
+			// @ts-expect-error — default presentation belongs to the containing input
+			defaultDescription: 'generated',
+		};
+
+		expectTypeOf(sensitiveElement).toEqualTypeOf<FlagElementFragmentV1>();
+		expectTypeOf(describedDefaultElement).toEqualTypeOf<FlagElementFragmentV1>();
+	});
+
 	it('keeps serialized FlagSchema fields exhaustive against the meta-schema', () => {
 		const allFieldsFlags: Readonly<Record<string, FlagSchema>> = {
 			region: flagDef({
 				kind: 'enum',
 				presence: 'defaulted',
 				defaultValue: 'us',
+				defaultDescription: 'United States',
 				aliases: [{ name: 'r', hidden: false }],
 				envVar: 'REGION',
 				configPath: 'release.region',
@@ -1076,6 +1237,7 @@ describe('generateSchema — definition metadata', () => {
 			}),
 			parser: flagDef({
 				kind: 'custom',
+				sensitive: true,
 				parseFn: (value: unknown) => value,
 				standard: {
 					'~standard': {
@@ -1100,6 +1262,7 @@ describe('generateSchema — definition metadata', () => {
 		const defs = expectRecord(definitionMetaSchema.$defs);
 		const flagMetaSchema = expectRecord(defs.flag);
 		const flagMetaProperties = expectRecord(flagMetaSchema.properties);
+		const flagElementMetaProperties = expectRecord(expectRecord(defs.flagElement).properties);
 		const serializedFields = new Set<string>();
 		for (const name of Object.keys(allFieldsFlags)) {
 			for (const field of Object.keys(expectRecord(flags[name]))) {
@@ -1108,6 +1271,13 @@ describe('generateSchema — definition metadata', () => {
 		}
 
 		expect([...serializedFields].sort()).toEqual(Object.keys(flagMetaProperties).sort());
+		expect(Object.keys(flagElementMetaProperties).sort()).toEqual(
+			Object.keys(flagMetaProperties)
+				.filter((field) => field !== 'defaultDescription' && field !== 'sensitive')
+				.sort(),
+		);
+		expect(flagMetaProperties.elementSchema).toHaveProperty('$ref', '#/$defs/flagElement');
+		expect(flagElementMetaProperties.elementSchema).toHaveProperty('$ref', '#/$defs/flagElement');
 		expect(expectRecord(flags.source)).toHaveProperty(['stringConstraints', 'pattern'], {
 			source: '^v\\d+$',
 			flags: '',
@@ -1174,6 +1344,7 @@ describe('generateSchema — definition metadata', () => {
 				kind: 'enum',
 				presence: 'defaulted',
 				defaultValue: 'us',
+				defaultDescription: 'United States',
 				description: 'Release region',
 				envVar: 'REGION',
 				enumValues: ['us', 'eu'],
@@ -1200,6 +1371,7 @@ describe('generateSchema — definition metadata', () => {
 			}),
 			argEntry('parser', {
 				kind: 'custom',
+				sensitive: true,
 				parseFn: (value: string) => value,
 				standard: {
 					'~standard': {
@@ -1353,6 +1525,39 @@ describe('generateInputSchema — input validation', () => {
 		const result = generateInputSchema(cmd);
 		expect(result).toHaveProperty(['properties', 'region', 'description'], 'Target region');
 		expect(result).toHaveProperty(['properties', 'region', 'default'], 'us');
+	});
+
+	it('marks sensitive properties write-only and omits presentation and machine defaults', () => {
+		const cmd = commandDef({
+			flags: {
+				token: flagDef({
+					defaultValue: 'flag-secret',
+					defaultDescription: 'from keychain',
+					sensitive: true,
+				}),
+				output: flagDef({
+					defaultValue: 'dist',
+					defaultDescription: false,
+				}),
+			},
+			args: [
+				argEntry('credential', {
+					defaultValue: 'arg-secret',
+					defaultDescription: 'from agent',
+					sensitive: true,
+				}),
+			],
+		});
+		const result = generateInputSchema(cmd);
+
+		expect(result).toHaveProperty(['properties', 'token', 'writeOnly'], true);
+		expect(result).not.toHaveProperty(['properties', 'token', 'default']);
+		expect(result).not.toHaveProperty(['properties', 'token', 'defaultDescription']);
+		expect(result).toHaveProperty(['properties', 'output', 'default'], 'dist');
+		expect(result).not.toHaveProperty(['properties', 'output', 'defaultDescription']);
+		expect(result).toHaveProperty(['properties', 'credential', 'writeOnly'], true);
+		expect(result).not.toHaveProperty(['properties', 'credential', 'default']);
+		expect(result).not.toHaveProperty(['properties', 'credential', 'defaultDescription']);
 	});
 
 	it('preserves deprecated string message', () => {

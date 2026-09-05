@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { FlagAlias, FlagSchema, InferFlag, InferFlags } from './flag.ts';
+import type { DefaultValueOptions, FlagAlias, FlagSchema, InferFlag, InferFlags } from './flag.ts';
 import { FlagBuilder, flag } from './flag.ts';
 import type { StandardSchemaV1 } from './standard.ts';
 
@@ -24,6 +24,8 @@ describe('flag.string()', () => {
 		expect(f.schema.kind).toBe('string');
 		expect(f.schema.presence).toBe('optional');
 		expect(f.schema.defaultValue).toBeUndefined();
+		expect(f.schema.defaultDescription).toBeUndefined();
+		expect(f.schema.sensitive).toBe(false);
 	});
 });
 
@@ -238,6 +240,45 @@ describe('.default()', () => {
 		expect(f.schema.presence).toBe('defaulted');
 		expect(f.schema.defaultValue).toBe('us');
 	});
+
+	it('stores a custom description or explicit help suppression', () => {
+		expect(flag.string().default('secret', { description: 'from keychain' }).schema).toMatchObject({
+			defaultValue: 'secret',
+			defaultDescription: 'from keychain',
+		});
+		expect(flag.string().default('secret', { description: false }).schema.defaultDescription).toBe(
+			false,
+		);
+	});
+
+	it('omitted options reset a prior custom description without mutating it', () => {
+		const described = flag.string().default('first', { description: 'initial value' });
+		const reset = described.default('second');
+
+		expect(described.schema.defaultDescription).toBe('initial value');
+		expect(reset.schema.defaultDescription).toBeUndefined();
+		expect(reset.schema.defaultValue).toBe('second');
+	});
+
+	it('exports one options shape for callers', () => {
+		const options: DefaultValueOptions = { description: false };
+		expect(options.description).toBe(false);
+	});
+});
+
+describe('.sensitive()', () => {
+	it('defaults to true and supports an explicit false', () => {
+		expect(flag.string().sensitive().schema.sensitive).toBe(true);
+		expect(flag.string().sensitive(false).schema.sensitive).toBe(false);
+	});
+
+	it('does not mutate the source builder', () => {
+		const base = flag.string();
+		const sensitive = base.sensitive();
+
+		expect(base.schema.sensitive).toBe(false);
+		expect(sensitive.schema.sensitive).toBe(true);
+	});
 });
 
 describe('.required()', () => {
@@ -371,6 +412,8 @@ describe('schema defaults', () => {
 		expect(s.envVar).toBeUndefined();
 		expect(s.configPath).toBeUndefined();
 		expect(s.description).toBeUndefined();
+		expect(s.defaultDescription).toBeUndefined();
+		expect(s.sensitive).toBe(false);
 		expect(s.enumValues).toBeUndefined();
 		expect(s.elementSchema).toBeUndefined();
 	});

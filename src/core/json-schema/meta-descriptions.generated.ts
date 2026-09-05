@@ -107,6 +107,70 @@ const definitionMetaSchemaDescriptions = {
 				defaultValue: {
 					description: 'Runtime default value (if any).',
 				},
+				defaultDescription: {
+					description:
+						'Human-readable replacement for the default value in help, or `false` to\nomit the default annotation.',
+				},
+				sensitive: {
+					description:
+						'Whether values from this input must be kept out of user-facing projections.',
+				},
+				aliases: {
+					description: "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
+				},
+				stdin: {
+					description:
+						'Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding.',
+				},
+				envVar: {
+					description: 'Environment variable name for v0.2+ resolution.',
+				},
+				configPath: {
+					description: "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
+				},
+				description: {
+					description: 'Human-readable description for help text.',
+				},
+				enumValues: {
+					description: "Allowed literal values when `kind === 'enum'`.",
+				},
+				elementSchema: {
+					description: "Element schema when `kind === 'array'` or `kind === 'keyValue'`.",
+				},
+				prompt: {
+					description: 'Interactive prompt configuration for v0.3+ resolution.',
+				},
+				deprecated: {
+					description:
+						'Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated flag is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`.',
+				},
+				propagate: {
+					description:
+						'Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.\n\nDefault: `false`',
+				},
+				negation: {
+					description:
+						"Negation settings when `kind === 'boolean'` and `.negatable()` was\ncalled (`undefined` otherwise). See FlagNegation.",
+				},
+				duplicates: {
+					description:
+						"How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`",
+				},
+			},
+		},
+		flagElement: {
+			description: "Element schema when `kind === 'array'` or `kind === 'keyValue'`.",
+			properties: {
+				kind: {
+					description: 'What kind of value this flag accepts.',
+				},
+				presence: {
+					description:
+						"Presence describes whether a flag value is guaranteed to exist when the\naction handler runs:\n\n- `'optional'`  — not required; unresolved value follows the kind-specific\n  optional fallback (`undefined` for most flags, `[]` for arrays)\n- `'required'`  — must be supplied; error if missing\n- `'defaulted'` — always present (falls back to default value)",
+				},
+				defaultValue: {
+					description: 'Runtime default value (if any).',
+				},
 				aliases: {
 					description: "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
 				},
@@ -201,6 +265,14 @@ const definitionMetaSchemaDescriptions = {
 				},
 				defaultValue: {
 					description: 'Runtime default value (if any).',
+				},
+				defaultDescription: {
+					description:
+						'Human-readable replacement for the default value in help, or `false` to\nomit the default annotation.',
+				},
+				sensitive: {
+					description:
+						'Whether values from this input must be kept out of user-facing projections.',
 				},
 				description: {
 					description: 'Human-readable description for help text.',

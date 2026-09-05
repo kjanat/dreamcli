@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Explicit sensitive-input diagnostics** (https://github.com/kjanat/dreamcli/issues/120).\
+  `flag.*().sensitive()` and `arg.*().sensitive()` redact framework-controlled values across argv parsing, source resolution, collections, Standard Schema validation, filesystem checks, structured details, and automatic default help. Sensitive definition fragments serialize `sensitive: true`; a safe `.default(..., { description })` remains visible in help. Developer-authored parser and validator messages remain verbatim.
+
+### Changed
+
+- **Breaking: non-sensitive diagnostics show rejected values from every source** (https://github.com/kjanat/dreamcli/issues/120).\
+  Stdin, environment, config, prompt, default, and argv failures now follow the same schema-controlled policy instead of treating non-argv sources as secret. Messages and structured details retain non-sensitive values, collection keys, validator paths, filesystem paths, and adapter causes. Mark every secret-bearing input `.sensitive()`; its raw-derived fields are omitted while source, type, constraint, and allowed-value metadata remains.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.

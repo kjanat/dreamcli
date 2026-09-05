@@ -28,7 +28,6 @@ import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { pathValuesOf, validatePathChecks } from './path-checks.ts';
-import { echoesValue } from './redaction.ts';
 import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
 import { readCliValue, runStages } from './stages.ts';
 
@@ -160,9 +159,6 @@ async function resolveFlags(
 
 		if (checks === undefined || options.stat === undefined) continue;
 
-		const echo = echoesValue(
-			Object.hasOwn(options.provenance, name) ? options.provenance[name] : undefined,
-		);
 		for (const path of pathValuesOf(Object.hasOwn(resolved, name) ? resolved[name] : undefined)) {
 			const violation = await validatePathChecks(
 				{ kind: 'flag', name },
@@ -170,7 +166,7 @@ async function resolveFlags(
 				checks,
 				options.stat,
 				options.mkdir,
-				echo,
+				schema.sensitive,
 			);
 			if (violation !== undefined) {
 				errors.push(violation);

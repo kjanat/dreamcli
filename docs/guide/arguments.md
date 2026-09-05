@@ -2,10 +2,10 @@
 
 Positional arguments are declared with `arg` and appear after the command name.
 
-## Five Axes
+## Six Axes
 
-An argument declaration decides the same five things a
-[flag](/guide/flags#five-axes) declaration does:
+An argument declaration decides the same six things a
+[flag](/guide/flags#six-axes) declaration does:
 
 | Axis                        | What it decides                                         | Declared with                                                            |
 | --------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -14,10 +14,11 @@ An argument declaration decides the same five things a
 | [Sources](#sources)         | where a value may come from and which one wins           | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`             |
 | [Syntax](#syntax)           | how the slot is filled on the command line               | declaration order, `.optional()`, `.variadic()` placement                |
 | [Validation](#validation)   | what a resolved value has to satisfy                     | constraints, `.standard()`, `arg.path()` filesystem checks               |
+| [Diagnostics](#diagnostics) | whether diagnostics and help may display the value        | `.sensitive()`                                                           |
 
-Value, sources, and validation are identical to the flag surface: the same
-kinds, the same option objects, the same parsers, the same six-stage chain, the
-same error codes. Cardinality differs only in how the command line spells a
+Value, sources, validation, and diagnostics are identical to the flag surface:
+the same kinds, option objects, parsers, six-stage chain, error codes, and
+sensitivity rule. Cardinality differs only in how the command line spells a
 collection, since a positional tail replaces a repeated token. Syntax is the
 axis that genuinely differs, and
 [what the arg factory does not have](#flag-only-surface) enumerates exactly what
@@ -480,7 +481,8 @@ The config value is coerced to the argument's declared kind the same way a
 flag's is, so `arg.duration().config('y.wait')` accepts both `"1h30m"` and
 `5000`. A value that fails non-argv decoding reports `TYPE_MISMATCH`; an enum
 mismatch reports `INVALID_ENUM`, and a decoded value that violates a constraint
-reports `CONSTRAINT_VIOLATED`. The raw value is redacted in every case.
+reports `CONSTRAINT_VIOLATED`. The raw value is reported unless the argument is
+marked `.sensitive()`.
 
 ### Prompt-Backed Arguments
 
@@ -832,10 +834,10 @@ requiredVsOptional.optional;
 
 ### What The Arg Factory Does Not Have {#flag-only-surface}
 
-The value, source, and validation axes are the same on both factories. What is
-left on `flag` alone is exactly the syntax axis: how a token is spelled or
-repeated on the command line. A positional slot has no name to spell and no
-repetition to police, so there is nothing for these to configure.
+The value, source, validation, and diagnostics axes are the same on both
+factories. What is left on `flag` alone is exactly the syntax axis: how a token
+is spelled or repeated on the command line. A positional slot has no name to
+spell and no repetition to police, so there is nothing for these to configure.
 
 | Flag member     | Why it has no arg equivalent                                                  |
 | --------------- | ----------------------------------------------------------------------------- |
@@ -943,13 +945,14 @@ the element's. After it, the argument aggregates, so the validator sees the
 completed array. An element failure names the position
 (`<files>[1] failed validation: …`); an aggregate failure names the argument.
 
-### What a failing value prints
+## Diagnostics
 
-Argument values that came from anywhere but argv are redacted in the error
-message, so the reason is reported without echoing a piped secret:
+Argument diagnostics quote failing values from every source by default. Mark
+the argument `.sensitive()` to replace framework-controlled value text with
+`<redacted>` and omit raw-derived detail fields:
 
 ```ts
-command('auth').arg('token', arg.string().minLength(5).stdin());
+command('auth').arg('token', arg.string().minLength(5).stdin().sensitive());
 ```
 
 ```bash
@@ -957,15 +960,17 @@ $ printf 'ab' | mycli auth -
 # Invalid value '<redacted>' from stdin for argument <token>: must be at least 5 characters
 ```
 
-The source is named in each message: `from env TOKEN`, `from config auth.token`,
-`from prompt`. A value typed on the command line is quoted in full, matching the
-flag message byte for byte apart from the subject.
+The source is still named in each message: `from env TOKEN`, `from config
+auth.token`, or `from prompt`. The sensitivity rule is independent of source,
+so a sensitive argv token is redacted and a non-sensitive piped value is shown.
+Sensitive arguments also omit automatic default values from help; a safe
+explicit `.default(value, { description })` remains visible.
 [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction) is the
 canonical contract.
 
 ## What's Next?
 
-- [Flags](/guide/flags), the same five axes on the named surface
+- [Flags](/guide/flags), the same six axes on the named surface
 - [What the arg factory does not have](#flag-only-surface), the flag members
   bound to flag syntax
 - [Output](/guide/output), structured output channel
