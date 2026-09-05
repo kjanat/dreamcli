@@ -12,7 +12,7 @@ import type { PromptEngine, ReadFn, ResolvedPromptConfig } from '@kjanat/dreamcl
 `PromptEngine`, `ReadFn`, the resolved config types, and `resolvePromptConfig` are also exported
 from the root entry.
 
-### `createTerminalPrompter(read, write)`
+## `createTerminalPrompter(read, write)`
 
 Create a line-based prompt engine over injected I/O. `read` returns the next line or `null` on EOF,
 which the engine treats as cancellation; `write` receives prompt text. The engine has no raw-mode
@@ -24,9 +24,22 @@ import type { ReadFn } from '@kjanat/dreamcli/prompt';
 import { createInterface } from 'node:readline';
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
+let closed = false;
+rl.once('close', () => {
+  closed = true;
+});
 const read: ReadFn = () =>
   new Promise((resolve) => {
-    rl.question('', (answer) => resolve(answer));
+    if (closed) {
+      resolve(null);
+      return;
+    }
+    const onClose = (): void => resolve(null);
+    rl.once('close', onClose);
+    rl.question('', (answer) => {
+      rl.off('close', onClose);
+      resolve(answer);
+    });
   });
 
 const prompter = createTerminalPrompter(read, (text) => {
@@ -38,7 +51,7 @@ Pass the engine as `prompter` in `CLIRunOptions` or `CLIExecuteOptions` to repla
 For tests, `createTestPrompter()` from [`@kjanat/dreamcli/testkit`](/reference/testkit) scripts
 answers instead.
 
-### `resolvePromptConfig(config, enumValues)`
+## `resolvePromptConfig(config, enumValues)`
 
 Prepare a `ResolvedPromptConfig` from a raw `PromptConfig`, merging a flag's enum values into
 `select` and `multiselect` choices when the config omits them. The resolver calls it before an engine

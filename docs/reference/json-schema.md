@@ -20,7 +20,7 @@ The document types (`DefinitionDocument`, `CommandDefinitionDocument`, every `*F
 does not need this subpath.
 
 
-### `generateSchema(schema, options?)`
+## `generateSchema(schema, options?)`
 
 Generate a definition metadata document describing the CLI's structure.
 
@@ -37,7 +37,7 @@ const myCli = cli('mycli').command(command('deploy'));
 const definition = generateSchema(myCli.schema);
 ```
 
-### `generateInputSchema(schema, options?)`
+## `generateInputSchema(schema, options?)`
 
 Generate a JSON Schema (draft 2020-12) for validating CLI input as JSON.
 
@@ -56,17 +56,17 @@ const myCli = cli('mycli').command(command('deploy'));
 const inputSchema = generateInputSchema(myCli.schema);
 ```
 
-### `generateCommandSchema(schema, options?)`
+## `generateCommandSchema(schema, options?)`
 
 Generate a standalone definition document for one `CommandSchema`. `--help --json` on a command
 serializes through it. Options match `generateSchema()`.
 
-### `definitionMetaSchema`
+## `definitionMetaSchema`
 
 The definition meta-schema as a value, identical to the bytes of
 [`@kjanat/dreamcli/schema`](/reference/schema) and the hosted copy at `DEFINITION_SCHEMA_URL`.
 
-### `DEFINITION_SCHEMA_URL` and `DEFINITION_SCHEMA_VERSION`
+## `DEFINITION_SCHEMA_URL` and `DEFINITION_SCHEMA_VERSION`
 
 The `$schema` URL every definition document carries and the format version it reports as
 `schemaVersion`. Both constants are also exported from the root entry.

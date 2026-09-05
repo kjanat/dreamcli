@@ -39,12 +39,26 @@ import type {
  *
  * @example
  * ```ts
- * import { createInterface } from 'readline';
+ * import { createInterface } from 'node:readline';
  *
  * const rl = createInterface({ input: process.stdin, output: process.stdout });
- * const read = () => new Promise<string | null>((resolve) => {
- *   rl.question('', (answer) => resolve(answer));
+ * let closed = false;
+ * rl.once('close', () => {
+ *   closed = true;
  * });
+ * const read: ReadFn = () =>
+ *   new Promise((resolve) => {
+ *     if (closed) {
+ *       resolve(null);
+ *       return;
+ *     }
+ *     const onClose = (): void => resolve(null);
+ *     rl.once('close', onClose);
+ *     rl.question('', (answer) => {
+ *       rl.off('close', onClose);
+ *       resolve(answer);
+ *     });
+ *   });
  * const write: WriteFn = (s) => process.stdout.write(s);
  *
  * const prompter = createTerminalPrompter(read, write);

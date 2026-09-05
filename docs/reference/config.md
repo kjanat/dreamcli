@@ -19,7 +19,7 @@ import type { ConfigDiscoveryResult, FormatLoader, PackageJsonData } from '@kjan
 The option and result types are also exported from the root entry.
 
 
-### `buildConfigSearchPaths(appName, options)`
+## `buildConfigSearchPaths(appName, options)`
 
 Build the default search-path list dreamcli uses for config discovery. This is mainly useful for
 debugging, custom bootstrapping, or help text that wants to show the exact probed paths. Options
@@ -36,7 +36,7 @@ const paths = buildConfigSearchPaths('mycli', {
 });
 ```
 
-### `configFormat(extensions, parseFn)`
+## `configFormat(extensions, parseFn)`
 
 Create a config format loader from a list of file extensions and a parse function. Pass the result
 to `.configLoader(...)` or `discoverConfig(...)` to add YAML, TOML, or other formats on top of the
@@ -52,7 +52,7 @@ configFormat(['yaml', 'yml'], parseYaml);
 configFormat(['toml'], parseTOML);
 ```
 
-### `discoverConfig(appName, adapter, options?)`
+## `discoverConfig(appName, adapter, options?)`
 
 Low-level config discovery helper behind `cli(...).config(...)`. It searches standard paths, reads
 the first matching file via the provided adapter, and returns either `{ found: true, ... }` with
@@ -77,7 +77,7 @@ const result = await discoverConfig('mycli', adapter, {
 });
 ```
 
-### `discoverManifest(adapter, options?)`
+## `discoverManifest(adapter, options?)`
 
 Walk up from `options.startDir` (or `adapter.cwd` when omitted) and return the nearest parsed manifest
 metadata, or `null` when none is found. This is the helper used by `.manifest()` during `.run()`.
@@ -115,7 +115,7 @@ const own = await discoverManifest(adapter, {
 > `discoverPackageJson(adapter, startDir?)` was **removed in v4**. Use
 > `discoverManifest(adapter, { startDir, files: ['package.json'] })`.
 
-### `inferCliName(pkg, options?)`
+## `inferCliName(pkg, options?)`
 
 Infer a CLI display name from manifest metadata. It prefers the first key from a `bin` object and
 otherwise falls back to the `name` field. By default a leading `@scope/` is stripped; pass
@@ -133,7 +133,7 @@ inferCliName(
 ); // '@scope/mycli'
 ```
 
-### `packageRepositoryUrl(pkg)`
+## `packageRepositoryUrl(pkg)`
 
 Resolve a package's `repository` field to a browsable `https://` URL. Handles the locator formats
 npm accepts — the `{ type, url }` object form, `git+`-prefixed and `.git`-suffixed URLs, scp-style
