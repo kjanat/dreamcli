@@ -6,7 +6,7 @@
 	"tasks": {
 		"check": {
 			"description": "Type-check source with Deno's checker (may conflict with @types/node)",
-			"command": "deno check src/index.ts src/testkit.ts src/runtime.ts"
+			"command": "deno check src/index.ts src/completion.ts src/config.ts src/json-schema.ts src/prompt.ts src/runtime.ts src/schema.ts src/testkit.ts src/version.ts"
 		},
 		"smoke": {
 			"description": "Run Deno adapter smoke test against source via import map",

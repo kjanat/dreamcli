@@ -32,7 +32,8 @@
 			"@kjanat/dreamcli/completion": ["./src/completion.ts"],
 			"@kjanat/dreamcli/config": ["./src/config.ts"],
 			"@kjanat/dreamcli/json-schema": ["./src/json-schema.ts"],
-			"@kjanat/dreamcli/prompt": ["./src/prompt.ts"]
+			"@kjanat/dreamcli/prompt": ["./src/prompt.ts"],
+			"@kjanat/dreamcli/version": ["./src/version.ts"]
 		}
 	},
 	"exclude": ["**/dist", "**/node_modules", "**/*.tpl"]

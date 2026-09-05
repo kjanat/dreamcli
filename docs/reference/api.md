@@ -13,6 +13,8 @@ const detailPageHrefByEntrypoint: Readonly<Record<string, string>> = {
 	'@kjanat/dreamcli/json-schema': '/reference/json-schema',
 	'@kjanat/dreamcli/config': '/reference/config',
 	'@kjanat/dreamcli/prompt': '/reference/prompt',
+	'@kjanat/dreamcli/schema': '/reference/schema',
+	'@kjanat/dreamcli/version': '/reference/version',
 };
 
 function symbolHref(entrypoint: string, name: string): string {
@@ -45,6 +47,7 @@ and `examples/**` during docs build.
 | `@kjanat/dreamcli/config`      | config file and manifest discovery, custom config formats                       | [`@kjanat/dreamcli/config`](/reference/config)           |
 | `@kjanat/dreamcli/prompt`      | the terminal prompt engine and prompt config resolution                         | [`@kjanat/dreamcli/prompt`](/reference/prompt)           |
 | `@kjanat/dreamcli/schema`      | generated CLI definition meta-schema (export mapping differs by package target) | [`@kjanat/dreamcli/schema`](/reference/schema)           |
+| `@kjanat/dreamcli/version`     | the framework's own build version and revision                                  | [`@kjanat/dreamcli/version`](/reference/version)         |
 
 ## Generated Index
 
@@ -99,3 +102,5 @@ and `examples/**` during docs build.
 - [`@kjanat/dreamcli/json-schema`](/reference/json-schema) — definition and input schema generation
 - [`@kjanat/dreamcli/config`](/reference/config) — config and manifest discovery
 - [`@kjanat/dreamcli/prompt`](/reference/prompt) — prompt engines
+- [`@kjanat/dreamcli/schema`](/reference/schema) — the definition meta-schema document
+- [`@kjanat/dreamcli/version`](/reference/version) — framework build constants

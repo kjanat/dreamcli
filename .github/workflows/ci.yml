@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: runner install --frozen build smoke vitest:deno
+      - run: runner install --frozen build check smoke vitest:deno
 
   docs:
     runs-on: ubuntu-latest
