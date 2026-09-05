@@ -15,6 +15,7 @@
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
+import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
@@ -335,7 +336,9 @@ function buildZshFlagSpecsFromFlags(
 ): readonly string[] {
 	const specs: string[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
-		const desc = escapeZshDescription(schema.description ?? name);
+		const desc = escapeZshDescription(
+			schema.description === undefined ? name : resolvePlainHelpDescription(schema.description),
+		);
 		const longFlag = `--${name}`;
 		const shortFlags = getFlagAliasNames(schema, { kind: 'short' }).map((alias) => `-${alias}`);
 		const longAliases = getFlagAliasNames(schema, { kind: 'long' }).map((alias) => `--${alias}`);

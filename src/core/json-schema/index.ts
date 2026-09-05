@@ -14,6 +14,7 @@
  */
 
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import type { schemaBrand } from '#internals/core/schema/brand.ts';
 import { DUPLICATE_KEYS } from '#internals/core/schema/cardinality.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
@@ -447,7 +448,9 @@ function generateSchema(
 		schemaVersion: DEFINITION_SCHEMA_VERSION,
 		name: schema.name,
 		...(schema.version !== undefined ? { version: schema.version } : {}),
-		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(schema.description !== undefined
+			? { description: resolvePlainHelpDescription(schema.description) }
+			: {}),
 		...(defaultCommand !== undefined ? { defaultCommand } : {}),
 		commands: schema.commands
 			.filter((cmd) => opts.includeHidden || !cmd.hidden)
@@ -506,7 +509,9 @@ function serializeCommand(
 
 	return {
 		name: schema.name,
-		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(schema.description !== undefined
+			? { description: resolvePlainHelpDescription(schema.description) }
+			: {}),
 		...(schema.aliases.length > 0 ? { aliases: [...schema.aliases] } : {}),
 		...(schema.hidden ? { hidden: true } : {}),
 		...(schema.examples.length > 0
@@ -545,7 +550,9 @@ function serializeFlag(schema: FlagSchema, opts: ResolvedOptions): FlagDefinitio
 		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
-		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(schema.description !== undefined
+			? { description: resolvePlainHelpDescription(schema.description) }
+			: {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.numberConstraints !== undefined
 			? { numberConstraints: { ...schema.numberConstraints } }
@@ -642,7 +649,9 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFr
 		...(schema.variadic ? { variadic: true } : {}),
 		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
 		...(isJsonSerializable(schema.defaultValue) ? { defaultValue: schema.defaultValue } : {}),
-		...(schema.description !== undefined ? { description: schema.description } : {}),
+		...(schema.description !== undefined
+			? { description: resolvePlainHelpDescription(schema.description) }
+			: {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
@@ -1042,7 +1051,7 @@ function flagToJsonSchemaType(schema: FlagSchema): Record<string, unknown> {
 	}
 
 	if (schema.description !== undefined) {
-		result.description = schema.description;
+		result.description = resolvePlainHelpDescription(schema.description);
 	}
 	if (isJsonSerializable(schema.defaultValue)) {
 		result.default = schema.defaultValue;
@@ -1062,7 +1071,7 @@ function argToJsonSchemaType(schema: ArgSchema): Record<string, unknown> {
 		schema.variadic && schema.kind !== 'keyValue' ? { type: 'array', items: kind } : { ...kind };
 
 	if (schema.description !== undefined) {
-		result.description = schema.description;
+		result.description = resolvePlainHelpDescription(schema.description);
 	}
 	if (isJsonSerializable(schema.defaultValue)) {
 		result.default = schema.defaultValue;

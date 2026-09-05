@@ -107,6 +107,73 @@ describe('formatHelp theming', () => {
 		expect(help).not.toContain(on.cyan('Retry attempts'));
 	});
 
+	it('resolves function-form descriptions with the effective global theme', () => {
+		const schema = command('deploy')
+			.arg(
+				'target',
+				arg.string().describe((theme) => `Deploy ${theme.arg('<target>')}`),
+			)
+			.flag(
+				'output',
+				flag.string().describe((theme) => `Relative to ${theme.flag('--out-dir')}`),
+			).schema;
+		const help = formatHelp(schema, { colors: on });
+
+		expect(help).toContain(`Deploy ${on.cyan('<target>')}`);
+		expect(help).toContain(`Relative to ${on.cyan('--out-dir')}`);
+	});
+
+	it('merges descriptionTheme over the global theme only inside descriptions', () => {
+		const schema = command('deploy').flag(
+			'output',
+			flag.string().describe((theme) => `Relative to ${theme.flag('--out-dir')}`),
+		).schema;
+		const help = formatHelp(schema, {
+			colors: on,
+			theme: (palette) => ({ flag: palette.red }),
+			descriptionTheme: (palette) => ({ flag: palette.blue }),
+		});
+
+		expect(help).toContain(on.red('--output'));
+		expect(help).toContain(`Relative to ${on.blue('--out-dir')}`);
+		expect(help).not.toContain(`Relative to ${on.red('--out-dir')}`);
+	});
+
+	it('passes identity roles to descriptions and skips descriptionTheme when color is off', () => {
+		let factoryInvoked = false;
+		const schema = command('deploy').flag(
+			'output',
+			flag.string().describe((theme) => `Relative to ${theme.flag('--out-dir')}`),
+		).schema;
+		const help = formatHelp(schema, {
+			colors: createColors(false),
+			descriptionTheme: () => {
+				factoryInvoked = true;
+				return { flag: (input) => `${ESC}31m${input}${ESC}0m` };
+			},
+		});
+
+		expect(factoryInvoked).toBe(false);
+		expect(help).toContain('Relative to --out-dir');
+		expect(help).not.toContain(ESC);
+	});
+
+	it('keeps function-form descriptions strip-equivalent under wrapping', () => {
+		const schema = command('deploy').flag(
+			'output',
+			flag
+				.string()
+				.describe(
+					(theme) =>
+						`Filename for the combined archive relative to ${theme.flag('--out-dir')} unless explicitly overridden`,
+				),
+		).schema;
+		const plain = formatHelp(schema, { width: 44 });
+		const colored = formatHelp(schema, { colors: on, width: 44 });
+
+		expect(stripAnsi(colored)).toBe(plain);
+	});
+
 	it('strip-equivalence: colored output strips to exactly the plain rendering', () => {
 		const schema = richCommand().schema;
 		const plain = formatHelp(schema, { width: 40 });

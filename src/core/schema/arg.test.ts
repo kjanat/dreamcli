@@ -251,6 +251,14 @@ describe('.describe()', () => {
 		const a = arg.string().describe('Target environment');
 		expect(a.schema.description).toBe('Target environment');
 	});
+
+	it('stores a theme-aware description builder', () => {
+		const description = (theme: import('#internals/core/help/index.ts').HelpTheme) =>
+			`Deploy ${theme.arg('<target>')}`;
+		const a = arg.string().describe(description);
+
+		expect(a.schema.description).toBe(description);
+	});
 });
 
 // --- Immutability

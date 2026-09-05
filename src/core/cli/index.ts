@@ -364,6 +364,13 @@ interface HelpConfig {
 	 * @defaultValue `undefined` (built-in theme)
 	 */
 	readonly theme?: HelpThemeFactory;
+	/**
+	 * Theme overrides used only by function-form flag and argument descriptions.
+	 * Each supplied role merges over the resolved global theme.
+	 *
+	 * @defaultValue `undefined` (use the global theme)
+	 */
+	readonly descriptionTheme?: HelpThemeFactory;
 }
 
 /**

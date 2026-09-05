@@ -283,6 +283,14 @@ describe('.describe()', () => {
 		const f = flag.string().describe('API key for auth');
 		expect(f.schema.description).toBe('API key for auth');
 	});
+
+	it('stores a theme-aware description builder', () => {
+		const description = (theme: import('#internals/core/help/index.ts').HelpTheme) =>
+			`Relative to ${theme.flag('--out-dir')}`;
+		const f = flag.string().describe(description);
+
+		expect(f.schema.description).toBe(description);
+	});
 });
 
 // --- Immutability

@@ -23,7 +23,7 @@ import type {
 } from '#internals/core/schema/index.ts';
 import { padEnd, visibleWidth, wrapText } from './ansi.ts';
 import type { HelpTheme, HelpThemeFactory } from './theme.ts';
-import { resolveHelpTheme } from './theme.ts';
+import { extendHelpTheme, resolveHelpDescription, resolveHelpTheme } from './theme.ts';
 
 // --- Configuration
 
@@ -104,6 +104,13 @@ interface HelpOptions {
 	 * @defaultValue `undefined` (built-in theme)
 	 */
 	readonly theme?: HelpThemeFactory;
+	/**
+	 * Theme overrides used only by function-form flag and argument descriptions.
+	 * Merged over the resolved global theme, one role at a time.
+	 *
+	 * @defaultValue `undefined` (use the global theme)
+	 */
+	readonly descriptionTheme?: HelpThemeFactory;
 }
 
 /** Resolved help options with defaults applied. */
@@ -115,6 +122,7 @@ interface ResolvedHelpOptions {
 	readonly sortFlags: ((a: string, b: string) => number) | undefined;
 	readonly isDefaultHelp: boolean;
 	readonly theme: HelpTheme;
+	readonly descriptionTheme: HelpTheme;
 }
 
 const DEFAULT_WIDTH = 80;
@@ -126,6 +134,7 @@ const DEFAULT_WIDTH = 80;
  * @returns Fully resolved options with defaults applied.
  */
 function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
+	const theme = resolveHelpTheme(options?.colors, options?.theme);
 	return {
 		width: options?.width ?? DEFAULT_WIDTH,
 		binName: options?.binName,
@@ -133,7 +142,8 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		flagOrder: options?.flagOrder ?? 'alphabetical',
 		sortFlags: options?.sortFlags,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
-		theme: resolveHelpTheme(options?.colors, options?.theme),
+		theme,
+		descriptionTheme: extendHelpTheme(theme, options?.colors, options?.descriptionTheme),
 	};
 }
 
@@ -264,14 +274,19 @@ function formatStdinAnnotation(stdin: StdinBinding): string {
  * annotations.
  *
  * @param schema - The {@link FlagSchema} to describe.
- * @param theme - Theme applied to the metadata annotations (description stays plain).
+ * @param theme - Theme applied to the metadata annotations.
+ * @param descriptionTheme - Theme passed to a function-form description.
  * @returns Concatenated description string with metadata annotations.
  */
-function formatFlagDescription(schema: FlagSchema, theme: HelpTheme): string {
+function formatFlagDescription(
+	schema: FlagSchema,
+	theme: HelpTheme,
+	descriptionTheme: HelpTheme,
+): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
-		parts.push(schema.description);
+		parts.push(resolveHelpDescription(schema.description, descriptionTheme));
 	}
 
 	// Deprecation annotation — prominent, before other metadata
@@ -363,7 +378,7 @@ function buildFlagEntries(
 		if (schema === undefined) continue;
 		entries.push({
 			left: formatFlagLeft(name, schema, opts.theme),
-			description: formatFlagDescription(schema, opts.theme),
+			description: formatFlagDescription(schema, opts.theme, opts.descriptionTheme),
 		});
 	}
 	return entries;
@@ -395,14 +410,19 @@ function formatArgUsage(entry: CommandArgEntry): string {
  * annotations.
  *
  * @param schema - The {@link ArgSchema} to describe.
- * @param theme - Theme applied to the metadata annotations (description stays plain).
+ * @param theme - Theme applied to the metadata annotations.
+ * @param descriptionTheme - Theme passed to a function-form description.
  * @returns Concatenated description string with metadata annotations.
  */
-function formatArgDescription(schema: ArgSchema, theme: HelpTheme): string {
+function formatArgDescription(
+	schema: ArgSchema,
+	theme: HelpTheme,
+	descriptionTheme: HelpTheme,
+): string {
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
-		parts.push(schema.description);
+		parts.push(resolveHelpDescription(schema.description, descriptionTheme));
 	}
 
 	if (schema.deprecated !== undefined) {
@@ -566,7 +586,7 @@ function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpO
 	const entries: Array<{ left: string; desc: string }> = [];
 	for (const entry of args) {
 		const left = `  ${theme.arg(formatArgUsage(entry))}`;
-		const desc = formatArgDescription(entry.schema, theme);
+		const desc = formatArgDescription(entry.schema, theme, opts.descriptionTheme);
 		entries.push({ left, desc });
 		const leftWidth = visibleWidth(left);
 		if (leftWidth > maxLeft) maxLeft = leftWidth;
@@ -745,6 +765,6 @@ function formatExamplesSection(
 // --- Exports
 
 export { osc8, visibleWidth } from './ansi.ts';
-export type { HelpTheme, HelpThemeFactory } from './theme.ts';
+export type { HelpDescription, HelpTheme, HelpThemeFactory } from './theme.ts';
 export type { FlagEntry, HelpOptions };
 export { formatFlagEntriesBlock, formatHelp, formatHelpSections };
