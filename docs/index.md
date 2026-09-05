@@ -4,7 +4,7 @@ layout: home
 hero:
   name: dreamcli
   text: Schema-first CLI framework
-  tagline: Fully typed TypeScript CLIs with zero runtime dependencies. Define once, infer everywhere.
+  tagline: Fully typed TypeScript CLIs with a lean install. Define once, infer everywhere.
   image:
     light: /logo-light.svg
     dark: /logo-dark.svg
@@ -52,8 +52,8 @@ features:
       light: /icons/zero-deps-light.svg
       dark: /icons/zero-deps-dark.svg
       height: 48
-    title: Zero Dependencies
-    details: Lean core with no runtime dependencies. ESM-only. Runs on Node, Bun, and Deno.
+    title: Lean Install
+    details: One runtime dependency, ansispeck, for terminal colors. ESM-only. Runs on Node, Bun, and Deno.
   - icon:
       light: /icons/structured-output-light.svg
       dark: /icons/structured-output-dark.svg

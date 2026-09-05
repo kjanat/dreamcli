@@ -17,16 +17,20 @@ import type { DefinitionDocument, InputSchemaDocument } from '@kjanat/dreamcli/j
 
 The document types (`DefinitionDocument`, `CommandDefinitionDocument`, every `*FragmentV1`, and
 `InputSchemaDocument`) are also exported from the root entry, so code that only names the shapes
-does not need this subpath.
+does not need this subpath. The same goes for `DEFINITION_SCHEMA_URL` and
+`DEFINITION_SCHEMA_VERSION`: importing them from this subpath also evaluates the generators, so
+take the root copies when the constants are all you need.
 
 
-## `generateSchema(schema, options?)`
+## `generateSchema(schema, options?, meta?)`
 
 Generate a definition metadata document describing the CLI's structure.
 
 - `schema`: `CLISchema` from `cli.schema`
 - `options.includeHidden?`: include hidden commands (default: `true`)
 - `options.includePrompts?`: include prompt config on flags (default: `true`)
+- `meta?`: `ExampleMeta` (`{ name, version }`) used to resolve function-form examples; defaults to
+  the schema's own name and version
 
 ```ts twoslash
 import { cli, command } from '@kjanat/dreamcli';
@@ -56,10 +60,11 @@ const myCli = cli('mycli').command(command('deploy'));
 const inputSchema = generateInputSchema(myCli.schema);
 ```
 
-## `generateCommandSchema(schema, options?)`
+## `generateCommandSchema(schema, options?, meta?)`
 
 Generate a standalone definition document for one `CommandSchema`. `--help --json` on a command
-serializes through it. Options match `generateSchema()`.
+serializes through it. `options` and `meta` match `generateSchema()`; `meta` defaults to the
+command name with no version.
 
 ## `definitionMetaSchema`
 

@@ -1,9 +1,11 @@
 /**
  * Prompt engines.
  *
- * `CLIBuilder.run()` loads the terminal prompter on demand when stdin is a
- * TTY. Import this module to drive prompts from a custom host or to build a
- * prompt engine of your own against {@link PromptEngine}.
+ * When stdin is a TTY and no prompter was injected, `CLIBuilder.run()` installs
+ * a thin engine that imports the terminal prompter the first time a prompt is
+ * presented; a run that never prompts never loads it. Import this module to
+ * drive prompts from a custom host or to build a prompt engine of your own
+ * against {@link PromptEngine}.
  *
  * @module @kjanat/dreamcli/prompt
  */

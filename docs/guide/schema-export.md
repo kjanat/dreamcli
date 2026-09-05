@@ -141,8 +141,7 @@ private defaults.
 ## Adding a Schema Command
 
 ```ts twoslash
-import { cli } from '@kjanat/dreamcli';
-import { command, flag } from '@kjanat/dreamcli';
+import { cli, command, flag } from '@kjanat/dreamcli';
 import {
   generateInputSchema,
   generateSchema,

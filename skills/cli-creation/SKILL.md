@@ -43,8 +43,8 @@ or published version rather than training data.
 regardless of whether the project installed from npm or JSR:
 
 ```bash
-deno doc jsr:@kjanat/dreamcli 2>/dev/null                    # full public API (~4k lines)
-deno doc jsr:@kjanat/dreamcli/testkit 2>/dev/null            # subpaths: testkit, runtime, completion, json-schema, config, prompt, schema, version
+deno doc jsr:@kjanat/dreamcli 2>/dev/null                    # root entry: builders, parsing, help, errors, every public type
+deno doc jsr:@kjanat/dreamcli/completion 2>/dev/null         # one subpath at a time; also /config, /json-schema, /prompt, /testkit, /runtime, /version, /schema
 deno doc --json jsr:@kjanat/dreamcli 2>/dev/null             # machine-readable, for scripted lookups
 deno doc --filter=CLIBuilder jsr:@kjanat/dreamcli 2>/dev/null # one symbol
 ```
@@ -190,8 +190,9 @@ Assert output including trailing newlines.
 
 - Do not modify DreamCLI core internals for consumer-app requests.
 - Keep generated imports on the documented package entrypoints: `@kjanat/dreamcli`
-  and its `/testkit`, `/runtime`, `/completion`, `/config`, `/json-schema`, and
-  `/prompt` subpaths; never reach into `#internals/*` or `dist/`.
+  and its `/testkit`, `/runtime`, `/completion`, `/config`, `/json-schema`,
+  `/prompt`, `/schema`, and `/version` subpaths; never reach into `#internals/*`
+  or `dist/`.
 - Preserve the typed resolution flow: argv, stdin, env, config, prompt, default.
 - Keep stdout machine-clean: progress and status go to stderr via `out.status()`,
   never interleaved with `out.json()`.

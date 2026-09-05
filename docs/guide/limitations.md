@@ -28,7 +28,7 @@ YAML, TOML, and other formats require explicit parser wiring through the config-
 
 Why:
 
-- the project keeps zero runtime dependencies in core;
+- the project keeps a single runtime dependency, `ansispeck`, in core;
 - built-in multi-format parsing would expand maintenance and dependency surface quickly.
 
 Workarounds:

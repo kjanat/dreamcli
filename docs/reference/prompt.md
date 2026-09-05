@@ -1,7 +1,8 @@
 # @kjanat/dreamcli/prompt
 
-Prompt engines. `cli().run()` loads the terminal prompter on demand when stdin is a TTY and no
-prompter was injected; import this module to drive prompts from a custom host or to build an engine
+Prompt engines. When stdin is a TTY and no prompter was injected, `cli().run()` installs a thin
+engine that imports the terminal prompter the first time a prompt is presented, so a run that never
+prompts never loads it. Import this module to drive prompts from a custom host or to build an engine
 of your own against `PromptEngine`.
 
 ```ts twoslash
@@ -10,7 +11,8 @@ import type { PromptEngine, ReadFn, ResolvedPromptConfig } from '@kjanat/dreamcl
 ```
 
 `PromptEngine`, `ReadFn`, the resolved config types, and `resolvePromptConfig` are also exported
-from the root entry.
+from the root entry. This subpath statically includes the terminal prompter, so code that only
+needs `resolvePromptConfig` should take it from the root entry.
 
 ## `createTerminalPrompter(read, write)`
 

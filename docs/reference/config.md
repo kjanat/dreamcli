@@ -13,7 +13,12 @@ import {
   inferCliName,
   packageRepositoryUrl,
 } from '@kjanat/dreamcli/config';
-import type { ConfigDiscoveryResult, FormatLoader, PackageJsonData } from '@kjanat/dreamcli/config';
+import type {
+  ConfigDiscoveryResult,
+  ConfigSearchPathOptions,
+  FormatLoader,
+  PackageJsonData,
+} from '@kjanat/dreamcli/config';
 ```
 
 The option and result types are also exported from the root entry.
@@ -22,9 +27,9 @@ The option and result types are also exported from the root entry.
 ## `buildConfigSearchPaths(appName, options)`
 
 Build the default search-path list dreamcli uses for config discovery. This is mainly useful for
-debugging, custom bootstrapping, or help text that wants to show the exact probed paths. Options
-carry the scope directories: `baseDir` (project ancestor walk starts here), `userConfigDirs`,
-`systemConfigDirs`, and `loaders`.
+debugging, custom bootstrapping, or help text that wants to show the exact probed paths. The
+`ConfigSearchPathOptions` argument carries the scope directories: `baseDir` (project ancestor walk
+starts here), `userConfigDirs`, `systemConfigDirs`, and `loaders`.
 
 ```ts twoslash
 import { buildConfigSearchPaths } from '@kjanat/dreamcli/config';
@@ -133,13 +138,16 @@ inferCliName(
 ); // '@scope/mycli'
 ```
 
-## `packageRepositoryUrl(pkg)`
+## `packageRepositoryUrl(pkg, options?)`
 
-Resolve a package's `repository` field to a browsable `https://` URL. Handles the locator formats
+Resolve a manifest's `repository` field to a browsable `https://` URL. Handles the locator formats
 npm accepts — the `{ type, url }` object form, `git+`-prefixed and `.git`-suffixed URLs, scp-style
 locators (`git@host:u/r.git`), and the `github:`/`gitlab:`/`bitbucket:`/bare `u/r` shorthands.
 Returns `undefined` when the field is absent or unrecognised. Used by `.links()` to derive the
 header name link.
+
+With `{ require: true }` the return type narrows to `string`, and an absent or unrecognised
+locator throws a `CLIError` with code `INVALID_REPOSITORY` instead of returning `undefined`.
 
 ```ts twoslash
 import { packageRepositoryUrl } from '@kjanat/dreamcli/config';
@@ -150,5 +158,13 @@ packageRepositoryUrl({
 // 'https://github.com/me/mycli'
 packageRepositoryUrl({ repository: 'github:me/mycli' });
 // 'https://github.com/me/mycli'
+
+const url: string = packageRepositoryUrl(
+  { repository: 'github:me/mycli' },
+  { require: true },
+);
 ```
+
+This subpath statically includes config and manifest discovery, so code that only needs
+`packageRepositoryUrl` for a manifest it already holds pays for both.
 

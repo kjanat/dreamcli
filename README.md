@@ -4,7 +4,7 @@
 [![JSR](https://img.shields.io/jsr/v/@kjanat/dreamcli?logoColor=083344&logo=jsr&logoSize=auto&label=&labelColor=f7df1e&color=black)][jsr]
 [![Socket](https://badge.socket.dev/npm/package/@kjanat/dreamcli)][socket]
 
-Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
+Schema-first, fully typed TypeScript CLI framework. One runtime dependency, `ansispeck`, for terminal colors.
 
 One flag declaration configures the entire resolution pipeline:
 
