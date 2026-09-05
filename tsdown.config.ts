@@ -23,7 +23,6 @@ export default defineConfig({
 	target: [`node${engines.node.replace('>=', '')}`, `deno${engines.deno.replace('>=', '')}`],
 	dts: {
 		enabled: true,
-		entry: ['**', '!src/**/*{.test,test-helpers}.ts'],
 		newContext: true,
 		resolver: 'oxc',
 		oxc: {
@@ -49,8 +48,11 @@ export default defineConfig({
 			return exports;
 		},
 	},
-	minify: 'dce-only',
-	unbundle: true,
+	minify: {
+		compress: true,
+		mangle: { toplevel: false },
+		codegen: { removeWhitespace: true },
+	},
 	publint: { enabled: 'local-only', level: 'suggestion', strict: true },
 	attw: {
 		enabled: 'local-only',

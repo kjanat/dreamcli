@@ -9,6 +9,7 @@ publishing, generated artifacts, and the re-foundation project workflow.
 
 ```text
 build-meta-descriptions.ts # rebuild generated source from docs data
+check-package-budget.ts    # npm tarball size and hot-path budgets
 check-version-sync.ts      # package.json <-> deno.json guard
 deno-smoke-test.ts         # runtime smoke verification
 emit-definition-schema.ts  # writes root `dreamcli.schema.json`
@@ -24,6 +25,7 @@ release-meta.sh            # release tag metadata for workflows
 | Regenerate source descriptions  | `build-meta-descriptions.ts`   | imports docs data; writes `src/core/json-schema/meta-descriptions.generated.ts` |
 | Emit definition schema artifact | `emit-definition-schema.ts`    | writes root `dreamcli.schema.json`                                              |
 | Enforce version consistency     | `check-version-sync.ts`        | package and deno versions must match                                            |
+| Enforce package size budgets    | `check-package-budget.ts`      | packs, inspects the tarball, fails over budget; runs in `bd`                    |
 | Verify Deno runtime             | `deno-smoke-test.ts`           | CI/runtime guard                                                                |
 | Update GitHub project workflow  | `gh-project/`, `gh-project.ts` | DreamCLI-powered helper, not ad hoc shell                                       |
 | Compute release metadata        | `release-meta.sh`              | workflow env and tag parsing                                                    |

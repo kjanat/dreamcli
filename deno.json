@@ -50,15 +50,7 @@
 		}
 	},
 	"publish": {
-		"include": [
-			"CHANGELOG.md",
-			"LICENSE",
-			"README.md",
-			"dreamcli.schema.json",
-			"examples",
-			"skills",
-			"src"
-		],
+		"include": ["LICENSE", "README.md", "dreamcli.schema.json", "skills", "src"],
 		"exclude": ["src/**/*.test.ts", "src/**/*test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"lib": ["deno.ns", "deno.shared_globals"],
