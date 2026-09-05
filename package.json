@@ -25,6 +25,7 @@
 		"email": "info@kajkowalski.nl",
 		"url": "https://github.com/kjanat"
 	},
+	"sideEffects": false,
 	"type": "module",
 	"imports": {
 		"#dreamcli": "./src/index.ts",
@@ -55,10 +56,8 @@
 		"./schema": "./dreamcli.schema.json"
 	},
 	"files": [
-		"CHANGELOG.md",
 		"dist",
 		"dreamcli.schema.json",
-		"examples",
 		"skills",
 		"!**/.cache",
 		"!**/node_modules",
@@ -68,7 +67,7 @@
 	],
 	"workspaces": ["./examples/*", "./docs"],
 	"scripts": {
-		"bd": "run -s build typecheck:dist",
+		"bd": "run -s build typecheck:dist package:check",
 		"build": "bun --bun tsdown",
 		"build:watch": "run build --watch",
 		"ci": "run -pk typecheck lint format:check meta-descriptions:check test docs:build bd",
@@ -98,6 +97,7 @@
 		"meta-descriptions": "bun --bun scripts/build-meta-descriptions.ts",
 		"meta-descriptions:check": "bun --bun scripts/build-meta-descriptions.ts --check",
 		"prepack": "bun --bun tsdown --logLevel silent",
+		"package:check": "bun scripts/check-package-budget.ts",
 		"prepare": "importmapify",
 		"publish:preview": "bunx pkg-pr-new publish --bun --comment=update --packageManager=bun,npm",
 		"schema:emit": "bun scripts/emit-definition-schema.ts",
