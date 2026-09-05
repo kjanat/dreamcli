@@ -73,6 +73,69 @@ describe('CLIError', () => {
 		expect('details' in json).toBe(false);
 	});
 
+	describe('toJSON() details projection', () => {
+		it('renders a bigint as its digits and keeps the runtime value', () => {
+			const err = new CLIError('x', { code: 'UNKNOWN_FLAG', details: { value: 123n } });
+			const json = err.toJSON();
+			expect(json.details).toEqual({ value: '123' });
+			expect(err.details).toEqual({ value: 123n });
+			expect(() => JSON.stringify(json)).not.toThrow();
+		});
+
+		it('projects bigints nested in arrays and records', () => {
+			const err = new CLIError('x', {
+				code: 'UNKNOWN_FLAG',
+				details: { value: { ids: [1n, 2], inner: { id: 3n } } },
+			});
+			expect(err.toJSON().details).toEqual({ value: { ids: ['1', 2], inner: { id: '3' } } });
+		});
+
+		it('omits a cyclic value and keeps its siblings', () => {
+			const cyclic: Record<string, unknown> = { name: 'loop' };
+			cyclic.self = cyclic;
+			const err = new CLIError('x', {
+				code: 'UNKNOWN_FLAG',
+				details: { value: cyclic, issues: ['rejected'] },
+			});
+			const json = err.toJSON();
+			expect(json.details).toEqual({ value: { name: 'loop' }, issues: ['rejected'] });
+			expect(err.details?.value).toBe(cyclic);
+			expect(() => JSON.stringify(json)).not.toThrow();
+		});
+
+		it('drops functions, symbols, and undefined the way JSON.stringify does', () => {
+			const err = new CLIError('x', {
+				code: 'UNKNOWN_FLAG',
+				details: { fn: () => 1, sym: Symbol('s'), missing: undefined, list: [undefined, 1] },
+			});
+			expect(err.toJSON().details).toEqual({ list: [null, 1] });
+		});
+
+		it('projects through toJSON() like JSON.stringify', () => {
+			const when = new Date(0);
+			const err = new CLIError('x', {
+				code: 'UNKNOWN_FLAG',
+				details: { when, custom: { toJSON: () => 7n } },
+			});
+			expect(err.toJSON().details).toEqual({ when: when.toISOString(), custom: '7' });
+		});
+
+		it('omits a value whose toJSON() throws', () => {
+			const err = new CLIError('x', {
+				code: 'UNKNOWN_FLAG',
+				details: {
+					broken: {
+						toJSON: () => {
+							throw new Error('nope');
+						},
+					},
+					kept: 1,
+				},
+			});
+			expect(err.toJSON().details).toEqual({ kept: 1 });
+		});
+	});
+
 	it('accepts arbitrary string codes via ErrorCode union', () => {
 		const err = new CLIError('custom', { code: 'MY_CUSTOM_CODE' });
 		expect(err.code).toBe('MY_CUSTOM_CODE');

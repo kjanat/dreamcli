@@ -932,6 +932,7 @@ function assertValidArgDefault(name: string | undefined, schema: ArgSchema): voi
 			: `argument <${name}>`,
 		{ kind: schema.kind, ...(name === undefined ? {} : { arg: name }) },
 		violation,
+		schema.sensitive,
 	);
 }
 

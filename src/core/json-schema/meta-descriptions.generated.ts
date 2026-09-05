@@ -107,14 +107,6 @@ const definitionMetaSchemaDescriptions = {
 				defaultValue: {
 					description: 'Runtime default value (if any).',
 				},
-				defaultDescription: {
-					description:
-						'Human-readable replacement for the default value in help, or `false` to\nomit the default annotation.',
-				},
-				sensitive: {
-					description:
-						'Whether values from this input must be kept out of user-facing projections.',
-				},
 				aliases: {
 					description: "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
 				},
@@ -155,6 +147,14 @@ const definitionMetaSchemaDescriptions = {
 				duplicates: {
 					description:
 						"How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`",
+				},
+				defaultDescription: {
+					description:
+						'Human-readable replacement for the default value in help, or `false` to\nomit the default annotation.',
+				},
+				sensitive: {
+					description:
+						'Whether values from this input must be kept out of user-facing projections.',
 				},
 			},
 		},

@@ -48,13 +48,28 @@ const DEF_TARGETS: Readonly<Record<string, NodeTarget>> = {
 	example: { exportId: 'dreamcli:CommandExample' },
 };
 
+const FLAG_PROPERTY_TARGETS: Readonly<Record<string, NodeTarget>> = {
+	kind: { exportId: 'dreamcli:FlagSchema', property: 'kind' },
+	presence: { exportId: 'dreamcli:FlagPresence' },
+	defaultValue: { exportId: 'dreamcli:FlagSchema', property: 'defaultValue' },
+	aliases: { exportId: 'dreamcli:FlagSchema', property: 'aliases' },
+	stdin: { exportId: 'dreamcli:FlagSchema', property: 'stdin' },
+	envVar: { exportId: 'dreamcli:FlagSchema', property: 'envVar' },
+	configPath: { exportId: 'dreamcli:FlagSchema', property: 'configPath' },
+	description: { exportId: 'dreamcli:FlagSchema', property: 'description' },
+	enumValues: { exportId: 'dreamcli:FlagSchema', property: 'enumValues' },
+	elementSchema: { exportId: 'dreamcli:FlagSchema', property: 'elementSchema' },
+	prompt: { exportId: 'dreamcli:FlagSchema', property: 'prompt' },
+	deprecated: { exportId: 'dreamcli:FlagSchema', property: 'deprecated' },
+	propagate: { exportId: 'dreamcli:FlagSchema', property: 'propagate' },
+	negation: { exportId: 'dreamcli:FlagSchema', property: 'negation' },
+	duplicates: { exportId: 'dreamcli:DuplicatePolicy' },
+};
+
 const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, NodeTarget>>>> = {
 	command: {
 		name: { exportId: 'dreamcli:CommandSchema', property: 'name' },
-		description: {
-			exportId: 'dreamcli:CommandSchema',
-			property: 'description',
-		},
+		description: { exportId: 'dreamcli:CommandSchema', property: 'description' },
 		aliases: { exportId: 'dreamcli:CommandSchema', property: 'aliases' },
 		hidden: { exportId: 'dreamcli:CommandSchema', property: 'hidden' },
 		examples: { exportId: 'dreamcli:CommandSchema', property: 'examples' },
@@ -65,10 +80,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	commandDocument: {
 		schemaVersion: { exportId: 'dreamcli:DEFINITION_SCHEMA_VERSION' },
 		name: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'name' },
-		description: {
-			exportId: 'dreamcli:CommandDefinitionFragmentV1',
-			property: 'description',
-		},
+		description: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'description' },
 		aliases: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'aliases' },
 		hidden: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'hidden' },
 		examples: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'examples' },
@@ -77,47 +89,11 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		commands: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'commands' },
 	},
 	flag: {
-		kind: { exportId: 'dreamcli:FlagSchema', property: 'kind' },
-		presence: { exportId: 'dreamcli:FlagPresence' },
-		defaultValue: { exportId: 'dreamcli:FlagSchema', property: 'defaultValue' },
+		...FLAG_PROPERTY_TARGETS,
 		defaultDescription: { exportId: 'dreamcli:FlagSchema', property: 'defaultDescription' },
 		sensitive: { exportId: 'dreamcli:FlagSchema', property: 'sensitive' },
-		aliases: { exportId: 'dreamcli:FlagSchema', property: 'aliases' },
-		stdin: { exportId: 'dreamcli:FlagSchema', property: 'stdin' },
-		envVar: { exportId: 'dreamcli:FlagSchema', property: 'envVar' },
-		configPath: { exportId: 'dreamcli:FlagSchema', property: 'configPath' },
-		description: { exportId: 'dreamcli:FlagSchema', property: 'description' },
-		enumValues: { exportId: 'dreamcli:FlagSchema', property: 'enumValues' },
-		elementSchema: {
-			exportId: 'dreamcli:FlagSchema',
-			property: 'elementSchema',
-		},
-		prompt: { exportId: 'dreamcli:FlagSchema', property: 'prompt' },
-		deprecated: { exportId: 'dreamcli:FlagSchema', property: 'deprecated' },
-		propagate: { exportId: 'dreamcli:FlagSchema', property: 'propagate' },
-		negation: { exportId: 'dreamcli:FlagSchema', property: 'negation' },
-		duplicates: { exportId: 'dreamcli:DuplicatePolicy' },
 	},
-	flagElement: {
-		kind: { exportId: 'dreamcli:FlagSchema', property: 'kind' },
-		presence: { exportId: 'dreamcli:FlagPresence' },
-		defaultValue: { exportId: 'dreamcli:FlagSchema', property: 'defaultValue' },
-		aliases: { exportId: 'dreamcli:FlagSchema', property: 'aliases' },
-		stdin: { exportId: 'dreamcli:FlagSchema', property: 'stdin' },
-		envVar: { exportId: 'dreamcli:FlagSchema', property: 'envVar' },
-		configPath: { exportId: 'dreamcli:FlagSchema', property: 'configPath' },
-		description: { exportId: 'dreamcli:FlagSchema', property: 'description' },
-		enumValues: { exportId: 'dreamcli:FlagSchema', property: 'enumValues' },
-		elementSchema: {
-			exportId: 'dreamcli:FlagSchema',
-			property: 'elementSchema',
-		},
-		prompt: { exportId: 'dreamcli:FlagSchema', property: 'prompt' },
-		deprecated: { exportId: 'dreamcli:FlagSchema', property: 'deprecated' },
-		propagate: { exportId: 'dreamcli:FlagSchema', property: 'propagate' },
-		negation: { exportId: 'dreamcli:FlagSchema', property: 'negation' },
-		duplicates: { exportId: 'dreamcli:DuplicatePolicy' },
-	},
+	flagElement: FLAG_PROPERTY_TARGETS,
 	stdin: {
 		when: { exportId: 'dreamcli:StdinBinding', property: 'when' },
 		consume: { exportId: 'dreamcli:StdinBinding', property: 'consume' },
@@ -152,10 +128,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	prompt: {
 		kind: { exportId: 'dreamcli:PromptKind' },
 		message: { exportId: 'dreamcli:PromptConfigBase', property: 'message' },
-		placeholder: {
-			exportId: 'dreamcli:InputPromptConfig',
-			property: 'placeholder',
-		},
+		placeholder: { exportId: 'dreamcli:InputPromptConfig', property: 'placeholder' },
 		choices: { exportId: 'dreamcli:SelectPromptConfig', property: 'choices' },
 		min: { exportId: 'dreamcli:MultiselectPromptConfig', property: 'min' },
 		max: { exportId: 'dreamcli:MultiselectPromptConfig', property: 'max' },
@@ -167,10 +140,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	},
 	example: {
 		command: { exportId: 'dreamcli:CommandExample', property: 'command' },
-		description: {
-			exportId: 'dreamcli:CommandExample',
-			property: 'description',
-		},
+		description: { exportId: 'dreamcli:CommandExample', property: 'description' },
 	},
 };
 

@@ -1187,6 +1187,7 @@ function assertValidFlagDefault(name: string | undefined, schema: FlagSchema): v
 		name === undefined ? `${indefiniteArticle(schema.kind)} ${schema.kind} flag` : `flag --${name}`,
 		{ kind: schema.kind, ...(name === undefined ? {} : { flag: name }) },
 		violation,
+		schema.sensitive,
 	);
 }
 

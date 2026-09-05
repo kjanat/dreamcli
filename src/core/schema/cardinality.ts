@@ -541,18 +541,23 @@ function foldEntries(
 
 // --- Declared defaults
 
+/** Where inside a collection default a violation sits. */
+type DefaultLocation =
+	| { readonly kind: 'index'; readonly index: number }
+	| { readonly kind: 'key'; readonly key: string };
+
 /** Why a declared default value is not a value the input could hold. */
 type DefaultViolation =
 	| { readonly kind: 'shape'; readonly expected: 'array' | 'object' | 'count' }
 	| {
 			readonly kind: 'element';
-			readonly at: string | undefined;
+			readonly at: DefaultLocation | undefined;
 			readonly value: unknown;
 			readonly failure: ValueFailure;
 	  }
 	| {
 			readonly kind: 'standard';
-			readonly at: string | undefined;
+			readonly at: DefaultLocation | undefined;
 			readonly value: unknown;
 			readonly issues: readonly string[];
 	  };
@@ -588,7 +593,7 @@ function validateDefault(
 		case 'many': {
 			if (!Array.isArray(value)) return { kind: 'shape', expected: 'array' };
 			for (const [index, entry] of value.entries()) {
-				const violation = validateDefaultElement(element, String(index), entry);
+				const violation = validateDefaultElement(element, { kind: 'index', index }, entry);
 				if (violation !== undefined) return violation;
 			}
 			return validateDefaultStandard(aggregate, undefined, value);
@@ -598,7 +603,7 @@ function validateDefault(
 				return { kind: 'shape', expected: 'object' };
 			}
 			for (const [key, entry] of Object.entries(value)) {
-				const violation = validateDefaultElement(element, key, entry);
+				const violation = validateDefaultElement(element, { kind: 'key', key }, entry);
 				if (violation !== undefined) return violation;
 			}
 			return validateDefaultStandard(aggregate, undefined, value);
@@ -609,7 +614,7 @@ function validateDefault(
 /** Apply the element constraints and the element validator to one default entry. */
 function validateDefaultElement(
 	element: ValueSchema,
-	at: string | undefined,
+	at: DefaultLocation | undefined,
 	value: unknown,
 ): DefaultViolation | undefined {
 	const failure = validateDecodedValue(element, value);
@@ -620,7 +625,7 @@ function validateDefaultElement(
 /** Apply a validator whose verdict is available synchronously. */
 function validateDefaultStandard(
 	validator: StandardSchemaV1 | undefined,
-	at: string | undefined,
+	at: DefaultLocation | undefined,
 	value: unknown,
 ): DefaultViolation | undefined {
 	if (validator === undefined) return undefined;
@@ -644,25 +649,47 @@ function indefiniteArticle(word: string): string {
 }
 
 /**
+ * Render a violation's location for a diagnostic.
+ *
+ * An index is framework metadata and always renders. A record key is part of
+ * the declared value, so a sensitive input omits it.
+ *
+ * @param violation - What the default failed.
+ * @param sensitive - Whether the owning input hides value-derived data.
+ * @returns The location text, or `undefined` when there is none to show.
+ */
+function reportableDefaultLocation(
+	violation: DefaultViolation,
+	sensitive: boolean,
+): string | undefined {
+	if (!('at' in violation) || violation.at === undefined) return undefined;
+	if (violation.at.kind === 'index') return String(violation.at.index);
+	return sensitive ? undefined : violation.at.key;
+}
+
+/**
  * Build the construction-time error for a default value that cannot hold.
  *
  * @param subject - How the input is spelled, `--tag` or `<files>`.
  * @param details - Structured identification of the input.
  * @param violation - What the default failed.
+ * @param sensitive - Whether the owning input hides value-derived data.
  * @returns The error to throw.
  */
 function defaultViolationError(
 	subject: string,
 	details: Readonly<Record<string, unknown>>,
 	violation: DefaultViolation,
+	sensitive: boolean,
 ): CLIError {
-	const at = 'at' in violation && violation.at !== undefined ? ` at ${violation.at}` : '';
+	const at = reportableDefaultLocation(violation, sensitive);
 	const reason = describeDefaultViolation(violation);
-	return new CLIError(`Default value for ${subject}${at} is invalid: ${reason}`, {
+	const where = at === undefined ? '' : ` at ${at}`;
+	return new CLIError(`Default value for ${subject}${where} is invalid: ${reason}`, {
 		code: 'INVALID_DEFAULT',
 		details: {
 			...details,
-			...(at === '' ? {} : { at: 'at' in violation ? violation.at : undefined }),
+			...(at === undefined ? {} : { at }),
 			reason,
 		},
 		suggest: `Change the default so it satisfies what ${subject} accepts`,
@@ -685,6 +712,7 @@ function describeDefaultViolation(violation: DefaultViolation): string {
 
 export type {
 	Cardinality,
+	DefaultLocation,
 	DefaultViolation,
 	DuplicateKeys,
 	FoldResult,

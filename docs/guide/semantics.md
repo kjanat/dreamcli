@@ -497,14 +497,14 @@ safe `.default(value, { description })` remains visible.
 
 ```bash
 # flag.string().minLength(9).env('API_TOKEN')
-$ API_TOKEN=sk-live-9f2 mycli deploy
-Invalid value 'sk-live-9f2' from env API_TOKEN for flag --token: must be at least 9 characters
+$ API_TOKEN=sk-9f2 mycli deploy
+Invalid value 'sk-9f2' from env API_TOKEN for flag --token: must be at least 9 characters
 
 # flag.string().minLength(9).env('API_TOKEN').sensitive()
-$ API_TOKEN=sk-live-9f2 mycli deploy
+$ API_TOKEN=sk-9f2 mycli deploy
 Invalid value '<redacted>' from env API_TOKEN for flag --token: must be at least 9 characters
 
-$ mycli deploy --token sk-live-9f2
+$ mycli deploy --token sk-9f2
 Invalid value '<redacted>' for flag --token: must be at least 9 characters
 ```
 

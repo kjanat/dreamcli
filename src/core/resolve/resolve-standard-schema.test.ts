@@ -239,6 +239,58 @@ describe('Standard Schema v1 interop — flags', () => {
 	});
 });
 
+// === JSON-mode reporting of values JSON cannot represent
+
+describe('Standard Schema v1 interop — JSON mode', () => {
+	const rejectsId = standard(() => ({ issues: [{ message: 'Rejected ID' }] }));
+
+	it('serializes a rejected bigint without changing the runtime value', async () => {
+		const cmd = command('run')
+			.flag(
+				'id',
+				flag
+					.custom((raw) => BigInt(String(raw)))
+					.env('ID')
+					.standard(rejectsId),
+			)
+			.action(() => {});
+
+		const result = await runCommand(cmd, [], { env: { ID: '123' }, jsonMode: true });
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.details?.value).toBe(123n);
+		const rendered: unknown = JSON.parse(result.stdout[0] ?? '');
+		expect(rendered).toMatchObject({
+			error: { code: 'CONSTRAINT_VIOLATED', details: { value: '123', issues: ['Rejected ID'] } },
+		});
+	});
+
+	it('serializes a rejected cyclic custom value', async () => {
+		const cmd = command('run')
+			.flag(
+				'graph',
+				flag
+					.custom((raw) => {
+						const node: Record<string, unknown> = { label: String(raw) };
+						node.self = node;
+						return node;
+					})
+					.standard(rejectsId),
+			)
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--graph', 'root'], { jsonMode: true });
+
+		expect(result.exitCode).toBe(2);
+		const rendered: unknown = JSON.parse(result.stdout[0] ?? '');
+		expect(rendered).toMatchObject({
+			error: { details: { value: { label: 'root' }, issues: ['Rejected ID'] } },
+		});
+		expect(JSON.stringify(rendered)).not.toContain('self');
+	});
+});
+
 // === Args
 
 describe('Standard Schema v1 interop — args', () => {

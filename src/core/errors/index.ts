@@ -8,6 +8,8 @@
  * @module dreamcli/core/errors
  */
 
+import { toJsonSafeRecord } from './json-safe.ts';
+
 // --- Error codes — discriminated string union per category
 
 /** Codes emitted during argv parsing. */
@@ -87,6 +89,11 @@ export class CLIError extends Error {
 
 	/**
 	 * Serialise to a plain object suitable for JSON output.
+	 *
+	 * `details` is projected onto JSON-representable values: bigints become
+	 * decimal digits and entries JSON cannot carry are omitted. The error
+	 * object itself keeps the runtime values.
+	 *
 	 * @sealed
 	 */
 	toJSON(): CLIErrorJSON {
@@ -96,7 +103,7 @@ export class CLIError extends Error {
 			message: this.message,
 			exitCode: this.exitCode,
 			...(this.suggest !== undefined && { suggest: this.suggest }),
-			...(this.details !== undefined && { details: this.details }),
+			...(this.details !== undefined && { details: toJsonSafeRecord(this.details) }),
 		};
 	}
 }
