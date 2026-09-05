@@ -18,8 +18,8 @@
 const DEFINITION_SCHEMA_URL = 'https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json';
 
 /**
- * Version of the definition document format emitted by `generateSchema()`
- * and `generateCommandSchema()`.
+ * Version of the definition document format emitted by {@linkcode generateSchema}
+ * and {@linkcode generateCommandSchema}.
  */
 const DEFINITION_SCHEMA_VERSION = 1;
 

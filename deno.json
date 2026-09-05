@@ -62,14 +62,8 @@
 		"exclude": ["src/**/*.test.ts", "src/**/*test-helpers.ts", "src/**/AGENTS.md"]
 	},
 	"lib": ["deno.ns", "deno.shared_globals"],
-	"fmt": {
-		"exclude": ["**"]
-	},
-	"lint": {
-		"rules": {
-			"exclude": ["ban-types", "require-await"]
-		}
-	},
+	"fmt": { "exclude": ["**"] },
+	"lint": { "rules": { "exclude": ["ban-types", "require-await"] } },
 	"nodeModulesDir": "manual",
 	"preferPackageJson": false,
 	"lock": false,

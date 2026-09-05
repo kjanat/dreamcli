@@ -8,6 +8,7 @@
 		"allowImportingTsExtensions": true,
 		"resolveJsonModule": true,
 		"types": ["bun", "node", "deno", "vitest"],
+
 		"strict": true,
 		"noUnusedLocals": true,
 		"noEmit": true,
@@ -21,6 +22,7 @@
 		"noUnusedParameters": true,
 		"noImplicitOverride": true,
 		"forceConsistentCasingInFileNames": true,
+
 		"paths": {
 			"@kjanat/dreamcli": ["./src/index.ts"],
 			"@kjanat/dreamcli/runtime": ["./src/runtime.ts"],
