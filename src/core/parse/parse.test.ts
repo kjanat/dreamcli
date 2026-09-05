@@ -14,6 +14,17 @@ function makeSchema(overrides: Partial<CommandSchema> = {}): CommandSchema {
 	return createCommandSchema({ name: 'test', ...overrides });
 }
 
+/** Capture the parse error from an argv sequence expected to fail. */
+function parseFailure(schema: CommandSchema, argv: readonly string[]): ParseError {
+	try {
+		parse(schema, argv);
+	} catch (error) {
+		if (error instanceof ParseError) return error;
+		throw error;
+	}
+	throw new Error('expected parsing to fail');
+}
+
 // === Tokenizer
 
 describe('tokenize', () => {
@@ -1051,5 +1062,137 @@ describe('numeric constraints — args', () => {
 	it('{ finite: false } allows Infinity', () => {
 		const schema = numberArgSchema({ numberConstraints: { finite: false } });
 		expect(parse(schema, ['Infinity']).args.count).toBe(Number.POSITIVE_INFINITY);
+	});
+});
+
+// === Sensitive argv diagnostics
+
+describe('sensitive argv diagnostics', () => {
+	const SECRET = 'private-cli-value';
+
+	it('redacts primitive flag and arg values', () => {
+		const flagSchema = makeSchema({
+			flags: { value: createFlagSchema('number', { sensitive: true }) },
+		});
+		const argSchema = makeSchema({
+			args: [{ name: 'value', schema: createArgSchema('number', { sensitive: true }) }],
+		});
+
+		for (const error of [
+			parseFailure(flagSchema, ['--value', SECRET]),
+			parseFailure(argSchema, [SECRET]),
+		]) {
+			expect(error.message).toContain("'<redacted>'");
+			expect(error.message).not.toContain(SECRET);
+			expect(error.details).not.toHaveProperty('value');
+			expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+		}
+	});
+
+	it('redacts count and key-value syntax failures', () => {
+		const countSchema = makeSchema({
+			flags: { value: createFlagSchema('count', { sensitive: true }) },
+		});
+		const entriesSchema = makeSchema({
+			flags: { value: createFlagSchema('keyValue', { sensitive: true }) },
+		});
+
+		for (const error of [
+			parseFailure(countSchema, [`--value=${SECRET}`]),
+			parseFailure(entriesSchema, ['--value', SECRET]),
+		]) {
+			expect(error.message).toContain("'<redacted>'");
+			expect(error.details).not.toHaveProperty('value');
+			expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+		}
+	});
+
+	it('omits values from duplicate and negated-flag details', () => {
+		const duplicateSchema = makeSchema({
+			flags: {
+				value: createFlagSchema('string', { duplicates: 'error', sensitive: true }),
+			},
+		});
+		const negatedSchema = makeSchema({
+			flags: {
+				enabled: createFlagSchema('boolean', {
+					presence: 'defaulted',
+					defaultValue: false,
+					negation: { alias: undefined, hidden: false },
+					sensitive: true,
+				}),
+			},
+		});
+
+		const duplicate = parseFailure(duplicateSchema, [
+			'--value',
+			'first-private',
+			'--value',
+			SECRET,
+		]);
+		const negated = parseFailure(negatedSchema, [`--no-enabled=${SECRET}`]);
+
+		expect(duplicate.details).not.toHaveProperty('values');
+		expect(negated.details).not.toHaveProperty('value');
+		expect(JSON.stringify(duplicate.toJSON())).not.toContain('private');
+		expect(JSON.stringify(negated.toJSON())).not.toContain(SECRET);
+	});
+
+	it('keeps custom parser text verbatim but hides framework fields', () => {
+		const cause = new Error(`developer rejected ${SECRET}`);
+		const schema = makeSchema({
+			flags: {
+				value: createFlagSchema('custom', {
+					parseFn: () => {
+						throw cause;
+					},
+					sensitive: true,
+				}),
+			},
+		});
+		const error = parseFailure(schema, ['--value', SECRET]);
+
+		expect(error.message).toBe(
+			`Failed to parse flag --value value '<redacted>': developer rejected ${SECRET}`,
+		);
+		expect(error.details).not.toHaveProperty('value');
+		expect(error.cause).toBeUndefined();
+	});
+
+	it('sanitizes a sensitive custom ParseError outside its authored message', () => {
+		const cause = new Error(SECRET);
+		const authored = new ParseError(`developer rejected ${SECRET}`, {
+			code: 'INVALID_VALUE',
+			details: { value: SECRET },
+			cause,
+			suggest: 'Use another value',
+		});
+		const schema = makeSchema({
+			flags: {
+				value: createFlagSchema('custom', {
+					parseFn: () => {
+						throw authored;
+					},
+					sensitive: true,
+				}),
+			},
+		});
+		const error = parseFailure(schema, ['--value', SECRET]);
+
+		expect(error.message).toBe(authored.message);
+		expect(error.code).toBe(authored.code);
+		expect(error.suggest).toBe(authored.suggest);
+		expect(error.details).toEqual({ flag: 'value', input: '--value' });
+		expect(error.cause).toBeUndefined();
+	});
+
+	it('keeps excess undeclared positionals visible', () => {
+		const schema = makeSchema({
+			args: [{ name: 'owned', schema: createArgSchema('string', { sensitive: true }) }],
+		});
+		const error = parseFailure(schema, ['owned-value', SECRET]);
+
+		expect(error.message).toContain(SECRET);
+		expect(error.details).toEqual({ excess: [SECRET], expected: 1 });
 	});
 });

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Explicit sensitive-input diagnostics** (https://github.com/kjanat/dreamcli/issues/120).\
+  `flag.*().sensitive()` and `arg.*().sensitive()` redact framework-controlled values across argv parsing, source resolution, collections, Standard Schema validation, filesystem checks, structured details, construction-time `INVALID_DEFAULT` locations, and automatic default help. A sensitive input's `INVALID_DEFAULT` omits the record key of a rejected key-value default while keeping array indices. Sensitive definition fragments serialize `sensitive: true`; a safe `.default(..., { description })` remains visible in help. Developer-authored parser and validator messages remain verbatim.
+
+### Changed
+
+- **Breaking: non-sensitive diagnostics show rejected values from every source** (https://github.com/kjanat/dreamcli/issues/120).\
+  Stdin, environment, config, prompt, default, and argv failures now follow the same schema-controlled policy instead of treating non-argv sources as secret. Messages and structured details retain non-sensitive values, collection keys, validator paths, filesystem paths, and adapter causes. Mark every secret-bearing input `.sensitive()`; its raw-derived fields are omitted while source, type, constraint, and allowed-value metadata remains. `CLIError.toJSON()` projects `details` onto JSON-representable values so `--json` reporting cannot throw on a retained runtime value: bigints serialize as decimal digits and entries JSON cannot carry, such as cyclic references, are omitted. The error object keeps the runtime value.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.

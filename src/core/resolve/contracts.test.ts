@@ -248,6 +248,7 @@ describe('resolver contracts', () => {
 				flag: 'port',
 				source: 'env',
 				envVar: 'PORT',
+				value: 'bad-port',
 				expected: 'number',
 			});
 		});
@@ -274,11 +275,12 @@ describe('resolver contracts', () => {
 
 			expect(error.code).toBe('TYPE_MISMATCH');
 			expect(error.message).toBe(
-				"Invalid number value '<redacted>' from stdin for argument <count>",
+				"Invalid number value 'bad-count' from stdin for argument <count>",
 			);
 			expect(error.details).toEqual({
 				arg: 'count',
 				source: 'stdin',
+				value: 'bad-count',
 				expected: 'number',
 			});
 			expect(error.suggest).toBe('Pipe a valid number to stdin for <count>');

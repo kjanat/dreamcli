@@ -49,11 +49,11 @@ describe('parseDateValue()', () => {
 	// --- rejected shapes
 
 	it('rejects Date.parse-lenient input like "March 5"', () => {
-		expect(() => parseDateValue('March 5')).toThrow(/Invalid date 'March 5'/);
+		expect(() => parseDateValue('March 5')).toThrow(/^Invalid date: expected ISO-8601/);
 	});
 
 	it('rejects the bare string "0"', () => {
-		expect(() => parseDateValue('0')).toThrow(/Invalid date '0'/);
+		expect(() => parseDateValue('0')).toThrow(/^Invalid date: expected ISO-8601/);
 	});
 
 	it('rejects non-ISO shapes', () => {
@@ -155,12 +155,12 @@ describe('parseUrlValue()', () => {
 
 	it('rejects http when only https is allowed', () => {
 		expect(() => parseUrlValue('http://example.com', { protocols: ['https'] })).toThrow(
-			/URL protocol 'http' is not allowed. Allowed: https/,
+			/URL protocol is not allowed. Allowed: https/,
 		);
 	});
 
 	it('rejects garbage input', () => {
-		expect(() => parseUrlValue('not a url')).toThrow(/Invalid URL 'not a url'/);
+		expect(() => parseUrlValue('not a url')).toThrow(/^Invalid URL$/);
 	});
 
 	it('rejects non-string, non-URL input', () => {
@@ -209,7 +209,7 @@ describe('parseDurationValue()', () => {
 	// --- rejected inputs
 
 	it("rejects 'fast'", () => {
-		expect(() => parseDurationValue('fast')).toThrow(/Invalid duration 'fast'/);
+		expect(() => parseDurationValue('fast')).toThrow(/^Invalid duration: expected/);
 	});
 
 	it('rejects the empty string', () => {
@@ -217,11 +217,11 @@ describe('parseDurationValue()', () => {
 	});
 
 	it("rejects unknown unit '1x'", () => {
-		expect(() => parseDurationValue('1x')).toThrow(/Invalid duration '1x'/);
+		expect(() => parseDurationValue('1x')).toThrow(/^Invalid duration: expected/);
 	});
 
 	it("rejects unit-before-amount 'm5'", () => {
-		expect(() => parseDurationValue('m5')).toThrow(/Invalid duration 'm5'/);
+		expect(() => parseDurationValue('m5')).toThrow(/^Invalid duration: expected/);
 	});
 
 	it('rejects a negative number', () => {
@@ -229,7 +229,7 @@ describe('parseDurationValue()', () => {
 	});
 
 	it("rejects trailing junk '30s!'", () => {
-		expect(() => parseDurationValue('30s!')).toThrow(/Invalid duration '30s!'/);
+		expect(() => parseDurationValue('30s!')).toThrow(/^Invalid duration: expected/);
 	});
 });
 
@@ -274,7 +274,7 @@ describe('parseBytesValue()', () => {
 	// --- rejected inputs
 
 	it("rejects unknown unit '1zb'", () => {
-		expect(() => parseBytesValue('1zb')).toThrow(/Invalid size '1zb'/);
+		expect(() => parseBytesValue('1zb')).toThrow(/^Invalid size: expected/);
 	});
 
 	it('rejects the empty string', () => {
@@ -282,7 +282,7 @@ describe('parseBytesValue()', () => {
 	});
 
 	it("rejects negative string '-5'", () => {
-		expect(() => parseBytesValue('-5')).toThrow(/Invalid size '-5'/);
+		expect(() => parseBytesValue('-5')).toThrow(/^Invalid size: expected/);
 	});
 
 	it('rejects a negative number', () => {

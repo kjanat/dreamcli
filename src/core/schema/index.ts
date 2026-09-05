@@ -78,6 +78,7 @@ export type {
 	CountFlagDefinition,
 	CustomFlagDefinition,
 	DateFlagOptions,
+	DefaultValueOptions,
 	DuplicateKeys,
 	DuplicatePolicy,
 	EnumFlagDefinition,

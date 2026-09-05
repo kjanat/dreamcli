@@ -268,32 +268,32 @@ Symptom:
 
 Cause:
 
-- a value that reached the framework from anywhere but argv is redacted, on both
-  surfaces and from stdin, env, config, and prompt alike. An environment
-  variable or a pipe routinely carries a secret, and a diagnostic is written to
-  a terminal, a log, and a CI transcript.
-- an explicit `-` counts as a stdin value, since the bytes came from the pipe
-  rather than from the token;
-- a declared default is redacted too, and so is a `flag.path()` / `arg.path()`
-  filesystem check on a path no argv token carried.
+- the flag or argument is marked `.sensitive()`. Sensitivity applies equally to
+  argv, stdin, env, config, prompt, and default values;
+- sensitive framework diagnostics omit raw-derived values, collection keys,
+  validator paths, filesystem paths, and adapter causes.
 
 Check:
 
-- which source actually produced the value. `details.source` names it, and
-  `details.envVar` or `details.configPath` names the binding;
+- whether the declaration calls `.sensitive()` or a definition sets
+  `sensitive: true`;
+- which source produced the value. `details.source` names it, and
+  `details.envVar` or `details.configPath` names the binding, but source does not
+  decide redaction;
 - whether the reason is enough on its own. `expected`, `constraint`, `bound`,
   and `allowed` all survive redaction.
 
 Fix:
 
 - read the value from the source you control rather than from the diagnostic;
-- pass the value on argv while reproducing, where it prints in full;
+- remove `.sensitive()` or call `.sensitive(false)` only when the value is safe
+  to write to terminals, logs, and CI transcripts;
 - for a `flag.custom()` parse function, write the thrown message to describe the
   expectation rather than interpolating the input, since your own message is
   shown verbatim and the framework cannot redact it.
 
 References: [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction),
-[Upgrading to 4.0](/guide/upgrading-v4#flag-diagnostics-redact-values-resolved-outside-literal-cli-input)
+[Upgrading to 4.0](/guide/upgrading-v4#diagnostic-secrecy-is-explicit)
 
 ## A Defaulted Input Looks Like The User Supplied It
 

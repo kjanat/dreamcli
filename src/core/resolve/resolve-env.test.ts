@@ -162,6 +162,7 @@ describe('resolve', () => {
 						flag: 'port',
 						source: 'env',
 						envVar: 'PORT',
+						value: 'abc',
 						expected: 'number',
 					});
 					expect(err.suggest).toBe('Set PORT to a valid number');
@@ -270,6 +271,7 @@ describe('resolve', () => {
 						flag: 'region',
 						source: 'env',
 						envVar: 'REGION',
+						value: 'jp',
 						allowed: ['us', 'eu', 'ap'],
 					});
 					expect(err.suggest).toBe('Set REGION to one of: us, eu, ap');

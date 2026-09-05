@@ -418,7 +418,7 @@ describe('entries, duplicate keys', () => {
 				env: { VARS: 'A=1,A=2' },
 			}),
 		);
-		expect(message).toBe("Duplicate key '<redacted>' from env VARS for flag --value");
+		expect(message).toBe("Duplicate key 'A' from env VARS for flag --value");
 	});
 });
 
@@ -480,7 +480,7 @@ describe('stdin splices into occurrence order', () => {
 				{ stdinData: 'A=2\n' },
 			),
 		);
-		expect(message).toBe("Duplicate key '<redacted>' from stdin for flag --value");
+		expect(message).toBe("Duplicate key 'A' from stdin for flag --value");
 	});
 
 	it('decodes each spliced element through the element value axis', async () => {
@@ -878,7 +878,7 @@ describe('two `-` occurrences on one collection', () => {
 					},
 				),
 			),
-		).toBe("Duplicate key '<redacted>' from stdin for flag --value");
+		).toBe("Duplicate key 'A' from stdin for flag --value");
 	});
 });
 
@@ -903,11 +903,14 @@ describe('a source value of the wrong shape names the shape the collection wants
 					config: { deploy: { value: raw } },
 				}),
 			);
-			expect(error.message).toBe('Invalid object value from config deploy.value for flag --value');
+			expect(error.message).toBe(
+				`Invalid object value '${JSON.stringify(raw)}' from config deploy.value for flag --value`,
+			);
 			expect(error.details).toEqual({
 				flag: 'value',
 				source: 'config',
 				configPath: 'deploy.value',
+				value: raw,
 				expected: 'object',
 			});
 			expect(error.suggest).toBe('Set deploy.value to an object in your config');
@@ -919,12 +922,13 @@ describe('a source value of the wrong shape names the shape the collection wants
 			resolveArg(arg.keyValue().config('deploy.value'), [], { config: { deploy: { value: 5 } } }),
 		);
 		expect(error.message).toBe(
-			'Invalid object value from config deploy.value for argument <value>',
+			"Invalid object value '5' from config deploy.value for argument <value>",
 		);
 		expect(error.details).toEqual({
 			arg: 'value',
 			source: 'config',
 			configPath: 'deploy.value',
+			value: 5,
 			expected: 'object',
 		});
 		expect(error.suggest).toBe('Use KEY=VALUE for <value>');
@@ -936,11 +940,12 @@ describe('a source value of the wrong shape names the shape the collection wants
 				config: { deploy: { value: 5 } },
 			}),
 		);
-		expect(error.message).toBe('Invalid array value from config deploy.value for flag --value');
+		expect(error.message).toBe("Invalid array value '5' from config deploy.value for flag --value");
 		expect(error.details).toEqual({
 			flag: 'value',
 			source: 'config',
 			configPath: 'deploy.value',
+			value: 5,
 			expected: 'array',
 		});
 		expect(error.suggest).toBe('Set deploy.value to an array in your config');
@@ -952,11 +957,14 @@ describe('a source value of the wrong shape names the shape the collection wants
 				config: { deploy: { value: 5 } },
 			}),
 		);
-		expect(error.message).toBe('Invalid array value from config deploy.value for argument <value>');
+		expect(error.message).toBe(
+			"Invalid array value '5' from config deploy.value for argument <value>",
+		);
 		expect(error.details).toEqual({
 			arg: 'value',
 			source: 'config',
 			configPath: 'deploy.value',
+			value: 5,
 			expected: 'array',
 		});
 		expect(error.suggest).toBe('Provide values for <value>');

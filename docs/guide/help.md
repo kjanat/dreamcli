@@ -33,6 +33,14 @@ Flags:
 
 Shell completions carry the plain description, never these annotations.
 
+Sensitive inputs never render an automatic `(default: value)` annotation. Give
+the default a safe description when help should name its source without showing
+the value:
+
+```ts
+flag.string().default('stored-token', { description: 'from keychain' }).sensitive();
+```
+
 ## Configuring Help
 
 `.help()` sets builder-level defaults; the same fields can be overridden per

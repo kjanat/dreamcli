@@ -58,13 +58,13 @@ describe('resolve — aggregate diagnostics', () => {
 	it('summarizes mixed flag and arg failures with per-issue labels', async () => {
 		const schema = makeSchema({
 			flags: {
-				port: createFlagSchema('number', { envVar: 'PORT' }),
+				port: createFlagSchema('number', { envVar: 'PORT', sensitive: true }),
 				region: createFlagSchema('string', { presence: 'required' }),
 			},
 			args: [
 				{
 					name: 'count',
-					schema: createArgSchema('number', { stdin: {} }),
+					schema: createArgSchema('number', { stdin: {}, sensitive: true }),
 				},
 			],
 		});
@@ -111,6 +111,8 @@ describe('resolve — aggregate diagnostics', () => {
 				sourceLabel: 'stdin',
 			},
 		]);
+		expect(JSON.stringify(error.toJSON())).not.toContain('bad-port');
+		expect(JSON.stringify(error.toJSON())).not.toContain('bad-count');
 	});
 
 	it('keeps nested flag and arg aggregates flattened in summary details', async () => {

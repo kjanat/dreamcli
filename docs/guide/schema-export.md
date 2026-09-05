@@ -140,6 +140,10 @@ without the `command` discriminator.
 
 Nested subcommands use dot-delimited paths (`"deploy.rollback"`).
 
+A property for an input marked `.sensitive()` is `writeOnly: true` and has no
+`default`, so generated validation schemas do not publish credentials or other
+private defaults.
+
 ## Adding a Schema Command
 
 ```ts twoslash
@@ -197,22 +201,24 @@ generateSchema(myCli.schema, { includeHidden: false });
 Version 1 froze with 4.0. Every field below is optional unless noted, and a
 field is written only when the schema carries something other than its default.
 `defaultValue` is presence-sensitive: an explicit `.default(...)` is written
-even when its value matches the kind's implicit unset value.
+even when its value matches the kind's implicit unset value, unless the input is
+sensitive.
 
 Per command: `name` (always), `description`, `aliases`, `hidden`, `examples`,
 `flags` (always), `args` (always), nested `commands` (always).
 
-Per flag: `kind` and `presence` (both always), `defaultValue`, `aliases`,
-`stdin`, `envVar`, `configPath`, `description`, `enumValues`,
+Per flag: `kind` and `presence` (both always), `defaultValue`,
+`defaultDescription`, `sensitive`, `aliases`, `stdin`, `envVar`, `configPath`,
+`description`, `enumValues`,
 `numberConstraints`, `stringConstraints`, `elementSchema`, `separator`,
 `split`, `duplicateKeys`, `unique`, `pathChecks`, `valueHint`, `prompt`,
 `deprecated`, `propagate`, `negation`, `duplicates`.
 
-Per arg: `name`, `kind`, and `presence` (all three always), `variadic`,
-`stdin`, `defaultValue`, `description`, `envVar`, `configPath`, `enumValues`,
-`elementSchema`, `numberConstraints`, `stringConstraints`, `pathChecks`,
-`valueHint`, `separator`, `split`, `duplicateKeys`, `unique`, `prompt`,
-`deprecated`.
+Per arg: `name`, `kind`, and `presence` (all three always), `variadic`, `stdin`,
+`defaultValue`, `defaultDescription`, `sensitive`, `description`, `envVar`,
+`configPath`, `enumValues`, `elementSchema`, `numberConstraints`,
+`stringConstraints`, `pathChecks`, `valueHint`, `separator`, `split`,
+`duplicateKeys`, `unique`, `prompt`, `deprecated`.
 
 The arg surface carries every flag field except the five bound to flag syntax
 (`aliases`, `propagate`, `negation`, `duplicates`, and the `count` kind), and
@@ -220,10 +226,11 @@ adds `name` and `variadic`. An `elementSchema` on an arg is an
 `ArgElementFragmentV1`, which is the arg fragment without the `name` a position
 supplies.
 
-`defaultValue` is written whenever the schema carries one that survives JSON,
-whatever its `presence`. A definition may set a default without setting
-`presence: 'defaulted'`, and resolution uses it either way, so the document
-states it either way.
+`defaultValue` is written whenever a non-sensitive schema carries one that
+survives JSON, whatever its `presence`. A definition may set a default without
+setting `presence: 'defaulted'`, and resolution uses it either way, so the
+document states it either way. A sensitive fragment writes `sensitive: true`
+but never `defaultValue`; `defaultDescription` remains safe presentation text.
 
 An element fragment is the whole fragment shape, so it admits fields no element
 reader consumes: `stdin`, `envVar`, `configPath`, `prompt`, `defaultValue`, and
@@ -231,6 +238,8 @@ reader consumes: `stdin`, `envVar`, `configPath`, `prompt`, `defaultValue`, and
 survive the document, and they change nothing at resolution, which reads sources
 from the collection itself. Validation still applies in isolation, so
 `variadic: true` on an element makes that element's own default an array.
+`sensitive` is excluded because it controls the whole input rather than one
+element.
 
 ### What's Omitted
 

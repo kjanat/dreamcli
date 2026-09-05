@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it, test } from 'vitest';
-import { isCLIError } from '#internals/core/errors/index.ts';
+import { type CLIError, isCLIError } from '#internals/core/errors/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
 import { arg, createArgSchema } from './arg.ts';
@@ -31,6 +31,17 @@ function schemaError(build: () => unknown): { code: string; message: string } {
 		build();
 	} catch (error) {
 		if (isCLIError(error)) return { code: error.code, message: error.message };
+		throw error;
+	}
+	throw new Error('expected the schema to be rejected');
+}
+
+/** Run a factory expected to reject, returning the full error it threw. */
+function schemaFailure(build: () => unknown): CLIError {
+	try {
+		build();
+	} catch (error) {
+		if (isCLIError(error)) return error;
 		throw error;
 	}
 	throw new Error('expected the schema to be rejected');
@@ -340,13 +351,14 @@ describe('validated defaults, flags', () => {
 	});
 
 	it('validates every value of an entries default', () => {
-		const error = schemaError(() =>
+		const error = schemaFailure(() =>
 			createFlagSchema('keyValue', {
 				elementSchema: { kind: 'string', stringConstraints: { minLength: 2 } },
 				defaultValue: { A: 'x' },
 			}),
 		);
 		expect(error.message).toContain('at A');
+		expect(error.details).toMatchObject({ at: 'A' });
 	});
 
 	it('rejects a count default that is not a non-negative integer', () => {
@@ -456,6 +468,107 @@ describe('validated defaults, args', () => {
 		expect(createArgSchema('keyValue', { defaultValue: { A: '1' } }).defaultValue).toEqual({
 			A: '1',
 		});
+	});
+});
+
+describe('validated defaults, sensitivity', () => {
+	const SECRET_KEY = 'secret-record-key';
+
+	it('omits a record key from a sensitive flag default', () => {
+		const error = schemaFailure(() =>
+			flag
+				.keyValue(flag.number({ min: 0 }))
+				.sensitive()
+				.default({ [SECRET_KEY]: -1 }),
+		);
+		expect(error.code).toBe('INVALID_DEFAULT');
+		expect(error.message).toBe('Default value for a keyValue flag is invalid: must be >= 0');
+		expect(error.details).not.toHaveProperty('at');
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET_KEY);
+	});
+
+	it('omits a record key from a sensitive flag schema built directly', () => {
+		const error = schemaFailure(() =>
+			createFlagSchema('keyValue', {
+				sensitive: true,
+				elementSchema: { kind: 'string', stringConstraints: { minLength: 2 } },
+				defaultValue: { [SECRET_KEY]: 'x' },
+			}),
+		);
+		expect(error.message).toBe(
+			'Default value for a keyValue flag is invalid: must be at least 2 characters',
+		);
+		expect(error.details).not.toHaveProperty('at');
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET_KEY);
+	});
+
+	it('omits a record key from a sensitive arg default', () => {
+		const error = schemaFailure(() =>
+			arg
+				.keyValue(arg.number({ min: 0 }))
+				.sensitive()
+				.default({ [SECRET_KEY]: -1 }),
+		);
+		expect(error.code).toBe('INVALID_DEFAULT');
+		expect(error.message).toBe('Default value for a keyValue argument is invalid: must be >= 0');
+		expect(error.details).not.toHaveProperty('at');
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET_KEY);
+	});
+
+	it('omits a record key from a sensitive arg schema built directly', () => {
+		const error = schemaFailure(() =>
+			createArgSchema('keyValue', {
+				sensitive: true,
+				elementSchema: { kind: 'string', stringConstraints: { minLength: 2 } },
+				defaultValue: { [SECRET_KEY]: 'x' },
+			}),
+		);
+		expect(error.message).toBe(
+			'Default value for a keyValue argument is invalid: must be at least 2 characters',
+		);
+		expect(error.details).not.toHaveProperty('at');
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET_KEY);
+	});
+
+	it('omits a record key a sensitive element validator rejected', () => {
+		const rejectAll: StandardSchemaV1 = {
+			'~standard': {
+				version: 1,
+				vendor: 'test',
+				validate: () => ({ issues: [{ message: 'rejected' }] }),
+			},
+		};
+		const error = schemaFailure(() =>
+			flag
+				.keyValue(flag.string().standard(rejectAll))
+				.sensitive()
+				.default({ [SECRET_KEY]: 'x' }),
+		);
+		expect(error.message).toBe('Default value for a keyValue flag is invalid: rejected');
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET_KEY);
+	});
+
+	it('keeps an array index on a sensitive flag default', () => {
+		const error = schemaFailure(() =>
+			flag
+				.array(flag.string({ nonEmpty: true }))
+				.sensitive()
+				.default(['a', '']),
+		);
+		expect(error.message).toBe(
+			'Default value for an array flag at 1 is invalid: must not be empty',
+		);
+		expect(error.details).toMatchObject({ at: '1' });
+	});
+
+	it('keeps an array index on a sensitive arg default', () => {
+		const error = schemaFailure(() =>
+			arg.string({ nonEmpty: true }).variadic().sensitive().default(['a', '']),
+		);
+		expect(error.message).toBe(
+			'Default value for a string argument at 1 is invalid: must not be empty',
+		);
+		expect(error.details).toMatchObject({ at: '1' });
 	});
 });
 

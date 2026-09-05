@@ -608,6 +608,30 @@ describe('readFlags() validation', () => {
 		expect(isValidationError(error)).toBe(true);
 	});
 
+	it('uses flag sensitivity, not env provenance, for diagnostics', async () => {
+		const visible = await thrownBy(() =>
+			readFlags(
+				{ port: flag.number().env('PORT') },
+				{ argv: [], env: { PORT: 'visible-invalid-port' } },
+			),
+		);
+		const hidden = await thrownBy(() =>
+			readFlags(
+				{ port: flag.number().env('PORT').sensitive() },
+				{ argv: [], env: { PORT: 'private-invalid-port' } },
+			),
+		);
+
+		expect(visible).toBeInstanceOf(CLIError);
+		expect(hidden).toBeInstanceOf(CLIError);
+		if (!(visible instanceof CLIError) || !(hidden instanceof CLIError)) return;
+		expect(visible.message).toContain("'visible-invalid-port'");
+		expect(visible.details).toHaveProperty('value', 'visible-invalid-port');
+		expect(hidden.message).toContain("'<redacted>'");
+		expect(hidden.details).not.toHaveProperty('value');
+		expect(JSON.stringify(hidden.toJSON())).not.toContain('private-invalid-port');
+	});
+
 	it('awaits an async Standard Schema validator', async () => {
 		const values = await readFlags(
 			{ name: flag.custom(asyncName) },

@@ -411,6 +411,56 @@ describe('formatHelp', () => {
 			expect(help).not.toContain('(default: false)');
 		});
 
+		it('applies custom, hidden, and sensitive default descriptions to flags', () => {
+			const cmd = command('run')
+				.flag('automatic', flag.string().default('visible-default'))
+				.flag('custom', flag.string().default('raw-custom', { description: 'current directory' }))
+				.flag('hidden', flag.string().default('hidden-default', { description: false }))
+				.flag('sensitive', flag.string().default('sensitive-default').sensitive())
+				.flag(
+					'safe-sensitive',
+					flag.string().default('safe-sensitive-raw', { description: 'from keychain' }).sensitive(),
+				)
+				.flag('visible-false', flag.string().default('false-is-public').sensitive(false))
+				.flag('boolean-custom', flag.boolean().default(false, { description: 'disabled' }))
+				.flag('count-custom', flag.count().default(0, { description: 'none' }));
+			const help = formatHelp(cmd.schema, { width: 160 });
+
+			expect(help).toContain('(default: visible-default)');
+			expect(help).toContain('(default: current directory)');
+			expect(help).toContain('(default: from keychain)');
+			expect(help).toContain('(default: false-is-public)');
+			expect(help).toContain('(default: disabled)');
+			expect(help).toContain('(default: none)');
+			expect(help).not.toContain('raw-custom');
+			expect(help).not.toContain('hidden-default');
+			expect(help).not.toContain('sensitive-default');
+			expect(help).not.toContain('safe-sensitive-raw');
+		});
+
+		it('applies custom, hidden, and sensitive default descriptions to args', () => {
+			const cmd = command('run')
+				.arg('automatic', arg.string().default('visible-arg-default'))
+				.arg('custom', arg.string().default('raw-arg-custom', { description: 'working tree' }))
+				.arg('hidden', arg.string().default('hidden-arg-default', { description: false }))
+				.arg('sensitive', arg.string().default('sensitive-arg-default').sensitive())
+				.arg(
+					'safe-sensitive',
+					arg.string().default('safe-sensitive-arg-raw', { description: 'from agent' }).sensitive(),
+				)
+				.arg('visible-false', arg.string().default('false-arg-public').sensitive(false));
+			const help = formatHelp(cmd.schema, { width: 160 });
+
+			expect(help).toContain('(default: visible-arg-default)');
+			expect(help).toContain('(default: working tree)');
+			expect(help).toContain('(default: from agent)');
+			expect(help).toContain('(default: false-arg-public)');
+			expect(help).not.toContain('raw-arg-custom');
+			expect(help).not.toContain('hidden-arg-default');
+			expect(help).not.toContain('sensitive-arg-default');
+			expect(help).not.toContain('safe-sensitive-arg-raw');
+		});
+
 		it('sorts flags with short aliases first', () => {
 			const cmd = command('run')
 				.flag('verbose', flag.boolean().describe('Verbose'))

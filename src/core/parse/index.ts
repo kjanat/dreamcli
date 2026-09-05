@@ -13,6 +13,7 @@
  * @module dreamcli/core/parse
  */
 
+import { diagnosticValue } from '#internals/core/errors/diagnostic-value.ts';
 import { ParseError } from '#internals/core/errors/index.ts';
 import type { Cardinality, SplitPolicy } from '#internals/core/schema/cardinality.ts';
 import {
@@ -364,16 +365,17 @@ function recordFlagOccurrence(
 	record.counted += 1;
 
 	if (record.counted > 1 && schema.duplicates === 'error') {
+		const values = diagnosticValue(schema.sensitive, [
+			...record.occurrences.filter((entry) => entry.policed).map((entry) => entry.reported),
+			reported,
+		]);
 		throw new ParseError(`Flag --${name} may only be specified once`, {
 			code: 'DUPLICATE_FLAG',
 			details: {
 				flag: name,
 				input: displayName,
 				count: record.counted,
-				values: [
-					...record.occurrences.filter((entry) => entry.policed).map((entry) => entry.reported),
-					reported,
-				],
+				...(values.kind === 'visible' ? { values: values.value } : {}),
 			},
 		});
 	}
@@ -492,7 +494,10 @@ function flagTokenOccurrence(
 
 	const cardinality = flagCardinality(schema);
 	if (cardinality.kind === 'count') {
-		return { kind: 'value', value: coerceCountToken(flagName, raw, displayName) };
+		return {
+			kind: 'value',
+			value: coerceCountToken(flagName, raw, displayName, schema.sensitive),
+		};
 	}
 	if (cardinality.kind === 'entries') {
 		const [key, value] = coerceEntryToken(flagName, raw, schema, displayName);
@@ -510,19 +515,30 @@ function coerceElementToken(
 ): unknown {
 	const decoded = decodeValue(flagValueSchema(schema), raw, 'token');
 	if (decoded.ok) return decoded.value;
-	throw flagValueError(flagName, displayName, raw, decoded.failure);
+	throw flagValueError(flagName, displayName, raw, decoded.failure, schema.sensitive);
 }
 
 /** Read an explicit count token such as `--verbose=2`. */
-function coerceCountToken(flagName: string, raw: string, displayName: string): number {
+function coerceCountToken(
+	flagName: string,
+	raw: string,
+	displayName: string,
+	sensitive: boolean,
+): number {
 	// Number('') is 0, which would silently accept `--verbose=`.
 	const count = raw.trim() === '' ? Number.NaN : Number(raw);
 	if (!Number.isInteger(count) || count < 0) {
+		const report = diagnosticValue(sensitive, raw);
 		throw new ParseError(
-			`Invalid count value '${raw}' for flag ${displayName}. Use a non-negative integer`,
+			`Invalid count value '${report.text}' for flag ${displayName}. Use a non-negative integer`,
 			{
 				code: 'INVALID_VALUE',
-				details: { flag: flagName, input: displayName, value: raw, expected: 'count' },
+				details: {
+					flag: flagName,
+					input: displayName,
+					...(report.kind === 'visible' ? { value: report.value } : {}),
+					expected: 'count',
+				},
 			},
 		);
 	}
@@ -538,9 +554,15 @@ function coerceEntryToken(
 ): readonly [string, unknown] {
 	const pair = splitEntryPair(raw);
 	if (pair === undefined) {
-		throw new ParseError(`Invalid value '${raw}' for flag ${displayName}. Use KEY=VALUE`, {
+		const report = diagnosticValue(schema.sensitive, raw);
+		throw new ParseError(`Invalid value '${report.text}' for flag ${displayName}. Use KEY=VALUE`, {
 			code: 'INVALID_VALUE',
-			details: { flag: flagName, input: displayName, value: raw, expected: 'key=value' },
+			details: {
+				flag: flagName,
+				input: displayName,
+				...(report.kind === 'visible' ? { value: report.value } : {}),
+				expected: 'key=value',
+			},
 		});
 	}
 	return [pair[0], coerceElementToken(flagName, pair[1], schema, displayName)];
@@ -552,6 +574,7 @@ interface ValueErrorSubject {
 	readonly label: string;
 	readonly enumDetails: Readonly<Record<string, unknown>>;
 	readonly enumLabel: string;
+	readonly sensitive: boolean;
 }
 
 /** Map a shared value-layer failure to a subject-specific parse error. @internal */
@@ -560,25 +583,29 @@ function valueParseError(
 	raw: string,
 	failure: ValueFailure,
 ): ParseError {
-	const details = { ...subject.details, value: raw };
+	const report = diagnosticValue(subject.sensitive, raw);
+	const details = {
+		...subject.details,
+		...(report.kind === 'visible' ? { value: report.value } : {}),
+	};
 	switch (failure.kind) {
 		case 'type':
 			if (failure.expected === 'number') {
-				return new ParseError(`Invalid number value '${raw}' for ${subject.label}`, {
+				return new ParseError(`Invalid number value '${report.text}' for ${subject.label}`, {
 					code: 'INVALID_VALUE',
 					details: { ...details, expected: 'number' },
 				});
 			}
 			if (failure.expected === 'boolean') {
 				return new ParseError(
-					`Invalid boolean value '${raw}' for ${subject.label}. Use true/false or 1/0`,
+					`Invalid boolean value '${report.text}' for ${subject.label}. Use true/false or 1/0`,
 					{
 						code: 'INVALID_VALUE',
 						details: { ...details, expected: 'boolean' },
 					},
 				);
 			}
-			return new ParseError(`Invalid value '${raw}' for ${subject.label}`, {
+			return new ParseError(`Invalid value '${report.text}' for ${subject.label}`, {
 				code: 'INVALID_VALUE',
 				details: { ...details, expected: 'string' },
 			});
@@ -592,7 +619,7 @@ function valueParseError(
 				});
 			}
 			return new ParseError(
-				`Invalid value '${raw}' for ${subject.label}. Allowed: ${allowed.join(', ')}`,
+				`Invalid value '${report.text}' for ${subject.label}. Allowed: ${allowed.join(', ')}`,
 				{
 					code: 'INVALID_VALUE',
 					details: { ...details, allowed },
@@ -602,7 +629,7 @@ function valueParseError(
 
 		case 'string-constraint':
 			return new ParseError(
-				`Invalid value '${raw}' for ${subject.label}: ${describeStringConstraintViolation(failure.violation)}`,
+				`Invalid value '${report.text}' for ${subject.label}: ${describeStringConstraintViolation(failure.violation)}`,
 				{
 					code: 'INVALID_VALUE',
 					details: {
@@ -615,7 +642,7 @@ function valueParseError(
 
 		case 'number-constraint':
 			return new ParseError(
-				`Invalid number value '${raw}' for ${subject.label}: ${describeNumberConstraintViolation(failure.violation)}`,
+				`Invalid number value '${report.text}' for ${subject.label}: ${describeNumberConstraintViolation(failure.violation)}`,
 				{
 					code: 'INVALID_VALUE',
 					details: {
@@ -628,13 +655,22 @@ function valueParseError(
 			);
 
 		case 'thrown': {
-			if (failure.error instanceof ParseError) return failure.error;
+			// Parser-authored text is an explicit trust boundary and stays verbatim.
+			if (failure.error instanceof ParseError) {
+				if (!subject.sensitive) return failure.error;
+				return new ParseError(failure.error.message, {
+					code: failure.error.code,
+					exitCode: failure.error.exitCode,
+					details: subject.details,
+					...(failure.error.suggest === undefined ? {} : { suggest: failure.error.suggest }),
+				});
+			}
 			const message =
 				failure.error instanceof Error ? failure.error.message : String(failure.error);
-			return new ParseError(`Failed to parse ${subject.label}: ${message}`, {
+			return new ParseError(`Failed to parse ${subject.label} value '${report.text}': ${message}`, {
 				code: 'INVALID_VALUE',
 				details,
-				cause: failure.error,
+				...(report.kind === 'visible' ? { cause: failure.error } : {}),
 			});
 		}
 	}
@@ -646,6 +682,7 @@ function flagValueError(
 	displayName: string,
 	raw: string,
 	failure: ValueFailure,
+	sensitive: boolean,
 ): ParseError {
 	return valueParseError(
 		{
@@ -653,6 +690,7 @@ function flagValueError(
 			label: `flag ${displayName}`,
 			enumDetails: { flag: flagName, kind: 'enum', missing: 'enumValues' },
 			enumLabel: `Enum flag --${flagName}`,
+			sensitive,
 		},
 		raw,
 		failure,
@@ -676,10 +714,18 @@ function argTokenOccurrence(argName: string, raw: string, schema: ArgSchema): Oc
 	if (argCardinality(schema).kind === 'entries') {
 		const pair = splitEntryPair(raw);
 		if (pair === undefined) {
-			throw new ParseError(`Invalid value '${raw}' for argument <${argName}>. Use KEY=VALUE`, {
-				code: 'INVALID_VALUE',
-				details: { arg: argName, value: raw, expected: 'key=value' },
-			});
+			const report = diagnosticValue(schema.sensitive, raw);
+			throw new ParseError(
+				`Invalid value '${report.text}' for argument <${argName}>. Use KEY=VALUE`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						arg: argName,
+						...(report.kind === 'visible' ? { value: report.value } : {}),
+						expected: 'key=value',
+					},
+				},
+			);
 		}
 		return { kind: 'entry', key: pair[0], value: decodeArgToken(argName, pair[1], schema) };
 	}
@@ -691,7 +737,7 @@ function argTokenOccurrence(argName: string, raw: string, schema: ArgSchema): Oc
 function decodeArgToken(argName: string, raw: string, schema: ArgSchema): unknown {
 	const decoded = decodeValue(argValueSchema(schema), raw, 'token');
 	if (decoded.ok) return decoded.value;
-	throw argValueError(argName, raw, decoded.failure);
+	throw argValueError(argName, raw, decoded.failure, schema.sensitive);
 }
 
 /**
@@ -702,13 +748,19 @@ function decodeArgToken(argName: string, raw: string, schema: ArgSchema): unknow
  * @param failure - What the value layer rejected.
  * @returns The error to throw.
  */
-function argValueError(argName: string, raw: string, failure: ValueFailure): ParseError {
+function argValueError(
+	argName: string,
+	raw: string,
+	failure: ValueFailure,
+	sensitive: boolean,
+): ParseError {
 	return valueParseError(
 		{
 			details: { arg: argName },
 			label: `argument <${argName}>`,
 			enumDetails: { arg: argName, kind: 'enum', missing: 'enumValues' },
 			enumLabel: `Enum argument <${argName}>`,
+			sensitive,
 		},
 		raw,
 		failure,
@@ -817,9 +869,14 @@ function parseLongFlag(
 	if (negated) {
 		// Negated spelling is presence-only: it always means `false`.
 		if (token.value !== undefined) {
+			const report = diagnosticValue(flagSchema.sensitive, token.value);
 			throw new ParseError(`Flag ${displayName} does not take a value`, {
 				code: 'INVALID_VALUE',
-				details: { flag: canonicalName, input: token.name, value: token.value },
+				details: {
+					flag: canonicalName,
+					input: token.name,
+					...(report.kind === 'visible' ? { value: report.value } : {}),
+				},
 			});
 		}
 		recordFlagOccurrence(occurrences, canonicalName, flagSchema, false, displayName, () => [

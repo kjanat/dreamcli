@@ -88,6 +88,57 @@ describe('Standard Schema v1 interop — flags', () => {
 		const bad = await runCommand(cmd, [], { env: { COUNT: '7' } });
 		expect(bad.exitCode).toBe(2);
 		expect(bad.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(bad.error?.details).toEqual({
+			value: '7',
+			issues: ['must be an even integer'],
+		});
+	});
+
+	it('omits a sensitive value and validator issue path', async () => {
+		const rejectsAtSecretPath = standard(() => ({
+			issues: [{ message: 'rejected', path: ['private-segment'] }],
+		}));
+		const cmd = command('run')
+			.flag('token', flag.custom(rejectsAtSecretPath).sensitive())
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--token', 'private-value']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--token failed validation: rejected');
+		expect(result.error?.details).toEqual({ issues: ['rejected'] });
+		expect(JSON.stringify(result.error)).not.toContain('private-value');
+		expect(JSON.stringify(result.error)).not.toContain('private-segment');
+	});
+
+	it('omits a sensitive record key from the element label', async () => {
+		const cmd = command('run')
+			.flag(
+				'vars',
+				flag
+					.keyValue(flag.custom(standard(() => ({ issues: [{ message: 'rejected' }] }))))
+					.sensitive(),
+			)
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--vars', 'private-key=value']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--vars failed validation: rejected');
+		expect(JSON.stringify(result.error)).not.toContain('private-key');
+	});
+
+	it('keeps a sensitive collection index because it is framework metadata', async () => {
+		const cmd = command('run')
+			.flag('values', flag.array(flag.custom(evenInt)).sensitive())
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--values', '3']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.message).toBe('--values[0] failed validation: must be an even integer');
+		expect(result.error?.details).toEqual({ issues: ['must be an even integer'] });
+		expect(JSON.stringify(result.error)).not.toContain('3');
 	});
 
 	it('skips validation for an absent optional flag', async () => {
@@ -185,6 +236,58 @@ describe('Standard Schema v1 interop — flags', () => {
 
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.message).toBe('--verbose failed validation: must be an odd integer');
+	});
+});
+
+// === JSON-mode reporting of values JSON cannot represent
+
+describe('Standard Schema v1 interop — JSON mode', () => {
+	const rejectsId = standard(() => ({ issues: [{ message: 'Rejected ID' }] }));
+
+	it('serializes a rejected bigint without changing the runtime value', async () => {
+		const cmd = command('run')
+			.flag(
+				'id',
+				flag
+					.custom((raw) => BigInt(String(raw)))
+					.env('ID')
+					.standard(rejectsId),
+			)
+			.action(() => {});
+
+		const result = await runCommand(cmd, [], { env: { ID: '123' }, jsonMode: true });
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+		expect(result.error?.details?.value).toBe(123n);
+		const rendered: unknown = JSON.parse(result.stdout[0] ?? '');
+		expect(rendered).toMatchObject({
+			error: { code: 'CONSTRAINT_VIOLATED', details: { value: '123', issues: ['Rejected ID'] } },
+		});
+	});
+
+	it('serializes a rejected cyclic custom value', async () => {
+		const cmd = command('run')
+			.flag(
+				'graph',
+				flag
+					.custom((raw) => {
+						const node: Record<string, unknown> = { label: String(raw) };
+						node.self = node;
+						return node;
+					})
+					.standard(rejectsId),
+			)
+			.action(() => {});
+
+		const result = await runCommand(cmd, ['--graph', 'root'], { jsonMode: true });
+
+		expect(result.exitCode).toBe(2);
+		const rendered: unknown = JSON.parse(result.stdout[0] ?? '');
+		expect(rendered).toMatchObject({
+			error: { details: { value: { label: 'root' }, issues: ['Rejected ID'] } },
+		});
+		expect(JSON.stringify(rendered)).not.toContain('self');
 	});
 });
 

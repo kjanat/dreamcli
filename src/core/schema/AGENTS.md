@@ -98,8 +98,9 @@ default-validation pass validates it here rather than adding a second dispatch o
 `string` flag and an `enum` default outside `enumValues`; a `custom` codec has no domain, since its
 output is whatever its parse function returns.
 
-The public field shape of `FlagSchema` and `ArgSchema` is unchanged. Both still carry the flat
-fields, the definition document still serializes them, and `value.ts` is a view over them.
+`FlagSchema` and `ArgSchema` carry the flat value fields plus normalized `sensitive: boolean` input
+metadata. Definition documents serialize `sensitive: true` while omitting sensitive defaults;
+`value.ts` remains a view over the value fields alone.
 
 ## CARDINALITY AXIS (`cardinality.ts`)
 
@@ -248,11 +249,16 @@ Flag-only by design: `count`, `negatable`, `alias`, `duplicates`, `propagate` (f
 both surfaces. `flag.keyValue(element)` and `arg.keyValue(element)` take the same shape of element
 builder, guarded by the `elementEligible` phantom on both configs: a factory sets it `true`, and
 every modifier describing the input itself (`.env()`, `.config()`, `.prompt()`, `.describe()`,
-`.deprecated()`, `.stdin()`, and the presence and variadic modifiers) flips it to `false`.
+`.deprecated()`, `.sensitive()`, `.stdin()`, and the presence and variadic modifiers) flips it to
+`false`.
 
 The source axis is shared outright. `.stdin()`, `.env()`, `.config()`, `.prompt()`, and `.default()`
 are on both builders, and `source.ts` projects either schema onto the same ordered `SourceBinding`
 list. A new source belongs on both factories or on neither.
+
+Sensitivity is shared outright too. `.sensitive()` is input-level on both builders and controls
+framework diagnostics, serialized defaults, input-schema defaults, and automatic help defaults.
+It never belongs on an array or key-value element builder; sensitivity applies to the whole input.
 
 `ArgSchema.valueHint` is carried and serialized but not rendered: help labels a positional by its
 own name, so `.arg('file', arg.path())` stays `<file>` rather than becoming `<path>`, which would

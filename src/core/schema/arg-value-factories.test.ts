@@ -275,7 +275,9 @@ describe('arg constraints from argv', () => {
 		const result = await runCommand(cmd, ['https://a.test/', 'nope']);
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('INVALID_VALUE');
-		expect(result.error?.message).toBe("Failed to parse argument <targets>: Invalid URL 'nope'");
+		expect(result.error?.message).toBe(
+			"Failed to parse argument <targets> value 'nope': Invalid URL",
+		);
 	});
 });
 
@@ -288,16 +290,16 @@ describe('arg constraints from env', () => {
 		expect(result.args).toEqual({ x: 'abcd' });
 	});
 
-	it('rejects an env violation as CONSTRAINT_VIOLATED with the value redacted', async () => {
+	it('rejects an env violation as CONSTRAINT_VIOLATED with the value visible', async () => {
 		const { schema, parsed } = parseCommandArg(arg.string().minLength(5).env('TOKEN'), []);
 
 		await expect(resolve(schema, parsed, { env: { TOKEN: 'abc' } })).rejects.toMatchObject({
 			code: 'CONSTRAINT_VIOLATED',
-			message:
-				"Invalid value '<redacted>' from env TOKEN for argument <x>: must be at least 5 characters",
+			message: "Invalid value 'abc' from env TOKEN for argument <x>: must be at least 5 characters",
 			details: {
 				arg: 'x',
 				envVar: 'TOKEN',
+				value: 'abc',
 				expected: 'string',
 				constraint: 'minLength',
 				bound: 5,
@@ -306,7 +308,7 @@ describe('arg constraints from env', () => {
 		});
 	});
 
-	it('keeps a colon-bearing pattern out of the redacted message', async () => {
+	it('keeps the complete reason after a colon-bearing value', async () => {
 		const { schema, parsed } = parseCommandArg(
 			arg
 				.string()
@@ -317,8 +319,7 @@ describe('arg constraints from env', () => {
 
 		await expect(resolve(schema, parsed, { env: { URL: 'ftp://x' } })).rejects.toMatchObject({
 			code: 'CONSTRAINT_VIOLATED',
-			message:
-				"Invalid value '<redacted>' from env URL for argument <x>: must match /^https?:\\/\\//",
+			message: "Invalid value 'ftp://x' from env URL for argument <x>: must match /^https?:\\/\\//",
 		});
 	});
 
@@ -341,11 +342,10 @@ describe('arg constraints from stdin', () => {
 	it('rejects a malformed piped url', async () => {
 		const { schema, parsed } = parseCommandArg(arg.url().stdin(), []);
 
-		// A parse-function failure outside argv is TYPE_MISMATCH on both surfaces,
-		// and its message is the flag one with the subject swapped.
+		// A parse-function failure outside argv is TYPE_MISMATCH on both surfaces.
 		await expect(resolve(schema, parsed, { stdinData: 'nope' })).rejects.toMatchObject({
 			code: 'TYPE_MISMATCH',
-			message: "Failed to parse stdin value for argument <x>: Invalid URL 'nope'",
+			message: "Failed to parse stdin for argument <x> value 'nope': Invalid URL",
 		});
 	});
 
@@ -354,7 +354,7 @@ describe('arg constraints from stdin', () => {
 
 		await expect(resolve(schema, parsed, { stdinData: '' })).rejects.toMatchObject({
 			code: 'CONSTRAINT_VIOLATED',
-			message: "Invalid value '<redacted>' from stdin for argument <x>: must not be empty",
+			message: "Invalid value '' from stdin for argument <x>: must not be empty",
 			suggest: 'Pipe a valid string to stdin for <x>',
 		});
 	});

@@ -35,6 +35,8 @@ const spelledFlagFields: UnbrandedFlagSchema = {
 	kind: 'string',
 	presence: 'optional',
 	defaultValue: undefined,
+	defaultDescription: undefined,
+	sensitive: false,
 	aliases: [],
 	stdin: undefined,
 	envVar: undefined,
@@ -66,6 +68,8 @@ const spelledArgFields: UnbrandedArgSchema = {
 	variadic: false,
 	stdin: undefined,
 	defaultValue: undefined,
+	defaultDescription: undefined,
+	sensitive: false,
 	description: undefined,
 	envVar: undefined,
 	configPath: undefined,
@@ -309,7 +313,12 @@ describe('schema sealing', () => {
 		});
 
 		it('rebuilds a deep-equal arg schema from its own output', () => {
-			const built = createArgSchema('enum', { enumValues: ['us', 'eu'], description: 'Region' });
+			const built = createArgSchema('enum', {
+				enumValues: ['us', 'eu'],
+				description: 'Region',
+				defaultDescription: 'Europe',
+				sensitive: true,
+			});
 			expect(createArgSchema(built)).toEqual(built);
 		});
 

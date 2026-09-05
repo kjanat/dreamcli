@@ -340,9 +340,51 @@ describe('resolve() — path checks', () => {
 					flag: 'outDir',
 					value: '/readonly/out',
 					constraint: 'create',
+					cause: 'EACCES: permission denied',
 				});
 			}
 		}
+	});
+
+	it('reports a stat failure with the non-sensitive path and cause', async () => {
+		const schema = makeSchema({
+			flags: { input: flag.path({ mustExist: true }).schema },
+		});
+		const parsed = makeParsed({ flags: { input: '/private/input' } });
+
+		await expect(
+			resolve(schema, parsed, {
+				stat: () => Promise.reject(new Error('EACCES for /private/input')),
+			}),
+		).rejects.toMatchObject({
+			code: 'CONSTRAINT_VIOLATED',
+			message:
+				"Failed to inspect path '/private/input' for flag --input: EACCES for /private/input",
+			details: {
+				flag: 'input',
+				value: '/private/input',
+				constraint: 'stat',
+				cause: 'EACCES for /private/input',
+			},
+		});
+	});
+
+	it('omits a sensitive path and path-bearing stat cause', async () => {
+		const schema = makeSchema({
+			flags: { input: flag.path({ mustExist: true }).sensitive().schema },
+		});
+		const parsed = makeParsed({ flags: { input: '/private/secret' } });
+		const error = await resolve(schema, parsed, {
+			stat: () => Promise.reject(new Error('EACCES for /private/secret')),
+		}).catch((thrown: unknown) => thrown);
+
+		expect(isValidationError(error)).toBe(true);
+		expect(error).toMatchObject({
+			message: "Failed to inspect path '<redacted>' for flag --input",
+			details: { flag: 'input', constraint: 'stat' },
+		});
+		expect(JSON.stringify(error)).not.toContain('/private/secret');
+		expect(JSON.stringify(error)).not.toContain('EACCES');
 	});
 
 	it('falls back to existence rules when create is set but no mkdir is available', async () => {
@@ -629,8 +671,12 @@ describe('runCommand — flag.path() end to end', () => {
 		});
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
-		expect(result.error?.message).toBe("Path '<redacted>' for flag --file does not exist");
-		expect(result.error?.details).toEqual({ flag: 'file', constraint: 'mustExist' });
+		expect(result.error?.message).toBe("Path '/env-missing.txt' for flag --file does not exist");
+		expect(result.error?.details).toEqual({
+			flag: 'file',
+			value: '/env-missing.txt',
+			constraint: 'mustExist',
+		});
 		expect(result.error?.suggest).toBe('Provide an existing path for --file');
 		expect(probe.calls).toEqual(['/env-missing.txt']);
 	});
@@ -783,8 +829,14 @@ describe('runCommand — arg.path() end to end', () => {
 		});
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
-		expect(result.error?.message).toBe("Path '<redacted>' for argument <file> does not exist");
-		expect(result.error?.details).toEqual({ arg: 'file', constraint: 'mustExist' });
+		expect(result.error?.message).toBe(
+			"Path '/env-missing.txt' for argument <file> does not exist",
+		);
+		expect(result.error?.details).toEqual({
+			arg: 'file',
+			value: '/env-missing.txt',
+			constraint: 'mustExist',
+		});
 		expect(probe.calls).toEqual(['/env-missing.txt']);
 	});
 
@@ -795,10 +847,11 @@ describe('runCommand — arg.path() end to end', () => {
 		const result = await runCommand(cmd, [], { stdinData: '/piped.txt', stat: probe.stat });
 		expect(result.exitCode).toBe(2);
 		expect(result.error?.message).toBe(
-			"Path '<redacted>' for argument <file> is a directory, expected a file",
+			"Path '/piped.txt' for argument <file> is a directory, expected a file",
 		);
 		expect(result.error?.details).toEqual({
 			arg: 'file',
+			value: '/piped.txt',
 			constraint: 'pathType',
 			expected: 'file',
 		});
@@ -811,8 +864,12 @@ describe('runCommand — arg.path() end to end', () => {
 
 		const result = await runCommand(cmd, [], { stat: probe.stat });
 		expect(result.exitCode).toBe(2);
-		expect(result.error?.message).toBe("Path '<redacted>' for argument <file> does not exist");
-		expect(result.error?.details).toEqual({ arg: 'file', constraint: 'mustExist' });
+		expect(result.error?.message).toBe("Path '/fallback.txt' for argument <file> does not exist");
+		expect(result.error?.details).toEqual({
+			arg: 'file',
+			value: '/fallback.txt',
+			constraint: 'mustExist',
+		});
 	});
 
 	// --- variadic

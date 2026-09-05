@@ -53,7 +53,7 @@ describe('resolve', () => {
 			expect(result.flags).toEqual({ name: 'test-app' });
 		});
 
-		it('omits the config value from constraint error details', async () => {
+		it('reports the config value in constraint error details', async () => {
 			const schema = makeSchema({
 				flags: {
 					name: createFlagSchema('string', {
@@ -70,8 +70,7 @@ describe('resolve', () => {
 				expect(isValidationError(error)).toBe(true);
 				if (isValidationError(error)) {
 					expect(error.code).toBe('CONSTRAINT_VIOLATED');
-					expect(error.details).toMatchObject({ expected: 'string' });
-					expect(error.details).not.toHaveProperty('value');
+					expect(error.details).toMatchObject({ value: 8080, expected: 'string' });
 				}
 			}
 		});
@@ -256,6 +255,7 @@ describe('resolve', () => {
 						flag: 'port',
 						source: 'config',
 						configPath: 'port',
+						value: 'not-a-number',
 						expected: 'number',
 					});
 					expect(err.suggest).toBe('Set port to a valid number in your config');
@@ -414,6 +414,7 @@ describe('resolve', () => {
 						flag: 'region',
 						source: 'config',
 						configPath: 'deploy.region',
+						value: 'jp',
 						allowed: ['us', 'eu', 'ap'],
 					});
 					expect(err.suggest).toBe('Set deploy.region to one of: us, eu, ap');
@@ -995,10 +996,10 @@ describe('resolve — config numeric constraints', () => {
 				expect(err.message).toContain('must be <= 5');
 				expect(err.details).toMatchObject({
 					flag: 'retries',
+					value: '10',
 					expected: 'number',
 					constraint: 'max',
 				});
-				expect(err.details).not.toHaveProperty('value');
 			}
 		}
 	});

@@ -5,10 +5,11 @@ import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
+import type { StandardSchemaV1 } from '#internals/core/schema/standard.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
-// === L18 — no non-literal-CLI source echoes its value into a diagnostic
+// === Schema sensitivity, independent of resolution source
 
 const SECRET = 'sk-live-secret';
 
@@ -27,8 +28,8 @@ async function failure(
 	throw new Error('expected resolution to fail');
 }
 
-/** A command with one number flag reachable from every non-literal-CLI source. */
-function numberFlagCommand(): CommandSchema {
+/** A command with one number flag reachable from every resolver source. */
+function numberFlagCommand(sensitive: boolean): CommandSchema {
 	return createCommandSchema({
 		name: 'test',
 		flags: {
@@ -37,14 +38,14 @@ function numberFlagCommand(): CommandSchema {
 				.stdin()
 				.env('PORT')
 				.config('serve.port')
-				.prompt({ kind: 'input', message: 'Port' }).schema,
+				.prompt({ kind: 'input', message: 'Port' })
+				.sensitive(sensitive).schema,
 		},
 	});
 }
 
 describe('flag diagnostics', () => {
-	// These expectations track the provisional source-based policy pending explicit sensitivity.
-	describe('redact every non-literal CLI source', () => {
+	describe('sensitive inputs redact every resolver source', () => {
 		const cases: ReadonlyArray<readonly [string, ResolveOptions]> = [
 			['stdin', { stdinData: SECRET }],
 			['env', { env: { PORT: SECRET } }],
@@ -52,7 +53,7 @@ describe('flag diagnostics', () => {
 		];
 
 		test.each(cases)('keeps a %s value out of the message and the details', async (_, options) => {
-			const error = await failure(numberFlagCommand(), [], options);
+			const error = await failure(numberFlagCommand(true), [], options);
 
 			expect(error.message).toContain("'<redacted>'");
 			expect(error.message).not.toContain(SECRET);
@@ -63,7 +64,9 @@ describe('flag diagnostics', () => {
 		it('keeps a prompt answer out of the message and the details', async () => {
 			const schema = createCommandSchema({
 				name: 'test',
-				flags: { port: flag.number().prompt({ kind: 'input', message: 'Port' }).schema },
+				flags: {
+					port: flag.number().prompt({ kind: 'input', message: 'Port' }).sensitive().schema,
+				},
 			});
 			const error = await failure(schema, [], {
 				prompter: { promptOne: async () => ({ answered: true, value: SECRET }) },
@@ -77,7 +80,7 @@ describe('flag diagnostics', () => {
 		it('redacts an enum value and keeps the allowed list', async () => {
 			const schema = createCommandSchema({
 				name: 'test',
-				flags: { region: flag.enum(['us', 'eu']).env('REGION').schema },
+				flags: { region: flag.enum(['us', 'eu']).env('REGION').sensitive().schema },
 			});
 			const error = await failure(schema, [], { env: { REGION: SECRET } });
 
@@ -95,7 +98,7 @@ describe('flag diagnostics', () => {
 		it('redacts a constraint violation and keeps the reason', async () => {
 			const schema = createCommandSchema({
 				name: 'test',
-				flags: { token: flag.string().pattern(/^ghp_/).env('TOKEN').schema },
+				flags: { token: flag.string().pattern(/^ghp_/).env('TOKEN').sensitive().schema },
 			});
 			const error = await failure(schema, [], { env: { TOKEN: SECRET } });
 
@@ -107,7 +110,7 @@ describe('flag diagnostics', () => {
 		it('redacts an unreadable key-value pair', async () => {
 			const schema = createCommandSchema({
 				name: 'test',
-				flags: { env: flag.keyValue().env('VARS').schema },
+				flags: { env: flag.keyValue().env('VARS').sensitive().schema },
 			});
 			const error = await failure(schema, [], { env: { VARS: SECRET } });
 
@@ -119,18 +122,77 @@ describe('flag diagnostics', () => {
 		it('names JSON as unreadable without quoting the text', async () => {
 			const schema = createCommandSchema({
 				name: 'test',
-				flags: { tags: flag.array(flag.string()).split({ env: 'json' }).env('TAGS').schema },
+				flags: {
+					tags: flag.array(flag.string()).split({ env: 'json' }).env('TAGS').sensitive().schema,
+				},
 			});
 			const error = await failure(schema, [], { env: { TAGS: SECRET } });
 
-			expect(error.message).toBe('Invalid JSON value from env TAGS for flag --tags');
+			expect(error.message).toBe("Invalid JSON value '<redacted>' from env TAGS for flag --tags");
+			expect(error.details).toEqual({
+				flag: 'tags',
+				source: 'env',
+				envVar: 'TAGS',
+				expected: 'json',
+			});
+		});
+
+		it('omits a JSON parser cause that may contain the sensitive input', async () => {
+			const schema = createCommandSchema({
+				name: 'test',
+				flags: {
+					tags: flag.array(flag.string()).split({ env: 'json' }).env('TAGS').sensitive().schema,
+				},
+			});
+			const error = await failure(schema, [], { env: { TAGS: SECRET } });
+
+			expect(error.details).not.toHaveProperty('cause');
+			expect(error.cause).toBeUndefined();
+			expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+		});
+	});
+
+	describe('non-sensitive inputs expose every resolver source', () => {
+		const cases: ReadonlyArray<readonly [string, readonly string[], ResolveOptions]> = [
+			['stdin fallback', [], { stdinData: SECRET }],
+			['explicit dash', ['--port', '-'], { stdinData: SECRET }],
+			['env', [], { env: { PORT: SECRET } }],
+			['config', [], { config: { serve: { port: SECRET } } }],
+			['prompt', [], { prompter: { promptOne: async () => ({ answered: true, value: SECRET }) } }],
+		];
+
+		test.each(cases)('keeps a %s value in message, details, and JSON', async (_, argv, options) => {
+			const error = await failure(numberFlagCommand(false), argv, options);
+
+			expect(error.message).toContain(`'${SECRET}'`);
+			expect(error.details).toHaveProperty('value', SECRET);
+			expect(JSON.stringify(error.toJSON())).toContain(SECRET);
+		});
+
+		it('keeps malformed JSON and its parser cause', async () => {
+			const raw = '{private-json';
+			const schema = createCommandSchema({
+				name: 'test',
+				flags: {
+					tags: flag.array(flag.string()).split({ env: 'json' }).env('TAGS').schema,
+				},
+			});
+			const error = await failure(schema, [], { env: { TAGS: raw } });
+
+			expect(error.message).toContain(`'${raw}'`);
+			expect(error.details).toMatchObject({
+				value: raw,
+				expected: 'json',
+				cause: expect.any(String),
+			});
+			expect(JSON.stringify(error.toJSON())).toContain(raw);
 		});
 	});
 });
 
-describe('a duplicate key is value text and takes the same rule', () => {
+describe('a duplicate key follows the owning input sensitivity', () => {
 	/** An entries input reachable from stdin, env, and config under `'error'`. */
-	function entriesCommand(surface: 'flag' | 'arg'): CommandSchema {
+	function entriesCommand(surface: 'flag' | 'arg', sensitive = true): CommandSchema {
 		const entries = { stdin: {}, env: 'VARS', config: 'run.vars', duplicateKeys: 'error' } as const;
 		return surface === 'flag'
 			? createCommandSchema({
@@ -141,7 +203,8 @@ describe('a duplicate key is value text and takes the same rule', () => {
 							.stdin()
 							.env(entries.env)
 							.config(entries.config)
-							.duplicateKeys(entries.duplicateKeys).schema,
+							.duplicateKeys(entries.duplicateKeys)
+							.sensitive(sensitive).schema,
 					},
 				})
 			: createCommandSchema({
@@ -155,7 +218,8 @@ describe('a duplicate key is value text and takes the same rule', () => {
 								.stdin()
 								.env(entries.env)
 								.config(entries.config)
-								.duplicateKeys(entries.duplicateKeys).schema,
+								.duplicateKeys(entries.duplicateKeys)
+								.sensitive(sensitive).schema,
 						},
 					],
 				});
@@ -203,8 +267,8 @@ describe('a duplicate key is value text and takes the same rule', () => {
 		expect(error.suggest).toBe('Set the repeated key once for <vars>');
 	});
 
-	it('keeps a key the user typed', async () => {
-		const error = await failure(entriesCommand('flag'), [
+	it('keeps a key from non-sensitive CLI input', async () => {
+		const error = await failure(entriesCommand('flag', false), [
 			'--vars',
 			`${SECRET}=1`,
 			'--vars',
@@ -215,10 +279,24 @@ describe('a duplicate key is value text and takes the same rule', () => {
 		expect(error.details).toEqual({ flag: 'vars', key: SECRET });
 		expect(error.suggest).toBe(`Set '${SECRET}' once for --vars`);
 	});
+
+	it('redacts a key from sensitive CLI input', async () => {
+		const error = await failure(entriesCommand('flag'), [
+			'--vars',
+			`${SECRET}=1`,
+			'--vars',
+			`${SECRET}=2`,
+		]);
+
+		expect(error.message).toBe("Duplicate key '<redacted>' for flag --vars");
+		expect(error.details).toEqual({ flag: 'vars' });
+		expect(error.suggest).toBe('Set the repeated key once for --vars');
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+	});
 });
 
 describe('a JSON shape fault words the source the same way on both surfaces', () => {
-	it('names the source before the expectation on a flag', async () => {
+	it('names the source and value before the expectation on a flag', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
 			flags: { vars: flag.keyValue().split({ env: 'json' }).env('VARS').schema },
@@ -226,12 +304,13 @@ describe('a JSON shape fault words the source the same way on both surfaces', ()
 		const error = await failure(schema, [], { env: { VARS: '["a"]' } });
 
 		expect(error.message).toBe(
-			'Invalid JSON value from env VARS for flag --vars, expected an object',
+			'Invalid JSON value \'["a"]\' from env VARS for flag --vars, expected an object',
 		);
 		expect(error.details).toEqual({
 			flag: 'vars',
 			source: 'env',
 			envVar: 'VARS',
+			value: '["a"]',
 			expected: 'object',
 		});
 	});
@@ -249,8 +328,9 @@ describe('a JSON shape fault words the source the same way on both surfaces', ()
 		const error = await failure(schema, [], { env: { VARS: '["a"]' } });
 
 		expect(error.message).toBe(
-			'Invalid JSON value from env VARS for argument <vars>, expected an object',
+			'Invalid JSON value \'["a"]\' from env VARS for argument <vars>, expected an object',
 		);
+		expect(error.details).toMatchObject({ value: '["a"]', expected: 'object' });
 	});
 });
 
@@ -263,12 +343,19 @@ describe('Standard Schema failures follow the same rule', () => {
 			validate: () => ({ issues: [{ message: 'rejected' }] }),
 		},
 	};
+	const rejectsAsync: StandardSchemaV1 = {
+		'~standard': {
+			version: 1,
+			vendor: 'test',
+			validate: async () => ({ issues: [{ message: 'rejected' }] }),
+		},
+	};
 
 	/** A command whose one flag is reachable from argv, a dash, and the environment. */
-	function validatedCommand(): CommandSchema {
+	function validatedCommand(sensitive = false): CommandSchema {
 		return createCommandSchema({
 			name: 'test',
-			flags: { token: flag.custom(rejects).stdin().env('TOKEN').schema },
+			flags: { token: flag.custom(rejects).stdin().env('TOKEN').sensitive(sensitive).schema },
 		});
 	}
 
@@ -282,8 +369,8 @@ describe('Standard Schema failures follow the same rule', () => {
 		['a piped value', ['--token', '-'], { stdinData: SECRET }],
 		['an environment value', [], { env: { TOKEN: SECRET } }],
 	] as const) {
-		it(`omits ${name}`, async () => {
-			const error = await failure(validatedCommand(), [...argv], options);
+		it(`omits ${name} for a sensitive input`, async () => {
+			const error = await failure(validatedCommand(true), [...argv], options);
 
 			expect(error.details).toEqual({ issues: ['rejected'] });
 			expect(JSON.stringify(error.details)).not.toContain(SECRET);
@@ -293,11 +380,39 @@ describe('Standard Schema failures follow the same rule', () => {
 	it('omits an env-sourced positional value', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
-			args: [{ name: 'token', schema: arg.custom(rejects).env('TOKEN').schema }],
+			args: [{ name: 'token', schema: arg.custom(rejects).env('TOKEN').sensitive().schema }],
 		});
 		const error = await failure(schema, [], { env: { TOKEN: SECRET } });
 
 		expect(error.details).toEqual({ issues: ['rejected'] });
+	});
+
+	it('omits a sensitive CLI value too', async () => {
+		const error = await failure(validatedCommand(true), ['--token', SECRET]);
+
+		expect(error.details).toEqual({ issues: ['rejected'] });
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+	});
+
+	it('shows a non-sensitive default rejected by deferred validation', async () => {
+		const schema = createCommandSchema({
+			name: 'test',
+			flags: { token: flag.custom(rejectsAsync).default(SECRET).schema },
+		});
+		const error = await failure(schema, []);
+
+		expect(error.details).toEqual({ value: SECRET, issues: ['rejected'] });
+	});
+
+	it('omits a sensitive default rejected by deferred validation', async () => {
+		const schema = createCommandSchema({
+			name: 'test',
+			flags: { token: flag.custom(rejectsAsync).default(SECRET).sensitive().schema },
+		});
+		const error = await failure(schema, []);
+
+		expect(error.details).toEqual({ issues: ['rejected'] });
+		expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
 	});
 });
 
@@ -312,12 +427,15 @@ describe('caller-authored text passes through verbatim', () => {
 					.custom((raw) => {
 						throw new Error(`bad input ${String(raw)}`);
 					})
-					.env('TOKEN').schema,
+					.env('TOKEN')
+					.sensitive().schema,
 			},
 		});
 		const error = await failure(schema, [], { env: { TOKEN: SECRET } });
 
-		expect(error.message).toBe(`Failed to parse env TOKEN for flag --token: bad input ${SECRET}`);
+		expect(error.message).toBe(
+			`Failed to parse env TOKEN for flag --token value '<redacted>': bad input ${SECRET}`,
+		);
 		expect(error.details).toEqual({
 			flag: 'token',
 			source: 'env',
@@ -336,7 +454,8 @@ describe('caller-authored text passes through verbatim', () => {
 						.custom((raw) => {
 							throw new Error(`bad input ${String(raw)}`);
 						})
-						.env('TOKEN').schema,
+						.env('TOKEN')
+						.sensitive().schema,
 				},
 			],
 		});
@@ -356,7 +475,7 @@ describe('caller-authored text passes through verbatim', () => {
 		};
 		const schema = createCommandSchema({
 			name: 'test',
-			flags: { token: flag.custom(echoes).env('TOKEN').schema },
+			flags: { token: flag.custom(echoes).env('TOKEN').sensitive().schema },
 		});
 		const error = await failure(schema, [], { env: { TOKEN: SECRET } });
 
@@ -367,7 +486,7 @@ describe('caller-authored text passes through verbatim', () => {
 
 describe('argv keeps its diagnostics literal', () => {
 	it('quotes the token the user typed for a flag', () => {
-		const schema = numberFlagCommand();
+		const schema = numberFlagCommand(false);
 
 		expect(() => parse(schema, ['--port', 'nope'])).toThrow(/Invalid number value 'nope'/);
 	});
@@ -386,7 +505,7 @@ describe('arg diagnostics', () => {
 	it('redacts an env-sourced value and names its source', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
-			args: [{ name: 'port', schema: arg.number().env('PORT').schema }],
+			args: [{ name: 'port', schema: arg.number().env('PORT').sensitive().schema }],
 		});
 		const error = await failure(schema, [], { env: { PORT: SECRET } });
 
@@ -475,8 +594,12 @@ describe('a positional keeps the whole reason a parse function threw', () => {
 			const forFlag = await failure(throwing('flag', message), [], { env: { TOKEN: 'v' } });
 			const forArg = await failure(throwing('arg', message), [], { env: { TOKEN: 'v' } });
 
-			expect(forFlag.message).toBe(`Failed to parse env TOKEN for flag --token: ${message}`);
-			expect(forArg.message).toBe(`Failed to parse env TOKEN for argument <token>: ${message}`);
+			expect(forFlag.message).toBe(
+				`Failed to parse env TOKEN for flag --token value 'v': ${message}`,
+			);
+			expect(forArg.message).toBe(
+				`Failed to parse env TOKEN for argument <token> value 'v': ${message}`,
+			);
 		});
 	}
 
@@ -490,7 +613,7 @@ describe('a positional keeps the whole reason a parse function threw', () => {
 		const error = await failure(schema, [], { env: { ENDPOINT: 'http://example.com' } });
 
 		expect(error.message).toBe(
-			"Failed to parse env ENDPOINT for argument <endpoint>: URL protocol 'http' is not allowed. Allowed: https",
+			"Failed to parse env ENDPOINT for argument <endpoint> value 'http://example.com': URL protocol is not allowed. Allowed: https",
 		);
 	});
 
@@ -502,7 +625,7 @@ describe('a positional keeps the whole reason a parse function threw', () => {
 		const error = await failure(schema, [], { env: { SINCE: 'nope' } });
 
 		expect(error.message).toBe(
-			"Failed to parse env SINCE for argument <since>: Invalid date 'nope': expected ISO-8601 (e.g. 2026-07-10 or 2026-07-10T14:30:00Z)",
+			"Failed to parse env SINCE for argument <since> value 'nope': Invalid date: expected ISO-8601 (e.g. 2026-07-10 or 2026-07-10T14:30:00Z)",
 		);
 	});
 });
@@ -510,14 +633,17 @@ describe('a positional keeps the whole reason a parse function threw', () => {
 describe('a type mismatch says the same thing on both surfaces', () => {
 	it('names the boolean spellings a positional accepts', async () => {
 		const forFlag = await failure(
-			createCommandSchema({ name: 'test', flags: { yes: flag.boolean().env('YES').schema } }),
+			createCommandSchema({
+				name: 'test',
+				flags: { yes: flag.boolean().env('YES').sensitive().schema },
+			}),
 			[],
 			{ env: { YES: SECRET } },
 		);
 		const forArg = await failure(
 			createCommandSchema({
 				name: 'test',
-				args: [{ name: 'yes', schema: arg.boolean().env('YES').schema }],
+				args: [{ name: 'yes', schema: arg.boolean().env('YES').sensitive().schema }],
 			}),
 			[],
 			{ env: { YES: SECRET } },
@@ -537,7 +663,7 @@ describe('a type mismatch says the same thing on both surfaces', () => {
 		});
 	});
 
-	it('names the expected type for a positional a config object could not fill', async () => {
+	it('shows a non-sensitive config object a positional could not read as a string', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
 			args: [{ name: 'target', schema: arg.string().config('deploy.target').schema }],
@@ -545,21 +671,22 @@ describe('a type mismatch says the same thing on both surfaces', () => {
 		const error = await failure(schema, [], { config: { deploy: { target: {} } } });
 
 		expect(error.message).toBe(
-			'Invalid string value from config deploy.target for argument <target>',
+			"Invalid string value '{}' from config deploy.target for argument <target>",
 		);
 		expect(error.details).toEqual({
 			arg: 'target',
 			source: 'config',
 			configPath: 'deploy.target',
+			value: {},
 			expected: 'string',
 		});
 		expect(error.suggest).toBe('Set deploy.target to a valid string for <target>');
 	});
 });
 
-// === a filesystem check reads the same rule as every other diagnostic
+// === Filesystem checks use schema sensitivity too
 
-describe('path checks redact a path no argv token carried', () => {
+describe('sensitive path checks redact every source', () => {
 	const MISSING = '/home/u/.ssh/id_rsa';
 	const nothingExists = (): Promise<'file' | 'directory' | null> => Promise.resolve(null);
 
@@ -567,8 +694,13 @@ describe('path checks redact a path no argv token carried', () => {
 		return createCommandSchema({
 			name: 'test',
 			flags: {
-				key: flag.path({ mustExist: true }).stdin().env('KEY').config('auth.key').default(MISSING)
-					.schema,
+				key: flag
+					.path({ mustExist: true })
+					.stdin()
+					.env('KEY')
+					.config('auth.key')
+					.default(MISSING)
+					.sensitive().schema,
 			},
 		});
 	}
@@ -584,7 +716,8 @@ describe('path checks redact a path no argv token carried', () => {
 						.stdin()
 						.env('KEY')
 						.config('auth.key')
-						.default(MISSING).schema,
+						.default(MISSING)
+						.sensitive().schema,
 				},
 			],
 		});
@@ -615,16 +748,16 @@ describe('path checks redact a path no argv token carried', () => {
 		});
 	}
 
-	it('quotes a path the user typed on the command line', async () => {
+	it('redacts a path typed on the command line too', async () => {
 		const forFlag = await failure(pathFlagCommand(), ['--key', MISSING], {
 			stat: nothingExists,
 		});
 		const forArg = await failure(pathArgCommand(), [MISSING], { stat: nothingExists });
 
-		expect(forFlag.message).toBe(`Path '${MISSING}' for flag --key does not exist`);
-		expect(forFlag.details).toEqual({ flag: 'key', value: MISSING, constraint: 'mustExist' });
-		expect(forArg.message).toBe(`Path '${MISSING}' for argument <key> does not exist`);
-		expect(forArg.details).toEqual({ arg: 'key', value: MISSING, constraint: 'mustExist' });
+		expect(forFlag.message).toBe("Path '<redacted>' for flag --key does not exist");
+		expect(forFlag.details).toEqual({ flag: 'key', constraint: 'mustExist' });
+		expect(forArg.message).toBe("Path '<redacted>' for argument <key> does not exist");
+		expect(forArg.details).toEqual({ arg: 'key', constraint: 'mustExist' });
 	});
 
 	it('hides a path an explicit dash piped in', async () => {
@@ -640,7 +773,7 @@ describe('path checks redact a path no argv token carried', () => {
 	it('hides a non-argv path from a wrong-type report', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
-			flags: { key: flag.path({ type: 'file' }).env('KEY').schema },
+			flags: { key: flag.path({ type: 'file' }).env('KEY').sensitive().schema },
 		});
 		const error = await failure(schema, [], {
 			env: { KEY: MISSING },
@@ -654,7 +787,9 @@ describe('path checks redact a path no argv token carried', () => {
 	it('hides a non-argv path from a failed directory creation', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
-			flags: { out: flag.path({ type: 'directory', create: true }).env('OUT').schema },
+			flags: {
+				out: flag.path({ type: 'directory', create: true }).env('OUT').sensitive().schema,
+			},
 		});
 		const error = await failure(schema, [], {
 			env: { OUT: MISSING },
@@ -662,14 +797,20 @@ describe('path checks redact a path no argv token carried', () => {
 			mkdir: () => Promise.reject(new Error('EACCES')),
 		});
 
-		expect(error.message).toBe("Failed to create directory '<redacted>' for flag --out: EACCES");
+		expect(error.message).toBe("Failed to create directory '<redacted>' for flag --out");
 		expect(error.details).toEqual({ flag: 'out', constraint: 'create' });
+		expect(JSON.stringify(error.toJSON())).not.toContain('EACCES');
 	});
 
 	it('checks every element of a collection an env value split', async () => {
 		const schema = createCommandSchema({
 			name: 'test',
-			flags: { keys: flag.array(flag.path({ mustExist: true })).env('KEYS').schema },
+			flags: {
+				keys: flag
+					.array(flag.path({ mustExist: true }))
+					.env('KEYS')
+					.sensitive().schema,
+			},
 		});
 		const error = await failure(schema, [], {
 			env: { KEYS: `${MISSING},/other/secret` },

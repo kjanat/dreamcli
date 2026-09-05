@@ -166,6 +166,26 @@ function formatHelpDefaultValue(value: unknown): string {
 	return formatDisplayValue(value);
 }
 
+/** Format one input's default annotation under its presentation and sensitivity policy. */
+function formatDefaultAnnotation(
+	schema: {
+		readonly presence: 'optional' | 'required' | 'defaulted';
+		readonly defaultValue: unknown;
+		readonly defaultDescription: string | false | undefined;
+		readonly sensitive: boolean;
+	},
+	theme: HelpTheme,
+	suppressAutomatic: boolean,
+): string | undefined {
+	if (schema.defaultDescription === false) return undefined;
+	if (typeof schema.defaultDescription === 'string') {
+		return theme.defaultValue(`(default: ${schema.defaultDescription})`);
+	}
+	if (schema.sensitive || suppressAutomatic) return undefined;
+	if (schema.presence !== 'defaulted' && schema.defaultValue === undefined) return undefined;
+	return theme.defaultValue(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`);
+}
+
 // --- Flag formatting
 
 /** Formatted flag entry for the flags table. @internal */
@@ -312,14 +332,13 @@ function formatFlagDescription(
 	// required stage never reports it missing.
 	if (schema.presence === 'required' && schema.defaultValue === undefined) {
 		parts.push(theme.annotation('[required]'));
-	} else if (
-		(schema.presence === 'defaulted' || schema.defaultValue !== undefined) &&
-		schema.kind !== 'boolean' &&
-		schema.kind !== 'count'
-	) {
-		// Don't show "(default: false)" for boolean or "(default: 0)" for
-		// count — both are obvious
-		parts.push(theme.defaultValue(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`));
+	} else {
+		const defaultAnnotation = formatDefaultAnnotation(
+			schema,
+			theme,
+			schema.kind === 'boolean' || schema.kind === 'count',
+		);
+		if (defaultAnnotation !== undefined) parts.push(defaultAnnotation);
 	}
 
 	return parts.join(' ');
@@ -442,9 +461,8 @@ function formatArgDescription(
 		parts.push(theme.annotation('[prompt]'));
 	}
 
-	if (schema.presence === 'defaulted' || schema.defaultValue !== undefined) {
-		parts.push(theme.defaultValue(`(default: ${formatHelpDefaultValue(schema.defaultValue)})`));
-	}
+	const defaultAnnotation = formatDefaultAnnotation(schema, theme, false);
+	if (defaultAnnotation !== undefined) parts.push(defaultAnnotation);
 
 	return parts.join(' ');
 }

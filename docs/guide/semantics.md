@@ -142,17 +142,20 @@ and accepts `\n`, `\r\n`, and `\r`: `'a\nb\n'` gives `['a', 'b']` and
 Under `'error'`, each occurrence keeps its own source through aggregation, so a
 collection filled from both the command line and a pipe names whichever one
 carried the repeat. Tokens the user typed name no source. A key is half of a
-`KEY=VALUE` pair, so it takes the redaction rule below: quoted in full when the
-user typed it, `<redacted>` from every other source.
+`KEY=VALUE` pair, so it follows the input's sensitivity rule: quoted from every
+source by default and replaced with `<redacted>` when the input is sensitive.
 
 ```bash
 $ mycli set --v A=1 --v A=2
 Duplicate key 'A' for flag --v
 
 $ printf 'A=2\n' | mycli set --v A=1 --v -
-Duplicate key '<redacted>' from stdin for flag --v
+Duplicate key 'A' from stdin for flag --v
 
 $ VARS='A=1,A=2' mycli set
+Duplicate key 'A' from env VARS for flag --v
+
+# with flag.keyValue().sensitive()
 Duplicate key '<redacted>' from env VARS for flag --v
 ```
 
@@ -472,48 +475,45 @@ definition document carries it.
 
 ## Diagnostics and Redaction
 
-One rule governs every resolution diagnostic on both surfaces: a value the user
-typed on the command line is quoted in full, and raw input from any other source
-is not shown. Diagnostics that otherwise quote the value replace it with
-`<redacted>`; JSON collection failures omit it entirely. This source-based rule
-is provisional;
-[#120](https://github.com/kjanat/dreamcli/issues/120) tracks replacing it with
-explicit sensitivity metadata.
+One rule governs framework diagnostics on both surfaces: the owning flag or
+argument schema decides sensitivity. Values are visible by default from every
+source. `.sensitive()` replaces framework-controlled value text with
+`<redacted>` and omits raw-derived fields from structured details.
 
-| Source  | Message quotes      | `details.value` | Reason                                  |
-| ------- | ------------------- | --------------- | --------------------------------------- |
-| argv    | the token, verbatim | present         | it is already on the user's screen      |
-| stdin   | `'<redacted>'`      | absent          | a pipe carries secrets                  |
-| env     | `'<redacted>'`      | absent          | an environment variable carries secrets |
-| config  | `'<redacted>'`      | absent          | a config file carries secrets           |
-| prompt  | `'<redacted>'`      | absent          | an answer may be a password             |
-| default | `'<redacted>'`      | absent          | a declared default may hold a secret    |
+| Input declaration | Sources                                  | Message value | Raw-derived details |
+| ----------------- | ---------------------------------------- | ------------- | ------------------- |
+| default           | argv, stdin, env, config, prompt, default | visible       | present             |
+| `.sensitive()`    | argv, stdin, env, config, prompt, default | `<redacted>`  | absent              |
 
-An explicit `-` counts as a stdin value, not an argv one because the bytes came
-from the pipe rather than from the token.
+An explicit `-` still records stdin as the source because its bytes came from
+the pipe, but that provenance does not decide secrecy.
 
-The rule reaches every diagnostic resolution produces, including the ones a
-later pass writes: a Standard Schema issue and a `flag.path()` / `arg.path()`
-filesystem check both quote `<redacted>` and omit `details.value` unless an
-argv token carried the value.
+The same rule reaches every later diagnostic pass. Sensitive collection keys,
+Standard Schema issue paths and record keys, filesystem paths, and path-bearing
+adapter causes are omitted. Framework-computed collection indices remain, so a
+sensitive element failure can still name `--tag[1]` without exposing the value.
+Help also omits a sensitive input's automatic default annotation; an explicit
+safe `.default(value, { description })` remains visible.
 
 ```bash
-$ mycli deploy --token sk-live-9f2
-Invalid value 'sk-live-9f2' for flag --token: must be at least 9 characters
+# flag.string().minLength(9).env('API_TOKEN')
+$ API_TOKEN=sk-9f2 mycli deploy
+Invalid value 'sk-9f2' from env API_TOKEN for flag --token: must be at least 9 characters
 
-$ API_TOKEN=sk-live-9f2 mycli deploy
+# flag.string().minLength(9).env('API_TOKEN').sensitive()
+$ API_TOKEN=sk-9f2 mycli deploy
 Invalid value '<redacted>' from env API_TOKEN for flag --token: must be at least 9 characters
 
-$ printf 'sk-live-9f2' | mycli deploy --token -
-Invalid value '<redacted>' from stdin for flag --token: must be at least 9 characters
+$ mycli deploy --token sk-9f2
+Invalid value '<redacted>' for flag --token: must be at least 9 characters
 ```
 
 The argument surface words the same failures with `for argument <token>` in
 place of `for flag --token`, and is otherwise byte for byte identical.
 
-Everything that identifies the failure survives redaction. `details` carries the
-input name under `flag` or `arg`, the winning source under `source`, the
-`envVar` or `configPath` that named it, the `expected` type, the `constraint`
+Everything that identifies a sensitive failure survives redaction. `details`
+carries the input name under `flag` or `arg`, the winning source under `source`,
+the `envVar` or `configPath` that named it, the `expected` type, the `constraint`
 that failed with its `bound` or `pattern`, and the `allowed` enum values:
 
 ```json
@@ -536,18 +536,18 @@ Multiple validation errors (1 flag, 1 arg):
 ```
 
 A Standard Schema failure follows the same rule. Its `details` always carries
-`issues`, and carries `value` only for a value typed on the command line.
+`issues`, and carries `value` only when the input is not sensitive.
 
-Codes differ by source too, because a CLI token fails at the parse boundary and
-every other source fails during resolution. A malformed argv token throws
+Codes differ by boundary because a CLI token fails during parsing and every
+other source fails during resolution. A malformed argv token throws
 `INVALID_VALUE`; the same text from env, config, stdin, or a prompt throws
 `TYPE_MISMATCH` when it does not decode, `INVALID_ENUM` when it is outside an
 enum, and `CONSTRAINT_VIOLATED` when it decodes but violates a constraint.
 
-One channel the framework cannot redact: the text your own code writes. A
-`flag.custom()` parse function's thrown message and a Standard Schema issue
-message are shown verbatim, so a parse function that interpolates its input
-publishes that input from every source:
+One channel remains deliberately outside framework redaction: text your own code
+writes. A `flag.custom()` parse function's thrown message and a Standard Schema
+issue message are shown verbatim, so a parse function that interpolates its
+input publishes that input even when the schema is sensitive:
 
 ```ts
 flag.custom((v) => {
@@ -556,6 +556,8 @@ flag.custom((v) => {
 ```
 
 Write those messages so they describe the expectation rather than the value.
+Built-in date, URL, duration, and byte parsers keep their reasons raw-free so
+their surrounding framework diagnostic can apply sensitivity safely.
 
 ## Non-Interactive Behavior
 

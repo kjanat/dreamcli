@@ -27,6 +27,8 @@ describe('definition meta-schema descriptions', () => {
 		expect(descriptions.defs.flag?.properties?.configPath).toEqual({
 			description: "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
 		});
+		expect(descriptions.defs.flagElement?.properties).not.toHaveProperty('sensitive');
+		expect(descriptions.defs.flagElement?.properties).not.toHaveProperty('defaultDescription');
 		expect(descriptions.defs.prompt?.properties?.message).toEqual({
 			description: 'The question displayed to the user.',
 		});
@@ -46,6 +48,7 @@ describe('definition meta-schema descriptions', () => {
 
 		expect(rendered).toContain('const definitionMetaSchemaDescriptions = {');
 		expect(rendered).toContain('"flag": {');
+		expect(rendered).toContain('"flagElement": {');
 		expect(rendered).toContain('"prompt": {');
 		expect(rendered).toContain('export { definitionMetaSchemaDescriptions };');
 	});

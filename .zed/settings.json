@@ -3,9 +3,7 @@
 // For a full list of overridable settings, and general information on folder-specific settings,
 // see the documentation: https://zed.dev/docs/configuring-zed#settings-files
 {
-	"terminal": {
-		"shell": "system"
-	},
+	"terminal": { "shell": "system" },
 	"hard_tabs": true,
 	"tab_size": 2,
 	"wrap_guides": [100],
@@ -31,13 +29,7 @@
 				"source.fixAll.biome": true,
 				"source.organizeImports.biome": true
 			},
-			"language_servers": [
-				"typescript-ls",
-				"biome",
-				"oxlint",
-				"deno",
-				"!typescript-language-server"
-			]
+			"language_servers": ["typescript", "biome", "oxlint", "deno", "!typescript-language-server"]
 		},
 		"TypeScript": {
 			"formatter": [
@@ -54,14 +46,7 @@
 				"source.fixAll.biome": true,
 				"source.organizeImports.biome": true
 			},
-			"language_servers": [
-				"typescript-ls",
-				"biome",
-				"oxlint",
-				"deno",
-				"vue-language-server",
-				"!typescript-language-server"
-			]
+			"language_servers": ["typescript", "biome", "oxlint", "deno", "vue-language-server"]
 		}
 	},
 	"lsp": {
