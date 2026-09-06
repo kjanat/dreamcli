@@ -4,12 +4,14 @@
  * @module dreamcli/core/help/help.test
  */
 
+import { createColors } from 'ansispeck';
 import { describe, expect, it } from 'vitest';
 
 import { arg, createArgSchema } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { createFlagSchema, flag } from '#internals/core/schema/flag.ts';
 
+import { stripAnsi, visibleWidth } from './ansi.ts';
 import { formatHelp } from './index.ts';
 
 // --- Helpers
@@ -140,6 +142,75 @@ describe('formatHelp', () => {
 	// -----------------------------------------------------------------------
 
 	describe('arguments section', () => {
+		const resources = [
+			'summary',
+			'status',
+			'components',
+			'incidents',
+			'incidents/unresolved',
+			'scheduled-maintenances',
+			'scheduled-maintenances/active',
+			'scheduled-maintenances/upcoming',
+		] as const;
+
+		it.each([40, 80])('fits long positional choices into %i columns', (width) => {
+			const cmd = command('api').arg(
+				'resource',
+				arg.enum(resources).default('summary').describe('Status API resource to fetch'),
+			);
+			const help = formatHelp(cmd.schema, { width });
+			expect(help).toContain('Usage: api [resource]\n');
+			expect(help).toContain('Arguments:\n  [resource]  Status API resource');
+			expect(help).toContain('(default: summary)');
+			expect(help).toContain('\n    Choices: summary, status,');
+			for (const resource of resources) expect(help).toContain(resource);
+			for (const line of help.split('\n')) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			expect(help.endsWith('\n')).toBe(true);
+		});
+
+		it.each([
+			{ builder: arg.enum(resources), token: '<resource>' },
+			{ builder: arg.enum(resources).optional(), token: '[resource]' },
+			{ builder: arg.enum(resources).variadic(), token: '<resource>...' },
+		])('preserves $token and choices without a description', ({ builder, token }) => {
+			const help = formatHelp(command('api').arg('resource', builder).schema);
+			expect(help).toContain(`Usage: api ${token}\n`);
+			expect(help).toContain(`Arguments:\n  ${token}\n    Choices:`);
+			for (const resource of resources) expect(help).toContain(resource);
+		});
+
+		it('keeps choices inline when the available width accommodates them', () => {
+			const help = formatHelp(command('api').arg('resource', arg.enum(resources)).schema, {
+				width: 400,
+			});
+			expect(help).toContain(`Usage: api <${resources.join('|')}>\n`);
+			expect(help).not.toContain('Choices:');
+		});
+
+		it('moves a long default below the argument instead of overflowing the description column', () => {
+			const cmd = command('api').arg(
+				'resource',
+				arg.enum(resources).default('scheduled-maintenances/upcoming'),
+			);
+			const help = formatHelp(cmd.schema, { width: 40 });
+			expect(help).toContain('Arguments:\n  [resource]\n    (default:');
+			expect(help).toContain('scheduled-maintenances/upcoming)');
+			for (const line of help.split('\n')) expect(visibleWidth(line)).toBeLessThanOrEqual(40);
+		});
+
+		it('measures styled choices and indents continued usage without losing arguments', () => {
+			const cmd = command('api')
+				.arg('environment', arg.string())
+				.arg('resource', arg.enum(resources).default('summary'));
+			const options = { width: 40, binName: 'status-client' };
+			const plain = formatHelp(cmd.schema, options);
+			const styled = formatHelp(cmd.schema, { ...options, colors: createColors(true) });
+			expect(plain).toContain('Usage: status-client api <environment>\n       [resource]\n');
+			expect(styled).not.toBe(plain);
+			expect(stripAnsi(styled)).toBe(plain);
+			for (const line of styled.split('\n')) expect(visibleWidth(line)).toBeLessThanOrEqual(40);
+		});
+
 		it('lists positional args with descriptions', () => {
 			const cmd = command('deploy')
 				.arg('target', arg.string().describe('Deploy target'))

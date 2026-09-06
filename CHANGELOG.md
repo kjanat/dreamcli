@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Keep long positional choices readable in help** (https://github.com/kjanat/dreamcli/issues/125).\
+  Use the argument name when an inline enum list is too wide, show the accepted choices on wrapped lines in Arguments, and indent continued Usage lines. Short choice lists retain their inline form.
 - **Completion script headers name the program version** (https://github.com/kjanat/dreamcli/issues/131).\
   The first comment line of every generated script now reads `<name> v<version>` when the CLI declares a version, so an installed script records which release of the program it completes, alongside the existing DreamCLI build tag.
 
