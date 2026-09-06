@@ -81,9 +81,8 @@ type ResolvedPromptConfig =
 /**
  * Prompt engine interface.
  *
- * Implementations render a single prompt to the user and return the
- * result. The engine is stateless per call — each `promptOne` is
- * independent.
+ * Implementations present one prompt per `promptOne()` call and return
+ * the result. Engines may retain state across calls, such as an answer queue.
  *
  * The resolution chain calls `promptOne` for each flag that needs
  * interactive input. Engines do not need schema knowledge — all

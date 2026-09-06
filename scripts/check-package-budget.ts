@@ -20,6 +20,8 @@ interface Budget {
 	readonly hotPathModules: number;
 }
 
+// Deliberately tight ceilings: future API or JSDoc growth must fit these limits
+// or include a reviewed budget increase alongside the change that needs it.
 const BUDGET: Budget = {
 	tarballBytes: 200_000,
 	unpackedBytes: 750_000,
@@ -213,7 +215,11 @@ function main(): number {
 			`${kb(metrics.hotPathBytes)} in ${metrics.hotPathModules} modules`,
 			`< ${kb(BUDGET.hotPathBytes)}, <= ${BUDGET.hotPathModules} modules`,
 		],
-		['hot path externals', reached.externals.join(', '), HOT_PATH_EXTERNALS.join(', ')],
+		[
+			'hot path externals',
+			reached.externals.join(', '),
+			`allowed: ${HOT_PATH_EXTERNALS.join(', ')}`,
+		],
 		['forbidden', String(forbidden.length), '0'],
 	];
 	const width = Math.max(...rows.map(([label]) => label.length));

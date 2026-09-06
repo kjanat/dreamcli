@@ -1,8 +1,8 @@
 # @kjanat/dreamcli/config
 
-Config file and package manifest discovery. `cli().run()` loads this module on demand when
-`.config()` or `.manifest()` is active; import it directly for custom bootstrapping or to register
-config formats.
+Config file and package manifest discovery. `cli().run()` loads discovery code on demand when
+config or manifest discovery runs. Preloaded `.manifest(data)` keeps discovery cold.
+Import this module directly for custom bootstrapping or to register config formats.
 
 ```ts twoslash
 import {
@@ -167,4 +167,3 @@ const url: string = packageRepositoryUrl(
 
 This subpath statically includes config and manifest discovery, so code that only needs
 `packageRepositoryUrl` for a manifest it already holds pays for both.
-

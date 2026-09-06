@@ -1,10 +1,9 @@
 import { existsSync } from 'node:fs';
-import { profile, ignoreRules } from './.attw.json' with { type: 'json' };
-import { engines, version } from './package.json' with { type: 'json' };
-import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
-
 import type { AttwOptions, UserConfig } from 'tsdown';
 import { defineConfig } from 'tsdown';
+import { ignoreRules, profile } from './.attw.json' with { type: 'json' };
+import { engines, version } from './package.json' with { type: 'json' };
+import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 
 export const entries = {
 	index: 'src/index.ts',
@@ -25,10 +24,12 @@ const LAZY_MODULES = [
 ];
 
 function isCoreModule(id: string): boolean {
+	// Rolldown supplies native paths on Windows; the chunk rules use slashes.
+	const path = id.replaceAll('\\', '/');
 	return (
-		/\/src\/(core|runtime)\/.+\.ts$|\/src\/strings\.ts$/.test(id) &&
-		!id.endsWith('.d.ts') &&
-		!LAZY_MODULES.some((pattern) => pattern.test(id))
+		/\/src\/(core|runtime)\/.+\.ts$|\/src\/strings\.ts$/.test(path) &&
+		!path.endsWith('.d.ts') &&
+		!LAZY_MODULES.some((pattern) => pattern.test(path))
 	);
 }
 

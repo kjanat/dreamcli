@@ -11,7 +11,7 @@ generators. The builder loads `index.ts` with a dynamic import, and consumers re
 | ---------------------- | -------------------------------------------------------- |
 | `shell.ts`             | `Shell` type, `SHELLS`, `normalizeShell`, `detectShell`  |
 | `index.ts`             | Generators plus `generateCompletion()` dispatch          |
-| `shells/shared.ts`     | `CommandNode`, `walkCommandTree`, escaping, `programTag` |
+| `shells/shared.ts`     | `CommandNode`, `walkCommandTree`, escaping, `versionTag` |
 | `shells/bash.ts`       | `generateBashCompletion()` + all bash helpers            |
 | `shells/zsh.ts`        | `generateZshCompletion()` + all zsh helpers              |
 | `shells/fish.ts`       | `generateFishCompletion()` + fish path scanner helpers   |

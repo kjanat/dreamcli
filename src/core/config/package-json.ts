@@ -22,7 +22,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 // --- Types
 
 /**
- * Object form of the package.json `repository` field
+ * Object form of a manifest's `repository` field
  * (e.g. `{"type":"git","url":"git+https://github.com/u/r.git"}`).
  */
 interface PackageRepository {
@@ -35,14 +35,15 @@ interface PackageRepository {
 }
 
 /**
- * Subset of manifest fields relevant to CLI metadata.
+ * Subset of manifest fields relevant to CLI metadata (`package.json`,
+ * `deno.json`, `jsr.json`, or preloaded data).
  *
  * All fields are optional — a valid manifest may omit any of them.
  */
 interface PackageJsonData {
 	/** Package name (e.g. `@scope/mycli`). */
 	readonly name?: string;
-	/** Semver version string from `package.json`. */
+	/** Semver version string from manifest metadata. */
 	readonly version?: string;
 	/** One-line package description. */
 	readonly description?: string;
@@ -354,7 +355,7 @@ function parsePackageJson(content: string): PackageJsonData | null {
 }
 
 /**
- * Parse the `bin` field from package.json.
+ * Parse the `bin` field from manifest metadata.
  *
  * Accepts either a string (`"bin": "./dist/cli.js"`) or an object
  * (`"bin": { "mycli": "./dist/cli.js" }`). Returns `undefined` for
@@ -374,7 +375,7 @@ function parseBinField(value: unknown): string | Readonly<Record<string, string>
 }
 
 /**
- * Parse the `repository` field from package.json.
+ * Parse the `repository` field from manifest metadata.
  *
  * Accepts either a locator string (`"repository": "github:u/r"`) or an
  * object (`"repository": { "type": "git", "url": "..." }`). Returns

@@ -49,8 +49,8 @@ features:
     title: Typed Middleware
     details: Context accumulates through the middleware chain via type intersection. No manual interface merging.
   - icon:
-      light: /icons/zero-deps-light.svg
-      dark: /icons/zero-deps-dark.svg
+      light: /icons/lean-install-light.svg
+      dark: /icons/lean-install-dark.svg
       height: 48
     title: Lean Install
     details: One runtime dependency, ansispeck, for terminal colors. ESM-only. Runs on Node, Bun, and Deno.

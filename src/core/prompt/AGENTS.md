@@ -27,7 +27,7 @@ receives already-resolved prompt configs from the resolve layer.
 ## CONVENTIONS
 
 - This module imports `schema/prompt.ts` directly; the direct edge is intentional
-- Prompt engines are stateless per `promptOne()` call
+- Prompt engines present one prompt per `promptOne()` call and may retain state across calls
 - Choice merging happens before the engine sees config; engines should not infer enum choices
   themselves
 - `TestAnswer` stays `unknown` so downstream validation paths can be tested

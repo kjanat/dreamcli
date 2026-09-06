@@ -38,7 +38,7 @@ interface PackageRepositoryUrlOptions {
 }
 
 /**
- * Resolve a package's `repository` field to a browsable `https://` URL.
+ * Resolve a manifest's `repository` field to a browsable `https://` URL.
  *
  * Handles the locator formats npm accepts:
  * - object form: `{ "type": "git", "url": "git+https://github.com/u/r.git" }`
@@ -66,7 +66,7 @@ function packageRepositoryUrl(
 	pkg: PackageJsonData,
 	options: PackageRepositoryUrlOptions & { readonly require: true },
 ): string;
-/** Resolve a package repository URL, returning `undefined` for absent or invalid locators. */
+/** Resolve a manifest repository URL, returning `undefined` for absent or invalid locators. */
 function packageRepositoryUrl(
 	pkg: PackageJsonData,
 	options?: PackageRepositoryUrlOptions,

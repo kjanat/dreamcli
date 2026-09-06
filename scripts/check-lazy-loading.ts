@@ -7,55 +7,40 @@ import { pathToFileURL } from 'node:url';
 interface Scenario {
 	readonly name: string;
 	readonly argv: readonly string[];
-	readonly exactly?: readonly string[];
-	readonly loads?: readonly string[];
-	readonly never: readonly string[];
+	readonly exactly: readonly string[];
 }
 
-const FEATURE_CHUNKS = [
-	'completion',
-	'json-schema',
-	'config',
-	'package-json',
-	'terminal',
-	'test-prompter',
-];
-
-function never(...loaded: readonly string[]): string[] {
-	return FEATURE_CHUNKS.filter((chunk) => !loaded.includes(chunk));
-}
+const HOT_PATH = ['index', 'core'];
+// Dynamic feature chunks also import Rolldown's shared interop helpers.
+const FEATURE_BASE = [...HOT_PATH, 'rolldown-runtime'];
 
 const SCENARIOS: readonly Scenario[] = [
-	{ name: 'plain', argv: ['deploy', '--region', 'eu'], exactly: ['index', 'core'], never: never() },
+	{ name: 'plain', argv: ['deploy', '--region', 'eu'], exactly: HOT_PATH },
 	{
 		name: 'help-json',
 		argv: ['--help', '--json'],
-		loads: ['json-schema'],
-		never: never('json-schema'),
+		exactly: [...FEATURE_BASE, 'json-schema'],
 	},
 	{
 		name: 'completions-command',
 		argv: ['completions', 'bash'],
-		loads: ['completion'],
-		never: never('completion'),
+		exactly: [...FEATURE_BASE, 'completion', 'version'],
 	},
 	{
 		name: 'completions-flag',
 		argv: ['--completions', 'zsh'],
-		loads: ['completion'],
-		never: never('completion'),
+		exactly: [...FEATURE_BASE, 'completion', 'version'],
 	},
-	{ name: 'config', argv: ['deploy', '--region', 'eu'], loads: ['config'], never: never('config') },
+	{ name: 'config', argv: ['deploy', '--region', 'eu'], exactly: [...FEATURE_BASE, 'config'] },
 	{
 		name: 'manifest',
 		argv: ['deploy', '--region', 'eu'],
-		loads: ['package-json'],
-		never: never('package-json'),
+		exactly: [...FEATURE_BASE, 'package-json'],
 	},
-	{ name: 'manifest-data', argv: ['deploy', '--region', 'eu'], never: never() },
-	{ name: 'tty-no-prompt', argv: ['deploy', '--region', 'eu'], never: never() },
-	{ name: 'tty-prompt', argv: ['deploy'], loads: ['terminal'], never: never('terminal') },
-	{ name: 'answers', argv: [], loads: ['test-prompter'], never: never('test-prompter') },
+	{ name: 'manifest-data', argv: ['deploy', '--region', 'eu'], exactly: HOT_PATH },
+	{ name: 'tty-no-prompt', argv: ['deploy', '--region', 'eu'], exactly: HOT_PATH },
+	{ name: 'tty-prompt', argv: ['deploy'], exactly: [...FEATURE_BASE, 'terminal'] },
+	{ name: 'answers', argv: [], exactly: [...FEATURE_BASE, 'test-prompter'] },
 ];
 
 function chunkName(url: string): string {
@@ -63,7 +48,7 @@ function chunkName(url: string): string {
 	return file.replace(/(-[A-Za-z0-9_-]{8})?\.mjs$/, '');
 }
 
-function trace(scenario: Scenario, traceDir: string): Set<string> {
+function trace(scenario: Scenario, traceDir: string): readonly string[] {
 	const traceFile = join(traceDir, `${scenario.name}.txt`);
 	const result = Bun.spawnSync(['node', 'scripts/lazy-loading/fixture.mjs', ...scenario.argv], {
 		env: {
@@ -83,7 +68,9 @@ function trace(scenario: Scenario, traceDir: string): Set<string> {
 	const lines = readFileSync(traceFile, 'utf8')
 		.split('\n')
 		.filter((line) => line !== '');
-	return new Set(lines.map(chunkName));
+	// Deduplicate URLs before stripping hashes, so two distinct modules with
+	// the same logical name still count twice in the exact comparison.
+	return [...new Set(lines)].map(chunkName);
 }
 
 function main(): number {
@@ -94,17 +81,9 @@ function main(): number {
 			const loaded = trace(scenario, traceDir);
 			const listed = [...loaded].sort().join(', ');
 			console.log(`${scenario.name.padEnd(20)} ${listed}`);
-			if (scenario.exactly !== undefined) {
-				const expected = [...scenario.exactly].sort().join(', ');
-				if (listed !== expected) {
-					violations.push(`${scenario.name}: loaded [${listed}], expected exactly [${expected}]`);
-				}
-			}
-			for (const chunk of scenario.loads ?? []) {
-				if (!loaded.has(chunk)) violations.push(`${scenario.name}: did not load ${chunk}`);
-			}
-			for (const chunk of scenario.never) {
-				if (loaded.has(chunk)) violations.push(`${scenario.name}: loaded ${chunk}`);
+			const expected = [...scenario.exactly].sort().join(', ');
+			if (listed !== expected) {
+				violations.push(`${scenario.name}: loaded [${listed}], expected exactly [${expected}]`);
 			}
 		}
 	} finally {

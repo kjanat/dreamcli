@@ -5,12 +5,37 @@ register('./hooks.mjs', import.meta.url);
 const dist = new URL('../../dist/', import.meta.url);
 const { cli, command, flag } = await import(new URL('index.mjs', dist).href);
 
-async function ttyAdapter(stdinLine) {
-	const { createNodeAdapter } = await import(new URL('runtime.mjs', dist).href);
+// Keep fixture scaffolding out of the DreamCLI module trace.
+/** @returns {import('../../src/runtime/adapter.ts').RuntimeAdapter} */
+function ttyAdapter(stdinLine) {
 	return {
-		...createNodeAdapter(),
+		argv: process.argv,
+		env: {},
+		cwd: process.cwd(),
+		stdout: (text) => {
+			process.stdout.write(text);
+		},
+		stderr: (text) => {
+			process.stderr.write(text);
+		},
+		isTTY: false,
 		stdinIsTTY: true,
 		stdin: async () => stdinLine,
+		readStdin: async () => null,
+		getTerminalSize: () => undefined,
+		onTerminalResize: () => undefined,
+		exit: (code) => process.exit(code),
+		readFile: async () => {
+			throw new Error('unexpected fixture file read');
+		},
+		stat: async () => {
+			throw new Error('unexpected fixture stat');
+		},
+		mkdir: async () => {
+			throw new Error('unexpected fixture mkdir');
+		},
+		homedir: process.cwd(),
+		configDir: process.cwd(),
 	};
 }
 
@@ -42,12 +67,12 @@ switch (scenario) {
 	case 'tty-no-prompt':
 		await cli('app')
 			.command(deploy)
-			.run({ adapter: await ttyAdapter('eu') });
+			.run({ adapter: ttyAdapter('eu') });
 		break;
 	case 'tty-prompt':
 		await cli('app')
 			.command(deploy)
-			.run({ adapter: await ttyAdapter('eu') });
+			.run({ adapter: ttyAdapter('eu') });
 		break;
 	case 'answers':
 		await cli('app')

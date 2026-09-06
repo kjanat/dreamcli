@@ -2,8 +2,8 @@
  * Scripted prompt engine for tests.
  *
  * `executeCommand()` loads this module on demand when `RunOptions.answers` is
- * set, and `@kjanat/dreamcli/testkit` re-exports it, so a production CLI never
- * carries it.
+ * set, and `@kjanat/dreamcli/testkit` re-exports it. The package ships this
+ * module, but it stays off the normal production hot path.
  *
  * @module dreamcli/core/prompt/test-prompter
  */
