@@ -409,13 +409,15 @@ function buildFlagEntries(
  * Format a positional arg for the usage line.
  *
  * @param entry - The {@link CommandArgEntry} containing name and schema.
+ * @param maxWidth - Width available for inline choices before using the argument name.
  * @returns Bracketed arg token, e.g. `<file>` or `[output]...`.
  */
-function formatArgUsage(entry: CommandArgEntry): string {
+function formatArgUsage(entry: CommandArgEntry, maxWidth = Infinity): string {
 	const { name, schema } = entry;
-	const label =
+	let label =
 		schema.kind === 'enum' && schema.enumValues !== undefined ? schema.enumValues.join('|') : name;
 	const variadicSuffix = schema.variadic ? '...' : '';
+	if (visibleWidth(label) + 2 + variadicSuffix.length > maxWidth) label = name;
 	// A positional carrying a default resolves one whatever its presence says, so
 	// the usage line does not demand a token for it.
 	if (schema.presence === 'required' && schema.defaultValue === undefined) {
@@ -551,7 +553,7 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
  *
  * @param schema - The {@link CommandSchema} to summarize.
  * @param opts - Resolved help options (bin name, default-help flag).
- * @returns Single-line usage string, e.g. `Usage: mycli deploy [flags] <env>`.
+ * @returns Usage string with indented continuation lines when needed.
  */
 function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): string {
 	const { theme } = opts;
@@ -581,10 +583,10 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 
 	// Positional args
 	for (const entry of schema.args) {
-		parts.push(theme.arg(formatArgUsage(entry)));
+		parts.push(theme.arg(formatArgUsage(entry, opts.width - 7)));
 	}
 
-	return parts.join(' ');
+	return `${parts[0]} ${wrapText(parts.slice(1).join(' '), opts.width, 7)}`;
 }
 
 /**
@@ -601,23 +603,40 @@ function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpO
 
 	// Compute max left width (visible columns — the left column may carry SGR escapes)
 	let maxLeft = 0;
-	const entries: Array<{ left: string; desc: string }> = [];
+	const entries: Array<{ left: string; desc: string; choices?: readonly string[] }> = [];
 	for (const entry of args) {
-		const left = `  ${theme.arg(formatArgUsage(entry))}`;
+		const token = formatArgUsage(entry, Math.floor(opts.width / 2) - 4);
+		const left = `  ${theme.arg(token)}`;
 		const desc = formatArgDescription(entry.schema, theme, opts.descriptionTheme);
-		entries.push({ left, desc });
+		entries.push({
+			left,
+			desc,
+			...(token !== formatArgUsage(entry) && entry.schema.enumValues !== undefined
+				? { choices: entry.schema.enumValues }
+				: {}),
+		});
 		const leftWidth = visibleWidth(left);
 		if (leftWidth > maxLeft) maxLeft = leftWidth;
 	}
 
 	const descCol = maxLeft + GAP;
-	for (const { left, desc } of entries) {
+	for (const { left, desc, choices } of entries) {
 		if (desc.length === 0) {
 			lines.push(left);
+		} else if (
+			descCol >= opts.width / 2 ||
+			desc.split(' ').some((word) => visibleWidth(word) > opts.width - descCol)
+		) {
+			lines.push(left, `    ${wrapText(desc, opts.width, 4)}`);
 		} else {
 			const padded = padEnd(left, descCol);
 			const wrapped = wrapText(desc, opts.width, descCol);
 			lines.push(`${padded}${wrapped}`);
+		}
+		if (choices !== undefined) {
+			lines.push(
+				`    ${wrapText(`Choices: ${choices.map((choice) => theme.arg(choice)).join(', ')}`, opts.width, 4)}`,
+			);
 		}
 	}
 
