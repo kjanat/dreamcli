@@ -80,6 +80,7 @@ export default defineConfig({
 	publint: { enabled: 'local-only', level: 'suggestion', strict: true },
 	attw: {
 		enabled: 'local-only',
+		// biome-ignore lint/suspicious/noExplicitAny: shit
 		profile: profile as any satisfies AttwOptions['profile'],
 		ignoreRules,
 		level: 'warn',
