@@ -7,16 +7,6 @@
 		"defaultBranch": "master"
 	},
 	"files": {
-		"includes": [
-			"**",
-			"!!**/node_modules",
-			"!!**/dist",
-			"!!**/build",
-			"!!**/.opencode",
-			"!!**/.bucket",
-			"!!**/bun.lock",
-			"!!*.config.ts"
-		],
 		"ignoreUnknown": true,
 		"maxSize": 5000000
 	},
@@ -29,8 +19,7 @@
 			},
 			"suspicious": {
 				"noExplicitAny": "warn",
-				"noConfusingVoidType": "info",
-				"noNonNullAssertedOptionalChain": "info"
+				"noConfusingVoidType": "info"
 			},
 			"complexity": {
 				"noUselessFragments": "warn",

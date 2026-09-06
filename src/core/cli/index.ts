@@ -10,20 +10,14 @@
  */
 
 import type { Colors } from 'ansispeck';
-import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
-import {
-	detectShell,
-	generateCompletion,
-	normalizeShell,
-	SHELLS,
-} from '#internals/core/completion/index.ts';
+import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
+import { detectShell, normalizeShell, SHELLS } from '#internals/core/completion/shell.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
-import { generateCommandSchema, generateSchema } from '#internals/core/json-schema/index.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import {
 	clearRequestedExitCode,
@@ -288,6 +282,34 @@ function compiledStateOf(builder: CLIBuilder): CompiledCLI {
  */
 function rebuild(builder: CLIBuilder, schema: CLISchema): CLIBuilder {
 	return CLIBuilder._from(schema, compiledStateOf(builder));
+}
+
+/**
+ * Options for {@link CLIBuilder.completions}: the generator options plus where
+ * the built-in completion is exposed.
+ */
+interface CompletionRegistrationOptions extends CompletionOptions {
+	/**
+	 * Where the built-in shell completion is exposed.
+	 *
+	 * - `'command'` registers a `completions` subcommand (the default).
+	 * - `'flag'` exposes an eager `--completions <shell>` flag on the CLI root
+	 *   instead, keeping the root free of a `completions` subcommand.
+	 *
+	 * @defaultValue `'command'`
+	 */
+	readonly as?: 'command' | 'flag';
+}
+
+/** The generator half of {@link CompletionRegistrationOptions}. @internal */
+function completionGeneratorOptions(
+	options: CompletionRegistrationOptions | undefined,
+): CompletionOptions | undefined {
+	if (options === undefined) return undefined;
+	return {
+		...(options.functionPrefix !== undefined ? { functionPrefix: options.functionPrefix } : {}),
+		...(options.rootMode !== undefined ? { rootMode: options.rootMode } : {}),
+	};
 }
 
 /**
@@ -1557,7 +1579,7 @@ class CLIBuilder {
 	 *   .run();
 	 * ```
 	 */
-	completions(options?: CompletionOptions): CLIBuilder {
+	completions(options?: CompletionRegistrationOptions): CLIBuilder {
 		if (this.schema.hasBuiltInCompletions) {
 			throw new CLIError('.completions() has already been called', {
 				code: 'DUPLICATE_COMMAND',
@@ -1581,7 +1603,7 @@ class CLIBuilder {
 			return rebuild(this, {
 				...this.schema,
 				hasBuiltInCompletions: true,
-				completionsFlag: { shells: SHELLS, options },
+				completionsFlag: { shells: SHELLS, options: completionGeneratorOptions(options) },
 			});
 		}
 
@@ -1589,7 +1611,7 @@ class CLIBuilder {
 		// The completions command itself is deliberately excluded from the
 		// generated script (it would be noise in shell completions).
 		const cliSchema = this.schema;
-		const completionOptions = options;
+		const completionOptions = completionGeneratorOptions(options);
 
 		const cmd = command('completions')
 			.alias('completion')
@@ -1609,9 +1631,10 @@ class CLIBuilder {
 					.env('SHELL')
 					.describe(`Target shell (${SHELLS.join(', ')})`),
 			)
-			.action(({ args, meta, out }) => {
+			.action(async ({ args, meta, out }) => {
 				const completionSchema =
 					meta.bin === cliSchema.name ? cliSchema : { ...cliSchema, name: meta.bin };
+				const { generateCompletion } = await import('#internals/core/completion/index.ts');
 				const script = generateCompletion(completionSchema, args.shell, completionOptions);
 				if (out.jsonMode) {
 					out.json({ shell: args.shell, script });
@@ -1848,6 +1871,7 @@ async function executeCLI(
 				helpOptions.binName === undefined || helpOptions.binName === builder.schema.name
 					? builder.schema
 					: { ...builder.schema, name: helpOptions.binName };
+			const { generateCompletion } = await import('#internals/core/completion/index.ts');
 			const script = generateCompletion(completionSchema, shell, planned.options);
 			if (jsonMode) {
 				out.json({ shell, script });
@@ -1859,6 +1883,7 @@ async function executeCLI(
 
 		case 'root-help': {
 			if (jsonMode) {
+				const { generateSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
 					generateSchema(builder.schema, undefined, {
 						name: planned.help.binName ?? builder.schema.name,
@@ -1886,6 +1911,7 @@ async function executeCLI(
 
 		case 'needs-subcommand': {
 			if (jsonMode) {
+				const { generateCommandSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
 					generateCommandSchema(planned.command.schema, undefined, {
 						name: planned.help.binName ?? planned.command.schema.name,
@@ -2301,6 +2327,7 @@ export type {
 	CLIOptions,
 	CLIRunOptions,
 	CLISchema,
+	CompletionRegistrationOptions,
 	CompletionsFlagConfig,
 	ConfigSettings,
 	ConfigSettingsDefinition,

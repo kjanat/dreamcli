@@ -3,6 +3,7 @@
 	"indentWidth": 2,
 	"newLineKind": "lf",
 	"lineWidth": 100,
+	"jsonSchemaSort": { "associations": ["**/schema.json", "**/*.schema.json"] },
 	"biome": {
 		"indentStyle": "tab",
 		"indentWidth": 2,
@@ -61,7 +62,7 @@
 		"associations": ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts", "!**"]
 	},
 	"ruff": { "preview": true, "indentWidth": 4 },
-	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots", "**/*.schema.json"],
+	"excludes": ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots"],
 	"plugins": [
 		"https://plugins.dprint.dev/kjanat/svg-v0.4.1.wasm",
 		"https://plugins.dprint.dev/kjanat/sortpackagejson-0.2.1.wasm",
@@ -73,6 +74,7 @@
 		"npm:dprint-plugin-markup@0.27.3",
 		"npm:dprint-plugin-yaml@0.6.0",
 		"npm:@dprint/exec@0.7.3/plugin.json@704701df449dd7e942a71144773778ac529d68c2e4657bfc236d393b898b9a67",
-		"npm:@dprint/prettier@0.70.0/plugin.json@97c0dccf54ed5b7343e7a3f6418e77bd80afcd2b74beed3a632689d47e392ddc"
+		"npm:@dprint/prettier@0.70.0/plugin.json@97c0dccf54ed5b7343e7a3f6418e77bd80afcd2b74beed3a632689d47e392ddc",
+		"https://plugins.dprint.dev/kjanat/json-schema-sort-0.1.2.wasm"
 	]
 }

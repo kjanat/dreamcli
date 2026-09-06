@@ -716,6 +716,34 @@ source without printing the value.
 on every kind, `aggregateStandard` only on a kind that aggregates, and `stdin` is
 valid on scalar and collection kinds.
 
+### Optional features moved to subpath entries
+
+The root entry no longer exports the completion generators, the definition and input schema
+generators, config and manifest discovery, or the terminal prompter. Each lives on its own subpath
+and `cli()` loads it on demand, so a program that never renders a completion script, serializes
+`--help --json`, discovers config, or prompts does not load that code.
+
+| v3 import from `@kjanat/dreamcli`                                                                                             | v4 import                      |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `generateCompletion`, `generateBashCompletion`, `generateZshCompletion`, `generateFishCompletion`, `generatePowerShellCompletion` | `@kjanat/dreamcli/completion`  |
+| `generateSchema`, `generateCommandSchema`, `generateInputSchema`, `definitionMetaSchema`                                     | `@kjanat/dreamcli/json-schema` |
+| `discoverConfig`, `discoverManifest`, `inferCliName`, `buildConfigSearchPaths`, `configFormat`, `packageRepositoryUrl`       | `@kjanat/dreamcli/config`      |
+| `createTerminalPrompter`                                                                                                      | `@kjanat/dreamcli/prompt`      |
+
+Every type stays on the root entry, as do `SHELLS`, `DEFINITION_SCHEMA_URL`,
+`DEFINITION_SCHEMA_VERSION`, and `resolvePromptConfig`. `.completions()`, `.config()`,
+`.manifest()`, and prompting need no change.
+
+```ts
+// v3
+import { cli, configFormat, generateCompletion } from '@kjanat/dreamcli';
+
+// v4
+import { cli } from '@kjanat/dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli/completion';
+import { configFormat } from '@kjanat/dreamcli/config';
+```
+
 ## Behavioral Changes To Review
 
 - **Root `--json` and `--quiet` take an explicit value.** `--json=true`,

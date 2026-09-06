@@ -150,12 +150,13 @@ Option objects the caller constructs and passes in.
 Program and execution options: `CLIOptions`, `CLIExecuteOptions`, `CLIRunOptions`,
 `RunOptions` and `RunCommandOptions` (both from `@kjanat/dreamcli/testkit`),
 `DefaultCommandOptions`, `ManifestSettings` with its name-inference value type
-`InferNameOption`, `ManifestDiscoveryOptions`, `ConfigDiscoveryOptions`, and
-`PackageRepositoryUrlOptions`.
+`InferNameOption`, `ManifestDiscoveryOptions`, `ConfigDiscoveryOptions`,
+`ConfigSearchPathOptions`, and `PackageRepositoryUrlOptions`.
 
 Pipeline and rendering options: `ParseOptions`, `ResolveOptions`,
 `ReadFlagsOptions`, `OutputOptions`, `RenderContextOptions`, `HelpOptions`,
-`HelpTheme`, `CompletionOptions`, and `JsonSchemaOptions`.
+`HelpTheme`, `CompletionOptions`, `CompletionRegistrationOptions`, and
+`JsonSchemaOptions`.
 
 Per-call output options: `SpinnerOptions`, `ProgressOptions`, `TableOptions`, and
 `TableColumn`.
@@ -543,7 +544,8 @@ the package major happens to be at that time. Additive changes that a version 1
 reader can ignore stay at version 1.
 
 ```ts twoslash
-import { createCLISchema, generateSchema } from '@kjanat/dreamcli';
+import { createCLISchema } from '@kjanat/dreamcli';
+import { generateSchema } from '@kjanat/dreamcli/json-schema';
 // ---cut---
 const document = generateSchema(createCLISchema({ name: 'mycli', version: '1.0.0' }));
 
@@ -596,14 +598,16 @@ Exported functions, by area:
   `resolveRenderContext`, `resolvePromptConfig`, `includesBeforeSeparator`,
   `stripBeforeSeparator`, `getFlagNegatedName`, `resolveExampleCommand`,
   `wasExplicit`.
-- Serialization: `generateSchema`, `generateCommandSchema`, `generateInputSchema`.
-- Discovery: `discoverConfig`, `discoverManifest`, `inferCliName`,
-  `buildConfigSearchPaths`, `configFormat`, `packageRepositoryUrl`.
-- Output and terminal: `createOutput`, `createTerminalPrompter`, `osc8`,
-  `visibleWidth`.
-- Completion generation: `generateCompletion`, `generateBashCompletion`,
-  `generateZshCompletion`, `generateFishCompletion`,
-  `generatePowerShellCompletion`.
+- Serialization, from `@kjanat/dreamcli/json-schema`: `generateSchema`,
+  `generateCommandSchema`, `generateInputSchema`.
+- Discovery, from `@kjanat/dreamcli/config`: `discoverConfig`,
+  `discoverManifest`, `inferCliName`, `buildConfigSearchPaths`, `configFormat`,
+  `packageRepositoryUrl`.
+- Output and terminal: `createOutput`, `osc8`, `visibleWidth`, and from
+  `@kjanat/dreamcli/prompt` `createTerminalPrompter`.
+- Completion generation, from `@kjanat/dreamcli/completion`:
+  `generateCompletion`, `generateBashCompletion`, `generateZshCompletion`,
+  `generateFishCompletion`, `generatePowerShellCompletion`.
 - Error narrowing: `isCLIError`, `isParseError`, `isValidationError`.
 - Host integration: `isMainModule`, and from `@kjanat/dreamcli/runtime`
   `createAdapter`, `createNodeAdapter`, `createDenoAdapter`, `detectRuntime`.
@@ -672,6 +676,11 @@ is a major.
 `@kjanat/dreamcli/version`, identify the framework build for diagnostics and bug
 reports. They are typed `string` and their values change every release. They are
 unrelated to the app version configured through `cli().version(...)`.
+
+`definitionMetaSchema`, from `@kjanat/dreamcli/json-schema`, is the definition
+meta-schema document as a value; `DEFINITION_SCHEMA_URL` and
+`DEFINITION_SCHEMA_VERSION` name the hosted copy and the format version it
+describes. `SHELLS` is the tuple of supported completion targets.
 
 ## Internal surface
 

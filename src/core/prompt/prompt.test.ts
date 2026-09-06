@@ -6,15 +6,11 @@ import type {
 	ResolvedMultiselectPromptConfig,
 	ResolvedPromptConfig,
 	ResolvedSelectPromptConfig,
-	TestAnswer,
-	TestPrompterOptions,
 } from './index.ts';
-import {
-	createTerminalPrompter,
-	createTestPrompter,
-	PROMPT_CANCEL,
-	resolvePromptConfig,
-} from './index.ts';
+import { resolvePromptConfig } from './index.ts';
+import { createTerminalPrompter } from './terminal.ts';
+import type { TestAnswer, TestPrompterOptions } from './test-prompter.ts';
+import { createTestPrompter, PROMPT_CANCEL } from './test-prompter.ts';
 
 // --- Helpers
 

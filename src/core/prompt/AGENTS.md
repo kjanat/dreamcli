@@ -3,15 +3,17 @@
 ## OVERVIEW
 
 Prompting is a pluggable engine, not hard-wired terminal code. This module ships a terminal
-implementation and a test prompter, and it receives already-resolved prompt configs from the
-resolve layer.
+implementation and a test prompter, each in its own file so neither sits on the hot path, and it
+receives already-resolved prompt configs from the resolve layer.
 
 ## FILES
 
-| File             | Purpose                                                            |
-| ---------------- | ------------------------------------------------------------------ |
-| `index.ts`       | `PromptEngine`, resolved prompt types, terminal and test prompters |
-| `prompt.test.ts` | terminal behavior, test sentinel, resolved prompt guarantees       |
+| File               | Purpose                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `index.ts`         | `PromptEngine`, resolved prompt types, config resolution                               |
+| `terminal.ts`      | `createTerminalPrompter()`; loaded on first prompt by `cli/runtime-preflight.ts`       |
+| `test-prompter.ts` | `createTestPrompter()`, `PROMPT_CANCEL`; loaded by `execution/` for `answers`, testkit |
+| `prompt.test.ts`   | terminal behavior, test sentinel, resolved prompt guarantees                           |
 
 ## WHERE TO LOOK
 
@@ -25,7 +27,7 @@ resolve layer.
 ## CONVENTIONS
 
 - This module imports `schema/prompt.ts` directly; the direct edge is intentional
-- Prompt engines are stateless per `promptOne()` call
+- Prompt engines present one prompt per `promptOne()` call and may retain state across calls
 - Choice merging happens before the engine sees config; engines should not infer enum choices
   themselves
 - `TestAnswer` stays `unknown` so downstream validation paths can be tested
@@ -37,6 +39,9 @@ resolve layer.
 - Do not wire runtime stdin or stdout directly into callers; use injected `ReadFn` and `WriteFn`
 - Do not add raw mode or terminal-specific state here unless all runtimes can support it cleanly
 - Do not move non-TTY gating into the prompt engine; CLI and resolve decide when prompts are allowed
+- Do not re-export `terminal.ts` or `test-prompter.ts` from `index.ts`; the resolver imports
+  `index.ts` statically and both engines must stay off that path. Consumers use
+  `@kjanat/dreamcli/prompt` and `@kjanat/dreamcli/testkit`
 
 ## NOTES
 

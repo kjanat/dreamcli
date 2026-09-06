@@ -69,16 +69,6 @@ interface CompletionOptions {
 	 */
 	readonly functionPrefix?: string;
 	/**
-	 * Where the built-in shell completion is exposed.
-	 *
-	 * - `'command'` registers a `completions` subcommand (the default).
-	 * - `'flag'` exposes an eager `--completions <shell>` flag on the CLI root
-	 *   instead, keeping the root free of a `completions` subcommand.
-	 *
-	 * @defaultValue `'command'`
-	 */
-	readonly as?: 'command' | 'flag';
-	/**
 	 * Controls which root-level surface shell completion exposes when a
 	 * default command exists.
 	 *

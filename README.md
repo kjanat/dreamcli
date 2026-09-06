@@ -4,7 +4,7 @@
 [![JSR](https://img.shields.io/jsr/v/@kjanat/dreamcli?logoColor=083344&logo=jsr&logoSize=auto&label=&labelColor=f7df1e&color=black)][jsr]
 [![Socket](https://badge.socket.dev/npm/package/@kjanat/dreamcli)][socket]
 
-Schema-first, fully typed TypeScript CLI framework. Zero runtime dependencies.
+Schema-first, fully typed TypeScript CLI framework. One runtime dependency, `ansispeck`, for terminal colors.
 
 One flag declaration configures the entire resolution pipeline:
 
@@ -404,11 +404,8 @@ cli('mycli').command(command('deploy')).completions({ as: 'flag' }).run();
 For programmatic integrations, call the generator directly:
 
 ```ts
-import {
-  cli,
-  command,
-  generateCompletion,
-} from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli/completion';
 
 const myCli = cli('mycli').command(command('deploy'));
 
@@ -430,7 +427,8 @@ command('deploy').flag(
 Searches XDG-standard paths automatically. JSON built-in, plugin hook for YAML/TOML:
 
 ```ts
-import { cli, configFormat } from '@kjanat/dreamcli';
+import { cli } from '@kjanat/dreamcli';
+import { configFormat } from '@kjanat/dreamcli/config';
 import { parse as parseYAML } from 'yaml';
 
 cli('mycli')

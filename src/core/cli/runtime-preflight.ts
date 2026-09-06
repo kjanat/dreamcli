@@ -9,18 +9,15 @@
  * @internal
  */
 
-import type { CompletionOptions, Shell } from '#internals/core/completion/index.ts';
+import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
 import type { FormatLoader } from '#internals/core/config/index.ts';
-import { discoverConfig } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
-import { discoverManifest, inferCliName } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
-import { createTerminalPrompter } from '#internals/core/prompt/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
@@ -347,7 +344,29 @@ function isCompletionsInvocation(
 		output: PRECHECK_OUTPUT,
 	});
 
-	return plan.kind === 'match' && plan.plan.command.schema.name === 'completions';
+	return (
+		plan.kind === 'root-completions' ||
+		(plan.kind === 'match' && plan.plan.command.schema.name === 'completions')
+	);
+}
+
+async function discoverManifestData(
+	adapter: RuntimeAdapter,
+	settings: RuntimeManifestSettings,
+): Promise<PackageJsonData | null> {
+	const { discoverManifest } = await import('#internals/core/config/package-json.ts');
+	return discoverManifest(adapter, {
+		...(settings.from !== undefined ? { startDir: settings.from } : {}),
+		files: settings.files,
+	});
+}
+
+async function inferManifestCliName(
+	pkg: PackageJsonData,
+	stripScope: boolean,
+): Promise<string | undefined> {
+	const { inferCliName } = await import('#internals/core/config/package-json.ts');
+	return inferCliName(pkg, { stripScope });
 }
 
 async function applyPackageJsonDiscovery(
@@ -360,19 +379,12 @@ async function applyPackageJsonDiscovery(
 	const packageSchema =
 		packageJsonSettings !== undefined && !isCompletions
 			? await (async (): Promise<RuntimePreflightSchemaLike> => {
-					// Pre-loaded data short-circuits filesystem discovery entirely.
 					const pkg =
-						packageJsonSettings.data ??
-						(await discoverManifest(adapter, {
-							...(packageJsonSettings.from !== undefined
-								? { startDir: packageJsonSettings.from }
-								: {}),
-							files: packageJsonSettings.files,
-						}));
+						packageJsonSettings.data ?? (await discoverManifestData(adapter, packageJsonSettings));
 					if (pkg === null) return schema;
 
 					const inferredName = packageJsonSettings.inferName
-						? inferCliName(pkg, { stripScope: packageJsonSettings.stripScope })
+						? await inferManifestCliName(pkg, packageJsonSettings.stripScope)
 						: undefined;
 					return {
 						...schema,
@@ -442,6 +454,7 @@ async function loadRuntimeConfig(
 	}
 
 	try {
+		const { discoverConfig } = await import('#internals/core/config/index.ts');
 		const result = await discoverConfig(schema.configSettings.appName, adapter, {
 			...(configPath !== undefined ? { configPath } : {}),
 			...(schema.configSettings.loaders !== undefined
@@ -455,6 +468,18 @@ async function loadRuntimeConfig(
 		}
 		throw error;
 	}
+}
+
+function createLazyTerminalPrompter(adapter: RuntimeAdapter): PromptEngine {
+	let engine: Promise<PromptEngine> | undefined;
+	return {
+		async promptOne(config) {
+			engine ??= import('#internals/core/prompt/terminal.ts').then(({ createTerminalPrompter }) =>
+				createTerminalPrompter(adapter.stdin, adapter.stderr),
+			);
+			return (await engine).promptOne(config);
+		},
+	};
 }
 
 /**
@@ -510,7 +535,7 @@ async function prepareRuntimePreflight(
 
 	const autoPrompter =
 		options.options?.prompter === undefined && options.adapter.stdinIsTTY
-			? createTerminalPrompter(options.adapter.stdin, options.adapter.stderr)
+			? createLazyTerminalPrompter(options.adapter)
 			: undefined;
 	const stdinData =
 		options.options?.stdinData === undefined &&

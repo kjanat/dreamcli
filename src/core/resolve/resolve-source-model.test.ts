@@ -3,7 +3,7 @@ import type { ValidationError } from '#internals/core/errors/index.ts';
 import { isValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
-import { createTestPrompter } from '#internals/core/prompt/index.ts';
+import { createTestPrompter } from '#internals/core/prompt/test-prompter.ts';
 import type { ArgConfig } from '#internals/core/schema/arg.ts';
 import { ArgBuilder, arg, createArgSchema } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';

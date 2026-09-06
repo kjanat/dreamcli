@@ -7,6 +7,31 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { arg } from '#internals/core/schema/arg.ts';
+
+const lazyCalls = vi.hoisted(() => ({ createTerminalPrompter: 0, discoverManifest: 0 }));
+
+vi.mock('#internals/core/prompt/terminal.ts', async (importOriginal) => {
+	const original = await importOriginal<typeof import('#internals/core/prompt/terminal.ts')>();
+	return {
+		...original,
+		createTerminalPrompter: (...args: Parameters<typeof original.createTerminalPrompter>) => {
+			lazyCalls.createTerminalPrompter += 1;
+			return original.createTerminalPrompter(...args);
+		},
+	};
+});
+
+vi.mock('#internals/core/config/package-json.ts', async (importOriginal) => {
+	const original = await importOriginal<typeof import('#internals/core/config/package-json.ts')>();
+	return {
+		...original,
+		discoverManifest: (...args: Parameters<typeof original.discoverManifest>) => {
+			lazyCalls.discoverManifest += 1;
+			return original.discoverManifest(...args);
+		},
+	};
+});
+
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter } from '#internals/runtime/index.ts';
@@ -90,13 +115,14 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.filteredArgv).toEqual(['deploy']);
 	});
 
-	it('uses pre-loaded manifest data and skips package.json discovery', async () => {
+	it('uses pre-loaded manifest data without running manifest discovery', async () => {
 		const readFile = vi.fn(async () => null);
 		const app = cli('myapp')
 			.manifest({ version: '4.4.4', description: 'pre-loaded' })
 			.command(command('info').action(() => {}));
 
 		const adapter = createTestAdapter({ argv: ['node', 'test', 'info'], readFile });
+		const callsBefore = lazyCalls.discoverManifest;
 
 		const preflight = await prepareRuntimePreflight({
 			schema: app.schema,
@@ -111,6 +137,34 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		expect(preflight.schema.version).toBe('4.4.4');
 		expect(preflight.schema.description).toBe('pre-loaded');
 		expect(readFile).not.toHaveBeenCalled();
+		expect(lazyCalls.discoverManifest).toBe(callsBefore);
+	});
+
+	it('runs manifest discovery once for a filesystem walk-up', async () => {
+		const app = cli('myapp')
+			.manifest({ inferName: true })
+			.command(command('info').action(() => {}));
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'info'],
+			cwd: '/work',
+			readFile: async (path) =>
+				path === '/work/package.json' ? '{"name":"@scope/loaded-cli","version":"1.0.0"}' : null,
+		});
+		const callsBefore = lazyCalls.discoverManifest;
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.schema.name).toBe('loaded-cli');
+		expect(preflight.schema.version).toBe('1.0.0');
+		expect(lazyCalls.discoverManifest).toBe(callsBefore + 1);
 	});
 
 	it('honors the manifest anchor when discovering metadata', async () => {
@@ -198,6 +252,31 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		const app = cli('myapp').config('myapp').completions();
 		const adapter = createTestAdapter({
 			argv: ['node', 'test', 'completions', 'bash'],
+			readFile,
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.config).toBeUndefined();
+		expect(readFile).not.toHaveBeenCalled();
+	});
+
+	it('skips config and manifest discovery for the eager --completions flag', async () => {
+		const readFile = vi.fn(async () => '{not valid json');
+		const app = cli('myapp')
+			.config('myapp')
+			.manifest({ inferName: true })
+			.completions({ as: 'flag' });
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', '--completions', 'bash'],
 			readFile,
 		});
 
@@ -346,6 +425,74 @@ describe('runtime-preflight — prepareRuntimePreflight', () => {
 		if (interactive.kind !== 'ready' || piped.kind !== 'ready') return;
 		expect(interactive.inputs.prompter).toBeDefined();
 		expect(piped.inputs.prompter).toBeUndefined();
+	});
+
+	it('does not create the terminal prompter for an interactive run that never prompts', async () => {
+		const callsBefore = lazyCalls.createTerminalPrompter;
+		const app = cli('myapp').command(
+			command('deploy')
+				.flag('region', flag.string().prompt({ kind: 'input', message: 'Region?' }))
+				.action(() => {}),
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy', '--region', 'eu'],
+			stdinIsTTY: true,
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(preflight.inputs.prompter).toBeDefined();
+		expect(lazyCalls.createTerminalPrompter).toBe(callsBefore);
+	});
+
+	it('creates the terminal prompter the first time a prompt is presented', async () => {
+		const callsBefore = lazyCalls.createTerminalPrompter;
+		const app = cli('myapp').command(
+			command('deploy')
+				.flag('region', flag.string().prompt({ kind: 'input', message: 'Region?' }))
+				.action(() => {}),
+		);
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'test', 'deploy'],
+			stdinIsTTY: true,
+			stdin: async () => 'eu',
+			stderr: (text) => {
+				written.push(text);
+			},
+		});
+
+		const preflight = await prepareRuntimePreflight({
+			schema: app.schema,
+			compiled: compiledStateOf(app),
+			adapter,
+			options: undefined,
+			inheritedName: undefined,
+		});
+
+		expect(preflight.kind).toBe('ready');
+		if (preflight.kind !== 'ready') return;
+		expect(lazyCalls.createTerminalPrompter).toBe(callsBefore);
+
+		const result = await preflight.inputs.prompter?.promptOne({
+			kind: 'input',
+			message: 'Region?',
+		});
+
+		expect(result).toEqual({ answered: true, value: 'eu' });
+		expect(lazyCalls.createTerminalPrompter).toBe(callsBefore + 1);
+		expect(written.join('')).toContain('Region?');
+
+		await preflight.inputs.prompter?.promptOne({ kind: 'input', message: 'Again?' });
+		expect(lazyCalls.createTerminalPrompter).toBe(callsBefore + 1);
 	});
 
 	it('returns startup-error outcomes for CLI config failures', async () => {

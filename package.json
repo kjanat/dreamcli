@@ -29,8 +29,13 @@
 	"type": "module",
 	"imports": {
 		"#dreamcli": "./src/index.ts",
+		"#dreamcli/completion": "./src/completion.ts",
+		"#dreamcli/config": "./src/config.ts",
+		"#dreamcli/json-schema": "./src/json-schema.ts",
+		"#dreamcli/prompt": "./src/prompt.ts",
 		"#dreamcli/runtime": "./src/runtime.ts",
 		"#dreamcli/testkit": "./src/testkit.ts",
+		"#dreamcli/version": "./src/version.ts",
 		"#internals/*": "./src/*",
 		"#schema": "./dreamcli.schema.json",
 		"#package.json": "./package.json"
@@ -39,6 +44,22 @@
 		".": {
 			"types": "./dist/index.d.mts",
 			"default": "./dist/index.mjs"
+		},
+		"./completion": {
+			"types": "./dist/completion.d.mts",
+			"default": "./dist/completion.mjs"
+		},
+		"./config": {
+			"types": "./dist/config.d.mts",
+			"default": "./dist/config.mjs"
+		},
+		"./json-schema": {
+			"types": "./dist/json-schema.d.mts",
+			"default": "./dist/json-schema.mjs"
+		},
+		"./prompt": {
+			"types": "./dist/prompt.d.mts",
+			"default": "./dist/prompt.mjs"
 		},
 		"./runtime": {
 			"types": "./dist/runtime.d.mts",
@@ -67,7 +88,7 @@
 	],
 	"workspaces": ["./examples/*", "./docs"],
 	"scripts": {
-		"bd": "run -s build typecheck:dist package:check",
+		"bd": "run -s build typecheck:dist package:check lazy:check",
 		"build": "bun --bun tsdown",
 		"build:watch": "run build --watch",
 		"ci": "run -pk typecheck lint format:check meta-descriptions:check test docs:build bd",
@@ -91,6 +112,7 @@
 		"gh-project:start": "bun gh-project start",
 		"gh-project:sync": "bun gh-project sync",
 		"knip": "knip",
+		"lazy:check": "bun scripts/check-lazy-loading.ts",
 		"lint": "biome check",
 		"lint:autofix": "biome check --skip-parse-errors --no-errors-on-unmatched --changed --write",
 		"lint:fix": "biome check --fix",

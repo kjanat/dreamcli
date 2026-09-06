@@ -4,7 +4,16 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = `${import.meta.dirname}/../`;
-const publicEntryPoints = ['src/index.ts', 'src/testkit.ts', 'src/runtime.ts'];
+const publicEntryPoints = [
+	'src/index.ts',
+	'src/completion.ts',
+	'src/config.ts',
+	'src/json-schema.ts',
+	'src/prompt.ts',
+	'src/runtime.ts',
+	'src/testkit.ts',
+	'src/version.ts',
+];
 
 function getDocTarget(declaration: ts.Declaration): ts.Node {
 	if (
@@ -160,7 +169,7 @@ describe('@kjanat/dreamcli', () => {
 		expect([...declared].filter((name) => !reExported.has(name))).toEqual([]);
 	});
 
-	// `stability.md` classifies the exports of the four entrypoints, so a type it
+	// `stability.md` classifies the exports of the public entrypoints, so a type it
 	// classifies and no entrypoint exports is a promise a consumer cannot keep.
 	// Its own "Internal surface" section is where a name is declared unreachable,
 	// so everything above that heading is a claim about the public surface.
@@ -168,9 +177,7 @@ describe('@kjanat/dreamcli', () => {
 		const read = (file: string): string => readFileSync(path.join(repoRoot, file), 'utf8');
 
 		const entrypoints = new Set(
-			['src/index.ts', 'src/runtime.ts', 'src/testkit.ts', 'src/version.ts'].flatMap((file) =>
-				moduleExports(file).map((symbol) => symbol.getName()),
-			),
+			publicEntryPoints.flatMap((file) => moduleExports(file).map((symbol) => symbol.getName())),
 		);
 
 		const doc = read('docs/reference/stability.md');
@@ -252,6 +259,70 @@ describe('@kjanat/dreamcli/testkit — module loads', () => {
 	it('module loads without error', async () => {
 		const mod = await import('#dreamcli/testkit');
 		expect(mod).toBeDefined();
+	});
+});
+
+const ROOT_KEPT: ReadonlySet<string> = new Set([
+	'SHELLS',
+	'DEFINITION_SCHEMA_URL',
+	'DEFINITION_SCHEMA_VERSION',
+	'resolvePromptConfig',
+]);
+
+describe('optional feature subpaths', () => {
+	it('completion exports the generators and shell targets', async () => {
+		const mod = await import('#dreamcli/completion');
+		expect(Object.keys(mod).sort()).toEqual([
+			'SHELLS',
+			'generateBashCompletion',
+			'generateCompletion',
+			'generateFishCompletion',
+			'generatePowerShellCompletion',
+			'generateZshCompletion',
+		]);
+	});
+
+	it('config exports discovery and manifest helpers', async () => {
+		const mod = await import('#dreamcli/config');
+		expect(Object.keys(mod).sort()).toEqual([
+			'buildConfigSearchPaths',
+			'configFormat',
+			'discoverConfig',
+			'discoverManifest',
+			'inferCliName',
+			'packageRepositoryUrl',
+		]);
+	});
+
+	it('json-schema exports the generators, meta-schema, and format constants', async () => {
+		const mod = await import('#dreamcli/json-schema');
+		expect(Object.keys(mod).sort()).toEqual([
+			'DEFINITION_SCHEMA_URL',
+			'DEFINITION_SCHEMA_VERSION',
+			'definitionMetaSchema',
+			'generateCommandSchema',
+			'generateInputSchema',
+			'generateSchema',
+		]);
+	});
+
+	it('prompt exports the terminal engine and config resolution', async () => {
+		const mod = await import('#dreamcli/prompt');
+		expect(Object.keys(mod).sort()).toEqual(['createTerminalPrompter', 'resolvePromptConfig']);
+	});
+
+	it('root entry does not carry the optional feature implementations', async () => {
+		const mod = await import('#dreamcli');
+		const moved = [
+			...Object.keys(await import('#dreamcli/completion')),
+			...Object.keys(await import('#dreamcli/config')),
+			...Object.keys(await import('#dreamcli/json-schema')),
+			...Object.keys(await import('#dreamcli/prompt')),
+		].filter((name) => !ROOT_KEPT.has(name));
+		expect(moved).toHaveLength(16);
+		for (const name of moved) {
+			expect(mod).not.toHaveProperty(name);
+		}
 	});
 });
 

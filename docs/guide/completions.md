@@ -6,11 +6,8 @@ always in sync with your CLI definition.
 ## Generating Scripts
 
 ```ts twoslash
-import {
-  cli,
-  command,
-  generateCompletion,
-} from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli/completion';
 
 const serve = command('serve');
 const myCli = cli('mycli').default(serve);
@@ -33,7 +30,9 @@ generateCompletion(myCli.schema, 'bash', {
 | fish       | Supported |
 | powershell | Supported |
 
-`generateCompletion()` currently supports `bash`, `zsh`, `fish`, and `powershell`.
+`generateCompletion()` currently supports `bash`, `zsh`, `fish`, and `powershell`. It lives on the
+`@kjanat/dreamcli/completion` subpath; the built-in `.completions()` loads it on demand, so a program
+that never renders a script does not pay for the generators.
 
 The public `Shell` union and exported `SHELLS` tuple match this shipped set exactly.
 
@@ -45,12 +44,8 @@ tracked follow-up work.
 A common pattern is to add a `completions` subcommand:
 
 ```ts twoslash
-import {
-  arg,
-  cli,
-  command,
-  generateCompletion,
-} from '@kjanat/dreamcli';
+import { arg, cli, command } from '@kjanat/dreamcli';
+import { generateCompletion } from '@kjanat/dreamcli/completion';
 
 const myCli = cli('mycli');
 

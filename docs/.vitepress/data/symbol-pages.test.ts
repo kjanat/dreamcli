@@ -2,6 +2,7 @@
  * @module
  */
 
+import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { collectPublicApiIndex } from './api-index.ts';
@@ -77,7 +78,7 @@ describe('symbol page generation', () => {
 			entrypoint: '@kjanat/dreamcli',
 			name: 'cli',
 			routePath: '/reference/symbols/main/cli',
-			filePath: expect.stringContaining('/docs/reference/symbols/main/cli.md'),
+			filePath: join(symbolPagesRoot, 'main', 'cli.md'),
 		});
 		expect(cliPage?.content).toContain('# `cli`');
 		expect(cliPage?.content).toContain('## Signatures');
@@ -92,7 +93,7 @@ describe('symbol page generation', () => {
 		expect(cliPage?.content).not.toContain('/reference/docs-health');
 		expect(middlewareInterfacePage).toMatchObject({
 			routePath: '/reference/symbols/main/middleware-type',
-			filePath: expect.stringContaining('/docs/reference/symbols/main/middleware-type.md'),
+			filePath: join(symbolPagesRoot, 'main', 'middleware-type.md'),
 		});
 	});
 

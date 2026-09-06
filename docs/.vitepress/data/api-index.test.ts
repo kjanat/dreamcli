@@ -15,6 +15,10 @@ describe('api-index', () => {
 
 		expect(entrypoints.map((entrypoint) => entrypoint.entrypoint)).toEqual([
 			'@kjanat/dreamcli',
+			'@kjanat/dreamcli/completion',
+			'@kjanat/dreamcli/config',
+			'@kjanat/dreamcli/json-schema',
+			'@kjanat/dreamcli/prompt',
 			'@kjanat/dreamcli/runtime',
 			'@kjanat/dreamcli/schema',
 			'@kjanat/dreamcli/testkit',

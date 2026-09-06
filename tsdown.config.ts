@@ -1,17 +1,37 @@
 import { existsSync } from 'node:fs';
-import { profile, ignoreRules } from './.attw.json' with { type: 'json' };
+import type { AttwOptions, UserConfig } from 'tsdown';
+import { defineConfig } from 'tsdown';
+import { ignoreRules, profile } from './.attw.json' with { type: 'json' };
 import { engines, version } from './package.json' with { type: 'json' };
 import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 
-import type { AttwOptions, UserConfig } from 'tsdown';
-import { defineConfig } from 'tsdown';
-
 export const entries = {
 	index: 'src/index.ts',
+	completion: 'src/completion.ts',
+	config: 'src/config.ts',
+	'json-schema': 'src/json-schema.ts',
+	prompt: 'src/prompt.ts',
 	runtime: 'src/runtime.ts',
 	testkit: 'src/testkit.ts',
 	version: 'src/version.ts',
 } satisfies UserConfig['entry'];
+
+const LAZY_MODULES = [
+	/\/src\/core\/completion\/(index|shells\/[^/]+)\.ts$/,
+	/\/src\/core\/json-schema\/(index|meta-descriptions\.generated)\.ts$/,
+	/\/src\/core\/config\/(index|package-json)\.ts$/,
+	/\/src\/core\/prompt\/(terminal|test-prompter)\.ts$/,
+];
+
+function isCoreModule(id: string): boolean {
+	// Rolldown supplies native paths on Windows; the chunk rules use slashes.
+	const path = id.replaceAll('\\', '/');
+	return (
+		/\/src\/(core|runtime)\/.+\.ts$|\/src\/strings\.ts$/.test(path) &&
+		!path.endsWith('.d.ts') &&
+		!LAZY_MODULES.some((pattern) => pattern.test(path))
+	);
+}
 
 export default defineConfig({
 	define: {
@@ -53,9 +73,15 @@ export default defineConfig({
 		mangle: { toplevel: false },
 		codegen: { removeWhitespace: true },
 	},
+	outputOptions: {
+		codeSplitting: {
+			groups: [{ name: 'core', test: isCoreModule }],
+		},
+	},
 	publint: { enabled: 'local-only', level: 'suggestion', strict: true },
 	attw: {
 		enabled: 'local-only',
+		// biome-ignore lint/suspicious/noExplicitAny: JSON imports widen the attw profile literal union to string.
 		profile: profile as any satisfies AttwOptions['profile'],
 		ignoreRules,
 		level: 'warn',

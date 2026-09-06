@@ -32,11 +32,8 @@ For Node on the npm/package target, import with `with { type: 'json' }`.
 
 ```ts twoslash
 import schema from '@kjanat/dreamcli/schema';
-import {
-  cli,
-  command,
-  generateSchema,
-} from '@kjanat/dreamcli';
+import { cli, command } from '@kjanat/dreamcli';
+import { generateSchema } from '@kjanat/dreamcli/json-schema';
 
 const app = cli('mycli').command(command('deploy'));
 const definition = generateSchema(app.schema);

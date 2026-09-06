@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { ValidationError } from '#internals/core/errors/index.ts';
 import { isValidationError } from '#internals/core/errors/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
-import { createTestPrompter } from '#internals/core/prompt/index.ts';
+import { createTestPrompter } from '#internals/core/prompt/test-prompter.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
