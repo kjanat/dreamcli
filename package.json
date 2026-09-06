@@ -1,6 +1,6 @@
 {
 	"name": "@kjanat/dreamcli",
-	"version": "4.0.0-rc.3",
+	"version": "4.0.0",
 	"description": "Schema-first, fully typed TypeScript CLI framework",
 	"keywords": [
 		"dreamcli",

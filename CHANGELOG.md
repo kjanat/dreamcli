@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Release checklist
+
+- [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.
+- [ ] Update first-party DreamCLI pins in documentation and import-map configuration; do not rewrite versions that belong to transitive lockfile metadata.
+- [ ] Run `runner run -s schema:emit version:check ci smoke`.
+- [ ] Pack with `bun pm pack --quiet --ignore-scripts` and inspect the tarball's files and version.
+- [ ] Confirm generators and formatters leave no unexpected worktree changes.
+- [ ] Commit and push the release preparation, then verify the target commit is signed, `master` matches the remote, and every required check is green.
+- [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before publishing the GitHub release.
+
+## [4.0.0] - 2026-09-06
+
+The first stable v4 release includes the changes from the three release candidates below. See [Upgrading From 3.x To 4.0](https://dreamcli.kjanat.dev/guide/upgrading-v4) for migration instructions and the [stability policy](https://dreamcli.kjanat.dev/reference/stability) for compatibility guarantees throughout v4.
+
 ### Added
 
 - **Explicit sensitive-input diagnostics** (https://github.com/kjanat/dreamcli/issues/120).\
@@ -22,20 +36,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Format generated schemas before replacing the artifact.**\
+  Run dprint through stdin and leave an unchanged schema untouched. Changed output replaces the file only after formatting succeeds, avoiding in-place formatting conflicts with concurrent builds on Windows.
 - **Keep long positional choices readable in help** (https://github.com/kjanat/dreamcli/issues/125).\
   Use the argument name when an inline enum list is too wide, show the accepted choices on wrapped lines in Arguments, and indent continued Usage lines. Short choice lists retain their inline form.
 - **Completion script headers name the program version** (https://github.com/kjanat/dreamcli/issues/131).\
   The first comment line of every generated script now reads `<name> v<version>` when the CLI declares a version, so an installed script records which release of the program it completes, alongside the existing DreamCLI build tag.
-
-### Release checklist
-
-- [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.
-- [ ] Update first-party DreamCLI pins in documentation and import-map configuration; do not rewrite versions that belong to transitive lockfile metadata.
-- [ ] Run `runner run -s schema:emit version:check ci smoke`.
-- [ ] Pack with `bun pm pack --quiet --ignore-scripts` and inspect the tarball's files and version.
-- [ ] Confirm generators and formatters leave no unexpected worktree changes.
-- [ ] Commit and push the release preparation, then verify the target commit is signed, `master` matches the remote, and every required check is green.
-- [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before publishing the GitHub release.
 
 ## [4.0.0-rc.3] - 2026-09-05
 
@@ -1086,7 +1092,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.3...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.3...v4.0.0
 [4.0.0-rc.3]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.2...v4.0.0-rc.3
 [4.0.0-rc.2]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...v4.0.0-rc.2
 [4.0.0-rc.1]: https://github.com/kjanat/dreamcli/compare/v3.0.1...v4.0.0-rc.1
